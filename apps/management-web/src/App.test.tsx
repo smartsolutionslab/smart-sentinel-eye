@@ -5,12 +5,13 @@ import { App } from './App.js';
 import { store } from './app/store.js';
 
 describe('App shell', () => {
-  it('Renders the management header in the scaffold layout', () => {
+  it('Renders the Cameras page heading and the Register button', () => {
     render(
       <Provider store={store}>
         <App />
       </Provider>,
     );
-    expect(screen.getByRole('heading', { name: /smart sentinel eye/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /cameras/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /register camera/i })).toBeInTheDocument();
   });
 });
