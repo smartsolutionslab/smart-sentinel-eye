@@ -14,4 +14,14 @@ builder.AddProject<Projects.SmartSentinelEye_Automation_Api>("automation").WaitF
 builder.AddProject<Projects.SmartSentinelEye_Identity_Api>("identity").WaitForCompletion(migrations);
 builder.AddProject<Projects.SmartSentinelEye_AuditObservability_Api>("audit-observability").WaitForCompletion(migrations);
 
+// React apps per ADR-0074: two pnpm-workspace apps under apps/.
+// Per-feature wiring (WithReference to specific APIs) lands as feature work needs it.
+builder.AddNpmApp("management-web", "../../apps/management-web", "dev")
+    .WithHttpEndpoint(env: "PORT", port: 5173)
+    .WithExternalHttpEndpoints();
+
+builder.AddNpmApp("kiosk-web", "../../apps/kiosk-web", "dev")
+    .WithHttpEndpoint(env: "PORT", port: 5174)
+    .WithExternalHttpEndpoints();
+
 await builder.Build().RunAsync();

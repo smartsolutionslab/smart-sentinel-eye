@@ -21,6 +21,9 @@
     <!-- Aspire integration testing (Integration.Tests fixture, ADR-0068 — pre-wired so the package resolves) -->
     <PackageVersion Include="Aspire.Hosting.Testing" Version="13.3.5" />
 
+    <!-- Aspire NodeJs integration: AppHost registers management-web and kiosk-web npm apps (ADR-0074) -->
+    <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
+
     <!-- ASP.NET Core / Hosting / Resilience / Service Discovery -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
