@@ -136,8 +136,11 @@ down as:
 | Mediator | Hand-rolled `ICommandHandler<T,R>` / `IQueryHandler<T,R>` + Wolverine as dispatcher | 0042, 0057 |
 | Domain events | Separate domain (in-process) and integration (`Shared.Contracts`, `V<N>` suffix) | 0040, 0073 |
 | Value objects | **Maximalist hand-written**, `IValueObject<T>` marker, `.From(...)` + `Ensure.That(...)` | 0038, 0046, 0066 |
-| IDs | **Guid v7** in strongly-typed records | 0039 |
-| Errors | `Result<T, Error>` for business; exceptions for bugs/infra | 0047 |
+| IDs | **Guid v7** in strongly-typed records with **`Identifier` suffix** (`CameraIdentifier`, `LayoutIdentifier`) | 0039, 0090 |
+| Naming | **No shortcuts or aliases** (`Identifier` not `Id`, `Repository` not `Repo`, …); identifier-typed properties named after the noun (`Owner` not `OwnerIdentifier`) | 0091, 0094 |
+| Domain layout | Per-aggregate folder containing aggregate + VOs + repository + `Events/` subfolder | 0092 |
+| Application layout | Per-message-kind: `Commands/`, `Queries/`, `EventHandlers/`, `DTOs/`, each with `Handlers/` subfolder and paired `*Errors.cs` | 0093 |
+| Errors | `Result<T, Error>` with `ApiError(Code, Message, HttpStatusCode)` base | 0047, 0089 |
 | Nulls | **NRT disabled + `Option<T>` everywhere** | 0048 |
 | Async | `CancellationToken` mandatory last param; no `ConfigureAwait` | 0049 |
 | Persistence | PostgreSQL (+ Marten for ES contexts with inline projections) | 0009, 0071 |
@@ -155,7 +158,13 @@ down as:
 | Test naming | Sentence-style with underscores | 0053 |
 | Test data | Hand-written fluent builders, no AutoFixture | 0054 |
 | Coverage gates | Domain ≥ 90%, Application ≥ 80%, Shared ≥ 90% (CI-enforced) | 0065 |
+| Code metrics | Max 300 LOC/file, 30 LOC/method, 4 params, complexity ≤ 10, depth ≤ 3 (SonarAnalyzer) | 0084 |
+| Wolverine defaults | Per-module queue isolation + eager transactions + Postgres outbox | 0088 |
+| Git: commits | Conventional Commits, **no `Co-Authored-By` footer** | 0030, 0086 |
+| Git: merge | **Rebase-only** (no squash, no merge commits) | 0029, 0087 |
 | Observability | OpenTelemetry → Aspire dashboard + Grafana stack (parallel comparison) | 0026 |
 | Orchestration | Aspire AppHost (dev) → k3s + Helm (prod) | 0024, 0025 |
 
-**Diverges from Yumney on:** NRT (we: disabled; Yumney: enabled), `Result<T, Error>` shape, Shouldly vs FluentAssertions, Moq vs NSubstitute, sentence-style vs `Method_Scenario_Expected` test naming, initial test layout (minimal vs full per-layer). See ADRs 0056–0063 for the reasoning per divergence.
+**Diverges from Yumney on:** NRT (we: disabled; Yumney: enabled), `Result<T, Error>` shape, Shouldly vs FluentAssertions, Moq vs NSubstitute, sentence-style vs `Method_Scenario_Expected` test naming, initial test layout (minimal vs full per-layer), **Marten** for event-sourced contexts (Yumney: EF Core), narrower Architecture.Tests scope, no story-ref in commits. See ADRs 0056–0063, 0082, 0083, 0085 for the reasoning per divergence.
+
+**Aligns with Yumney on:** Hand-written VOs, Guid v7 typed IDs, `Identifier` suffix, no shortcuts, per-aggregate Domain folders, per-message-kind Application folders, identifier-noun property naming, custom `Deconstruct(...)`, plural variable names for repository injections, `IValueObject<T>` marker, `MigrationRunner` pattern, AspireFixture pattern (deferred), 90/80/90 coverage gates, hand-rolled `ICommandHandler<T,R>` interfaces with Wolverine dispatcher, `ApiError` with HTTP status, per-module Wolverine queue isolation + eager transactions, no `Co-Authored-By`, rebase-only merge, SonarAnalyzer code-metric limits.

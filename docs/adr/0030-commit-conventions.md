@@ -1,6 +1,6 @@
 # ADR-0030: Commit Conventions — Conventional Commits
 
-**Status:** Accepted
+**Status:** Accepted (amended by ADR-0086: no Co-Authored-By footer)
 **Date:** 2026-05-25
 
 ## Context
