@@ -1,0 +1,70 @@
+name: ADR proposal
+description: Propose a new Architectural Decision Record or supersede an existing one.
+labels: ["type:adr", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ADRs capture **decisions**, not features. Use this template when
+        you want to change a principle, pick a new technology, supersede
+        a previous decision, or codify a policy.
+
+        Once accepted in discussion, the actual ADR is added under
+        `docs/adr/NNNN-<slug>.md` via a `docs(adr): …` PR.
+
+  - type: input
+    id: title
+    attributes:
+      label: Proposed ADR title
+      placeholder: "Adopt Marten projections for Overlay context"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What problem or pressure created the need for this decision?
+    validations:
+      required: true
+
+  - type: textarea
+    id: decision
+    attributes:
+      label: Proposed decision
+    validations:
+      required: true
+
+  - type: textarea
+    id: consequences
+    attributes:
+      label: Consequences
+      description: |
+        What changes for the team, the architecture, the deployment,
+        the operations story? Include both positive and negative.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: List the options you weighed and why they were rejected.
+    validations:
+      required: true
+
+  - type: input
+    id: supersedes
+    attributes:
+      label: Supersedes ADR(s)?
+      placeholder: "ADR-009 (partial), ADR-014"
+    validations:
+      required: false
+
+  - type: textarea
+    id: implementation_notes
+    attributes:
+      label: Implementation notes
+      description: How would this be rolled out? Migration path? Coexistence with current state?
+    validations:
+      required: false

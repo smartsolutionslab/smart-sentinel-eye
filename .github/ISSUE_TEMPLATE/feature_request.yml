@@ -1,0 +1,70 @@
+name: Feature request
+description: Propose a new capability or substantial change.
+labels: ["type:feature", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template only for the **initial proposal**. Once
+        triaged, the work is formalized via `/speckit-specify` and
+        becomes a spec under `specs/` with its own feature branch off
+        `develop`.
+
+        For open-ended discussion or design exploration, please use
+        [Discussions](https://github.com/smartsolutionslab/smart-sentinel-eye/discussions)
+        instead.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user / operator / admin need is currently unmet?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed approach
+      description: High-level sketch. Final design happens in the spec.
+    validations:
+      required: true
+
+  - type: input
+    id: context
+    attributes:
+      label: Bounded context(s) likely affected
+      placeholder: "overlays, system-variables"
+    validations:
+      required: false
+
+  - type: textarea
+    id: constitution_alignment
+    attributes:
+      label: Constitution / ADR alignment
+      description: |
+        Does this fit the principles in `.specify/memory/constitution.md`?
+        Does it require amending an ADR or writing a new one?
+      placeholder: "Aligns with §VI Aspire-as-composition-root. May add a new ADR for Marten projection retention."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: latency_impact
+    attributes:
+      label: Latency-budget impact
+      description: Does this likely touch the event-to-overlay path?
+      options:
+        - "No"
+        - "Yes — on the streaming or overlay path"
+        - "Unsure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What you ruled out, and why.
+    validations:
+      required: false

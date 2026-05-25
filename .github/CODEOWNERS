@@ -1,0 +1,27 @@
+# CODEOWNERS — Smart Sentinel Eye
+#
+# ADR-035: v1 has a single owner. Add per-context owners as the team grows.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
+
+* @notonlywhite
+
+# Future per-context structure (uncomment + populate when the team has more than one engineer):
+#
+# /.specify/memory/constitution.md         @notonlywhite
+# /docs/adr/                               @notonlywhite
+# /src/AppHost/                            @notonlywhite
+# /src/ServiceDefaults/                    @notonlywhite
+# /src/Shared.Kernel/                      @notonlywhite
+# /src/Shared.Contracts/                   @notonlywhite
+# /src/CameraCatalog.*/                    @notonlywhite
+# /src/StreamDistribution.*/               @notonlywhite
+# /src/LayoutComposition.*/                @notonlywhite
+# /src/SystemVariables.*/                  @notonlywhite
+# /src/EventIngestion.*/                   @notonlywhite
+# /src/OverlayDesigner.*/                  @notonlywhite
+# /src/Automation.*/                       @notonlywhite
+# /src/Identity.*/                         @notonlywhite
+# /src/AuditObservability.*/               @notonlywhite
+# /apps/web/                               @notonlywhite
+# /deploy/                                 @notonlywhite
+# /.github/                                @notonlywhite

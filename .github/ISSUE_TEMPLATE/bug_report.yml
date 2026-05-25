@@ -1,0 +1,82 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly.
+labels: ["type:bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please complete every
+        section — missing context makes diagnosis much slower.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One- or two-sentence description of the bug.
+      placeholder: "Camera health probe reports 'unreachable' for ONVIF cameras after Aspire restart."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered, smallest possible reproduction.
+      placeholder: |
+        1. Register an ONVIF camera at <address>.
+        2. `aspire run` then `aspire stop`.
+        3. `aspire run` again.
+        4. Observe Camera Catalog health endpoint.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Logs, traces, screenshots. Mask any customer / fab identifiers.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: latency_sensitive
+    attributes:
+      label: Latency-sensitive?
+      description: Does this bug affect the event-to-overlay path (constitution §IV)?
+      options:
+        - "No — off the latency path"
+        - "Yes — on the streaming or overlay path"
+        - "Unsure"
+    validations:
+      required: true
+
+  - type: input
+    id: context
+    attributes:
+      label: Affected bounded context(s)
+      placeholder: "camera-catalog, stream-distribution"
+    validations:
+      required: false
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "Dev (Aspire AppHost), k3s pilot, production fab name"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      placeholder: "v0.1.0-alpha.3 / commit abc1234"
+    validations:
+      required: false
