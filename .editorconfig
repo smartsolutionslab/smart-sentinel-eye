@@ -65,5 +65,12 @@ dotnet_naming_symbols.interface.applicable_accessibilities = public, internal, p
 dotnet_naming_style.begins_with_i.required_prefix = I
 dotnet_naming_style.begins_with_i.capitalization = pascal_case
 
+[**/Migrations/*.cs]
+# EF Core generates these files. Don't fight the generator.
+generated_code = true
+dotnet_diagnostic.IDE0161.severity = none
+dotnet_diagnostic.CA1825.severity = none
+dotnet_diagnostic.S125.severity = none
+
 [*.sln]
 indent_style = tab
