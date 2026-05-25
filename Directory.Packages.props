@@ -12,11 +12,13 @@
     <!-- Architecture tests -->
     <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
 
-    <!-- xUnit test stack -->
+    <!-- xUnit test stack (ADR-0052) -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="Shouldly" Version="4.3.0" />
+    <PackageVersion Include="Moq" Version="4.20.72" />
 
     <!-- Aspire integration testing (Integration.Tests fixture, ADR-0068 — pre-wired so the package resolves) -->
     <PackageVersion Include="Aspire.Hosting.Testing" Version="13.3.5" />
