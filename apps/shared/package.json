@@ -6,8 +6,14 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api/index.ts",
+    "./api/cameras.api": "./src/api/cameras.api.ts",
+    "./api/cameras.schema": "./src/api/cameras.schema.ts",
     "./realtime": "./src/realtime/index.ts",
     "./ui": "./src/ui/index.ts",
+    "./ui/primitives/Button": "./src/ui/primitives/Button.tsx",
+    "./ui/primitives/Input": "./src/ui/primitives/Input.tsx",
+    "./ui/primitives/Dialog": "./src/ui/primitives/Dialog.tsx",
+    "./ui/composites/FormField": "./src/ui/composites/FormField.tsx",
     "./ui/tokens/*": "./src/ui/tokens/*",
     "./hooks": "./src/hooks/index.ts",
     "./types": "./src/types/index.ts"
@@ -21,6 +27,7 @@
   "dependencies": {
     "react": "19.0.0",
     "react-dom": "19.0.0",
+    "@reduxjs/toolkit": "2.5.0",
     "@radix-ui/react-dialog": "1.1.4",
     "@radix-ui/react-dropdown-menu": "2.1.4",
     "@radix-ui/react-popover": "1.1.4",
