@@ -17,19 +17,57 @@ The full picture lives in:
 - **`specs/`** — per-feature specs produced by Spec-Kit. Each spec links
   to its `plan.md` and `tasks.md`.
 
-## Workflow (Spec-Kit)
+## Workflow — guided phased process (ADR-0037)
 
-```
-/speckit-constitution   amend principles    (rare; requires ADR)
-/speckit-specify        write a feature spec
-/speckit-clarify        de-risk ambiguities (optional, before plan)
-/speckit-plan           propose technical approach
-/speckit-tasks          break plan into ordered atomic tasks
-/speckit-implement      execute tasks; PRs trace back to task IDs
-```
+Seven phases, each with an artifact and an **explicit gate**. **Do not
+autonomously advance past a gate.** Stop at every gate and ask the
+user to confirm before continuing.
+
+| # | Phase | Command(s) | Artifact | Gate |
+|---|---|---|---|---|
+| 1 | Specify | `/speckit-specify` (+ `/speckit-clarify`) | `specs/NNN-x/spec.md` | Spec reviewed; no `[NEEDS CLARIFICATION]` left. |
+| 2 | Plan | `/speckit-plan` | `specs/NNN-x/plan.md` | Plan aligns with constitution + ADRs. |
+| 3 | Tasks | `/speckit-tasks` + `/speckit-taskstoissues` | `tasks.md` + GitHub issues | Tasks atomic; on Project #13. |
+| 4 | Implement | `/speckit-implement` | Code + tests; format & analyzers clean | Tests green; commits follow ADR-0030. |
+| 5 | Verify | `/verify` or explicit run/test | Verification note on the PR | Behaviour observed end-to-end. Latency cited if on SLO path. |
+| 6 | QA | `/code-review`; `/security-review` if security-sensitive | Findings addressed | All findings resolved or accepted in writing. |
+| 7 | PR | `gh pr create` with template | PR to `develop`, CI green | Reviewer approval + green CI. |
+
+**Skipping a phase:** allowed only for trivial changes (typo, dep
+bump, comment-only). Write `Phase X: skipped — <one line>` in the PR
+body. Documentation-only PRs typically skip 5 and 6.
+
+**Resumability:** every phase's artifact is the resumption point. If
+interrupted, read the latest artifact and resume from its phase.
 
 No code is written outside this loop. Every PR references at least one
-task ID. Every spec references at least one ADR.
+task ID. Every spec references at least one ADR. Other meta-commands
+exist for amendments — `/speckit-constitution` (rare; requires ADR).
+
+## Coding behavior — Karpathy guidelines (ADR-0036)
+
+The `andrej-karpathy-skills:karpathy-guidelines` skill is **baseline
+coding behaviour** in this repo. It is invoked automatically during
+phases 4–6. Internalize the operational rules:
+
+- **Smallest possible change.** A bug fix changes the bug, nothing
+  else. A refactor changes shape, not behaviour. Don't mix them.
+- **Define "done" up front.** State the verifiable success criterion
+  (a passing test, a measurement, an observable behaviour) before
+  writing code. No "done when it compiles".
+- **Surface assumptions; don't bury them.** When the task is
+  ambiguous, ask one or two clarifying questions before guessing.
+  Mark unavoidable guesses explicitly in the PR.
+- **No speculative generality.** No frameworks, abstractions, or
+  config knobs for needs that don't exist yet — except the
+  explicitly-scoped forward-compat interfaces in constitution §IX.
+- **No drive-by error handling.** Validate at trust boundaries only.
+  Swallowed exceptions are review blockers.
+- **No drive-by comments.** Code says what; comments say *why*, only
+  when the why is non-obvious. References to issues/tasks belong in
+  the PR body, not the code.
+- **Read before write.** Read the surrounding code and tests; mirror
+  existing patterns rather than introducing new ones unjustified.
 
 ## What lives where
 
