@@ -4,7 +4,7 @@
 
 **Created:** 2026-05-25
 
-**Status:** Draft
+**Status:** Clarified (Phase 2 closed)
 
 **Input:** First feature of Smart Sentinel Eye — the smallest end-to-end
 vertical slice in the **Camera Catalog** bounded context. Pre-condition
@@ -28,11 +28,11 @@ Identity → Camera Catalog API → Postgres → RabbitMQ → projection. Nothin
 else in Smart Sentinel Eye is reachable without cameras existing. It
 also exercises every locked architectural decision: maximalist value
 objects, hand-rolled command handlers + Wolverine dispatcher,
-`Result<T, ApiError>`, Postgres + Marten (or EF Core for this state-based
-context — `[NEEDS CLARIFICATION: persistence flavour for CameraCatalog]`),
-RabbitMQ outbox with per-context queue isolation, RFC 7807 error
-responses, Keycloak-issued admin token, React form with React Hook Form
-+ Zod, and the Aspire-orchestrated dev loop.
+`Result<T, ApiError>`, **Postgres + EF Core** (state-based; per
+ADR-0009, Marten is reserved for event-sourced contexts), RabbitMQ
+outbox with per-context queue isolation, RFC 7807 error responses,
+Keycloak-issued admin token, React form with React Hook Form + Zod,
+and the Aspire-orchestrated dev loop.
 
 **Independent Test:**
 
@@ -94,26 +94,37 @@ from the UI. Together US-1 + US-2 form the smallest publishable slice.
 **Independent Test:**
 
 1. Register two cameras via US-1 (`Cam-A`, `Cam-B`).
-2. Request the catalog list.
+2. Request the catalog list with default parameters
+   (`GET /cameras?sort=registeredAt&order=desc&offset=0&limit=50`).
 3. Receive a response containing both cameras with at minimum
-   `cameraIdentifier`, `name`, `rtspUrl`, `registeredAt`.
-4. The list ordering is **deterministic** — newest first by
-   `registeredAt` (or by `cameraIdentifier` since Guid v7 is
-   sortable, per ADR-0090).
+   `cameraIdentifier`, `name`, `rtspUrl`, `registeredAt`, plus a
+   total `count` so the client can render pagination controls.
+4. The list ordering is **deterministic** and **client-controlled**
+   via `?sort=name|registeredAt` and `?order=asc|desc`.
 
 **Acceptance Scenarios:**
 
 1. **Given** two cameras have been registered,
-   **When** the admin requests the catalog list,
-   **Then** the response is `200 OK` with an array of two items, each
-   containing the registered camera's stable identifier, name, RTSP
-   URL, and registration timestamp.
+   **When** the admin requests `GET /cameras?sort=registeredAt&order=desc`,
+   **Then** the response is `200 OK` with `{ items: [...], count: 2,
+   offset: 0, limit: 50 }`, items ordered newest-first.
 2. **Given** zero cameras registered,
    **When** the catalog is listed,
-   **Then** the response is `200 OK` with an empty array.
+   **Then** the response is `200 OK` with
+   `{ items: [], count: 0, offset: 0, limit: 50 }`.
 3. **Given** an unauthenticated request,
    **When** the catalog is listed,
    **Then** the system returns `401 Unauthorized`.
+4. **Given** 75 cameras are registered,
+   **When** the admin requests `GET /cameras?offset=50&limit=50`,
+   **Then** the response is `200 OK` with `items.length == 25` and
+   `count == 75`.
+5. **Given** the admin requests an invalid sort field
+   (`GET /cameras?sort=rtspUrl`),
+   **When** the request is processed,
+   **Then** the system returns `400 Bad Request` with code
+   `CATALOG_INVALID_SORT_FIELD` and `detail` enumerating the
+   accepted sort fields (`name`, `registeredAt`).
 
 ---
 
@@ -137,36 +148,41 @@ published. *(Deferred to a separate spec.)*
 ### Edge Cases
 
 - **Duplicate name (case sensitivity):** Two cameras named
-  `line-1-entrance` and `Line-1-Entrance` — `[NEEDS CLARIFICATION:
-  is name comparison case-sensitive or case-insensitive?]` Assumption
-  for spec drafting: case-insensitive uniqueness, original casing
-  preserved.
-- **Whitespace in names:** Leading/trailing whitespace must be trimmed
-  before uniqueness check.
+  `line-1-entrance` and `Line-1-Entrance` are the **same camera** by
+  the uniqueness rule. Comparison is case-insensitive (invariant
+  culture). The originally-submitted casing is persisted and shown
+  verbatim in the list. The DB enforces this via a unique index on
+  `LOWER(name)`.
+- **Whitespace in names:** Leading/trailing whitespace is trimmed
+  before validation and before the uniqueness check.
 - **Maximum length:** Camera name length cap of **200 characters**
   (matches the existing maximalist VO convention for free-text fields).
-- **RTSP URL with credentials in URL:** Reject URLs containing
-  `user:password@` — credentials must not be embedded in the catalog
-  record. Use a separate secret reference. `[NEEDS CLARIFICATION:
-  do we already have a secret-reference shape, or defer credentials
-  to a follow-up spec?]`
-- **Network unreachability at registration time:**
-  `[NEEDS CLARIFICATION: must the system verify the camera is
-  network-reachable before accepting registration, or accept the
-  configuration and let monitoring (Camera Health) decide later?]`
-  Assumption: accept without reachability check; reachability is
-  Camera Health's responsibility.
-- **Pagination of the catalog list:**
-  `[NEEDS CLARIFICATION: is pagination needed in v1 at 20-pilot scale,
-  or defer until 250-camera production?]` Assumption: defer
-  pagination; return up to a sane cap (e.g. 500) inline.
-- **Concurrent registration of the same name by two admins:** Optimistic
-  concurrency at the catalog level — second registration receives
-  `409 Conflict`.
-- **Empty payload / missing fields:** `400 Bad Request` with a Problem
-  Details enumerating the missing fields.
+- **RTSP URL with credentials:** URLs containing `user:password@` are
+  **rejected** with `400 Bad Request`, code `CAMERA_INVALID_URL`. The
+  catalog never stores camera credentials in this spec; credentialed
+  cameras require a follow-up spec that introduces a `CameraSecret`
+  aggregate / secret-store reference.
+- **Network unreachability at registration time:** Registration does
+  **not** probe the camera. The URL is syntax-validated, the camera
+  is persisted, the integration event is published. A follow-up
+  *Camera Health* feature in the Camera Catalog context performs
+  ongoing reachability and surfaces status to operators.
+- **Pagination of the catalog list:** Offset/limit pagination is
+  **mandatory** from v1. Defaults: `offset=0`, `limit=50`. Maximum
+  `limit=200` (anything higher is rejected with `400 Bad Request`,
+  code `CATALOG_LIMIT_EXCEEDED`).
+- **Sort fields and order:** The list accepts `?sort=name|registeredAt`
+  (default `registeredAt`) and `?order=asc|desc` (default `desc`).
+  Unknown sort field → `400 Bad Request`, code
+  `CATALOG_INVALID_SORT_FIELD`. Unknown order value → `400 Bad Request`,
+  code `CATALOG_INVALID_SORT_ORDER`.
+- **Concurrent registration of the same name by two admins:**
+  Optimistic concurrency at the catalog level — second registration
+  receives `409 Conflict`.
+- **Empty payload / missing fields:** `400 Bad Request` with a
+  Problem Details enumerating the missing fields.
 - **Extremely long URL:** Hard cap of 2048 chars (RFC suggested URL
-  limit). Rejected with `400 Bad Request`.
+  limit). Rejected with `400 Bad Request`, code `CAMERA_INVALID_URL`.
 - **Camera registered while RabbitMQ is down:** Registration succeeds
   in the database; the integration event sits in the Postgres outbox
   until RabbitMQ is reachable again (ADR-0088 outbox guarantees
@@ -188,22 +204,40 @@ published. *(Deferred to a separate spec.)*
   conflict response (`409` + RFC 7807 Problem Details, code
   `CAMERA_NAME_TAKEN`).
 - **FR-005:** The system MUST persist every registered camera durably
-  in Postgres (state-based, per ADR-0009 — Camera Catalog is not
-  event-sourced).
+  in Postgres via **EF Core** (state-based, per ADR-0009 — Camera
+  Catalog is not event-sourced). Migrations are managed by the
+  `MigrationRunner` worker (ADR-0067) and execute before any Api
+  service starts. The Wolverine transactional outbox shares the same
+  EF Core `DbContext` (ADR-0088).
 - **FR-006:** The system MUST publish a `CameraRegisteredV1` integration
   event onto the cross-context message bus after the camera is
   persisted, exactly-once relative to acknowledged delivery (transactional
   outbox per ADR-0088).
 - **FR-007:** Admin users MUST be able to list the cameras currently in
-  the catalog and receive at minimum identifier, name, RTSP URL, and
-  registration timestamp per camera.
-- **FR-008:** The system MUST enforce field-level validation at the API
-  boundary (name 1–200 chars after trim, RTSP URL 1–2048 chars and
-  starting with `rtsp://`).
+  the catalog. The response MUST include for each camera:
+  `cameraIdentifier`, `name` (original casing), `rtspUrl`, and
+  `registeredAt`. The response MUST also include the total `count`
+  matching the query, the effective `offset`, and the effective
+  `limit`.
+- **FR-007a (sorting):** The list endpoint MUST accept `sort` and
+  `order` query parameters. Allowed `sort` values: `name`,
+  `registeredAt`. Allowed `order` values: `asc`, `desc`. Defaults:
+  `sort=registeredAt`, `order=desc`. Invalid values MUST be rejected
+  with `400 Bad Request`.
+- **FR-007b (pagination):** The list endpoint MUST accept `offset`
+  and `limit` query parameters. Defaults: `offset=0`, `limit=50`.
+  Maximum `limit=200`. Higher values MUST be rejected with `400 Bad
+  Request`. Negative values MUST be rejected.
+- **FR-008:** The system MUST enforce field-level validation at the
+  API boundary: `name` 1–200 chars after trim and unique
+  case-insensitively; `rtspUrl` 1–2048 chars, starting with
+  `rtsp://`, and containing no `user:password@` userinfo segment.
 - **FR-009:** The system MUST return RFC 7807 Problem Details for every
   validation, conflict, and authorization failure, carrying the error
-  `code` (`CAMERA_NAME_TAKEN`, `CAMERA_INVALID_URL`,
-  `CAMERA_NAME_INVALID`, …) and a human-readable `detail`.
+  `code` and a human-readable `detail`. Codes defined for this spec:
+  `CAMERA_NAME_TAKEN`, `CAMERA_NAME_INVALID`, `CAMERA_URL_INVALID`,
+  `CATALOG_INVALID_SORT_FIELD`, `CATALOG_INVALID_SORT_ORDER`,
+  `CATALOG_LIMIT_EXCEEDED`.
 - **FR-010:** Only authenticated users carrying the `admin` scope (per
   ADR-0023) MUST be allowed to register or list cameras. All other
   requests MUST be rejected with `401` (unauthenticated) or `403`
@@ -229,10 +263,12 @@ published. *(Deferred to a separate spec.)*
   `status` (`Registered` for now; `Decommissioned` reserved for US-3),
   `version` (concurrency control per ADR-0043).
 - **CameraName (value object):** Trimmed string, 1–200 chars,
-  case-insensitive uniqueness. `IValueObject<string>`.
+  case-insensitive uniqueness with original casing preserved.
+  `IValueObject<string>`.
 - **RtspUrl (value object):** Validates `rtsp://` scheme, 1–2048
-  chars. `IValueObject<string>`. Does NOT carry credentials —
-  credentials are a separate concern (see open clarification).
+  chars, no userinfo segment. `IValueObject<string>`. Credentials are
+  rejected at the value-object boundary; credentialed cameras are a
+  follow-up spec.
 - **CameraIdentifier (value object):** `Guid` v7 backed,
   `IValueObject<Guid>`, generated by `Guid.CreateVersion7()`
   per ADR-0090.
@@ -273,22 +309,9 @@ published. *(Deferred to a separate spec.)*
   user provisioning is out of scope here.
 - **Aspire AppHost orchestrates the dev stack.** Postgres, RabbitMQ,
   and Keycloak start via `aspire run`.
-- **Camera Catalog persistence is state-based (EF Core), not
-  event-sourced (Marten).** Per ADR-0009, ES is reserved for Overlays
-  and Automation; Camera Catalog is plain CRUD. Subject to the
-  `[NEEDS CLARIFICATION]` marker on FR-005.
 - **The registering operator is identified by an `OperatorIdentifier`
   derived from the validated JWT subject claim.** No new identity work
   is in scope here.
-- **No camera reachability probe is performed during registration.**
-  Health monitoring is a follow-up feature (Camera Health) in the
-  Camera Catalog context.
-- **Credentials in RTSP URLs are out of scope.** The first version
-  rejects URLs containing `user:password@` and defers credentialed
-  cameras to a follow-up spec.
-- **No pagination for the catalog list in v1.** Up to ~500 cameras
-  returned inline; the 250-camera production target stays within that
-  cap. Pagination spec follows when needed.
 - **Audit log integration is best-effort for the walking skeleton.**
   A dedicated audit handler in the Audit & Observability context can
   subscribe to `CameraRegisteredV1`; if the audit handler is not yet
@@ -297,23 +320,15 @@ published. *(Deferred to a separate spec.)*
 - **Decommissioning is deferred (US-3).** The `status` field exists in
   the aggregate but only takes the value `Registered` in this slice.
 
-## Open Clarifications
+## Resolved Clarifications (Phase 2)
 
-These markers must be resolved during `/speckit-clarify` (Phase 2 gate)
-before `/speckit-plan`:
+All six clarification markers are resolved as follows:
 
-- `[NEEDS CLARIFICATION: persistence flavour for CameraCatalog]` —
-  EF Core (assumed per ADR-0009) or Marten with state-based aggregates
-  (Marten also supports document persistence)? **Default assumption:
-  EF Core.**
-- `[NEEDS CLARIFICATION: name comparison case-sensitivity]` —
-  case-insensitive (assumed) or strict?
-- `[NEEDS CLARIFICATION: credentials in RTSP URL]` — reject for v1
-  (assumed) or store a separate secret reference?
-- `[NEEDS CLARIFICATION: reachability check at registration]` — skip
-  (assumed) or run an ONVIF probe?
-- `[NEEDS CLARIFICATION: catalog list ordering]` — newest-first by
-  `registeredAt` or by `cameraIdentifier`? Both are equivalent under
-  Guid v7 but matters for the API contract.
-- `[NEEDS CLARIFICATION: catalog list pagination]` — defer (assumed)
-  or build in from the start?
+| # | Marker | Resolution |
+|---|---|---|
+| 1 | Persistence flavour | **EF Core** with Postgres provider; migrations via `MigrationRunner` |
+| 2 | Name uniqueness comparison | **Case-insensitive** (invariant culture), original casing preserved |
+| 3 | Credentials in RTSP URL | **Reject** any URL containing `user:password@`; credentialed cameras deferred to a follow-up spec |
+| 4 | Reachability check at registration | **Skip**; reachability is the future Camera Health feature's job |
+| 5 | Catalog list ordering | **Client-controlled** via `?sort=name|registeredAt&order=asc|desc`; defaults `registeredAt desc` |
+| 6 | Catalog list pagination | **Offset/limit** from v1 — `?offset=0&limit=50`, max `limit=200` |
