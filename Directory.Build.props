@@ -40,8 +40,24 @@
 
   <!-- Production code: hard limits per ADR-0084. -->
   <PropertyGroup Condition="'$(IsTestProject)' != 'true'">
-    <!-- S104 file too long, S138 method too long, S107 too many params, S1541 cyclomatic complexity, S134 nesting depth -->
-    <NoWarn>$(NoWarn)</NoWarn>
+    <!--
+      S104 file too long, S138 method too long, S107 too many params, S1541 cyclomatic complexity, S134 nesting depth.
+
+      Repo-wide design-justified suppressions (each has a written rationale):
+        CA1716 — types/namespaces "Option", "Result", "Shared.*", and similar
+                 conflict with reserved keywords in F#/VB. We use these names
+                 by convention (ADR-0047 Result, ADR-0048 Option, ADR-0027
+                 Shared.* layout). Suppressed solution-wide.
+        CA1000 — static factory methods on generic types (Option<T>.Some,
+                 Result<T,E>.Success, …) are the canonical shape for the
+                 value-record pattern; alternatives (helper class) hurt
+                 call-site clarity.
+        S2326  — phantom type parameters on ICommand<TResult> / IQuery<TResult>
+                 enable type-safe handler dispatch (ICommandHandler<TCmd,TR> where
+                 TCmd : ICommand<TR>); the unused-type-parameter check is
+                 incorrect for this pattern (ADR-0042 + ADR-0057).
+    -->
+    <NoWarn>$(NoWarn);CA1716;CA1000;S2326</NoWarn>
   </PropertyGroup>
 
   <!-- Tests: relax the metric rules; loud test methods are valuable. -->

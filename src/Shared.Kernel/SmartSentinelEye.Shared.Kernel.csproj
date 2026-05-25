@@ -1,9 +1,16 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <!--
+      CA1716: 'Option' conflicts with a reserved keyword in F#/VB. Intentional —
+              the Result/Option pattern from ADR-0047 + ADR-0048 uses these
+              names by convention. Consumers in other languages can alias.
+      CA1000: Static factory methods on generic types are the canonical
+              shape for value-record types (Option<T>.Some, Result<T,E>.Success).
+              The alternative (non-generic helper class) hurts call-site
+              clarity.
+    -->
+    <NoWarn>$(NoWarn);CA1716;CA1000</NoWarn>
   </PropertyGroup>
 
 </Project>
