@@ -1,0 +1,61 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="NetArchTest.Rules" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CameraCatalog\Domain\SmartSentinelEye.CameraCatalog.Domain.csproj" />
+    <ProjectReference Include="..\..\src\CameraCatalog\Application\SmartSentinelEye.CameraCatalog.Application.csproj" />
+    <ProjectReference Include="..\..\src\CameraCatalog\Infrastructure\SmartSentinelEye.CameraCatalog.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\CameraCatalog\Api\SmartSentinelEye.CameraCatalog.Api.csproj" />
+    <ProjectReference Include="..\..\src\StreamDistribution\Domain\SmartSentinelEye.StreamDistribution.Domain.csproj" />
+    <ProjectReference Include="..\..\src\StreamDistribution\Application\SmartSentinelEye.StreamDistribution.Application.csproj" />
+    <ProjectReference Include="..\..\src\StreamDistribution\Infrastructure\SmartSentinelEye.StreamDistribution.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\StreamDistribution\Api\SmartSentinelEye.StreamDistribution.Api.csproj" />
+    <ProjectReference Include="..\..\src\LayoutComposition\Domain\SmartSentinelEye.LayoutComposition.Domain.csproj" />
+    <ProjectReference Include="..\..\src\LayoutComposition\Application\SmartSentinelEye.LayoutComposition.Application.csproj" />
+    <ProjectReference Include="..\..\src\LayoutComposition\Infrastructure\SmartSentinelEye.LayoutComposition.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\LayoutComposition\Api\SmartSentinelEye.LayoutComposition.Api.csproj" />
+    <ProjectReference Include="..\..\src\SystemVariables\Domain\SmartSentinelEye.SystemVariables.Domain.csproj" />
+    <ProjectReference Include="..\..\src\SystemVariables\Application\SmartSentinelEye.SystemVariables.Application.csproj" />
+    <ProjectReference Include="..\..\src\SystemVariables\Infrastructure\SmartSentinelEye.SystemVariables.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\SystemVariables\Api\SmartSentinelEye.SystemVariables.Api.csproj" />
+    <ProjectReference Include="..\..\src\EventIngestion\Domain\SmartSentinelEye.EventIngestion.Domain.csproj" />
+    <ProjectReference Include="..\..\src\EventIngestion\Application\SmartSentinelEye.EventIngestion.Application.csproj" />
+    <ProjectReference Include="..\..\src\EventIngestion\Infrastructure\SmartSentinelEye.EventIngestion.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\EventIngestion\Api\SmartSentinelEye.EventIngestion.Api.csproj" />
+    <ProjectReference Include="..\..\src\OverlayDesigner\Domain\SmartSentinelEye.OverlayDesigner.Domain.csproj" />
+    <ProjectReference Include="..\..\src\OverlayDesigner\Application\SmartSentinelEye.OverlayDesigner.Application.csproj" />
+    <ProjectReference Include="..\..\src\OverlayDesigner\Infrastructure\SmartSentinelEye.OverlayDesigner.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\OverlayDesigner\Api\SmartSentinelEye.OverlayDesigner.Api.csproj" />
+    <ProjectReference Include="..\..\src\Automation\Domain\SmartSentinelEye.Automation.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Automation\Application\SmartSentinelEye.Automation.Application.csproj" />
+    <ProjectReference Include="..\..\src\Automation\Infrastructure\SmartSentinelEye.Automation.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Automation\Api\SmartSentinelEye.Automation.Api.csproj" />
+    <ProjectReference Include="..\..\src\Identity\Domain\SmartSentinelEye.Identity.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Identity\Application\SmartSentinelEye.Identity.Application.csproj" />
+    <ProjectReference Include="..\..\src\Identity\Infrastructure\SmartSentinelEye.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Identity\Api\SmartSentinelEye.Identity.Api.csproj" />
+    <ProjectReference Include="..\..\src\AuditObservability\Domain\SmartSentinelEye.AuditObservability.Domain.csproj" />
+    <ProjectReference Include="..\..\src\AuditObservability\Application\SmartSentinelEye.AuditObservability.Application.csproj" />
+    <ProjectReference Include="..\..\src\AuditObservability\Infrastructure\SmartSentinelEye.AuditObservability.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\AuditObservability\Api\SmartSentinelEye.AuditObservability.Api.csproj" />
+  </ItemGroup>
+
+</Project>

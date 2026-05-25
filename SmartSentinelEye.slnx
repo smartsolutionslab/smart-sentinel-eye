@@ -1,0 +1,148 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/AppHost/">
+    <Project Path="src/AppHost/SmartSentinelEye.AppHost.csproj" />
+  </Folder>
+  <Folder Name="/src/AuditObservability/" />
+  <Folder Name="/src/AuditObservability/Api/">
+    <Project Path="src/AuditObservability/Api/SmartSentinelEye.AuditObservability.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/AuditObservability/Application/">
+    <Project Path="src/AuditObservability/Application/SmartSentinelEye.AuditObservability.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/AuditObservability/Domain/">
+    <Project Path="src/AuditObservability/Domain/SmartSentinelEye.AuditObservability.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/AuditObservability/Infrastructure/">
+    <Project Path="src/AuditObservability/Infrastructure/SmartSentinelEye.AuditObservability.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Automation/" />
+  <Folder Name="/src/Automation/Api/">
+    <Project Path="src/Automation/Api/SmartSentinelEye.Automation.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Automation/Application/">
+    <Project Path="src/Automation/Application/SmartSentinelEye.Automation.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Automation/Domain/">
+    <Project Path="src/Automation/Domain/SmartSentinelEye.Automation.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Automation/Infrastructure/">
+    <Project Path="src/Automation/Infrastructure/SmartSentinelEye.Automation.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/CameraCatalog/" />
+  <Folder Name="/src/CameraCatalog/Api/">
+    <Project Path="src/CameraCatalog/Api/SmartSentinelEye.CameraCatalog.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/CameraCatalog/Application/">
+    <Project Path="src/CameraCatalog/Application/SmartSentinelEye.CameraCatalog.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/CameraCatalog/Domain/">
+    <Project Path="src/CameraCatalog/Domain/SmartSentinelEye.CameraCatalog.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/CameraCatalog/Infrastructure/">
+    <Project Path="src/CameraCatalog/Infrastructure/SmartSentinelEye.CameraCatalog.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/EventIngestion/" />
+  <Folder Name="/src/EventIngestion/Api/">
+    <Project Path="src/EventIngestion/Api/SmartSentinelEye.EventIngestion.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/EventIngestion/Application/">
+    <Project Path="src/EventIngestion/Application/SmartSentinelEye.EventIngestion.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/EventIngestion/Domain/">
+    <Project Path="src/EventIngestion/Domain/SmartSentinelEye.EventIngestion.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/EventIngestion/Infrastructure/">
+    <Project Path="src/EventIngestion/Infrastructure/SmartSentinelEye.EventIngestion.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Identity/" />
+  <Folder Name="/src/Identity/Api/">
+    <Project Path="src/Identity/Api/SmartSentinelEye.Identity.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Identity/Application/">
+    <Project Path="src/Identity/Application/SmartSentinelEye.Identity.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Identity/Domain/">
+    <Project Path="src/Identity/Domain/SmartSentinelEye.Identity.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Identity/Infrastructure/">
+    <Project Path="src/Identity/Infrastructure/SmartSentinelEye.Identity.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/LayoutComposition/" />
+  <Folder Name="/src/LayoutComposition/Api/">
+    <Project Path="src/LayoutComposition/Api/SmartSentinelEye.LayoutComposition.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/LayoutComposition/Application/">
+    <Project Path="src/LayoutComposition/Application/SmartSentinelEye.LayoutComposition.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/LayoutComposition/Domain/">
+    <Project Path="src/LayoutComposition/Domain/SmartSentinelEye.LayoutComposition.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/LayoutComposition/Infrastructure/">
+    <Project Path="src/LayoutComposition/Infrastructure/SmartSentinelEye.LayoutComposition.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/MigrationRunner/">
+    <Project Path="src/MigrationRunner/SmartSentinelEye.MigrationRunner.csproj" />
+  </Folder>
+  <Folder Name="/src/OverlayDesigner/" />
+  <Folder Name="/src/OverlayDesigner/Api/">
+    <Project Path="src/OverlayDesigner/Api/SmartSentinelEye.OverlayDesigner.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/OverlayDesigner/Application/">
+    <Project Path="src/OverlayDesigner/Application/SmartSentinelEye.OverlayDesigner.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/OverlayDesigner/Domain/">
+    <Project Path="src/OverlayDesigner/Domain/SmartSentinelEye.OverlayDesigner.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/OverlayDesigner/Infrastructure/">
+    <Project Path="src/OverlayDesigner/Infrastructure/SmartSentinelEye.OverlayDesigner.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Realtime.Abstractions/">
+    <Project Path="src/Realtime.Abstractions/SmartSentinelEye.Realtime.Abstractions.csproj" />
+  </Folder>
+  <Folder Name="/src/ServiceDefaults/">
+    <Project Path="src/ServiceDefaults/SmartSentinelEye.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared.Contracts/">
+    <Project Path="src/Shared.Contracts/SmartSentinelEye.Shared.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared.CQRS/">
+    <Project Path="src/Shared.CQRS/SmartSentinelEye.Shared.CQRS.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared.Kernel/">
+    <Project Path="src/Shared.Kernel/SmartSentinelEye.Shared.Kernel.csproj" />
+  </Folder>
+  <Folder Name="/src/StreamDistribution/" />
+  <Folder Name="/src/StreamDistribution/Api/">
+    <Project Path="src/StreamDistribution/Api/SmartSentinelEye.StreamDistribution.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/StreamDistribution/Application/">
+    <Project Path="src/StreamDistribution/Application/SmartSentinelEye.StreamDistribution.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/StreamDistribution/Domain/">
+    <Project Path="src/StreamDistribution/Domain/SmartSentinelEye.StreamDistribution.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/StreamDistribution/Infrastructure/">
+    <Project Path="src/StreamDistribution/Infrastructure/SmartSentinelEye.StreamDistribution.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/SystemVariables/" />
+  <Folder Name="/src/SystemVariables/Api/">
+    <Project Path="src/SystemVariables/Api/SmartSentinelEye.SystemVariables.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/SystemVariables/Application/">
+    <Project Path="src/SystemVariables/Application/SmartSentinelEye.SystemVariables.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/SystemVariables/Domain/">
+    <Project Path="src/SystemVariables/Domain/SmartSentinelEye.SystemVariables.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/SystemVariables/Infrastructure/">
+    <Project Path="src/SystemVariables/Infrastructure/SmartSentinelEye.SystemVariables.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/Architecture.Tests/">
+    <Project Path="tests/Architecture.Tests/SmartSentinelEye.Architecture.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Integration.Tests/">
+    <Project Path="tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj" />
+  </Folder>
+</Solution>

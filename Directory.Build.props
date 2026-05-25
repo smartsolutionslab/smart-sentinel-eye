@@ -1,0 +1,52 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- ADR-0048: NRT disabled, Option<T> used for absences. -->
+    <Nullable>disable</Nullable>
+
+    <!-- ADR-0034: Roslyn analyzers enforced; warnings are errors in Release. -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'">true</TreatWarningsAsErrors>
+
+    <!-- Reproducible builds. -->
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <!-- Not a NuGet package by default; opt in per project as needed. -->
+    <IsPackable>false</IsPackable>
+
+    <!-- Common shape across the solution. -->
+    <RootNamespace>SmartSentinelEye$(MSBuildProjectName.Replace('SmartSentinelEye', ''))</RootNamespace>
+
+    <!-- Test projects identified by path. -->
+    <IsTestProject Condition="$(MSBuildProjectDirectory.Contains('\tests\')) Or $(MSBuildProjectDirectory.Contains('/tests/'))">true</IsTestProject>
+    <IsTestProject Condition="'$(IsTestProject)' == ''">false</IsTestProject>
+  </PropertyGroup>
+
+  <!-- ADR-0084: code-metric limits enforced via SonarAnalyzer. Looser in tests. -->
+  <ItemGroup>
+    <PackageReference Include="SonarAnalyzer.CSharp">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- Production code: hard limits per ADR-0084. -->
+  <PropertyGroup Condition="'$(IsTestProject)' != 'true'">
+    <!-- S104 file too long, S138 method too long, S107 too many params, S1541 cyclomatic complexity, S134 nesting depth -->
+    <NoWarn>$(NoWarn)</NoWarn>
+  </PropertyGroup>
+
+  <!-- Tests: relax the metric rules; loud test methods are valuable. -->
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <NoWarn>$(NoWarn);S104;S138;S107;S1541;S134;S2699;CA1707</NoWarn>
+  </PropertyGroup>
+
+</Project>
