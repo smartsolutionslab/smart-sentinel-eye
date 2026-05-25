@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.CameraCatalog.Api.Requests;
 using SmartSentinelEye.CameraCatalog.Application.Commands;
 using SmartSentinelEye.CameraCatalog.Application.Commands.Handlers;
+using SmartSentinelEye.CameraCatalog.Application.DTOs;
+using SmartSentinelEye.CameraCatalog.Application.Queries;
+using SmartSentinelEye.CameraCatalog.Application.Queries.Handlers;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.Kernel;
@@ -30,6 +33,11 @@ public static class CameraEndpoints
             .Produces<Guid>(StatusCodes.Status201Created)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status409Conflict);
+
+        group.MapGet("/", List)
+            .WithName("ListCameras")
+            .Produces<CameraListPageDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
         return app;
     }
@@ -67,6 +75,31 @@ public static class CameraEndpoints
             onSuccess: identifier => Results.Created(
                 $"/cameras/{identifier.Value}",
                 identifier.Value),
+            onFailure: error => Results.Problem(
+                title: error.Code,
+                detail: error.Message,
+                statusCode: (int)error.Status));
+    }
+
+    private static async Task<IResult> List(
+        [FromServices] ListCamerasQueryHandler handler,
+        CancellationToken cancellationToken,
+        [FromQuery] string? sort = null,
+        [FromQuery] string? order = null,
+        [FromQuery] int? offset = null,
+        [FromQuery] int? limit = null)
+    {
+        ListCamerasQuery query = new(
+            Sort: sort ?? ListCamerasDefaults.DefaultSort,
+            Order: order ?? ListCamerasDefaults.DefaultOrder,
+            Offset: offset ?? ListCamerasDefaults.DefaultOffset,
+            Limit: limit ?? ListCamerasDefaults.DefaultLimit);
+
+        Result<CameraListPageDto, ListCamerasError> result =
+            await handler.HandleAsync(query, cancellationToken).ConfigureAwait(false);
+
+        return result.Match<IResult>(
+            onSuccess: Results.Ok,
             onFailure: error => Results.Problem(
                 title: error.Code,
                 detail: error.Message,
