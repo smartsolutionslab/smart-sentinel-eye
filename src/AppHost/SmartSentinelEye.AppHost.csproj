@@ -1,0 +1,24 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.3.5">
+
+  <ItemGroup>
+    <ProjectReference Include="..\CameraCatalog\Api\SmartSentinelEye.CameraCatalog.Api.csproj" />
+    <ProjectReference Include="..\StreamDistribution\Api\SmartSentinelEye.StreamDistribution.Api.csproj" />
+    <ProjectReference Include="..\LayoutComposition\Api\SmartSentinelEye.LayoutComposition.Api.csproj" />
+    <ProjectReference Include="..\SystemVariables\Api\SmartSentinelEye.SystemVariables.Api.csproj" />
+    <ProjectReference Include="..\EventIngestion\Api\SmartSentinelEye.EventIngestion.Api.csproj" />
+    <ProjectReference Include="..\OverlayDesigner\Api\SmartSentinelEye.OverlayDesigner.Api.csproj" />
+    <ProjectReference Include="..\Automation\Api\SmartSentinelEye.Automation.Api.csproj" />
+    <ProjectReference Include="..\Identity\Api\SmartSentinelEye.Identity.Api.csproj" />
+    <ProjectReference Include="..\AuditObservability\Api\SmartSentinelEye.AuditObservability.Api.csproj" />
+    <ProjectReference Include="..\MigrationRunner\SmartSentinelEye.MigrationRunner.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>b82c8f51-95b9-4b1a-832a-a8744b2112a9</UserSecretsId>
+  </PropertyGroup>
+
+</Project>

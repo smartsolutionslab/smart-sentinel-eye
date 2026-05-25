@@ -1,0 +1,6 @@
+@SmartSentinelEye.EventIngestion.Api_HostAddress = http://localhost:5120
+
+GET {{SmartSentinelEye.EventIngestion.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
