@@ -1,0 +1,22 @@
+{
+  "name": "smart-sentinel-eye",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Industrial CCTV camera management — workspace root",
+  "packageManager": "pnpm@10.30.3",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter \"./apps/**\" build",
+    "lint": "pnpm -r --filter \"./apps/**\" lint",
+    "test": "pnpm -r --filter \"./apps/**\" test",
+    "typecheck": "pnpm -r --filter \"./apps/**\" typecheck",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,js,jsx,json,css,md,yaml,yml}\"",
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx,js,jsx,json,css,md,yaml,yml}\""
+  },
+  "devDependencies": {
+    "prettier": "3.4.2",
+    "typescript": "5.7.3"
+  }
+}

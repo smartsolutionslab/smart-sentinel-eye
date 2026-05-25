@@ -1,0 +1,17 @@
+/* Design tokens per ADR-0078. Token additions per feature. */
+:root {
+  --color-bg-base: #0b0d10;
+  --color-bg-elevated: #14171c;
+  --color-fg-primary: #f5f7fa;
+  --color-fg-muted: #7a8294;
+  --color-accent-active: #00c853;
+  --color-accent-fault: #ff5252;
+  --color-accent-warning: #ffab40;
+}
+
+[data-theme='light'] {
+  --color-bg-base: #f7f8fa;
+  --color-bg-elevated: #ffffff;
+  --color-fg-primary: #14171c;
+  --color-fg-muted: #5a626d;
+}
