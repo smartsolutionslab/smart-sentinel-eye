@@ -142,6 +142,9 @@
   <Folder Name="/tests/Architecture.Tests/">
     <Project Path="tests/Architecture.Tests/SmartSentinelEye.Architecture.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/CameraCatalog.Application.Tests/">
+    <Project Path="tests/CameraCatalog.Application.Tests/SmartSentinelEye.CameraCatalog.Application.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/CameraCatalog.Domain.Tests/">
     <Project Path="tests/CameraCatalog.Domain.Tests/SmartSentinelEye.CameraCatalog.Domain.Tests.csproj" />
   </Folder>

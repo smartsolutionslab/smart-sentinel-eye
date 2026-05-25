@@ -1,9 +1,26 @@
+using SmartSentinelEye.CameraCatalog.Infrastructure;
+using SmartSentinelEye.ServiceDefaults;
+
 // MigrationRunner orchestrates all bounded-context database migrations and exits (ADR-0067).
-// This is a placeholder host; real migration orchestration lands when the first context's
-// persistence is wired (Camera Catalog walking skeleton).
+// Each IMigrator runs sequentially before any Api service starts.
 
-var builder = Host.CreateApplicationBuilder(args);
+HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 builder.AddServiceDefaults();
-builder.Services.AddHostedService<SmartSentinelEye.MigrationRunner.MigrationRunnerHostedService>();
 
-await builder.Build().RunAsync();
+builder.AddCameraCatalogInfrastructure();
+
+IHost host = builder.Build();
+ILogger<Program> log = host.Services.GetRequiredService<ILogger<Program>>();
+
+await host.StartAsync().ConfigureAwait(false);
+
+IEnumerable<IMigrator> migrators = host.Services.GetServices<IMigrator>();
+foreach (IMigrator migrator in migrators)
+{
+    log.LogInformation("Running migrations for {Context}.", migrator.ContextName);
+    await migrator.RunAsync(host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping)
+        .ConfigureAwait(false);
+}
+
+log.LogInformation("All migrations applied; MigrationRunner exiting.");
+await host.StopAsync().ConfigureAwait(false);
