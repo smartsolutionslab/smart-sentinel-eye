@@ -1,11 +1,23 @@
-var builder = WebApplication.CreateBuilder(args);
+using SmartSentinelEye.CameraCatalog.Api;
+using SmartSentinelEye.CameraCatalog.Infrastructure;
+using SmartSentinelEye.ServiceDefaults;
+
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+builder.AddBearerAuthentication();
+builder.AddCameraCatalogInfrastructure();
+builder.Services.AddCameraCatalogApi();
 builder.Services.AddOpenApi();
 
-var app = builder.Build();
+WebApplication app = builder.Build();
 
 app.MapDefaultEndpoints();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapCameraCatalogEndpoints();
 
 if (app.Environment.IsDevelopment())
 {

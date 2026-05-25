@@ -1,12 +1,12 @@
-// Placeholder shell for the management app. Real routing and persona-aware
-// layout lands per ADR-0074 once the first feature spec is written.
+import { CamerasPage } from './features/cameras/CamerasPage.js';
+
+// Placeholder shell for the management app. Routing + persona-aware layout
+// lands per ADR-0074 once additional features arrive; for now the cameras
+// page is the single surface.
 export function App() {
   return (
-    <main className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-3xl font-semibold">Smart Sentinel Eye</h1>
-        <p className="mt-2 text-fg-muted">Management — scaffold.</p>
-      </div>
+    <main className="min-h-screen bg-bg-base text-fg-primary">
+      <CamerasPage />
     </main>
   );
 }
