@@ -49,12 +49,13 @@ Non-spec work (ADR-only edits, infra config, dependency bumps) uses a
 short-lived branch off `develop` with the Conventional Commit type as
 the prefix (e.g. `docs/adr-029-protection`, `chore/bump-aspire`).
 
-## Branch protection — ADR-029
+## Branch protection — ADR-029 + ADR-0087
 
 Both `main` and `develop` enforce:
 
 - ✅ PR required (no direct pushes)
-- ✅ Linear history (squash or rebase merges only; **no** merge commits)
+- ✅ **Rebase-only merges** (no squash, no merge commits). Every
+  feature-branch commit lands individually on the target branch.
 - ✅ Required passing checks: build, unit, integration, NetArchTest,
   format/lint, secret scan, container smoke
 - ✅ ≥ 1 approving review for PRs touching `src/` or `apps/web/`
@@ -88,6 +89,10 @@ Allowed **scopes:** the 9 bounded contexts —
 `tests`, `deploy`, `adr`, `workflows`.
 
 **Body** explains *why*, not *what*. Required for non-trivial commits.
+
+**No `Co-Authored-By` footer** (ADR-0086). Every commit is attributed
+solely to the human author, regardless of LLM assistance. PR
+descriptions remain the place to document significant LLM involvement.
 
 **Breaking changes** use `!` after type/scope and a `BREAKING CHANGE:`
 footer:
@@ -169,14 +174,23 @@ SemVer for the whole product. Tags only on `main`.
 Pre-releases use `-alpha.N`, `-beta.N`, `-rc.N` suffixes. Hotfixes
 bump patch and follow the same dual-merge pattern from `hotfix/<short>`.
 
-## Code style — ADR-034
+## Code style — ADR-034 + ADR-0064 + ADR-0084
 
 - **C#:** `dotnet format` enforces `.editorconfig` + Roslyn analyzers
-  (`EnableNETAnalyzers=true`, `AnalysisLevel=latest`). Warnings are
-  errors in `Release` builds.
+  (`EnableNETAnalyzers=true`, `AnalysisLevel=latest`,
+  `AnalysisMode=Recommended`) plus **SonarAnalyzer.CSharp**. Warnings
+  are errors in `Release` builds.
 - **TypeScript / React:** ESLint + Prettier with the configs shipped
   in `apps/web/`.
 - **YAML / Markdown:** Prettier defaults.
+- **Line length:** 160 (ADR-0064).
+- **Code metric limits** enforced by SonarAnalyzer (ADR-0084):
+  - Max LOC per file: **300** (S104)
+  - Max LOC per method: **30** backend / **50** frontend (S138)
+  - Max parameters: **4** (S107)
+  - Cyclomatic complexity: **≤ 10** (S1541)
+  - Nesting depth: **≤ 3** (S134)
+  - Test projects exempt — narrative test methods are valuable.
 
 Husky pre-commit hooks run formatters on **staged files only** — fast
 local loop. CI verifies with `--verify-no-changes` so a bypassed hook
@@ -270,8 +284,18 @@ Driven by ADRs 0016, 0038–0045, 0066, 0069.
   validation chains (ADR-0046, ADR-0059). They implement
   `IValueObject<T>` (ADR-0066).
 - **Aggregate IDs are `Guid v7`** wrapped in `readonly record struct`
-  with `IValueObject<Guid>` (ADR-0039). Create with
+  with `IValueObject<Guid>` (ADR-0039, ADR-0090). Create with
   `Guid.CreateVersion7()`.
+- **ID types use the `Identifier` suffix**, never `Id`
+  (ADR-0090): `CameraIdentifier`, `LayoutIdentifier`,
+  `OverlayIdentifier`, `OperatorIdentifier`, `KioskIdentifier`,
+  `CellIdentifier`.
+- **Properties and variables holding identifiers are named after the
+  noun**, not the suffix (ADR-0094):
+  ```csharp
+  public OwnerIdentifier Owner { get; private set; }    // not OwnerIdentifier, not OwnerId
+  var camera = CameraIdentifier.New();                  // not cameraIdentifier, not cameraId
+  ```
 - **Aggregate roots inherit `AggregateRoot<TId>`** which carries
   `Version` (ADR-0043) and the domain-event list. Behaviour lives on
   the aggregate — rich model, not anemic (ADR-0045).
@@ -285,19 +309,62 @@ Driven by ADRs 0016, 0038–0045, 0066, 0069.
 - **Custom `Deconstruct(...)`** on value objects and request DTOs so
   endpoints can `var (name, url) = request;` (ADR-0069).
 - **Plural variable names** for repository injections
-  (`ICameraRepository cameras` — not `repository`).
+  (`ICameraRepository cameras` — not `repository`, not `cameraRepo`).
+- **No shortcuts or aliases** in any identifier (ADR-0091): spell out
+  `Identifier`, `Repository`, `Manager`, `Configuration`, `Context`,
+  `Database`, `Message`, `Authentication` / `Authorization`,
+  `Request`, `Response`, `Service`, `Command`, `Query`, `Handler`,
+  `Event`. Industry-standard exceptions (`Url`, `Json`, `Api`, `Sdk`,
+  `Dto`, `Cqrs`, `Rbac`, `Ptz`, `Rtsp`, `Onvif`, etc.) remain.
+- **Domain folder structure: per aggregate** (ADR-0092). Each
+  aggregate root gets its own folder containing the aggregate, its
+  identifier, all value objects, the repository interface, and an
+  `Events/` subfolder for its domain events:
+  ```
+  CameraCatalog.Domain/
+    Camera/
+      Camera.cs, CameraIdentifier.cs, CameraName.cs, RtspUrl.cs,
+      ICameraRepository.cs,
+      Events/CameraRegisteredDomainEvent.cs
+    CameraGroup/
+      …
+  ```
+- **Domain events named `<Aggregate><Verb>DomainEvent`** to
+  distinguish from integration events (`<Aggregate><Verb>V1`).
 
 ## Application & infrastructure conventions
 
 Driven by ADRs 0042, 0047–0051, 0057, 0070, 0071, 0072.
 
+- **Application folder structure: per message kind** (ADR-0093). Top-
+  level folders `Commands/`, `Queries/`, `EventHandlers/`, `DTOs/`.
+  Each command/query has its own file plus a paired
+  `<Verb><Aggregate>Errors.cs`; handlers live in a `Handlers/`
+  subfolder:
+  ```
+  CameraCatalog.Application/
+    Commands/
+      RegisterCameraCommand.cs, RegisterCameraErrors.cs,
+      Handlers/RegisterCameraCommandHandler.cs
+    Queries/
+      GetCameraByIdentifierQuery.cs, …
+      Handlers/GetCameraByIdentifierQueryHandler.cs
+    EventHandlers/
+      CameraRegisteredDomainEventHandler.cs       (in-process)
+      OperatorRevokedIntegrationEventConsumer.cs  (from RabbitMQ)
+    DTOs/
+      CameraDto.cs
+  ```
 - **Handlers** implement `ICommandHandler<TCommand, TResult>` or
   `IQueryHandler<TQuery, TResult>` from `Shared.CQRS`. **Wolverine
   dispatches them under the hood** (ADR-0042, ADR-0057). Application
   code does not import Wolverine types.
 - **Return `Result<T, Error>`** for expected business failures, with
-  a sealed-record error hierarchy per handler (ADR-0047). Exceptions
-  are reserved for bugs and infra; never swallowed.
+  a sealed-record error hierarchy per handler (ADR-0047). Per-handler
+  errors inherit from `ApiError(string Code, string Message,
+  HttpStatusCode Status)` (ADR-0089) so endpoints emit RFC 7807
+  Problem Details without per-case mapping. Exceptions are reserved
+  for bugs and infra; never swallowed.
 - **Use `Option<T>`** from `Shared.Kernel` for absences. NRT is
   **disabled** at the solution level (ADR-0048).
 - **Every public async method takes `CancellationToken ct` as the
@@ -318,6 +385,10 @@ Driven by ADRs 0042, 0047–0051, 0057, 0070, 0071, 0072.
 - **Multi-step sequences** use **Wolverine sagas** with explicit
   state machines and compensating actions (ADR-0072). Single-step
   rules do not use sagas.
+- **Wolverine defaults** (ADR-0088): per-module queue isolation
+  (`{moduleQueuePrefix}.{eventType.FullName}`) prevents competing-
+  consumer races; eager transaction mode wraps every handler in an
+  EF / Marten transaction; Postgres-backed outbox per context.
 - **Database migrations** run via the dedicated
   `SmartSentinelEye.MigrationRunner` worker, ordered before any Api
   starts (ADR-0067). Api services never run migrations themselves.
