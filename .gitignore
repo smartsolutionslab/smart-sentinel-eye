@@ -1,0 +1,64 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.pdb
+*.dll
+*.exe
+project.lock.json
+project.fragment.lock.json
+artifacts/
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Node / Vite
+node_modules/
+.pnp.*
+.yarn/
+dist/
+dist-ssr/
+.vite/
+*.local
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs and dumps
+*.log
+*.dmp
+logs/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.pfx
+*.key
+
+# Helm output (regenerated)
+deploy/helm/generated/
+
+# Aspire / dotnet user secrets and local manifests
+*.runtimeconfig.dev.json
+aspire-dashboard-storage/
+
+# Agent state (Spec-Kit init warns about this)
+.claude/settings.local.json
+.claude/.cache/
+
+# Misc
+*.tmp
+*.bak
