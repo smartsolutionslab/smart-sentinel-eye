@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.CameraCatalog.Application.EventHandlers;
+using SmartSentinelEye.CameraCatalog.Application.Queries;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
 using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
@@ -34,6 +35,7 @@ public static class CameraCatalogInfrastructureModule
             options.UseNpgsql(connectionString));
 
         builder.Services.AddScoped<ICameraRepository, CameraRepository>();
+        builder.Services.AddScoped<ICameraQuerySource, CameraQuerySource>();
         builder.Services.AddScoped<CameraRegisteredDomainEventHandler>();
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddScoped<IEventBus, WolverineEventBus>();
