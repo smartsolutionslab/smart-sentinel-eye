@@ -24,6 +24,33 @@
     <!-- Aspire NodeJs integration: AppHost registers management-web and kiosk-web npm apps (ADR-0074) -->
     <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
 
+    <!-- Aspire infrastructure resources (ADR-0007 + ADR-0009 + ADR-0010). Version-aligned with
+         Yumney's working .NET 10 stack. Keycloak hosting is preview-only at the moment. -->
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.3.5" />
+    <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="13.3.5" />
+    <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.3.5-preview.1.26270.6" />
+
+    <!-- Aspire client integration for ASP.NET Core services that consume Postgres -->
+    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.5.2" />
+
+    <!-- ASP.NET Core auth (ADR-0007 + ADR-0008 + ADR-0023). Plain JwtBearer; no Aspire
+         Keycloak client package needed — realm URL comes from the Aspire-injected
+         connection string. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.8" />
+
+    <!-- EF Core for state-based contexts (ADR-0009) -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.8" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+
+    <!-- Wolverine (ADR-0042, ADR-0057, ADR-0088). Version-aligned with Yumney. -->
+    <PackageVersion Include="WolverineFx" Version="5.39.3" />
+    <PackageVersion Include="WolverineFx.Http" Version="5.39.3" />
+    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="5.39.3" />
+    <PackageVersion Include="WolverineFx.Postgresql" Version="5.39.3" />
+    <PackageVersion Include="WolverineFx.RabbitMQ" Version="5.39.3" />
+
     <!-- ASP.NET Core / Hosting / Resilience / Service Discovery -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.8" />

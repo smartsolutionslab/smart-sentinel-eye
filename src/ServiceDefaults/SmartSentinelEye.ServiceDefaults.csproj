@@ -17,6 +17,15 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+
+    <!-- Auth client (ADR-0007 + ADR-0008 + ADR-0023). Plain JwtBearer; no Aspire.Keycloak.Authentication needed. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+
+    <!-- Wolverine defaults (ADR-0042 + ADR-0057 + ADR-0088). -->
+    <PackageReference Include="WolverineFx" />
+    <PackageReference Include="WolverineFx.EntityFrameworkCore" />
+    <PackageReference Include="WolverineFx.Postgresql" />
+    <PackageReference Include="WolverineFx.RabbitMQ" />
   </ItemGroup>
 
 </Project>
