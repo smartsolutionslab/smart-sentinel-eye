@@ -122,15 +122,40 @@ down as:
 
 ## Stack at a glance
 
-| Concern | Choice |
-|---|---|
-| Frontend | React + TS + Vite |
-| Backend | .NET 10 + ASP.NET Core + Aspire |
-| Persistence | PostgreSQL (+ Marten for ES contexts) |
-| Object store | MinIO (future) |
-| Messaging | RabbitMQ |
-| Identity | Keycloak (OIDC) per fab |
-| Streaming | WebRTC SFU; passthrough + GPU transcode fallback |
-| Time | PTP (IEEE 1588) per fab |
-| Observability | OpenTelemetry → Aspire + Grafana stack (parallel) |
-| Orchestration | Aspire AppHost (dev) → k3s + Helm (prod) |
+| Concern | Choice | ADR |
+|---|---|---|
+| Frontend | React + TypeScript + Vite, **two apps** (`management-web` + `kiosk-web`) | 0074 |
+| Frontend state | Redux Toolkit + RTK Query | 0075 |
+| Real-time push | **Replaceable transport** (WebSocket v1, SSE v2 candidate) | 0076 |
+| UI primitives | Radix UI headless components + custom design system | 0077 |
+| Styling | Tailwind CSS with design tokens via CSS custom properties | 0078 |
+| Frontend forms | React Hook Form + Zod | 0079 |
+| Browser auth | `react-oidc-context` + custom kiosk flow | 0080 |
+| Backend | .NET 10 + ASP.NET Core + .NET Aspire | 0024 |
+| API style | Minimal APIs only | 0070 |
+| Mediator | Hand-rolled `ICommandHandler<T,R>` / `IQueryHandler<T,R>` + Wolverine as dispatcher | 0042, 0057 |
+| Domain events | Separate domain (in-process) and integration (`Shared.Contracts`, `V<N>` suffix) | 0040, 0073 |
+| Value objects | **Maximalist hand-written**, `IValueObject<T>` marker, `.From(...)` + `Ensure.That(...)` | 0038, 0046, 0066 |
+| IDs | **Guid v7** in strongly-typed records | 0039 |
+| Errors | `Result<T, Error>` for business; exceptions for bugs/infra | 0047 |
+| Nulls | **NRT disabled + `Option<T>` everywhere** | 0048 |
+| Async | `CancellationToken` mandatory last param; no `ConfigureAwait` | 0049 |
+| Persistence | PostgreSQL (+ Marten for ES contexts with inline projections) | 0009, 0071 |
+| Concurrency | Optimistic with explicit `Version` field on aggregates | 0043 |
+| Object store | MinIO (future) | 0009 |
+| Messaging | RabbitMQ (via Wolverine) | 0010, 0042 |
+| Sagas | Wolverine state machines + compensating actions | 0072 |
+| Identity | Keycloak (OIDC) per fab | 0007, 0008 |
+| Streaming | WebRTC SFU; passthrough + GPU transcode fallback | 0011, 0012 |
+| Time | PTP (IEEE 1588) per fab | 0014, 0021 |
+| Logging | Serilog behind `ILogger<T>`, OTLP exporter, structured fields | 0050 |
+| DI | Per-context `Add<Context>{Infrastructure,Api}` extension methods | 0051 |
+| Migrations | Dedicated `MigrationRunner` worker | 0067 |
+| Test framework | xUnit + **Shouldly** (free) + **Moq** + hand-written fakes + Testcontainers | 0052 |
+| Test naming | Sentence-style with underscores | 0053 |
+| Test data | Hand-written fluent builders, no AutoFixture | 0054 |
+| Coverage gates | Domain ≥ 90%, Application ≥ 80%, Shared ≥ 90% (CI-enforced) | 0065 |
+| Observability | OpenTelemetry → Aspire dashboard + Grafana stack (parallel comparison) | 0026 |
+| Orchestration | Aspire AppHost (dev) → k3s + Helm (prod) | 0024, 0025 |
+
+**Diverges from Yumney on:** NRT (we: disabled; Yumney: enabled), `Result<T, Error>` shape, Shouldly vs FluentAssertions, Moq vs NSubstitute, sentence-style vs `Method_Scenario_Expected` test naming, initial test layout (minimal vs full per-layer). See ADRs 0056–0063 for the reasoning per divergence.

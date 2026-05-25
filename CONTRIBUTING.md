@@ -253,6 +253,126 @@ is human or an LLM agent, the same operational rules apply:
 - **Read before write.** Mirror existing patterns; don't invent new
   ones without justification.
 
+## Domain conventions — DDD
+
+Driven by ADRs 0016, 0038–0045, 0066, 0069.
+
+- **Bounded contexts (9)** are isolated. No cross-context project
+  references; communicate only via `Shared.Contracts` integration
+  events. Boundaries enforced by `NetArchTest` in
+  `tests/Architecture.Tests/`.
+- **Value objects are maximalist** (ADR-0038). Wrap every primitive
+  at a domain boundary — IDs, semantic primitives (`Url`, `Percentage`,
+  `Duration`), free-text fields (`CameraName`, `Description`).
+  Framework-typed values (`DateTimeOffset`) may stay unwrapped.
+- **Value objects are hand-written** sealed `record`s with private
+  constructors, `.From(...)` factories, and `Ensure.That(...)`
+  validation chains (ADR-0046, ADR-0059). They implement
+  `IValueObject<T>` (ADR-0066).
+- **Aggregate IDs are `Guid v7`** wrapped in `readonly record struct`
+  with `IValueObject<Guid>` (ADR-0039). Create with
+  `Guid.CreateVersion7()`.
+- **Aggregate roots inherit `AggregateRoot<TId>`** which carries
+  `Version` (ADR-0043) and the domain-event list. Behaviour lives on
+  the aggregate — rich model, not anemic (ADR-0045).
+- **Domain events** stay inside the context; **integration events**
+  in `Shared.Contracts` with explicit `V<N>` suffix (ADR-0040,
+  ADR-0073). Translation happens in a handler inside the publishing
+  context.
+- **Repository interfaces in `Domain/Repositories/`**, implementations
+  in `Infrastructure/Persistence/` (ADR-0041). Per-aggregate
+  interfaces only — no generic `IRepository<T>`.
+- **Custom `Deconstruct(...)`** on value objects and request DTOs so
+  endpoints can `var (name, url) = request;` (ADR-0069).
+- **Plural variable names** for repository injections
+  (`ICameraRepository cameras` — not `repository`).
+
+## Application & infrastructure conventions
+
+Driven by ADRs 0042, 0047–0051, 0057, 0070, 0071, 0072.
+
+- **Handlers** implement `ICommandHandler<TCommand, TResult>` or
+  `IQueryHandler<TQuery, TResult>` from `Shared.CQRS`. **Wolverine
+  dispatches them under the hood** (ADR-0042, ADR-0057). Application
+  code does not import Wolverine types.
+- **Return `Result<T, Error>`** for expected business failures, with
+  a sealed-record error hierarchy per handler (ADR-0047). Exceptions
+  are reserved for bugs and infra; never swallowed.
+- **Use `Option<T>`** from `Shared.Kernel` for absences. NRT is
+  **disabled** at the solution level (ADR-0048).
+- **Every public async method takes `CancellationToken ct` as the
+  last parameter** (ADR-0049). No `ConfigureAwait`. No
+  sync-over-async.
+- **Inject `ILogger<T>`**; Serilog provides the implementation;
+  structured fields only (`{CameraId}` placeholders, not string
+  interpolation) (ADR-0050).
+- **DI registration** lives in per-context `Add<Context>{Infrastructure,Api}`
+  extension methods (ADR-0051). No assembly scanning for application
+  code; Wolverine's handler discovery is the framework exception.
+- **API style: Minimal APIs only** (ADR-0070). Endpoints registered
+  via `Map<Context>Endpoints` static methods; handlers are static
+  local functions inside the registration method.
+- **CQRS read models** use Marten inline projections in Postgres
+  (ADR-0071) for event-sourced contexts (Overlays, Automation).
+  Reads bypass the event stream.
+- **Multi-step sequences** use **Wolverine sagas** with explicit
+  state machines and compensating actions (ADR-0072). Single-step
+  rules do not use sagas.
+- **Database migrations** run via the dedicated
+  `SmartSentinelEye.MigrationRunner` worker, ordered before any Api
+  starts (ADR-0067). Api services never run migrations themselves.
+
+## Testing conventions
+
+Driven by ADRs 0052–0054, 0063, 0065, 0068, 0081.
+
+| Concern | Choice |
+|---|---|
+| Framework | xUnit |
+| Assertions | **Shouldly** (MIT-licensed, fluent) |
+| Mocking | **Moq** for interfaces; **hand-written fakes** for repositories/stateful collaborators |
+| Real infrastructure | Testcontainers via Aspire fixture (`AspireFixture`) |
+| Naming | Sentence-style with underscores: `Register_a_camera_with_valid_input_returns_the_new_id()` |
+| Test data | Hand-written fluent builders in `tests/.../Builders/`. No AutoFixture. |
+| Layout (initial) | `tests/Architecture.Tests/` + `tests/Integration.Tests/` only; per-context per-layer test projects added per-feature |
+
+**Coverage gates** (CI-enforced, ADR-0065):
+
+- `<Context>.Domain` ≥ 90%
+- `<Context>.Application` ≥ 80%
+- `Shared.Kernel` and `Shared.Contracts` ≥ 90%
+- `<Context>.Infrastructure` and `.Api` — no gate (integration tests
+  cover them).
+
+Bypass via PR label `coverage-exempt` (requires justification).
+
+**Test pyramid shape is intentionally not fixed** (ADR-0081) — it
+emerges from real defect-discovery data once features ship.
+
+## Frontend conventions
+
+Driven by ADRs 0074–0080.
+
+- **Two apps** (ADR-0074): `apps/management-web/` (admin + operator)
+  and `apps/kiosk-web/` (always-logged-in display). Shared code in
+  `apps/shared/`.
+- **Redux Toolkit + RTK Query** for state (ADR-0075). One store per
+  app; real-time updates dispatch into the store.
+- **Realtime transport is replaceable behind an abstraction**
+  (ADR-0076): WebSocket implementation v1, SSE candidate v2. Server
+  side: `IRealtimeChannel` / `IRealtimeTransport` in
+  `SmartSentinelEye.Realtime.Abstractions`. Client side: parallel
+  TypeScript interface in `apps/shared/realtime/`. Operator commands
+  go over REST, not the realtime channel.
+- **UI primitives** built on Radix UI + Tailwind tokens (ADR-0077,
+  ADR-0078). All visual code in `apps/shared/ui/`. No external
+  component library.
+- **Forms** use React Hook Form + Zod (ADR-0079). One Zod schema per
+  concept, reused across form validation and API client types.
+- **Browser auth**: `react-oidc-context` for the management app
+  (auth-code with PKCE), **custom flow for kiosk** using
+  device-bound `client_credentials` (ADR-0080).
+
 ## ADRs — when to write one
 
 Write a new `docs/adr/NNNN-<slug>.md` when you:
