@@ -56,8 +56,19 @@
                  enable type-safe handler dispatch (ICommandHandler<TCmd,TR> where
                  TCmd : ICommand<TR>); the unused-type-parameter check is
                  incorrect for this pattern (ADR-0042 + ADR-0057).
+        CA1711 — our Application-layer event handler types end in
+                 "DomainEventHandler" / "IntegrationEventConsumer" by convention
+                 (ADR-0093). The framework warning targets WinForms-era
+                 conflicts that don't apply.
+        CA1848 — LoggerMessage source generators are a hot-path optimisation
+                 that adds boilerplate without measurable benefit for our
+                 command-path log volume. Revisit if a leg of the latency
+                 budget (ADR-0015) attributes time to logging.
+        CA1873 — Lazy logger-argument evaluation matters for expensive
+                 ToString calls. Our value objects have cheap ToString
+                 implementations; the warning is noise here.
     -->
-    <NoWarn>$(NoWarn);CA1716;CA1000;S2326</NoWarn>
+    <NoWarn>$(NoWarn);CA1716;CA1000;S2326;CA1711;CA1848;CA1873</NoWarn>
   </PropertyGroup>
 
   <!-- Tests: relax the metric rules; loud test methods are valuable. -->
