@@ -1,6 +1,10 @@
 <Project Sdk="Aspire.AppHost.Sdk/13.3.5">
 
   <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.NodeJs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\CameraCatalog\Api\SmartSentinelEye.CameraCatalog.Api.csproj" />
     <ProjectReference Include="..\StreamDistribution\Api\SmartSentinelEye.StreamDistribution.Api.csproj" />
     <ProjectReference Include="..\LayoutComposition\Api\SmartSentinelEye.LayoutComposition.Api.csproj" />

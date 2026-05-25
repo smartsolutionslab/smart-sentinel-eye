@@ -1,0 +1,4 @@
+@import '@smart-sentinel-eye/shared/ui/tokens/colors.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
