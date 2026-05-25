@@ -182,25 +182,76 @@ Husky pre-commit hooks run formatters on **staged files only** — fast
 local loop. CI verifies with `--verify-no-changes` so a bypassed hook
 still fails the PR.
 
-## Working with Spec-Kit
+## Guided phased development — ADR-0037
 
-Use slash commands inside Claude Code. The git extension auto-creates
-feature branches and (optionally) auto-commits.
+Every feature or non-trivial change moves through **seven phases**.
+Each phase has a concrete artifact and an **explicit gate** —
+Claude Code stops between phases and asks for your confirmation
+before continuing.
+
+| # | Phase | Command(s) | Artifact | Gate |
+|---|---|---|---|---|
+| 1 | **Specify** | `/speckit-specify` (+ `/speckit-clarify`) | `specs/NNN-x/spec.md` | Spec reviewed; no `[NEEDS CLARIFICATION]` left. |
+| 2 | **Plan** | `/speckit-plan` | `specs/NNN-x/plan.md` | Plan aligns with constitution + ADRs. |
+| 3 | **Tasks** | `/speckit-tasks` + `/speckit-taskstoissues` | `tasks.md` + GitHub issues on Project #13 | Tasks atomic and independently testable. |
+| 4 | **Implement** | `/speckit-implement` (Karpathy-guided) | Code + tests; format clean; analyzers clean | Tests green; commits follow ADR-0030. |
+| 5 | **Verify** | `/verify` (or explicit run/test) | Verification note on the PR | Behaviour observed end-to-end. UI changes: run the app, click through golden + edge paths. Backend: Aspire AppHost + Testcontainers integration green. Latency-sensitive: measured value per leg vs budget. |
+| 6 | **QA / Review** | `/code-review`; `/security-review` if security-sensitive | Findings list, each resolved or noted | All findings resolved or carry written rationale in the PR. |
+| 7 | **PR** | `gh pr create` with template; respond to CI | PR open against `develop`, template fully filled, CI green | Reviewer approval + green CI + merge. |
+
+**Karpathy guidelines (ADR-0036)** are invoked automatically during
+phases 4–6.
+
+**Skipping a phase** is allowed only for trivial changes (typo fix,
+dependency bump, comment-only). Write
+`Phase X: skipped — <one-line reason>` in the PR body. Documentation-
+and ADR-only PRs typically skip phases 5 and 6.
+
+**Resumability.** Each phase's artifact is the resumption point. If
+interrupted, the next session reads the latest artifact and continues
+from there — no rework.
+
+### Slash commands you'll use
 
 ```
 /speckit-constitution   amend principles (rare; requires ADR)
-/speckit-specify        write a feature spec; creates NNN-feature branch off develop
+/speckit-specify        phase 1; creates NNN-feature branch off develop
 /speckit-clarify        de-risk ambiguities before planning (optional)
-/speckit-plan           technical approach
-/speckit-tasks          break plan into ordered atomic tasks
-/speckit-implement      execute tasks
-/speckit-checklist      (optional) generate completeness checklist
-/speckit-analyze        (optional) cross-artifact consistency report
-/speckit-taskstoissues  push tasks into the GitHub Project board
+/speckit-plan           phase 2
+/speckit-tasks          phase 3
+/speckit-taskstoissues  push tasks into Project #13
+/speckit-implement      phase 4
+/speckit-checklist      (optional) completeness checklist
+/speckit-analyze        (optional) cross-artifact consistency
+/verify                 phase 5 — run the app / tests, confirm behaviour
+/code-review            phase 6 — review the diff for correctness bugs
+/security-review        phase 6 (security boundaries) — review for vulns
 ```
 
-**Don't** write code outside a Spec-Kit feature branch unless the work
-is docs / ADR / infra (`chore`, `docs`, `ci`, `build` types).
+**Don't** write code outside this loop unless the work is docs / ADR /
+infra (`chore`, `docs`, `ci`, `build` types) — those use a short
+branch off `develop` and a docs-only PR.
+
+## Coding behavior — Karpathy guidelines (ADR-0036)
+
+The `andrej-karpathy-skills:karpathy-guidelines` skill is the
+**baseline coding behaviour** for this repository. Whether the author
+is human or an LLM agent, the same operational rules apply:
+
+- **Smallest possible change.** Fix the bug, nothing else. Refactor
+  changes shape, not behaviour. Don't mix.
+- **Define "done" up front.** State the verifiable success criterion
+  before writing code.
+- **Surface assumptions; don't bury them.** Ask one or two clarifying
+  questions before guessing. Mark unavoidable guesses in the PR body.
+- **No speculative generality.** No abstractions for needs that don't
+  exist yet — except the forward-compat interfaces in constitution §IX.
+- **No drive-by error handling.** Validate at trust boundaries only.
+  Swallowed exceptions are review blockers.
+- **No drive-by comments.** Code says what; comments explain *why*,
+  only when non-obvious. Task references belong in the PR body.
+- **Read before write.** Mirror existing patterns; don't invent new
+  ones without justification.
 
 ## ADRs — when to write one
 
