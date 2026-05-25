@@ -1,6 +1,6 @@
 # ADR-0039: Aggregate IDs — Guid v7 in Strongly-Typed Records
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0090 (Identifier suffix replaces Id suffix)
 **Date:** 2026-05-25
 
 ## Context

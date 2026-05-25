@@ -1,6 +1,6 @@
 # ADR-0069: Adopted Yumney Style Conventions
 
-**Status:** Accepted
+**Status:** Accepted (extended by ADR-0091: no shortcuts or aliases in names)
 **Date:** 2026-05-25
 
 ## Context

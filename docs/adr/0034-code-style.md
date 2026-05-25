@@ -1,6 +1,6 @@
 # ADR-0034: Code Style Enforcement
 
-**Status:** Accepted
+**Status:** Accepted (extended by ADR-0064: line length 160, and ADR-0084: SonarAnalyzer metrics)
 **Date:** 2026-05-25
 
 ## Context

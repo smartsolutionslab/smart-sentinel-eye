@@ -1,6 +1,6 @@
 # ADR-0047: Error Handling — Result&lt;T, Error&gt; for Business Failures, Exceptions for Bugs
 
-**Status:** Accepted (confirmed against Yumney divergence by ADR-0058)
+**Status:** Accepted (confirmed against Yumney divergence by ADR-0058; augmented by ADR-0089: ApiError record with HTTP status)
 **Date:** 2026-05-25
 
 ## Context

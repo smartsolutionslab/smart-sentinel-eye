@@ -1,6 +1,6 @@
 # ADR-0029: Branch Protection on `main` and `develop`
 
-**Status:** Accepted
+**Status:** Accepted (merge-strategy clause amended by ADR-0087: rebase-only)
 **Date:** 2026-05-25
 
 ## Context
