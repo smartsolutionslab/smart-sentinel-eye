@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Application\SmartSentinelEye.Automation.Application.csproj" />
+    <ProjectReference Include="..\Infrastructure\SmartSentinelEye.Automation.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Shared.Kernel\SmartSentinelEye.Shared.Kernel.csproj" />
+    <ProjectReference Include="..\..\Shared.CQRS\SmartSentinelEye.Shared.CQRS.csproj" />
+    <ProjectReference Include="..\..\ServiceDefaults\SmartSentinelEye.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

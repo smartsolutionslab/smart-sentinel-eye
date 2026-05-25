@@ -1,0 +1,6 @@
+@SmartSentinelEye.OverlayDesigner.Api_HostAddress = http://localhost:5288
+
+GET {{SmartSentinelEye.OverlayDesigner.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

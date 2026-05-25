@@ -1,0 +1,6 @@
+@SmartSentinelEye.SystemVariables.Api_HostAddress = http://localhost:5053
+
+GET {{SmartSentinelEye.SystemVariables.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
