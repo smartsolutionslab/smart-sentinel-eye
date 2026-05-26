@@ -50,6 +50,44 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         log.LogInformation("Removed MediaMTX path {Path}.", path);
     }
 
+    public async Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken)
+    {
+        // Reads the MediaMTX paths list endpoint (items: [{ name, source, ... }]).
+        // Filters to canonical cam-{guid} names so manually-created MediaMTX
+        // paths are left alone.
+        using HttpResponseMessage response = await http
+            .GetAsync("/v3/config/paths/list", cancellationToken)
+            .ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+
+        JsonElement payload = await response.Content
+            .ReadFromJsonAsync<JsonElement>(cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!payload.TryGetProperty("items", out JsonElement items) ||
+            items.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<MediaMtxPath>();
+        }
+
+        List<MediaMtxPath> paths = new(items.GetArrayLength());
+        foreach (JsonElement item in items.EnumerateArray())
+        {
+            if (!item.TryGetProperty("name", out JsonElement name) ||
+                name.ValueKind != JsonValueKind.String)
+            {
+                continue;
+            }
+            string raw = name.GetString() ?? string.Empty;
+            if (!MediaMtxPath.IsCanonical(raw))
+            {
+                continue;
+            }
+            paths.Add(MediaMtxPath.From(raw));
+        }
+        return paths;
+    }
+
     public async Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(path);

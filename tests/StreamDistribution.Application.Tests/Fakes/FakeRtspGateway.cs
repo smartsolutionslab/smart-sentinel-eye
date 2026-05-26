@@ -45,4 +45,7 @@ public sealed class FakeRtspGateway : IRtspGateway
             LastFrameAt: null,
             DetectedMode: TranscodeMode.Unknown));
     }
+
+    public Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<MediaMtxPath>>(_paths.Keys.ToArray());
 }

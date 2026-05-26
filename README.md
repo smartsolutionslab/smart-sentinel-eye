@@ -7,10 +7,11 @@ Smart Sentinel Eye unifies hundreds of IP cameras across an industrial
 plant into a single low-latency video wall, with dynamic overlays driven
 by events from MES, SCADA, and other shop-floor systems.
 
-**Status:** spec `001-register-camera` shipped end-to-end. Admins can
-register a camera through the management UI, see it in the list, and
-the catalog publishes a `CameraRegisteredV1` integration event for
-downstream contexts to consume.
+**Status:** specs `001-register-camera` and `002-watch-camera-live`
+shipped end-to-end. Admins can register a camera through the
+management UI, see it in the list with a live stream-health badge,
+click **Watch** to view a low-latency WebRTC stream, and observe
+state transitions (Healthy / Degraded / Offline) in real time.
 
 ## What it does
 
@@ -70,6 +71,25 @@ and `camera-catalog` + `keycloak` + the React apps to reach
    `camera-catalog.SmartSentinelEye.Shared.Contracts.CameraCatalog.CameraRegisteredV1`
    queue — the integration event is sitting there waiting for the
    first subscriber.
+
+## Quickstart — watch a camera
+
+Once a camera is registered (above), the **Stream** column in the
+cameras list polls `/streams` every five seconds and renders a
+coloured pill: **Healthy** (green), **Degraded** (yellow),
+**Offline** (red), **Provisioning** (grey). Hover the pill for the
+last successful frame time and any error message.
+
+1. Wait for the **Stream** column to settle. With a reachable RTSP
+   source the badge moves Provisioning → Healthy within ~5 s; with
+   an unreachable source it transitions to Degraded.
+2. Click the **Watch** button on the row to open the viewer panel.
+   A WebRTC peer connection is negotiated through MediaMTX via WHEP
+   and a live frame appears within ~3 s (warm cache).
+3. Disconnect the camera (pull the cable / stop the RTSP source).
+   Within ~10 s the badge flips to **Degraded** and the viewer panel
+   shows a "Reconnecting…" overlay. Restore the source and watch the
+   badge return to **Healthy**.
 
 ## Tests
 
