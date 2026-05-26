@@ -7,8 +7,10 @@ Smart Sentinel Eye unifies hundreds of IP cameras across an industrial
 plant into a single low-latency video wall, with dynamic overlays driven
 by events from MES, SCADA, and other shop-floor systems.
 
-**Status:** pre-implementation. The Q&A foundation and architectural
-constitution are in place; first-feature specs are being written.
+**Status:** spec `001-register-camera` shipped end-to-end. Admins can
+register a camera through the management UI, see it in the list, and
+the catalog publishes a `CameraRegisteredV1` integration event for
+downstream contexts to consume.
 
 ## What it does
 
@@ -37,6 +39,54 @@ constitution are in place; first-feature specs are being written.
 | Time sync | PTP (IEEE 1588) per fab |
 | Observability | OpenTelemetry → Aspire dashboard + Grafana stack |
 | Orchestration | Aspire AppHost (dev) → k3s + Helm (prod) |
+
+## Quickstart — register your first camera
+
+Prerequisites: .NET 10 SDK, Docker Desktop running, Node 20+, pnpm.
+
+```pwsh
+# 1. Restore + build
+dotnet restore
+pnpm install
+
+# 2. Start the full stack (Postgres, RabbitMQ, Keycloak, the
+#    camera-catalog API, and both React apps). The Aspire dashboard
+#    URL is printed on startup.
+dotnet run --project src/AppHost
+```
+
+In the Aspire dashboard, wait for `migrations` to reach **Finished**
+and `camera-catalog` + `keycloak` + the React apps to reach
+**Running**. Then:
+
+1. Open the **management-web** URL from the dashboard (default
+   `http://localhost:5173`).
+2. Sign in with the seeded admin (Keycloak realm
+   `smart-sentinel-eye`): **`admin` / `Admin1234`**.
+3. Click **Register camera**, give it a unique name, paste an
+   `rtsp://...` URL, submit.
+4. The new row appears in the list. Open the **rabbitmq** management
+   UI from the dashboard and inspect the
+   `camera-catalog.SmartSentinelEye.Shared.Contracts.CameraCatalog.CameraRegisteredV1`
+   queue — the integration event is sitting there waiting for the
+   first subscriber.
+
+## Tests
+
+```pwsh
+# Unit + architecture tests (fast, no Docker)
+dotnet test --filter "FullyQualifiedName!~Integration"
+
+# Integration tests (slow, requires Docker)
+dotnet test tests/Integration.Tests/
+
+# Coverage gate per ADR-0065 (also runs all unit tests)
+pwsh scripts/coverage-check.ps1
+```
+
+Latency budget enforcement (constitution §IV) ships with the
+integration suite: `CommandLatencyTests.POST_cameras_p95_stays_within_the_command_path_budget`
+asserts `POST /cameras` p95 ≤ 200 ms across 100 sequential calls.
 
 ## Documents
 

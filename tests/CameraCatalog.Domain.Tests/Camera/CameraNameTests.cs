@@ -80,4 +80,38 @@ public class CameraNameTests
 
         first.ShouldNotBe(second);
     }
+
+    [Fact]
+    public void CompareTo_orders_by_normalized_value_so_case_does_not_affect_sort()
+    {
+        CameraName apple = CameraName.From("apple");
+        CameraName banana = CameraName.From("Banana");
+        CameraName cherry = CameraName.From("cherry");
+
+        // APPLE < BANANA < CHERRY in normalized form
+        apple.CompareTo(banana).ShouldBeLessThan(0);
+        banana.CompareTo(cherry).ShouldBeLessThan(0);
+        cherry.CompareTo(apple).ShouldBeGreaterThan(0);
+        apple.CompareTo(CameraName.From("APPLE")).ShouldBe(0);
+    }
+
+    [Fact]
+    public void CompareTo_null_returns_positive()
+    {
+        CameraName name = CameraName.From("Cam-A");
+
+        name.CompareTo(null).ShouldBeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Comparison_operators_use_normalized_value()
+    {
+        CameraName apple = CameraName.From("apple");
+        CameraName banana = CameraName.From("Banana");
+
+        (apple < banana).ShouldBeTrue();
+        (banana > apple).ShouldBeTrue();
+        (apple <= CameraName.From("APPLE")).ShouldBeTrue();
+        (banana >= apple).ShouldBeTrue();
+    }
 }
