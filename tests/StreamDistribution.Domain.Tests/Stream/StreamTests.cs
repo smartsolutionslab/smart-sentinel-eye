@@ -25,8 +25,8 @@ public class StreamTests
         stream.Camera.ShouldBe(camera);
         stream.Path.ShouldBe(MediaMtxPath.For(camera));
         stream.TranscodeMode.ShouldBe(TranscodeMode.Unknown);
-        stream.LastSuccessAt.HasValue.ShouldBeFalse();
-        stream.LastError.HasValue.ShouldBeFalse();
+        stream.LastSuccessAt.ShouldBeNull();
+        stream.LastError.ShouldBeNull();
         stream.ProvisionedAt.ShouldBe(FixedMoment);
 
         stream.PendingEvents.Count.ShouldBe(1);
@@ -43,15 +43,14 @@ public class StreamTests
 
         stream.State.ShouldBe(StreamState.Healthy);
         stream.TranscodeMode.ShouldBe(TranscodeMode.Passthrough);
-        stream.LastSuccessAt.HasValue.ShouldBeTrue();
-        stream.LastSuccessAt.Value.ShouldBe(FixedMoment);
-        stream.LastError.HasValue.ShouldBeFalse();
+        stream.LastSuccessAt.ShouldBe(FixedMoment);
+        stream.LastError.ShouldBeNull();
 
         StreamHealthChangedDomainEvent transition =
             stream.PendingEvents.Single().ShouldBeOfType<StreamHealthChangedDomainEvent>();
         transition.FromState.ShouldBe(StreamState.Provisioning);
         transition.ToState.ShouldBe(StreamState.Healthy);
-        transition.Error.HasValue.ShouldBeFalse();
+        transition.Error.ShouldBeNull();
     }
 
     [Fact]
@@ -77,15 +76,13 @@ public class StreamTests
         stream.ReportDegraded("source unreachable", new TestClock(FixedMoment.AddSeconds(15)));
 
         stream.State.ShouldBe(StreamState.Degraded);
-        stream.LastError.HasValue.ShouldBeTrue();
-        stream.LastError.Value.ShouldBe("source unreachable");
+        stream.LastError.ShouldBe("source unreachable");
 
         StreamHealthChangedDomainEvent transition =
             stream.PendingEvents.Single().ShouldBeOfType<StreamHealthChangedDomainEvent>();
         transition.FromState.ShouldBe(StreamState.Healthy);
         transition.ToState.ShouldBe(StreamState.Degraded);
-        transition.Error.HasValue.ShouldBeTrue();
-        transition.Error.Value.ShouldBe("source unreachable");
+        transition.Error.ShouldBe("source unreachable");
     }
 
     [Fact]
@@ -98,7 +95,7 @@ public class StreamTests
 
         stream.ReportDegraded("retry failed", new TestClock(FixedMoment.AddSeconds(20)));
 
-        stream.LastError.Value.ShouldBe("retry failed");
+        stream.LastError.ShouldBe("retry failed");
         stream.PendingEvents.ShouldBeEmpty();
     }
 
@@ -141,7 +138,7 @@ public class StreamTests
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment.AddMinutes(1)));
 
         stream.State.ShouldBe(StreamState.Healthy);
-        stream.LastError.HasValue.ShouldBeFalse();
+        stream.LastError.ShouldBeNull();
         StreamHealthChangedDomainEvent transition =
             stream.PendingEvents.Single().ShouldBeOfType<StreamHealthChangedDomainEvent>();
         transition.FromState.ShouldBe(StreamState.Degraded);

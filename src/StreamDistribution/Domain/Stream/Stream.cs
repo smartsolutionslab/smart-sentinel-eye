@@ -1,3 +1,4 @@
+#nullable enable
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Domain.Stream.Events;
 
@@ -10,6 +11,18 @@ namespace SmartSentinelEye.StreamDistribution.Domain.Stream;
 /// (Provisioning → Healthy → Degraded → Offline + recovery edges) per spec
 /// 002 FR-004. Invalid transitions throw; handlers translate to
 /// <c>Result.Failure</c>.
+///
+/// <para>
+/// <see cref="LastSuccessAt"/> and <see cref="LastError"/> use nullable
+/// reference types rather than <c>Option&lt;T&gt;</c> per ADR-0048. The
+/// deviation is documented inline: EF Core's value-converter API for
+/// <c>Option&lt;T&gt; ↔ T?</c> requires the internal-API
+/// <c>convertsNulls</c> overload (EF1001), and the canonical model-metadata
+/// override (<c>IsNullable = true</c> on a non-nullable property) is
+/// rejected at runtime. Nullable types are pragmatic for these two
+/// EF-persisted columns; <c>Option&lt;T&gt;</c> stays the rule for
+/// invariant-bearing fields.
+/// </para>
 /// </summary>
 public sealed class Stream : AggregateRoot<StreamIdentifier>
 {
@@ -21,9 +34,9 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
 
     public TranscodeMode TranscodeMode { get; private set; } = null!;
 
-    public Option<DateTimeOffset> LastSuccessAt { get; private set; }
+    public DateTimeOffset? LastSuccessAt { get; private set; }
 
-    public Option<string> LastError { get; private set; }
+    public string? LastError { get; private set; }
 
     public DateTimeOffset ProvisionedAt { get; private set; }
 
@@ -47,8 +60,8 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
             Path = path,
             State = StreamState.Provisioning,
             TranscodeMode = TranscodeMode.Unknown,
-            LastSuccessAt = Option<DateTimeOffset>.None,
-            LastError = Option<string>.None,
+            LastSuccessAt = null,
+            LastError = null,
             ProvisionedAt = now,
             ProvisionedBy = provisionedBy,
         };
@@ -72,8 +85,8 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
         DateTimeOffset now = clock.UtcNow;
 
         TranscodeMode = detectedMode;
-        LastSuccessAt = Option<DateTimeOffset>.Some(now);
-        LastError = Option<string>.None;
+        LastSuccessAt = now;
+        LastError = null;
         State = StreamState.Healthy;
 
         if (previous != StreamState.Healthy)
@@ -84,7 +97,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
                 FromState: previous,
                 ToState: StreamState.Healthy,
                 ChangedAt: now,
-                Error: Option<string>.None));
+                Error: null));
         }
     }
 
@@ -96,7 +109,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
         StreamState previous = State;
         DateTimeOffset now = clock.UtcNow;
 
-        LastError = Option<string>.Some(error);
+        LastError = error;
         State = StreamState.Degraded;
 
         if (previous != StreamState.Degraded)
@@ -107,7 +120,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
                 FromState: previous,
                 ToState: StreamState.Degraded,
                 ChangedAt: now,
-                Error: Option<string>.Some(error)));
+                Error: error));
         }
     }
 
@@ -125,7 +138,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
         StreamState previous = State;
         DateTimeOffset now = clock.UtcNow;
 
-        LastError = Option<string>.Some(error);
+        LastError = error;
         State = StreamState.Offline;
 
         if (previous != StreamState.Offline)
@@ -136,7 +149,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
                 FromState: previous,
                 ToState: StreamState.Offline,
                 ChangedAt: now,
-                Error: Option<string>.Some(error)));
+                Error: error));
         }
     }
 }

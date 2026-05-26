@@ -1,3 +1,4 @@
+#nullable enable
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.StreamDistribution.Domain.Stream.Events;
@@ -14,4 +15,4 @@ public sealed record StreamHealthChangedDomainEvent(
     StreamState FromState,
     StreamState ToState,
     DateTimeOffset ChangedAt,
-    Option<string> Error) : IDomainEvent;
+    string? Error) : IDomainEvent;

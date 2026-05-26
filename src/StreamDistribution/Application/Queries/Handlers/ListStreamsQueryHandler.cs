@@ -28,10 +28,10 @@ public sealed class ListStreamsQueryHandler(
             return Result<IReadOnlyList<StreamHealthDto>, ListStreamsError>.Success(Array.Empty<StreamHealthDto>());
         }
 
-        HashSet<Guid> wanted = query.Cameras.Select(c => c.Value).ToHashSet();
+        CameraIdentifier[] wanted = [.. query.Cameras];
 
         List<Stream> matches = await streams.Streams
-            .Where(stream => wanted.Contains(stream.Camera.Value))
+            .Where(stream => wanted.Contains(stream.Camera))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 

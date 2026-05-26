@@ -53,7 +53,10 @@ public static class CameraCatalogInfrastructureModule
 
         builder.Services.AddScoped<ICameraRepository, CameraRepository>();
         builder.Services.AddScoped<ICameraQuerySource, CameraQuerySource>();
-        builder.Services.AddScoped<CameraRegisteredDomainEventHandler>();
+        builder.Services.AddScoped<
+            IDomainEventHandler<Domain.Camera.Events.CameraRegisteredDomainEvent>,
+            CameraRegisteredDomainEventHandler>();
+        builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddScoped<IEventBus, WolverineEventBus>();
 

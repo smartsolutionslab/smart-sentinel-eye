@@ -7,8 +7,9 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence.Configu
 
 /// <summary>
 /// EF Core mapping for the Stream aggregate. Value objects are flattened to
-/// plain columns; Option&lt;T&gt; properties map to nullable columns via
-/// conversions. Unique index on camera_id enforces "one stream per camera".
+/// plain columns. LastSuccessAt and LastError are nullable types per the
+/// ADR-0048 carve-out documented in Stream.cs. Unique index on camera_id
+/// enforces "one stream per camera".
 /// </summary>
 public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream.Stream>
 {
@@ -50,20 +51,12 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
 
         builder.Property(stream => stream.LastSuccessAt)
             .HasColumnName("last_success_at")
-            .HasConversion(
-                option => option.HasValue ? option.Value : (DateTimeOffset?)null,
-                column => column.HasValue
-                    ? Option<DateTimeOffset>.Some(column.Value)
-                    : Option<DateTimeOffset>.None);
+            .IsRequired(false);
 
         builder.Property(stream => stream.LastError)
             .HasColumnName("last_error")
             .HasMaxLength(1024)
-            .HasConversion(
-                option => option.HasValue ? option.Value : null,
-                column => column == null
-                    ? Option<string>.None
-                    : Option<string>.Some(column));
+            .IsRequired(false);
 
         builder.Property(stream => stream.ProvisionedAt)
             .HasColumnName("provisioned_at")

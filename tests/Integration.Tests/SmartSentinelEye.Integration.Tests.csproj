@@ -22,16 +22,20 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\AppHost\SmartSentinelEye.AppHost.csproj" IsAspireProjectResource="false" />
     <ProjectReference Include="..\..\src\CameraCatalog\Infrastructure\SmartSentinelEye.CameraCatalog.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\StreamDistribution\Infrastructure\SmartSentinelEye.StreamDistribution.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="System.Net" />
+    <Using Include="System.Net.Http.Json" />
     <Using Include="Microsoft.Extensions.DependencyInjection" />
     <Using Include="Aspire.Hosting.ApplicationModel" />
     <Using Include="Aspire.Hosting.Testing" />
     <Using Include="Shouldly" />
     <Using Include="Xunit" />
+    <!-- System.IO.Stream collides with our Stream aggregate; remove. -->
+    <Using Remove="System.IO" />
   </ItemGroup>
 
 </Project>

@@ -62,8 +62,8 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         {
             return new RtspPathHealth(
                 IsReady: false,
-                LastError: Option<string>.Some("path not registered"),
-                LastFrameAt: Option<DateTimeOffset>.None,
+                LastError: "path not registered",
+                LastFrameAt: null,
                 DetectedMode: TranscodeMode.Unknown);
         }
         response.EnsureSuccessStatusCode();
@@ -75,29 +75,27 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
             .ConfigureAwait(false);
 
         bool ready = payload.TryGetProperty("ready", out JsonElement readyEl) && readyEl.GetBoolean();
-        Option<DateTimeOffset> readyTime = TryReadIsoTimestamp(payload, "readyTime");
+        DateTimeOffset? readyTime = TryReadIsoTimestamp(payload, "readyTime");
 
         TranscodeMode mode = ready
             ? DetectTranscodeMode(payload)
             : TranscodeMode.Unknown;
 
-        Option<string> error = ready
-            ? Option<string>.None
-            : Option<string>.Some("not ready");
+        string? error = ready ? null : "not ready";
 
         return new RtspPathHealth(ready, error, readyTime, mode);
     }
 
-    private static Option<DateTimeOffset> TryReadIsoTimestamp(JsonElement payload, string property)
+    private static DateTimeOffset? TryReadIsoTimestamp(JsonElement payload, string property)
     {
-        if (!payload.TryGetProperty(property, out JsonElement element)) return Option<DateTimeOffset>.None;
-        if (element.ValueKind != JsonValueKind.String) return Option<DateTimeOffset>.None;
-        string? raw = element.GetString();
-        if (string.IsNullOrEmpty(raw)) return Option<DateTimeOffset>.None;
+        if (!payload.TryGetProperty(property, out JsonElement element)) return null;
+        if (element.ValueKind != JsonValueKind.String) return null;
+        string raw = element.GetString() ?? string.Empty;
+        if (raw.Length == 0) return null;
         return DateTimeOffset.TryParse(
             raw, System.Globalization.CultureInfo.InvariantCulture, out DateTimeOffset parsed)
-            ? Option<DateTimeOffset>.Some(parsed)
-            : Option<DateTimeOffset>.None;
+            ? parsed
+            : null;
     }
 
     private static TranscodeMode DetectTranscodeMode(JsonElement payload)

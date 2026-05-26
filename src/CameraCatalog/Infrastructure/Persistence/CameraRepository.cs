@@ -1,10 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
+using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 
-public sealed class CameraRepository(CameraCatalogDbContext dbContext) : ICameraRepository
+public sealed class CameraRepository(
+    CameraCatalogDbContext dbContext,
+    IDomainEventDispatcher domainEventDispatcher) : ICameraRepository
 {
     public async Task<Option<Camera>> GetByIdentifierAsync(CameraIdentifier camera, CancellationToken cancellationToken)
     {
@@ -29,6 +32,21 @@ public sealed class CameraRepository(CameraCatalogDbContext dbContext) : ICamera
         dbContext.Cameras.Add(camera);
     }
 
-    public Task SaveAsync(CancellationToken cancellationToken) =>
-        dbContext.SaveChangesAsync(cancellationToken);
+    public async Task SaveAsync(CancellationToken cancellationToken)
+    {
+        Camera[] tracked = dbContext.ChangeTracker
+            .Entries<Camera>()
+            .Where(entry => entry.Entity.PendingEvents.Count > 0)
+            .Select(entry => entry.Entity)
+            .ToArray();
+
+        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        foreach (Camera camera in tracked)
+        {
+            IDomainEvent[] events = camera.PendingEvents.ToArray();
+            camera.ClearPendingEvents();
+            await domainEventDispatcher.DispatchAsync(events, cancellationToken).ConfigureAwait(false);
+        }
+    }
 }

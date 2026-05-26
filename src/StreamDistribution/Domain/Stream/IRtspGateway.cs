@@ -1,5 +1,4 @@
-using SmartSentinelEye.Shared.Kernel;
-
+#nullable enable
 namespace SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 /// <summary>
@@ -21,11 +20,11 @@ public interface IRtspGateway
 /// Snapshot of an RTSP path's runtime state as reported by the SFU.
 /// </summary>
 /// <param name="IsReady"><c>true</c> when the SFU has decoded at least one frame in the recent past.</param>
-/// <param name="LastError">Most recent error string from the SFU, if any (None when the path has never failed).</param>
-/// <param name="LastFrameAt">When the SFU last received a frame (None until the first frame).</param>
+/// <param name="LastError">Most recent error string from the SFU, if any (null when the path has never failed).</param>
+/// <param name="LastFrameAt">When the SFU last received a frame (null until the first frame).</param>
 /// <param name="DetectedMode">Whether the SFU is in passthrough or software-transcode mode for this path.</param>
 public sealed record RtspPathHealth(
     bool IsReady,
-    Option<string> LastError,
-    Option<DateTimeOffset> LastFrameAt,
+    string? LastError,
+    DateTimeOffset? LastFrameAt,
     TranscodeMode DetectedMode);

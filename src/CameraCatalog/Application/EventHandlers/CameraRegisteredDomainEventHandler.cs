@@ -12,8 +12,9 @@ namespace SmartSentinelEye.CameraCatalog.Application.EventHandlers;
 /// transactional outbox per ADR-0088.
 /// </summary>
 public sealed class CameraRegisteredDomainEventHandler(IEventBus events)
+    : IDomainEventHandler<CameraRegisteredDomainEvent>
 {
-    public Task Handle(CameraRegisteredDomainEvent domainEvent, CancellationToken cancellationToken = default) =>
+    public Task Handle(CameraRegisteredDomainEvent domainEvent, CancellationToken cancellationToken) =>
         events.PublishAsync(
             new CameraRegisteredV1(
                 Camera: domainEvent.Camera.Value,

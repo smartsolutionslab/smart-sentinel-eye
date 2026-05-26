@@ -58,7 +58,7 @@ public class ReportStreamHealthCommandHandlerTests
             CancellationToken.None);
 
         streams.Streams.Single().State.ShouldBe(StreamState.Degraded);
-        streams.Streams.Single().LastError.Value.ShouldBe("source unreachable");
+        streams.Streams.Single().LastError.ShouldBe("source unreachable");
     }
 
     [Fact]
@@ -131,13 +131,13 @@ public class ReportStreamHealthCommandHandlerTests
 
     private static RtspPathHealth Healthy(TranscodeMode mode) =>
         new(IsReady: true,
-            LastError: Option<string>.None,
-            LastFrameAt: Option<DateTimeOffset>.Some(FixedMoment),
+            LastError: null,
+            LastFrameAt: FixedMoment,
             DetectedMode: mode);
 
     private static RtspPathHealth Unhealthy(string reason) =>
         new(IsReady: false,
-            LastError: Option<string>.Some(reason),
-            LastFrameAt: Option<DateTimeOffset>.None,
+            LastError: reason,
+            LastFrameAt: null,
             DetectedMode: TranscodeMode.Unknown);
 }

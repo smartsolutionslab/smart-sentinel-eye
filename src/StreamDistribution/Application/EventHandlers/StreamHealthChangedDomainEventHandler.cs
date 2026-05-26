@@ -10,8 +10,9 @@ namespace SmartSentinelEye.StreamDistribution.Application.EventHandlers;
 /// event and publishes via the Wolverine outbox (ADR-0040 + ADR-0088).
 /// </summary>
 public sealed class StreamHealthChangedDomainEventHandler(IEventBus events)
+    : IDomainEventHandler<StreamHealthChangedDomainEvent>
 {
-    public Task Handle(StreamHealthChangedDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    public Task Handle(StreamHealthChangedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(domainEvent);
         return events.PublishAsync(
@@ -20,7 +21,7 @@ public sealed class StreamHealthChangedDomainEventHandler(IEventBus events)
                 FromState: domainEvent.FromState.Value,
                 ToState: domainEvent.ToState.Value,
                 ChangedAt: domainEvent.ChangedAt,
-                Error: domainEvent.Error.HasValue ? domainEvent.Error.Value : null),
+                Error: domainEvent.Error),
             cancellationToken);
     }
 }
