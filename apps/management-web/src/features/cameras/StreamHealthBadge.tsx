@@ -1,8 +1,9 @@
 import clsx from 'clsx';
-import { useGetStreamQuery, type StreamState } from '@smart-sentinel-eye/shared/api/streams.api';
+import type { StreamHealth, StreamState } from '@smart-sentinel-eye/shared/api/streams.api';
+import { Tooltip } from '@smart-sentinel-eye/shared/ui/primitives/Tooltip';
 
 export interface StreamHealthBadgeProps {
-  cameraIdentifier: string;
+  stream: StreamHealth | undefined;
 }
 
 const TONES: Record<StreamState | 'unknown', string> = {
@@ -13,47 +14,38 @@ const TONES: Record<StreamState | 'unknown', string> = {
   unknown: 'bg-fg-muted/10 text-fg-muted border-fg-muted/30',
 };
 
-/**
- * Tiny pill displaying the camera's current stream state. Polls the
- * stream-distribution API every 5 seconds (replaced by push transport in
- * spec 002 v2 per ADR-0076).
- */
-export function StreamHealthBadge({ cameraIdentifier }: StreamHealthBadgeProps) {
-  const { data, error, isLoading } = useGetStreamQuery(cameraIdentifier, {
-    pollingInterval: 5000,
-  });
+const PILL = 'inline-flex items-center rounded border px-2 py-0.5 text-xs';
 
-  if (isLoading) {
-    return <span className={clsx('rounded border px-2 py-0.5 text-xs', TONES.unknown)}>…</span>;
-  }
-  if (error !== undefined || !data) {
+/**
+ * Pill rendering the current StreamState for a single camera, with a
+ * Radix tooltip carrying `lastSuccessAt` and (for non-Healthy states) the
+ * error string. The page polls `useListStreamsQuery` once for the visible
+ * rows and hands each badge its slice — avoids N independent polls.
+ */
+export function StreamHealthBadge({ stream }: StreamHealthBadgeProps) {
+  if (stream === undefined) {
     return (
-      <span
-        title="Stream metadata unavailable"
-        className={clsx('rounded border px-2 py-0.5 text-xs', TONES.unknown)}
-      >
+      <span className={clsx(PILL, TONES.unknown)} aria-label="Stream state unknown">
         Unknown
       </span>
     );
   }
 
-  const tone = TONES[data.state] ?? TONES.unknown;
-  const tooltip = buildTooltip(data.state, data.lastSuccessAt, data.error);
-
   return (
-    <span title={tooltip} className={clsx('rounded border px-2 py-0.5 text-xs', tone)}>
-      {data.state}
-    </span>
+    <Tooltip
+      trigger={<span className={clsx(PILL, TONES[stream.state] ?? TONES.unknown)}>{stream.state}</span>}
+      content={buildTooltip(stream.state, stream.lastSuccessAt, stream.error)}
+    />
   );
 }
 
 function buildTooltip(state: StreamState, lastSuccessAt: string | null, error: string | null): string {
-  const parts: string[] = [];
+  const lines: string[] = [`State: ${state}`];
   if (lastSuccessAt !== null) {
-    parts.push(`Last frame: ${new Date(lastSuccessAt).toLocaleString()}`);
+    lines.push(`Last frame: ${new Date(lastSuccessAt).toLocaleString()}`);
   }
   if (state !== 'Healthy' && error !== null) {
-    parts.push(`Error: ${error}`);
+    lines.push(`Error: ${error}`);
   }
-  return parts.length > 0 ? parts.join('\n') : state;
+  return lines.join('\n');
 }

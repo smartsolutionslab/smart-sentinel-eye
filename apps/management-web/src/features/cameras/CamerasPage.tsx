@@ -4,36 +4,22 @@ import {
   type CameraSortOrder,
   type CameraSummary,
 } from '@smart-sentinel-eye/shared/api/cameras.api';
+import {
+  useListStreamsQuery,
+  type StreamHealth,
+} from '@smart-sentinel-eye/shared/api/streams.api';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import {
   DataTable,
   type DataTableColumn,
   type DataTableSort,
 } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { RegisterCameraDialog } from './RegisterCameraDialog.js';
+import { StreamHealthBadge } from './StreamHealthBadge.js';
 
 const PAGE_SIZE = 50;
-
-const COLUMNS: DataTableColumn<CameraSummary, CameraSortField>[] = [
-  {
-    id: 'name',
-    header: 'Name',
-    cell: (row) => row.name,
-    sortKey: 'name',
-  },
-  {
-    id: 'rtspUrl',
-    header: 'RTSP URL',
-    cell: (row) => <code className="text-xs text-fg-muted">{row.rtspUrl}</code>,
-  },
-  {
-    id: 'registeredAt',
-    header: 'Registered',
-    cell: (row) => new Date(row.registeredAt).toLocaleString(),
-    sortKey: 'registeredAt',
-  },
-];
+const STREAM_POLL_MS = 5000;
 
 export function CamerasPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -50,10 +36,51 @@ export function CamerasPage() {
     limit: PAGE_SIZE,
   });
 
-  const items = data?.items ?? [];
+  const items = useMemo(() => data?.items ?? [], [data?.items]);
   const totalCount = data?.count ?? 0;
   const showingFrom = totalCount === 0 ? 0 : offset + 1;
   const showingTo = Math.min(offset + items.length, totalCount);
+
+  const visibleCameraIds = useMemo(
+    () => items.map((row) => row.cameraIdentifier),
+    [items],
+  );
+
+  const { data: streams } = useListStreamsQuery(visibleCameraIds, {
+    pollingInterval: STREAM_POLL_MS,
+    skip: visibleCameraIds.length === 0,
+  });
+
+  const streamsByCamera = useMemo(() => {
+    const map = new Map<string, StreamHealth>();
+    for (const stream of streams ?? []) {
+      map.set(stream.cameraIdentifier, stream);
+    }
+    return map;
+  }, [streams]);
+
+  const columns = useMemo<DataTableColumn<CameraSummary, CameraSortField>[]>(
+    () => [
+      { id: 'name', header: 'Name', cell: (row) => row.name, sortKey: 'name' },
+      {
+        id: 'rtspUrl',
+        header: 'RTSP URL',
+        cell: (row) => <code className="text-xs text-fg-muted">{row.rtspUrl}</code>,
+      },
+      {
+        id: 'stream',
+        header: 'Stream',
+        cell: (row) => <StreamHealthBadge stream={streamsByCamera.get(row.cameraIdentifier)} />,
+      },
+      {
+        id: 'registeredAt',
+        header: 'Registered',
+        cell: (row) => new Date(row.registeredAt).toLocaleString(),
+        sortKey: 'registeredAt',
+      },
+    ],
+    [streamsByCamera],
+  );
 
   const onSortChange = (next: DataTableSort<CameraSortField>) => {
     setSort(next);
@@ -80,7 +107,7 @@ export function CamerasPage() {
       )}
 
       <DataTable
-        columns={COLUMNS}
+        columns={columns}
         rows={items}
         getRowKey={(row) => row.cameraIdentifier}
         sort={sort}
