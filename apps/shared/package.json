@@ -14,6 +14,7 @@
     "./ui/primitives/Input": "./src/ui/primitives/Input.tsx",
     "./ui/primitives/Dialog": "./src/ui/primitives/Dialog.tsx",
     "./ui/composites/FormField": "./src/ui/composites/FormField.tsx",
+    "./ui/composites/DataTable": "./src/ui/composites/DataTable.tsx",
     "./ui/tokens/*": "./src/ui/tokens/*",
     "./hooks": "./src/hooks/index.ts",
     "./types": "./src/types/index.ts"

@@ -71,9 +71,11 @@
     <NoWarn>$(NoWarn);CA1716;CA1000;S2326;CA1711;CA1848;CA1873</NoWarn>
   </PropertyGroup>
 
-  <!-- Tests: relax the metric rules; loud test methods are valuable. -->
+  <!-- Tests: relax the metric rules; loud test methods are valuable.
+       CA1716 also suppressed because test-project namespaces mirror their
+       Shared.* / Result / Option production counterparts (see rationale above). -->
   <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
-    <NoWarn>$(NoWarn);S104;S138;S107;S1541;S134;S2699;CA1707</NoWarn>
+    <NoWarn>$(NoWarn);S104;S138;S107;S1541;S134;S2699;CA1707;CA1716</NoWarn>
   </PropertyGroup>
 
 </Project>
