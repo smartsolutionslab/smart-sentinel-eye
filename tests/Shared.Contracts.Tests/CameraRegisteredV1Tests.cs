@@ -1,0 +1,66 @@
+using System.Globalization;
+using System.Text.Json;
+using SmartSentinelEye.Shared.Contracts;
+using SmartSentinelEye.Shared.Contracts.CameraCatalog;
+
+namespace SmartSentinelEye.Shared.Contracts.Tests;
+
+public class CameraRegisteredV1Tests
+{
+    [Fact]
+    public void Exposes_all_payload_fields_via_the_positional_constructor()
+    {
+        Guid camera = Guid.CreateVersion7();
+        Guid operatorId = Guid.CreateVersion7();
+        DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
+
+        CameraRegisteredV1 evt = new(camera, "Line-1", "rtsp://10.0.5.1/h264", at, operatorId);
+
+        evt.Camera.ShouldBe(camera);
+        evt.Name.ShouldBe("Line-1");
+        evt.Url.ShouldBe("rtsp://10.0.5.1/h264");
+        evt.RegisteredAt.ShouldBe(at);
+        evt.RegisteredBy.ShouldBe(operatorId);
+    }
+
+    [Fact]
+    public void Implements_IIntegrationEvent_so_Wolverine_can_route_it()
+    {
+        CameraRegisteredV1 evt = new(
+            Guid.CreateVersion7(),
+            "Line-1",
+            "rtsp://10.0.5.1/h264",
+            DateTimeOffset.UtcNow,
+            Guid.CreateVersion7());
+
+        evt.ShouldBeAssignableTo<IIntegrationEvent>();
+    }
+
+    [Fact]
+    public void Records_with_the_same_payload_are_equal()
+    {
+        Guid camera = Guid.CreateVersion7();
+        Guid operatorId = Guid.CreateVersion7();
+        DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
+
+        CameraRegisteredV1 first = new(camera, "Line-1", "rtsp://10.0.5.1/h264", at, operatorId);
+        CameraRegisteredV1 second = new(camera, "Line-1", "rtsp://10.0.5.1/h264", at, operatorId);
+
+        first.ShouldBe(second);
+        first.GetHashCode().ShouldBe(second.GetHashCode());
+    }
+
+    [Fact]
+    public void JSON_round_trip_preserves_every_field()
+    {
+        Guid camera = Guid.CreateVersion7();
+        Guid operatorId = Guid.CreateVersion7();
+        DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
+        CameraRegisteredV1 original = new(camera, "Line-1", "rtsp://10.0.5.1/h264", at, operatorId);
+
+        string json = JsonSerializer.Serialize(original);
+        CameraRegisteredV1 deserialized = JsonSerializer.Deserialize<CameraRegisteredV1>(json)!;
+
+        deserialized.ShouldBe(original);
+    }
+}

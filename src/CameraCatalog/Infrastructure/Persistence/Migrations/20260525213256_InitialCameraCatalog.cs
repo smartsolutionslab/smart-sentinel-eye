@@ -33,7 +33,6 @@ namespace SmartSentinelEye.CameraCatalog.Infrastructure.Persistence.Migrations
                 table: "cameras",
                 column: "name",
                 unique: true)
-                .Annotation("Npgsql:IndexInclude", new string[0])
                 .Annotation("Npgsql:IndexMethod", "btree");
         }
 

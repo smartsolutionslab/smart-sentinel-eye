@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using SmartSentinelEye.CameraCatalog.Application.Commands.Handlers;
+using SmartSentinelEye.CameraCatalog.Application.Queries.Handlers;
 
 namespace SmartSentinelEye.CameraCatalog.Api;
 
@@ -14,6 +15,7 @@ public static class CameraCatalogApiModule
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddScoped<RegisterCameraCommandHandler>();
+        services.AddScoped<ListCamerasQueryHandler>();
 
         return services;
     }

@@ -26,9 +26,13 @@ export default [
         setInterval: 'readonly',
         clearInterval: 'readonly',
         fetch: 'readonly',
+        Response: 'readonly',
+        Request: 'readonly',
+        Headers: 'readonly',
         WebSocket: 'readonly',
         URL: 'readonly',
         URLSearchParams: 'readonly',
+        globalThis: 'readonly',
       },
     },
     plugins: {

@@ -8,7 +8,7 @@ namespace SmartSentinelEye.CameraCatalog.Domain.Camera;
 /// case-insensitively (via NormalizedValue); original casing preserved for
 /// display.
 /// </summary>
-public sealed record CameraName : StringValueObject
+public sealed record CameraName : StringValueObject, IComparable<CameraName>
 {
     public const int MaximumLength = 200;
 
@@ -19,6 +19,24 @@ public sealed record CameraName : StringValueObject
     {
         NormalizedValue = normalizedValue;
     }
+
+    public int CompareTo(CameraName? other)
+    {
+        if (other is null) return 1;
+        return string.Compare(NormalizedValue, other.NormalizedValue, StringComparison.Ordinal);
+    }
+
+    public static bool operator <(CameraName left, CameraName right) =>
+        Comparer<CameraName>.Default.Compare(left, right) < 0;
+
+    public static bool operator >(CameraName left, CameraName right) =>
+        Comparer<CameraName>.Default.Compare(left, right) > 0;
+
+    public static bool operator <=(CameraName left, CameraName right) =>
+        Comparer<CameraName>.Default.Compare(left, right) <= 0;
+
+    public static bool operator >=(CameraName left, CameraName right) =>
+        Comparer<CameraName>.Default.Compare(left, right) >= 0;
 
     public static CameraName From(string value)
     {
