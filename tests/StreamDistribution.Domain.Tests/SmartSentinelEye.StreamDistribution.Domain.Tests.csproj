@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Shouldly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="Shouldly" />
+    <!-- System.IO.Stream collides with our Stream aggregate; remove. -->
+    <Using Remove="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\StreamDistribution\Domain\SmartSentinelEye.StreamDistribution.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Shared.Kernel\SmartSentinelEye.Shared.Kernel.csproj" />
+  </ItemGroup>
+
+</Project>
