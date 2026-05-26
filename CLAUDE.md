@@ -17,6 +17,17 @@ The full picture lives in:
 - **`specs/`** — per-feature specs produced by Spec-Kit. Each spec links
   to its `plan.md` and `tasks.md`.
 
+## Branching — GitFlow (ADR-0028)
+
+**`develop` is the default branch.** Every feature, doc, chore, and CI
+branch is cut from `develop` and merges back to `develop`. **Never open
+a PR against `main`.** `main` only ever receives merges from
+`release/x.y.z` and `hotfix/<short>` branches.
+
+When you run `gh pr create`, pass `--base develop` explicitly until the
+repo's local default tracking is fixed. The harness's git-status header
+may say "Main branch" but trust this file over the header.
+
 ## Workflow — guided phased process (ADR-0037)
 
 Seven phases, each with an artifact and an **explicit gate**. **Do not
