@@ -28,6 +28,14 @@ public sealed partial record MediaMtxPath : StringValueObject
         return new MediaMtxPath(validated);
     }
 
+    /// <summary>
+    /// True if <paramref name="value"/> matches the <c>cam-{guid}</c>
+    /// shape. Used by the reconciler to filter out manually-created
+    /// MediaMTX paths that don't belong to a Stream aggregate.
+    /// </summary>
+    public static bool IsCanonical(string? value) =>
+        value is not null && PathPattern.IsMatch(value);
+
     [GeneratedRegex(
         "^cam-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
         RegexOptions.CultureInvariant)]

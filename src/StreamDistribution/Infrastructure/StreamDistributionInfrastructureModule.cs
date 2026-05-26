@@ -17,6 +17,7 @@ using SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 using SmartSentinelEye.StreamDistribution.Infrastructure.HealthWatcher;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
+using SmartSentinelEye.StreamDistribution.Infrastructure.Reconciler;
 
 namespace SmartSentinelEye.StreamDistribution.Infrastructure;
 
@@ -85,6 +86,7 @@ public static class StreamDistributionInfrastructureModule
         }).AddStandardResilienceHandler();
 
         builder.Services.AddHostedService<StreamHealthWatcher>();
+        builder.Services.AddHostedService<MediaMtxReconciler>();
 
         builder.AddWolverineForContext<StreamDistributionDbContext>(
             moduleQueuePrefix: ContextName,

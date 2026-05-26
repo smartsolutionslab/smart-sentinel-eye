@@ -7,10 +7,12 @@
     coverlet, merges per-project reports with reportgenerator, then fails
     if any of the gated projects falls below its threshold:
 
-        CameraCatalog.Domain        >= 90%
-        CameraCatalog.Application   >= 80%
-        Shared.Kernel               >= 90%
-        Shared.Contracts            >= 90%
+        CameraCatalog.Domain          >= 90%
+        CameraCatalog.Application     >= 80%
+        StreamDistribution.Domain     >= 90%
+        StreamDistribution.Application>= 80%
+        Shared.Kernel                 >= 90%
+        Shared.Contracts              >= 90%
 
     Run before opening a PR. Use `-OpenReport` to launch the HTML report.
 #>
@@ -48,6 +50,8 @@ try {
     $gated = @(
         'SmartSentinelEye.CameraCatalog.Domain',
         'SmartSentinelEye.CameraCatalog.Application',
+        'SmartSentinelEye.StreamDistribution.Domain',
+        'SmartSentinelEye.StreamDistribution.Application',
         'SmartSentinelEye.Shared.Kernel',
         'SmartSentinelEye.Shared.Contracts'
     )
@@ -64,10 +68,12 @@ try {
     [xml]$report = Get-Content $cobertura
 
     $thresholds = @{
-        'SmartSentinelEye.CameraCatalog.Domain'        = 90
-        'SmartSentinelEye.CameraCatalog.Application'   = 80
-        'SmartSentinelEye.Shared.Kernel'               = 90
-        'SmartSentinelEye.Shared.Contracts'            = 90
+        'SmartSentinelEye.CameraCatalog.Domain'             = 90
+        'SmartSentinelEye.CameraCatalog.Application'        = 80
+        'SmartSentinelEye.StreamDistribution.Domain'        = 90
+        'SmartSentinelEye.StreamDistribution.Application'   = 80
+        'SmartSentinelEye.Shared.Kernel'                    = 90
+        'SmartSentinelEye.Shared.Contracts'                 = 90
     }
 
     Write-Host "`n==> Coverage gate (ADR-0065):"

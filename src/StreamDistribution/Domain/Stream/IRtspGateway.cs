@@ -14,6 +14,14 @@ public interface IRtspGateway
     Task RemovePathAsync(MediaMtxPath path, CancellationToken cancellationToken);
 
     Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists every configured MediaMtx path name. Used by the startup
+    /// reconciler to find orphans (paths in MediaMTX that no longer back
+    /// a DB stream — e.g. left over after a manual MediaMTX restart, or a
+    /// stream that was deleted while MediaMTX was down).
+    /// </summary>
+    Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>
