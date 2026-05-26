@@ -34,7 +34,7 @@ public sealed class ReportStreamHealthCommandHandler(
             if (command.DeclareOffline)
             {
                 stream.ReportOffline(
-                    command.Observation.LastError.GetOrDefault("offline (no frames within retry window)"),
+                    command.Observation.LastError ?? "offline (no frames within retry window)",
                     clock);
             }
             else if (command.Observation.IsReady)
@@ -44,7 +44,7 @@ public sealed class ReportStreamHealthCommandHandler(
             else
             {
                 stream.ReportDegraded(
-                    command.Observation.LastError.GetOrDefault("no frame within the health-watcher window"),
+                    command.Observation.LastError ?? "no frame within the health-watcher window",
                     clock);
             }
         }

@@ -1,4 +1,3 @@
-using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Application.Tests.Fakes;
@@ -21,8 +20,8 @@ public sealed class FakeRtspGateway : IRtspGateway
         AddCalls.Add((path, rtspSourceUrl));
         _paths[path] = new RtspPathHealth(
             IsReady: true,
-            LastError: Option<string>.None,
-            LastFrameAt: Option<DateTimeOffset>.None,
+            LastError: null,
+            LastFrameAt: null,
             DetectedMode: TranscodeMode.Passthrough);
         return Task.CompletedTask;
     }
@@ -42,8 +41,8 @@ public sealed class FakeRtspGateway : IRtspGateway
         }
         return Task.FromResult(new RtspPathHealth(
             IsReady: false,
-            LastError: Option<string>.Some("path not found"),
-            LastFrameAt: Option<DateTimeOffset>.None,
+            LastError: "path not found",
+            LastFrameAt: null,
             DetectedMode: TranscodeMode.Unknown));
     }
 }

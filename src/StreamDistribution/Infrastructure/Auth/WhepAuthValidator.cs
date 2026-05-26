@@ -68,6 +68,13 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
         {
             return Option<WhepAuthSubject>.None;
         }
+        catch (ArgumentException)
+        {
+            // Some malformed-token paths in JwtSecurityTokenHandler surface
+            // as ArgumentException rather than SecurityTokenException. Treat
+            // both as anonymous so MediaMTX gets a clean 401.
+            return Option<WhepAuthSubject>.None;
+        }
     }
 }
 

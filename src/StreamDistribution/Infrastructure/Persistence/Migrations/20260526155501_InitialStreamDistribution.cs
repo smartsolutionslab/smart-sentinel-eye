@@ -20,8 +20,8 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence.Migrati
                     mediamtx_path = table.Column<string>(type: "character varying(80)", maxLength: 80, nullable: false),
                     state = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false),
                     transcode_mode = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false),
-                    last_success_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    last_error = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
+                    last_success_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    last_error = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: true),
                     provisioned_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     provisioned_by = table.Column<Guid>(type: "uuid", nullable: false),
                     version = table.Column<int>(type: "integer", nullable: false)

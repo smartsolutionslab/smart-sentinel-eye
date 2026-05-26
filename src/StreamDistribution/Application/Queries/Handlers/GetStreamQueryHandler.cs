@@ -36,6 +36,6 @@ public sealed class GetStreamQueryHandler(
             State: stream.State.Value,
             WhepUrl: whepUrls.For(stream.Path),
             TranscodeMode: stream.TranscodeMode.Value,
-            LastSuccessAt: stream.LastSuccessAt.HasValue ? stream.LastSuccessAt.Value : null,
-            Error: stream.LastError.HasValue ? stream.LastError.Value : null);
+            LastSuccessAt: stream.LastSuccessAt,
+            Error: stream.LastError);
 }

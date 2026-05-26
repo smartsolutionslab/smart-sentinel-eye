@@ -36,12 +36,11 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence.Migrati
                         .HasColumnName("camera_id");
 
                     b.Property<string>("LastError")
-                        .IsRequired()
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("last_error");
 
-                    b.Property<DateTimeOffset>("LastSuccessAt")
+                    b.Property<DateTimeOffset?>("LastSuccessAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_success_at");
 

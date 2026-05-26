@@ -23,7 +23,8 @@ public static class WolverineDefaults
         string moduleQueuePrefix,
         string outboxSchema,
         string postgresConnectionName,
-        string rabbitConnectionName = "rabbitmq")
+        string rabbitConnectionName = "rabbitmq",
+        Action<WolverineOptions> configureMore = null)
         where TDbContext : DbContext
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(moduleQueuePrefix);
@@ -56,6 +57,8 @@ public static class WolverineDefaults
                     routing.QueueNameForListener(eventType =>
                         $"{moduleQueuePrefix}.{eventType.FullName}");
                 });
+
+            configureMore?.Invoke(opts);
         });
 
         return builder;

@@ -42,6 +42,13 @@ public static class StreamDistributionInfrastructureModule
 
         builder.Services.AddScoped<IStreamRepository, StreamRepository>();
         builder.Services.AddScoped<IStreamQuerySource, StreamQuerySource>();
+        builder.Services.AddScoped<
+            IDomainEventHandler<Domain.Stream.Events.StreamProvisionedDomainEvent>,
+            StreamProvisionedDomainEventHandler>();
+        builder.Services.AddScoped<
+            IDomainEventHandler<Domain.Stream.Events.StreamHealthChangedDomainEvent>,
+            StreamHealthChangedDomainEventHandler>();
+        builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddScoped<IEventBus, WolverineEventBus>();
         builder.Services.AddSingleton<IStreamWhepUrlBuilder, MediaMtxWhepUrlBuilder>();
@@ -82,7 +89,16 @@ public static class StreamDistributionInfrastructureModule
         builder.AddWolverineForContext<StreamDistributionDbContext>(
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
-            postgresConnectionName: StreamDistributionPersistenceModule.DatabaseConnectionName);
+            postgresConnectionName: StreamDistributionPersistenceModule.DatabaseConnectionName,
+            configureMore: opts =>
+            {
+                // The Wolverine handler discovery scan defaults to the entry
+                // assembly (StreamDistribution.Api). Include the Application
+                // assembly so CameraRegisteredIntegrationEventHandler and the
+                // domain-event handlers are bound to the integration bus.
+                opts.Discovery.IncludeAssembly(
+                    typeof(CameraRegisteredIntegrationEventHandler).Assembly);
+            });
 
         return builder;
     }

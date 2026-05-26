@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.StreamDistribution.Domain.Stream.Events;
 
 namespace SmartSentinelEye.StreamDistribution.Application.EventHandlers;
@@ -10,8 +11,9 @@ namespace SmartSentinelEye.StreamDistribution.Application.EventHandlers;
 /// stream transitions out of Provisioning).
 /// </summary>
 public sealed class StreamProvisionedDomainEventHandler(ILogger<StreamProvisionedDomainEventHandler> log)
+    : IDomainEventHandler<StreamProvisionedDomainEvent>
 {
-    public Task Handle(StreamProvisionedDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    public Task Handle(StreamProvisionedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(domainEvent);
         log.LogInformation(

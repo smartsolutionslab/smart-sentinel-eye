@@ -1,10 +1,13 @@
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 
-public sealed class StreamRepository(StreamDistributionDbContext dbContext) : IStreamRepository
+public sealed class StreamRepository(
+    StreamDistributionDbContext dbContext,
+    IDomainEventDispatcher domainEventDispatcher) : IStreamRepository
 {
     public async Task<Option<Domain.Stream.Stream>> GetByIdentifierAsync(
         StreamIdentifier stream, CancellationToken cancellationToken)
@@ -40,6 +43,21 @@ public sealed class StreamRepository(StreamDistributionDbContext dbContext) : IS
         dbContext.Streams.Add(stream);
     }
 
-    public Task SaveAsync(CancellationToken cancellationToken) =>
-        dbContext.SaveChangesAsync(cancellationToken);
+    public async Task SaveAsync(CancellationToken cancellationToken)
+    {
+        Domain.Stream.Stream[] tracked = dbContext.ChangeTracker
+            .Entries<Domain.Stream.Stream>()
+            .Where(entry => entry.Entity.PendingEvents.Count > 0)
+            .Select(entry => entry.Entity)
+            .ToArray();
+
+        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        foreach (Domain.Stream.Stream stream in tracked)
+        {
+            IDomainEvent[] events = stream.PendingEvents.ToArray();
+            stream.ClearPendingEvents();
+            await domainEventDispatcher.DispatchAsync(events, cancellationToken).ConfigureAwait(false);
+        }
+    }
 }

@@ -31,6 +31,8 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
     public HttpClient CameraCatalog { get; private set; } = null!;
 
+    public HttpClient StreamDistribution { get; private set; } = null!;
+
     public async Task InitializeAsync()
     {
         string[] parameters =
@@ -71,7 +73,16 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 .WaitForResourceAsync("camera-catalog", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
+            await _app.ResourceNotifications
+                .WaitForResourceAsync("mediamtx", KnownResourceStates.Running, cts.Token)
+                .ConfigureAwait(false);
+
+            await _app.ResourceNotifications
+                .WaitForResourceAsync("stream-distribution", KnownResourceStates.Running, cts.Token)
+                .ConfigureAwait(false);
+
             await WaitForKeycloakRealmAsync(cts.Token).ConfigureAwait(false);
+            await WaitForMediaMtxAsync(cts.Token).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is OperationCanceledException or TaskCanceledException)
         {
@@ -85,11 +96,13 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         }
 
         CameraCatalog = App.CreateHttpClient("camera-catalog");
+        StreamDistribution = App.CreateHttpClient("stream-distribution");
     }
 
     public async Task DisposeAsync()
     {
         CameraCatalog?.Dispose();
+        StreamDistribution?.Dispose();
 
         if (_logCts is not null)
         {
@@ -188,5 +201,31 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         throw new TimeoutException(
             "Keycloak realm 'smart-sentinel-eye' was not reachable after 60 attempts. " +
             "Check the realm-import logs in the Aspire dashboard.");
+    }
+
+    private async Task WaitForMediaMtxAsync(CancellationToken cancellationToken)
+    {
+        using HttpClient probe = App.CreateHttpClient("mediamtx", "api");
+        for (int attempt = 0; attempt < 60; attempt++)
+        {
+            try
+            {
+                HttpResponseMessage response = await probe.GetAsync(
+                    "/v3/paths/list", cancellationToken).ConfigureAwait(false);
+                if (response.IsSuccessStatusCode)
+                {
+                    return;
+                }
+            }
+            catch (HttpRequestException)
+            {
+                // MediaMTX still booting
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
+        }
+
+        throw new TimeoutException(
+            "MediaMTX /v3/paths/list was not reachable after 60 attempts.");
     }
 }
