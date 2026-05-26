@@ -11,6 +11,7 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Shouldly" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
@@ -19,8 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\LayoutComposition\Application\SmartSentinelEye.LayoutComposition.Application.csproj" />
     <ProjectReference Include="..\..\src\LayoutComposition\Domain\SmartSentinelEye.LayoutComposition.Domain.csproj" />
     <ProjectReference Include="..\..\src\Shared.Kernel\SmartSentinelEye.Shared.Kernel.csproj" />
+    <ProjectReference Include="..\..\src\Shared.CQRS\SmartSentinelEye.Shared.CQRS.csproj" />
+    <ProjectReference Include="..\..\src\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
   </ItemGroup>
 
 </Project>
