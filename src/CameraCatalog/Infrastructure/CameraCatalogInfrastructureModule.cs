@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.CameraCatalog.Application.EventHandlers;
+using SmartSentinelEye.CameraCatalog.Application.Queries;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
 using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
@@ -13,8 +14,14 @@ namespace SmartSentinelEye.CameraCatalog.Infrastructure;
 
 /// <summary>
 /// Composition root for the Camera Catalog Infrastructure layer (ADR-0051).
-/// Wires EF Core, Wolverine + outbox + RabbitMQ, the repository, IClock,
-/// IEventBus, and the migrator.
+///
+/// Two entry points:
+/// - <see cref="AddCameraCatalogPersistence"/> registers only what the
+///   MigrationRunner needs: <c>DbContext</c> + <see cref="IMigrator"/>.
+///   No Wolverine, no RabbitMQ, no repositories.
+/// - <see cref="AddCameraCatalogInfrastructure"/> layers the full stack
+///   (Wolverine + outbox + RabbitMQ + repositories + event handlers) on
+///   top, for the API process.
 /// </summary>
 public static class CameraCatalogInfrastructureModule
 {
@@ -22,7 +29,7 @@ public static class CameraCatalogInfrastructureModule
     public const string OutboxSchema = "wolverine_camera_catalog";
     public const string DatabaseConnectionName = "camera-catalog-db";
 
-    public static IHostApplicationBuilder AddCameraCatalogInfrastructure(this IHostApplicationBuilder builder)
+    public static IHostApplicationBuilder AddCameraCatalogPersistence(this IHostApplicationBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
@@ -33,11 +40,22 @@ public static class CameraCatalogInfrastructureModule
         builder.Services.AddDbContextFactory<CameraCatalogDbContext>(options =>
             options.UseNpgsql(connectionString));
 
+        builder.Services.AddSingleton<IMigrator, CameraCatalogMigrator>();
+
+        return builder;
+    }
+
+    public static IHostApplicationBuilder AddCameraCatalogInfrastructure(this IHostApplicationBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        builder.AddCameraCatalogPersistence();
+
         builder.Services.AddScoped<ICameraRepository, CameraRepository>();
+        builder.Services.AddScoped<ICameraQuerySource, CameraQuerySource>();
         builder.Services.AddScoped<CameraRegisteredDomainEventHandler>();
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddScoped<IEventBus, WolverineEventBus>();
-        builder.Services.AddSingleton<IMigrator, CameraCatalogMigrator>();
 
         builder.AddWolverineForContext<CameraCatalogDbContext>(
             moduleQueuePrefix: ContextName,
