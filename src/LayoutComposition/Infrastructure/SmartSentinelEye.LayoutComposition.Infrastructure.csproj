@@ -1,10 +1,27 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\Domain\SmartSentinelEye.LayoutComposition.Domain.csproj" />
     <ProjectReference Include="..\Application\SmartSentinelEye.LayoutComposition.Application.csproj" />
     <ProjectReference Include="..\..\Shared.Kernel\SmartSentinelEye.Shared.Kernel.csproj" />
     <ProjectReference Include="..\..\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
+    <ProjectReference Include="..\..\Shared.CQRS\SmartSentinelEye.Shared.CQRS.csproj" />
+    <ProjectReference Include="..\..\ServiceDefaults\SmartSentinelEye.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- EF Core stack for state-based persistence (ADR-0009) plus the
+         Wolverine outbox sharing the same DbContext (ADR-0088). Mirrors
+         StreamDistribution.Infrastructure. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="WolverineFx" />
+    <PackageReference Include="WolverineFx.EntityFrameworkCore" />
+    <PackageReference Include="WolverineFx.Postgresql" />
+    <PackageReference Include="WolverineFx.RabbitMQ" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
 
   <PropertyGroup>
