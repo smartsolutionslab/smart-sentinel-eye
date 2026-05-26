@@ -1,5 +1,6 @@
 using SmartSentinelEye.CameraCatalog.Infrastructure;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.StreamDistribution.Infrastructure;
 
 // MigrationRunner orchestrates all bounded-context database migrations and exits (ADR-0067).
 // Each IMigrator runs sequentially before any Api service starts.
@@ -8,6 +9,7 @@ HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 builder.AddServiceDefaults();
 
 builder.AddCameraCatalogPersistence();
+builder.AddStreamDistributionPersistence();
 
 IHost host = builder.Build();
 ILogger<Program> log = host.Services.GetRequiredService<ILogger<Program>>();
