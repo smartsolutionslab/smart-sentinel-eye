@@ -17,6 +17,15 @@ vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => 
   };
 });
 
+vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/streams.api')>();
+  return {
+    ...actual,
+    useGetStreamQuery: () => ({ data: undefined, isLoading: false, error: undefined }),
+    useListStreamsQuery: () => ({ data: [], isLoading: false, error: undefined }),
+  };
+});
+
 const { App } = await import('./App.js');
 const { store } = await import('./app/store.js');
 

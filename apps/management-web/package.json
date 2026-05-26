@@ -15,6 +15,7 @@
     "@smart-sentinel-eye/shared": "workspace:*",
     "@hookform/resolvers": "3.10.0",
     "@reduxjs/toolkit": "2.5.0",
+    "clsx": "2.1.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-hook-form": "7.54.2",
