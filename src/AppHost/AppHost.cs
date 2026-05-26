@@ -42,6 +42,8 @@ IResourceBuilder<PostgresDatabaseResource> cameraCatalogDb =
     postgres.AddDatabase("camera-catalog-db");
 IResourceBuilder<PostgresDatabaseResource> streamDistributionDb =
     postgres.AddDatabase("stream-distribution-db");
+IResourceBuilder<PostgresDatabaseResource> layoutCompositionDb =
+    postgres.AddDatabase("layout-composition-db");
 
 IResourceBuilder<RabbitMQServerResource> rabbitmq = builder
     .AddRabbitMQ("rabbitmq", password: rabbitPassword)
@@ -86,8 +88,10 @@ IResourceBuilder<ProjectResource> migrations = builder
     .AddProject<Projects.SmartSentinelEye_MigrationRunner>("migrations")
     .WithReference(cameraCatalogDb)
     .WithReference(streamDistributionDb)
+    .WithReference(layoutCompositionDb)
     .WaitFor(cameraCatalogDb)
-    .WaitFor(streamDistributionDb);
+    .WaitFor(streamDistributionDb)
+    .WaitFor(layoutCompositionDb);
 
 IResourceBuilder<ProjectResource> cameraCatalog = builder
     .AddProject<Projects.SmartSentinelEye_CameraCatalog_Api>("camera-catalog")
@@ -99,7 +103,8 @@ IResourceBuilder<ProjectResource> cameraCatalog = builder
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
 
-builder.AddProject<Projects.SmartSentinelEye_StreamDistribution_Api>("stream-distribution")
+IResourceBuilder<ProjectResource> streamDistribution = builder
+    .AddProject<Projects.SmartSentinelEye_StreamDistribution_Api>("stream-distribution")
     .WithHttpEndpoint()
     .WithReference(streamDistributionDb)
     .WithReference(rabbitmq)
@@ -110,7 +115,15 @@ builder.AddProject<Projects.SmartSentinelEye_StreamDistribution_Api>("stream-dis
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
     .WaitFor(mediamtx);
-builder.AddProject<Projects.SmartSentinelEye_LayoutComposition_Api>("layout-composition").WaitForCompletion(migrations);
+IResourceBuilder<ProjectResource> layoutComposition = builder
+    .AddProject<Projects.SmartSentinelEye_LayoutComposition_Api>("layout-composition")
+    .WithHttpEndpoint()
+    .WithReference(layoutCompositionDb)
+    .WithReference(rabbitmq)
+    .WithReference(keycloak)
+    .WaitForCompletion(migrations)
+    .WaitFor(rabbitmq)
+    .WaitFor(keycloak);
 builder.AddProject<Projects.SmartSentinelEye_SystemVariables_Api>("system-variables").WaitForCompletion(migrations);
 builder.AddProject<Projects.SmartSentinelEye_EventIngestion_Api>("event-ingestion").WaitForCompletion(migrations);
 builder.AddProject<Projects.SmartSentinelEye_OverlayDesigner_Api>("overlay-designer").WaitForCompletion(migrations);
@@ -129,6 +142,10 @@ if (isRunMode && !isE2ETests)
 
     builder.AddNpmApp("kiosk-web", "../../apps/kiosk-web", "dev")
         .WithHttpEndpoint(env: "PORT", port: 5174)
+        .WithReference(cameraCatalog)
+        .WithReference(streamDistribution)
+        .WithReference(layoutComposition)
+        .WithReference(keycloak)
         .WithExternalHttpEndpoints();
 }
 

@@ -81,6 +81,31 @@
         "roles",
         "sse.management"
       ]
+    },
+    {
+      "clientId": "smart-sentinel-eye-kiosk",
+      "name": "Smart Sentinel Eye Kiosk App",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5174/oidc/callback",
+        "http://localhost:5174/*",
+        "http://localhost:*"
+      ],
+      "webOrigins": ["+"],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "basic",
+        "profile",
+        "email",
+        "roles",
+        "sse.management"
+      ]
     }
   ],
   "users": [
