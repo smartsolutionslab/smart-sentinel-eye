@@ -16,6 +16,7 @@
     "./ui/primitives/Button": "./src/ui/primitives/Button.tsx",
     "./ui/primitives/Input": "./src/ui/primitives/Input.tsx",
     "./ui/primitives/Dialog": "./src/ui/primitives/Dialog.tsx",
+    "./ui/primitives/Tooltip": "./src/ui/primitives/Tooltip.tsx",
     "./ui/composites/FormField": "./src/ui/composites/FormField.tsx",
     "./ui/composites/DataTable": "./src/ui/composites/DataTable.tsx",
     "./ui/composites/CameraViewer": "./src/ui/composites/CameraViewer.tsx",
