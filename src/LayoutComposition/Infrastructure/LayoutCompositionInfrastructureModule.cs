@@ -42,7 +42,8 @@ public static class LayoutCompositionInfrastructureModule
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddScoped<IEventBus, WolverineEventBus>();
-        builder.Services.AddSingleton<ILayoutLifecycleBroadcaster, NoopLayoutLifecycleBroadcaster>();
+        builder.Services.AddSignalR();
+        builder.Services.AddSingleton<ILayoutLifecycleBroadcaster, SignalRLayoutLifecycleBroadcaster>();
 
         // Hand-rolled command handler registrations (ADR-0042 + ADR-0057).
         builder.Services.AddScoped<

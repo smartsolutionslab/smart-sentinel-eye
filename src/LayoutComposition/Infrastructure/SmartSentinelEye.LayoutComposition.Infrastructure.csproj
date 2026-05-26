@@ -10,6 +10,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- ASP.NET Core framework reference for SignalR (LayoutLifecycleHub
+         + IHubContext for the broadcaster). The Domain abstraction
+         ILayoutLifecycleBroadcaster keeps this dependency invisible to
+         Application + Domain. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- EF Core stack for state-based persistence (ADR-0009) plus the
          Wolverine outbox sharing the same DbContext (ADR-0088). Mirrors
          StreamDistribution.Infrastructure. -->
@@ -21,7 +29,6 @@
     <PackageReference Include="WolverineFx.EntityFrameworkCore" />
     <PackageReference Include="WolverineFx.Postgresql" />
     <PackageReference Include="WolverineFx.RabbitMQ" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
 
   <PropertyGroup>
