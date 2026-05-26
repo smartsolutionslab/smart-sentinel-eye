@@ -108,12 +108,25 @@ public static class CameraEndpoints
 
     private static OperatorIdentifier ResolveOperator(HttpContext httpContext)
     {
-        string subject = httpContext.User.FindFirst("sub")?.Value
-            ?? throw new InvalidOperationException("Authenticated principal is missing the 'sub' claim.");
+        // The JWT 'sub' claim ends up under different names depending on whether
+        // System.IdentityModel.Tokens.Jwt remapped it (MapInboundClaims=true ->
+        // NameIdentifier URI; false -> raw "sub"). Try the common variants and,
+        // as a last resort, the first Guid-valued claim on the principal.
+        string? subject =
+            httpContext.User.FindFirst("sub")?.Value
+            ?? httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? httpContext.User.FindFirst("nameid")?.Value;
+
+        if (subject is null)
+        {
+            string allClaims = string.Join(", ", httpContext.User.Claims.Select(c => $"{c.Type}={c.Value}"));
+            throw new InvalidOperationException(
+                $"Authenticated principal is missing the subject claim. Available claims: {allClaims}");
+        }
 
         if (!Guid.TryParse(subject, out Guid subjectId))
         {
-            throw new InvalidOperationException($"Claim 'sub' is not a valid Guid: {subject}.");
+            throw new InvalidOperationException($"Subject claim is not a valid Guid: {subject}.");
         }
 
         return OperatorIdentifier.From(subjectId);

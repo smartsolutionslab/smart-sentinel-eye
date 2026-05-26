@@ -7,7 +7,7 @@ using SmartSentinelEye.ServiceDefaults;
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 builder.AddServiceDefaults();
 
-builder.AddCameraCatalogInfrastructure();
+builder.AddCameraCatalogPersistence();
 
 IHost host = builder.Build();
 ILogger<Program> log = host.Services.GetRequiredService<ILogger<Program>>();
