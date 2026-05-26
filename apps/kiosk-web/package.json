@@ -13,15 +13,20 @@
   },
   "dependencies": {
     "@smart-sentinel-eye/shared": "workspace:*",
+    "@microsoft/signalr": "8.0.7",
     "@reduxjs/toolkit": "2.5.0",
+    "clsx": "2.1.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "react-redux": "9.2.0"
+    "react-oidc-context": "3.2.0",
+    "react-redux": "9.2.0",
+    "react-router-dom": "7.1.3"
   },
   "devDependencies": {
     "@eslint/js": "9.18.0",
     "@testing-library/jest-dom": "6.6.3",
     "@testing-library/react": "16.1.0",
+    "@testing-library/user-event": "14.5.2",
     "@types/react": "19.0.7",
     "@types/react-dom": "19.0.3",
     "@typescript-eslint/eslint-plugin": "8.20.0",

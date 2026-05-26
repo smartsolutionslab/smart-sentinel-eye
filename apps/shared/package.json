@@ -12,6 +12,7 @@
     "./api/layouts.api": "./src/api/layouts.api.ts",
     "./api/layouts.schema": "./src/api/layouts.schema.ts",
     "./realtime": "./src/realtime/index.ts",
+    "./realtime/layoutHub": "./src/realtime/layoutHub.ts",
     "./streaming": "./src/streaming/index.ts",
     "./streaming/WhepClient": "./src/streaming/WhepClient.ts",
     "./ui": "./src/ui/index.ts",
@@ -35,6 +36,7 @@
   "dependencies": {
     "react": "19.0.0",
     "react-dom": "19.0.0",
+    "@microsoft/signalr": "8.0.7",
     "@reduxjs/toolkit": "2.5.0",
     "@radix-ui/react-dialog": "1.1.4",
     "@radix-ui/react-dropdown-menu": "2.1.4",
