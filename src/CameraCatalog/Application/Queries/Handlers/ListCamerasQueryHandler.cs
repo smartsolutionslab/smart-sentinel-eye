@@ -62,11 +62,15 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
             new CameraListPageDto(items, total, query.Offset, query.Limit));
     }
 
+    // EF Core's converter exposes Name as a plain string column at query time, so
+    // `OrderBy(c => c.Name)` translates to `ORDER BY name` in Postgres. For the
+    // in-memory tests CameraName.IComparable orders by NormalizedValue, keeping
+    // the unit and integration tests on the same lambda.
     private static IQueryable<Camera> SortBy(IQueryable<Camera> source, string field, bool descending) =>
         (field, descending) switch
         {
-            ("name", false) => source.OrderBy(camera => camera.Name.NormalizedValue),
-            ("name", true) => source.OrderByDescending(camera => camera.Name.NormalizedValue),
+            ("name", false) => source.OrderBy(camera => camera.Name),
+            ("name", true) => source.OrderByDescending(camera => camera.Name),
             ("registeredAt", false) => source.OrderBy(camera => camera.RegisteredAt),
             ("registeredAt", true) => source.OrderByDescending(camera => camera.RegisteredAt),
             _ => throw new InvalidOperationException($"Unhandled sort field '{field}'."),

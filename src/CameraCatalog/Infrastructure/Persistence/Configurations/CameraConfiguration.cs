@@ -57,13 +57,11 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
             .IsConcurrencyToken();
 
         // Case-insensitive uniqueness on Name per spec 001-register-camera marker 2.
-        // Postgres-specific: a functional unique index on LOWER(name).
+        // Postgres-specific: a unique btree index on the name column.
         builder.HasIndex(camera => camera.Name)
             .HasDatabaseName("ux_cameras_name_lower")
             .IsUnique()
-            .HasFilter(null)
-            .HasMethod("btree")
-            .HasAnnotation("Npgsql:IndexInclude", Array.Empty<string>());
+            .HasMethod("btree");
 
         builder.Ignore(camera => camera.PendingEvents);
     }

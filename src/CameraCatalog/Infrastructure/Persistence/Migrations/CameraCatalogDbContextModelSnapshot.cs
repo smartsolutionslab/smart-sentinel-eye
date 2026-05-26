@@ -65,7 +65,6 @@ namespace SmartSentinelEye.CameraCatalog.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_cameras_name_lower");
 
-                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("Name"), new string[0]);
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Name"), "btree");
 
                     b.ToTable("cameras", (string)null);
