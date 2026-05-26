@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
+using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
@@ -8,6 +9,7 @@ public sealed partial class AspireFixture
 {
     public const string CameraCatalogConnectionName = "camera-catalog-db";
     public const string StreamDistributionConnectionName = "stream-distribution-db";
+    public const string LayoutCompositionConnectionName = "layout-composition-db";
 
     public async Task<CameraCatalogDbContext> CreateCameraCatalogDbContextAsync()
     {
@@ -52,6 +54,29 @@ public sealed partial class AspireFixture
         await using StreamDistributionDbContext context =
             await CreateStreamDistributionDbContextAsync().ConfigureAwait(false);
         await context.Streams.ExecuteDeleteAsync().ConfigureAwait(false);
+    }
+
+    public async Task<LayoutCompositionDbContext> CreateLayoutCompositionDbContextAsync()
+    {
+        string? connectionString = await App.GetConnectionStringAsync(LayoutCompositionConnectionName)
+            .ConfigureAwait(false);
+
+        if (connectionString is null)
+        {
+            throw new InvalidOperationException(
+                $"Connection string '{LayoutCompositionConnectionName}' was not provisioned by Aspire.");
+        }
+
+        DbContextOptionsBuilder<LayoutCompositionDbContext> optionsBuilder = new();
+        optionsBuilder.UseNpgsql(connectionString);
+        return new LayoutCompositionDbContext(optionsBuilder.Options);
+    }
+
+    public async Task ResetLayoutCompositionAsync()
+    {
+        await using LayoutCompositionDbContext context =
+            await CreateLayoutCompositionDbContextAsync().ConfigureAwait(false);
+        await context.Layouts.ExecuteDeleteAsync().ConfigureAwait(false);
     }
 
     /// <summary>

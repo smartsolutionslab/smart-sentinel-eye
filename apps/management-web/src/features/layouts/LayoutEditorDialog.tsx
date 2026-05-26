@@ -1,0 +1,108 @@
+import { useListCamerasQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
+import { useCreateLayoutDraftMutation } from '@smart-sentinel-eye/shared/api/layouts.api';
+import {
+  createLayoutDraftSchema,
+  type CreateLayoutDraftInput,
+} from '@smart-sentinel-eye/shared/api/layouts.schema';
+import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
+import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
+import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
+import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+
+export interface LayoutEditorDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function LayoutEditorDialog({ open, onOpenChange }: LayoutEditorDialogProps) {
+  const [createLayoutDraft, { isLoading, error }] = useCreateLayoutDraftMutation();
+  const { data: cameras, isLoading: camerasLoading } = useListCamerasQuery({ limit: 50 });
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<CreateLayoutDraftInput>({
+    resolver: zodResolver(createLayoutDraftSchema),
+    defaultValues: { name: '', cameraIdentifier: '' },
+  });
+
+  const onSubmit = handleSubmit(async (input) => {
+    const result = await createLayoutDraft(input);
+    if (!('error' in result)) {
+      reset();
+      onOpenChange(false);
+    }
+  });
+
+  const backendError = serverProblemMessage(error);
+  const cameraItems = cameras?.items ?? [];
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
+          reset();
+        }
+        onOpenChange(next);
+      }}
+      title="New layout"
+      description="Pick a name and one registered camera. The layout starts as a draft."
+    >
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <FormField label="Name" htmlFor="layout-name" error={errors.name?.message}>
+          <Input id="layout-name" autoFocus {...register('name')} />
+        </FormField>
+        <FormField label="Camera" htmlFor="layout-camera" error={errors.cameraIdentifier?.message}>
+          <select
+            id="layout-camera"
+            className="w-full rounded-md border border-fg-muted/40 bg-bg-base px-3 py-2 text-fg-primary"
+            {...register('cameraIdentifier')}
+          >
+            <option value="">
+              {camerasLoading ? 'Loading cameras…' : 'Select a camera'}
+            </option>
+            {cameraItems.map((camera) => (
+              <option key={camera.cameraIdentifier} value={camera.cameraIdentifier}>
+                {camera.name}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        {backendError !== null && (
+          <p role="alert" className="text-sm text-accent-fault">
+            {backendError}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isLoading || cameraItems.length === 0}>
+            {isLoading ? 'Saving…' : 'Save as draft'}
+          </Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+function serverProblemMessage(error: unknown): string | null {
+  if (error === undefined || error === null) {
+    return null;
+  }
+  if (typeof error === 'object' && 'data' in error) {
+    const data = (error as { data: unknown }).data;
+    if (typeof data === 'object' && data !== null && 'detail' in data) {
+      const detail = (data as { detail: unknown }).detail;
+      if (typeof detail === 'string') {
+        return detail;
+      }
+    }
+  }
+  return 'Could not save the layout. Try again.';
+}

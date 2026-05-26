@@ -26,6 +26,23 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => 
   };
 });
 
+vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/layouts.api')>();
+  return {
+    ...actual,
+    useListLayoutsQuery: () => ({
+      data: { chains: [], published: [] },
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    }),
+    useCreateLayoutDraftMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false, error: undefined }],
+    usePublishRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), { isLoading: false }],
+    useArchiveRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), { isLoading: false }],
+  };
+});
+
 const { App } = await import('./App.js');
 const { store } = await import('./app/store.js');
 
@@ -38,5 +55,14 @@ describe('App shell', () => {
     );
     expect(screen.getByRole('heading', { name: /cameras/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /register camera/i })).toBeInTheDocument();
+  });
+
+  it('Has navigation to the Layouts page', () => {
+    render(
+      <Provider store={store}>
+        <App />
+      </Provider>,
+    );
+    expect(screen.getByRole('button', { name: /^layouts$/i })).toBeInTheDocument();
   });
 });

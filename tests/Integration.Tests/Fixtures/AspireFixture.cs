@@ -33,6 +33,8 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
     public HttpClient StreamDistribution { get; private set; } = null!;
 
+    public HttpClient LayoutComposition { get; private set; } = null!;
+
     public async Task InitializeAsync()
     {
         string[] parameters =
@@ -81,6 +83,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 .WaitForResourceAsync("stream-distribution", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
+            await _app.ResourceNotifications
+                .WaitForResourceAsync("layout-composition", KnownResourceStates.Running, cts.Token)
+                .ConfigureAwait(false);
+
             await WaitForKeycloakRealmAsync(cts.Token).ConfigureAwait(false);
             await WaitForMediaMtxAsync(cts.Token).ConfigureAwait(false);
         }
@@ -97,12 +103,14 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
         CameraCatalog = App.CreateHttpClient("camera-catalog");
         StreamDistribution = App.CreateHttpClient("stream-distribution");
+        LayoutComposition = App.CreateHttpClient("layout-composition");
     }
 
     public async Task DisposeAsync()
     {
         CameraCatalog?.Dispose();
         StreamDistribution?.Dispose();
+        LayoutComposition?.Dispose();
 
         if (_logCts is not null)
         {

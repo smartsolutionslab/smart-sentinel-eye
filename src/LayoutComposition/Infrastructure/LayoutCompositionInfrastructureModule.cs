@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.LayoutComposition.Application.Commands;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
+using SmartSentinelEye.LayoutComposition.Application.Queries;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Layout.Events;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
@@ -31,6 +32,7 @@ public static class LayoutCompositionInfrastructureModule
         builder.AddLayoutCompositionPersistence();
 
         builder.Services.AddScoped<ILayoutRepository, LayoutRepository>();
+        builder.Services.AddScoped<ILayoutQuerySource, LayoutQuerySource>();
         builder.Services.AddScoped<
             IDomainEventHandler<LayoutRevisionPublishedDomainEvent>,
             LayoutRevisionPublishedDomainEventHandler>();
@@ -49,6 +51,9 @@ public static class LayoutCompositionInfrastructureModule
         builder.Services.AddScoped<
             ICommandHandler<PublishRevisionCommand, Result<LayoutRevisionNumber, PublishRevisionError>>,
             PublishRevisionCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<ArchiveRevisionCommand, Result<LayoutRevisionNumber, ArchiveRevisionError>>,
+            ArchiveRevisionCommandHandler>();
 
         builder.AddWolverineForContext<LayoutCompositionDbContext>(
             moduleQueuePrefix: ContextName,
