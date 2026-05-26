@@ -9,6 +9,10 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- IQueryable<T>.ToListAsync / SingleOrDefaultAsync extensions used by
+         query handlers. Application never references EF Core's DbContext
+         directly; IQueryable comes from Infrastructure via ILayoutQuerySource. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
   </ItemGroup>
 
   <PropertyGroup>

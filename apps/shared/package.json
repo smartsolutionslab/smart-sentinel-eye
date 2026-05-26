@@ -9,6 +9,8 @@
     "./api/cameras.api": "./src/api/cameras.api.ts",
     "./api/cameras.schema": "./src/api/cameras.schema.ts",
     "./api/streams.api": "./src/api/streams.api.ts",
+    "./api/layouts.api": "./src/api/layouts.api.ts",
+    "./api/layouts.schema": "./src/api/layouts.schema.ts",
     "./realtime": "./src/realtime/index.ts",
     "./streaming": "./src/streaming/index.ts",
     "./streaming/WhepClient": "./src/streaming/WhepClient.ts",
