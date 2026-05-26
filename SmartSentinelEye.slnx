@@ -151,4 +151,10 @@
   <Folder Name="/tests/Integration.Tests/">
     <Project Path="tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/Shared.Contracts.Tests/">
+    <Project Path="tests/Shared.Contracts.Tests/SmartSentinelEye.Shared.Contracts.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Shared.Kernel.Tests/">
+    <Project Path="tests/Shared.Kernel.Tests/SmartSentinelEye.Shared.Kernel.Tests.csproj" />
+  </Folder>
 </Solution>
