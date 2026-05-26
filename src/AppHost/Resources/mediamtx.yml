@@ -1,0 +1,36 @@
+# MediaMTX configuration for Smart Sentinel Eye (spec 002, T002).
+#
+# - Paths are added dynamically by StreamDistribution.Api against
+#   MediaMTX's HTTP API on port 9997; the `paths:` block below stays empty.
+# - WHEP playback is exposed on port 8889 with HTTP external
+#   authentication; MediaMTX POSTs every WHEP open to
+#   StreamDistribution.Api's /streams/{path}/authorize for bearer-token
+#   validation (FR-007 + AuthorizeWhepCommandHandler, ADR-0007).
+# - RTSP ingest port (8554) accepts source pulls.
+
+logLevel: info
+logDestinations: [stdout]
+
+api: yes
+apiAddress: :9997
+
+# Webrtc + RTSP listeners
+webrtc: yes
+webrtcAddress: :8889
+rtsp: yes
+rtspAddress: :8554
+
+# External auth hook: every WHEP open is validated by StreamDistribution.Api.
+# `stream-distribution` resolves via Aspire's service-discovery DNS once both
+# containers join the AppHost network. The auth endpoint validates the bearer
+# token forwarded by MediaMTX and returns 200/401/403.
+authMethod: http
+authHTTPAddress: http://stream-distribution:8080/streams/authorize
+authHTTPExclude:
+  - action: api
+  - action: metrics
+  - action: pprof
+
+# Dynamic paths block — populated at runtime via the HTTP API. Static
+# entries here would conflict with the API-managed entries.
+paths: {}

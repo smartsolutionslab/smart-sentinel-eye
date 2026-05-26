@@ -40,6 +40,8 @@ if (isRunMode && !isE2ETests)
 
 IResourceBuilder<PostgresDatabaseResource> cameraCatalogDb =
     postgres.AddDatabase("camera-catalog-db");
+IResourceBuilder<PostgresDatabaseResource> streamDistributionDb =
+    postgres.AddDatabase("stream-distribution-db");
 
 IResourceBuilder<RabbitMQServerResource> rabbitmq = builder
     .AddRabbitMQ("rabbitmq", password: rabbitPassword)
@@ -64,11 +66,28 @@ if (isRunMode && !isE2ETests)
         .WithDataVolume();
 }
 
+// MediaMTX SFU brings RTSP ingest + WHEP playback (spec 002 T003, ADR-0011).
+// MediaMTX is the runtime source of truth for live paths; the stream-distribution
+// service is the durable source of truth and reconciles paths on startup.
+IResourceBuilder<ContainerResource> mediamtx = builder
+    .AddContainer("mediamtx", "bluenviron/mediamtx", "latest-ffmpeg")
+    .WithBindMount("Resources/mediamtx.yml", "/mediamtx.yml")
+    .WithHttpEndpoint(targetPort: 9997, name: "api")
+    .WithHttpEndpoint(targetPort: 8889, name: "whep")
+    .WithEndpoint(targetPort: 8554, name: "rtsp", scheme: "tcp");
+
+if (isRunMode && !isE2ETests)
+{
+    mediamtx.WithLifetime(ContainerLifetime.Persistent);
+}
+
 // MigrationRunner orchestrates all per-context migrations and exits (ADR-0067).
 IResourceBuilder<ProjectResource> migrations = builder
     .AddProject<Projects.SmartSentinelEye_MigrationRunner>("migrations")
     .WithReference(cameraCatalogDb)
-    .WaitFor(cameraCatalogDb);
+    .WithReference(streamDistributionDb)
+    .WaitFor(cameraCatalogDb)
+    .WaitFor(streamDistributionDb);
 
 IResourceBuilder<ProjectResource> cameraCatalog = builder
     .AddProject<Projects.SmartSentinelEye_CameraCatalog_Api>("camera-catalog")
@@ -80,7 +99,17 @@ IResourceBuilder<ProjectResource> cameraCatalog = builder
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
 
-builder.AddProject<Projects.SmartSentinelEye_StreamDistribution_Api>("stream-distribution").WaitForCompletion(migrations);
+builder.AddProject<Projects.SmartSentinelEye_StreamDistribution_Api>("stream-distribution")
+    .WithHttpEndpoint()
+    .WithReference(streamDistributionDb)
+    .WithReference(rabbitmq)
+    .WithReference(keycloak)
+    .WithReference(mediamtx.GetEndpoint("api"))
+    .WithReference(mediamtx.GetEndpoint("whep"))
+    .WaitForCompletion(migrations)
+    .WaitFor(rabbitmq)
+    .WaitFor(keycloak)
+    .WaitFor(mediamtx);
 builder.AddProject<Projects.SmartSentinelEye_LayoutComposition_Api>("layout-composition").WaitForCompletion(migrations);
 builder.AddProject<Projects.SmartSentinelEye_SystemVariables_Api>("system-variables").WaitForCompletion(migrations);
 builder.AddProject<Projects.SmartSentinelEye_EventIngestion_Api>("event-ingestion").WaitForCompletion(migrations);
