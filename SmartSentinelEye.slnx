@@ -157,4 +157,10 @@
   <Folder Name="/tests/Shared.Kernel.Tests/">
     <Project Path="tests/Shared.Kernel.Tests/SmartSentinelEye.Shared.Kernel.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/StreamDistribution.Application.Tests/">
+    <Project Path="tests/StreamDistribution.Application.Tests/SmartSentinelEye.StreamDistribution.Application.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/StreamDistribution.Domain.Tests/">
+    <Project Path="tests/StreamDistribution.Domain.Tests/SmartSentinelEye.StreamDistribution.Domain.Tests.csproj" />
+  </Folder>
 </Solution>
