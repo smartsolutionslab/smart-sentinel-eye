@@ -23,6 +23,7 @@ public sealed record LayoutRevisionDto(
     int RevisionNumber,
     string State,
     Guid CameraIdentifier,
+    Guid? OverlayIdentifier,
     DateTimeOffset CreatedAt,
     Guid CreatedBy,
     DateTimeOffset? PublishedAt,
@@ -37,4 +38,5 @@ public sealed record PublishedLayoutDto(
     string Name,
     int RevisionNumber,
     Guid CameraIdentifier,
+    Guid? OverlayIdentifier,
     DateTimeOffset PublishedAt);

@@ -14,6 +14,7 @@ public sealed class LayoutBuilder
     private LayoutName _name = LayoutName.From("Line-1-Entrance");
     private CameraIdentifier _camera = CameraIdentifier.From(Guid.CreateVersion7());
     private OperatorIdentifier _createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
+    private OverlayIdentifier? _overlay;
     private IClock _clock = new TestClock(
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture));
 
@@ -26,6 +27,12 @@ public sealed class LayoutBuilder
     public LayoutBuilder ForCamera(CameraIdentifier camera)
     {
         _camera = camera;
+        return this;
+    }
+
+    public LayoutBuilder WithOverlay(OverlayIdentifier overlay)
+    {
+        _overlay = overlay;
         return this;
     }
 
@@ -42,7 +49,7 @@ public sealed class LayoutBuilder
     }
 
     public Domain.Layout.Layout Build() =>
-        Domain.Layout.Layout.CreateDraft(_name, _camera, _createdBy, _clock);
+        Domain.Layout.Layout.CreateDraft(_name, _camera, _createdBy, _clock, _overlay);
 
     public IClock Clock => _clock;
 

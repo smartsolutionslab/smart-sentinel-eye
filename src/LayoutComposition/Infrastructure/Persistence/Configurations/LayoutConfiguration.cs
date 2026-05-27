@@ -87,6 +87,13 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
                 .HasConversion(camera => camera.Value, value => CameraIdentifier.From(value))
                 .IsRequired();
 
+            revisions.Property(r => r.Overlay)
+                .HasColumnName("overlay_id")
+                .HasConversion(
+                    overlay => overlay.HasValue ? overlay.Value.Value : (Guid?)null,
+                    value => value.HasValue ? OverlayIdentifier.From(value.Value) : (OverlayIdentifier?)null)
+                .IsRequired(false);
+
             revisions.Property(r => r.CreatedAt)
                 .HasColumnName("created_at")
                 .IsRequired();

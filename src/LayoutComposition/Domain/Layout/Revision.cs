@@ -19,6 +19,13 @@ public sealed class Revision
 
     public CameraIdentifier Camera { get; private set; }
 
+    /// <summary>
+    /// Optional overlay binding (spec 004). Null means "no overlay
+    /// composited over this cell"; non-null is a latest-Published
+    /// reference into the OverlayDesigner bounded context.
+    /// </summary>
+    public OverlayIdentifier? Overlay { get; private set; }
+
     public DateTimeOffset CreatedAt { get; private set; }
 
     public OperatorIdentifier CreatedBy { get; private set; }
@@ -32,6 +39,7 @@ public sealed class Revision
     internal static Revision NewDraft(
         LayoutRevisionNumber number,
         CameraIdentifier camera,
+        OverlayIdentifier? overlay,
         DateTimeOffset createdAt,
         OperatorIdentifier createdBy) =>
         new()
@@ -40,6 +48,7 @@ public sealed class Revision
             Number = number,
             State = LayoutRevisionState.Draft,
             Camera = camera,
+            Overlay = overlay,
             CreatedAt = createdAt,
             CreatedBy = createdBy,
         };
@@ -47,9 +56,10 @@ public sealed class Revision
     internal static Revision Branch(
         LayoutRevisionNumber number,
         CameraIdentifier camera,
+        OverlayIdentifier? overlay,
         DateTimeOffset createdAt,
         OperatorIdentifier createdBy) =>
-        NewDraft(number, camera, createdAt, createdBy);
+        NewDraft(number, camera, overlay, createdAt, createdBy);
 
     internal void Publish(DateTimeOffset publishedAt)
     {
@@ -81,6 +91,16 @@ public sealed class Revision
                 $"Revision {Number} is {State}; only Draft revisions are editable.");
         }
         Camera = camera;
+    }
+
+    internal void AttachOverlay(OverlayIdentifier? overlay)
+    {
+        if (State != LayoutRevisionState.Draft)
+        {
+            throw new InvalidOperationException(
+                $"Revision {Number} is {State}; only Draft revisions are editable.");
+        }
+        Overlay = overlay;
     }
 
     internal void Archive(DateTimeOffset archivedAt)

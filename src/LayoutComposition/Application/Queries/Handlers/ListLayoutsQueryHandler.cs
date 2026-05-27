@@ -32,6 +32,7 @@ public sealed class ListLayoutsQueryHandler(ILayoutQuerySource layouts)
                         Name: layout.Name.Value,
                         RevisionNumber: pub.Number.Value,
                         CameraIdentifier: pub.Camera.Value,
+                        OverlayIdentifier: pub.Overlay?.Value,
                         PublishedAt: pub.PublishedAt!.Value);
                 })
                 .OrderBy(dto => dto.Name, StringComparer.OrdinalIgnoreCase)

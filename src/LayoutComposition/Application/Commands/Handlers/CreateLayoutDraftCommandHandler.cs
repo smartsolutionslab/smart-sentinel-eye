@@ -26,7 +26,7 @@ public sealed class CreateLayoutDraftCommandHandler(
                 new CreateLayoutDraftError.LayoutNameTaken(command.Name.Value));
         }
 
-        Layout layout = Layout.CreateDraft(command.Name, command.Camera, command.CreatedBy, clock);
+        Layout layout = Layout.CreateDraft(command.Name, command.Camera, command.CreatedBy, clock, command.Overlay);
         layouts.Add(layout);
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 

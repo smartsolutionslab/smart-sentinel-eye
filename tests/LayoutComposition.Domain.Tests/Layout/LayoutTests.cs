@@ -164,4 +164,64 @@ public class LayoutTests
             LayoutRevisionNumber.From(99), by, new LayoutBuilder.TestClock(FixedMoment));
         act.ShouldThrow<InvalidOperationException>();
     }
+
+    [Fact]
+    public void CreateDraft_carries_the_optional_overlay_identifier()
+    {
+        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
+        Domain.Layout.Layout layout = new LayoutBuilder().WithOverlay(overlay).Build();
+
+        layout.Revisions.Single().Overlay.ShouldBe(overlay);
+    }
+
+    [Fact]
+    public void AttachOverlay_on_a_Draft_revision_updates_the_binding()
+    {
+        Domain.Layout.Layout layout = new LayoutBuilder().Build();
+        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
+        IClock clock = new LayoutBuilder.TestClock(FixedMoment);
+
+        layout.AttachOverlay(LayoutRevisionNumber.One, overlay, clock);
+
+        layout.Revisions.Single().Overlay.ShouldBe(overlay);
+    }
+
+    [Fact]
+    public void AttachOverlay_with_null_clears_the_binding()
+    {
+        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
+        Domain.Layout.Layout layout = new LayoutBuilder().WithOverlay(overlay).Build();
+        IClock clock = new LayoutBuilder.TestClock(FixedMoment);
+
+        layout.AttachOverlay(LayoutRevisionNumber.One, null, clock);
+
+        layout.Revisions.Single().Overlay.ShouldBeNull();
+    }
+
+    [Fact]
+    public void AttachOverlay_on_a_Published_revision_throws()
+    {
+        Domain.Layout.Layout layout = new LayoutBuilder().Build();
+        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        IClock clock = new LayoutBuilder.TestClock(FixedMoment);
+        layout.Publish(LayoutRevisionNumber.One, by, clock);
+
+        Action act = () => layout.AttachOverlay(
+            LayoutRevisionNumber.One, OverlayIdentifier.From(Guid.CreateVersion7()), clock);
+        act.ShouldThrow<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void BranchDraft_carries_the_overlay_from_the_Published_revision()
+    {
+        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
+        Domain.Layout.Layout layout = new LayoutBuilder().WithOverlay(overlay).Build();
+        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        IClock clock = new LayoutBuilder.TestClock(FixedMoment);
+        layout.Publish(LayoutRevisionNumber.One, by, clock);
+
+        Revision draft = layout.BranchDraft(by, clock);
+
+        draft.Overlay.ShouldBe(overlay);
+    }
 }

@@ -44,6 +44,7 @@ public sealed class GetLayoutQueryHandler(ILayoutQuerySource layouts)
             RevisionNumber: revision.Number.Value,
             State: revision.State.Value,
             CameraIdentifier: revision.Camera.Value,
+            OverlayIdentifier: revision.Overlay?.Value,
             CreatedAt: revision.CreatedAt,
             CreatedBy: revision.CreatedBy.Value,
             PublishedAt: revision.PublishedAt,
