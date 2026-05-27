@@ -3,8 +3,12 @@ import {
   overlaysApi,
   useGetOverlayQuery,
 } from '@smart-sentinel-eye/shared/api/overlays.api';
+import {
+  systemVariablesApi,
+  useGetOverlaySnapshotQuery,
+} from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '../../app/store.js';
 import { useAuth } from 'react-oidc-context';
@@ -12,17 +16,16 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useLayoutLifecycle } from '../revocation/useLayoutLifecycle.js';
 
 /**
- * Single-cell kiosk view (spec 003 US2 + US3, extended in spec 004
- * US2/US3). Renders the camera tied to the layout's Published revision;
- * if the revision is bound to an overlay (PR B'), fetches it and renders
- * the label over the live frame. Force-disconnects to the picker when
- * the layout is archived (FR-011) or the SignalR channel reconnects and
- * the layout is no longer Published (FR-012).
+ * Single-cell kiosk view (spec 003 US2 + US3 → spec 004 US2/US3 →
+ * spec 005 US3). Renders the camera tied to the layout's Published
+ * revision; if the revision is bound to an overlay, fetches the
+ * overlay (for geometry + font size) AND its resolved-text snapshot
+ * from SystemVariables (for the live label text) and renders both.
  *
- * Overlay push (spec 004 US3): a republish of the bound overlay
- * invalidates the cache so RTK Query re-fetches and the label updates
- * within ~1 s. An archive of the bound overlay hides the label and
- * shows a transient "overlay unavailable" banner.
+ * Spec 005 variable push: a variable-value change pushes a
+ * ResolvedOverlayTextChanged frame; the kiosk validates the
+ * monotonic version, updates the snapshot in-place, and the label
+ * re-renders without a re-fetch.
  */
 export function CellPage() {
   const { layoutIdentifier = '' } = useParams<{ layoutIdentifier: string }>();
@@ -38,7 +41,19 @@ export function CellPage() {
   const { data: overlay } = useGetOverlayQuery(overlayIdentifier ?? '', {
     skip: overlayIdentifier === null,
   });
+  const { data: snapshot } = useGetOverlaySnapshotQuery(overlayIdentifier ?? '', {
+    skip: overlayIdentifier === null,
+  });
   const [overlayUnavailable, setOverlayUnavailable] = useState(false);
+
+  // Track the highest version we've applied so out-of-order pushes
+  // are dropped on the floor.
+  const latestVersionRef = useRef<number>(snapshot?.version ?? 0);
+  useEffect(() => {
+    if (snapshot !== undefined) {
+      latestVersionRef.current = Math.max(latestVersionRef.current, snapshot.version);
+    }
+  }, [snapshot]);
 
   useLayoutLifecycle({
     accessTokenFactory: () => auth.user?.access_token ?? '',
@@ -51,6 +66,9 @@ export function CellPage() {
     onOverlayPublished: (message) => {
       if (overlayIdentifier !== null && message.overlay === overlayIdentifier) {
         dispatch(overlaysApi.util.invalidateTags([{ type: 'Overlay', id: overlayIdentifier }]));
+        dispatch(
+          systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: overlayIdentifier }]),
+        );
         setOverlayUnavailable(false);
       }
     },
@@ -59,14 +77,30 @@ export function CellPage() {
         setOverlayUnavailable(true);
       }
     },
+    onResolvedOverlayTextChanged: (message) => {
+      if (overlayIdentifier === null || message.overlay !== overlayIdentifier) return;
+      if (message.version <= latestVersionRef.current) return;
+      latestVersionRef.current = message.version;
+      // Patch the snapshot cache in place so the render updates
+      // without a full re-fetch.
+      dispatch(
+        systemVariablesApi.util.upsertQueryData(
+          'getOverlaySnapshot',
+          overlayIdentifier,
+          {
+            overlayIdentifier: message.overlay,
+            resolvedText: message.resolvedText,
+            version: message.version,
+          },
+        ),
+      );
+    },
     onReconnected: () => {
       void refetch();
     },
   });
 
   useEffect(() => {
-    // Reconcile after a refetch finishes: if the layout no longer has
-    // a Published revision (admin reverted or archived it), bounce.
     if (!isLoading && error === undefined && data !== undefined && published === undefined) {
       navigate('/', { replace: true });
     }
@@ -93,10 +127,15 @@ export function CellPage() {
   }
 
   const publishedOverlay = overlay?.revisions.find((r) => r.state === 'Published');
+  // Prefer the SystemVariables-resolved text over the raw label so any
+  // `{{name}}` placeholders show their live values. Falls back to the
+  // raw label if SystemVariables is unreachable (overlayUnavailable
+  // banner also shows when the variable went Unset/Archived).
+  const resolvedText = snapshot?.resolvedText ?? publishedOverlay?.text;
   const renderOverlay =
-    !overlayUnavailable && publishedOverlay !== undefined
+    !overlayUnavailable && publishedOverlay !== undefined && resolvedText !== undefined
       ? {
-          text: publishedOverlay.text,
+          text: resolvedText,
           normalizedX: publishedOverlay.normalizedX,
           normalizedY: publishedOverlay.normalizedY,
           normalizedWidth: publishedOverlay.normalizedWidth,

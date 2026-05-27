@@ -2,12 +2,14 @@ import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { layoutsApi } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { overlaysApi } from '@smart-sentinel-eye/shared/api/overlays.api';
+import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import {
   createLayoutHubClient,
   type LayoutRevisionArchivedMessage,
   type LayoutRevisionPublishedMessage,
   type OverlayRevisionArchivedMessage,
   type OverlayRevisionPublishedMessage,
+  type ResolvedOverlayTextChangedMessage,
 } from '@smart-sentinel-eye/shared/realtime/layoutHub';
 import type { AppDispatch } from '../../app/store.js';
 
@@ -24,6 +26,8 @@ export interface UseLayoutLifecycleOptions {
   onOverlayPublished?: (message: OverlayRevisionPublishedMessage) => void;
   /** Called when an overlay revision becomes Archived (spec 004 US3). */
   onOverlayArchived?: (message: OverlayRevisionArchivedMessage) => void;
+  /** Called when an overlay's resolved text changes (spec 005 US2). */
+  onResolvedOverlayTextChanged?: (message: ResolvedOverlayTextChangedMessage) => void;
   /** Called after a successful SignalR reconnect. */
   onReconnected?: () => void;
   /**
@@ -55,9 +59,11 @@ export function useLayoutLifecycle(options: UseLayoutLifecycleOptions): void {
         onArchived: options.onArchived,
         onOverlayPublished: options.onOverlayPublished,
         onOverlayArchived: options.onOverlayArchived,
+        onResolvedOverlayTextChanged: options.onResolvedOverlayTextChanged,
         onReconnected: () => {
           dispatch(layoutsApi.util.invalidateTags([{ type: 'LayoutList', id: 'ALL' }]));
           dispatch(overlaysApi.util.invalidateTags([{ type: 'OverlayList', id: 'ALL' }]));
+          dispatch(systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: 'ALL' }]));
           options.onReconnected?.();
         },
       },

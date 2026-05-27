@@ -26,6 +26,16 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
   };
 });
 
+vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/systemVariables.api')>();
+  return {
+    ...actual,
+    // Default: no resolved snapshot. Specific tests can re-mock to
+    // assert the resolved-text rendering path.
+    useGetOverlaySnapshotQuery: () => ({ data: undefined, isLoading: false }),
+  };
+});
+
 vi.mock('react-oidc-context', () => ({
   useAuth: () => ({
     isAuthenticated: true,
