@@ -11,6 +11,8 @@
         CameraCatalog.Application     >= 80%
         StreamDistribution.Domain     >= 90%
         StreamDistribution.Application>= 80%
+        LayoutComposition.Domain      >= 90%
+        LayoutComposition.Application >= 80%
         Shared.Kernel                 >= 90%
         Shared.Contracts              >= 90%
 
@@ -52,6 +54,8 @@ try {
         'SmartSentinelEye.CameraCatalog.Application',
         'SmartSentinelEye.StreamDistribution.Domain',
         'SmartSentinelEye.StreamDistribution.Application',
+        'SmartSentinelEye.LayoutComposition.Domain',
+        'SmartSentinelEye.LayoutComposition.Application',
         'SmartSentinelEye.Shared.Kernel',
         'SmartSentinelEye.Shared.Contracts'
     )
@@ -72,6 +76,8 @@ try {
         'SmartSentinelEye.CameraCatalog.Application'        = 80
         'SmartSentinelEye.StreamDistribution.Domain'        = 90
         'SmartSentinelEye.StreamDistribution.Application'   = 80
+        'SmartSentinelEye.LayoutComposition.Domain'         = 90
+        'SmartSentinelEye.LayoutComposition.Application'    = 80
         'SmartSentinelEye.Shared.Kernel'                    = 90
         'SmartSentinelEye.Shared.Contracts'                 = 90
     }

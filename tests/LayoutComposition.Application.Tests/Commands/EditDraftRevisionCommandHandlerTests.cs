@@ -1,0 +1,106 @@
+using System.Globalization;
+using Microsoft.Extensions.Logging.Abstractions;
+using SmartSentinelEye.LayoutComposition.Application.Commands;
+using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
+using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
+using SmartSentinelEye.LayoutComposition.Domain.Layout;
+using SmartSentinelEye.Shared.Kernel;
+
+namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
+
+public class EditDraftRevisionCommandHandlerTests
+{
+    private static readonly DateTimeOffset FixedMoment =
+        DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
+
+    [Fact]
+    public async Task Editing_a_Draft_updates_the_camera()
+    {
+        InMemoryLayoutRepository layouts = new();
+        FakeClock clock = new(FixedMoment);
+        CameraIdentifier original = CameraIdentifier.From(Guid.CreateVersion7());
+        CameraIdentifier replacement = CameraIdentifier.From(Guid.CreateVersion7());
+        Layout layout = Layout.CreateDraft(
+            LayoutName.From("Line-1"), original,
+            OperatorIdentifier.From(Guid.CreateVersion7()), clock);
+        layouts.Add(layout);
+
+        EditDraftRevisionCommandHandler handler = new(
+            layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
+        Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+            new EditDraftRevisionCommand(layout.Id, LayoutRevisionNumber.One, replacement),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        layout.Revisions.Single().Camera.ShouldBe(replacement);
+    }
+
+    [Fact]
+    public async Task Unknown_layout_returns_LayoutNotFound()
+    {
+        InMemoryLayoutRepository layouts = new();
+        EditDraftRevisionCommandHandler handler = new(
+            layouts, new FakeClock(FixedMoment), NullLogger<EditDraftRevisionCommandHandler>.Instance);
+
+        Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+            new EditDraftRevisionCommand(
+                LayoutIdentifier.New(),
+                LayoutRevisionNumber.One,
+                CameraIdentifier.From(Guid.CreateVersion7())),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<EditDraftRevisionError.LayoutNotFound>();
+    }
+
+    [Fact]
+    public async Task Missing_revision_returns_LayoutRevisionNotFound()
+    {
+        InMemoryLayoutRepository layouts = new();
+        FakeClock clock = new(FixedMoment);
+        Layout layout = Layout.CreateDraft(
+            LayoutName.From("Line-1"),
+            CameraIdentifier.From(Guid.CreateVersion7()),
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            clock);
+        layouts.Add(layout);
+
+        EditDraftRevisionCommandHandler handler = new(
+            layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
+        Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+            new EditDraftRevisionCommand(
+                layout.Id,
+                LayoutRevisionNumber.From(42),
+                CameraIdentifier.From(Guid.CreateVersion7())),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<EditDraftRevisionError.LayoutRevisionNotFound>();
+    }
+
+    [Fact]
+    public async Task Editing_a_Published_revision_returns_NotADraft()
+    {
+        InMemoryLayoutRepository layouts = new();
+        FakeClock clock = new(FixedMoment);
+        Layout layout = Layout.CreateDraft(
+            LayoutName.From("Line-1"),
+            CameraIdentifier.From(Guid.CreateVersion7()),
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            clock);
+        layout.Publish(LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), clock);
+        layouts.Add(layout);
+
+        EditDraftRevisionCommandHandler handler = new(
+            layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
+        Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+            new EditDraftRevisionCommand(
+                layout.Id,
+                LayoutRevisionNumber.One,
+                CameraIdentifier.From(Guid.CreateVersion7())),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<EditDraftRevisionError.NotADraft>();
+    }
+}
