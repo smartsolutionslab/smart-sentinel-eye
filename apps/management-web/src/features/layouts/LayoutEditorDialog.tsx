@@ -4,6 +4,7 @@ import {
   createLayoutDraftSchema,
   type CreateLayoutDraftInput,
 } from '@smart-sentinel-eye/shared/api/layouts.schema';
+import { useListOverlaysQuery } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
@@ -19,6 +20,7 @@ export interface LayoutEditorDialogProps {
 export function LayoutEditorDialog({ open, onOpenChange }: LayoutEditorDialogProps) {
   const [createLayoutDraft, { isLoading, error }] = useCreateLayoutDraftMutation();
   const { data: cameras, isLoading: camerasLoading } = useListCamerasQuery({ limit: 50 });
+  const { data: overlays, isLoading: overlaysLoading } = useListOverlaysQuery('Published');
 
   const {
     register,
@@ -27,7 +29,7 @@ export function LayoutEditorDialog({ open, onOpenChange }: LayoutEditorDialogPro
     reset,
   } = useForm<CreateLayoutDraftInput>({
     resolver: zodResolver(createLayoutDraftSchema),
-    defaultValues: { name: '', cameraIdentifier: '' },
+    defaultValues: { name: '', cameraIdentifier: '', overlayIdentifier: '' },
   });
 
   const onSubmit = handleSubmit(async (input) => {
@@ -40,6 +42,7 @@ export function LayoutEditorDialog({ open, onOpenChange }: LayoutEditorDialogPro
 
   const backendError = serverProblemMessage(error);
   const cameraItems = cameras?.items ?? [];
+  const overlayItems = overlays?.published ?? [];
 
   return (
     <Dialog
@@ -69,6 +72,20 @@ export function LayoutEditorDialog({ open, onOpenChange }: LayoutEditorDialogPro
             {cameraItems.map((camera) => (
               <option key={camera.cameraIdentifier} value={camera.cameraIdentifier}>
                 {camera.name}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label="Overlay" htmlFor="layout-overlay" error={errors.overlayIdentifier?.message}>
+          <select
+            id="layout-overlay"
+            className="w-full rounded-md border border-fg-muted/40 bg-bg-base px-3 py-2 text-fg-primary"
+            {...register('overlayIdentifier')}
+          >
+            <option value="">{overlaysLoading ? 'Loading overlays…' : '(none)'}</option>
+            {overlayItems.map((overlay) => (
+              <option key={overlay.overlayIdentifier} value={overlay.overlayIdentifier}>
+                {overlay.name}
               </option>
             ))}
           </select>

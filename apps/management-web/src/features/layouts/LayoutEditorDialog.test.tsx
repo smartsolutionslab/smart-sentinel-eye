@@ -37,6 +37,28 @@ vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => 
   };
 });
 
+vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/overlays.api')>();
+  return {
+    ...actual,
+    useListOverlaysQuery: () => ({
+      data: {
+        chains: [],
+        published: [
+          {
+            overlayIdentifier: '55555555-5555-5555-5555-555555555555',
+            name: 'Line-1 Title',
+            revisionNumber: 1,
+            text: 'Production Line 1',
+            publishedAt: '2026-05-27T10:00:00Z',
+          },
+        ],
+      },
+      isLoading: false,
+    }),
+  };
+});
+
 const { LayoutEditorDialog } = await import('./LayoutEditorDialog.js');
 
 function renderDialog() {
@@ -57,7 +79,7 @@ describe('LayoutEditorDialog', () => {
     expect(screen.getByRole('option', { name: 'Line-1-Entrance' })).toBeInTheDocument();
   });
 
-  it('Submits the form with valid input', async () => {
+  it('Submits the form with valid input and the chosen overlay', async () => {
     const user = userEvent.setup();
     renderDialog();
 
@@ -66,11 +88,34 @@ describe('LayoutEditorDialog', () => {
       screen.getByRole('combobox', { name: /camera/i }),
       '11111111-1111-1111-1111-111111111111',
     );
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /overlay/i }),
+      '55555555-5555-5555-5555-555555555555',
+    );
     await user.click(screen.getByRole('button', { name: /save as draft/i }));
 
     expect(createDraftMock).toHaveBeenCalledWith({
       name: 'Line-1',
       cameraIdentifier: '11111111-1111-1111-1111-111111111111',
+      overlayIdentifier: '55555555-5555-5555-5555-555555555555',
+    });
+  });
+
+  it('Submits with overlayIdentifier="" when "(none)" is selected', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(screen.getByLabelText(/name/i), 'Line-2');
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /camera/i }),
+      '11111111-1111-1111-1111-111111111111',
+    );
+    await user.click(screen.getByRole('button', { name: /save as draft/i }));
+
+    expect(createDraftMock).toHaveBeenCalledWith({
+      name: 'Line-2',
+      cameraIdentifier: '11111111-1111-1111-1111-111111111111',
+      overlayIdentifier: '',
     });
   });
 
