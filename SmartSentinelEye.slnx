@@ -169,4 +169,7 @@
   <Folder Name="/tests/LayoutComposition.Application.Tests/">
     <Project Path="tests/LayoutComposition.Application.Tests/SmartSentinelEye.LayoutComposition.Application.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/OverlayDesigner.Domain.Tests/">
+    <Project Path="tests/OverlayDesigner.Domain.Tests/SmartSentinelEye.OverlayDesigner.Domain.Tests.csproj" />
+  </Folder>
 </Solution>
