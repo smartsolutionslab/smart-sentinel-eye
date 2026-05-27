@@ -122,6 +122,33 @@ archives or replaces the layout.
    revision 1 is auto-Archived in the same transaction and any
    connected kiosk force-disconnects.
 
+## Quickstart — compose an overlay on the layout
+
+Spec 004 layers a WYSIWYG text overlay onto a layout's camera view.
+Admins author a normalized-coordinate label in the management UI;
+kiosks render it over the live frame and pick up republishes via the
+same SignalR hub.
+
+1. In management-web, click **Overlays** in the top nav, then
+   **New overlay**. Type a name and label text, drag the label into
+   position on the preview canvas, and adjust the font-size slider.
+   Click **Save as draft**, then **Publish** on the new row — the
+   state flips to **Published** within ≤ 1 s and
+   ``OverlayRevisionPublishedV1`` lands on the integration bus.
+2. Open the **Layouts** page (or create a new layout). Pick the
+   newly Published overlay from the **Overlay** dropdown in the
+   **New layout** dialog and save. Publish the layout.
+3. On the kiosk, the live frame now shows the overlay label at the
+   authored position. The label scales with the viewport because the
+   coordinates are normalized to 0..1.
+4. Edit the overlay (in management-web, **Edit (new draft)** on the
+   overlay row), tweak the text or position, and **Publish** the new
+   revision. Every connected kiosk that has the overlay bound updates
+   its label within ≤ 1 s without a page reload.
+5. **Archive** the overlay to clear the binding everywhere — the
+   kiosk shows a transient "overlay unavailable" banner and the live
+   camera frame keeps streaming on its own.
+
 ## Tests
 
 ```pwsh

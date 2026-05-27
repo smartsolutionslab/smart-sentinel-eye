@@ -7,14 +7,16 @@
     coverlet, merges per-project reports with reportgenerator, then fails
     if any of the gated projects falls below its threshold:
 
-        CameraCatalog.Domain          >= 90%
-        CameraCatalog.Application     >= 80%
-        StreamDistribution.Domain     >= 90%
-        StreamDistribution.Application>= 80%
-        LayoutComposition.Domain      >= 90%
-        LayoutComposition.Application >= 80%
-        Shared.Kernel                 >= 90%
-        Shared.Contracts              >= 90%
+        CameraCatalog.Domain           >= 90%
+        CameraCatalog.Application      >= 80%
+        StreamDistribution.Domain      >= 90%
+        StreamDistribution.Application >= 80%
+        LayoutComposition.Domain       >= 90%
+        LayoutComposition.Application  >= 80%
+        OverlayDesigner.Domain         >= 90%
+        OverlayDesigner.Application    >= 80%
+        Shared.Kernel                  >= 90%
+        Shared.Contracts               >= 90%
 
     Run before opening a PR. Use `-OpenReport` to launch the HTML report.
 #>
@@ -56,6 +58,8 @@ try {
         'SmartSentinelEye.StreamDistribution.Application',
         'SmartSentinelEye.LayoutComposition.Domain',
         'SmartSentinelEye.LayoutComposition.Application',
+        'SmartSentinelEye.OverlayDesigner.Domain',
+        'SmartSentinelEye.OverlayDesigner.Application',
         'SmartSentinelEye.Shared.Kernel',
         'SmartSentinelEye.Shared.Contracts'
     )
@@ -78,6 +82,8 @@ try {
         'SmartSentinelEye.StreamDistribution.Application'   = 80
         'SmartSentinelEye.LayoutComposition.Domain'         = 90
         'SmartSentinelEye.LayoutComposition.Application'    = 80
+        'SmartSentinelEye.OverlayDesigner.Domain'           = 90
+        'SmartSentinelEye.OverlayDesigner.Application'      = 80
         'SmartSentinelEye.Shared.Kernel'                    = 90
         'SmartSentinelEye.Shared.Contracts'                 = 90
     }
