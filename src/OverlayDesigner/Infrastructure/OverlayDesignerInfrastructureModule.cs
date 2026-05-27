@@ -58,6 +58,15 @@ public static class OverlayDesignerInfrastructureModule
         builder.Services.AddScoped<
             ICommandHandler<ArchiveRevisionCommand, Result<OverlayRevisionNumber, ArchiveRevisionError>>,
             ArchiveRevisionCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<BranchDraftRevisionCommand, Result<OverlayRevisionNumber, BranchDraftRevisionError>>,
+            BranchDraftRevisionCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<EditDraftRevisionCommand, Result<OverlayRevisionNumber, EditDraftRevisionError>>,
+            EditDraftRevisionCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<RevertRevisionCommand, Result<OverlayRevisionNumber, RevertRevisionError>>,
+            RevertRevisionCommandHandler>();
 
         builder.AddWolverineForContext<OverlayDesignerDbContext>(
             moduleQueuePrefix: ContextName,

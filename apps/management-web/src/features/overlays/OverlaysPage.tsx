@@ -1,7 +1,9 @@
 import {
   useArchiveOverlayRevisionMutation,
+  useBranchDraftOverlayRevisionMutation,
   useListOverlaysQuery,
   usePublishOverlayRevisionMutation,
+  useRevertOverlayRevisionMutation,
   type Overlay,
   type OverlayRevisionState,
 } from '@smart-sentinel-eye/shared/api/overlays.api';
@@ -23,6 +25,8 @@ export function OverlaysPage() {
   const { data, isLoading, isFetching, error, refetch } = useListOverlaysQuery(undefined);
   const [publishRevision, { isLoading: publishing }] = usePublishOverlayRevisionMutation();
   const [archiveRevision, { isLoading: archiving }] = useArchiveOverlayRevisionMutation();
+  const [branchDraft, { isLoading: branching }] = useBranchDraftOverlayRevisionMutation();
+  const [revertRevision, { isLoading: reverting }] = useRevertOverlayRevisionMutation();
 
   const chains = data?.chains ?? [];
   const visible =
@@ -73,7 +77,7 @@ export function OverlaysPage() {
       <ul className="flex flex-col gap-2">
         {visible.map((chain) => {
           const newest = newestRevision(chain);
-          const disabled = publishing || archiving;
+          const disabled = publishing || archiving || branching || reverting;
           return (
             <li
               key={chain.overlayIdentifier}
@@ -101,6 +105,29 @@ export function OverlaysPage() {
                   >
                     Publish
                   </Button>
+                )}
+                {newest.state === 'Published' && (
+                  <>
+                    <Button
+                      variant="secondary"
+                      disabled={disabled}
+                      onClick={() => void branchDraft(chain.overlayIdentifier)}
+                    >
+                      Edit (new draft)
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      disabled={disabled}
+                      onClick={() =>
+                        void revertRevision({
+                          overlayIdentifier: chain.overlayIdentifier,
+                          revisionNumber: newest.revisionNumber,
+                        })
+                      }
+                    >
+                      Revert
+                    </Button>
+                  </>
                 )}
                 {newest.state !== 'Archived' && (
                   <Button
