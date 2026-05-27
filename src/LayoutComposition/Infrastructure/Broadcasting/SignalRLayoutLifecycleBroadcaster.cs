@@ -105,4 +105,24 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
                 notification.Overlay, notification.RevisionNumber);
         }
     }
+
+    public async Task ResolvedOverlayTextChangedAsync(ResolvedOverlayTextChangedNotification notification, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(notification);
+        ResolvedOverlayTextChangedHubMessage message = new(
+            Overlay: notification.Overlay,
+            ResolvedText: notification.ResolvedText,
+            Version: notification.Version);
+
+        try
+        {
+            await hub.Clients.All.ResolvedOverlayTextChanged(message).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogWarning(ex,
+                "SignalR broadcast for ResolvedOverlayTextChanged({Overlay}, v{Version}) failed; reconcile-on-reconnect will recover.",
+                notification.Overlay, notification.Version);
+        }
+    }
 }
