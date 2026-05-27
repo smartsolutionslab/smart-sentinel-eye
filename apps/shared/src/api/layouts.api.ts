@@ -87,6 +87,40 @@ export const layoutsApi = createApi({
         { type: 'LayoutList', id: 'ALL' },
       ],
     }),
+    branchDraftRevision: build.mutation<number, string>({
+      query: (layoutIdentifier) => ({
+        url: `/${layoutIdentifier}/draft`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_r, _e, layoutIdentifier) => [
+        { type: 'Layout', id: layoutIdentifier },
+        { type: 'LayoutList', id: 'ALL' },
+      ],
+    }),
+    editDraftRevision: build.mutation<
+      number,
+      RevisionRouteInput & { cameraIdentifier: string }
+    >({
+      query: ({ layoutIdentifier, revisionNumber, cameraIdentifier }) => ({
+        url: `/${layoutIdentifier}/revisions/${revisionNumber}`,
+        method: 'PATCH',
+        body: { cameraIdentifier },
+      }),
+      invalidatesTags: (_r, _e, { layoutIdentifier }) => [
+        { type: 'Layout', id: layoutIdentifier },
+        { type: 'LayoutList', id: 'ALL' },
+      ],
+    }),
+    revertRevision: build.mutation<number, RevisionRouteInput>({
+      query: ({ layoutIdentifier, revisionNumber }) => ({
+        url: `/${layoutIdentifier}/revisions/${revisionNumber}/revert`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_r, _e, { layoutIdentifier }) => [
+        { type: 'Layout', id: layoutIdentifier },
+        { type: 'LayoutList', id: 'ALL' },
+      ],
+    }),
   }),
 });
 
@@ -96,4 +130,7 @@ export const {
   useListLayoutsQuery,
   usePublishRevisionMutation,
   useArchiveRevisionMutation,
+  useBranchDraftRevisionMutation,
+  useEditDraftRevisionMutation,
+  useRevertRevisionMutation,
 } = layoutsApi;

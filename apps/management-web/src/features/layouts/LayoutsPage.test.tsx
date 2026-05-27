@@ -20,6 +20,8 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
     useListLayoutsQuery: (...args: unknown[]) => listLayoutsMock(...args),
     usePublishRevisionMutation: () => [publishMock, { isLoading: false }],
     useArchiveRevisionMutation: () => [archiveMock, { isLoading: false }],
+    useBranchDraftRevisionMutation: () => [vi.fn(async () => ({ data: 2 })), { isLoading: false }],
+    useRevertRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), { isLoading: false }],
     useCreateLayoutDraftMutation: () => [createDraftMock, { isLoading: false, error: undefined }],
   };
 });

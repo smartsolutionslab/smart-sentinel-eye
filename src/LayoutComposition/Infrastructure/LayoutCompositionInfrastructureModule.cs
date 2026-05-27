@@ -55,6 +55,15 @@ public static class LayoutCompositionInfrastructureModule
         builder.Services.AddScoped<
             ICommandHandler<ArchiveRevisionCommand, Result<LayoutRevisionNumber, ArchiveRevisionError>>,
             ArchiveRevisionCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<BranchDraftRevisionCommand, Result<LayoutRevisionNumber, BranchDraftRevisionError>>,
+            BranchDraftRevisionCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<EditDraftRevisionCommand, Result<LayoutRevisionNumber, EditDraftRevisionError>>,
+            EditDraftRevisionCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<RevertRevisionCommand, Result<LayoutRevisionNumber, RevertRevisionError>>,
+            RevertRevisionCommandHandler>();
 
         builder.AddWolverineForContext<LayoutCompositionDbContext>(
             moduleQueuePrefix: ContextName,
