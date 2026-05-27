@@ -1,10 +1,25 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\Domain\SmartSentinelEye.OverlayDesigner.Domain.csproj" />
     <ProjectReference Include="..\..\Shared.Kernel\SmartSentinelEye.Shared.Kernel.csproj" />
     <ProjectReference Include="..\..\Shared.CQRS\SmartSentinelEye.Shared.CQRS.csproj" />
     <ProjectReference Include="..\..\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
+    <!-- Cross-context reference: the OverlayDesigner Application layer
+         calls into LayoutComposition's domain-level
+         ILayoutLifecycleBroadcaster to fan out overlay-published /
+         archived events through the existing /hubs/layouts SignalR hub.
+         Documented as the one allowed cross-context exception per the
+         spec 004 plan; NetArchTest gets an explicit allow-rule in PR G. -->
+    <ProjectReference Include="..\..\LayoutComposition\Domain\SmartSentinelEye.LayoutComposition.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- IQueryable<T>.ToListAsync / SingleOrDefaultAsync extensions used by
+         query handlers; Application never references EF Core's DbContext
+         directly (IQueryable comes from Infrastructure via the QuerySource). -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
   </ItemGroup>
 
   <PropertyGroup>

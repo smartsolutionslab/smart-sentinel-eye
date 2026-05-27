@@ -37,6 +37,7 @@ if (isRunMode && !isE2ETests)
 var cameraCatalogDb = postgres.AddDatabase("camera-catalog-db");
 var streamDistributionDb = postgres.AddDatabase("stream-distribution-db");
 var layoutCompositionDb = postgres.AddDatabase("layout-composition-db");
+var overlayDesignerDb = postgres.AddDatabase("overlay-designer-db");
 
 var rabbitmq = builder
     .AddRabbitMQ("rabbitmq", password: rabbitPassword)
@@ -82,9 +83,11 @@ var migrations = builder
     .WithReference(cameraCatalogDb)
     .WithReference(streamDistributionDb)
     .WithReference(layoutCompositionDb)
+    .WithReference(overlayDesignerDb)
     .WaitFor(cameraCatalogDb)
     .WaitFor(streamDistributionDb)
-    .WaitFor(layoutCompositionDb);
+    .WaitFor(layoutCompositionDb)
+    .WaitFor(overlayDesignerDb);
 
 var cameraCatalog = builder
     .AddProject<Projects.SmartSentinelEye_CameraCatalog_Api>("camera-catalog")
@@ -119,7 +122,15 @@ var layoutComposition = builder
     .WaitFor(keycloak);
 builder.AddProject<Projects.SmartSentinelEye_SystemVariables_Api>("system-variables").WaitForCompletion(migrations);
 builder.AddProject<Projects.SmartSentinelEye_EventIngestion_Api>("event-ingestion").WaitForCompletion(migrations);
-builder.AddProject<Projects.SmartSentinelEye_OverlayDesigner_Api>("overlay-designer").WaitForCompletion(migrations);
+var overlayDesigner = builder
+    .AddProject<Projects.SmartSentinelEye_OverlayDesigner_Api>("overlay-designer")
+    .WithHttpEndpoint()
+    .WithReference(overlayDesignerDb)
+    .WithReference(rabbitmq)
+    .WithReference(keycloak)
+    .WaitForCompletion(migrations)
+    .WaitFor(rabbitmq)
+    .WaitFor(keycloak);
 builder.AddProject<Projects.SmartSentinelEye_Automation_Api>("automation").WaitForCompletion(migrations);
 builder.AddProject<Projects.SmartSentinelEye_Identity_Api>("identity").WaitForCompletion(migrations);
 builder.AddProject<Projects.SmartSentinelEye_AuditObservability_Api>("audit-observability").WaitForCompletion(migrations);
@@ -131,6 +142,8 @@ if (isRunMode && !isE2ETests)
     builder.AddNpmApp("management-web", "../../apps/management-web", "dev")
         .WithHttpEndpoint(env: "PORT", port: 5173)
         .WithReference(cameraCatalog)
+        .WithReference(layoutComposition)
+        .WithReference(overlayDesigner)
         .WithExternalHttpEndpoints();
 
     builder.AddNpmApp("kiosk-web", "../../apps/kiosk-web", "dev")
@@ -138,6 +151,7 @@ if (isRunMode && !isE2ETests)
         .WithReference(cameraCatalog)
         .WithReference(streamDistribution)
         .WithReference(layoutComposition)
+        .WithReference(overlayDesigner)
         .WithReference(keycloak)
         .WithExternalHttpEndpoints();
 }
