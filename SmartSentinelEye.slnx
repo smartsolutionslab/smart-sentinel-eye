@@ -178,4 +178,7 @@
   <Folder Name="/tests/SystemVariables.Domain.Tests/">
     <Project Path="tests/SystemVariables.Domain.Tests/SmartSentinelEye.SystemVariables.Domain.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/SystemVariables.Application.Tests/">
+    <Project Path="tests/SystemVariables.Application.Tests/SmartSentinelEye.SystemVariables.Application.Tests.csproj" />
+  </Folder>
 </Solution>

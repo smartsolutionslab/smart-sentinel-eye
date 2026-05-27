@@ -16,6 +16,8 @@ public interface ILayoutLifecycleBroadcaster
     Task OverlayPublishedAsync(OverlayLifecyclePublishedNotification notification, CancellationToken cancellationToken);
 
     Task OverlayArchivedAsync(OverlayLifecycleArchivedNotification notification, CancellationToken cancellationToken);
+
+    Task ResolvedOverlayTextChangedAsync(ResolvedOverlayTextChangedNotification notification, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -66,3 +68,15 @@ public sealed record OverlayLifecycleArchivedNotification(
     Guid Overlay,
     int RevisionNumber,
     DateTimeOffset ArchivedAt);
+
+/// <summary>
+/// Wire shape for "an overlay's resolved text changed" pushes
+/// (spec 005 FR-013). Pushed when a system variable referenced by an
+/// overlay's label changes, gets archived, or the overlay itself is
+/// republished with new references. <c>Version</c> is a monotonic
+/// per-overlay counter so the kiosk can discard out-of-order frames.
+/// </summary>
+public sealed record ResolvedOverlayTextChangedNotification(
+    Guid Overlay,
+    string ResolvedText,
+    long Version);

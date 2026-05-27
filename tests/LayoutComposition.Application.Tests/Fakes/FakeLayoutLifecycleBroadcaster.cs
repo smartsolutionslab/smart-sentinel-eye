@@ -39,4 +39,12 @@ public sealed class FakeLayoutLifecycleBroadcaster : ILayoutLifecycleBroadcaster
         OverlaysArchived.Add(notification);
         return Task.CompletedTask;
     }
+
+    public List<ResolvedOverlayTextChangedNotification> ResolvedTextChanged { get; } = new();
+
+    public Task ResolvedOverlayTextChangedAsync(ResolvedOverlayTextChangedNotification notification, CancellationToken cancellationToken)
+    {
+        ResolvedTextChanged.Add(notification);
+        return Task.CompletedTask;
+    }
 }
