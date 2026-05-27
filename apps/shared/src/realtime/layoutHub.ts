@@ -38,11 +38,25 @@ export interface OverlayRevisionArchivedMessage {
   archivedAt: string;
 }
 
+/**
+ * Wire shape for resolved-overlay-text SignalR frames (spec 005
+ * FR-013). Pushed when a referenced system variable changes value,
+ * gets archived, or the overlay itself republishes. `version` is a
+ * monotonic per-overlay counter so the kiosk can discard out-of-order
+ * frames.
+ */
+export interface ResolvedOverlayTextChangedMessage {
+  overlay: string;
+  resolvedText: string;
+  version: number;
+}
+
 export interface LayoutHubCallbacks {
   onPublished?: (message: LayoutRevisionPublishedMessage) => void;
   onArchived?: (message: LayoutRevisionArchivedMessage) => void;
   onOverlayPublished?: (message: OverlayRevisionPublishedMessage) => void;
   onOverlayArchived?: (message: OverlayRevisionArchivedMessage) => void;
+  onResolvedOverlayTextChanged?: (message: ResolvedOverlayTextChangedMessage) => void;
   onReconnected?: () => void;
 }
 
@@ -80,6 +94,9 @@ export function createLayoutHubClient(config: LayoutHubConfig, callbacks: Layout
   }
   if (callbacks.onOverlayArchived !== undefined) {
     connection.on('OverlayRevisionArchived', callbacks.onOverlayArchived);
+  }
+  if (callbacks.onResolvedOverlayTextChanged !== undefined) {
+    connection.on('ResolvedOverlayTextChanged', callbacks.onResolvedOverlayTextChanged);
   }
   if (callbacks.onReconnected !== undefined) {
     connection.onreconnected(() => {
