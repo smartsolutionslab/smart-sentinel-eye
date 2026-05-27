@@ -26,7 +26,7 @@ public sealed record EditDraftRevisionCommand(
 /// </summary>
 public readonly record struct OverlayChange(bool ShouldChange, OverlayIdentifier? Value)
 {
-    public static readonly OverlayChange None = default;
+    public static OverlayChange None => default;
 
     public static OverlayChange Set(OverlayIdentifier overlay) => new(true, overlay);
 

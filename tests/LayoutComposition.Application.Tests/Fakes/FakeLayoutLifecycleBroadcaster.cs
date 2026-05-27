@@ -12,6 +12,10 @@ public sealed class FakeLayoutLifecycleBroadcaster : ILayoutLifecycleBroadcaster
 
     public List<LayoutRevisionArchivedNotification> Archived { get; } = new();
 
+    public List<OverlayLifecyclePublishedNotification> OverlaysPublished { get; } = new();
+
+    public List<OverlayLifecycleArchivedNotification> OverlaysArchived { get; } = new();
+
     public Task PublishedAsync(LayoutRevisionPublishedNotification notification, CancellationToken cancellationToken)
     {
         Published.Add(notification);
@@ -21,6 +25,18 @@ public sealed class FakeLayoutLifecycleBroadcaster : ILayoutLifecycleBroadcaster
     public Task ArchivedAsync(LayoutRevisionArchivedNotification notification, CancellationToken cancellationToken)
     {
         Archived.Add(notification);
+        return Task.CompletedTask;
+    }
+
+    public Task OverlayPublishedAsync(OverlayLifecyclePublishedNotification notification, CancellationToken cancellationToken)
+    {
+        OverlaysPublished.Add(notification);
+        return Task.CompletedTask;
+    }
+
+    public Task OverlayArchivedAsync(OverlayLifecycleArchivedNotification notification, CancellationToken cancellationToken)
+    {
+        OverlaysArchived.Add(notification);
         return Task.CompletedTask;
     }
 }

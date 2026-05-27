@@ -12,6 +12,10 @@ public interface ILayoutLifecycleBroadcaster
     Task PublishedAsync(LayoutRevisionPublishedNotification notification, CancellationToken cancellationToken);
 
     Task ArchivedAsync(LayoutRevisionArchivedNotification notification, CancellationToken cancellationToken);
+
+    Task OverlayPublishedAsync(OverlayLifecyclePublishedNotification notification, CancellationToken cancellationToken);
+
+    Task OverlayArchivedAsync(OverlayLifecycleArchivedNotification notification, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -33,4 +37,32 @@ public sealed record LayoutRevisionPublishedNotification(
 public sealed record LayoutRevisionArchivedNotification(
     LayoutIdentifier Layout,
     LayoutRevisionNumber RevisionNumber,
+    DateTimeOffset ArchivedAt);
+
+/// <summary>
+/// Wire shape for "an overlay revision became Published" pushes. The
+/// cross-context bridge from OverlayDesigner.Application
+/// (spec 004 plan.md — single documented allow-rule); primitive types
+/// only so the broadcaster contract does not need to reference
+/// OverlayDesigner.Domain.
+/// </summary>
+public sealed record OverlayLifecyclePublishedNotification(
+    Guid Overlay,
+    int RevisionNumber,
+    string Name,
+    string Text,
+    decimal NormalizedX,
+    decimal NormalizedY,
+    decimal NormalizedWidth,
+    decimal NormalizedHeight,
+    int FontSizePx,
+    DateTimeOffset PublishedAt);
+
+/// <summary>
+/// Wire shape for "an overlay revision became Archived" pushes.
+/// Primitive types only — see <see cref="OverlayLifecyclePublishedNotification"/>.
+/// </summary>
+public sealed record OverlayLifecycleArchivedNotification(
+    Guid Overlay,
+    int RevisionNumber,
     DateTimeOffset ArchivedAt);

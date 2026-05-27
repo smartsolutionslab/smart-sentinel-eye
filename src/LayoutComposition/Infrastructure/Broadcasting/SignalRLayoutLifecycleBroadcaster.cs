@@ -58,4 +58,51 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
                 notification.Layout, notification.RevisionNumber);
         }
     }
+
+    public async Task OverlayPublishedAsync(OverlayLifecyclePublishedNotification notification, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(notification);
+        OverlayRevisionPublishedHubMessage message = new(
+            Overlay: notification.Overlay,
+            RevisionNumber: notification.RevisionNumber,
+            Name: notification.Name,
+            Text: notification.Text,
+            NormalizedX: notification.NormalizedX,
+            NormalizedY: notification.NormalizedY,
+            NormalizedWidth: notification.NormalizedWidth,
+            NormalizedHeight: notification.NormalizedHeight,
+            FontSizePx: notification.FontSizePx,
+            PublishedAt: notification.PublishedAt);
+
+        try
+        {
+            await hub.Clients.All.OverlayRevisionPublished(message).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogWarning(ex,
+                "SignalR broadcast for OverlayRevisionPublished({Overlay},{Revision}) failed; reconcile-on-reconnect will recover.",
+                notification.Overlay, notification.RevisionNumber);
+        }
+    }
+
+    public async Task OverlayArchivedAsync(OverlayLifecycleArchivedNotification notification, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(notification);
+        OverlayRevisionArchivedHubMessage message = new(
+            Overlay: notification.Overlay,
+            RevisionNumber: notification.RevisionNumber,
+            ArchivedAt: notification.ArchivedAt);
+
+        try
+        {
+            await hub.Clients.All.OverlayRevisionArchived(message).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogWarning(ex,
+                "SignalR broadcast for OverlayRevisionArchived({Overlay},{Revision}) failed; reconcile-on-reconnect will recover.",
+                notification.Overlay, notification.RevisionNumber);
+        }
+    }
 }
