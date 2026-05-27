@@ -1,12 +1,13 @@
 import { useState, type ReactNode } from 'react';
 import { CamerasPage } from './features/cameras/CamerasPage.js';
 import { LayoutsPage } from './features/layouts/LayoutsPage.js';
+import { OverlaysPage } from './features/overlays/OverlaysPage.js';
 
-type View = 'cameras' | 'layouts';
+type View = 'cameras' | 'layouts' | 'overlays';
 
 // Placeholder shell for the management app. A real router lands when more
-// than two surfaces exist; for spec 003 we toggle between the cameras and
-// layouts pages so the nav remains visible everywhere.
+// than three surfaces exist; for spec 004 we toggle between cameras,
+// layouts, and overlays so the nav remains visible everywhere.
 export function App() {
   const [view, setView] = useState<View>('cameras');
 
@@ -19,8 +20,13 @@ export function App() {
         <NavButton active={view === 'layouts'} onClick={() => setView('layouts')}>
           Layouts
         </NavButton>
+        <NavButton active={view === 'overlays'} onClick={() => setView('overlays')}>
+          Overlays
+        </NavButton>
       </nav>
-      {view === 'cameras' ? <CamerasPage /> : <LayoutsPage />}
+      {view === 'cameras' && <CamerasPage />}
+      {view === 'layouts' && <LayoutsPage />}
+      {view === 'overlays' && <OverlaysPage />}
     </main>
   );
 }

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
+using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
@@ -10,6 +11,7 @@ public sealed partial class AspireFixture
     public const string CameraCatalogConnectionName = "camera-catalog-db";
     public const string StreamDistributionConnectionName = "stream-distribution-db";
     public const string LayoutCompositionConnectionName = "layout-composition-db";
+    public const string OverlayDesignerConnectionName = "overlay-designer-db";
 
     public async Task<CameraCatalogDbContext> CreateCameraCatalogDbContextAsync()
     {
@@ -77,6 +79,29 @@ public sealed partial class AspireFixture
         await using LayoutCompositionDbContext context =
             await CreateLayoutCompositionDbContextAsync().ConfigureAwait(false);
         await context.Layouts.ExecuteDeleteAsync().ConfigureAwait(false);
+    }
+
+    public async Task<OverlayDesignerDbContext> CreateOverlayDesignerDbContextAsync()
+    {
+        string? connectionString = await App.GetConnectionStringAsync(OverlayDesignerConnectionName)
+            .ConfigureAwait(false);
+
+        if (connectionString is null)
+        {
+            throw new InvalidOperationException(
+                $"Connection string '{OverlayDesignerConnectionName}' was not provisioned by Aspire.");
+        }
+
+        DbContextOptionsBuilder<OverlayDesignerDbContext> optionsBuilder = new();
+        optionsBuilder.UseNpgsql(connectionString);
+        return new OverlayDesignerDbContext(optionsBuilder.Options);
+    }
+
+    public async Task ResetOverlayDesignerAsync()
+    {
+        await using OverlayDesignerDbContext context =
+            await CreateOverlayDesignerDbContextAsync().ConfigureAwait(false);
+        await context.Overlays.ExecuteDeleteAsync().ConfigureAwait(false);
     }
 
     /// <summary>

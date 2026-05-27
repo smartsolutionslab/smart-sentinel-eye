@@ -11,6 +11,8 @@
     "./api/streams.api": "./src/api/streams.api.ts",
     "./api/layouts.api": "./src/api/layouts.api.ts",
     "./api/layouts.schema": "./src/api/layouts.schema.ts",
+    "./api/overlays.api": "./src/api/overlays.api.ts",
+    "./api/overlays.schema": "./src/api/overlays.schema.ts",
     "./realtime": "./src/realtime/index.ts",
     "./realtime/layoutHub": "./src/realtime/layoutHub.ts",
     "./streaming": "./src/streaming/index.ts",
@@ -23,6 +25,7 @@
     "./ui/composites/FormField": "./src/ui/composites/FormField.tsx",
     "./ui/composites/DataTable": "./src/ui/composites/DataTable.tsx",
     "./ui/composites/CameraViewer": "./src/ui/composites/CameraViewer.tsx",
+    "./ui/composites/OverlayEditor": "./src/ui/composites/OverlayEditor.tsx",
     "./ui/tokens/*": "./src/ui/tokens/*",
     "./hooks": "./src/hooks/index.ts",
     "./types": "./src/types/index.ts"

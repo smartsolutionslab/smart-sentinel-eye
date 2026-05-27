@@ -35,6 +35,8 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
     public HttpClient LayoutComposition { get; private set; } = null!;
 
+    public HttpClient OverlayDesigner { get; private set; } = null!;
+
     public async Task InitializeAsync()
     {
         string[] parameters =
@@ -87,6 +89,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 .WaitForResourceAsync("layout-composition", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
+            await _app.ResourceNotifications
+                .WaitForResourceAsync("overlay-designer", KnownResourceStates.Running, cts.Token)
+                .ConfigureAwait(false);
+
             await WaitForKeycloakRealmAsync(cts.Token).ConfigureAwait(false);
             await WaitForMediaMtxAsync(cts.Token).ConfigureAwait(false);
         }
@@ -104,6 +110,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         CameraCatalog = App.CreateHttpClient("camera-catalog");
         StreamDistribution = App.CreateHttpClient("stream-distribution");
         LayoutComposition = App.CreateHttpClient("layout-composition");
+        OverlayDesigner = App.CreateHttpClient("overlay-designer");
     }
 
     public async Task DisposeAsync()
@@ -111,6 +118,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         CameraCatalog?.Dispose();
         StreamDistribution?.Dispose();
         LayoutComposition?.Dispose();
+        OverlayDesigner?.Dispose();
 
         if (_logCts is not null)
         {
