@@ -51,6 +51,7 @@ function chain(overrides: Partial<Layout> = {}): Layout {
         revisionNumber: 1,
         state: 'Draft',
         cameraIdentifier: '44444444-4444-4444-4444-444444444444',
+        overlayIdentifier: null,
         createdAt: '2026-05-26T10:00:00Z',
         createdBy: '22222222-2222-2222-2222-222222222222',
         publishedAt: null,

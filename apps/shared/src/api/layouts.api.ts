@@ -7,6 +7,8 @@ export interface LayoutRevision {
   revisionNumber: number;
   state: LayoutRevisionState;
   cameraIdentifier: string;
+  /** Spec 004 binding. `null` when no overlay is attached to the layout. */
+  overlayIdentifier: string | null;
   createdAt: string;
   createdBy: string;
   publishedAt: string | null;
@@ -26,6 +28,8 @@ export interface PublishedLayout {
   name: string;
   revisionNumber: number;
   cameraIdentifier: string;
+  /** Spec 004 binding (current Published revision's overlay). `null` if unbound. */
+  overlayIdentifier: string | null;
   publishedAt: string;
 }
 
@@ -37,6 +41,8 @@ export interface ListLayoutsResponse {
 export interface CreateLayoutDraftInput {
   name: string;
   cameraIdentifier: string;
+  /** Optional overlay binding (spec 004 PR B'). Omitted == no overlay. */
+  overlayIdentifier?: string;
 }
 
 export interface RevisionRouteInput {
@@ -50,7 +56,17 @@ export const layoutsApi = createApi({
   tagTypes: ['Layout', 'LayoutList'],
   endpoints: (build) => ({
     createLayoutDraft: build.mutation<string, CreateLayoutDraftInput>({
-      query: (body) => ({ url: '', method: 'POST', body }),
+      query: (body) => ({
+        url: '',
+        method: 'POST',
+        body: {
+          name: body.name,
+          cameraIdentifier: body.cameraIdentifier,
+          ...(body.overlayIdentifier !== undefined && body.overlayIdentifier !== ''
+            ? { overlayIdentifier: body.overlayIdentifier }
+            : {}),
+        },
+      }),
       invalidatesTags: [{ type: 'LayoutList', id: 'ALL' }],
     }),
     getLayout: build.query<Layout, string>({

@@ -14,9 +14,35 @@ export interface LayoutRevisionArchivedMessage {
   archivedAt: string;
 }
 
+/**
+ * Wire shape for overlay-revision-published SignalR frames (spec 004
+ * PR C broadcaster bridge). The backend reuses the LayoutLifecycle hub
+ * so kiosks subscribe to overlay updates over the same connection.
+ */
+export interface OverlayRevisionPublishedMessage {
+  overlay: string;
+  revisionNumber: number;
+  name: string;
+  text: string;
+  normalizedX: number;
+  normalizedY: number;
+  normalizedWidth: number;
+  normalizedHeight: number;
+  fontSizePx: number;
+  publishedAt: string;
+}
+
+export interface OverlayRevisionArchivedMessage {
+  overlay: string;
+  revisionNumber: number;
+  archivedAt: string;
+}
+
 export interface LayoutHubCallbacks {
   onPublished?: (message: LayoutRevisionPublishedMessage) => void;
   onArchived?: (message: LayoutRevisionArchivedMessage) => void;
+  onOverlayPublished?: (message: OverlayRevisionPublishedMessage) => void;
+  onOverlayArchived?: (message: OverlayRevisionArchivedMessage) => void;
   onReconnected?: () => void;
 }
 
@@ -48,6 +74,12 @@ export function createLayoutHubClient(config: LayoutHubConfig, callbacks: Layout
   }
   if (callbacks.onArchived !== undefined) {
     connection.on('LayoutRevisionArchived', callbacks.onArchived);
+  }
+  if (callbacks.onOverlayPublished !== undefined) {
+    connection.on('OverlayRevisionPublished', callbacks.onOverlayPublished);
+  }
+  if (callbacks.onOverlayArchived !== undefined) {
+    connection.on('OverlayRevisionArchived', callbacks.onOverlayArchived);
   }
   if (callbacks.onReconnected !== undefined) {
     connection.onreconnected(() => {

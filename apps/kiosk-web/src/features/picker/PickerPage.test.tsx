@@ -58,6 +58,7 @@ function published(overrides: Partial<ListLayoutsResponse['published'][number]> 
     name: 'Line-1',
     revisionNumber: 1,
     cameraIdentifier: '22222222-2222-2222-2222-222222222222',
+    overlayIdentifier: null,
     publishedAt: '2026-05-26T10:00:00Z',
     ...overrides,
   };

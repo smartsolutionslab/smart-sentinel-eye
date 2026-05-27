@@ -12,10 +12,26 @@ export type CameraViewerStatus =
   | 'error'
   | 'offline';
 
+/**
+ * Optional label drawn over the live video. Coordinates are normalized
+ * to [0,1] so the overlay scales with the viewer regardless of viewport
+ * size (spec 004 FR-005 / FR-013).
+ */
+export interface CameraViewerOverlay {
+  text: string;
+  normalizedX: number;
+  normalizedY: number;
+  normalizedWidth: number;
+  normalizedHeight: number;
+  fontSizePx: number;
+}
+
 export interface CameraViewerProps {
   cameraIdentifier: string;
   /** Resolves the bearer token for the current operator (Keycloak access token). */
   getToken: () => Promise<string | null>;
+  /** Optional overlay rendered on top of the live frame (spec 004 US2). */
+  overlay?: CameraViewerOverlay;
   className?: string;
 }
 
@@ -24,7 +40,7 @@ export interface CameraViewerProps {
  * cameraIdentifier and renders the live stream. Designed to be embedded
  * unchanged by spec 003 (Layout Composition) — no layout concerns leak in.
  */
-export function CameraViewer({ cameraIdentifier, getToken, className }: CameraViewerProps) {
+export function CameraViewer({ cameraIdentifier, getToken, overlay, className }: CameraViewerProps) {
   const { data: stream, error: queryError } = useGetStreamQuery(cameraIdentifier, {
     pollingInterval: 5000,
   });
@@ -85,6 +101,7 @@ export function CameraViewer({ cameraIdentifier, getToken, className }: CameraVi
   return (
     <div className={clsx('relative aspect-video w-full overflow-hidden rounded-md bg-black', className)}>
       <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-contain" />
+      {overlay !== undefined && <OverlayLabel overlay={overlay} />}
       {status !== 'live' && (
         <ViewerOverlay status={status} message={errorMessage} stream={stream} queryError={queryError} />
       )}
@@ -120,6 +137,32 @@ function ViewerOverlay({
       <span className={clsx('font-medium', tone)}>{label}</span>
       {hint !== null && <span className="px-4 text-xs text-fg-muted">{hint}</span>}
     </div>
+  );
+}
+
+function OverlayLabel({ overlay }: { overlay: CameraViewerOverlay }) {
+  return (
+    <span
+      data-testid="camera-viewer-overlay-label"
+      style={{
+        position: 'absolute',
+        left: `${overlay.normalizedX * 100}%`,
+        top: `${overlay.normalizedY * 100}%`,
+        width: `${overlay.normalizedWidth * 100}%`,
+        height: `${overlay.normalizedHeight * 100}%`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(255, 255, 255, 0.85)',
+        color: '#111827',
+        fontSize: `clamp(${Math.min(12, overlay.fontSizePx / 4)}px, ${overlay.fontSizePx / 16}vw, ${overlay.fontSizePx}px)`,
+        fontWeight: 600,
+        pointerEvents: 'none',
+        padding: '0 4px',
+      }}
+    >
+      {overlay.text}
+    </span>
   );
 }
 
