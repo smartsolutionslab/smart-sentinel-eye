@@ -17,14 +17,10 @@ var builder = DistributedApplication.CreateBuilder(args);
 bool isRunMode = builder.ExecutionContext.IsRunMode;
 bool isE2ETests = bool.TryParse(builder.Configuration["E2ETests"], out bool e2e) && e2e;
 
-IResourceBuilder<ParameterResource> postgresUser =
-    builder.AddParameter("PostgresUser", "postgres");
-IResourceBuilder<ParameterResource> postgresPassword =
-    builder.AddParameter("PostgresPassword", "dev-only-postgres-password", secret: true);
-IResourceBuilder<ParameterResource> keycloakPassword =
-    builder.AddParameter("KeycloakPassword", "dev-only-keycloak-admin", secret: true);
-IResourceBuilder<ParameterResource> rabbitPassword =
-    builder.AddParameter("RabbitMqPassword", "dev-only-rabbit-password", secret: true);
+var postgresUser = builder.AddParameter("PostgresUser", "postgres");
+var postgresPassword = builder.AddParameter("PostgresPassword", "dev-only-postgres-password", secret: true);
+var keycloakPassword = builder.AddParameter("KeycloakPassword", "dev-only-keycloak-admin", secret: true);
+var rabbitPassword = builder.AddParameter("RabbitMqPassword", "dev-only-rabbit-password", secret: true);
 
 IResourceBuilder<PostgresServerResource> postgres = builder
     .AddPostgres("postgres", userName: postgresUser, password: postgresPassword)
@@ -38,14 +34,11 @@ if (isRunMode && !isE2ETests)
         .WithPgAdmin();
 }
 
-IResourceBuilder<PostgresDatabaseResource> cameraCatalogDb =
-    postgres.AddDatabase("camera-catalog-db");
-IResourceBuilder<PostgresDatabaseResource> streamDistributionDb =
-    postgres.AddDatabase("stream-distribution-db");
-IResourceBuilder<PostgresDatabaseResource> layoutCompositionDb =
-    postgres.AddDatabase("layout-composition-db");
+var cameraCatalogDb = postgres.AddDatabase("camera-catalog-db");
+var streamDistributionDb = postgres.AddDatabase("stream-distribution-db");
+var layoutCompositionDb = postgres.AddDatabase("layout-composition-db");
 
-IResourceBuilder<RabbitMQServerResource> rabbitmq = builder
+var rabbitmq = builder
     .AddRabbitMQ("rabbitmq", password: rabbitPassword)
     .WithImageTag("4-management-alpine")
     .WithManagementPlugin();
@@ -57,7 +50,7 @@ if (isRunMode && !isE2ETests)
         .WithDataVolume();
 }
 
-IResourceBuilder<KeycloakResource> keycloak = builder
+var keycloak = builder
     .AddKeycloak("keycloak", adminPassword: keycloakPassword)
     .WithRealmImport("../AppHost/Realms");
 
@@ -71,7 +64,7 @@ if (isRunMode && !isE2ETests)
 // MediaMTX SFU brings RTSP ingest + WHEP playback (spec 002 T003, ADR-0011).
 // MediaMTX is the runtime source of truth for live paths; the stream-distribution
 // service is the durable source of truth and reconciles paths on startup.
-IResourceBuilder<ContainerResource> mediamtx = builder
+var mediamtx = builder
     .AddContainer("mediamtx", "bluenviron/mediamtx", "latest-ffmpeg")
     .WithBindMount("Resources/mediamtx.yml", "/mediamtx.yml")
     .WithHttpEndpoint(targetPort: 9997, name: "api")
@@ -84,7 +77,7 @@ if (isRunMode && !isE2ETests)
 }
 
 // MigrationRunner orchestrates all per-context migrations and exits (ADR-0067).
-IResourceBuilder<ProjectResource> migrations = builder
+var migrations = builder
     .AddProject<Projects.SmartSentinelEye_MigrationRunner>("migrations")
     .WithReference(cameraCatalogDb)
     .WithReference(streamDistributionDb)
@@ -93,7 +86,7 @@ IResourceBuilder<ProjectResource> migrations = builder
     .WaitFor(streamDistributionDb)
     .WaitFor(layoutCompositionDb);
 
-IResourceBuilder<ProjectResource> cameraCatalog = builder
+var cameraCatalog = builder
     .AddProject<Projects.SmartSentinelEye_CameraCatalog_Api>("camera-catalog")
     .WithHttpEndpoint()
     .WithReference(cameraCatalogDb)
@@ -115,7 +108,7 @@ IResourceBuilder<ProjectResource> streamDistribution = builder
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
     .WaitFor(mediamtx);
-IResourceBuilder<ProjectResource> layoutComposition = builder
+var layoutComposition = builder
     .AddProject<Projects.SmartSentinelEye_LayoutComposition_Api>("layout-composition")
     .WithHttpEndpoint()
     .WithReference(layoutCompositionDb)
