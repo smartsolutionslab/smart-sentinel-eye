@@ -22,6 +22,9 @@ public static class LayoutCompositionApiModule
         services.AddScoped<CreateLayoutDraftCommandHandler>();
         services.AddScoped<PublishRevisionCommandHandler>();
         services.AddScoped<ArchiveRevisionCommandHandler>();
+        services.AddScoped<BranchDraftRevisionCommandHandler>();
+        services.AddScoped<EditDraftRevisionCommandHandler>();
+        services.AddScoped<RevertRevisionCommandHandler>();
         services.AddScoped<GetLayoutQueryHandler>();
         services.AddScoped<ListLayoutsQueryHandler>();
 

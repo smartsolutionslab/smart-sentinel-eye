@@ -1,7 +1,9 @@
 import {
   useArchiveRevisionMutation,
+  useBranchDraftRevisionMutation,
   useListLayoutsQuery,
   usePublishRevisionMutation,
+  useRevertRevisionMutation,
   type Layout,
   type LayoutRevisionState,
 } from '@smart-sentinel-eye/shared/api/layouts.api';
@@ -23,6 +25,8 @@ export function LayoutsPage() {
   const { data, isLoading, isFetching, error, refetch } = useListLayoutsQuery(undefined);
   const [publishRevision, { isLoading: publishing }] = usePublishRevisionMutation();
   const [archiveRevision, { isLoading: archiving }] = useArchiveRevisionMutation();
+  const [branchDraft, { isLoading: branching }] = useBranchDraftRevisionMutation();
+  const [revertRevision, { isLoading: reverting }] = useRevertRevisionMutation();
 
   const chains = data?.chains ?? [];
   const visible = filter === 'All' ? chains : chains.filter((c) => containsRevisionIn(c, filter));
@@ -74,7 +78,7 @@ export function LayoutsPage() {
       <ul className="flex flex-col gap-2">
         {visible.map((chain) => {
           const newest = newestRevision(chain);
-          const disabled = publishing || archiving;
+          const disabled = publishing || archiving || branching || reverting;
           return (
             <li
               key={chain.layoutIdentifier}
@@ -103,6 +107,29 @@ export function LayoutsPage() {
                   >
                     Publish
                   </Button>
+                )}
+                {newest.state === 'Published' && (
+                  <>
+                    <Button
+                      variant="secondary"
+                      disabled={disabled}
+                      onClick={() => void branchDraft(chain.layoutIdentifier)}
+                    >
+                      Edit (new draft)
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      disabled={disabled}
+                      onClick={() =>
+                        void revertRevision({
+                          layoutIdentifier: chain.layoutIdentifier,
+                          revisionNumber: newest.revisionNumber,
+                        })
+                      }
+                    >
+                      Revert
+                    </Button>
+                  </>
                 )}
                 {newest.state !== 'Archived' && (
                   <Button
