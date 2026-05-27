@@ -179,6 +179,7 @@ STORY_LABEL_COLORS = {
     "US2": ("1d76db", "User Story 2 task (Spec-Kit story bucket)"),
     "US3": ("1d76db", "User Story 3 task (Spec-Kit story bucket)"),
     "US4": ("1d76db", "User Story 4 task (Spec-Kit story bucket)"),
+    "LAYOUTEXT": ("1d76db", "Cross-context LayoutComposition extension task (Spec-Kit story bucket)"),
     "POLISH": ("fbca04", "Polish task (Spec-Kit story bucket)"),
     "SETUP": ("c5def5", "Setup task (Spec-Kit story bucket)"),
 }
