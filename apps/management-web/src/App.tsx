@@ -2,8 +2,9 @@ import { useState, type ReactNode } from 'react';
 import { CamerasPage } from './features/cameras/CamerasPage.js';
 import { LayoutsPage } from './features/layouts/LayoutsPage.js';
 import { OverlaysPage } from './features/overlays/OverlaysPage.js';
+import { SystemVariablesPage } from './features/systemVariables/SystemVariablesPage.js';
 
-type View = 'cameras' | 'layouts' | 'overlays';
+type View = 'cameras' | 'layouts' | 'overlays' | 'system-variables';
 
 // Placeholder shell for the management app. A real router lands when more
 // than three surfaces exist; for spec 004 we toggle between cameras,
@@ -23,10 +24,14 @@ export function App() {
         <NavButton active={view === 'overlays'} onClick={() => setView('overlays')}>
           Overlays
         </NavButton>
+        <NavButton active={view === 'system-variables'} onClick={() => setView('system-variables')}>
+          System variables
+        </NavButton>
       </nav>
       {view === 'cameras' && <CamerasPage />}
       {view === 'layouts' && <LayoutsPage />}
       {view === 'overlays' && <OverlaysPage />}
+      {view === 'system-variables' && <SystemVariablesPage />}
     </main>
   );
 }

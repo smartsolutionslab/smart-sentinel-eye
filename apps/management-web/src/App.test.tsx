@@ -64,6 +64,24 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
   };
 });
 
+vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/systemVariables.api')>();
+  return {
+    ...actual,
+    useListVariablesQuery: () => ({
+      data: [],
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    }),
+    useGetVariableQuery: () => ({ data: undefined, isLoading: false }),
+    useGetOverlaySnapshotQuery: () => ({ data: undefined, isLoading: false }),
+    useDefineVariableMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false, error: undefined }],
+    useSetVariableValueMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false }],
+  };
+});
+
 const { App } = await import('./App.js');
 const { store } = await import('./app/store.js');
 
