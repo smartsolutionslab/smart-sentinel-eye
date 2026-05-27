@@ -68,15 +68,7 @@ public static class LayoutCompositionInfrastructureModule
         builder.AddWolverineForContext<LayoutCompositionDbContext>(
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
-            postgresConnectionName: LayoutCompositionPersistenceModule.DatabaseConnectionName,
-            configureMore: opts =>
-            {
-                // Include the Application assembly so the domain-event
-                // handlers + any future Wolverine subscribers are bound.
-                // Tracked by tech-debt #200 for a convention-based fix.
-                opts.Discovery.IncludeAssembly(
-                    typeof(LayoutRevisionPublishedDomainEventHandler).Assembly);
-            });
+            postgresConnectionName: LayoutCompositionPersistenceModule.DatabaseConnectionName);
 
         return builder;
     }

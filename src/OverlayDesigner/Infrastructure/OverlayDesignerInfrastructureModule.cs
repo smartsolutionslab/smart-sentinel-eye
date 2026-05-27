@@ -71,12 +71,7 @@ public static class OverlayDesignerInfrastructureModule
         builder.AddWolverineForContext<OverlayDesignerDbContext>(
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
-            postgresConnectionName: OverlayDesignerPersistenceModule.DatabaseConnectionName,
-            configureMore: opts =>
-            {
-                opts.Discovery.IncludeAssembly(
-                    typeof(OverlayRevisionPublishedDomainEventHandler).Assembly);
-            });
+            postgresConnectionName: OverlayDesignerPersistenceModule.DatabaseConnectionName);
 
         return builder;
     }

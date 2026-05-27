@@ -91,16 +91,7 @@ public static class StreamDistributionInfrastructureModule
         builder.AddWolverineForContext<StreamDistributionDbContext>(
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
-            postgresConnectionName: StreamDistributionPersistenceModule.DatabaseConnectionName,
-            configureMore: opts =>
-            {
-                // The Wolverine handler discovery scan defaults to the entry
-                // assembly (StreamDistribution.Api). Include the Application
-                // assembly so CameraRegisteredIntegrationEventHandler and the
-                // domain-event handlers are bound to the integration bus.
-                opts.Discovery.IncludeAssembly(
-                    typeof(CameraRegisteredIntegrationEventHandler).Assembly);
-            });
+            postgresConnectionName: StreamDistributionPersistenceModule.DatabaseConnectionName);
 
         return builder;
     }
