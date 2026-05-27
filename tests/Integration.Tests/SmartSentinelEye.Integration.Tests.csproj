@@ -25,6 +25,7 @@
     <ProjectReference Include="..\..\src\CameraCatalog\Infrastructure\SmartSentinelEye.CameraCatalog.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\StreamDistribution\Infrastructure\SmartSentinelEye.StreamDistribution.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\LayoutComposition\Infrastructure\SmartSentinelEye.LayoutComposition.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\OverlayDesigner\Infrastructure\SmartSentinelEye.OverlayDesigner.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
   </ItemGroup>
 
