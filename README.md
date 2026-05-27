@@ -7,11 +7,13 @@ Smart Sentinel Eye unifies hundreds of IP cameras across an industrial
 plant into a single low-latency video wall, with dynamic overlays driven
 by events from MES, SCADA, and other shop-floor systems.
 
-**Status:** specs `001-register-camera` and `002-watch-camera-live`
-shipped end-to-end. Admins can register a camera through the
-management UI, see it in the list with a live stream-health badge,
-click **Watch** to view a low-latency WebRTC stream, and observe
-state transitions (Healthy / Degraded / Offline) in real time.
+**Status:** specs `001-register-camera`, `002-watch-camera-live`, and
+`003-layout-composition` shipped end-to-end. Admins can register a
+camera, view its live stream with health-badge feedback, author a
+named layout pointing at the camera, and publish it. Operators at a
+kiosk (the second React app) sign in, pick a published layout, and
+see the live WebRTC frame. Archiving the layout force-disconnects
+the kiosk within 1 s via SignalR push.
 
 ## What it does
 
@@ -90,6 +92,35 @@ last successful frame time and any error message.
    Within ~10 s the badge flips to **Degraded** and the viewer panel
    shows a "Reconnecting…" overlay. Restore the source and watch the
    badge return to **Healthy**.
+
+## Quickstart — publish a layout and view it on a kiosk
+
+With at least one camera registered, the **Layouts** page in
+management-web lets an admin author a layout that pins the camera to a
+viewable surface. The **kiosk-web** app then opens that layout on a
+shop-floor display, with sub-second push notifications when the admin
+archives or replaces the layout.
+
+1. In management-web, click **Layouts** in the top nav, then
+   **New layout**. Pick a name and select the registered camera from
+   the dropdown. Click **Save as draft**. The new row shows state
+   **Draft**.
+2. Click **Publish** on the row. The state flips to **Published**
+   within ≤ 1 s. ``LayoutRevisionPublishedV1`` lands on the
+   integration bus; the SignalR hub broadcasts to any connected kiosk.
+3. Open the **kiosk-web** URL from the Aspire dashboard (default
+   `http://localhost:5174`). Sign in with the same admin credentials.
+   The picker lists the newly Published layout.
+4. Tap the layout card. The single-cell view opens and a live
+   WebRTC frame from the registered camera appears within ≤ 3 s.
+5. In management-web, click **Archive** on the layout row. Within
+   ≤ 1 s the kiosk force-disconnects to the picker — the archived
+   layout is gone from the list (US-3).
+6. *(Optional)* Click **Edit (new draft)** instead of Archive to
+   branch a new Draft revision off the Published one (US-4). Edit
+   the camera in the dialog, then **Publish** the new revision —
+   revision 1 is auto-Archived in the same transaction and any
+   connected kiosk force-disconnects.
 
 ## Tests
 
