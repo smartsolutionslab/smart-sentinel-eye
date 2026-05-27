@@ -1,5 +1,7 @@
 # Smart Sentinel Eye
 
+[![CI](https://github.com/smartsolutionslab/smart-sentinel-eye/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/smartsolutionslab/smart-sentinel-eye/actions/workflows/ci.yml)
+
 > Professional camera management system for industrial production fabs.
 > 24/7 operation. WebRTC streaming. On-prem first, cloud-ready.
 
@@ -7,13 +9,13 @@ Smart Sentinel Eye unifies hundreds of IP cameras across an industrial
 plant into a single low-latency video wall, with dynamic overlays driven
 by events from MES, SCADA, and other shop-floor systems.
 
-**Status:** specs `001-register-camera`, `002-watch-camera-live`, and
-`003-layout-composition` shipped end-to-end. Admins can register a
-camera, view its live stream with health-badge feedback, author a
-named layout pointing at the camera, and publish it. Operators at a
-kiosk (the second React app) sign in, pick a published layout, and
-see the live WebRTC frame. Archiving the layout force-disconnects
-the kiosk within 1 s via SignalR push.
+**Status:** specs `001-register-camera`, `002-watch-camera-live`,
+`003-layout-composition`, and `004-overlay-designer` shipped end-to-end.
+Admins register cameras, author named layouts, compose WYSIWYG text
+overlays, and publish the lot. Operators at a kiosk sign in, pick a
+published layout, and see the live WebRTC frame with the bound overlay
+composited on top. Republishing the overlay pushes the new label to
+every connected kiosk within 1 s via SignalR.
 
 ## What it does
 
