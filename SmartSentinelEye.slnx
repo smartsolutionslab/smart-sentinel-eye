@@ -175,4 +175,7 @@
   <Folder Name="/tests/OverlayDesigner.Application.Tests/">
     <Project Path="tests/OverlayDesigner.Application.Tests/SmartSentinelEye.OverlayDesigner.Application.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/SystemVariables.Domain.Tests/">
+    <Project Path="tests/SystemVariables.Domain.Tests/SmartSentinelEye.SystemVariables.Domain.Tests.csproj" />
+  </Folder>
 </Solution>
