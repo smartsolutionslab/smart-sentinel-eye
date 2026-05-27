@@ -20,6 +20,9 @@ public static class OverlayDesignerApiModule
         services.AddScoped<CreateOverlayDraftCommandHandler>();
         services.AddScoped<PublishRevisionCommandHandler>();
         services.AddScoped<ArchiveRevisionCommandHandler>();
+        services.AddScoped<BranchDraftRevisionCommandHandler>();
+        services.AddScoped<EditDraftRevisionCommandHandler>();
+        services.AddScoped<RevertRevisionCommandHandler>();
         services.AddScoped<GetOverlayQueryHandler>();
         services.AddScoped<ListOverlaysQueryHandler>();
 

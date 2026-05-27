@@ -20,6 +20,8 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
     useListOverlaysQuery: (...args: unknown[]) => listOverlaysMock(...args),
     usePublishOverlayRevisionMutation: () => [publishMock, { isLoading: false }],
     useArchiveOverlayRevisionMutation: () => [archiveMock, { isLoading: false }],
+    useBranchDraftOverlayRevisionMutation: () => [vi.fn(async () => ({ data: 2 })), { isLoading: false }],
+    useRevertOverlayRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), { isLoading: false }],
     useCreateOverlayDraftMutation: () => [createDraftMock, { isLoading: false, error: undefined }],
   };
 });

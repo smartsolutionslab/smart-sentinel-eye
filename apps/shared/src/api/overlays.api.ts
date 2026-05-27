@@ -95,6 +95,40 @@ export const overlaysApi = createApi({
         { type: 'OverlayList', id: 'ALL' },
       ],
     }),
+    branchDraftOverlayRevision: build.mutation<number, string>({
+      query: (overlayIdentifier) => ({
+        url: `/${overlayIdentifier}/draft`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_r, _e, overlayIdentifier) => [
+        { type: 'Overlay', id: overlayIdentifier },
+        { type: 'OverlayList', id: 'ALL' },
+      ],
+    }),
+    editDraftOverlayRevision: build.mutation<
+      number,
+      OverlayRevisionRouteInput & { label: OverlayLabel }
+    >({
+      query: ({ overlayIdentifier, revisionNumber, label }) => ({
+        url: `/${overlayIdentifier}/revisions/${revisionNumber}`,
+        method: 'PATCH',
+        body: { label },
+      }),
+      invalidatesTags: (_r, _e, { overlayIdentifier }) => [
+        { type: 'Overlay', id: overlayIdentifier },
+        { type: 'OverlayList', id: 'ALL' },
+      ],
+    }),
+    revertOverlayRevision: build.mutation<number, OverlayRevisionRouteInput>({
+      query: ({ overlayIdentifier, revisionNumber }) => ({
+        url: `/${overlayIdentifier}/revisions/${revisionNumber}/revert`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_r, _e, { overlayIdentifier }) => [
+        { type: 'Overlay', id: overlayIdentifier },
+        { type: 'OverlayList', id: 'ALL' },
+      ],
+    }),
   }),
 });
 
@@ -104,4 +138,7 @@ export const {
   useListOverlaysQuery,
   usePublishOverlayRevisionMutation,
   useArchiveOverlayRevisionMutation,
+  useBranchDraftOverlayRevisionMutation,
+  useEditDraftOverlayRevisionMutation,
+  useRevertOverlayRevisionMutation,
 } = overlaysApi;

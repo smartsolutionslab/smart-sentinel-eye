@@ -57,6 +57,24 @@ public static class OverlayEndpoints
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapPost("/{overlayIdentifier:guid}/draft", BranchDraft)
+            .WithName("BranchDraftOverlayRevision")
+            .Produces<int>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        group.MapPatch("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}", EditDraft)
+            .WithName("EditDraftOverlayRevision")
+            .Produces<int>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        group.MapPost("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}/revert", Revert)
+            .WithName("RevertOverlayRevision")
+            .Produces<int>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
         return app;
     }
 
@@ -239,6 +257,129 @@ public static class OverlayEndpoints
 
         return result.Match<IResult>(
             onSuccess: archived => Results.Ok(archived.Value),
+            onFailure: error => Results.Problem(
+                title: error.Code,
+                detail: error.Message,
+                statusCode: (int)error.Status));
+    }
+
+    private static async Task<IResult> BranchDraft(
+        Guid overlayIdentifier,
+        [FromServices] BranchDraftRevisionCommandHandler handler,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken)
+    {
+        if (overlayIdentifier == Guid.Empty)
+        {
+            return Results.Problem(
+                title: "OVERLAY_INVALID_INPUT",
+                detail: "overlayIdentifier must be a non-empty Guid.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        OperatorIdentifier op = OperatorFromClaims(user);
+        Result<OverlayRevisionNumber, BranchDraftRevisionError> result = await handler
+            .HandleAsync(
+                new BranchDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), op),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return result.Match<IResult>(
+            onSuccess: branched => Results.Created(
+                $"/overlays/{overlayIdentifier}/revisions/{branched.Value}", branched.Value),
+            onFailure: error => Results.Problem(
+                title: error.Code,
+                detail: error.Message,
+                statusCode: (int)error.Status));
+    }
+
+    private static async Task<IResult> EditDraft(
+        Guid overlayIdentifier,
+        int revisionNumber,
+        [FromBody] EditDraftRequest body,
+        [FromServices] EditDraftRevisionCommandHandler handler,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+        ArgumentNullException.ThrowIfNull(body.Label);
+        if (overlayIdentifier == Guid.Empty)
+        {
+            return Results.Problem(
+                title: "OVERLAY_INVALID_INPUT",
+                detail: "overlayIdentifier must be a non-empty Guid.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+        OverlayRevisionNumber number;
+        Label label;
+        try
+        {
+            number = OverlayRevisionNumber.From(revisionNumber);
+            label = Label.From(
+                body.Label.Text,
+                body.Label.NormalizedX,
+                body.Label.NormalizedY,
+                body.Label.NormalizedWidth,
+                body.Label.NormalizedHeight,
+                body.Label.FontSizePx);
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.Problem(
+                title: "OVERLAY_INVALID_INPUT",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler
+            .HandleAsync(
+                new EditDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, label),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return result.Match<IResult>(
+            onSuccess: edited => Results.Ok(edited.Value),
+            onFailure: error => Results.Problem(
+                title: error.Code,
+                detail: error.Message,
+                statusCode: (int)error.Status));
+    }
+
+    private static async Task<IResult> Revert(
+        Guid overlayIdentifier,
+        int revisionNumber,
+        [FromServices] RevertRevisionCommandHandler handler,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken)
+    {
+        if (overlayIdentifier == Guid.Empty)
+        {
+            return Results.Problem(
+                title: "OVERLAY_INVALID_INPUT",
+                detail: "overlayIdentifier must be a non-empty Guid.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+        OverlayRevisionNumber number;
+        try
+        {
+            number = OverlayRevisionNumber.From(revisionNumber);
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.Problem(
+                title: "OVERLAY_INVALID_INPUT",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        OperatorIdentifier op = OperatorFromClaims(user);
+        Result<OverlayRevisionNumber, RevertRevisionError> result = await handler
+            .HandleAsync(
+                new RevertRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, op),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return result.Match<IResult>(
+            onSuccess: reverted => Results.Ok(reverted.Value),
             onFailure: error => Results.Problem(
                 title: error.Code,
                 detail: error.Message,
