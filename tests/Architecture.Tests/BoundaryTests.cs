@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Reflection;
 using NetArchTest.Rules;
 
@@ -6,6 +7,9 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// <summary>
 /// Enforces the inter-context isolation rule from ADR-0027 / ADR-0044:
 /// no bounded context references another context's projects directly.
+/// Documented exceptions live in <see cref="AllowedCrossContext"/> as
+/// a data table — adding a new carve-out is a one-line edit there, no
+/// code in the predicate to thread through.
 /// </summary>
 public class BoundaryTests
 {
@@ -21,6 +25,27 @@ public class BoundaryTests
         "SmartSentinelEye.Identity",
         "SmartSentinelEye.AuditObservability",
     ];
+
+    /// <summary>
+    /// Documented cross-context allow-rules. Keys are
+    /// <c>(consumer, layer)</c>; values are the foreign context prefixes
+    /// the consumer is allowed to reference from that layer.
+    ///
+    /// <para>
+    /// Today the only entry is the spec 004 bridge:
+    /// OverlayDesigner.Application + OverlayDesigner.Infrastructure
+    /// reach into LayoutComposition.Domain for
+    /// <c>ILayoutLifecycleBroadcaster</c> so the existing
+    /// /hubs/layouts SignalR hub fans out overlay lifecycle events
+    /// alongside layout events. The Domain + Api layers stay isolated.
+    /// </para>
+    /// </summary>
+    private static readonly FrozenDictionary<(string Consumer, string Layer), string[]> AllowedCrossContext =
+        new Dictionary<(string, string), string[]>
+        {
+            { ("SmartSentinelEye.OverlayDesigner", "Application"),    ["SmartSentinelEye.LayoutComposition"] },
+            { ("SmartSentinelEye.OverlayDesigner", "Infrastructure"), ["SmartSentinelEye.LayoutComposition"] },
+        }.ToFrozenDictionary();
 
     [Theory]
     [InlineData("SmartSentinelEye.CameraCatalog")]
@@ -39,9 +64,12 @@ public class BoundaryTests
             string assemblyName = $"{contextPrefix}.{layer}";
             Assembly assembly = Assembly.Load(assemblyName);
 
+            string[] allowed = AllowedCrossContext.TryGetValue((contextPrefix, layer), out string[]? carved)
+                ? carved
+                : Array.Empty<string>();
             string[] foreignContexts = [.. AllContexts
                 .Where(c => c != contextPrefix)
-                .Where(c => !IsDocumentedAllowedDependency(contextPrefix, layer, c))];
+                .Where(c => !allowed.Contains(c))];
 
             TestResult result = Types
                 .InAssembly(assembly)
@@ -56,25 +84,11 @@ public class BoundaryTests
     }
 
     /// <summary>
-    /// Single documented cross-context allow-rule (spec 004 plan.md):
-    /// OverlayDesigner.Application + OverlayDesigner.Infrastructure
-    /// consume <c>LayoutComposition.Domain.ILayoutLifecycleBroadcaster</c>
-    /// so the existing /hubs/layouts SignalR hub fans out overlay
-    /// lifecycle events alongside layout events. The Domain + Api layers
-    /// remain isolated.
-    /// </summary>
-    private static bool IsDocumentedAllowedDependency(string contextPrefix, string layer, string foreignContext) =>
-        contextPrefix == "SmartSentinelEye.OverlayDesigner"
-        && (layer == "Application" || layer == "Infrastructure")
-        && foreignContext == "SmartSentinelEye.LayoutComposition";
-
-    /// <summary>
-    /// T097 — exercises the documented exception positively:
-    /// OverlayDesigner.Application has at least one type that depends on
-    /// the ILayoutLifecycleBroadcaster abstraction in
-    /// LayoutComposition.Domain. If a refactor accidentally removes the
-    /// bridge, this test fails — preventing a silent drift away from
-    /// the spec 004 plan.
+    /// T097 — exercises the spec 004 allow-rule positively:
+    /// OverlayDesigner.Application's domain-event handlers must depend
+    /// on the LayoutComposition.Domain broadcaster abstraction. If a
+    /// refactor accidentally removes the bridge, this test fails —
+    /// preventing silent drift away from the spec 004 plan.
     /// </summary>
     [Fact]
     public void OverlayDesigner_Application_uses_the_documented_LayoutLifecycleBroadcaster_bridge()

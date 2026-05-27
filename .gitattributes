@@ -1,0 +1,23 @@
+# Normalize line endings repo-wide. Avoids the "LF will be replaced by
+# CRLF" warning that fires on every Windows commit and stops accidental
+# CRLFs from sneaking into source files on cross-platform contributions.
+
+* text=auto eol=lf
+
+# Windows-only tooling — keep CRLF so PowerShell, cmd, and Windows
+# editors don't trip on them.
+*.ps1   text eol=crlf
+*.psm1  text eol=crlf
+*.psd1  text eol=crlf
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+
+# Explicit binaries (no diff/merge).
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary

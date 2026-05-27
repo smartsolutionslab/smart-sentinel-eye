@@ -50,31 +50,8 @@ try {
     Write-Host "==> Restoring local tools..."
     & dotnet tool restore | Out-Null
 
-    Write-Host "==> Merging coverage reports..."
-    $gated = @(
-        'SmartSentinelEye.CameraCatalog.Domain',
-        'SmartSentinelEye.CameraCatalog.Application',
-        'SmartSentinelEye.StreamDistribution.Domain',
-        'SmartSentinelEye.StreamDistribution.Application',
-        'SmartSentinelEye.LayoutComposition.Domain',
-        'SmartSentinelEye.LayoutComposition.Application',
-        'SmartSentinelEye.OverlayDesigner.Domain',
-        'SmartSentinelEye.OverlayDesigner.Application',
-        'SmartSentinelEye.Shared.Kernel',
-        'SmartSentinelEye.Shared.Contracts'
-    )
-    $assemblyFilter = ($gated | ForEach-Object { "+$_" }) -join ';'
-
-    & dotnet reportgenerator `
-        "-reports:$rawDir/**/coverage.cobertura.xml" `
-        "-targetdir:$reportDir" `
-        "-reporttypes:Html;TextSummary;Cobertura" `
-        "-assemblyfilters:$assemblyFilter" | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "reportgenerator failed (exit $LASTEXITCODE)." }
-
-    $cobertura = Join-Path $reportDir 'Cobertura.xml'
-    [xml]$report = Get-Content $cobertura
-
+    # Single source of truth: every gated assembly + its threshold.
+    # Adding a new context-layer is a one-line edit here.
     $thresholds = @{
         'SmartSentinelEye.CameraCatalog.Domain'             = 90
         'SmartSentinelEye.CameraCatalog.Application'        = 80
@@ -87,6 +64,19 @@ try {
         'SmartSentinelEye.Shared.Kernel'                    = 90
         'SmartSentinelEye.Shared.Contracts'                 = 90
     }
+
+    Write-Host "==> Merging coverage reports..."
+    $assemblyFilter = ($thresholds.Keys | ForEach-Object { "+$_" }) -join ';'
+
+    & dotnet reportgenerator `
+        "-reports:$rawDir/**/coverage.cobertura.xml" `
+        "-targetdir:$reportDir" `
+        "-reporttypes:Html;TextSummary;Cobertura" `
+        "-assemblyfilters:$assemblyFilter" | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "reportgenerator failed (exit $LASTEXITCODE)." }
+
+    $cobertura = Join-Path $reportDir 'Cobertura.xml'
+    [xml]$report = Get-Content $cobertura
 
     Write-Host "`n==> Coverage gate (ADR-0065):"
     $failed = @()
