@@ -9,6 +9,10 @@ public interface ILayoutLifecycleClient
     Task LayoutRevisionPublished(LayoutRevisionPublishedHubMessage message);
 
     Task LayoutRevisionArchived(LayoutRevisionArchivedHubMessage message);
+
+    Task OverlayRevisionPublished(OverlayRevisionPublishedHubMessage message);
+
+    Task OverlayRevisionArchived(OverlayRevisionArchivedHubMessage message);
 }
 
 /// <summary>
@@ -28,5 +32,30 @@ public sealed record LayoutRevisionPublishedHubMessage(
 /// </summary>
 public sealed record LayoutRevisionArchivedHubMessage(
     Guid Layout,
+    int RevisionNumber,
+    DateTimeOffset ArchivedAt);
+
+/// <summary>
+/// Wire shape for "an overlay revision became Published" SignalR frames.
+/// Primitive types only — mirrors the V1 integration-event shape so
+/// kiosks can render without an extra fetch.
+/// </summary>
+public sealed record OverlayRevisionPublishedHubMessage(
+    Guid Overlay,
+    int RevisionNumber,
+    string Name,
+    string Text,
+    decimal NormalizedX,
+    decimal NormalizedY,
+    decimal NormalizedWidth,
+    decimal NormalizedHeight,
+    int FontSizePx,
+    DateTimeOffset PublishedAt);
+
+/// <summary>
+/// Wire shape for "an overlay revision became Archived" SignalR frames.
+/// </summary>
+public sealed record OverlayRevisionArchivedHubMessage(
+    Guid Overlay,
     int RevisionNumber,
     DateTimeOffset ArchivedAt);

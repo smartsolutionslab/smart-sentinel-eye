@@ -34,12 +34,14 @@ public class BoundaryTests
     [InlineData("SmartSentinelEye.AuditObservability")]
     public void Context_does_not_reference_other_contexts(string contextPrefix)
     {
-        string[] foreignContexts = [.. AllContexts.Where(c => c != contextPrefix)];
-
         foreach (string layer in new[] { "Domain", "Application", "Infrastructure", "Api" })
         {
             string assemblyName = $"{contextPrefix}.{layer}";
             Assembly assembly = Assembly.Load(assemblyName);
+
+            string[] foreignContexts = [.. AllContexts
+                .Where(c => c != contextPrefix)
+                .Where(c => !IsDocumentedAllowedDependency(contextPrefix, layer, c))];
 
             TestResult result = Types
                 .InAssembly(assembly)
@@ -52,6 +54,19 @@ public class BoundaryTests
                 $"{assemblyName} has forbidden cross-context dependencies: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
         }
     }
+
+    /// <summary>
+    /// Single documented cross-context allow-rule (spec 004 plan.md):
+    /// OverlayDesigner.Application + OverlayDesigner.Infrastructure
+    /// consume <c>LayoutComposition.Domain.ILayoutLifecycleBroadcaster</c>
+    /// so the existing /hubs/layouts SignalR hub fans out overlay
+    /// lifecycle events alongside layout events. The Domain + Api layers
+    /// remain isolated.
+    /// </summary>
+    private static bool IsDocumentedAllowedDependency(string contextPrefix, string layer, string foreignContext) =>
+        contextPrefix == "SmartSentinelEye.OverlayDesigner"
+        && (layer == "Application" || layer == "Infrastructure")
+        && foreignContext == "SmartSentinelEye.LayoutComposition";
 
     [Fact]
     public void Domain_layer_does_not_reference_infrastructure_frameworks()

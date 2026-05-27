@@ -1,5 +1,6 @@
 using SmartSentinelEye.CameraCatalog.Infrastructure;
 using SmartSentinelEye.LayoutComposition.Infrastructure;
+using SmartSentinelEye.OverlayDesigner.Infrastructure;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.StreamDistribution.Infrastructure;
 
@@ -12,6 +13,7 @@ builder.AddServiceDefaults();
 builder.AddCameraCatalogPersistence();
 builder.AddStreamDistributionPersistence();
 builder.AddLayoutCompositionPersistence();
+builder.AddOverlayDesignerPersistence();
 
 IHost host = builder.Build();
 ILogger<Program> log = host.Services.GetRequiredService<ILogger<Program>>();
