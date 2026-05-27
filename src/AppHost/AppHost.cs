@@ -38,6 +38,7 @@ var cameraCatalogDb = postgres.AddDatabase("camera-catalog-db");
 var streamDistributionDb = postgres.AddDatabase("stream-distribution-db");
 var layoutCompositionDb = postgres.AddDatabase("layout-composition-db");
 var overlayDesignerDb = postgres.AddDatabase("overlay-designer-db");
+var systemVariablesDb = postgres.AddDatabase("system-variables-db");
 
 var rabbitmq = builder
     .AddRabbitMQ("rabbitmq", password: rabbitPassword)
@@ -84,10 +85,12 @@ var migrations = builder
     .WithReference(streamDistributionDb)
     .WithReference(layoutCompositionDb)
     .WithReference(overlayDesignerDb)
+    .WithReference(systemVariablesDb)
     .WaitFor(cameraCatalogDb)
     .WaitFor(streamDistributionDb)
     .WaitFor(layoutCompositionDb)
-    .WaitFor(overlayDesignerDb);
+    .WaitFor(overlayDesignerDb)
+    .WaitFor(systemVariablesDb);
 
 var cameraCatalog = builder
     .AddProject<Projects.SmartSentinelEye_CameraCatalog_Api>("camera-catalog")
@@ -120,7 +123,6 @@ var layoutComposition = builder
     .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
-builder.AddProject<Projects.SmartSentinelEye_SystemVariables_Api>("system-variables").WaitForCompletion(migrations);
 builder.AddProject<Projects.SmartSentinelEye_EventIngestion_Api>("event-ingestion").WaitForCompletion(migrations);
 var overlayDesigner = builder
     .AddProject<Projects.SmartSentinelEye_OverlayDesigner_Api>("overlay-designer")
@@ -131,6 +133,17 @@ var overlayDesigner = builder
     .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
+var systemVariables = builder
+    .AddProject<Projects.SmartSentinelEye_SystemVariables_Api>("system-variables")
+    .WithHttpEndpoint()
+    .WithReference(systemVariablesDb)
+    .WithReference(rabbitmq)
+    .WithReference(keycloak)
+    .WithReference(overlayDesigner)
+    .WaitForCompletion(migrations)
+    .WaitFor(rabbitmq)
+    .WaitFor(keycloak)
+    .WaitFor(overlayDesigner);
 builder.AddProject<Projects.SmartSentinelEye_Automation_Api>("automation").WaitForCompletion(migrations);
 builder.AddProject<Projects.SmartSentinelEye_Identity_Api>("identity").WaitForCompletion(migrations);
 builder.AddProject<Projects.SmartSentinelEye_AuditObservability_Api>("audit-observability").WaitForCompletion(migrations);
@@ -144,6 +157,7 @@ if (isRunMode && !isE2ETests)
         .WithReference(cameraCatalog)
         .WithReference(layoutComposition)
         .WithReference(overlayDesigner)
+        .WithReference(systemVariables)
         .WithExternalHttpEndpoints();
 
     builder.AddNpmApp("kiosk-web", "../../apps/kiosk-web", "dev")
@@ -152,6 +166,7 @@ if (isRunMode && !isE2ETests)
         .WithReference(streamDistribution)
         .WithReference(layoutComposition)
         .WithReference(overlayDesigner)
+        .WithReference(systemVariables)
         .WithReference(keycloak)
         .WithExternalHttpEndpoints();
 }

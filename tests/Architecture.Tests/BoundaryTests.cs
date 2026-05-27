@@ -43,8 +43,14 @@ public class BoundaryTests
     private static readonly FrozenDictionary<(string Consumer, string Layer), string[]> AllowedCrossContext =
         new Dictionary<(string, string), string[]>
         {
-            { ("SmartSentinelEye.OverlayDesigner", "Application"),    ["SmartSentinelEye.LayoutComposition"] },
-            { ("SmartSentinelEye.OverlayDesigner", "Infrastructure"), ["SmartSentinelEye.LayoutComposition"] },
+            { ("SmartSentinelEye.OverlayDesigner",   "Application"),    ["SmartSentinelEye.LayoutComposition"] },
+            { ("SmartSentinelEye.OverlayDesigner",   "Infrastructure"), ["SmartSentinelEye.LayoutComposition"] },
+            // Spec 005 bridge: SystemVariables.Application + .Infrastructure
+            // reach into LayoutComposition.Domain for ILayoutLifecycleBroadcaster
+            // so the same /hubs/layouts hub also carries ResolvedOverlayTextChanged
+            // frames.
+            { ("SmartSentinelEye.SystemVariables",   "Application"),    ["SmartSentinelEye.LayoutComposition"] },
+            { ("SmartSentinelEye.SystemVariables",   "Infrastructure"), ["SmartSentinelEye.LayoutComposition"] },
         }.ToFrozenDictionary();
 
     [Theory]

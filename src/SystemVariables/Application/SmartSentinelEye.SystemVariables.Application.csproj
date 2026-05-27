@@ -1,10 +1,25 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\Domain\SmartSentinelEye.SystemVariables.Domain.csproj" />
     <ProjectReference Include="..\..\Shared.Kernel\SmartSentinelEye.Shared.Kernel.csproj" />
     <ProjectReference Include="..\..\Shared.CQRS\SmartSentinelEye.Shared.CQRS.csproj" />
     <ProjectReference Include="..\..\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
+    <!-- Cross-context reference: SystemVariables.Application calls into
+         LayoutComposition.Domain's ILayoutLifecycleBroadcaster to push
+         ResolvedOverlayTextChanged frames over the existing /hubs/layouts
+         SignalR hub. Documented cross-context allow-rule (the second of
+         two; spec 004 added the first); enforced positively by
+         tests/Architecture.Tests/BoundaryTests.cs. -->
+    <ProjectReference Include="..\..\LayoutComposition\Domain\SmartSentinelEye.LayoutComposition.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- IQueryable extensions used by query handlers; Application stays
+         EF-Core-free at the call site so handler tests can substitute an
+         in-memory IQueryable. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
   </ItemGroup>
 
   <PropertyGroup>
