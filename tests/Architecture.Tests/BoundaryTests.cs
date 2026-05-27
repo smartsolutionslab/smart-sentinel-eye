@@ -68,6 +68,56 @@ public class BoundaryTests
         && (layer == "Application" || layer == "Infrastructure")
         && foreignContext == "SmartSentinelEye.LayoutComposition";
 
+    /// <summary>
+    /// T097 — exercises the documented exception positively:
+    /// OverlayDesigner.Application has at least one type that depends on
+    /// the ILayoutLifecycleBroadcaster abstraction in
+    /// LayoutComposition.Domain. If a refactor accidentally removes the
+    /// bridge, this test fails — preventing a silent drift away from
+    /// the spec 004 plan.
+    /// </summary>
+    [Fact]
+    public void OverlayDesigner_Application_uses_the_documented_LayoutLifecycleBroadcaster_bridge()
+    {
+        Assembly application = Assembly.Load("SmartSentinelEye.OverlayDesigner.Application");
+        TestResult result = Types
+            .InAssembly(application)
+            .That()
+            .HaveNameEndingWith("DomainEventHandler")
+            .Should()
+            .HaveDependencyOn("SmartSentinelEye.LayoutComposition.Domain.Layout.ILayoutLifecycleBroadcaster")
+            .GetResult();
+
+        Assert.True(
+            result.IsSuccessful,
+            "OverlayDesigner.Application domain-event handlers must consume " +
+            "ILayoutLifecycleBroadcaster (spec 004 plan, documented cross-context exception).");
+    }
+
+    /// <summary>
+    /// T097 — the OverlayDesigner.Domain layer must remain free of
+    /// SignalR / EF Core / Wolverine references even though
+    /// Application + Infrastructure use them via the bridge.
+    /// </summary>
+    [Fact]
+    public void OverlayDesigner_Domain_has_no_infrastructure_framework_dependencies()
+    {
+        Assembly domain = Assembly.Load("SmartSentinelEye.OverlayDesigner.Domain");
+        TestResult result = Types
+            .InAssembly(domain)
+            .Should()
+            .NotHaveDependencyOnAny(
+                "Microsoft.AspNetCore.SignalR",
+                "Microsoft.EntityFrameworkCore",
+                "Wolverine",
+                "Npgsql")
+            .GetResult();
+
+        Assert.True(
+            result.IsSuccessful,
+            $"OverlayDesigner.Domain depends on an infrastructure framework: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
     [Fact]
     public void Domain_layer_does_not_reference_infrastructure_frameworks()
     {
