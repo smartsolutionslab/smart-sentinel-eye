@@ -13,6 +13,8 @@
     "./api/layouts.schema": "./src/api/layouts.schema.ts",
     "./api/overlays.api": "./src/api/overlays.api.ts",
     "./api/overlays.schema": "./src/api/overlays.schema.ts",
+    "./api/systemVariables.api": "./src/api/systemVariables.api.ts",
+    "./api/systemVariables.schema": "./src/api/systemVariables.schema.ts",
     "./realtime": "./src/realtime/index.ts",
     "./realtime/layoutHub": "./src/realtime/layoutHub.ts",
     "./streaming": "./src/streaming/index.ts",
