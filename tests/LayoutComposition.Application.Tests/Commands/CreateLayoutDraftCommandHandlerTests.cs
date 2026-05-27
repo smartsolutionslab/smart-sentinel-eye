@@ -35,6 +35,26 @@ public class CreateLayoutDraftCommandHandlerTests
     }
 
     [Fact]
+    public async Task Creating_with_an_overlay_identifier_carries_it_onto_the_initial_Draft()
+    {
+        InMemoryLayoutRepository layouts = new();
+        CreateLayoutDraftCommandHandler handler = new(
+            layouts, new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
+
+        Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
+            new CreateLayoutDraftCommand(
+                LayoutName.From("Line-1"),
+                CameraIdentifier.From(Guid.CreateVersion7()),
+                OperatorIdentifier.From(Guid.CreateVersion7()),
+                overlay),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        layouts.Layouts[0].Revisions.Single().Overlay.ShouldBe(overlay);
+    }
+
+    [Fact]
     public async Task A_name_collision_with_a_non_archived_chain_returns_LayoutNameTaken()
     {
         InMemoryLayoutRepository layouts = new();

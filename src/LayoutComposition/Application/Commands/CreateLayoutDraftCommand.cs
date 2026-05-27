@@ -11,5 +11,6 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands;
 public sealed record CreateLayoutDraftCommand(
     LayoutName Name,
     CameraIdentifier Camera,
-    OperatorIdentifier CreatedBy)
+    OperatorIdentifier CreatedBy,
+    OverlayIdentifier? Overlay = null)
     : ICommand<Result<LayoutIdentifier, CreateLayoutDraftError>>;

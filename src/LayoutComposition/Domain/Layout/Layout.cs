@@ -34,7 +34,8 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
         LayoutName name,
         CameraIdentifier camera,
         OperatorIdentifier createdBy,
-        IClock clock)
+        IClock clock,
+        OverlayIdentifier? overlay = null)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(clock);
@@ -48,7 +49,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
             CreatedBy = createdBy,
         };
         layout._revisions.Add(
-            Revision.NewDraft(LayoutRevisionNumber.One, camera, now, createdBy));
+            Revision.NewDraft(LayoutRevisionNumber.One, camera, overlay, now, createdBy));
         return layout;
     }
 
@@ -65,7 +66,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
                 "BranchDraft requires a currently-Published revision to copy from.");
 
         LayoutRevisionNumber next = MaxRevisionNumber().Next();
-        Revision draft = Revision.Branch(next, baseRevision.Camera, clock.UtcNow, by);
+        Revision draft = Revision.Branch(next, baseRevision.Camera, baseRevision.Overlay, clock.UtcNow, by);
         _revisions.Add(draft);
         return draft;
     }
@@ -80,6 +81,18 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
         ArgumentNullException.ThrowIfNull(clock);
         Revision target = RequireRevision(number);
         target.EditCamera(camera);
+    }
+
+    /// <summary>
+    /// Binds (or clears, via null) the optional overlay reference on a
+    /// Draft revision (spec 004 FR-009). Idempotent on the same value.
+    /// </summary>
+    public void AttachOverlay(
+        LayoutRevisionNumber number, OverlayIdentifier? overlay, IClock clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        Revision target = RequireRevision(number);
+        target.AttachOverlay(overlay);
     }
 
     /// <summary>

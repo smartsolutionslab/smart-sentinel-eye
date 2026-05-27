@@ -79,6 +79,75 @@ public class EditDraftRevisionCommandHandlerTests
     }
 
     [Fact]
+    public async Task Editing_with_OverlayChange_Set_binds_the_overlay()
+    {
+        InMemoryLayoutRepository layouts = new();
+        FakeClock clock = new(FixedMoment);
+        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        Layout layout = Layout.CreateDraft(
+            LayoutName.From("Line-1"), camera,
+            OperatorIdentifier.From(Guid.CreateVersion7()), clock);
+        layouts.Add(layout);
+        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
+
+        EditDraftRevisionCommandHandler handler = new(
+            layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
+        Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+            new EditDraftRevisionCommand(
+                layout.Id, LayoutRevisionNumber.One, camera, OverlayChange.Set(overlay)),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        layout.Revisions.Single().Overlay.ShouldBe(overlay);
+    }
+
+    [Fact]
+    public async Task Editing_with_OverlayChange_Clear_removes_the_binding()
+    {
+        InMemoryLayoutRepository layouts = new();
+        FakeClock clock = new(FixedMoment);
+        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
+        Layout layout = Layout.CreateDraft(
+            LayoutName.From("Line-1"), camera,
+            OperatorIdentifier.From(Guid.CreateVersion7()), clock, overlay);
+        layouts.Add(layout);
+
+        EditDraftRevisionCommandHandler handler = new(
+            layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
+        Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+            new EditDraftRevisionCommand(
+                layout.Id, LayoutRevisionNumber.One, camera, OverlayChange.Clear()),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        layout.Revisions.Single().Overlay.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Editing_with_OverlayChange_None_leaves_the_binding_unchanged()
+    {
+        InMemoryLayoutRepository layouts = new();
+        FakeClock clock = new(FixedMoment);
+        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
+        Layout layout = Layout.CreateDraft(
+            LayoutName.From("Line-1"), camera,
+            OperatorIdentifier.From(Guid.CreateVersion7()), clock, overlay);
+        layouts.Add(layout);
+
+        EditDraftRevisionCommandHandler handler = new(
+            layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
+        Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+            new EditDraftRevisionCommand(
+                layout.Id, LayoutRevisionNumber.One, camera),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        layout.Revisions.Single().Overlay.ShouldBe(overlay);
+    }
+
+    [Fact]
     public async Task Editing_a_Published_revision_returns_NotADraft()
     {
         InMemoryLayoutRepository layouts = new();

@@ -40,6 +40,10 @@ public sealed class EditDraftRevisionCommandHandler(
         }
 
         layout.EditDraft(command.RevisionNumber, command.Camera, clock);
+        if (command.Overlay.ShouldChange)
+        {
+            layout.AttachOverlay(command.RevisionNumber, command.Overlay.Value, clock);
+        }
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(

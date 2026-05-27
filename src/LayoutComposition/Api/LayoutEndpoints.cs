@@ -88,10 +88,14 @@ public static class LayoutEndpoints
 
         LayoutName name;
         CameraIdentifier camera;
+        OverlayIdentifier? overlay;
         try
         {
             name = LayoutName.From(body.Name);
             camera = CameraIdentifier.From(body.CameraIdentifier);
+            overlay = body.OverlayIdentifier is { } overlayId
+                ? OverlayIdentifier.From(overlayId)
+                : null;
         }
         catch (ArgumentException ex)
         {
@@ -103,7 +107,7 @@ public static class LayoutEndpoints
 
         OperatorIdentifier op = OperatorFromClaims(user);
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler
-            .HandleAsync(new CreateLayoutDraftCommand(name, camera, op), cancellationToken)
+            .HandleAsync(new CreateLayoutDraftCommand(name, camera, op, overlay), cancellationToken)
             .ConfigureAwait(false);
 
         return result.Match<IResult>(
@@ -303,10 +307,12 @@ public static class LayoutEndpoints
         }
         LayoutRevisionNumber number;
         CameraIdentifier camera;
+        OverlayChange overlayChange;
         try
         {
             number = LayoutRevisionNumber.From(revisionNumber);
             camera = CameraIdentifier.From(body.CameraIdentifier);
+            overlayChange = TranslateOverlayChange(body.Overlay);
         }
         catch (ArgumentException ex)
         {
@@ -318,7 +324,7 @@ public static class LayoutEndpoints
 
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler
             .HandleAsync(
-                new EditDraftRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, camera),
+                new EditDraftRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, camera, overlayChange),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -370,6 +376,13 @@ public static class LayoutEndpoints
                 title: error.Code,
                 detail: error.Message,
                 statusCode: (int)error.Status));
+    }
+
+    private static OverlayChange TranslateOverlayChange(OverlayBindingUpdate? update)
+    {
+        if (update is null) return OverlayChange.None;
+        if (update.Identifier is { } overlayId) return OverlayChange.Set(OverlayIdentifier.From(overlayId));
+        return OverlayChange.Clear();
     }
 
     private static OperatorIdentifier OperatorFromClaims(ClaimsPrincipal user)
