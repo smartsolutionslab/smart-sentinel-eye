@@ -190,4 +190,7 @@
   <Folder Name="/tests/Automation.Domain.Tests/">
     <Project Path="tests/Automation.Domain.Tests/SmartSentinelEye.Automation.Domain.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/Automation.Application.Tests/">
+    <Project Path="tests/Automation.Application.Tests/SmartSentinelEye.Automation.Application.Tests.csproj" />
+  </Folder>
 </Solution>
