@@ -22,7 +22,7 @@ internal sealed class TestAsyncEnumerable<T>(IEnumerable<T> enumerable)
 {
     public TestAsyncEnumerable(Expression expression) : this(((IQueryable<T>)new EnumerableQuery<T>(expression)).ToList()) { }
 
-    IAsyncEnumerator<T> IAsyncEnumerable<T>.GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+    IAsyncEnumerator<T> IAsyncEnumerable<T>.GetAsyncEnumerator(CancellationToken cancellationToken) =>
         new TestAsyncEnumerator<T>(this.AsEnumerable().GetEnumerator());
 
     IQueryProvider IQueryable.Provider => new TestAsyncQueryProvider<T>(this);
@@ -49,7 +49,7 @@ internal sealed class TestAsyncQueryProvider<TEntity>(IQueryProvider inner) : IA
 
     public TResult Execute<TResult>(Expression expression) => inner.Execute<TResult>(expression);
 
-    public TResult ExecuteAsync<TResult>(Expression expression, CancellationToken cancellationToken)
+    public TResult ExecuteAsync<TResult>(Expression expression, CancellationToken cancellationToken = default)
     {
         // EF's async extensions wrap the sync result in Task<T> via this overload.
         object? executionResult = ((IQueryProvider)this).Execute(expression);
