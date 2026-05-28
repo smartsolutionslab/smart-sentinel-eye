@@ -1,0 +1,72 @@
+using Microsoft.Extensions.Logging;
+using SmartSentinelEye.Automation.Application.Ael;
+using SmartSentinelEye.Automation.Domain.Rule;
+using SmartSentinelEye.Shared.CQRS;
+using SmartSentinelEye.Shared.Kernel;
+
+namespace SmartSentinelEye.Automation.Application.Commands.Handlers;
+
+public sealed class CreateRuleCommandHandler(
+    IRuleRepository rules,
+    IClock clock,
+    ILogger<CreateRuleCommandHandler> log)
+    : ICommandHandler<CreateRuleCommand, Result<RuleIdentifier, CreateRuleError>>
+{
+    public async Task<Result<RuleIdentifier, CreateRuleError>> HandleAsync(
+        CreateRuleCommand command, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        // Name uniqueness (FR-002). Archived names are released for
+        // re-use; the repository's GetByNameAsync ignores Archived.
+        Option<Rule> existing = await rules
+            .GetByNameAsync(command.Name, cancellationToken)
+            .ConfigureAwait(false);
+        if (existing.HasValue)
+        {
+            return Result<RuleIdentifier, CreateRuleError>.Failure(
+                new CreateRuleError.RuleNameTaken(command.Name.Value));
+        }
+
+        // Parse the predicate at command-time so a typo surfaces as a
+        // 400 with position info rather than a runtime failure later.
+        try
+        {
+            _ = AelParser.Parse(command.Predicate.Value);
+        }
+        catch (AelParseException ex)
+        {
+            return Result<RuleIdentifier, CreateRuleError>.Failure(
+                new CreateRuleError.PredicateParseFailed(ex.Message, ex.Position));
+        }
+
+        // SetVariableValue's value expression is parsed up-front so
+        // a typo surfaces as a typed 400 here. HighlightOverlay
+        // actions carry no expression and skip this check.
+        if (command.Action is RuleAction.SetVariableValue setValue)
+        {
+            try
+            {
+                _ = AelParser.Parse(setValue.ValueExpression);
+            }
+            catch (AelParseException ex)
+            {
+                return Result<RuleIdentifier, CreateRuleError>.Failure(
+                    new CreateRuleError.ActionExpressionParseFailed(ex.Message, ex.Position));
+            }
+        }
+
+        Rule rule = Rule.Create(
+            command.Name, command.TriggerSource, command.TriggerKind,
+            command.Predicate, command.Action, command.CreatedBy, clock);
+
+        rules.Add(rule);
+        await rules.SaveAsync(cancellationToken).ConfigureAwait(false);
+
+        log.LogInformation(
+            "Created rule {Rule} '{Name}' ({TriggerSource}/{TriggerKind}) by {Operator}.",
+            rule.Id, command.Name, command.TriggerSource, command.TriggerKind, command.CreatedBy);
+
+        return Result<RuleIdentifier, CreateRuleError>.Success(rule.Id);
+    }
+}
