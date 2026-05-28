@@ -115,6 +115,54 @@ public class BoundaryTests
     }
 
     /// <summary>
+    /// Spec 005 T095 — exercises the second documented allow-rule
+    /// positively: SystemVariables.Application's domain-event
+    /// handlers must depend on the LayoutComposition.Domain
+    /// broadcaster abstraction.
+    /// </summary>
+    [Fact]
+    public void SystemVariables_Application_uses_the_documented_LayoutLifecycleBroadcaster_bridge()
+    {
+        Assembly application = Assembly.Load("SmartSentinelEye.SystemVariables.Application");
+        TestResult result = Types
+            .InAssembly(application)
+            .That()
+            .HaveNameEndingWith("DomainEventHandler")
+            .Should()
+            .HaveDependencyOn("SmartSentinelEye.LayoutComposition.Domain.Layout.ILayoutLifecycleBroadcaster")
+            .GetResult();
+
+        Assert.True(
+            result.IsSuccessful,
+            "SystemVariables.Application domain-event handlers must consume " +
+            "ILayoutLifecycleBroadcaster (spec 005 plan, second documented allow-rule).");
+    }
+
+    /// <summary>
+    /// Spec 005 T095 — SystemVariables.Domain must remain free of
+    /// SignalR / EF Core / Wolverine / Npgsql refs even though
+    /// Application + Infrastructure use them via the bridge.
+    /// </summary>
+    [Fact]
+    public void SystemVariables_Domain_has_no_infrastructure_framework_dependencies()
+    {
+        Assembly domain = Assembly.Load("SmartSentinelEye.SystemVariables.Domain");
+        TestResult result = Types
+            .InAssembly(domain)
+            .Should()
+            .NotHaveDependencyOnAny(
+                "Microsoft.AspNetCore.SignalR",
+                "Microsoft.EntityFrameworkCore",
+                "Wolverine",
+                "Npgsql")
+            .GetResult();
+
+        Assert.True(
+            result.IsSuccessful,
+            $"SystemVariables.Domain depends on an infrastructure framework: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    /// <summary>
     /// T097 — the OverlayDesigner.Domain layer must remain free of
     /// SignalR / EF Core / Wolverine references even though
     /// Application + Infrastructure use them via the bridge.
