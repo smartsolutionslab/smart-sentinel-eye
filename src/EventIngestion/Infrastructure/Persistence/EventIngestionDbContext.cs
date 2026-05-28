@@ -1,18 +1,25 @@
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
+using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
 
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 
 /// <summary>
 /// EF Core context for the EventIngestion bounded context. Owns the
-/// partitioned <c>events</c> table (spec 006 FR-012). Wolverine outbox
-/// tables live in a sibling schema configured by
+/// partitioned <c>events</c> table, the <c>webhook_integrations</c>
+/// table, and the <c>dead_letters</c> audit table (spec 006).
+/// Wolverine outbox tables live in a sibling schema configured by
 /// <c>AddWolverineForContext</c> (ADR-0088).
 /// </summary>
 public sealed class EventIngestionDbContext(DbContextOptions<EventIngestionDbContext> options)
     : DbContext(options)
 {
     public DbSet<EventAggregate> Events => Set<EventAggregate>();
+
+    public DbSet<WebhookIntegration> WebhookIntegrations => Set<WebhookIntegration>();
+
+    public DbSet<DeadLetter> DeadLetters => Set<DeadLetter>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
