@@ -1,11 +1,23 @@
-var builder = WebApplication.CreateBuilder(args);
+using SmartSentinelEye.EventIngestion.Api;
+using SmartSentinelEye.EventIngestion.Infrastructure;
+using SmartSentinelEye.ServiceDefaults;
+
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+builder.AddBearerAuthentication();
+builder.AddEventIngestionInfrastructure();
+builder.Services.AddEventIngestionApi();
 builder.Services.AddOpenApi();
 
-var app = builder.Build();
+WebApplication app = builder.Build();
 
 app.MapDefaultEndpoints();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapEventsEndpoints();
 
 if (app.Environment.IsDevelopment())
 {

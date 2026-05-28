@@ -5,6 +5,7 @@
     <ProjectReference Include="..\Application\SmartSentinelEye.EventIngestion.Application.csproj" />
     <ProjectReference Include="..\..\Shared.Kernel\SmartSentinelEye.Shared.Kernel.csproj" />
     <ProjectReference Include="..\..\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
+    <ProjectReference Include="..\..\ServiceDefaults\SmartSentinelEye.ServiceDefaults.csproj" />
   </ItemGroup>
 
   <ItemGroup>
