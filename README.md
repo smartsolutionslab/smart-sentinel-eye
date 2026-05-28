@@ -151,6 +151,29 @@ same SignalR hub.
    kiosk shows a transient "overlay unavailable" banner and the live
    camera frame keeps streaming on its own.
 
+## Quickstart — bind a variable to an overlay
+
+Spec 005 lights up the `{{placeholder}}` tokens that overlay labels
+have always supported. Admins define typed system variables; the
+server resolves placeholders at fetch time and pushes the resolved
+text to every connected kiosk via the existing SignalR hub —
+typically within 200 ms of the value changing.
+
+1. In management-web, click **System variables** in the top nav,
+   then **New variable**. Pick a name (e.g. `oeeLine1`), Type
+   `Number`, leave the value empty. Click **Define**.
+2. Edit (or create) an overlay whose label text references the
+   variable — e.g. `OEE: {{oeeLine1}}%` — and publish it. Bind
+   the overlay to a layout as usual.
+3. On the kiosk, the live frame shows `OEE: {{oeeLine1}}%`
+   literally for now (the variable is still `Unset`).
+4. In management-web, **System variables** → type `82.4` into the
+   row's New value field → click **Set value**. The kiosk's label
+   updates to `OEE: 82.4%` within ≤ 200 ms.
+5. **Archive** the variable to release the name. Any overlay still
+   referencing it reverts to the literal `{{oeeLine1}}` placeholder.
+   Re-create the variable later and updates flow again.
+
 ## Tests
 
 ```pwsh

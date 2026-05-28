@@ -15,6 +15,8 @@
         LayoutComposition.Application  >= 80%
         OverlayDesigner.Domain         >= 90%
         OverlayDesigner.Application    >= 80%
+        SystemVariables.Domain         >= 90%
+        SystemVariables.Application    >= 80%
         Shared.Kernel                  >= 90%
         Shared.Contracts               >= 90%
 
@@ -61,6 +63,8 @@ try {
         'SmartSentinelEye.LayoutComposition.Application'    = 80
         'SmartSentinelEye.OverlayDesigner.Domain'           = 90
         'SmartSentinelEye.OverlayDesigner.Application'      = 80
+        'SmartSentinelEye.SystemVariables.Domain'           = 90
+        'SmartSentinelEye.SystemVariables.Application'      = 80
         'SmartSentinelEye.Shared.Kernel'                    = 90
         'SmartSentinelEye.Shared.Contracts'                 = 90
     }
