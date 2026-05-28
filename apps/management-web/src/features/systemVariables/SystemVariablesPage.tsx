@@ -1,4 +1,5 @@
 import {
+  useArchiveVariableMutation,
   useListVariablesQuery,
   useSetVariableValueMutation,
   type Variable,
@@ -17,6 +18,7 @@ export function SystemVariablesPage() {
 
   const { data, isLoading, isFetching, error, refetch } = useListVariablesQuery(undefined);
   const [setVariableValue, { isLoading: saving }] = useSetVariableValueMutation();
+  const [archiveVariable, { isLoading: archiving }] = useArchiveVariableMutation();
 
   const variables = data ?? [];
   const visible = filter === 'All' ? variables : variables.filter((v) => v.state === filter);
@@ -109,6 +111,13 @@ export function SystemVariablesPage() {
                     onClick={() => void onValueSubmit(variable)}
                   >
                     Set value
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    disabled={inProgress || archiving}
+                    onClick={() => void archiveVariable(variable.name)}
+                  >
+                    Archive
                   </Button>
                 </div>
               )}

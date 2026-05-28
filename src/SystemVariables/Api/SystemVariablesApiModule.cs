@@ -19,6 +19,7 @@ public static class SystemVariablesApiModule
 
         services.AddScoped<DefineVariableCommandHandler>();
         services.AddScoped<SetVariableValueCommandHandler>();
+        services.AddScoped<ArchiveVariableCommandHandler>();
         services.AddScoped<GetVariableQueryHandler>();
         services.AddScoped<ListVariablesQueryHandler>();
         services.AddScoped<GetOverlaySnapshotQueryHandler>();

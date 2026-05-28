@@ -79,6 +79,7 @@ vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOrigi
     useGetOverlaySnapshotQuery: () => ({ data: undefined, isLoading: false }),
     useDefineVariableMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false, error: undefined }],
     useSetVariableValueMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false }],
+    useArchiveVariableMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false }],
   };
 });
 

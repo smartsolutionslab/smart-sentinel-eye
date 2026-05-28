@@ -61,6 +61,12 @@ public static class SystemVariableEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest);
 
+        group.MapPost("/{name}/archive", Archive)
+            .RequireAuthorization(AuthenticationDefaults.AdminPolicy)
+            .WithName("ArchiveSystemVariable")
+            .Produces<Guid>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return app;
     }
 
@@ -233,6 +239,38 @@ public static class SystemVariableEndpoints
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
+            onFailure: error => Results.Problem(
+                title: error.Code,
+                detail: error.Message,
+                statusCode: (int)error.Status));
+    }
+
+    private static async Task<IResult> Archive(
+        string name,
+        [FromServices] ArchiveVariableCommandHandler handler,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken)
+    {
+        VariableName parsed;
+        try
+        {
+            parsed = VariableName.From(name);
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.Problem(
+                title: "VARIABLE_INVALID_INPUT",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        OperatorIdentifier op = OperatorFromClaims(user);
+        Result<VariableIdentifier, ArchiveVariableError> result = await handler
+            .HandleAsync(new ArchiveVariableCommand(parsed, op), cancellationToken)
+            .ConfigureAwait(false);
+
+        return result.Match<IResult>(
+            onSuccess: identifier => Results.Ok(identifier.Value),
             onFailure: error => Results.Problem(
                 title: error.Code,
                 detail: error.Message,
