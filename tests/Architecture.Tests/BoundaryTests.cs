@@ -163,6 +163,32 @@ public class BoundaryTests
     }
 
     /// <summary>
+    /// Spec 006 T016 — EventIngestion.Domain must remain free of every
+    /// infrastructure framework (SignalR, EF Core, Wolverine, Npgsql,
+    /// MQTTnet). The MQTT subscriber + DbContext live in
+    /// Infrastructure; Domain stays pure.
+    /// </summary>
+    [Fact]
+    public void EventIngestion_Domain_has_no_infrastructure_framework_dependencies()
+    {
+        Assembly domain = Assembly.Load("SmartSentinelEye.EventIngestion.Domain");
+        TestResult result = Types
+            .InAssembly(domain)
+            .Should()
+            .NotHaveDependencyOnAny(
+                "Microsoft.AspNetCore.SignalR",
+                "Microsoft.EntityFrameworkCore",
+                "Wolverine",
+                "Npgsql",
+                "MQTTnet")
+            .GetResult();
+
+        Assert.True(
+            result.IsSuccessful,
+            $"EventIngestion.Domain depends on an infrastructure framework: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    /// <summary>
     /// T097 — the OverlayDesigner.Domain layer must remain free of
     /// SignalR / EF Core / Wolverine references even though
     /// Application + Infrastructure use them via the bridge.

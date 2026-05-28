@@ -39,6 +39,7 @@ var streamDistributionDb = postgres.AddDatabase("stream-distribution-db");
 var layoutCompositionDb = postgres.AddDatabase("layout-composition-db");
 var overlayDesignerDb = postgres.AddDatabase("overlay-designer-db");
 var systemVariablesDb = postgres.AddDatabase("system-variables-db");
+var eventIngestionDb = postgres.AddDatabase("event-ingestion-db");
 
 var rabbitmq = builder
     .AddRabbitMQ("rabbitmq", password: rabbitPassword)
@@ -78,6 +79,23 @@ if (isRunMode && !isE2ETests)
     mediamtx.WithLifetime(ContainerLifetime.Persistent);
 }
 
+// Mosquitto MQTT broker for spec 006 EventIngestion (ADR-0095). Each
+// PLC and inference device publishes on a per-device topic; the
+// event-ingestion service subscribes with a fab-scoped wildcard.
+var mosquitto = builder
+    .AddContainer("mosquitto", "eclipse-mosquitto", "2.0")
+    .WithBindMount("mosquitto/mosquitto.conf", "/mosquitto/config/mosquitto.conf")
+    .WithBindMount("mosquitto/passwords.txt", "/mosquitto/config/passwords.txt")
+    .WithBindMount("mosquitto/acl.txt", "/mosquitto/config/acl.txt")
+    .WithEndpoint(targetPort: 1883, name: "mqtt", scheme: "tcp");
+
+if (isRunMode && !isE2ETests)
+{
+    mosquitto
+        .WithLifetime(ContainerLifetime.Persistent)
+        .WithVolume("mosquitto-data", "/mosquitto/data");
+}
+
 // MigrationRunner orchestrates all per-context migrations and exits (ADR-0067).
 var migrations = builder
     .AddProject<Projects.SmartSentinelEye_MigrationRunner>("migrations")
@@ -86,11 +104,13 @@ var migrations = builder
     .WithReference(layoutCompositionDb)
     .WithReference(overlayDesignerDb)
     .WithReference(systemVariablesDb)
+    .WithReference(eventIngestionDb)
     .WaitFor(cameraCatalogDb)
     .WaitFor(streamDistributionDb)
     .WaitFor(layoutCompositionDb)
     .WaitFor(overlayDesignerDb)
-    .WaitFor(systemVariablesDb);
+    .WaitFor(systemVariablesDb)
+    .WaitFor(eventIngestionDb);
 
 var cameraCatalog = builder
     .AddProject<Projects.SmartSentinelEye_CameraCatalog_Api>("camera-catalog")
@@ -123,7 +143,17 @@ var layoutComposition = builder
     .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
-builder.AddProject<Projects.SmartSentinelEye_EventIngestion_Api>("event-ingestion").WaitForCompletion(migrations);
+IResourceBuilder<ProjectResource> eventIngestion = builder
+    .AddProject<Projects.SmartSentinelEye_EventIngestion_Api>("event-ingestion")
+    .WithHttpEndpoint()
+    .WithReference(eventIngestionDb)
+    .WithReference(rabbitmq)
+    .WithReference(keycloak)
+    .WithReference(mosquitto.GetEndpoint("mqtt"))
+    .WaitForCompletion(migrations)
+    .WaitFor(rabbitmq)
+    .WaitFor(keycloak)
+    .WaitFor(mosquitto);
 var overlayDesigner = builder
     .AddProject<Projects.SmartSentinelEye_OverlayDesigner_Api>("overlay-designer")
     .WithHttpEndpoint()
@@ -167,6 +197,7 @@ if (isRunMode && !isE2ETests)
         .WithReference(layoutComposition)
         .WithReference(overlayDesigner)
         .WithReference(systemVariables)
+        .WithReference(eventIngestion)
         .WithReference(keycloak)
         .WithExternalHttpEndpoints();
 }

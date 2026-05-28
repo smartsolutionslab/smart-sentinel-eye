@@ -1,0 +1,13 @@
+# Mosquitto ACL — dev seed.
+#
+# Spec 006 + ADR-0095. Each device is restricted to publish only on
+# its own topic. The subscriber service account reads everything.
+
+user station-4
+topic write fab/munich/plc/station-4
+
+user camera-12
+topic write fab/munich/inference/camera-12
+
+user event-ingestion
+topic read fab/+/+/+
