@@ -174,11 +174,55 @@ typically within 200 ms of the value changing.
    referencing it reverts to the literal `{{oeeLine1}}` placeholder.
    Re-create the variable later and updates flow again.
 
+## Quickstart — publish an event end-to-end
+
+Spec 006 adds **EventIngestion** — the upstream half of the
+camera → event → overlay loop. Four source types (PLC + camera
+inference via MQTT, manual operator annotations + external
+webhooks via HTTP) all funnel into a single canonical `events`
+table and fan out as `FabEventIngestedV1` on RabbitMQ within
+≤ 50 ms of arrival.
+
+1. `aspire run` brings up the new `mosquitto` container alongside
+   Postgres, RabbitMQ, and Keycloak. Wait for everything to go
+   green on the dashboard.
+2. **PLC event via MQTT.** Seed `src/AppHost/mosquitto/passwords.txt`
+   with a real PBKDF2 hash for the `station-4` dev user (use
+   `docker run --rm -v $PWD:/m eclipse-mosquitto:2.0 mosquitto_passwd -b /m/passwords.txt station-4 <pw>`),
+   restart the broker, then publish:
+   ```bash
+   mosquitto_pub -h localhost -p 1883 -u station-4 -P <pw> \
+     -t fab/munich/plc/station-4 \
+     -m '{"eventId":"<guid-v7>","kind":"PlcCycleStart","occurredAt":"2026-05-28T08:14:33Z","payload":{"cycleId":"abc"}}'
+   ```
+3. **Manual annotation via HTTP.** Sign in to the management app
+   as admin, then:
+   ```bash
+   curl -X POST 'http://localhost:5044/events/manual?fabId=munich' \
+     -H 'Authorization: Bearer <admin-token>' \
+     -H 'Content-Type: application/json' \
+     -d '{"deviceId":"kiosk-3","kind":"Annotation","occurredAt":"2026-05-28T08:14:33Z","payload":{"note":"scratch on panel"}}'
+   ```
+   Expect a 202 with the server-minted `eventId` in the body.
+4. **Webhook integration.** Register a webhook first:
+   ```bash
+   curl -X POST http://localhost:5044/webhook-integrations \
+     -H 'Authorization: Bearer <admin-token>' \
+     -H 'Content-Type: application/json' \
+     -d '{"name":"qa","defaultKind":"QaResult"}'
+   ```
+   The response carries the plaintext token once. POST to
+   `/events/webhook/qa` with `Authorization: Bearer <token>` to
+   ingest.
+5. **Verify.** `GET /events?fabId=munich` (admin) lists every
+   ingested event with cursor pagination. Any malformed MQTT
+   delivery lands in `GET /events/dead-letters` instead.
+
 ## Tests
 
 ```pwsh
 # Unit + architecture tests (fast, no Docker)
-dotnet test --filter "FullyQualifiedName!~Integration"
+dotnet test --filter "FullyQualifiedName!~SmartSentinelEye.Integration.Tests"
 
 # Integration tests (slow, requires Docker)
 dotnet test tests/Integration.Tests/

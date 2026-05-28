@@ -29,6 +29,11 @@ public static class EventIngestionPersistenceModule
             options.UseNpgsql(connectionString));
 
         builder.Services.AddSingleton<IMigrator, EventIngestionMigrator>();
+        // Partition rollover runs *after* the EF migrations because
+        // it depends on the parent `events` table existing. The
+        // MigrationRunner runs IMigrator instances in registration
+        // order (ADR-0067), so this AddSingleton ordering matters.
+        builder.Services.AddSingleton<IMigrator, EventPartitionRolloverMigrator>();
 
         return builder;
     }

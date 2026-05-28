@@ -1,0 +1,61 @@
+# Per-fab Helm values for the Mosquitto broker (spec 006, ADR-0095).
+# Set fabId per environment; everything else is sized for the v1
+# 1k events/sec target with headroom for 5x bursts.
+
+fabId: munich
+
+image:
+  repository: eclipse-mosquitto
+  tag: "2.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1  # No clustering in v1.
+
+persistence:
+  enabled: true
+  storageClass: standard
+  size: 5Gi
+  mountPath: /mosquitto/data
+
+service:
+  type: ClusterIP
+  ports:
+    plain: 1883  # Dev network only; never exposed to the internet.
+    tls: 8883
+
+tls:
+  enabled: true
+  secretName: mosquitto-tls  # cert-manager-managed cert + key.
+
+config:
+  configMapName: mosquitto-config       # mosquitto.conf + acl.txt
+  passwordsSecretName: mosquitto-passwords  # PBKDF2-SHA-512 hashes
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+readinessProbe:
+  exec:
+    command:
+      - mosquitto_sub
+      - -p
+      - "1883"
+      - -t
+      - $SYS/#
+      - -C
+      - "1"
+      - -W
+      - "5"
+  initialDelaySeconds: 5
+  periodSeconds: 15
+
+livenessProbe:
+  tcpSocket:
+    port: 1883
+  initialDelaySeconds: 10
+  periodSeconds: 20
