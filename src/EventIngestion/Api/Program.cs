@@ -18,6 +18,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapEventsEndpoints();
+app.MapWebhookIntegrationsEndpoints();
 
 if (app.Environment.IsDevelopment())
 {

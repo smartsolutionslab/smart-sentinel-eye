@@ -1,4 +1,6 @@
+using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -6,7 +8,9 @@ using MQTTnet.Client;
 using MQTTnet.Extensions.ManagedClient;
 using MQTTnet.Protocol;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
+using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
 using SmartSentinelEye.EventIngestion.Domain.Event;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 
@@ -23,10 +27,18 @@ namespace SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 /// MQTTnet handler from returning, the broker stops getting ACKs,
 /// queue depth absorbs the burst per spec FR-022.
 /// </para>
+///
+/// <para>
+/// Malformed deliveries (bad topic shape, malformed JSON, payload
+/// over 64 KB) are captured in the <c>dead_letters</c> table per
+/// spec FR-015 — audit-only, no fan-out.
+/// </para>
 /// </summary>
 public sealed class MqttSubscriberHostedService(
     MosquittoConnectionFactory connectionFactory,
     IIngestChannel channel,
+    IServiceScopeFactory scopeFactory,
+    IClock clock,
     IOptions<MosquittoOptions> options,
     ILogger<MqttSubscriberHostedService> log) : IHostedService
 {
@@ -59,31 +71,25 @@ public sealed class MqttSubscriberHostedService(
         string topic = args.ApplicationMessage.Topic;
         ReadOnlyMemory<byte> body = args.ApplicationMessage.PayloadSegment;
 
-        EventEnvelope? envelope = TryParseEnvelope(topic, body);
-        if (envelope is null)
+        ParseResult result = TryParseEnvelope(topic, body);
+        if (result.Envelope is null)
         {
-            // Malformed message — drop to dead-letter in a follow-on
-            // PR; for now we just log and ACK so the broker doesn't
-            // retry forever.
-            log.LogWarning(
-                "Dropping malformed MQTT message on topic '{Topic}' ({Bytes} bytes).",
-                topic, body.Length);
+            await CaptureDeadLetterAsync(topic, body, result.Error ?? "unknown parse failure").ConfigureAwait(false);
             return;
         }
 
         // WriteAsync blocks when the bounded channel is full — the
         // broker stops receiving ACKs and holds queue depth (FR-022).
-        await channel.WriteAsync(envelope, CancellationToken.None).ConfigureAwait(false);
+        await channel.WriteAsync(result.Envelope, CancellationToken.None).ConfigureAwait(false);
     }
 
-    private EventEnvelope? TryParseEnvelope(string topic, ReadOnlyMemory<byte> body)
+    private static ParseResult TryParseEnvelope(string topic, ReadOnlyMemory<byte> body)
     {
         // Topic shape: fab/{fabId}/{source}/{deviceId}
         string[] segments = topic.Split('/');
         if (segments.Length != 4 || segments[0] != "fab")
         {
-            log.LogWarning("Unexpected MQTT topic shape: '{Topic}'.", topic);
-            return null;
+            return new ParseResult(null, $"Unexpected MQTT topic shape: '{topic}'.");
         }
 
         FabIdentifier fab;
@@ -101,10 +107,7 @@ public sealed class MqttSubscriberHostedService(
         }
         catch (Exception ex) when (ex is ArgumentException or JsonException or InvalidOperationException)
         {
-            log.LogWarning(ex,
-                "Failed to parse MQTT envelope from topic '{Topic}': {Message}",
-                topic, ex.Message);
-            return null;
+            return new ParseResult(null, $"envelope parse failed: {ex.Message}");
         }
 
         Payload payloadVo;
@@ -114,12 +117,10 @@ public sealed class MqttSubscriberHostedService(
         }
         catch (ArgumentException ex)
         {
-            log.LogWarning(ex,
-                "Rejected MQTT payload from '{Topic}': {Message}", topic, ex.Message);
-            return null;
+            return new ParseResult(null, $"payload rejected: {ex.Message}");
         }
 
-        return new EventEnvelope(
+        EventEnvelope envelope = new(
             EventIdentifier.From(payload.EventId),
             fab,
             source,
@@ -127,5 +128,29 @@ public sealed class MqttSubscriberHostedService(
             Kind.From(payload.Kind),
             OccurredAt.From(payload.OccurredAt),
             payloadVo);
+        return new ParseResult(envelope, null);
     }
+
+    private async Task CaptureDeadLetterAsync(string topic, ReadOnlyMemory<byte> body, string error)
+    {
+        log.LogWarning("Rejecting MQTT delivery on '{Topic}': {Error}", topic, error);
+        string raw = Encoding.UTF8.GetString(body.Span);
+        try
+        {
+            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+            IDeadLetterRepository deadLetters =
+                scope.ServiceProvider.GetRequiredService<IDeadLetterRepository>();
+            deadLetters.Add(DeadLetter.Capture(topic, raw, error, clock));
+            await deadLetters.SaveAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Dead-letter capture is best-effort — DB outage must not
+            // bring the subscriber down. Log and move on.
+            log.LogError(ex,
+                "Failed to capture dead letter for topic '{Topic}': {Message}", topic, ex.Message);
+        }
+    }
+
+    private sealed record ParseResult(EventEnvelope? Envelope, string? Error);
 }

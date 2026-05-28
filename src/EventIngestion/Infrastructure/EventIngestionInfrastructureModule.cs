@@ -4,8 +4,12 @@ using SmartSentinelEye.EventIngestion.Application.Commands;
 using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 using SmartSentinelEye.EventIngestion.Application.EventHandlers;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
+using SmartSentinelEye.EventIngestion.Application.Queries;
+using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
+using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.Event.Events;
+using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 using SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
@@ -31,6 +35,11 @@ public static class EventIngestionInfrastructureModule
         builder.AddEventIngestionPersistence();
 
         builder.Services.AddScoped<IEventRepository, EventRepository>();
+        builder.Services.AddScoped<IWebhookIntegrationRepository, WebhookIntegrationRepository>();
+        builder.Services.AddScoped<IDeadLetterRepository, DeadLetterRepository>();
+        builder.Services.AddScoped<IEventQuerySource, EventQuerySource>();
+        builder.Services.AddScoped<IDeadLetterQuerySource, DeadLetterQuerySource>();
+        builder.Services.AddScoped<IWebhookIntegrationQuerySource, WebhookIntegrationQuerySource>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddScoped<IEventBus, WolverineEventBus>();
@@ -46,6 +55,24 @@ public static class EventIngestionInfrastructureModule
         builder.Services.AddScoped<
             ICommandHandler<IngestEventCommand, Result<EventIdentifier, IngestEventError>>,
             IngestEventCommandHandler>();
+        builder.Services.AddScoped<RegisterWebhookIntegrationCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<
+                RegisterWebhookIntegrationCommand,
+                Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError>>,
+            RegisterWebhookIntegrationCommandHandler>();
+        builder.Services.AddScoped<RevokeWebhookIntegrationCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<
+                RevokeWebhookIntegrationCommand,
+                Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>>,
+            RevokeWebhookIntegrationCommandHandler>();
+
+        // Query handlers.
+        builder.Services.AddScoped<GetEventQueryHandler>();
+        builder.Services.AddScoped<ListEventsQueryHandler>();
+        builder.Services.AddScoped<ListDeadLettersQueryHandler>();
+        builder.Services.AddScoped<ListWebhookIntegrationsQueryHandler>();
 
         // Bounded channel + ingress.
         builder.Services.AddSingleton<IIngestChannel>(_ => new BoundedIngestChannel());

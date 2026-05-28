@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(EventIngestionDbContext))]
-    partial class EventIngestionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260528171138_WebhookIntegrationsAndDeadLetters")]
+    partial class WebhookIntegrationsAndDeadLetters
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
