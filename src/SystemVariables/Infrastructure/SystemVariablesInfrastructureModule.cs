@@ -65,6 +65,9 @@ public static class SystemVariablesInfrastructureModule
         builder.Services.AddScoped<
             ICommandHandler<SetVariableValueCommand, Result<VariableIdentifier, SetVariableValueError>>,
             SetVariableValueCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<ArchiveVariableCommand, Result<VariableIdentifier, ArchiveVariableError>>,
+            ArchiveVariableCommandHandler>();
 
         // Startup seeder for the reverse-index. Best-effort — the
         // Wolverine subscribers self-heal as overlay V1 events arrive.

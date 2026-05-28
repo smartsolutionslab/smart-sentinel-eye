@@ -16,6 +16,7 @@ vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOrigi
     useListVariablesQuery: (...args: unknown[]) => listMock(...args),
     useSetVariableValueMutation: () => [setValueMock, { isLoading: false }],
     useDefineVariableMutation: () => [defineMock, { isLoading: false, error: undefined }],
+    useArchiveVariableMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false }],
   };
 });
 

@@ -91,6 +91,17 @@ export const systemVariablesApi = createApi({
       }),
       providesTags: (_r, _e, id) => [{ type: 'OverlaySnapshot', id }],
     }),
+    archiveVariable: build.mutation<string, string>({
+      query: (name) => ({
+        url: `/${encodeURIComponent(name)}/archive`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_r, _e, name) => [
+        { type: 'Variable', id: name },
+        { type: 'VariableList', id: 'ALL' },
+        { type: 'OverlaySnapshot', id: 'ALL' },
+      ],
+    }),
   }),
 });
 
@@ -100,4 +111,5 @@ export const {
   useListVariablesQuery,
   useSetVariableValueMutation,
   useGetOverlaySnapshotQuery,
+  useArchiveVariableMutation,
 } = systemVariablesApi;
