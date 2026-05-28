@@ -17,6 +17,8 @@
         OverlayDesigner.Application    >= 80%
         SystemVariables.Domain         >= 90%
         SystemVariables.Application    >= 80%
+        EventIngestion.Domain          >= 90%
+        EventIngestion.Application     >= 80%
         Shared.Kernel                  >= 90%
         Shared.Contracts               >= 90%
 
@@ -43,7 +45,11 @@ New-Item -ItemType Directory -Force -Path $rawDir | Out-Null
 Push-Location $repoRoot
 try {
     Write-Host "==> Running unit tests with coverage ($Configuration)..."
-    & dotnet test --filter 'FullyQualifiedName!~Integration' `
+    # Exclude the Integration.Tests project by assembly name, NOT by
+    # FullyQualifiedName substring — spec 006 introduces classes
+    # named `WebhookIntegration` whose tests would otherwise be
+    # filtered out by an `!~Integration` substring match.
+    & dotnet test --filter 'FullyQualifiedName!~SmartSentinelEye.Integration.Tests' `
         -c $Configuration `
         --collect:'XPlat Code Coverage' `
         --results-directory $rawDir
@@ -65,6 +71,8 @@ try {
         'SmartSentinelEye.OverlayDesigner.Application'      = 80
         'SmartSentinelEye.SystemVariables.Domain'           = 90
         'SmartSentinelEye.SystemVariables.Application'      = 80
+        'SmartSentinelEye.EventIngestion.Domain'            = 90
+        'SmartSentinelEye.EventIngestion.Application'       = 80
         'SmartSentinelEye.Shared.Kernel'                    = 90
         'SmartSentinelEye.Shared.Contracts'                 = 90
     }
