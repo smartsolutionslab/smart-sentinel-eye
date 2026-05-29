@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text;
 using Aspire.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -99,10 +100,12 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         catch (Exception ex) when (ex is OperationCanceledException or TaskCanceledException)
         {
             string logTail = string.Join('\n', _cameraCatalogLogTail.TakeLast(120));
-            string resourceStates = await CaptureResourceStatesAsync().ConfigureAwait(false);
+            Dictionary<string, string> states = await CaptureResourceStateMapAsync().ConfigureAwait(false);
+            string failedLogs = await CaptureFailedResourceLogsAsync(states).ConfigureAwait(false);
             throw new TimeoutException(
                 $"Aspire AppHost did not start within {StartupTimeout.TotalMinutes} minutes.\n" +
-                $"Resource states:\n{resourceStates}\n" +
+                $"Resource states:\n{FormatResourceStates(states)}\n" +
+                $"Failed-resource logs:\n{failedLogs}\n" +
                 $"Last camera-catalog logs:\n{logTail}",
                 ex);
         }
@@ -139,13 +142,12 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         }
     }
 
-    private async Task<string> CaptureResourceStatesAsync()
+    private async Task<Dictionary<string, string>> CaptureResourceStateMapAsync()
     {
-        if (_app is null) return "(app not built)";
+        Dictionary<string, string> states = new(StringComparer.Ordinal);
+        if (_app is null) return states;
 
         using CancellationTokenSource snapshot = new(TimeSpan.FromSeconds(3));
-        Dictionary<string, string> states = new(StringComparer.Ordinal);
-
         try
         {
             await foreach (var evt in _app.ResourceNotifications.WatchAsync(snapshot.Token))
@@ -155,7 +157,69 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         }
         catch (OperationCanceledException) { /* expected */ }
 
-        return string.Join('\n', states.OrderBy(kv => kv.Key).Select(kv => $"  {kv.Key}: {kv.Value}"));
+        return states;
+    }
+
+    private static string FormatResourceStates(Dictionary<string, string> states) =>
+        states.Count == 0
+            ? "  (app not built)"
+            : string.Join('\n', states.OrderBy(kv => kv.Key).Select(kv => $"  {kv.Key}: {kv.Value}"));
+
+    /// <summary>
+    /// On a startup timeout, dump recent stdout for every resource that
+    /// hasn't reached Running/Finished. The CI Linux boot failures
+    /// (#423) don't repro on Windows dev boxes, so a crashed service's
+    /// own log is the only window into *why* — the fixture otherwise
+    /// tails camera-catalog alone.
+    /// </summary>
+    private async Task<string> CaptureFailedResourceLogsAsync(Dictionary<string, string> states)
+    {
+        if (_app is null) return "(app not built)";
+
+        string[] failed = states
+            .Where(kv => kv.Value is not ("Running" or "Finished"))
+            .Select(kv => kv.Key)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        if (failed.Length == 0) return "(no failed resources)";
+
+        Aspire.Hosting.ApplicationModel.ResourceLoggerService loggers =
+            _app.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
+
+        StringBuilder report = new();
+        foreach (string name in failed)
+        {
+            report.Append("---- ").Append(name).AppendLine(" ----");
+            report.AppendLine(await CaptureOneResourceLogAsync(loggers, name).ConfigureAwait(false));
+        }
+
+        return report.ToString();
+    }
+
+    private static async Task<string> CaptureOneResourceLogAsync(
+        Aspire.Hosting.ApplicationModel.ResourceLoggerService loggers, string name)
+    {
+        List<string> lines = [];
+        using CancellationTokenSource perResource = new(TimeSpan.FromSeconds(5));
+        try
+        {
+            await foreach (IReadOnlyList<LogLine> batch in
+                loggers.WatchAsync(name).WithCancellation(perResource.Token))
+            {
+                foreach (LogLine line in batch)
+                {
+                    lines.Add(line.Content);
+                }
+            }
+        }
+        catch (OperationCanceledException) { /* bounded read */ }
+        catch (Exception logEx) when (logEx is not OperationCanceledException)
+        {
+            lines.Add($"(log capture failed: {logEx.GetType().Name})");
+        }
+
+        return lines.Count == 0 ? "(no logs captured)" : string.Join('\n', lines.TakeLast(60));
     }
 
     private async Task TailCameraCatalogLogsAsync(CancellationToken cancellationToken)
