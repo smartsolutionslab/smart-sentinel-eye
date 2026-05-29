@@ -10,7 +10,7 @@ using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
-using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Api;
@@ -26,7 +26,7 @@ public static class WebhookIntegrationsEndpoints
         ArgumentNullException.ThrowIfNull(app);
 
         RouteGroupBuilder group = app.MapGroup("/webhook-integrations")
-            .RequireAuthorization(AuthenticationDefaults.AdminPolicy)
+            .RequireAuthorization(Scope.Sse.Webhooks.Write)
             .WithTags("EventIngestion");
 
         group.MapPost("/", Register)

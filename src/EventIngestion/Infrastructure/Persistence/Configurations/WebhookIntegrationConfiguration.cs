@@ -44,6 +44,19 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
         builder.Property(w => w.RevokedAt)
             .HasColumnName("revoked_at");
 
+        builder.Property(w => w.ValidationMode)
+            .HasColumnName("validation_mode")
+            .HasConversion<int>()
+            .HasDefaultValue(BearerValidationMode.StaticHash)
+            .IsRequired();
+
+        builder.Property(w => w.KeycloakClientId)
+            .HasColumnName("keycloak_client_id")
+            .HasMaxLength(255);
+
+        builder.Property(w => w.RotatedAt)
+            .HasColumnName("rotated_at");
+
         builder.Property(w => w.Version)
             .HasColumnName("version")
             .IsConcurrencyToken();

@@ -8,6 +8,15 @@ namespace SmartSentinelEye.ServiceDefaults.Authorization;
 /// calls <see cref="EnsureAccessAsync"/> right after model
 /// binding; the guard verifies the caller's JWT
 /// <c>groups</c> claim contains <c>/fabs/&lt;fabId&gt;</c>.
+///
+/// <para>
+/// Multi-fab users (e.g. a regional admin assigned to both
+/// <c>/fabs/munich</c> and <c>/fabs/berlin</c>) are supported:
+/// the guard only checks that the requested <c>fabId</c> is
+/// present in the caller's group list, so each per-fab API call
+/// passes independently. There is no implicit "current fab"
+/// — the caller picks per request.
+/// </para>
 /// </summary>
 public interface IFabAuthorizationGuard
 {

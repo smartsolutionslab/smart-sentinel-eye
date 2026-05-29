@@ -24,6 +24,16 @@ public static class RequireScopeExtensions
     /// endpoints declare authorization with
     /// <c>.RequireAuthorization(Scope.SSE.Rules.Write)</c>.
     /// </summary>
+    /// <summary>
+    /// Grandfathered legacy bundle (spec 008 FR-002). When a JWT
+    /// carries <c>sse.management</c>, every <c>sse.*</c> policy
+    /// passes except <see cref="Scope.Sse.Events.Publish"/> (which
+    /// is only granted to MQTT-publishing devices). Lets the spec
+    /// 001-007 integration fixtures keep working through the
+    /// per-endpoint migration in spec 008 PR F.
+    /// </summary>
+    public const string LegacyManagementBundle = "sse.management";
+
     public static AuthorizationBuilder AddScopePolicies(
         this AuthorizationBuilder builder, IEnumerable<string> scopes)
     {
@@ -32,6 +42,9 @@ public static class RequireScopeExtensions
 
         foreach (string scope in scopes)
         {
+            string targetScope = scope;
+            bool acceptLegacyBundle =
+                !string.Equals(scope, Scope.Sse.Events.Publish, StringComparison.Ordinal);
             builder.AddPolicy(scope, policy =>
             {
                 policy.RequireAuthenticatedUser();
@@ -41,7 +54,12 @@ public static class RequireScopeExtensions
                     {
                         string[] tokens = claim.Value.Split(
                             ' ', StringSplitOptions.RemoveEmptyEntries);
-                        if (tokens.Contains(scope, StringComparer.Ordinal))
+                        if (tokens.Contains(targetScope, StringComparer.Ordinal))
+                        {
+                            return true;
+                        }
+                        if (acceptLegacyBundle &&
+                            tokens.Contains(LegacyManagementBundle, StringComparer.Ordinal))
                         {
                             return true;
                         }

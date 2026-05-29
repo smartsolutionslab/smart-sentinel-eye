@@ -22,10 +22,13 @@ public static class AuthenticationDefaults
     /// Legacy bundle policy from spec 005/006/007 era. Carries
     /// every <c>*.write</c> scope; new endpoints should use the
     /// resource-shaped <see cref="Scope"/> catalogue instead.
-    /// Will be marked <c>[Obsolete]</c> at the end of spec 008
-    /// Phase 9 (per-endpoint migration) and removed in spec 009.
+    /// Scheduled for removal in spec 009 once every endpoint has
+    /// migrated.
     /// </summary>
+#pragma warning disable S1133 // tracked for removal in spec 009 via issue #844
+    [Obsolete("Use the sse.* scope policies via Scope catalogue + RequireScope instead. Removed in spec 009.")]
     public const string AdminPolicy = "admin";
+#pragma warning restore S1133
 
     public static IHostApplicationBuilder AddBearerAuthentication(
         this IHostApplicationBuilder builder,
@@ -66,6 +69,7 @@ public static class AuthenticationDefaults
         builder.Services.AddSingleton<IFabAuthorizationGuard, DefaultFabAuthorizationGuard>();
         builder.Services.AddAuthorizationBuilder()
             .AddScopePolicies(Scope.All)
+#pragma warning disable CS0618 // legacy policy registered for the spec 005-007 endpoints during the spec 008 PR-F migration
             .AddPolicy(AdminPolicy, policy =>
             {
                 policy.RequireAuthenticatedUser();
@@ -77,6 +81,7 @@ public static class AuthenticationDefaults
                         claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                             .Contains(ManagementScope, StringComparer.Ordinal)));
             });
+#pragma warning restore CS0618
 
         return builder;
     }

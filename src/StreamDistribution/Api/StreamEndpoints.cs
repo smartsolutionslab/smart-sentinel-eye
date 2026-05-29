@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
-using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Commands;
 using SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
@@ -28,13 +28,13 @@ public static class StreamEndpoints
             .WithTags("Streams");
 
         group.MapGet("/{cameraIdentifier:guid}", GetOne)
-            .RequireAuthorization(AuthenticationDefaults.AdminPolicy)
+            .RequireAuthorization(Scope.Sse.Streams.Read)
             .WithName("GetStream")
             .Produces<StreamHealthDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/", ListByCameras)
-            .RequireAuthorization(AuthenticationDefaults.AdminPolicy)
+            .RequireAuthorization(Scope.Sse.Streams.Read)
             .WithName("ListStreams")
             .Produces<IReadOnlyList<StreamHealthDto>>(StatusCodes.Status200OK)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest);

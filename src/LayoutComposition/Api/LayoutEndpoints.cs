@@ -10,7 +10,7 @@ using SmartSentinelEye.LayoutComposition.Application.DTOs;
 using SmartSentinelEye.LayoutComposition.Application.Queries;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
-using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Api;
@@ -27,49 +27,56 @@ public static class LayoutEndpoints
         ArgumentNullException.ThrowIfNull(app);
 
         RouteGroupBuilder group = app.MapGroup("/layouts")
-            .RequireAuthorization(AuthenticationDefaults.AdminPolicy)
             .WithTags("Layouts");
 
         group.MapPost("/", CreateDraft)
+            .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("CreateLayoutDraft")
             .Produces<Guid>(StatusCodes.Status201Created)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapGet("/{layoutIdentifier:guid}", GetOne)
+            .RequireAuthorization(Scope.Sse.Layouts.Read)
             .WithName("GetLayout")
             .Produces<LayoutDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/", List)
+            .RequireAuthorization(Scope.Sse.Layouts.Read)
             .WithName("ListLayouts")
             .Produces<ListLayoutsResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest);
 
         group.MapPost("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}/publish", Publish)
+            .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("PublishRevision")
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPost("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}/archive", Archive)
+            .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("ArchiveRevision")
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapPost("/{layoutIdentifier:guid}/draft", BranchDraft)
+            .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("BranchDraftRevision")
             .Produces<int>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPatch("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}", EditDraft)
+            .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("EditDraftRevision")
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPost("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}/revert", Revert)
+            .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("RevertRevision")
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)

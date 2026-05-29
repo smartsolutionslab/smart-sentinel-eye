@@ -1,7 +1,10 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using System.Security.Claims;
 using SmartSentinelEye.EventIngestion.Api.Requests;
 using SmartSentinelEye.EventIngestion.Application.DTOs;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
@@ -9,7 +12,7 @@ using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
-using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Api;
@@ -30,7 +33,7 @@ public static class EventsEndpoints
         RouteGroupBuilder writes = app.MapGroup("/events").WithTags("Events");
 
         writes.MapPost("/manual", IngestManual)
-            .RequireAuthorization(AuthenticationDefaults.AdminPolicy)
+            .RequireAuthorization(Scope.Sse.Events.Write)
             .WithName("IngestManualEvent")
             .Produces<Guid>(StatusCodes.Status202Accepted)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -45,7 +48,7 @@ public static class EventsEndpoints
             .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
         RouteGroupBuilder reads = app.MapGroup("/events")
-            .RequireAuthorization(AuthenticationDefaults.AdminPolicy)
+            .RequireAuthorization(Scope.Sse.Events.Read)
             .WithTags("EventsRead");
 
         reads.MapGet("/", ListEvents)
@@ -127,15 +130,22 @@ public static class EventsEndpoints
         Option<WebhookIntegration> found = await integrations
             .GetByNameAsync(parsedName, cancellationToken).ConfigureAwait(false);
 
-        // Lookup miss, revoked, and hash mismatch return the same
-        // status code so the response never leaks which integrations
-        // exist.
-        if (!found.HasValue || found.Value.IsRevoked || !found.Value.TokenHash.Matches(token))
+        // Lookup miss / revoked share the static 401 so the
+        // response never leaks which integrations exist.
+        if (!found.HasValue || found.Value.IsRevoked)
         {
             return Results.Unauthorized();
         }
 
         WebhookIntegration integration = found.Value;
+        bool authorized = integration.ValidationMode == BearerValidationMode.Jwt
+            ? await ValidateJwtAsync(request, integration, fabId).ConfigureAwait(false)
+            : integration.TokenHash.Matches(token);
+        if (!authorized)
+        {
+            return Results.Unauthorized();
+        }
+
         EventEnvelope envelope;
         try
         {
@@ -156,6 +166,46 @@ public static class EventsEndpoints
         }
 
         return EnqueueOrBackpressure(channel, envelope);
+    }
+
+    /// <summary>
+    /// Validates a Keycloak-minted JWT against the integration's
+    /// rotated <c>KeycloakClientId</c> (spec 008 FR-016). The
+    /// caller is authorised iff: signature + expiry valid, scope
+    /// contains <c>sse.events.write</c>, azp matches the
+    /// integration's clientId, and groups contains
+    /// <c>/fabs/&lt;fabId&gt;</c>.
+    /// </summary>
+    private static async Task<bool> ValidateJwtAsync(
+        HttpRequest request, WebhookIntegration integration, string fabId)
+    {
+        AuthenticateResult auth = await request.HttpContext
+            .AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme).ConfigureAwait(false);
+        if (!auth.Succeeded || auth.Principal is null)
+        {
+            return false;
+        }
+
+        ClaimsPrincipal user = auth.Principal;
+
+        bool hasEventsWriteScope = user.FindAll("scope").Any(claim =>
+            claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Contains("sse.events.write", StringComparer.Ordinal));
+        if (!hasEventsWriteScope)
+        {
+            return false;
+        }
+
+        string? azp = user.FindFirst("azp")?.Value;
+        if (!string.Equals(azp, integration.KeycloakClientId, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        string targetGroup = "/fabs/" + fabId;
+        return user.FindAll("groups").Any(claim =>
+            claim.Value.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries)
+                .Contains(targetGroup, StringComparer.Ordinal));
     }
 
     private static async Task<IResult> ListEvents(

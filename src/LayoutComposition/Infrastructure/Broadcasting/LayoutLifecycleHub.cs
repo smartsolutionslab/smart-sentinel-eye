@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Authorization;
 
 namespace SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 
@@ -12,13 +12,14 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 /// <see cref="SignalRLayoutLifecycleBroadcaster"/>.
 ///
 /// Authorisation is hub-level: a connection is rejected if the bearer
-/// token does not carry the <c>sse.management</c> scope. The bearer
-/// arrives via the WebSocket query string per Microsoft's documented
-/// pattern; the <c>JwtBearerOptions.OnMessageReceived</c> hook wired
-/// in <c>Program.cs</c> translates query-string to the
+/// token does not carry <c>sse.layouts.read</c> (or the grandfathered
+/// <c>sse.management</c> bundle). The bearer arrives via the WebSocket
+/// query string per Microsoft's documented pattern; the
+/// <c>JwtBearerOptions.OnMessageReceived</c> hook wired in
+/// <c>Program.cs</c> translates query-string to the
 /// <c>Authorization</c> header.
 /// </summary>
-[Authorize(Policy = AuthenticationDefaults.AdminPolicy)]
+[Authorize(Policy = Scope.Sse.Layouts.Read)]
 public sealed class LayoutLifecycleHub : Hub<ILayoutLifecycleClient>
 {
     public const string Path = "/hubs/layouts";
