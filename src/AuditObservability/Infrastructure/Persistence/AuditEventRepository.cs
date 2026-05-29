@@ -6,10 +6,13 @@ namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 
 /// <summary>
 /// Production repository. <see cref="SaveAsync"/> emits an
-/// <c>INSERT ... ON CONFLICT (event_identifier) DO NOTHING</c>
+/// <c>INSERT ... ON CONFLICT (event_identifier, occurred_at) DO NOTHING</c>
 /// per pending row so Wolverine at-least-once redeliveries are
 /// absorbed silently — the unique index on
-/// <see cref="AuditEvent.EventIdentifier"/> is the gate.
+/// <c>(event_identifier, occurred_at)</c> is the gate (occurred_at is
+/// carried because TimescaleDB forbids a unique index that omits the
+/// hypertable partitioning column; a given event's occurred_at is stable,
+/// so the pair still dedups redeliveries).
 /// </summary>
 public sealed class AuditEventRepository(AuditObservabilityDbContext dbContext) : IAuditEventRepository
 {
@@ -47,7 +50,7 @@ public sealed class AuditEventRepository(AuditObservabilityDbContext dbContext) 
                     {row.EventIdentifier.Value},
                     {row.Payload}::jsonb, {row.PayloadSizeBytes},
                     {row.SchemaVersion})
-                ON CONFLICT (event_identifier) DO NOTHING
+                ON CONFLICT (event_identifier, occurred_at) DO NOTHING
                 """,
                 cancellationToken).ConfigureAwait(false);
         }

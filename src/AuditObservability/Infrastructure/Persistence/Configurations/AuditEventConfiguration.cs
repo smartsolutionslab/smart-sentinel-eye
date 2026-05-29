@@ -18,7 +18,12 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
         ArgumentNullException.ThrowIfNull(builder);
 
         builder.ToTable("audit_events");
-        builder.HasKey(a => a.Id);
+
+        // Composite key including occurred_at: TimescaleDB requires the
+        // partitioning column to be part of every unique index on a
+        // hypertable (TS103). audit_id stays first so it reads as the
+        // logical identity; occurred_at is carried for the partition.
+        builder.HasKey(a => new { a.Id, a.OccurredAt });
 
         builder.Property(a => a.Id)
             .HasColumnName("audit_id")
@@ -87,9 +92,13 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
             .HasColumnName("schema_version")
             .IsRequired();
 
-        // Idempotency: Wolverine at-least-once redeliveries are
-        // absorbed via INSERT ... ON CONFLICT (event_identifier).
-        builder.HasIndex(a => a.EventIdentifier)
+        // Idempotency: Wolverine at-least-once redeliveries are absorbed
+        // via INSERT ... ON CONFLICT (event_identifier, occurred_at). The
+        // unique index carries occurred_at because TimescaleDB forbids a
+        // unique index that omits the partitioning column (TS103); since a
+        // given event always carries the same occurred_at, the pair still
+        // uniquely dedups redeliveries.
+        builder.HasIndex(a => new { a.EventIdentifier, a.OccurredAt })
             .HasDatabaseName("ux_audit_event_identifier")
             .IsUnique();
 

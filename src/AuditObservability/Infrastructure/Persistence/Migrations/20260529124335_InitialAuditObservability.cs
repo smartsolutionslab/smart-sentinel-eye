@@ -37,7 +37,9 @@ namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence.Migrati
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_audit_events", x => x.audit_id);
+                    // Composite PK includes occurred_at: TimescaleDB requires
+                    // the partitioning column in every unique index (TS103).
+                    table.PrimaryKey("PK_audit_events", x => new { x.audit_id, x.occurred_at });
                 });
 
             migrationBuilder.CreateIndex(
@@ -63,7 +65,7 @@ namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence.Migrati
             migrationBuilder.CreateIndex(
                 name: "ux_audit_event_identifier",
                 table: "audit_events",
-                column: "event_identifier",
+                columns: new[] { "event_identifier", "occurred_at" },
                 unique: true);
 
             // Convert the table to a 1-month-chunked hypertable
