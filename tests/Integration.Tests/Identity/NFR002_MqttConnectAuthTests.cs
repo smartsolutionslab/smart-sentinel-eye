@@ -90,7 +90,12 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire) : IAsyncLifetime
         request.Headers.Authorization = new("Bearer", adminToken);
 
         HttpResponseMessage response = await identity.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            string failureBody = await response.Content.ReadAsStringAsync();
+            throw new InvalidOperationException(
+                $"POST /devices/register failed with {(int)response.StatusCode} {response.StatusCode}. Body: {failureBody}");
+        }
         JsonElement body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return new DeviceCredentials(
             body.GetProperty("clientId").GetString()!,
