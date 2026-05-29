@@ -199,4 +199,7 @@
   <Folder Name="/tests/Identity.Domain.Tests/">
     <Project Path="tests/Identity.Domain.Tests/SmartSentinelEye.Identity.Domain.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/Identity.Application.Tests/">
+    <Project Path="tests/Identity.Application.Tests/SmartSentinelEye.Identity.Application.Tests.csproj" />
+  </Folder>
 </Solution>
