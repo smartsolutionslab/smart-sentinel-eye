@@ -67,6 +67,8 @@ public static class AuthenticationDefaults
             });
 
         builder.Services.AddSingleton<IFabAuthorizationGuard, DefaultFabAuthorizationGuard>();
+        builder.Services.AddExceptionHandler<FabAuthorizationExceptionHandler>();
+        builder.Services.AddProblemDetails();
         builder.Services.AddAuthorizationBuilder()
             .AddScopePolicies(Scope.All)
 #pragma warning disable CS0618 // legacy policy registered for the spec 005-007 endpoints during the spec 008 PR-F migration
