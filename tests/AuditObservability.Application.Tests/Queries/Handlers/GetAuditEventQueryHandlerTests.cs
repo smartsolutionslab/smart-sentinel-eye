@@ -8,7 +8,7 @@ namespace SmartSentinelEye.AuditObservability.Application.Tests.Queries.Handlers
 
 public class GetAuditEventQueryHandlerTests
 {
-    [Fact(Skip = "Cursor sort uses .ThenBy(a => a.Id.Value) which the in-memory EnumerableRewriter rejects; covered by PR D real-DbContext integration tests.")]
+    [Fact]
     public async Task Returns_the_row_with_full_payload_for_a_known_id()
     {
         AuditEventEntity row = new AuditEventBuilder().Build();
@@ -23,7 +23,7 @@ public class GetAuditEventQueryHandlerTests
         result.Value.EventKind.ShouldBe(row.EventKind.Value);
     }
 
-    [Fact(Skip = "Cursor sort uses .ThenBy(a => a.Id.Value) which the in-memory EnumerableRewriter rejects; covered by PR D real-DbContext integration tests.")]
+    [Fact]
     public async Task Returns_AuditEventNotFound_for_an_unknown_id()
     {
         TestAuditEventQuerySource source = new([]);
