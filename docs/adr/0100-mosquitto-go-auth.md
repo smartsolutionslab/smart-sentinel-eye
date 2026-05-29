@@ -1,0 +1,126 @@
+# ADR-0100: `mosquitto-go-auth` as Mosquitto's auth plugin
+
+**Status:** Accepted
+**Date:** 2026-05-29
+**Supersedes:** —
+**Superseded by:** —
+
+## Context
+
+Spec 008 (Identity) lifts every fab-floor device — PLCs, cameras,
+webhook integrations — into Keycloak as service-account clients.
+Devices then authenticate to MQTT by presenting their
+Keycloak-minted JWT as the MQTT password. The bare Mosquitto
+`password_file + acl_file` model (spec 006 ADR-0095) can't
+validate JWTs; we need a plugin.
+
+Spec 008 NFR-002 budgets **≤ 5 ms p99 per device-connect**. We
+already operate at sustained 1 000 ev/s of MQTT publishes
+(spec 006 NFR-002); per-message auth overhead must remain
+**zero** so the 50 ms ingest budget stays intact. That means
+auth runs **per-connect, not per-message**, with cached JWKS
+verification.
+
+## Decision
+
+**Mosquitto loads the `mosquitto-go-auth` plugin** (the
+`iegomez/mosquitto-go-auth` open-source plugin) configured in
+**JWT mode** with a **24 h JWKS cache** against the Keycloak
+realm.
+
+- Devices connect with `Username=<keycloakClientId>`,
+  `Password=<JWT>`.
+- The plugin verifies the JWT's signature against the cached
+  realm JWKS, checks the `exp` claim, then evaluates the ACL.
+- The ACL is **JSON-from-JWT**: a publish to topic
+  `fab/<fabId>/<source>/<deviceId>` is allowed iff
+  - the `scope` claim contains `sse.events.publish`,
+  - the `groups` claim contains `/fabs/<fabId>`,
+  - the `azp` claim (the Keycloak client_id) equals
+    `<source>-<deviceId>`.
+- JWKS refresh: on first connect, then every 24 h, plus a
+  forced refresh on any signature-validation failure (handles
+  signing-key rotation transparently — FR-006).
+
+## Consequences
+
+**Positive:**
+
+- Single source of truth for device credentials (Keycloak), no
+  static password file to keep in sync.
+- Revocation = remaining JWT TTL (24 h for devices); emergency
+  revocation by rotating the Keycloak signing key.
+- Per-message overhead is **zero** — auth runs once per TCP
+  connect, then Mosquitto trusts the session for its lifetime.
+- Sub-millisecond signature verification once JWKS is cached.
+- Same Mosquitto image works for dev (Aspire) and prod (Helm).
+
+**Negative:**
+
+- A new Mosquitto-side dependency: the plugin is a Go shared
+  library loaded by Mosquitto. The eclipse-mosquitto Docker
+  image doesn't ship it; we either consume the maintainer's
+  image (`iegomez/mosquitto-go-auth`) or build our own
+  Dockerfile that adds `go-auth.so` to the upstream image.
+- One extra moving part to monitor: the plugin's own log
+  output sits alongside Mosquitto's. Operationally OK; just
+  documentation.
+- Stale credentials within the 24 h TTL: a compromised device
+  JWT remains valid until expiry unless the signing key is
+  rotated.
+
+## Alternatives Considered
+
+**Per-connect HTTP introspection against Keycloak's
+`/token/introspect` — REJECTED.** Pros: real-time revocation
+(introspect always returns latest state). Cons: every device
+reconnect adds a ≥ 5 ms RTT to Keycloak; if Keycloak hiccups,
+no device can reconnect; tighter coupling between the MQTT
+broker and Keycloak's availability. We get the same revocation
+behaviour by rotating the signing key when needed.
+
+**Mosquitto password file populated by an Identity-owned
+cron — REJECTED.** Pros: zero changes to Mosquitto's config.
+Cons: stale-credential window between cron runs; two sources
+of truth for credentials (Keycloak + the file); brittle — a
+cron failure leaves the device fleet in a half-broken state.
+
+**`mosquitto-auth-plug` (C plugin, predecessor of
+`mosquitto-go-auth`) — REJECTED.** No active maintenance since
+2021; missing JWKS-cache support; predates Keycloak's modern
+JWT shape.
+
+**Run an EMQX broker instead — REJECTED.** EMQX has built-in
+JWT auth via Keycloak; would replace Mosquitto entirely. The
+spec 006 decision (ADR-0095) explicitly chose Mosquitto for
+its operational simplicity at 1 k/s; swapping the broker now
+would be a much larger change than adding a plugin.
+
+## Implementation Notes
+
+- AppHost composes Mosquitto from a custom Dockerfile that
+  starts FROM the upstream `eclipse-mosquitto:2.0` and adds
+  the prebuilt `go-auth.so` plugin (or, for v1, we consume
+  `iegomez/mosquitto-go-auth:latest` directly).
+- Config files live at:
+  - `src/AppHost/mosquitto/mosquitto.conf` — loads the plugin
+    via `auth_plugin /mosquitto/go-auth.so`.
+  - `src/AppHost/mosquitto/go-auth.conf` — JWT mode + Keycloak
+    JWKS URL + 24 h cache + ACL expression.
+- Production Helm chart adds the same plugin layer to its
+  Mosquitto StatefulSet image (spec 006 T107 fragment gets a
+  follow-up commit).
+- The grandfathered Mosquitto password file (spec 006 ADR-0095)
+  keeps working for legacy devices for one release cycle, then
+  spec 008b removes it.
+
+## Performance Validation
+
+- Plugin's bundled benchmark: ~ 50 µs per JWT validation once
+  JWKS is cached. Easily clears the 5 ms p99 connect-time
+  budget.
+- Per-message overhead: zero — Mosquitto trusts the TCP
+  session for its lifetime.
+- Integration test `NFR002_MqttConnectAuthTests` (spec 008
+  T088) asserts p99 ≤ 5 ms over a warm 100-cycle connect test
+  against a Testcontainers Keycloak + Mosquitto.

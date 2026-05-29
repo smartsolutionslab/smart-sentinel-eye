@@ -41,6 +41,7 @@ var overlayDesignerDb = postgres.AddDatabase("overlay-designer-db");
 var systemVariablesDb = postgres.AddDatabase("system-variables-db");
 var eventIngestionDb = postgres.AddDatabase("event-ingestion-db");
 var automationDb = postgres.AddDatabase("automation-db");
+var identityDb = postgres.AddDatabase("identity-db");
 
 var rabbitmq = builder
     .AddRabbitMQ("rabbitmq", password: rabbitPassword)
@@ -107,13 +108,15 @@ var migrations = builder
     .WithReference(systemVariablesDb)
     .WithReference(eventIngestionDb)
     .WithReference(automationDb)
+    .WithReference(identityDb)
     .WaitFor(cameraCatalogDb)
     .WaitFor(streamDistributionDb)
     .WaitFor(layoutCompositionDb)
     .WaitFor(overlayDesignerDb)
     .WaitFor(systemVariablesDb)
     .WaitFor(eventIngestionDb)
-    .WaitFor(automationDb);
+    .WaitFor(automationDb)
+    .WaitFor(identityDb);
 
 var cameraCatalog = builder
     .AddProject<Projects.SmartSentinelEye_CameraCatalog_Api>("camera-catalog")
@@ -186,7 +189,15 @@ builder
     .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
-builder.AddProject<Projects.SmartSentinelEye_Identity_Api>("identity").WaitForCompletion(migrations);
+builder
+    .AddProject<Projects.SmartSentinelEye_Identity_Api>("identity")
+    .WithHttpEndpoint()
+    .WithReference(identityDb)
+    .WithReference(rabbitmq)
+    .WithReference(keycloak)
+    .WaitForCompletion(migrations)
+    .WaitFor(rabbitmq)
+    .WaitFor(keycloak);
 builder.AddProject<Projects.SmartSentinelEye_AuditObservability_Api>("audit-observability").WaitForCompletion(migrations);
 
 // React apps per ADR-0074: two pnpm-workspace apps under apps/. Skipped in

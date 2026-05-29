@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using SmartSentinelEye.ServiceDefaults.Authorization;
 
 namespace SmartSentinelEye.ServiceDefaults;
 
@@ -17,6 +18,13 @@ namespace SmartSentinelEye.ServiceDefaults;
 /// </summary>
 public static class AuthenticationDefaults
 {
+    /// <summary>
+    /// Legacy bundle policy from spec 005/006/007 era. Carries
+    /// every <c>*.write</c> scope; new endpoints should use the
+    /// resource-shaped <see cref="Scope"/> catalogue instead.
+    /// Will be marked <c>[Obsolete]</c> at the end of spec 008
+    /// Phase 9 (per-endpoint migration) and removed in spec 009.
+    /// </summary>
     public const string AdminPolicy = "admin";
 
     public static IHostApplicationBuilder AddBearerAuthentication(
@@ -55,7 +63,9 @@ public static class AuthenticationDefaults
                 options.MapInboundClaims = false;
             });
 
+        builder.Services.AddSingleton<IFabAuthorizationGuard, DefaultFabAuthorizationGuard>();
         builder.Services.AddAuthorizationBuilder()
+            .AddScopePolicies(Scope.All)
             .AddPolicy(AdminPolicy, policy =>
             {
                 policy.RequireAuthenticatedUser();
