@@ -186,10 +186,21 @@ table and fan out as `FabEventIngestedV1` on RabbitMQ within
 1. `aspire run` brings up the new `mosquitto` container alongside
    Postgres, RabbitMQ, and Keycloak. Wait for everything to go
    green on the dashboard.
-2. **PLC event via MQTT.** Seed `src/AppHost/mosquitto/passwords.txt`
-   with a real PBKDF2 hash for the `station-4` dev user (use
-   `docker run --rm -v $PWD:/m eclipse-mosquitto:2.0 mosquitto_passwd -b /m/passwords.txt station-4 <pw>`),
-   restart the broker, then publish:
+2. **PLC event via MQTT.** v1 still uses the seeded `station-4`
+   password file (set the PBKDF2 hash with
+   `docker run --rm -v $PWD:/m eclipse-mosquitto:2.0 mosquitto_passwd -b /m/passwords.txt station-4 <pw>`,
+   restart the broker). Spec 008 adds the JWT path: once the
+   mosquitto-go-auth image (see `src/AppHost/mosquitto/Dockerfile`)
+   is in play, the device authenticates with a Keycloak-minted
+   service-account token instead — register the device via the
+   Identity API first:
+   ```bash
+   curl -X POST 'http://localhost:5046/devices/register?fabId=munich' \
+     -H 'Authorization: Bearer <admin-token>' \
+     -H 'Content-Type: application/json' \
+     -d '{"deviceType":"plc","deviceIdentifier":"station-4"}'
+   ```
+   Then publish:
    ```bash
    mosquitto_pub -h localhost -p 1883 -u station-4 -P <pw> \
      -t fab/munich/plc/station-4 \

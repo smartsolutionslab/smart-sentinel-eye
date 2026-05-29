@@ -2,7 +2,9 @@
   "realm": "smart-sentinel-eye",
   "enabled": true,
   "sslRequired": "none",
-  "accessTokenLifespan": 3600,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 28800,
+  "ssoSessionMaxLifespan": 28800,
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
@@ -18,48 +20,177 @@
     ]
   },
   "defaultRoles": ["user"],
+  "groups": [
+    {
+      "name": "fabs",
+      "subGroups": [
+        { "name": "munich", "path": "/fabs/munich" }
+      ]
+    }
+  ],
   "clientScopes": [
     {
-      "name": "sse.management",
-      "description": "Grants access to Smart Sentinel Eye management APIs",
+      "name": "sse.cameras.read",
+      "description": "Read camera catalogue (spec 008 FR-002).",
       "protocol": "openid-connect",
-      "attributes": {
-        "include.in.token.scope": "true",
-        "display.on.consent.screen": "true"
-      },
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.cameras.write",
+      "description": "Mutate camera catalogue.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.streams.read",
+      "description": "Read stream metadata and request WHEP playback.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.streams.write",
+      "description": "Mutate stream resources.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.layouts.read",
+      "description": "Read kiosk layouts.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.layouts.write",
+      "description": "Author kiosk layouts.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.overlays.read",
+      "description": "Read overlays.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.overlays.write",
+      "description": "Author overlays.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.variables.read",
+      "description": "Read system variables.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.variables.write",
+      "description": "Mutate system variables.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.rules.read",
+      "description": "Read automation rules.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.rules.write",
+      "description": "Author automation rules.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.events.read",
+      "description": "Read events ledger.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.events.write",
+      "description": "Manual event ingest + webhook ingest.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.events.publish",
+      "description": "MQTT publish on per-device topics.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.webhooks.write",
+      "description": "Manage webhook integrations.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.identity.devices.write",
+      "description": "Register and disable device clients.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.identity.kiosks.write",
+      "description": "Enroll and disable kiosk clients.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse.management",
+      "description": "Legacy bundle: every sse.*.write scope except events.publish. Obsoleted in spec 009.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" }
+    },
+    {
+      "name": "sse-groups",
+      "description": "Emits /fabs/<id> group memberships into the 'groups' JWT claim.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "false", "display.on.consent.screen": "false" },
       "protocolMappers": [
         {
-          "name": "sub-claim",
+          "name": "groups-claim",
           "protocol": "openid-connect",
-          "protocolMapper": "oidc-sub-mapper",
+          "protocolMapper": "oidc-group-membership-mapper",
           "consentRequired": false,
           "config": {
+            "full.path": "true",
             "introspection.token.claim": "true",
-            "access.token.claim": "true"
-          }
-        },
-        {
-          "name": "preferred-username-claim",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-usermodel-attribute-mapper",
-          "consentRequired": false,
-          "config": {
-            "introspection.token.claim": "true",
-            "userinfo.token.claim": "true",
-            "user.attribute": "username",
-            "id.token.claim": "true",
+            "userinfo.token.claim": "false",
+            "id.token.claim": "false",
             "access.token.claim": "true",
-            "claim.name": "preferred_username",
-            "jsonType.label": "String"
+            "claim.name": "groups"
+          }
+        }
+      ]
+    },
+    {
+      "name": "sse-audience",
+      "description": "Emits aud: smart-sentinel-eye on every access token (future-proof FR-006 hardening).",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "false", "display.on.consent.screen": "false" },
+      "protocolMappers": [
+        {
+          "name": "audience-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "smart-sentinel-eye",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
           }
         }
       ]
     }
   ],
+  "defaultDefaultClientScopes": ["basic", "profile", "email", "roles", "sse-groups", "sse-audience"],
   "clients": [
     {
       "clientId": "smart-sentinel-eye-web",
-      "name": "Smart Sentinel Eye Web App",
+      "name": "Smart Sentinel Eye Web App (legacy)",
+      "description": "Grandfathered client preserved so spec 001-007 integration fixtures keep working. Migrated to 'management-web' in spec 009.",
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": true,
@@ -75,37 +206,93 @@
         "pkce.code.challenge.method": "S256"
       },
       "defaultClientScopes": [
-        "basic",
-        "profile",
-        "email",
-        "roles",
+        "basic", "profile", "email", "roles", "sse-groups", "sse-audience",
+        "sse.cameras.read", "sse.cameras.write",
+        "sse.streams.read", "sse.streams.write",
+        "sse.layouts.read", "sse.layouts.write",
+        "sse.overlays.read", "sse.overlays.write",
+        "sse.variables.read", "sse.variables.write",
+        "sse.rules.read", "sse.rules.write",
+        "sse.events.read", "sse.events.write",
+        "sse.webhooks.write",
+        "sse.identity.devices.write",
+        "sse.identity.kiosks.write",
         "sse.management"
       ]
     },
     {
-      "clientId": "smart-sentinel-eye-kiosk",
-      "name": "Smart Sentinel Eye Kiosk App",
+      "clientId": "management-web",
+      "name": "Smart Sentinel Eye — Management Web",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://localhost:*"
+      ],
+      "webOrigins": ["+"],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "access.token.lifespan": "900"
+      },
+      "defaultClientScopes": [
+        "basic", "profile", "email", "roles", "sse-groups", "sse-audience",
+        "sse.cameras.read", "sse.cameras.write",
+        "sse.streams.read", "sse.streams.write",
+        "sse.layouts.read", "sse.layouts.write",
+        "sse.overlays.read", "sse.overlays.write",
+        "sse.variables.read", "sse.variables.write",
+        "sse.rules.read", "sse.rules.write",
+        "sse.events.read", "sse.events.write",
+        "sse.webhooks.write",
+        "sse.identity.devices.write",
+        "sse.identity.kiosks.write",
+        "sse.management"
+      ]
+    },
+    {
+      "clientId": "kiosk-web",
+      "name": "Smart Sentinel Eye — Kiosk Web",
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "redirectUris": [
-        "http://localhost:5174/oidc/callback",
         "http://localhost:5174/*",
         "http://localhost:*"
       ],
       "webOrigins": ["+"],
       "protocol": "openid-connect",
       "attributes": {
-        "pkce.code.challenge.method": "S256"
+        "pkce.code.challenge.method": "S256",
+        "access.token.lifespan": "900"
       },
       "defaultClientScopes": [
-        "basic",
-        "profile",
-        "email",
-        "roles",
-        "sse.management"
+        "basic", "profile", "email", "roles", "sse-groups", "sse-audience",
+        "sse.cameras.read",
+        "sse.streams.read",
+        "sse.layouts.read",
+        "sse.overlays.read",
+        "sse.variables.read",
+        "sse.events.write"
       ]
+    },
+    {
+      "clientId": "identity-admin",
+      "name": "Smart Sentinel Eye — Identity Admin (service account)",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "secret": "dev-only-identity-admin-secret",
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "900"
+      },
+      "defaultClientScopes": ["basic", "profile", "email", "roles", "sse-audience"]
     }
   ],
   "users": [
@@ -117,13 +304,10 @@
       "firstName": "Admin",
       "lastName": "User",
       "credentials": [
-        {
-          "type": "password",
-          "value": "Admin1234",
-          "temporary": false
-        }
+        { "type": "password", "value": "Admin1234", "temporary": false }
       ],
-      "realmRoles": ["user", "admin"]
+      "realmRoles": ["user", "admin"],
+      "groups": ["/fabs/munich"]
     },
     {
       "username": "operator",
@@ -133,13 +317,52 @@
       "firstName": "Operator",
       "lastName": "User",
       "credentials": [
-        {
-          "type": "password",
-          "value": "Operator1234",
-          "temporary": false
-        }
+        { "type": "password", "value": "Operator1234", "temporary": false }
       ],
-      "realmRoles": ["user"]
+      "realmRoles": ["user"],
+      "groups": ["/fabs/munich"]
+    },
+    {
+      "username": "admin@munich.test",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "admin@munich.test",
+      "firstName": "Munich",
+      "lastName": "Admin",
+      "credentials": [
+        { "type": "password", "value": "Admin1234", "temporary": false }
+      ],
+      "realmRoles": ["user", "admin"],
+      "groups": ["/fabs/munich"]
+    },
+    {
+      "username": "op-3@munich.test",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "op-3@munich.test",
+      "firstName": "Munich",
+      "lastName": "Operator",
+      "credentials": [
+        { "type": "password", "value": "Operator1234", "temporary": false }
+      ],
+      "realmRoles": ["user"],
+      "groups": ["/fabs/munich"]
+    },
+    {
+      "username": "service-account-identity-admin",
+      "enabled": true,
+      "serviceAccountClientId": "identity-admin",
+      "clientRoles": {
+        "realm-management": [
+          "manage-clients",
+          "manage-users",
+          "view-clients",
+          "view-users",
+          "query-clients",
+          "query-users",
+          "query-groups"
+        ]
+      }
     }
   ]
 }
