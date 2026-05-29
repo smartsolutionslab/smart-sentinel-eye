@@ -89,17 +89,25 @@ if (isRunMode && !isE2ETests)
 // Mosquitto MQTT broker for spec 006 EventIngestion (ADR-0095). Each
 // PLC and inference device publishes on a per-device topic; the
 // event-ingestion service subscribes with a fab-scoped wildcard.
-// Spec 008 ADR-0100: build the mosquitto-go-auth image locally so
-// the broker validates Keycloak-minted device JWTs alongside the
-// legacy passwords.txt path. The Dockerfile compiles the plugin
-// against eclipse-mosquitto:2.0; see src/AppHost/mosquitto/Dockerfile.
+//
+// Spec 008 ADR-0100's mosquitto-go-auth integration is parked: the
+// upstream plugin (v3.0.0) does not expose a pure-JWKS validation
+// mode — `jwt_mode local` requires a SQL DB, `jwt_mode remote`
+// adds a Keycloak round-trip per CONNECT (incompatible with the
+// 5 ms p99 NFR-002 budget), `jwt_mode files` requires PEM keys in
+// `auth_opt_jwt_secret` rather than a JWKS URI. The plugin would
+// need a custom Go wrapper to enable the documented pattern. The
+// broker config drafts (mosquitto.conf, conf.d/go-auth.conf,
+// Dockerfile) stay in `src/AppHost/mosquitto/` as the starting
+// point for that follow-up; the dev stack runs the upstream
+// password-file image so spec 001-007 keep working and the
+// EventIngestion subscriber + station-4 / camera-12 seeds stay
+// connectable.
 var mosquitto = builder
-    .AddContainer("mosquitto", "smart-sentinel-eye-mosquitto-go-auth", "local")
-    .WithDockerfile("mosquitto")
+    .AddContainer("mosquitto", "eclipse-mosquitto", "2.0")
     .WithBindMount("mosquitto/mosquitto.conf", "/mosquitto/config/mosquitto.conf")
     .WithBindMount("mosquitto/passwords.txt", "/mosquitto/config/passwords.txt")
     .WithBindMount("mosquitto/acl.txt", "/mosquitto/config/acl.txt")
-    .WithBindMount("mosquitto/conf.d/go-auth.conf", "/mosquitto/config/conf.d/go-auth.conf")
     .WithEndpoint(targetPort: 1883, name: "mqtt", scheme: "tcp");
 
 if (isRunMode && !isE2ETests)
