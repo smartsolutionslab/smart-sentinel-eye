@@ -47,8 +47,10 @@ non-trivial:
 
 The **AuditObservability** context's `audit_events` table is a
 **TimescaleDB hypertable**, partitioned by `occurred_at` with a
-**1-month chunk interval**. The OSS Apache-2 edition is enough
-for v1 — we use:
+**1-month chunk interval**. The Community (TSL — free for
+self-host) edition is what we run, since the compression policy
+below is a TSL feature; hypertables themselves are Apache-2. We
+use:
 
 - `create_hypertable()` for partition management.
 - `add_retention_policy()` for the 90-day drop boundary, called
@@ -85,10 +87,9 @@ server). Every other context stays on plain PostgreSQL.
 
 - One new extension on the production PostgreSQL StatefulSet
   (Helm chart's `postgres` image bumped to a Timescale-bundled
-  variant such as `timescale/timescaledb-ha:pg17-oss`).
-  Backup/restore tooling must understand the Timescale-specific
-  catalog tables, but the standard `pg_dump` path works since
-  v2.x.
+  variant). Backup/restore tooling must understand the
+  Timescale-specific catalog tables, but the standard `pg_dump`
+  path works since v2.x.
 - The Timescale OSS edition does **not** include the Toolkit
   hyperfunctions (percentile_agg, etc.) under the Apache 2
   license. Spec 009 doesn't need them; if a future spec does,
@@ -135,9 +136,22 @@ the marginal query-perf gain.
 
 - The `audit-db` Aspire resource enables the `timescaledb`
   extension at first migration via `CREATE EXTENSION IF NOT
-  EXISTS timescaledb;`. The dev `postgres` image already
-  supports it via `timescale/timescaledb-ha:pg17-oss`; the
-  AppHost swaps the image tag accordingly.
+  EXISTS timescaledb;`. The AppHost runs the **single-node
+  community** image `timescale/timescaledb:2.27.1-pg17` (pinned).
+  We deliberately avoid two other variants:
+  - The `-ha` (Spilo/Patroni) image is ~1.5 GB and holds enough
+    RAM that the nine .NET services OOM at simultaneous launch on
+    the 7 GB CI runner (the integration suite's AppHost stopped
+    booting — every service `FailedToStart` with no logs while all
+    infra stayed `Running`).
+  - The `…-oss` (Apache-2-only) tags **drop compression**, which
+    this context's migration uses (`timescaledb.compress` +
+    `add_compression_policy`). Compression is a TimescaleDB
+    Community (TSL — free for self-host) feature, so the
+    community image is the correct, and lightest, choice. The
+    earlier "OSS Apache-2 edition is enough" framing was
+    imprecise: hypertables are Apache-2, but the compression
+    policy this context relies on is TSL/community.
 - The retention worker calls TimescaleDB's
   `show_chunks(audit_events, older_than => INTERVAL '90 days')`
   to discover archive candidates, then per-chunk:
