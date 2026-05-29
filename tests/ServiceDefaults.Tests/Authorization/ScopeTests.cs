@@ -21,6 +21,7 @@ public class ScopeTests
     [InlineData("sse.rules.write")]
     [InlineData("sse.identity.devices.write")]
     [InlineData("sse.identity.kiosks.write")]
+    [InlineData("sse.audit.read")]
     public void Catalogue_contains_the_documented_v1_scope(string expected) =>
         Scope.All.ShouldContain(expected);
 

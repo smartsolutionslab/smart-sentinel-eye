@@ -27,9 +27,15 @@ var keycloakPassword = builder.AddParameter("KeycloakPassword", "dev-only-keyclo
 var identityAdminClientSecret = builder.AddParameter("IdentityAdminClientSecret", "dev-only-identity-admin-secret", secret: true);
 var rabbitPassword = builder.AddParameter("RabbitMqPassword", "dev-only-rabbit-password", secret: true);
 
+// Spec 009 ADR-0101 bumps the postgres image to the
+// timescaledb-ha variant so the audit-observability hypertable
+// works. The image is API-compatible with stock PG 17; every
+// other context's database remains plain Postgres tables on the
+// same server.
 IResourceBuilder<PostgresServerResource> postgres = builder
     .AddPostgres("postgres", userName: postgresUser, password: postgresPassword)
-    .WithImageTag("17-alpine");
+    .WithImage("timescale/timescaledb-ha")
+    .WithImageTag("pg17-oss");
 
 if (isRunMode && !isE2ETests)
 {
@@ -47,6 +53,7 @@ var systemVariablesDb = postgres.AddDatabase("system-variables-db");
 var eventIngestionDb = postgres.AddDatabase("event-ingestion-db");
 var automationDb = postgres.AddDatabase("automation-db");
 var identityDb = postgres.AddDatabase("identity-db");
+var auditDb = postgres.AddDatabase("audit-db");
 
 var rabbitmq = builder
     .AddRabbitMQ("rabbitmq", password: rabbitPassword)
@@ -117,6 +124,22 @@ if (isRunMode && !isE2ETests)
         .WithVolume("mosquitto-data", "/mosquitto/data");
 }
 
+// MinIO object storage (ADR-0009) — used by AuditObservability
+// (spec 009 ADR-0101) for the per-chunk cold archive once a
+// hypertable chunk crosses the 90-day boundary. The
+// CommunityToolkit.Aspire.Hosting.Minio integration injects a
+// `ConnectionStrings:minio` value into every consumer that
+// `WithReference`s it; the Infrastructure project resolves an
+// `IMinioClient` from that via `AddMinioClient("minio")`.
+var minio = builder.AddMinioContainer("minio");
+
+if (isRunMode && !isE2ETests)
+{
+    minio
+        .WithLifetime(ContainerLifetime.Persistent)
+        .WithDataVolume();
+}
+
 // MigrationRunner orchestrates all per-context migrations and exits (ADR-0067).
 var migrations = builder
     .AddProject<Projects.SmartSentinelEye_MigrationRunner>("migrations")
@@ -128,6 +151,7 @@ var migrations = builder
     .WithReference(eventIngestionDb)
     .WithReference(automationDb)
     .WithReference(identityDb)
+    .WithReference(auditDb)
     .WaitFor(cameraCatalogDb)
     .WaitFor(streamDistributionDb)
     .WaitFor(layoutCompositionDb)
@@ -135,7 +159,8 @@ var migrations = builder
     .WaitFor(systemVariablesDb)
     .WaitFor(eventIngestionDb)
     .WaitFor(automationDb)
-    .WaitFor(identityDb);
+    .WaitFor(identityDb)
+    .WaitFor(auditDb);
 
 var cameraCatalog = builder
     .AddProject<Projects.SmartSentinelEye_CameraCatalog_Api>("camera-catalog")
@@ -218,7 +243,18 @@ builder
     .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
-builder.AddProject<Projects.SmartSentinelEye_AuditObservability_Api>("audit-observability").WaitForCompletion(migrations);
+builder
+    .AddProject<Projects.SmartSentinelEye_AuditObservability_Api>("audit-observability")
+    .WithHttpEndpoint()
+    .WithReference(auditDb)
+    .WithReference(rabbitmq)
+    .WithReference(keycloak)
+    .WithReference(minio)
+    .WithEnvironment("Minio__Bucket", "audit-archive")
+    .WaitForCompletion(migrations)
+    .WaitFor(rabbitmq)
+    .WaitFor(keycloak)
+    .WaitFor(minio);
 
 // React apps per ADR-0074: two pnpm-workspace apps under apps/. Skipped in
 // test mode so the integration suite doesn't start two Node dev servers.

@@ -81,6 +81,7 @@
     { "name": "sse.webhooks.write", "description": "Manage webhook integrations.", "protocol": "openid-connect", "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" } },
     { "name": "sse.identity.devices.write", "description": "Register and disable device clients.", "protocol": "openid-connect", "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" } },
     { "name": "sse.identity.kiosks.write", "description": "Enroll and disable kiosk clients.", "protocol": "openid-connect", "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" } },
+    { "name": "sse.audit.read", "description": "Read the bus-fed audit trail (spec 009).", "protocol": "openid-connect", "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" } },
     {
       "name": "sse-groups",
       "description": "Emits /fabs/<id> group memberships into the 'groups' JWT claim.",
@@ -128,7 +129,8 @@
         "email",
         "roles",
         "sse-groups",
-        "sse.management"
+        "sse.management",
+        "sse.audit.read"
       ]
     },
     {
@@ -184,7 +186,8 @@
         "sse.events.read", "sse.events.write",
         "sse.webhooks.write",
         "sse.identity.devices.write",
-        "sse.identity.kiosks.write"
+        "sse.identity.kiosks.write",
+        "sse.audit.read"
       ]
     },
     {
