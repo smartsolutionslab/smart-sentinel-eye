@@ -180,8 +180,11 @@ interface in v1 so v2 can land without breaking changes.
 
 - **.NET 10**, ASP.NET Core, **.NET Aspire** (ADR-024).
 - **PostgreSQL** as default persistence (ADR-009). **Marten** for
-  event-sourced contexts. **Prometheus** for metrics. **MinIO** for
-  object storage (future snapshots, eventual recording).
+  event-sourced contexts. **TimescaleDB** (PostgreSQL extension)
+  is permitted in time-series-shaped contexts; current use is
+  AuditObservability per ADR-0101. **Prometheus** for metrics.
+  **MinIO** for object storage (future snapshots, eventual
+  recording).
 - **RabbitMQ** for both internal and external messaging (ADR-010).
 - **Keycloak** for identity (ADR-007), federated to customer SSO when
   required.
