@@ -30,13 +30,12 @@ var rabbitPassword = builder.AddParameter("RabbitMqPassword", "dev-only-rabbit-p
 // Spec 009 ADR-0101: the postgres image carries the timescaledb
 // extension so the audit-observability hypertable + compression
 // work. We use the single-node `timescale/timescaledb` community
-// image rather than the `-ha` (Spilo/Patroni) variant: the HA
-// image is ~1.5 GB and holds enough RAM to OOM the nine service
-// processes at simultaneous launch on the 7 GB CI runner. The
-// single-node image keeps hypertables AND compression (a TSL
-// feature the audit migration requires) at a fraction of the
-// footprint. Every other context's database remains plain
-// Postgres tables on the same server.
+// image rather than the `-ha` (Spilo/Patroni) variant: it is far
+// lighter for dev/CI and still provides hypertables AND compression
+// (a TSL feature the audit migration requires). The `-oss` tags
+// drop compression, so the community (non-oss) tag is required.
+// Every other context's database remains plain Postgres tables on
+// the same server.
 IResourceBuilder<PostgresServerResource> postgres = builder
     .AddPostgres("postgres", userName: postgresUser, password: postgresPassword)
     .WithImage("timescale/timescaledb")

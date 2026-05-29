@@ -139,11 +139,9 @@ the marginal query-perf gain.
   EXISTS timescaledb;`. The AppHost runs the **single-node
   community** image `timescale/timescaledb:2.27.1-pg17` (pinned).
   We deliberately avoid two other variants:
-  - The `-ha` (Spilo/Patroni) image is ~1.5 GB and holds enough
-    RAM that the nine .NET services OOM at simultaneous launch on
-    the 7 GB CI runner (the integration suite's AppHost stopped
-    booting — every service `FailedToStart` with no logs while all
-    infra stayed `Running`).
+  - The `-ha` (Spilo/Patroni) image is ~1.5 GB; the single-node
+    image is far lighter for dev/CI with no loss of the features
+    this context uses.
   - The `…-oss` (Apache-2-only) tags **drop compression**, which
     this context's migration uses (`timescaledb.compress` +
     `add_compression_policy`). Compression is a TimescaleDB
