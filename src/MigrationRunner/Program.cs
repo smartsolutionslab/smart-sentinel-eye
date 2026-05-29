@@ -1,3 +1,4 @@
+using SmartSentinelEye.AuditObservability.Infrastructure;
 using SmartSentinelEye.Automation.Infrastructure;
 using SmartSentinelEye.CameraCatalog.Infrastructure;
 using SmartSentinelEye.EventIngestion.Infrastructure;
@@ -22,6 +23,7 @@ builder.AddSystemVariablesPersistence();
 builder.AddEventIngestionPersistence();
 builder.AddAutomationPersistence();
 builder.AddIdentityPersistence();
+builder.AddAuditObservabilityPersistence();
 
 IHost host = builder.Build();
 ILogger<Program> log = host.Services.GetRequiredService<ILogger<Program>>();

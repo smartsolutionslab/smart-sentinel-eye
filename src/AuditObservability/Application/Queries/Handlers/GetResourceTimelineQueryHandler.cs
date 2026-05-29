@@ -43,9 +43,9 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
         }
 
         IQueryable<AuditEventEntity> source = events.AuditEvents
-            .Where(a => a.ResourceKind.HasValue && a.ResourceKind.Value.Value == query.ResourceKind)
-            .Where(a => a.ResourceIdentifier.HasValue && a.ResourceIdentifier.Value.Value == query.ResourceIdentifier)
-            .Where(a => a.Fab.HasValue && a.Fab.Value.Value == query.Fab);
+            .Where(a => a.ResourceKind != null && a.ResourceKind.Value == query.ResourceKind)
+            .Where(a => a.ResourceIdentifier != null && a.ResourceIdentifier.Value == query.ResourceIdentifier)
+            .Where(a => a.Fab != null && a.Fab.Value == query.Fab);
 
         if (query.Since is { } since) source = source.Where(a => a.OccurredAt >= since);
         if (query.Until is { } until) source = source.Where(a => a.OccurredAt < until);

@@ -48,10 +48,10 @@ public class AuditEventTests
 
         row.OccurredAt.ShouldBe(Occurred);
         row.EventKind.Value.ShouldBe("CameraRegisteredV1");
-        row.Fab.Value.Value.ShouldBe("munich");
+        row.Fab!.Value.ShouldBe("munich");
         row.Actor.Value.ShouldBe(ActorGuid);
         row.Actor.IsSystem.ShouldBeFalse();
-        row.ActorUsername.Value.ShouldBe("admin@munich.test");
+        row.ActorUsername.ShouldBe("admin@munich.test");
         row.EventIdentifier.Value.ShouldBe(EventGuid);
         row.Payload.ShouldBe(PayloadJson);
         row.PayloadSizeBytes.ShouldBe(
@@ -64,8 +64,8 @@ public class AuditEventTests
     {
         AuditEventEntity row = AuditEventEntity.From(SampleEnvelope(), SampleMapping(), new FakeClock(Received));
 
-        row.ResourceKind.Value.ShouldBe(ResourceKind.Camera);
-        row.ResourceIdentifier.Value.Value.ShouldBe("33333333-3333-3333-3333-333333333333");
+        row.ResourceKind.ShouldBe(ResourceKind.Camera);
+        row.ResourceIdentifier!.Value.ShouldBe("33333333-3333-3333-3333-333333333333");
     }
 
     [Fact]
@@ -73,8 +73,8 @@ public class AuditEventTests
     {
         AuditEventEntity row = AuditEventEntity.From(SampleEnvelope(), V1Mapping.Unmapped, new FakeClock(Received));
 
-        row.ResourceKind.HasValue.ShouldBeFalse();
-        row.ResourceIdentifier.HasValue.ShouldBeFalse();
+        row.ResourceKind.ShouldBeNull();
+        row.ResourceIdentifier.ShouldBeNull();
         row.EventKind.Value.ShouldBe("CameraRegisteredV1");
     }
 
@@ -84,7 +84,7 @@ public class AuditEventTests
         V1Envelope crossFab = SampleEnvelope() with { Fab = Option<FabIdentifier>.None };
         AuditEventEntity row = AuditEventEntity.From(crossFab, V1Mapping.Unmapped, new FakeClock(Received));
 
-        row.Fab.HasValue.ShouldBeFalse();
+        row.Fab.ShouldBeNull();
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public class AuditEventTests
         AuditEventEntity row = AuditEventEntity.From(systemEvt, V1Mapping.Unmapped, new FakeClock(Received));
 
         row.Actor.IsSystem.ShouldBeTrue();
-        row.ActorUsername.HasValue.ShouldBeFalse();
+        row.ActorUsername.ShouldBeNull();
     }
 
     [Fact]

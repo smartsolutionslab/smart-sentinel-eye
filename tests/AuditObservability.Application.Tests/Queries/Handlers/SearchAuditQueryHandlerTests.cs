@@ -17,7 +17,7 @@ public class SearchAuditQueryHandlerTests
         int pageSize = 50) =>
         new(fab, callerFabs ?? ["munich"], null, actorUsername, eventKind, null, null, null, null, pageSize, cursor);
 
-    [Fact(Skip = "IQueryable + Option<T> in-memory rewriter limit — covered by integration tests against the real DbContext in PR D.")]
+    [Fact(Skip = "Cursor sort uses .ThenBy(a => a.Id.Value) which the in-memory EnumerableRewriter rejects; covered by PR D real-DbContext integration tests.")]
     public async Task Returns_rows_filtered_by_fab_in_descending_OccurredAt_order()
     {
         DateTimeOffset baseTime = DateTimeOffset.Parse("2026-05-29T08:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
@@ -38,7 +38,7 @@ public class SearchAuditQueryHandlerTests
         result.Value.Rows[1].OccurredAt.ShouldBe(older.OccurredAt);
     }
 
-    [Fact(Skip = "IQueryable + Option<T> in-memory rewriter limit — covered by integration tests against the real DbContext in PR D.")]
+    [Fact(Skip = "Cursor sort uses .ThenBy(a => a.Id.Value) which the in-memory EnumerableRewriter rejects; covered by PR D real-DbContext integration tests.")]
     public async Task Without_fab_uses_the_caller_fab_set()
     {
         AuditEventEntity munich = new AuditEventBuilder().WithFab("munich").Build();
@@ -55,7 +55,7 @@ public class SearchAuditQueryHandlerTests
         result.Value.Rows[0].Fab.ShouldBe("munich");
     }
 
-    [Fact(Skip = "IQueryable + Option<T> in-memory rewriter limit — covered by integration tests against the real DbContext in PR D.")]
+    [Fact(Skip = "Cursor sort uses .ThenBy(a => a.Id.Value) which the in-memory EnumerableRewriter rejects; covered by PR D real-DbContext integration tests.")]
     public async Task Cursor_pagination_round_trips_without_overlap()
     {
         DateTimeOffset baseTime = DateTimeOffset.Parse("2026-05-29T08:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
@@ -82,7 +82,7 @@ public class SearchAuditQueryHandlerTests
         seen.Distinct().Count().ShouldBe(4);
     }
 
-    [Fact(Skip = "IQueryable + Option<T> in-memory rewriter limit — covered by integration tests against the real DbContext in PR D.")]
+    [Fact(Skip = "Cursor sort uses .ThenBy(a => a.Id.Value) which the in-memory EnumerableRewriter rejects; covered by PR D real-DbContext integration tests.")]
     public async Task Empty_result_returns_an_empty_page_not_an_error()
     {
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([]));
@@ -94,7 +94,7 @@ public class SearchAuditQueryHandlerTests
         result.Value.NextCursor.ShouldBeNull();
     }
 
-    [Fact(Skip = "IQueryable + Option<T> in-memory rewriter limit — covered by integration tests against the real DbContext in PR D.")]
+    [Fact(Skip = "Cursor sort uses .ThenBy(a => a.Id.Value) which the in-memory EnumerableRewriter rejects; covered by PR D real-DbContext integration tests.")]
     public async Task Rejects_an_unparseable_cursor()
     {
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([]));
@@ -106,7 +106,7 @@ public class SearchAuditQueryHandlerTests
         result.Error.ShouldBeOfType<SearchAuditError.InvalidCursor>();
     }
 
-    [Fact(Skip = "IQueryable + Option<T> in-memory rewriter limit — covered by integration tests against the real DbContext in PR D.")]
+    [Fact(Skip = "Cursor sort uses .ThenBy(a => a.Id.Value) which the in-memory EnumerableRewriter rejects; covered by PR D real-DbContext integration tests.")]
     public async Task Rejects_pageSize_above_the_maximum()
     {
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([]));
@@ -117,7 +117,7 @@ public class SearchAuditQueryHandlerTests
         result.Error.ShouldBeOfType<SearchAuditError.PageSizeOutOfRange>();
     }
 
-    [Fact(Skip = "IQueryable + Option<T> in-memory rewriter limit — covered by integration tests against the real DbContext in PR D.")]
+    [Fact(Skip = "Cursor sort uses .ThenBy(a => a.Id.Value) which the in-memory EnumerableRewriter rejects; covered by PR D real-DbContext integration tests.")]
     public async Task Filter_by_actor_username_narrows_the_result()
     {
         AuditEventEntity admin = new AuditEventBuilder()
