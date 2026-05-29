@@ -21,8 +21,14 @@ internal sealed class TestAuditEventQuerySource(IEnumerable<AuditEventEntity> se
 internal sealed class TestAsyncEnumerable<T>(IEnumerable<T> enumerable)
     : EnumerableQuery<T>(enumerable), IAsyncEnumerable<T>, IQueryable<T>
 {
+    // Pass the expression straight to EnumerableQuery's base ctor — do
+    // NOT eagerly materialise it here. Eager `.ToList()` collapses the
+    // result after each chained operator, so a later `.ThenBy(...)` sees
+    // a plain (non-IOrderedEnumerable) source and the EnumerableQuery
+    // rewriter throws IndexOutOfRange. Deferring lets EnumerableQuery
+    // rewrite the whole OrderBy/ThenBy/Take chain in one pass.
     public TestAsyncEnumerable(Expression expression)
-        : this(((IQueryable<T>)new EnumerableQuery<T>(expression)).ToList()) { }
+        : this((IEnumerable<T>)new EnumerableQuery<T>(expression)) { }
 
     IAsyncEnumerator<T> IAsyncEnumerable<T>.GetAsyncEnumerator(CancellationToken cancellationToken) =>
         new TestAsyncEnumerator<T>(this.AsEnumerable().GetEnumerator());

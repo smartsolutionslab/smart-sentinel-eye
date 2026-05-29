@@ -30,7 +30,7 @@ public class GetResourceTimelineQueryHandlerTests
             .WithFab("munich")
             .Build();
 
-    [Fact(Skip = "Cursor sort uses .ThenBy(a => a.Id.Value) which the in-memory EnumerableRewriter rejects; covered by PR D real-DbContext integration tests.")]
+    [Fact]
     public async Task Returns_rows_ascending_by_OccurredAt()
     {
         TestAuditEventQuerySource source = new([Row(10), Row(0), Row(5)]);
@@ -44,7 +44,7 @@ public class GetResourceTimelineQueryHandlerTests
         result.Value.Rows[2].OccurredAt.ShouldBe(Base.AddMinutes(10));
     }
 
-    [Fact(Skip = "Cursor sort uses .ThenBy(a => a.Id.Value) which the in-memory EnumerableRewriter rejects; covered by PR D real-DbContext integration tests.")]
+    [Fact]
     public async Task Excludes_rows_for_a_different_resource()
     {
         TestAuditEventQuerySource source = new([
@@ -61,7 +61,7 @@ public class GetResourceTimelineQueryHandlerTests
         result.Value.Rows.All(r => r.ResourceIdentifier == TargetOverlay).ShouldBeTrue();
     }
 
-    [Fact(Skip = "Cursor sort uses .ThenBy(a => a.Id.Value) which the in-memory EnumerableRewriter rejects; covered by PR D real-DbContext integration tests.")]
+    [Fact]
     public async Task Since_filter_narrows_the_window()
     {
         TestAuditEventQuerySource source = new([Row(0), Row(5), Row(10)]);
@@ -74,7 +74,7 @@ public class GetResourceTimelineQueryHandlerTests
         result.Value.Rows[0].OccurredAt.ShouldBe(Base.AddMinutes(10));
     }
 
-    [Fact(Skip = "Cursor sort uses .ThenBy(a => a.Id.Value) which the in-memory EnumerableRewriter rejects; covered by PR D real-DbContext integration tests.")]
+    [Fact]
     public async Task Rejects_an_unknown_resource_kind()
     {
         TestAuditEventQuerySource source = new([]);
@@ -86,7 +86,7 @@ public class GetResourceTimelineQueryHandlerTests
         result.Error.ShouldBeOfType<GetResourceTimelineError.UnknownResourceKind>();
     }
 
-    [Theory(Skip = "Cursor sort uses .ThenBy(a => a.Id.Value) which the in-memory EnumerableRewriter rejects; covered by PR D real-DbContext integration tests.")]
+    [Theory]
     [InlineData(0)]
     [InlineData(201)]
     public async Task Default_pageSize_kicks_in_for_zero_and_rejects_over_maximum(int pageSize)
