@@ -163,6 +163,32 @@ public class BoundaryTests
     }
 
     /// <summary>
+    /// Spec 008 T018 — Identity.Domain must remain free of every
+    /// infrastructure framework (SignalR, EF Core, Wolverine,
+    /// Npgsql, MQTTnet). The Keycloak Admin REST client lives in
+    /// Infrastructure; Domain stays pure.
+    /// </summary>
+    [Fact]
+    public void Identity_Domain_has_no_infrastructure_framework_dependencies()
+    {
+        Assembly domain = Assembly.Load("SmartSentinelEye.Identity.Domain");
+        TestResult result = Types
+            .InAssembly(domain)
+            .Should()
+            .NotHaveDependencyOnAny(
+                "Microsoft.AspNetCore.SignalR",
+                "Microsoft.EntityFrameworkCore",
+                "Wolverine",
+                "Npgsql",
+                "MQTTnet")
+            .GetResult();
+
+        Assert.True(
+            result.IsSuccessful,
+            $"Identity.Domain depends on an infrastructure framework: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    /// <summary>
     /// Spec 007 T014 — Automation.Domain must remain free of every
     /// infrastructure framework (SignalR, EF Core, Wolverine, Npgsql,
     /// MQTTnet). The AEL expression engine lives in Application; the

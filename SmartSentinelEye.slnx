@@ -193,4 +193,7 @@
   <Folder Name="/tests/Automation.Application.Tests/">
     <Project Path="tests/Automation.Application.Tests/SmartSentinelEye.Automation.Application.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/ServiceDefaults.Tests/">
+    <Project Path="tests/ServiceDefaults.Tests/SmartSentinelEye.ServiceDefaults.Tests.csproj" />
+  </Folder>
 </Solution>

@@ -20,8 +20,7 @@ public sealed class DomainEventDispatcher(IServiceProvider services) : IDomainEv
 
         foreach (IDomainEvent domainEvent in domainEvents)
         {
-            DomainEventInvoker invoker = InvokersByEventType.GetOrAdd(
-                domainEvent.GetType(), BuildInvoker);
+            DomainEventInvoker invoker = InvokersByEventType.GetOrAdd(domainEvent.GetType(), BuildInvoker);
             await invoker.InvokeAsync(services, domainEvent, cancellationToken).ConfigureAwait(false);
         }
     }
