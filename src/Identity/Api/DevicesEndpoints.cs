@@ -25,12 +25,14 @@ public static class DevicesEndpoints
 
         group.MapPost("/register", Register)
             .WithName("RegisterDevice")
+            .WithSummary("Register a new PLC or inference device. Required scope: sse.identity.devices.write")
             .Produces<DeviceCredentialsDto>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapDelete("/{clientId}", Disable)
             .WithName("DisableDevice")
+            .WithSummary("Disable a registered device. Required scope: sse.identity.devices.write")
             .Produces<Guid>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
 

@@ -25,12 +25,14 @@ public static class KiosksEndpoints
 
         group.MapPost("/enroll", Enroll)
             .WithName("EnrollKiosk")
+            .WithSummary("Enroll a new kiosk in the fab. Required scope: sse.identity.kiosks.write")
             .Produces<KioskCredentialsDto>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapDelete("/{clientId}", Disable)
             .WithName("DisableKiosk")
+            .WithSummary("Disable an enrolled kiosk. Required scope: sse.identity.kiosks.write")
             .Produces<Guid>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
 

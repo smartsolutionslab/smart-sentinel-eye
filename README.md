@@ -275,6 +275,65 @@ the existing `/hubs/layouts` SignalR hub).
    fire it. The name is released for re-use on the next
    `POST /rules` with the same name.
 
+## Quickstart — bind a kiosk, register a device, author a scoped rule
+
+Spec 008 lights up Keycloak as the identity provider for every
+caller — humans (admin / operator), kiosks, devices (PLC + camera
+inference). The dev realm seeds two test users in `/fabs/munich`
+plus the `identity-admin` service-account client that the Identity
+API uses to mint kiosk + device clients on demand.
+
+1. **Pre-conditions.** `dotnet run --project src/AppHost`; wait for
+   `keycloak` and `migrations` to reach **Running** /
+   **Finished**.
+2. **Sign in as the fab admin.** Browse the management app at
+   `http://localhost:5173`, click **Sign in**, and authenticate as
+   `admin@munich.test` / `Admin1234`. The JWT carries
+   `groups: ["/fabs/munich"]` + every `sse.*.write` scope.
+3. **Enroll a kiosk** (admin, `sse.identity.kiosks.write`):
+   ```bash
+   curl -X POST 'http://localhost:5046/kiosks/enroll?fabId=munich' \
+     -H 'Authorization: Bearer <admin-token>' \
+     -H 'Content-Type: application/json' \
+     -d '{"clientId":"kiosk-pilot"}'
+   ```
+   Response: `201` with `clientId`, `fab`, and the one-time
+   `clientSecret`. The kiosk uses the secret in
+   `client_credentials` to mint its own JWT.
+4. **Register a PLC device** (admin,
+   `sse.identity.devices.write`):
+   ```bash
+   curl -X POST 'http://localhost:5046/devices/register?fabId=munich' \
+     -H 'Authorization: Bearer <admin-token>' \
+     -H 'Content-Type: application/json' \
+     -d '{"deviceType":"plc","deviceIdentifier":"station-4"}'
+   ```
+   Response carries `clientId: plc-station-4` and the device's
+   one-time secret. The device authenticates over MQTT with a
+   Keycloak-minted JWT (see spec 006's quickstart for the JWT-mode
+   broker bring-up).
+5. **Rotate a webhook integration** off the legacy hash-compare
+   bearer onto JWT validation (hard-cut migration, FR-016):
+   ```bash
+   curl -X POST 'http://localhost:5046/webhook-integrations/qa/rotate' \
+     -H 'Authorization: Bearer <admin-token>' \
+     -H 'Content-Type: application/json' \
+     -d '{"fabId":"munich"}'
+   ```
+   EventIngestion's `WebhookIntegrationRotatedV1Handler` flips
+   the integration's `ValidationMode` on the next event delivery;
+   future POSTs to `/events/webhook/qa` must carry a Keycloak JWT
+   with `scope: sse.events.write` + `groups: /fabs/munich`.
+6. **Author a fab-scoped rule** (admin, `sse.rules.write`). Spec
+   007's quickstart still works verbatim — but every `POST` /
+   `PATCH` now verifies the JWT scope catalogue from
+   `ServiceDefaults.Authorization.Scope` instead of the
+   grandfathered `sse.management` bundle.
+7. **Verify fab guarding.** Try to call any of the above with
+   `?fabId=berlin`. The shared `IFabAuthorizationGuard` returns
+   `403 RESOURCE_FAB_NOT_AUTHORIZED` because the admin's `groups`
+   claim does not include `/fabs/berlin`.
+
 ### AEL — the predicate + value expression language
 
 The AEL (Automation Expression Language; ADR-0099) is a tight

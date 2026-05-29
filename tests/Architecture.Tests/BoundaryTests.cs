@@ -265,6 +265,37 @@ public class BoundaryTests
             $"OverlayDesigner.Domain depends on an infrastructure framework: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
     }
 
+    /// <summary>
+    /// Spec 008 T090 — the v1 scope catalogue is the only canonical
+    /// list of <c>sse.*</c> strings. It must live in
+    /// <c>ServiceDefaults</c> so every context's API layer can take
+    /// a dependency on it without breaking the boundary rule. A
+    /// drift where the catalogue gets duplicated inside any
+    /// context's Domain / Application / Infrastructure layer is a
+    /// silent split-brain bug — this test catches it.
+    /// </summary>
+    [Fact]
+    public void Scope_catalogue_lives_in_ServiceDefaults()
+    {
+        Assembly defaults = Assembly.Load("SmartSentinelEye.ServiceDefaults");
+        Type? scope = defaults.GetType("SmartSentinelEye.ServiceDefaults.Authorization.Scope");
+        Assert.NotNull(scope);
+
+        foreach (string contextPrefix in AllContexts)
+        {
+            foreach (string layer in new[] { "Domain", "Application", "Infrastructure" })
+            {
+                string assemblyName = $"{contextPrefix}.{layer}";
+                Assembly assembly = Assembly.Load(assemblyName);
+                Type[] localScopes = [.. assembly.GetTypes()
+                    .Where(t => t.Name == "Scope" && t.Namespace?.EndsWith(".Authorization", StringComparison.Ordinal) == true)];
+                Assert.True(
+                    localScopes.Length == 0,
+                    $"{assemblyName} defines a local Scope catalogue — must consume ServiceDefaults.Authorization.Scope instead.");
+            }
+        }
+    }
+
     [Fact]
     public void Domain_layer_does_not_reference_infrastructure_frameworks()
     {
