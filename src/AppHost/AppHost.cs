@@ -84,11 +84,17 @@ if (isRunMode && !isE2ETests)
 // Mosquitto MQTT broker for spec 006 EventIngestion (ADR-0095). Each
 // PLC and inference device publishes on a per-device topic; the
 // event-ingestion service subscribes with a fab-scoped wildcard.
+// Spec 008 ADR-0100: build the mosquitto-go-auth image locally so
+// the broker validates Keycloak-minted device JWTs alongside the
+// legacy passwords.txt path. The Dockerfile compiles the plugin
+// against eclipse-mosquitto:2.0; see src/AppHost/mosquitto/Dockerfile.
 var mosquitto = builder
-    .AddContainer("mosquitto", "eclipse-mosquitto", "2.0")
+    .AddContainer("mosquitto", "smart-sentinel-eye-mosquitto-go-auth", "local")
+    .WithDockerfile("mosquitto")
     .WithBindMount("mosquitto/mosquitto.conf", "/mosquitto/config/mosquitto.conf")
     .WithBindMount("mosquitto/passwords.txt", "/mosquitto/config/passwords.txt")
     .WithBindMount("mosquitto/acl.txt", "/mosquitto/config/acl.txt")
+    .WithBindMount("mosquitto/conf.d/go-auth.conf", "/mosquitto/config/conf.d/go-auth.conf")
     .WithEndpoint(targetPort: 1883, name: "mqtt", scheme: "tcp");
 
 if (isRunMode && !isE2ETests)
