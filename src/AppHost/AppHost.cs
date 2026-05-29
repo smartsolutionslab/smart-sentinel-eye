@@ -20,6 +20,11 @@ bool isE2ETests = bool.TryParse(builder.Configuration["E2ETests"], out bool e2e)
 var postgresUser = builder.AddParameter("PostgresUser", "postgres");
 var postgresPassword = builder.AddParameter("PostgresPassword", "dev-only-postgres-password", secret: true);
 var keycloakPassword = builder.AddParameter("KeycloakPassword", "dev-only-keycloak-admin", secret: true);
+// Mirrors the `identity-admin` client secret seeded in
+// Realms/smart-sentinel-eye-realm.json. The Identity API reads it as
+// `Keycloak:AdminClientSecret` to mint the realm-management
+// service-account token (spec 008 ADR-0100).
+var identityAdminClientSecret = builder.AddParameter("IdentityAdminClientSecret", "dev-only-identity-admin-secret", secret: true);
 var rabbitPassword = builder.AddParameter("RabbitMqPassword", "dev-only-rabbit-password", secret: true);
 
 IResourceBuilder<PostgresServerResource> postgres = builder
@@ -201,6 +206,7 @@ builder
     .WithReference(identityDb)
     .WithReference(rabbitmq)
     .WithReference(keycloak)
+    .WithEnvironment("Keycloak__AdminClientSecret", identityAdminClientSecret)
     .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
