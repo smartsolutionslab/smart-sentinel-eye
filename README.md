@@ -218,6 +218,73 @@ table and fan out as `FabEventIngestedV1` on RabbitMQ within
    ingested event with cursor pagination. Any malformed MQTT
    delivery lands in `GET /events/dead-letters` instead.
 
+## Quickstart — author and publish an automation rule
+
+Spec 007 adds **Automation** — the rule engine that closes the
+camera → event → overlay loop. Declarative rules in Postgres
+match `FabEventIngestedV1` events; each match fires
+`SystemVariableValueRequestedV1` (consumed by spec 005's
+SystemVariables) or `OverlayHighlightRequestedV1` (pushed on
+the existing `/hubs/layouts` SignalR hub).
+
+1. Pre-conditions: a `Number` SystemVariable named `oeeLine1`
+   exists (see the spec 005 quickstart) and is referenced by a
+   published overlay's label (e.g. `OEE: {{oeeLine1}}%`) bound
+   to a kiosk's layout. Spec 006's `station-4` MQTT device is
+   provisioned in Mosquitto.
+2. **Create a rule** (admin). `curl -X POST http://localhost:5045/rules`
+   (Automation's port — check the Aspire dashboard) with body:
+   ```json
+   {
+     "name": "high-oee-on-fast-cycle",
+     "triggerSource": "plc",
+     "triggerKind": "PlcCycleStart",
+     "predicate": "$.payload.cycleTime <= 30",
+     "actionType": "SetVariableValue",
+     "variableName": "oeeLine1",
+     "valueExpression": "100 - $.payload.cycleTime * 2"
+   }
+   ```
+   Response: 201 with the new `RuleIdentifier`. The rule starts
+   in `Draft` and is NOT yet evaluated.
+3. **Publish** the rule: `POST /rules/high-oee-on-fast-cycle/publish`.
+   The rule flips to `Active` and lands in the live rule cache.
+4. **Trigger** a matching MQTT event:
+   ```bash
+   mosquitto_pub -h localhost -p 1883 -u station-4 -P <pw> \
+     -t fab/munich/plc/station-4 \
+     -m '{"eventId":"<guid-v7>","kind":"PlcCycleStart","occurredAt":"2026-05-28T08:14:33Z","payload":{"cycleTime":27}}'
+   ```
+   The kiosk's overlay should flip to `OEE: 46%` (= 100 − 27 ×
+   2) within ≤ 200 ms of MQTT ACK (50 ms ingest + 100 ms rule
+   eval + 50 ms broadcast).
+5. **Archive** the rule when it has served its purpose:
+   `POST /rules/high-oee-on-fast-cycle/archive`. The rule is
+   evicted from the cache; subsequent matching events no longer
+   fire it. The name is released for re-use on the next
+   `POST /rules` with the same name.
+
+### AEL — the predicate + value expression language
+
+The AEL (Automation Expression Language; ADR-0099) is a tight
+hand-rolled subset:
+
+- **Field access**: `$.source`, `$.kind`, `$.device`, `$.payload.*`.
+- **Comparison**: `==`, `!=`, `<`, `<=`, `>`, `>=`, `contains`.
+- **Arithmetic**: `+`, `-`, `*`, `/`, `%`, unary `-`. Mixed int+decimal promotes to decimal.
+- **Boolean**: `&&`, `||`, `!`; both `&&` and `||` short-circuit.
+- **Literals**: int (`42`), decimal (`3.14`), string (`"abc"` or `'abc'`), `true` / `false`.
+- **Grouping**: `(…)`.
+
+Examples:
+
+```aelte
+$.payload.cycleTime <= 30                                       # predicate
+$.kind == "PlcCycleStart" && $.payload.confidence > 0.8         # predicate
+100 - $.payload.cycleTime * 2                                   # value expression
+$.payload.note contains "defect"                                # predicate
+```
+
 ## Tests
 
 ```pwsh

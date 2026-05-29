@@ -65,6 +65,11 @@ public static class LayoutCompositionInfrastructureModule
             ICommandHandler<RevertRevisionCommand, Result<LayoutRevisionNumber, RevertRevisionError>>,
             RevertRevisionCommandHandler>();
 
+        // Spec 007 bridge: subscribe to OverlayHighlightRequestedV1
+        // from Automation and push OverlayHighlightChanged on the
+        // existing /hubs/layouts SignalR hub.
+        builder.Services.AddScoped<OverlayHighlightRequestedV1Handler>();
+
         builder.AddWolverineForContext<LayoutCompositionDbContext>(
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,

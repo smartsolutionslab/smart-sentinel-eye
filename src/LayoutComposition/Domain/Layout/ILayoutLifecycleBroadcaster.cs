@@ -18,6 +18,8 @@ public interface ILayoutLifecycleBroadcaster
     Task OverlayArchivedAsync(OverlayLifecycleArchivedNotification notification, CancellationToken cancellationToken);
 
     Task ResolvedOverlayTextChangedAsync(ResolvedOverlayTextChangedNotification notification, CancellationToken cancellationToken);
+
+    Task OverlayHighlightedAsync(OverlayHighlightedNotification notification, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -80,3 +82,14 @@ public sealed record ResolvedOverlayTextChangedNotification(
     Guid Overlay,
     string ResolvedText,
     long Version);
+
+/// <summary>
+/// Wire shape for "an overlay should be highlighted" pushes
+/// (spec 007 FR-019). Pushed when an Automation rule's
+/// <c>HighlightOverlay</c> action fires. The kiosk applies the
+/// <c>ssE-overlay-highlight</c> CSS class for
+/// <see cref="DurationMs"/> milliseconds and auto-reverts.
+/// </summary>
+public sealed record OverlayHighlightedNotification(
+    Guid Overlay,
+    int DurationMs);
