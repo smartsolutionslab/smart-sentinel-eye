@@ -1,9 +1,58 @@
 # ADR-0100: `mosquitto-go-auth` as Mosquitto's auth plugin
 
-**Status:** Accepted
+**Status:** **Parked** (see Addendum 2026-05-29)
 **Date:** 2026-05-29
 **Supersedes:** —
 **Superseded by:** —
+
+## Addendum (2026-05-29) — Decision parked
+
+Hands-on bring-up against the real broker surfaced three
+fundamental gaps between the documented v1 plan and what
+`mosquitto-go-auth` actually supports:
+
+1. **No pure-JWKS validation mode.** `auth_opt_jwt_mode local`
+   requires a SQL DB + `jwt_userquery` for the user lookup —
+   *not* the lightweight signature-only verification the spec
+   asked for. `auth_opt_jwt_jwks_uri` (referenced throughout
+   the implementation plan and in the dev `go-auth.conf` draft)
+   is **not a supported option in v3.0.0**.
+2. **Asymmetric keys are passed via `auth_opt_jwt_secret` as
+   PEM**, not via a JWKS URI. JWKS rotation handling is the
+   caller's responsibility — defeats the "24 h cache + auto-
+   refresh on signature failure" property we relied on for
+   FR-006.
+3. **The Go shared library can't load into the Alpine-based
+   `eclipse-mosquitto:2.0` image** (`runtime.tlsg: initial-exec
+   TLS resolves to dynamic`). Upstream's own Dockerfile
+   sidesteps this by rebuilding mosquitto from source on a
+   Debian image — a heavier image with its own ops
+   implications.
+
+The remaining `jwt_mode remote` option *would* work end-to-end
+but requires a per-CONNECT HTTP round-trip to Keycloak's
+userinfo endpoint, which violates the NFR-002 ≤ 5 ms p99
+budget that justified picking this plugin in the first place.
+
+**What this means.** ADR-0100's decision is parked until the
+Mosquitto-side auth model is re-designed. The likely paths,
+in rough order of cost:
+
+- Write a thin custom Go plugin that does JWKS-cached
+  validation directly (≈ 200 LOC).
+- Switch the broker to one with first-class OIDC/JWT support
+  (EMQX, NanoMQ) — bigger change.
+- Accept the per-CONNECT introspection cost and revise NFR-002.
+
+Until that resumption, the dev stack runs the upstream
+`eclipse-mosquitto:2.0` image with `passwords.txt` + `acl.txt`
+(spec 006 ADR-0095). The drafted `mosquitto-go-auth` config +
+Dockerfile stay in `src/AppHost/mosquitto/` and `conf.d/`
+as the starting point for the resumption. Spec 008 ships the
+HTTP-API side (Identity + scope catalogue + fab guard) with
+NFR-002 explicitly parked alongside this ADR.
+
+**Issues opened off this addendum:** TBD.
 
 ## Context
 
