@@ -1,6 +1,7 @@
 using SmartSentinelEye.Automation.Infrastructure;
 using SmartSentinelEye.CameraCatalog.Infrastructure;
 using SmartSentinelEye.EventIngestion.Infrastructure;
+using SmartSentinelEye.Identity.Infrastructure;
 using SmartSentinelEye.LayoutComposition.Infrastructure;
 using SmartSentinelEye.OverlayDesigner.Infrastructure;
 using SmartSentinelEye.ServiceDefaults;
@@ -20,6 +21,7 @@ builder.AddOverlayDesignerPersistence();
 builder.AddSystemVariablesPersistence();
 builder.AddEventIngestionPersistence();
 builder.AddAutomationPersistence();
+builder.AddIdentityPersistence();
 
 IHost host = builder.Build();
 ILogger<Program> log = host.Services.GetRequiredService<ILogger<Program>>();

@@ -1,11 +1,25 @@
-var builder = WebApplication.CreateBuilder(args);
+using SmartSentinelEye.Identity.Api;
+using SmartSentinelEye.Identity.Infrastructure;
+using SmartSentinelEye.ServiceDefaults;
+
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+builder.AddBearerAuthentication();
+builder.AddIdentityInfrastructure();
+builder.Services.AddIdentityApi();
 builder.Services.AddOpenApi();
 
-var app = builder.Build();
+WebApplication app = builder.Build();
 
 app.MapDefaultEndpoints();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapDevicesEndpoints();
+app.MapKiosksEndpoints();
+app.MapWebhookRotationEndpoints();
 
 if (app.Environment.IsDevelopment())
 {
