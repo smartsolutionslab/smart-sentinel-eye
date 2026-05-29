@@ -76,4 +76,54 @@ public class WebhookIntegrationTests
         integration.RevokedAt.ShouldBe(Now.AddHours(1));
         integration.PendingEvents.ShouldBeEmpty();
     }
+
+    [Fact]
+    public void Register_starts_in_StaticHash_validation_mode()
+    {
+        (Domain.WebhookIntegration.WebhookIntegration integration, _) =
+            Domain.WebhookIntegration.WebhookIntegration.Register(
+                WebhookIntegrationName.From("qa"),
+                Kind.From("QaResult"),
+                new FakeClock(Now));
+
+        integration.ValidationMode.ShouldBe(BearerValidationMode.StaticHash);
+        integration.KeycloakClientId.ShouldBeNull();
+        integration.RotatedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public void MarkAsRotated_flips_validation_mode_and_raises_event()
+    {
+        (Domain.WebhookIntegration.WebhookIntegration integration, _) =
+            Domain.WebhookIntegration.WebhookIntegration.Register(
+                WebhookIntegrationName.From("qa"),
+                Kind.From("QaResult"),
+                new FakeClock(Now));
+        integration.ClearPendingEvents();
+
+        integration.MarkAsRotated("webhook-qa", new FakeClock(Now.AddHours(1)));
+
+        integration.ValidationMode.ShouldBe(BearerValidationMode.Jwt);
+        integration.KeycloakClientId.ShouldBe("webhook-qa");
+        integration.RotatedAt.ShouldBe(Now.AddHours(1));
+        integration.PendingEvents.OfType<WebhookIntegrationRotatedDomainEvent>()
+            .ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public void MarkAsRotated_is_idempotent_on_the_same_clientId()
+    {
+        (Domain.WebhookIntegration.WebhookIntegration integration, _) =
+            Domain.WebhookIntegration.WebhookIntegration.Register(
+                WebhookIntegrationName.From("qa"),
+                Kind.From("QaResult"),
+                new FakeClock(Now));
+        integration.MarkAsRotated("webhook-qa", new FakeClock(Now.AddHours(1)));
+        integration.ClearPendingEvents();
+
+        integration.MarkAsRotated("webhook-qa", new FakeClock(Now.AddHours(2)));
+
+        integration.RotatedAt.ShouldBe(Now.AddHours(1));
+        integration.PendingEvents.ShouldBeEmpty();
+    }
 }

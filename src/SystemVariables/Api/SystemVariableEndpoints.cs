@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
-using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Api.Requests;
 using SmartSentinelEye.SystemVariables.Application.Commands;
@@ -47,14 +47,14 @@ public static class SystemVariableEndpoints
 
         // Writes — admin policy.
         group.MapPost("/", Define)
-            .RequireAuthorization(AuthenticationDefaults.AdminPolicy)
+            .RequireAuthorization(Scope.Sse.Variables.Write)
             .WithName("DefineSystemVariable")
             .Produces<Guid>(StatusCodes.Status201Created)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPut("/{name}/value", SetValue)
-            .RequireAuthorization(AuthenticationDefaults.AdminPolicy)
+            .RequireAuthorization(Scope.Sse.Variables.Write)
             .WithName("SetSystemVariableValue")
             .Produces<Guid>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -62,7 +62,7 @@ public static class SystemVariableEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest);
 
         group.MapPost("/{name}/archive", Archive)
-            .RequireAuthorization(AuthenticationDefaults.AdminPolicy)
+            .RequireAuthorization(Scope.Sse.Variables.Write)
             .WithName("ArchiveSystemVariable")
             .Produces<Guid>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);

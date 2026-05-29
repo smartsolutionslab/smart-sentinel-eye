@@ -7,7 +7,7 @@ using SmartSentinelEye.Automation.Api.Requests;
 using SmartSentinelEye.Automation.Application.Commands;
 using SmartSentinelEye.Automation.Application.Commands.Handlers;
 using SmartSentinelEye.Automation.Domain.Rule;
-using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Automation.Api;
@@ -27,7 +27,7 @@ public static class RulesEndpoints
         ArgumentNullException.ThrowIfNull(app);
 
         RouteGroupBuilder group = app.MapGroup("/rules")
-            .RequireAuthorization(AuthenticationDefaults.AdminPolicy)
+            .RequireAuthorization(Scope.Sse.Rules.Write)
             .WithTags("Rules");
 
         group.MapPost("/", Create)

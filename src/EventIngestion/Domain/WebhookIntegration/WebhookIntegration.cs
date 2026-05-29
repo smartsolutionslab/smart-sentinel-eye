@@ -21,6 +21,23 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
 
     public DateTimeOffset? RevokedAt { get; private set; }
 
+    /// <summary>
+    /// How <c>IngestWebhook</c> validates incoming bearers for this
+    /// integration. <see cref="BearerValidationMode.StaticHash"/>
+    /// until <see cref="MarkAsRotated"/> flips it to
+    /// <see cref="BearerValidationMode.Jwt"/> (spec 008 FR-016).
+    /// </summary>
+    public BearerValidationMode ValidationMode { get; private set; } = BearerValidationMode.StaticHash;
+
+    /// <summary>
+    /// Keycloak <c>clientId</c> backing this integration after a
+    /// rotation. <c>null</c> while the integration is still on the
+    /// legacy hash-compare path.
+    /// </summary>
+    public string? KeycloakClientId { get; private set; }
+
+    public DateTimeOffset? RotatedAt { get; private set; }
+
     private WebhookIntegration() { }
 
     /// <summary>
@@ -60,5 +77,29 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
         if (IsRevoked) return; // idempotent
         RevokedAt = clock.UtcNow;
         Raise(new WebhookIntegrationRevokedDomainEvent(Name, RevokedAt.Value));
+    }
+
+    /// <summary>
+    /// Flips this integration onto the Keycloak-JWT validation path
+    /// (spec 008 FR-016). Subsequent ingest calls must present a
+    /// valid access token for <paramref name="keycloakClientId"/>.
+    /// Idempotent on the same clientId; replays from the outbox or
+    /// at-least-once delivery are absorbed silently.
+    /// </summary>
+    public void MarkAsRotated(string keycloakClientId, IClock clock)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(keycloakClientId);
+        ArgumentNullException.ThrowIfNull(clock);
+
+        if (ValidationMode == BearerValidationMode.Jwt &&
+            string.Equals(KeycloakClientId, keycloakClientId, StringComparison.Ordinal))
+        {
+            return; // idempotent
+        }
+
+        ValidationMode = BearerValidationMode.Jwt;
+        KeycloakClientId = keycloakClientId;
+        RotatedAt = clock.UtcNow;
+        Raise(new WebhookIntegrationRotatedDomainEvent(Name, keycloakClientId, RotatedAt.Value));
     }
 }

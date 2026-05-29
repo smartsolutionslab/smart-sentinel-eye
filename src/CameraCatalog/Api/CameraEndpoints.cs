@@ -9,7 +9,7 @@ using SmartSentinelEye.CameraCatalog.Application.DTOs;
 using SmartSentinelEye.CameraCatalog.Application.Queries;
 using SmartSentinelEye.CameraCatalog.Application.Queries.Handlers;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
-using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.CameraCatalog.Api;
@@ -24,17 +24,21 @@ public static class CameraEndpoints
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        RouteGroupBuilder group = app.MapGroup("/cameras")
+        RouteGroupBuilder writes = app.MapGroup("/cameras")
             .WithTags("Cameras")
-            .RequireAuthorization(AuthenticationDefaults.AdminPolicy);
+            .RequireAuthorization(Scope.Sse.Cameras.Write);
 
-        group.MapPost("/", Register)
+        writes.MapPost("/", Register)
             .WithName("RegisterCamera")
             .Produces<Guid>(StatusCodes.Status201Created)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-        group.MapGet("/", List)
+        RouteGroupBuilder reads = app.MapGroup("/cameras")
+            .WithTags("Cameras")
+            .RequireAuthorization(Scope.Sse.Cameras.Read);
+
+        reads.MapGet("/", List)
             .WithName("ListCameras")
             .Produces<CameraListPageDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest);
