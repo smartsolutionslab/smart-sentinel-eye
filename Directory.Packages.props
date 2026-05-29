@@ -62,6 +62,13 @@
     <PackageVersion Include="MQTTnet" Version="4.3.7.1207" />
     <PackageVersion Include="MQTTnet.Extensions.ManagedClient" Version="4.3.7.1207" />
 
+    <!-- MinIO object storage (spec 009 ADR-0101). Aspire hosting
+         resource + typed client wrapper, both via the Aspire
+         Community Toolkit. Transitively pulls in the official
+         `Minio` .NET SDK. -->
+    <PackageVersion Include="CommunityToolkit.Aspire.Hosting.Minio" Version="13.3.0" />
+    <PackageVersion Include="CommunityToolkit.Aspire.Minio.Client" Version="13.3.0" />
+
     <!-- ASP.NET Core / Hosting / Resilience / Service Discovery -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
