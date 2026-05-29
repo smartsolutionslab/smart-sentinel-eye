@@ -7,6 +7,12 @@ namespace SmartSentinelEye.Shared.Contracts.Tests;
 
 public class CameraRegisteredV1Tests
 {
+    private static readonly EventMetadata TestMetadata = new(
+        Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
+        DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture),
+        null,
+        null);
+
     [Fact]
     public void Exposes_all_payload_fields_via_the_positional_constructor()
     {
@@ -14,7 +20,7 @@ public class CameraRegisteredV1Tests
         Guid operatorId = Guid.CreateVersion7();
         DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
-        CameraRegisteredV1 evt = new(camera, "Line-1", "rtsp://10.0.5.1/h264", at, operatorId);
+        CameraRegisteredV1 evt = new(camera, "Line-1", "rtsp://10.0.5.1/h264", at, operatorId, Metadata: TestMetadata);
 
         evt.Camera.ShouldBe(camera);
         evt.Name.ShouldBe("Line-1");
@@ -31,7 +37,8 @@ public class CameraRegisteredV1Tests
             "Line-1",
             "rtsp://10.0.5.1/h264",
             DateTimeOffset.UtcNow,
-            Guid.CreateVersion7());
+            Guid.CreateVersion7(),
+            Metadata: TestMetadata);
 
         evt.ShouldBeAssignableTo<IIntegrationEvent>();
     }
@@ -43,8 +50,8 @@ public class CameraRegisteredV1Tests
         Guid operatorId = Guid.CreateVersion7();
         DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
-        CameraRegisteredV1 first = new(camera, "Line-1", "rtsp://10.0.5.1/h264", at, operatorId);
-        CameraRegisteredV1 second = new(camera, "Line-1", "rtsp://10.0.5.1/h264", at, operatorId);
+        CameraRegisteredV1 first = new(camera, "Line-1", "rtsp://10.0.5.1/h264", at, operatorId, Metadata: TestMetadata);
+        CameraRegisteredV1 second = new(camera, "Line-1", "rtsp://10.0.5.1/h264", at, operatorId, Metadata: TestMetadata);
 
         first.ShouldBe(second);
         first.GetHashCode().ShouldBe(second.GetHashCode());
@@ -56,7 +63,7 @@ public class CameraRegisteredV1Tests
         Guid camera = Guid.CreateVersion7();
         Guid operatorId = Guid.CreateVersion7();
         DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
-        CameraRegisteredV1 original = new(camera, "Line-1", "rtsp://10.0.5.1/h264", at, operatorId);
+        CameraRegisteredV1 original = new(camera, "Line-1", "rtsp://10.0.5.1/h264", at, operatorId, Metadata: TestMetadata);
 
         string json = JsonSerializer.Serialize(original);
         CameraRegisteredV1 deserialized = JsonSerializer.Deserialize<CameraRegisteredV1>(json)!;

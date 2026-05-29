@@ -14,4 +14,5 @@ public sealed record CameraRegisteredV1(
     string Name,
     string Url,
     DateTimeOffset RegisteredAt,
-    Guid RegisteredBy) : IIntegrationEvent;
+    Guid RegisteredBy,
+    EventMetadata Metadata) : IIntegrationEvent;

@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.StreamDistribution;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.StreamDistribution.Domain.Stream.Events;
@@ -21,7 +22,8 @@ public sealed class StreamHealthChangedDomainEventHandler(IEventBus events)
                 FromState: domainEvent.FromState.Value,
                 ToState: domainEvent.ToState.Value,
                 ChangedAt: domainEvent.ChangedAt,
-                Error: domainEvent.Error),
+                Error: domainEvent.Error,
+                Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ChangedAt, null, null)),
             cancellationToken);
     }
 }

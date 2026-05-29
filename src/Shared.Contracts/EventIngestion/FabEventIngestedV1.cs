@@ -19,4 +19,5 @@ public sealed record FabEventIngestedV1(
     string Kind,
     DateTimeOffset OccurredAt,
     DateTimeOffset IngestedAt,
-    string Payload) : IIntegrationEvent;
+    string Payload,
+    EventMetadata Metadata) : IIntegrationEvent;

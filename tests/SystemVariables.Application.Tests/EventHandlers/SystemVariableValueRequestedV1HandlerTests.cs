@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
@@ -13,6 +14,11 @@ public class SystemVariableValueRequestedV1HandlerTests
 {
     private static readonly DateTimeOffset Moment =
         DateTimeOffset.Parse("2026-05-28T08:14:33Z", CultureInfo.InvariantCulture);
+    private static readonly EventMetadata TestMetadata = new(
+        Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
+        DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture),
+        null,
+        null);
 
     private sealed class FakeDedupStore : IVariableValueRequestDedupStore
     {
@@ -42,7 +48,7 @@ public class SystemVariableValueRequestedV1HandlerTests
             NullLogger<SystemVariableValueRequestedV1Handler>.Instance);
 
         await handler.Handle(
-            new SystemVariableValueRequestedV1("oeeLine1", "82.5", Moment, Guid.CreateVersion7()),
+            new SystemVariableValueRequestedV1("oeeLine1", "82.5", Moment, Guid.CreateVersion7(), Metadata: TestMetadata),
             CancellationToken.None);
 
         oeeLine1.Value.ShouldBeOfType<VariableValue.NumberValue>().Value.ShouldBe(82.5);
@@ -64,10 +70,10 @@ public class SystemVariableValueRequestedV1HandlerTests
 
         Guid causing = Guid.CreateVersion7();
         await handler.Handle(
-            new SystemVariableValueRequestedV1("oeeLine1", "82.5", Moment, causing),
+            new SystemVariableValueRequestedV1("oeeLine1", "82.5", Moment, causing, Metadata: TestMetadata),
             CancellationToken.None);
         await handler.Handle(
-            new SystemVariableValueRequestedV1("oeeLine1", "999", Moment, causing),
+            new SystemVariableValueRequestedV1("oeeLine1", "999", Moment, causing, Metadata: TestMetadata),
             CancellationToken.None);
 
         // Second delivery's value (999) MUST NOT win.
@@ -85,7 +91,7 @@ public class SystemVariableValueRequestedV1HandlerTests
 
         // The handler should not throw; it logs + returns.
         await handler.Handle(
-            new SystemVariableValueRequestedV1("1bad", "1", Moment, Guid.CreateVersion7()),
+            new SystemVariableValueRequestedV1("1bad", "1", Moment, Guid.CreateVersion7(), Metadata: TestMetadata),
             CancellationToken.None);
 
         repo.Variables.ShouldBeEmpty();

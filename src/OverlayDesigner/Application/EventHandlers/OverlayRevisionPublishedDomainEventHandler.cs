@@ -1,5 +1,6 @@
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay.Events;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.OverlayDesigner;
 using SmartSentinelEye.Shared.CQRS;
 
@@ -41,7 +42,8 @@ public sealed class OverlayRevisionPublishedDomainEventHandler(
                 NormalizedHeight: domainEvent.Label.NormalizedHeight,
                 FontSizePx: domainEvent.Label.FontSizePx,
                 PublishedAt: domainEvent.PublishedAt,
-                PublishedBy: domainEvent.PublishedBy.Value),
+                PublishedBy: domainEvent.PublishedBy.Value,
+                Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.PublishedAt, null, domainEvent.PublishedBy.Value)),
             cancellationToken).ConfigureAwait(false);
 
         await broadcaster.OverlayPublishedAsync(

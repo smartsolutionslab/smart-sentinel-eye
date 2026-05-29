@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.EventIngestion.Domain.Event.Events;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.EventIngestion;
 using SmartSentinelEye.Shared.CQRS;
 
@@ -11,9 +12,7 @@ namespace SmartSentinelEye.EventIngestion.Application.EventHandlers;
 /// ADR-0088 the publish rides Wolverine's Postgres outbox so it
 /// commits with the persistence transaction.
 /// </summary>
-public sealed class EventIngestedDomainEventHandler(
-    IEventBus events,
-    ILogger<EventIngestedDomainEventHandler> log)
+public sealed class EventIngestedDomainEventHandler(IEventBus events, ILogger<EventIngestedDomainEventHandler> log)
     : IDomainEventHandler<EventIngestedDomainEvent>
 {
     public async Task Handle(EventIngestedDomainEvent domainEvent, CancellationToken cancellationToken)
@@ -29,11 +28,10 @@ public sealed class EventIngestedDomainEventHandler(
                 Kind: domainEvent.Kind.Value,
                 OccurredAt: domainEvent.OccurredAt.Value,
                 IngestedAt: domainEvent.IngestedAt.Value,
-                Payload: domainEvent.Payload.Value),
+                Payload: domainEvent.Payload.Value,
+                Metadata: new EventMetadata(domainEvent.Identifier.Value, domainEvent.OccurredAt.Value, domainEvent.Fab.Value, null)),
             cancellationToken).ConfigureAwait(false);
 
-        log.LogDebug(
-            "Published FabEventIngestedV1 for {Identifier} ({Source}/{Device}).",
-            domainEvent.Identifier, domainEvent.Source, domainEvent.Device);
+        log.LogDebug("Published FabEventIngestedV1 for {Identifier} ({Source}/{Device}).", domainEvent.Identifier, domainEvent.Source, domainEvent.Device);
     }
 }

@@ -9,12 +9,17 @@ public class SystemVariableValueRequestedV1Tests
 {
     private static readonly DateTimeOffset Moment =
         DateTimeOffset.Parse("2026-05-28T08:14:33.040Z", CultureInfo.InvariantCulture);
+    private static readonly EventMetadata TestMetadata = new(
+        Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
+        DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture),
+        null,
+        null);
 
     [Fact]
     public void Exposes_every_field_via_the_positional_constructor()
     {
         Guid causing = Guid.CreateVersion7();
-        SystemVariableValueRequestedV1 evt = new("oeeLine1", "82.5", Moment, causing);
+        SystemVariableValueRequestedV1 evt = new("oeeLine1", "82.5", Moment, causing, Metadata: TestMetadata);
 
         evt.Name.ShouldBe("oeeLine1");
         evt.Value.ShouldBe("82.5");
@@ -25,7 +30,7 @@ public class SystemVariableValueRequestedV1Tests
     [Fact]
     public void Implements_IIntegrationEvent_so_Wolverine_can_route_it()
     {
-        SystemVariableValueRequestedV1 evt = new("x", "1", Moment, Guid.CreateVersion7());
+        SystemVariableValueRequestedV1 evt = new("x", "1", Moment, Guid.CreateVersion7(), Metadata: TestMetadata);
         evt.ShouldBeAssignableTo<IIntegrationEvent>();
     }
 
@@ -33,8 +38,8 @@ public class SystemVariableValueRequestedV1Tests
     public void Records_with_the_same_payload_are_equal()
     {
         Guid causing = Guid.CreateVersion7();
-        SystemVariableValueRequestedV1 a = new("x", "1", Moment, causing);
-        SystemVariableValueRequestedV1 b = new("x", "1", Moment, causing);
+        SystemVariableValueRequestedV1 a = new("x", "1", Moment, causing, Metadata: TestMetadata);
+        SystemVariableValueRequestedV1 b = new("x", "1", Moment, causing, Metadata: TestMetadata);
 
         a.ShouldBe(b);
         a.GetHashCode().ShouldBe(b.GetHashCode());
@@ -44,7 +49,7 @@ public class SystemVariableValueRequestedV1Tests
     public void JSON_round_trip_preserves_every_field()
     {
         SystemVariableValueRequestedV1 original =
-            new("oeeLine1", "82.5", Moment, Guid.CreateVersion7());
+            new("oeeLine1", "82.5", Moment, Guid.CreateVersion7(), Metadata: TestMetadata);
 
         string json = JsonSerializer.Serialize(original);
         SystemVariableValueRequestedV1 deserialized =

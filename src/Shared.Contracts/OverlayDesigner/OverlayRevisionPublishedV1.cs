@@ -23,4 +23,5 @@ public sealed record OverlayRevisionPublishedV1(
     decimal NormalizedHeight,
     int FontSizePx,
     DateTimeOffset PublishedAt,
-    Guid PublishedBy) : IIntegrationEvent;
+    Guid PublishedBy,
+    EventMetadata Metadata) : IIntegrationEvent;

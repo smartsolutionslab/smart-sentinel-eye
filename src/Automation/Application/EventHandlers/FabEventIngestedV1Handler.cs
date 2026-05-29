@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Automation.Application.Ael;
 using SmartSentinelEye.Automation.Application.Evaluation;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.EventIngestion;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
@@ -47,14 +48,16 @@ public sealed class FabEventIngestedV1Handler(
                 case RuleActionEffect.SetVariableValue v:
                     await events.PublishAsync(
                         new SystemVariableValueRequestedV1(
-                            v.Name, v.Value, requestedAt, message.EventIdentifier),
+                            v.Name, v.Value, requestedAt, message.EventIdentifier,
+                            Metadata: new EventMetadata(Guid.CreateVersion7(), requestedAt, message.Fab, null)),
                         cancellationToken).ConfigureAwait(false);
                     break;
 
                 case RuleActionEffect.HighlightOverlay h:
                     await events.PublishAsync(
                         new OverlayHighlightRequestedV1(
-                            h.Overlay, h.DurationMs, requestedAt, message.EventIdentifier),
+                            h.Overlay, h.DurationMs, requestedAt, message.EventIdentifier,
+                            Metadata: new EventMetadata(Guid.CreateVersion7(), requestedAt, message.Fab, null)),
                         cancellationToken).ConfigureAwait(false);
                     break;
             }

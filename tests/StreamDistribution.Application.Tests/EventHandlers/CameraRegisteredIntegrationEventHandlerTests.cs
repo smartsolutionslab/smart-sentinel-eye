@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -15,6 +16,11 @@ public class CameraRegisteredIntegrationEventHandlerTests
 {
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
+    private static readonly EventMetadata TestMetadata = new(
+        Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
+        DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture),
+        null,
+        null);
 
     [Fact]
     public async Task On_first_receipt_dispatches_ProvisionStreamCommand()
@@ -31,7 +37,8 @@ public class CameraRegisteredIntegrationEventHandlerTests
             Name: "Line-1",
             Url: "rtsp://10.0.5.1/h264",
             RegisteredAt: FixedMoment,
-            RegisteredBy: Guid.CreateVersion7());
+            RegisteredBy: Guid.CreateVersion7(),
+            Metadata: TestMetadata);
 
         await handler.Handle(message);
 
@@ -55,7 +62,8 @@ public class CameraRegisteredIntegrationEventHandlerTests
             Name: "Line-1",
             Url: "rtsp://10.0.5.1/h264",
             RegisteredAt: FixedMoment,
-            RegisteredBy: Guid.CreateVersion7());
+            RegisteredBy: Guid.CreateVersion7(),
+            Metadata: TestMetadata);
 
         await handler.Handle(message);
         await handler.Handle(message);
@@ -81,7 +89,8 @@ public class CameraRegisteredIntegrationEventHandlerTests
             Name: "Line-1",
             Url: "rtsp://10.0.5.1/h264",
             RegisteredAt: FixedMoment,
-            RegisteredBy: Guid.CreateVersion7());
+            RegisteredBy: Guid.CreateVersion7(),
+            Metadata: TestMetadata);
 
         Func<Task> act = () => handler.Handle(message);
 

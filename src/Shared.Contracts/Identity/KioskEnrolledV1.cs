@@ -9,4 +9,5 @@ public sealed record KioskEnrolledV1(
     Guid RegisteredClientIdentifier,
     string ClientId,
     string Fab,
-    DateTimeOffset EnrolledAt) : IIntegrationEvent;
+    DateTimeOffset EnrolledAt,
+    EventMetadata Metadata) : IIntegrationEvent;

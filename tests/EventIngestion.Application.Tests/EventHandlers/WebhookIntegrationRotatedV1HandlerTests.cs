@@ -4,6 +4,7 @@ using SmartSentinelEye.EventIngestion.Application.EventHandlers;
 using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.Identity;
 
 namespace SmartSentinelEye.EventIngestion.Application.Tests.EventHandlers;
@@ -12,6 +13,11 @@ public class WebhookIntegrationRotatedV1HandlerTests
 {
     private static readonly DateTimeOffset Now =
         DateTimeOffset.Parse("2026-05-29T10:00:00Z", CultureInfo.InvariantCulture);
+    private static readonly EventMetadata TestMetadata = new(
+        Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
+        DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture),
+        null,
+        null);
 
     [Fact]
     public async Task Flips_a_registered_integration_to_JWT_validation()
@@ -28,7 +34,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
             NullLogger<WebhookIntegrationRotatedV1Handler>.Instance);
 
         await handler.Handle(
-            new WebhookIntegrationRotatedV1("qa", "webhook-qa", Now.AddMinutes(1)),
+            new WebhookIntegrationRotatedV1("qa", "webhook-qa", Now.AddMinutes(1), Metadata: TestMetadata),
             CancellationToken.None);
 
         integration.ValidationMode.ShouldBe(BearerValidationMode.Jwt);
@@ -44,7 +50,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
             NullLogger<WebhookIntegrationRotatedV1Handler>.Instance);
 
         await handler.Handle(
-            new WebhookIntegrationRotatedV1("not-here", "webhook-not-here", Now),
+            new WebhookIntegrationRotatedV1("not-here", "webhook-not-here", Now, Metadata: TestMetadata),
             CancellationToken.None);
 
         repo.Integrations.ShouldBeEmpty();
@@ -66,7 +72,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
             NullLogger<WebhookIntegrationRotatedV1Handler>.Instance);
 
         await handler.Handle(
-            new WebhookIntegrationRotatedV1("qa", "webhook-qa", Now.AddMinutes(5)),
+            new WebhookIntegrationRotatedV1("qa", "webhook-qa", Now.AddMinutes(5), Metadata: TestMetadata),
             CancellationToken.None);
 
         integration.RotatedAt.ShouldBe(Now.AddMinutes(1)); // unchanged

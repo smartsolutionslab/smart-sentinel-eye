@@ -1,4 +1,5 @@
 using SmartSentinelEye.CameraCatalog.Domain.Camera.Events;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
 using SmartSentinelEye.Shared.CQRS;
 
@@ -21,6 +22,8 @@ public sealed class CameraRegisteredDomainEventHandler(IEventBus events)
                 Name: domainEvent.Name.Value,
                 Url: domainEvent.Url.Value,
                 RegisteredAt: domainEvent.RegisteredAt,
-                RegisteredBy: domainEvent.RegisteredBy.Value),
+                RegisteredBy: domainEvent.RegisteredBy.Value,
+                Metadata: new EventMetadata(
+                    Guid.CreateVersion7(), domainEvent.RegisteredAt, null, domainEvent.RegisteredBy.Value)),
             cancellationToken);
 }

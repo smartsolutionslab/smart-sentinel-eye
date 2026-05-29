@@ -10,4 +10,5 @@ public sealed record SystemVariableArchivedV1(
     Guid Variable,
     string Name,
     DateTimeOffset ArchivedAt,
-    Guid ArchivedBy) : IIntegrationEvent;
+    Guid ArchivedBy,
+    EventMetadata Metadata) : IIntegrationEvent;

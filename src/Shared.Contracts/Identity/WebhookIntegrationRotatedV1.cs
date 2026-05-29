@@ -10,4 +10,5 @@ namespace SmartSentinelEye.Shared.Contracts.Identity;
 public sealed record WebhookIntegrationRotatedV1(
     string IntegrationName,
     string ClientId,
-    DateTimeOffset RotatedAt) : IIntegrationEvent;
+    DateTimeOffset RotatedAt,
+    EventMetadata Metadata) : IIntegrationEvent;

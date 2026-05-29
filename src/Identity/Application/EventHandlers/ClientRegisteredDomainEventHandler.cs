@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Identity.Domain.RegisteredClient.Events;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.Identity;
 using SmartSentinelEye.Shared.CQRS;
 
@@ -41,7 +42,8 @@ public sealed class ClientRegisteredDomainEventHandler(
                     DeviceType: deviceType,
                     DeviceIdentifier: deviceIdentifier,
                     Fab: domainEvent.Fab.Value,
-                    RegisteredAt: domainEvent.RegisteredAt),
+                    RegisteredAt: domainEvent.RegisteredAt,
+                    Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.RegisteredAt, domainEvent.Fab.Value, null)),
                 cancellationToken).ConfigureAwait(false);
             log.LogDebug("Published DeviceRegisteredV1 for {ClientId}.", domainEvent.ClientId);
             return;
@@ -54,7 +56,8 @@ public sealed class ClientRegisteredDomainEventHandler(
                     RegisteredClientIdentifier: domainEvent.Client.Value,
                     ClientId: domainEvent.ClientId.Value,
                     Fab: domainEvent.Fab.Value,
-                    EnrolledAt: domainEvent.RegisteredAt),
+                    EnrolledAt: domainEvent.RegisteredAt,
+                    Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.RegisteredAt, domainEvent.Fab.Value, null)),
                 cancellationToken).ConfigureAwait(false);
             log.LogDebug("Published KioskEnrolledV1 for {ClientId}.", domainEvent.ClientId);
         }

@@ -19,4 +19,5 @@ public sealed record SystemVariableValueRequestedV1(
     string Name,
     string Value,
     DateTimeOffset RequestedAt,
-    Guid CausingEventIdentifier) : IIntegrationEvent;
+    Guid CausingEventIdentifier,
+    EventMetadata Metadata) : IIntegrationEvent;

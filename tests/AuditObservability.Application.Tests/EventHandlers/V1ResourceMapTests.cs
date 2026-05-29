@@ -9,6 +9,12 @@ namespace SmartSentinelEye.AuditObservability.Application.Tests.EventHandlers;
 
 public class V1ResourceMapTests
 {
+    private static readonly EventMetadata TestMetadata = new(
+        Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
+        DateTimeOffset.Parse("2026-05-29T08:00:00Z", System.Globalization.CultureInfo.InvariantCulture),
+        null,
+        null);
+
     private readonly V1ResourceMap _map = V1ResourceMap.Default;
 
     [Fact]
@@ -17,7 +23,7 @@ public class V1ResourceMapTests
         Guid id = Guid.CreateVersion7();
         CameraRegisteredV1 evt = new(
             id, "north-gate", "rtsp://example/cam",
-            DateTimeOffset.UtcNow, Guid.CreateVersion7());
+            DateTimeOffset.UtcNow, Guid.CreateVersion7(), Metadata: TestMetadata);
 
         V1Mapping mapping = _map.Lookup(typeof(CameraRegisteredV1), evt);
 
@@ -32,7 +38,7 @@ public class V1ResourceMapTests
     {
         DeviceRegisteredV1 evt = new(
             Guid.CreateVersion7(), "plc-station-4", "plc", "station-4", "munich",
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow, Metadata: TestMetadata);
 
         V1Mapping mapping = _map.Lookup(typeof(DeviceRegisteredV1), evt);
 
@@ -44,7 +50,7 @@ public class V1ResourceMapTests
     public void Kiosk_V1_maps_to_kiosk_via_a_hand_tweak()
     {
         KioskEnrolledV1 evt = new(
-            Guid.CreateVersion7(), "kiosk-pilot", "munich", DateTimeOffset.UtcNow);
+            Guid.CreateVersion7(), "kiosk-pilot", "munich", DateTimeOffset.UtcNow, Metadata: TestMetadata);
 
         V1Mapping mapping = _map.Lookup(typeof(KioskEnrolledV1), evt);
 
@@ -59,7 +65,7 @@ public class V1ResourceMapTests
         AuditChunkArchivedV1 evt = new(
             chunkId, "munich", 0,
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
-            DateTimeOffset.UtcNow, "k", "m");
+            DateTimeOffset.UtcNow, "k", "m", Metadata: TestMetadata);
 
         V1Mapping mapping = _map.Lookup(typeof(AuditChunkArchivedV1), evt);
 

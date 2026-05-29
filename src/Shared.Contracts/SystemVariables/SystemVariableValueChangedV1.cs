@@ -20,4 +20,5 @@ public sealed record SystemVariableValueChangedV1(
     string Type,
     string Value,
     DateTimeOffset ChangedAt,
-    Guid ChangedBy) : IIntegrationEvent;
+    Guid ChangedBy,
+    EventMetadata Metadata) : IIntegrationEvent;

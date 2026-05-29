@@ -7,6 +7,12 @@ namespace SmartSentinelEye.Shared.Contracts.Tests;
 
 public class LayoutRevisionPublishedV1Tests
 {
+    private static readonly EventMetadata TestMetadata = new(
+        Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
+        DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture),
+        null,
+        null);
+
     [Fact]
     public void Exposes_all_payload_fields_via_the_positional_constructor()
     {
@@ -15,7 +21,7 @@ public class LayoutRevisionPublishedV1Tests
         Guid by = Guid.CreateVersion7();
         DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
-        LayoutRevisionPublishedV1 evt = new(layout, 1, "Line-1", camera, at, by);
+        LayoutRevisionPublishedV1 evt = new(layout, 1, "Line-1", camera, at, by, Metadata: TestMetadata);
 
         evt.Layout.ShouldBe(layout);
         evt.RevisionNumber.ShouldBe(1);
@@ -29,7 +35,7 @@ public class LayoutRevisionPublishedV1Tests
     public void Implements_IIntegrationEvent_so_Wolverine_can_route_it()
     {
         LayoutRevisionPublishedV1 evt = new(
-            Guid.CreateVersion7(), 1, "Line-1", Guid.CreateVersion7(), DateTimeOffset.UtcNow, Guid.CreateVersion7());
+            Guid.CreateVersion7(), 1, "Line-1", Guid.CreateVersion7(), DateTimeOffset.UtcNow, Guid.CreateVersion7(), Metadata: TestMetadata);
         evt.ShouldBeAssignableTo<IIntegrationEvent>();
     }
 
@@ -41,8 +47,8 @@ public class LayoutRevisionPublishedV1Tests
         Guid by = Guid.CreateVersion7();
         DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
-        LayoutRevisionPublishedV1 a = new(layout, 2, "Line-1", camera, at, by);
-        LayoutRevisionPublishedV1 b = new(layout, 2, "Line-1", camera, at, by);
+        LayoutRevisionPublishedV1 a = new(layout, 2, "Line-1", camera, at, by, Metadata: TestMetadata);
+        LayoutRevisionPublishedV1 b = new(layout, 2, "Line-1", camera, at, by, Metadata: TestMetadata);
 
         a.ShouldBe(b);
         a.GetHashCode().ShouldBe(b.GetHashCode());
@@ -57,7 +63,8 @@ public class LayoutRevisionPublishedV1Tests
             "Line-1",
             Guid.CreateVersion7(),
             DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture),
-            Guid.CreateVersion7());
+            Guid.CreateVersion7(),
+            Metadata: TestMetadata);
 
         string json = JsonSerializer.Serialize(original);
         LayoutRevisionPublishedV1 deserialized = JsonSerializer.Deserialize<LayoutRevisionPublishedV1>(json)!;

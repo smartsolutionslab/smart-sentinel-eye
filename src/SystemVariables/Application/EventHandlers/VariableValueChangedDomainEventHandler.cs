@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -36,7 +37,8 @@ public sealed class VariableValueChangedDomainEventHandler(
                 Type: domainEvent.Type.Value,
                 Value: domainEvent.Value.ToWireString(),
                 ChangedAt: domainEvent.ChangedAt,
-                ChangedBy: domainEvent.ChangedBy.Value),
+                ChangedBy: domainEvent.ChangedBy.Value,
+                Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ChangedAt, null, domainEvent.ChangedBy.Value)),
             cancellationToken).ConfigureAwait(false);
 
         IReadOnlyCollection<Guid> affectedOverlays =

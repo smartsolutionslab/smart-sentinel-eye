@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.Identity;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -106,7 +107,8 @@ public sealed class RotateWebhookClientCommandHandler(
         // bearer-validation path from hash-compare to JWT-validate.
         await events.PublishAsync(
             new WebhookIntegrationRotatedV1(
-                command.IntegrationName, clientId.Value, clock.UtcNow),
+                command.IntegrationName, clientId.Value, clock.UtcNow,
+                Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, command.Fab.Value, command.RotatedBy.Value)),
             cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(

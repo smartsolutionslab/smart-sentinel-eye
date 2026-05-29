@@ -14,4 +14,5 @@ public sealed record SystemVariableDefinedV1(
     string Name,
     string Type,
     DateTimeOffset DefinedAt,
-    Guid DefinedBy) : IIntegrationEvent;
+    Guid DefinedBy,
+    EventMetadata Metadata) : IIntegrationEvent;

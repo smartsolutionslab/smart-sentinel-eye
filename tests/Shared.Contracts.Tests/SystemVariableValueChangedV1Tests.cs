@@ -9,6 +9,11 @@ public class SystemVariableValueChangedV1Tests
 {
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture);
+    private static readonly EventMetadata TestMetadata = new(
+        Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
+        DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture),
+        null,
+        null);
 
     [Fact]
     public void Exposes_all_payload_fields_via_the_positional_constructor()
@@ -17,7 +22,7 @@ public class SystemVariableValueChangedV1Tests
         Guid by = Guid.CreateVersion7();
 
         SystemVariableValueChangedV1 evt = new(
-            variable, "oeeLine1", "Number", "82.4", FixedMoment, by);
+            variable, "oeeLine1", "Number", "82.4", FixedMoment, by, Metadata: TestMetadata);
 
         evt.Variable.ShouldBe(variable);
         evt.Name.ShouldBe("oeeLine1");
@@ -31,7 +36,7 @@ public class SystemVariableValueChangedV1Tests
     public void Implements_IIntegrationEvent_so_Wolverine_can_route_it()
     {
         SystemVariableValueChangedV1 evt = new(
-            Guid.CreateVersion7(), "x", "String", "hello", FixedMoment, Guid.CreateVersion7());
+            Guid.CreateVersion7(), "x", "String", "hello", FixedMoment, Guid.CreateVersion7(), Metadata: TestMetadata);
         evt.ShouldBeAssignableTo<IIntegrationEvent>();
     }
 
@@ -41,8 +46,8 @@ public class SystemVariableValueChangedV1Tests
         Guid variable = Guid.CreateVersion7();
         Guid by = Guid.CreateVersion7();
 
-        SystemVariableValueChangedV1 a = new(variable, "x", "Boolean", "true", FixedMoment, by);
-        SystemVariableValueChangedV1 b = new(variable, "x", "Boolean", "true", FixedMoment, by);
+        SystemVariableValueChangedV1 a = new(variable, "x", "Boolean", "true", FixedMoment, by, Metadata: TestMetadata);
+        SystemVariableValueChangedV1 b = new(variable, "x", "Boolean", "true", FixedMoment, by, Metadata: TestMetadata);
 
         a.ShouldBe(b);
         a.GetHashCode().ShouldBe(b.GetHashCode());
@@ -52,7 +57,7 @@ public class SystemVariableValueChangedV1Tests
     public void JSON_round_trip_preserves_every_field()
     {
         SystemVariableValueChangedV1 original = new(
-            Guid.CreateVersion7(), "oeeLine1", "Number", "82.4", FixedMoment, Guid.CreateVersion7());
+            Guid.CreateVersion7(), "oeeLine1", "Number", "82.4", FixedMoment, Guid.CreateVersion7(), Metadata: TestMetadata);
 
         string json = JsonSerializer.Serialize(original);
         SystemVariableValueChangedV1 deserialized =
