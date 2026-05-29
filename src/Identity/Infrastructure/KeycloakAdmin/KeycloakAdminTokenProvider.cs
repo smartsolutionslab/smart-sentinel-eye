@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -53,7 +55,7 @@ public sealed class KeycloakAdminTokenProvider(
             response.EnsureSuccessStatusCode();
 
             TokenResponse payload = await response.Content
-                .ReadFromJsonAsync<TokenResponse>(cancellationToken).ConfigureAwait(false)
+                .ReadFromJsonAsync<TokenResponse>(JsonOpts, cancellationToken).ConfigureAwait(false)
                 ?? throw new InvalidOperationException(
                     "Keycloak returned an empty token response.");
 
@@ -71,8 +73,13 @@ public sealed class KeycloakAdminTokenProvider(
         }
     }
 
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+    };
+
     private sealed record TokenResponse(
-        string AccessToken,
-        int ExpiresIn,
-        string TokenType);
+        [property: JsonPropertyName("access_token")] string AccessToken,
+        [property: JsonPropertyName("expires_in")] int ExpiresIn,
+        [property: JsonPropertyName("token_type")] string TokenType);
 }
