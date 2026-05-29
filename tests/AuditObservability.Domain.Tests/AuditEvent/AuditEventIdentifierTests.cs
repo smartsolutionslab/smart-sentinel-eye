@@ -13,17 +13,19 @@ public class AuditEventIdentifierTests
     }
 
     [Fact]
-    public void New_returns_distinct_monotonically_non_decreasing_values()
+    public void New_returns_distinct_values()
     {
-        // Guid v7 is monotonic at millisecond resolution per the
-        // BCL contract. Back-to-back New() calls can land in the
-        // same millisecond (then strictly increasing) or in
-        // different ones (then also strictly increasing thanks
-        // to the timestamp); the assertion accepts both.
+        // Guid v7 places a millisecond timestamp in the high bits
+        // and random data in the low ones — back-to-back New()
+        // calls always produce distinct values, but they aren't
+        // strictly monotonic within the same millisecond because
+        // the random suffix can shift either way. The handler-side
+        // cursor pagination doesn't rely on strict ordering across
+        // ties; distinctness is the only guarantee the Domain
+        // promises.
         AuditEventIdentifier first = AuditEventIdentifier.New();
         AuditEventIdentifier second = AuditEventIdentifier.New();
         first.Value.ShouldNotBe(second.Value);
-        first.Value.CompareTo(second.Value).ShouldBeLessThanOrEqualTo(0);
     }
 
     [Fact]
