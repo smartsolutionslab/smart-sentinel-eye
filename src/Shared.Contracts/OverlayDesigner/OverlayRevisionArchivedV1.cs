@@ -10,4 +10,5 @@ public sealed record OverlayRevisionArchivedV1(
     Guid Overlay,
     int RevisionNumber,
     DateTimeOffset ArchivedAt,
-    Guid ArchivedBy) : IIntegrationEvent;
+    Guid ArchivedBy,
+    EventMetadata Metadata) : IIntegrationEvent;

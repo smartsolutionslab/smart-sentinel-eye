@@ -1,5 +1,6 @@
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Layout.Events;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 using SmartSentinelEye.Shared.CQRS;
 
@@ -34,7 +35,8 @@ public sealed class LayoutRevisionPublishedDomainEventHandler(
                 Name: domainEvent.Name.Value,
                 Camera: domainEvent.Camera.Value,
                 PublishedAt: domainEvent.PublishedAt,
-                PublishedBy: domainEvent.PublishedBy.Value),
+                PublishedBy: domainEvent.PublishedBy.Value,
+                Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.PublishedAt, null, domainEvent.PublishedBy.Value)),
             cancellationToken).ConfigureAwait(false);
 
         await broadcaster.PublishedAsync(

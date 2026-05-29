@@ -12,6 +12,11 @@ public class FabEventIngestedV1Tests
         DateTimeOffset.Parse("2026-05-28T08:14:33Z", CultureInfo.InvariantCulture);
     private static readonly DateTimeOffset IngestedAt =
         DateTimeOffset.Parse("2026-05-28T08:14:33.040Z", CultureInfo.InvariantCulture);
+    private static readonly EventMetadata TestMetadata = new(
+        Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
+        DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture),
+        null,
+        null);
 
     [Fact]
     public void Exposes_all_envelope_fields_via_the_positional_constructor()
@@ -19,7 +24,7 @@ public class FabEventIngestedV1Tests
         Guid identifier = Guid.CreateVersion7();
         FabEventIngestedV1 evt = new(
             identifier, "munich", "plc", "station-4", "PlcCycleStart",
-            OccurredAt, IngestedAt, "{\"cycleId\":\"abc\"}");
+            OccurredAt, IngestedAt, "{\"cycleId\":\"abc\"}", Metadata: TestMetadata);
 
         evt.EventIdentifier.ShouldBe(identifier);
         evt.Fab.ShouldBe("munich");
@@ -36,7 +41,7 @@ public class FabEventIngestedV1Tests
     {
         FabEventIngestedV1 evt = new(
             Guid.CreateVersion7(), "munich", "manual", "kiosk-3", "Annotation",
-            OccurredAt, IngestedAt, "{}");
+            OccurredAt, IngestedAt, "{}", Metadata: TestMetadata);
         evt.ShouldBeAssignableTo<IIntegrationEvent>();
     }
 
@@ -46,10 +51,10 @@ public class FabEventIngestedV1Tests
         Guid identifier = Guid.CreateVersion7();
         FabEventIngestedV1 a = new(
             identifier, "munich", "inference", "camera-12", "PersonInRestrictedZone",
-            OccurredAt, IngestedAt, "{\"confidence\":0.92}");
+            OccurredAt, IngestedAt, "{\"confidence\":0.92}", Metadata: TestMetadata);
         FabEventIngestedV1 b = new(
             identifier, "munich", "inference", "camera-12", "PersonInRestrictedZone",
-            OccurredAt, IngestedAt, "{\"confidence\":0.92}");
+            OccurredAt, IngestedAt, "{\"confidence\":0.92}", Metadata: TestMetadata);
 
         a.ShouldBe(b);
         a.GetHashCode().ShouldBe(b.GetHashCode());
@@ -62,7 +67,7 @@ public class FabEventIngestedV1Tests
             "{\"data\":\"" + new string('a', 60 * 1024) + "\"}";
         FabEventIngestedV1 original = new(
             Guid.CreateVersion7(), "munich", "webhook", "qa", "QaResult",
-            OccurredAt, IngestedAt, largePayload);
+            OccurredAt, IngestedAt, largePayload, Metadata: TestMetadata);
 
         string json = JsonSerializer.Serialize(original);
         FabEventIngestedV1 deserialized =

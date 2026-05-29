@@ -7,13 +7,19 @@ namespace SmartSentinelEye.Shared.Contracts.Tests;
 
 public class StreamHealthChangedV1Tests
 {
+    private static readonly EventMetadata TestMetadata = new(
+        Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
+        DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture),
+        null,
+        null);
+
     [Fact]
     public void Exposes_all_payload_fields_via_the_positional_constructor()
     {
         Guid camera = Guid.CreateVersion7();
         DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
-        StreamHealthChangedV1 evt = new(camera, "Healthy", "Degraded", at, "source unreachable");
+        StreamHealthChangedV1 evt = new(camera, "Healthy", "Degraded", at, "source unreachable", Metadata: TestMetadata);
 
         evt.Camera.ShouldBe(camera);
         evt.FromState.ShouldBe("Healthy");
@@ -30,7 +36,8 @@ public class StreamHealthChangedV1Tests
             "Provisioning",
             "Healthy",
             DateTimeOffset.UtcNow,
-            null);
+            null,
+            Metadata: TestMetadata);
 
         evt.ShouldBeAssignableTo<IIntegrationEvent>();
     }
@@ -41,8 +48,8 @@ public class StreamHealthChangedV1Tests
         Guid camera = Guid.CreateVersion7();
         DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
-        StreamHealthChangedV1 first = new(camera, "Healthy", "Degraded", at, "boom");
-        StreamHealthChangedV1 second = new(camera, "Healthy", "Degraded", at, "boom");
+        StreamHealthChangedV1 first = new(camera, "Healthy", "Degraded", at, "boom", Metadata: TestMetadata);
+        StreamHealthChangedV1 second = new(camera, "Healthy", "Degraded", at, "boom", Metadata: TestMetadata);
 
         first.ShouldBe(second);
         first.GetHashCode().ShouldBe(second.GetHashCode());
@@ -56,7 +63,8 @@ public class StreamHealthChangedV1Tests
             "Degraded",
             "Healthy",
             DateTimeOffset.UtcNow,
-            null);
+            null,
+            Metadata: TestMetadata);
 
         evt.Error.ShouldBeNull();
     }
@@ -66,7 +74,7 @@ public class StreamHealthChangedV1Tests
     {
         Guid camera = Guid.CreateVersion7();
         DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
-        StreamHealthChangedV1 original = new(camera, "Degraded", "Healthy", at, null);
+        StreamHealthChangedV1 original = new(camera, "Degraded", "Healthy", at, null, Metadata: TestMetadata);
 
         string json = JsonSerializer.Serialize(original);
         StreamHealthChangedV1 deserialized = JsonSerializer.Deserialize<StreamHealthChangedV1>(json)!;

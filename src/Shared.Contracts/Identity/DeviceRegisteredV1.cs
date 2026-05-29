@@ -17,4 +17,5 @@ public sealed record DeviceRegisteredV1(
     string DeviceType,
     string DeviceIdentifier,
     string Fab,
-    DateTimeOffset RegisteredAt) : IIntegrationEvent;
+    DateTimeOffset RegisteredAt,
+    EventMetadata Metadata) : IIntegrationEvent;

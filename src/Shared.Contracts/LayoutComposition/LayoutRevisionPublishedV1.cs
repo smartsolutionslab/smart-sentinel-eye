@@ -17,4 +17,5 @@ public sealed record LayoutRevisionPublishedV1(
     string Name,
     Guid Camera,
     DateTimeOffset PublishedAt,
-    Guid PublishedBy) : IIntegrationEvent;
+    Guid PublishedBy,
+    EventMetadata Metadata) : IIntegrationEvent;

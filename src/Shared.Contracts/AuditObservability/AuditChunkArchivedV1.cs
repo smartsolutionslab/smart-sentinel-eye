@@ -17,4 +17,5 @@ public sealed record AuditChunkArchivedV1(
     DateTimeOffset OccurredUntil,
     DateTimeOffset ArchivedAt,
     string MinioObjectKey,
-    string ContentMd5) : IIntegrationEvent;
+    string ContentMd5,
+    EventMetadata Metadata) : IIntegrationEvent;

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.AuditObservability.Application.EventHandlers;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -12,6 +13,11 @@ public class AuditingMessageHandlerTests
 {
     private static readonly DateTimeOffset Now =
         DateTimeOffset.Parse("2026-05-29T08:14:33Z", CultureInfo.InvariantCulture);
+    private static readonly EventMetadata TestMetadata = new(
+        Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
+        DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture),
+        null,
+        null);
 
     private static V1Envelope Envelope(CameraRegisteredV1 evt, Guid? eventIdentifier = null) =>
         new(
@@ -32,7 +38,7 @@ public class AuditingMessageHandlerTests
             NullLogger<AuditingMessageHandler>.Instance);
 
         CameraRegisteredV1 evt = new(
-            Guid.CreateVersion7(), "north-gate", "rtsp://example/cam", Now, Guid.CreateVersion7());
+            Guid.CreateVersion7(), "north-gate", "rtsp://example/cam", Now, Guid.CreateVersion7(), Metadata: TestMetadata);
 
         await handler.HandleAsync(typeof(CameraRegisteredV1), evt, Envelope(evt), default);
 
@@ -51,7 +57,7 @@ public class AuditingMessageHandlerTests
             NullLogger<AuditingMessageHandler>.Instance);
 
         CameraRegisteredV1 evt = new(
-            Guid.CreateVersion7(), "north-gate", "rtsp://example/cam", Now, Guid.CreateVersion7());
+            Guid.CreateVersion7(), "north-gate", "rtsp://example/cam", Now, Guid.CreateVersion7(), Metadata: TestMetadata);
         Guid eventId = Guid.CreateVersion7();
 
         await handler.HandleAsync(typeof(CameraRegisteredV1), evt, Envelope(evt, eventId), default);

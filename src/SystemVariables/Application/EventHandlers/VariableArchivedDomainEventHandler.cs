@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -33,7 +34,8 @@ public sealed class VariableArchivedDomainEventHandler(
                 Variable: domainEvent.Variable.Value,
                 Name: domainEvent.Name.Value,
                 ArchivedAt: domainEvent.ArchivedAt,
-                ArchivedBy: domainEvent.ArchivedBy.Value),
+                ArchivedBy: domainEvent.ArchivedBy.Value,
+                Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ArchivedAt, null, domainEvent.ArchivedBy.Value)),
             cancellationToken).ConfigureAwait(false);
 
         IReadOnlyCollection<Guid> affectedOverlays =

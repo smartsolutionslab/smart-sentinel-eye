@@ -9,6 +9,11 @@ public class OverlayRevisionPublishedV1Tests
 {
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture);
+    private static readonly EventMetadata TestMetadata = new(
+        Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
+        DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture),
+        null,
+        null);
 
     [Fact]
     public void Exposes_all_payload_fields_via_the_positional_constructor()
@@ -19,7 +24,7 @@ public class OverlayRevisionPublishedV1Tests
         OverlayRevisionPublishedV1 evt = new(
             overlay, 1, "Line-1 Title",
             "Production Line 1", 0.5m, 0.05m, 0.3m, 0.08m, 48,
-            FixedMoment, by);
+            FixedMoment, by, Metadata: TestMetadata);
 
         evt.Overlay.ShouldBe(overlay);
         evt.RevisionNumber.ShouldBe(1);
@@ -39,7 +44,7 @@ public class OverlayRevisionPublishedV1Tests
     {
         OverlayRevisionPublishedV1 evt = new(
             Guid.CreateVersion7(), 1, "Line-1", "Hello",
-            0.1m, 0.2m, 0.3m, 0.4m, 32, FixedMoment, Guid.CreateVersion7());
+            0.1m, 0.2m, 0.3m, 0.4m, 32, FixedMoment, Guid.CreateVersion7(), Metadata: TestMetadata);
         evt.ShouldBeAssignableTo<IIntegrationEvent>();
     }
 
@@ -50,9 +55,9 @@ public class OverlayRevisionPublishedV1Tests
         Guid by = Guid.CreateVersion7();
 
         OverlayRevisionPublishedV1 a = new(overlay, 2, "Line-1", "Hello",
-            0.1m, 0.2m, 0.3m, 0.4m, 32, FixedMoment, by);
+            0.1m, 0.2m, 0.3m, 0.4m, 32, FixedMoment, by, Metadata: TestMetadata);
         OverlayRevisionPublishedV1 b = new(overlay, 2, "Line-1", "Hello",
-            0.1m, 0.2m, 0.3m, 0.4m, 32, FixedMoment, by);
+            0.1m, 0.2m, 0.3m, 0.4m, 32, FixedMoment, by, Metadata: TestMetadata);
 
         a.ShouldBe(b);
         a.GetHashCode().ShouldBe(b.GetHashCode());
@@ -63,7 +68,7 @@ public class OverlayRevisionPublishedV1Tests
     {
         OverlayRevisionPublishedV1 original = new(
             Guid.CreateVersion7(), 3, "Line-1 Title", "Hello",
-            0.1m, 0.2m, 0.3m, 0.4m, 32, FixedMoment, Guid.CreateVersion7());
+            0.1m, 0.2m, 0.3m, 0.4m, 32, FixedMoment, Guid.CreateVersion7(), Metadata: TestMetadata);
 
         string json = JsonSerializer.Serialize(original);
         OverlayRevisionPublishedV1 deserialized =

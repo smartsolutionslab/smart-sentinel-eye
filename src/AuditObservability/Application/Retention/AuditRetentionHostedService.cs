@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.AuditObservability;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -97,7 +98,8 @@ public sealed class AuditRetentionHostedService(
                     chunk.OccurredUntil,
                     clock.UtcNow,
                     result.MinioObjectKey,
-                    result.ContentMd5),
+                    result.ContentMd5,
+                    Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, null, null)),
                 cancellationToken).ConfigureAwait(false);
 
             await inventory.DropChunkAsync(chunk, cancellationToken).ConfigureAwait(false);

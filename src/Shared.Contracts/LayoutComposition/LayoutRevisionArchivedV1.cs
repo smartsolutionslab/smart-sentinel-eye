@@ -11,4 +11,5 @@ public sealed record LayoutRevisionArchivedV1(
     Guid Layout,
     int RevisionNumber,
     DateTimeOffset ArchivedAt,
-    Guid ArchivedBy) : IIntegrationEvent;
+    Guid ArchivedBy,
+    EventMetadata Metadata) : IIntegrationEvent;

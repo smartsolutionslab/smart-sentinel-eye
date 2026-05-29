@@ -4,6 +4,7 @@ using SmartSentinelEye.Automation.Application.Evaluation;
 using SmartSentinelEye.Automation.Application.EventHandlers;
 using SmartSentinelEye.Automation.Application.Tests.Fakes;
 using SmartSentinelEye.Automation.Domain.Rule;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.EventIngestion;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
@@ -16,6 +17,11 @@ public class FabEventIngestedV1HandlerTests
 {
     private static readonly DateTimeOffset BaseMoment =
         DateTimeOffset.Parse("2026-05-28T08:00:00Z", CultureInfo.InvariantCulture);
+    private static readonly EventMetadata TestMetadata = new(
+        Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
+        DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture),
+        null,
+        null);
 
     private static FabEventIngestedV1 PlcCycleStart(Guid? causing = null) =>
         new(
@@ -26,7 +32,8 @@ public class FabEventIngestedV1HandlerTests
             Kind: "PlcCycleStart",
             OccurredAt: BaseMoment,
             IngestedAt: BaseMoment.AddSeconds(0.04),
-            Payload: "{\"cycleTime\":27}");
+            Payload: "{\"cycleTime\":27}",
+            Metadata: TestMetadata);
 
     private static RuleAggregate ActiveSetVariableRule(string predicate, string valueExpression)
     {

@@ -17,4 +17,5 @@ public sealed record StreamHealthChangedV1(
     string FromState,
     string ToState,
     DateTimeOffset ChangedAt,
-    string? Error) : IIntegrationEvent;
+    string? Error,
+    EventMetadata Metadata) : IIntegrationEvent;

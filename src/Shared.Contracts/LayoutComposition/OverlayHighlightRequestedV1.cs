@@ -20,4 +20,5 @@ public sealed record OverlayHighlightRequestedV1(
     Guid OverlayIdentifier,
     int DurationMs,
     DateTimeOffset RequestedAt,
-    Guid CausingEventIdentifier) : IIntegrationEvent;
+    Guid CausingEventIdentifier,
+    EventMetadata Metadata) : IIntegrationEvent;
