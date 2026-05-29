@@ -275,6 +275,56 @@ the existing `/hubs/layouts` SignalR hub).
    fire it. The name is released for re-use on the next
    `POST /rules` with the same name.
 
+## Quickstart — audit who did what
+
+Spec 009 lights up **AuditObservability** — a bus-fed audit
+trail of every `*V1` integration event with hot search +
+per-resource timelines + a daily cold-archive sweep into MinIO.
+v1 ships the read API; the management-web Audit page lands
+alongside the cold-archive read endpoint in a follow-on spec.
+
+1. **Pre-conditions.** `dotnet run --project src/AppHost`; wait
+   for `audit-observability` to reach **Running** and `migrations`
+   to **Finished**. Sign in to management-web as `admin@munich.test`
+   to get a JWT that carries `sse.audit.read` + the
+   `/fabs/munich` group.
+2. **Generate some audit traffic.** Use any of the spec 001-008
+   quickstarts: register a camera, author a rule, enroll a
+   kiosk. Each command emits its `*V1` integration event;
+   AuditObservability's open-generic Wolverine subscriber writes
+   exactly one row per delivery (idempotent on
+   `event_identifier`, FR-006).
+3. **Cross-cutting search**:
+   ```bash
+   curl 'http://localhost:5010/audit?fabId=munich&since=2026-05-29T00:00:00Z' \
+     -H 'Authorization: Bearer <admin-token>'
+   ```
+   Response: cursor-paginated `AuditPageDto` with one
+   `AuditRowDto` per event. Use the `nextCursor` field to walk
+   the next page.
+4. **Per-resource timeline** (FR-009):
+   ```bash
+   curl 'http://localhost:5010/audit/overlay/<overlayIdentifier>?fabId=munich' \
+     -H 'Authorization: Bearer <admin-token>'
+   ```
+   Returns the events for that overlay in ascending
+   `occurredAt` order.
+5. **Single-row detail** including the verbatim V1 JSON payload
+   (FR-010):
+   ```bash
+   curl 'http://localhost:5010/audit/<auditIdentifier>' \
+     -H 'Authorization: Bearer <admin-token>'
+   ```
+6. **Retention round-trip** (P3). Hot data lives in the
+   TimescaleDB hypertable for 90 days; the
+   `AuditRetentionHostedService` runs nightly, exports each
+   aged chunk to MinIO at
+   `s3://audit-archive/fab=*/year=YYYY/month=MM/chunk.ndjson.gz`
+   with a `Content-MD5`-checked upload, then drops the chunk.
+   Each archive emits `AuditChunkArchivedV1` on the bus.
+   Cold-read API lands in a follow-on spec; for v1 retrieve
+   archived chunks directly from MinIO.
+
 ## Quickstart — bind a kiosk, register a device, author a scoped rule
 
 Spec 008 lights up Keycloak as the identity provider for every
