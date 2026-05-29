@@ -36,4 +36,7 @@ public sealed class FakeOverlayLifecycleBroadcaster : ILayoutLifecycleBroadcaste
 
     public Task ResolvedOverlayTextChangedAsync(ResolvedOverlayTextChangedNotification notification, CancellationToken cancellationToken) =>
         Task.CompletedTask;
+
+    public Task OverlayHighlightedAsync(OverlayHighlightedNotification notification, CancellationToken cancellationToken) =>
+        Task.CompletedTask;
 }

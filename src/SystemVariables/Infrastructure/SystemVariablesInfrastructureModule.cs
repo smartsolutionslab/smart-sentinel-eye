@@ -62,12 +62,18 @@ public static class SystemVariablesInfrastructureModule
         builder.Services.AddScoped<
             ICommandHandler<DefineVariableCommand, Result<VariableIdentifier, DefineVariableError>>,
             DefineVariableCommandHandler>();
+        builder.Services.AddScoped<SetVariableValueCommandHandler>();
         builder.Services.AddScoped<
             ICommandHandler<SetVariableValueCommand, Result<VariableIdentifier, SetVariableValueError>>,
             SetVariableValueCommandHandler>();
         builder.Services.AddScoped<
             ICommandHandler<ArchiveVariableCommand, Result<VariableIdentifier, ArchiveVariableError>>,
             ArchiveVariableCommandHandler>();
+
+        // Spec 007 bridge: subscribe to SystemVariableValueRequestedV1
+        // from Automation. Dedup on (variableName, causingEventIdentifier).
+        builder.Services.AddScoped<IVariableValueRequestDedupStore, VariableValueRequestDedupStore>();
+        builder.Services.AddScoped<SystemVariableValueRequestedV1Handler>();
 
         // Startup seeder for the reverse-index. Best-effort — the
         // Wolverine subscribers self-heal as overlay V1 events arrive.

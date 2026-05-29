@@ -19,6 +19,8 @@
         SystemVariables.Application    >= 80%
         EventIngestion.Domain          >= 90%
         EventIngestion.Application     >= 80%
+        Automation.Domain              >= 90%
+        Automation.Application         >= 80%
         Shared.Kernel                  >= 90%
         Shared.Contracts               >= 90%
 
@@ -73,6 +75,8 @@ try {
         'SmartSentinelEye.SystemVariables.Application'      = 80
         'SmartSentinelEye.EventIngestion.Domain'            = 90
         'SmartSentinelEye.EventIngestion.Application'       = 80
+        'SmartSentinelEye.Automation.Domain'                = 90
+        'SmartSentinelEye.Automation.Application'           = 80
         'SmartSentinelEye.Shared.Kernel'                    = 90
         'SmartSentinelEye.Shared.Contracts'                 = 90
     }

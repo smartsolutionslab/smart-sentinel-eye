@@ -125,4 +125,23 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
                 notification.Overlay, notification.Version);
         }
     }
+
+    public async Task OverlayHighlightedAsync(OverlayHighlightedNotification notification, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(notification);
+        OverlayHighlightChangedHubMessage message = new(
+            Overlay: notification.Overlay,
+            DurationMs: notification.DurationMs);
+
+        try
+        {
+            await hub.Clients.All.OverlayHighlightChanged(message).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogWarning(ex,
+                "SignalR broadcast for OverlayHighlightChanged({Overlay}, {DurationMs} ms) failed; reconcile-on-reconnect will recover.",
+                notification.Overlay, notification.DurationMs);
+        }
+    }
 }
