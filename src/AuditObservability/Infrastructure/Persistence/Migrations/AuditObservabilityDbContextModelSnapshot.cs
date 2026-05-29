@@ -83,9 +83,9 @@ namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence.Migrati
                         .HasColumnType("smallint")
                         .HasColumnName("schema_version");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id", "OccurredAt");
 
-                    b.HasIndex("EventIdentifier")
+                    b.HasIndex("EventIdentifier", "OccurredAt")
                         .IsUnique()
                         .HasDatabaseName("ux_audit_event_identifier");
 
