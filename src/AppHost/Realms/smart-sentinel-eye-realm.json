@@ -127,6 +127,7 @@
         "profile",
         "email",
         "roles",
+        "sse-groups",
         "sse.management"
       ]
     },
@@ -242,7 +243,8 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["user", "admin"]
+      "realmRoles": ["user", "admin"],
+      "groups": ["/fabs/munich"]
     },
     {
       "username": "operator",

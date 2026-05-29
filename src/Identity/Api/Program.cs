@@ -14,6 +14,7 @@ WebApplication app = builder.Build();
 
 app.MapDefaultEndpoints();
 
+app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
 
