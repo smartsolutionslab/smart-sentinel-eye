@@ -21,6 +21,8 @@
         EventIngestion.Application     >= 80%
         Automation.Domain              >= 90%
         Automation.Application         >= 80%
+        Identity.Domain                >= 90%
+        Identity.Application           >= 80%
         Shared.Kernel                  >= 90%
         Shared.Contracts               >= 90%
 
@@ -77,6 +79,8 @@ try {
         'SmartSentinelEye.EventIngestion.Application'       = 80
         'SmartSentinelEye.Automation.Domain'                = 90
         'SmartSentinelEye.Automation.Application'           = 80
+        'SmartSentinelEye.Identity.Domain'                  = 90
+        'SmartSentinelEye.Identity.Application'             = 80
         'SmartSentinelEye.Shared.Kernel'                    = 90
         'SmartSentinelEye.Shared.Contracts'                 = 90
     }

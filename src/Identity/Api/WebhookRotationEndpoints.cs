@@ -31,6 +31,7 @@ public static class WebhookRotationEndpoints
 
         group.MapPost("/{name}/rotate", Rotate)
             .WithName("RotateWebhookClient")
+            .WithSummary("Rotate a webhook integration's bearer onto a Keycloak JWT. Required scope: sse.webhooks.write")
             .Produces<WebhookClientCredentialsDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status502BadGateway);
