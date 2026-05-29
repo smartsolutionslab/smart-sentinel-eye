@@ -39,9 +39,11 @@ public class NFR001_JwtValidationLatencyTests(AspireFixture aspire)
         using HttpClient keycloak = _aspire.App.CreateHttpClient("keycloak");
         string authority = $"{keycloak.BaseAddress!.ToString().TrimEnd('/')}/realms/smart-sentinel-eye";
 
+        HttpDocumentRetriever retriever = new() { RequireHttps = false };
         ConfigurationManager<OpenIdConnectConfiguration> oidc = new(
             $"{authority}/.well-known/openid-configuration",
-            new OpenIdConnectConfigurationRetriever());
+            new OpenIdConnectConfigurationRetriever(),
+            retriever);
 
         OpenIdConnectConfiguration config = await oidc.GetConfigurationAsync(CancellationToken.None);
 
