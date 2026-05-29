@@ -163,6 +163,70 @@ public class BoundaryTests
     }
 
     /// <summary>
+    /// Spec 009 T069 — AuditObservability.Domain must remain free of
+    /// every infrastructure framework. The TimescaleDB hypertable +
+    /// MinIO archiver live in Infrastructure; Domain stays pure.
+    /// </summary>
+    [Fact]
+    public void AuditObservability_Domain_has_no_infrastructure_framework_dependencies()
+    {
+        Assembly domain = Assembly.Load("SmartSentinelEye.AuditObservability.Domain");
+        TestResult result = Types
+            .InAssembly(domain)
+            .Should()
+            .NotHaveDependencyOnAny(
+                "Microsoft.AspNetCore.SignalR",
+                "Microsoft.EntityFrameworkCore",
+                "Wolverine",
+                "Npgsql",
+                "MQTTnet",
+                "Minio")
+            .GetResult();
+
+        Assert.True(
+            result.IsSuccessful,
+            $"AuditObservability.Domain depends on an infrastructure framework: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    /// <summary>
+    /// Spec 009 T070 — every concrete <c>IIntegrationEvent</c> in
+    /// <c>Shared.Contracts</c> must be either covered by
+    /// <c>V1ResourceMap.Default</c> or explicitly opted out via
+    /// <c>V1ResourceMap.Conventions.OptOuts</c>. Catches the case
+    /// where a new V1 lands without a resource pivot — the audit
+    /// row would still be written but the timeline endpoint
+    /// would never surface it.
+    /// </summary>
+    [Fact]
+    public void V1ResourceMap_covers_every_IIntegrationEvent()
+    {
+        Assembly contracts = Assembly.Load("SmartSentinelEye.Shared.Contracts");
+        Type integrationEvent = contracts.GetType("SmartSentinelEye.Shared.Contracts.IIntegrationEvent")!;
+
+        Type[] concreteV1s = [.. contracts.GetTypes()
+            .Where(t => !t.IsAbstract && !t.IsInterface)
+            .Where(t => integrationEvent.IsAssignableFrom(t))];
+
+        Assembly application = Assembly.Load("SmartSentinelEye.AuditObservability.Application");
+        Type mapType = application.GetType("SmartSentinelEye.AuditObservability.Application.EventHandlers.V1ResourceMap")!;
+        object defaultMap = mapType.GetProperty("Default")!.GetValue(null)!;
+        System.Collections.IEnumerable mappedTypes =
+            (System.Collections.IEnumerable)mapType.GetProperty("MappedTypes")!.GetValue(defaultMap)!;
+        HashSet<Type> mapped = [..mappedTypes.Cast<Type>()];
+        System.Collections.IEnumerable optOuts =
+            (System.Collections.IEnumerable)mapType.GetProperty("ExplicitlyOptedOut")!.GetValue(defaultMap)!;
+        HashSet<string> optedOut = [..optOuts.Cast<string>()];
+
+        IReadOnlyList<Type> unmapped = [.. concreteV1s
+            .Where(t => !mapped.Contains(t))
+            .Where(t => !optedOut.Contains(t.Name))];
+
+        Assert.True(
+            unmapped.Count == 0,
+            $"V1ResourceMap is missing entries for: {string.Join(", ", unmapped.Select(t => t.FullName))}. Add a hand-tweak in V1ResourceMap.Conventions or list the V1 in Conventions.OptOuts.");
+    }
+
+    /// <summary>
     /// Spec 008 T018 — Identity.Domain must remain free of every
     /// infrastructure framework (SignalR, EF Core, Wolverine,
     /// Npgsql, MQTTnet). The Keycloak Admin REST client lives in
