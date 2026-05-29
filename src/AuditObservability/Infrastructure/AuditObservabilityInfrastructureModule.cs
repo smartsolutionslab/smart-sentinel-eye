@@ -1,9 +1,13 @@
+using CommunityToolkit.Aspire.Minio.Client;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.AuditObservability.Application.EventHandlers;
 using SmartSentinelEye.AuditObservability.Application.Queries;
 using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
+using SmartSentinelEye.AuditObservability.Application.Retention;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
+using SmartSentinelEye.AuditObservability.Infrastructure.Archive;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.CQRS;
@@ -41,6 +45,16 @@ public static class AuditObservabilityInfrastructureModule
         builder.Services.AddScoped<SearchAuditQueryHandler>();
         builder.Services.AddScoped<GetResourceTimelineQueryHandler>();
         builder.Services.AddScoped<GetAuditEventQueryHandler>();
+
+        // Retention: TimescaleDB inventory + MinIO archiver + hosted worker.
+        builder.AddMinioClient("minio");
+        builder.Services.AddOptions<MinioOptions>()
+            .Bind(builder.Configuration.GetSection(MinioOptions.SectionName));
+        builder.Services.AddScoped<IAuditChunkInventory, TimescaleAuditChunkInventory>();
+        builder.Services.AddScoped<IAuditChunkArchiver, MinioAuditChunkArchiver>();
+        builder.Services.AddOptions<AuditRetentionOptions>()
+            .Bind(builder.Configuration.GetSection(AuditRetentionOptions.SectionName));
+        builder.Services.AddHostedService<AuditRetentionHostedService>();
 
         builder.AddWolverineForContext<AuditObservabilityDbContext>(
             moduleQueuePrefix: ContextName,

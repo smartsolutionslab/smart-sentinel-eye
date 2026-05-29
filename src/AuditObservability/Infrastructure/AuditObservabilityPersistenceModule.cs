@@ -16,8 +16,7 @@ public static class AuditObservabilityPersistenceModule
         ArgumentNullException.ThrowIfNull(builder);
 
         string connectionString = builder.Configuration.GetConnectionString(DatabaseConnectionName)
-            ?? throw new InvalidOperationException(
-                $"Connection string '{DatabaseConnectionName}' is required.");
+            ?? throw new InvalidOperationException($"Connection string '{DatabaseConnectionName}' is required.");
 
         builder.Services.AddDbContextFactory<AuditObservabilityDbContext>(options =>
             options.UseNpgsql(connectionString));
