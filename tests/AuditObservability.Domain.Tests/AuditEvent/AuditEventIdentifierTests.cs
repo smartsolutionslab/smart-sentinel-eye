@@ -13,11 +13,17 @@ public class AuditEventIdentifierTests
     }
 
     [Fact]
-    public void New_returns_a_monotonic_pair_within_the_same_tick()
+    public void New_returns_distinct_monotonically_non_decreasing_values()
     {
+        // Guid v7 is monotonic at millisecond resolution per the
+        // BCL contract. Back-to-back New() calls can land in the
+        // same millisecond (then strictly increasing) or in
+        // different ones (then also strictly increasing thanks
+        // to the timestamp); the assertion accepts both.
         AuditEventIdentifier first = AuditEventIdentifier.New();
         AuditEventIdentifier second = AuditEventIdentifier.New();
-        first.Value.CompareTo(second.Value).ShouldBeLessThan(0);
+        first.Value.ShouldNotBe(second.Value);
+        first.Value.CompareTo(second.Value).ShouldBeLessThanOrEqualTo(0);
     }
 
     [Fact]
