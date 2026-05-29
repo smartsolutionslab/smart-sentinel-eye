@@ -31,17 +31,17 @@ public sealed class AuditEvent
 
     public DateTimeOffset ReceivedAt { get; private init; }
 
-    public Option<FabIdentifier> Fab { get; private init; }
+    public FabIdentifier? Fab { get; private init; }
 
     public EventKind EventKind { get; private init; } = null!;
 
-    public Option<ResourceKind> ResourceKind { get; private init; }
+    public ResourceKind? ResourceKind { get; private init; }
 
-    public Option<ResourceIdentifier> ResourceIdentifier { get; private init; }
+    public ResourceIdentifier? ResourceIdentifier { get; private init; }
 
     public ActorIdentifier Actor { get; private init; } = ActorIdentifier.System;
 
-    public Option<string> ActorUsername { get; private init; }
+    public string? ActorUsername { get; private init; }
 
     public EventIdentifier EventIdentifier { get; private init; } = null!;
 
@@ -73,12 +73,12 @@ public sealed class AuditEvent
             Id = AuditEventIdentifier.New(),
             OccurredAt = envelope.OccurredAt,
             ReceivedAt = clock.UtcNow,
-            Fab = envelope.Fab,
+            Fab = envelope.Fab.HasValue ? envelope.Fab.Value : null,
             EventKind = EventKind.From(envelope.EventTypeName),
-            ResourceKind = mapping.Kind,
-            ResourceIdentifier = mapping.ResourceIdentifier,
+            ResourceKind = mapping.Kind.HasValue ? mapping.Kind.Value : null,
+            ResourceIdentifier = mapping.ResourceIdentifier.HasValue ? mapping.ResourceIdentifier.Value : null,
             Actor = envelope.Actor,
-            ActorUsername = envelope.ActorUsername,
+            ActorUsername = envelope.ActorUsername.HasValue ? envelope.ActorUsername.Value : null,
             EventIdentifier = envelope.EventIdentifier,
             Payload = envelope.Payload,
             PayloadSizeBytes = System.Text.Encoding.UTF8.GetByteCount(envelope.Payload),

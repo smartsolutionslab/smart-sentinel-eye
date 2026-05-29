@@ -46,18 +46,17 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
 
         if (query.Fab is { } fab)
         {
-            source = source.Where(a => a.Fab.HasValue && a.Fab.Value.Value == fab);
+            source = source.Where(a => a.Fab != null && a.Fab.Value == fab);
         }
         else if (query.CallerFabs.Count > 0)
         {
             HashSet<string> allowed = query.CallerFabs.ToHashSet(StringComparer.Ordinal);
-            source = source.Where(a =>
-                a.Fab.HasValue && allowed.Contains(a.Fab.Value.Value));
+            source = source.Where(a => a.Fab != null && allowed.Contains(a.Fab.Value));
         }
         else
         {
             // A caller with no fab membership can only see cross-fab rows.
-            source = source.Where(a => !a.Fab.HasValue);
+            source = source.Where(a => a.Fab == null);
         }
 
         if (query.Actor is { } actor)
@@ -66,8 +65,7 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         }
         if (query.ActorUsername is { } actorUsername)
         {
-            source = source.Where(a =>
-                a.ActorUsername.HasValue && a.ActorUsername.Value == actorUsername);
+            source = source.Where(a => a.ActorUsername == actorUsername);
         }
         if (query.EventKind is { } eventKind)
         {
@@ -75,13 +73,11 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         }
         if (query.ResourceKind is { } resourceKind)
         {
-            source = source.Where(a =>
-                a.ResourceKind.HasValue && a.ResourceKind.Value.Value == resourceKind);
+            source = source.Where(a => a.ResourceKind != null && a.ResourceKind.Value == resourceKind);
         }
         if (query.ResourceIdentifier is { } resourceIdentifier)
         {
-            source = source.Where(a =>
-                a.ResourceIdentifier.HasValue && a.ResourceIdentifier.Value.Value == resourceIdentifier);
+            source = source.Where(a => a.ResourceIdentifier != null && a.ResourceIdentifier.Value == resourceIdentifier);
         }
         if (query.Since is { } since) source = source.Where(a => a.OccurredAt >= since);
         if (query.Until is { } until) source = source.Where(a => a.OccurredAt < until);

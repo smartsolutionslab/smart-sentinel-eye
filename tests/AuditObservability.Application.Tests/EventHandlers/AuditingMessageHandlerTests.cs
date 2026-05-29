@@ -38,8 +38,8 @@ public class AuditingMessageHandlerTests
 
         repo.Committed.Count.ShouldBe(1);
         repo.Committed[0].EventKind.Value.ShouldBe("CameraRegisteredV1");
-        repo.Committed[0].ResourceKind.Value.ShouldBe(ResourceKind.Camera);
-        repo.Committed[0].ResourceIdentifier.Value.Value.ShouldBe(evt.Camera.ToString());
+        repo.Committed[0].ResourceKind.ShouldBe(ResourceKind.Camera);
+        repo.Committed[0].ResourceIdentifier!.Value.ShouldBe(evt.Camera.ToString());
     }
 
     [Fact]
@@ -84,8 +84,8 @@ public class AuditingMessageHandlerTests
         await handler.HandleAsync(typeof(string), "irrelevant", envelope, default);
 
         repo.Committed.Count.ShouldBe(1);
-        repo.Committed[0].ResourceKind.HasValue.ShouldBeFalse();
-        repo.Committed[0].ResourceIdentifier.HasValue.ShouldBeFalse();
+        repo.Committed[0].ResourceKind.ShouldBeNull();
+        repo.Committed[0].ResourceIdentifier.ShouldBeNull();
         repo.Committed[0].EventKind.Value.ShouldBe("FutureV1");
     }
 }
