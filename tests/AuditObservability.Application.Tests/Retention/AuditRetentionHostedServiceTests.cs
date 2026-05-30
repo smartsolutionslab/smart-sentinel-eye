@@ -1,9 +1,11 @@
 using System.Globalization;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.AuditObservability.Application.Retention;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.Shared.Contracts.AuditObservability;
+using SmartSentinelEye.Shared.CQRS;
 
 namespace SmartSentinelEye.AuditObservability.Application.Tests.Retention;
 
@@ -28,15 +30,26 @@ public class AuditRetentionHostedServiceTests
         IEnumerable<AuditChunk> chunks,
         FakeAuditChunkArchiver archiver,
         FakeBus bus,
-        FakeAuditChunkInventory? inventory = null) =>
-        new(
-            inventory ?? new FakeAuditChunkInventory(chunks),
-            archiver,
-            bus,
+        FakeAuditChunkInventory? inventory = null)
+    {
+        FakeAuditChunkInventory chunkInventory = inventory ?? new FakeAuditChunkInventory(chunks);
+
+        // Mirror production: the worker is a singleton that resolves its
+        // scoped collaborators from a scope factory, so feed the fakes
+        // through a real (scoped) service provider.
+        ServiceCollection services = new();
+        services.AddScoped<IAuditChunkInventory>(_ => chunkInventory);
+        services.AddScoped<IAuditChunkArchiver>(_ => archiver);
+        services.AddScoped<IEventBus>(_ => bus);
+        ServiceProvider provider = services.BuildServiceProvider();
+
+        return new AuditRetentionHostedService(
+            provider.GetRequiredService<IServiceScopeFactory>(),
             new FakeClock(Now),
             TimeProvider.System,
             Options.Create(new AuditRetentionOptions()),
             NullLogger<AuditRetentionHostedService>.Instance);
+    }
 
     [Fact]
     public async Task Archives_then_drops_each_stale_chunk_and_publishes_V1()

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -21,9 +22,7 @@ namespace SmartSentinelEye.AuditObservability.Application.Retention;
 /// </para>
 /// </summary>
 public sealed class AuditRetentionHostedService(
-    IAuditChunkInventory inventory,
-    IAuditChunkArchiver archiver,
-    IEventBus events,
+    IServiceScopeFactory scopeFactory,
     IClock clock,
     TimeProvider timeProvider,
     IOptions<AuditRetentionOptions> options,
@@ -64,7 +63,17 @@ public sealed class AuditRetentionHostedService(
         AuditRetentionOptions opts = options.Value;
         DateTimeOffset boundary = clock.UtcNow.Subtract(opts.RetentionWindow);
 
-        IReadOnlyList<AuditChunk> chunks = await inventory
+        // The inventory, archiver, and event bus are scoped (they own a
+        // DbContext / outbox session); this hosted service is a singleton,
+        // so resolve them inside a per-sweep scope rather than injecting
+        // them into the constructor.
+        using IServiceScope scope = scopeFactory.CreateScope();
+        RetentionDependencies deps = new(
+            scope.ServiceProvider.GetRequiredService<IAuditChunkInventory>(),
+            scope.ServiceProvider.GetRequiredService<IAuditChunkArchiver>(),
+            scope.ServiceProvider.GetRequiredService<IEventBus>());
+
+        IReadOnlyList<AuditChunk> chunks = await deps.Inventory
             .ListChunksOlderThanAsync(boundary, cancellationToken).ConfigureAwait(false);
         if (chunks.Count == 0)
         {
@@ -78,18 +87,19 @@ public sealed class AuditRetentionHostedService(
 
         foreach (AuditChunk chunk in chunks)
         {
-            await ArchiveAndDropAsync(chunk, cancellationToken).ConfigureAwait(false);
+            await ArchiveAndDropAsync(deps, chunk, cancellationToken).ConfigureAwait(false);
         }
     }
 
-    private async Task ArchiveAndDropAsync(AuditChunk chunk, CancellationToken cancellationToken)
+    private async Task ArchiveAndDropAsync(
+        RetentionDependencies deps, AuditChunk chunk, CancellationToken cancellationToken)
     {
         try
         {
-            ChunkArchiveResult result = await archiver
+            ChunkArchiveResult result = await deps.Archiver
                 .ArchiveChunkAsync(chunk, cancellationToken).ConfigureAwait(false);
 
-            await events.PublishAsync(
+            await deps.Events.PublishAsync(
                 new AuditChunkArchivedV1(
                     chunk.ChunkIdentifier,
                     FabId: null,
@@ -102,7 +112,7 @@ public sealed class AuditRetentionHostedService(
                     Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, null, null)),
                 cancellationToken).ConfigureAwait(false);
 
-            await inventory.DropChunkAsync(chunk, cancellationToken).ConfigureAwait(false);
+            await deps.Inventory.DropChunkAsync(chunk, cancellationToken).ConfigureAwait(false);
 
             log.LogInformation(
                 "Archived chunk {ChunkIdentifier} ({RowCount} rows, already-archived={AlreadyArchived}) to {ObjectKey}.",
@@ -117,6 +127,12 @@ public sealed class AuditRetentionHostedService(
                 chunk.ChunkIdentifier);
         }
     }
+
+    /// <summary>The per-sweep scoped collaborators (own a DbContext / outbox session).</summary>
+    private sealed record RetentionDependencies(
+        IAuditChunkInventory Inventory,
+        IAuditChunkArchiver Archiver,
+        IEventBus Events);
 }
 
 /// <summary>
