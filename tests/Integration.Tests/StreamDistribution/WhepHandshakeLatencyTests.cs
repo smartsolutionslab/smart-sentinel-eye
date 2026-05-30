@@ -50,7 +50,14 @@ public class WhepHandshakeLatencyTests(AspireFixture aspire) : IAsyncLifetime
             HttpResponseMessage response = await _aspire.StreamDistribution.PostAsJsonAsync(
                 $"/streams/cam-{camera}/authorize", new { token });
             sw.Stop();
-            response.StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
+            if (response.StatusCode != System.Net.HttpStatusCode.OK)
+            {
+                // Surface the server-side stack (developer exception page in the
+                // E2E stack) so a CI-only 500 here is diagnosable from the log.
+                string body = await response.Content.ReadAsStringAsync();
+                response.StatusCode.ShouldBe(System.Net.HttpStatusCode.OK,
+                    $"iteration {i}: unexpected status. response body:\n{(body.Length > 4000 ? body[..4000] : body)}");
+            }
             elapsedMs[i] = sw.Elapsed.TotalMilliseconds;
         }
 
