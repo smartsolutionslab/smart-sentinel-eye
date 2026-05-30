@@ -2,6 +2,7 @@
 
 **Status:** Accepted (Shouldly confirmed by ADR-0060; Moq confirmed by ADR-0061)
 **Date:** 2026-05-25
+**Superseded in part by:** ADR-0103 — integration infrastructure is Aspire-only; Testcontainers was never adopted. The Testcontainers references below are historical.
 
 ## Context
 
@@ -17,11 +18,11 @@ library, mocking strategy.
 | Assertions | **Shouldly** — MIT-licensed, fluent, free |
 | Mocking | **Moq** for interfaces requiring narrow doubles |
 | Stateful collaborators | **Hand-written fakes** (`InMemoryCameraRepository`, etc.) |
-| Integration infrastructure | **Testcontainers** (real Postgres, RabbitMQ, Keycloak) via the Aspire fixture pattern (ADR-0068, deferred) |
+| Integration infrastructure | Real containers via the **Aspire fixture** (`DistributedApplicationTestingBuilder`, ADR-0068); Testcontainers **not adopted** — see ADR-0103 |
 
 **Heuristic for choosing a test double:** prefer fakes over mocks
-(closer to real behaviour, refactor-friendly); prefer Testcontainers
-over fakes when the test cost is low enough to justify it.
+(closer to real behaviour, refactor-friendly); prefer the **Aspire
+fixture** over fakes when the test cost is low enough to justify it.
 
 ```csharp
 // hand-written fake

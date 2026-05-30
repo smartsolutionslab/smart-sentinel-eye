@@ -262,9 +262,9 @@ smart-sentinel-eye/
 ### Testing
 
 - **Domain logic:** TDD red-green-refactor.
-- **Integration:** against real Postgres + RabbitMQ + Keycloak via
-  Aspire AppHost in test mode (Testcontainers fallback for CI runners
-  without Docker).
+- **Integration:** against real Postgres + RabbitMQ + Keycloak via the
+  Aspire AppHost in test mode (the `AspireFixture`); no Testcontainers —
+  CI runs the same fixture (Docker required on the runner). See ADR-0103.
 - **Architecture:** `NetArchTest` rules enforce bounded-context
   boundaries. A failing arch test blocks merge.
 - **Latency:** synthetic load tests covering the 250-camera target.

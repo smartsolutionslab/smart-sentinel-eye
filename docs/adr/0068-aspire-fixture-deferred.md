@@ -2,13 +2,16 @@
 
 **Status:** Accepted
 **Date:** 2026-05-25
+**Amended by:** ADR-0103 — the realised fixture boots real containers via
+Aspire/DCP (`DistributedApplicationTestingBuilder`), not Testcontainers.
 
 ## Context
 
 Yumney has a polished AspireFixture (`tests/.../Fixtures/AspireFixture.cs`)
-that boots the AppHost in E2ETests mode with Postgres/Keycloak/Redis/
-RabbitMQ via Testcontainers, exposing per-service `HttpClient`. We
-will follow the same pattern.
+that boots the AppHost in E2ETests mode with Postgres/Keycloak/RabbitMQ,
+exposing per-service `HttpClient`. We follow the same pattern — the real
+containers come from the AppHost via Aspire/DCP (no Testcontainers; see
+ADR-0103).
 
 ## Decision
 
