@@ -65,10 +65,17 @@ public static class LayoutCompositionInfrastructureModule
             ICommandHandler<RevertRevisionCommand, Result<LayoutRevisionNumber, RevertRevisionError>>,
             RevertRevisionCommandHandler>();
 
-        // Spec 007 bridge: subscribe to OverlayHighlightRequestedV1
-        // from Automation and push OverlayHighlightChanged on the
-        // existing /hubs/layouts SignalR hub.
+        // Cross-context lifecycle relays: the publishing contexts emit an
+        // integration event; the SignalR broadcast lives here with the hub
+        // owner (no cross-context dependency). Wolverine binds a listener
+        // queue per handled message type (ADR-0088).
+        //   - Spec 007: Automation's overlay-highlight request.
+        //   - Spec 004: OverlayDesigner's overlay-revision publish/archive.
+        //   - Spec 005: SystemVariables' resolved-overlay-text change.
         builder.Services.AddScoped<OverlayHighlightRequestedV1Handler>();
+        builder.Services.AddScoped<OverlayRevisionPublishedV1Handler>();
+        builder.Services.AddScoped<OverlayRevisionArchivedV1Handler>();
+        builder.Services.AddScoped<ResolvedOverlayTextChangedV1Handler>();
 
         builder.AddWolverineForContext<LayoutCompositionDbContext>(
             moduleQueuePrefix: ContextName,

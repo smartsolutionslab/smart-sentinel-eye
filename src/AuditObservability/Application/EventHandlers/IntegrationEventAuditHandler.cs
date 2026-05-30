@@ -48,6 +48,7 @@ public sealed class IntegrationEventAuditHandler(AuditingMessageHandler auditing
     public Task Handle(SystemVariableDefinedV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
     public Task Handle(SystemVariableValueChangedV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
     public Task Handle(SystemVariableValueRequestedV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
+    public Task Handle(ResolvedOverlayTextChangedV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
     public Task Handle(AuditChunkArchivedV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
 
     private Task AuditAsync(IIntegrationEvent message, CancellationToken cancellationToken)

@@ -1,4 +1,3 @@
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay.Events;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.OverlayDesigner;
@@ -8,13 +7,12 @@ namespace SmartSentinelEye.OverlayDesigner.Application.EventHandlers;
 
 /// <summary>
 /// Translates <see cref="OverlayRevisionArchivedDomainEvent"/> into the
-/// V1 integration event + a SignalR broadcast (same pattern as the
-/// Published handler above; force-disconnect semantics for kiosks that
-/// were rendering the archived overlay).
+/// <see cref="OverlayRevisionArchivedV1"/> integration event (Wolverine
+/// outbox). LayoutComposition subscribes to it and pushes the
+/// force-disconnect SignalR frame on the hub it owns — same split as
+/// <see cref="OverlayRevisionPublishedDomainEventHandler"/>.
 /// </summary>
-public sealed class OverlayRevisionArchivedDomainEventHandler(
-    IEventBus events,
-    ILayoutLifecycleBroadcaster broadcaster)
+public sealed class OverlayRevisionArchivedDomainEventHandler(IEventBus events)
     : IDomainEventHandler<OverlayRevisionArchivedDomainEvent>
 {
     public async Task Handle(OverlayRevisionArchivedDomainEvent domainEvent, CancellationToken cancellationToken)
@@ -28,13 +26,6 @@ public sealed class OverlayRevisionArchivedDomainEventHandler(
                 ArchivedAt: domainEvent.ArchivedAt,
                 ArchivedBy: domainEvent.ArchivedBy.Value,
                 Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ArchivedAt, null, domainEvent.ArchivedBy.Value)),
-            cancellationToken).ConfigureAwait(false);
-
-        await broadcaster.OverlayArchivedAsync(
-            new OverlayLifecycleArchivedNotification(
-                Overlay: domainEvent.Overlay.Value,
-                RevisionNumber: domainEvent.RevisionNumber.Value,
-                ArchivedAt: domainEvent.ArchivedAt),
             cancellationToken).ConfigureAwait(false);
     }
 }

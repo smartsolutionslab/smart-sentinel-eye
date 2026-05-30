@@ -101,6 +101,17 @@ public sealed partial class V1ResourceMap
                     PickByProperty(webhookRevoked, "Name"));
             }
 
+            // Spec 005: emitted from SystemVariables but pivots on the overlay
+            // whose resolved text changed, not on a variable.
+            Type? resolvedOverlayText = Type.GetType(
+                "SmartSentinelEye.Shared.Contracts.SystemVariables.ResolvedOverlayTextChangedV1, SmartSentinelEye.Shared.Contracts");
+            if (resolvedOverlayText is not null)
+            {
+                map[resolvedOverlayText] = new V1MappingEntry(
+                    DomainResourceKind.Overlay,
+                    PickByProperty(resolvedOverlayText, "Overlay"));
+            }
+
             // AuditChunkArchivedV1 (spec 009 itself) pivots on the chunk id.
             Type? chunkArchived = Type.GetType(
                 "SmartSentinelEye.Shared.Contracts.AuditObservability.AuditChunkArchivedV1, SmartSentinelEye.Shared.Contracts");

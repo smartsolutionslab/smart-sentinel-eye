@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
 using SmartSentinelEye.Shared.CQRS;
@@ -13,15 +12,16 @@ namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
 /// <summary>
 /// Reacts to a variable being archived: publishes the V1 event, then
 /// re-resolves every affected overlay (the archived variable's
-/// placeholder reverts to literal per FR-011) and broadcasts the
-/// updated resolved text.
+/// placeholder reverts to literal per FR-011) and publishes a
+/// <see cref="ResolvedOverlayTextChangedV1"/> per overlay for
+/// LayoutComposition to broadcast — same split as the value-changed
+/// handler.
 /// </summary>
 public sealed class VariableArchivedDomainEventHandler(
     IEventBus events,
     IReverseIndex reverseIndex,
     IVariableRepository variables,
     IResolver resolver,
-    ILayoutLifecycleBroadcaster broadcaster,
     ILogger<VariableArchivedDomainEventHandler> log)
     : IDomainEventHandler<VariableArchivedDomainEvent>
 {
@@ -74,8 +74,12 @@ public sealed class VariableArchivedDomainEventHandler(
             string resolvedText = resolver.Resolve(labelText, snapshot);
             long version = reverseIndex.NextVersionFor(overlayId);
 
-            await broadcaster.ResolvedOverlayTextChangedAsync(
-                new ResolvedOverlayTextChangedNotification(overlayId, resolvedText, version),
+            await events.PublishAsync(
+                new ResolvedOverlayTextChangedV1(
+                    Overlay: overlayId,
+                    ResolvedText: resolvedText,
+                    Version: version,
+                    Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ArchivedAt, null, domainEvent.ArchivedBy.Value)),
                 cancellationToken).ConfigureAwait(false);
         }
 

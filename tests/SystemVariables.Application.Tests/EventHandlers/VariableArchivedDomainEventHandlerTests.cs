@@ -1,6 +1,5 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.EventHandlers;
@@ -22,10 +21,9 @@ public class VariableArchivedDomainEventHandlerTests
         FakeEventBus bus = new();
         InMemoryReverseIndex index = new();
         InMemoryVariableRepository repo = new();
-        FakeLayoutLifecycleBroadcaster broadcaster = new();
 
         VariableArchivedDomainEventHandler handler = new(
-            bus, index, repo, new Resolver(), broadcaster,
+            bus, index, repo, new Resolver(),
             NullLogger<VariableArchivedDomainEventHandler>.Instance);
 
         VariableIdentifier id = VariableIdentifier.New();
@@ -47,7 +45,6 @@ public class VariableArchivedDomainEventHandlerTests
         FakeEventBus bus = new();
         InMemoryReverseIndex index = new();
         InMemoryVariableRepository repo = new();
-        FakeLayoutLifecycleBroadcaster broadcaster = new();
 
         // Sibling 'shift' stays Defined+set; 'oeeLine1' is the one being archived.
         FakeClock clock = new(FixedMoment);
@@ -61,7 +58,7 @@ public class VariableArchivedDomainEventHandlerTests
         index.UpsertOverlayReferences(overlay, "{{shift}} - OEE: {{oeeLine1}}%");
 
         VariableArchivedDomainEventHandler handler = new(
-            bus, index, repo, new Resolver(), broadcaster,
+            bus, index, repo, new Resolver(),
             NullLogger<VariableArchivedDomainEventHandler>.Instance);
 
         await handler.Handle(
@@ -70,8 +67,8 @@ public class VariableArchivedDomainEventHandlerTests
                 FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedNotification push =
-            broadcaster.ResolvedTextChanged.ShouldHaveSingleItem();
+        ResolvedOverlayTextChangedV1 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV1>().ShouldHaveSingleItem();
         push.Overlay.ShouldBe(overlay);
         // 'shift' renders, 'oeeLine1' reverts to its literal placeholder.
         push.ResolvedText.ShouldBe("A - OEE: {{oeeLine1}}%");
@@ -83,7 +80,6 @@ public class VariableArchivedDomainEventHandlerTests
         FakeEventBus bus = new();
         InMemoryReverseIndex index = new();
         InMemoryVariableRepository repo = new();
-        FakeLayoutLifecycleBroadcaster broadcaster = new();
 
         FakeClock clock = new(FixedMoment);
         OperatorIdentifier definer = OperatorIdentifier.From(Guid.CreateVersion7());
@@ -97,7 +93,7 @@ public class VariableArchivedDomainEventHandlerTests
         index.UpsertOverlayReferences(overlay, "{{shift}}-{{target}}");
 
         VariableArchivedDomainEventHandler handler = new(
-            bus, index, repo, new Resolver(), broadcaster,
+            bus, index, repo, new Resolver(),
             NullLogger<VariableArchivedDomainEventHandler>.Instance);
 
         await handler.Handle(
@@ -106,8 +102,8 @@ public class VariableArchivedDomainEventHandlerTests
                 FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedNotification push =
-            broadcaster.ResolvedTextChanged.ShouldHaveSingleItem();
+        ResolvedOverlayTextChangedV1 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV1>().ShouldHaveSingleItem();
         // Both placeholders revert to literal: shift is Unset, target is the one archived.
         push.ResolvedText.ShouldBe("{{shift}}-{{target}}");
     }
@@ -118,10 +114,9 @@ public class VariableArchivedDomainEventHandlerTests
         FakeEventBus bus = new();
         InMemoryReverseIndex index = new();
         InMemoryVariableRepository repo = new();
-        FakeLayoutLifecycleBroadcaster broadcaster = new();
 
         VariableArchivedDomainEventHandler handler = new(
-            bus, index, repo, new Resolver(), broadcaster,
+            bus, index, repo, new Resolver(),
             NullLogger<VariableArchivedDomainEventHandler>.Instance);
 
         await handler.Handle(
@@ -131,6 +126,6 @@ public class VariableArchivedDomainEventHandlerTests
             CancellationToken.None);
 
         bus.Published.OfType<SystemVariableArchivedV1>().ShouldHaveSingleItem();
-        broadcaster.ResolvedTextChanged.ShouldBeEmpty();
+        bus.Published.OfType<ResolvedOverlayTextChangedV1>().ShouldBeEmpty();
     }
 }

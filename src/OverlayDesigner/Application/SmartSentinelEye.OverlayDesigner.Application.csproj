@@ -5,13 +5,6 @@
     <ProjectReference Include="..\..\Shared.Kernel\SmartSentinelEye.Shared.Kernel.csproj" />
     <ProjectReference Include="..\..\Shared.CQRS\SmartSentinelEye.Shared.CQRS.csproj" />
     <ProjectReference Include="..\..\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
-    <!-- Cross-context reference: the OverlayDesigner Application layer
-         calls into LayoutComposition's domain-level
-         ILayoutLifecycleBroadcaster to fan out overlay-published /
-         archived events through the existing /hubs/layouts SignalR hub.
-         Documented as the one allowed cross-context exception per the
-         spec 004 plan; NetArchTest gets an explicit allow-rule in PR G. -->
-    <ProjectReference Include="..\..\LayoutComposition\Domain\SmartSentinelEye.LayoutComposition.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>

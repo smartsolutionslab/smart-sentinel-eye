@@ -5,13 +5,6 @@
     <ProjectReference Include="..\..\Shared.Kernel\SmartSentinelEye.Shared.Kernel.csproj" />
     <ProjectReference Include="..\..\Shared.CQRS\SmartSentinelEye.Shared.CQRS.csproj" />
     <ProjectReference Include="..\..\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
-    <!-- Cross-context reference: SystemVariables.Application calls into
-         LayoutComposition.Domain's ILayoutLifecycleBroadcaster to push
-         ResolvedOverlayTextChanged frames over the existing /hubs/layouts
-         SignalR hub. Documented cross-context allow-rule (the second of
-         two; spec 004 added the first); enforced positively by
-         tests/Architecture.Tests/BoundaryTests.cs. -->
-    <ProjectReference Include="..\..\LayoutComposition\Domain\SmartSentinelEye.LayoutComposition.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>
