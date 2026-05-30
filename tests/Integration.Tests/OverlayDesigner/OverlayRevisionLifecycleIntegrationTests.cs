@@ -12,11 +12,9 @@ namespace SmartSentinelEye.Integration.Tests.OverlayDesigner;
 [Collection(AspireCollection.Name)]
 public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
-    private readonly AspireFixture _aspire = aspire;
-
     public async Task InitializeAsync()
     {
-        await _aspire.ResetOverlayDesignerAsync();
+        await aspire.ResetOverlayDesignerAsync();
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -34,7 +32,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task Publish_a_new_revision_atomically_archives_the_previous_published_revision()
     {
-        using HttpClient overlays = await _aspire.CreateAdminClientAsync("overlay-designer");
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
         HttpResponseMessage created = await overlays.PostAsJsonAsync(
             "/overlays",
@@ -86,7 +84,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task Revert_brings_a_Published_revision_back_to_Draft()
     {
-        using HttpClient overlays = await _aspire.CreateAdminClientAsync("overlay-designer");
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
         HttpResponseMessage created = await overlays.PostAsJsonAsync(
             "/overlays",

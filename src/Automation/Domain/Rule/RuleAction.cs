@@ -62,9 +62,7 @@ public abstract record RuleAction
             }
             if (durationMs < MinimumDurationMs || durationMs > MaximumDurationMs)
             {
-                throw new ArgumentException(
-                    $"durationMs must be between {MinimumDurationMs} and {MaximumDurationMs}; got {durationMs}.",
-                    nameof(durationMs));
+                throw new ArgumentException($"durationMs must be between {MinimumDurationMs} and {MaximumDurationMs}; got {durationMs}.", nameof(durationMs));
             }
             return new HighlightOverlay(overlay, durationMs);
         }

@@ -13,13 +13,11 @@ public class ListStreamsIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private static readonly TimeSpan ProvisionTimeout = TimeSpan.FromSeconds(30);
 
-    private readonly AspireFixture _aspire = aspire;
-
     public async Task InitializeAsync()
     {
-        await _aspire.ResetMediaMtxAsync();
-        await _aspire.ResetStreamDistributionAsync();
-        await _aspire.ResetCameraCatalogAsync();
+        await aspire.ResetMediaMtxAsync();
+        await aspire.ResetStreamDistributionAsync();
+        await aspire.ResetCameraCatalogAsync();
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -27,8 +25,8 @@ public class ListStreamsIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task List_returns_one_entry_per_provisioned_camera()
     {
-        using HttpClient cameraClient = await _aspire.CreateAdminClientAsync("camera-catalog");
-        using HttpClient streamClient = await _aspire.CreateAdminClientAsync("stream-distribution");
+        using HttpClient cameraClient = await aspire.CreateAdminClientAsync("camera-catalog");
+        using HttpClient streamClient = await aspire.CreateAdminClientAsync("stream-distribution");
 
         Guid camera1 = await RegisterAsync(cameraClient, "Cam-Batch-1", "rtsp://10.0.5.1/h264");
         Guid camera2 = await RegisterAsync(cameraClient, "Cam-Batch-2", "rtsp://10.0.5.2/h264");
@@ -51,7 +49,7 @@ public class ListStreamsIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task List_omits_cameras_that_have_no_stream_yet()
     {
-        using HttpClient streamClient = await _aspire.CreateAdminClientAsync("stream-distribution");
+        using HttpClient streamClient = await aspire.CreateAdminClientAsync("stream-distribution");
 
         Guid unknownCamera = Guid.CreateVersion7();
         HttpResponseMessage response = await streamClient.GetAsync(
@@ -65,7 +63,7 @@ public class ListStreamsIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task List_without_a_token_returns_401()
     {
-        HttpResponseMessage response = await _aspire.StreamDistribution.GetAsync(
+        HttpResponseMessage response = await aspire.StreamDistribution.GetAsync(
             $"/streams?cameraIdentifiers={Guid.CreateVersion7()}");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);

@@ -7,16 +7,14 @@ namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
 [Collection(AspireCollection.Name)]
 public class ListCamerasIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
-    private readonly AspireFixture _aspire = aspire;
-
-    public Task InitializeAsync() => _aspire.ResetCameraCatalogAsync();
+    public Task InitializeAsync() => aspire.ResetCameraCatalogAsync();
 
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task List_returns_all_registered_cameras_with_default_paging()
     {
-        using HttpClient client = await _aspire.CreateAdminClientAsync("camera-catalog");
+        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
 
         await RegisterAsync(client, "Cam-A", "rtsp://10.0.5.1/h264");
         await RegisterAsync(client, "Cam-B", "rtsp://10.0.5.2/h264");
@@ -35,7 +33,7 @@ public class ListCamerasIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task List_applies_offset_and_limit_correctly()
     {
-        using HttpClient client = await _aspire.CreateAdminClientAsync("camera-catalog");
+        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
 
         for (int index = 0; index < 5; index++)
         {
@@ -57,7 +55,7 @@ public class ListCamerasIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task List_with_unknown_sort_field_returns_400_with_RFC_7807_problem()
     {
-        using HttpClient client = await _aspire.CreateAdminClientAsync("camera-catalog");
+        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
 
         HttpResponseMessage response = await client.GetAsync("/cameras?sort=created");
 
@@ -69,7 +67,7 @@ public class ListCamerasIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task List_without_a_token_returns_401()
     {
-        using HttpClient client = _aspire.App.CreateHttpClient("camera-catalog");
+        using HttpClient client = aspire.App.CreateHttpClient("camera-catalog");
 
         HttpResponseMessage response = await client.GetAsync("/cameras");
 

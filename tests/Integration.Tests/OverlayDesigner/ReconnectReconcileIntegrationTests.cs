@@ -23,11 +23,9 @@ public class ReconnectReconcileIntegrationTests(AspireFixture aspire) : IAsyncLi
 {
     private const int ReconcileBudgetSeconds = 5;
 
-    private readonly AspireFixture _aspire = aspire;
-
     public async Task InitializeAsync()
     {
-        await _aspire.ResetLayoutCompositionAsync();
+        await aspire.ResetLayoutCompositionAsync();
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -35,8 +33,8 @@ public class ReconnectReconcileIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Reconnected_client_reconciles_an_archived_layout_within_five_seconds()
     {
-        using HttpClient admin = await _aspire.CreateAdminClientAsync("layout-composition");
-        string accessToken = await _aspire.GetAccessTokenAsync(
+        using HttpClient admin = await aspire.CreateAdminClientAsync("layout-composition");
+        string accessToken = await aspire.GetAccessTokenAsync(
             AspireFixture.AdminUsername, AspireFixture.AdminPassword);
 
         // Seed: a Published layout the client is "rendering".
@@ -49,7 +47,7 @@ public class ReconnectReconcileIntegrationTests(AspireFixture aspire) : IAsyncLi
             $"/layouts/{layoutIdentifier}/revisions/1/publish", content: null);
         publish.EnsureSuccessStatusCode();
 
-        Uri hubUri = new(_aspire.App.GetEndpoint("layout-composition").ToString().TrimEnd('/') + LayoutLifecycleHub.Path);
+        Uri hubUri = new(aspire.App.GetEndpoint("layout-composition").ToString().TrimEnd('/') + LayoutLifecycleHub.Path);
         await using HubConnection client = new HubConnectionBuilder()
             .WithUrl(hubUri, options =>
             {

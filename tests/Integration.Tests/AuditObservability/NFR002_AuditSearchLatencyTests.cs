@@ -23,14 +23,12 @@ public class NFR002_AuditSearchLatencyTests(AspireFixture aspire)
     private const int MeasureIterations = 1_000;
     private const double P99BudgetMs = 200;
 
-    private readonly AspireFixture _aspire = aspire;
-
     [Fact]
     public async Task Search_over_a_24h_window_p99_stays_under_200ms()
     {
         await SeedHotTierAsync();
 
-        using HttpClient client = await _aspire.CreateAdminClientAsync("audit-observability");
+        using HttpClient client = await aspire.CreateAdminClientAsync("audit-observability");
         string since = DateTimeOffset.UtcNow.AddHours(-24).ToString("O", CultureInfo.InvariantCulture);
         string query = $"/audit?fabId=munich&since={Uri.EscapeDataString(since)}&pageSize=50";
 
@@ -63,7 +61,7 @@ public class NFR002_AuditSearchLatencyTests(AspireFixture aspire)
     private async Task SeedHotTierAsync()
     {
         await using AuditObservabilityDbContext context =
-            await _aspire.CreateAuditObservabilityDbContextAsync();
+            await aspire.CreateAuditObservabilityDbContextAsync();
         context.Database.SetCommandTimeout(TimeSpan.FromMinutes(2));
 
         string emptyJson = "{}";

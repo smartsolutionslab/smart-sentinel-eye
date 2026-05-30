@@ -17,11 +17,9 @@ public class SignalRRevocationIntegrationTests(AspireFixture aspire) : IAsyncLif
 {
     private const int RevocationBudgetMilliseconds = 1000;
 
-    private readonly AspireFixture _aspire = aspire;
-
     public async Task InitializeAsync()
     {
-        await _aspire.ResetLayoutCompositionAsync();
+        await aspire.ResetLayoutCompositionAsync();
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -29,8 +27,8 @@ public class SignalRRevocationIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task Archive_force_disconnects_connected_kiosks_within_one_second()
     {
-        using HttpClient admin = await _aspire.CreateAdminClientAsync("layout-composition");
-        string accessToken = await _aspire.GetAccessTokenAsync(
+        using HttpClient admin = await aspire.CreateAdminClientAsync("layout-composition");
+        string accessToken = await aspire.GetAccessTokenAsync(
             AspireFixture.AdminUsername, AspireFixture.AdminPassword);
 
         // Create + publish a layout so there's something to archive.
@@ -43,7 +41,7 @@ public class SignalRRevocationIntegrationTests(AspireFixture aspire) : IAsyncLif
             $"/layouts/{layoutIdentifier}/revisions/1/publish", content: null);
         publish.EnsureSuccessStatusCode();
 
-        Uri hubUri = new(_aspire.App.GetEndpoint("layout-composition").ToString().TrimEnd('/') + LayoutLifecycleHub.Path);
+        Uri hubUri = new(aspire.App.GetEndpoint("layout-composition").ToString().TrimEnd('/') + LayoutLifecycleHub.Path);
 
         await using HubConnection alpha = BuildClient(hubUri, accessToken);
         await using HubConnection beta = BuildClient(hubUri, accessToken);

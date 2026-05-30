@@ -145,8 +145,7 @@ internal static class RuleActionColumnConverter
         int sep = remainder.IndexOf('|', StringComparison.Ordinal);
         if (sep < 0)
         {
-            throw new ArgumentException(
-                "SetVariableValue requires `<name>|<expression>`.", nameof(remainder));
+            throw new ArgumentException("SetVariableValue requires `<name>|<expression>`.", nameof(remainder));
         }
         return RuleAction.SetVariableValue.From(remainder[..sep], remainder[(sep + 1)..]);
     }
@@ -156,19 +155,16 @@ internal static class RuleActionColumnConverter
         int sep = remainder.IndexOf('|', StringComparison.Ordinal);
         if (sep < 0)
         {
-            throw new ArgumentException(
-                "HighlightOverlay requires `<guid>|<durationMs>`.", nameof(remainder));
+            throw new ArgumentException("HighlightOverlay requires `<guid>|<durationMs>`.", nameof(remainder));
         }
         if (!Guid.TryParseExact(remainder[..sep], "D", out Guid overlay))
         {
-            throw new ArgumentException(
-                $"Malformed overlay guid '{remainder[..sep]}'.", nameof(remainder));
+            throw new ArgumentException($"Malformed overlay guid '{remainder[..sep]}'.", nameof(remainder));
         }
         if (!int.TryParse(
             remainder[(sep + 1)..], NumberStyles.Integer, CultureInfo.InvariantCulture, out int duration))
         {
-            throw new ArgumentException(
-                $"Malformed durationMs '{remainder[(sep + 1)..]}'.", nameof(remainder));
+            throw new ArgumentException($"Malformed durationMs '{remainder[(sep + 1)..]}'.", nameof(remainder));
         }
         return RuleAction.HighlightOverlay.From(overlay, duration);
     }

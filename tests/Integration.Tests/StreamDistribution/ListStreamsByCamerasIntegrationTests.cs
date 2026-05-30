@@ -18,13 +18,11 @@ public class ListStreamsByCamerasIntegrationTests(AspireFixture aspire) : IAsync
 {
     private static readonly TimeSpan SettleTimeout = TimeSpan.FromSeconds(30);
 
-    private readonly AspireFixture _aspire = aspire;
-
     public async Task InitializeAsync()
     {
-        await _aspire.ResetMediaMtxAsync();
-        await _aspire.ResetStreamDistributionAsync();
-        await _aspire.ResetCameraCatalogAsync();
+        await aspire.ResetMediaMtxAsync();
+        await aspire.ResetStreamDistributionAsync();
+        await aspire.ResetCameraCatalogAsync();
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -32,8 +30,8 @@ public class ListStreamsByCamerasIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task Five_cameras_settle_into_observable_states_in_the_batch_API_within_30_seconds()
     {
-        using HttpClient cameraClient = await _aspire.CreateAdminClientAsync("camera-catalog");
-        using HttpClient streamClient = await _aspire.CreateAdminClientAsync("stream-distribution");
+        using HttpClient cameraClient = await aspire.CreateAdminClientAsync("camera-catalog");
+        using HttpClient streamClient = await aspire.CreateAdminClientAsync("stream-distribution");
 
         Guid[] cameras = new Guid[5];
         for (int index = 0; index < cameras.Length; index++)

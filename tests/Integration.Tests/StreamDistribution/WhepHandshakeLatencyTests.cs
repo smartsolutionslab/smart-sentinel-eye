@@ -19,13 +19,11 @@ public class WhepHandshakeLatencyTests(AspireFixture aspire) : IAsyncLifetime
     private const int Iterations = 20;
     private const int P95BudgetMilliseconds = 3000;
 
-    private readonly AspireFixture _aspire = aspire;
-
     public async Task InitializeAsync()
     {
-        await _aspire.ResetMediaMtxAsync();
-        await _aspire.ResetStreamDistributionAsync();
-        await _aspire.ResetCameraCatalogAsync();
+        await aspire.ResetMediaMtxAsync();
+        await aspire.ResetStreamDistributionAsync();
+        await aspire.ResetCameraCatalogAsync();
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -33,13 +31,13 @@ public class WhepHandshakeLatencyTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Whep_auth_hook_p95_stays_under_three_seconds_over_twenty_opens()
     {
-        string token = await _aspire.GetAccessTokenAsync(
+        string token = await aspire.GetAccessTokenAsync(
             AspireFixture.AdminUsername, AspireFixture.AdminPassword);
 
         // Warm the OIDC discovery cache + JWT validator state. The first
         // call hits Keycloak's well-known endpoint; subsequent calls reuse
         // the cached signing keys. The SLO covers the warm regime.
-        await _aspire.StreamDistribution.PostAsJsonAsync(
+        await aspire.StreamDistribution.PostAsJsonAsync(
             $"/streams/cam-{Guid.CreateVersion7()}/authorize", new { token });
 
         double[] elapsedMs = new double[Iterations];
@@ -47,7 +45,7 @@ public class WhepHandshakeLatencyTests(AspireFixture aspire) : IAsyncLifetime
         {
             Guid camera = Guid.CreateVersion7();
             Stopwatch sw = Stopwatch.StartNew();
-            HttpResponseMessage response = await _aspire.StreamDistribution.PostAsJsonAsync(
+            HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
                 $"/streams/cam-{camera}/authorize", new { token });
             sw.Stop();
             response.StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);

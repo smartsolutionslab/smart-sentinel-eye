@@ -15,11 +15,9 @@ namespace SmartSentinelEye.Integration.Tests.LayoutComposition;
 [Collection(AspireCollection.Name)]
 public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
-    private readonly AspireFixture _aspire = aspire;
-
     public async Task InitializeAsync()
     {
-        await _aspire.ResetLayoutCompositionAsync();
+        await aspire.ResetLayoutCompositionAsync();
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -27,7 +25,7 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
     [Fact]
     public async Task Create_and_publish_a_layout_yields_a_Published_revision_within_500_ms()
     {
-        using HttpClient layouts = await _aspire.CreateAdminClientAsync("layout-composition");
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
 
         Stopwatch sw = Stopwatch.StartNew();
         HttpResponseMessage created = await layouts.PostAsJsonAsync(
@@ -57,7 +55,7 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
     [Fact]
     public async Task A_name_collision_returns_409_Conflict_with_LAYOUT_NAME_TAKEN()
     {
-        using HttpClient layouts = await _aspire.CreateAdminClientAsync("layout-composition");
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
         string sharedName = $"Cam-{Guid.NewGuid():N}".Substring(0, 16);
 
         HttpResponseMessage first = await layouts.PostAsJsonAsync(
@@ -74,7 +72,7 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
     [Fact]
     public async Task List_with_state_Published_returns_only_chains_with_a_published_revision()
     {
-        using HttpClient layouts = await _aspire.CreateAdminClientAsync("layout-composition");
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
         string draftName = $"Drf-{Guid.NewGuid():N}".Substring(0, 16);
         string pubName = $"Pub-{Guid.NewGuid():N}".Substring(0, 16);
 
@@ -103,7 +101,7 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
     [Fact]
     public async Task Get_for_an_unknown_layout_returns_404()
     {
-        using HttpClient layouts = await _aspire.CreateAdminClientAsync("layout-composition");
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
         HttpResponseMessage response = await layouts.GetAsync($"/layouts/{Guid.CreateVersion7()}");
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
@@ -111,7 +109,7 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
     [Fact]
     public async Task Anonymous_GET_returns_401()
     {
-        HttpResponseMessage response = await _aspire.LayoutComposition.GetAsync(
+        HttpResponseMessage response = await aspire.LayoutComposition.GetAsync(
             $"/layouts/{Guid.CreateVersion7()}");
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }

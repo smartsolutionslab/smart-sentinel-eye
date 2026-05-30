@@ -28,15 +28,12 @@ public class NFR001_JwtValidationLatencyTests(AspireFixture aspire)
     private const int MeasureIterations = 1_000;
     private const double P99BudgetMicroseconds = 500;
 
-    private readonly AspireFixture _aspire = aspire;
-
     [Fact]
     public async Task Per_request_JWT_validation_p99_stays_under_the_500us_budget()
     {
-        string token = await _aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string token = await aspire.GetAccessTokenAsync(AspireFixture.AdminUsername, AspireFixture.AdminPassword);
 
-        using HttpClient keycloak = _aspire.App.CreateHttpClient("keycloak");
+        using HttpClient keycloak = aspire.App.CreateHttpClient("keycloak");
         string authority = $"{keycloak.BaseAddress!.ToString().TrimEnd('/')}/realms/smart-sentinel-eye";
 
         HttpDocumentRetriever retriever = new() { RequireHttps = false };

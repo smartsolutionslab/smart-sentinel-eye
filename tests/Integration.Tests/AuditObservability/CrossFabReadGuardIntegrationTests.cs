@@ -14,13 +14,11 @@ namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 [Collection(AspireCollection.Name)]
 public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
 {
-    private readonly AspireFixture _aspire = aspire;
-
     [Fact]
     public async Task Munich_member_reads_its_own_fab_timeline_but_is_refused_another_fab()
     {
         // admin@munich.test is a member of /fabs/munich only.
-        using HttpClient client = await _aspire.CreateAuthenticatedClientAsync(
+        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", "Admin1234");
         Guid overlayId = Guid.CreateVersion7();
 
@@ -36,7 +34,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Search_without_a_fab_filter_is_scoped_to_the_callers_fab_membership()
     {
-        using HttpClient client = await _aspire.CreateAuthenticatedClientAsync(
+        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", "Admin1234");
 
         HttpResponseMessage response = await client.GetAsync("/audit?pageSize=50");

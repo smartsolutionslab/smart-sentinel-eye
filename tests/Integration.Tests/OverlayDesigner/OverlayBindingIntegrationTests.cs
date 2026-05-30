@@ -13,12 +13,10 @@ namespace SmartSentinelEye.Integration.Tests.OverlayDesigner;
 [Collection(AspireCollection.Name)]
 public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
-    private readonly AspireFixture _aspire = aspire;
-
     public async Task InitializeAsync()
     {
-        await _aspire.ResetLayoutCompositionAsync();
-        await _aspire.ResetOverlayDesignerAsync();
+        await aspire.ResetLayoutCompositionAsync();
+        await aspire.ResetOverlayDesignerAsync();
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -36,8 +34,8 @@ public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task Bound_overlay_appears_in_GET_layout_and_in_GET_overlay()
     {
-        using HttpClient overlays = await _aspire.CreateAdminClientAsync("overlay-designer");
-        using HttpClient layouts = await _aspire.CreateAdminClientAsync("layout-composition");
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
 
         // 1. Create + publish an overlay so it shows up as a binding candidate.
         HttpResponseMessage overlayCreated = await overlays.PostAsJsonAsync(
@@ -87,7 +85,7 @@ public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task An_unbound_layout_carries_overlayIdentifier_null()
     {
-        using HttpClient layouts = await _aspire.CreateAdminClientAsync("layout-composition");
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
 
         HttpResponseMessage created = await layouts.PostAsJsonAsync(
             "/layouts",

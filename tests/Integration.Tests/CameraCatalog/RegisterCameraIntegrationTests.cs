@@ -9,16 +9,14 @@ namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
 [Collection(AspireCollection.Name)]
 public class RegisterCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
-    private readonly AspireFixture _aspire = aspire;
-
-    public Task InitializeAsync() => _aspire.ResetCameraCatalogAsync();
+    public Task InitializeAsync() => aspire.ResetCameraCatalogAsync();
 
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task Register_a_camera_end_to_end_persists_the_row_and_stages_the_outbox_event()
     {
-        using HttpClient client = await _aspire.CreateAdminClientAsync("camera-catalog");
+        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
 
         HttpResponseMessage response = await client.PostAsJsonAsync(
             "/cameras",
@@ -30,7 +28,7 @@ public class RegisterCameraIntegrationTests(AspireFixture aspire) : IAsyncLifeti
         identifier.ShouldNotBe(Guid.Empty);
         response.Headers.Location?.ToString().ShouldEndWith($"/cameras/{identifier}");
 
-        await using CameraCatalogDbContext context = await _aspire.CreateCameraCatalogDbContextAsync();
+        await using CameraCatalogDbContext context = await aspire.CreateCameraCatalogDbContextAsync();
         var persisted = await context.Cameras.SingleAsync();
         persisted.Id.Value.ShouldBe(identifier);
         persisted.Name.Value.ShouldBe("Line-1-Entrance");
@@ -40,7 +38,7 @@ public class RegisterCameraIntegrationTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task Register_a_camera_with_a_duplicate_name_returns_409_via_HTTP()
     {
-        using HttpClient client = await _aspire.CreateAdminClientAsync("camera-catalog");
+        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
 
         HttpResponseMessage first = await client.PostAsJsonAsync(
             "/cameras",
@@ -59,7 +57,7 @@ public class RegisterCameraIntegrationTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task Register_a_camera_without_a_token_returns_401()
     {
-        using HttpClient client = _aspire.App.CreateHttpClient("camera-catalog");
+        using HttpClient client = aspire.App.CreateHttpClient("camera-catalog");
 
         HttpResponseMessage response = await client.PostAsJsonAsync(
             "/cameras",

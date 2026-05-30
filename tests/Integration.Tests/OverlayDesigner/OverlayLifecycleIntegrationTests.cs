@@ -15,11 +15,9 @@ namespace SmartSentinelEye.Integration.Tests.OverlayDesigner;
 [Collection(AspireCollection.Name)]
 public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
-    private readonly AspireFixture _aspire = aspire;
-
     public async Task InitializeAsync()
     {
-        await _aspire.ResetOverlayDesignerAsync();
+        await aspire.ResetOverlayDesignerAsync();
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -37,7 +35,7 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task Create_and_publish_an_overlay_emits_OverlayRevisionPublishedV1_within_500_ms()
     {
-        using HttpClient overlays = await _aspire.CreateAdminClientAsync("overlay-designer");
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
         Stopwatch sw = Stopwatch.StartNew();
         HttpResponseMessage created = await overlays.PostAsJsonAsync(
@@ -72,7 +70,7 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task A_name_collision_returns_409_Conflict_with_OVERLAY_NAME_TAKEN()
     {
-        using HttpClient overlays = await _aspire.CreateAdminClientAsync("overlay-designer");
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
         string sharedName = $"Ovl-{Guid.NewGuid():N}".Substring(0, 16);
 
         HttpResponseMessage first = await overlays.PostAsJsonAsync(
@@ -89,7 +87,7 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task List_with_state_Published_returns_only_chains_with_a_published_revision()
     {
-        using HttpClient overlays = await _aspire.CreateAdminClientAsync("overlay-designer");
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
         string draftName = $"Drf-{Guid.NewGuid():N}".Substring(0, 16);
         string pubName = $"Pub-{Guid.NewGuid():N}".Substring(0, 16);
 
@@ -118,7 +116,7 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task Get_for_an_unknown_overlay_returns_404()
     {
-        using HttpClient overlays = await _aspire.CreateAdminClientAsync("overlay-designer");
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
         HttpResponseMessage response = await overlays.GetAsync($"/overlays/{Guid.CreateVersion7()}");
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
@@ -126,7 +124,7 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task Anonymous_GET_returns_401()
     {
-        HttpResponseMessage response = await _aspire.OverlayDesigner.GetAsync(
+        HttpResponseMessage response = await aspire.OverlayDesigner.GetAsync(
             $"/overlays/{Guid.CreateVersion7()}");
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
