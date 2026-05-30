@@ -44,7 +44,7 @@ public class EndToEndIngestionIntegrationTests(AspireFixture aspire)
         row.GetProperty("eventKind").GetString().ShouldBe("CameraRegisteredV1");
         row.GetProperty("resourceKind").GetString().ShouldBe("camera");
         row.GetProperty("resourceIdentifier").GetString().ShouldBe(cameraId.ToString());
-        row.GetProperty("payload").GetString().ShouldContain(cameraName);
+        row.GetProperty("payload").GetString()!.ShouldContain(cameraName);
     }
 
     private static async Task<JsonElement> PollForAuditRowAsync(HttpClient auditReader, Guid cameraId)
