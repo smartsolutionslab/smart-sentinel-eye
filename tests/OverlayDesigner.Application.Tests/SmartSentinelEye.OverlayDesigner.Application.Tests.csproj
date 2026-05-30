@@ -22,7 +22,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\OverlayDesigner\Application\SmartSentinelEye.OverlayDesigner.Application.csproj" />
     <ProjectReference Include="..\..\src\OverlayDesigner\Domain\SmartSentinelEye.OverlayDesigner.Domain.csproj" />
-    <ProjectReference Include="..\..\src\LayoutComposition\Domain\SmartSentinelEye.LayoutComposition.Domain.csproj" />
     <ProjectReference Include="..\..\src\Shared.Kernel\SmartSentinelEye.Shared.Kernel.csproj" />
     <ProjectReference Include="..\..\src\Shared.CQRS\SmartSentinelEye.Shared.CQRS.csproj" />
     <ProjectReference Include="..\..\src\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />

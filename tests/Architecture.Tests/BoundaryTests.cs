@@ -32,26 +32,15 @@ public class BoundaryTests
     /// the consumer is allowed to reference from that layer.
     ///
     /// <para>
-    /// Today the only entry is the spec 004 bridge:
-    /// OverlayDesigner.Application + OverlayDesigner.Infrastructure
-    /// reach into LayoutComposition.Domain for
-    /// <c>ILayoutLifecycleBroadcaster</c> so the existing
-    /// /hubs/layouts SignalR hub fans out overlay lifecycle events
-    /// alongside layout events. The Domain + Api layers stay isolated.
+    /// Currently empty: every context communicates only via
+    /// <c>Shared.Contracts</c>. The former OverlayDesigner / SystemVariables
+    /// → LayoutComposition.Domain bridges (for <c>ILayoutLifecycleBroadcaster</c>)
+    /// were removed — those contexts now publish integration events that
+    /// LayoutComposition (the SignalR hub owner) subscribes to and relays.
     /// </para>
     /// </summary>
     private static readonly FrozenDictionary<(string Consumer, string Layer), string[]> AllowedCrossContext =
-        new Dictionary<(string, string), string[]>
-        {
-            { ("SmartSentinelEye.OverlayDesigner",   "Application"),    ["SmartSentinelEye.LayoutComposition"] },
-            { ("SmartSentinelEye.OverlayDesigner",   "Infrastructure"), ["SmartSentinelEye.LayoutComposition"] },
-            // Spec 005 bridge: SystemVariables.Application + .Infrastructure
-            // reach into LayoutComposition.Domain for ILayoutLifecycleBroadcaster
-            // so the same /hubs/layouts hub also carries ResolvedOverlayTextChanged
-            // frames.
-            { ("SmartSentinelEye.SystemVariables",   "Application"),    ["SmartSentinelEye.LayoutComposition"] },
-            { ("SmartSentinelEye.SystemVariables",   "Infrastructure"), ["SmartSentinelEye.LayoutComposition"] },
-        }.ToFrozenDictionary();
+        new Dictionary<(string, string), string[]>().ToFrozenDictionary();
 
     [Theory]
     [InlineData("SmartSentinelEye.CameraCatalog")]
@@ -87,55 +76,6 @@ public class BoundaryTests
                 result.IsSuccessful,
                 $"{assemblyName} has forbidden cross-context dependencies: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
         }
-    }
-
-    /// <summary>
-    /// T097 — exercises the spec 004 allow-rule positively:
-    /// OverlayDesigner.Application's domain-event handlers must depend
-    /// on the LayoutComposition.Domain broadcaster abstraction. If a
-    /// refactor accidentally removes the bridge, this test fails —
-    /// preventing silent drift away from the spec 004 plan.
-    /// </summary>
-    [Fact]
-    public void OverlayDesigner_Application_uses_the_documented_LayoutLifecycleBroadcaster_bridge()
-    {
-        Assembly application = Assembly.Load("SmartSentinelEye.OverlayDesigner.Application");
-        TestResult result = Types
-            .InAssembly(application)
-            .That()
-            .HaveNameEndingWith("DomainEventHandler")
-            .Should()
-            .HaveDependencyOn("SmartSentinelEye.LayoutComposition.Domain.Layout.ILayoutLifecycleBroadcaster")
-            .GetResult();
-
-        Assert.True(
-            result.IsSuccessful,
-            "OverlayDesigner.Application domain-event handlers must consume " +
-            "ILayoutLifecycleBroadcaster (spec 004 plan, documented cross-context exception).");
-    }
-
-    /// <summary>
-    /// Spec 005 T095 — exercises the second documented allow-rule
-    /// positively: SystemVariables.Application's domain-event
-    /// handlers must depend on the LayoutComposition.Domain
-    /// broadcaster abstraction.
-    /// </summary>
-    [Fact]
-    public void SystemVariables_Application_uses_the_documented_LayoutLifecycleBroadcaster_bridge()
-    {
-        Assembly application = Assembly.Load("SmartSentinelEye.SystemVariables.Application");
-        TestResult result = Types
-            .InAssembly(application)
-            .That()
-            .HaveNameEndingWith("DomainEventHandler")
-            .Should()
-            .HaveDependencyOn("SmartSentinelEye.LayoutComposition.Domain.Layout.ILayoutLifecycleBroadcaster")
-            .GetResult();
-
-        Assert.True(
-            result.IsSuccessful,
-            "SystemVariables.Application domain-event handlers must consume " +
-            "ILayoutLifecycleBroadcaster (spec 005 plan, second documented allow-rule).");
     }
 
     /// <summary>

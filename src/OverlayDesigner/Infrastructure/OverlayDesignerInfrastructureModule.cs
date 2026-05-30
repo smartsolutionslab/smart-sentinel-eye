@@ -19,11 +19,11 @@ namespace SmartSentinelEye.OverlayDesigner.Infrastructure;
 /// repository, domain-event handlers, and the standard ServiceDefaults.
 ///
 /// <para>
-/// Does NOT register <see cref="LayoutComposition.Domain.Layout.ILayoutLifecycleBroadcaster"/> —
-/// that's consumed from the LayoutComposition Api process's container
-/// registration via the shared abstraction (spec 004 plan.md; cross-
-/// context exception documented in <c>OverlayDesigner.Application</c>'s
-/// csproj).
+/// The overlay-published / archived domain-event handlers only publish
+/// the <c>OverlayRevisionPublished/ArchivedV1</c> integration events;
+/// the SignalR push lives in LayoutComposition (the hub owner), which
+/// subscribes to those events. This context therefore has no dependency
+/// on LayoutComposition.
 /// </para>
 /// </summary>
 public static class OverlayDesignerInfrastructureModule

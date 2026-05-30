@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
 using SmartSentinelEye.Shared.CQRS;
@@ -12,17 +11,18 @@ namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
 
 /// <summary>
 /// Reacts to a variable-value change: publishes the V1 integration
-/// event (Wolverine outbox), then for every overlay in the
-/// reverse-index entry for this variable, resolves the label text
-/// using the current variable snapshot and broadcasts the new
-/// resolved text via the cross-context broadcaster bridge.
+/// event (Wolverine outbox), then for every overlay referencing the
+/// variable, resolves the label text using the current variable
+/// snapshot and publishes a <see cref="ResolvedOverlayTextChangedV1"/>
+/// per overlay. LayoutComposition subscribes to that and pushes the
+/// SignalR frame on the hub it owns — the resolution stays here, the
+/// broadcast stays with the hub (no cross-context dependency).
 /// </summary>
 public sealed class VariableValueChangedDomainEventHandler(
     IEventBus events,
     IReverseIndex reverseIndex,
     IVariableRepository variables,
     IResolver resolver,
-    ILayoutLifecycleBroadcaster broadcaster,
     ILogger<VariableValueChangedDomainEventHandler> log)
     : IDomainEventHandler<VariableValueChangedDomainEvent>
 {
@@ -61,8 +61,12 @@ public sealed class VariableValueChangedDomainEventHandler(
             string resolvedText = resolver.Resolve(labelText, snapshot);
             long version = reverseIndex.NextVersionFor(overlayId);
 
-            await broadcaster.ResolvedOverlayTextChangedAsync(
-                new ResolvedOverlayTextChangedNotification(overlayId, resolvedText, version),
+            await events.PublishAsync(
+                new ResolvedOverlayTextChangedV1(
+                    Overlay: overlayId,
+                    ResolvedText: resolvedText,
+                    Version: version,
+                    Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ChangedAt, null, domainEvent.ChangedBy.Value)),
                 cancellationToken).ConfigureAwait(false);
         }
 

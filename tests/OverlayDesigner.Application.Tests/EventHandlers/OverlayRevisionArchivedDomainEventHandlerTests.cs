@@ -14,11 +14,10 @@ public class OverlayRevisionArchivedDomainEventHandlerTests
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture);
 
     [Fact]
-    public async Task Handler_publishes_V1_event_and_calls_the_overlay_broadcaster()
+    public async Task Handler_publishes_the_V1_integration_event()
     {
         FakeEventBus bus = new();
-        FakeOverlayLifecycleBroadcaster broadcaster = new();
-        OverlayRevisionArchivedDomainEventHandler handler = new(bus, broadcaster);
+        OverlayRevisionArchivedDomainEventHandler handler = new(bus);
 
         OverlayIdentifier overlayId = OverlayIdentifier.From(Guid.CreateVersion7());
         OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
@@ -32,8 +31,5 @@ public class OverlayRevisionArchivedDomainEventHandlerTests
         v1.RevisionNumber.ShouldBe(1);
         v1.ArchivedAt.ShouldBe(FixedMoment);
         v1.ArchivedBy.ShouldBe(by.Value);
-
-        broadcaster.Archived.ShouldHaveSingleItem();
-        broadcaster.Archived[0].Overlay.ShouldBe(overlayId.Value);
     }
 }

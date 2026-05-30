@@ -7,17 +7,6 @@
     <ProjectReference Include="..\..\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
     <ProjectReference Include="..\..\Shared.CQRS\SmartSentinelEye.Shared.CQRS.csproj" />
     <ProjectReference Include="..\..\ServiceDefaults\SmartSentinelEye.ServiceDefaults.csproj" />
-    <!-- Spec 005 broadcaster bridge: SystemVariables.Infrastructure
-         registers the same ILayoutLifecycleBroadcaster abstraction it
-         consumes via DI. Documented allow-rule alongside spec 004. -->
-    <ProjectReference Include="..\..\LayoutComposition\Domain\SmartSentinelEye.LayoutComposition.Domain.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- ASP.NET Core framework reference for the IHubContext path; the
-         broadcaster impl that consumes us lives in LayoutComposition.Infrastructure
-         but Wolverine outbox + EF stack live here. -->
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>

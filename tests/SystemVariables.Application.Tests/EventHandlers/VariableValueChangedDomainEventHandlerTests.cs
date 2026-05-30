@@ -1,6 +1,5 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.EventHandlers;
@@ -17,19 +16,18 @@ public class VariableValueChangedDomainEventHandlerTests
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture);
 
     [Fact]
-    public async Task Publishes_V1_event_and_pushes_resolved_text_for_each_affected_overlay()
+    public async Task Publishes_V1_event_and_a_resolved_text_event_for_each_affected_overlay()
     {
         FakeEventBus bus = new();
         InMemoryReverseIndex index = new();
         InMemoryVariableRepository repo = new();
-        FakeLayoutLifecycleBroadcaster broadcaster = new();
         IResolver resolver = new Resolver();
 
         Guid overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
 
         VariableValueChangedDomainEventHandler handler = new(
-            bus, index, repo, resolver, broadcaster,
+            bus, index, repo, resolver,
             NullLogger<VariableValueChangedDomainEventHandler>.Instance);
 
         VariableIdentifier id = VariableIdentifier.New();
@@ -45,8 +43,8 @@ public class VariableValueChangedDomainEventHandlerTests
         v1.Name.ShouldBe("oeeLine1");
         v1.Value.ShouldBe("82.5");
 
-        ResolvedOverlayTextChangedNotification push =
-            broadcaster.ResolvedTextChanged.ShouldHaveSingleItem();
+        ResolvedOverlayTextChangedV1 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV1>().ShouldHaveSingleItem();
         push.Overlay.ShouldBe(overlay);
         push.ResolvedText.ShouldBe("OEE: 82.5%");
         push.Version.ShouldBe(1);
@@ -58,10 +56,9 @@ public class VariableValueChangedDomainEventHandlerTests
         FakeEventBus bus = new();
         InMemoryReverseIndex index = new();
         InMemoryVariableRepository repo = new();
-        FakeLayoutLifecycleBroadcaster broadcaster = new();
 
         VariableValueChangedDomainEventHandler handler = new(
-            bus, index, repo, new Resolver(), broadcaster,
+            bus, index, repo, new Resolver(),
             NullLogger<VariableValueChangedDomainEventHandler>.Instance);
 
         await handler.Handle(
@@ -72,6 +69,6 @@ public class VariableValueChangedDomainEventHandlerTests
             CancellationToken.None);
 
         bus.Published.OfType<SystemVariableValueChangedV1>().ShouldHaveSingleItem();
-        broadcaster.ResolvedTextChanged.ShouldBeEmpty();
+        bus.Published.OfType<ResolvedOverlayTextChangedV1>().ShouldBeEmpty();
     }
 }

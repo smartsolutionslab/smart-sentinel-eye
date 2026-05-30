@@ -5,8 +5,6 @@ using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay.Events;
 using SmartSentinelEye.Shared.Contracts.OverlayDesigner;
 using SmartSentinelEye.Shared.Kernel;
-using OverlayLifecyclePublishedNotification =
-    SmartSentinelEye.LayoutComposition.Domain.Layout.OverlayLifecyclePublishedNotification;
 
 namespace SmartSentinelEye.OverlayDesigner.Application.Tests.EventHandlers;
 
@@ -16,11 +14,10 @@ public class OverlayRevisionPublishedDomainEventHandlerTests
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture);
 
     [Fact]
-    public async Task Handler_publishes_V1_event_and_calls_the_overlay_broadcaster()
+    public async Task Handler_publishes_the_V1_integration_event()
     {
         FakeEventBus bus = new();
-        FakeOverlayLifecycleBroadcaster broadcaster = new();
-        OverlayRevisionPublishedDomainEventHandler handler = new(bus, broadcaster);
+        OverlayRevisionPublishedDomainEventHandler handler = new(bus);
 
         Label label = Label.From("Hello", 0.2m, 0.3m, 0.4m, 0.5m, 32);
         OverlayIdentifier overlayId = OverlayIdentifier.From(Guid.CreateVersion7());
@@ -36,13 +33,8 @@ public class OverlayRevisionPublishedDomainEventHandlerTests
         v1.RevisionNumber.ShouldBe(1);
         v1.Text.ShouldBe(label.Text);
         v1.NormalizedX.ShouldBe(label.NormalizedX);
+        v1.NormalizedHeight.ShouldBe(label.NormalizedHeight);
         v1.FontSizePx.ShouldBe(label.FontSizePx);
         v1.PublishedBy.ShouldBe(by.Value);
-
-        OverlayLifecyclePublishedNotification notification =
-            broadcaster.Published.ShouldHaveSingleItem();
-        notification.Overlay.ShouldBe(overlayId.Value);
-        notification.Text.ShouldBe(label.Text);
-        notification.NormalizedHeight.ShouldBe(label.NormalizedHeight);
     }
 }
