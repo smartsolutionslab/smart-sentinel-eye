@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-05-25
+**Amended by:** ADR-0103 — integration tests run on the Aspire fixture only (no Testcontainers).
 
 ## Context
 
@@ -28,7 +29,7 @@ Required checks (all blocking):
 | Web lint | ESLint |
 | Web unit tests | `vitest run` |
 | Secret scan | `gitleaks` |
-| Integration tests | Aspire AppHost + Testcontainers (real Postgres, RabbitMQ, Keycloak) |
+| Integration tests | Aspire AppHost via the `AspireFixture` (real Postgres, RabbitMQ, Keycloak, MinIO; no Testcontainers — ADR-0103) |
 | Container smoke | `aspire publish --target k8s` |
 
 **Exemption:** PRs touching only `docs/`, `specs/`, or top-level
@@ -47,7 +48,7 @@ including docs.
   Mitigation paths: aggressive caching of NuGet, npm, Docker layers,
   test parallelization, and (once concurrency demands) self-hosted
   runners.
-- **Negative:** Testcontainers requires Docker in the runner. GitHub
+- **Negative:** the Aspire fixture requires Docker in the runner. GitHub
   Actions Ubuntu runners ship Docker by default; Windows runners do
   not — keep integration tests on Linux.
 

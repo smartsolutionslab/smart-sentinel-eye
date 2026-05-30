@@ -149,7 +149,7 @@ GitHub Actions runs the following on **every** PR into `develop` and
 | Web lint | ESLint |
 | Web unit tests | `vitest run` |
 | Secrets scan | `gitleaks` |
-| Integration tests | Aspire AppHost + Testcontainers (Postgres + RabbitMQ + Keycloak) |
+| Integration tests | Aspire AppHost via the `AspireFixture` (real Postgres, RabbitMQ, Keycloak, MinIO) |
 | Container smoke | `aspire publish --target k8s` |
 
 **Exemption:** PRs touching only `docs/`, `specs/`, or top-level `*.md`
@@ -209,7 +209,7 @@ before continuing.
 | 2 | **Plan** | `/speckit-plan` | `specs/NNN-x/plan.md` | Plan aligns with constitution + ADRs. |
 | 3 | **Tasks** | `/speckit-tasks` + `/speckit-taskstoissues` | `tasks.md` + GitHub issues on Project #13 | Tasks atomic and independently testable. |
 | 4 | **Implement** | `/speckit-implement` (Karpathy-guided) | Code + tests; format clean; analyzers clean | Tests green; commits follow ADR-0030. |
-| 5 | **Verify** | `/verify` (or explicit run/test) | Verification note on the PR | Behaviour observed end-to-end. UI changes: run the app, click through golden + edge paths. Backend: Aspire AppHost + Testcontainers integration green. Latency-sensitive: measured value per leg vs budget. |
+| 5 | **Verify** | `/verify` (or explicit run/test) | Verification note on the PR | Behaviour observed end-to-end. UI changes: run the app, click through golden + edge paths. Backend: Aspire AppHost integration green. Latency-sensitive: measured value per leg vs budget. |
 | 6 | **QA / Review** | `/code-review`; `/security-review` if security-sensitive | Findings list, each resolved or noted | All findings resolved or carry written rationale in the PR. |
 | 7 | **PR** | `gh pr create` with template; respond to CI | PR open against `develop`, template fully filled, CI green | Reviewer approval + green CI + merge. |
 
@@ -402,7 +402,7 @@ Driven by ADRs 0052–0054, 0063, 0065, 0068, 0081.
 | Framework | xUnit |
 | Assertions | **Shouldly** (MIT-licensed, fluent) |
 | Mocking | **Moq** for interfaces; **hand-written fakes** for repositories/stateful collaborators |
-| Real infrastructure | Testcontainers via Aspire fixture (`AspireFixture`) |
+| Real infrastructure | Real containers via the Aspire fixture (`AspireFixture`, `DistributedApplicationTestingBuilder`); no Testcontainers — ADR-0103 |
 | Naming | Sentence-style with underscores: `Register_a_camera_with_valid_input_returns_the_new_id()` |
 | Test data | Hand-written fluent builders in `tests/.../Builders/`. No AutoFixture. |
 | Layout (initial) | `tests/Architecture.Tests/` + `tests/Integration.Tests/` only; per-context per-layer test projects added per-feature |

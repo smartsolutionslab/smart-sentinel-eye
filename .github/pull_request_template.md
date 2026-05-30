@@ -41,7 +41,7 @@
 ## Test plan
 
 - [ ] Unit tests
-- [ ] Integration tests (Aspire + Testcontainers)
+- [ ] Integration tests (Aspire fixture)
 - [ ] Manual / exploratory
 - [ ] N/A (docs-only / chore)
 
