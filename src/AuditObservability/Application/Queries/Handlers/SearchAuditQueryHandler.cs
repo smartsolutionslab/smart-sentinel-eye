@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.AuditObservability.Application.DTOs;
+using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
@@ -44,14 +45,19 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
 
         IQueryable<AuditEventEntity> source = events.AuditEvents;
 
+        // Compare value objects directly (not their `.Value`): EF Core
+        // translates equality on a value-converted property to a column
+        // comparison, but cannot translate member access on the converted
+        // CLR type (`a.EventKind.Value == x` throws "could not be translated").
         if (query.Fab is { } fab)
         {
-            source = source.Where(a => a.Fab != null && a.Fab.Value == fab);
+            FabIdentifier fabId = FabIdentifier.From(fab);
+            source = source.Where(a => a.Fab == fabId);
         }
         else if (query.CallerFabs.Count > 0)
         {
-            HashSet<string> allowed = query.CallerFabs.ToHashSet(StringComparer.Ordinal);
-            source = source.Where(a => a.Fab != null && allowed.Contains(a.Fab.Value));
+            List<FabIdentifier> allowed = [.. query.CallerFabs.Select(FabIdentifier.From)];
+            source = source.Where(a => a.Fab != null && allowed.Contains(a.Fab));
         }
         else
         {
@@ -61,7 +67,8 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
 
         if (query.Actor is { } actor)
         {
-            source = source.Where(a => a.Actor.Value == actor);
+            ActorIdentifier actorId = ActorIdentifier.From(actor);
+            source = source.Where(a => a.Actor == actorId);
         }
         if (query.ActorUsername is { } actorUsername)
         {
@@ -69,15 +76,18 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         }
         if (query.EventKind is { } eventKind)
         {
-            source = source.Where(a => a.EventKind.Value == eventKind);
+            EventKind kind = EventKind.From(eventKind);
+            source = source.Where(a => a.EventKind == kind);
         }
         if (query.ResourceKind is { } resourceKind)
         {
-            source = source.Where(a => a.ResourceKind != null && a.ResourceKind.Value == resourceKind);
+            DomainResourceKind resourceKindFilter = DomainResourceKind.From(resourceKind);
+            source = source.Where(a => a.ResourceKind == resourceKindFilter);
         }
         if (query.ResourceIdentifier is { } resourceIdentifier)
         {
-            source = source.Where(a => a.ResourceIdentifier != null && a.ResourceIdentifier.Value == resourceIdentifier);
+            ResourceIdentifier resId = ResourceIdentifier.From(resourceIdentifier);
+            source = source.Where(a => a.ResourceIdentifier == resId);
         }
         if (query.Since is { } since) source = source.Where(a => a.OccurredAt >= since);
         if (query.Until is { } until) source = source.Where(a => a.OccurredAt < until);
@@ -89,12 +99,12 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
             // sharing the same OccurredAt don't shift the window.
             source = source.Where(a =>
                 a.OccurredAt < c.OccurredAt ||
-                (a.OccurredAt == c.OccurredAt && a.Id.Value.CompareTo(c.AuditIdentifier) < 0));
+                (a.OccurredAt == c.OccurredAt && ((Guid)a.Id).CompareTo(c.AuditIdentifier) < 0));
         }
 
         List<AuditEventEntity> rows = await source
             .OrderByDescending(a => a.OccurredAt)
-            .ThenByDescending(a => a.Id.Value)
+            .ThenByDescending(a => a.Id)
             .Take(pageSize + 1)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);

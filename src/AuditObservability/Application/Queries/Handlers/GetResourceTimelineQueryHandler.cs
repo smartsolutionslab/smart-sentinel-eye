@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.AuditObservability.Application.DTOs;
+using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
@@ -42,10 +43,16 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
             }
         }
 
+        // Compare value objects directly so EF translates to column
+        // comparisons (member access on the converted type does not translate).
+        DomainResourceKind resourceKind = DomainResourceKind.From(query.ResourceKind);
+        ResourceIdentifier resourceIdentifier = ResourceIdentifier.From(query.ResourceIdentifier);
+        FabIdentifier fab = FabIdentifier.From(query.Fab);
+
         IQueryable<AuditEventEntity> source = events.AuditEvents
-            .Where(a => a.ResourceKind != null && a.ResourceKind.Value == query.ResourceKind)
-            .Where(a => a.ResourceIdentifier != null && a.ResourceIdentifier.Value == query.ResourceIdentifier)
-            .Where(a => a.Fab != null && a.Fab.Value == query.Fab);
+            .Where(a => a.ResourceKind == resourceKind)
+            .Where(a => a.ResourceIdentifier == resourceIdentifier)
+            .Where(a => a.Fab == fab);
 
         if (query.Since is { } since) source = source.Where(a => a.OccurredAt >= since);
         if (query.Until is { } until) source = source.Where(a => a.OccurredAt < until);
@@ -55,12 +62,12 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
             // Ascending order — strict 'greater than' for the tuple.
             source = source.Where(a =>
                 a.OccurredAt > c.OccurredAt ||
-                (a.OccurredAt == c.OccurredAt && a.Id.Value.CompareTo(c.AuditIdentifier) > 0));
+                (a.OccurredAt == c.OccurredAt && ((Guid)a.Id).CompareTo(c.AuditIdentifier) > 0));
         }
 
         List<AuditEventEntity> rows = await source
             .OrderBy(a => a.OccurredAt)
-            .ThenBy(a => a.Id.Value)
+            .ThenBy(a => a.Id)
             .Take(pageSize + 1)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);

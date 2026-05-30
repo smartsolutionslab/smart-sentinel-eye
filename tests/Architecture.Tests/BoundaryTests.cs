@@ -227,6 +227,36 @@ public class BoundaryTests
     }
 
     /// <summary>
+    /// Spec 009 US1 — every concrete <c>IIntegrationEvent</c> must have a
+    /// <c>Handle</c> entry point on <c>IntegrationEventAuditHandler</c>.
+    /// Wolverine binds RabbitMQ listeners per concretely-handled type, so a
+    /// new V1 without an entry here would be silently un-audited.
+    /// </summary>
+    [Fact]
+    public void Every_integration_event_has_an_audit_handler()
+    {
+        Assembly contracts = Assembly.Load("SmartSentinelEye.Shared.Contracts");
+        Type integrationEvent = contracts.GetType("SmartSentinelEye.Shared.Contracts.IIntegrationEvent")!;
+
+        Type[] concreteV1s = [.. contracts.GetTypes()
+            .Where(t => !t.IsAbstract && !t.IsInterface)
+            .Where(t => integrationEvent.IsAssignableFrom(t))];
+
+        Assembly application = Assembly.Load("SmartSentinelEye.AuditObservability.Application");
+        Type handlerType = application.GetType(
+            "SmartSentinelEye.AuditObservability.Application.EventHandlers.IntegrationEventAuditHandler")!;
+        HashSet<Type> handled = [.. handlerType.GetMethods()
+            .Where(m => m.Name == "Handle")
+            .Select(m => m.GetParameters()[0].ParameterType)];
+
+        IReadOnlyList<Type> unhandled = [.. concreteV1s.Where(t => !handled.Contains(t))];
+
+        Assert.True(
+            unhandled.Count == 0,
+            $"IntegrationEventAuditHandler is missing a Handle overload for: {string.Join(", ", unhandled.Select(t => t.FullName))}.");
+    }
+
+    /// <summary>
     /// Spec 008 T018 — Identity.Domain must remain free of every
     /// infrastructure framework (SignalR, EF Core, Wolverine,
     /// Npgsql, MQTTnet). The Keycloak Admin REST client lives in

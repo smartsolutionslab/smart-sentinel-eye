@@ -9,7 +9,8 @@ namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 /// TimescaleDB hypertable partitions on <c>occurred_at</c> + uses
 /// this id as the tie-breaker in cursor pagination.
 /// </summary>
-public readonly record struct AuditEventIdentifier(Guid Value) : IStronglyTypedId<Guid>
+public readonly record struct AuditEventIdentifier(Guid Value)
+    : IStronglyTypedId<Guid>, IComparable<AuditEventIdentifier>
 {
     public static AuditEventIdentifier New() => new(Guid.CreateVersion7());
 
@@ -17,6 +18,23 @@ public readonly record struct AuditEventIdentifier(Guid Value) : IStronglyTypedI
         value == Guid.Empty
             ? throw new ArgumentException("AuditEventIdentifier cannot be empty.", nameof(value))
             : new AuditEventIdentifier(value);
+
+    /// <summary>
+    /// Implicit unwrap to the underlying <see cref="Guid"/> so EF Core can
+    /// translate ordering / comparisons on the value-converted id in the
+    /// read API (ordering on <c>a.Id</c> maps to the <c>audit_id</c> column;
+    /// member access on <c>a.Id.Value</c> does not translate).
+    /// </summary>
+    public static implicit operator Guid(AuditEventIdentifier id) => id.Value;
+
+    /// <summary>Orders by the underlying Guid v7 (insert-order) so in-memory
+    /// query sorts match the SQL <c>ORDER BY audit_id</c> tie-break.</summary>
+    public int CompareTo(AuditEventIdentifier other) => Value.CompareTo(other.Value);
+
+    public static bool operator <(AuditEventIdentifier left, AuditEventIdentifier right) => left.CompareTo(right) < 0;
+    public static bool operator <=(AuditEventIdentifier left, AuditEventIdentifier right) => left.CompareTo(right) <= 0;
+    public static bool operator >(AuditEventIdentifier left, AuditEventIdentifier right) => left.CompareTo(right) > 0;
+    public static bool operator >=(AuditEventIdentifier left, AuditEventIdentifier right) => left.CompareTo(right) >= 0;
 
     public override string ToString() => Value.ToString();
 }
