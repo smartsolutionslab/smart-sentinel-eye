@@ -8,7 +8,7 @@ namespace SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 /// boundary; every revision of the same logical overlay shares this
 /// identifier.
 /// </summary>
-public readonly record struct OverlayIdentifier(Guid Value) : IStronglyTypedId<Guid>
+public readonly record struct OverlayIdentifier(Guid Value) : IStronglyTypedId<Guid>, IComparable<OverlayIdentifier>
 {
     public static OverlayIdentifier New() => new(Guid.CreateVersion7());
 
@@ -16,6 +16,16 @@ public readonly record struct OverlayIdentifier(Guid Value) : IStronglyTypedId<G
         value == Guid.Empty
             ? throw new ArgumentException("OverlayIdentifier cannot be empty.", nameof(value))
             : new OverlayIdentifier(value);
+
+    public static implicit operator Guid(OverlayIdentifier id) => id.Value;
+
+    /// <summary>Orders by the underlying Guid v7 so EF ordering and in-memory sorts agree.</summary>
+    public int CompareTo(OverlayIdentifier other) => Value.CompareTo(other.Value);
+
+    public static bool operator <(OverlayIdentifier left, OverlayIdentifier right) => left.CompareTo(right) < 0;
+    public static bool operator <=(OverlayIdentifier left, OverlayIdentifier right) => left.CompareTo(right) <= 0;
+    public static bool operator >(OverlayIdentifier left, OverlayIdentifier right) => left.CompareTo(right) > 0;
+    public static bool operator >=(OverlayIdentifier left, OverlayIdentifier right) => left.CompareTo(right) >= 0;
 
     public override string ToString() => Value.ToString();
 }

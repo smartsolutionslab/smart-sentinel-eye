@@ -10,7 +10,7 @@ namespace SmartSentinelEye.Identity.Domain.RegisteredClient;
 /// the local Guid v7 remains stable even if a Keycloak client is
 /// re-created with the same client-id string.
 /// </summary>
-public readonly record struct RegisteredClientIdentifier(Guid Value) : IStronglyTypedId<Guid>
+public readonly record struct RegisteredClientIdentifier(Guid Value) : IStronglyTypedId<Guid>, IComparable<RegisteredClientIdentifier>
 {
     public static RegisteredClientIdentifier New() => new(Guid.CreateVersion7());
 
@@ -18,6 +18,16 @@ public readonly record struct RegisteredClientIdentifier(Guid Value) : IStrongly
         value == Guid.Empty
             ? throw new ArgumentException("RegisteredClientIdentifier cannot be empty.", nameof(value))
             : new RegisteredClientIdentifier(value);
+
+    public static implicit operator Guid(RegisteredClientIdentifier id) => id.Value;
+
+    /// <summary>Orders by the underlying Guid v7 so EF ordering and in-memory sorts agree.</summary>
+    public int CompareTo(RegisteredClientIdentifier other) => Value.CompareTo(other.Value);
+
+    public static bool operator <(RegisteredClientIdentifier left, RegisteredClientIdentifier right) => left.CompareTo(right) < 0;
+    public static bool operator <=(RegisteredClientIdentifier left, RegisteredClientIdentifier right) => left.CompareTo(right) <= 0;
+    public static bool operator >(RegisteredClientIdentifier left, RegisteredClientIdentifier right) => left.CompareTo(right) > 0;
+    public static bool operator >=(RegisteredClientIdentifier left, RegisteredClientIdentifier right) => left.CompareTo(right) >= 0;
 
     public override string ToString() => Value.ToString();
 }
