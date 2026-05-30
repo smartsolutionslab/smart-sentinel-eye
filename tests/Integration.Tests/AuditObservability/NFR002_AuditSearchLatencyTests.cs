@@ -1,0 +1,95 @@
+using System.Diagnostics;
+using System.Globalization;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
+using SmartSentinelEye.Integration.Tests.Fixtures;
+
+namespace SmartSentinelEye.Integration.Tests.AuditObservability;
+
+/// <summary>
+/// Spec 009 NFR-002 (T073): a cross-cutting <c>GET /audit</c> with a tight
+/// time window over the warm hot tier returns within p99 ≤ 200 ms. Seeds the
+/// hypertable with ~100 k rows (about one month at the 100 ev/s target),
+/// spread across the last 24 h so the <c>occurred_at</c> + fab index is the
+/// hot path, then runs a warm-up + measured loop of the real read endpoint.
+/// </summary>
+[Collection(AspireCollection.Name)]
+public class NFR002_AuditSearchLatencyTests(AspireFixture aspire)
+{
+    private const int SeedRows = 100_000;
+    private const int WarmupIterations = 100;
+    private const int MeasureIterations = 1_000;
+    private const double P99BudgetMs = 200;
+
+    private readonly AspireFixture _aspire = aspire;
+
+    [Fact]
+    public async Task Search_over_a_24h_window_p99_stays_under_200ms()
+    {
+        await SeedHotTierAsync();
+
+        using HttpClient client = await _aspire.CreateAdminClientAsync("audit-observability");
+        string since = DateTimeOffset.UtcNow.AddHours(-24).ToString("O", CultureInfo.InvariantCulture);
+        string query = $"/audit?fabId=munich&since={Uri.EscapeDataString(since)}&pageSize=50";
+
+        // Warm up the connection pool, EF query plan, and the read path.
+        for (int i = 0; i < WarmupIterations; i++)
+        {
+            using HttpResponseMessage warm = await client.GetAsync(query);
+            warm.StatusCode.ShouldBe(HttpStatusCode.OK);
+        }
+
+        double[] elapsedMs = new double[MeasureIterations];
+        for (int i = 0; i < MeasureIterations; i++)
+        {
+            long start = Stopwatch.GetTimestamp();
+            using HttpResponseMessage response = await client.GetAsync(query);
+            elapsedMs[i] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+            response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        }
+
+        Array.Sort(elapsedMs);
+        double p50 = elapsedMs[MeasureIterations / 2];
+        double p99 = elapsedMs[(int)Math.Ceiling(MeasureIterations * 0.99) - 1];
+        double max = elapsedMs[^1];
+
+        p99.ShouldBeLessThan(
+            P99BudgetMs,
+            $"search p50 = {p50:F1} ms, p99 = {p99:F1} ms, max = {max:F1} ms over {SeedRows} rows");
+    }
+
+    private async Task SeedHotTierAsync()
+    {
+        await using AuditObservabilityDbContext context =
+            await _aspire.CreateAuditObservabilityDbContextAsync();
+        context.Database.SetCommandTimeout(TimeSpan.FromMinutes(2));
+
+        string emptyJson = "{}";
+        // One statement, server-side: spread occurred_at across the last 23h so
+        // the rows fall inside the 24h query window and on the warm chunk(s).
+        await context.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO audit_events (
+                audit_id, occurred_at, received_at, fab_id, event_kind,
+                resource_kind, resource_identifier, actor_identifier,
+                actor_username, event_identifier, payload, payload_size_bytes,
+                schema_version)
+            SELECT
+                gen_random_uuid(),
+                now() - (random() * INTERVAL '23 hours'),
+                now(),
+                'munich',
+                'CameraRegisteredV1',
+                'camera',
+                gen_random_uuid()::text,
+                gen_random_uuid(),
+                NULL,
+                gen_random_uuid(),
+                {emptyJson}::jsonb,
+                2,
+                1
+            FROM generate_series(1, {SeedRows})
+            """);
+    }
+}
