@@ -37,30 +37,7 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
             }
         }
 
-        IQueryable<EventAggregate> source = events.Events.Where(e => e.Fab == query.Fab);
-
-        if (query.Source is not null) source = source.Where(e => e.Source == query.Source);
-        if (query.Device is not null) source = source.Where(e => e.Device == query.Device);
-        if (query.Kind is not null) source = source.Where(e => e.Kind == query.Kind);
-        if (query.OccurredAfter is { } occurredAfter) source = source.Where(e => e.OccurredAt.Value > occurredAfter);
-        if (query.OccurredBefore is { } occurredBefore) source = source.Where(e => e.OccurredAt.Value < occurredBefore);
-        if (query.IngestedAfter is { } ingestedAfter) source = source.Where(e => e.IngestedAt.Value > ingestedAfter);
-        if (query.IngestedBefore is { } ingestedBefore) source = source.Where(e => e.IngestedAt.Value < ingestedBefore);
-
-        if (cursor is { } c)
-        {
-            // Strict 'less than' for descending order. IngestedAt is
-            // microsecond-precision; the chance of two events
-            // colliding across a page boundary is negligible at 1k/s.
-            // The eventId in the cursor is reserved for a future
-            // tuple-compare tightening.
-            source = source.Where(e => e.IngestedAt.Value < c.Ingested);
-        }
-
-        List<EventAggregate> rows = await source
-            .OrderByDescending(e => e.IngestedAt.Value)
-            .ThenByDescending(e => e.Id.Value)
-            .Take(pageSize + 1)
+        List<EventAggregate> rows = await BuildPagedQuery(events.Events, query, cursor, pageSize)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
@@ -75,6 +52,45 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
         EventDto[] items = rows.Select(GetEventQueryHandler.Map).ToArray();
         return Result<EventPageDto, ListEventsError>.Success(
             new EventPageDto(items, nextCursor));
+    }
+
+    /// <summary>
+    /// Builds the filtered, cursor-bounded, descending query (taking one extra
+    /// row to detect a next page). Extracted so the EF Core SQL translation of
+    /// the value-converted time/id columns can be verified offline (the filters
+    /// and ordering compare the value objects directly — the implicit operators
+    /// unwrap to the underlying column; member access on <c>.Value</c> does not
+    /// translate).
+    /// </summary>
+    public static IQueryable<EventAggregate> BuildPagedQuery(
+        IQueryable<EventAggregate> events,
+        ListEventsQuery query,
+        (DateTimeOffset Ingested, Guid EventId)? cursor,
+        int pageSize)
+    {
+        IQueryable<EventAggregate> source = events.Where(e => e.Fab == query.Fab);
+
+        if (query.Source is not null) source = source.Where(e => e.Source == query.Source);
+        if (query.Device is not null) source = source.Where(e => e.Device == query.Device);
+        if (query.Kind is not null) source = source.Where(e => e.Kind == query.Kind);
+        if (query.OccurredAfter is { } occurredAfter) source = source.Where(e => e.OccurredAt > occurredAfter);
+        if (query.OccurredBefore is { } occurredBefore) source = source.Where(e => e.OccurredAt < occurredBefore);
+        if (query.IngestedAfter is { } ingestedAfter) source = source.Where(e => e.IngestedAt > ingestedAfter);
+        if (query.IngestedBefore is { } ingestedBefore) source = source.Where(e => e.IngestedAt < ingestedBefore);
+
+        if (cursor is { } c)
+        {
+            // Strict 'less than' for descending order. IngestedAt is
+            // microsecond-precision; the chance of two events colliding across
+            // a page boundary is negligible at 1k/s. The eventId in the cursor
+            // is reserved for a future tuple-compare tightening.
+            source = source.Where(e => e.IngestedAt < c.Ingested);
+        }
+
+        return source
+            .OrderByDescending(e => e.IngestedAt)
+            .ThenByDescending(e => e.Id)
+            .Take(pageSize + 1);
     }
 
     private static string EncodeCursor(DateTimeOffset ingested, Guid eventId)
