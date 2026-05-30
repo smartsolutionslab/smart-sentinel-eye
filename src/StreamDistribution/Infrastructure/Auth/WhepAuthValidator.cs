@@ -25,9 +25,15 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
         ArgumentNullException.ThrowIfNull(options);
         string authority = options.Value.Authority.TrimEnd('/');
 
+        // Allow an http metadata authority (dev/test/Aspire); production
+        // Keycloak is https, enforced by the Helm overlay. Mirrors the standard
+        // JwtBearer pipeline's RequireHttpsMetadata = false (AuthenticationDefaults).
+        // Without this the default HttpDocumentRetriever requires https and throws
+        // IDX20108 on the dev/CI http authority — a 500 on every WHEP authorize.
         _oidc = new ConfigurationManager<OpenIdConnectConfiguration>(
             $"{authority}/.well-known/openid-configuration",
-            new OpenIdConnectConfigurationRetriever());
+            new OpenIdConnectConfigurationRetriever(),
+            new HttpDocumentRetriever { RequireHttps = false });
 
         _parameters = new TokenValidationParameters
         {

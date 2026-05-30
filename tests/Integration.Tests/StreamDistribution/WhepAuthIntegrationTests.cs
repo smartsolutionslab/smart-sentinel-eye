@@ -27,7 +27,7 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             $"/streams/cam-{Guid.CreateVersion7()}/authorize",
             new { token = (string?)null });
 
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        await AssertStatusAsync(response, HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             "/streams/not-a-cam-guid/authorize",
             new { token });
 
-        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        await AssertStatusAsync(response, HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             $"/streams/cam-{Guid.CreateVersion7()}/authorize",
             new { token });
 
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        await AssertStatusAsync(response, HttpStatusCode.OK);
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             $"/streams/cam-{Guid.CreateVersion7()}/authorize",
             new { token = "this-is-not-a-jwt" });
 
-        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        await AssertStatusAsync(response, HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -79,6 +79,18 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             $"/streams/cam-{Guid.CreateVersion7()}/authorize",
             new { token = $"Bearer {token}" });
 
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        await AssertStatusAsync(response, HttpStatusCode.OK);
+    }
+
+    // Asserts the status and, on mismatch, surfaces the response body. The
+    // StreamDistribution API runs the developer exception page in the E2E
+    // stack, so a 500 body carries the server-side stack — making a CI-only
+    // WHEP authorize failure (passes locally) diagnosable from the test log.
+    private static async Task AssertStatusAsync(HttpResponseMessage response, HttpStatusCode expected)
+    {
+        if (response.StatusCode == expected) return;
+        string body = await response.Content.ReadAsStringAsync();
+        response.StatusCode.ShouldBe(expected,
+            $"unexpected status. response body:\n{(body.Length > 4000 ? body[..4000] : body)}");
     }
 }
