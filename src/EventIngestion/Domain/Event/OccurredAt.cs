@@ -13,6 +13,15 @@ public sealed record OccurredAt(DateTimeOffset Value) : IValueObject<DateTimeOff
     public static OccurredAt From(DateTimeOffset value) =>
         new(value.ToUniversalTime());
 
+    /// <summary>
+    /// Implicit unwrap to the underlying <see cref="DateTimeOffset"/> so EF Core
+    /// can translate range comparisons and ordering on the value-converted
+    /// column in the read API (<c>e.OccurredAt &gt; x</c> maps to the
+    /// <c>occurred_at</c> column; member access on <c>e.OccurredAt.Value</c>
+    /// does not translate).
+    /// </summary>
+    public static implicit operator DateTimeOffset(OccurredAt occurredAt) => occurredAt.Value;
+
     public sealed override string ToString() =>
         Value.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
 }

@@ -29,6 +29,7 @@
     <ProjectReference Include="..\..\src\OverlayDesigner\Infrastructure\SmartSentinelEye.OverlayDesigner.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Identity\Infrastructure\SmartSentinelEye.Identity.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\AuditObservability\Infrastructure\SmartSentinelEye.AuditObservability.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\EventIngestion\Infrastructure\SmartSentinelEye.EventIngestion.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
   </ItemGroup>
 
