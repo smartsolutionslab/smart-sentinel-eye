@@ -45,13 +45,11 @@ public sealed class RuleCacheSeederHostedService(
                 cache.Upsert(rule);
             }
 
-            log.LogInformation(
-                "Seeded rule cache with {Count} Active rule(s).", active.Count);
+            log.LogInformation("Seeded rule cache with {Count} Active rule(s).", active.Count);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            log.LogError(ex,
-                "Rule cache seeding failed; cache will start empty and self-heal on the next Publish.");
+            log.LogError(ex, "Rule cache seeding failed; cache will start empty and self-heal on the next Publish.");
         }
     }
 

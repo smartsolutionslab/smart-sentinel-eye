@@ -22,9 +22,7 @@ public sealed record RuleState(string Value) : IValueObject<string>
             "Draft" => Draft,
             "Active" => Active,
             "Archived" => Archived,
-            _ => throw new ArgumentException(
-                $"Unknown RuleState '{value}'. Expected: Draft | Active | Archived.",
-                nameof(value)),
+            _ => throw new ArgumentException($"Unknown RuleState '{value}'. Expected: Draft | Active | Archived.", nameof(value)),
         };
 
     public sealed override string ToString() => Value;

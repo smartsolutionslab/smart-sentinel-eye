@@ -29,12 +29,10 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire) : IAsyncLifetime
     private const int MeasureIterations = 100;
     private const double P99BudgetMilliseconds = 5;
 
-    private readonly AspireFixture _aspire = aspire;
-
     public async Task InitializeAsync()
     {
         using CancellationTokenSource cts = new(TimeSpan.FromMinutes(2));
-        await _aspire.App.ResourceNotifications
+        await aspire.App.ResourceNotifications
             .WaitForResourceAsync("identity", KnownResourceStates.Running, cts.Token);
     }
 
@@ -43,13 +41,13 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire) : IAsyncLifetime
     [Fact(Skip = "Identity → Keycloak admin path is green (device-register + token mint succeed). Broker rejects the device JWT at CONNECT with 'Error while authenticating. Connection closed.' — needs interactive debugging of mosquitto-go-auth's JWT-mode config (jwt_issuer, JWKS reachability from the mosquitto container to keycloak:8080, file-vs-jwt chain ordering for previously-unseen usernames). Test scaffold + measurement loop ready; unskip once the broker accepts a Keycloak-minted client_credentials token.")]
     public async Task Mqtt_CONNECT_to_CONNACK_p99_stays_under_the_five_millisecond_budget()
     {
-        string adminToken = await _aspire.GetAccessTokenAsync(
+        string adminToken = await aspire.GetAccessTokenAsync(
             AspireFixture.AdminUsername, AspireFixture.AdminPassword);
 
         DeviceCredentials device = await RegisterDeviceAsync(adminToken);
         string deviceJwt = await MintDeviceTokenAsync(device);
 
-        Uri mqtt = _aspire.App.GetEndpoint("mosquitto", "mqtt");
+        Uri mqtt = aspire.App.GetEndpoint("mosquitto", "mqtt");
         string host = mqtt.Host;
         int port = mqtt.Port;
 
@@ -78,7 +76,7 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire) : IAsyncLifetime
 
     private async Task<DeviceCredentials> RegisterDeviceAsync(string adminToken)
     {
-        using HttpClient identity = _aspire.App.CreateHttpClient("identity");
+        using HttpClient identity = aspire.App.CreateHttpClient("identity");
         using HttpRequestMessage request = new(HttpMethod.Post, "/devices/register?fabId=munich")
         {
             Content = JsonContent.Create(new
@@ -104,7 +102,7 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire) : IAsyncLifetime
 
     private async Task<string> MintDeviceTokenAsync(DeviceCredentials device)
     {
-        using HttpClient keycloak = _aspire.App.CreateHttpClient("keycloak");
+        using HttpClient keycloak = aspire.App.CreateHttpClient("keycloak");
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "client_credentials",

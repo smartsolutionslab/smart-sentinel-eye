@@ -24,8 +24,6 @@ namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 [Collection(AspireCollection.Name)]
 public class RetentionRoundtripIntegrationTests(AspireFixture aspire)
 {
-    private readonly AspireFixture _aspire = aspire;
-
     [Fact]
     public async Task A_chunk_past_the_retention_boundary_is_archived_dropped_and_announced()
     {
@@ -50,7 +48,7 @@ public class RetentionRoundtripIntegrationTests(AspireFixture aspire)
     private async Task SeedBackdatedRowAsync(DateTimeOffset occurredAt)
     {
         await using AuditObservabilityDbContext context =
-            await _aspire.CreateAuditObservabilityDbContextAsync();
+            await aspire.CreateAuditObservabilityDbContextAsync();
 
         string emptyJson = "{}";
         await context.Database.ExecuteSqlInterpolatedAsync($"""
@@ -69,7 +67,7 @@ public class RetentionRoundtripIntegrationTests(AspireFixture aspire)
     private async Task<int> CountChunksPastBoundaryAsync()
     {
         await using AuditObservabilityDbContext context =
-            await _aspire.CreateAuditObservabilityDbContextAsync();
+            await aspire.CreateAuditObservabilityDbContextAsync();
 
         List<int> result = await context.Database
             .SqlQuery<int>($"""
@@ -87,7 +85,7 @@ public class RetentionRoundtripIntegrationTests(AspireFixture aspire)
         for (int attempt = 0; attempt < 60; attempt++)
         {
             await using AuditObservabilityDbContext context =
-                await _aspire.CreateAuditObservabilityDbContextAsync();
+                await aspire.CreateAuditObservabilityDbContextAsync();
 
             List<string> payloads = await context.Database
                 .SqlQuery<string>($"""

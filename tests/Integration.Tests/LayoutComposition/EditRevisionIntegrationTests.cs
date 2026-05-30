@@ -12,11 +12,9 @@ namespace SmartSentinelEye.Integration.Tests.LayoutComposition;
 [Collection(AspireCollection.Name)]
 public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
-    private readonly AspireFixture _aspire = aspire;
-
     public async Task InitializeAsync()
     {
-        await _aspire.ResetLayoutCompositionAsync();
+        await aspire.ResetLayoutCompositionAsync();
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -24,7 +22,7 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Publishing_a_new_revision_atomically_archives_the_previous_Published_revision()
     {
-        using HttpClient layouts = await _aspire.CreateAdminClientAsync("layout-composition");
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
         Guid camera1 = Guid.CreateVersion7();
         Guid camera2 = Guid.CreateVersion7();
 
@@ -62,7 +60,7 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Reverting_a_Published_revision_brings_it_back_to_Draft()
     {
-        using HttpClient layouts = await _aspire.CreateAdminClientAsync("layout-composition");
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
         Guid layoutIdentifier = await CreateAndPublishAsync(
             layouts, "Line-Revert", Guid.CreateVersion7());
 
@@ -78,7 +76,7 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Branching_a_chain_without_a_Published_revision_returns_409()
     {
-        using HttpClient layouts = await _aspire.CreateAdminClientAsync("layout-composition");
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
         HttpResponseMessage created = await layouts.PostAsJsonAsync(
             "/layouts", new { name = $"Drf-{Guid.NewGuid():N}".Substring(0, 16), cameraIdentifier = Guid.CreateVersion7() });
         created.EnsureSuccessStatusCode();

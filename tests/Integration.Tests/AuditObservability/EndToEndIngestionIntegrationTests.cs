@@ -21,12 +21,10 @@ namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 [Collection(AspireCollection.Name)]
 public class EndToEndIngestionIntegrationTests(AspireFixture aspire)
 {
-    private readonly AspireFixture _aspire = aspire;
-
     [Fact]
     public async Task Registering_a_camera_produces_one_audit_row_with_the_camera_resource_pivot()
     {
-        using HttpClient cameraAdmin = await _aspire.CreateAdminClientAsync("camera-catalog");
+        using HttpClient cameraAdmin = await aspire.CreateAdminClientAsync("camera-catalog");
         string cameraName = $"Audit-E2E-{Guid.CreateVersion7():N}";
 
         HttpResponseMessage register = await cameraAdmin.PostAsJsonAsync(
@@ -36,7 +34,7 @@ public class EndToEndIngestionIntegrationTests(AspireFixture aspire)
         Guid cameraId = await register.Content.ReadFromJsonAsync<Guid>();
         cameraId.ShouldNotBe(Guid.Empty);
 
-        using HttpClient auditReader = await _aspire.CreateAuthenticatedClientAsync(
+        using HttpClient auditReader = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "operator", "Operator1234");
 
         JsonElement row = await PollForAuditRowAsync(auditReader, cameraId);

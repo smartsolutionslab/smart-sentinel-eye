@@ -17,16 +17,14 @@ public class CommandLatencyTests(AspireFixture aspire) : IAsyncLifetime
     private const int WarmupCount = 10;
     private const int BudgetMilliseconds = 200;
 
-    private readonly AspireFixture _aspire = aspire;
-
-    public Task InitializeAsync() => _aspire.ResetCameraCatalogAsync();
+    public Task InitializeAsync() => aspire.ResetCameraCatalogAsync();
 
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task POST_cameras_p95_stays_within_the_command_path_budget()
     {
-        using HttpClient client = await _aspire.CreateAdminClientAsync("camera-catalog");
+        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
 
         List<double> latencies = new(capacity: SampleCount);
 

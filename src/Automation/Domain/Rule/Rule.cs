@@ -88,8 +88,7 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
         if (State == RuleState.Active) return; // idempotent
         if (State == RuleState.Archived)
         {
-            throw new InvalidOperationException(
-                $"Rule {Id} is Archived; clone the rule to author a new one.");
+            throw new InvalidOperationException($"Rule {Id} is Archived; clone the rule to author a new one.");
         }
         State = RuleState.Active;
         PublishedAt = clock.UtcNow;

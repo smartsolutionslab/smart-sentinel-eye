@@ -21,13 +21,11 @@ namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 [Collection(AspireCollection.Name)]
 public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
-    private readonly AspireFixture _aspire = aspire;
-
     public async Task InitializeAsync()
     {
-        await _aspire.ResetMediaMtxAsync();
-        await _aspire.ResetStreamDistributionAsync();
-        await _aspire.ResetCameraCatalogAsync();
+        await aspire.ResetMediaMtxAsync();
+        await aspire.ResetStreamDistributionAsync();
+        await aspire.ResetCameraCatalogAsync();
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -35,7 +33,7 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Reconciler_removes_orphan_paths_and_preserves_paths_with_a_DB_stream()
     {
-        using HttpClient mediaMtx = _aspire.App.CreateHttpClient("mediamtx", "api");
+        using HttpClient mediaMtx = aspire.App.CreateHttpClient("mediamtx", "api");
 
         Guid keptCamera = Guid.CreateVersion7();
         Guid orphanCamera = Guid.CreateVersion7();
@@ -45,7 +43,7 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
         await AddMediaMtxPathAsync(mediaMtx, keptPath, "rtsp://10.0.7.1/h264");
         await AddMediaMtxPathAsync(mediaMtx, orphanPath, "rtsp://10.0.7.2/h264");
         await using (StreamDistributionDbContext context =
-            await _aspire.CreateStreamDistributionDbContextAsync())
+            await aspire.CreateStreamDistributionDbContextAsync())
         {
             Stream stream = Stream.Provision(
                 CameraIdentifier.From(keptCamera),
@@ -65,11 +63,11 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
 
     private async Task<MediaMtxReconciler> BuildReconcilerAsync()
     {
-        string? connection = await _aspire.App
+        string? connection = await aspire.App
             .GetConnectionStringAsync(AspireFixture.StreamDistributionConnectionName);
         if (connection is null) throw new InvalidOperationException("missing connection string");
 
-        string? mediaMtxUrl = _aspire.App.GetEndpoint("mediamtx", "api").ToString();
+        string? mediaMtxUrl = aspire.App.GetEndpoint("mediamtx", "api").ToString();
         if (string.IsNullOrEmpty(mediaMtxUrl)) throw new InvalidOperationException("missing mediamtx api endpoint");
 
         ServiceCollection services = new();
