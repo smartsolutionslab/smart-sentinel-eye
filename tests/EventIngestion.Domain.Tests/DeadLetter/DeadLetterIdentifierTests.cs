@@ -25,4 +25,25 @@ public class DeadLetterIdentifierTests
         Guid guid = Guid.CreateVersion7();
         DeadLetterIdentifier.From(guid).Value.ShouldBe(guid);
     }
+
+    [Fact]
+    public void Implicitly_unwraps_to_its_guid()
+    {
+        Guid guid = Guid.CreateVersion7();
+        Guid unwrapped = DeadLetterIdentifier.From(guid);
+        unwrapped.ShouldBe(guid);
+    }
+
+    [Fact]
+    public void Comparison_operators_order_by_the_underlying_guid()
+    {
+        DeadLetterIdentifier earlier = DeadLetterIdentifier.From(new Guid("01900000-0000-7000-8000-000000000001"));
+        DeadLetterIdentifier later = DeadLetterIdentifier.From(new Guid("01900000-0000-7000-8000-000000000002"));
+
+        earlier.CompareTo(later).ShouldBeLessThan(0);
+        (earlier < later).ShouldBeTrue();
+        (earlier <= later).ShouldBeTrue();
+        (later > earlier).ShouldBeTrue();
+        (later >= earlier).ShouldBeTrue();
+    }
 }
