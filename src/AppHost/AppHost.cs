@@ -247,7 +247,7 @@ builder
     .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
-builder
+var auditObservability = builder
     .AddProject<Projects.SmartSentinelEye_AuditObservability_Api>("audit-observability")
     .WithHttpEndpoint()
     .WithReference(auditDb)
@@ -259,6 +259,14 @@ builder
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
     .WaitFor(minio);
+
+if (isE2ETests)
+{
+    // Sweep retention every few seconds in the integration suite so the
+    // round-trip test isn't waiting on the production daily timer.
+    auditObservability.WithEnvironment(
+        "AuditObservability__Retention__TickInterval", "00:00:03");
+}
 
 // React apps per ADR-0074: two pnpm-workspace apps under apps/. Skipped in
 // test mode so the integration suite doesn't start two Node dev servers.
