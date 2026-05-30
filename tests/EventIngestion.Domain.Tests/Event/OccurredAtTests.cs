@@ -21,4 +21,12 @@ public class OccurredAtTests
             DateTimeOffset.Parse("2026-05-28T08:14:33Z", CultureInfo.InvariantCulture);
         OccurredAt.From(utc).Value.ShouldBe(utc);
     }
+
+    [Fact]
+    public void Implicitly_unwraps_to_its_DateTimeOffset()
+    {
+        DateTimeOffset utc = new(2026, 5, 28, 8, 14, 33, TimeSpan.Zero);
+        DateTimeOffset unwrapped = OccurredAt.From(utc);
+        unwrapped.ShouldBe(utc);
+    }
 }
