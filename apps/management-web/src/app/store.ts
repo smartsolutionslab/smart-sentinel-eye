@@ -4,6 +4,7 @@ import { streamsApi } from '@smart-sentinel-eye/shared/api/streams.api';
 import { layoutsApi } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { overlaysApi } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+import { auditApi } from '@smart-sentinel-eye/shared/api/audit.api';
 
 // Single Redux store per app (ADR-0075). RTK Query slices added per feature.
 export const store = configureStore({
@@ -13,6 +14,7 @@ export const store = configureStore({
     [layoutsApi.reducerPath]: layoutsApi.reducer,
     [overlaysApi.reducerPath]: overlaysApi.reducer,
     [systemVariablesApi.reducerPath]: systemVariablesApi.reducer,
+    [auditApi.reducerPath]: auditApi.reducer,
   },
   middleware: (getDefault) =>
     getDefault().concat(
@@ -21,6 +23,7 @@ export const store = configureStore({
       layoutsApi.middleware,
       overlaysApi.middleware,
       systemVariablesApi.middleware,
+      auditApi.middleware,
     ),
 });
 
