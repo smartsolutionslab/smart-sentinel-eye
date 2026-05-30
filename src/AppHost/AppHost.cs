@@ -278,6 +278,7 @@ if (isRunMode && !isE2ETests)
         .WithReference(layoutComposition)
         .WithReference(overlayDesigner)
         .WithReference(systemVariables)
+        .WithReference(auditObservability)
         .WithExternalHttpEndpoints();
 
     builder.AddNpmApp("kiosk-web", "../../apps/kiosk-web", "dev")
