@@ -45,8 +45,8 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
         JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
         foreach (JsonElement row in page.GetProperty("rows").EnumerateArray())
         {
-            // The handler restricts a fab-scoped caller to its own fab's rows;
-            // cross-fab (fab = null) rows are excluded for a fab member.
+            // A fab-scoped caller sees only its own fab's rows; cross-fab
+            // rows (those without a fab) are excluded for a fab member.
             row.GetProperty("fab").GetString().ShouldBe("munich");
         }
     }
