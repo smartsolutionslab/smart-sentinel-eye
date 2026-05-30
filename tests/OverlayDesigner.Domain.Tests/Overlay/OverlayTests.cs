@@ -73,6 +73,26 @@ public class OverlayTests
     }
 
     [Fact]
+    public void BranchDraft_gives_the_new_revision_its_own_label_instance()
+    {
+        // The branched revision must not share the base revision's Label
+        // object: Label is an EF-owned entity keyed on its owner, so a shared
+        // instance breaks owned-entity fixup on save (issue #955). Value-equal,
+        // reference-distinct.
+        Label label = Label.From("Production Line 1", 0.5m, 0.05m, 0.3m, 0.08m, 48);
+        Domain.Overlay.Overlay overlay = new OverlayBuilder().WithLabel(label).Build();
+        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        IClock clock = new OverlayBuilder.TestClock(FixedMoment);
+        overlay.Publish(OverlayRevisionNumber.One, by, clock);
+        Revision published = overlay.Revisions.Single(r => r.Number == OverlayRevisionNumber.One);
+
+        Revision draft = overlay.BranchDraft(by, clock);
+
+        draft.Label.ShouldBe(published.Label);
+        ReferenceEquals(draft.Label, published.Label).ShouldBeFalse();
+    }
+
+    [Fact]
     public void BranchDraft_without_a_Published_revision_throws()
     {
         Domain.Overlay.Overlay overlay = new OverlayBuilder().Build();

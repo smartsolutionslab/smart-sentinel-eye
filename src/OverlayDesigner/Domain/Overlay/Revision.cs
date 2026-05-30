@@ -48,7 +48,11 @@ public sealed class Revision
         Label label,
         DateTimeOffset createdAt,
         OperatorIdentifier createdBy) =>
-        NewDraft(number, label, createdAt, createdBy);
+        // Copy the base revision's Label: it is mapped as an EF-owned entity
+        // keyed on its owner revision, so the branched revision must own its
+        // own instance. Sharing the same CLR Label across two revisions makes
+        // EF try to re-key the owned entity onto a new principal and throws.
+        NewDraft(number, label with { }, createdAt, createdBy);
 
     internal void Publish(DateTimeOffset publishedAt)
     {
