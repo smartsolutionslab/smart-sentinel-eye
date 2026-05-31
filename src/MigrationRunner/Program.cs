@@ -4,6 +4,7 @@ using SmartSentinelEye.CameraCatalog.Infrastructure;
 using SmartSentinelEye.EventIngestion.Infrastructure;
 using SmartSentinelEye.Identity.Infrastructure;
 using SmartSentinelEye.LayoutComposition.Infrastructure;
+using SmartSentinelEye.MigrationRunner;
 using SmartSentinelEye.OverlayDesigner.Infrastructure;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.StreamDistribution.Infrastructure;
@@ -33,10 +34,10 @@ await host.StartAsync().ConfigureAwait(false);
 IEnumerable<IMigrator> migrators = host.Services.GetServices<IMigrator>();
 foreach (IMigrator migrator in migrators)
 {
-    logger.LogInformation("Running migrations for {Context}.", migrator.ContextName);
+    Log.RunningMigrations(logger, migrator.ContextName);
     await migrator.RunAsync(host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping)
         .ConfigureAwait(false);
 }
 
-logger.LogInformation("All migrations applied; MigrationRunner exiting.");
+Log.AllMigrationsApplied(logger);
 await host.StopAsync().ConfigureAwait(false);
