@@ -45,18 +45,18 @@ public sealed class FabEventIngestedV1Handler(
         {
             switch (effect)
             {
-                case RuleActionEffect.SetVariableValue v:
+                case RuleActionEffect.SetVariableValue setVariableValue:
                     await events.PublishAsync(
                         new SystemVariableValueRequestedV1(
-                            v.Name, v.Value, requestedAt, message.EventIdentifier,
+                            setVariableValue.Name, setVariableValue.Value, requestedAt, message.EventIdentifier,
                             Metadata: new EventMetadata(Guid.CreateVersion7(), requestedAt, message.Fab, null)),
                         cancellationToken).ConfigureAwait(false);
                     break;
 
-                case RuleActionEffect.HighlightOverlay h:
+                case RuleActionEffect.HighlightOverlay highlightOverlay:
                     await events.PublishAsync(
                         new OverlayHighlightRequestedV1(
-                            h.Overlay, h.DurationMs, requestedAt, message.EventIdentifier,
+                            highlightOverlay.Overlay, highlightOverlay.DurationMs, requestedAt, message.EventIdentifier,
                             Metadata: new EventMetadata(Guid.CreateVersion7(), requestedAt, message.Fab, null)),
                         cancellationToken).ConfigureAwait(false);
                     break;

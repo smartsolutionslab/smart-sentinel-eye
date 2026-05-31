@@ -34,7 +34,7 @@ public abstract record AelValue
 #pragma warning disable S3060
     public bool IsTruthy() => this switch
     {
-        BoolValue b => b.Value,
+        BoolValue boolValue => boolValue.Value,
         _ => false,
     };
 
@@ -45,10 +45,10 @@ public abstract record AelValue
     /// </summary>
     public string ToWireString() => this switch
     {
-        IntValue i => i.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
-        DecimalValue d => d.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
-        StringValue s => s.Value,
-        BoolValue b => b.Value ? "true" : "false",
+        IntValue intValue => intValue.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        DecimalValue decimalValue => decimalValue.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        StringValue stringValue => stringValue.Value,
+        BoolValue boolValue => boolValue.Value ? "true" : "false",
         NullValue => string.Empty,
         _ => throw new InvalidOperationException($"Unhandled AelValue case: {GetType().Name}"),
     };
