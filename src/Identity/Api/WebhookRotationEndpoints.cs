@@ -10,6 +10,7 @@ using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.Identity.Api;
 
@@ -69,7 +70,6 @@ public static class WebhookRotationEndpoints
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
-            onFailure: error => Results.Problem(
-                title: error.Code, detail: error.Message, statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 }

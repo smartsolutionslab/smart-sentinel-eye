@@ -12,6 +12,7 @@ using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.EventIngestion.Api;
 
@@ -74,8 +75,7 @@ public static class WebhookIntegrationsEndpoints
             onSuccess: r => Results.Created(
                 $"/webhook-integrations/{name.Value}",
                 new RegisteredWebhookResponse(r.Identifier.Value, name.Value, r.PlainToken)),
-            onFailure: error => Results.Problem(
-                title: error.Code, detail: error.Message, statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> List(
@@ -90,8 +90,7 @@ public static class WebhookIntegrationsEndpoints
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
-            onFailure: error => Results.Problem(
-                title: error.Code, detail: error.Message, statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> Revoke(
@@ -118,8 +117,7 @@ public static class WebhookIntegrationsEndpoints
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Ok(identifier.Value),
-            onFailure: error => Results.Problem(
-                title: error.Code, detail: error.Message, statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     public sealed record RegisteredWebhookResponse(Guid Identifier, string Name, string Token);

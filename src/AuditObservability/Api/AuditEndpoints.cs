@@ -8,6 +8,7 @@ using SmartSentinelEye.AuditObservability.Application.Queries;
 using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.AuditObservability.Api;
 
@@ -93,8 +94,7 @@ public static class AuditEndpoints
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
-            onFailure: error => Results.Problem(
-                title: error.Code, detail: error.Message, statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> GetTimeline(
@@ -125,8 +125,7 @@ public static class AuditEndpoints
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
-            onFailure: error => Results.Problem(
-                title: error.Code, detail: error.Message, statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> GetSingle(

@@ -10,6 +10,7 @@ using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.Identity.Api;
 
@@ -70,8 +71,7 @@ public static class DevicesEndpoints
 
         return result.Match<IResult>(
             onSuccess: dto => Results.Created($"/devices/{dto.ClientId}", dto),
-            onFailure: error => Results.Problem(
-                title: error.Code, detail: error.Message, statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> Disable(
@@ -96,7 +96,6 @@ public static class DevicesEndpoints
 
         return result.Match<IResult>(
             onSuccess: id => Results.Ok(id.Value),
-            onFailure: error => Results.Problem(
-                title: error.Code, detail: error.Message, statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 }

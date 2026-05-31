@@ -12,6 +12,7 @@ using SmartSentinelEye.SystemVariables.Application.DTOs;
 using SmartSentinelEye.SystemVariables.Application.Queries;
 using SmartSentinelEye.SystemVariables.Application.Queries.Handlers;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
+using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.SystemVariables.Api;
 
@@ -114,10 +115,7 @@ public static class SystemVariableEndpoints
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Created($"/system-variables/{name.Value}", identifier.Value),
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> SetValue(
@@ -151,10 +149,7 @@ public static class SystemVariableEndpoints
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Ok(identifier.Value),
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> GetOne(
@@ -181,10 +176,7 @@ public static class SystemVariableEndpoints
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> List(
@@ -214,10 +206,7 @@ public static class SystemVariableEndpoints
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> GetSnapshot(
@@ -239,10 +228,7 @@ public static class SystemVariableEndpoints
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> Archive(
@@ -271,10 +257,7 @@ public static class SystemVariableEndpoints
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Ok(identifier.Value),
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static OperatorIdentifier OperatorFromClaims(ClaimsPrincipal user)

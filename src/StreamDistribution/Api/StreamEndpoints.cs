@@ -10,6 +10,7 @@ using SmartSentinelEye.StreamDistribution.Application.DTOs;
 using SmartSentinelEye.StreamDistribution.Application.Queries;
 using SmartSentinelEye.StreamDistribution.Application.Queries.Handlers;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
+using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.StreamDistribution.Api;
 
@@ -72,10 +73,7 @@ public static class StreamEndpoints
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> ListByCameras(
@@ -102,10 +100,7 @@ public static class StreamEndpoints
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> AuthorizeWhep(
@@ -141,10 +136,7 @@ public static class StreamEndpoints
 
         return result.Match<IResult>(
             onSuccess: _ => Results.Ok(),
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static IReadOnlyList<CameraIdentifier> ParseCameraIdentifiers(string? raw)
