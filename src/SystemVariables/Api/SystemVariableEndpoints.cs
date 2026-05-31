@@ -106,7 +106,7 @@ public static class SystemVariableEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = OperatorFromClaims(user);
+        OperatorIdentifier op = user.ToOperatorIdentifier();
         Result<VariableIdentifier, DefineVariableError> result = await handler
             .HandleAsync(
                 new DefineVariableCommand(name, type, initialValue, booleanLabels, op),
@@ -140,7 +140,7 @@ public static class SystemVariableEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = OperatorFromClaims(user);
+        OperatorIdentifier op = user.ToOperatorIdentifier();
         Result<VariableIdentifier, SetVariableValueError> result = await handler
             .HandleAsync(
                 new SetVariableValueCommand(parsed, body.Value, op),
@@ -250,7 +250,7 @@ public static class SystemVariableEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = OperatorFromClaims(user);
+        OperatorIdentifier op = user.ToOperatorIdentifier();
         Result<VariableIdentifier, ArchiveVariableError> result = await handler
             .HandleAsync(new ArchiveVariableCommand(parsed, op), cancellationToken)
             .ConfigureAwait(false);
@@ -258,15 +258,5 @@ public static class SystemVariableEndpoints
         return result.Match<IResult>(
             onSuccess: identifier => Results.Ok(identifier.Value),
             onFailure: error => error.ToProblem());
-    }
-
-    private static OperatorIdentifier OperatorFromClaims(ClaimsPrincipal user)
-    {
-        ArgumentNullException.ThrowIfNull(user);
-        string? raw = user.FindFirst("sub")?.Value
-            ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return Guid.TryParse(raw, out Guid value) && value != Guid.Empty
-            ? OperatorIdentifier.From(value)
-            : OperatorIdentifier.From(Guid.CreateVersion7());
     }
 }

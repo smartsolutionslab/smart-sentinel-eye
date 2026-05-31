@@ -40,7 +40,7 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = OperatorFromClaims(user);
+        OperatorIdentifier op = user.ToOperatorIdentifier();
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler
             .HandleAsync(new CreateLayoutDraftCommand(name, camera, op, overlay), cancellationToken)
             .ConfigureAwait(false);
@@ -77,7 +77,7 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = OperatorFromClaims(user);
+        OperatorIdentifier op = user.ToOperatorIdentifier();
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler
             .HandleAsync(
                 new PublishRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, op),
@@ -116,7 +116,7 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = OperatorFromClaims(user);
+        OperatorIdentifier op = user.ToOperatorIdentifier();
         Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler
             .HandleAsync(
                 new ArchiveRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, op),
@@ -142,7 +142,7 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = OperatorFromClaims(user);
+        OperatorIdentifier op = user.ToOperatorIdentifier();
         Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler
             .HandleAsync(
                 new BranchDraftRevisionCommand(LayoutIdentifier.From(layoutIdentifier), op),
@@ -225,7 +225,7 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = OperatorFromClaims(user);
+        OperatorIdentifier op = user.ToOperatorIdentifier();
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler
             .HandleAsync(
                 new RevertRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, op),

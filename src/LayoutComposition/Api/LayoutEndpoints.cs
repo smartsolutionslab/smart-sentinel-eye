@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -79,16 +78,6 @@ public static partial class LayoutEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         return app;
-    }
-
-    private static OperatorIdentifier OperatorFromClaims(ClaimsPrincipal user)
-    {
-        ArgumentNullException.ThrowIfNull(user);
-        string? raw = user.FindFirst("sub")?.Value
-            ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return Guid.TryParse(raw, out Guid value) && value != Guid.Empty
-            ? OperatorIdentifier.From(value)
-            : OperatorIdentifier.From(Guid.CreateVersion7());
     }
 }
 

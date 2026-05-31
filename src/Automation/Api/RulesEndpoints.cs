@@ -75,7 +75,7 @@ public static class RulesEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = OperatorFromClaims(user);
+        OperatorIdentifier op = user.ToOperatorIdentifier();
         Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
             new CreateRuleCommand(name, body.TriggerSource, body.TriggerKind, predicate, action, op),
             cancellationToken).ConfigureAwait(false);
@@ -156,15 +156,5 @@ public static class RulesEndpoints
             _ => throw new ArgumentException(
                 $"Unknown ActionType '{body.ActionType}'. Expected: SetVariableValue | HighlightOverlay."),
         };
-    }
-
-    private static OperatorIdentifier OperatorFromClaims(ClaimsPrincipal user)
-    {
-        ArgumentNullException.ThrowIfNull(user);
-        string? raw = user.FindFirst("sub")?.Value
-            ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return Guid.TryParse(raw, out Guid value) && value != Guid.Empty
-            ? OperatorIdentifier.From(value)
-            : OperatorIdentifier.From(Guid.CreateVersion7());
     }
 }
