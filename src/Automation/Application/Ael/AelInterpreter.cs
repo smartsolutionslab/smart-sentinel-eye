@@ -105,45 +105,64 @@ public static class AelInterpreter
         AelValue left = Eval(binary.Left, context);
         AelValue right = Eval(binary.Right, context);
 
-        if (binary.Operator == BinaryOperator.Contains)
-        {
-            string lhs = (left as AelValue.StringValue)?.Value
-                ?? throw new InvalidOperationException(
-                    $"'contains' left side must be string; got {left.GetType().Name}");
-            string rhs = (right as AelValue.StringValue)?.Value
-                ?? throw new InvalidOperationException(
-                    $"'contains' right side must be string; got {right.GetType().Name}");
-            return new AelValue.BoolValue(lhs.Contains(rhs, StringComparison.Ordinal));
-        }
-
         return binary.Operator switch
         {
-            BinaryOperator.Add => Arithmetic(left, right, (a, b) => a + b, (a, b) => a + b),
-            BinaryOperator.Subtract => Arithmetic(left, right, (a, b) => a - b, (a, b) => a - b),
-            BinaryOperator.Multiply => Arithmetic(left, right, (a, b) => a * b, (a, b) => a * b),
-            BinaryOperator.Divide => Arithmetic(left, right,
-                (a, b) => b == 0
-                    ? throw new InvalidOperationException("division by zero")
-                    : a / b,
-                (a, b) => b == 0m
-                    ? throw new InvalidOperationException("division by zero")
-                    : a / b),
-            BinaryOperator.Modulo => Arithmetic(left, right,
-                (a, b) => b == 0
-                    ? throw new InvalidOperationException("modulo by zero")
-                    : a % b,
-                (a, b) => b == 0m
-                    ? throw new InvalidOperationException("modulo by zero")
-                    : a % b),
+            BinaryOperator.Contains => EvalContains(left, right),
             BinaryOperator.Equal => new AelValue.BoolValue(AreEqual(left, right)),
             BinaryOperator.NotEqual => new AelValue.BoolValue(!AreEqual(left, right)),
-            BinaryOperator.LessThan => Compare(left, right, (a, b) => a < b),
-            BinaryOperator.LessThanOrEqual => Compare(left, right, (a, b) => a <= b),
-            BinaryOperator.GreaterThan => Compare(left, right, (a, b) => a > b),
-            BinaryOperator.GreaterThanOrEqual => Compare(left, right, (a, b) => a >= b),
+            BinaryOperator.Add or BinaryOperator.Subtract or BinaryOperator.Multiply
+                or BinaryOperator.Divide or BinaryOperator.Modulo
+                => EvalArithmetic(binary.Operator, left, right),
+            BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual
+                or BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual
+                => EvalComparison(binary.Operator, left, right),
             _ => throw new InvalidOperationException($"Unhandled BinaryOperator: {binary.Operator}"),
         };
     }
+
+    private static AelValue.BoolValue EvalContains(AelValue left, AelValue right)
+    {
+        string lhs = (left as AelValue.StringValue)?.Value
+            ?? throw new InvalidOperationException(
+                $"'contains' left side must be string; got {left.GetType().Name}");
+        string rhs = (right as AelValue.StringValue)?.Value
+            ?? throw new InvalidOperationException(
+                $"'contains' right side must be string; got {right.GetType().Name}");
+        return new AelValue.BoolValue(lhs.Contains(rhs, StringComparison.Ordinal));
+    }
+
+    private static AelValue EvalArithmetic(BinaryOperator op, AelValue left, AelValue right) =>
+        op switch
+        {
+            BinaryOperator.Add => Arithmetic(left, right, static (a, b) => a + b, static (a, b) => a + b),
+            BinaryOperator.Subtract => Arithmetic(left, right, static (a, b) => a - b, static (a, b) => a - b),
+            BinaryOperator.Multiply => Arithmetic(left, right, static (a, b) => a * b, static (a, b) => a * b),
+            BinaryOperator.Divide => Arithmetic(left, right, DivideInt, DivideDecimal),
+            BinaryOperator.Modulo => Arithmetic(left, right, ModuloInt, ModuloDecimal),
+            _ => throw new InvalidOperationException($"Unhandled arithmetic operator: {op}"),
+        };
+
+    private static AelValue.BoolValue EvalComparison(BinaryOperator op, AelValue left, AelValue right) =>
+        op switch
+        {
+            BinaryOperator.LessThan => Compare(left, right, static (a, b) => a < b),
+            BinaryOperator.LessThanOrEqual => Compare(left, right, static (a, b) => a <= b),
+            BinaryOperator.GreaterThan => Compare(left, right, static (a, b) => a > b),
+            BinaryOperator.GreaterThanOrEqual => Compare(left, right, static (a, b) => a >= b),
+            _ => throw new InvalidOperationException($"Unhandled comparison operator: {op}"),
+        };
+
+    private static long DivideInt(long a, long b) =>
+        b == 0 ? throw new InvalidOperationException("division by zero") : a / b;
+
+    private static decimal DivideDecimal(decimal a, decimal b) =>
+        b == 0m ? throw new InvalidOperationException("division by zero") : a / b;
+
+    private static long ModuloInt(long a, long b) =>
+        b == 0 ? throw new InvalidOperationException("modulo by zero") : a % b;
+
+    private static decimal ModuloDecimal(decimal a, decimal b) =>
+        b == 0m ? throw new InvalidOperationException("modulo by zero") : a % b;
 
     private static AelValue Arithmetic(AelValue left, AelValue right,
         Func<long, long, long> intOp, Func<decimal, decimal, decimal> decOp)
