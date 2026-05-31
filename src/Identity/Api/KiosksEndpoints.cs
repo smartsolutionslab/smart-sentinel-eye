@@ -66,9 +66,9 @@ public static class KiosksEndpoints
 
         await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken).ConfigureAwait(false);
 
-        OperatorIdentifier op = OperatorClaim.From(user);
+        OperatorIdentifier actingOperator = OperatorClaim.From(user);
         Result<KioskCredentialsDto, EnrollKioskError> result = await handler.HandleAsync(
-            new EnrollKioskCommand(clientId, fab, op), cancellationToken).ConfigureAwait(false);
+            new EnrollKioskCommand(clientId, fab, actingOperator), cancellationToken).ConfigureAwait(false);
 
         return result.Match<IResult>(
             onSuccess: dto => Results.Created($"/kiosks/{dto.ClientId}", dto),

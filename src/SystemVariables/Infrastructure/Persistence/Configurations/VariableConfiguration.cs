@@ -78,7 +78,7 @@ public sealed class VariableConfiguration : IEntityTypeConfiguration<Variable>
 
         builder.Property(v => v.CreatedBy)
             .HasColumnName("created_by")
-            .HasConversion(op => op.Value, value => OperatorIdentifier.From(value))
+            .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
             .IsRequired();
 
         builder.Property(v => v.Version)

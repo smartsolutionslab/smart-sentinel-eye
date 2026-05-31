@@ -64,9 +64,9 @@ public static class DevicesEndpoints
 
         await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken).ConfigureAwait(false);
 
-        OperatorIdentifier op = OperatorClaim.From(user);
+        OperatorIdentifier actingOperator = OperatorClaim.From(user);
         Result<DeviceCredentialsDto, RegisterDeviceError> result = await handler.HandleAsync(
-            new RegisterDeviceCommand(body.DeviceType, body.DeviceIdentifier, fab, op),
+            new RegisterDeviceCommand(body.DeviceType, body.DeviceIdentifier, fab, actingOperator),
             cancellationToken).ConfigureAwait(false);
 
         return result.Match<IResult>(

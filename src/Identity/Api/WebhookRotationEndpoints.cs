@@ -64,9 +64,9 @@ public static class WebhookRotationEndpoints
 
         await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken).ConfigureAwait(false);
 
-        OperatorIdentifier op = OperatorClaim.From(user);
+        OperatorIdentifier actingOperator = OperatorClaim.From(user);
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler.HandleAsync(
-            new RotateWebhookClientCommand(name, fab, op), cancellationToken).ConfigureAwait(false);
+            new RotateWebhookClientCommand(name, fab, actingOperator), cancellationToken).ConfigureAwait(false);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,

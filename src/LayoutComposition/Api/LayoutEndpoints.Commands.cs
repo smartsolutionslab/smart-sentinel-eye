@@ -40,9 +40,9 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = user.ToOperatorIdentifier();
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler
-            .HandleAsync(new CreateLayoutDraftCommand(name, camera, op, overlay), cancellationToken)
+            .HandleAsync(new CreateLayoutDraftCommand(name, camera, actingOperator, overlay), cancellationToken)
             .ConfigureAwait(false);
 
         return result.Match<IResult>(
@@ -77,10 +77,10 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = user.ToOperatorIdentifier();
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler
             .HandleAsync(
-                new PublishRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, op),
+                new PublishRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, actingOperator),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -116,10 +116,10 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = user.ToOperatorIdentifier();
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler
             .HandleAsync(
-                new ArchiveRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, op),
+                new ArchiveRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, actingOperator),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -142,10 +142,10 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = user.ToOperatorIdentifier();
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler
             .HandleAsync(
-                new BranchDraftRevisionCommand(LayoutIdentifier.From(layoutIdentifier), op),
+                new BranchDraftRevisionCommand(LayoutIdentifier.From(layoutIdentifier), actingOperator),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -225,10 +225,10 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = user.ToOperatorIdentifier();
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler
             .HandleAsync(
-                new RevertRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, op),
+                new RevertRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, actingOperator),
                 cancellationToken)
             .ConfigureAwait(false);
 
