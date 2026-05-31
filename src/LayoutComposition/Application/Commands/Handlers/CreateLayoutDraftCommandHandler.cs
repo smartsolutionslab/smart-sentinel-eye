@@ -16,23 +16,24 @@ public sealed class CreateLayoutDraftCommandHandler(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (name, camera, createdBy, overlay) = command;
 
         Option<Layout> existing = await layouts
-            .GetByNameAsync(command.Name, cancellationToken)
+            .GetByNameAsync(name, cancellationToken)
             .ConfigureAwait(false);
         if (existing.HasValue)
         {
             return Result<LayoutIdentifier, CreateLayoutDraftError>.Failure(
-                new CreateLayoutDraftError.LayoutNameTaken(command.Name.Value));
+                new CreateLayoutDraftError.LayoutNameTaken(name.Value));
         }
 
-        Layout layout = Layout.CreateDraft(command.Name, command.Camera, command.CreatedBy, clock, command.Overlay);
+        Layout layout = Layout.CreateDraft(name, camera, createdBy, clock, overlay);
         layouts.Add(layout);
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(
             "Created layout {Layout} '{Name}' (Draft) by {Operator}.",
-            layout.Id, command.Name, command.CreatedBy);
+            layout.Id, name, createdBy);
 
         return Result<LayoutIdentifier, CreateLayoutDraftError>.Success(layout.Id);
     }

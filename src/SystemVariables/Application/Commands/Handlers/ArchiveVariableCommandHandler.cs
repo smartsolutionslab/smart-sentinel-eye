@@ -16,23 +16,24 @@ public sealed class ArchiveVariableCommandHandler(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (name, archivedBy) = command;
 
         Option<Variable> found = await variables
-            .GetByNameAsync(command.Name, cancellationToken)
+            .GetByNameAsync(name, cancellationToken)
             .ConfigureAwait(false);
         if (!found.HasValue)
         {
             return Result<VariableIdentifier, ArchiveVariableError>.Failure(
-                new ArchiveVariableError.VariableNotFound(command.Name.Value));
+                new ArchiveVariableError.VariableNotFound(name.Value));
         }
 
         Variable variable = found.Value;
-        variable.Archive(command.ArchivedBy, clock);
+        variable.Archive(archivedBy, clock);
         await variables.SaveAsync(cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(
             "Archived variable {Variable} '{Name}' by {Operator}.",
-            variable.Id, command.Name, command.ArchivedBy);
+            variable.Id, name, archivedBy);
 
         return Result<VariableIdentifier, ArchiveVariableError>.Success(variable.Id);
     }

@@ -15,29 +15,30 @@ public sealed class BranchDraftRevisionCommandHandler(
         BranchDraftRevisionCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (layoutIdentifier, branchedBy) = command;
 
         Option<Layout> found = await layouts
-            .GetByIdentifierAsync(command.Layout, cancellationToken)
+            .GetByIdentifierAsync(layoutIdentifier, cancellationToken)
             .ConfigureAwait(false);
         if (!found.HasValue)
         {
             return Result<LayoutRevisionNumber, BranchDraftRevisionError>.Failure(
-                new BranchDraftRevisionError.LayoutNotFound(command.Layout.Value));
+                new BranchDraftRevisionError.LayoutNotFound(layoutIdentifier.Value));
         }
 
         Layout layout = found.Value;
         if (!layout.Revisions.Any(r => r.State == LayoutRevisionState.Published))
         {
             return Result<LayoutRevisionNumber, BranchDraftRevisionError>.Failure(
-                new BranchDraftRevisionError.NoPublishedRevisionToBranchFrom(command.Layout.Value));
+                new BranchDraftRevisionError.NoPublishedRevisionToBranchFrom(layoutIdentifier.Value));
         }
 
-        Revision branched = layout.BranchDraft(command.BranchedBy, clock);
+        Revision branched = layout.BranchDraft(branchedBy, clock);
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(
             "Branched draft revision {Revision} on layout {Layout} by {Operator}.",
-            branched.Number, layout.Id, command.BranchedBy);
+            branched.Number, layout.Id, branchedBy);
 
         return Result<LayoutRevisionNumber, BranchDraftRevisionError>.Success(branched.Number);
     }

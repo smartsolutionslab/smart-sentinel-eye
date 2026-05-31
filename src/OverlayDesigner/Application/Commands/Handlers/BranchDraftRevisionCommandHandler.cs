@@ -15,29 +15,30 @@ public sealed class BranchDraftRevisionCommandHandler(
         BranchDraftRevisionCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (overlayIdentifier, branchedBy) = command;
 
         Option<Overlay> found = await overlays
-            .GetByIdentifierAsync(command.Overlay, cancellationToken)
+            .GetByIdentifierAsync(overlayIdentifier, cancellationToken)
             .ConfigureAwait(false);
         if (!found.HasValue)
         {
             return Result<OverlayRevisionNumber, BranchDraftRevisionError>.Failure(
-                new BranchDraftRevisionError.OverlayNotFound(command.Overlay.Value));
+                new BranchDraftRevisionError.OverlayNotFound(overlayIdentifier.Value));
         }
 
         Overlay overlay = found.Value;
         if (!overlay.Revisions.Any(r => r.State == OverlayRevisionState.Published))
         {
             return Result<OverlayRevisionNumber, BranchDraftRevisionError>.Failure(
-                new BranchDraftRevisionError.NoPublishedRevisionToBranchFrom(command.Overlay.Value));
+                new BranchDraftRevisionError.NoPublishedRevisionToBranchFrom(overlayIdentifier.Value));
         }
 
-        Revision branched = overlay.BranchDraft(command.BranchedBy, clock);
+        Revision branched = overlay.BranchDraft(branchedBy, clock);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(
             "Branched draft revision {Revision} on overlay {Overlay} by {Operator}.",
-            branched.Number, overlay.Id, command.BranchedBy);
+            branched.Number, overlay.Id, branchedBy);
 
         return Result<OverlayRevisionNumber, BranchDraftRevisionError>.Success(branched.Number);
     }

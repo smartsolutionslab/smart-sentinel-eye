@@ -13,16 +13,17 @@ public sealed class GetEventQueryHandler(IEventQuerySource events)
         GetEventQuery query, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
+        var (fab, identifier) = query;
 
         EventAggregate? found = await events.Events
-            .Where(e => e.Fab == query.Fab && e.Id == query.Identifier)
+            .Where(e => e.Fab == fab && e.Id == identifier)
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
 
         if (found is null)
         {
             return Result<EventDto, GetEventError>.Failure(
-                new GetEventError.EventNotFound(query.Identifier.Value));
+                new GetEventError.EventNotFound(identifier.Value));
         }
 
         return Result<EventDto, GetEventError>.Success(Map(found));

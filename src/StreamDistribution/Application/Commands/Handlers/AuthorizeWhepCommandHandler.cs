@@ -18,14 +18,16 @@ public sealed class AuthorizeWhepCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        if (string.IsNullOrWhiteSpace(command.BearerToken))
+        var (path, bearerToken) = command;
+
+        if (string.IsNullOrWhiteSpace(bearerToken))
         {
             return Result<MediaMtxPath, AuthorizeWhepError>.Failure(
                 new AuthorizeWhepError.Unauthorized());
         }
 
         Option<WhepAuthSubject> subject = await whepAuth
-            .ValidateAsync(command.BearerToken, cancellationToken)
+            .ValidateAsync(bearerToken, cancellationToken)
             .ConfigureAwait(false);
 
         if (!subject.HasValue)
@@ -41,7 +43,7 @@ public sealed class AuthorizeWhepCommandHandler(
         }
 
         Option<Stream> stream = await streams
-            .GetByPathAsync(command.Path, cancellationToken)
+            .GetByPathAsync(path, cancellationToken)
             .ConfigureAwait(false);
 
         if (stream.HasValue && stream.Value.State == StreamState.Offline)
@@ -50,6 +52,6 @@ public sealed class AuthorizeWhepCommandHandler(
                 new AuthorizeWhepError.StreamUnavailable());
         }
 
-        return Result<MediaMtxPath, AuthorizeWhepError>.Success(command.Path);
+        return Result<MediaMtxPath, AuthorizeWhepError>.Success(path);
     }
 }

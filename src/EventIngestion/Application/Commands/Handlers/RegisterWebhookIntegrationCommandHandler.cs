@@ -17,18 +17,19 @@ public sealed class RegisterWebhookIntegrationCommandHandler(
         RegisterWebhookIntegrationCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (name, defaultKind) = command;
 
         Option<WebhookIntegration> existing = await integrations
-            .GetByNameAsync(command.Name, cancellationToken)
+            .GetByNameAsync(name, cancellationToken)
             .ConfigureAwait(false);
         if (existing.HasValue)
         {
             return Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError>.Failure(
-                new RegisterWebhookIntegrationError.WebhookIntegrationNameTaken(command.Name.Value));
+                new RegisterWebhookIntegrationError.WebhookIntegrationNameTaken(name.Value));
         }
 
         (WebhookIntegration integration, string plainToken) =
-            WebhookIntegration.Register(command.Name, command.DefaultKind, clock);
+            WebhookIntegration.Register(name, defaultKind, clock);
 
         integrations.Add(integration);
         await integrations.SaveAsync(cancellationToken).ConfigureAwait(false);

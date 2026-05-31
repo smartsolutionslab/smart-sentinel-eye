@@ -18,37 +18,39 @@ public sealed class ProvisionStreamCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        if (string.IsNullOrWhiteSpace(command.RtspSourceUrl))
+        var (camera, rtspSourceUrl, provisionedBy) = command;
+
+        if (string.IsNullOrWhiteSpace(rtspSourceUrl))
         {
             return Result<StreamIdentifier, ProvisionStreamError>.Failure(
                 new ProvisionStreamError.InvalidRtspSource("source URL is required"));
         }
 
         Option<Stream> existing = await streams
-            .GetByCameraAsync(command.Camera, cancellationToken)
+            .GetByCameraAsync(camera, cancellationToken)
             .ConfigureAwait(false);
 
         if (existing.HasValue)
         {
             log.LogInformation(
                 "Stream already exists for camera {Camera}; skipping provision (idempotent).",
-                command.Camera);
+                camera);
             return Result<StreamIdentifier, ProvisionStreamError>.Success(existing.Value.Id);
         }
 
-        Stream stream = Stream.Provision(command.Camera, command.ProvisionedBy, clock);
+        Stream stream = Stream.Provision(camera, provisionedBy, clock);
         streams.Add(stream);
 
         try
         {
-            await rtsp.AddPathAsync(stream.Path, command.RtspSourceUrl, cancellationToken)
+            await rtsp.AddPathAsync(stream.Path, rtspSourceUrl, cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (HttpRequestException ex)
         {
             log.LogWarning(ex,
                 "MediaMTX path registration failed for camera {Camera}.",
-                command.Camera);
+                camera);
             return Result<StreamIdentifier, ProvisionStreamError>.Failure(
                 new ProvisionStreamError.RtspGatewayUnavailable(ex.Message));
         }

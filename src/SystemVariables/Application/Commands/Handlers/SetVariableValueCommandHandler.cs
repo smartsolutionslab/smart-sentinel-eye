@@ -16,27 +16,28 @@ public sealed class SetVariableValueCommandHandler(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (name, wireValue, changedBy) = command;
 
         Option<Variable> found = await variables
-            .GetByNameAsync(command.Name, cancellationToken)
+            .GetByNameAsync(name, cancellationToken)
             .ConfigureAwait(false);
         if (!found.HasValue)
         {
             return Result<VariableIdentifier, SetVariableValueError>.Failure(
-                new SetVariableValueError.VariableNotFound(command.Name.Value));
+                new SetVariableValueError.VariableNotFound(name.Value));
         }
 
         Variable variable = found.Value;
         if (variable.State == VariableState.Archived)
         {
             return Result<VariableIdentifier, SetVariableValueError>.Failure(
-                new SetVariableValueError.VariableArchived(command.Name.Value));
+                new SetVariableValueError.VariableArchived(name.Value));
         }
 
         VariableValue typedValue;
         try
         {
-            typedValue = VariableValue.From(variable.Type, command.WireValue);
+            typedValue = VariableValue.From(variable.Type, wireValue);
         }
         catch (ArgumentException ex)
         {
@@ -44,12 +45,12 @@ public sealed class SetVariableValueCommandHandler(
                 new SetVariableValueError.VariableTypeMismatch(variable.Type.Value, ex.Message));
         }
 
-        variable.SetValue(typedValue, command.ChangedBy, clock);
+        variable.SetValue(typedValue, changedBy, clock);
         await variables.SaveAsync(cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(
             "Set variable {Variable} '{Name}' = '{Value}' by {Operator}.",
-            variable.Id, command.Name, command.WireValue, command.ChangedBy);
+            variable.Id, name, wireValue, changedBy);
 
         return Result<VariableIdentifier, SetVariableValueError>.Success(variable.Id);
     }

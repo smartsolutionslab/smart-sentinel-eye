@@ -15,23 +15,24 @@ public sealed class RevertRevisionCommandHandler(
         RevertRevisionCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (overlayIdentifier, revisionNumber, revertedBy) = command;
 
         Option<Overlay> found = await overlays
-            .GetByIdentifierAsync(command.Overlay, cancellationToken)
+            .GetByIdentifierAsync(overlayIdentifier, cancellationToken)
             .ConfigureAwait(false);
         if (!found.HasValue)
         {
             return Result<OverlayRevisionNumber, RevertRevisionError>.Failure(
-                new RevertRevisionError.OverlayNotFound(command.Overlay.Value));
+                new RevertRevisionError.OverlayNotFound(overlayIdentifier.Value));
         }
 
         Overlay overlay = found.Value;
-        Revision? revision = overlay.Revisions.SingleOrDefault(r => r.Number == command.RevisionNumber);
+        Revision? revision = overlay.Revisions.SingleOrDefault(r => r.Number == revisionNumber);
         if (revision is null)
         {
             return Result<OverlayRevisionNumber, RevertRevisionError>.Failure(
                 new RevertRevisionError.OverlayRevisionNotFound(
-                    command.Overlay.Value, command.RevisionNumber.Value));
+                    overlayIdentifier.Value, revisionNumber.Value));
         }
         if (revision.State != OverlayRevisionState.Published)
         {
@@ -39,13 +40,13 @@ public sealed class RevertRevisionCommandHandler(
                 new RevertRevisionError.NotPublished(revision.State.Value));
         }
 
-        overlay.Revert(command.RevisionNumber, command.RevertedBy, clock);
+        overlay.Revert(revisionNumber, revertedBy, clock);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(
             "Reverted revision {Revision} on overlay {Overlay} to Draft by {Operator}.",
-            command.RevisionNumber, overlay.Id, command.RevertedBy);
+            revisionNumber, overlay.Id, revertedBy);
 
-        return Result<OverlayRevisionNumber, RevertRevisionError>.Success(command.RevisionNumber);
+        return Result<OverlayRevisionNumber, RevertRevisionError>.Success(revisionNumber);
     }
 }
