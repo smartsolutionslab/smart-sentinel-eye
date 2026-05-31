@@ -35,7 +35,6 @@ public sealed class OverlayRevisionPublishedV1Handler(
                 PublishedAt: message.PublishedAt),
             cancellationToken).ConfigureAwait(false);
 
-        logger.LogDebug("Broadcast OverlayPublished for overlay {Overlay} revision {Revision}.",
-            message.Overlay, message.RevisionNumber);
+        Log.BroadcastOverlayPublished(logger, message.Overlay, message.RevisionNumber);
     }
 }

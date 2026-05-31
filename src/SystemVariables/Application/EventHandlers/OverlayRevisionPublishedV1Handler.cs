@@ -22,9 +22,7 @@ public sealed class OverlayRevisionPublishedV1Handler(
     {
         ArgumentNullException.ThrowIfNull(message);
         reverseIndex.UpsertOverlayReferences(message.Overlay, message.Text);
-        logger.LogDebug(
-            "Reverse-index upserted for overlay {Overlay} v{Revision}; label='{Text}'.",
-            message.Overlay, message.RevisionNumber, message.Text);
+        Log.ReverseIndexUpserted(logger, message.Overlay, message.RevisionNumber, message.Text);
         return Task.CompletedTask;
     }
 }

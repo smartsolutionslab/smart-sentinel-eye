@@ -19,8 +19,8 @@ public sealed class StreamDistributionMigrator(
         await using StreamDistributionDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation("Applying Stream Distribution EF Core migrations.");
+        Log.ApplyingMigrations(logger);
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        logger.LogInformation("Stream Distribution migrations applied.");
+        Log.MigrationsApplied(logger);
     }
 }

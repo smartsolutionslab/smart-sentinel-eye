@@ -32,7 +32,7 @@ public sealed class StreamHealthWatcher(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("StreamHealthWatcher started (poll every {Interval}).", PollInterval);
+        Log.StreamHealthWatcherStarted(logger, PollInterval);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -46,7 +46,7 @@ public sealed class StreamHealthWatcher(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "StreamHealthWatcher poll iteration failed; will retry next tick.");
+                Log.StreamHealthWatcherPollFailed(logger, ex);
             }
 
             try
@@ -92,9 +92,7 @@ public sealed class StreamHealthWatcher(
             }
             catch (HttpRequestException ex)
             {
-                logger.LogWarning(ex,
-                    "MediaMTX health probe failed for path {Path}; skipping this tick.",
-                    path);
+                Log.HealthProbeFailed(logger, ex, path);
                 continue;
             }
 

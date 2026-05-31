@@ -47,9 +47,7 @@ public sealed class EditDraftRevisionCommandHandler(
         }
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation(
-            "Edited draft revision {Revision} on layout {Layout}.",
-            revisionNumber, layout.Id);
+        Log.EditedDraftRevision(logger, revisionNumber, layout.Id);
 
         return Result<LayoutRevisionNumber, EditDraftRevisionError>.Success(revisionNumber);
     }

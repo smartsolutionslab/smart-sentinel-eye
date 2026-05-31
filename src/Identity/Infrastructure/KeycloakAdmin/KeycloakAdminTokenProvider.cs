@@ -63,8 +63,7 @@ public sealed class KeycloakAdminTokenProvider(
             // Refresh proactively at 80 % of the lifetime.
             _refreshAfter = clock.GetUtcNow().AddSeconds(payload.ExpiresIn * 0.8);
 
-            logger.LogDebug(
-                "Minted Identity admin token; valid for {Lifetime}s.", payload.ExpiresIn);
+            Log.MintedAdminToken(logger, payload.ExpiresIn);
             return _cachedToken;
         }
         finally

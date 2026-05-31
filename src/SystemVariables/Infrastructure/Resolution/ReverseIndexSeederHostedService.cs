@@ -46,10 +46,7 @@ public sealed class ReverseIndexSeederHostedService(
 
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogWarning(
-                    "ReverseIndex seed: overlay-designer returned {Status}; starting with empty index. " +
-                    "The index will populate as new OverlayRevisionPublishedV1 events arrive.",
-                    response.StatusCode);
+                Log.SeedNonSuccessStatus(logger, response.StatusCode);
                 return;
             }
 
@@ -57,7 +54,7 @@ public sealed class ReverseIndexSeederHostedService(
                 .ReadFromJsonAsync<JsonElement>(cancellationToken).ConfigureAwait(false);
             if (!payload.TryGetProperty("published", out JsonElement published))
             {
-                logger.LogWarning("ReverseIndex seed: response missing 'published' key; index left empty.");
+                Log.SeedMissingPublishedKey(logger);
                 return;
             }
 
@@ -72,13 +69,11 @@ public sealed class ReverseIndexSeederHostedService(
                 seeded++;
             }
 
-            logger.LogInformation("ReverseIndex seeded with {Count} published overlays.", seeded);
+            Log.SeededOverlays(logger, seeded);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex,
-                "ReverseIndex seed failed; starting with empty index. " +
-                "Self-heal will kick in as overlay V1 events arrive.");
+            Log.SeedFailed(logger, ex);
         }
     }
 

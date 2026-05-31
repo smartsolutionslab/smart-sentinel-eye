@@ -19,8 +19,8 @@ public sealed class EventIngestionMigrator(
         await using EventIngestionDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation("Applying EventIngestion EF Core migrations.");
+        Log.ApplyingMigrations(logger);
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        logger.LogInformation("EventIngestion migrations applied.");
+        Log.MigrationsApplied(logger);
     }
 }

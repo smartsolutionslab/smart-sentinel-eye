@@ -45,8 +45,7 @@ public sealed class VariableValueChangedDomainEventHandler(
             reverseIndex.LookupOverlays(domainEvent.Name.Value);
         if (affectedOverlays.Count == 0)
         {
-            logger.LogDebug("No overlays reference variable '{Name}'; skipping push fan-out.",
-                domainEvent.Name);
+            Log.NoOverlaysReferenceVariable(logger, domainEvent.Name);
             return;
         }
 
@@ -70,9 +69,7 @@ public sealed class VariableValueChangedDomainEventHandler(
                 cancellationToken).ConfigureAwait(false);
         }
 
-        logger.LogInformation(
-            "Pushed ResolvedOverlayTextChanged to {Count} overlays after '{Name}' changed.",
-            affectedOverlays.Count, domainEvent.Name);
+        Log.PushedResolvedTextAfterChange(logger, affectedOverlays.Count, domainEvent.Name);
     }
 
     /// <summary>

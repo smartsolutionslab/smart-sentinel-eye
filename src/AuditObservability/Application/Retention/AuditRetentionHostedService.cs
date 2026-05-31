@@ -32,9 +32,7 @@ public sealed class AuditRetentionHostedService(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         AuditRetentionOptions opts = options.Value;
-        logger.LogInformation(
-            "Audit retention worker started with window {Window} and tick interval {Interval}.",
-            opts.RetentionWindow, opts.TickInterval);
+        Log.RetentionWorkerStarted(logger, opts.RetentionWindow, opts.TickInterval);
 
         using PeriodicTimer timer = new(opts.TickInterval, timeProvider);
         try
@@ -77,13 +75,11 @@ public sealed class AuditRetentionHostedService(
             .ListChunksOlderThanAsync(boundary, cancellationToken).ConfigureAwait(false);
         if (chunks.Count == 0)
         {
-            logger.LogDebug("Retention sweep at {Boundary}: no chunks past the boundary.", boundary);
+            Log.RetentionSweepNoChunks(logger, boundary);
             return;
         }
 
-        logger.LogInformation(
-            "Retention sweep at {Boundary}: {ChunkCount} chunk(s) to archive.",
-            boundary, chunks.Count);
+        Log.RetentionSweepChunksToArchive(logger, boundary, chunks.Count);
 
         foreach (AuditChunk chunk in chunks)
         {
@@ -114,17 +110,14 @@ public sealed class AuditRetentionHostedService(
 
             await deps.Inventory.DropChunkAsync(chunk, cancellationToken).ConfigureAwait(false);
 
-            logger.LogInformation(
-                "Archived chunk {ChunkIdentifier} ({RowCount} rows, already-archived={AlreadyArchived}) to {ObjectKey}.",
-                chunk.ChunkIdentifier, result.RowCount, result.AlreadyArchived, result.MinioObjectKey);
+            Log.ArchivedChunk(
+                logger, chunk.ChunkIdentifier, result.RowCount, result.AlreadyArchived, result.MinioObjectKey);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Leave the chunk in place; next sweep retries. NFR-004
             // accepts up to a 5-minute audit lag during outages.
-            logger.LogError(ex,
-                "Failed to archive chunk {ChunkIdentifier}; leaving it in place for the next sweep.",
-                chunk.ChunkIdentifier);
+            Log.ArchiveChunkFailed(logger, ex, chunk.ChunkIdentifier);
         }
     }
 

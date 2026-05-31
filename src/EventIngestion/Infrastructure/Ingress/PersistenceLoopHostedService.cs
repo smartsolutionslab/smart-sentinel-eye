@@ -24,7 +24,7 @@ public sealed class PersistenceLoopHostedService(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("Persistence loop started.");
+        Log.PersistenceLoopStarted(logger);
         try
         {
             await foreach (EventEnvelope envelope in channel.ReadAllAsync(stoppingToken).ConfigureAwait(false))
@@ -34,7 +34,7 @@ public sealed class PersistenceLoopHostedService(
         }
         catch (OperationCanceledException ex) when (stoppingToken.IsCancellationRequested)
         {
-            logger.LogInformation(ex, "Persistence loop stopping (cancellation).");
+            Log.PersistenceLoopStopping(logger, ex);
         }
     }
 
@@ -50,9 +50,8 @@ public sealed class PersistenceLoopHostedService(
 
         if (!result.IsSuccess)
         {
-            logger.LogWarning(
-                "Ingest failed for {Identifier} ({Source}/{Device}): {Code}",
-                envelope.Identifier, envelope.Source, envelope.Device, result.Error.Code);
+            Log.IngestFailed(
+                logger, envelope.Identifier, envelope.Source, envelope.Device, result.Error.Code);
         }
     }
 }

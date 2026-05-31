@@ -49,8 +49,8 @@ public sealed class AuditingMessageHandler(
         repository.Add(row);
         await repository.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogDebug(
-            "Audited {EventKind} {EventIdentifier} (resource: {ResourceKind}/{ResourceIdentifier}).",
+        Log.Audited(
+            logger,
             envelope.EventTypeName,
             envelope.EventIdentifier,
             mapping.Kind.HasValue ? mapping.Kind.Value.Value : "<none>",

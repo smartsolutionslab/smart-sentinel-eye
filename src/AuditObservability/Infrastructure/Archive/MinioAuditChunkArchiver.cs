@@ -74,9 +74,7 @@ public sealed class MinioAuditChunkArchiver(
             .ConfigureAwait(false);
         if (existingEtag is not null && string.Equals(existingEtag, contentMd5, StringComparison.OrdinalIgnoreCase))
         {
-            logger.LogInformation(
-                "Audit chunk {ChunkIdentifier} already archived at {ObjectKey}; skipping upload.",
-                chunk.ChunkIdentifier, objectKey);
+            Log.ChunkAlreadyArchived(logger, chunk.ChunkIdentifier, objectKey);
             return new ChunkArchiveResult(objectKey, contentMd5, rows.Count, AlreadyArchived: true);
         }
 
@@ -96,9 +94,7 @@ public sealed class MinioAuditChunkArchiver(
                 }),
             cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation(
-            "Archived audit chunk {ChunkIdentifier} ({RowCount} rows) to {ObjectKey}.",
-            chunk.ChunkIdentifier, rows.Count, objectKey);
+        Log.ArchivedAuditChunk(logger, chunk.ChunkIdentifier, rows.Count, objectKey);
 
         return new ChunkArchiveResult(objectKey, contentMd5, rows.Count, AlreadyArchived: false);
     }

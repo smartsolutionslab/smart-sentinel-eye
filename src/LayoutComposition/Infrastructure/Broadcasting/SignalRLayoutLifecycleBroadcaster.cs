@@ -33,9 +33,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex,
-                "SignalR broadcast for LayoutRevisionPublished({Layout},{Revision}) failed; reconcile-on-reconnect will recover.",
-                notification.Layout, notification.RevisionNumber);
+            Log.LayoutRevisionPublishedBroadcastFailed(logger, ex, notification.Layout, notification.RevisionNumber);
         }
     }
 
@@ -53,9 +51,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex,
-                "SignalR broadcast for LayoutRevisionArchived({Layout},{Revision}) failed; reconcile-on-reconnect will recover.",
-                notification.Layout, notification.RevisionNumber);
+            Log.LayoutRevisionArchivedBroadcastFailed(logger, ex, notification.Layout, notification.RevisionNumber);
         }
     }
 
@@ -80,9 +76,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex,
-                "SignalR broadcast for OverlayRevisionPublished({Overlay},{Revision}) failed; reconcile-on-reconnect will recover.",
-                notification.Overlay, notification.RevisionNumber);
+            Log.OverlayRevisionPublishedBroadcastFailed(logger, ex, notification.Overlay, notification.RevisionNumber);
         }
     }
 
@@ -100,9 +94,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex,
-                "SignalR broadcast for OverlayRevisionArchived({Overlay},{Revision}) failed; reconcile-on-reconnect will recover.",
-                notification.Overlay, notification.RevisionNumber);
+            Log.OverlayRevisionArchivedBroadcastFailed(logger, ex, notification.Overlay, notification.RevisionNumber);
         }
     }
 
@@ -120,9 +112,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex,
-                "SignalR broadcast for ResolvedOverlayTextChanged({Overlay}, v{Version}) failed; reconcile-on-reconnect will recover.",
-                notification.Overlay, notification.Version);
+            Log.ResolvedOverlayTextChangedBroadcastFailed(logger, ex, notification.Overlay, notification.Version);
         }
     }
 
@@ -139,9 +129,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex,
-                "SignalR broadcast for OverlayHighlightChanged({Overlay}, {DurationMs} ms) failed; reconcile-on-reconnect will recover.",
-                notification.Overlay, notification.DurationMs);
+            Log.OverlayHighlightChangedBroadcastFailed(logger, ex, notification.Overlay, notification.DurationMs);
         }
     }
 }

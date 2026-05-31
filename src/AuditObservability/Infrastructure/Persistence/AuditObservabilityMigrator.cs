@@ -15,8 +15,8 @@ public sealed class AuditObservabilityMigrator(
         await using AuditObservabilityDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation("Applying AuditObservability EF Core migrations.");
+        Log.ApplyingMigrations(logger);
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        logger.LogInformation("AuditObservability migrations applied.");
+        Log.MigrationsApplied(logger);
     }
 }

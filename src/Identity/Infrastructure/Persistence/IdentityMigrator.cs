@@ -15,8 +15,8 @@ public sealed class IdentityMigrator(
         await using IdentityDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation("Applying Identity EF Core migrations.");
+        Log.ApplyingMigrations(logger);
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        logger.LogInformation("Identity migrations applied.");
+        Log.MigrationsApplied(logger);
     }
 }

@@ -45,9 +45,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
             .ConfigureAwait(false);
         if (!reserved)
         {
-            logger.LogDebug(
-                "Dedup hit for variable '{Name}' caused by {CausingEvent}; no-op.",
-                message.Name, message.CausingEventIdentifier);
+            Log.DedupHit(logger, message.Name, message.CausingEventIdentifier);
             return;
         }
 
@@ -58,9 +56,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
         }
         catch (ArgumentException ex)
         {
-            logger.LogWarning(ex,
-                "Invalid variable name '{Name}' in V1; dropping (caused by {CausingEvent}).",
-                message.Name, message.CausingEventIdentifier);
+            Log.InvalidVariableName(logger, ex, message.Name, message.CausingEventIdentifier);
             return;
         }
 
@@ -70,9 +66,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
 
         if (!result.IsSuccess)
         {
-            logger.LogWarning(
-                "SetVariableValue failed for '{Name}' = '{Value}' (caused by {CausingEvent}): {Code}.",
-                message.Name, message.Value, message.CausingEventIdentifier, result.Error.Code);
+            Log.SetVariableValueFailed(logger, message.Name, message.Value, message.CausingEventIdentifier, result.Error.Code);
         }
     }
 }

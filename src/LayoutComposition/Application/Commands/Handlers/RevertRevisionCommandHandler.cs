@@ -43,9 +43,7 @@ public sealed class RevertRevisionCommandHandler(
         layout.Revert(revisionNumber, revertedBy, clock);
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation(
-            "Reverted revision {Revision} on layout {Layout} to Draft by {Operator}.",
-            revisionNumber, layout.Id, revertedBy);
+        Log.RevertedRevision(logger, revisionNumber, layout.Id, revertedBy);
 
         return Result<LayoutRevisionNumber, RevertRevisionError>.Success(revisionNumber);
     }

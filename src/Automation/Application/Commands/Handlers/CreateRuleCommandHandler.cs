@@ -65,9 +65,7 @@ public sealed class CreateRuleCommandHandler(
         rules.Add(rule);
         await rules.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation(
-            "Created rule {Rule} '{Name}' ({TriggerSource}/{TriggerKind}) by {Operator}.",
-            rule.Id, name, triggerSource, triggerKind, createdBy);
+        Log.CreatedRule(logger, rule.Id, name, triggerSource, triggerKind, createdBy);
 
         return Result<RuleIdentifier, CreateRuleError>.Success(rule.Id);
     }

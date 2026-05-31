@@ -61,9 +61,7 @@ public sealed class TimescaleAuditChunkInventory(
             """,
             cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation(
-            "Dropped TimescaleDB chunks for AuditObservability up to {Until} (procedure rows: {Count}).",
-            chunk.OccurredUntil, count);
+        Log.DroppedChunks(logger, chunk.OccurredUntil, count);
     }
 
     /// <summary>

@@ -18,7 +18,7 @@ public sealed class OverlayRevisionArchivedV1Handler(
     {
         ArgumentNullException.ThrowIfNull(message);
         reverseIndex.RemoveOverlay(message.Overlay);
-        logger.LogDebug("Reverse-index dropped overlay {Overlay} after archive.", message.Overlay);
+        Log.ReverseIndexDroppedOverlay(logger, message.Overlay);
         return Task.CompletedTask;
     }
 }

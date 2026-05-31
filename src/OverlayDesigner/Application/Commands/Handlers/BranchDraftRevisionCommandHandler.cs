@@ -36,9 +36,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         Revision branched = overlay.BranchDraft(branchedBy, clock);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation(
-            "Branched draft revision {Revision} on overlay {Overlay} by {Operator}.",
-            branched.Number, overlay.Id, branchedBy);
+        Log.BranchedDraftRevision(logger, branched.Number, overlay.Id, branchedBy);
 
         return Result<OverlayRevisionNumber, BranchDraftRevisionError>.Success(branched.Number);
     }

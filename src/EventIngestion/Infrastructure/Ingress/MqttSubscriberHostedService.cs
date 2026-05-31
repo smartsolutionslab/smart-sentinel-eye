@@ -52,8 +52,7 @@ public sealed class MqttSubscriberHostedService(
         string topic = options.Value.SubscribeTopic;
         await _client.SubscribeAsync(topic, MqttQualityOfServiceLevel.AtLeastOnce).ConfigureAwait(false);
 
-        logger.LogInformation(
-            "MQTT subscriber started; subscribed to topic '{Topic}' at QoS 1.", topic);
+        Log.MqttSubscriberStarted(logger, topic);
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
@@ -63,7 +62,7 @@ public sealed class MqttSubscriberHostedService(
         await _client.StopAsync().ConfigureAwait(false);
         _client.Dispose();
         _client = null;
-        logger.LogInformation("MQTT subscriber stopped.");
+        Log.MqttSubscriberStopped(logger);
     }
 
     private async Task OnMessageReceived(MqttApplicationMessageReceivedEventArgs args)
@@ -133,7 +132,7 @@ public sealed class MqttSubscriberHostedService(
 
     private async Task CaptureDeadLetterAsync(string topic, ReadOnlyMemory<byte> body, string error)
     {
-        logger.LogWarning("Rejecting MQTT delivery on '{Topic}': {Error}", topic, error);
+        Log.RejectingMqttDelivery(logger, topic, error);
         string raw = Encoding.UTF8.GetString(body.Span);
         try
         {
@@ -147,8 +146,7 @@ public sealed class MqttSubscriberHostedService(
         {
             // Dead-letter capture is best-effort — DB outage must not
             // bring the subscriber down. Log and move on.
-            logger.LogError(ex,
-                "Failed to capture dead letter for topic '{Topic}': {Message}", topic, ex.Message);
+            Log.DeadLetterCaptureFailed(logger, ex, topic, ex.Message);
         }
     }
 

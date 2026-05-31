@@ -19,8 +19,8 @@ public sealed class LayoutCompositionMigrator(
         await using LayoutCompositionDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation("Applying LayoutComposition EF Core migrations.");
+        Log.ApplyingMigrations(logger);
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        logger.LogInformation("LayoutComposition migrations applied.");
+        Log.MigrationsApplied(logger);
     }
 }
