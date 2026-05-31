@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { layoutsApi } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { overlaysApi } from '@smart-sentinel-eye/shared/api/overlays.api';
@@ -47,24 +47,40 @@ export function useLayoutLifecycle(options: UseLayoutLifecycleOptions): void {
   const dispatch = useDispatch<AppDispatch>();
   const enabled = options.enabled ?? true;
 
+  // The hub connection is long-lived — rebuilt only when `enabled` flips,
+  // not on every render. Its callbacks must therefore read the LATEST
+  // options rather than the closures captured when the connection was
+  // built: a callback closing over state that resolves after mount (e.g.
+  // CellPage's overlayIdentifier, null until the layout query lands) would
+  // otherwise capture the stale value and silently no-op forever. Keep the
+  // latest options in a ref the handlers dereference on each event.
+  const optionsRef = useRef(options);
+  useEffect(() => {
+    optionsRef.current = options;
+  });
+
   useEffect(() => {
     if (!enabled) {
       return undefined;
     }
 
     const hub = createLayoutHubClient(
-      { hubUrl: HUB_PATH, accessTokenFactory: options.accessTokenFactory },
       {
-        onPublished: options.onPublished,
-        onArchived: options.onArchived,
-        onOverlayPublished: options.onOverlayPublished,
-        onOverlayArchived: options.onOverlayArchived,
-        onResolvedOverlayTextChanged: options.onResolvedOverlayTextChanged,
+        hubUrl: HUB_PATH,
+        accessTokenFactory: () => optionsRef.current.accessTokenFactory(),
+      },
+      {
+        onPublished: (message) => optionsRef.current.onPublished?.(message),
+        onArchived: (message) => optionsRef.current.onArchived?.(message),
+        onOverlayPublished: (message) => optionsRef.current.onOverlayPublished?.(message),
+        onOverlayArchived: (message) => optionsRef.current.onOverlayArchived?.(message),
+        onResolvedOverlayTextChanged: (message) =>
+          optionsRef.current.onResolvedOverlayTextChanged?.(message),
         onReconnected: () => {
           dispatch(layoutsApi.util.invalidateTags([{ type: 'LayoutList', id: 'ALL' }]));
           dispatch(overlaysApi.util.invalidateTags([{ type: 'OverlayList', id: 'ALL' }]));
           dispatch(systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: 'ALL' }]));
-          options.onReconnected?.();
+          optionsRef.current.onReconnected?.();
         },
       },
     );
@@ -76,6 +92,5 @@ export function useLayoutLifecycle(options: UseLayoutLifecycleOptions): void {
     return () => {
       void hub.stop().catch(() => undefined);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled]);
+  }, [enabled, dispatch]);
 }
