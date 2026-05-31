@@ -1,7 +1,34 @@
-# ADR-0050: Logging — Serilog behind ILogger&lt;T&gt;, OTLP Exporter
+# ADR-0050: Logging — `ILogger<T>` + OpenTelemetry OTLP (Serilog not adopted)
 
-**Status:** Accepted
+**Status:** **Amended 2026-05-31** — implemented MEL-native; Serilog was not adopted (see Addendum)
 **Date:** 2026-05-25
+
+## Addendum (2026-05-31) — as-built: MEL-native, no Serilog
+
+The original decision below (Serilog behind `ILogger<T>`) was **not
+implemented**. The codebase uses the **Microsoft.Extensions.Logging
+provider with OpenTelemetry** — `builder.Logging.AddOpenTelemetry(...)`
+plus `UseOtlpExporter()` in `ServiceDefaults` — which is exactly the
+"native, no Serilog" path this ADR had listed under *Alternatives
+Considered*. There is no `UseSerilog`, no `Serilog.Sinks.OpenTelemetry`,
+and no Serilog enrichers anywhere in the tree.
+
+**Why the as-built path stands:**
+
+- It is the Aspire-native default and needs no extra dependency.
+- OTLP log export is batched off the request/ingest threads by default.
+- Structured-logging discipline is preserved and now enforced at the
+  source level via **`[LoggerMessage]` source generators** (a MEL
+  feature) per project — strongly-typed, allocation-free, level-gated
+  log methods. This supersedes the Serilog-analyzer enforcement the
+  original decision relied on; the "no string interpolation /
+  structured fields only" rule still holds.
+- Trace/span correlation comes from the OpenTelemetry logging provider
+  (`IncludeScopes` + activity correlation), not Serilog enrichers.
+
+The remainder of this ADR is retained for historical context; treat the
+Serilog-specific mechanics (UseSerilog, sinks, enrichers,
+Serilog.Analyzers) as **not in effect**.
 
 ## Context
 

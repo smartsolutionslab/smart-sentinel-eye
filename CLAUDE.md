@@ -166,7 +166,7 @@ down as:
 | Identity | Keycloak (OIDC) per fab | 0007, 0008 |
 | Streaming | WebRTC SFU; passthrough + GPU transcode fallback | 0011, 0012 |
 | Time | PTP (IEEE 1588) per fab | 0014, 0021 |
-| Logging | Serilog behind `ILogger<T>`, OTLP exporter, structured fields | 0050 |
+| Logging | `ILogger<T>` + OpenTelemetry OTLP (MEL-native, **no Serilog**); `[LoggerMessage]` source-gen; structured fields | 0050 |
 | DI | Per-context `Add<Context>{Infrastructure,Api}` extension methods | 0051 |
 | Migrations | Dedicated `MigrationRunner` worker | 0067 |
 | Test framework | xUnit + **Shouldly** (free) + **Moq** + hand-written fakes; integration via the **Aspire fixture** (no Testcontainers) | 0052, 0103 |
