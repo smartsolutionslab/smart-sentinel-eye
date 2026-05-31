@@ -6,6 +6,7 @@ using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
 using SmartSentinelEye.SystemVariables.Application.EventHandlers;
 using SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
+using SmartSentinelEye.SystemVariables.Domain.Tests.Variable.Builders;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Application.Tests.EventHandlers;
@@ -37,9 +38,8 @@ public class SystemVariableValueRequestedV1HandlerTests
     public async Task First_delivery_dispatches_SetVariableValue_against_the_existing_handler()
     {
         InMemoryVariableRepository repo = new();
-        Variable oeeLine1 = Variable.Define(
-            VariableName.From("oeeLine1"), VariableType.Number, null, null,
-            OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Moment));
+        Variable oeeLine1 = new VariableBuilder()
+            .Named("oeeLine1").OfType(VariableType.Number).At(Moment).Build();
         repo.Add(oeeLine1);
 
         FakeDedupStore dedup = new();
@@ -58,9 +58,8 @@ public class SystemVariableValueRequestedV1HandlerTests
     public async Task Second_delivery_with_the_same_causing_event_is_a_no_op()
     {
         InMemoryVariableRepository repo = new();
-        Variable oeeLine1 = Variable.Define(
-            VariableName.From("oeeLine1"), VariableType.Number, null, null,
-            OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Moment));
+        Variable oeeLine1 = new VariableBuilder()
+            .Named("oeeLine1").OfType(VariableType.Number).At(Moment).Build();
         repo.Add(oeeLine1);
 
         FakeDedupStore dedup = new();

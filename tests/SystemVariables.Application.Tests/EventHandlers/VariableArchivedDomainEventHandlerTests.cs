@@ -5,6 +5,7 @@ using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.EventHandlers;
 using SmartSentinelEye.SystemVariables.Application.Resolution;
 using SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
+using SmartSentinelEye.SystemVariables.Domain.Tests.Variable.Builders;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
 using SmartSentinelEye.SystemVariables.Domain.Variable.Events;
 
@@ -47,11 +48,9 @@ public class VariableArchivedDomainEventHandlerTests
         InMemoryVariableRepository repo = new();
 
         // Sibling 'shift' stays Defined+set; 'oeeLine1' is the one being archived.
-        FakeClock clock = new(FixedMoment);
-        OperatorIdentifier definer = OperatorIdentifier.From(Guid.CreateVersion7());
-        Variable shift = Variable.Define(
-            VariableName.From("shift"), VariableType.String,
-            new VariableValue.StringValue("A"), null, definer, clock);
+        Variable shift = new VariableBuilder()
+            .Named("shift").OfType(VariableType.String)
+            .WithInitialValue(new VariableValue.StringValue("A")).Build();
         repo.Add(shift);
 
         Guid overlay = Guid.CreateVersion7();
@@ -81,12 +80,8 @@ public class VariableArchivedDomainEventHandlerTests
         InMemoryReverseIndex index = new();
         InMemoryVariableRepository repo = new();
 
-        FakeClock clock = new(FixedMoment);
-        OperatorIdentifier definer = OperatorIdentifier.From(Guid.CreateVersion7());
-
         // 'shift' is Defined but Unset → should be skipped (renders as literal).
-        Variable shift = Variable.Define(
-            VariableName.From("shift"), VariableType.String, null, null, definer, clock);
+        Variable shift = new VariableBuilder().Named("shift").OfType(VariableType.String).Build();
         repo.Add(shift);
 
         Guid overlay = Guid.CreateVersion7();

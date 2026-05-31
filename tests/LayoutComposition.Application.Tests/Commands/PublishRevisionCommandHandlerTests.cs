@@ -5,6 +5,7 @@ using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Layout.Events;
+using SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
@@ -19,11 +20,7 @@ public class PublishRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout draft = Layout.CreateDraft(
-            LayoutName.From("Line-1"),
-            CameraIdentifier.From(Guid.CreateVersion7()),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            clock);
+        Layout draft = new LayoutBuilder().At(FixedMoment).Build();
         layouts.Add(draft);
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
@@ -62,11 +59,7 @@ public class PublishRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout draft = Layout.CreateDraft(
-            LayoutName.From("Line-1"),
-            CameraIdentifier.From(Guid.CreateVersion7()),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            clock);
+        Layout draft = new LayoutBuilder().At(FixedMoment).Build();
         layouts.Add(draft);
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
@@ -86,11 +79,7 @@ public class PublishRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout draft = Layout.CreateDraft(
-            LayoutName.From("Line-1"),
-            CameraIdentifier.From(Guid.CreateVersion7()),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            clock);
+        Layout draft = new LayoutBuilder().At(FixedMoment).Build();
         draft.Publish(LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), clock);
         draft.ClearPendingEvents();
         layouts.Add(draft);
@@ -113,11 +102,7 @@ public class PublishRevisionCommandHandlerTests
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
         OperatorIdentifier op = OperatorIdentifier.From(Guid.CreateVersion7());
-        Layout layout = Layout.CreateDraft(
-            LayoutName.From("Line-1"),
-            CameraIdentifier.From(Guid.CreateVersion7()),
-            op,
-            clock);
+        Layout layout = new LayoutBuilder().CreatedBy(op).At(FixedMoment).Build();
         layout.Publish(LayoutRevisionNumber.One, op, clock);
         Revision draftTwo = layout.BranchDraft(op, clock);
         layout.ClearPendingEvents();

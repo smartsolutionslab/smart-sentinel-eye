@@ -4,6 +4,7 @@ using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 using SmartSentinelEye.EventIngestion.Domain.Event;
+using SmartSentinelEye.EventIngestion.Domain.Tests.Event;
 using SmartSentinelEye.Shared.Kernel;
 using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
 
@@ -15,15 +16,12 @@ public class GetEventQueryHandlerTests
         DateTimeOffset.Parse("2026-05-28T08:14:33Z", CultureInfo.InvariantCulture);
 
     private static EventAggregate Build(EventIdentifier id, string fab = "munich") =>
-        EventAggregate.Ingest(
-            id,
-            FabIdentifier.From(fab),
-            Source.Plc,
-            DeviceIdentifier.From("station-4"),
-            Kind.From("PlcCycleStart"),
-            OccurredAt.From(Now),
-            Payload.From("{\"cycleId\":\"abc\"}"),
-            new FakeClock(Now));
+        new EventBuilder()
+            .WithIdentifier(id)
+            .WithFab(fab)
+            .WithOccurredAt(Now)
+            .WithClock(Now)
+            .Build();
 
     [Fact]
     public async Task Returns_EventNotFound_when_no_event_matches_the_identifier()

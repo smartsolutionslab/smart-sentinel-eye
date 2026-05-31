@@ -4,6 +4,7 @@ using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Commands;
 using SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
 using SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
+using SmartSentinelEye.SystemVariables.Domain.Tests.Variable.Builders;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Application.Tests.Commands;
@@ -17,14 +18,12 @@ public class ArchiveVariableCommandHandlerTests
     public async Task Archiving_a_defined_variable_transitions_state_and_releases_the_name()
     {
         InMemoryVariableRepository repo = new();
-        FakeClock clock = new(FixedMoment);
-        Variable v = Variable.Define(
-            VariableName.From("oeeLine1"), VariableType.Number, null, null,
-            OperatorIdentifier.From(Guid.CreateVersion7()), clock);
+        VariableBuilder builder = new VariableBuilder().Named("oeeLine1").OfType(VariableType.Number);
+        Variable v = builder.Build();
         repo.Add(v);
 
         ArchiveVariableCommandHandler handler = new(
-            repo, clock, NullLogger<ArchiveVariableCommandHandler>.Instance);
+            repo, builder.Clock, NullLogger<ArchiveVariableCommandHandler>.Instance);
         Result<VariableIdentifier, ArchiveVariableError> result = await handler.HandleAsync(
             new ArchiveVariableCommand(
                 VariableName.From("oeeLine1"),

@@ -1,18 +1,15 @@
-using System.Globalization;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.DTOs;
 using SmartSentinelEye.SystemVariables.Application.Queries;
 using SmartSentinelEye.SystemVariables.Application.Queries.Handlers;
 using SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
+using SmartSentinelEye.SystemVariables.Domain.Tests.Variable.Builders;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Application.Tests.Queries;
 
 public class GetVariableQueryHandlerTests
 {
-    private static readonly DateTimeOffset FixedMoment =
-        DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture);
-
     [Fact]
     public async Task Returns_VariableNotFound_when_no_variable_with_that_name_exists()
     {
@@ -29,11 +26,9 @@ public class GetVariableQueryHandlerTests
     [Fact]
     public async Task Returns_a_mapped_DTO_when_the_variable_exists()
     {
-        FakeClock clock = new(FixedMoment);
-        OperatorIdentifier definer = OperatorIdentifier.From(Guid.CreateVersion7());
-        Variable variable = Variable.Define(
-            VariableName.From("oeeLine1"), VariableType.Number,
-            new VariableValue.NumberValue(82.5), null, definer, clock);
+        Variable variable = new VariableBuilder()
+            .Named("oeeLine1").OfType(VariableType.Number)
+            .WithInitialValue(new VariableValue.NumberValue(82.5)).Build();
 
         TestVariableQuerySource source = new([variable]);
         GetVariableQueryHandler handler = new(source);
@@ -51,10 +46,8 @@ public class GetVariableQueryHandlerTests
     [Fact]
     public async Task Maps_Unset_value_to_null_on_the_DTO()
     {
-        FakeClock clock = new(FixedMoment);
-        OperatorIdentifier definer = OperatorIdentifier.From(Guid.CreateVersion7());
-        Variable variable = Variable.Define(
-            VariableName.From("shift"), VariableType.String, null, null, definer, clock);
+        Variable variable = new VariableBuilder()
+            .Named("shift").OfType(VariableType.String).Build();
 
         TestVariableQuerySource source = new([variable]);
         GetVariableQueryHandler handler = new(source);

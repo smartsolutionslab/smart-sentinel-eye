@@ -4,6 +4,7 @@ using SmartSentinelEye.Automation.Application.Evaluation;
 using SmartSentinelEye.Automation.Application.EventHandlers;
 using SmartSentinelEye.Automation.Application.Tests.Fakes;
 using SmartSentinelEye.Automation.Domain.Rule;
+using SmartSentinelEye.Automation.Domain.Tests.Rule;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.EventIngestion;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
@@ -37,14 +38,12 @@ public class FabEventIngestedV1HandlerTests
 
     private static RuleAggregate ActiveSetVariableRule(string predicate, string valueExpression)
     {
-        RuleAggregate rule = RuleAggregate.Create(
-            RuleName.From("test-rule"),
-            "plc",
-            "PlcCycleStart",
-            RulePredicate.From(predicate),
-            RuleAction.SetVariableValue.From("oeeLine1", valueExpression),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            new FakeClock(BaseMoment));
+        RuleAggregate rule = new RuleBuilder()
+            .WithName("test-rule")
+            .WithPredicate(predicate)
+            .WithAction(RuleAction.SetVariableValue.From("oeeLine1", valueExpression))
+            .WithClock(BaseMoment)
+            .Build();
         rule.Publish(new FakeClock(BaseMoment.AddMinutes(1)));
         return rule;
     }
@@ -81,13 +80,11 @@ public class FabEventIngestedV1HandlerTests
         Guid overlay = Guid.CreateVersion7();
         InMemoryRuleCache cache = new();
 
-        RuleAggregate rule = RuleAggregate.Create(
-            RuleName.From("highlight-rule"),
-            "plc", "PlcCycleStart",
-            RulePredicate.From("$.payload.cycleTime <= 30"),
-            RuleAction.HighlightOverlay.From(overlay, 10_000),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            new FakeClock(BaseMoment));
+        RuleAggregate rule = new RuleBuilder()
+            .WithName("highlight-rule")
+            .WithAction(RuleAction.HighlightOverlay.From(overlay, 10_000))
+            .WithClock(BaseMoment)
+            .Build();
         rule.Publish(new FakeClock(BaseMoment.AddMinutes(1)));
         cache.Upsert(rule);
 

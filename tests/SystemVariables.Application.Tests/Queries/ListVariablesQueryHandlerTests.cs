@@ -1,23 +1,24 @@
-using System.Globalization;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.DTOs;
 using SmartSentinelEye.SystemVariables.Application.Queries;
 using SmartSentinelEye.SystemVariables.Application.Queries.Handlers;
 using SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
+using SmartSentinelEye.SystemVariables.Domain.Tests.Variable.Builders;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Application.Tests.Queries;
 
 public class ListVariablesQueryHandlerTests
 {
-    private static readonly DateTimeOffset FixedMoment =
-        DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture);
-
     private static Variable Define(string name, VariableType type, VariableValue? value = null)
     {
-        FakeClock clock = new(FixedMoment);
-        OperatorIdentifier op = OperatorIdentifier.From(Guid.CreateVersion7());
-        return Variable.Define(VariableName.From(name), type, value, null, op, clock);
+        VariableBuilder builder = new VariableBuilder().Named(name).OfType(type);
+        if (value is not null)
+        {
+            builder.WithInitialValue(value);
+        }
+
+        return builder.Build();
     }
 
     [Fact]
@@ -53,12 +54,11 @@ public class ListVariablesQueryHandlerTests
     [Fact]
     public async Task Filters_by_state_when_a_state_is_provided()
     {
-        FakeClock clock = new(FixedMoment);
-        OperatorIdentifier op = OperatorIdentifier.From(Guid.CreateVersion7());
+        VariableBuilder archivedBuilder = new VariableBuilder().Named("oldVar").OfType(VariableType.String);
 
         Variable defined = Define("active", VariableType.String);
-        Variable archived = Define("oldVar", VariableType.String);
-        archived.Archive(op, clock);
+        Variable archived = archivedBuilder.Build();
+        archived.Archive(archivedBuilder.Operator, archivedBuilder.Clock);
 
         ListVariablesQueryHandler handler = new(
             new TestVariableQuerySource([defined, archived]));

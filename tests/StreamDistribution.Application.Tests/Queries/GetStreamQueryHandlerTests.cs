@@ -5,6 +5,7 @@ using SmartSentinelEye.StreamDistribution.Application.Queries;
 using SmartSentinelEye.StreamDistribution.Application.Queries.Handlers;
 using SmartSentinelEye.StreamDistribution.Application.Tests.Fakes;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
+using SmartSentinelEye.StreamDistribution.Domain.Tests.Stream.Builders;
 
 namespace SmartSentinelEye.StreamDistribution.Application.Tests.Queries;
 
@@ -73,7 +74,11 @@ public class GetStreamQueryHandlerTests
     private static InMemoryStreamRepository SeededWith(CameraIdentifier camera, Action<Domain.Stream.Stream> setup)
     {
         InMemoryStreamRepository streams = new();
-        Domain.Stream.Stream stream = Domain.Stream.Stream.Provision(camera, AnAdmin, new FixedClock(FixedMoment));
+        Domain.Stream.Stream stream = new StreamBuilder()
+            .ForCamera(camera)
+            .ProvisionedBy(AnAdmin)
+            .At(FixedMoment)
+            .Build();
         setup(stream);
         streams.Add(stream);
         streams.SaveAsync(CancellationToken.None).GetAwaiter().GetResult();

@@ -5,6 +5,7 @@ using SmartSentinelEye.StreamDistribution.Application.Commands;
 using SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 using SmartSentinelEye.StreamDistribution.Application.Tests.Fakes;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
+using SmartSentinelEye.StreamDistribution.Domain.Tests.Stream.Builders;
 
 namespace SmartSentinelEye.StreamDistribution.Application.Tests.Commands;
 
@@ -21,7 +22,11 @@ public class ReportStreamHealthCommandHandlerTests
     {
         InMemoryStreamRepository streams = new();
         CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        Domain.Stream.Stream existing = Domain.Stream.Stream.Provision(camera, AnAdmin, new FixedClock(FixedMoment));
+        Domain.Stream.Stream existing = new StreamBuilder()
+            .ForCamera(camera)
+            .ProvisionedBy(AnAdmin)
+            .At(FixedMoment)
+            .Build();
         streams.Add(existing);
         await streams.SaveAsync(CancellationToken.None);
 
@@ -43,7 +48,11 @@ public class ReportStreamHealthCommandHandlerTests
     {
         InMemoryStreamRepository streams = new();
         CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        Domain.Stream.Stream existing = Domain.Stream.Stream.Provision(camera, AnAdmin, new FixedClock(FixedMoment));
+        Domain.Stream.Stream existing = new StreamBuilder()
+            .ForCamera(camera)
+            .ProvisionedBy(AnAdmin)
+            .At(FixedMoment)
+            .Build();
         existing.ReportHealthy(TranscodeMode.Passthrough, new FixedClock(FixedMoment));
         streams.Add(existing);
         await streams.SaveAsync(CancellationToken.None);
@@ -66,7 +75,11 @@ public class ReportStreamHealthCommandHandlerTests
     {
         InMemoryStreamRepository streams = new();
         CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        Domain.Stream.Stream existing = Domain.Stream.Stream.Provision(camera, AnAdmin, new FixedClock(FixedMoment));
+        Domain.Stream.Stream existing = new StreamBuilder()
+            .ForCamera(camera)
+            .ProvisionedBy(AnAdmin)
+            .At(FixedMoment)
+            .Build();
         existing.ReportHealthy(TranscodeMode.Passthrough, new FixedClock(FixedMoment));
         streams.Add(existing);
         await streams.SaveAsync(CancellationToken.None);
@@ -88,7 +101,11 @@ public class ReportStreamHealthCommandHandlerTests
     {
         InMemoryStreamRepository streams = new();
         CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        Domain.Stream.Stream existing = Domain.Stream.Stream.Provision(camera, AnAdmin, new FixedClock(FixedMoment));
+        Domain.Stream.Stream existing = new StreamBuilder()
+            .ForCamera(camera)
+            .ProvisionedBy(AnAdmin)
+            .At(FixedMoment)
+            .Build();
         existing.ReportHealthy(TranscodeMode.Passthrough, new FixedClock(FixedMoment));
         streams.Add(existing);
         await streams.SaveAsync(CancellationToken.None);

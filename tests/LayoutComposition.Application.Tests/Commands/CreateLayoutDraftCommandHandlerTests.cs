@@ -4,6 +4,7 @@ using SmartSentinelEye.LayoutComposition.Application.Commands;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
+using SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
@@ -59,11 +60,7 @@ public class CreateLayoutDraftCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout existing = Layout.CreateDraft(
-            LayoutName.From("Line-1"),
-            CameraIdentifier.From(Guid.CreateVersion7()),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            clock);
+        Layout existing = new LayoutBuilder().Named("Line-1").At(FixedMoment).Build();
         layouts.Add(existing);
 
         CreateLayoutDraftCommandHandler handler = new(layouts, clock, NullLogger<CreateLayoutDraftCommandHandler>.Instance);
