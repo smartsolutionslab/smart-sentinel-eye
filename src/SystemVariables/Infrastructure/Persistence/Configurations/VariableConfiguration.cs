@@ -109,9 +109,9 @@ internal static class VariableValueColumnConverter
         value switch
         {
             VariableValue.Unset => "Unset|",
-            VariableValue.StringValue s => "String|" + s.Value,
-            VariableValue.NumberValue n => "Number|" + n.ToWireString(),
-            VariableValue.BooleanValue b => "Boolean|" + (b.Value ? "true" : "false"),
+            VariableValue.StringValue stringValue => "String|" + stringValue.Value,
+            VariableValue.NumberValue numberValue => "Number|" + numberValue.ToWireString(),
+            VariableValue.BooleanValue booleanValue => "Boolean|" + (booleanValue.Value ? "true" : "false"),
             _ => throw new InvalidOperationException("Unreachable VariableValue case."),
         };
 

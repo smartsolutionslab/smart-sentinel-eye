@@ -51,8 +51,8 @@ public sealed class CompiledRule
     {
         ArgumentNullException.ThrowIfNull(rule);
         AelExpression predicate = AelParser.Parse(rule.Predicate.Value);
-        AelExpression? valueExpression = rule.Action is RuleAction.SetVariableValue sv
-            ? AelParser.Parse(sv.ValueExpression)
+        AelExpression? valueExpression = rule.Action is RuleAction.SetVariableValue setVariableValue
+            ? AelParser.Parse(setVariableValue.ValueExpression)
             : null;
         return new CompiledRule(
             rule.Id, rule.TriggerSource, rule.TriggerKind,

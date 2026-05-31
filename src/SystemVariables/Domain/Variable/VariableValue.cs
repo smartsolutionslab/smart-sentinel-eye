@@ -73,9 +73,9 @@ public abstract record VariableValue : IValueObject
     public string ToWireString() => this switch
     {
         Unset => string.Empty,
-        StringValue s => s.Value,
-        NumberValue n => n.Value.ToString("G17", CultureInfo.InvariantCulture),
-        BooleanValue b => b.Value ? "true" : "false",
+        StringValue stringValue => stringValue.Value,
+        NumberValue numberValue => numberValue.Value.ToString("G17", CultureInfo.InvariantCulture),
+        BooleanValue booleanValue => booleanValue.Value ? "true" : "false",
         _ => throw new InvalidOperationException("Unreachable VariableValue case."),
     };
 
@@ -89,9 +89,9 @@ public abstract record VariableValue : IValueObject
     /// </remarks>
     public string Render(BooleanLabels booleanLabels) => this switch
     {
-        StringValue s => s.Value,
-        NumberValue n => n.Value.ToString(CultureInfo.InvariantCulture),
-        BooleanValue b => b.Value ? booleanLabels.TruthyLabel : booleanLabels.FalsyLabel,
+        StringValue stringValue => stringValue.Value,
+        NumberValue numberValue => numberValue.Value.ToString(CultureInfo.InvariantCulture),
+        BooleanValue booleanValue => booleanValue.Value ? booleanLabels.TruthyLabel : booleanLabels.FalsyLabel,
         Unset => throw new InvalidOperationException(
             "Unset cannot be rendered; resolver must check state first."),
         _ => throw new InvalidOperationException("Unreachable VariableValue case."),

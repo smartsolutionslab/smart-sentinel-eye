@@ -49,11 +49,11 @@ public sealed class GetOverlaySnapshotQueryHandler(
                 .ConfigureAwait(false);
             if (!found.HasValue) continue;
 
-            Variable v = found.Value;
-            if (v.State == VariableState.Archived) continue;
-            if (v.Value is VariableValue.Unset) continue;
+            Variable variable = found.Value;
+            if (variable.State == VariableState.Archived) continue;
+            if (variable.Value is VariableValue.Unset) continue;
 
-            snapshot[name] = new VariableSnapshotEntry(v.Value, v.BooleanLabels);
+            snapshot[name] = new VariableSnapshotEntry(variable.Value, variable.BooleanLabels);
         }
         return snapshot;
     }

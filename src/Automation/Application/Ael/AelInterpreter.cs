@@ -24,18 +24,18 @@ public static class AelInterpreter
     private static AelValue Eval(AelExpression expression, EvaluationContext context) =>
         expression switch
         {
-            AelExpression.Literal lit => lit.Value,
-            AelExpression.FieldAccess fa => ResolveField(fa, context),
-            AelExpression.Unary u => EvalUnary(u, context),
-            AelExpression.Logical l => EvalLogical(l, context),
-            AelExpression.Binary b => EvalBinary(b, context),
+            AelExpression.Literal literal => literal.Value,
+            AelExpression.FieldAccess fieldAccess => ResolveField(fieldAccess, context),
+            AelExpression.Unary unary => EvalUnary(unary, context),
+            AelExpression.Logical logical => EvalLogical(logical, context),
+            AelExpression.Binary binary => EvalBinary(binary, context),
             _ => throw new InvalidOperationException($"Unhandled AelExpression case: {expression.GetType().Name}"),
         };
 
-    private static AelValue ResolveField(AelExpression.FieldAccess fa, EvaluationContext context)
+    private static AelValue ResolveField(AelExpression.FieldAccess fieldAccess, EvaluationContext context)
     {
         JsonElement current = context.Root;
-        foreach (string segment in fa.Segments)
+        foreach (string segment in fieldAccess.Segments)
         {
             if (current.ValueKind != JsonValueKind.Object) return AelValue.NullValue.Instance;
             if (!current.TryGetProperty(segment, out JsonElement next)) return AelValue.NullValue.Instance;
@@ -50,7 +50,7 @@ public static class AelInterpreter
             JsonValueKind.True => new AelValue.BoolValue(true),
             JsonValueKind.False => new AelValue.BoolValue(false),
             JsonValueKind.String => new AelValue.StringValue(element.GetString() ?? string.Empty),
-            JsonValueKind.Number when element.TryGetInt64(out long i) => new AelValue.IntValue(i),
+            JsonValueKind.Number when element.TryGetInt64(out long integer) => new AelValue.IntValue(integer),
             JsonValueKind.Number => new AelValue.DecimalValue(element.GetDecimal()),
             JsonValueKind.Null => AelValue.NullValue.Instance,
             _ => AelValue.NullValue.Instance, // arrays / objects are not addressable values in v1
@@ -63,14 +63,14 @@ public static class AelInterpreter
         {
             UnaryOperator.Negate => operand switch
             {
-                AelValue.IntValue i => new AelValue.IntValue(-i.Value),
-                AelValue.DecimalValue d => new AelValue.DecimalValue(-d.Value),
+                AelValue.IntValue intValue => new AelValue.IntValue(-intValue.Value),
+                AelValue.DecimalValue decimalValue => new AelValue.DecimalValue(-decimalValue.Value),
                 _ => throw new InvalidOperationException(
                     $"unary '-' requires a numeric operand; got {operand.GetType().Name}"),
             },
             UnaryOperator.Not => operand switch
             {
-                AelValue.BoolValue b => new AelValue.BoolValue(!b.Value),
+                AelValue.BoolValue boolValue => new AelValue.BoolValue(!boolValue.Value),
                 _ => throw new InvalidOperationException(
                     $"unary '!' requires a bool operand; got {operand.GetType().Name}"),
             },
@@ -81,8 +81,8 @@ public static class AelInterpreter
     private static AelValue.BoolValue EvalLogical(AelExpression.Logical logical, EvaluationContext context)
     {
         AelValue left = Eval(logical.Left, context);
-        bool leftBool = left is AelValue.BoolValue lb
-            ? lb.Value
+        bool leftBool = left is AelValue.BoolValue leftBoolValue
+            ? leftBoolValue.Value
             : throw new InvalidOperationException(
                 $"logical operand must be bool; got {left.GetType().Name}");
 
@@ -91,8 +91,8 @@ public static class AelInterpreter
         if (logical.Operator == LogicalOperator.Or && leftBool) return new AelValue.BoolValue(true);
 
         AelValue right = Eval(logical.Right, context);
-        bool rightBool = right is AelValue.BoolValue rb
-            ? rb.Value
+        bool rightBool = right is AelValue.BoolValue rightBoolValue
+            ? rightBoolValue.Value
             : throw new InvalidOperationException(
                 $"logical operand must be bool; got {right.GetType().Name}");
 
@@ -152,44 +152,44 @@ public static class AelInterpreter
             _ => throw new InvalidOperationException($"Unhandled comparison operator: {binaryOperator}"),
         };
 
-    private static long DivideInt(long a, long b) =>
-        b == 0 ? throw new InvalidOperationException("division by zero") : a / b;
+    private static long DivideInt(long dividend, long divisor) =>
+        divisor == 0 ? throw new InvalidOperationException("division by zero") : dividend / divisor;
 
-    private static decimal DivideDecimal(decimal a, decimal b) =>
-        b == 0m ? throw new InvalidOperationException("division by zero") : a / b;
+    private static decimal DivideDecimal(decimal dividend, decimal divisor) =>
+        divisor == 0m ? throw new InvalidOperationException("division by zero") : dividend / divisor;
 
-    private static long ModuloInt(long a, long b) =>
-        b == 0 ? throw new InvalidOperationException("modulo by zero") : a % b;
+    private static long ModuloInt(long dividend, long divisor) =>
+        divisor == 0 ? throw new InvalidOperationException("modulo by zero") : dividend % divisor;
 
-    private static decimal ModuloDecimal(decimal a, decimal b) =>
-        b == 0m ? throw new InvalidOperationException("modulo by zero") : a % b;
+    private static decimal ModuloDecimal(decimal dividend, decimal divisor) =>
+        divisor == 0m ? throw new InvalidOperationException("modulo by zero") : dividend % divisor;
 
     private static AelValue Arithmetic(AelValue left, AelValue right,
-        Func<long, long, long> intOp, Func<decimal, decimal, decimal> decOp)
+        Func<long, long, long> intOperation, Func<decimal, decimal, decimal> decimalOperation)
     {
-        if (left is AelValue.IntValue li && right is AelValue.IntValue ri)
+        if (left is AelValue.IntValue leftInt && right is AelValue.IntValue rightInt)
         {
-            return new AelValue.IntValue(intOp(li.Value, ri.Value));
+            return new AelValue.IntValue(intOperation(leftInt.Value, rightInt.Value));
         }
-        decimal a = ToDecimal(left);
-        decimal b = ToDecimal(right);
-        return new AelValue.DecimalValue(decOp(a, b));
+        decimal leftDecimal = ToDecimal(left);
+        decimal rightDecimal = ToDecimal(right);
+        return new AelValue.DecimalValue(decimalOperation(leftDecimal, rightDecimal));
     }
 
     private static AelValue.BoolValue Compare(AelValue left, AelValue right, Func<decimal, decimal, bool> comparison)
     {
-        decimal a = ToDecimal(left);
-        decimal b = ToDecimal(right);
-        return new AelValue.BoolValue(comparison(a, b));
+        decimal leftDecimal = ToDecimal(left);
+        decimal rightDecimal = ToDecimal(right);
+        return new AelValue.BoolValue(comparison(leftDecimal, rightDecimal));
     }
 
     private static decimal ToDecimal(AelValue value) =>
         value switch
         {
-            AelValue.IntValue i => i.Value,
-            AelValue.DecimalValue d => d.Value,
-            AelValue.StringValue s when decimal.TryParse(
-                s.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal parsed)
+            AelValue.IntValue intValue => intValue.Value,
+            AelValue.DecimalValue decimalValue => decimalValue.Value,
+            AelValue.StringValue stringValue when decimal.TryParse(
+                stringValue.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal parsed)
                 => parsed,
             _ => throw new InvalidOperationException(
                 $"cannot coerce {value.GetType().Name} to a number"),
@@ -198,12 +198,12 @@ public static class AelInterpreter
     private static bool AreEqual(AelValue left, AelValue right) =>
         (left, right) switch
         {
-            (AelValue.IntValue li, AelValue.IntValue ri) => li.Value == ri.Value,
-            (AelValue.DecimalValue ld, AelValue.DecimalValue rd) => ld.Value == rd.Value,
-            (AelValue.IntValue li, AelValue.DecimalValue rd) => li.Value == rd.Value,
-            (AelValue.DecimalValue ld, AelValue.IntValue ri) => ld.Value == ri.Value,
-            (AelValue.StringValue ls, AelValue.StringValue rs) => ls.Value == rs.Value,
-            (AelValue.BoolValue lb, AelValue.BoolValue rb) => lb.Value == rb.Value,
+            (AelValue.IntValue leftInt, AelValue.IntValue rightInt) => leftInt.Value == rightInt.Value,
+            (AelValue.DecimalValue leftDecimal, AelValue.DecimalValue rightDecimal) => leftDecimal.Value == rightDecimal.Value,
+            (AelValue.IntValue leftInt, AelValue.DecimalValue rightDecimal) => leftInt.Value == rightDecimal.Value,
+            (AelValue.DecimalValue leftDecimal, AelValue.IntValue rightInt) => leftDecimal.Value == rightInt.Value,
+            (AelValue.StringValue leftString, AelValue.StringValue rightString) => leftString.Value == rightString.Value,
+            (AelValue.BoolValue leftBool, AelValue.BoolValue rightBool) => leftBool.Value == rightBool.Value,
             (AelValue.NullValue, AelValue.NullValue) => true,
             _ => false,
         };

@@ -114,10 +114,10 @@ internal static class RuleActionColumnConverter
     public static string ToColumn(RuleAction action) =>
         action switch
         {
-            RuleAction.SetVariableValue sv =>
-                $"{SetVariableValueTag}|{sv.VariableName}|{sv.ValueExpression}",
-            RuleAction.HighlightOverlay h =>
-                $"{HighlightOverlayTag}|{h.Overlay:D}|{h.DurationMs.ToString(CultureInfo.InvariantCulture)}",
+            RuleAction.SetVariableValue setVariableValue =>
+                $"{SetVariableValueTag}|{setVariableValue.VariableName}|{setVariableValue.ValueExpression}",
+            RuleAction.HighlightOverlay highlightOverlay =>
+                $"{HighlightOverlayTag}|{highlightOverlay.Overlay:D}|{highlightOverlay.DurationMs.ToString(CultureInfo.InvariantCulture)}",
             _ => throw new InvalidOperationException($"Unhandled RuleAction case: {action.GetType().Name}"),
         };
 

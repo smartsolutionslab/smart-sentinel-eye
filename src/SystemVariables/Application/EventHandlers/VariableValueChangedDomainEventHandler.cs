@@ -112,11 +112,11 @@ public sealed class VariableValueChangedDomainEventHandler(
                 .ConfigureAwait(false);
             if (!other.HasValue) continue;
 
-            Variable v = other.Value;
-            if (v.State == VariableState.Archived) continue;
-            if (v.Value is VariableValue.Unset) continue;
+            Variable variable = other.Value;
+            if (variable.State == VariableState.Archived) continue;
+            if (variable.Value is VariableValue.Unset) continue;
 
-            snapshot[name] = new VariableSnapshotEntry(v.Value, v.BooleanLabels);
+            snapshot[name] = new VariableSnapshotEntry(variable.Value, variable.BooleanLabels);
         }
 
         return snapshot;
