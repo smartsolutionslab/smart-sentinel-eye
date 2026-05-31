@@ -22,7 +22,7 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
     useArchiveRevisionMutation: () => [archiveMock, { isLoading: false }],
     useBranchDraftRevisionMutation: () => [vi.fn(async () => ({ data: 2 })), { isLoading: false }],
     useRevertRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), { isLoading: false }],
-    useCreateLayoutDraftMutation: () => [createDraftMock, { isLoading: false, error: undefined }],
+    useCreateLayoutDraftMutation: () => [createDraftMock, { isLoading: false, error: undefined, reset: vi.fn() }],
   };
 });
 

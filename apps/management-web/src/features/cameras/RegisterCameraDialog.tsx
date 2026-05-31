@@ -6,6 +6,7 @@ import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 
 export interface RegisterCameraDialogProps {
@@ -14,7 +15,14 @@ export interface RegisterCameraDialogProps {
 }
 
 export function RegisterCameraDialog({ open, onOpenChange }: RegisterCameraDialogProps) {
-  const [registerCamera, { isLoading, error }] = useRegisterCameraMutation();
+  const [registerCamera, { isLoading, error, reset: resetMutationState }] = useRegisterCameraMutation();
+
+  // Drop any prior backend error when the dialog closes so a stale banner
+  // doesn't greet the operator on the next open (the mutation result lives
+  // in the store, not in the unmounted form).
+  useEffect(() => {
+    if (!open) resetMutationState();
+  }, [open, resetMutationState]);
 
   const {
     register,

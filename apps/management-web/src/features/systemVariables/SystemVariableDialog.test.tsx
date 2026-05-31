@@ -10,7 +10,7 @@ vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOrigi
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/systemVariables.api')>();
   return {
     ...actual,
-    useDefineVariableMutation: () => [defineMock, { isLoading: false, error: undefined }],
+    useDefineVariableMutation: () => [defineMock, { isLoading: false, error: undefined, reset: vi.fn() }],
   };
 });
 

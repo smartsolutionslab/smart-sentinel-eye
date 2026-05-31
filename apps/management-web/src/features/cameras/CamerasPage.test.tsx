@@ -13,7 +13,7 @@ vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => 
   return {
     ...actual,
     useListCamerasQuery: (...args: unknown[]) => listCamerasMock(...args),
-    useRegisterCameraMutation: () => [registerCameraMock, { isLoading: false, error: undefined }],
+    useRegisterCameraMutation: () => [registerCameraMock, { isLoading: false, error: undefined, reset: vi.fn() }],
   };
 });
 

@@ -10,6 +10,7 @@ import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { OverlayEditor } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
 import { problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
 export interface OverlayEditorDialogProps {
@@ -30,7 +31,13 @@ const DEFAULT_INPUT: CreateOverlayDraftInput = {
 };
 
 export function OverlayEditorDialog({ open, onOpenChange }: OverlayEditorDialogProps) {
-  const [createOverlayDraft, { isLoading, error }] = useCreateOverlayDraftMutation();
+  const [createOverlayDraft, { isLoading, error, reset: resetMutationState }] = useCreateOverlayDraftMutation();
+
+  // Drop any prior backend error when the dialog closes so a stale banner
+  // doesn't greet the operator on the next open.
+  useEffect(() => {
+    if (!open) resetMutationState();
+  }, [open, resetMutationState]);
 
   const {
     control,
