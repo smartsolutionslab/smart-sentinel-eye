@@ -16,6 +16,7 @@
     "./api/systemVariables.api": "./src/api/systemVariables.api.ts",
     "./api/systemVariables.schema": "./src/api/systemVariables.schema.ts",
     "./api/audit.api": "./src/api/audit.api.ts",
+    "./api/problemDetail": "./src/api/problemDetail.ts",
     "./realtime": "./src/realtime/index.ts",
     "./realtime/layoutHub": "./src/realtime/layoutHub.ts",
     "./streaming": "./src/streaming/index.ts",

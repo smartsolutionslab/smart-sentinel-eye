@@ -1,5 +1,6 @@
 import { useRegisterCameraMutation } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { registerCameraSchema, type RegisterCameraInput } from '@smart-sentinel-eye/shared/api/cameras.schema';
+import { problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
@@ -33,7 +34,7 @@ export function RegisterCameraDialog({ open, onOpenChange }: RegisterCameraDialo
     }
   });
 
-  const backendError = serverProblemMessage(error);
+  const backendError = problemDetail(error, 'Could not register the camera. Try again.');
 
   return (
     <Dialog
@@ -70,20 +71,4 @@ export function RegisterCameraDialog({ open, onOpenChange }: RegisterCameraDialo
       </form>
     </Dialog>
   );
-}
-
-function serverProblemMessage(error: unknown): string | null {
-  if (error === undefined || error === null) {
-    return null;
-  }
-  if (typeof error === 'object' && 'data' in error) {
-    const data = (error as { data: unknown }).data;
-    if (typeof data === 'object' && data !== null && 'detail' in data) {
-      const detail = (data as { detail: unknown }).detail;
-      if (typeof detail === 'string') {
-        return detail;
-      }
-    }
-  }
-  return 'Could not register the camera. Try again.';
 }

@@ -5,6 +5,7 @@ import {
   type CreateLayoutDraftInput,
 } from '@smart-sentinel-eye/shared/api/layouts.schema';
 import { useListOverlaysQuery } from '@smart-sentinel-eye/shared/api/overlays.api';
+import { problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
@@ -40,7 +41,7 @@ export function LayoutEditorDialog({ open, onOpenChange }: LayoutEditorDialogPro
     }
   });
 
-  const backendError = serverProblemMessage(error);
+  const backendError = problemDetail(error, 'Could not save the layout. Try again.');
   const cameraItems = cameras?.items ?? [];
   const overlayItems = overlays?.published ?? [];
 
@@ -108,18 +109,3 @@ export function LayoutEditorDialog({ open, onOpenChange }: LayoutEditorDialogPro
   );
 }
 
-function serverProblemMessage(error: unknown): string | null {
-  if (error === undefined || error === null) {
-    return null;
-  }
-  if (typeof error === 'object' && 'data' in error) {
-    const data = (error as { data: unknown }).data;
-    if (typeof data === 'object' && data !== null && 'detail' in data) {
-      const detail = (data as { detail: unknown }).detail;
-      if (typeof detail === 'string') {
-        return detail;
-      }
-    }
-  }
-  return 'Could not save the layout. Try again.';
-}
