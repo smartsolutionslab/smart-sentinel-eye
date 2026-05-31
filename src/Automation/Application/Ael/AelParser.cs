@@ -67,7 +67,7 @@ public static class AelParser
     private static AelExpression ParseComparison(IReadOnlyList<AelToken> tokens, ref int cursor)
     {
         AelExpression left = ParseAdditive(tokens, ref cursor);
-        BinaryOperator? op = tokens[cursor].Kind switch
+        BinaryOperator? binaryOperator = tokens[cursor].Kind switch
         {
             AelTokenKind.Equal              => BinaryOperator.Equal,
             AelTokenKind.NotEqual           => BinaryOperator.NotEqual,
@@ -78,10 +78,10 @@ public static class AelParser
             AelTokenKind.Contains           => BinaryOperator.Contains,
             _ => null,
         };
-        if (op is null) return left;
+        if (binaryOperator is null) return left;
         cursor++;
         AelExpression right = ParseAdditive(tokens, ref cursor);
-        return new AelExpression.Binary(op.Value, left, right);
+        return new AelExpression.Binary(binaryOperator.Value, left, right);
     }
 
     private static AelExpression ParseAdditive(IReadOnlyList<AelToken> tokens, ref int cursor)
@@ -89,12 +89,12 @@ public static class AelParser
         AelExpression left = ParseMultiplicative(tokens, ref cursor);
         while (tokens[cursor].Kind is AelTokenKind.Plus or AelTokenKind.Minus)
         {
-            BinaryOperator op = tokens[cursor].Kind == AelTokenKind.Plus
+            BinaryOperator binaryOperator = tokens[cursor].Kind == AelTokenKind.Plus
                 ? BinaryOperator.Add
                 : BinaryOperator.Subtract;
             cursor++;
             AelExpression right = ParseMultiplicative(tokens, ref cursor);
-            left = new AelExpression.Binary(op, left, right);
+            left = new AelExpression.Binary(binaryOperator, left, right);
         }
         return left;
     }
@@ -104,7 +104,7 @@ public static class AelParser
         AelExpression left = ParseUnary(tokens, ref cursor);
         while (tokens[cursor].Kind is AelTokenKind.Star or AelTokenKind.Slash or AelTokenKind.Percent)
         {
-            BinaryOperator op = tokens[cursor].Kind switch
+            BinaryOperator binaryOperator = tokens[cursor].Kind switch
             {
                 AelTokenKind.Star => BinaryOperator.Multiply,
                 AelTokenKind.Slash => BinaryOperator.Divide,
@@ -112,7 +112,7 @@ public static class AelParser
             };
             cursor++;
             AelExpression right = ParseUnary(tokens, ref cursor);
-            left = new AelExpression.Binary(op, left, right);
+            left = new AelExpression.Binary(binaryOperator, left, right);
         }
         return left;
     }

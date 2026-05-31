@@ -49,7 +49,7 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
 
         builder.Property(camera => camera.RegisteredBy)
             .HasColumnName("registered_by")
-            .HasConversion(op => op.Value, value => OperatorIdentifier.From(value))
+            .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
             .IsRequired();
 
         builder.Property(camera => camera.Version)

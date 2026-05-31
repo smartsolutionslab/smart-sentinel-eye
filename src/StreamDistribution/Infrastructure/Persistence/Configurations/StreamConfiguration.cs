@@ -64,7 +64,7 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
 
         builder.Property(stream => stream.ProvisionedBy)
             .HasColumnName("provisioned_by")
-            .HasConversion(op => op.Value, value => OperatorIdentifier.From(value))
+            .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
             .IsRequired();
 
         builder.Property(stream => stream.Version)

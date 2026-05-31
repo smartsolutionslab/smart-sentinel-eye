@@ -131,25 +131,25 @@ public static class AelInterpreter
         return new AelValue.BoolValue(lhs.Contains(rhs, StringComparison.Ordinal));
     }
 
-    private static AelValue EvalArithmetic(BinaryOperator op, AelValue left, AelValue right) =>
-        op switch
+    private static AelValue EvalArithmetic(BinaryOperator binaryOperator, AelValue left, AelValue right) =>
+        binaryOperator switch
         {
             BinaryOperator.Add => Arithmetic(left, right, static (a, b) => a + b, static (a, b) => a + b),
             BinaryOperator.Subtract => Arithmetic(left, right, static (a, b) => a - b, static (a, b) => a - b),
             BinaryOperator.Multiply => Arithmetic(left, right, static (a, b) => a * b, static (a, b) => a * b),
             BinaryOperator.Divide => Arithmetic(left, right, DivideInt, DivideDecimal),
             BinaryOperator.Modulo => Arithmetic(left, right, ModuloInt, ModuloDecimal),
-            _ => throw new InvalidOperationException($"Unhandled arithmetic operator: {op}"),
+            _ => throw new InvalidOperationException($"Unhandled arithmetic operator: {binaryOperator}"),
         };
 
-    private static AelValue.BoolValue EvalComparison(BinaryOperator op, AelValue left, AelValue right) =>
-        op switch
+    private static AelValue.BoolValue EvalComparison(BinaryOperator binaryOperator, AelValue left, AelValue right) =>
+        binaryOperator switch
         {
             BinaryOperator.LessThan => Compare(left, right, static (a, b) => a < b),
             BinaryOperator.LessThanOrEqual => Compare(left, right, static (a, b) => a <= b),
             BinaryOperator.GreaterThan => Compare(left, right, static (a, b) => a > b),
             BinaryOperator.GreaterThanOrEqual => Compare(left, right, static (a, b) => a >= b),
-            _ => throw new InvalidOperationException($"Unhandled comparison operator: {op}"),
+            _ => throw new InvalidOperationException($"Unhandled comparison operator: {binaryOperator}"),
         };
 
     private static long DivideInt(long a, long b) =>
@@ -176,11 +176,11 @@ public static class AelInterpreter
         return new AelValue.DecimalValue(decOp(a, b));
     }
 
-    private static AelValue.BoolValue Compare(AelValue left, AelValue right, Func<decimal, decimal, bool> op)
+    private static AelValue.BoolValue Compare(AelValue left, AelValue right, Func<decimal, decimal, bool> comparison)
     {
         decimal a = ToDecimal(left);
         decimal b = ToDecimal(right);
-        return new AelValue.BoolValue(op(a, b));
+        return new AelValue.BoolValue(comparison(a, b));
     }
 
     private static decimal ToDecimal(AelValue value) =>

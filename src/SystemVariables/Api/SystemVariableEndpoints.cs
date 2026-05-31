@@ -106,10 +106,10 @@ public static class SystemVariableEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = user.ToOperatorIdentifier();
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<VariableIdentifier, DefineVariableError> result = await handler
             .HandleAsync(
-                new DefineVariableCommand(name, type, initialValue, booleanLabels, op),
+                new DefineVariableCommand(name, type, initialValue, booleanLabels, actingOperator),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -140,10 +140,10 @@ public static class SystemVariableEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = user.ToOperatorIdentifier();
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<VariableIdentifier, SetVariableValueError> result = await handler
             .HandleAsync(
-                new SetVariableValueCommand(parsed, body.Value, op),
+                new SetVariableValueCommand(parsed, body.Value, actingOperator),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -250,9 +250,9 @@ public static class SystemVariableEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = user.ToOperatorIdentifier();
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<VariableIdentifier, ArchiveVariableError> result = await handler
-            .HandleAsync(new ArchiveVariableCommand(parsed, op), cancellationToken)
+            .HandleAsync(new ArchiveVariableCommand(parsed, actingOperator), cancellationToken)
             .ConfigureAwait(false);
 
         return result.Match<IResult>(

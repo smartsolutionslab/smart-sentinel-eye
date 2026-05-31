@@ -43,9 +43,9 @@ public static partial class OverlayEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = user.ToOperatorIdentifier();
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<OverlayIdentifier, CreateOverlayDraftError> result = await handler
-            .HandleAsync(new CreateOverlayDraftCommand(name, label, op), cancellationToken)
+            .HandleAsync(new CreateOverlayDraftCommand(name, label, actingOperator), cancellationToken)
             .ConfigureAwait(false);
 
         return result.Match<IResult>(
@@ -80,10 +80,10 @@ public static partial class OverlayEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = user.ToOperatorIdentifier();
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<OverlayRevisionNumber, PublishRevisionError> result = await handler
             .HandleAsync(
-                new PublishRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, op),
+                new PublishRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, actingOperator),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -119,10 +119,10 @@ public static partial class OverlayEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = user.ToOperatorIdentifier();
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<OverlayRevisionNumber, ArchiveRevisionError> result = await handler
             .HandleAsync(
-                new ArchiveRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, op),
+                new ArchiveRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, actingOperator),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -145,10 +145,10 @@ public static partial class OverlayEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = user.ToOperatorIdentifier();
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<OverlayRevisionNumber, BranchDraftRevisionError> result = await handler
             .HandleAsync(
-                new BranchDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), op),
+                new BranchDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), actingOperator),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -233,10 +233,10 @@ public static partial class OverlayEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = user.ToOperatorIdentifier();
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<OverlayRevisionNumber, RevertRevisionError> result = await handler
             .HandleAsync(
-                new RevertRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, op),
+                new RevertRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, actingOperator),
                 cancellationToken)
             .ConfigureAwait(false);
 

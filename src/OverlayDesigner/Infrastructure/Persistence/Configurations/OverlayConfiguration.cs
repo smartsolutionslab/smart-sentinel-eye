@@ -48,7 +48,7 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
 
         builder.Property(overlay => overlay.CreatedBy)
             .HasColumnName("created_by")
-            .HasConversion(op => op.Value, value => OperatorIdentifier.From(value))
+            .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
             .IsRequired();
 
         builder.Property(overlay => overlay.Version)
@@ -99,7 +99,7 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
 
             revisions.Property(r => r.CreatedBy)
                 .HasColumnName("created_by")
-                .HasConversion(op => op.Value, value => OperatorIdentifier.From(value))
+                .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
                 .IsRequired();
 
             revisions.Property(r => r.PublishedAt)

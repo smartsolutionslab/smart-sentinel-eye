@@ -50,7 +50,7 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
 
         builder.Property(layout => layout.CreatedBy)
             .HasColumnName("created_by")
-            .HasConversion(op => op.Value, value => OperatorIdentifier.From(value))
+            .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
             .IsRequired();
 
         builder.Property(layout => layout.Version)
@@ -100,7 +100,7 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
 
             revisions.Property(r => r.CreatedBy)
                 .HasColumnName("created_by")
-                .HasConversion(op => op.Value, value => OperatorIdentifier.From(value))
+                .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
                 .IsRequired();
 
             revisions.Property(r => r.PublishedAt)

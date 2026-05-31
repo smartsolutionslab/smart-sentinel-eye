@@ -75,9 +75,9 @@ public static class RulesEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier op = user.ToOperatorIdentifier();
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
-            new CreateRuleCommand(name, body.TriggerSource, body.TriggerKind, predicate, action, op),
+            new CreateRuleCommand(name, body.TriggerSource, body.TriggerKind, predicate, action, actingOperator),
             cancellationToken).ConfigureAwait(false);
 
         return result.Match<IResult>(
