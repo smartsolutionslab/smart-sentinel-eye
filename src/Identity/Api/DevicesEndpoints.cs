@@ -64,7 +64,7 @@ public static class DevicesEndpoints
 
         await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken).ConfigureAwait(false);
 
-        OperatorIdentifier actingOperator = OperatorClaim.From(user);
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<DeviceCredentialsDto, RegisterDeviceError> result = await handler.HandleAsync(
             new RegisterDeviceCommand(body.DeviceType, body.DeviceIdentifier, fab, actingOperator),
             cancellationToken).ConfigureAwait(false);

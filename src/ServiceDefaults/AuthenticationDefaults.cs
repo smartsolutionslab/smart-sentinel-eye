@@ -68,6 +68,7 @@ public static class AuthenticationDefaults
 
         builder.Services.AddSingleton<IFabAuthorizationGuard, DefaultFabAuthorizationGuard>();
         builder.Services.AddExceptionHandler<FabAuthorizationExceptionHandler>();
+        builder.Services.AddExceptionHandler<UnattributableOperatorExceptionHandler>();
         builder.Services.AddProblemDetails();
         builder.Services.AddAuthorizationBuilder()
             .AddScopePolicies(Scope.All)
