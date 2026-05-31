@@ -10,7 +10,7 @@ namespace SmartSentinelEye.Identity.Domain.Tests.RegisteredClient;
 /// Hand-written fluent builder for
 /// <see cref="RegisteredClientAggregate"/> per ADR-0054.
 /// </summary>
-internal sealed class RegisteredClientBuilder
+public sealed class RegisteredClientBuilder
 {
     private ClientId _clientId = ClientId.From("plc-station-4");
     private ClientKind _kind = ClientKind.Device;

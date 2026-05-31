@@ -4,6 +4,7 @@ using SmartSentinelEye.OverlayDesigner.Application.Commands;
 using SmartSentinelEye.OverlayDesigner.Application.Commands.Handlers;
 using SmartSentinelEye.OverlayDesigner.Application.Tests.Fakes;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
+using SmartSentinelEye.OverlayDesigner.Domain.Tests.Overlay.Builders;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.OverlayDesigner.Application.Tests.Commands;
@@ -18,11 +19,11 @@ public class BranchDraftRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = Overlay.CreateDraft(
-            OverlayName.From("Line-1"),
-            Label.From("Hello", 0.1m, 0.1m, 0.3m, 0.08m, 32),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            clock);
+        Overlay overlay = new OverlayBuilder()
+            .At(clock.UtcNow)
+            .Named("Line-1")
+            .WithLabel(Label.From("Hello", 0.1m, 0.1m, 0.3m, 0.08m, 32))
+            .Build();
         overlays.Add(overlay);
         overlay.Publish(OverlayRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), clock);
 
@@ -59,11 +60,11 @@ public class BranchDraftRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = Overlay.CreateDraft(
-            OverlayName.From("Line-1"),
-            Label.From("Hello", 0.1m, 0.1m, 0.3m, 0.08m, 32),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            clock);
+        Overlay overlay = new OverlayBuilder()
+            .At(clock.UtcNow)
+            .Named("Line-1")
+            .WithLabel(Label.From("Hello", 0.1m, 0.1m, 0.3m, 0.08m, 32))
+            .Build();
         overlays.Add(overlay);
 
         BranchDraftRevisionCommandHandler handler = new(

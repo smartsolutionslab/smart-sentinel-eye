@@ -3,6 +3,7 @@ using SmartSentinelEye.LayoutComposition.Application.Queries;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
+using SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Queries;
@@ -16,9 +17,8 @@ public class ListLayoutsQueryHandlerTests
     public async Task No_filter_returns_every_chain_in_the_chains_envelope()
     {
         InMemoryLayoutRepository repository = new();
-        FakeClock clock = new(FixedMoment);
-        repository.Add(NewChain("Line-1", clock));
-        repository.Add(NewChain("Line-2", clock));
+        repository.Add(NewChain("Line-1"));
+        repository.Add(NewChain("Line-2"));
 
         ListLayoutsQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
         Result<ListLayoutsResult, ListLayoutsError> result = await handler.HandleAsync(
@@ -36,8 +36,8 @@ public class ListLayoutsQueryHandlerTests
         FakeClock clock = new(FixedMoment);
         OperatorIdentifier op = OperatorIdentifier.From(Guid.CreateVersion7());
 
-        Layout draftOnly = NewChain("Drf", clock);
-        Layout published = NewChain("Pub", clock);
+        Layout draftOnly = NewChain("Drf");
+        Layout published = NewChain("Pub");
         published.Publish(LayoutRevisionNumber.One, op, clock);
         repository.Add(draftOnly);
         repository.Add(published);
@@ -52,10 +52,6 @@ public class ListLayoutsQueryHandlerTests
         result.Value.Published.Single().Name.ShouldBe("Pub");
     }
 
-    private static Layout NewChain(string name, FakeClock clock) =>
-        Layout.CreateDraft(
-            LayoutName.From(name),
-            CameraIdentifier.From(Guid.CreateVersion7()),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            clock);
+    private static Layout NewChain(string name) =>
+        new LayoutBuilder().Named(name).At(FixedMoment).Build();
 }

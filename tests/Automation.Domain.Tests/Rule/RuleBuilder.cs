@@ -11,7 +11,7 @@ namespace SmartSentinelEye.Automation.Domain.Tests.Rule;
 /// ADR-0054. Sensible happy-path defaults so tests override only
 /// the fields they care about.
 /// </summary>
-internal sealed class RuleBuilder
+public sealed class RuleBuilder
 {
     private RuleName _name = RuleName.From("high-oee-on-fast-cycle");
     private string _triggerSource = "plc";

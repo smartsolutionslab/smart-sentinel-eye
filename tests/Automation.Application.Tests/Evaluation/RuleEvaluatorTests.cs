@@ -5,6 +5,7 @@ using SmartSentinelEye.Automation.Application.Ael;
 using SmartSentinelEye.Automation.Application.Evaluation;
 using SmartSentinelEye.Automation.Application.Tests.Fakes;
 using SmartSentinelEye.Automation.Domain.Rule;
+using SmartSentinelEye.Automation.Domain.Tests.Rule;
 using SmartSentinelEye.Shared.Kernel;
 using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 
@@ -33,13 +34,12 @@ public class RuleEvaluatorTests
         string name, RuleAction action, DateTimeOffset createdAt,
         string predicate, bool publish)
     {
-        RuleAggregate rule = RuleAggregate.Create(
-            RuleName.From(name),
-            "plc", "PlcCycleStart",
-            RulePredicate.From(predicate),
-            action,
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            new FakeClock(createdAt));
+        RuleAggregate rule = new RuleBuilder()
+            .WithName(name)
+            .WithPredicate(predicate)
+            .WithAction(action)
+            .WithClock(createdAt)
+            .Build();
         if (publish) rule.Publish(new FakeClock(createdAt.AddMinutes(1)));
         return rule;
     }

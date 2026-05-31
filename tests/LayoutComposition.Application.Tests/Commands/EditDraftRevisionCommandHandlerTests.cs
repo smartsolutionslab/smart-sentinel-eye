@@ -4,6 +4,7 @@ using SmartSentinelEye.LayoutComposition.Application.Commands;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
+using SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
@@ -20,9 +21,7 @@ public class EditDraftRevisionCommandHandlerTests
         FakeClock clock = new(FixedMoment);
         CameraIdentifier original = CameraIdentifier.From(Guid.CreateVersion7());
         CameraIdentifier replacement = CameraIdentifier.From(Guid.CreateVersion7());
-        Layout layout = Layout.CreateDraft(
-            LayoutName.From("Line-1"), original,
-            OperatorIdentifier.From(Guid.CreateVersion7()), clock);
+        Layout layout = new LayoutBuilder().ForCamera(original).At(FixedMoment).Build();
         layouts.Add(layout);
 
         EditDraftRevisionCommandHandler handler = new(
@@ -58,11 +57,7 @@ public class EditDraftRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout layout = Layout.CreateDraft(
-            LayoutName.From("Line-1"),
-            CameraIdentifier.From(Guid.CreateVersion7()),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            clock);
+        Layout layout = new LayoutBuilder().At(FixedMoment).Build();
         layouts.Add(layout);
 
         EditDraftRevisionCommandHandler handler = new(
@@ -84,9 +79,7 @@ public class EditDraftRevisionCommandHandlerTests
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
         CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        Layout layout = Layout.CreateDraft(
-            LayoutName.From("Line-1"), camera,
-            OperatorIdentifier.From(Guid.CreateVersion7()), clock);
+        Layout layout = new LayoutBuilder().ForCamera(camera).At(FixedMoment).Build();
         layouts.Add(layout);
         OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
 
@@ -108,9 +101,7 @@ public class EditDraftRevisionCommandHandlerTests
         FakeClock clock = new(FixedMoment);
         CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
         OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
-        Layout layout = Layout.CreateDraft(
-            LayoutName.From("Line-1"), camera,
-            OperatorIdentifier.From(Guid.CreateVersion7()), clock, overlay);
+        Layout layout = new LayoutBuilder().ForCamera(camera).WithOverlay(overlay).At(FixedMoment).Build();
         layouts.Add(layout);
 
         EditDraftRevisionCommandHandler handler = new(
@@ -131,9 +122,7 @@ public class EditDraftRevisionCommandHandlerTests
         FakeClock clock = new(FixedMoment);
         CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
         OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
-        Layout layout = Layout.CreateDraft(
-            LayoutName.From("Line-1"), camera,
-            OperatorIdentifier.From(Guid.CreateVersion7()), clock, overlay);
+        Layout layout = new LayoutBuilder().ForCamera(camera).WithOverlay(overlay).At(FixedMoment).Build();
         layouts.Add(layout);
 
         EditDraftRevisionCommandHandler handler = new(
@@ -152,11 +141,7 @@ public class EditDraftRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout layout = Layout.CreateDraft(
-            LayoutName.From("Line-1"),
-            CameraIdentifier.From(Guid.CreateVersion7()),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            clock);
+        Layout layout = new LayoutBuilder().At(FixedMoment).Build();
         layout.Publish(LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), clock);
         layouts.Add(layout);
 

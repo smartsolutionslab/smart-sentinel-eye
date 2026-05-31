@@ -1,19 +1,16 @@
-using System.Globalization;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.DTOs;
 using SmartSentinelEye.SystemVariables.Application.Queries;
 using SmartSentinelEye.SystemVariables.Application.Queries.Handlers;
 using SmartSentinelEye.SystemVariables.Application.Resolution;
 using SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
+using SmartSentinelEye.SystemVariables.Domain.Tests.Variable.Builders;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Application.Tests.Queries;
 
 public class GetOverlaySnapshotQueryHandlerTests
 {
-    private static readonly DateTimeOffset FixedMoment =
-        DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture);
-
     [Fact]
     public async Task Returns_OverlayNotInReverseIndex_when_the_overlay_has_no_published_revision()
     {
@@ -34,12 +31,10 @@ public class GetOverlaySnapshotQueryHandlerTests
     {
         InMemoryReverseIndex index = new();
         InMemoryVariableRepository repo = new();
-        FakeClock clock = new(FixedMoment);
-        OperatorIdentifier definer = OperatorIdentifier.From(Guid.CreateVersion7());
 
-        repo.Add(Variable.Define(
-            VariableName.From("oeeLine1"), VariableType.Number,
-            new VariableValue.NumberValue(82.5), null, definer, clock));
+        repo.Add(new VariableBuilder()
+            .Named("oeeLine1").OfType(VariableType.Number)
+            .WithInitialValue(new VariableValue.NumberValue(82.5)).Build());
 
         Guid overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
@@ -61,12 +56,9 @@ public class GetOverlaySnapshotQueryHandlerTests
     {
         InMemoryReverseIndex index = new();
         InMemoryVariableRepository repo = new();
-        FakeClock clock = new(FixedMoment);
-        OperatorIdentifier definer = OperatorIdentifier.From(Guid.CreateVersion7());
 
         // 'shift' is defined but unset → renders as literal.
-        repo.Add(Variable.Define(
-            VariableName.From("shift"), VariableType.String, null, null, definer, clock));
+        repo.Add(new VariableBuilder().Named("shift").OfType(VariableType.String).Build());
 
         Guid overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, "{{shift}} - {{unknown}}");

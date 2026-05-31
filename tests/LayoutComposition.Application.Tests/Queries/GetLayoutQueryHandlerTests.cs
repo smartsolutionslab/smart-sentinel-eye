@@ -4,6 +4,7 @@ using SmartSentinelEye.LayoutComposition.Application.Queries;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
+using SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Queries;
@@ -17,12 +18,10 @@ public class GetLayoutQueryHandlerTests
     public async Task Existing_layout_is_mapped_into_a_LayoutDto_with_ordered_revisions()
     {
         InMemoryLayoutRepository repository = new();
-        FakeClock clock = new(FixedMoment);
-        OperatorIdentifier op = OperatorIdentifier.From(Guid.CreateVersion7());
-        Layout layout = Layout.CreateDraft(
-            LayoutName.From("Line-1"),
-            CameraIdentifier.From(Guid.CreateVersion7()),
-            op, clock);
+        LayoutBuilder builder = new LayoutBuilder().Named("Line-1").At(FixedMoment);
+        OperatorIdentifier op = builder.Operator;
+        IClock clock = builder.Clock;
+        Layout layout = builder.Build();
         layout.Publish(LayoutRevisionNumber.One, op, clock);
         Revision branched = layout.BranchDraft(op, clock);
         repository.Add(layout);

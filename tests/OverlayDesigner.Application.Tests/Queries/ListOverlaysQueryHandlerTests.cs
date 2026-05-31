@@ -3,6 +3,7 @@ using SmartSentinelEye.OverlayDesigner.Application.Queries;
 using SmartSentinelEye.OverlayDesigner.Application.Queries.Handlers;
 using SmartSentinelEye.OverlayDesigner.Application.Tests.Fakes;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
+using SmartSentinelEye.OverlayDesigner.Domain.Tests.Overlay.Builders;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.OverlayDesigner.Application.Tests.Queries;
@@ -20,11 +21,11 @@ public class ListOverlaysQueryHandlerTests
 
     private static Overlay Seed(InMemoryOverlayRepository overlays, string name, FakeClock clock)
     {
-        Overlay overlay = Overlay.CreateDraft(
-            OverlayName.From(name),
-            Label.From("Hello", 0.1m, 0.1m, 0.3m, 0.08m, 32),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            clock);
+        Overlay overlay = new OverlayBuilder()
+            .At(clock.UtcNow)
+            .Named(name)
+            .WithLabel(Label.From("Hello", 0.1m, 0.1m, 0.3m, 0.08m, 32))
+            .Build();
         overlays.Add(overlay);
         return overlay;
     }

@@ -4,6 +4,7 @@ using SmartSentinelEye.LayoutComposition.Application.Commands;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
+using SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
@@ -18,11 +19,7 @@ public class ArchiveRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout layout = Layout.CreateDraft(
-            LayoutName.From("Line-1"),
-            CameraIdentifier.From(Guid.CreateVersion7()),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            clock);
+        Layout layout = new LayoutBuilder().At(FixedMoment).Build();
         layout.Publish(LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), clock);
         layouts.Add(layout);
 
@@ -41,11 +38,7 @@ public class ArchiveRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout layout = Layout.CreateDraft(
-            LayoutName.From("Line-1"),
-            CameraIdentifier.From(Guid.CreateVersion7()),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            clock);
+        Layout layout = new LayoutBuilder().At(FixedMoment).Build();
         layouts.Add(layout);
 
         ArchiveRevisionCommandHandler handler = new(
@@ -78,11 +71,7 @@ public class ArchiveRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout layout = Layout.CreateDraft(
-            LayoutName.From("Line-1"),
-            CameraIdentifier.From(Guid.CreateVersion7()),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            clock);
+        Layout layout = new LayoutBuilder().At(FixedMoment).Build();
         layouts.Add(layout);
 
         ArchiveRevisionCommandHandler handler = new(

@@ -4,6 +4,7 @@ using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Commands;
 using SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
 using SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
+using SmartSentinelEye.SystemVariables.Domain.Tests.Variable.Builders;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Application.Tests.Commands;
@@ -38,13 +39,11 @@ public class DefineVariableCommandHandlerTests
     public async Task Name_collision_with_a_non_archived_variable_returns_VariableNameTaken()
     {
         InMemoryVariableRepository repo = new();
-        FakeClock clock = new(FixedMoment);
-        Variable existing = Variable.Define(
-            VariableName.From("oeeLine1"), VariableType.Number, null, null,
-            OperatorIdentifier.From(Guid.CreateVersion7()), clock);
+        VariableBuilder builder = new VariableBuilder().Named("oeeLine1").OfType(VariableType.Number);
+        Variable existing = builder.Build();
         repo.Add(existing);
 
-        DefineVariableCommandHandler handler = new(repo, clock, NullLogger<DefineVariableCommandHandler>.Instance);
+        DefineVariableCommandHandler handler = new(repo, builder.Clock, NullLogger<DefineVariableCommandHandler>.Instance);
         Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(
             new DefineVariableCommand(
                 VariableName.From("oeeLine1"),

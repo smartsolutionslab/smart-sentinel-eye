@@ -4,6 +4,7 @@ using SmartSentinelEye.OverlayDesigner.Application.Commands;
 using SmartSentinelEye.OverlayDesigner.Application.Commands.Handlers;
 using SmartSentinelEye.OverlayDesigner.Application.Tests.Fakes;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
+using SmartSentinelEye.OverlayDesigner.Domain.Tests.Overlay.Builders;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.OverlayDesigner.Application.Tests.Commands;
@@ -15,11 +16,9 @@ public class PublishRevisionCommandHandlerTests
 
     private static Overlay Seed(InMemoryOverlayRepository overlays, FakeClock clock)
     {
-        Overlay overlay = Overlay.CreateDraft(
-            OverlayName.From("Line-1 Title"),
-            Label.From("Production Line 1", 0.5m, 0.05m, 0.3m, 0.08m, 48),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            clock);
+        Overlay overlay = new OverlayBuilder()
+            .At(clock.UtcNow)
+            .Build();
         overlays.Add(overlay);
         return overlay;
     }

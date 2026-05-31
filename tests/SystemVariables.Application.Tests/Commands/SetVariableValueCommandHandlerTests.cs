@@ -4,6 +4,7 @@ using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Commands;
 using SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
 using SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
+using SmartSentinelEye.SystemVariables.Domain.Tests.Variable.Builders;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Application.Tests.Commands;
@@ -13,22 +14,24 @@ public class SetVariableValueCommandHandlerTests
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture);
 
-    private static (InMemoryVariableRepository repo, FakeClock clock, Variable v) Seed(VariableType type)
+    private static (InMemoryVariableRepository repo, IClock clock, Variable v) Seed(VariableType type)
     {
         InMemoryVariableRepository repo = new();
-        FakeClock clock = new(FixedMoment);
-        Variable v = Variable.Define(
-            VariableName.From("oeeLine1"), type, null,
-            type == VariableType.Boolean ? BooleanLabels.Default : null,
-            OperatorIdentifier.From(Guid.CreateVersion7()), clock);
+        VariableBuilder builder = new VariableBuilder().Named("oeeLine1").OfType(type);
+        if (type == VariableType.Boolean)
+        {
+            builder.WithBooleanLabels(BooleanLabels.Default);
+        }
+
+        Variable v = builder.Build();
         repo.Add(v);
-        return (repo, clock, v);
+        return (repo, builder.Clock, v);
     }
 
     [Fact]
     public async Task Setting_a_Number_value_succeeds_and_updates_the_value()
     {
-        (InMemoryVariableRepository repo, FakeClock clock, Variable v) = Seed(VariableType.Number);
+        (InMemoryVariableRepository repo, IClock clock, Variable v) = Seed(VariableType.Number);
 
         SetVariableValueCommandHandler handler = new(
             repo, clock, NullLogger<SetVariableValueCommandHandler>.Instance);
@@ -62,7 +65,7 @@ public class SetVariableValueCommandHandlerTests
     [Fact]
     public async Task Type_mismatched_value_returns_VariableTypeMismatch()
     {
-        (InMemoryVariableRepository repo, FakeClock clock, _) = Seed(VariableType.Number);
+        (InMemoryVariableRepository repo, IClock clock, _) = Seed(VariableType.Number);
 
         SetVariableValueCommandHandler handler = new(
             repo, clock, NullLogger<SetVariableValueCommandHandler>.Instance);

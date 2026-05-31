@@ -4,6 +4,7 @@ using SmartSentinelEye.Automation.Application.Commands;
 using SmartSentinelEye.Automation.Application.Commands.Handlers;
 using SmartSentinelEye.Automation.Application.Tests.Fakes;
 using SmartSentinelEye.Automation.Domain.Rule;
+using SmartSentinelEye.Automation.Domain.Tests.Rule;
 using SmartSentinelEye.Shared.Kernel;
 using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 
@@ -16,14 +17,7 @@ public class ArchiveRuleCommandHandlerTests
 
     private static RuleAggregate Seed(InMemoryRuleRepository repo)
     {
-        RuleAggregate rule = RuleAggregate.Create(
-            RuleName.From("high-oee-on-fast-cycle"),
-            "plc",
-            "PlcCycleStart",
-            RulePredicate.From("$.payload.cycleTime <= 30"),
-            RuleAction.SetVariableValue.From("oeeLine1", "100 - $.payload.cycleTime * 2"),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            new FakeClock(Now));
+        RuleAggregate rule = new RuleBuilder().WithClock(Now).Build();
         repo.Add(rule);
         return rule;
     }

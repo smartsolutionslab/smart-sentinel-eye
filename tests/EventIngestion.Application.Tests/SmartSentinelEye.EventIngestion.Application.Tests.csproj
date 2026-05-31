@@ -25,6 +25,7 @@
     <ProjectReference Include="..\..\src\Shared.Kernel\SmartSentinelEye.Shared.Kernel.csproj" />
     <ProjectReference Include="..\..\src\Shared.CQRS\SmartSentinelEye.Shared.CQRS.csproj" />
     <ProjectReference Include="..\..\src\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
+    <ProjectReference Include="..\..\tests\EventIngestion.Domain.Tests\SmartSentinelEye.EventIngestion.Domain.Tests.csproj" />
   </ItemGroup>
 
 </Project>

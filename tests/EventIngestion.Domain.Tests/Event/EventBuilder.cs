@@ -10,7 +10,7 @@ namespace SmartSentinelEye.EventIngestion.Domain.Tests.Event;
 /// per ADR-0054. Sensible defaults so tests can override only the
 /// fields they care about.
 /// </summary>
-internal sealed class EventBuilder
+public sealed class EventBuilder
 {
     private EventIdentifier _identifier = EventIdentifier.New();
     private FabIdentifier _fab = FabIdentifier.From("munich");

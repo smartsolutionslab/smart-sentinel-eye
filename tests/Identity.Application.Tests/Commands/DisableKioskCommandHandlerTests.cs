@@ -4,6 +4,7 @@ using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
 using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
+using SmartSentinelEye.Identity.Domain.Tests.RegisteredClient;
 using SmartSentinelEye.Shared.Kernel;
 using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
@@ -16,11 +17,11 @@ public class DisableKioskCommandHandlerTests
 
     private static void Seed(InMemoryRegisteredClientRepository repo, ClientKind kind, string clientId)
     {
-        RegisteredClientAggregate aggregate = RegisteredClientAggregate.Register(
-            ClientId.From(clientId), kind,
-            FabIdentifier.From("munich"),
-            OperatorIdentifier.From(Guid.CreateVersion7()),
-            new FakeClock(Now));
+        RegisteredClientAggregate aggregate = new RegisteredClientBuilder()
+            .WithClientId(clientId)
+            .WithKind(kind)
+            .WithClock(Now)
+            .Build();
         repo.Add(aggregate);
     }
 
