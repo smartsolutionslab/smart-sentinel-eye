@@ -34,9 +34,7 @@ public sealed class RegisterWebhookIntegrationCommandHandler(
         integrations.Add(integration);
         await integrations.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation(
-            "Registered webhook integration '{Name}' ({Identifier}).",
-            integration.Name, integration.Id);
+        Log.WebhookIntegrationRegistered(logger, integration.Name, integration.Id);
 
         return Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError>.Success(
             new RegisterWebhookIntegrationResult(integration.Id, plainToken));

@@ -35,9 +35,7 @@ public sealed class IngestEventCommandHandler(
             .ConfigureAwait(false);
         if (exists)
         {
-            logger.LogDebug(
-                "Idempotent re-delivery of {Identifier} for fab {Fab}; no-op.",
-                envelope.Identifier, envelope.Fab);
+            Log.IdempotentReDelivery(logger, envelope.Identifier, envelope.Fab);
             return Result<EventIdentifier, IngestEventError>.Failure(
                 new IngestEventError.EventAlreadyIngested(envelope.Identifier.Value));
         }
