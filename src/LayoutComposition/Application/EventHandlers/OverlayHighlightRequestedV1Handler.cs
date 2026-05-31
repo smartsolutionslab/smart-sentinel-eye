@@ -22,8 +22,7 @@ public sealed class OverlayHighlightRequestedV1Handler(
             new OverlayHighlightedNotification(message.OverlayIdentifier, message.DurationMs),
             cancellationToken).ConfigureAwait(false);
 
-        logger.LogDebug(
-            "Broadcast OverlayHighlightChanged for overlay {Overlay} ({Duration} ms; caused by {CausingEvent}).",
-            message.OverlayIdentifier, message.DurationMs, message.CausingEventIdentifier);
+        Log.BroadcastOverlayHighlightChanged(
+            logger, message.OverlayIdentifier, message.DurationMs, message.CausingEventIdentifier);
     }
 }

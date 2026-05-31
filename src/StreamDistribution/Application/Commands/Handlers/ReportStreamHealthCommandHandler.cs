@@ -53,9 +53,7 @@ public sealed class ReportStreamHealthCommandHandler(
         catch (InvalidOperationException ex)
         {
             string targetState = DescribeTarget(command);
-            logger.LogWarning(ex,
-                "Rejected health transition for camera {Camera}.",
-                camera);
+            Log.RejectedHealthTransition(logger, ex, camera);
             return Result<StreamState, ReportStreamHealthError>.Failure(
                 new ReportStreamHealthError.InvalidStateTransition(
                     From: stream.State.Value,

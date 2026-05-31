@@ -44,7 +44,7 @@ public sealed class PublishRuleCommandHandler(
         // incoming event without waiting for a process restart.
         cache.Upsert(rule);
 
-        logger.LogInformation("Published rule {Rule} '{Name}'.", rule.Id, command.Name);
+        Log.PublishedRule(logger, rule.Id, command.Name);
 
         return Result<RuleIdentifier, PublishRuleError>.Success(rule.Id);
     }

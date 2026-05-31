@@ -31,7 +31,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
             .ConfigureAwait(false);
 
         response.EnsureSuccessStatusCode();
-        logger.LogInformation("Registered MediaMTX path {Path} -> {Source}.", path, rtspSourceUrl);
+        Log.RegisteredMediaMtxPath(logger, path, rtspSourceUrl);
     }
 
     public async Task RemovePathAsync(MediaMtxPath path, CancellationToken cancellationToken)
@@ -47,7 +47,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         {
             response.EnsureSuccessStatusCode();
         }
-        logger.LogInformation("Removed MediaMTX path {Path}.", path);
+        Log.RemovedMediaMtxPath(logger, path);
     }
 
     public async Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken)

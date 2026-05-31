@@ -45,7 +45,7 @@ public sealed class ClientRegisteredDomainEventHandler(
                     RegisteredAt: domainEvent.RegisteredAt,
                     Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.RegisteredAt, domainEvent.Fab.Value, null)),
                 cancellationToken).ConfigureAwait(false);
-            logger.LogDebug("Published DeviceRegisteredV1 for {ClientId}.", domainEvent.ClientId);
+            Log.PublishedDeviceRegisteredV1(logger, domainEvent.ClientId);
             return;
         }
 
@@ -59,7 +59,7 @@ public sealed class ClientRegisteredDomainEventHandler(
                     EnrolledAt: domainEvent.RegisteredAt,
                     Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.RegisteredAt, domainEvent.Fab.Value, null)),
                 cancellationToken).ConfigureAwait(false);
-            logger.LogDebug("Published KioskEnrolledV1 for {ClientId}.", domainEvent.ClientId);
+            Log.PublishedKioskEnrolledV1(logger, domainEvent.ClientId);
         }
 
         // WebhookIntegration: no fan-out here — the rotate-command-

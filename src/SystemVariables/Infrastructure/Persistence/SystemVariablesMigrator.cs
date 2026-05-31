@@ -19,8 +19,8 @@ public sealed class SystemVariablesMigrator(
         await using SystemVariablesDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation("Applying SystemVariables EF Core migrations.");
+        Log.ApplyingMigrations(logger);
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        logger.LogInformation("SystemVariables migrations applied.");
+        Log.MigrationsApplied(logger);
     }
 }

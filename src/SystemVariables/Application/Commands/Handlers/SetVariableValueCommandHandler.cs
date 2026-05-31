@@ -48,9 +48,7 @@ public sealed class SetVariableValueCommandHandler(
         variable.SetValue(typedValue, changedBy, clock);
         await variables.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation(
-            "Set variable {Variable} '{Name}' = '{Value}' by {Operator}.",
-            variable.Id, name, wireValue, changedBy);
+        Log.SetVariable(logger, variable.Id, name, wireValue, changedBy);
 
         return Result<VariableIdentifier, SetVariableValueError>.Success(variable.Id);
     }

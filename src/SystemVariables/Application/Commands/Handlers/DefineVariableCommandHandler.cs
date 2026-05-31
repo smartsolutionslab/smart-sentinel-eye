@@ -60,9 +60,7 @@ public sealed class DefineVariableCommandHandler(
         variables.Add(variable);
         await variables.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation(
-            "Defined variable {Variable} '{Name}' ({Type}) by {Operator}.",
-            variable.Id, name, type, definedBy);
+        Log.DefinedVariable(logger, variable.Id, name, type, definedBy);
 
         return Result<VariableIdentifier, DefineVariableError>.Success(variable.Id);
     }

@@ -112,9 +112,7 @@ public sealed class RotateWebhookClientCommandHandler(
                 Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, fab.Value, rotatedBy.Value)),
             cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation(
-            "Rotated webhook integration '{IntegrationName}' to clientId '{ClientId}'.",
-            integrationName, clientId);
+        Log.RotatedWebhookIntegration(logger, integrationName, clientId);
 
         return Result<WebhookClientCredentialsDto, RotateWebhookClientError>.Success(
             new WebhookClientCredentialsDto(

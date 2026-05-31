@@ -49,8 +49,7 @@ public sealed class RuleEvaluator(
                     break;
 
                 default:
-                    logger.LogWarning("Unhandled RuleAction case {Case} on rule {Rule}.",
-                        rule.Action.GetType().Name, rule.Identifier);
+                    Log.UnhandledRuleActionCase(logger, rule.Action.GetType().Name, rule.Identifier);
                     break;
             }
         }
@@ -66,9 +65,7 @@ public sealed class RuleEvaluator(
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
         {
-            logger.LogWarning(ex,
-                "Predicate evaluation failed on rule {Rule}; skipping rule.",
-                rule.Identifier);
+            Log.PredicateEvaluationFailed(logger, ex, rule.Identifier);
             return false;
         }
     }
@@ -86,9 +83,7 @@ public sealed class RuleEvaluator(
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
         {
-            logger.LogWarning(ex,
-                "Value-expression evaluation failed on rule {Rule}; skipping action.",
-                rule.Identifier);
+            Log.ValueExpressionEvaluationFailed(logger, ex, rule.Identifier);
             return false;
         }
     }

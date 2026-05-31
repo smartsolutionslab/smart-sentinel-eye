@@ -68,9 +68,7 @@ public sealed class EnrollKioskCommandHandler(
         clients.Add(registered);
         await clients.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation(
-            "Enrolled kiosk {Identifier} '{ClientId}' for fab {Fab}.",
-            registered.Id, clientId, fab);
+        Log.EnrolledKiosk(logger, registered.Id, clientId, fab);
 
         return Result<KioskCredentialsDto, EnrollKioskError>.Success(
             new KioskCredentialsDto(

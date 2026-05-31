@@ -19,8 +19,8 @@ public sealed class CameraCatalogMigrator(
         await using CameraCatalogDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation("Applying Camera Catalog EF Core migrations.");
+        Log.ApplyingMigrations(logger);
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        logger.LogInformation("Camera Catalog migrations applied.");
+        Log.MigrationsApplied(logger);
     }
 }

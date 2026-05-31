@@ -32,9 +32,7 @@ public sealed class ProvisionStreamCommandHandler(
 
         if (existing.HasValue)
         {
-            logger.LogInformation(
-                "Stream already exists for camera {Camera}; skipping provision (idempotent).",
-                camera);
+            Log.StreamAlreadyExists(logger, camera);
             return Result<StreamIdentifier, ProvisionStreamError>.Success(existing.Value.Id);
         }
 
@@ -48,18 +46,14 @@ public sealed class ProvisionStreamCommandHandler(
         }
         catch (HttpRequestException ex)
         {
-            logger.LogWarning(ex,
-                "MediaMTX path registration failed for camera {Camera}.",
-                camera);
+            Log.PathRegistrationFailed(logger, ex, camera);
             return Result<StreamIdentifier, ProvisionStreamError>.Failure(
                 new ProvisionStreamError.RtspGatewayUnavailable(ex.Message));
         }
 
         await streams.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation(
-            "Provisioned stream {Stream} for camera {Camera} at path {Path}.",
-            stream.Id, stream.Camera, stream.Path);
+        Log.ProvisionedStream(logger, stream.Id, stream.Camera, stream.Path);
 
         return Result<StreamIdentifier, ProvisionStreamError>.Success(stream.Id);
     }

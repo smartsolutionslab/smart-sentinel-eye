@@ -31,9 +31,7 @@ public sealed class ArchiveVariableCommandHandler(
         variable.Archive(archivedBy, clock);
         await variables.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation(
-            "Archived variable {Variable} '{Name}' by {Operator}.",
-            variable.Id, name, archivedBy);
+        Log.ArchivedVariable(logger, variable.Id, name, archivedBy);
 
         return Result<VariableIdentifier, ArchiveVariableError>.Success(variable.Id);
     }

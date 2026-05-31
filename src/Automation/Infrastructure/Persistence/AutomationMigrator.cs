@@ -15,8 +15,8 @@ public sealed class AutomationMigrator(
         await using AutomationDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation("Applying Automation EF Core migrations.");
+        Log.ApplyingMigrations(logger);
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        logger.LogInformation("Automation migrations applied.");
+        Log.MigrationsApplied(logger);
     }
 }

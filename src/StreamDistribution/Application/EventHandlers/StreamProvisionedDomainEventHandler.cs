@@ -16,9 +16,7 @@ public sealed class StreamProvisionedDomainEventHandler(ILogger<StreamProvisione
     public Task Handle(StreamProvisionedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(domainEvent);
-        logger.LogInformation(
-            "Stream {Stream} provisioned for camera {Camera} at path {Path} by {Operator}.",
-            domainEvent.Stream, domainEvent.Camera, domainEvent.Path, domainEvent.ProvisionedBy);
+        Log.StreamProvisioned(logger, domainEvent.Stream, domainEvent.Camera, domainEvent.Path, domainEvent.ProvisionedBy);
         return Task.CompletedTask;
     }
 }

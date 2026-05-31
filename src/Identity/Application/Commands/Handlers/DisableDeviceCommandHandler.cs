@@ -42,7 +42,7 @@ public sealed class DisableDeviceCommandHandler(
         client.Disable(clock);
         await clients.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation("Disabled device {Identifier} '{ClientId}'.", client.Id, command.ClientId);
+        Log.DisabledDevice(logger, client.Id, command.ClientId);
 
         return Result<RegisteredClientIdentifier, DisableDeviceError>.Success(client.Id);
     }

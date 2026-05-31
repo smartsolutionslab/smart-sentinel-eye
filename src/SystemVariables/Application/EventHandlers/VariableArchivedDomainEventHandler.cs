@@ -83,8 +83,6 @@ public sealed class VariableArchivedDomainEventHandler(
                 cancellationToken).ConfigureAwait(false);
         }
 
-        logger.LogInformation(
-            "Pushed ResolvedOverlayTextChanged to {Count} overlays after '{Name}' was archived.",
-            affectedOverlays.Count, domainEvent.Name);
+        Log.PushedResolvedTextAfterArchive(logger, affectedOverlays.Count, domainEvent.Name);
     }
 }

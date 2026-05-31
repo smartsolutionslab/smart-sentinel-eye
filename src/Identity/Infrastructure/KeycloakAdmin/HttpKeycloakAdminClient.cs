@@ -117,9 +117,7 @@ public sealed class HttpKeycloakAdminClient(
             .ConfigureAwait(false);
         if (clientUuid is null)
         {
-            logger.LogDebug(
-                "DisableClientAsync('{ClientId}'): no such Keycloak client; treating as no-op.",
-                clientId);
+            Log.DisableClientNoOp(logger, clientId);
             return;
         }
 

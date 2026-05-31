@@ -19,8 +19,8 @@ public sealed class OverlayDesignerMigrator(
         await using OverlayDesignerDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation("Applying OverlayDesigner EF Core migrations.");
+        Log.ApplyingMigrations(logger);
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        logger.LogInformation("OverlayDesigner migrations applied.");
+        Log.MigrationsApplied(logger);
     }
 }

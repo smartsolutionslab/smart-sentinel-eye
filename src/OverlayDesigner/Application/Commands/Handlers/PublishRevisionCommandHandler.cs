@@ -44,9 +44,7 @@ public sealed class PublishRevisionCommandHandler(
         overlay.Publish(revisionNumber, publishedBy, clock);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation(
-            "Published overlay {Overlay} revision {Revision} by {Operator}.",
-            overlay.Id, revisionNumber, publishedBy);
+        Log.PublishedRevision(logger, overlay.Id, revisionNumber, publishedBy);
 
         return Result<OverlayRevisionNumber, PublishRevisionError>.Success(revisionNumber);
     }
