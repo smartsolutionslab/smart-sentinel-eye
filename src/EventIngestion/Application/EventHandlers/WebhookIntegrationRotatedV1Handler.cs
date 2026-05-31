@@ -12,7 +12,7 @@ namespace SmartSentinelEye.EventIngestion.Application.EventHandlers;
 /// re-delivery against an already-rotated integration carrying the
 /// same clientId is a no-op.
 /// </summary>
-public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationRepository integrations, IClock clock, ILogger<WebhookIntegrationRotatedV1Handler> log)
+public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationRepository integrations, IClock clock, ILogger<WebhookIntegrationRotatedV1Handler> logger)
 {
     public async Task Handle(WebhookIntegrationRotatedV1 message, CancellationToken cancellationToken = default)
     {
@@ -25,14 +25,14 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
         }
         catch (ArgumentException ex)
         {
-            log.LogWarning(ex, "Ignoring WebhookIntegrationRotatedV1 with invalid name '{Name}'.", message.IntegrationName);
+            logger.LogWarning(ex, "Ignoring WebhookIntegrationRotatedV1 with invalid name '{Name}'.", message.IntegrationName);
             return;
         }
 
         Option<WebhookIntegration> found = await integrations.GetByNameAsync(name, cancellationToken).ConfigureAwait(false);
         if (!found.HasValue)
         {
-            log.LogInformation("Webhook integration '{Name}' not present; rotation event ignored.", message.IntegrationName);
+            logger.LogInformation("Webhook integration '{Name}' not present; rotation event ignored.", message.IntegrationName);
             return;
         }
 
@@ -40,6 +40,6 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
         integration.MarkAsRotated(message.ClientId, clock);
         await integrations.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation("Flipped webhook integration '{Name}' to JWT validation backed by Keycloak client '{ClientId}'.", message.IntegrationName, message.ClientId);
+        logger.LogInformation("Flipped webhook integration '{Name}' to JWT validation backed by Keycloak client '{ClientId}'.", message.IntegrationName, message.ClientId);
     }
 }

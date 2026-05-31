@@ -25,7 +25,7 @@ namespace SmartSentinelEye.Automation.Infrastructure.Cache;
 public sealed class RuleCacheSeederHostedService(
     IDbContextFactory<AutomationDbContext> dbContextFactory,
     IRuleCache cache,
-    ILogger<RuleCacheSeederHostedService> log) : IHostedService
+    ILogger<RuleCacheSeederHostedService> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -45,11 +45,11 @@ public sealed class RuleCacheSeederHostedService(
                 cache.Upsert(rule);
             }
 
-            log.LogInformation("Seeded rule cache with {Count} Active rule(s).", active.Count);
+            logger.LogInformation("Seeded rule cache with {Count} Active rule(s).", active.Count);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            log.LogError(ex, "Rule cache seeding failed; cache will start empty and self-heal on the next Publish.");
+            logger.LogError(ex, "Rule cache seeding failed; cache will start empty and self-heal on the next Publish.");
         }
     }
 

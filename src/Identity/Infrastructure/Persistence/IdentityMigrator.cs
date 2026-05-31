@@ -6,7 +6,7 @@ namespace SmartSentinelEye.Identity.Infrastructure.Persistence;
 
 public sealed class IdentityMigrator(
     IDbContextFactory<IdentityDbContext> dbContextFactory,
-    ILogger<IdentityMigrator> log) : IMigrator
+    ILogger<IdentityMigrator> logger) : IMigrator
 {
     public string ContextName => "Identity";
 
@@ -15,8 +15,8 @@ public sealed class IdentityMigrator(
         await using IdentityDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation("Applying Identity EF Core migrations.");
+        logger.LogInformation("Applying Identity EF Core migrations.");
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        log.LogInformation("Identity migrations applied.");
+        logger.LogInformation("Identity migrations applied.");
     }
 }

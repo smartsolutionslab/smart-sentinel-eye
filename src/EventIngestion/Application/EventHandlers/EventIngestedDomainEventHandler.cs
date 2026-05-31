@@ -12,7 +12,7 @@ namespace SmartSentinelEye.EventIngestion.Application.EventHandlers;
 /// ADR-0088 the publish rides Wolverine's Postgres outbox so it
 /// commits with the persistence transaction.
 /// </summary>
-public sealed class EventIngestedDomainEventHandler(IEventBus events, ILogger<EventIngestedDomainEventHandler> log)
+public sealed class EventIngestedDomainEventHandler(IEventBus events, ILogger<EventIngestedDomainEventHandler> logger)
     : IDomainEventHandler<EventIngestedDomainEvent>
 {
     public async Task Handle(EventIngestedDomainEvent domainEvent, CancellationToken cancellationToken)
@@ -32,6 +32,6 @@ public sealed class EventIngestedDomainEventHandler(IEventBus events, ILogger<Ev
                 Metadata: new EventMetadata(domainEvent.Identifier.Value, domainEvent.OccurredAt.Value, domainEvent.Fab.Value, null)),
             cancellationToken).ConfigureAwait(false);
 
-        log.LogDebug("Published FabEventIngestedV1 for {Identifier} ({Source}/{Device}).", domainEvent.Identifier, domainEvent.Source, domainEvent.Device);
+        logger.LogDebug("Published FabEventIngestedV1 for {Identifier} ({Source}/{Device}).", domainEvent.Identifier, domainEvent.Source, domainEvent.Device);
     }
 }

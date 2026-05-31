@@ -8,7 +8,7 @@ namespace SmartSentinelEye.CameraCatalog.Application.Commands.Handlers;
 public sealed class RegisterCameraCommandHandler(
     ICameraRepository cameras,
     IClock clock,
-    ILogger<RegisterCameraCommandHandler> log)
+    ILogger<RegisterCameraCommandHandler> logger)
     : ICommandHandler<RegisterCameraCommand, Result<CameraIdentifier, RegisterCameraError>>
 {
     public async Task<Result<CameraIdentifier, RegisterCameraError>> HandleAsync(
@@ -20,7 +20,7 @@ public sealed class RegisterCameraCommandHandler(
 
         if (await cameras.ExistsByNameAsync(name, cancellationToken).ConfigureAwait(false))
         {
-            log.LogInformation(
+            logger.LogInformation(
                 "Rejected camera registration: name {CameraName} already in use.",
                 name);
             return Result<CameraIdentifier, RegisterCameraError>.Failure(
@@ -33,7 +33,7 @@ public sealed class RegisterCameraCommandHandler(
         cameras.Add(camera);
         await cameras.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Registered camera {CameraId} with name {CameraName}.",
             camera.Id, camera.Name);
 

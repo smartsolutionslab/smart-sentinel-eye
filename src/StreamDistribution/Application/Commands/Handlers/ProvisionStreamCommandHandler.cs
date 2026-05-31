@@ -9,7 +9,7 @@ public sealed class ProvisionStreamCommandHandler(
     IStreamRepository streams,
     IRtspGateway rtsp,
     IClock clock,
-    ILogger<ProvisionStreamCommandHandler> log)
+    ILogger<ProvisionStreamCommandHandler> logger)
     : ICommandHandler<ProvisionStreamCommand, Result<StreamIdentifier, ProvisionStreamError>>
 {
     public async Task<Result<StreamIdentifier, ProvisionStreamError>> HandleAsync(
@@ -32,7 +32,7 @@ public sealed class ProvisionStreamCommandHandler(
 
         if (existing.HasValue)
         {
-            log.LogInformation(
+            logger.LogInformation(
                 "Stream already exists for camera {Camera}; skipping provision (idempotent).",
                 camera);
             return Result<StreamIdentifier, ProvisionStreamError>.Success(existing.Value.Id);
@@ -48,7 +48,7 @@ public sealed class ProvisionStreamCommandHandler(
         }
         catch (HttpRequestException ex)
         {
-            log.LogWarning(ex,
+            logger.LogWarning(ex,
                 "MediaMTX path registration failed for camera {Camera}.",
                 camera);
             return Result<StreamIdentifier, ProvisionStreamError>.Failure(
@@ -57,7 +57,7 @@ public sealed class ProvisionStreamCommandHandler(
 
         await streams.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Provisioned stream {Stream} for camera {Camera} at path {Path}.",
             stream.Id, stream.Camera, stream.Path);
 

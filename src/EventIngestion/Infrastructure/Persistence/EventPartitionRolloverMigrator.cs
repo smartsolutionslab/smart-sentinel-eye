@@ -22,7 +22,7 @@ namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 /// </summary>
 public sealed class EventPartitionRolloverMigrator(
     IDbContextFactory<EventIngestionDbContext> dbContextFactory,
-    ILogger<EventPartitionRolloverMigrator> log) : IMigrator
+    ILogger<EventPartitionRolloverMigrator> logger) : IMigrator
 {
     public string ContextName => "EventIngestion.PartitionRollover";
 
@@ -35,7 +35,7 @@ public sealed class EventPartitionRolloverMigrator(
             .ConfigureAwait(false);
         if (fabPartitions.Length == 0)
         {
-            log.LogInformation(
+            logger.LogInformation(
                 "No per-fab partitions under 'events' yet; skipping rollover. " +
                 "Add a fab via 'CREATE TABLE events_<fabId> PARTITION OF events FOR VALUES IN (...)'.");
             return;
@@ -55,7 +55,7 @@ public sealed class EventPartitionRolloverMigrator(
                     $"CREATE TABLE IF NOT EXISTS {monthlyTable} PARTITION OF {fabPartition} " +
                     $"FOR VALUES FROM ('{fromBound}') TO ('{toBound}');";
                 await context.Database.ExecuteSqlRawAsync(ddl, cancellationToken).ConfigureAwait(false);
-                log.LogInformation(
+                logger.LogInformation(
                     "Ensured partition {Partition} (FROM {From} TO {To}).",
                     monthlyTable, fromBound, toBound);
             }

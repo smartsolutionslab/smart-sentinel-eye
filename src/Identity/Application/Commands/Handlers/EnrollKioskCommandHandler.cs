@@ -12,7 +12,7 @@ public sealed class EnrollKioskCommandHandler(
     IRegisteredClientRepository clients,
     IKeycloakAdminClient keycloak,
     IClock clock,
-    ILogger<EnrollKioskCommandHandler> log)
+    ILogger<EnrollKioskCommandHandler> logger)
     : ICommandHandler<EnrollKioskCommand, Result<KioskCredentialsDto, EnrollKioskError>>
 {
     public async Task<Result<KioskCredentialsDto, EnrollKioskError>> HandleAsync(
@@ -68,7 +68,7 @@ public sealed class EnrollKioskCommandHandler(
         clients.Add(registered);
         await clients.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Enrolled kiosk {Identifier} '{ClientId}' for fab {Fab}.",
             registered.Id, clientId, fab);
 

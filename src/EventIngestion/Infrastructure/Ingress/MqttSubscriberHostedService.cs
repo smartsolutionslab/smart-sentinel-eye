@@ -40,7 +40,7 @@ public sealed class MqttSubscriberHostedService(
     IServiceScopeFactory scopeFactory,
     IClock clock,
     IOptions<MosquittoOptions> options,
-    ILogger<MqttSubscriberHostedService> log) : IHostedService
+    ILogger<MqttSubscriberHostedService> logger) : IHostedService
 {
     private IManagedMqttClient? _client;
 
@@ -52,7 +52,7 @@ public sealed class MqttSubscriberHostedService(
         string topic = options.Value.SubscribeTopic;
         await _client.SubscribeAsync(topic, MqttQualityOfServiceLevel.AtLeastOnce).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "MQTT subscriber started; subscribed to topic '{Topic}' at QoS 1.", topic);
     }
 
@@ -63,7 +63,7 @@ public sealed class MqttSubscriberHostedService(
         await _client.StopAsync().ConfigureAwait(false);
         _client.Dispose();
         _client = null;
-        log.LogInformation("MQTT subscriber stopped.");
+        logger.LogInformation("MQTT subscriber stopped.");
     }
 
     private async Task OnMessageReceived(MqttApplicationMessageReceivedEventArgs args)
@@ -133,7 +133,7 @@ public sealed class MqttSubscriberHostedService(
 
     private async Task CaptureDeadLetterAsync(string topic, ReadOnlyMemory<byte> body, string error)
     {
-        log.LogWarning("Rejecting MQTT delivery on '{Topic}': {Error}", topic, error);
+        logger.LogWarning("Rejecting MQTT delivery on '{Topic}': {Error}", topic, error);
         string raw = Encoding.UTF8.GetString(body.Span);
         try
         {
@@ -147,7 +147,7 @@ public sealed class MqttSubscriberHostedService(
         {
             // Dead-letter capture is best-effort — DB outage must not
             // bring the subscriber down. Log and move on.
-            log.LogError(ex,
+            logger.LogError(ex,
                 "Failed to capture dead letter for topic '{Topic}': {Message}", topic, ex.Message);
         }
     }

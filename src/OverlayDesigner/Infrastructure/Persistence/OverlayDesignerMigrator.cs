@@ -10,7 +10,7 @@ namespace SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 /// </summary>
 public sealed class OverlayDesignerMigrator(
     IDbContextFactory<OverlayDesignerDbContext> dbContextFactory,
-    ILogger<OverlayDesignerMigrator> log) : IMigrator
+    ILogger<OverlayDesignerMigrator> logger) : IMigrator
 {
     public string ContextName => "OverlayDesigner";
 
@@ -19,8 +19,8 @@ public sealed class OverlayDesignerMigrator(
         await using OverlayDesignerDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation("Applying OverlayDesigner EF Core migrations.");
+        logger.LogInformation("Applying OverlayDesigner EF Core migrations.");
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        log.LogInformation("OverlayDesigner migrations applied.");
+        logger.LogInformation("OverlayDesigner migrations applied.");
     }
 }

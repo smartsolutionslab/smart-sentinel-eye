@@ -12,7 +12,7 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 /// <c>mediamtx:api</c> endpoint. Polly retry is applied at the HttpClient
 /// factory level in <see cref="StreamDistributionInfrastructureModule"/>.
 /// </summary>
-public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGateway> log) : IRtspGateway
+public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGateway> logger) : IRtspGateway
 {
     public async Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken)
     {
@@ -31,7 +31,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
             .ConfigureAwait(false);
 
         response.EnsureSuccessStatusCode();
-        log.LogInformation("Registered MediaMTX path {Path} -> {Source}.", path, rtspSourceUrl);
+        logger.LogInformation("Registered MediaMTX path {Path} -> {Source}.", path, rtspSourceUrl);
     }
 
     public async Task RemovePathAsync(MediaMtxPath path, CancellationToken cancellationToken)
@@ -47,7 +47,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         {
             response.EnsureSuccessStatusCode();
         }
-        log.LogInformation("Removed MediaMTX path {Path}.", path);
+        logger.LogInformation("Removed MediaMTX path {Path}.", path);
     }
 
     public async Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken)

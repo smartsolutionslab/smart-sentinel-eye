@@ -26,17 +26,17 @@ builder.AddIdentityPersistence();
 builder.AddAuditObservabilityPersistence();
 
 IHost host = builder.Build();
-ILogger<Program> log = host.Services.GetRequiredService<ILogger<Program>>();
+ILogger<Program> logger = host.Services.GetRequiredService<ILogger<Program>>();
 
 await host.StartAsync().ConfigureAwait(false);
 
 IEnumerable<IMigrator> migrators = host.Services.GetServices<IMigrator>();
 foreach (IMigrator migrator in migrators)
 {
-    log.LogInformation("Running migrations for {Context}.", migrator.ContextName);
+    logger.LogInformation("Running migrations for {Context}.", migrator.ContextName);
     await migrator.RunAsync(host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping)
         .ConfigureAwait(false);
 }
 
-log.LogInformation("All migrations applied; MigrationRunner exiting.");
+logger.LogInformation("All migrations applied; MigrationRunner exiting.");
 await host.StopAsync().ConfigureAwait(false);

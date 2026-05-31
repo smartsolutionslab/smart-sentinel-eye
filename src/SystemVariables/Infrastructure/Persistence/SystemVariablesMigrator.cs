@@ -10,7 +10,7 @@ namespace SmartSentinelEye.SystemVariables.Infrastructure.Persistence;
 /// </summary>
 public sealed class SystemVariablesMigrator(
     IDbContextFactory<SystemVariablesDbContext> dbContextFactory,
-    ILogger<SystemVariablesMigrator> log) : IMigrator
+    ILogger<SystemVariablesMigrator> logger) : IMigrator
 {
     public string ContextName => "SystemVariables";
 
@@ -19,8 +19,8 @@ public sealed class SystemVariablesMigrator(
         await using SystemVariablesDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation("Applying SystemVariables EF Core migrations.");
+        logger.LogInformation("Applying SystemVariables EF Core migrations.");
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        log.LogInformation("SystemVariables migrations applied.");
+        logger.LogInformation("SystemVariables migrations applied.");
     }
 }

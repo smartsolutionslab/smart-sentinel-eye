@@ -11,7 +11,7 @@ public sealed class DisableKioskCommandHandler(
     IRegisteredClientRepository clients,
     IKeycloakAdminClient keycloak,
     IClock clock,
-    ILogger<DisableKioskCommandHandler> log)
+    ILogger<DisableKioskCommandHandler> logger)
     : ICommandHandler<DisableKioskCommand, Result<RegisteredClientIdentifier, DisableKioskError>>
 {
     public async Task<Result<RegisteredClientIdentifier, DisableKioskError>> HandleAsync(
@@ -42,7 +42,7 @@ public sealed class DisableKioskCommandHandler(
         client.Disable(clock);
         await clients.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation("Disabled kiosk {Identifier} '{ClientId}'.", client.Id, command.ClientId);
+        logger.LogInformation("Disabled kiosk {Identifier} '{ClientId}'.", client.Id, command.ClientId);
 
         return Result<RegisteredClientIdentifier, DisableKioskError>.Success(client.Id);
     }

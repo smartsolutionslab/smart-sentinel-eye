@@ -25,7 +25,7 @@ namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
 public sealed class SystemVariableValueRequestedV1Handler(
     IVariableValueRequestDedupStore dedup,
     SetVariableValueCommandHandler setHandler,
-    ILogger<SystemVariableValueRequestedV1Handler> log)
+    ILogger<SystemVariableValueRequestedV1Handler> logger)
 {
     /// <summary>
     /// Automation's actions are not attributed to a specific
@@ -45,7 +45,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
             .ConfigureAwait(false);
         if (!reserved)
         {
-            log.LogDebug(
+            logger.LogDebug(
                 "Dedup hit for variable '{Name}' caused by {CausingEvent}; no-op.",
                 message.Name, message.CausingEventIdentifier);
             return;
@@ -58,7 +58,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
         }
         catch (ArgumentException ex)
         {
-            log.LogWarning(ex,
+            logger.LogWarning(ex,
                 "Invalid variable name '{Name}' in V1; dropping (caused by {CausingEvent}).",
                 message.Name, message.CausingEventIdentifier);
             return;
@@ -70,7 +70,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
 
         if (!result.IsSuccess)
         {
-            log.LogWarning(
+            logger.LogWarning(
                 "SetVariableValue failed for '{Name}' = '{Value}' (caused by {CausingEvent}): {Code}.",
                 message.Name, message.Value, message.CausingEventIdentifier, result.Error.Code);
         }

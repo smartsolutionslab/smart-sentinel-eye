@@ -16,7 +16,7 @@ public sealed class KeycloakAdminTokenProvider(
     HttpClient httpClient,
     IOptions<KeycloakAdminOptions> options,
     TimeProvider clock,
-    ILogger<KeycloakAdminTokenProvider> log) : IDisposable
+    ILogger<KeycloakAdminTokenProvider> logger) : IDisposable
 {
     private readonly SemaphoreSlim _gate = new(initialCount: 1, maxCount: 1);
     private string? _cachedToken;
@@ -63,7 +63,7 @@ public sealed class KeycloakAdminTokenProvider(
             // Refresh proactively at 80 % of the lifetime.
             _refreshAfter = clock.GetUtcNow().AddSeconds(payload.ExpiresIn * 0.8);
 
-            log.LogDebug(
+            logger.LogDebug(
                 "Minted Identity admin token; valid for {Lifetime}s.", payload.ExpiresIn);
             return _cachedToken;
         }

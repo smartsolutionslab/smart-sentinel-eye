@@ -30,7 +30,7 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Reconciler;
 /// </summary>
 public sealed class MediaMtxReconciler(
     IServiceScopeFactory scopeFactory,
-    ILogger<MediaMtxReconciler> log) : IHostedService
+    ILogger<MediaMtxReconciler> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -42,7 +42,7 @@ public sealed class MediaMtxReconciler(
         {
             // A reconcile failure must not block the host from starting.
             // Streams keep working; the next restart retries.
-            log.LogWarning(ex, "MediaMtxReconciler startup pass failed; continuing without reconcile.");
+            logger.LogWarning(ex, "MediaMtxReconciler startup pass failed; continuing without reconcile.");
         }
     }
 
@@ -76,16 +76,16 @@ public sealed class MediaMtxReconciler(
             {
                 await gateway.RemovePathAsync(path, cancellationToken).ConfigureAwait(false);
                 removed++;
-                log.LogInformation("Reconciler removed orphan MediaMTX path {Path}.", path);
+                logger.LogInformation("Reconciler removed orphan MediaMTX path {Path}.", path);
             }
             catch (HttpRequestException ex)
             {
-                log.LogWarning(ex,
+                logger.LogWarning(ex,
                     "Reconciler failed to remove orphan path {Path}; will retry on next restart.", path);
             }
         }
 
-        log.LogInformation(
+        logger.LogInformation(
             "MediaMtxReconciler startup pass complete. Configured={Configured}, expected={Expected}, removed={Removed}.",
             configured.Count, expected.Count, removed);
     }

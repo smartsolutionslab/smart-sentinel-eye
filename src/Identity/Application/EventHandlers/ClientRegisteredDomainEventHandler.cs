@@ -25,7 +25,7 @@ namespace SmartSentinelEye.Identity.Application.EventHandlers;
 /// </summary>
 public sealed class ClientRegisteredDomainEventHandler(
     IEventBus events,
-    ILogger<ClientRegisteredDomainEventHandler> log)
+    ILogger<ClientRegisteredDomainEventHandler> logger)
     : IDomainEventHandler<ClientRegisteredDomainEvent>
 {
     public async Task Handle(ClientRegisteredDomainEvent domainEvent, CancellationToken cancellationToken)
@@ -45,7 +45,7 @@ public sealed class ClientRegisteredDomainEventHandler(
                     RegisteredAt: domainEvent.RegisteredAt,
                     Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.RegisteredAt, domainEvent.Fab.Value, null)),
                 cancellationToken).ConfigureAwait(false);
-            log.LogDebug("Published DeviceRegisteredV1 for {ClientId}.", domainEvent.ClientId);
+            logger.LogDebug("Published DeviceRegisteredV1 for {ClientId}.", domainEvent.ClientId);
             return;
         }
 
@@ -59,7 +59,7 @@ public sealed class ClientRegisteredDomainEventHandler(
                     EnrolledAt: domainEvent.RegisteredAt,
                     Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.RegisteredAt, domainEvent.Fab.Value, null)),
                 cancellationToken).ConfigureAwait(false);
-            log.LogDebug("Published KioskEnrolledV1 for {ClientId}.", domainEvent.ClientId);
+            logger.LogDebug("Published KioskEnrolledV1 for {ClientId}.", domainEvent.ClientId);
         }
 
         // WebhookIntegration: no fan-out here — the rotate-command-

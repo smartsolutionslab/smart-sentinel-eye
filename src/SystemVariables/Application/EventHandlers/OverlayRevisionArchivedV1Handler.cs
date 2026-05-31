@@ -12,13 +12,13 @@ namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
 /// </summary>
 public sealed class OverlayRevisionArchivedV1Handler(
     IReverseIndex reverseIndex,
-    ILogger<OverlayRevisionArchivedV1Handler> log)
+    ILogger<OverlayRevisionArchivedV1Handler> logger)
 {
     public Task Handle(OverlayRevisionArchivedV1 message, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
         reverseIndex.RemoveOverlay(message.Overlay);
-        log.LogDebug("Reverse-index dropped overlay {Overlay} after archive.", message.Overlay);
+        logger.LogDebug("Reverse-index dropped overlay {Overlay} after archive.", message.Overlay);
         return Task.CompletedTask;
     }
 }

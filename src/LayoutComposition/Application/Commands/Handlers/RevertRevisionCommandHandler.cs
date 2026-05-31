@@ -8,7 +8,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 public sealed class RevertRevisionCommandHandler(
     ILayoutRepository layouts,
     IClock clock,
-    ILogger<RevertRevisionCommandHandler> log)
+    ILogger<RevertRevisionCommandHandler> logger)
     : ICommandHandler<RevertRevisionCommand, Result<LayoutRevisionNumber, RevertRevisionError>>
 {
     public async Task<Result<LayoutRevisionNumber, RevertRevisionError>> HandleAsync(
@@ -43,7 +43,7 @@ public sealed class RevertRevisionCommandHandler(
         layout.Revert(revisionNumber, revertedBy, clock);
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Reverted revision {Revision} on layout {Layout} to Draft by {Operator}.",
             revisionNumber, layout.Id, revertedBy);
 

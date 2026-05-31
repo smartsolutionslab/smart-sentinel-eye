@@ -8,7 +8,7 @@ namespace SmartSentinelEye.OverlayDesigner.Application.Commands.Handlers;
 public sealed class EditDraftRevisionCommandHandler(
     IOverlayRepository overlays,
     IClock clock,
-    ILogger<EditDraftRevisionCommandHandler> log)
+    ILogger<EditDraftRevisionCommandHandler> logger)
     : ICommandHandler<EditDraftRevisionCommand, Result<OverlayRevisionNumber, EditDraftRevisionError>>
 {
     public async Task<Result<OverlayRevisionNumber, EditDraftRevisionError>> HandleAsync(
@@ -43,7 +43,7 @@ public sealed class EditDraftRevisionCommandHandler(
         overlay.EditDraft(revisionNumber, label, clock);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Edited draft revision {Revision} on overlay {Overlay}.",
             revisionNumber, overlay.Id);
 

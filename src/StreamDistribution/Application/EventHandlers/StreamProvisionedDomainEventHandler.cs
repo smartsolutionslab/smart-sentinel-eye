@@ -10,13 +10,13 @@ namespace SmartSentinelEye.StreamDistribution.Application.EventHandlers;
 /// published here (the first <c>StreamHealthChangedV1</c> fires when the
 /// stream transitions out of Provisioning).
 /// </summary>
-public sealed class StreamProvisionedDomainEventHandler(ILogger<StreamProvisionedDomainEventHandler> log)
+public sealed class StreamProvisionedDomainEventHandler(ILogger<StreamProvisionedDomainEventHandler> logger)
     : IDomainEventHandler<StreamProvisionedDomainEvent>
 {
     public Task Handle(StreamProvisionedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(domainEvent);
-        log.LogInformation(
+        logger.LogInformation(
             "Stream {Stream} provisioned for camera {Camera} at path {Path} by {Operator}.",
             domainEvent.Stream, domainEvent.Camera, domainEvent.Path, domainEvent.ProvisionedBy);
         return Task.CompletedTask;

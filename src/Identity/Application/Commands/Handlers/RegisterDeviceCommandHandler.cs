@@ -12,7 +12,7 @@ public sealed class RegisterDeviceCommandHandler(
     IRegisteredClientRepository clients,
     IKeycloakAdminClient keycloak,
     IClock clock,
-    ILogger<RegisterDeviceCommandHandler> log)
+    ILogger<RegisterDeviceCommandHandler> logger)
     : ICommandHandler<RegisterDeviceCommand, Result<DeviceCredentialsDto, RegisterDeviceError>>
 {
     private static readonly string[] AllowedDeviceTypes = ["plc", "inference"];
@@ -89,7 +89,7 @@ public sealed class RegisterDeviceCommandHandler(
         clients.Add(registered);
         await clients.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Registered device {Identifier} '{ClientId}' ({DeviceType}/{DeviceIdentifier}) for fab {Fab}.",
             registered.Id, clientId, deviceType, deviceIdentifier, fab);
 

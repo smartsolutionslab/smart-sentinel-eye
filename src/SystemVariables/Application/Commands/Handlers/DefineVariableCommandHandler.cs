@@ -8,7 +8,7 @@ namespace SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
 public sealed class DefineVariableCommandHandler(
     IVariableRepository variables,
     IClock clock,
-    ILogger<DefineVariableCommandHandler> log)
+    ILogger<DefineVariableCommandHandler> logger)
     : ICommandHandler<DefineVariableCommand, Result<VariableIdentifier, DefineVariableError>>
 {
     public async Task<Result<VariableIdentifier, DefineVariableError>> HandleAsync(
@@ -60,7 +60,7 @@ public sealed class DefineVariableCommandHandler(
         variables.Add(variable);
         await variables.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Defined variable {Variable} '{Name}' ({Type}) by {Operator}.",
             variable.Id, name, type, definedBy);
 

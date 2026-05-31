@@ -8,7 +8,7 @@ namespace SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 public sealed class ReportStreamHealthCommandHandler(
     IStreamRepository streams,
     IClock clock,
-    ILogger<ReportStreamHealthCommandHandler> log)
+    ILogger<ReportStreamHealthCommandHandler> logger)
     : ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>>
 {
     public async Task<Result<StreamState, ReportStreamHealthError>> HandleAsync(
@@ -53,7 +53,7 @@ public sealed class ReportStreamHealthCommandHandler(
         catch (InvalidOperationException ex)
         {
             string targetState = DescribeTarget(command);
-            log.LogWarning(ex,
+            logger.LogWarning(ex,
                 "Rejected health transition for camera {Camera}.",
                 camera);
             return Result<StreamState, ReportStreamHealthError>.Failure(

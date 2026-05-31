@@ -29,7 +29,7 @@ public sealed class FabEventIngestedV1Handler(
     RuleEvaluator evaluator,
     IEventBus events,
     IClock clock,
-    ILogger<FabEventIngestedV1Handler> log)
+    ILogger<FabEventIngestedV1Handler> logger)
 {
     public async Task Handle(FabEventIngestedV1 message, CancellationToken cancellationToken)
     {
@@ -63,7 +63,7 @@ public sealed class FabEventIngestedV1Handler(
             }
         }
 
-        log.LogDebug(
+        logger.LogDebug(
             "Fanned out {Count} action(s) for {EventIdentifier} ({Source}/{Kind}).",
             effects.Count, message.EventIdentifier, message.Source, message.Kind);
     }

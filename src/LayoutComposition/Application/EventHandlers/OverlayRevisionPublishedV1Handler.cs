@@ -15,7 +15,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 /// </summary>
 public sealed class OverlayRevisionPublishedV1Handler(
     ILayoutLifecycleBroadcaster broadcaster,
-    ILogger<OverlayRevisionPublishedV1Handler> log)
+    ILogger<OverlayRevisionPublishedV1Handler> logger)
 {
     public async Task Handle(OverlayRevisionPublishedV1 message, CancellationToken cancellationToken)
     {
@@ -35,7 +35,7 @@ public sealed class OverlayRevisionPublishedV1Handler(
                 PublishedAt: message.PublishedAt),
             cancellationToken).ConfigureAwait(false);
 
-        log.LogDebug("Broadcast OverlayPublished for overlay {Overlay} revision {Revision}.",
+        logger.LogDebug("Broadcast OverlayPublished for overlay {Overlay} revision {Revision}.",
             message.Overlay, message.RevisionNumber);
     }
 }

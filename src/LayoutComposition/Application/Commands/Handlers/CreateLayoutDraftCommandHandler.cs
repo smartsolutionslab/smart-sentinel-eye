@@ -8,7 +8,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 public sealed class CreateLayoutDraftCommandHandler(
     ILayoutRepository layouts,
     IClock clock,
-    ILogger<CreateLayoutDraftCommandHandler> log)
+    ILogger<CreateLayoutDraftCommandHandler> logger)
     : ICommandHandler<CreateLayoutDraftCommand, Result<LayoutIdentifier, CreateLayoutDraftError>>
 {
     public async Task<Result<LayoutIdentifier, CreateLayoutDraftError>> HandleAsync(
@@ -31,7 +31,7 @@ public sealed class CreateLayoutDraftCommandHandler(
         layouts.Add(layout);
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Created layout {Layout} '{Name}' (Draft) by {Operator}.",
             layout.Id, name, createdBy);
 

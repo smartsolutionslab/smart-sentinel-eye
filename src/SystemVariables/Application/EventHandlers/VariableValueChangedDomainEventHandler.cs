@@ -23,7 +23,7 @@ public sealed class VariableValueChangedDomainEventHandler(
     IReverseIndex reverseIndex,
     IVariableRepository variables,
     IResolver resolver,
-    ILogger<VariableValueChangedDomainEventHandler> log)
+    ILogger<VariableValueChangedDomainEventHandler> logger)
     : IDomainEventHandler<VariableValueChangedDomainEvent>
 {
     public async Task Handle(VariableValueChangedDomainEvent domainEvent, CancellationToken cancellationToken)
@@ -45,7 +45,7 @@ public sealed class VariableValueChangedDomainEventHandler(
             reverseIndex.LookupOverlays(domainEvent.Name.Value);
         if (affectedOverlays.Count == 0)
         {
-            log.LogDebug("No overlays reference variable '{Name}'; skipping push fan-out.",
+            logger.LogDebug("No overlays reference variable '{Name}'; skipping push fan-out.",
                 domainEvent.Name);
             return;
         }
@@ -70,7 +70,7 @@ public sealed class VariableValueChangedDomainEventHandler(
                 cancellationToken).ConfigureAwait(false);
         }
 
-        log.LogInformation(
+        logger.LogInformation(
             "Pushed ResolvedOverlayTextChanged to {Count} overlays after '{Name}' changed.",
             affectedOverlays.Count, domainEvent.Name);
     }
