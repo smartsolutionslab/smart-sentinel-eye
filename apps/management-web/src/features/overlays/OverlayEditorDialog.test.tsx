@@ -10,7 +10,7 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/overlays.api')>();
   return {
     ...actual,
-    useCreateOverlayDraftMutation: () => [createDraftMock, { isLoading: false, error: undefined }],
+    useCreateOverlayDraftMutation: () => [createDraftMock, { isLoading: false, error: undefined, reset: vi.fn() }],
   };
 });
 

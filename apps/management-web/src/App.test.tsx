@@ -13,7 +13,7 @@ vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => 
       error: undefined,
       refetch: vi.fn(),
     }),
-    useRegisterCameraMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false, error: undefined }],
+    useRegisterCameraMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false, error: undefined, reset: vi.fn() }],
   };
 });
 
@@ -37,7 +37,7 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
       error: undefined,
       refetch: vi.fn(),
     }),
-    useCreateLayoutDraftMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false, error: undefined }],
+    useCreateLayoutDraftMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false, error: undefined, reset: vi.fn() }],
     usePublishRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), { isLoading: false }],
     useArchiveRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), { isLoading: false }],
     useBranchDraftRevisionMutation: () => [vi.fn(async () => ({ data: 2 })), { isLoading: false }],
@@ -56,7 +56,7 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
       error: undefined,
       refetch: vi.fn(),
     }),
-    useCreateOverlayDraftMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false, error: undefined }],
+    useCreateOverlayDraftMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false, error: undefined, reset: vi.fn() }],
     usePublishOverlayRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), { isLoading: false }],
     useArchiveOverlayRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), { isLoading: false }],
     useBranchDraftOverlayRevisionMutation: () => [vi.fn(async () => ({ data: 2 })), { isLoading: false }],
@@ -77,7 +77,7 @@ vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOrigi
     }),
     useGetVariableQuery: () => ({ data: undefined, isLoading: false }),
     useGetOverlaySnapshotQuery: () => ({ data: undefined, isLoading: false }),
-    useDefineVariableMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false, error: undefined }],
+    useDefineVariableMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false, error: undefined, reset: vi.fn() }],
     useSetVariableValueMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false }],
     useArchiveVariableMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false }],
   };

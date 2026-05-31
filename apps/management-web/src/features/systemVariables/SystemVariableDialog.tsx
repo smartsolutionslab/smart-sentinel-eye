@@ -9,6 +9,7 @@ import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 
 export interface SystemVariableDialogProps {
@@ -22,7 +23,13 @@ const DEFAULT_INPUT: DefineVariableInput = {
 };
 
 export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialogProps) {
-  const [defineVariable, { isLoading, error }] = useDefineVariableMutation();
+  const [defineVariable, { isLoading, error, reset: resetMutationState }] = useDefineVariableMutation();
+
+  // Drop any prior backend error when the dialog closes so a stale banner
+  // doesn't greet the operator on the next open.
+  useEffect(() => {
+    if (!open) resetMutationState();
+  }, [open, resetMutationState]);
 
   const {
     register,

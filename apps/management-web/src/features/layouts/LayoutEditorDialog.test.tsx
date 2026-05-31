@@ -10,7 +10,7 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/layouts.api')>();
   return {
     ...actual,
-    useCreateLayoutDraftMutation: () => [createDraftMock, { isLoading: false, error: undefined }],
+    useCreateLayoutDraftMutation: () => [createDraftMock, { isLoading: false, error: undefined, reset: vi.fn() }],
   };
 });
 
