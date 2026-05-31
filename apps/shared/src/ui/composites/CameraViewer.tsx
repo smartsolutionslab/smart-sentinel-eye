@@ -52,6 +52,16 @@ export function CameraViewer({ cameraIdentifier, getToken, overlay, className }:
   const isOffline = stream?.state === 'Offline';
   const offlineError = stream?.error ?? null;
 
+  // Callers commonly pass getToken as a fresh inline closure
+  // (e.g. () => Promise.resolve(auth.user?.access_token)), so its identity
+  // changes on every parent render. Hold the latest reference and read it
+  // at connect time, so the effect below doesn't tear down and renegotiate
+  // the RTCPeerConnection on every render — only when the stream changes.
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  });
+
   useEffect(() => {
     const videoEl = videoRef.current;
     if (!whepUrl || !videoEl) return undefined;
@@ -62,7 +72,7 @@ export function CameraViewer({ cameraIdentifier, getToken, overlay, className }:
     }
 
     const controller = new AbortController();
-    const client = new WhepClient({ whepUrl, getToken });
+    const client = new WhepClient({ whepUrl, getToken: () => getTokenRef.current() });
     setStatus('connecting');
     setErrorMessage(null);
 
@@ -82,7 +92,7 @@ export function CameraViewer({ cameraIdentifier, getToken, overlay, className }:
       controller.abort();
       client.close();
     };
-  }, [whepUrl, isOffline, offlineError, getToken]);
+  }, [whepUrl, isOffline, offlineError]);
 
   const streamState = stream?.state;
   const streamError = stream?.error ?? null;
