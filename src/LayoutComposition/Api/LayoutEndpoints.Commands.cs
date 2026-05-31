@@ -64,17 +64,13 @@ public static partial class LayoutEndpoints
                 detail: "layoutIdentifier must be a non-empty Guid.",
                 statusCode: StatusCodes.Status400BadRequest);
         }
-        LayoutRevisionNumber number;
-        try
+        if (!BoundaryParse.TryParse(
+            () => LayoutRevisionNumber.From(revisionNumber),
+            "LAYOUT_INVALID_INPUT",
+            out LayoutRevisionNumber number,
+            out IResult problem))
         {
-            number = LayoutRevisionNumber.From(revisionNumber);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "LAYOUT_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
@@ -103,17 +99,13 @@ public static partial class LayoutEndpoints
                 detail: "layoutIdentifier must be a non-empty Guid.",
                 statusCode: StatusCodes.Status400BadRequest);
         }
-        LayoutRevisionNumber number;
-        try
+        if (!BoundaryParse.TryParse(
+            () => LayoutRevisionNumber.From(revisionNumber),
+            "LAYOUT_INVALID_INPUT",
+            out LayoutRevisionNumber number,
+            out IResult problem))
         {
-            number = LayoutRevisionNumber.From(revisionNumber);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "LAYOUT_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
@@ -212,17 +204,13 @@ public static partial class LayoutEndpoints
                 detail: "layoutIdentifier must be a non-empty Guid.",
                 statusCode: StatusCodes.Status400BadRequest);
         }
-        LayoutRevisionNumber number;
-        try
+        if (!BoundaryParse.TryParse(
+            () => LayoutRevisionNumber.From(revisionNumber),
+            "LAYOUT_INVALID_INPUT",
+            out LayoutRevisionNumber number,
+            out IResult problem))
         {
-            number = LayoutRevisionNumber.From(revisionNumber);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "LAYOUT_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();

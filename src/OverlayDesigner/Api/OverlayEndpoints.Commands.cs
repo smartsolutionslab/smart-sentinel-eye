@@ -67,17 +67,13 @@ public static partial class OverlayEndpoints
                 detail: "overlayIdentifier must be a non-empty Guid.",
                 statusCode: StatusCodes.Status400BadRequest);
         }
-        OverlayRevisionNumber number;
-        try
+        if (!BoundaryParse.TryParse(
+            () => OverlayRevisionNumber.From(revisionNumber),
+            "OVERLAY_INVALID_INPUT",
+            out OverlayRevisionNumber number,
+            out IResult problem))
         {
-            number = OverlayRevisionNumber.From(revisionNumber);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "OVERLAY_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
@@ -106,17 +102,13 @@ public static partial class OverlayEndpoints
                 detail: "overlayIdentifier must be a non-empty Guid.",
                 statusCode: StatusCodes.Status400BadRequest);
         }
-        OverlayRevisionNumber number;
-        try
+        if (!BoundaryParse.TryParse(
+            () => OverlayRevisionNumber.From(revisionNumber),
+            "OVERLAY_INVALID_INPUT",
+            out OverlayRevisionNumber number,
+            out IResult problem))
         {
-            number = OverlayRevisionNumber.From(revisionNumber);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "OVERLAY_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
@@ -220,17 +212,13 @@ public static partial class OverlayEndpoints
                 detail: "overlayIdentifier must be a non-empty Guid.",
                 statusCode: StatusCodes.Status400BadRequest);
         }
-        OverlayRevisionNumber number;
-        try
+        if (!BoundaryParse.TryParse(
+            () => OverlayRevisionNumber.From(revisionNumber),
+            "OVERLAY_INVALID_INPUT",
+            out OverlayRevisionNumber number,
+            out IResult problem))
         {
-            number = OverlayRevisionNumber.From(revisionNumber);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "OVERLAY_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();

@@ -127,17 +127,13 @@ public static class SystemVariableEndpoints
     {
         ArgumentNullException.ThrowIfNull(body);
 
-        VariableName parsed;
-        try
+        if (!BoundaryParse.TryParse(
+            () => VariableName.From(name),
+            "VARIABLE_INVALID_INPUT",
+            out VariableName parsed,
+            out IResult problem))
         {
-            parsed = VariableName.From(name);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "VARIABLE_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
@@ -157,17 +153,13 @@ public static class SystemVariableEndpoints
         [FromServices] GetVariableQueryHandler handler,
         CancellationToken cancellationToken)
     {
-        VariableName parsed;
-        try
+        if (!BoundaryParse.TryParse(
+            () => VariableName.From(name),
+            "VARIABLE_INVALID_INPUT",
+            out VariableName parsed,
+            out IResult problem))
         {
-            parsed = VariableName.From(name);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "VARIABLE_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
         Result<VariableDto, GetVariableError> result = await handler
@@ -237,17 +229,13 @@ public static class SystemVariableEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        VariableName parsed;
-        try
+        if (!BoundaryParse.TryParse(
+            () => VariableName.From(name),
+            "VARIABLE_INVALID_INPUT",
+            out VariableName parsed,
+            out IResult problem))
         {
-            parsed = VariableName.From(name);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "VARIABLE_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
