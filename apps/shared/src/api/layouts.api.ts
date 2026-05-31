@@ -1,4 +1,7 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import type { CreateLayoutDraftInput } from './layouts.schema.js';
+
+export type { CreateLayoutDraftInput };
 
 export type LayoutRevisionState = 'Draft' | 'Published' | 'Archived';
 
@@ -36,13 +39,6 @@ export interface PublishedLayout {
 export interface ListLayoutsResponse {
   chains: Layout[];
   published: PublishedLayout[];
-}
-
-export interface CreateLayoutDraftInput {
-  name: string;
-  cameraIdentifier: string;
-  /** Optional overlay binding (spec 004 PR B'). Omitted == no overlay. */
-  overlayIdentifier?: string;
 }
 
 export interface RevisionRouteInput {
