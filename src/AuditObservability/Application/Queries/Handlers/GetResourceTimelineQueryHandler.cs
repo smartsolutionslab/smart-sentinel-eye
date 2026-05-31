@@ -19,13 +19,15 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        if (!DomainResourceKind.All.Any(k => k.Value == query.ResourceKind))
+        var (resourceKind, resourceIdentifier, fab, since, until, rawPageSize, rawCursor) = query;
+
+        if (!DomainResourceKind.All.Any(k => k.Value == resourceKind))
         {
             return Result<AuditPageDto, GetResourceTimelineError>.Failure(
-                new GetResourceTimelineError.UnknownResourceKind(query.ResourceKind));
+                new GetResourceTimelineError.UnknownResourceKind(resourceKind));
         }
 
-        int pageSize = query.PageSize <= 0 ? DefaultPageSize : query.PageSize;
+        int pageSize = rawPageSize <= 0 ? DefaultPageSize : rawPageSize;
         if (pageSize > MaximumPageSize)
         {
             return Result<AuditPageDto, GetResourceTimelineError>.Failure(
@@ -33,7 +35,7 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
         }
 
         (DateTimeOffset OccurredAt, Guid AuditIdentifier)? cursor = null;
-        if (query.Cursor is { } rawCursor)
+        if (rawCursor is not null)
         {
             cursor = AuditCursor.TryDecode(rawCursor);
             if (cursor is null)
@@ -45,17 +47,17 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
 
         // Compare value objects directly so EF translates to column
         // comparisons (member access on the converted type does not translate).
-        DomainResourceKind resourceKind = DomainResourceKind.From(query.ResourceKind);
-        ResourceIdentifier resourceIdentifier = ResourceIdentifier.From(query.ResourceIdentifier);
-        FabIdentifier fab = FabIdentifier.From(query.Fab);
+        DomainResourceKind resourceKindFilter = DomainResourceKind.From(resourceKind);
+        ResourceIdentifier resourceIdentifierFilter = ResourceIdentifier.From(resourceIdentifier);
+        FabIdentifier fabFilter = FabIdentifier.From(fab);
 
         IQueryable<AuditEventEntity> source = events.AuditEvents
-            .Where(a => a.ResourceKind == resourceKind)
-            .Where(a => a.ResourceIdentifier == resourceIdentifier)
-            .Where(a => a.Fab == fab);
+            .Where(a => a.ResourceKind == resourceKindFilter)
+            .Where(a => a.ResourceIdentifier == resourceIdentifierFilter)
+            .Where(a => a.Fab == fabFilter);
 
-        if (query.Since is { } since) source = source.Where(a => a.OccurredAt >= since);
-        if (query.Until is { } until) source = source.Where(a => a.OccurredAt < until);
+        if (since is { } sinceFrom) source = source.Where(a => a.OccurredAt >= sinceFrom);
+        if (until is { } untilTo) source = source.Where(a => a.OccurredAt < untilTo);
 
         if (cursor is { } c)
         {

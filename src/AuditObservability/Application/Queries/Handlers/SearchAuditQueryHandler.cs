@@ -19,21 +19,24 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        int pageSize = query.PageSize <= 0 ? DefaultPageSize : query.PageSize;
+        var (fab, callerFabs, actor, actorUsername, eventKind, resourceKind,
+            resourceIdentifier, since, until, rawPageSize, rawCursor) = query;
+
+        int pageSize = rawPageSize <= 0 ? DefaultPageSize : rawPageSize;
         if (pageSize > MaximumPageSize)
         {
             return Result<AuditPageDto, SearchAuditError>.Failure(
                 new SearchAuditError.PageSizeOutOfRange(pageSize, 1, MaximumPageSize));
         }
 
-        if (query.ResourceKind is { } rk && !DomainResourceKind.All.Any(k => k.Value == rk))
+        if (resourceKind is { } rk && !DomainResourceKind.All.Any(k => k.Value == rk))
         {
             return Result<AuditPageDto, SearchAuditError>.Failure(
                 new SearchAuditError.InvalidResourceKind(rk));
         }
 
         (DateTimeOffset OccurredAt, Guid AuditIdentifier)? cursor = null;
-        if (query.Cursor is { } rawCursor)
+        if (rawCursor is not null)
         {
             cursor = AuditCursor.TryDecode(rawCursor);
             if (cursor is null)
@@ -49,14 +52,14 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         // translates equality on a value-converted property to a column
         // comparison, but cannot translate member access on the converted
         // CLR type (`a.EventKind.Value == x` throws "could not be translated").
-        if (query.Fab is { } fab)
+        if (fab is not null)
         {
             FabIdentifier fabId = FabIdentifier.From(fab);
             source = source.Where(a => a.Fab == fabId);
         }
-        else if (query.CallerFabs.Count > 0)
+        else if (callerFabs.Count > 0)
         {
-            List<FabIdentifier> allowed = [.. query.CallerFabs.Select(FabIdentifier.From)];
+            List<FabIdentifier> allowed = [.. callerFabs.Select(FabIdentifier.From)];
             source = source.Where(a => a.Fab != null && allowed.Contains(a.Fab));
         }
         else
@@ -65,32 +68,32 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
             source = source.Where(a => a.Fab == null);
         }
 
-        if (query.Actor is { } actor)
+        if (actor is { } actorValue)
         {
-            ActorIdentifier actorId = ActorIdentifier.From(actor);
+            ActorIdentifier actorId = ActorIdentifier.From(actorValue);
             source = source.Where(a => a.Actor == actorId);
         }
-        if (query.ActorUsername is { } actorUsername)
+        if (actorUsername is not null)
         {
             source = source.Where(a => a.ActorUsername == actorUsername);
         }
-        if (query.EventKind is { } eventKind)
+        if (eventKind is not null)
         {
             EventKind kind = EventKind.From(eventKind);
             source = source.Where(a => a.EventKind == kind);
         }
-        if (query.ResourceKind is { } resourceKind)
+        if (resourceKind is not null)
         {
             DomainResourceKind resourceKindFilter = DomainResourceKind.From(resourceKind);
             source = source.Where(a => a.ResourceKind == resourceKindFilter);
         }
-        if (query.ResourceIdentifier is { } resourceIdentifier)
+        if (resourceIdentifier is not null)
         {
             ResourceIdentifier resId = ResourceIdentifier.From(resourceIdentifier);
             source = source.Where(a => a.ResourceIdentifier == resId);
         }
-        if (query.Since is { } since) source = source.Where(a => a.OccurredAt >= since);
-        if (query.Until is { } until) source = source.Where(a => a.OccurredAt < until);
+        if (since is { } sinceFrom) source = source.Where(a => a.OccurredAt >= sinceFrom);
+        if (until is { } untilTo) source = source.Where(a => a.OccurredAt < untilTo);
 
         if (cursor is { } c)
         {
