@@ -16,23 +16,24 @@ public sealed class PublishRevisionCommandHandler(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (layoutIdentifier, revisionNumber, publishedBy) = command;
 
         Option<Layout> found = await layouts
-            .GetByIdentifierAsync(command.Layout, cancellationToken)
+            .GetByIdentifierAsync(layoutIdentifier, cancellationToken)
             .ConfigureAwait(false);
         if (!found.HasValue)
         {
             return Result<LayoutRevisionNumber, PublishRevisionError>.Failure(
-                new PublishRevisionError.LayoutNotFound(command.Layout.Value));
+                new PublishRevisionError.LayoutNotFound(layoutIdentifier.Value));
         }
 
         Layout layout = found.Value;
-        Revision? revision = layout.Revisions.SingleOrDefault(r => r.Number == command.RevisionNumber);
+        Revision? revision = layout.Revisions.SingleOrDefault(r => r.Number == revisionNumber);
         if (revision is null)
         {
             return Result<LayoutRevisionNumber, PublishRevisionError>.Failure(
                 new PublishRevisionError.LayoutRevisionNotFound(
-                    command.Layout.Value, command.RevisionNumber.Value));
+                    layoutIdentifier.Value, revisionNumber.Value));
         }
         if (revision.State != LayoutRevisionState.Draft)
         {
@@ -40,13 +41,13 @@ public sealed class PublishRevisionCommandHandler(
                 new PublishRevisionError.InvalidStateTransition(revision.State.Value));
         }
 
-        layout.Publish(command.RevisionNumber, command.PublishedBy, clock);
+        layout.Publish(revisionNumber, publishedBy, clock);
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(
             "Published layout {Layout} revision {Revision} by {Operator}.",
-            layout.Id, command.RevisionNumber, command.PublishedBy);
+            layout.Id, revisionNumber, publishedBy);
 
-        return Result<LayoutRevisionNumber, PublishRevisionError>.Success(command.RevisionNumber);
+        return Result<LayoutRevisionNumber, PublishRevisionError>.Success(revisionNumber);
     }
 }

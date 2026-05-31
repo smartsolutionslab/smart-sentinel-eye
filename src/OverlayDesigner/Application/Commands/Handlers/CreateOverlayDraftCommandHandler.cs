@@ -16,23 +16,24 @@ public sealed class CreateOverlayDraftCommandHandler(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (name, label, createdBy) = command;
 
         Option<Overlay> existing = await overlays
-            .GetByNameAsync(command.Name, cancellationToken)
+            .GetByNameAsync(name, cancellationToken)
             .ConfigureAwait(false);
         if (existing.HasValue)
         {
             return Result<OverlayIdentifier, CreateOverlayDraftError>.Failure(
-                new CreateOverlayDraftError.OverlayNameTaken(command.Name.Value));
+                new CreateOverlayDraftError.OverlayNameTaken(name.Value));
         }
 
-        Overlay overlay = Overlay.CreateDraft(command.Name, command.Label, command.CreatedBy, clock);
+        Overlay overlay = Overlay.CreateDraft(name, label, createdBy, clock);
         overlays.Add(overlay);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(
             "Created overlay {Overlay} '{Name}' (Draft) by {Operator}.",
-            overlay.Id, command.Name, command.CreatedBy);
+            overlay.Id, name, createdBy);
 
         return Result<OverlayIdentifier, CreateOverlayDraftError>.Success(overlay.Id);
     }

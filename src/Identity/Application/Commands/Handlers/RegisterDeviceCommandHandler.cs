@@ -21,17 +21,18 @@ public sealed class RegisterDeviceCommandHandler(
         RegisterDeviceCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (deviceType, deviceIdentifier, fab, registeredBy) = command;
 
-        if (!AllowedDeviceTypes.Contains(command.DeviceType, StringComparer.Ordinal))
+        if (!AllowedDeviceTypes.Contains(deviceType, StringComparer.Ordinal))
         {
             return Result<DeviceCredentialsDto, RegisterDeviceError>.Failure(
-                new RegisterDeviceError.InvalidDeviceType(command.DeviceType));
+                new RegisterDeviceError.InvalidDeviceType(deviceType));
         }
 
         ClientId clientId;
         try
         {
-            clientId = ClientId.From($"{command.DeviceType}-{command.DeviceIdentifier}");
+            clientId = ClientId.From($"{deviceType}-{deviceIdentifier}");
         }
         catch (ArgumentException ex)
         {
@@ -49,7 +50,7 @@ public sealed class RegisterDeviceCommandHandler(
 
         KeycloakClientRepresentation representation = new(
             ClientId: clientId.Value,
-            Name: $"{command.DeviceType} {command.DeviceIdentifier}",
+            Name: $"{deviceType} {deviceIdentifier}",
             ServiceAccountsEnabled: true,
             StandardFlowEnabled: false,
             DirectAccessGrantsEnabled: false,
@@ -59,9 +60,9 @@ public sealed class RegisterDeviceCommandHandler(
             Attributes: new Dictionary<string, string>
             {
                 ["sse.kind"] = "device",
-                ["sse.deviceType"] = command.DeviceType,
-                ["sse.deviceIdentifier"] = command.DeviceIdentifier,
-                ["sse.fab"] = command.Fab.Value,
+                ["sse.deviceType"] = deviceType,
+                ["sse.deviceIdentifier"] = deviceIdentifier,
+                ["sse.fab"] = fab.Value,
             });
 
         KeycloakClientCredentials credentials;
@@ -69,7 +70,7 @@ public sealed class RegisterDeviceCommandHandler(
         {
             credentials = await keycloak.CreateClientAsync(
                 representation,
-                fabGroupPath: $"/fabs/{command.Fab.Value}",
+                fabGroupPath: $"/fabs/{fab.Value}",
                 cancellationToken).ConfigureAwait(false);
         }
         catch (KeycloakClientAlreadyExistsException ex)
@@ -84,21 +85,21 @@ public sealed class RegisterDeviceCommandHandler(
         }
 
         RegisteredClientAggregate registered = RegisteredClientAggregate.Register(
-            clientId, ClientKind.Device, command.Fab, command.RegisteredBy, clock);
+            clientId, ClientKind.Device, fab, registeredBy, clock);
         clients.Add(registered);
         await clients.SaveAsync(cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(
             "Registered device {Identifier} '{ClientId}' ({DeviceType}/{DeviceIdentifier}) for fab {Fab}.",
-            registered.Id, clientId, command.DeviceType, command.DeviceIdentifier, command.Fab);
+            registered.Id, clientId, deviceType, deviceIdentifier, fab);
 
         return Result<DeviceCredentialsDto, RegisterDeviceError>.Success(
             new DeviceCredentialsDto(
                 registered.Id.Value,
                 clientId.Value,
-                command.DeviceType,
-                command.DeviceIdentifier,
-                command.Fab.Value,
+                deviceType,
+                deviceIdentifier,
+                fab.Value,
                 credentials.ClientSecret));
     }
 }

@@ -17,39 +17,40 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
+        var (sort, order, offset, limit) = query;
 
-        if (!AllowedSortFields.Contains(query.Sort, StringComparer.Ordinal))
+        if (!AllowedSortFields.Contains(sort, StringComparer.Ordinal))
         {
             return Result<CameraListPageDto, ListCamerasError>.Failure(
-                new ListCamerasError.InvalidSortField(query.Sort, AllowedSortFields));
+                new ListCamerasError.InvalidSortField(sort, AllowedSortFields));
         }
 
-        if (!AllowedSortOrders.Contains(query.Order, StringComparer.Ordinal))
+        if (!AllowedSortOrders.Contains(order, StringComparer.Ordinal))
         {
             return Result<CameraListPageDto, ListCamerasError>.Failure(
-                new ListCamerasError.InvalidSortOrder(query.Order));
+                new ListCamerasError.InvalidSortOrder(order));
         }
 
-        if (query.Offset < 0 || query.Limit <= 0)
+        if (offset < 0 || limit <= 0)
         {
             return Result<CameraListPageDto, ListCamerasError>.Failure(
                 new ListCamerasError.InvalidPagination("Offset must be non-negative and limit must be positive."));
         }
 
-        if (query.Limit > ListCamerasDefaults.MaximumLimit)
+        if (limit > ListCamerasDefaults.MaximumLimit)
         {
             return Result<CameraListPageDto, ListCamerasError>.Failure(
-                new ListCamerasError.LimitExceeded(query.Limit, ListCamerasDefaults.MaximumLimit));
+                new ListCamerasError.LimitExceeded(limit, ListCamerasDefaults.MaximumLimit));
         }
 
-        bool descending = query.Order == "desc";
-        IQueryable<Camera> source = SortBy(cameras.Cameras, query.Sort, descending);
+        bool descending = order == "desc";
+        IQueryable<Camera> source = SortBy(cameras.Cameras, sort, descending);
 
         int total = await source.CountAsync(cancellationToken).ConfigureAwait(false);
 
         List<CameraSummaryDto> items = await source
-            .Skip(query.Offset)
-            .Take(query.Limit)
+            .Skip(offset)
+            .Take(limit)
             .Select(camera => new CameraSummaryDto(
                 camera.Id.Value,
                 camera.Name.Value,
@@ -59,7 +60,7 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
             .ConfigureAwait(false);
 
         return Result<CameraListPageDto, ListCamerasError>.Success(
-            new CameraListPageDto(items, total, query.Offset, query.Limit));
+            new CameraListPageDto(items, total, offset, limit));
     }
 
     // EF Core's converter exposes Name as a plain string column at query time, so

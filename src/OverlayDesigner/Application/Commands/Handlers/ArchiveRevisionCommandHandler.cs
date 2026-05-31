@@ -15,31 +15,32 @@ public sealed class ArchiveRevisionCommandHandler(
         ArchiveRevisionCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (overlayIdentifier, revisionNumber, archivedBy) = command;
 
         Option<Overlay> found = await overlays
-            .GetByIdentifierAsync(command.Overlay, cancellationToken)
+            .GetByIdentifierAsync(overlayIdentifier, cancellationToken)
             .ConfigureAwait(false);
         if (!found.HasValue)
         {
             return Result<OverlayRevisionNumber, ArchiveRevisionError>.Failure(
-                new ArchiveRevisionError.OverlayNotFound(command.Overlay.Value));
+                new ArchiveRevisionError.OverlayNotFound(overlayIdentifier.Value));
         }
 
         Overlay overlay = found.Value;
-        if (!overlay.Revisions.Any(r => r.Number == command.RevisionNumber))
+        if (!overlay.Revisions.Any(r => r.Number == revisionNumber))
         {
             return Result<OverlayRevisionNumber, ArchiveRevisionError>.Failure(
                 new ArchiveRevisionError.OverlayRevisionNotFound(
-                    command.Overlay.Value, command.RevisionNumber.Value));
+                    overlayIdentifier.Value, revisionNumber.Value));
         }
 
-        overlay.ArchiveRevision(command.RevisionNumber, command.ArchivedBy, clock);
+        overlay.ArchiveRevision(revisionNumber, archivedBy, clock);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(
             "Archived overlay {Overlay} revision {Revision} by {Operator}.",
-            overlay.Id, command.RevisionNumber, command.ArchivedBy);
+            overlay.Id, revisionNumber, archivedBy);
 
-        return Result<OverlayRevisionNumber, ArchiveRevisionError>.Success(command.RevisionNumber);
+        return Result<OverlayRevisionNumber, ArchiveRevisionError>.Success(revisionNumber);
     }
 }

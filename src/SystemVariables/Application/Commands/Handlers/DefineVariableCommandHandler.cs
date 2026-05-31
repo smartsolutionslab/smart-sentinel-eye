@@ -16,26 +16,27 @@ public sealed class DefineVariableCommandHandler(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (name, type, initialValue, booleanLabels, definedBy) = command;
 
         // Name uniqueness (FR-001 / FR-005). Archived names are free.
         Option<Variable> existing = await variables
-            .GetByNameAsync(command.Name, cancellationToken)
+            .GetByNameAsync(name, cancellationToken)
             .ConfigureAwait(false);
         if (existing.HasValue)
         {
             return Result<VariableIdentifier, DefineVariableError>.Failure(
-                new DefineVariableError.VariableNameTaken(command.Name.Value));
+                new DefineVariableError.VariableNameTaken(name.Value));
         }
 
         // BooleanLabels presence rules. The domain aggregate enforces
         // these too; mapping to typed ApiError happens here so the
         // HTTP layer gets a 400 instead of a 500.
-        if (command.Type == VariableType.Boolean && command.BooleanLabels is null)
+        if (type == VariableType.Boolean && booleanLabels is null)
         {
             return Result<VariableIdentifier, DefineVariableError>.Failure(
                 new DefineVariableError.BooleanLabelsRequired());
         }
-        if (command.Type != VariableType.Boolean && command.BooleanLabels is not null)
+        if (type != VariableType.Boolean && booleanLabels is not null)
         {
             return Result<VariableIdentifier, DefineVariableError>.Failure(
                 new DefineVariableError.BooleanLabelsOnlyOnBoolean());
@@ -45,15 +46,15 @@ public sealed class DefineVariableCommandHandler(
         try
         {
             variable = Variable.Define(
-                command.Name, command.Type, command.InitialValue,
-                command.BooleanLabels, command.DefinedBy, clock);
+                name, type, initialValue,
+                booleanLabels, definedBy, clock);
         }
         catch (ArgumentException)
         {
             // The domain aggregate raised on initial-value-vs-type
             // mismatch; remap to a typed ApiError.
             return Result<VariableIdentifier, DefineVariableError>.Failure(
-                new DefineVariableError.InitialValueTypeMismatch(command.Type.Value));
+                new DefineVariableError.InitialValueTypeMismatch(type.Value));
         }
 
         variables.Add(variable);
@@ -61,7 +62,7 @@ public sealed class DefineVariableCommandHandler(
 
         log.LogInformation(
             "Defined variable {Variable} '{Name}' ({Type}) by {Operator}.",
-            variable.Id, command.Name, command.Type, command.DefinedBy);
+            variable.Id, name, type, definedBy);
 
         return Result<VariableIdentifier, DefineVariableError>.Success(variable.Id);
     }

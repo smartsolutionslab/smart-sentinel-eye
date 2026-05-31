@@ -37,11 +37,12 @@ public sealed class RotateWebhookClientCommandHandler(
         RotateWebhookClientCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (integrationName, fab, rotatedBy) = command;
 
         ClientId clientId;
         try
         {
-            clientId = ClientId.From($"webhook-{command.IntegrationName}");
+            clientId = ClientId.From($"webhook-{integrationName}");
         }
         catch (ArgumentException ex)
         {
@@ -69,7 +70,7 @@ public sealed class RotateWebhookClientCommandHandler(
             {
                 KeycloakClientRepresentation representation = new(
                     ClientId: clientId.Value,
-                    Name: $"Webhook {command.IntegrationName}",
+                    Name: $"Webhook {integrationName}",
                     ServiceAccountsEnabled: true,
                     StandardFlowEnabled: false,
                     DirectAccessGrantsEnabled: false,
@@ -79,18 +80,18 @@ public sealed class RotateWebhookClientCommandHandler(
                     Attributes: new Dictionary<string, string>
                     {
                         ["sse.kind"] = "webhook",
-                        ["sse.integrationName"] = command.IntegrationName,
-                        ["sse.fab"] = command.Fab.Value,
+                        ["sse.integrationName"] = integrationName,
+                        ["sse.fab"] = fab.Value,
                     });
                 KeycloakClientCredentials credentials = await keycloak.CreateClientAsync(
                     representation,
-                    fabGroupPath: $"/fabs/{command.Fab.Value}",
+                    fabGroupPath: $"/fabs/{fab.Value}",
                     cancellationToken).ConfigureAwait(false);
                 clientSecret = credentials.ClientSecret;
 
                 aggregate = RegisteredClientAggregate.Register(
                     clientId, ClientKind.WebhookIntegration,
-                    command.Fab, command.RotatedBy, clock);
+                    fab, rotatedBy, clock);
                 clients.Add(aggregate);
             }
         }
@@ -107,20 +108,20 @@ public sealed class RotateWebhookClientCommandHandler(
         // bearer-validation path from hash-compare to JWT-validate.
         await events.PublishAsync(
             new WebhookIntegrationRotatedV1(
-                command.IntegrationName, clientId.Value, clock.UtcNow,
-                Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, command.Fab.Value, command.RotatedBy.Value)),
+                integrationName, clientId.Value, clock.UtcNow,
+                Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, fab.Value, rotatedBy.Value)),
             cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(
             "Rotated webhook integration '{IntegrationName}' to clientId '{ClientId}'.",
-            command.IntegrationName, clientId);
+            integrationName, clientId);
 
         return Result<WebhookClientCredentialsDto, RotateWebhookClientError>.Success(
             new WebhookClientCredentialsDto(
                 aggregate.Id.Value,
                 clientId.Value,
-                command.IntegrationName,
-                command.Fab.Value,
+                integrationName,
+                fab.Value,
                 clientSecret));
     }
 }

@@ -16,23 +16,24 @@ public sealed class PublishRevisionCommandHandler(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (overlayIdentifier, revisionNumber, publishedBy) = command;
 
         Option<Overlay> found = await overlays
-            .GetByIdentifierAsync(command.Overlay, cancellationToken)
+            .GetByIdentifierAsync(overlayIdentifier, cancellationToken)
             .ConfigureAwait(false);
         if (!found.HasValue)
         {
             return Result<OverlayRevisionNumber, PublishRevisionError>.Failure(
-                new PublishRevisionError.OverlayNotFound(command.Overlay.Value));
+                new PublishRevisionError.OverlayNotFound(overlayIdentifier.Value));
         }
 
         Overlay overlay = found.Value;
-        Revision? revision = overlay.Revisions.SingleOrDefault(r => r.Number == command.RevisionNumber);
+        Revision? revision = overlay.Revisions.SingleOrDefault(r => r.Number == revisionNumber);
         if (revision is null)
         {
             return Result<OverlayRevisionNumber, PublishRevisionError>.Failure(
                 new PublishRevisionError.OverlayRevisionNotFound(
-                    command.Overlay.Value, command.RevisionNumber.Value));
+                    overlayIdentifier.Value, revisionNumber.Value));
         }
         if (revision.State != OverlayRevisionState.Draft)
         {
@@ -40,13 +41,13 @@ public sealed class PublishRevisionCommandHandler(
                 new PublishRevisionError.InvalidStateTransition(revision.State.Value));
         }
 
-        overlay.Publish(command.RevisionNumber, command.PublishedBy, clock);
+        overlay.Publish(revisionNumber, publishedBy, clock);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(
             "Published overlay {Overlay} revision {Revision} by {Operator}.",
-            overlay.Id, command.RevisionNumber, command.PublishedBy);
+            overlay.Id, revisionNumber, publishedBy);
 
-        return Result<OverlayRevisionNumber, PublishRevisionError>.Success(command.RevisionNumber);
+        return Result<OverlayRevisionNumber, PublishRevisionError>.Success(revisionNumber);
     }
 }

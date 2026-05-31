@@ -19,18 +19,19 @@ public sealed class EnrollKioskCommandHandler(
         EnrollKioskCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (clientId, fab, enrolledBy) = command;
 
         Option<RegisteredClientAggregate> existing = await clients
-            .GetByClientIdAsync(command.ClientId, cancellationToken).ConfigureAwait(false);
+            .GetByClientIdAsync(clientId, cancellationToken).ConfigureAwait(false);
         if (existing.HasValue)
         {
             return Result<KioskCredentialsDto, EnrollKioskError>.Failure(
-                new EnrollKioskError.KioskAlreadyEnrolled(command.ClientId.Value));
+                new EnrollKioskError.KioskAlreadyEnrolled(clientId.Value));
         }
 
         KeycloakClientRepresentation representation = new(
-            ClientId: command.ClientId.Value,
-            Name: $"Kiosk {command.ClientId.Value}",
+            ClientId: clientId.Value,
+            Name: $"Kiosk {clientId.Value}",
             ServiceAccountsEnabled: true,
             StandardFlowEnabled: false,
             DirectAccessGrantsEnabled: false,
@@ -40,7 +41,7 @@ public sealed class EnrollKioskCommandHandler(
             Attributes: new Dictionary<string, string>
             {
                 ["sse.kind"] = "kiosk",
-                ["sse.fab"] = command.Fab.Value,
+                ["sse.fab"] = fab.Value,
             });
 
         KeycloakClientCredentials credentials;
@@ -48,7 +49,7 @@ public sealed class EnrollKioskCommandHandler(
         {
             credentials = await keycloak.CreateClientAsync(
                 representation,
-                fabGroupPath: $"/fabs/{command.Fab.Value}",
+                fabGroupPath: $"/fabs/{fab.Value}",
                 cancellationToken).ConfigureAwait(false);
         }
         catch (KeycloakClientAlreadyExistsException ex)
@@ -63,19 +64,19 @@ public sealed class EnrollKioskCommandHandler(
         }
 
         RegisteredClientAggregate registered = RegisteredClientAggregate.Register(
-            command.ClientId, ClientKind.Kiosk, command.Fab, command.EnrolledBy, clock);
+            clientId, ClientKind.Kiosk, fab, enrolledBy, clock);
         clients.Add(registered);
         await clients.SaveAsync(cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(
             "Enrolled kiosk {Identifier} '{ClientId}' for fab {Fab}.",
-            registered.Id, command.ClientId, command.Fab);
+            registered.Id, clientId, fab);
 
         return Result<KioskCredentialsDto, EnrollKioskError>.Success(
             new KioskCredentialsDto(
                 registered.Id.Value,
-                command.ClientId.Value,
-                command.Fab.Value,
+                clientId.Value,
+                fab.Value,
                 credentials.ClientSecret));
     }
 }

@@ -15,23 +15,24 @@ public sealed class EditDraftRevisionCommandHandler(
         EditDraftRevisionCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (overlayIdentifier, revisionNumber, label) = command;
 
         Option<Overlay> found = await overlays
-            .GetByIdentifierAsync(command.Overlay, cancellationToken)
+            .GetByIdentifierAsync(overlayIdentifier, cancellationToken)
             .ConfigureAwait(false);
         if (!found.HasValue)
         {
             return Result<OverlayRevisionNumber, EditDraftRevisionError>.Failure(
-                new EditDraftRevisionError.OverlayNotFound(command.Overlay.Value));
+                new EditDraftRevisionError.OverlayNotFound(overlayIdentifier.Value));
         }
 
         Overlay overlay = found.Value;
-        Revision? revision = overlay.Revisions.SingleOrDefault(r => r.Number == command.RevisionNumber);
+        Revision? revision = overlay.Revisions.SingleOrDefault(r => r.Number == revisionNumber);
         if (revision is null)
         {
             return Result<OverlayRevisionNumber, EditDraftRevisionError>.Failure(
                 new EditDraftRevisionError.OverlayRevisionNotFound(
-                    command.Overlay.Value, command.RevisionNumber.Value));
+                    overlayIdentifier.Value, revisionNumber.Value));
         }
         if (revision.State != OverlayRevisionState.Draft)
         {
@@ -39,13 +40,13 @@ public sealed class EditDraftRevisionCommandHandler(
                 new EditDraftRevisionError.NotADraft(revision.State.Value));
         }
 
-        overlay.EditDraft(command.RevisionNumber, command.Label, clock);
+        overlay.EditDraft(revisionNumber, label, clock);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(
             "Edited draft revision {Revision} on overlay {Overlay}.",
-            command.RevisionNumber, overlay.Id);
+            revisionNumber, overlay.Id);
 
-        return Result<OverlayRevisionNumber, EditDraftRevisionError>.Success(command.RevisionNumber);
+        return Result<OverlayRevisionNumber, EditDraftRevisionError>.Success(revisionNumber);
     }
 }

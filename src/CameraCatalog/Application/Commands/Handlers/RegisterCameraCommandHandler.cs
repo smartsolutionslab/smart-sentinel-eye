@@ -16,18 +16,19 @@ public sealed class RegisterCameraCommandHandler(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (name, url, registeredBy) = command;
 
-        if (await cameras.ExistsByNameAsync(command.Name, cancellationToken).ConfigureAwait(false))
+        if (await cameras.ExistsByNameAsync(name, cancellationToken).ConfigureAwait(false))
         {
             log.LogInformation(
                 "Rejected camera registration: name {CameraName} already in use.",
-                command.Name);
+                name);
             return Result<CameraIdentifier, RegisterCameraError>.Failure(
                 new RegisterCameraError.NameAlreadyTaken());
         }
 
         Domain.Camera.Camera camera = Domain.Camera.Camera.Register(
-            command.Name, command.Url, command.RegisteredBy, clock);
+            name, url, registeredBy, clock);
 
         cameras.Add(camera);
         await cameras.SaveAsync(cancellationToken).ConfigureAwait(false);

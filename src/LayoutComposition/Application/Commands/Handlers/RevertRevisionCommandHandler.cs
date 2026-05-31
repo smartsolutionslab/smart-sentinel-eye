@@ -15,23 +15,24 @@ public sealed class RevertRevisionCommandHandler(
         RevertRevisionCommand command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
+        var (layoutIdentifier, revisionNumber, revertedBy) = command;
 
         Option<Layout> found = await layouts
-            .GetByIdentifierAsync(command.Layout, cancellationToken)
+            .GetByIdentifierAsync(layoutIdentifier, cancellationToken)
             .ConfigureAwait(false);
         if (!found.HasValue)
         {
             return Result<LayoutRevisionNumber, RevertRevisionError>.Failure(
-                new RevertRevisionError.LayoutNotFound(command.Layout.Value));
+                new RevertRevisionError.LayoutNotFound(layoutIdentifier.Value));
         }
 
         Layout layout = found.Value;
-        Revision? revision = layout.Revisions.SingleOrDefault(r => r.Number == command.RevisionNumber);
+        Revision? revision = layout.Revisions.SingleOrDefault(r => r.Number == revisionNumber);
         if (revision is null)
         {
             return Result<LayoutRevisionNumber, RevertRevisionError>.Failure(
                 new RevertRevisionError.LayoutRevisionNotFound(
-                    command.Layout.Value, command.RevisionNumber.Value));
+                    layoutIdentifier.Value, revisionNumber.Value));
         }
         if (revision.State != LayoutRevisionState.Published)
         {
@@ -39,13 +40,13 @@ public sealed class RevertRevisionCommandHandler(
                 new RevertRevisionError.NotPublished(revision.State.Value));
         }
 
-        layout.Revert(command.RevisionNumber, command.RevertedBy, clock);
+        layout.Revert(revisionNumber, revertedBy, clock);
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
         log.LogInformation(
             "Reverted revision {Revision} on layout {Layout} to Draft by {Operator}.",
-            command.RevisionNumber, layout.Id, command.RevertedBy);
+            revisionNumber, layout.Id, revertedBy);
 
-        return Result<LayoutRevisionNumber, RevertRevisionError>.Success(command.RevisionNumber);
+        return Result<LayoutRevisionNumber, RevertRevisionError>.Success(revisionNumber);
     }
 }

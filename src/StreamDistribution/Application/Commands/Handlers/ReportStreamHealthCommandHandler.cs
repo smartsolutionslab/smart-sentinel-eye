@@ -17,34 +17,36 @@ public sealed class ReportStreamHealthCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        var (camera, observation, declareOffline) = command;
+
         Option<Stream> existing = await streams
-            .GetByCameraAsync(command.Camera, cancellationToken)
+            .GetByCameraAsync(camera, cancellationToken)
             .ConfigureAwait(false);
 
         if (!existing.HasValue)
         {
             return Result<StreamState, ReportStreamHealthError>.Failure(
-                new ReportStreamHealthError.StreamNotFound(command.Camera.Value));
+                new ReportStreamHealthError.StreamNotFound(camera.Value));
         }
 
         Stream stream = existing.Value;
 
         try
         {
-            if (command.DeclareOffline)
+            if (declareOffline)
             {
                 stream.ReportOffline(
-                    command.Observation.LastError ?? "offline (no frames within retry window)",
+                    observation.LastError ?? "offline (no frames within retry window)",
                     clock);
             }
-            else if (command.Observation.IsReady)
+            else if (observation.IsReady)
             {
-                stream.ReportHealthy(command.Observation.DetectedMode, clock);
+                stream.ReportHealthy(observation.DetectedMode, clock);
             }
             else
             {
                 stream.ReportDegraded(
-                    command.Observation.LastError ?? "no frame within the health-watcher window",
+                    observation.LastError ?? "no frame within the health-watcher window",
                     clock);
             }
         }
@@ -53,7 +55,7 @@ public sealed class ReportStreamHealthCommandHandler(
             string targetState = DescribeTarget(command);
             log.LogWarning(ex,
                 "Rejected health transition for camera {Camera}.",
-                command.Camera);
+                camera);
             return Result<StreamState, ReportStreamHealthError>.Failure(
                 new ReportStreamHealthError.InvalidStateTransition(
                     From: stream.State.Value,
