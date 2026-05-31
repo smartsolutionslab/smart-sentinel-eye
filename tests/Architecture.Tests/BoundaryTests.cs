@@ -72,8 +72,7 @@ public class BoundaryTests
                 .NotHaveDependencyOnAny(foreignContexts)
                 .GetResult();
 
-            Assert.True(
-                result.IsSuccessful,
+            result.IsSuccessful.ShouldBeTrue(
                 $"{assemblyName} has forbidden cross-context dependencies: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
         }
     }
@@ -97,8 +96,7 @@ public class BoundaryTests
                 "Npgsql")
             .GetResult();
 
-        Assert.True(
-            result.IsSuccessful,
+        result.IsSuccessful.ShouldBeTrue(
             $"SystemVariables.Domain depends on an infrastructure framework: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
     }
 
@@ -123,8 +121,7 @@ public class BoundaryTests
                 "Minio")
             .GetResult();
 
-        Assert.True(
-            result.IsSuccessful,
+        result.IsSuccessful.ShouldBeTrue(
             $"AuditObservability.Domain depends on an infrastructure framework: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
     }
 
@@ -161,8 +158,7 @@ public class BoundaryTests
             .Where(t => !mapped.Contains(t))
             .Where(t => !optedOut.Contains(t.Name))];
 
-        Assert.True(
-            unmapped.Count == 0,
+        unmapped.ShouldBeEmpty(
             $"V1ResourceMap is missing entries for: {string.Join(", ", unmapped.Select(t => t.FullName))}. Add a hand-tweak in V1ResourceMap.Conventions or list the V1 in Conventions.OptOuts.");
     }
 
@@ -191,8 +187,7 @@ public class BoundaryTests
 
         IReadOnlyList<Type> unhandled = [.. concreteV1s.Where(t => !handled.Contains(t))];
 
-        Assert.True(
-            unhandled.Count == 0,
+        unhandled.ShouldBeEmpty(
             $"IntegrationEventAuditHandler is missing a Handle overload for: {string.Join(", ", unhandled.Select(t => t.FullName))}.");
     }
 
@@ -217,8 +212,7 @@ public class BoundaryTests
                 "MQTTnet")
             .GetResult();
 
-        Assert.True(
-            result.IsSuccessful,
+        result.IsSuccessful.ShouldBeTrue(
             $"Identity.Domain depends on an infrastructure framework: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
     }
 
@@ -244,8 +238,7 @@ public class BoundaryTests
                 "MQTTnet")
             .GetResult();
 
-        Assert.True(
-            result.IsSuccessful,
+        result.IsSuccessful.ShouldBeTrue(
             $"Automation.Domain depends on an infrastructure framework: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
     }
 
@@ -270,8 +263,7 @@ public class BoundaryTests
                 "MQTTnet")
             .GetResult();
 
-        Assert.True(
-            result.IsSuccessful,
+        result.IsSuccessful.ShouldBeTrue(
             $"EventIngestion.Domain depends on an infrastructure framework: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
     }
 
@@ -294,8 +286,7 @@ public class BoundaryTests
                 "Npgsql")
             .GetResult();
 
-        Assert.True(
-            result.IsSuccessful,
+        result.IsSuccessful.ShouldBeTrue(
             $"OverlayDesigner.Domain depends on an infrastructure framework: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
     }
 
@@ -313,7 +304,7 @@ public class BoundaryTests
     {
         Assembly defaults = Assembly.Load("SmartSentinelEye.ServiceDefaults");
         Type? scope = defaults.GetType("SmartSentinelEye.ServiceDefaults.Authorization.Scope");
-        Assert.NotNull(scope);
+        scope.ShouldNotBeNull();
 
         foreach (string contextPrefix in AllContexts)
         {
@@ -323,8 +314,7 @@ public class BoundaryTests
                 Assembly assembly = Assembly.Load(assemblyName);
                 Type[] localScopes = [.. assembly.GetTypes()
                     .Where(t => t.Name == "Scope" && t.Namespace?.EndsWith(".Authorization", StringComparison.Ordinal) == true)];
-                Assert.True(
-                    localScopes.Length == 0,
+                localScopes.ShouldBeEmpty(
                     $"{assemblyName} defines a local Scope catalogue — must consume ServiceDefaults.Authorization.Scope instead.");
             }
         }
@@ -354,8 +344,7 @@ public class BoundaryTests
                 .NotHaveDependencyOnAny(forbiddenNamespaces)
                 .GetResult();
 
-            Assert.True(
-                result.IsSuccessful,
+            result.IsSuccessful.ShouldBeTrue(
                 $"{assemblyName} depends on a framework forbidden in the Domain layer: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
         }
     }
