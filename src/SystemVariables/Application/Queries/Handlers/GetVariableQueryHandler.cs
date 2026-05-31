@@ -15,7 +15,7 @@ public sealed class GetVariableQueryHandler(IVariableQuerySource variables)
         ArgumentNullException.ThrowIfNull(query);
 
         Variable? variable = await variables.Variables
-            .SingleOrDefaultAsync(v => v.Name == query.Name, cancellationToken)
+            .SingleOrDefaultAsync(candidate => candidate.Name == query.Name, cancellationToken)
             .ConfigureAwait(false);
 
         if (variable is null)

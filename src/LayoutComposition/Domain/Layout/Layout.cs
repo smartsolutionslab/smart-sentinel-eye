@@ -152,13 +152,13 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     }
 
     private Revision? CurrentPublishedOrNull() =>
-        _revisions.SingleOrDefault(r => r.State == LayoutRevisionState.Published);
+        _revisions.SingleOrDefault(revision => revision.State == LayoutRevisionState.Published);
 
     private LayoutRevisionNumber MaxRevisionNumber() =>
-        LayoutRevisionNumber.From(_revisions.Max(r => r.Number.Value));
+        LayoutRevisionNumber.From(_revisions.Max(revision => revision.Number.Value));
 
     private Revision RequireRevision(LayoutRevisionNumber number) =>
-        _revisions.SingleOrDefault(r => r.Number == number)
+        _revisions.SingleOrDefault(revision => revision.Number == number)
             ?? throw new InvalidOperationException(
                 $"Layout {Id} has no revision {number}.");
 }

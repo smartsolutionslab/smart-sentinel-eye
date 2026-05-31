@@ -15,7 +15,7 @@ public sealed class EventRepository(
         FabIdentifier fab, EventIdentifier identifier, CancellationToken cancellationToken)
     {
         EventAggregate? found = await dbContext.Events
-            .Where(e => e.Fab == fab && e.Id == identifier)
+            .Where(eventEntity => eventEntity.Fab == fab && eventEntity.Id == identifier)
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
         return found is null ? Option<EventAggregate>.None : Option<EventAggregate>.Some(found);
@@ -23,7 +23,7 @@ public sealed class EventRepository(
 
     public Task<bool> ExistsAsync(
         FabIdentifier fab, EventIdentifier identifier, CancellationToken cancellationToken) =>
-        dbContext.Events.AnyAsync(e => e.Fab == fab && e.Id == identifier, cancellationToken);
+        dbContext.Events.AnyAsync(eventEntity => eventEntity.Fab == fab && eventEntity.Id == identifier, cancellationToken);
 
     public void Add(EventAggregate @event)
     {

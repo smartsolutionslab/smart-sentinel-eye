@@ -17,7 +17,7 @@ public sealed class ListVariablesQueryHandler(IVariableQuerySource variables)
         IQueryable<Variable> source = variables.Variables;
         if (query.State is not null)
         {
-            source = source.Where(v => v.State == query.State);
+            source = source.Where(variable => variable.State == query.State);
         }
 
         List<Variable> rows = await source
@@ -26,7 +26,7 @@ public sealed class ListVariablesQueryHandler(IVariableQuerySource variables)
 
         IReadOnlyList<VariableDto> dtos = rows
             .Select(GetVariableQueryHandler.Map)
-            .OrderBy(d => d.Name, StringComparer.Ordinal)
+            .OrderBy(dto => dto.Name, StringComparer.Ordinal)
             .ToList();
 
         return Result<IReadOnlyList<VariableDto>, ListVariablesError>.Success(dtos);

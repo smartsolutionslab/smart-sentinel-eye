@@ -158,8 +158,8 @@ public static class AuditEndpoints
     {
         ArgumentNullException.ThrowIfNull(user);
         return [.. user.FindAll(GroupClaimType)
-            .SelectMany(c => c.Value.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries))
-            .Where(t => t.StartsWith(FabGroupPrefix, StringComparison.Ordinal))
-            .Select(t => t[FabGroupPrefix.Length..])];
+            .SelectMany(claim => claim.Value.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries))
+            .Where(token => token.StartsWith(FabGroupPrefix, StringComparison.Ordinal))
+            .Select(token => token[FabGroupPrefix.Length..])];
     }
 }

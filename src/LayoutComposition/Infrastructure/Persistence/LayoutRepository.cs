@@ -28,7 +28,7 @@ public sealed class LayoutRepository(
         // authoritative source of truth (the DB index is permissive).
         Layout? found = await dbContext.Layouts
             .Where(candidate => candidate.Name == name)
-            .Where(candidate => candidate.Revisions.Any(r => r.State != LayoutRevisionState.Archived))
+            .Where(candidate => candidate.Revisions.Any(revision => revision.State != LayoutRevisionState.Archived))
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
         return found is null ? Option<Layout>.None : Option<Layout>.Some(found);

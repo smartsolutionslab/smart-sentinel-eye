@@ -39,10 +39,10 @@ public sealed class TimescaleAuditChunkInventory(
                 """)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
-        return [.. rows.Select(r => new AuditChunk(
-            DeterministicChunkIdentifier(r.ChunkName),
-            r.RangeStart,
-            r.RangeEnd))];
+        return [.. rows.Select(row => new AuditChunk(
+            DeterministicChunkIdentifier(row.ChunkName),
+            row.RangeStart,
+            row.RangeEnd))];
     }
 
     public async Task DropChunkAsync(AuditChunk chunk, CancellationToken cancellationToken)

@@ -14,7 +14,7 @@ public sealed class RuleRepository(
         RuleIdentifier rule, CancellationToken cancellationToken)
     {
         RuleAggregate? found = await dbContext.Rules
-            .FirstOrDefaultAsync(r => r.Id == rule, cancellationToken)
+            .FirstOrDefaultAsync(candidate => candidate.Id == rule, cancellationToken)
             .ConfigureAwait(false);
         return found is null ? Option<RuleAggregate>.None : Option<RuleAggregate>.Some(found);
     }
@@ -25,8 +25,8 @@ public sealed class RuleRepository(
         ArgumentNullException.ThrowIfNull(name);
         // FR-002: archived names are released for re-use; ignore Archived rows.
         RuleAggregate? found = await dbContext.Rules
-            .Where(r => r.Name == name)
-            .Where(r => r.State != RuleState.Archived)
+            .Where(rule => rule.Name == name)
+            .Where(rule => rule.State != RuleState.Archived)
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
         return found is null ? Option<RuleAggregate>.None : Option<RuleAggregate>.Some(found);

@@ -118,7 +118,7 @@ public static class CameraEndpoints
 
         if (subject is null)
         {
-            string allClaims = string.Join(", ", httpContext.User.Claims.Select(c => $"{c.Type}={c.Value}"));
+            string allClaims = string.Join(", ", httpContext.User.Claims.Select(claim => $"{claim.Type}={claim.Value}"));
             throw new InvalidOperationException(
                 $"Authenticated principal is missing the subject claim. Available claims: {allClaims}");
         }

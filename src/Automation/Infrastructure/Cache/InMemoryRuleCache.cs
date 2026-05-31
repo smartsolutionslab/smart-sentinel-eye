@@ -50,9 +50,9 @@ public sealed class InMemoryRuleCache : IRuleCache
         List<CompiledRule> bucket = _byTrigger.GetOrAdd(key, _ => new List<CompiledRule>());
         lock (_gate)
         {
-            bucket.RemoveAll(c => c.Identifier == rule.Id);
+            bucket.RemoveAll(compiledRule => compiledRule.Identifier == rule.Id);
             bucket.Add(compiled);
-            bucket.Sort((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
+            bucket.Sort((left, right) => left.CreatedAt.CompareTo(right.CreatedAt));
         }
     }
 
@@ -62,7 +62,7 @@ public sealed class InMemoryRuleCache : IRuleCache
         {
             foreach (List<CompiledRule> bucket in _byTrigger.Values)
             {
-                bucket.RemoveAll(c => c.Identifier == rule);
+                bucket.RemoveAll(compiledRule => compiledRule.Identifier == rule);
             }
         }
     }
@@ -73,7 +73,7 @@ public sealed class InMemoryRuleCache : IRuleCache
         {
             lock (_gate)
             {
-                return _byTrigger.Values.Sum(b => b.Count);
+                return _byTrigger.Values.Sum(bucket => bucket.Count);
             }
         }
     }

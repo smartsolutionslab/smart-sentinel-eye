@@ -18,7 +18,7 @@ public sealed class GetStreamQueryHandler(
         ArgumentNullException.ThrowIfNull(query);
 
         Stream? stream = await streams.Streams
-            .SingleOrDefaultAsync(s => s.Camera == query.Camera, cancellationToken)
+            .SingleOrDefaultAsync(candidate => candidate.Camera == query.Camera, cancellationToken)
             .ConfigureAwait(false);
 
         if (stream is null)

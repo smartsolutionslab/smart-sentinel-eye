@@ -17,14 +17,14 @@ public sealed class ListOverlaysQueryHandler(IOverlayQuerySource overlays)
         if (query.State == OverlayRevisionState.Published)
         {
             List<Overlay> source = await overlays.Overlays
-                .Where(overlay => overlay.Revisions.Any(r => r.State == OverlayRevisionState.Published))
+                .Where(overlay => overlay.Revisions.Any(revision => revision.State == OverlayRevisionState.Published))
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
 
             IReadOnlyList<PublishedOverlayDto> published = source
                 .Select(overlay =>
                 {
-                    Revision pub = overlay.Revisions.Single(r => r.State == OverlayRevisionState.Published);
+                    Revision pub = overlay.Revisions.Single(revision => revision.State == OverlayRevisionState.Published);
                     return new PublishedOverlayDto(
                         OverlayIdentifier: overlay.Id.Value,
                         Name: overlay.Name.Value,

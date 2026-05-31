@@ -47,11 +47,11 @@ public static partial class PlaceholderParser
         ArgumentNullException.ThrowIfNull(labelText);
         ArgumentNullException.ThrowIfNull(resolveOne);
 
-        return PlaceholderRegex().Replace(labelText, m =>
+        return PlaceholderRegex().Replace(labelText, match =>
         {
-            string name = m.Groups["name"].Value;
+            string name = match.Groups["name"].Value;
             string? value = resolveOne(name);
-            return value ?? m.Value;
+            return value ?? match.Value;
         });
     }
 }

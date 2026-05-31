@@ -48,7 +48,7 @@ public sealed class MinioAuditChunkArchiver(
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
         List<AuditEventEntity> rows = await context.AuditEvents
-            .Where(a => a.OccurredAt >= chunk.OccurredFrom && a.OccurredAt < chunk.OccurredUntil)
+            .Where(auditEvent => auditEvent.OccurredAt >= chunk.OccurredFrom && auditEvent.OccurredAt < chunk.OccurredUntil)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         using MemoryStream payload = new();

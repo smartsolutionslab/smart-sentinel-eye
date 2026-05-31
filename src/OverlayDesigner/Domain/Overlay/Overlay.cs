@@ -137,13 +137,13 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
     }
 
     private Revision? CurrentPublishedOrNull() =>
-        _revisions.SingleOrDefault(r => r.State == OverlayRevisionState.Published);
+        _revisions.SingleOrDefault(revision => revision.State == OverlayRevisionState.Published);
 
     private OverlayRevisionNumber MaxRevisionNumber() =>
-        OverlayRevisionNumber.From(_revisions.Max(r => r.Number.Value));
+        OverlayRevisionNumber.From(_revisions.Max(revision => revision.Number.Value));
 
     private Revision RequireRevision(OverlayRevisionNumber number) =>
-        _revisions.SingleOrDefault(r => r.Number == number)
+        _revisions.SingleOrDefault(revision => revision.Number == number)
             ?? throw new InvalidOperationException(
                 $"Overlay {Id} has no revision {number}.");
 }

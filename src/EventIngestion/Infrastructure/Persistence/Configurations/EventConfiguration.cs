@@ -25,57 +25,57 @@ public sealed class EventConfiguration : IEntityTypeConfiguration<EventAggregate
         ArgumentNullException.ThrowIfNull(builder);
 
         builder.ToTable("events");
-        builder.HasKey(e => new { e.Fab, e.Id, e.IngestedAt });
+        builder.HasKey(eventEntity => new { eventEntity.Fab, eventEntity.Id, eventEntity.IngestedAt });
 
-        builder.Property(e => e.Id)
+        builder.Property(eventEntity => eventEntity.Id)
             .HasColumnName("event_id")
             .HasConversion(id => id.Value, value => EventIdentifier.From(value))
             .ValueGeneratedNever();
 
-        builder.Property(e => e.Fab)
+        builder.Property(eventEntity => eventEntity.Fab)
             .HasColumnName("fab_id")
             .HasMaxLength(FabIdentifier.MaximumLength)
-            .HasConversion(f => f.Value, v => FabIdentifier.From(v))
+            .HasConversion(fab => fab.Value, value => FabIdentifier.From(value))
             .IsRequired();
 
-        builder.Property(e => e.Source)
+        builder.Property(eventEntity => eventEntity.Source)
             .HasColumnName("source")
             .HasMaxLength(16)
-            .HasConversion(s => s.Value, v => Source.From(v))
+            .HasConversion(source => source.Value, value => Source.From(value))
             .IsRequired();
 
-        builder.Property(e => e.Device)
+        builder.Property(eventEntity => eventEntity.Device)
             .HasColumnName("device_id")
             .HasMaxLength(DeviceIdentifier.MaximumLength)
-            .HasConversion(d => d.Value, v => DeviceIdentifier.From(v))
+            .HasConversion(device => device.Value, value => DeviceIdentifier.From(value))
             .IsRequired();
 
-        builder.Property(e => e.Kind)
+        builder.Property(eventEntity => eventEntity.Kind)
             .HasColumnName("kind")
             .HasMaxLength(Kind.MaximumLength)
-            .HasConversion(k => k.Value, v => Kind.From(v))
+            .HasConversion(kind => kind.Value, value => Kind.From(value))
             .IsRequired();
 
-        builder.Property(e => e.OccurredAt)
+        builder.Property(eventEntity => eventEntity.OccurredAt)
             .HasColumnName("occurred_at")
-            .HasConversion(o => o.Value, v => OccurredAt.From(v))
+            .HasConversion(occurredAt => occurredAt.Value, value => OccurredAt.From(value))
             .IsRequired();
 
-        builder.Property(e => e.IngestedAt)
+        builder.Property(eventEntity => eventEntity.IngestedAt)
             .HasColumnName("ingested_at")
-            .HasConversion(i => i.Value, v => IngestedAt.From(v))
+            .HasConversion(ingestedAt => ingestedAt.Value, value => IngestedAt.From(value))
             .IsRequired();
 
-        builder.Property(e => e.Payload)
+        builder.Property(eventEntity => eventEntity.Payload)
             .HasColumnName("payload")
             .HasColumnType("jsonb")
-            .HasConversion(p => p.Value, v => Payload.From(v))
+            .HasConversion(payload => payload.Value, value => Payload.From(value))
             .IsRequired();
 
-        builder.Property(e => e.Version)
+        builder.Property(eventEntity => eventEntity.Version)
             .HasColumnName("version")
             .IsConcurrencyToken();
 
-        builder.Ignore(e => e.PendingEvents);
+        builder.Ignore(eventEntity => eventEntity.PendingEvents);
     }
 }

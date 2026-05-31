@@ -12,59 +12,59 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
         ArgumentNullException.ThrowIfNull(builder);
 
         builder.ToTable("webhook_integrations");
-        builder.HasKey(w => w.Id);
+        builder.HasKey(integration => integration.Id);
 
-        builder.Property(w => w.Id)
+        builder.Property(integration => integration.Id)
             .HasColumnName("integration_id")
             .HasConversion(id => id.Value, value => WebhookIntegrationIdentifier.From(value))
             .ValueGeneratedNever();
 
-        builder.Property(w => w.Name)
+        builder.Property(integration => integration.Name)
             .HasColumnName("name")
             .HasMaxLength(WebhookIntegrationName.MaximumLength)
-            .HasConversion(n => n.Value, v => WebhookIntegrationName.From(v))
+            .HasConversion(name => name.Value, value => WebhookIntegrationName.From(value))
             .IsRequired();
 
-        builder.Property(w => w.DefaultKind)
+        builder.Property(integration => integration.DefaultKind)
             .HasColumnName("default_kind")
             .HasMaxLength(Kind.MaximumLength)
-            .HasConversion(k => k.Value, v => Kind.From(v))
+            .HasConversion(kind => kind.Value, value => Kind.From(value))
             .IsRequired();
 
-        builder.Property(w => w.TokenHash)
+        builder.Property(integration => integration.TokenHash)
             .HasColumnName("token_hash")
             .HasMaxLength(128)
-            .HasConversion(h => h.Value, v => BearerTokenHash.FromStored(v))
+            .HasConversion(hash => hash.Value, value => BearerTokenHash.FromStored(value))
             .IsRequired();
 
-        builder.Property(w => w.RegisteredAt)
+        builder.Property(integration => integration.RegisteredAt)
             .HasColumnName("registered_at")
             .IsRequired();
 
-        builder.Property(w => w.RevokedAt)
+        builder.Property(integration => integration.RevokedAt)
             .HasColumnName("revoked_at");
 
-        builder.Property(w => w.ValidationMode)
+        builder.Property(integration => integration.ValidationMode)
             .HasColumnName("validation_mode")
             .HasConversion<int>()
             .HasDefaultValue(BearerValidationMode.StaticHash)
             .IsRequired();
 
-        builder.Property(w => w.KeycloakClientId)
+        builder.Property(integration => integration.KeycloakClientId)
             .HasColumnName("keycloak_client_id")
             .HasMaxLength(255);
 
-        builder.Property(w => w.RotatedAt)
+        builder.Property(integration => integration.RotatedAt)
             .HasColumnName("rotated_at");
 
-        builder.Property(w => w.Version)
+        builder.Property(integration => integration.Version)
             .HasColumnName("version")
             .IsConcurrencyToken();
 
-        builder.HasIndex(w => w.Name)
+        builder.HasIndex(integration => integration.Name)
             .HasDatabaseName("ux_webhook_integrations_name")
             .IsUnique();
 
-        builder.Ignore(w => w.PendingEvents);
+        builder.Ignore(integration => integration.PendingEvents);
     }
 }

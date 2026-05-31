@@ -29,71 +29,71 @@ public sealed class VariableConfiguration : IEntityTypeConfiguration<Variable>
         ArgumentNullException.ThrowIfNull(builder);
 
         builder.ToTable("system_variables");
-        builder.HasKey(v => v.Id);
+        builder.HasKey(variable => variable.Id);
 
-        builder.Property(v => v.Id)
+        builder.Property(variable => variable.Id)
             .HasColumnName("variable_id")
             .HasConversion(id => id.Value, value => VariableIdentifier.From(value))
             .ValueGeneratedNever();
 
-        builder.Property(v => v.Name)
+        builder.Property(variable => variable.Name)
             .HasColumnName("name")
             .HasMaxLength(VariableName.MaximumLength)
-            .HasConversion(n => n.Value, v => VariableName.From(v))
+            .HasConversion(name => name.Value, value => VariableName.From(value))
             .IsRequired();
 
-        builder.Property(v => v.Type)
+        builder.Property(variable => variable.Type)
             .HasColumnName("type")
             .HasMaxLength(16)
-            .HasConversion(t => t.Value, v => VariableType.From(v))
+            .HasConversion(type => type.Value, value => VariableType.From(value))
             .IsRequired();
 
-        builder.Property(v => v.State)
+        builder.Property(variable => variable.State)
             .HasColumnName("state")
             .HasMaxLength(16)
-            .HasConversion(s => s.Value, v => VariableState.From(v))
+            .HasConversion(state => state.Value, value => VariableState.From(value))
             .IsRequired();
 
-        builder.Property(v => v.Value)
+        builder.Property(variable => variable.Value)
             .HasColumnName("value_packed")
             .HasMaxLength(512)
             .HasConversion(
-                v => VariableValueColumnConverter.ToColumn(v),
-                v => VariableValueColumnConverter.FromColumn(v))
+                value => VariableValueColumnConverter.ToColumn(value),
+                packed => VariableValueColumnConverter.FromColumn(packed))
             .IsRequired();
 
-        builder.OwnsOne(v => v.BooleanLabels, labels =>
+        builder.OwnsOne(variable => variable.BooleanLabels, labels =>
         {
-            labels.Property(l => l.TruthyLabel)
+            labels.Property(label => label.TruthyLabel)
                 .HasColumnName("truthy_label")
                 .HasMaxLength(BooleanLabels.MaximumLength);
-            labels.Property(l => l.FalsyLabel)
+            labels.Property(label => label.FalsyLabel)
                 .HasColumnName("falsy_label")
                 .HasMaxLength(BooleanLabels.MaximumLength);
         });
 
-        builder.Property(v => v.CreatedAt)
+        builder.Property(variable => variable.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();
 
-        builder.Property(v => v.CreatedBy)
+        builder.Property(variable => variable.CreatedBy)
             .HasColumnName("created_by")
             .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
             .IsRequired();
 
-        builder.Property(v => v.Version)
+        builder.Property(variable => variable.Version)
             .HasColumnName("version")
             .IsConcurrencyToken();
 
         // FR-005 belt-and-braces: at most one non-Archived variable
         // per name. The application-level uniqueness check is the
         // authoritative source of truth.
-        builder.HasIndex(v => v.Name)
+        builder.HasIndex(variable => variable.Name)
             .HasDatabaseName("ux_system_variables_name_active")
             .IsUnique()
             .HasFilter("state <> 'Archived'");
 
-        builder.Ignore(v => v.PendingEvents);
+        builder.Ignore(variable => variable.PendingEvents);
     }
 }
 

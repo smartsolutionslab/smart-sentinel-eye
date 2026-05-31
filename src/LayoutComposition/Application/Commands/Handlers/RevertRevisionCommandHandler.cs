@@ -27,7 +27,7 @@ public sealed class RevertRevisionCommandHandler(
         }
 
         Layout layout = found.Value;
-        Revision? revision = layout.Revisions.SingleOrDefault(r => r.Number == revisionNumber);
+        Revision? revision = layout.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
         if (revision is null)
         {
             return Result<LayoutRevisionNumber, RevertRevisionError>.Failure(

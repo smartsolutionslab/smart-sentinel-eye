@@ -20,13 +20,13 @@ public sealed class ListDeadLettersQueryHandler(IDeadLetterQuerySource deadLette
         int limit = query.Limit <= 0 ? DefaultLimit : Math.Min(query.Limit, MaximumLimit);
 
         List<DeadLetter> rows = await deadLetters.DeadLetters
-            .OrderByDescending(d => d.RejectedAt)
+            .OrderByDescending(deadLetter => deadLetter.RejectedAt)
             .Take(limit)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
         IReadOnlyList<DeadLetterDto> dtos = rows
-            .Select(d => new DeadLetterDto(d.Id.Value, d.Topic, d.RawPayload, d.Error, d.RejectedAt))
+            .Select(deadLetter => new DeadLetterDto(deadLetter.Id.Value, deadLetter.Topic, deadLetter.RawPayload, deadLetter.Error, deadLetter.RejectedAt))
             .ToArray();
 
         return Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError>.Success(dtos);

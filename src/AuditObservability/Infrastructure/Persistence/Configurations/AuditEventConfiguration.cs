@@ -23,72 +23,72 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
         // partitioning column to be part of every unique index on a
         // hypertable (TS103). audit_id stays first so it reads as the
         // logical identity; occurred_at is carried for the partition.
-        builder.HasKey(a => new { a.Id, a.OccurredAt });
+        builder.HasKey(auditEvent => new { auditEvent.Id, auditEvent.OccurredAt });
 
-        builder.Property(a => a.Id)
+        builder.Property(auditEvent => auditEvent.Id)
             .HasColumnName("audit_id")
             .HasConversion(id => id.Value, value => AuditEventIdentifier.From(value))
             .ValueGeneratedNever();
 
-        builder.Property(a => a.OccurredAt)
+        builder.Property(auditEvent => auditEvent.OccurredAt)
             .HasColumnName("occurred_at")
             .IsRequired();
 
-        builder.Property(a => a.ReceivedAt)
+        builder.Property(auditEvent => auditEvent.ReceivedAt)
             .HasColumnName("received_at")
             .IsRequired();
 
-        builder.Property(a => a.Fab)
+        builder.Property(auditEvent => auditEvent.Fab)
             .HasColumnName("fab_id")
             .HasMaxLength(FabIdentifier.MaximumLength)
             .HasConversion(
-                f => f == null ? null : f.Value,
-                v => v == null ? null : FabIdentifier.From(v));
+                fab => fab == null ? null : fab.Value,
+                value => value == null ? null : FabIdentifier.From(value));
 
-        builder.Property(a => a.EventKind)
+        builder.Property(auditEvent => auditEvent.EventKind)
             .HasColumnName("event_kind")
             .HasMaxLength(EventKind.MaximumLength)
-            .HasConversion(k => k.Value, v => EventKind.From(v))
+            .HasConversion(kind => kind.Value, value => EventKind.From(value))
             .IsRequired();
 
-        builder.Property(a => a.ResourceKind)
+        builder.Property(auditEvent => auditEvent.ResourceKind)
             .HasColumnName("resource_kind")
             .HasMaxLength(32)
             .HasConversion(
-                k => k == null ? null : k.Value,
-                v => v == null ? null : ResourceKind.From(v));
+                kind => kind == null ? null : kind.Value,
+                value => value == null ? null : ResourceKind.From(value));
 
-        builder.Property(a => a.ResourceIdentifier)
+        builder.Property(auditEvent => auditEvent.ResourceIdentifier)
             .HasColumnName("resource_identifier")
             .HasMaxLength(ResourceIdentifier.MaximumLength)
             .HasConversion(
-                r => r == null ? null : r.Value,
-                v => v == null ? null : ResourceIdentifier.From(v));
+                resource => resource == null ? null : resource.Value,
+                value => value == null ? null : ResourceIdentifier.From(value));
 
-        builder.Property(a => a.Actor)
+        builder.Property(auditEvent => auditEvent.Actor)
             .HasColumnName("actor_identifier")
-            .HasConversion(a => a.Value, v => v == Guid.Empty ? ActorIdentifier.System : ActorIdentifier.From(v))
+            .HasConversion(actor => actor.Value, value => value == Guid.Empty ? ActorIdentifier.System : ActorIdentifier.From(value))
             .IsRequired();
 
-        builder.Property(a => a.ActorUsername)
+        builder.Property(auditEvent => auditEvent.ActorUsername)
             .HasColumnName("actor_username")
             .HasMaxLength(255);
 
-        builder.Property(a => a.EventIdentifier)
+        builder.Property(auditEvent => auditEvent.EventIdentifier)
             .HasColumnName("event_identifier")
-            .HasConversion(e => e.Value, v => EventIdentifier.From(v))
+            .HasConversion(eventIdentifier => eventIdentifier.Value, value => EventIdentifier.From(value))
             .IsRequired();
 
-        builder.Property(a => a.Payload)
+        builder.Property(auditEvent => auditEvent.Payload)
             .HasColumnName("payload")
             .HasColumnType("jsonb")
             .IsRequired();
 
-        builder.Property(a => a.PayloadSizeBytes)
+        builder.Property(auditEvent => auditEvent.PayloadSizeBytes)
             .HasColumnName("payload_size_bytes")
             .IsRequired();
 
-        builder.Property(a => a.SchemaVersion)
+        builder.Property(auditEvent => auditEvent.SchemaVersion)
             .HasColumnName("schema_version")
             .IsRequired();
 
@@ -98,22 +98,22 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
         // unique index that omits the partitioning column (TS103); since a
         // given event always carries the same occurred_at, the pair still
         // uniquely dedups redeliveries.
-        builder.HasIndex(a => new { a.EventIdentifier, a.OccurredAt })
+        builder.HasIndex(auditEvent => new { auditEvent.EventIdentifier, auditEvent.OccurredAt })
             .HasDatabaseName("ux_audit_event_identifier")
             .IsUnique();
 
         // Cross-cutting search.
-        builder.HasIndex(a => new { a.Actor, a.OccurredAt })
+        builder.HasIndex(auditEvent => new { auditEvent.Actor, auditEvent.OccurredAt })
             .HasDatabaseName("ix_audit_actor_occurred");
 
-        builder.HasIndex(a => new { a.Fab, a.OccurredAt })
+        builder.HasIndex(auditEvent => new { auditEvent.Fab, auditEvent.OccurredAt })
             .HasDatabaseName("ix_audit_fab_occurred");
 
-        builder.HasIndex(a => new { a.EventKind, a.OccurredAt })
+        builder.HasIndex(auditEvent => new { auditEvent.EventKind, auditEvent.OccurredAt })
             .HasDatabaseName("ix_audit_kind_occurred");
 
         // Per-resource timeline.
-        builder.HasIndex(a => new { a.ResourceKind, a.ResourceIdentifier, a.OccurredAt })
+        builder.HasIndex(auditEvent => new { auditEvent.ResourceKind, auditEvent.ResourceIdentifier, auditEvent.OccurredAt })
             .HasDatabaseName("ix_audit_resource_occurred");
     }
 }

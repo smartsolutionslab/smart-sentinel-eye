@@ -39,9 +39,9 @@ public sealed record ResourceKind(string Value) : IValueObject<string>
     ];
 
     public static ResourceKind From(string value) =>
-        All.FirstOrDefault(k => k.Value == value)
+        All.FirstOrDefault(kind => kind.Value == value)
             ?? throw new ArgumentException(
-                $"Unknown ResourceKind '{value}'. Expected one of: {string.Join(" | ", All.Select(k => k.Value))}.",
+                $"Unknown ResourceKind '{value}'. Expected one of: {string.Join(" | ", All.Select(kind => kind.Value))}.",
                 nameof(value));
 
     public sealed override string ToString() => Value;

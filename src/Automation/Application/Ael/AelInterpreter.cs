@@ -134,9 +134,9 @@ public static class AelInterpreter
     private static AelValue EvalArithmetic(BinaryOperator binaryOperator, AelValue left, AelValue right) =>
         binaryOperator switch
         {
-            BinaryOperator.Add => Arithmetic(left, right, static (a, b) => a + b, static (a, b) => a + b),
-            BinaryOperator.Subtract => Arithmetic(left, right, static (a, b) => a - b, static (a, b) => a - b),
-            BinaryOperator.Multiply => Arithmetic(left, right, static (a, b) => a * b, static (a, b) => a * b),
+            BinaryOperator.Add => Arithmetic(left, right, static (leftOperand, rightOperand) => leftOperand + rightOperand, static (leftOperand, rightOperand) => leftOperand + rightOperand),
+            BinaryOperator.Subtract => Arithmetic(left, right, static (leftOperand, rightOperand) => leftOperand - rightOperand, static (leftOperand, rightOperand) => leftOperand - rightOperand),
+            BinaryOperator.Multiply => Arithmetic(left, right, static (leftOperand, rightOperand) => leftOperand * rightOperand, static (leftOperand, rightOperand) => leftOperand * rightOperand),
             BinaryOperator.Divide => Arithmetic(left, right, DivideInt, DivideDecimal),
             BinaryOperator.Modulo => Arithmetic(left, right, ModuloInt, ModuloDecimal),
             _ => throw new InvalidOperationException($"Unhandled arithmetic operator: {binaryOperator}"),
@@ -145,10 +145,10 @@ public static class AelInterpreter
     private static AelValue.BoolValue EvalComparison(BinaryOperator binaryOperator, AelValue left, AelValue right) =>
         binaryOperator switch
         {
-            BinaryOperator.LessThan => Compare(left, right, static (a, b) => a < b),
-            BinaryOperator.LessThanOrEqual => Compare(left, right, static (a, b) => a <= b),
-            BinaryOperator.GreaterThan => Compare(left, right, static (a, b) => a > b),
-            BinaryOperator.GreaterThanOrEqual => Compare(left, right, static (a, b) => a >= b),
+            BinaryOperator.LessThan => Compare(left, right, static (leftOperand, rightOperand) => leftOperand < rightOperand),
+            BinaryOperator.LessThanOrEqual => Compare(left, right, static (leftOperand, rightOperand) => leftOperand <= rightOperand),
+            BinaryOperator.GreaterThan => Compare(left, right, static (leftOperand, rightOperand) => leftOperand > rightOperand),
+            BinaryOperator.GreaterThanOrEqual => Compare(left, right, static (leftOperand, rightOperand) => leftOperand >= rightOperand),
             _ => throw new InvalidOperationException($"Unhandled comparison operator: {binaryOperator}"),
         };
 

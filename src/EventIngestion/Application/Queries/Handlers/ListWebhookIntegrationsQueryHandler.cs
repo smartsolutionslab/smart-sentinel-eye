@@ -17,7 +17,7 @@ public sealed class ListWebhookIntegrationsQueryHandler(IWebhookIntegrationQuery
         IQueryable<WebhookIntegration> source = integrations.WebhookIntegrations;
         if (!query.IncludeRevoked)
         {
-            source = source.Where(w => w.RevokedAt == null);
+            source = source.Where(integration => integration.RevokedAt == null);
         }
 
         List<WebhookIntegration> rows = await source
@@ -25,9 +25,9 @@ public sealed class ListWebhookIntegrationsQueryHandler(IWebhookIntegrationQuery
             .ConfigureAwait(false);
 
         IReadOnlyList<WebhookIntegrationDto> dtos = rows
-            .Select(w => new WebhookIntegrationDto(
-                w.Id.Value, w.Name.Value, w.DefaultKind.Value, w.RegisteredAt, w.RevokedAt))
-            .OrderBy(d => d.Name, StringComparer.Ordinal)
+            .Select(integration => new WebhookIntegrationDto(
+                integration.Id.Value, integration.Name.Value, integration.DefaultKind.Value, integration.RegisteredAt, integration.RevokedAt))
+            .OrderBy(dto => dto.Name, StringComparer.Ordinal)
             .ToArray();
 
         return Result<IReadOnlyList<WebhookIntegrationDto>, ListWebhookIntegrationsError>.Success(dtos);

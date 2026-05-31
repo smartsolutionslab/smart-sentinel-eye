@@ -62,51 +62,51 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
         {
             revisions.ToTable("overlay_revisions");
             revisions.WithOwner().HasForeignKey("overlay_id");
-            revisions.HasKey(r => r.Id);
+            revisions.HasKey(revision => revision.Id);
 
-            revisions.Property(r => r.Id)
+            revisions.Property(revision => revision.Id)
                 .HasColumnName("revision_id")
                 .HasConversion(id => id.Value, value => OverlayRevisionIdentifier.From(value))
                 .ValueGeneratedNever();
 
-            revisions.Property(r => r.Number)
+            revisions.Property(revision => revision.Number)
                 .HasColumnName("revision_number")
                 .HasConversion(number => number.Value, value => OverlayRevisionNumber.From(value))
                 .IsRequired();
 
-            revisions.Property(r => r.State)
+            revisions.Property(revision => revision.State)
                 .HasColumnName("state")
                 .HasMaxLength(16)
                 .HasConversion(state => state.Value, value => OverlayRevisionState.From(value))
                 .IsRequired();
 
-            revisions.OwnsOne(r => r.Label, label =>
+            revisions.OwnsOne(revision => revision.Label, label =>
             {
-                label.Property(l => l.Text)
+                label.Property(labelValue => labelValue.Text)
                     .HasColumnName("label_text")
                     .HasMaxLength(Label.MaximumTextLength)
                     .IsRequired();
-                label.Property(l => l.NormalizedX).HasColumnName("label_x").IsRequired();
-                label.Property(l => l.NormalizedY).HasColumnName("label_y").IsRequired();
-                label.Property(l => l.NormalizedWidth).HasColumnName("label_width").IsRequired();
-                label.Property(l => l.NormalizedHeight).HasColumnName("label_height").IsRequired();
-                label.Property(l => l.FontSizePx).HasColumnName("label_font_size_px").IsRequired();
+                label.Property(labelValue => labelValue.NormalizedX).HasColumnName("label_x").IsRequired();
+                label.Property(labelValue => labelValue.NormalizedY).HasColumnName("label_y").IsRequired();
+                label.Property(labelValue => labelValue.NormalizedWidth).HasColumnName("label_width").IsRequired();
+                label.Property(labelValue => labelValue.NormalizedHeight).HasColumnName("label_height").IsRequired();
+                label.Property(labelValue => labelValue.FontSizePx).HasColumnName("label_font_size_px").IsRequired();
             });
 
-            revisions.Property(r => r.CreatedAt)
+            revisions.Property(revision => revision.CreatedAt)
                 .HasColumnName("created_at")
                 .IsRequired();
 
-            revisions.Property(r => r.CreatedBy)
+            revisions.Property(revision => revision.CreatedBy)
                 .HasColumnName("created_by")
                 .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
                 .IsRequired();
 
-            revisions.Property(r => r.PublishedAt)
+            revisions.Property(revision => revision.PublishedAt)
                 .HasColumnName("published_at")
                 .IsRequired(false);
 
-            revisions.Property(r => r.ArchivedAt)
+            revisions.Property(revision => revision.ArchivedAt)
                 .HasColumnName("archived_at")
                 .IsRequired(false);
 
