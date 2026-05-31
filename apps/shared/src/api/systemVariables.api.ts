@@ -1,4 +1,7 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import type { DefineVariableInput } from './systemVariables.schema.js';
+
+export type { DefineVariableInput };
 
 export type VariableType = 'String' | 'Number' | 'Boolean';
 export type VariableState = 'Defined' | 'Archived';
@@ -14,14 +17,6 @@ export interface Variable {
   falsyLabel: string | null;
   createdAt: string;
   createdBy: string;
-}
-
-export interface DefineVariableInput {
-  name: string;
-  type: VariableType;
-  initialValue?: string;
-  truthyLabel?: string;
-  falsyLabel?: string;
 }
 
 export interface SetVariableValueInput {

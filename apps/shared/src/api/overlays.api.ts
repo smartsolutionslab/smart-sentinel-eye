@@ -1,4 +1,7 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import type { CreateOverlayDraftInput } from './overlays.schema.js';
+
+export type { CreateOverlayDraftInput };
 
 export type OverlayRevisionState = 'Draft' | 'Published' | 'Archived';
 
@@ -40,11 +43,6 @@ export interface PublishedOverlay {
 export interface ListOverlaysResponse {
   chains: Overlay[];
   published: PublishedOverlay[];
-}
-
-export interface CreateOverlayDraftInput {
-  name: string;
-  label: OverlayLabel;
 }
 
 export interface OverlayRevisionRouteInput {
