@@ -8,7 +8,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 public sealed class EditDraftRevisionCommandHandler(
     ILayoutRepository layouts,
     IClock clock,
-    ILogger<EditDraftRevisionCommandHandler> log)
+    ILogger<EditDraftRevisionCommandHandler> logger)
     : ICommandHandler<EditDraftRevisionCommand, Result<LayoutRevisionNumber, EditDraftRevisionError>>
 {
     public async Task<Result<LayoutRevisionNumber, EditDraftRevisionError>> HandleAsync(
@@ -47,7 +47,7 @@ public sealed class EditDraftRevisionCommandHandler(
         }
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Edited draft revision {Revision} on layout {Layout}.",
             revisionNumber, layout.Id);
 

@@ -26,13 +26,13 @@ public sealed class AuditRetentionHostedService(
     IClock clock,
     TimeProvider timeProvider,
     IOptions<AuditRetentionOptions> options,
-    ILogger<AuditRetentionHostedService> log)
+    ILogger<AuditRetentionHostedService> logger)
     : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         AuditRetentionOptions opts = options.Value;
-        log.LogInformation(
+        logger.LogInformation(
             "Audit retention worker started with window {Window} and tick interval {Interval}.",
             opts.RetentionWindow, opts.TickInterval);
 
@@ -77,11 +77,11 @@ public sealed class AuditRetentionHostedService(
             .ListChunksOlderThanAsync(boundary, cancellationToken).ConfigureAwait(false);
         if (chunks.Count == 0)
         {
-            log.LogDebug("Retention sweep at {Boundary}: no chunks past the boundary.", boundary);
+            logger.LogDebug("Retention sweep at {Boundary}: no chunks past the boundary.", boundary);
             return;
         }
 
-        log.LogInformation(
+        logger.LogInformation(
             "Retention sweep at {Boundary}: {ChunkCount} chunk(s) to archive.",
             boundary, chunks.Count);
 
@@ -114,7 +114,7 @@ public sealed class AuditRetentionHostedService(
 
             await deps.Inventory.DropChunkAsync(chunk, cancellationToken).ConfigureAwait(false);
 
-            log.LogInformation(
+            logger.LogInformation(
                 "Archived chunk {ChunkIdentifier} ({RowCount} rows, already-archived={AlreadyArchived}) to {ObjectKey}.",
                 chunk.ChunkIdentifier, result.RowCount, result.AlreadyArchived, result.MinioObjectKey);
         }
@@ -122,7 +122,7 @@ public sealed class AuditRetentionHostedService(
         {
             // Leave the chunk in place; next sweep retries. NFR-004
             // accepts up to a 5-minute audit lag during outages.
-            log.LogError(ex,
+            logger.LogError(ex,
                 "Failed to archive chunk {ChunkIdentifier}; leaving it in place for the next sweep.",
                 chunk.ChunkIdentifier);
         }

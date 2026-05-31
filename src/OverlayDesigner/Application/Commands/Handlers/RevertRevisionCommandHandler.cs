@@ -8,7 +8,7 @@ namespace SmartSentinelEye.OverlayDesigner.Application.Commands.Handlers;
 public sealed class RevertRevisionCommandHandler(
     IOverlayRepository overlays,
     IClock clock,
-    ILogger<RevertRevisionCommandHandler> log)
+    ILogger<RevertRevisionCommandHandler> logger)
     : ICommandHandler<RevertRevisionCommand, Result<OverlayRevisionNumber, RevertRevisionError>>
 {
     public async Task<Result<OverlayRevisionNumber, RevertRevisionError>> HandleAsync(
@@ -43,7 +43,7 @@ public sealed class RevertRevisionCommandHandler(
         overlay.Revert(revisionNumber, revertedBy, clock);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Reverted revision {Revision} on overlay {Overlay} to Draft by {Operator}.",
             revisionNumber, overlay.Id, revertedBy);
 

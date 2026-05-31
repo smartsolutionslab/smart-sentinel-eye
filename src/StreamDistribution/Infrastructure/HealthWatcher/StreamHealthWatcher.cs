@@ -23,7 +23,7 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.HealthWatcher;
 public sealed class StreamHealthWatcher(
     IServiceScopeFactory scopeFactory,
     IClock clock,
-    ILogger<StreamHealthWatcher> log) : BackgroundService
+    ILogger<StreamHealthWatcher> logger) : BackgroundService
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan OfflineAfter = TimeSpan.FromMinutes(5);
@@ -32,7 +32,7 @@ public sealed class StreamHealthWatcher(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        log.LogInformation("StreamHealthWatcher started (poll every {Interval}).", PollInterval);
+        logger.LogInformation("StreamHealthWatcher started (poll every {Interval}).", PollInterval);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -46,7 +46,7 @@ public sealed class StreamHealthWatcher(
             }
             catch (Exception ex)
             {
-                log.LogError(ex, "StreamHealthWatcher poll iteration failed; will retry next tick.");
+                logger.LogError(ex, "StreamHealthWatcher poll iteration failed; will retry next tick.");
             }
 
             try
@@ -92,7 +92,7 @@ public sealed class StreamHealthWatcher(
             }
             catch (HttpRequestException ex)
             {
-                log.LogWarning(ex,
+                logger.LogWarning(ex,
                     "MediaMTX health probe failed for path {Path}; skipping this tick.",
                     path);
                 continue;

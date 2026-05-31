@@ -31,7 +31,7 @@ public sealed class AuditingMessageHandler(
     IAuditEventRepository repository,
     V1ResourceMap resourceMap,
     IClock clock,
-    ILogger<AuditingMessageHandler> log)
+    ILogger<AuditingMessageHandler> logger)
 {
     public async Task HandleAsync(
         Type payloadType,
@@ -49,7 +49,7 @@ public sealed class AuditingMessageHandler(
         repository.Add(row);
         await repository.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogDebug(
+        logger.LogDebug(
             "Audited {EventKind} {EventIdentifier} (resource: {ResourceKind}/{ResourceIdentifier}).",
             envelope.EventTypeName,
             envelope.EventIdentifier,

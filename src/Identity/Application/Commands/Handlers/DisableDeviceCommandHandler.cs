@@ -11,7 +11,7 @@ public sealed class DisableDeviceCommandHandler(
     IRegisteredClientRepository clients,
     IKeycloakAdminClient keycloak,
     IClock clock,
-    ILogger<DisableDeviceCommandHandler> log)
+    ILogger<DisableDeviceCommandHandler> logger)
     : ICommandHandler<DisableDeviceCommand, Result<RegisteredClientIdentifier, DisableDeviceError>>
 {
     public async Task<Result<RegisteredClientIdentifier, DisableDeviceError>> HandleAsync(
@@ -42,7 +42,7 @@ public sealed class DisableDeviceCommandHandler(
         client.Disable(clock);
         await clients.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation("Disabled device {Identifier} '{ClientId}'.", client.Id, command.ClientId);
+        logger.LogInformation("Disabled device {Identifier} '{ClientId}'.", client.Id, command.ClientId);
 
         return Result<RegisteredClientIdentifier, DisableDeviceError>.Success(client.Id);
     }

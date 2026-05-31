@@ -18,7 +18,7 @@ namespace SmartSentinelEye.StreamDistribution.Application.EventHandlers;
 /// </summary>
 public sealed class CameraRegisteredIntegrationEventHandler(
     ICommandHandler<ProvisionStreamCommand, Result<StreamIdentifier, ProvisionStreamError>> handler,
-    ILogger<CameraRegisteredIntegrationEventHandler> log)
+    ILogger<CameraRegisteredIntegrationEventHandler> logger)
 {
     public async Task Handle(CameraRegisteredV1 message, CancellationToken cancellationToken = default)
     {
@@ -37,7 +37,7 @@ public sealed class CameraRegisteredIntegrationEventHandler(
 
         if (result.IsFailure)
         {
-            log.LogWarning(
+            logger.LogWarning(
                 "Provision attempt failed for camera {Camera}: {Code} {Message}.",
                 camera, result.Error.Code, result.Error.Message);
             // Wolverine treats an exception as a retry signal. Failures here

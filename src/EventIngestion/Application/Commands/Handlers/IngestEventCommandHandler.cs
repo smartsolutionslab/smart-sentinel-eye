@@ -17,7 +17,7 @@ namespace SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 public sealed class IngestEventCommandHandler(
     IEventRepository events,
     IClock clock,
-    ILogger<IngestEventCommandHandler> log)
+    ILogger<IngestEventCommandHandler> logger)
     : ICommandHandler<IngestEventCommand, Result<EventIdentifier, IngestEventError>>
 {
     public async Task<Result<EventIdentifier, IngestEventError>> HandleAsync(
@@ -35,7 +35,7 @@ public sealed class IngestEventCommandHandler(
             .ConfigureAwait(false);
         if (exists)
         {
-            log.LogDebug(
+            logger.LogDebug(
                 "Idempotent re-delivery of {Identifier} for fab {Fab}; no-op.",
                 envelope.Identifier, envelope.Fab);
             return Result<EventIdentifier, IngestEventError>.Failure(

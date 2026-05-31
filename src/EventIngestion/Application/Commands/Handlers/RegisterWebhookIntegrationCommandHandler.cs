@@ -8,7 +8,7 @@ namespace SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 public sealed class RegisterWebhookIntegrationCommandHandler(
     IWebhookIntegrationRepository integrations,
     IClock clock,
-    ILogger<RegisterWebhookIntegrationCommandHandler> log)
+    ILogger<RegisterWebhookIntegrationCommandHandler> logger)
     : ICommandHandler<
         RegisterWebhookIntegrationCommand,
         Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError>>
@@ -34,7 +34,7 @@ public sealed class RegisterWebhookIntegrationCommandHandler(
         integrations.Add(integration);
         await integrations.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Registered webhook integration '{Name}' ({Identifier}).",
             integration.Name, integration.Id);
 

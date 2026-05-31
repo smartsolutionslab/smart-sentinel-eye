@@ -10,7 +10,7 @@ namespace SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 /// </summary>
 public sealed class CameraCatalogMigrator(
     IDbContextFactory<CameraCatalogDbContext> dbContextFactory,
-    ILogger<CameraCatalogMigrator> log) : IMigrator
+    ILogger<CameraCatalogMigrator> logger) : IMigrator
 {
     public string ContextName => "CameraCatalog";
 
@@ -19,8 +19,8 @@ public sealed class CameraCatalogMigrator(
         await using CameraCatalogDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation("Applying Camera Catalog EF Core migrations.");
+        logger.LogInformation("Applying Camera Catalog EF Core migrations.");
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        log.LogInformation("Camera Catalog migrations applied.");
+        logger.LogInformation("Camera Catalog migrations applied.");
     }
 }

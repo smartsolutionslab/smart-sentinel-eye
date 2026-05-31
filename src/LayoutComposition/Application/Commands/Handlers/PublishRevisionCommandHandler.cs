@@ -8,7 +8,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 public sealed class PublishRevisionCommandHandler(
     ILayoutRepository layouts,
     IClock clock,
-    ILogger<PublishRevisionCommandHandler> log)
+    ILogger<PublishRevisionCommandHandler> logger)
     : ICommandHandler<PublishRevisionCommand, Result<LayoutRevisionNumber, PublishRevisionError>>
 {
     public async Task<Result<LayoutRevisionNumber, PublishRevisionError>> HandleAsync(
@@ -44,7 +44,7 @@ public sealed class PublishRevisionCommandHandler(
         layout.Publish(revisionNumber, publishedBy, clock);
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Published layout {Layout} revision {Revision} by {Operator}.",
             layout.Id, revisionNumber, publishedBy);
 

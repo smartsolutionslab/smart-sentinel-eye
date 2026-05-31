@@ -32,7 +32,7 @@ public sealed class MinioAuditChunkArchiver(
     IMinioClient minio,
     IDbContextFactory<AuditObservabilityDbContext> dbContextFactory,
     IOptions<MinioOptions> options,
-    ILogger<MinioAuditChunkArchiver> log) : IAuditChunkArchiver
+    ILogger<MinioAuditChunkArchiver> logger) : IAuditChunkArchiver
 {
     public async Task<ChunkArchiveResult> ArchiveChunkAsync(
         AuditChunk chunk, CancellationToken cancellationToken)
@@ -74,7 +74,7 @@ public sealed class MinioAuditChunkArchiver(
             .ConfigureAwait(false);
         if (existingEtag is not null && string.Equals(existingEtag, contentMd5, StringComparison.OrdinalIgnoreCase))
         {
-            log.LogInformation(
+            logger.LogInformation(
                 "Audit chunk {ChunkIdentifier} already archived at {ObjectKey}; skipping upload.",
                 chunk.ChunkIdentifier, objectKey);
             return new ChunkArchiveResult(objectKey, contentMd5, rows.Count, AlreadyArchived: true);
@@ -96,7 +96,7 @@ public sealed class MinioAuditChunkArchiver(
                 }),
             cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Archived audit chunk {ChunkIdentifier} ({RowCount} rows) to {ObjectKey}.",
             chunk.ChunkIdentifier, rows.Count, objectKey);
 

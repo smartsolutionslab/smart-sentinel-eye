@@ -28,7 +28,7 @@ public sealed class RotateWebhookClientCommandHandler(
     IKeycloakAdminClient keycloak,
     IEventBus events,
     IClock clock,
-    ILogger<RotateWebhookClientCommandHandler> log)
+    ILogger<RotateWebhookClientCommandHandler> logger)
     : ICommandHandler<
         RotateWebhookClientCommand,
         Result<WebhookClientCredentialsDto, RotateWebhookClientError>>
@@ -112,7 +112,7 @@ public sealed class RotateWebhookClientCommandHandler(
                 Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, fab.Value, rotatedBy.Value)),
             cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Rotated webhook integration '{IntegrationName}' to clientId '{ClientId}'.",
             integrationName, clientId);
 

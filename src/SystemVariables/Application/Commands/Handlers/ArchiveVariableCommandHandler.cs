@@ -8,7 +8,7 @@ namespace SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
 public sealed class ArchiveVariableCommandHandler(
     IVariableRepository variables,
     IClock clock,
-    ILogger<ArchiveVariableCommandHandler> log)
+    ILogger<ArchiveVariableCommandHandler> logger)
     : ICommandHandler<ArchiveVariableCommand, Result<VariableIdentifier, ArchiveVariableError>>
 {
     public async Task<Result<VariableIdentifier, ArchiveVariableError>> HandleAsync(
@@ -31,7 +31,7 @@ public sealed class ArchiveVariableCommandHandler(
         variable.Archive(archivedBy, clock);
         await variables.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Archived variable {Variable} '{Name}' by {Operator}.",
             variable.Id, name, archivedBy);
 

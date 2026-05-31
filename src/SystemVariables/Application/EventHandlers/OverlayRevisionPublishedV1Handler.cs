@@ -16,13 +16,13 @@ namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
 /// </summary>
 public sealed class OverlayRevisionPublishedV1Handler(
     IReverseIndex reverseIndex,
-    ILogger<OverlayRevisionPublishedV1Handler> log)
+    ILogger<OverlayRevisionPublishedV1Handler> logger)
 {
     public Task Handle(OverlayRevisionPublishedV1 message, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(message);
         reverseIndex.UpsertOverlayReferences(message.Overlay, message.Text);
-        log.LogDebug(
+        logger.LogDebug(
             "Reverse-index upserted for overlay {Overlay} v{Revision}; label='{Text}'.",
             message.Overlay, message.RevisionNumber, message.Text);
         return Task.CompletedTask;

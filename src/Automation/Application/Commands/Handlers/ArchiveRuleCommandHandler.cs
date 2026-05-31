@@ -10,7 +10,7 @@ public sealed class ArchiveRuleCommandHandler(
     IRuleRepository rules,
     IRuleCache cache,
     IClock clock,
-    ILogger<ArchiveRuleCommandHandler> log)
+    ILogger<ArchiveRuleCommandHandler> logger)
     : ICommandHandler<ArchiveRuleCommand, Result<RuleIdentifier, ArchiveRuleError>>
 {
     public async Task<Result<RuleIdentifier, ArchiveRuleError>> HandleAsync(
@@ -35,7 +35,7 @@ public sealed class ArchiveRuleCommandHandler(
         // evaluated against the archived rule.
         cache.Remove(rule.Id);
 
-        log.LogInformation("Archived rule {Rule} '{Name}'.", rule.Id, command.Name);
+        logger.LogInformation("Archived rule {Rule} '{Name}'.", rule.Id, command.Name);
 
         return Result<RuleIdentifier, ArchiveRuleError>.Success(rule.Id);
     }

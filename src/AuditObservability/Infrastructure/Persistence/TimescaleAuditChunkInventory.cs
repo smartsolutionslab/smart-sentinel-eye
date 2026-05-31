@@ -14,7 +14,7 @@ namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 /// </summary>
 public sealed class TimescaleAuditChunkInventory(
     IDbContextFactory<AuditObservabilityDbContext> dbContextFactory,
-    ILogger<TimescaleAuditChunkInventory> log) : IAuditChunkInventory
+    ILogger<TimescaleAuditChunkInventory> logger) : IAuditChunkInventory
 {
     public async Task<IReadOnlyList<AuditChunk>> ListChunksOlderThanAsync(
         DateTimeOffset boundary, CancellationToken cancellationToken)
@@ -61,7 +61,7 @@ public sealed class TimescaleAuditChunkInventory(
             """,
             cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Dropped TimescaleDB chunks for AuditObservability up to {Until} (procedure rows: {Count}).",
             chunk.OccurredUntil, count);
     }

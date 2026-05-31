@@ -10,7 +10,7 @@ namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 /// </summary>
 public sealed class EventIngestionMigrator(
     IDbContextFactory<EventIngestionDbContext> dbContextFactory,
-    ILogger<EventIngestionMigrator> log) : IMigrator
+    ILogger<EventIngestionMigrator> logger) : IMigrator
 {
     public string ContextName => "EventIngestion";
 
@@ -19,8 +19,8 @@ public sealed class EventIngestionMigrator(
         await using EventIngestionDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation("Applying EventIngestion EF Core migrations.");
+        logger.LogInformation("Applying EventIngestion EF Core migrations.");
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        log.LogInformation("EventIngestion migrations applied.");
+        logger.LogInformation("EventIngestion migrations applied.");
     }
 }

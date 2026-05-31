@@ -6,7 +6,7 @@ namespace SmartSentinelEye.Automation.Infrastructure.Persistence;
 
 public sealed class AutomationMigrator(
     IDbContextFactory<AutomationDbContext> dbContextFactory,
-    ILogger<AutomationMigrator> log) : IMigrator
+    ILogger<AutomationMigrator> logger) : IMigrator
 {
     public string ContextName => "Automation";
 
@@ -15,8 +15,8 @@ public sealed class AutomationMigrator(
         await using AutomationDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation("Applying Automation EF Core migrations.");
+        logger.LogInformation("Applying Automation EF Core migrations.");
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        log.LogInformation("Automation migrations applied.");
+        logger.LogInformation("Automation migrations applied.");
     }
 }

@@ -25,7 +25,7 @@ namespace SmartSentinelEye.SystemVariables.Infrastructure.Resolution;
 public sealed class ReverseIndexSeederHostedService(
     IHttpClientFactory httpClientFactory,
     IReverseIndex reverseIndex,
-    ILogger<ReverseIndexSeederHostedService> log) : IHostedService
+    ILogger<ReverseIndexSeederHostedService> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -46,7 +46,7 @@ public sealed class ReverseIndexSeederHostedService(
 
             if (!response.IsSuccessStatusCode)
             {
-                log.LogWarning(
+                logger.LogWarning(
                     "ReverseIndex seed: overlay-designer returned {Status}; starting with empty index. " +
                     "The index will populate as new OverlayRevisionPublishedV1 events arrive.",
                     response.StatusCode);
@@ -57,7 +57,7 @@ public sealed class ReverseIndexSeederHostedService(
                 .ReadFromJsonAsync<JsonElement>(cancellationToken).ConfigureAwait(false);
             if (!payload.TryGetProperty("published", out JsonElement published))
             {
-                log.LogWarning("ReverseIndex seed: response missing 'published' key; index left empty.");
+                logger.LogWarning("ReverseIndex seed: response missing 'published' key; index left empty.");
                 return;
             }
 
@@ -72,11 +72,11 @@ public sealed class ReverseIndexSeederHostedService(
                 seeded++;
             }
 
-            log.LogInformation("ReverseIndex seeded with {Count} published overlays.", seeded);
+            logger.LogInformation("ReverseIndex seeded with {Count} published overlays.", seeded);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            log.LogWarning(ex,
+            logger.LogWarning(ex,
                 "ReverseIndex seed failed; starting with empty index. " +
                 "Self-heal will kick in as overlay V1 events arrive.");
         }

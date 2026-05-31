@@ -9,7 +9,7 @@ namespace SmartSentinelEye.Automation.Application.Commands.Handlers;
 public sealed class CreateRuleCommandHandler(
     IRuleRepository rules,
     IClock clock,
-    ILogger<CreateRuleCommandHandler> log)
+    ILogger<CreateRuleCommandHandler> logger)
     : ICommandHandler<CreateRuleCommand, Result<RuleIdentifier, CreateRuleError>>
 {
     public async Task<Result<RuleIdentifier, CreateRuleError>> HandleAsync(
@@ -65,7 +65,7 @@ public sealed class CreateRuleCommandHandler(
         rules.Add(rule);
         await rules.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Created rule {Rule} '{Name}' ({TriggerSource}/{TriggerKind}) by {Operator}.",
             rule.Id, name, triggerSource, triggerKind, createdBy);
 

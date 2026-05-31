@@ -8,7 +8,7 @@ namespace SmartSentinelEye.OverlayDesigner.Application.Commands.Handlers;
 public sealed class BranchDraftRevisionCommandHandler(
     IOverlayRepository overlays,
     IClock clock,
-    ILogger<BranchDraftRevisionCommandHandler> log)
+    ILogger<BranchDraftRevisionCommandHandler> logger)
     : ICommandHandler<BranchDraftRevisionCommand, Result<OverlayRevisionNumber, BranchDraftRevisionError>>
 {
     public async Task<Result<OverlayRevisionNumber, BranchDraftRevisionError>> HandleAsync(
@@ -36,7 +36,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         Revision branched = overlay.BranchDraft(branchedBy, clock);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Branched draft revision {Revision} on overlay {Overlay} by {Operator}.",
             branched.Number, overlay.Id, branchedBy);
 

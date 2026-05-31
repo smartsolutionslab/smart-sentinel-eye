@@ -10,7 +10,7 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 /// </summary>
 public sealed class StreamDistributionMigrator(
     IDbContextFactory<StreamDistributionDbContext> dbContextFactory,
-    ILogger<StreamDistributionMigrator> log) : IMigrator
+    ILogger<StreamDistributionMigrator> logger) : IMigrator
 {
     public string ContextName => "StreamDistribution";
 
@@ -19,8 +19,8 @@ public sealed class StreamDistributionMigrator(
         await using StreamDistributionDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation("Applying Stream Distribution EF Core migrations.");
+        logger.LogInformation("Applying Stream Distribution EF Core migrations.");
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        log.LogInformation("Stream Distribution migrations applied.");
+        logger.LogInformation("Stream Distribution migrations applied.");
     }
 }

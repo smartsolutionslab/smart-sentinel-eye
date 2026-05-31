@@ -8,7 +8,7 @@ namespace SmartSentinelEye.OverlayDesigner.Application.Commands.Handlers;
 public sealed class CreateOverlayDraftCommandHandler(
     IOverlayRepository overlays,
     IClock clock,
-    ILogger<CreateOverlayDraftCommandHandler> log)
+    ILogger<CreateOverlayDraftCommandHandler> logger)
     : ICommandHandler<CreateOverlayDraftCommand, Result<OverlayIdentifier, CreateOverlayDraftError>>
 {
     public async Task<Result<OverlayIdentifier, CreateOverlayDraftError>> HandleAsync(
@@ -31,7 +31,7 @@ public sealed class CreateOverlayDraftCommandHandler(
         overlays.Add(overlay);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Created overlay {Overlay} '{Name}' (Draft) by {Operator}.",
             overlay.Id, name, createdBy);
 

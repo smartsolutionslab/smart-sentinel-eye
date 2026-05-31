@@ -22,7 +22,7 @@ public sealed class VariableArchivedDomainEventHandler(
     IReverseIndex reverseIndex,
     IVariableRepository variables,
     IResolver resolver,
-    ILogger<VariableArchivedDomainEventHandler> log)
+    ILogger<VariableArchivedDomainEventHandler> logger)
     : IDomainEventHandler<VariableArchivedDomainEvent>
 {
     public async Task Handle(VariableArchivedDomainEvent domainEvent, CancellationToken cancellationToken)
@@ -83,7 +83,7 @@ public sealed class VariableArchivedDomainEventHandler(
                 cancellationToken).ConfigureAwait(false);
         }
 
-        log.LogInformation(
+        logger.LogInformation(
             "Pushed ResolvedOverlayTextChanged to {Count} overlays after '{Name}' was archived.",
             affectedOverlays.Count, domainEvent.Name);
     }

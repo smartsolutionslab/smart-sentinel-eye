@@ -13,7 +13,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 /// </summary>
 public sealed class OverlayHighlightRequestedV1Handler(
     ILayoutLifecycleBroadcaster broadcaster,
-    ILogger<OverlayHighlightRequestedV1Handler> log)
+    ILogger<OverlayHighlightRequestedV1Handler> logger)
 {
     public async Task Handle(OverlayHighlightRequestedV1 message, CancellationToken cancellationToken)
     {
@@ -22,7 +22,7 @@ public sealed class OverlayHighlightRequestedV1Handler(
             new OverlayHighlightedNotification(message.OverlayIdentifier, message.DurationMs),
             cancellationToken).ConfigureAwait(false);
 
-        log.LogDebug(
+        logger.LogDebug(
             "Broadcast OverlayHighlightChanged for overlay {Overlay} ({Duration} ms; caused by {CausingEvent}).",
             message.OverlayIdentifier, message.DurationMs, message.CausingEventIdentifier);
     }

@@ -10,7 +10,7 @@ public sealed class PublishRuleCommandHandler(
     IRuleRepository rules,
     IRuleCache cache,
     IClock clock,
-    ILogger<PublishRuleCommandHandler> log)
+    ILogger<PublishRuleCommandHandler> logger)
     : ICommandHandler<PublishRuleCommand, Result<RuleIdentifier, PublishRuleError>>
 {
     public async Task<Result<RuleIdentifier, PublishRuleError>> HandleAsync(
@@ -44,7 +44,7 @@ public sealed class PublishRuleCommandHandler(
         // incoming event without waiting for a process restart.
         cache.Upsert(rule);
 
-        log.LogInformation("Published rule {Rule} '{Name}'.", rule.Id, command.Name);
+        logger.LogInformation("Published rule {Rule} '{Name}'.", rule.Id, command.Name);
 
         return Result<RuleIdentifier, PublishRuleError>.Success(rule.Id);
     }

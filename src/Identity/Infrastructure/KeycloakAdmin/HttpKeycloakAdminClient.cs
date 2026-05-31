@@ -31,7 +31,7 @@ public sealed class HttpKeycloakAdminClient(
     HttpClient httpClient,
     KeycloakAdminTokenProvider tokenProvider,
     IOptions<KeycloakAdminOptions> options,
-    ILogger<HttpKeycloakAdminClient> log) : IKeycloakAdminClient
+    ILogger<HttpKeycloakAdminClient> logger) : IKeycloakAdminClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -117,7 +117,7 @@ public sealed class HttpKeycloakAdminClient(
             .ConfigureAwait(false);
         if (clientUuid is null)
         {
-            log.LogDebug(
+            logger.LogDebug(
                 "DisableClientAsync('{ClientId}'): no such Keycloak client; treating as no-op.",
                 clientId);
             return;

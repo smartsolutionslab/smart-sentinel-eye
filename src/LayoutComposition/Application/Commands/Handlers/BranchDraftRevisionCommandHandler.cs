@@ -8,7 +8,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 public sealed class BranchDraftRevisionCommandHandler(
     ILayoutRepository layouts,
     IClock clock,
-    ILogger<BranchDraftRevisionCommandHandler> log)
+    ILogger<BranchDraftRevisionCommandHandler> logger)
     : ICommandHandler<BranchDraftRevisionCommand, Result<LayoutRevisionNumber, BranchDraftRevisionError>>
 {
     public async Task<Result<LayoutRevisionNumber, BranchDraftRevisionError>> HandleAsync(
@@ -36,7 +36,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         Revision branched = layout.BranchDraft(branchedBy, clock);
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Branched draft revision {Revision} on layout {Layout} by {Operator}.",
             branched.Number, layout.Id, branchedBy);
 

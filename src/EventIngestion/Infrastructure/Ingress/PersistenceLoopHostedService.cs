@@ -20,11 +20,11 @@ namespace SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 public sealed class PersistenceLoopHostedService(
     IIngestChannel channel,
     IServiceScopeFactory scopeFactory,
-    ILogger<PersistenceLoopHostedService> log) : BackgroundService
+    ILogger<PersistenceLoopHostedService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        log.LogInformation("Persistence loop started.");
+        logger.LogInformation("Persistence loop started.");
         try
         {
             await foreach (EventEnvelope envelope in channel.ReadAllAsync(stoppingToken).ConfigureAwait(false))
@@ -34,7 +34,7 @@ public sealed class PersistenceLoopHostedService(
         }
         catch (OperationCanceledException ex) when (stoppingToken.IsCancellationRequested)
         {
-            log.LogInformation(ex, "Persistence loop stopping (cancellation).");
+            logger.LogInformation(ex, "Persistence loop stopping (cancellation).");
         }
     }
 
@@ -50,7 +50,7 @@ public sealed class PersistenceLoopHostedService(
 
         if (!result.IsSuccess)
         {
-            log.LogWarning(
+            logger.LogWarning(
                 "Ingest failed for {Identifier} ({Source}/{Device}): {Code}",
                 envelope.Identifier, envelope.Source, envelope.Device, result.Error.Code);
         }

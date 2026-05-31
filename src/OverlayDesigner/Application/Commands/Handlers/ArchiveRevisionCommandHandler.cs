@@ -8,7 +8,7 @@ namespace SmartSentinelEye.OverlayDesigner.Application.Commands.Handlers;
 public sealed class ArchiveRevisionCommandHandler(
     IOverlayRepository overlays,
     IClock clock,
-    ILogger<ArchiveRevisionCommandHandler> log)
+    ILogger<ArchiveRevisionCommandHandler> logger)
     : ICommandHandler<ArchiveRevisionCommand, Result<OverlayRevisionNumber, ArchiveRevisionError>>
 {
     public async Task<Result<OverlayRevisionNumber, ArchiveRevisionError>> HandleAsync(
@@ -37,7 +37,7 @@ public sealed class ArchiveRevisionCommandHandler(
         overlay.ArchiveRevision(revisionNumber, archivedBy, clock);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Archived overlay {Overlay} revision {Revision} by {Operator}.",
             overlay.Id, revisionNumber, archivedBy);
 

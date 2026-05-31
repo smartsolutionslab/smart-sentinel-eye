@@ -8,7 +8,7 @@ namespace SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 public sealed class RevokeWebhookIntegrationCommandHandler(
     IWebhookIntegrationRepository integrations,
     IClock clock,
-    ILogger<RevokeWebhookIntegrationCommandHandler> log)
+    ILogger<RevokeWebhookIntegrationCommandHandler> logger)
     : ICommandHandler<
         RevokeWebhookIntegrationCommand,
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>>
@@ -31,7 +31,7 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
         integration.Revoke(clock);
         await integrations.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Revoked webhook integration '{Name}' ({Identifier}).", integration.Name, integration.Id);
 
         return Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>.Success(integration.Id);

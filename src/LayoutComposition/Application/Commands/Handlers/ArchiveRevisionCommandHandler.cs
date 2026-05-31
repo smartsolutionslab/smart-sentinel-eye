@@ -8,7 +8,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 public sealed class ArchiveRevisionCommandHandler(
     ILayoutRepository layouts,
     IClock clock,
-    ILogger<ArchiveRevisionCommandHandler> log)
+    ILogger<ArchiveRevisionCommandHandler> logger)
     : ICommandHandler<ArchiveRevisionCommand, Result<LayoutRevisionNumber, ArchiveRevisionError>>
 {
     public async Task<Result<LayoutRevisionNumber, ArchiveRevisionError>> HandleAsync(
@@ -37,7 +37,7 @@ public sealed class ArchiveRevisionCommandHandler(
         layout.ArchiveRevision(revisionNumber, archivedBy, clock);
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        log.LogInformation(
+        logger.LogInformation(
             "Archived layout {Layout} revision {Revision} by {Operator}.",
             layout.Id, revisionNumber, archivedBy);
 
