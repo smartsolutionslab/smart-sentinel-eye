@@ -19,7 +19,12 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        int pageSize = query.PageSize <= 0 ? DefaultPageSize : query.PageSize;
+        // The filter fields are consumed by BuildPagedQuery (which takes the
+        // whole query so its EF translation can be verified offline); only the
+        // paging inputs are handled here.
+        var (_, _, _, _, _, _, _, _, rawPageSize, rawCursor) = query;
+
+        int pageSize = rawPageSize <= 0 ? DefaultPageSize : rawPageSize;
         if (pageSize > MaximumPageSize)
         {
             return Result<EventPageDto, ListEventsError>.Failure(
@@ -27,13 +32,13 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
         }
 
         (DateTimeOffset Ingested, Guid EventId)? cursor = null;
-        if (!string.IsNullOrEmpty(query.Cursor))
+        if (!string.IsNullOrEmpty(rawCursor))
         {
-            cursor = TryDecodeCursor(query.Cursor);
+            cursor = TryDecodeCursor(rawCursor);
             if (cursor is null)
             {
                 return Result<EventPageDto, ListEventsError>.Failure(
-                    new ListEventsError.InvalidCursor(query.Cursor));
+                    new ListEventsError.InvalidCursor(rawCursor));
             }
         }
 
