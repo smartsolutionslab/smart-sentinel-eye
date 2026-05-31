@@ -35,7 +35,10 @@
 param(
     [string]$Configuration = 'Release',
     [string]$OutputDirectory = "$PSScriptRoot/../artifacts/coverage",
-    [switch]$OpenReport
+    [switch]$OpenReport,
+    # CI passes -NoBuild so this reuses the build job's output instead of
+    # rebuilding (and re-running) the whole solution a second time.
+    [switch]$NoBuild
 )
 
 $ErrorActionPreference = 'Stop'
@@ -55,10 +58,15 @@ try {
     # FullyQualifiedName substring — spec 006 introduces classes
     # named `WebhookIntegration` whose tests would otherwise be
     # filtered out by an `!~Integration` substring match.
-    & dotnet test --filter 'FullyQualifiedName!~SmartSentinelEye.Integration.Tests' `
-        -c $Configuration `
-        --collect:'XPlat Code Coverage' `
-        --results-directory $rawDir
+    $testArgs = @(
+        'test'
+        '--filter', 'FullyQualifiedName!~SmartSentinelEye.Integration.Tests'
+        '-c', $Configuration
+        '--collect:XPlat Code Coverage'
+        '--results-directory', $rawDir
+    )
+    if ($NoBuild) { $testArgs += '--no-build' }
+    & dotnet @testArgs
     if ($LASTEXITCODE -ne 0) { throw "dotnet test failed (exit $LASTEXITCODE)." }
 
     Write-Host "==> Restoring local tools..."
