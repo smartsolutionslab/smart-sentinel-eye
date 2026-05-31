@@ -101,25 +101,30 @@ if (isRunMode && !isE2ETests)
 // PLC and inference device publishes on a per-device topic; the
 // event-ingestion service subscribes with a fab-scoped wildcard.
 //
-// Spec 008 ADR-0100's mosquitto-go-auth integration is parked: the
-// upstream plugin (v3.0.0) does not expose a pure-JWKS validation
-// mode — `jwt_mode local` requires a SQL DB, `jwt_mode remote`
-// adds a Keycloak round-trip per CONNECT (incompatible with the
-// 5 ms p99 NFR-002 budget), `jwt_mode files` requires PEM keys in
-// `auth_opt_jwt_secret` rather than a JWKS URI. The plugin would
-// need a custom Go wrapper to enable the documented pattern. The
-// broker config drafts (mosquitto.conf, conf.d/go-auth.conf,
-// Dockerfile) stay in `src/AppHost/mosquitto/` as the starting
-// point for that follow-up; the dev stack runs the upstream
-// password-file image so spec 001-007 keep working and the
-// EventIngestion subscriber + station-4 / camera-12 seeds stay
-// connectable.
+// Spec 008 ADR-0100: the image is built from `mosquitto/Dockerfile`,
+// which adds a custom Go auth plugin (`mosquitto/plugin/`) that
+// validates Keycloak-minted RS256 JWTs against the realm JWKS with no
+// per-CONNECT round-trip. The upstream iegomez/mosquitto-go-auth
+// plugin can't do this (HMAC-only signatures, no JWKS) — see the ADR.
+// Non-JWT passwords fall through to the password_file, so the spec 006
+// EventIngestion subscriber + station-4 / camera-12 seeds keep working.
+//
+// The plugin needs the realm JWKS, so AppHost injects the
+// container-reachable Keycloak URL as SSE_JWT_JWKS_URI and waits for
+// Keycloak so the set is fetchable on first connect (the plugin also
+// retries until it is).
 var mosquitto = builder
-    .AddContainer("mosquitto", "eclipse-mosquitto", "2.0")
+    .AddDockerfile("mosquitto", "mosquitto")
     .WithBindMount("mosquitto/mosquitto.conf", "/mosquitto/config/mosquitto.conf")
     .WithBindMount("mosquitto/passwords.txt", "/mosquitto/config/passwords.txt")
     .WithBindMount("mosquitto/acl.txt", "/mosquitto/config/acl.txt")
-    .WithEndpoint(targetPort: 1883, name: "mqtt", scheme: "tcp");
+    .WithEndpoint(targetPort: 1883, name: "mqtt", scheme: "tcp")
+    .WithEnvironment(context =>
+    {
+        context.EnvironmentVariables["SSE_JWT_JWKS_URI"] = ReferenceExpression.Create(
+            $"{keycloak.GetEndpoint("http")}/realms/smart-sentinel-eye/protocol/openid-connect/certs");
+    })
+    .WaitFor(keycloak);
 
 if (isRunMode && !isE2ETests)
 {
