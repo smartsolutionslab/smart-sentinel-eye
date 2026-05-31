@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using SmartSentinelEye.ServiceDefaults;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.LayoutComposition.Api.Requests;
@@ -46,10 +47,7 @@ public static partial class LayoutEndpoints
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Created($"/layouts/{identifier.Value}", identifier.Value),
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> Publish(
@@ -88,10 +86,7 @@ public static partial class LayoutEndpoints
 
         return result.Match<IResult>(
             onSuccess: published => Results.Ok(published.Value),
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> Archive(
@@ -130,10 +125,7 @@ public static partial class LayoutEndpoints
 
         return result.Match<IResult>(
             onSuccess: archived => Results.Ok(archived.Value),
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> BranchDraft(
@@ -160,10 +152,7 @@ public static partial class LayoutEndpoints
         return result.Match<IResult>(
             onSuccess: branched => Results.Created(
                 $"/layouts/{layoutIdentifier}/revisions/{branched.Value}", branched.Value),
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> EditDraft(
@@ -206,10 +195,7 @@ public static partial class LayoutEndpoints
 
         return result.Match<IResult>(
             onSuccess: edited => Results.Ok(edited.Value),
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> Revert(
@@ -248,10 +234,7 @@ public static partial class LayoutEndpoints
 
         return result.Match<IResult>(
             onSuccess: reverted => Results.Ok(reverted.Value),
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static OverlayChange TranslateOverlayChange(OverlayBindingUpdate? update)

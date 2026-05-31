@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using SmartSentinelEye.ServiceDefaults;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.LayoutComposition.Application.DTOs;
 using SmartSentinelEye.LayoutComposition.Application.Queries;
@@ -30,10 +31,7 @@ public static partial class LayoutEndpoints
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> List(
@@ -63,9 +61,6 @@ public static partial class LayoutEndpoints
 
         return result.Match<IResult>(
             onSuccess: payload => Results.Ok(new ListLayoutsResponse(payload.Chains, payload.Published)),
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 }

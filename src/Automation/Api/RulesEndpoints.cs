@@ -9,6 +9,7 @@ using SmartSentinelEye.Automation.Application.Commands.Handlers;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.Automation.Api;
 
@@ -81,8 +82,7 @@ public static class RulesEndpoints
 
         return result.Match<IResult>(
             onSuccess: id => Results.Created($"/rules/{name.Value}", id.Value),
-            onFailure: error => Results.Problem(
-                title: error.Code, detail: error.Message, statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> Publish(
@@ -107,8 +107,7 @@ public static class RulesEndpoints
 
         return result.Match<IResult>(
             onSuccess: id => Results.Ok(id.Value),
-            onFailure: error => Results.Problem(
-                title: error.Code, detail: error.Message, statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> Archive(
@@ -133,8 +132,7 @@ public static class RulesEndpoints
 
         return result.Match<IResult>(
             onSuccess: id => Results.Ok(id.Value),
-            onFailure: error => Results.Problem(
-                title: error.Code, detail: error.Message, statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static RuleAction BuildAction(CreateRuleRequest body)

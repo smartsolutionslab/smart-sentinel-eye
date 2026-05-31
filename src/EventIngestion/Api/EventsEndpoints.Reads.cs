@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using SmartSentinelEye.ServiceDefaults;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.EventIngestion.Application.DTOs;
 using SmartSentinelEye.EventIngestion.Application.Queries;
@@ -52,8 +53,7 @@ public static partial class EventsEndpoints
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
-            onFailure: error => Results.Problem(
-                title: error.Code, detail: error.Message, statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> GetEvent(
@@ -81,8 +81,7 @@ public static partial class EventsEndpoints
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
-            onFailure: error => Results.Problem(
-                title: error.Code, detail: error.Message, statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> ListDeadLetters(
@@ -96,7 +95,6 @@ public static partial class EventsEndpoints
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
-            onFailure: error => Results.Problem(
-                title: error.Code, detail: error.Message, statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 }

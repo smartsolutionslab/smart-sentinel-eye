@@ -11,6 +11,7 @@ using SmartSentinelEye.CameraCatalog.Application.Queries.Handlers;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.CameraCatalog.Api;
 
@@ -79,10 +80,7 @@ public static class CameraEndpoints
             onSuccess: identifier => Results.Created(
                 $"/cameras/{identifier.Value}",
                 identifier.Value),
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> List(
@@ -104,10 +102,7 @@ public static class CameraEndpoints
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
-            onFailure: error => Results.Problem(
-                title: error.Code,
-                detail: error.Message,
-                statusCode: (int)error.Status));
+            onFailure: error => error.ToProblem());
     }
 
     private static OperatorIdentifier ResolveOperator(HttpContext httpContext)
