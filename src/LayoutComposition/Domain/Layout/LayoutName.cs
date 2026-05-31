@@ -19,7 +19,7 @@ public sealed record LayoutName : StringValueObject
         string validated = Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
             .HasMaxLength(MaximumLength)
-            .Satisfies(s => !s.Contains('\n') && !s.Contains('\r'), "must not contain a line break")
+            .Satisfies(candidate => !candidate.Contains('\n') && !candidate.Contains('\r'), "must not contain a line break")
             .AndReturn();
         return new LayoutName(validated.Trim());
     }

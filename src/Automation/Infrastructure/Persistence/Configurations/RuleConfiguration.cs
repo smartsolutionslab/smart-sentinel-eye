@@ -24,78 +24,78 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
         ArgumentNullException.ThrowIfNull(builder);
 
         builder.ToTable("rules");
-        builder.HasKey(r => r.Id);
+        builder.HasKey(rule => rule.Id);
 
-        builder.Property(r => r.Id)
+        builder.Property(rule => rule.Id)
             .HasColumnName("rule_id")
             .HasConversion(id => id.Value, value => RuleIdentifier.From(value))
             .ValueGeneratedNever();
 
-        builder.Property(r => r.Name)
+        builder.Property(rule => rule.Name)
             .HasColumnName("name")
             .HasMaxLength(RuleName.MaximumLength)
-            .HasConversion(n => n.Value, v => RuleName.From(v))
+            .HasConversion(name => name.Value, value => RuleName.From(value))
             .IsRequired();
 
-        builder.Property(r => r.TriggerSource)
+        builder.Property(rule => rule.TriggerSource)
             .HasColumnName("trigger_source")
             .HasMaxLength(16)
             .IsRequired();
 
-        builder.Property(r => r.TriggerKind)
+        builder.Property(rule => rule.TriggerKind)
             .HasColumnName("trigger_kind")
             .HasMaxLength(128)
             .IsRequired();
 
-        builder.Property(r => r.Predicate)
+        builder.Property(rule => rule.Predicate)
             .HasColumnName("predicate")
             .HasMaxLength(RulePredicate.MaximumLength)
-            .HasConversion(p => p.Value, v => RulePredicate.From(v))
+            .HasConversion(predicate => predicate.Value, value => RulePredicate.From(value))
             .IsRequired();
 
-        builder.Property(r => r.Action)
+        builder.Property(rule => rule.Action)
             .HasColumnName("action_packed")
             .HasColumnType("text")
             .HasConversion(
-                a => RuleActionColumnConverter.ToColumn(a),
-                v => RuleActionColumnConverter.FromColumn(v))
+                action => RuleActionColumnConverter.ToColumn(action),
+                value => RuleActionColumnConverter.FromColumn(value))
             .IsRequired();
 
-        builder.Property(r => r.State)
+        builder.Property(rule => rule.State)
             .HasColumnName("state")
             .HasMaxLength(16)
-            .HasConversion(s => s.Value, v => RuleState.From(v))
+            .HasConversion(state => state.Value, value => RuleState.From(value))
             .IsRequired();
 
-        builder.Property(r => r.CreatedAt)
+        builder.Property(rule => rule.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();
 
-        builder.Property(r => r.CreatedBy)
+        builder.Property(rule => rule.CreatedBy)
             .HasColumnName("created_by")
-            .HasConversion(o => o.Value, v => OperatorIdentifier.From(v))
+            .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
             .IsRequired();
 
-        builder.Property(r => r.PublishedAt).HasColumnName("published_at");
-        builder.Property(r => r.ArchivedAt).HasColumnName("archived_at");
+        builder.Property(rule => rule.PublishedAt).HasColumnName("published_at");
+        builder.Property(rule => rule.ArchivedAt).HasColumnName("archived_at");
 
-        builder.Property(r => r.Version)
+        builder.Property(rule => rule.Version)
             .HasColumnName("version")
             .IsConcurrencyToken();
 
         // FR-002 belt-and-braces: at most one non-Archived rule per
         // name. The application handler is the authoritative source
         // of truth; this partial unique index prevents drift.
-        builder.HasIndex(r => r.Name)
+        builder.HasIndex(rule => rule.Name)
             .HasDatabaseName("ux_rules_name_active")
             .IsUnique()
             .HasFilter("state <> 'Archived'");
 
         // Trigger lookup path used by the cache seeder.
-        builder.HasIndex(r => new { r.TriggerSource, r.TriggerKind, r.State })
+        builder.HasIndex(rule => new { rule.TriggerSource, rule.TriggerKind, rule.State })
             .HasDatabaseName("ix_rules_trigger_state");
 
-        builder.Ignore(r => r.PendingEvents);
+        builder.Ignore(rule => rule.PendingEvents);
     }
 }
 

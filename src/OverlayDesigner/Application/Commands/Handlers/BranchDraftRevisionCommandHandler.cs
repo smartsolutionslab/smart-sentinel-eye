@@ -27,7 +27,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         }
 
         Overlay overlay = found.Value;
-        if (!overlay.Revisions.Any(r => r.State == OverlayRevisionState.Published))
+        if (!overlay.Revisions.Any(revision => revision.State == OverlayRevisionState.Published))
         {
             return Result<OverlayRevisionNumber, BranchDraftRevisionError>.Failure(
                 new BranchDraftRevisionError.NoPublishedRevisionToBranchFrom(overlayIdentifier.Value));

@@ -11,39 +11,39 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
         ArgumentNullException.ThrowIfNull(builder);
 
         builder.ToTable("dead_letters");
-        builder.HasKey(d => d.Id);
+        builder.HasKey(deadLetter => deadLetter.Id);
 
-        builder.Property(d => d.Id)
+        builder.Property(deadLetter => deadLetter.Id)
             .HasColumnName("dead_letter_id")
             .HasConversion(id => id.Value, value => DeadLetterIdentifier.From(value))
             .ValueGeneratedNever();
 
-        builder.Property(d => d.Topic)
+        builder.Property(deadLetter => deadLetter.Topic)
             .HasColumnName("topic")
             .HasMaxLength(256)
             .IsRequired();
 
-        builder.Property(d => d.RawPayload)
+        builder.Property(deadLetter => deadLetter.RawPayload)
             .HasColumnName("raw_payload")
             .HasColumnType("text")
             .IsRequired();
 
-        builder.Property(d => d.Error)
+        builder.Property(deadLetter => deadLetter.Error)
             .HasColumnName("error")
             .HasMaxLength(512)
             .IsRequired();
 
-        builder.Property(d => d.RejectedAt)
+        builder.Property(deadLetter => deadLetter.RejectedAt)
             .HasColumnName("rejected_at")
             .IsRequired();
 
-        builder.Property(d => d.Version)
+        builder.Property(deadLetter => deadLetter.Version)
             .HasColumnName("version")
             .IsConcurrencyToken();
 
-        builder.HasIndex(d => d.RejectedAt)
+        builder.HasIndex(deadLetter => deadLetter.RejectedAt)
             .HasDatabaseName("ix_dead_letters_rejected_at");
 
-        builder.Ignore(d => d.PendingEvents);
+        builder.Ignore(deadLetter => deadLetter.PendingEvents);
     }
 }

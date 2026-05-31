@@ -29,7 +29,7 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
                 new SearchAuditError.PageSizeOutOfRange(pageSize, 1, MaximumPageSize));
         }
 
-        if (resourceKind is { } rk && !DomainResourceKind.All.Any(k => k.Value == rk))
+        if (resourceKind is { } rk && !DomainResourceKind.All.Any(kind => kind.Value == rk))
         {
             return Result<AuditPageDto, SearchAuditError>.Failure(
                 new SearchAuditError.InvalidResourceKind(rk));
@@ -55,59 +55,59 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         if (fab is not null)
         {
             FabIdentifier fabId = FabIdentifier.From(fab);
-            source = source.Where(a => a.Fab == fabId);
+            source = source.Where(auditEvent => auditEvent.Fab == fabId);
         }
         else if (callerFabs.Count > 0)
         {
             List<FabIdentifier> allowed = [.. callerFabs.Select(FabIdentifier.From)];
-            source = source.Where(a => a.Fab != null && allowed.Contains(a.Fab));
+            source = source.Where(auditEvent => auditEvent.Fab != null && allowed.Contains(auditEvent.Fab));
         }
         else
         {
             // A caller with no fab membership can only see cross-fab rows.
-            source = source.Where(a => a.Fab == null);
+            source = source.Where(auditEvent => auditEvent.Fab == null);
         }
 
         if (actor is { } actorValue)
         {
             ActorIdentifier actorId = ActorIdentifier.From(actorValue);
-            source = source.Where(a => a.Actor == actorId);
+            source = source.Where(auditEvent => auditEvent.Actor == actorId);
         }
         if (actorUsername is not null)
         {
-            source = source.Where(a => a.ActorUsername == actorUsername);
+            source = source.Where(auditEvent => auditEvent.ActorUsername == actorUsername);
         }
         if (eventKind is not null)
         {
             EventKind kind = EventKind.From(eventKind);
-            source = source.Where(a => a.EventKind == kind);
+            source = source.Where(auditEvent => auditEvent.EventKind == kind);
         }
         if (resourceKind is not null)
         {
             DomainResourceKind resourceKindFilter = DomainResourceKind.From(resourceKind);
-            source = source.Where(a => a.ResourceKind == resourceKindFilter);
+            source = source.Where(auditEvent => auditEvent.ResourceKind == resourceKindFilter);
         }
         if (resourceIdentifier is not null)
         {
             ResourceIdentifier resId = ResourceIdentifier.From(resourceIdentifier);
-            source = source.Where(a => a.ResourceIdentifier == resId);
+            source = source.Where(auditEvent => auditEvent.ResourceIdentifier == resId);
         }
-        if (since is { } sinceFrom) source = source.Where(a => a.OccurredAt >= sinceFrom);
-        if (until is { } untilTo) source = source.Where(a => a.OccurredAt < untilTo);
+        if (since is { } sinceFrom) source = source.Where(auditEvent => auditEvent.OccurredAt >= sinceFrom);
+        if (until is { } untilTo) source = source.Where(auditEvent => auditEvent.OccurredAt < untilTo);
 
         if (cursor is { } c)
         {
             // Strict 'less than' for descending order; tuple compare
             // breaks ties on AuditIdentifier so concurrent inserts
             // sharing the same OccurredAt don't shift the window.
-            source = source.Where(a =>
-                a.OccurredAt < c.OccurredAt ||
-                (a.OccurredAt == c.OccurredAt && ((Guid)a.Id).CompareTo(c.AuditIdentifier) < 0));
+            source = source.Where(auditEvent =>
+                auditEvent.OccurredAt < c.OccurredAt ||
+                (auditEvent.OccurredAt == c.OccurredAt && ((Guid)auditEvent.Id).CompareTo(c.AuditIdentifier) < 0));
         }
 
         List<AuditEventEntity> rows = await source
-            .OrderByDescending(a => a.OccurredAt)
-            .ThenByDescending(a => a.Id)
+            .OrderByDescending(auditEvent => auditEvent.OccurredAt)
+            .ThenByDescending(auditEvent => auditEvent.Id)
             .Take(pageSize + 1)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);

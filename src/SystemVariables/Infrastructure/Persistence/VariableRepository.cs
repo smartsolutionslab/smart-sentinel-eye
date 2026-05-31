@@ -13,7 +13,7 @@ public sealed class VariableRepository(
         VariableIdentifier variable, CancellationToken cancellationToken)
     {
         Variable? found = await dbContext.Variables
-            .FirstOrDefaultAsync(v => v.Id == variable, cancellationToken)
+            .FirstOrDefaultAsync(candidate => candidate.Id == variable, cancellationToken)
             .ConfigureAwait(false);
         return found is null ? Option<Variable>.None : Option<Variable>.Some(found);
     }
@@ -24,8 +24,8 @@ public sealed class VariableRepository(
         ArgumentNullException.ThrowIfNull(name);
         // FR-005: archived names are released for re-use; only return non-Archived rows.
         Variable? found = await dbContext.Variables
-            .Where(v => v.Name == name)
-            .Where(v => v.State != VariableState.Archived)
+            .Where(variable => variable.Name == name)
+            .Where(variable => variable.State != VariableState.Archived)
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
         return found is null ? Option<Variable>.None : Option<Variable>.Some(found);

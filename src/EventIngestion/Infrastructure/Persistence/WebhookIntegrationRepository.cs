@@ -14,7 +14,7 @@ public sealed class WebhookIntegrationRepository(
     {
         ArgumentNullException.ThrowIfNull(name);
         WebhookIntegration? found = await dbContext.WebhookIntegrations
-            .Where(w => w.Name == name)
+            .Where(integration => integration.Name == name)
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
         return found is null ? Option<WebhookIntegration>.None : Option<WebhookIntegration>.Some(found);

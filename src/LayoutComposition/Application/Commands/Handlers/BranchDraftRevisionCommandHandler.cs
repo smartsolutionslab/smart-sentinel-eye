@@ -27,7 +27,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         }
 
         Layout layout = found.Value;
-        if (!layout.Revisions.Any(r => r.State == LayoutRevisionState.Published))
+        if (!layout.Revisions.Any(revision => revision.State == LayoutRevisionState.Published))
         {
             return Result<LayoutRevisionNumber, BranchDraftRevisionError>.Failure(
                 new BranchDraftRevisionError.NoPublishedRevisionToBranchFrom(layoutIdentifier.Value));

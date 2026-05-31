@@ -72,9 +72,9 @@ public static class WebhookIntegrationsEndpoints
                 cancellationToken).ConfigureAwait(false);
 
         return result.Match<IResult>(
-            onSuccess: r => Results.Created(
+            onSuccess: registration => Results.Created(
                 $"/webhook-integrations/{name.Value}",
-                new RegisteredWebhookResponse(r.Identifier.Value, name.Value, r.PlainToken)),
+                new RegisteredWebhookResponse(registration.Identifier.Value, name.Value, registration.PlainToken)),
             onFailure: error => error.ToProblem());
     }
 

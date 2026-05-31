@@ -27,7 +27,7 @@ public sealed class ArchiveRevisionCommandHandler(
         }
 
         Overlay overlay = found.Value;
-        if (!overlay.Revisions.Any(r => r.Number == revisionNumber))
+        if (!overlay.Revisions.Any(revision => revision.Number == revisionNumber))
         {
             return Result<OverlayRevisionNumber, ArchiveRevisionError>.Failure(
                 new ArchiveRevisionError.OverlayRevisionNotFound(

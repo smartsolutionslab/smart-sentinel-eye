@@ -35,7 +35,7 @@ public sealed class RuleCacheSeederHostedService(
                 .CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
             List<RuleAggregate> active = await context.Rules
-                .Where(r => r.State == RuleState.Active)
+                .Where(rule => rule.State == RuleState.Active)
                 .AsNoTracking()
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);

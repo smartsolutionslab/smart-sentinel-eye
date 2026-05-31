@@ -27,7 +27,7 @@ public sealed class EditDraftRevisionCommandHandler(
         }
 
         Overlay overlay = found.Value;
-        Revision? revision = overlay.Revisions.SingleOrDefault(r => r.Number == revisionNumber);
+        Revision? revision = overlay.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
         if (revision is null)
         {
             return Result<OverlayRevisionNumber, EditDraftRevisionError>.Failure(

@@ -34,7 +34,7 @@ public sealed class GetOverlayQueryHandler(IOverlayQuerySource overlays)
             CreatedAt: overlay.CreatedAt,
             CreatedBy: overlay.CreatedBy.Value,
             Revisions: overlay.Revisions
-                .OrderBy(r => r.Number.Value)
+                .OrderBy(revision => revision.Number.Value)
                 .Select(MapRevision)
                 .ToList());
 

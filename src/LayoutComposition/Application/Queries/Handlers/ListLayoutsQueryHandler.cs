@@ -19,14 +19,14 @@ public sealed class ListLayoutsQueryHandler(ILayoutQuerySource layouts)
             // Kiosk picker shape: one row per chain that has a Published revision.
             // Filter pushed into SQL via the LayoutRevisionState value-converter.
             List<Layout> source = await layouts.Layouts
-                .Where(layout => layout.Revisions.Any(r => r.State == LayoutRevisionState.Published))
+                .Where(layout => layout.Revisions.Any(revision => revision.State == LayoutRevisionState.Published))
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
 
             IReadOnlyList<PublishedLayoutDto> published = source
                 .Select(layout =>
                 {
-                    Revision pub = layout.Revisions.Single(r => r.State == LayoutRevisionState.Published);
+                    Revision pub = layout.Revisions.Single(revision => revision.State == LayoutRevisionState.Published);
                     return new PublishedLayoutDto(
                         LayoutIdentifier: layout.Id.Value,
                         Name: layout.Name.Value,

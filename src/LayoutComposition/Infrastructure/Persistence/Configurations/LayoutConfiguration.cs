@@ -64,50 +64,50 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
         {
             revisions.ToTable("layout_revisions");
             revisions.WithOwner().HasForeignKey("layout_id");
-            revisions.HasKey(r => r.Id);
+            revisions.HasKey(revision => revision.Id);
 
-            revisions.Property(r => r.Id)
+            revisions.Property(revision => revision.Id)
                 .HasColumnName("revision_id")
                 .HasConversion(id => id.Value, value => LayoutRevisionIdentifier.From(value))
                 .ValueGeneratedNever();
 
-            revisions.Property(r => r.Number)
+            revisions.Property(revision => revision.Number)
                 .HasColumnName("revision_number")
                 .HasConversion(number => number.Value, value => LayoutRevisionNumber.From(value))
                 .IsRequired();
 
-            revisions.Property(r => r.State)
+            revisions.Property(revision => revision.State)
                 .HasColumnName("state")
                 .HasMaxLength(16)
                 .HasConversion(state => state.Value, value => LayoutRevisionState.From(value))
                 .IsRequired();
 
-            revisions.Property(r => r.Camera)
+            revisions.Property(revision => revision.Camera)
                 .HasColumnName("camera_id")
                 .HasConversion(camera => camera.Value, value => CameraIdentifier.From(value))
                 .IsRequired();
 
-            revisions.Property(r => r.Overlay)
+            revisions.Property(revision => revision.Overlay)
                 .HasColumnName("overlay_id")
                 .HasConversion(
                     overlay => overlay.HasValue ? overlay.Value.Value : (Guid?)null,
                     value => value.HasValue ? OverlayIdentifier.From(value.Value) : (OverlayIdentifier?)null)
                 .IsRequired(false);
 
-            revisions.Property(r => r.CreatedAt)
+            revisions.Property(revision => revision.CreatedAt)
                 .HasColumnName("created_at")
                 .IsRequired();
 
-            revisions.Property(r => r.CreatedBy)
+            revisions.Property(revision => revision.CreatedBy)
                 .HasColumnName("created_by")
                 .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
                 .IsRequired();
 
-            revisions.Property(r => r.PublishedAt)
+            revisions.Property(revision => revision.PublishedAt)
                 .HasColumnName("published_at")
                 .IsRequired(false);
 
-            revisions.Property(r => r.ArchivedAt)
+            revisions.Property(revision => revision.ArchivedAt)
                 .HasColumnName("archived_at")
                 .IsRequired(false);
 

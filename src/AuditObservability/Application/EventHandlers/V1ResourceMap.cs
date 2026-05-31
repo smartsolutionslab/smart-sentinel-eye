@@ -143,7 +143,7 @@ public sealed partial class V1ResourceMap
         // Prefer the first Guid-typed property — every aggregate root in
         // the platform identifies itself with a Guid v7 (ADR-0039 / 0090),
         // so it's the most reliable signal across the V1 corpus.
-        PropertyInfo? pick = Array.Find(props, p => p.PropertyType == typeof(Guid));
+        PropertyInfo? pick = Array.Find(props, property => property.PropertyType == typeof(Guid));
 
         // Fall back to the small allow-list of canonical property names
         // for V1s whose first Guid property is *not* the aggregate id
@@ -152,7 +152,7 @@ public sealed partial class V1ResourceMap
         {
             foreach (string candidate in IdentifierPropertyNames)
             {
-                pick = Array.Find(props, p => p.Name == candidate);
+                pick = Array.Find(props, property => property.Name == candidate);
                 if (pick is not null) break;
             }
         }

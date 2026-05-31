@@ -27,7 +27,7 @@ public sealed class ArchiveRevisionCommandHandler(
         }
 
         Layout layout = found.Value;
-        if (!layout.Revisions.Any(r => r.Number == revisionNumber))
+        if (!layout.Revisions.Any(revision => revision.Number == revisionNumber))
         {
             return Result<LayoutRevisionNumber, ArchiveRevisionError>.Failure(
                 new ArchiveRevisionError.LayoutRevisionNotFound(

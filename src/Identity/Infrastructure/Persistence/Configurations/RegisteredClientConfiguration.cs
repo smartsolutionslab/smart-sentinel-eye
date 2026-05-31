@@ -19,59 +19,59 @@ public sealed class RegisteredClientConfiguration : IEntityTypeConfiguration<Reg
         ArgumentNullException.ThrowIfNull(builder);
 
         builder.ToTable("registered_clients");
-        builder.HasKey(r => r.Id);
+        builder.HasKey(client => client.Id);
 
-        builder.Property(r => r.Id)
+        builder.Property(client => client.Id)
             .HasColumnName("registered_client_id")
             .HasConversion(id => id.Value, value => RegisteredClientIdentifier.From(value))
             .ValueGeneratedNever();
 
-        builder.Property(r => r.ClientId)
+        builder.Property(client => client.ClientId)
             .HasColumnName("client_id")
             .HasMaxLength(ClientId.MaximumLength)
-            .HasConversion(c => c.Value, v => ClientId.From(v))
+            .HasConversion(clientId => clientId.Value, value => ClientId.From(value))
             .IsRequired();
 
-        builder.Property(r => r.Kind)
+        builder.Property(client => client.Kind)
             .HasColumnName("kind")
             .HasMaxLength(32)
-            .HasConversion(k => k.Value, v => ClientKind.From(v))
+            .HasConversion(kind => kind.Value, value => ClientKind.From(value))
             .IsRequired();
 
-        builder.Property(r => r.Fab)
+        builder.Property(client => client.Fab)
             .HasColumnName("fab")
             .HasMaxLength(FabIdentifier.MaximumLength)
-            .HasConversion(f => f.Value, v => FabIdentifier.From(v))
+            .HasConversion(fab => fab.Value, value => FabIdentifier.From(value))
             .IsRequired();
 
-        builder.Property(r => r.RegisteredAt)
+        builder.Property(client => client.RegisteredAt)
             .HasColumnName("registered_at")
             .IsRequired();
 
-        builder.Property(r => r.RegisteredBy)
+        builder.Property(client => client.RegisteredBy)
             .HasColumnName("registered_by")
-            .HasConversion(o => o.Value, v => OperatorIdentifier.From(v))
+            .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
             .IsRequired();
 
-        builder.Property(r => r.DisabledAt).HasColumnName("disabled_at");
-        builder.Property(r => r.LastRotatedAt).HasColumnName("last_rotated_at");
+        builder.Property(client => client.DisabledAt).HasColumnName("disabled_at");
+        builder.Property(client => client.LastRotatedAt).HasColumnName("last_rotated_at");
 
-        builder.Property(r => r.Version)
+        builder.Property(client => client.Version)
             .HasColumnName("version")
             .IsConcurrencyToken();
 
         // Active row uniqueness on client_id (FR-002 mirrors
         // spec 005's archived-name pattern: disabled rows release
         // the clientId for re-registration).
-        builder.HasIndex(r => r.ClientId)
+        builder.HasIndex(client => client.ClientId)
             .HasDatabaseName("ux_registered_clients_clientid_active")
             .IsUnique()
             .HasFilter("disabled_at IS NULL");
 
         // Lookup index for the management UI / spec 009 audit queries.
-        builder.HasIndex(r => new { r.Kind, r.Fab, r.DisabledAt })
+        builder.HasIndex(client => new { client.Kind, client.Fab, client.DisabledAt })
             .HasDatabaseName("ix_registered_clients_kind_fab_disabled");
 
-        builder.Ignore(r => r.PendingEvents);
+        builder.Ignore(client => client.PendingEvents);
     }
 }

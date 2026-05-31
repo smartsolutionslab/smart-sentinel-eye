@@ -34,7 +34,7 @@ public sealed class GetLayoutQueryHandler(ILayoutQuerySource layouts)
             CreatedAt: layout.CreatedAt,
             CreatedBy: layout.CreatedBy.Value,
             Revisions: layout.Revisions
-                .OrderBy(r => r.Number.Value)
+                .OrderBy(revision => revision.Number.Value)
                 .Select(MapRevision)
                 .ToList());
 

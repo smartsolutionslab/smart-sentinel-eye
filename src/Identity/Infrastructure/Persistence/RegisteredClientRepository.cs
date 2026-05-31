@@ -14,7 +14,7 @@ public sealed class RegisteredClientRepository(
         RegisteredClientIdentifier identifier, CancellationToken cancellationToken)
     {
         RegisteredClientAggregate? found = await dbContext.RegisteredClients
-            .FirstOrDefaultAsync(c => c.Id == identifier, cancellationToken)
+            .FirstOrDefaultAsync(client => client.Id == identifier, cancellationToken)
             .ConfigureAwait(false);
         return found is null
             ? Option<RegisteredClientAggregate>.None
@@ -28,8 +28,8 @@ public sealed class RegisteredClientRepository(
         // Disabled rows release the clientId for re-registration
         // (mirrors spec 005's archived-name pattern).
         RegisteredClientAggregate? found = await dbContext.RegisteredClients
-            .Where(c => c.ClientId == clientId)
-            .Where(c => c.DisabledAt == null)
+            .Where(client => client.ClientId == clientId)
+            .Where(client => client.DisabledAt == null)
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
         return found is null

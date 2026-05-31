@@ -28,7 +28,7 @@ public sealed class PublishRevisionCommandHandler(
         }
 
         Layout layout = found.Value;
-        Revision? revision = layout.Revisions.SingleOrDefault(r => r.Number == revisionNumber);
+        Revision? revision = layout.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
         if (revision is null)
         {
             return Result<LayoutRevisionNumber, PublishRevisionError>.Failure(

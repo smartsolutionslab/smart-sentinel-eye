@@ -24,7 +24,7 @@ public sealed class OverlayRepository(
         ArgumentNullException.ThrowIfNull(name);
         Overlay? found = await dbContext.Overlays
             .Where(candidate => candidate.Name == name)
-            .Where(candidate => candidate.Revisions.Any(r => r.State != OverlayRevisionState.Archived))
+            .Where(candidate => candidate.Revisions.Any(revision => revision.State != OverlayRevisionState.Archived))
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
         return found is null ? Option<Overlay>.None : Option<Overlay>.Some(found);
