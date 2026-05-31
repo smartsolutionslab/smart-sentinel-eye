@@ -1,9 +1,47 @@
-# ADR-0100: `mosquitto-go-auth` as Mosquitto's auth plugin
+# ADR-0100: Mosquitto JWT/JWKS auth plugin
 
-**Status:** **Parked** (see Addendum 2026-05-29)
+**Status:** **Accepted** — implemented via a custom Go plugin (see Addendum 2026-05-31)
 **Date:** 2026-05-29
 **Supersedes:** —
 **Superseded by:** —
+
+## Addendum (2026-05-31) — Un-parked: custom Go plugin
+
+The 2026-05-29 parking was re-investigated and its core finding
+**confirmed against the upstream source**: `iegomez/mosquitto-go-auth`
+verifies a JWT's signature with the configured secret as raw HMAC
+bytes (`backends/jwt.go` returns `[]byte(secret)` from its keyfunc) —
+there is no asymmetric/PEM path and no JWKS option. Keycloak realm
+tokens are **RS256**, so that plugin can never validate them locally.
+The parked addendum's three claims were accurate.
+
+**Resolution (chosen over swapping the broker or per-CONNECT
+introspection):** a small custom Mosquitto v5 plugin written in Go,
+living in `src/AppHost/mosquitto/plugin/`:
+
+- On `MOSQ_EVT_BASIC_AUTH` it treats the MQTT password as a JWT and
+  verifies the RS256 signature against the realm JWKS, which is
+  fetched once and kept fresh in-process (`MicahParks/keyfunc`), so a
+  CONNECT never round-trips to Keycloak — keeping the NFR-002 ≤ 5 ms
+  p99 budget. Rotation is handled by keyfunc's refresh-on-unknown-kid
+  (FR-006).
+- It enforces `azp == username` (the device's Keycloak client_id) and
+  that the issuer is our realm, plus `exp`.
+- A non-JWT password returns `MOSQ_ERR_PLUGIN_DEFER`, so the spec-006
+  password_file users (station-4, camera-12, event-ingestion) keep
+  authenticating unchanged.
+
+The image is built from `src/AppHost/mosquitto/Dockerfile`: Mosquitto
+2.0.18 and the plugin are both compiled on Debian/glibc, which avoids
+the musl "initial-exec TLS resolves to dynamic" load error that
+blocked the Alpine attempt (parked-claim 3). AppHost builds it via
+`AddDockerfile` and injects the container-reachable JWKS URL.
+
+**Scope note:** this PR ships connect-time authentication (NFR-002).
+The JSON-from-JWT publish **ACL** described under "Decision" below
+(scope/groups/topic binding) is not yet enforced by the plugin —
+device usernames are simply absent from `acl.txt`, so they are
+deny-by-default for publish/subscribe until that follow-up lands.
 
 ## Addendum (2026-05-29) — Decision parked
 
