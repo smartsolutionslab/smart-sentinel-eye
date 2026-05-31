@@ -25,14 +25,14 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
         }
         catch (ArgumentException ex)
         {
-            logger.LogWarning(ex, "Ignoring WebhookIntegrationRotatedV1 with invalid name '{Name}'.", message.IntegrationName);
+            Log.InvalidRotationName(logger, ex, message.IntegrationName);
             return;
         }
 
         Option<WebhookIntegration> found = await integrations.GetByNameAsync(name, cancellationToken).ConfigureAwait(false);
         if (!found.HasValue)
         {
-            logger.LogInformation("Webhook integration '{Name}' not present; rotation event ignored.", message.IntegrationName);
+            Log.RotationTargetMissing(logger, message.IntegrationName);
             return;
         }
 
@@ -40,6 +40,6 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
         integration.MarkAsRotated(message.ClientId, clock);
         await integrations.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        logger.LogInformation("Flipped webhook integration '{Name}' to JWT validation backed by Keycloak client '{ClientId}'.", message.IntegrationName, message.ClientId);
+        Log.WebhookIntegrationFlippedToJwt(logger, message.IntegrationName, message.ClientId);
     }
 }
