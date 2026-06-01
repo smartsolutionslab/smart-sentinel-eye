@@ -17,7 +17,7 @@ public sealed class RegisterWebhookIntegrationCommandHandler(
         RegisterWebhookIntegrationCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (name, defaultKind) = command;
+        (WebhookIntegrationName? name, Domain.Event.Kind? defaultKind) = command;
 
         Option<WebhookIntegration> existing = await integrations
             .GetByNameAsync(name, cancellationToken);

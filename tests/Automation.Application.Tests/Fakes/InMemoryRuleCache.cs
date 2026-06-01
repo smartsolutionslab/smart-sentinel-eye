@@ -34,7 +34,7 @@ public sealed class InMemoryRuleCache : IRuleCache
         ArgumentNullException.ThrowIfNull(rule);
         if (rule.State != RuleState.Active) return;
         CompiledRule compiled = CompiledRule.From(rule);
-        var key = (rule.TriggerSource, rule.TriggerKind);
+        (string TriggerSource, string TriggerKind) key = (rule.TriggerSource, rule.TriggerKind);
 
         List<CompiledRule> bucket = _byTrigger.GetOrAdd(key, _ => new List<CompiledRule>());
         lock (_gate)

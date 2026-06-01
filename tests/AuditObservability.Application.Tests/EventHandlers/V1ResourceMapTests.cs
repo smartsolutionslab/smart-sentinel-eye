@@ -1,8 +1,8 @@
 using SmartSentinelEye.AuditObservability.Application.EventHandlers;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Shared.Contracts;
-using SmartSentinelEye.Shared.Contracts.CameraCatalog;
 using SmartSentinelEye.Shared.Contracts.AuditObservability;
+using SmartSentinelEye.Shared.Contracts.CameraCatalog;
 using SmartSentinelEye.Shared.Contracts.Identity;
 
 namespace SmartSentinelEye.AuditObservability.Application.Tests.EventHandlers;

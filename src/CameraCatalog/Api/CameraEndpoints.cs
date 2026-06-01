@@ -9,9 +9,9 @@ using SmartSentinelEye.CameraCatalog.Application.DTOs;
 using SmartSentinelEye.CameraCatalog.Application.Queries;
 using SmartSentinelEye.CameraCatalog.Application.Queries.Handlers;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
+using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
-using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.CameraCatalog.Api;
 

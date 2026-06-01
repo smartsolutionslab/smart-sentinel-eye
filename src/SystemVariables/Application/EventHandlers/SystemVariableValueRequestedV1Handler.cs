@@ -57,7 +57,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
             return;
         }
 
-        var result = await setHandler.HandleAsync(new SetVariableValueCommand(name, message.Value, AutomationOperator), cancellationToken);
+        Result<VariableIdentifier, SetVariableValueError> result = await setHandler.HandleAsync(new SetVariableValueCommand(name, message.Value, AutomationOperator), cancellationToken);
 
         if (!result.IsSuccess)
         {

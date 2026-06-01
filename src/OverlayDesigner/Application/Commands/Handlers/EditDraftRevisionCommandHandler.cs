@@ -15,7 +15,7 @@ public sealed class EditDraftRevisionCommandHandler(
         EditDraftRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (overlayIdentifier, revisionNumber, label) = command;
+        (OverlayIdentifier overlayIdentifier, OverlayRevisionNumber revisionNumber, Label? label) = command;
 
         Option<Overlay> found = await overlays
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);

@@ -1,11 +1,11 @@
 using System.Security.Claims;
-using SmartSentinelEye.ServiceDefaults;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.LayoutComposition.Api.Requests;
 using SmartSentinelEye.LayoutComposition.Application.Commands;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
+using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Api;

@@ -40,7 +40,7 @@ public class IntegrationEventAuditHandlerTests
         await Build(repo).Handle(evt, default);
 
         repo.Committed.Count.ShouldBe(1);
-        var row = repo.Committed[0];
+        AuditEvent row = repo.Committed[0];
         row.EventKind.Value.ShouldBe("CameraRegisteredV1");
         row.OccurredAt.ShouldBe(OccurredAt);
         row.EventIdentifier.Value.ShouldBe(eventId);
@@ -63,7 +63,7 @@ public class IntegrationEventAuditHandlerTests
         await Build(repo).Handle(evt, default);
 
         repo.Committed.Count.ShouldBe(1);
-        var row = repo.Committed[0];
+        AuditEvent row = repo.Committed[0];
         row.Fab!.Value.ShouldBe("munich");
         row.Actor.IsSystem.ShouldBeTrue();
     }

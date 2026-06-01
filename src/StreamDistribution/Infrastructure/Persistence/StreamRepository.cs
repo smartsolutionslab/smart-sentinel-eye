@@ -10,20 +10,20 @@ public sealed class StreamRepository(StreamDistributionDbContext dbContext, IDom
 {
     public async Task<Option<Domain.Stream.Stream>> GetByIdentifierAsync(StreamIdentifier stream, CancellationToken cancellationToken)
     {
-        var found = await dbContext.Streams.FirstOrDefaultAsync(candidate => candidate.Id == stream, cancellationToken);
+        Domain.Stream.Stream? found = await dbContext.Streams.FirstOrDefaultAsync(candidate => candidate.Id == stream, cancellationToken);
         return found is null ? Option<Domain.Stream.Stream>.None : Option<Domain.Stream.Stream>.Some(found);
     }
 
     public async Task<Option<Domain.Stream.Stream>> GetByCameraAsync(CameraIdentifier camera, CancellationToken cancellationToken)
     {
-        var found = await dbContext.Streams.FirstOrDefaultAsync(candidate => candidate.Camera == camera, cancellationToken);
+        Domain.Stream.Stream? found = await dbContext.Streams.FirstOrDefaultAsync(candidate => candidate.Camera == camera, cancellationToken);
         return found is null ? Option<Domain.Stream.Stream>.None : Option<Domain.Stream.Stream>.Some(found);
     }
 
     public async Task<Option<Domain.Stream.Stream>> GetByPathAsync(MediaMtxPath path, CancellationToken cancellationToken)
     {
         Ensure.That(path).IsNotNull();
-        var found = await dbContext.Streams.FirstOrDefaultAsync(candidate => candidate.Path == path, cancellationToken);
+        Domain.Stream.Stream? found = await dbContext.Streams.FirstOrDefaultAsync(candidate => candidate.Path == path, cancellationToken);
         return found is null ? Option<Domain.Stream.Stream>.None : Option<Domain.Stream.Stream>.Some(found);
     }
 
@@ -35,14 +35,14 @@ public sealed class StreamRepository(StreamDistributionDbContext dbContext, IDom
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        var tracked = dbContext.ChangeTracker.Entries<Domain.Stream.Stream>()
+        Domain.Stream.Stream[] tracked = dbContext.ChangeTracker.Entries<Domain.Stream.Stream>()
             .Where(entry => entry.Entity.PendingEvents.Count > 0)
             .Select(entry => entry.Entity)
             .ToArray();
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        foreach (var stream in tracked)
+        foreach (Domain.Stream.Stream? stream in tracked)
         {
             IDomainEvent[] events = stream.PendingEvents.ToArray();
             stream.ClearPendingEvents();

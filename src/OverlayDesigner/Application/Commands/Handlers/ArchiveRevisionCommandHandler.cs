@@ -15,7 +15,7 @@ public sealed class ArchiveRevisionCommandHandler(
         ArchiveRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (overlayIdentifier, revisionNumber, archivedBy) = command;
+        (OverlayIdentifier overlayIdentifier, OverlayRevisionNumber revisionNumber, OperatorIdentifier archivedBy) = command;
 
         Option<Overlay> found = await overlays
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);

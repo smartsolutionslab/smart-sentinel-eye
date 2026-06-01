@@ -15,7 +15,7 @@ public sealed class RevertRevisionCommandHandler(
         RevertRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (layoutIdentifier, revisionNumber, revertedBy) = command;
+        (LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, OperatorIdentifier revertedBy) = command;
 
         Option<Layout> found = await layouts
             .GetByIdentifierAsync(layoutIdentifier, cancellationToken);

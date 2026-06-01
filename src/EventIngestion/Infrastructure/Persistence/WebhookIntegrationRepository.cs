@@ -37,7 +37,7 @@ public sealed class WebhookIntegrationRepository(
 
         foreach (WebhookIntegration integration in tracked)
         {
-            var events = integration.PendingEvents.ToArray();
+            IDomainEvent[] events = integration.PendingEvents.ToArray();
             integration.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }

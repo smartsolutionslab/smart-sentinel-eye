@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Http;
-using SmartSentinelEye.ServiceDefaults;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.LayoutComposition.Application.DTOs;
 using SmartSentinelEye.LayoutComposition.Application.Queries;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
+using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Api;

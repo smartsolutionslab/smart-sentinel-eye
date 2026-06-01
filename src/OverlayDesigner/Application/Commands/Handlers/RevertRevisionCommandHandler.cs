@@ -15,7 +15,7 @@ public sealed class RevertRevisionCommandHandler(
         RevertRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (overlayIdentifier, revisionNumber, revertedBy) = command;
+        (OverlayIdentifier overlayIdentifier, OverlayRevisionNumber revisionNumber, OperatorIdentifier revertedBy) = command;
 
         Option<Overlay> found = await overlays
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);

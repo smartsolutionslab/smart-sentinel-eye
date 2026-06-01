@@ -1,6 +1,6 @@
 using System.Globalization;
-using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
+using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Shared.Kernel;
 using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 

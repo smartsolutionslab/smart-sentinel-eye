@@ -19,8 +19,8 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
     {
         Ensure.That(query).IsNotNull();
 
-        var (fab, callerFabs, actor, actorUsername, eventKind, resourceKind,
-            resourceIdentifier, since, until, rawPageSize, rawCursor) = query;
+        (string? fab, IReadOnlyList<string>? callerFabs, Guid? actor, string? actorUsername, string? eventKind, string? resourceKind,
+            string? resourceIdentifier, DateTimeOffset? since, DateTimeOffset? until, int rawPageSize, string? rawCursor) = query;
 
         int pageSize = rawPageSize <= 0 ? DefaultPageSize : rawPageSize;
         if (pageSize > MaximumPageSize)

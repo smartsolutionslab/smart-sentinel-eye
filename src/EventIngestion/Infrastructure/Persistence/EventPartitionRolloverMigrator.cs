@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -72,12 +73,12 @@ public sealed class EventPartitionRolloverMigrator(
               AND child.relkind = 'p';
             """;
 
-        await using var command = context.Database.GetDbConnection().CreateCommand();
+        await using DbCommand command = context.Database.GetDbConnection().CreateCommand();
         command.CommandText = discoverySql;
         await context.Database.OpenConnectionAsync(cancellationToken);
         try
         {
-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
             List<string> names = new();
             while (await reader.ReadAsync(cancellationToken))
             {

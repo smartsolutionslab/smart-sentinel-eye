@@ -8,9 +8,9 @@ using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
 using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
+using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
-using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.Identity.Api;
 

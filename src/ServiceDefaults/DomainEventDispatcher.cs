@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -27,9 +28,9 @@ public sealed class DomainEventDispatcher(IServiceProvider services) : IDomainEv
 
     private static DomainEventInvoker BuildInvoker(Type eventType)
     {
-        var handlerType = typeof(IDomainEventHandler<>).MakeGenericType(eventType);
-        var enumerableType = typeof(IEnumerable<>).MakeGenericType(handlerType);
-        var handleMethod = handlerType.GetMethod(nameof(IDomainEventHandler<IDomainEvent>.Handle)) ?? throw new InvalidOperationException($"Expected Handle method on {handlerType.FullName}.");
+        Type handlerType = typeof(IDomainEventHandler<>).MakeGenericType(eventType);
+        Type enumerableType = typeof(IEnumerable<>).MakeGenericType(handlerType);
+        MethodInfo handleMethod = handlerType.GetMethod(nameof(IDomainEventHandler<IDomainEvent>.Handle)) ?? throw new InvalidOperationException($"Expected Handle method on {handlerType.FullName}.");
 
         return new DomainEventInvoker(enumerableType, handleMethod);
     }

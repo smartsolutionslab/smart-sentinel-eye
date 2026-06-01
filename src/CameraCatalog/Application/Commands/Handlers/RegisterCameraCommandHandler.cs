@@ -16,7 +16,7 @@ public sealed class RegisterCameraCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (name, url, registeredBy) = command;
+        (CameraName? name, RtspUrl? url, OperatorIdentifier registeredBy) = command;
 
         if (await cameras.ExistsByNameAsync(name, cancellationToken))
         {

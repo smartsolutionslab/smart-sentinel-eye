@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Api.Requests;
@@ -12,7 +13,6 @@ using SmartSentinelEye.SystemVariables.Application.DTOs;
 using SmartSentinelEye.SystemVariables.Application.Queries;
 using SmartSentinelEye.SystemVariables.Application.Queries.Handlers;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
-using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.SystemVariables.Api;
 
@@ -107,8 +107,8 @@ public static class SystemVariableEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        var command = new DefineVariableCommand(name, type, initialValue, booleanLabels, actingOperator);
-        var result = await handler.HandleAsync(command, cancellationToken);
+        DefineVariableCommand command = new(name, type, initialValue, booleanLabels, actingOperator);
+        Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(command, cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Created($"/system-variables/{name.Value}", identifier.Value),
@@ -134,8 +134,8 @@ public static class SystemVariableEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        var command = new SetVariableValueCommand(parsed, body.Value, actingOperator);
-        var result = await handler.HandleAsync(command, cancellationToken);
+        SetVariableValueCommand command = new(parsed, body.Value, actingOperator);
+        Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(command, cancellationToken);
 
         return result.Match<IResult>(onSuccess: identifier => Results.Ok(identifier.Value), onFailure: error => error.ToProblem());
     }
@@ -151,7 +151,7 @@ public static class SystemVariableEndpoints
             return problem;
         }
 
-        var result = await handler.HandleAsync(new GetVariableQuery(parsed), cancellationToken);
+        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(new GetVariableQuery(parsed), cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
@@ -174,7 +174,7 @@ public static class SystemVariableEndpoints
             }
         }
 
-        var result = await handler.HandleAsync(new ListVariablesQuery(filter), cancellationToken);
+        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(new ListVariablesQuery(filter), cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
@@ -189,7 +189,7 @@ public static class SystemVariableEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var result = await handler.HandleAsync(new GetOverlaySnapshotQuery(overlayIdentifier), cancellationToken);
+        Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result = await handler.HandleAsync(new GetOverlaySnapshotQuery(overlayIdentifier), cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
@@ -210,7 +210,7 @@ public static class SystemVariableEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        var result = await handler.HandleAsync(new ArchiveVariableCommand(parsed, actingOperator), cancellationToken);
+        Result<VariableIdentifier, ArchiveVariableError> result = await handler.HandleAsync(new ArchiveVariableCommand(parsed, actingOperator), cancellationToken);
 
         return result.Match<IResult>(onSuccess: identifier => Results.Ok(identifier.Value), onFailure: error => error.ToProblem());
     }

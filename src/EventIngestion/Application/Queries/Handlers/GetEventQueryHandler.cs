@@ -13,7 +13,7 @@ public sealed class GetEventQueryHandler(IEventQuerySource events)
         GetEventQuery query, CancellationToken cancellationToken)
     {
         Ensure.That(query).IsNotNull();
-        var (fab, identifier) = query;
+        (Domain.Event.FabIdentifier? fab, Domain.Event.EventIdentifier identifier) = query;
 
         EventAggregate? found = await events.Events
             .Where(eventEntity => eventEntity.Fab == fab && eventEntity.Id == identifier)

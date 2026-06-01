@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Commands;
@@ -7,7 +8,6 @@ using SmartSentinelEye.StreamDistribution.Application.DTOs;
 using SmartSentinelEye.StreamDistribution.Application.Queries;
 using SmartSentinelEye.StreamDistribution.Application.Queries.Handlers;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
-using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.StreamDistribution.Api;
 
@@ -61,8 +61,8 @@ public static class StreamEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var query = new GetStreamQuery(CameraIdentifier.From(cameraIdentifier));
-        var result = await handler.HandleAsync(query, cancellationToken);
+        GetStreamQuery query = new(CameraIdentifier.From(cameraIdentifier));
+        Result<StreamHealthDto, GetStreamError> result = await handler.HandleAsync(query, cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
@@ -82,7 +82,7 @@ public static class StreamEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var result = await handler.HandleAsync(new ListStreamsQuery(parsed), cancellationToken);
+        Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result = await handler.HandleAsync(new ListStreamsQuery(parsed), cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
@@ -114,7 +114,7 @@ public static class StreamEndpoints
             bearer = bearer["Bearer ".Length..].Trim();
         }
 
-        var result = await handler.HandleAsync(new AuthorizeWhepCommand(parsedPath, bearer), cancellationToken);
+        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(new AuthorizeWhepCommand(parsedPath, bearer), cancellationToken);
 
         return result.Match<IResult>(onSuccess: _ => Results.Ok(), onFailure: error => error.ToProblem());
     }

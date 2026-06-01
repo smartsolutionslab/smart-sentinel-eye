@@ -22,15 +22,15 @@ public sealed class CameraRegisteredIntegrationEventHandler(ICommandHandler<Prov
     {
         Ensure.That(message).IsNotNull();
 
-        var camera = CameraIdentifier.From(message.Camera);
-        var provisionedBy = OperatorIdentifier.From(message.RegisteredBy);
+        CameraIdentifier camera = CameraIdentifier.From(message.Camera);
+        OperatorIdentifier provisionedBy = OperatorIdentifier.From(message.RegisteredBy);
 
         ProvisionStreamCommand command = new(
             Camera: camera,
             RtspSourceUrl: message.Url,
             ProvisionedBy: provisionedBy);
 
-        var result = await handler.HandleAsync(command, cancellationToken);
+        Result<StreamIdentifier, ProvisionStreamError> result = await handler.HandleAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {

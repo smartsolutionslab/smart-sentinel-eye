@@ -15,7 +15,7 @@ public sealed class EditDraftRevisionCommandHandler(
         EditDraftRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (layoutIdentifier, revisionNumber, camera, overlay) = command;
+        (LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, CameraIdentifier camera, OverlayChange overlay) = command;
 
         Option<Layout> found = await layouts
             .GetByIdentifierAsync(layoutIdentifier, cancellationToken);

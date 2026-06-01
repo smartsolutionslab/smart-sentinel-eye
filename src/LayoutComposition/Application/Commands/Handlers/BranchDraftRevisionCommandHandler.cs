@@ -15,7 +15,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         BranchDraftRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (layoutIdentifier, branchedBy) = command;
+        (LayoutIdentifier layoutIdentifier, OperatorIdentifier branchedBy) = command;
 
         Option<Layout> found = await layouts
             .GetByIdentifierAsync(layoutIdentifier, cancellationToken);

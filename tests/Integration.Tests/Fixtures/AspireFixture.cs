@@ -158,7 +158,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         using CancellationTokenSource snapshot = new(TimeSpan.FromSeconds(3));
         try
         {
-            await foreach (var evt in _app.ResourceNotifications.WatchAsync(snapshot.Token))
+            await foreach (ResourceEvent evt in _app.ResourceNotifications.WatchAsync(snapshot.Token))
             {
                 states[evt.Resource.Name] = evt.Snapshot.State?.Text ?? "(unknown)";
             }

@@ -10,19 +10,19 @@
 // Test mode (E2ETests=true) makes the containers ephemeral; dev mode pins
 // persistent lifetimes + data volumes so the stack survives restarts.
 
-var builder = DistributedApplication.CreateBuilder(args);
+IDistributedApplicationBuilder builder = DistributedApplication.CreateBuilder(args);
 bool isRunMode = builder.ExecutionContext.IsRunMode;
 bool isE2ETests = bool.TryParse(builder.Configuration["E2ETests"], out bool e2e) && e2e;
 
-var postgresUser = builder.AddParameter("PostgresUser", "postgres");
-var postgresPassword = builder.AddParameter("PostgresPassword", "dev-only-postgres-password", secret: true);
-var keycloakPassword = builder.AddParameter("KeycloakPassword", "dev-only-keycloak-admin", secret: true);
+IResourceBuilder<ParameterResource> postgresUser = builder.AddParameter("PostgresUser", "postgres");
+IResourceBuilder<ParameterResource> postgresPassword = builder.AddParameter("PostgresPassword", "dev-only-postgres-password", secret: true);
+IResourceBuilder<ParameterResource> keycloakPassword = builder.AddParameter("KeycloakPassword", "dev-only-keycloak-admin", secret: true);
 // Mirrors the `identity-admin` client secret seeded in
 // Realms/smart-sentinel-eye-realm.json. The Identity API reads it as
 // `Keycloak:AdminClientSecret` to mint the realm-management
 // service-account token (spec 008 ADR-0100).
-var identityAdminClientSecret = builder.AddParameter("IdentityAdminClientSecret", "dev-only-identity-admin-secret", secret: true);
-var rabbitPassword = builder.AddParameter("RabbitMqPassword", "dev-only-rabbit-password", secret: true);
+IResourceBuilder<ParameterResource> identityAdminClientSecret = builder.AddParameter("IdentityAdminClientSecret", "dev-only-identity-admin-secret", secret: true);
+IResourceBuilder<ParameterResource> rabbitPassword = builder.AddParameter("RabbitMqPassword", "dev-only-rabbit-password", secret: true);
 
 // Spec 009 ADR-0101: the postgres image carries the timescaledb
 // extension so the audit-observability hypertable + compression
@@ -33,7 +33,7 @@ var rabbitPassword = builder.AddParameter("RabbitMqPassword", "dev-only-rabbit-p
 // drop compression, so the community (non-oss) tag is required.
 // Every other context's database remains plain Postgres tables on
 // the same server.
-var postgres = builder
+IResourceBuilder<PostgresServerResource> postgres = builder
     .AddPostgres("postgres", userName: postgresUser, password: postgresPassword)
     .WithImage("timescale/timescaledb")
     .WithImageTag("2.27.1-pg17");
@@ -46,17 +46,17 @@ if (isRunMode && !isE2ETests)
         .WithPgAdmin();
 }
 
-var cameraCatalogDb = postgres.AddDatabase("camera-catalog-db");
-var streamDistributionDb = postgres.AddDatabase("stream-distribution-db");
-var layoutCompositionDb = postgres.AddDatabase("layout-composition-db");
-var overlayDesignerDb = postgres.AddDatabase("overlay-designer-db");
-var systemVariablesDb = postgres.AddDatabase("system-variables-db");
-var eventIngestionDb = postgres.AddDatabase("event-ingestion-db");
-var automationDb = postgres.AddDatabase("automation-db");
-var identityDb = postgres.AddDatabase("identity-db");
-var auditDb = postgres.AddDatabase("audit-db");
+IResourceBuilder<PostgresDatabaseResource> cameraCatalogDb = postgres.AddDatabase("camera-catalog-db");
+IResourceBuilder<PostgresDatabaseResource> streamDistributionDb = postgres.AddDatabase("stream-distribution-db");
+IResourceBuilder<PostgresDatabaseResource> layoutCompositionDb = postgres.AddDatabase("layout-composition-db");
+IResourceBuilder<PostgresDatabaseResource> overlayDesignerDb = postgres.AddDatabase("overlay-designer-db");
+IResourceBuilder<PostgresDatabaseResource> systemVariablesDb = postgres.AddDatabase("system-variables-db");
+IResourceBuilder<PostgresDatabaseResource> eventIngestionDb = postgres.AddDatabase("event-ingestion-db");
+IResourceBuilder<PostgresDatabaseResource> automationDb = postgres.AddDatabase("automation-db");
+IResourceBuilder<PostgresDatabaseResource> identityDb = postgres.AddDatabase("identity-db");
+IResourceBuilder<PostgresDatabaseResource> auditDb = postgres.AddDatabase("audit-db");
 
-var rabbitmq = builder
+IResourceBuilder<RabbitMQServerResource> rabbitmq = builder
     .AddRabbitMQ("rabbitmq", password: rabbitPassword)
     .WithImageTag("4-management-alpine")
     .WithManagementPlugin();
@@ -68,7 +68,7 @@ if (isRunMode && !isE2ETests)
         .WithDataVolume();
 }
 
-var keycloak = builder
+IResourceBuilder<KeycloakResource> keycloak = builder
     .AddKeycloak("keycloak", adminPassword: keycloakPassword)
     .WithRealmImport("../AppHost/Realms");
 
@@ -82,7 +82,7 @@ if (isRunMode && !isE2ETests)
 // MediaMTX SFU brings RTSP ingest + WHEP playback (spec 002 T003, ADR-0011).
 // MediaMTX is the runtime source of truth for live paths; the stream-distribution
 // service is the durable source of truth and reconciles paths on startup.
-var mediamtx = builder
+IResourceBuilder<ContainerResource> mediamtx = builder
     .AddContainer("mediamtx", "bluenviron/mediamtx", "latest-ffmpeg")
     .WithBindMount("Resources/mediamtx.yml", "/mediamtx.yml")
     .WithHttpEndpoint(targetPort: 9997, name: "api")
@@ -110,7 +110,7 @@ if (isRunMode && !isE2ETests)
 // container-reachable Keycloak URL as SSE_JWT_JWKS_URI and waits for
 // Keycloak so the set is fetchable on first connect (the plugin also
 // retries until it is).
-var mosquitto = builder
+IResourceBuilder<ContainerResource> mosquitto = builder
     .AddDockerfile("mosquitto", "mosquitto")
     .WithBindMount("mosquitto/mosquitto.conf", "/mosquitto/config/mosquitto.conf")
     .WithBindMount("mosquitto/passwords.txt", "/mosquitto/config/passwords.txt")
@@ -136,7 +136,7 @@ if (isRunMode && !isE2ETests)
 // `ConnectionStrings:minio` value into every consumer that
 // `WithReference`s it; the Infrastructure project resolves an
 // `IMinioClient` from that via `AddMinioClient("minio")`.
-var minio = builder.AddMinioContainer("minio");
+IResourceBuilder<MinioContainerResource> minio = builder.AddMinioContainer("minio");
 
 if (isRunMode && !isE2ETests)
 {
@@ -146,7 +146,7 @@ if (isRunMode && !isE2ETests)
 }
 
 // MigrationRunner orchestrates all per-context migrations and exits (ADR-0067).
-var migrations = builder
+IResourceBuilder<ProjectResource> migrations = builder
     .AddProject<Projects.SmartSentinelEye_MigrationRunner>("migrations")
     .WithReference(cameraCatalogDb)
     .WithReference(streamDistributionDb)
@@ -167,7 +167,7 @@ var migrations = builder
     .WaitFor(identityDb)
     .WaitFor(auditDb);
 
-var cameraCatalog = builder
+IResourceBuilder<ProjectResource> cameraCatalog = builder
     .AddProject<Projects.SmartSentinelEye_CameraCatalog_Api>("camera-catalog")
     .WithHttpEndpoint()
     .WithReference(cameraCatalogDb)
@@ -177,7 +177,7 @@ var cameraCatalog = builder
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
 
-var streamDistribution = builder
+IResourceBuilder<ProjectResource> streamDistribution = builder
     .AddProject<Projects.SmartSentinelEye_StreamDistribution_Api>("stream-distribution")
     .WithHttpEndpoint()
     .WithReference(streamDistributionDb)
@@ -189,7 +189,7 @@ var streamDistribution = builder
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
     .WaitFor(mediamtx);
-var layoutComposition = builder
+IResourceBuilder<ProjectResource> layoutComposition = builder
     .AddProject<Projects.SmartSentinelEye_LayoutComposition_Api>("layout-composition")
     .WithHttpEndpoint()
     .WithReference(layoutCompositionDb)
@@ -198,7 +198,7 @@ var layoutComposition = builder
     .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
-var eventIngestion = builder
+IResourceBuilder<ProjectResource> eventIngestion = builder
     .AddProject<Projects.SmartSentinelEye_EventIngestion_Api>("event-ingestion")
     .WithHttpEndpoint()
     .WithReference(eventIngestionDb)
@@ -209,7 +209,7 @@ var eventIngestion = builder
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
     .WaitFor(mosquitto);
-var overlayDesigner = builder
+IResourceBuilder<ProjectResource> overlayDesigner = builder
     .AddProject<Projects.SmartSentinelEye_OverlayDesigner_Api>("overlay-designer")
     .WithHttpEndpoint()
     .WithReference(overlayDesignerDb)
@@ -218,7 +218,7 @@ var overlayDesigner = builder
     .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
-var systemVariables = builder
+IResourceBuilder<ProjectResource> systemVariables = builder
     .AddProject<Projects.SmartSentinelEye_SystemVariables_Api>("system-variables")
     .WithHttpEndpoint()
     .WithReference(systemVariablesDb)
@@ -248,7 +248,7 @@ builder
     .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
-var auditObservability = builder
+IResourceBuilder<ProjectResource> auditObservability = builder
     .AddProject<Projects.SmartSentinelEye_AuditObservability_Api>("audit-observability")
     .WithHttpEndpoint()
     .WithReference(auditDb)

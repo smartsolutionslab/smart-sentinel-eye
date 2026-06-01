@@ -1,11 +1,11 @@
 using System.Security.Claims;
-using SmartSentinelEye.ServiceDefaults;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.OverlayDesigner.Api.Requests;
 using SmartSentinelEye.OverlayDesigner.Application.Commands;
 using SmartSentinelEye.OverlayDesigner.Application.Commands.Handlers;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
+using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.OverlayDesigner.Api;

@@ -3,9 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Application.Queries;
 using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
+using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
-using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.AuditObservability.Api;
 
@@ -74,7 +74,7 @@ public static class AuditEndpoints
 
         IReadOnlyList<string> callerFabs = ExtractFabSet(user);
 
-        var query = new SearchAuditQuery(
+        SearchAuditQuery query = new(
             Fab: fabId,
             CallerFabs: callerFabs,
             Actor: actor,
@@ -86,7 +86,7 @@ public static class AuditEndpoints
             Until: until,
             PageSize: pageSize ?? 0,
             Cursor: cursor);
-        var result = await handler.HandleAsync(query, cancellationToken);
+        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(query, cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
@@ -106,7 +106,7 @@ public static class AuditEndpoints
     {
         await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken);
 
-        var result = await handler.HandleAsync(
+        Result<AuditPageDto, GetResourceTimelineError> result = await handler.HandleAsync(
             new GetResourceTimelineQuery(
                 ResourceKind: resourceKind,
                 ResourceIdentifier: resourceIdentifier,
@@ -127,8 +127,8 @@ public static class AuditEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        var query = new GetAuditEventQuery(auditIdentifier);
-        var result = await handler.HandleAsync(query, cancellationToken);
+        GetAuditEventQuery query = new(auditIdentifier);
+        Result<AuditRowDto, GetAuditEventError> result = await handler.HandleAsync(query, cancellationToken);
 
         if (result.IsFailure)
         {
@@ -137,7 +137,7 @@ public static class AuditEndpoints
                 statusCode: (int)result.Error.Status);
         }
 
-        var row = result.Value;
+        AuditRowDto row = result.Value;
         if (row.Fab is not null)
         {
             await fabGuard.EnsureAccessAsync(user, row.Fab, cancellationToken);

@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
+using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.OverlayDesigner;
 
@@ -41,7 +42,7 @@ public class OverlayRevisionPublishedV1HandlerTests
 
         await handler.Handle(message, CancellationToken.None);
 
-        var notification = broadcaster.OverlaysPublished.ShouldHaveSingleItem();
+        OverlayLifecyclePublishedNotification notification = broadcaster.OverlaysPublished.ShouldHaveSingleItem();
         notification.Overlay.ShouldBe(overlay);
         notification.RevisionNumber.ShouldBe(3);
         notification.Name.ShouldBe("Line-1");

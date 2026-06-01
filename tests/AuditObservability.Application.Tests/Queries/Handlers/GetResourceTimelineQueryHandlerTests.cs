@@ -1,8 +1,10 @@
+using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Application.Queries;
 using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.AuditObservability.Application.Tests.TestData;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
+using SmartSentinelEye.Shared.Kernel;
 using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 
 namespace SmartSentinelEye.AuditObservability.Application.Tests.Queries.Handlers;
@@ -36,7 +38,7 @@ public class GetResourceTimelineQueryHandlerTests
         TestAuditEventQuerySource source = new([Row(10), Row(0), Row(5)]);
         GetResourceTimelineQueryHandler handler = new(source);
 
-        var result = await handler.HandleAsync(Q(), default);
+        Result<AuditPageDto, GetResourceTimelineError> result = await handler.HandleAsync(Q(), default);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Rows.Count.ShouldBe(3);
@@ -54,7 +56,7 @@ public class GetResourceTimelineQueryHandlerTests
         ]);
         GetResourceTimelineQueryHandler handler = new(source);
 
-        var result = await handler.HandleAsync(Q(), default);
+        Result<AuditPageDto, GetResourceTimelineError> result = await handler.HandleAsync(Q(), default);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Rows.Count.ShouldBe(2);
@@ -67,7 +69,7 @@ public class GetResourceTimelineQueryHandlerTests
         TestAuditEventQuerySource source = new([Row(0), Row(5), Row(10)]);
         GetResourceTimelineQueryHandler handler = new(source);
 
-        var result = await handler.HandleAsync(Q(since: Base.AddMinutes(7)), default);
+        Result<AuditPageDto, GetResourceTimelineError> result = await handler.HandleAsync(Q(since: Base.AddMinutes(7)), default);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Rows.Count.ShouldBe(1);
@@ -80,7 +82,7 @@ public class GetResourceTimelineQueryHandlerTests
         TestAuditEventQuerySource source = new([]);
         GetResourceTimelineQueryHandler handler = new(source);
 
-        var result = await handler.HandleAsync(Q(resourceKind: "audit"), default);
+        Result<AuditPageDto, GetResourceTimelineError> result = await handler.HandleAsync(Q(resourceKind: "audit"), default);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBeOfType<GetResourceTimelineError.UnknownResourceKind>();
@@ -94,7 +96,7 @@ public class GetResourceTimelineQueryHandlerTests
         TestAuditEventQuerySource source = new([Row(0), Row(5)]);
         GetResourceTimelineQueryHandler handler = new(source);
 
-        var result = await handler.HandleAsync(Q(pageSize: pageSize), default);
+        Result<AuditPageDto, GetResourceTimelineError> result = await handler.HandleAsync(Q(pageSize: pageSize), default);
 
         if (pageSize > GetResourceTimelineQueryHandler.MaximumPageSize)
         {

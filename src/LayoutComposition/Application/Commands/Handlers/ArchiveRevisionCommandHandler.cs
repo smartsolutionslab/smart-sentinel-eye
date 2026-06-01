@@ -15,7 +15,7 @@ public sealed class ArchiveRevisionCommandHandler(
         ArchiveRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (layoutIdentifier, revisionNumber, archivedBy) = command;
+        (LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, OperatorIdentifier archivedBy) = command;
 
         Option<Layout> found = await layouts
             .GetByIdentifierAsync(layoutIdentifier, cancellationToken);

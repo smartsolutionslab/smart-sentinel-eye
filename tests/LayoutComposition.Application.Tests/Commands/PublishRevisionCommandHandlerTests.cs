@@ -24,7 +24,7 @@ public class PublishRevisionCommandHandlerTests
         layouts.Add(draft);
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
-        var result = await handler.HandleAsync(
+        Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
             new PublishRevisionCommand(
                 draft.Id,
                 LayoutRevisionNumber.One,
@@ -43,7 +43,7 @@ public class PublishRevisionCommandHandlerTests
         FakeClock clock = new(FixedMoment);
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
 
-        var result = await handler.HandleAsync(
+        Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
             new PublishRevisionCommand(
                 LayoutIdentifier.New(),
                 LayoutRevisionNumber.One,
@@ -63,7 +63,7 @@ public class PublishRevisionCommandHandlerTests
         layouts.Add(draft);
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
-        var result = await handler.HandleAsync(
+        Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
             new PublishRevisionCommand(
                 draft.Id,
                 LayoutRevisionNumber.From(99),
@@ -85,7 +85,7 @@ public class PublishRevisionCommandHandlerTests
         layouts.Add(draft);
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
-        var result = await handler.HandleAsync(
+        Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
             new PublishRevisionCommand(
                 draft.Id,
                 LayoutRevisionNumber.One,

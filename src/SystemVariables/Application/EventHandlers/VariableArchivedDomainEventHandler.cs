@@ -29,7 +29,7 @@ public sealed class VariableArchivedDomainEventHandler(
     {
         Ensure.That(domainEvent).IsNotNull();
 
-        var systemVariableArchivedEvent = new SystemVariableArchivedV1(
+        SystemVariableArchivedV1 systemVariableArchivedEvent = new(
             Variable: domainEvent.Variable.Value,
             Name: domainEvent.Name.Value,
             ArchivedAt: domainEvent.ArchivedAt,
@@ -58,7 +58,7 @@ public sealed class VariableArchivedDomainEventHandler(
                 try { parsed = VariableName.From(name); }
                 catch (ArgumentException) { continue; }
 
-                var other = await variables.GetByNameAsync(parsed, cancellationToken);
+                Option<Variable> other = await variables.GetByNameAsync(parsed, cancellationToken);
                 if (!other.HasValue) continue;
 
                 Variable variable = other.Value;
@@ -71,7 +71,7 @@ public sealed class VariableArchivedDomainEventHandler(
             string resolvedText = resolver.Resolve(labelText, snapshot);
             long version = reverseIndex.NextVersionFor(overlayId);
 
-            var resolvedOverlayTextChangedEvent = new ResolvedOverlayTextChangedV1(
+            ResolvedOverlayTextChangedV1 resolvedOverlayTextChangedEvent = new(
                 Overlay: overlayId,
                 ResolvedText: resolvedText,
                 Version: version,

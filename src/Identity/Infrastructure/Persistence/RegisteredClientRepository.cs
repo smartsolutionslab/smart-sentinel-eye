@@ -53,7 +53,7 @@ public sealed class RegisteredClientRepository(
 
         foreach (RegisteredClientAggregate client in tracked)
         {
-            var events = client.PendingEvents.ToArray();
+            IDomainEvent[] events = client.PendingEvents.ToArray();
             client.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }

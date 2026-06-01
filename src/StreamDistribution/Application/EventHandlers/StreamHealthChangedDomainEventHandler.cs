@@ -18,7 +18,7 @@ public sealed class StreamHealthChangedDomainEventHandler(IEventBus events)
     {
         Ensure.That(domainEvent).IsNotNull();
 
-        var @event = new StreamHealthChangedV1(
+        StreamHealthChangedV1 @event = new(
             Camera: domainEvent.Camera.Value,
             FromState: domainEvent.FromState.Value,
             ToState: domainEvent.ToState.Value,

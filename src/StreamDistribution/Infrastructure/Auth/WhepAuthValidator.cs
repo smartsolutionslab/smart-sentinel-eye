@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
@@ -52,11 +53,11 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
     {
         try
         {
-            var configuration = await _oidc.GetConfigurationAsync(cancellationToken);
-            var parameters = _parameters.Clone();
+            OpenIdConnectConfiguration configuration = await _oidc.GetConfigurationAsync(cancellationToken);
+            TokenValidationParameters parameters = _parameters.Clone();
             parameters.IssuerSigningKeys = configuration.SigningKeys;
 
-            var principal = _handler.ValidateToken(bearerToken, parameters, out _);
+            ClaimsPrincipal principal = _handler.ValidateToken(bearerToken, parameters, out _);
 
             string? subject = principal.FindFirst("sub")?.Value;
             if (subject is null) return Option<WhepAuthSubject>.None;

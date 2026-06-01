@@ -14,7 +14,7 @@ public sealed class ListVariablesQueryHandler(IVariableQuerySource variables)
     {
         Ensure.That(query).IsNotNull();
 
-        var source = variables.Variables;
+        IQueryable<Variable> source = variables.Variables;
         if (query.State is not null)
         {
             source = source.Where(variable => variable.State == query.State);

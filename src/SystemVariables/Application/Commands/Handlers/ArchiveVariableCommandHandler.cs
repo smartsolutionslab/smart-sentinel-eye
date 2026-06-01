@@ -12,9 +12,9 @@ public sealed class ArchiveVariableCommandHandler(IVariableRepository variables,
     {
         Ensure.That(command).IsNotNull();
 
-        var (name, archivedBy) = command;
+        (VariableName? name, OperatorIdentifier archivedBy) = command;
 
-        var found = await variables.GetByNameAsync(name, cancellationToken);
+        Option<Variable> found = await variables.GetByNameAsync(name, cancellationToken);
         if (!found.HasValue)
         {
             return Result<VariableIdentifier, ArchiveVariableError>.Failure(new ArchiveVariableError.VariableNotFound(name.Value));
