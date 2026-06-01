@@ -13,8 +13,7 @@ public sealed class StreamRepository(
         StreamIdentifier stream, CancellationToken cancellationToken)
     {
         Domain.Stream.Stream? found = await dbContext.Streams
-            .FirstOrDefaultAsync(candidate => candidate.Id == stream, cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(candidate => candidate.Id == stream, cancellationToken);
         return found is null ? Option<Domain.Stream.Stream>.None : Option<Domain.Stream.Stream>.Some(found);
     }
 
@@ -22,8 +21,7 @@ public sealed class StreamRepository(
         CameraIdentifier camera, CancellationToken cancellationToken)
     {
         Domain.Stream.Stream? found = await dbContext.Streams
-            .FirstOrDefaultAsync(candidate => candidate.Camera == camera, cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(candidate => candidate.Camera == camera, cancellationToken);
         return found is null ? Option<Domain.Stream.Stream>.None : Option<Domain.Stream.Stream>.Some(found);
     }
 
@@ -32,8 +30,7 @@ public sealed class StreamRepository(
     {
         Ensure.That(path).IsNotNull();
         Domain.Stream.Stream? found = await dbContext.Streams
-            .FirstOrDefaultAsync(candidate => candidate.Path == path, cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(candidate => candidate.Path == path, cancellationToken);
         return found is null ? Option<Domain.Stream.Stream>.None : Option<Domain.Stream.Stream>.Some(found);
     }
 
@@ -51,13 +48,13 @@ public sealed class StreamRepository(
             .Select(entry => entry.Entity)
             .ToArray();
 
-        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         foreach (Domain.Stream.Stream stream in tracked)
         {
             IDomainEvent[] events = stream.PendingEvents.ToArray();
             stream.ClearPendingEvents();
-            await domainEventDispatcher.DispatchAsync(events, cancellationToken).ConfigureAwait(false);
+            await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }
     }
 }

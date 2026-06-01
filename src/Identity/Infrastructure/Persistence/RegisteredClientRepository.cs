@@ -14,8 +14,7 @@ public sealed class RegisteredClientRepository(
         RegisteredClientIdentifier identifier, CancellationToken cancellationToken)
     {
         RegisteredClientAggregate? found = await dbContext.RegisteredClients
-            .FirstOrDefaultAsync(client => client.Id == identifier, cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(client => client.Id == identifier, cancellationToken);
         return found is null
             ? Option<RegisteredClientAggregate>.None
             : Option<RegisteredClientAggregate>.Some(found);
@@ -30,8 +29,7 @@ public sealed class RegisteredClientRepository(
         RegisteredClientAggregate? found = await dbContext.RegisteredClients
             .Where(client => client.ClientId == clientId)
             .Where(client => client.DisabledAt == null)
-            .FirstOrDefaultAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(cancellationToken);
         return found is null
             ? Option<RegisteredClientAggregate>.None
             : Option<RegisteredClientAggregate>.Some(found);
@@ -51,13 +49,13 @@ public sealed class RegisteredClientRepository(
             .Select(entry => entry.Entity)
             .ToArray();
 
-        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         foreach (RegisteredClientAggregate client in tracked)
         {
             var events = client.PendingEvents.ToArray();
             client.ClearPendingEvents();
-            await domainEventDispatcher.DispatchAsync(events, cancellationToken).ConfigureAwait(false);
+            await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }
     }
 }

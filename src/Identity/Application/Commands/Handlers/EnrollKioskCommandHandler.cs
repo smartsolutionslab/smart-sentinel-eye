@@ -22,7 +22,7 @@ public sealed class EnrollKioskCommandHandler(
         var (clientId, fab, enrolledBy) = command;
 
         Option<RegisteredClientAggregate> existing = await clients
-            .GetByClientIdAsync(clientId, cancellationToken).ConfigureAwait(false);
+            .GetByClientIdAsync(clientId, cancellationToken);
         if (existing.HasValue)
         {
             return Result<KioskCredentialsDto, EnrollKioskError>.Failure(
@@ -50,7 +50,7 @@ public sealed class EnrollKioskCommandHandler(
             credentials = await keycloak.CreateClientAsync(
                 representation,
                 fabGroupPath: $"/fabs/{fab.Value}",
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
         }
         catch (KeycloakClientAlreadyExistsException ex)
         {
@@ -66,7 +66,7 @@ public sealed class EnrollKioskCommandHandler(
         RegisteredClientAggregate registered = RegisteredClientAggregate.Register(
             clientId, ClientKind.Kiosk, fab, enrolledBy, clock);
         clients.Add(registered);
-        await clients.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await clients.SaveAsync(cancellationToken);
 
         logger.EnrolledKiosk(registered.Id, clientId, fab);
 

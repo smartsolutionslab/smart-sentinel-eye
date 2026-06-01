@@ -25,7 +25,7 @@ public sealed class GetOverlaySnapshotQueryHandler(
         }
 
         IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot =
-            await BuildSnapshotAsync(labelText, cancellationToken).ConfigureAwait(false);
+            await BuildSnapshotAsync(labelText, cancellationToken);
 
         string resolvedText = resolver.Resolve(labelText, snapshot);
         long version = reverseIndex.CurrentVersionFor(query.OverlayIdentifier);
@@ -45,8 +45,7 @@ public sealed class GetOverlaySnapshotQueryHandler(
             catch (ArgumentException) { continue; }
 
             Option<Variable> found = await variables
-                .GetByNameAsync(parsed, cancellationToken)
-                .ConfigureAwait(false);
+                .GetByNameAsync(parsed, cancellationToken);
             if (!found.HasValue) continue;
 
             Variable variable = found.Value;

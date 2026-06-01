@@ -18,8 +18,7 @@ public sealed class ListOverlaysQueryHandler(IOverlayQuerySource overlays)
         {
             List<Overlay> source = await overlays.Overlays
                 .Where(overlay => overlay.Revisions.Any(revision => revision.State == OverlayRevisionState.Published))
-                .ToListAsync(cancellationToken)
-                .ConfigureAwait(false);
+                .ToListAsync(cancellationToken);
 
             IReadOnlyList<PublishedOverlayDto> published = source
                 .Select(overlay =>
@@ -40,8 +39,7 @@ public sealed class ListOverlaysQueryHandler(IOverlayQuerySource overlays)
         }
 
         List<Overlay> all = await overlays.Overlays
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .ToListAsync(cancellationToken);
 
         IReadOnlyList<OverlayDto> chains = all
             .Select(GetOverlayQueryHandler.Map)

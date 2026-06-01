@@ -31,8 +31,7 @@ public sealed class UnattributableOperatorExceptionHandler : IExceptionHandler
             Detail = "The request could not be attributed to an operator; the token carries no usable 'sub' claim.",
             Status = StatusCodes.Status401Unauthorized,
         };
-        await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
+        await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken: cancellationToken);
 
         return true;
     }

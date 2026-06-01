@@ -23,7 +23,7 @@ builder.Services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSch
     {
         if (existing is not null)
         {
-            await existing(context).ConfigureAwait(false);
+            await existing(context);
         }
         if (string.IsNullOrEmpty(context.Token) &&
             context.HttpContext.Request.Path.StartsWithSegments(LayoutLifecycleHub.Path) &&

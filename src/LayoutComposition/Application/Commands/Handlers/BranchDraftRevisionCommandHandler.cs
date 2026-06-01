@@ -18,8 +18,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         var (layoutIdentifier, branchedBy) = command;
 
         Option<Layout> found = await layouts
-            .GetByIdentifierAsync(layoutIdentifier, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Result<LayoutRevisionNumber, BranchDraftRevisionError>.Failure(
@@ -34,7 +33,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         }
 
         Revision branched = layout.BranchDraft(branchedBy, clock);
-        await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await layouts.SaveAsync(cancellationToken);
 
         logger.BranchedDraftRevision(branched.Number, layout.Id, branchedBy);
 

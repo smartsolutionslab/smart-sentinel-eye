@@ -47,7 +47,7 @@ public sealed class BoundedIngestChannel : IIngestChannel
     public async IAsyncEnumerable<EventEnvelope> ReadAllAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        while (await _channel.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
+        while (await _channel.Reader.WaitToReadAsync(cancellationToken))
         {
             while (_channel.Reader.TryRead(out EventEnvelope? envelope))
             {

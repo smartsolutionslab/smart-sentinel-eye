@@ -20,8 +20,7 @@ public sealed class ListLayoutsQueryHandler(ILayoutQuerySource layouts)
             // Filter pushed into SQL via the LayoutRevisionState value-converter.
             List<Layout> source = await layouts.Layouts
                 .Where(layout => layout.Revisions.Any(revision => revision.State == LayoutRevisionState.Published))
-                .ToListAsync(cancellationToken)
-                .ConfigureAwait(false);
+                .ToListAsync(cancellationToken);
 
             IReadOnlyList<PublishedLayoutDto> published = source
                 .Select(layout =>
@@ -44,8 +43,7 @@ public sealed class ListLayoutsQueryHandler(ILayoutQuerySource layouts)
 
         // Default / admin shape: every chain with its full revision history.
         List<Layout> all = await layouts.Layouts
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .ToListAsync(cancellationToken);
 
         IReadOnlyList<LayoutDto> chains = all
             .Select(GetLayoutQueryHandler.Map)

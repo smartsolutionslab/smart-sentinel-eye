@@ -19,8 +19,7 @@ public sealed class ArchiveVariableCommandHandler(
         var (name, archivedBy) = command;
 
         Option<Variable> found = await variables
-            .GetByNameAsync(name, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByNameAsync(name, cancellationToken);
         if (!found.HasValue)
         {
             return Result<VariableIdentifier, ArchiveVariableError>.Failure(
@@ -29,7 +28,7 @@ public sealed class ArchiveVariableCommandHandler(
 
         Variable variable = found.Value;
         variable.Archive(archivedBy, clock);
-        await variables.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await variables.SaveAsync(cancellationToken);
 
         logger.ArchivedVariable(variable.Id, name, archivedBy);
 

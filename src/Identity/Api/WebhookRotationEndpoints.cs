@@ -62,11 +62,11 @@ public static class WebhookRotationEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken).ConfigureAwait(false);
+        await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken);
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler.HandleAsync(
-            new RotateWebhookClientCommand(name, fab, actingOperator), cancellationToken).ConfigureAwait(false);
+            new RotateWebhookClientCommand(name, fab, actingOperator), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,

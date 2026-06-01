@@ -41,8 +41,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
         Ensure.That(message).IsNotNull();
 
         bool reserved = await dedup.TryReserveAsync(
-            message.Name, message.CausingEventIdentifier, cancellationToken)
-            .ConfigureAwait(false);
+            message.Name, message.CausingEventIdentifier, cancellationToken);
         if (!reserved)
         {
             logger.DedupHit(message.Name, message.CausingEventIdentifier);
@@ -62,7 +61,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
 
         Result<VariableIdentifier, SetVariableValueError> result = await setHandler
             .HandleAsync(new SetVariableValueCommand(name, message.Value, AutomationOperator),
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
 
         if (!result.IsSuccess)
         {

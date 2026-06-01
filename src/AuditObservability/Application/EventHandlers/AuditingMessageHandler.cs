@@ -43,7 +43,7 @@ public sealed class AuditingMessageHandler(IAuditEventRepository repository, V1R
         AuditEventEntity row = AuditEventEntity.From(envelope, mapping, clock);
 
         repository.Add(row);
-        await repository.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await repository.SaveAsync(cancellationToken);
 
         logger.Audited(
             envelope.EventTypeName,

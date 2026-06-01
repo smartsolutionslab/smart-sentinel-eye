@@ -36,6 +36,19 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- ADR-0049: ConfigureAwait is banned in application code (ASP.NET Core has
+       no SynchronizationContext, so it is behaviour-preserving noise). The ban
+       list applies only to production app projects. Shared.* libraries are
+       exempt — they may legitimately ConfigureAwait if externalized as
+       standalone packages — and test projects are out of scope. -->
+  <ItemGroup Condition="'$(IsTestProject)' != 'true' And !$(MSBuildProjectName.StartsWith('SmartSentinelEye.Shared'))">
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
   </ItemGroup>
 
   <!-- Production code: hard limits per ADR-0084. -->

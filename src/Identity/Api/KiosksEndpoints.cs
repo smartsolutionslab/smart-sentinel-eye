@@ -64,11 +64,11 @@ public static class KiosksEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken).ConfigureAwait(false);
+        await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken);
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<KioskCredentialsDto, EnrollKioskError> result = await handler.HandleAsync(
-            new EnrollKioskCommand(clientId, fab, actingOperator), cancellationToken).ConfigureAwait(false);
+            new EnrollKioskCommand(clientId, fab, actingOperator), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: dto => Results.Created($"/kiosks/{dto.ClientId}", dto),
@@ -93,7 +93,7 @@ public static class KiosksEndpoints
         }
 
         Result<RegisteredClientIdentifier, DisableKioskError> result = await handler.HandleAsync(
-            new DisableKioskCommand(parsed), cancellationToken).ConfigureAwait(false);
+            new DisableKioskCommand(parsed), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: id => Results.Ok(id.Value),

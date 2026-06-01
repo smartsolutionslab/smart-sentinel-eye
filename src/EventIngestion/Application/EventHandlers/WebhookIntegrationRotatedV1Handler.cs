@@ -29,7 +29,7 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
             return;
         }
 
-        Option<WebhookIntegration> found = await integrations.GetByNameAsync(name, cancellationToken).ConfigureAwait(false);
+        Option<WebhookIntegration> found = await integrations.GetByNameAsync(name, cancellationToken);
         if (!found.HasValue)
         {
             logger.RotationTargetMissing(message.IntegrationName);
@@ -38,7 +38,7 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
 
         WebhookIntegration integration = found.Value;
         integration.MarkAsRotated(message.ClientId, clock);
-        await integrations.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await integrations.SaveAsync(cancellationToken);
 
         logger.WebhookIntegrationFlippedToJwt(message.IntegrationName, message.ClientId);
     }

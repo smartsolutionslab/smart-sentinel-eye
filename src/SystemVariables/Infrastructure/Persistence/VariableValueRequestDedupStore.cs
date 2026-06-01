@@ -26,8 +26,7 @@ public sealed class VariableValueRequestDedupStore(
             ON CONFLICT (variable_name, causing_event_identifier) DO NOTHING;
             """;
         int rowsAffected = await dbContext.Database
-            .ExecuteSqlRawAsync(sql, [variableName, causingEventIdentifier], cancellationToken)
-            .ConfigureAwait(false);
+            .ExecuteSqlRawAsync(sql, [variableName, causingEventIdentifier], cancellationToken);
         return rowsAffected == 1;
     }
 }

@@ -21,7 +21,7 @@ public sealed class OverlayHighlightRequestedV1Handler(
         Ensure.That(message).IsNotNull();
         await broadcaster.OverlayHighlightedAsync(
             new OverlayHighlightedNotification(message.OverlayIdentifier, message.DurationMs),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
 
         logger.BroadcastOverlayHighlightChanged(message.OverlayIdentifier, message.DurationMs, message.CausingEventIdentifier);
     }

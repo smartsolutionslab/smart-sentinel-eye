@@ -29,15 +29,14 @@ builder.AddAuditObservabilityPersistence();
 IHost host = builder.Build();
 ILogger<Program> logger = host.Services.GetRequiredService<ILogger<Program>>();
 
-await host.StartAsync().ConfigureAwait(false);
+await host.StartAsync();
 
 IEnumerable<IMigrator> migrators = host.Services.GetServices<IMigrator>();
 foreach (IMigrator migrator in migrators)
 {
     logger.RunningMigrations(migrator.ContextName);
-    await migrator.RunAsync(host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping)
-        .ConfigureAwait(false);
+    await migrator.RunAsync(host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping);
 }
 
 logger.AllMigrationsApplied();
-await host.StopAsync().ConfigureAwait(false);
+await host.StopAsync();

@@ -21,8 +21,7 @@ public sealed class ListVariablesQueryHandler(IVariableQuerySource variables)
         }
 
         List<Variable> rows = await source
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .ToListAsync(cancellationToken);
 
         IReadOnlyList<VariableDto> dtos = rows
             .Select(GetVariableQueryHandler.Map)

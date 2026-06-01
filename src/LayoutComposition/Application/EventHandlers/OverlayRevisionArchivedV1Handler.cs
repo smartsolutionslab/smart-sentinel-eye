@@ -25,7 +25,7 @@ public sealed class OverlayRevisionArchivedV1Handler(
                 Overlay: message.Overlay,
                 RevisionNumber: message.RevisionNumber,
                 ArchivedAt: message.ArchivedAt),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
 
         logger.BroadcastOverlayArchived(message.Overlay, message.RevisionNumber);
     }

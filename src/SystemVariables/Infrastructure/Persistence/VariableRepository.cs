@@ -13,8 +13,7 @@ public sealed class VariableRepository(
         VariableIdentifier variable, CancellationToken cancellationToken)
     {
         Variable? found = await dbContext.Variables
-            .FirstOrDefaultAsync(candidate => candidate.Id == variable, cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(candidate => candidate.Id == variable, cancellationToken);
         return found is null ? Option<Variable>.None : Option<Variable>.Some(found);
     }
 
@@ -26,8 +25,7 @@ public sealed class VariableRepository(
         Variable? found = await dbContext.Variables
             .Where(variable => variable.Name == name)
             .Where(variable => variable.State != VariableState.Archived)
-            .FirstOrDefaultAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(cancellationToken);
         return found is null ? Option<Variable>.None : Option<Variable>.Some(found);
     }
 
@@ -45,13 +43,13 @@ public sealed class VariableRepository(
             .Select(entry => entry.Entity)
             .ToArray();
 
-        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         foreach (Variable variable in tracked)
         {
             IDomainEvent[] events = variable.PendingEvents.ToArray();
             variable.ClearPendingEvents();
-            await domainEventDispatcher.DispatchAsync(events, cancellationToken).ConfigureAwait(false);
+            await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }
     }
 }

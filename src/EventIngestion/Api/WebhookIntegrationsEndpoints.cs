@@ -69,7 +69,7 @@ public static class WebhookIntegrationsEndpoints
         Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError> result =
             await handler.HandleAsync(
                 new RegisterWebhookIntegrationCommand(name, defaultKind),
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: registration => Results.Created(
@@ -86,7 +86,7 @@ public static class WebhookIntegrationsEndpoints
         Result<IReadOnlyList<WebhookIntegrationDto>, ListWebhookIntegrationsError> result =
             await handler.HandleAsync(
                 new ListWebhookIntegrationsQuery(includeRevoked ?? false),
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
@@ -113,7 +113,7 @@ public static class WebhookIntegrationsEndpoints
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> result =
             await handler.HandleAsync(
                 new RevokeWebhookIntegrationCommand(parsed),
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Ok(identifier.Value),

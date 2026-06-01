@@ -22,8 +22,7 @@ public sealed class ListDeadLettersQueryHandler(IDeadLetterQuerySource deadLette
         List<DeadLetter> rows = await deadLetters.DeadLetters
             .OrderByDescending(deadLetter => deadLetter.RejectedAt)
             .Take(limit)
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .ToListAsync(cancellationToken);
 
         IReadOnlyList<DeadLetterDto> dtos = rows
             .Select(deadLetter => new DeadLetterDto(deadLetter.Id.Value, deadLetter.Topic, deadLetter.RawPayload, deadLetter.Error, deadLetter.RejectedAt))

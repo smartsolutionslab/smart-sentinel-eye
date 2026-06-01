@@ -42,8 +42,7 @@ public static partial class LayoutEndpoints
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler
-            .HandleAsync(new CreateLayoutDraftCommand(name, camera, actingOperator, overlay), cancellationToken)
-            .ConfigureAwait(false);
+            .HandleAsync(new CreateLayoutDraftCommand(name, camera, actingOperator, overlay), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Created($"/layouts/{identifier.Value}", identifier.Value),
@@ -77,8 +76,7 @@ public static partial class LayoutEndpoints
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler
             .HandleAsync(
                 new PublishRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, actingOperator),
-                cancellationToken)
-            .ConfigureAwait(false);
+                cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: published => Results.Ok(published.Value),
@@ -112,8 +110,7 @@ public static partial class LayoutEndpoints
         Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler
             .HandleAsync(
                 new ArchiveRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, actingOperator),
-                cancellationToken)
-            .ConfigureAwait(false);
+                cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: archived => Results.Ok(archived.Value),
@@ -138,8 +135,7 @@ public static partial class LayoutEndpoints
         Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler
             .HandleAsync(
                 new BranchDraftRevisionCommand(LayoutIdentifier.From(layoutIdentifier), actingOperator),
-                cancellationToken)
-            .ConfigureAwait(false);
+                cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: branched => Results.Created(
@@ -182,8 +178,7 @@ public static partial class LayoutEndpoints
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler
             .HandleAsync(
                 new EditDraftRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, camera, overlayChange),
-                cancellationToken)
-            .ConfigureAwait(false);
+                cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: edited => Results.Ok(edited.Value),
@@ -217,8 +212,7 @@ public static partial class LayoutEndpoints
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler
             .HandleAsync(
                 new RevertRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, actingOperator),
-                cancellationToken)
-            .ConfigureAwait(false);
+                cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: reverted => Results.Ok(reverted.Value),

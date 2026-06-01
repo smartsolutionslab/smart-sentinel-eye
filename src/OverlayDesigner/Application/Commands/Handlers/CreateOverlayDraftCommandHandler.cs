@@ -19,8 +19,7 @@ public sealed class CreateOverlayDraftCommandHandler(
         var (name, label, createdBy) = command;
 
         Option<Overlay> existing = await overlays
-            .GetByNameAsync(name, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByNameAsync(name, cancellationToken);
         if (existing.HasValue)
         {
             return Result<OverlayIdentifier, CreateOverlayDraftError>.Failure(
@@ -29,7 +28,7 @@ public sealed class CreateOverlayDraftCommandHandler(
 
         Overlay overlay = Overlay.CreateDraft(name, label, createdBy, clock);
         overlays.Add(overlay);
-        await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await overlays.SaveAsync(cancellationToken);
 
         logger.CreatedOverlay(overlay.Id, name, createdBy);
 

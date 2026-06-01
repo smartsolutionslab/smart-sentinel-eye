@@ -14,8 +14,7 @@ public sealed class RuleRepository(
         RuleIdentifier rule, CancellationToken cancellationToken)
     {
         RuleAggregate? found = await dbContext.Rules
-            .FirstOrDefaultAsync(candidate => candidate.Id == rule, cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(candidate => candidate.Id == rule, cancellationToken);
         return found is null ? Option<RuleAggregate>.None : Option<RuleAggregate>.Some(found);
     }
 
@@ -27,8 +26,7 @@ public sealed class RuleRepository(
         RuleAggregate? found = await dbContext.Rules
             .Where(rule => rule.Name == name)
             .Where(rule => rule.State != RuleState.Archived)
-            .FirstOrDefaultAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(cancellationToken);
         return found is null ? Option<RuleAggregate>.None : Option<RuleAggregate>.Some(found);
     }
 
@@ -46,13 +44,13 @@ public sealed class RuleRepository(
             .Select(entry => entry.Entity)
             .ToArray();
 
-        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         foreach (RuleAggregate rule in tracked)
         {
             var events = rule.PendingEvents.ToArray();
             rule.ClearPendingEvents();
-            await domainEventDispatcher.DispatchAsync(events, cancellationToken).ConfigureAwait(false);
+            await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }
     }
 }

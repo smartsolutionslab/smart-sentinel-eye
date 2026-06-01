@@ -31,7 +31,7 @@ public sealed class KeycloakAdminTokenProvider(
             return _cachedToken;
         }
 
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await _gate.WaitAsync(cancellationToken);
         try
         {
             if (_cachedToken is not null && clock.GetUtcNow() < _refreshAfter)
@@ -51,11 +51,11 @@ public sealed class KeycloakAdminTokenProvider(
             });
 
             HttpResponseMessage response = await httpClient
-                .PostAsync(url, form, cancellationToken).ConfigureAwait(false);
+                .PostAsync(url, form, cancellationToken);
             response.EnsureSuccessStatusCode();
 
             TokenResponse payload = await response.Content
-                .ReadFromJsonAsync<TokenResponse>(JsonOpts, cancellationToken).ConfigureAwait(false)
+                .ReadFromJsonAsync<TokenResponse>(JsonOpts, cancellationToken)
                 ?? throw new InvalidOperationException(
                     "Keycloak returned an empty token response.");
 

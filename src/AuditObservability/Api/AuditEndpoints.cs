@@ -69,7 +69,7 @@ public static class AuditEndpoints
     {
         if (fabId is not null)
         {
-            await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken).ConfigureAwait(false);
+            await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken);
         }
 
         IReadOnlyList<string> callerFabs = ExtractFabSet(user);
@@ -86,7 +86,7 @@ public static class AuditEndpoints
             Until: until,
             PageSize: pageSize ?? 0,
             Cursor: cursor);
-        var result = await handler.HandleAsync(query, cancellationToken).ConfigureAwait(false);
+        var result = await handler.HandleAsync(query, cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
@@ -104,7 +104,7 @@ public static class AuditEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken).ConfigureAwait(false);
+        await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken);
 
         var result = await handler.HandleAsync(
             new GetResourceTimelineQuery(
@@ -115,7 +115,7 @@ public static class AuditEndpoints
                 Until: until,
                 PageSize: pageSize ?? 0,
                 Cursor: cursor),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
@@ -128,7 +128,7 @@ public static class AuditEndpoints
         CancellationToken cancellationToken)
     {
         var query = new GetAuditEventQuery(auditIdentifier);
-        var result = await handler.HandleAsync(query, cancellationToken).ConfigureAwait(false);
+        var result = await handler.HandleAsync(query, cancellationToken);
 
         if (result.IsFailure)
         {
@@ -140,7 +140,7 @@ public static class AuditEndpoints
         var row = result.Value;
         if (row.Fab is not null)
         {
-            await fabGuard.EnsureAccessAsync(user, row.Fab, cancellationToken).ConfigureAwait(false);
+            await fabGuard.EnsureAccessAsync(user, row.Fab, cancellationToken);
         }
         return Results.Ok(row);
     }

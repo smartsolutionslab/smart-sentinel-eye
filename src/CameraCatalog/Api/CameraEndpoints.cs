@@ -74,7 +74,7 @@ public static class CameraEndpoints
         RegisterCameraCommand command = new(name, url, registeredBy);
 
         Result<CameraIdentifier, RegisterCameraError> result =
-            await handler.HandleAsync(command, cancellationToken).ConfigureAwait(false);
+            await handler.HandleAsync(command, cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Created(
@@ -98,7 +98,7 @@ public static class CameraEndpoints
             Limit: limit ?? ListCamerasDefaults.DefaultLimit);
 
         Result<CameraListPageDto, ListCamerasError> result =
-            await handler.HandleAsync(query, cancellationToken).ConfigureAwait(false);
+            await handler.HandleAsync(query, cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,

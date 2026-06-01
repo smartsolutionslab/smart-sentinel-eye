@@ -15,8 +15,7 @@ public sealed class GetAuditEventQueryHandler(IAuditEventQuerySource events)
         Ensure.That(query).IsNotNull();
 
         AuditEventEntity? row = await events.AuditEvents
-            .FirstOrDefaultAsync(auditEvent => auditEvent.Id.Value == query.AuditIdentifier, cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(auditEvent => auditEvent.Id.Value == query.AuditIdentifier, cancellationToken);
 
         return row is null
             ? Result<AuditRowDto, GetAuditEventError>.Failure(

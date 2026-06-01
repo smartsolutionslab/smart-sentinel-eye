@@ -17,8 +17,7 @@ public sealed class GetEventQueryHandler(IEventQuerySource events)
 
         EventAggregate? found = await events.Events
             .Where(eventEntity => eventEntity.Fab == fab && eventEntity.Id == identifier)
-            .FirstOrDefaultAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (found is null)
         {

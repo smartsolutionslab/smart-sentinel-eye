@@ -26,8 +26,7 @@ public static partial class OverlayEndpoints
         }
 
         Result<OverlayDto, GetOverlayError> result = await handler
-            .HandleAsync(new GetOverlayQuery(OverlayIdentifier.From(overlayIdentifier)), cancellationToken)
-            .ConfigureAwait(false);
+            .HandleAsync(new GetOverlayQuery(OverlayIdentifier.From(overlayIdentifier)), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
@@ -56,8 +55,7 @@ public static partial class OverlayEndpoints
         }
 
         Result<ListOverlaysResult, ListOverlaysError> result = await handler
-            .HandleAsync(new ListOverlaysQuery(filter), cancellationToken)
-            .ConfigureAwait(false);
+            .HandleAsync(new ListOverlaysQuery(filter), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: payload => Results.Ok(new ListOverlaysResponse(payload.Chains, payload.Published)),

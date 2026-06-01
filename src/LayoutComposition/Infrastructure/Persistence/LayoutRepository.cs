@@ -10,8 +10,7 @@ public sealed class LayoutRepository(LayoutCompositionDbContext dbContext, IDoma
 {
     public async Task<Option<Layout>> GetByIdentifierAsync(LayoutIdentifier layout, CancellationToken cancellationToken)
     {
-        Layout? found = await dbContext.Layouts.FirstOrDefaultAsync(candidate => candidate.Id == layout, cancellationToken)
-            .ConfigureAwait(false);
+        Layout? found = await dbContext.Layouts.FirstOrDefaultAsync(candidate => candidate.Id == layout, cancellationToken);
         return found is null ? Option<Layout>.None : Option<Layout>.Some(found);
     }
 
@@ -25,8 +24,7 @@ public sealed class LayoutRepository(LayoutCompositionDbContext dbContext, IDoma
         Layout? found = await dbContext.Layouts
             .Where(candidate => candidate.Name == name)
             .Where(candidate => candidate.Revisions.Any(revision => revision.State != LayoutRevisionState.Archived))
-            .FirstOrDefaultAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(cancellationToken);
         return found is null ? Option<Layout>.None : Option<Layout>.Some(found);
     }
 
@@ -45,13 +43,13 @@ public sealed class LayoutRepository(LayoutCompositionDbContext dbContext, IDoma
             .Select(entry => entry.Entity)
             .ToArray();
 
-        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         foreach (Layout layout in tracked)
         {
             IDomainEvent[] events = layout.PendingEvents.ToArray();
             layout.ClearPendingEvents();
-            await domainEventDispatcher.DispatchAsync(events, cancellationToken).ConfigureAwait(false);
+            await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }
     }
 }

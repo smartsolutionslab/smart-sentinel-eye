@@ -50,7 +50,7 @@ public sealed class FabEventIngestedV1Handler(
                         new SystemVariableValueRequestedV1(
                             setVariableValue.Name, setVariableValue.Value, requestedAt, message.EventIdentifier,
                             Metadata: new EventMetadata(Guid.CreateVersion7(), requestedAt, message.Fab, null)),
-                        cancellationToken).ConfigureAwait(false);
+                        cancellationToken);
                     break;
 
                 case RuleActionEffect.HighlightOverlay highlightOverlay:
@@ -58,7 +58,7 @@ public sealed class FabEventIngestedV1Handler(
                         new OverlayHighlightRequestedV1(
                             highlightOverlay.Overlay, highlightOverlay.DurationMs, requestedAt, message.EventIdentifier,
                             Metadata: new EventMetadata(Guid.CreateVersion7(), requestedAt, message.Fab, null)),
-                        cancellationToken).ConfigureAwait(false);
+                        cancellationToken);
                     break;
             }
         }

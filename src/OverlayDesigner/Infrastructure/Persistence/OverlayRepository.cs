@@ -13,8 +13,7 @@ public sealed class OverlayRepository(
         OverlayIdentifier overlay, CancellationToken cancellationToken)
     {
         Overlay? found = await dbContext.Overlays
-            .FirstOrDefaultAsync(candidate => candidate.Id == overlay, cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(candidate => candidate.Id == overlay, cancellationToken);
         return found is null ? Option<Overlay>.None : Option<Overlay>.Some(found);
     }
 
@@ -25,8 +24,7 @@ public sealed class OverlayRepository(
         Overlay? found = await dbContext.Overlays
             .Where(candidate => candidate.Name == name)
             .Where(candidate => candidate.Revisions.Any(revision => revision.State != OverlayRevisionState.Archived))
-            .FirstOrDefaultAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(cancellationToken);
         return found is null ? Option<Overlay>.None : Option<Overlay>.Some(found);
     }
 
@@ -44,13 +42,13 @@ public sealed class OverlayRepository(
             .Select(entry => entry.Entity)
             .ToArray();
 
-        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         foreach (Overlay overlay in tracked)
         {
             IDomainEvent[] events = overlay.PendingEvents.ToArray();
             overlay.ClearPendingEvents();
-            await domainEventDispatcher.DispatchAsync(events, cancellationToken).ConfigureAwait(false);
+            await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }
     }
 }

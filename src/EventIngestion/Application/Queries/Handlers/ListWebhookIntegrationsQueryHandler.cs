@@ -21,8 +21,7 @@ public sealed class ListWebhookIntegrationsQueryHandler(IWebhookIntegrationQuery
         }
 
         List<WebhookIntegration> rows = await source
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .ToListAsync(cancellationToken);
 
         IReadOnlyList<WebhookIntegrationDto> dtos = rows
             .Select(integration => new WebhookIntegrationDto(

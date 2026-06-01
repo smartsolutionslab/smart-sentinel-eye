@@ -68,8 +68,7 @@ public static class StreamEndpoints
         }
 
         Result<StreamHealthDto, GetStreamError> result = await handler
-            .HandleAsync(new GetStreamQuery(CameraIdentifier.From(cameraIdentifier)), cancellationToken)
-            .ConfigureAwait(false);
+            .HandleAsync(new GetStreamQuery(CameraIdentifier.From(cameraIdentifier)), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
@@ -95,8 +94,7 @@ public static class StreamEndpoints
         }
 
         Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result = await handler
-            .HandleAsync(new ListStreamsQuery(parsed), cancellationToken)
-            .ConfigureAwait(false);
+            .HandleAsync(new ListStreamsQuery(parsed), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
@@ -131,8 +129,7 @@ public static class StreamEndpoints
         }
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler
-            .HandleAsync(new AuthorizeWhepCommand(parsedPath, bearer), cancellationToken)
-            .ConfigureAwait(false);
+            .HandleAsync(new AuthorizeWhepCommand(parsedPath, bearer), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: _ => Results.Ok(),

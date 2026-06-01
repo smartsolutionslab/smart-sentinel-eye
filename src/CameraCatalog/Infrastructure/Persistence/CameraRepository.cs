@@ -12,8 +12,7 @@ public sealed class CameraRepository(
     public async Task<Option<Camera>> GetByIdentifierAsync(CameraIdentifier camera, CancellationToken cancellationToken)
     {
         Camera? found = await dbContext.Cameras
-            .FirstOrDefaultAsync(candidate => candidate.Id == camera, cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(candidate => candidate.Id == camera, cancellationToken);
         return found is null ? Option<Camera>.None : Option<Camera>.Some(found);
     }
 
@@ -22,8 +21,7 @@ public sealed class CameraRepository(
         Ensure.That(name).IsNotNull();
 
         return await dbContext.Cameras
-            .AnyAsync(candidate => candidate.Name == name, cancellationToken)
-            .ConfigureAwait(false);
+            .AnyAsync(candidate => candidate.Name == name, cancellationToken);
     }
 
     public void Add(Camera camera)
@@ -40,13 +38,13 @@ public sealed class CameraRepository(
             .Select(entry => entry.Entity)
             .ToArray();
 
-        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         foreach (Camera camera in tracked)
         {
             IDomainEvent[] events = camera.PendingEvents.ToArray();
             camera.ClearPendingEvents();
-            await domainEventDispatcher.DispatchAsync(events, cancellationToken).ConfigureAwait(false);
+            await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }
     }
 }

@@ -19,8 +19,7 @@ public sealed class PublishRuleCommandHandler(
         Ensure.That(command).IsNotNull();
 
         Option<Rule> found = await rules
-            .GetByNameAsync(command.Name, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByNameAsync(command.Name, cancellationToken);
         if (!found.HasValue)
         {
             return Result<RuleIdentifier, PublishRuleError>.Failure(
@@ -38,7 +37,7 @@ public sealed class PublishRuleCommandHandler(
                 new PublishRuleError.RuleAlreadyArchived(command.Name.Value));
         }
 
-        await rules.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await rules.SaveAsync(cancellationToken);
 
         // Live cache add so the rule is evaluated against the next
         // incoming event without waiting for a process restart.

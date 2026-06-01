@@ -19,8 +19,7 @@ public sealed class CreateLayoutDraftCommandHandler(
         var (name, camera, createdBy, overlay) = command;
 
         Option<Layout> existing = await layouts
-            .GetByNameAsync(name, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByNameAsync(name, cancellationToken);
         if (existing.HasValue)
         {
             return Result<LayoutIdentifier, CreateLayoutDraftError>.Failure(
@@ -29,7 +28,7 @@ public sealed class CreateLayoutDraftCommandHandler(
 
         Layout layout = Layout.CreateDraft(name, camera, createdBy, clock, overlay);
         layouts.Add(layout);
-        await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await layouts.SaveAsync(cancellationToken);
 
         logger.CreatedLayout(layout.Id, name, createdBy);
 

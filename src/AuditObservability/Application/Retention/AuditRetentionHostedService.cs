@@ -38,11 +38,11 @@ public sealed class AuditRetentionHostedService(
         try
         {
             // Run once at startup so a restart catches up immediately.
-            await RunOnceAsync(stoppingToken).ConfigureAwait(false);
+            await RunOnceAsync(stoppingToken);
 
-            while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
+            while (await timer.WaitForNextTickAsync(stoppingToken))
             {
-                await RunOnceAsync(stoppingToken).ConfigureAwait(false);
+                await RunOnceAsync(stoppingToken);
             }
         }
         catch (OperationCanceledException)
@@ -71,7 +71,7 @@ public sealed class AuditRetentionHostedService(
             scope.ServiceProvider.GetRequiredService<IAuditChunkArchiver>(),
             scope.ServiceProvider.GetRequiredService<IEventBus>());
 
-        IReadOnlyList<AuditChunk> chunks = await deps.Inventory.ListChunksOlderThanAsync(boundary, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<AuditChunk> chunks = await deps.Inventory.ListChunksOlderThanAsync(boundary, cancellationToken);
         if (chunks.Count == 0)
         {
             logger.RetentionSweepNoChunks(boundary);
@@ -82,7 +82,7 @@ public sealed class AuditRetentionHostedService(
 
         foreach (AuditChunk chunk in chunks)
         {
-            await ArchiveAndDropAsync(deps, chunk, cancellationToken).ConfigureAwait(false);
+            await ArchiveAndDropAsync(deps, chunk, cancellationToken);
         }
     }
 
@@ -91,7 +91,7 @@ public sealed class AuditRetentionHostedService(
     {
         try
         {
-            ChunkArchiveResult result = await deps.Archiver.ArchiveChunkAsync(chunk, cancellationToken).ConfigureAwait(false);
+            ChunkArchiveResult result = await deps.Archiver.ArchiveChunkAsync(chunk, cancellationToken);
 
             var @event = new AuditChunkArchivedV1(
                 chunk.ChunkIdentifier,
@@ -103,9 +103,9 @@ public sealed class AuditRetentionHostedService(
                 result.MinioObjectKey,
                 result.ContentMd5,
                 Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, null, null));
-            await deps.Events.PublishAsync(@event, cancellationToken).ConfigureAwait(false);
+            await deps.Events.PublishAsync(@event, cancellationToken);
 
-            await deps.Inventory.DropChunkAsync(chunk, cancellationToken).ConfigureAwait(false);
+            await deps.Inventory.DropChunkAsync(chunk, cancellationToken);
 
             logger.ArchivedChunk(chunk.ChunkIdentifier, result.RowCount, result.AlreadyArchived, result.MinioObjectKey);
         }

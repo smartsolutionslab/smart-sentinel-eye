@@ -33,7 +33,7 @@ public sealed class CameraRegisteredIntegrationEventHandler(
             ProvisionedBy: provisionedBy);
 
         Result<StreamIdentifier, ProvisionStreamError> result =
-            await handler.HandleAsync(command, cancellationToken).ConfigureAwait(false);
+            await handler.HandleAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {

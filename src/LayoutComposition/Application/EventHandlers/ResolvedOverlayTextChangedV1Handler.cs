@@ -26,7 +26,7 @@ public sealed class ResolvedOverlayTextChangedV1Handler(
                 message.Overlay,
                 message.ResolvedText,
                 message.Version),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
 
         logger.BroadcastResolvedOverlayTextChanged(message.Overlay, message.Version);
     }

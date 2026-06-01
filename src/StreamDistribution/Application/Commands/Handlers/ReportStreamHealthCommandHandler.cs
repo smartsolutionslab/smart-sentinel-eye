@@ -20,8 +20,7 @@ public sealed class ReportStreamHealthCommandHandler(
         var (camera, observation, declareOffline) = command;
 
         Option<Stream> existing = await streams
-            .GetByCameraAsync(camera, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByCameraAsync(camera, cancellationToken);
 
         if (!existing.HasValue)
         {
@@ -61,7 +60,7 @@ public sealed class ReportStreamHealthCommandHandler(
                     Reason: ex.Message));
         }
 
-        await streams.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await streams.SaveAsync(cancellationToken);
 
         return Result<StreamState, ReportStreamHealthError>.Success(stream.State);
     }

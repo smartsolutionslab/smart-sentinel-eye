@@ -26,8 +26,7 @@ public static partial class LayoutEndpoints
         }
 
         Result<LayoutDto, GetLayoutError> result = await handler
-            .HandleAsync(new GetLayoutQuery(LayoutIdentifier.From(layoutIdentifier)), cancellationToken)
-            .ConfigureAwait(false);
+            .HandleAsync(new GetLayoutQuery(LayoutIdentifier.From(layoutIdentifier)), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
@@ -56,8 +55,7 @@ public static partial class LayoutEndpoints
         }
 
         Result<ListLayoutsResult, ListLayoutsError> result = await handler
-            .HandleAsync(new ListLayoutsQuery(filter), cancellationToken)
-            .ConfigureAwait(false);
+            .HandleAsync(new ListLayoutsQuery(filter), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: payload => Results.Ok(new ListLayoutsResponse(payload.Chains, payload.Published)),
