@@ -121,7 +121,10 @@ public static class StreamEndpoints
 
     private static IReadOnlyList<CameraIdentifier> ParseCameraIdentifiers(string? raw)
     {
-        if (string.IsNullOrWhiteSpace(raw)) return Array.Empty<CameraIdentifier>();
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return Array.Empty<CameraIdentifier>();
+        }
 
         string[] parts = raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         List<CameraIdentifier> result = new(parts.Length);

@@ -30,11 +30,18 @@ public sealed record ClientId : StringValueObject
 
     private static bool IsValid(string s)
     {
-        if (!char.IsLetterOrDigit(s[0])) return false;
+        if (!char.IsLetterOrDigit(s[0]))
+        {
+            return false;
+        }
+
         for (int i = 1; i < s.Length; i++)
         {
             char c = s[i];
-            if (!char.IsLetterOrDigit(c) && c != '.' && c != '_' && c != '-') return false;
+            if (!char.IsLetterOrDigit(c) && c != '.' && c != '_' && c != '-')
+            {
+                return false;
+            }
         }
         return true;
     }

@@ -39,12 +39,18 @@ public sealed class VariableArchivedDomainEventHandler(
         await events.PublishAsync(systemVariableArchivedEvent, cancellationToken);
 
         IReadOnlyCollection<Guid> affectedOverlays = reverseIndex.LookupOverlays(domainEvent.Name.Value);
-        if (affectedOverlays.Count == 0) return;
+        if (affectedOverlays.Count == 0)
+        {
+            return;
+        }
 
         foreach (Guid overlayId in affectedOverlays)
         {
             string? labelText = reverseIndex.LookupLabelText(overlayId);
-            if (labelText is null) continue;
+            if (labelText is null)
+            {
+                continue;
+            }
 
             // Build a snapshot of every OTHER variable in the label
             // (the archived one is intentionally absent so it
@@ -52,18 +58,31 @@ public sealed class VariableArchivedDomainEventHandler(
             Dictionary<string, VariableSnapshotEntry> snapshot = new(StringComparer.Ordinal);
             foreach (string name in PlaceholderParser.ExtractNames(labelText))
             {
-                if (string.Equals(name, domainEvent.Name.Value, StringComparison.Ordinal)) continue;
+                if (string.Equals(name, domainEvent.Name.Value, StringComparison.Ordinal))
+                {
+                    continue;
+                }
 
                 VariableName parsed;
                 try { parsed = VariableName.From(name); }
                 catch (ArgumentException) { continue; }
 
                 Option<Variable> other = await variables.GetByNameAsync(parsed, cancellationToken);
-                if (!other.HasValue) continue;
+                if (!other.HasValue)
+                {
+                    continue;
+                }
 
                 Variable variable = other.Value;
-                if (variable.State == VariableState.Archived) continue;
-                if (variable.Value is VariableValue.Unset) continue;
+                if (variable.State == VariableState.Archived)
+                {
+                    continue;
+                }
+
+                if (variable.Value is VariableValue.Unset)
+                {
+                    continue;
+                }
 
                 snapshot[name] = new VariableSnapshotEntry(variable.Value, variable.BooleanLabels);
             }

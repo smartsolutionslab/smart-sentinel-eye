@@ -28,7 +28,11 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
         CancellationToken cancellationToken)
     {
         CallCount++;
-        if (FailNextCall is not null) ThrowAndClear();
+        if (FailNextCall is not null)
+        {
+            ThrowAndClear();
+        }
+
         ArgumentNullException.ThrowIfNull(representation);
         if (_clients.ContainsKey(representation.ClientId))
         {
@@ -44,7 +48,11 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
         string clientId, CancellationToken cancellationToken)
     {
         CallCount++;
-        if (FailNextCall is not null) ThrowAndClear();
+        if (FailNextCall is not null)
+        {
+            ThrowAndClear();
+        }
+
         if (!_clients.ContainsKey(clientId))
         {
             throw new KeycloakClientNotFoundException(clientId);
@@ -57,7 +65,11 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
     public Task DisableClientAsync(string clientId, CancellationToken cancellationToken)
     {
         CallCount++;
-        if (FailNextCall is not null) ThrowAndClear();
+        if (FailNextCall is not null)
+        {
+            ThrowAndClear();
+        }
+
         Disabled.Add(clientId);
         return Task.CompletedTask;
     }

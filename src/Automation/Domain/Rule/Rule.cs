@@ -85,7 +85,11 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
     public void Publish(IClock clock)
     {
         Ensure.That(clock).IsNotNull();
-        if (State == RuleState.Active) return; // idempotent
+        if (State == RuleState.Active)
+        {
+            return; // idempotent
+        }
+
         if (State == RuleState.Archived)
         {
             throw new InvalidOperationException($"Rule {Id} is Archived; clone the rule to author a new one.");
@@ -103,7 +107,11 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
     public void Archive(IClock clock)
     {
         Ensure.That(clock).IsNotNull();
-        if (State == RuleState.Archived) return; // idempotent
+        if (State == RuleState.Archived)
+        {
+            return; // idempotent
+        }
+
         State = RuleState.Archived;
         ArchivedAt = clock.UtcNow;
         Raise(new RuleArchivedDomainEvent(Id, Name, ArchivedAt.Value));

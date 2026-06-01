@@ -44,7 +44,11 @@ public sealed class InMemoryRuleCache : IRuleCache
     public void Upsert(RuleAggregate rule)
     {
         Ensure.That(rule).IsNotNull();
-        if (rule.State != RuleState.Active) return;
+        if (rule.State != RuleState.Active)
+        {
+            return;
+        }
+
         CompiledRule compiled = CompiledRule.From(rule);
         (string TriggerSource, string TriggerKind) key = (rule.TriggerSource, rule.TriggerKind);
 

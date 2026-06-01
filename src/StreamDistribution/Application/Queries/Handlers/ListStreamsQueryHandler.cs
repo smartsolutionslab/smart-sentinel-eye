@@ -18,7 +18,10 @@ public sealed class ListStreamsQueryHandler(IStreamQuerySource streams, IStreamW
             return Result<IReadOnlyList<StreamHealthDto>, ListStreamsError>.Failure(new ListStreamsError.InvalidBatchSize(query.Cameras.Count, ListStreamsDefaults.MaximumBatchSize));
         }
 
-        if (query.Cameras.Count == 0) return Result<IReadOnlyList<StreamHealthDto>, ListStreamsError>.Success(Array.Empty<StreamHealthDto>());
+        if (query.Cameras.Count == 0)
+        {
+            return Result<IReadOnlyList<StreamHealthDto>, ListStreamsError>.Success(Array.Empty<StreamHealthDto>());
+        }
 
         CameraIdentifier[] wanted = [.. query.Cameras];
 

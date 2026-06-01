@@ -20,12 +20,20 @@ internal static class AuditCursor
 
     public static (DateTimeOffset OccurredAt, Guid AuditIdentifier)? TryDecode(string? cursor)
     {
-        if (string.IsNullOrEmpty(cursor)) return null;
+        if (string.IsNullOrEmpty(cursor))
+        {
+            return null;
+        }
+
         try
         {
             string raw = Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
             int dot = raw.IndexOf('.', StringComparison.Ordinal);
-            if (dot < 0) return null;
+            if (dot < 0)
+            {
+                return null;
+            }
+
             long ticks = long.Parse(raw[..dot], CultureInfo.InvariantCulture);
             Guid id = Guid.ParseExact(raw[(dot + 1)..], "N");
             return (new DateTimeOffset(ticks, TimeSpan.Zero), id);

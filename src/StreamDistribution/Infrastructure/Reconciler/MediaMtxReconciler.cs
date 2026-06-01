@@ -70,7 +70,11 @@ public sealed class MediaMtxReconciler(
         int removed = 0;
         foreach (MediaMtxPath path in configured)
         {
-            if (expected.Contains(path)) continue;
+            if (expected.Contains(path))
+            {
+                continue;
+            }
+
             try
             {
                 await gateway.RemovePathAsync(path, cancellationToken);

@@ -109,7 +109,11 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
     public void Archive(OperatorIdentifier archivedBy, IClock clock)
     {
         Ensure.That(clock).IsNotNull();
-        if (State == VariableState.Archived) return;
+        if (State == VariableState.Archived)
+        {
+            return;
+        }
+
         State = VariableState.Archived;
         Value = VariableValue.Unset.Instance;
         Raise(new VariableArchivedDomainEvent(Id, Name, clock.UtcNow, archivedBy));
@@ -117,7 +121,10 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
 
     private static void EnsureValueMatchesType(VariableType type, VariableValue value)
     {
-        if (value is VariableValue.Unset) return;
+        if (value is VariableValue.Unset)
+        {
+            return;
+        }
 
         bool matches = (type, value) switch
         {

@@ -119,7 +119,11 @@ internal static class VariableValueColumnConverter
     {
         Ensure.That(packed).IsNotNull();
         int sep = packed.IndexOf('|', StringComparison.Ordinal);
-        if (sep < 0) throw new ArgumentException($"Malformed packed VariableValue '{packed}'.", nameof(packed));
+        if (sep < 0)
+        {
+            throw new ArgumentException($"Malformed packed VariableValue '{packed}'.", nameof(packed));
+        }
+
         string kind = packed[..sep];
         string wire = packed[(sep + 1)..];
         return kind switch

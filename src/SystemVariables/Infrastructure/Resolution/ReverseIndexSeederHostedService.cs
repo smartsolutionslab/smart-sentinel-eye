@@ -60,8 +60,16 @@ public sealed class ReverseIndexSeederHostedService(
             int seeded = 0;
             foreach (JsonElement overlay in published.EnumerateArray())
             {
-                if (!overlay.TryGetProperty("overlayIdentifier", out JsonElement idElement)) continue;
-                if (!overlay.TryGetProperty("text", out JsonElement textElement)) continue;
+                if (!overlay.TryGetProperty("overlayIdentifier", out JsonElement idElement))
+                {
+                    continue;
+                }
+
+                if (!overlay.TryGetProperty("text", out JsonElement textElement))
+                {
+                    continue;
+                }
+
                 Guid id = idElement.GetGuid();
                 string text = textElement.GetString() ?? string.Empty;
                 reverseIndex.UpsertOverlayReferences(id, text);

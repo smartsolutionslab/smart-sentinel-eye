@@ -153,7 +153,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     private async Task<Dictionary<string, string>> CaptureResourceStateMapAsync()
     {
         Dictionary<string, string> states = new(StringComparer.Ordinal);
-        if (_app is null) return states;
+        if (_app is null)
+        {
+            return states;
+        }
 
         using CancellationTokenSource snapshot = new(TimeSpan.FromSeconds(3));
         try
@@ -182,7 +185,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// </summary>
     private async Task<string> CaptureFailedResourceLogsAsync(Dictionary<string, string> states)
     {
-        if (_app is null) return "(app not built)";
+        if (_app is null)
+        {
+            return "(app not built)";
+        }
 
         string[] failed = states
             .Where(kv => kv.Value is not ("Running" or "Finished"))
@@ -190,7 +196,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
-        if (failed.Length == 0) return "(no failed resources)";
+        if (failed.Length == 0)
+        {
+            return "(no failed resources)";
+        }
 
         Aspire.Hosting.ApplicationModel.ResourceLoggerService loggers =
             _app.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
@@ -232,7 +241,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
     private async Task TailCameraCatalogLogsAsync(CancellationToken cancellationToken)
     {
-        if (_app is null) return;
+        if (_app is null)
+        {
+            return;
+        }
 
         try
         {

@@ -40,6 +40,19 @@ csharp_style_namespace_declarations = file_scoped:warning
 csharp_style_var_for_built_in_types = false:warning
 csharp_style_var_when_type_is_apparent = false:warning
 csharp_style_var_elsewhere = false:warning
+
+# Braces always — even single-statement control flow (house style; stops the
+# ReSharper cleanup-on-save brace-removal churn). The resharper_* keys make
+# Rider's cleanup ADD braces and never strip them, conforming to the house style.
+csharp_prefer_braces = true:warning
+resharper_braces_for_ifelse = required
+resharper_braces_for_for = required
+resharper_braces_for_foreach = required
+resharper_braces_for_while = required
+resharper_braces_for_dowhile = required
+resharper_braces_for_using = required
+resharper_braces_for_lock = required
+resharper_braces_for_fixed = required
 csharp_style_expression_bodied_methods = when_on_single_line:suggestion
 csharp_style_expression_bodied_properties = when_on_single_line:suggestion
 csharp_style_expression_bodied_accessors = when_on_single_line:suggestion

@@ -38,8 +38,16 @@ public static class AelInterpreter
         JsonElement current = context.Root;
         foreach (string segment in fieldAccess.Segments)
         {
-            if (current.ValueKind != JsonValueKind.Object) return AelValue.NullValue.Instance;
-            if (!current.TryGetProperty(segment, out JsonElement next)) return AelValue.NullValue.Instance;
+            if (current.ValueKind != JsonValueKind.Object)
+            {
+                return AelValue.NullValue.Instance;
+            }
+
+            if (!current.TryGetProperty(segment, out JsonElement next))
+            {
+                return AelValue.NullValue.Instance;
+            }
+
             current = next;
         }
         return JsonElementToAelValue(current);
@@ -88,8 +96,15 @@ public static class AelInterpreter
                 $"logical operand must be bool; got {left.GetType().Name}");
 
         // Short-circuit evaluation.
-        if (logical.Operator == LogicalOperator.And && !leftBool) return new AelValue.BoolValue(false);
-        if (logical.Operator == LogicalOperator.Or && leftBool) return new AelValue.BoolValue(true);
+        if (logical.Operator == LogicalOperator.And && !leftBool)
+        {
+            return new AelValue.BoolValue(false);
+        }
+
+        if (logical.Operator == LogicalOperator.Or && leftBool)
+        {
+            return new AelValue.BoolValue(true);
+        }
 
         AelValue right = Eval(logical.Right, context);
         bool rightBool = right is AelValue.BoolValue rightBoolValue

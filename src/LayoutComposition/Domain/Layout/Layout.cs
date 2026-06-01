@@ -141,7 +141,11 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     {
         Ensure.That(clock).IsNotNull();
         Revision target = RequireRevision(number);
-        if (target.State == LayoutRevisionState.Archived) return;
+        if (target.State == LayoutRevisionState.Archived)
+        {
+            return;
+        }
+
         bool wasObservable = target.State == LayoutRevisionState.Published;
         DateTimeOffset now = clock.UtcNow;
         target.Archive(now);

@@ -78,7 +78,11 @@ public static class AelParser
             AelTokenKind.Contains           => BinaryOperator.Contains,
             _ => null,
         };
-        if (binaryOperator is null) return left;
+        if (binaryOperator is null)
+        {
+            return left;
+        }
+
         cursor++;
         AelExpression right = ParseAdditive(tokens, ref cursor);
         return new AelExpression.Binary(binaryOperator.Value, left, right);

@@ -27,12 +27,23 @@ public sealed record VariableName : StringValueObject
 
     private static bool IsValidIdentifier(string s)
     {
-        if (s.Length == 0 || s.Length > MaximumLength) return false;
-        if (!char.IsLetter(s[0])) return false;
+        if (s.Length == 0 || s.Length > MaximumLength)
+        {
+            return false;
+        }
+
+        if (!char.IsLetter(s[0]))
+        {
+            return false;
+        }
+
         for (int i = 1; i < s.Length; i++)
         {
             char c = s[i];
-            if (!char.IsLetterOrDigit(c) && c != '_') return false;
+            if (!char.IsLetterOrDigit(c) && c != '_')
+            {
+                return false;
+            }
         }
         return true;
     }

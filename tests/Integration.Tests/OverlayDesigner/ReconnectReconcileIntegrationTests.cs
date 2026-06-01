@@ -89,7 +89,11 @@ public class ReconnectReconcileIntegrationTests(AspireFixture aspire) : IAsyncLi
             JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>(budget.Token);
             JsonElement revision = payload.GetProperty("revisions")[0];
             observedState = revision.GetProperty("state").GetString() ?? "Unknown";
-            if (observedState == "Archived") break;
+            if (observedState == "Archived")
+            {
+                break;
+            }
+
             await Task.Delay(TimeSpan.FromMilliseconds(100), budget.Token);
         }
         TimeSpan elapsed = DateTime.UtcNow - started;

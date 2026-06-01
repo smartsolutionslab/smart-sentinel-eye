@@ -15,7 +15,10 @@ public sealed class GetStreamQueryHandler(IStreamQuerySource streams, IStreamWhe
 
         Stream? stream = await streams.Streams.SingleOrDefaultAsync(candidate => candidate.Camera == query.Camera, cancellationToken);
 
-        if (stream is null) return Result<StreamHealthDto, GetStreamError>.Failure(new GetStreamError.StreamNotFound(query.Camera.Value));
+        if (stream is null)
+        {
+            return Result<StreamHealthDto, GetStreamError>.Failure(new GetStreamError.StreamNotFound(query.Camera.Value));
+        }
 
         return Result<StreamHealthDto, GetStreamError>.Success(Map(stream, whepUrls));
     }

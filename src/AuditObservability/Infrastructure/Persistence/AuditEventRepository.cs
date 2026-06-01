@@ -27,7 +27,10 @@ public sealed class AuditEventRepository(AuditObservabilityDbContext dbContext) 
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        if (_pending.Count == 0) return;
+        if (_pending.Count == 0)
+        {
+            return;
+        }
 
         foreach (AuditEventEntity row in _pending)
         {

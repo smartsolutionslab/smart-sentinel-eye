@@ -93,7 +93,10 @@ public static class WolverineDefaults
     {
         const string InfrastructureSuffix = ".Infrastructure";
         string name = infrastructureAssembly.GetName().Name ?? string.Empty;
-        if (!name.EndsWith(InfrastructureSuffix, StringComparison.Ordinal)) return null;
+        if (!name.EndsWith(InfrastructureSuffix, StringComparison.Ordinal))
+        {
+            return null;
+        }
 
         string applicationName = string.Concat(name.AsSpan(0, name.Length - InfrastructureSuffix.Length), ".Application");
 

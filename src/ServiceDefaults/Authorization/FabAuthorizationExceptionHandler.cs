@@ -22,7 +22,10 @@ public sealed class FabAuthorizationExceptionHandler : IExceptionHandler
     {
         Ensure.That(httpContext).IsNotNull();
 
-        if (exception is not FabAuthorizationException fabException) return false;
+        if (exception is not FabAuthorizationException fabException)
+        {
+            return false;
+        }
 
         httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
         ProblemDetails problem = new()

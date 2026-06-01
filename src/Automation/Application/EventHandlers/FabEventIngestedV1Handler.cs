@@ -38,7 +38,10 @@ public sealed class FabEventIngestedV1Handler(
         EvaluationContext context = BuildContext(message);
         IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
             message.Source, message.Kind, context);
-        if (effects.Count == 0) return;
+        if (effects.Count == 0)
+        {
+            return;
+        }
 
         DateTimeOffset requestedAt = clock.UtcNow;
         foreach (RuleActionEffect effect in effects)

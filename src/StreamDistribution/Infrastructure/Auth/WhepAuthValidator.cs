@@ -60,7 +60,10 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
             ClaimsPrincipal principal = _handler.ValidateToken(bearerToken, parameters, out _);
 
             string? subject = principal.FindFirst("sub")?.Value;
-            if (subject is null) return Option<WhepAuthSubject>.None;
+            if (subject is null)
+            {
+                return Option<WhepAuthSubject>.None;
+            }
 
             string scopeClaim = principal.FindFirst("scope")?.Value ?? string.Empty;
             string[] scopes = scopeClaim.Split(' ', StringSplitOptions.RemoveEmptyEntries);

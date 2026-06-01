@@ -65,10 +65,16 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
     {
         string? connection = await aspire.App
             .GetConnectionStringAsync(AspireFixture.StreamDistributionConnectionName);
-        if (connection is null) throw new InvalidOperationException("missing connection string");
+        if (connection is null)
+        {
+            throw new InvalidOperationException("missing connection string");
+        }
 
         string? mediaMtxUrl = aspire.App.GetEndpoint("mediamtx", "api").ToString();
-        if (string.IsNullOrEmpty(mediaMtxUrl)) throw new InvalidOperationException("missing mediamtx api endpoint");
+        if (string.IsNullOrEmpty(mediaMtxUrl))
+        {
+            throw new InvalidOperationException("missing mediamtx api endpoint");
+        }
 
         ServiceCollection services = new();
         services.AddDbContextFactory<StreamDistributionDbContext>(opts => opts.UseNpgsql(connection));
@@ -96,7 +102,11 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
         HttpResponseMessage response = await client.GetAsync("/v3/config/paths/list");
         response.EnsureSuccessStatusCode();
         JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>();
-        if (!payload.TryGetProperty("items", out JsonElement items)) return Array.Empty<string>();
+        if (!payload.TryGetProperty("items", out JsonElement items))
+        {
+            return Array.Empty<string>();
+        }
+
         return items.EnumerateArray()
             .Select(item => item.TryGetProperty("name", out JsonElement name) ? name.GetString() ?? string.Empty : string.Empty)
             .Where(name => name.Length > 0)

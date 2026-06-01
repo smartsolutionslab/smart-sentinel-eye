@@ -50,7 +50,10 @@ public sealed class VariableValueChangedDomainEventHandler(
         foreach (Guid overlayId in affectedOverlays)
         {
             string? labelText = reverseIndex.LookupLabelText(overlayId);
-            if (labelText is null) continue;
+            if (labelText is null)
+            {
+                continue;
+            }
 
             IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot = await BuildSnapshotAsync(labelText, domainEvent, cancellationToken);
 
@@ -104,11 +107,21 @@ public sealed class VariableValueChangedDomainEventHandler(
             }
 
             Option<Variable> other = await variables.GetByNameAsync(parsed, cancellationToken);
-            if (!other.HasValue) continue;
+            if (!other.HasValue)
+            {
+                continue;
+            }
 
             Variable variable = other.Value;
-            if (variable.State == VariableState.Archived) continue;
-            if (variable.Value is VariableValue.Unset) continue;
+            if (variable.State == VariableState.Archived)
+            {
+                continue;
+            }
+
+            if (variable.Value is VariableValue.Unset)
+            {
+                continue;
+            }
 
             snapshot[name] = new VariableSnapshotEntry(variable.Value, variable.BooleanLabels);
         }

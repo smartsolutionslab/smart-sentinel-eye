@@ -29,7 +29,10 @@ public class BoundedIngestChannelTests
             await foreach (EventEnvelope envelope in channel.ReadAllAsync(cts.Token))
             {
                 drained.Add(envelope);
-                if (drained.Count == expected) break;
+                if (drained.Count == expected)
+                {
+                    break;
+                }
             }
         }
         catch (OperationCanceledException)

@@ -105,8 +105,15 @@ public sealed partial class V1ResourceMap
 
         foreach (Type type in contractsAssembly.GetTypes())
         {
-            if (type.IsAbstract || type.IsInterface) continue;
-            if (!typeof(IIntegrationEvent).IsAssignableFrom(type)) continue;
+            if (type.IsAbstract || type.IsInterface)
+            {
+                continue;
+            }
+
+            if (!typeof(IIntegrationEvent).IsAssignableFrom(type))
+            {
+                continue;
+            }
 
             if (Conventions.HandTweaks.TryGetValue(type, out V1MappingEntry? tweak))
             {
@@ -115,7 +122,10 @@ public sealed partial class V1ResourceMap
             }
 
             DomainResourceKind? kind = ResolveResourceKind(type);
-            if (kind is null) continue;
+            if (kind is null)
+            {
+                continue;
+            }
 
             entries[type] = new V1MappingEntry(kind, BuildConventionPicker(type));
         }
@@ -128,7 +138,11 @@ public sealed partial class V1ResourceMap
         // Convention: the namespace tail maps to a canonical
         // resource — e.g. "Shared.Contracts.Automation" → "rule".
         string? leaf = type.Namespace?.Split('.').LastOrDefault();
-        if (leaf is null) return null;
+        if (leaf is null)
+        {
+            return null;
+        }
+
         return Conventions.NamespaceToResource.TryGetValue(leaf, out DomainResourceKind? mapped)
             ? mapped
             : null;
@@ -151,11 +165,17 @@ public sealed partial class V1ResourceMap
             foreach (string candidate in IdentifierPropertyNames)
             {
                 pick = Array.Find(props, property => property.Name == candidate);
-                if (pick is not null) break;
+                if (pick is not null)
+                {
+                    break;
+                }
             }
         }
 
-        if (pick is null) return _ => null;
+        if (pick is null)
+        {
+            return _ => null;
+        }
 
         return instance =>
         {

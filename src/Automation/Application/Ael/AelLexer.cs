@@ -110,13 +110,20 @@ public static class AelLexer
             {
                 int start = i;
                 bool isDecimal = false;
-                while (i < source.Length && char.IsAsciiDigit(source[i])) i++;
+                while (i < source.Length && char.IsAsciiDigit(source[i]))
+                {
+                    i++;
+                }
+
                 if (i < source.Length && source[i] == '.'
                     && i + 1 < source.Length && char.IsAsciiDigit(source[i + 1]))
                 {
                     isDecimal = true;
                     i++;
-                    while (i < source.Length && char.IsAsciiDigit(source[i])) i++;
+                    while (i < source.Length && char.IsAsciiDigit(source[i]))
+                    {
+                        i++;
+                    }
                 }
                 string lexeme = source[start..i];
                 tokens.Add(new AelToken(
