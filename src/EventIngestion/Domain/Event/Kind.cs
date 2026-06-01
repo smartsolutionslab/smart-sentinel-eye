@@ -28,10 +28,17 @@ public sealed record Kind : StringValueObject
 
     private static bool IsValid(string s)
     {
-        if (!char.IsAsciiLetterUpper(s[0])) return false;
+        if (!char.IsAsciiLetterUpper(s[0]))
+        {
+            return false;
+        }
+
         for (int i = 1; i < s.Length; i++)
         {
-            if (!char.IsLetterOrDigit(s[i])) return false;
+            if (!char.IsLetterOrDigit(s[i]))
+            {
+                return false;
+            }
         }
         return true;
     }

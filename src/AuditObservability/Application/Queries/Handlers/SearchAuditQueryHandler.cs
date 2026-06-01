@@ -92,8 +92,15 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
             ResourceIdentifier resId = ResourceIdentifier.From(resourceIdentifier);
             source = source.Where(auditEvent => auditEvent.ResourceIdentifier == resId);
         }
-        if (since is { } sinceFrom) source = source.Where(auditEvent => auditEvent.OccurredAt >= sinceFrom);
-        if (until is { } untilTo) source = source.Where(auditEvent => auditEvent.OccurredAt < untilTo);
+        if (since is { } sinceFrom)
+        {
+            source = source.Where(auditEvent => auditEvent.OccurredAt >= sinceFrom);
+        }
+
+        if (until is { } untilTo)
+        {
+            source = source.Where(auditEvent => auditEvent.OccurredAt < untilTo);
+        }
 
         if (cursor is { } c)
         {

@@ -74,7 +74,11 @@ public sealed class RegisteredClient : AggregateRoot<RegisteredClientIdentifier>
     public void Disable(IClock clock)
     {
         Ensure.That(clock).IsNotNull();
-        if (DisabledAt is not null) return;
+        if (DisabledAt is not null)
+        {
+            return;
+        }
+
         DisabledAt = clock.UtcNow;
         Raise(new ClientDisabledDomainEvent(Id, ClientId, DisabledAt.Value));
     }

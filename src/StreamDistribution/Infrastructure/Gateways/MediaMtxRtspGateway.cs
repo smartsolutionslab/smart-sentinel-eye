@@ -113,11 +113,23 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
 
     private static DateTimeOffset? TryReadIsoTimestamp(JsonElement payload, string property)
     {
-        if (!payload.TryGetProperty(property, out JsonElement element)) return null;
-        if (element.ValueKind != JsonValueKind.String) return null;
+        if (!payload.TryGetProperty(property, out JsonElement element))
+        {
+            return null;
+        }
+
+        if (element.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
         string raw = element.GetString() ?? string.Empty;
 
-        if (raw.Length == 0) return null;
+        if (raw.Length == 0)
+        {
+            return null;
+        }
+
         return DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, out DateTimeOffset parsed) ? parsed : null;
     }
 

@@ -43,7 +43,11 @@ public sealed class InMemoryReverseIndex : IReverseIndex
 
     public IReadOnlyCollection<Guid> LookupOverlays(string variableName)
     {
-        if (!_byName.TryGetValue(variableName, out HashSet<Guid>? set)) return Array.Empty<Guid>();
+        if (!_byName.TryGetValue(variableName, out HashSet<Guid>? set))
+        {
+            return Array.Empty<Guid>();
+        }
+
         lock (set) { return set.ToArray(); }
     }
 

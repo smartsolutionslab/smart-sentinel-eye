@@ -74,7 +74,11 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
     public void Revoke(IClock clock)
     {
         Ensure.That(clock).IsNotNull();
-        if (IsRevoked) return; // idempotent
+        if (IsRevoked)
+        {
+            return; // idempotent
+        }
+
         RevokedAt = clock.UtcNow;
         Raise(new WebhookIntegrationRevokedDomainEvent(Name, RevokedAt.Value));
     }

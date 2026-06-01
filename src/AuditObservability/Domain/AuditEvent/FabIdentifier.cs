@@ -31,11 +31,18 @@ public sealed record FabIdentifier : StringValueObject
 
     private static bool IsValid(string s)
     {
-        if (!char.IsAsciiLetterLower(s[0])) return false;
+        if (!char.IsAsciiLetterLower(s[0]))
+        {
+            return false;
+        }
+
         for (int i = 1; i < s.Length; i++)
         {
             char c = s[i];
-            if (!char.IsAsciiLetterLower(c) && !char.IsAsciiDigit(c) && c != '-') return false;
+            if (!char.IsAsciiLetterLower(c) && !char.IsAsciiDigit(c) && c != '-')
+            {
+                return false;
+            }
         }
         return true;
     }

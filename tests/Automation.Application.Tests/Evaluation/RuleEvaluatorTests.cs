@@ -40,7 +40,11 @@ public class RuleEvaluatorTests
             .WithAction(action)
             .WithClock(createdAt)
             .Build();
-        if (publish) rule.Publish(new FakeClock(createdAt.AddMinutes(1)));
+        if (publish)
+        {
+            rule.Publish(new FakeClock(createdAt.AddMinutes(1)));
+        }
+
         return rule;
     }
 

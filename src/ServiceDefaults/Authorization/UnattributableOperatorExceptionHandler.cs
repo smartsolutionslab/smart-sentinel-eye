@@ -22,7 +22,10 @@ public sealed class UnattributableOperatorExceptionHandler : IExceptionHandler
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
         Ensure.That(httpContext).IsNotNull();
-        if (exception is not UnattributableOperatorException) return false;
+        if (exception is not UnattributableOperatorException)
+        {
+            return false;
+        }
 
         httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
         ProblemDetails problem = new()

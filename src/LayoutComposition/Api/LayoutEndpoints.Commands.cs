@@ -221,8 +221,16 @@ public static partial class LayoutEndpoints
 
     private static OverlayChange TranslateOverlayChange(OverlayBindingUpdate? update)
     {
-        if (update is null) return OverlayChange.None;
-        if (update.Identifier is { } overlayId) return OverlayChange.Set(OverlayIdentifier.From(overlayId));
+        if (update is null)
+        {
+            return OverlayChange.None;
+        }
+
+        if (update.Identifier is { } overlayId)
+        {
+            return OverlayChange.Set(OverlayIdentifier.From(overlayId));
+        }
+
         return OverlayChange.Clear();
     }
 }

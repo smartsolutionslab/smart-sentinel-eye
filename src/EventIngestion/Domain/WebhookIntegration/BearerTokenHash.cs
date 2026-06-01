@@ -42,7 +42,11 @@ public sealed record BearerTokenHash : IValueObject<string>
 
     public bool Matches(string candidatePlaintext)
     {
-        if (string.IsNullOrEmpty(candidatePlaintext)) return false;
+        if (string.IsNullOrEmpty(candidatePlaintext))
+        {
+            return false;
+        }
+
         byte[] candidate = SHA256.HashData(Encoding.UTF8.GetBytes(candidatePlaintext));
         byte[] stored = Convert.FromBase64String(Value);
         return CryptographicOperations.FixedTimeEquals(candidate, stored);

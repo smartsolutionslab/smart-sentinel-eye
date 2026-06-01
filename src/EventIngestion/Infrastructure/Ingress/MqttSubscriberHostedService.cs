@@ -57,7 +57,11 @@ public sealed class MqttSubscriberHostedService(
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        if (_client is null) return;
+        if (_client is null)
+        {
+            return;
+        }
+
         _client.ApplicationMessageReceivedAsync -= OnMessageReceived;
         await _client.StopAsync();
         _client.Dispose();

@@ -56,7 +56,11 @@ public sealed class ReportStreamHealthCommandHandler(IStreamRepository streams, 
 
     private static string DescribeTarget(ReportStreamHealthCommand command)
     {
-        if (command.DeclareOffline) return "Offline";
+        if (command.DeclareOffline)
+        {
+            return "Offline";
+        }
+
         return command.Observation.IsReady ? "Healthy" : "Degraded";
     }
 }

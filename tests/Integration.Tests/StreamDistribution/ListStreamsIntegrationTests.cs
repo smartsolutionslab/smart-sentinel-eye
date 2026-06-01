@@ -82,7 +82,11 @@ public class ListStreamsIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         while (DateTime.UtcNow < deadline)
         {
             HttpResponseMessage response = await streamClient.GetAsync($"/streams/{camera}");
-            if (response.StatusCode == HttpStatusCode.OK) return;
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                return;
+            }
+
             await Task.Delay(TimeSpan.FromMilliseconds(500));
         }
         throw new TimeoutException($"Stream for camera {camera} did not appear within {timeout.TotalSeconds:F0}s.");

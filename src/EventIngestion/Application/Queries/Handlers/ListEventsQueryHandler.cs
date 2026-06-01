@@ -74,13 +74,40 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
     {
         IQueryable<EventAggregate> source = events.Where(eventEntity => eventEntity.Fab == query.Fab);
 
-        if (query.Source is not null) source = source.Where(eventEntity => eventEntity.Source == query.Source);
-        if (query.Device is not null) source = source.Where(eventEntity => eventEntity.Device == query.Device);
-        if (query.Kind is not null) source = source.Where(eventEntity => eventEntity.Kind == query.Kind);
-        if (query.OccurredAfter is { } occurredAfter) source = source.Where(eventEntity => eventEntity.OccurredAt > occurredAfter);
-        if (query.OccurredBefore is { } occurredBefore) source = source.Where(eventEntity => eventEntity.OccurredAt < occurredBefore);
-        if (query.IngestedAfter is { } ingestedAfter) source = source.Where(eventEntity => eventEntity.IngestedAt > ingestedAfter);
-        if (query.IngestedBefore is { } ingestedBefore) source = source.Where(eventEntity => eventEntity.IngestedAt < ingestedBefore);
+        if (query.Source is not null)
+        {
+            source = source.Where(eventEntity => eventEntity.Source == query.Source);
+        }
+
+        if (query.Device is not null)
+        {
+            source = source.Where(eventEntity => eventEntity.Device == query.Device);
+        }
+
+        if (query.Kind is not null)
+        {
+            source = source.Where(eventEntity => eventEntity.Kind == query.Kind);
+        }
+
+        if (query.OccurredAfter is { } occurredAfter)
+        {
+            source = source.Where(eventEntity => eventEntity.OccurredAt > occurredAfter);
+        }
+
+        if (query.OccurredBefore is { } occurredBefore)
+        {
+            source = source.Where(eventEntity => eventEntity.OccurredAt < occurredBefore);
+        }
+
+        if (query.IngestedAfter is { } ingestedAfter)
+        {
+            source = source.Where(eventEntity => eventEntity.IngestedAt > ingestedAfter);
+        }
+
+        if (query.IngestedBefore is { } ingestedBefore)
+        {
+            source = source.Where(eventEntity => eventEntity.IngestedAt < ingestedBefore);
+        }
 
         if (cursor is { } c)
         {
@@ -109,7 +136,11 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
         {
             string raw = Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
             int dot = raw.IndexOf('.', StringComparison.Ordinal);
-            if (dot < 0) return null;
+            if (dot < 0)
+            {
+                return null;
+            }
+
             long ticks = long.Parse(raw[..dot], CultureInfo.InvariantCulture);
             Guid id = Guid.ParseExact(raw[(dot + 1)..], "N");
             return (new DateTimeOffset(ticks, TimeSpan.Zero), id);

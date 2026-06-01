@@ -26,12 +26,18 @@ public sealed class RuleEvaluator(
         string triggerSource, string triggerKind, EvaluationContext context)
     {
         IReadOnlyList<CompiledRule> candidates = cache.LookupActive(triggerSource, triggerKind);
-        if (candidates.Count == 0) return Array.Empty<RuleActionEffect>();
+        if (candidates.Count == 0)
+        {
+            return Array.Empty<RuleActionEffect>();
+        }
 
         List<RuleActionEffect> effects = new(candidates.Count);
         foreach (CompiledRule rule in candidates)
         {
-            if (!TryEvaluatePredicate(rule, context)) continue;
+            if (!TryEvaluatePredicate(rule, context))
+            {
+                continue;
+            }
 
             switch (rule.Action)
             {
@@ -74,7 +80,11 @@ public sealed class RuleEvaluator(
         CompiledRule rule, EvaluationContext context, out string wireValue)
     {
         wireValue = string.Empty;
-        if (rule.CompiledValueExpression is null) return false;
+        if (rule.CompiledValueExpression is null)
+        {
+            return false;
+        }
+
         try
         {
             AelValue result = AelInterpreter.Evaluate(rule.CompiledValueExpression, context);

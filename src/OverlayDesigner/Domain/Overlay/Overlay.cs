@@ -126,7 +126,11 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
     {
         Ensure.That(clock).IsNotNull();
         Revision target = RequireRevision(number);
-        if (target.State == OverlayRevisionState.Archived) return;
+        if (target.State == OverlayRevisionState.Archived)
+        {
+            return;
+        }
+
         bool wasObservable = target.State == OverlayRevisionState.Published;
         DateTimeOffset now = clock.UtcNow;
         target.Archive(now);

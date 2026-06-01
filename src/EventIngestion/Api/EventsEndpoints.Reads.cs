@@ -33,9 +33,20 @@ public static partial class EventsEndpoints
         try
         {
             fab = FabIdentifier.From(fabId);
-            if (!string.IsNullOrEmpty(source)) sourceVo = Source.From(source);
-            if (!string.IsNullOrEmpty(deviceId)) deviceVo = DeviceIdentifier.From(deviceId);
-            if (!string.IsNullOrEmpty(kind)) kindVo = Kind.From(kind);
+            if (!string.IsNullOrEmpty(source))
+            {
+                sourceVo = Source.From(source);
+            }
+
+            if (!string.IsNullOrEmpty(deviceId))
+            {
+                deviceVo = DeviceIdentifier.From(deviceId);
+            }
+
+            if (!string.IsNullOrEmpty(kind))
+            {
+                kindVo = Kind.From(kind);
+            }
         }
         catch (ArgumentException ex)
         {

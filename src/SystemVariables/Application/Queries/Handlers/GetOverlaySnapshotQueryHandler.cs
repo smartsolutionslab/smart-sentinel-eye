@@ -37,11 +37,21 @@ public sealed class GetOverlaySnapshotQueryHandler(IReverseIndex reverseIndex, I
             catch (ArgumentException) { continue; }
 
             Option<Variable> found = await variables.GetByNameAsync(parsed, cancellationToken);
-            if (!found.HasValue) continue;
+            if (!found.HasValue)
+            {
+                continue;
+            }
 
             Variable variable = found.Value;
-            if (variable.State == VariableState.Archived) continue;
-            if (variable.Value is VariableValue.Unset) continue;
+            if (variable.State == VariableState.Archived)
+            {
+                continue;
+            }
+
+            if (variable.Value is VariableValue.Unset)
+            {
+                continue;
+            }
 
             snapshot[name] = new VariableSnapshotEntry(variable.Value, variable.BooleanLabels);
         }

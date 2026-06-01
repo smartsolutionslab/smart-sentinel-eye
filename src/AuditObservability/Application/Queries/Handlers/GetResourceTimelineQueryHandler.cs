@@ -56,8 +56,15 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
             .Where(auditEvent => auditEvent.ResourceIdentifier == resourceIdentifierFilter)
             .Where(auditEvent => auditEvent.Fab == fabFilter);
 
-        if (since is { } sinceFrom) source = source.Where(auditEvent => auditEvent.OccurredAt >= sinceFrom);
-        if (until is { } untilTo) source = source.Where(auditEvent => auditEvent.OccurredAt < untilTo);
+        if (since is { } sinceFrom)
+        {
+            source = source.Where(auditEvent => auditEvent.OccurredAt >= sinceFrom);
+        }
+
+        if (until is { } untilTo)
+        {
+            source = source.Where(auditEvent => auditEvent.OccurredAt < untilTo);
+        }
 
         if (cursor is { } c)
         {

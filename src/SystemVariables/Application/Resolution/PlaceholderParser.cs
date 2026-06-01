@@ -25,14 +25,20 @@ public static partial class PlaceholderParser
     public static IReadOnlyCollection<string> ExtractNames(string labelText)
     {
         Ensure.That(labelText).IsNotNull();
-        if (labelText.Length == 0) return Array.Empty<string>();
+        if (labelText.Length == 0)
+        {
+            return Array.Empty<string>();
+        }
 
         HashSet<string> seen = new(StringComparer.Ordinal);
         List<string> ordered = new();
         foreach (Match m in PlaceholderRegex().Matches(labelText))
         {
             string name = m.Groups["name"].Value;
-            if (seen.Add(name)) ordered.Add(name);
+            if (seen.Add(name))
+            {
+                ordered.Add(name);
+            }
         }
         return ordered;
     }

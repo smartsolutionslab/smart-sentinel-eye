@@ -107,7 +107,11 @@ public sealed partial class V1ResourceMap
         private static Func<object, ResourceIdentifier?> PickByProperty(Type type, string propertyName)
         {
             System.Reflection.PropertyInfo? prop = type.GetProperty(propertyName);
-            if (prop is null) return _ => null;
+            if (prop is null)
+            {
+                return _ => null;
+            }
+
             return instance =>
             {
                 object? raw = prop.GetValue(instance);

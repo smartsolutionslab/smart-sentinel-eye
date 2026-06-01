@@ -22,7 +22,11 @@ public sealed record CameraName : StringValueObject, IComparable<CameraName>
 
     public int CompareTo(CameraName? other)
     {
-        if (other is null) return 1;
+        if (other is null)
+        {
+            return 1;
+        }
+
         return string.Compare(NormalizedValue, other.NormalizedValue, StringComparison.Ordinal);
     }
 

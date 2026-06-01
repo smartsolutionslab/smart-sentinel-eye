@@ -15,7 +15,10 @@ public sealed class GetOverlayQueryHandler(IOverlayQuerySource overlays)
 
         Overlay? overlay = await overlays.Overlays.SingleOrDefaultAsync(candidate => candidate.Id == query.Overlay, cancellationToken);
 
-        if (overlay is null) return Result<OverlayDto, GetOverlayError>.Failure(new GetOverlayError.OverlayNotFound(query.Overlay.Value));
+        if (overlay is null)
+        {
+            return Result<OverlayDto, GetOverlayError>.Failure(new GetOverlayError.OverlayNotFound(query.Overlay.Value));
+        }
 
         return Result<OverlayDto, GetOverlayError>.Success(Map(overlay));
     }

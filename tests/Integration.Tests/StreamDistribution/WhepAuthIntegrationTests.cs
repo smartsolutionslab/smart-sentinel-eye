@@ -88,7 +88,11 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     // WHEP authorize failure (passes locally) diagnosable from the test log.
     private static async Task AssertStatusAsync(HttpResponseMessage response, HttpStatusCode expected)
     {
-        if (response.StatusCode == expected) return;
+        if (response.StatusCode == expected)
+        {
+            return;
+        }
+
         string body = await response.Content.ReadAsStringAsync();
         response.StatusCode.ShouldBe(expected,
             $"unexpected status. response body:\n{(body.Length > 4000 ? body[..4000] : body)}");

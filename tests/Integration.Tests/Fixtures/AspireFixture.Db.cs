@@ -133,22 +133,40 @@ public sealed partial class AspireFixture
         for (int page = 0; page < 16; page++)
         {
             using HttpResponseMessage list = await client.GetAsync("/v3/config/paths/list").ConfigureAwait(false);
-            if (!list.IsSuccessStatusCode) return;
+            if (!list.IsSuccessStatusCode)
+            {
+                return;
+            }
+
             System.Text.Json.JsonElement payload =
                 await list.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>().ConfigureAwait(false);
-            if (!payload.TryGetProperty("items", out System.Text.Json.JsonElement items)) return;
+            if (!payload.TryGetProperty("items", out System.Text.Json.JsonElement items))
+            {
+                return;
+            }
 
             int removed = 0;
             foreach (System.Text.Json.JsonElement item in items.EnumerateArray())
             {
-                if (!item.TryGetProperty("name", out System.Text.Json.JsonElement name)) continue;
+                if (!item.TryGetProperty("name", out System.Text.Json.JsonElement name))
+                {
+                    continue;
+                }
+
                 string? pathName = name.GetString();
-                if (string.IsNullOrEmpty(pathName)) continue;
+                if (string.IsNullOrEmpty(pathName))
+                {
+                    continue;
+                }
+
                 using HttpResponseMessage del = await client
                     .DeleteAsync($"/v3/config/paths/delete/{pathName}").ConfigureAwait(false);
                 removed++;
             }
-            if (removed == 0) return;
+            if (removed == 0)
+            {
+                return;
+            }
         }
     }
 }
