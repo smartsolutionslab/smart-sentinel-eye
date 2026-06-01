@@ -38,7 +38,8 @@ public sealed class DefaultFabAuthorizationGuard : IFabAuthorizationGuard
     public Task EnsureAccessAsync(ClaimsPrincipal user, string fabId, CancellationToken cancellationToken)
     {
         Ensure.That(user).IsNotNull();
-        ArgumentException.ThrowIfNullOrWhiteSpace(fabId);
+        Ensure.That(fabId).IsNotNullOrWhiteSpace();
+
         cancellationToken.ThrowIfCancellationRequested();
 
         string targetGroup = FabGroupPrefix + fabId;
@@ -47,8 +48,7 @@ public sealed class DefaultFabAuthorizationGuard : IFabAuthorizationGuard
             // Keycloak emits group memberships as either repeated
             // single-value claims or one space-separated claim; split
             // defensively.
-            string[] tokens = claim.Value.Split(
-                [' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+            string[] tokens = claim.Value.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
             if (tokens.Contains(targetGroup, StringComparer.Ordinal))
             {
                 return Task.CompletedTask;
@@ -64,13 +64,8 @@ public sealed class DefaultFabAuthorizationGuard : IFabAuthorizationGuard
 /// to a 403 with <c>title = RESOURCE_FAB_NOT_AUTHORIZED</c>
 /// globally.
 /// </summary>
-public sealed class FabAuthorizationException : Exception
+public sealed class FabAuthorizationException(string fabId)
+    : Exception($"Caller is not authorized to access fab '{fabId}'.")
 {
-    public string FabId { get; }
-
-    public FabAuthorizationException(string fabId)
-        : base($"Caller is not authorized to access fab '{fabId}'.")
-    {
-        FabId = fabId;
-    }
+    public string FabId { get; } = fabId;
 }

@@ -21,6 +21,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
     public async Task PublishedAsync(LayoutRevisionPublishedNotification notification, CancellationToken cancellationToken)
     {
         Ensure.That(notification).IsNotNull();
+
         LayoutRevisionPublishedHubMessage message = new(
             Layout: notification.Layout.Value,
             RevisionNumber: notification.RevisionNumber.Value,
@@ -30,13 +31,14 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
         await BroadcastAsync(
             () => hub.Clients.All.LayoutRevisionPublished(message),
-            ex => Log.LayoutRevisionPublishedBroadcastFailed(logger, ex, notification.Layout, notification.RevisionNumber))
+            ex => logger.LayoutRevisionPublishedBroadcastFailed(ex, notification.Layout, notification.RevisionNumber))
             .ConfigureAwait(false);
     }
 
     public async Task ArchivedAsync(LayoutRevisionArchivedNotification notification, CancellationToken cancellationToken)
     {
         Ensure.That(notification).IsNotNull();
+
         LayoutRevisionArchivedHubMessage message = new(
             Layout: notification.Layout.Value,
             RevisionNumber: notification.RevisionNumber.Value,
@@ -44,7 +46,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
         await BroadcastAsync(
             () => hub.Clients.All.LayoutRevisionArchived(message),
-            ex => Log.LayoutRevisionArchivedBroadcastFailed(logger, ex, notification.Layout, notification.RevisionNumber))
+            ex => logger.LayoutRevisionArchivedBroadcastFailed(ex, notification.Layout, notification.RevisionNumber))
             .ConfigureAwait(false);
     }
 
@@ -65,13 +67,14 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
         await BroadcastAsync(
             () => hub.Clients.All.OverlayRevisionPublished(message),
-            ex => Log.OverlayRevisionPublishedBroadcastFailed(logger, ex, notification.Overlay, notification.RevisionNumber))
+            ex => logger.OverlayRevisionPublishedBroadcastFailed(ex, notification.Overlay, notification.RevisionNumber))
             .ConfigureAwait(false);
     }
 
     public async Task OverlayArchivedAsync(OverlayLifecycleArchivedNotification notification, CancellationToken cancellationToken)
     {
         Ensure.That(notification).IsNotNull();
+
         OverlayRevisionArchivedHubMessage message = new(
             Overlay: notification.Overlay,
             RevisionNumber: notification.RevisionNumber,
@@ -79,13 +82,14 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
         await BroadcastAsync(
             () => hub.Clients.All.OverlayRevisionArchived(message),
-            ex => Log.OverlayRevisionArchivedBroadcastFailed(logger, ex, notification.Overlay, notification.RevisionNumber))
+            ex => logger.OverlayRevisionArchivedBroadcastFailed(ex, notification.Overlay, notification.RevisionNumber))
             .ConfigureAwait(false);
     }
 
     public async Task ResolvedOverlayTextChangedAsync(ResolvedOverlayTextChangedNotification notification, CancellationToken cancellationToken)
     {
         Ensure.That(notification).IsNotNull();
+
         ResolvedOverlayTextChangedHubMessage message = new(
             Overlay: notification.Overlay,
             ResolvedText: notification.ResolvedText,
@@ -93,20 +97,21 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
         await BroadcastAsync(
             () => hub.Clients.All.ResolvedOverlayTextChanged(message),
-            ex => Log.ResolvedOverlayTextChangedBroadcastFailed(logger, ex, notification.Overlay, notification.Version))
+            ex => logger.ResolvedOverlayTextChangedBroadcastFailed(ex, notification.Overlay, notification.Version))
             .ConfigureAwait(false);
     }
 
     public async Task OverlayHighlightedAsync(OverlayHighlightedNotification notification, CancellationToken cancellationToken)
     {
         Ensure.That(notification).IsNotNull();
+
         OverlayHighlightChangedHubMessage message = new(
             Overlay: notification.Overlay,
             DurationMs: notification.DurationMs);
 
         await BroadcastAsync(
             () => hub.Clients.All.OverlayHighlightChanged(message),
-            ex => Log.OverlayHighlightChangedBroadcastFailed(logger, ex, notification.Overlay, notification.DurationMs))
+            ex => logger.OverlayHighlightChangedBroadcastFailed(ex, notification.Overlay, notification.DurationMs))
             .ConfigureAwait(false);
     }
 

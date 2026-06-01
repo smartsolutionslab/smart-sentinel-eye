@@ -8,9 +8,8 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 /// MigrationRunner-invoked migrator for the LayoutComposition DbContext
 /// (ADR-0067). Applies pending EF Core migrations once; idempotent.
 /// </summary>
-public sealed class LayoutCompositionMigrator(
-    IDbContextFactory<LayoutCompositionDbContext> dbContextFactory,
-    ILogger<LayoutCompositionMigrator> logger) : IMigrator
+public sealed class LayoutCompositionMigrator(IDbContextFactory<LayoutCompositionDbContext> dbContextFactory, ILogger<LayoutCompositionMigrator> logger)
+    : IMigrator
 {
     public string ContextName => "LayoutComposition";
 
@@ -19,8 +18,8 @@ public sealed class LayoutCompositionMigrator(
         await using LayoutCompositionDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.ApplyingMigrations(logger);
+        logger.ApplyingMigrations();
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        Log.MigrationsApplied(logger);
+        logger.MigrationsApplied();
     }
 }

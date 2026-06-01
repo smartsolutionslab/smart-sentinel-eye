@@ -118,7 +118,7 @@ public sealed class HttpKeycloakAdminClient(
             .ConfigureAwait(false);
         if (clientUuid is null)
         {
-            Log.DisableClientNoOp(logger, clientId);
+            logger.DisableClientNoOp(clientId);
             return;
         }
 

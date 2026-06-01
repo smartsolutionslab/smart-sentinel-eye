@@ -33,6 +33,6 @@ public sealed class EventIngestedDomainEventHandler(IEventBus events, ILogger<Ev
                 Metadata: new EventMetadata(domainEvent.Identifier.Value, domainEvent.OccurredAt.Value, domainEvent.Fab.Value, null)),
             cancellationToken).ConfigureAwait(false);
 
-        Log.PublishedIntegrationEvent(logger, domainEvent.Identifier, domainEvent.Source, domainEvent.Device);
+        logger.PublishedIntegrationEvent(domainEvent.Identifier, domainEvent.Source, domainEvent.Device);
     }
 }

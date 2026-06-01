@@ -12,8 +12,7 @@ namespace SmartSentinelEye.AuditObservability.Application.Retention;
 /// </summary>
 public interface IAuditChunkArchiver
 {
-    Task<ChunkArchiveResult> ArchiveChunkAsync(
-        AuditChunk chunk, CancellationToken cancellationToken);
+    Task<ChunkArchiveResult> ArchiveChunkAsync(AuditChunk chunk, CancellationToken cancellationToken);
 }
 
 public sealed record ChunkArchiveResult(

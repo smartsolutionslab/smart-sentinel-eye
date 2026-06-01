@@ -44,7 +44,7 @@ public sealed class PublishRevisionCommandHandler(
         layout.Publish(revisionNumber, publishedBy, clock);
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.PublishedRevision(logger, layout.Id, revisionNumber, publishedBy);
+        logger.PublishedRevision(layout.Id, revisionNumber, publishedBy);
 
         return Result<LayoutRevisionNumber, PublishRevisionError>.Success(revisionNumber);
     }

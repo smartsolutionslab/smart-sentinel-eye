@@ -14,7 +14,7 @@ public sealed class WolverineEventBus(IMessageBus bus, ILogger<WolverineEventBus
     public Task PublishAsync<TEvent>(TEvent integrationEvent, CancellationToken cancellationToken = default)
         where TEvent : notnull
     {
-        Log.PublishingIntegrationEvent(logger, typeof(TEvent).FullName);
+        logger.PublishingIntegrationEvent(typeof(TEvent).FullName);
         return bus.PublishAsync(integrationEvent).AsTask();
     }
 }

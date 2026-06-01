@@ -89,7 +89,7 @@ public sealed class RegisterDeviceCommandHandler(
         clients.Add(registered);
         await clients.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.RegisteredDevice(logger, registered.Id, clientId, deviceType, deviceIdentifier, fab);
+        logger.RegisteredDevice(registered.Id, clientId, deviceType, deviceIdentifier, fab);
 
         return Result<DeviceCredentialsDto, RegisterDeviceError>.Success(
             new DeviceCredentialsDto(

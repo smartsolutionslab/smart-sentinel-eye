@@ -36,7 +36,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         Revision branched = layout.BranchDraft(branchedBy, clock);
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.BranchedDraftRevision(logger, branched.Number, layout.Id, branchedBy);
+        logger.BranchedDraftRevision(branched.Number, layout.Id, branchedBy);
 
         return Result<LayoutRevisionNumber, BranchDraftRevisionError>.Success(branched.Number);
     }

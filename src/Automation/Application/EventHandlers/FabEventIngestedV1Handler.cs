@@ -63,7 +63,7 @@ public sealed class FabEventIngestedV1Handler(
             }
         }
 
-        Log.FannedOutActions(logger, effects.Count, message.EventIdentifier, message.Source, message.Kind);
+        logger.FannedOutActions(effects.Count, message.EventIdentifier, message.Source, message.Kind);
     }
 
     /// <summary>

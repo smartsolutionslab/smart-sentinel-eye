@@ -31,7 +31,7 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
         integration.Revoke(clock);
         await integrations.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.WebhookIntegrationRevoked(logger, integration.Name, integration.Id);
+        logger.WebhookIntegrationRevoked(integration.Name, integration.Id);
 
         return Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>.Success(integration.Id);
     }

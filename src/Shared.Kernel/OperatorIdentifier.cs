@@ -11,6 +11,7 @@ public readonly record struct OperatorIdentifier(Guid Value) : IStronglyTypedId<
     public static OperatorIdentifier From(Guid value)
     {
         Ensure.That(value).IsNotEmpty();
+
         return new(value);
     }
 

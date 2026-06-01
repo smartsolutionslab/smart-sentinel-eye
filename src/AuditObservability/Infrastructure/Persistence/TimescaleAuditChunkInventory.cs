@@ -62,7 +62,7 @@ public sealed class TimescaleAuditChunkInventory(
             """,
             cancellationToken).ConfigureAwait(false);
 
-        Log.DroppedChunks(logger, chunk.OccurredUntil, count);
+        logger.DroppedChunks(chunk.OccurredUntil, count);
     }
 
     /// <summary>

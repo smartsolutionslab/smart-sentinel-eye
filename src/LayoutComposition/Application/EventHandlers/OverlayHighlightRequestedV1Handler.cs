@@ -23,7 +23,6 @@ public sealed class OverlayHighlightRequestedV1Handler(
             new OverlayHighlightedNotification(message.OverlayIdentifier, message.DurationMs),
             cancellationToken).ConfigureAwait(false);
 
-        Log.BroadcastOverlayHighlightChanged(
-            logger, message.OverlayIdentifier, message.DurationMs, message.CausingEventIdentifier);
+        logger.BroadcastOverlayHighlightChanged(message.OverlayIdentifier, message.DurationMs, message.CausingEventIdentifier);
     }
 }

@@ -18,14 +18,11 @@ public sealed class FabAuthorizationExceptionHandler : IExceptionHandler
 {
     public const string ErrorCode = "RESOURCE_FAB_NOT_AUTHORIZED";
 
-    public async ValueTask<bool> TryHandleAsync(
-        HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
+    public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
         Ensure.That(httpContext).IsNotNull();
-        if (exception is not FabAuthorizationException fabException)
-        {
-            return false;
-        }
+
+        if (exception is not FabAuthorizationException fabException) return false;
 
         httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
         ProblemDetails problem = new()
@@ -34,9 +31,9 @@ public sealed class FabAuthorizationExceptionHandler : IExceptionHandler
             Detail = $"Caller is not a member of fab '{fabException.FabId}'.",
             Status = StatusCodes.Status403Forbidden,
         };
-        await httpContext.Response
-            .WriteAsJsonAsync(problem, cancellationToken: cancellationToken)
+        await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
+
         return true;
     }
 }

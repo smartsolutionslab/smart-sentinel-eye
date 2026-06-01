@@ -35,7 +35,7 @@ public sealed class EventPartitionRolloverMigrator(
             .ConfigureAwait(false);
         if (fabPartitions.Length == 0)
         {
-            Log.NoFabPartitions(logger);
+            logger.NoFabPartitions();
             return;
         }
 
@@ -53,7 +53,7 @@ public sealed class EventPartitionRolloverMigrator(
                     $"CREATE TABLE IF NOT EXISTS {monthlyTable} PARTITION OF {fabPartition} " +
                     $"FOR VALUES FROM ('{fromBound}') TO ('{toBound}');";
                 await context.Database.ExecuteSqlRawAsync(ddl, cancellationToken).ConfigureAwait(false);
-                Log.EnsuredPartition(logger, monthlyTable, fromBound, toBound);
+                logger.EnsuredPartition(monthlyTable, fromBound, toBound);
             }
         }
     }

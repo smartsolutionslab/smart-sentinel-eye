@@ -49,9 +49,7 @@ public sealed partial class V1ResourceMap
     private readonly FrozenDictionary<Type, V1MappingEntry> _entries;
     private readonly HashSet<string> _explicitlyOptedOut;
 
-    private V1ResourceMap(
-        FrozenDictionary<Type, V1MappingEntry> entries,
-        HashSet<string> explicitlyOptedOut)
+    private V1ResourceMap(FrozenDictionary<Type, V1MappingEntry> entries, HashSet<string> explicitlyOptedOut)
     {
         _entries = entries;
         _explicitlyOptedOut = explicitlyOptedOut;

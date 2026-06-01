@@ -43,7 +43,7 @@ public sealed class RevertRevisionCommandHandler(
         overlay.Revert(revisionNumber, revertedBy, clock);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.RevertedRevision(logger, revisionNumber, overlay.Id, revertedBy);
+        logger.RevertedRevision(revisionNumber, overlay.Id, revertedBy);
 
         return Result<OverlayRevisionNumber, RevertRevisionError>.Success(revisionNumber);
     }

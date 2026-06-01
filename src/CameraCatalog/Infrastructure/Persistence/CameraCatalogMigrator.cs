@@ -19,8 +19,8 @@ public sealed class CameraCatalogMigrator(
         await using CameraCatalogDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.ApplyingMigrations(logger);
+        logger.ApplyingMigrations();
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
-        Log.MigrationsApplied(logger);
+        logger.MigrationsApplied();
     }
 }

@@ -31,7 +31,7 @@ public sealed class CreateOverlayDraftCommandHandler(
         overlays.Add(overlay);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.CreatedOverlay(logger, overlay.Id, name, createdBy);
+        logger.CreatedOverlay(overlay.Id, name, createdBy);
 
         return Result<OverlayIdentifier, CreateOverlayDraftError>.Success(overlay.Id);
     }

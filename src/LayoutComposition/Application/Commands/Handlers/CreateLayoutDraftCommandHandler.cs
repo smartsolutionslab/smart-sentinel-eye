@@ -31,7 +31,7 @@ public sealed class CreateLayoutDraftCommandHandler(
         layouts.Add(layout);
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.CreatedLayout(logger, layout.Id, name, createdBy);
+        logger.CreatedLayout(layout.Id, name, createdBy);
 
         return Result<LayoutIdentifier, CreateLayoutDraftError>.Success(layout.Id);
     }

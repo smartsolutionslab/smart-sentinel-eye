@@ -7,14 +7,14 @@ namespace SmartSentinelEye.Identity.Infrastructure;
 internal static partial class Log
 {
     [LoggerMessage(Level = LogLevel.Debug, Message = "Minted Identity admin token; valid for {Lifetime}s.")]
-    public static partial void MintedAdminToken(ILogger logger, int lifetime);
+    public static partial void MintedAdminToken(this ILogger logger, int lifetime);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "DisableClientAsync('{ClientId}'): no such Keycloak client; treating as no-op.")]
-    public static partial void DisableClientNoOp(ILogger logger, string clientId);
+    public static partial void DisableClientNoOp(this ILogger logger, string clientId);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Applying Identity EF Core migrations.")]
-    public static partial void ApplyingMigrations(ILogger logger);
+    public static partial void ApplyingMigrations(this ILogger logger);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Identity migrations applied.")]
-    public static partial void MigrationsApplied(ILogger logger);
+    public static partial void MigrationsApplied(this ILogger logger);
 }

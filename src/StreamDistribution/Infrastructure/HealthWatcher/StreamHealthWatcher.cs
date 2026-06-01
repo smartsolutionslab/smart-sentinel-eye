@@ -32,7 +32,7 @@ public sealed class StreamHealthWatcher(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        Log.StreamHealthWatcherStarted(logger, PollInterval);
+        logger.StreamHealthWatcherStarted(PollInterval);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -46,7 +46,7 @@ public sealed class StreamHealthWatcher(
             }
             catch (Exception ex)
             {
-                Log.StreamHealthWatcherPollFailed(logger, ex);
+                logger.StreamHealthWatcherPollFailed(ex);
             }
 
             try
@@ -92,7 +92,7 @@ public sealed class StreamHealthWatcher(
             }
             catch (HttpRequestException ex)
             {
-                Log.HealthProbeFailed(logger, ex, path);
+                logger.HealthProbeFailed(ex, path);
                 continue;
             }
 

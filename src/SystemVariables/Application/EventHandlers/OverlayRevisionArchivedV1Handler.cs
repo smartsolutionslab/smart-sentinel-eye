@@ -19,7 +19,7 @@ public sealed class OverlayRevisionArchivedV1Handler(
     {
         Ensure.That(message).IsNotNull();
         reverseIndex.RemoveOverlay(message.Overlay);
-        Log.ReverseIndexDroppedOverlay(logger, message.Overlay);
+        logger.ReverseIndexDroppedOverlay(message.Overlay);
         return Task.CompletedTask;
     }
 }

@@ -27,11 +27,7 @@ namespace SmartSentinelEye.AuditObservability.Application.EventHandlers;
 /// <see cref="HandleAsync"/>.
 /// </para>
 /// </summary>
-public sealed class AuditingMessageHandler(
-    IAuditEventRepository repository,
-    V1ResourceMap resourceMap,
-    IClock clock,
-    ILogger<AuditingMessageHandler> logger)
+public sealed class AuditingMessageHandler(IAuditEventRepository repository, V1ResourceMap resourceMap, IClock clock, ILogger<AuditingMessageHandler> logger)
 {
     public async Task HandleAsync(
         Type payloadType,
@@ -49,8 +45,7 @@ public sealed class AuditingMessageHandler(
         repository.Add(row);
         await repository.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.Audited(
-            logger,
+        logger.Audited(
             envelope.EventTypeName,
             envelope.EventIdentifier,
             mapping.Kind.HasValue ? mapping.Kind.Value.Value : "<none>",

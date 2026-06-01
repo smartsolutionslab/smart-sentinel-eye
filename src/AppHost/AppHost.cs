@@ -10,9 +10,6 @@
 // Test mode (E2ETests=true) makes the containers ephemeral; dev mode pins
 // persistent lifetimes + data volumes so the stack survives restarts.
 
-using Aspire.Hosting.ApplicationModel;
-using Microsoft.Extensions.Configuration;
-
 var builder = DistributedApplication.CreateBuilder(args);
 bool isRunMode = builder.ExecutionContext.IsRunMode;
 bool isE2ETests = bool.TryParse(builder.Configuration["E2ETests"], out bool e2e) && e2e;
@@ -36,7 +33,7 @@ var rabbitPassword = builder.AddParameter("RabbitMqPassword", "dev-only-rabbit-p
 // drop compression, so the community (non-oss) tag is required.
 // Every other context's database remains plain Postgres tables on
 // the same server.
-IResourceBuilder<PostgresServerResource> postgres = builder
+var postgres = builder
     .AddPostgres("postgres", userName: postgresUser, password: postgresPassword)
     .WithImage("timescale/timescaledb")
     .WithImageTag("2.27.1-pg17");
@@ -121,8 +118,7 @@ var mosquitto = builder
     .WithEndpoint(targetPort: 1883, name: "mqtt", scheme: "tcp")
     .WithEnvironment(context =>
     {
-        context.EnvironmentVariables["SSE_JWT_JWKS_URI"] = ReferenceExpression.Create(
-            $"{keycloak.GetEndpoint("http")}/realms/smart-sentinel-eye/protocol/openid-connect/certs");
+        context.EnvironmentVariables["SSE_JWT_JWKS_URI"] = ReferenceExpression.Create($"{keycloak.GetEndpoint("http")}/realms/smart-sentinel-eye/protocol/openid-connect/certs");
     })
     .WaitFor(keycloak);
 
@@ -181,7 +177,7 @@ var cameraCatalog = builder
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
 
-IResourceBuilder<ProjectResource> streamDistribution = builder
+var streamDistribution = builder
     .AddProject<Projects.SmartSentinelEye_StreamDistribution_Api>("stream-distribution")
     .WithHttpEndpoint()
     .WithReference(streamDistributionDb)
@@ -202,7 +198,7 @@ var layoutComposition = builder
     .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
-IResourceBuilder<ProjectResource> eventIngestion = builder
+var eventIngestion = builder
     .AddProject<Projects.SmartSentinelEye_EventIngestion_Api>("event-ingestion")
     .WithHttpEndpoint()
     .WithReference(eventIngestionDb)
@@ -269,8 +265,7 @@ if (isE2ETests)
 {
     // Sweep retention every few seconds in the integration suite so the
     // round-trip test isn't waiting on the production daily timer.
-    auditObservability.WithEnvironment(
-        "AuditObservability__Retention__TickInterval", "00:00:03");
+    auditObservability.WithEnvironment("AuditObservability__Retention__TickInterval", "00:00:03");
 }
 
 // React apps per ADR-0074: two pnpm-workspace apps under apps/. Skipped in

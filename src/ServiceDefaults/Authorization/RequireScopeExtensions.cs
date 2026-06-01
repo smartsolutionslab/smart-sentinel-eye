@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults.Authorization;
@@ -35,8 +34,7 @@ public static class RequireScopeExtensions
     /// </summary>
     public const string LegacyManagementBundle = "sse.management";
 
-    public static AuthorizationBuilder AddScopePolicies(
-        this AuthorizationBuilder builder, IEnumerable<string> scopes)
+    public static AuthorizationBuilder AddScopePolicies(this AuthorizationBuilder builder, IEnumerable<string> scopes)
     {
         Ensure.That(builder).IsNotNull();
         Ensure.That(scopes).IsNotNull();
@@ -44,23 +42,20 @@ public static class RequireScopeExtensions
         foreach (string scope in scopes)
         {
             string targetScope = scope;
-            bool acceptLegacyBundle =
-                !string.Equals(scope, Scope.Sse.Events.Publish, StringComparison.Ordinal);
+            bool acceptLegacyBundle = !string.Equals(scope, Scope.Sse.Events.Publish, StringComparison.Ordinal);
             builder.AddPolicy(scope, policy =>
             {
                 policy.RequireAuthenticatedUser();
                 policy.RequireAssertion(context =>
                 {
-                    foreach (System.Security.Claims.Claim claim in context.User.FindAll("scope"))
+                    foreach (var claim in context.User.FindAll("scope"))
                     {
-                        string[] tokens = claim.Value.Split(
-                            ' ', StringSplitOptions.RemoveEmptyEntries);
+                        string[] tokens = claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                         if (tokens.Contains(targetScope, StringComparer.Ordinal))
                         {
                             return true;
                         }
-                        if (acceptLegacyBundle &&
-                            tokens.Contains(LegacyManagementBundle, StringComparer.Ordinal))
+                        if (acceptLegacyBundle && tokens.Contains(LegacyManagementBundle, StringComparer.Ordinal))
                         {
                             return true;
                         }
@@ -77,11 +72,11 @@ public static class RequireScopeExtensions
     /// site reads naturally:
     /// <code>group.MapPost("/", Create).RequireScope(Scope.SSE.Rules.Write);</code>
     /// </summary>
-    public static RouteHandlerBuilder RequireScope(
-        this RouteHandlerBuilder builder, string scope)
+    public static RouteHandlerBuilder RequireScope(this RouteHandlerBuilder builder, string scope)
     {
         Ensure.That(builder).IsNotNull();
-        ArgumentException.ThrowIfNullOrWhiteSpace(scope);
+        Ensure.That(scope).IsNotNullOrWhiteSpace();
+
         return builder.RequireAuthorization(scope);
     }
 }

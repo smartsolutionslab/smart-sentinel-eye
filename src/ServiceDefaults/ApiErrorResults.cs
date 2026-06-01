@@ -15,9 +15,7 @@ public static class ApiErrorResults
     public static IResult ToProblem(this ApiError error)
     {
         Ensure.That(error).IsNotNull();
-        return Results.Problem(
-            title: error.Code,
-            detail: error.Message,
-            statusCode: (int)error.Status);
+
+        return Results.Problem(title: error.Code, detail: error.Message, statusCode: (int)error.Status);
     }
 }

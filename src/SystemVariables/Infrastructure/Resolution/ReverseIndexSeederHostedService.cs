@@ -46,7 +46,7 @@ public sealed class ReverseIndexSeederHostedService(
 
             if (!response.IsSuccessStatusCode)
             {
-                Log.SeedNonSuccessStatus(logger, response.StatusCode);
+                logger.SeedNonSuccessStatus(response.StatusCode);
                 return;
             }
 
@@ -54,7 +54,7 @@ public sealed class ReverseIndexSeederHostedService(
                 .ReadFromJsonAsync<JsonElement>(cancellationToken).ConfigureAwait(false);
             if (!payload.TryGetProperty("published", out JsonElement published))
             {
-                Log.SeedMissingPublishedKey(logger);
+                logger.SeedMissingPublishedKey();
                 return;
             }
 
@@ -69,11 +69,11 @@ public sealed class ReverseIndexSeederHostedService(
                 seeded++;
             }
 
-            Log.SeededOverlays(logger, seeded);
+            logger.SeededOverlays(seeded);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Log.SeedFailed(logger, ex);
+            logger.SeedFailed(ex);
         }
     }
 

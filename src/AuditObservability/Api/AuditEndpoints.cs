@@ -1,8 +1,5 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Application.Queries;
 using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
@@ -77,24 +74,21 @@ public static class AuditEndpoints
 
         IReadOnlyList<string> callerFabs = ExtractFabSet(user);
 
-        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
-            new SearchAuditQuery(
-                Fab: fabId,
-                CallerFabs: callerFabs,
-                Actor: actor,
-                ActorUsername: actorUsername,
-                EventKind: eventKind,
-                ResourceKind: resourceKind,
-                ResourceIdentifier: resourceIdentifier,
-                Since: since,
-                Until: until,
-                PageSize: pageSize ?? 0,
-                Cursor: cursor),
-            cancellationToken).ConfigureAwait(false);
+        var query = new SearchAuditQuery(
+            Fab: fabId,
+            CallerFabs: callerFabs,
+            Actor: actor,
+            ActorUsername: actorUsername,
+            EventKind: eventKind,
+            ResourceKind: resourceKind,
+            ResourceIdentifier: resourceIdentifier,
+            Since: since,
+            Until: until,
+            PageSize: pageSize ?? 0,
+            Cursor: cursor);
+        var result = await handler.HandleAsync(query, cancellationToken).ConfigureAwait(false);
 
-        return result.Match<IResult>(
-            onSuccess: Results.Ok,
-            onFailure: error => error.ToProblem());
+        return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> GetTimeline(
@@ -112,7 +106,7 @@ public static class AuditEndpoints
     {
         await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken).ConfigureAwait(false);
 
-        Result<AuditPageDto, GetResourceTimelineError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetResourceTimelineQuery(
                 ResourceKind: resourceKind,
                 ResourceIdentifier: resourceIdentifier,
@@ -123,9 +117,7 @@ public static class AuditEndpoints
                 Cursor: cursor),
             cancellationToken).ConfigureAwait(false);
 
-        return result.Match<IResult>(
-            onSuccess: Results.Ok,
-            onFailure: error => error.ToProblem());
+        return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> GetSingle(
@@ -135,9 +127,8 @@ public static class AuditEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        Result<AuditRowDto, GetAuditEventError> result = await handler.HandleAsync(
-            new GetAuditEventQuery(auditIdentifier),
-            cancellationToken).ConfigureAwait(false);
+        var query = new GetAuditEventQuery(auditIdentifier);
+        var result = await handler.HandleAsync(query, cancellationToken).ConfigureAwait(false);
 
         if (result.IsFailure)
         {
@@ -146,7 +137,7 @@ public static class AuditEndpoints
                 statusCode: (int)result.Error.Status);
         }
 
-        AuditRowDto row = result.Value;
+        var row = result.Value;
         if (row.Fab is not null)
         {
             await fabGuard.EnsureAccessAsync(user, row.Fab, cancellationToken).ConfigureAwait(false);
@@ -157,6 +148,7 @@ public static class AuditEndpoints
     private static List<string> ExtractFabSet(ClaimsPrincipal user)
     {
         Ensure.That(user).IsNotNull();
+
         return [.. user.FindAll(GroupClaimType)
             .SelectMany(claim => claim.Value.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries))
             .Where(token => token.StartsWith(FabGroupPrefix, StringComparison.Ordinal))

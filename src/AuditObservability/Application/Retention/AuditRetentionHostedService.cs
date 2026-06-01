@@ -32,7 +32,7 @@ public sealed class AuditRetentionHostedService(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         AuditRetentionOptions opts = options.Value;
-        Log.RetentionWorkerStarted(logger, opts.RetentionWindow, opts.TickInterval);
+        logger.RetentionWorkerStarted(opts.RetentionWindow, opts.TickInterval);
 
         using PeriodicTimer timer = new(opts.TickInterval, timeProvider);
         try
@@ -71,15 +71,14 @@ public sealed class AuditRetentionHostedService(
             scope.ServiceProvider.GetRequiredService<IAuditChunkArchiver>(),
             scope.ServiceProvider.GetRequiredService<IEventBus>());
 
-        IReadOnlyList<AuditChunk> chunks = await deps.Inventory
-            .ListChunksOlderThanAsync(boundary, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<AuditChunk> chunks = await deps.Inventory.ListChunksOlderThanAsync(boundary, cancellationToken).ConfigureAwait(false);
         if (chunks.Count == 0)
         {
-            Log.RetentionSweepNoChunks(logger, boundary);
+            logger.RetentionSweepNoChunks(boundary);
             return;
         }
 
-        Log.RetentionSweepChunksToArchive(logger, boundary, chunks.Count);
+        logger.RetentionSweepChunksToArchive(boundary, chunks.Count);
 
         foreach (AuditChunk chunk in chunks)
         {
@@ -92,32 +91,29 @@ public sealed class AuditRetentionHostedService(
     {
         try
         {
-            ChunkArchiveResult result = await deps.Archiver
-                .ArchiveChunkAsync(chunk, cancellationToken).ConfigureAwait(false);
+            ChunkArchiveResult result = await deps.Archiver.ArchiveChunkAsync(chunk, cancellationToken).ConfigureAwait(false);
 
-            await deps.Events.PublishAsync(
-                new AuditChunkArchivedV1(
-                    chunk.ChunkIdentifier,
-                    FabId: null,
-                    result.RowCount,
-                    chunk.OccurredFrom,
-                    chunk.OccurredUntil,
-                    clock.UtcNow,
-                    result.MinioObjectKey,
-                    result.ContentMd5,
-                    Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, null, null)),
-                cancellationToken).ConfigureAwait(false);
+            var @event = new AuditChunkArchivedV1(
+                chunk.ChunkIdentifier,
+                FabId: null,
+                result.RowCount,
+                chunk.OccurredFrom,
+                chunk.OccurredUntil,
+                clock.UtcNow,
+                result.MinioObjectKey,
+                result.ContentMd5,
+                Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, null, null));
+            await deps.Events.PublishAsync(@event, cancellationToken).ConfigureAwait(false);
 
             await deps.Inventory.DropChunkAsync(chunk, cancellationToken).ConfigureAwait(false);
 
-            Log.ArchivedChunk(
-                logger, chunk.ChunkIdentifier, result.RowCount, result.AlreadyArchived, result.MinioObjectKey);
+            logger.ArchivedChunk(chunk.ChunkIdentifier, result.RowCount, result.AlreadyArchived, result.MinioObjectKey);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Leave the chunk in place; next sweep retries. NFR-004
             // accepts up to a 5-minute audit lag during outages.
-            Log.ArchiveChunkFailed(logger, ex, chunk.ChunkIdentifier);
+            logger.ArchiveChunkFailed(ex, chunk.ChunkIdentifier);
         }
     }
 
