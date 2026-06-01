@@ -17,13 +17,12 @@ public sealed record WebhookIntegrationName : StringValueObject
 
     public static WebhookIntegrationName From(string value)
     {
-        string validated = Ensure.That(value, nameof(value))
+        Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
             .HasMaxLength(MaximumLength)
             .Satisfies(IsValid,
-                "must start with a lowercase letter and contain only lowercase letters, digits, or '-'")
-            .AndReturn();
-        return new WebhookIntegrationName(validated);
+                "must start with a lowercase letter and contain only lowercase letters, digits, or '-'");
+        return new WebhookIntegrationName(value);
     }
 
     private static bool IsValid(string s)

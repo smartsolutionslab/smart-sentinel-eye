@@ -12,8 +12,11 @@ public readonly record struct StreamIdentifier(Guid Value) : IStronglyTypedId<Gu
 {
     public static StreamIdentifier New() => new(Guid.CreateVersion7());
 
-    public static StreamIdentifier From(Guid value) =>
-        new(Ensure.That(value).IsNotEmpty().AndReturn());
+    public static StreamIdentifier From(Guid value)
+    {
+        Ensure.That(value).IsNotEmpty();
+        return new(value);
+    }
 
     public static implicit operator Guid(StreamIdentifier id) => id.Value;
 

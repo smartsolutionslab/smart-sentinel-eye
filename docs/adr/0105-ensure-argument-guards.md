@@ -78,6 +78,9 @@ modules, broadcasters, hosted services.
 - **`ActorIdentifier.From`** keeps its bespoke `throw` — its message
   ("…use `ActorIdentifier.System` for system events.") carries domain
   guidance that the generic `IsNotEmpty()` message would lose.
+  *(Superseded by the 2026-06-01 amendment below: `IsNotEmpty` gained an
+  optional custom-message argument, so `ActorIdentifier.From` now uses
+  `Ensure.That(value).IsNotEmpty("…")` and keeps its guidance.)*
 
 ## Consequences
 
@@ -112,5 +115,40 @@ idiom wins on consistency. `Ensure.NotNull(x)` keeps
 
 **Terse `Ensure.NotNull(x)` static helper — REJECTED** in favour of the
 fluent `Ensure.That(x).IsNotNull()`, which keeps a single entry point
-(`Ensure.That`) for both value-object invariants and argument guards and
-chains naturally (`.AndReturn()` to bind the validated value).
+(`Ensure.That`) for both value-object invariants and argument guards.
+
+## Amendment (2026-06-01): `.AndReturn()` removed — factories use statement-body guards
+
+The fluent `.AndReturn()` terminal — which bound the validated value back
+out of the chain so a factory could stay expression-bodied
+(`new(Ensure.That(value).IsNotEmpty().AndReturn())`) — has been **removed**
+from every `Ensured*` type. `Ensure` is now **validate-only**: the chain
+runs purely for its throw-on-failure side effect and never returns a value.
+
+Value-object and identifier factories use a **statement-body guard** —
+validate, then construct from the original argument. Post-validation
+transforms (e.g. `.Trim()`) apply to the original parameter *after* the
+guard, preserving the original validation order:
+
+```csharp
+public static CameraName From(string value)
+{
+    Ensure.That(value, nameof(value)).IsNotNullOrWhiteSpace().HasMaxLength(MaximumLength);
+    string trimmed = value.Trim();
+    return new CameraName(trimmed, trimmed.ToUpperInvariant());
+}
+```
+
+Two related refinements landed with this change:
+
+- **`EnsuredGuid.IsNotEmpty(string message = null)`** gained an optional
+  custom message. With no argument it throws the generic
+  `"{param} must not be empty."`; with one it throws `"{param}: {message}"`.
+- **`ActorIdentifier.From` was migrated off its bespoke `throw`** (the
+  out-of-scope bullet above) to
+  `Ensure.That(value).IsNotEmpty("…use ActorIdentifier.System for system events.")`,
+  preserving its domain-specific guidance via the new overload.
+
+The sweep removed `.AndReturn()` from all 42 factory call sites across the
+ten contexts and deleted the four `AndReturn()` methods. ADR-0046 and
+ADR-0059 examples were updated to match.

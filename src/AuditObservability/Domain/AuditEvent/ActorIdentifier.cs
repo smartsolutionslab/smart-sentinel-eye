@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
@@ -21,12 +22,11 @@ public sealed record ActorIdentifier : IValueObject<Guid>
 
     private ActorIdentifier(Guid value) => Value = value;
 
-    public static ActorIdentifier From(Guid value) =>
-        value == Guid.Empty
-            ? throw new ArgumentException(
-                $"ActorIdentifier cannot be empty for a human caller; use {nameof(ActorIdentifier)}.{nameof(System)} for system events.",
-                nameof(value))
-            : new ActorIdentifier(value);
+    public static ActorIdentifier From(Guid value)
+    {
+        Ensure.That(value).IsNotEmpty($"cannot be empty for a human caller; use {nameof(ActorIdentifier)}.{nameof(System)} for system events.");
+        return new ActorIdentifier(value);
+    }
 
     public sealed override string ToString() => Value.ToString();
 }

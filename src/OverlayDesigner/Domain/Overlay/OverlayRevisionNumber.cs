@@ -11,8 +11,11 @@ public readonly record struct OverlayRevisionNumber(int Value) : IValueObject<in
 {
     public static readonly OverlayRevisionNumber One = new(1);
 
-    public static OverlayRevisionNumber From(int value) =>
-        new(Ensure.That(value).AtLeast(1).AndReturn());
+    public static OverlayRevisionNumber From(int value)
+    {
+        Ensure.That(value).AtLeast(1);
+        return new(value);
+    }
 
     public OverlayRevisionNumber Next() => new(Value + 1);
 

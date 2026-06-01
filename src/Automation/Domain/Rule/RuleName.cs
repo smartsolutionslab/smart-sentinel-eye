@@ -18,14 +18,13 @@ public sealed record RuleName : StringValueObject
 
     public static RuleName From(string value)
     {
-        string validated = Ensure.That(value, nameof(value))
+        Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
             .HasMinLength(MinimumLength)
             .HasMaxLength(MaximumLength)
             .Satisfies(IsValid,
-                "must start with a lowercase letter and contain only lowercase letters, digits, or '-'")
-            .AndReturn();
-        return new RuleName(validated);
+                "must start with a lowercase letter and contain only lowercase letters, digits, or '-'");
+        return new RuleName(value);
     }
 
     private static bool IsValid(string s)

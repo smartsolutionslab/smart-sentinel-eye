@@ -38,8 +38,11 @@ public sealed record CameraName : StringValueObject
 {
     public const int MaxLength = 200;
     private CameraName(string value) : base(value) { }
-    public static CameraName From(string value) =>
-        new(Ensure.That(value).IsNotNullOrWhiteSpace().HasMaxLength(MaxLength).AndReturn().Trim());
+    public static CameraName From(string value)
+    {
+        Ensure.That(value).IsNotNullOrWhiteSpace().HasMaxLength(MaxLength);
+        return new(value.Trim());
+    }
 }
 ```
 

@@ -30,15 +30,13 @@ public abstract record RuleAction
 
         public static SetVariableValue From(string variableName, string valueExpression)
         {
-            string n = Ensure.That(variableName, nameof(variableName))
+            Ensure.That(variableName, nameof(variableName))
                 .IsNotNullOrWhiteSpace()
-                .HasMaxLength(VariableNameMaximumLength)
-                .AndReturn();
-            string e = Ensure.That(valueExpression, nameof(valueExpression))
+                .HasMaxLength(VariableNameMaximumLength);
+            Ensure.That(valueExpression, nameof(valueExpression))
                 .IsNotNullOrWhiteSpace()
-                .HasMaxLength(ValueExpressionMaximumLength)
-                .AndReturn();
-            return new SetVariableValue(n, e);
+                .HasMaxLength(ValueExpressionMaximumLength);
+            return new SetVariableValue(variableName, valueExpression);
         }
     }
 

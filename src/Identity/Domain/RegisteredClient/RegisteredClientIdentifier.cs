@@ -15,8 +15,11 @@ public readonly record struct RegisteredClientIdentifier(Guid Value) : IStrongly
 {
     public static RegisteredClientIdentifier New() => new(Guid.CreateVersion7());
 
-    public static RegisteredClientIdentifier From(Guid value) =>
-        new(Ensure.That(value).IsNotEmpty().AndReturn());
+    public static RegisteredClientIdentifier From(Guid value)
+    {
+        Ensure.That(value).IsNotEmpty();
+        return new(value);
+    }
 
     public static implicit operator Guid(RegisteredClientIdentifier id) => id.Value;
 

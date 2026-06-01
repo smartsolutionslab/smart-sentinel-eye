@@ -10,8 +10,11 @@ public readonly record struct RuleIdentifier(Guid Value) : IStronglyTypedId<Guid
 {
     public static RuleIdentifier New() => new(Guid.CreateVersion7());
 
-    public static RuleIdentifier From(Guid value) =>
-        new(Ensure.That(value).IsNotEmpty().AndReturn());
+    public static RuleIdentifier From(Guid value)
+    {
+        Ensure.That(value).IsNotEmpty();
+        return new(value);
+    }
 
     public static implicit operator Guid(RuleIdentifier id) => id.Value;
 

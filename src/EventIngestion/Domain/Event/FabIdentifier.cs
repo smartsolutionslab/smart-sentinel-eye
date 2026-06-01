@@ -18,14 +18,13 @@ public sealed record FabIdentifier : StringValueObject
 
     public static FabIdentifier From(string value)
     {
-        string validated = Ensure.That(value, nameof(value))
+        Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
             .HasMinLength(MinimumLength)
             .HasMaxLength(MaximumLength)
             .Satisfies(IsValid,
-                "must be lowercase letters, digits, or '-' and start with a letter")
-            .AndReturn();
-        return new FabIdentifier(validated);
+                "must be lowercase letters, digits, or '-' and start with a letter");
+        return new FabIdentifier(value);
     }
 
     private static bool IsValid(string s)

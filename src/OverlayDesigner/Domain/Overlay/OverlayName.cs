@@ -16,11 +16,10 @@ public sealed record OverlayName : StringValueObject
 
     public static OverlayName From(string value)
     {
-        string validated = Ensure.That(value, nameof(value))
+        Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
             .HasMaxLength(MaximumLength)
-            .Satisfies(candidate => !candidate.Contains('\n') && !candidate.Contains('\r'), "must not contain a line break")
-            .AndReturn();
-        return new OverlayName(validated.Trim());
+            .Satisfies(candidate => !candidate.Contains('\n') && !candidate.Contains('\r'), "must not contain a line break");
+        return new OverlayName(value.Trim());
     }
 }

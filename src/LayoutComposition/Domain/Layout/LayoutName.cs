@@ -16,11 +16,10 @@ public sealed record LayoutName : StringValueObject
 
     public static LayoutName From(string value)
     {
-        string validated = Ensure.That(value, nameof(value))
+        Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
             .HasMaxLength(MaximumLength)
-            .Satisfies(candidate => !candidate.Contains('\n') && !candidate.Contains('\r'), "must not contain a line break")
-            .AndReturn();
-        return new LayoutName(validated.Trim());
+            .Satisfies(candidate => !candidate.Contains('\n') && !candidate.Contains('\r'), "must not contain a line break");
+        return new LayoutName(value.Trim());
     }
 }

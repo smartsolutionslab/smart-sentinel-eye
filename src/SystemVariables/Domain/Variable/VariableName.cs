@@ -17,13 +17,12 @@ public sealed record VariableName : StringValueObject
 
     public static VariableName From(string value)
     {
-        string validated = Ensure.That(value, nameof(value))
+        Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
             .HasMaxLength(MaximumLength)
             .Satisfies(IsValidIdentifier,
-                "must start with a letter and contain only letters, digits, and underscores")
-            .AndReturn();
-        return new VariableName(validated);
+                "must start with a letter and contain only letters, digits, and underscores");
+        return new VariableName(value);
     }
 
     private static bool IsValidIdentifier(string s)

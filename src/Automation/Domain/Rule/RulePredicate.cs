@@ -22,11 +22,10 @@ public sealed record RulePredicate : StringValueObject
 
     public static RulePredicate From(string value)
     {
-        string validated = Ensure.That(value, nameof(value))
+        Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
             .HasMinLength(MinimumLength)
-            .HasMaxLength(MaximumLength)
-            .AndReturn();
-        return new RulePredicate(validated);
+            .HasMaxLength(MaximumLength);
+        return new RulePredicate(value);
     }
 }

@@ -13,8 +13,11 @@ namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 /// </summary>
 public sealed record EventIdentifier(Guid Value) : IValueObject<Guid>
 {
-    public static EventIdentifier From(Guid value) =>
-        new(Ensure.That(value).IsNotEmpty().AndReturn());
+    public static EventIdentifier From(Guid value)
+    {
+        Ensure.That(value).IsNotEmpty();
+        return new(value);
+    }
 
     public sealed override string ToString() => Value.ToString();
 }

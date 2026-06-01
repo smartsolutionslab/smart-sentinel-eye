@@ -40,12 +40,10 @@ public sealed record CameraName : StringValueObject, IComparable<CameraName>
 
     public static CameraName From(string value)
     {
-        string trimmed = Ensure.That(value, nameof(value))
+        Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
-            .HasMaxLength(MaximumLength)
-            .AndReturn()
-            .Trim();
-
+            .HasMaxLength(MaximumLength);
+        string trimmed = value.Trim();
         return new CameraName(trimmed, trimmed.ToUpperInvariant());
     }
 

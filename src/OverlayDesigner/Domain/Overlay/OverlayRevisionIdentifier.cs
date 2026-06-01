@@ -11,8 +11,11 @@ public readonly record struct OverlayRevisionIdentifier(Guid Value) : IStronglyT
 {
     public static OverlayRevisionIdentifier New() => new(Guid.CreateVersion7());
 
-    public static OverlayRevisionIdentifier From(Guid value) =>
-        new(Ensure.That(value).IsNotEmpty().AndReturn());
+    public static OverlayRevisionIdentifier From(Guid value)
+    {
+        Ensure.That(value).IsNotEmpty();
+        return new(value);
+    }
 
     public static implicit operator Guid(OverlayRevisionIdentifier id) => id.Value;
 

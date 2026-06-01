@@ -20,13 +20,12 @@ public sealed record ClientId : StringValueObject
 
     public static ClientId From(string value)
     {
-        string validated = Ensure.That(value, nameof(value))
+        Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
             .HasMaxLength(MaximumLength)
             .Satisfies(IsValid,
-                "must start with a letter or digit and contain only letters, digits, or '.', '_', '-'")
-            .AndReturn();
-        return new ClientId(validated);
+                "must start with a letter or digit and contain only letters, digits, or '.', '_', '-'");
+        return new ClientId(value);
     }
 
     private static bool IsValid(string s)

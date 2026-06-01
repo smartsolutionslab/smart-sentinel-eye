@@ -13,8 +13,11 @@ public readonly record struct LayoutRevisionNumber(int Value) : IValueObject<int
 {
     public static readonly LayoutRevisionNumber One = new(1);
 
-    public static LayoutRevisionNumber From(int value) =>
-        new(Ensure.That(value).AtLeast(1).AndReturn());
+    public static LayoutRevisionNumber From(int value)
+    {
+        Ensure.That(value).AtLeast(1);
+        return new(value);
+    }
 
     public LayoutRevisionNumber Next() => new(Value + 1);
 

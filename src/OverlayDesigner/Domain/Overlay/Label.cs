@@ -35,10 +35,9 @@ public sealed record Label(
         decimal normalizedHeight,
         int fontSizePx)
     {
-        string validatedText = Ensure.That(text, nameof(text))
+        Ensure.That(text, nameof(text))
             .IsNotNullOrWhiteSpace()
-            .HasMaxLength(MaximumTextLength)
-            .AndReturn();
+            .HasMaxLength(MaximumTextLength);
 
         EnsureNormalized(normalizedX, nameof(normalizedX));
         EnsureNormalized(normalizedY, nameof(normalizedY));
@@ -48,7 +47,7 @@ public sealed record Label(
         Ensure.That(fontSizePx).InRange(MinimumFontSizePx, MaximumFontSizePx);
 
         return new Label(
-            validatedText.Trim(),
+            text.Trim(),
             normalizedX,
             normalizedY,
             normalizedWidth,
