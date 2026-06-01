@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -37,8 +38,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
     {
         Ensure.That(path).IsNotNull();
 
-        using HttpResponseMessage response = await http
-            .DeleteAsync($"/v3/config/paths/delete/{path.Value}", cancellationToken);
+        using var response = await http.DeleteAsync($"/v3/config/paths/delete/{path.Value}", cancellationToken);
 
         // 404 is fine — path may have already been removed by a prior call.
         if (response.StatusCode != System.Net.HttpStatusCode.NotFound)
@@ -53,15 +53,12 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         // Reads the MediaMTX paths list endpoint (items: [{ name, source, ... }]).
         // Filters to canonical cam-{guid} names so manually-created MediaMTX
         // paths are left alone.
-        using HttpResponseMessage response = await http
-            .GetAsync("/v3/config/paths/list", cancellationToken);
+        using var response = await http.GetAsync("/v3/config/paths/list", cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        JsonElement payload = await response.Content
-            .ReadFromJsonAsync<JsonElement>(cancellationToken);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
-        if (!payload.TryGetProperty("items", out JsonElement items) ||
-            items.ValueKind != JsonValueKind.Array)
+        if (!payload.TryGetProperty("items", out JsonElement items) || items.ValueKind != JsonValueKind.Array)
         {
             return Array.Empty<MediaMtxPath>();
         }
@@ -88,8 +85,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
     {
         Ensure.That(path).IsNotNull();
 
-        using HttpResponseMessage response = await http
-            .GetAsync($"/v3/paths/get/{path.Value}", cancellationToken);
+        using var response = await http.GetAsync($"/v3/paths/get/{path.Value}", cancellationToken);
 
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -103,15 +99,12 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
 
         // Response shape (subset of MediaMTX /v3/paths/get):
         //   { "ready": bool, "readyTime": "ISO-8601" | null, "tracks": [...] }
-        JsonElement payload = await response.Content
-            .ReadFromJsonAsync<JsonElement>(cancellationToken);
+        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
         bool ready = payload.TryGetProperty("ready", out JsonElement readyEl) && readyEl.GetBoolean();
         DateTimeOffset? readyTime = TryReadIsoTimestamp(payload, "readyTime");
 
-        TranscodeMode mode = ready
-            ? DetectTranscodeMode(payload)
-            : TranscodeMode.Unknown;
+        TranscodeMode mode = ready ? DetectTranscodeMode(payload) : TranscodeMode.Unknown;
 
         string? error = ready ? null : "not ready";
 
@@ -123,11 +116,9 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         if (!payload.TryGetProperty(property, out JsonElement element)) return null;
         if (element.ValueKind != JsonValueKind.String) return null;
         string raw = element.GetString() ?? string.Empty;
+
         if (raw.Length == 0) return null;
-        return DateTimeOffset.TryParse(
-            raw, System.Globalization.CultureInfo.InvariantCulture, out DateTimeOffset parsed)
-            ? parsed
-            : null;
+        return DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, out DateTimeOffset parsed) ? parsed : null;
     }
 
     private static TranscodeMode DetectTranscodeMode(JsonElement payload)

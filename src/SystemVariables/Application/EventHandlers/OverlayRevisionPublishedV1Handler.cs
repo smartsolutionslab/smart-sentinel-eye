@@ -15,13 +15,12 @@ namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
 /// Idempotent: re-delivery of the same V1 is safe; the upsert is
 /// purely state-overwriting.
 /// </summary>
-public sealed class OverlayRevisionPublishedV1Handler(
-    IReverseIndex reverseIndex,
-    ILogger<OverlayRevisionPublishedV1Handler> logger)
+public sealed class OverlayRevisionPublishedV1Handler(IReverseIndex reverseIndex, ILogger<OverlayRevisionPublishedV1Handler> logger)
 {
     public Task Handle(OverlayRevisionPublishedV1 message, CancellationToken cancellationToken = default)
     {
         Ensure.That(message).IsNotNull();
+
         reverseIndex.UpsertOverlayReferences(message.Overlay, message.Text);
         logger.ReverseIndexUpserted(message.Overlay, message.RevisionNumber, message.Text);
         return Task.CompletedTask;

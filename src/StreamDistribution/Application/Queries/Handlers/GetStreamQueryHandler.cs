@@ -6,25 +6,16 @@ using Stream = SmartSentinelEye.StreamDistribution.Domain.Stream.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Application.Queries.Handlers;
 
-public sealed class GetStreamQueryHandler(
-    IStreamQuerySource streams,
-    IStreamWhepUrlBuilder whepUrls)
+public sealed class GetStreamQueryHandler(IStreamQuerySource streams, IStreamWhepUrlBuilder whepUrls)
     : IQueryHandler<GetStreamQuery, Result<StreamHealthDto, GetStreamError>>
 {
-    public async Task<Result<StreamHealthDto, GetStreamError>> HandleAsync(
-        GetStreamQuery query,
-        CancellationToken cancellationToken)
+    public async Task<Result<StreamHealthDto, GetStreamError>> HandleAsync(GetStreamQuery query, CancellationToken cancellationToken)
     {
         Ensure.That(query).IsNotNull();
 
-        Stream? stream = await streams.Streams
-            .SingleOrDefaultAsync(candidate => candidate.Camera == query.Camera, cancellationToken);
+        var stream = await streams.Streams.SingleOrDefaultAsync(candidate => candidate.Camera == query.Camera, cancellationToken);
 
-        if (stream is null)
-        {
-            return Result<StreamHealthDto, GetStreamError>.Failure(
-                new GetStreamError.StreamNotFound(query.Camera.Value));
-        }
+        if (stream is null) return Result<StreamHealthDto, GetStreamError>.Failure(new GetStreamError.StreamNotFound(query.Camera.Value));
 
         return Result<StreamHealthDto, GetStreamError>.Success(Map(stream, whepUrls));
     }

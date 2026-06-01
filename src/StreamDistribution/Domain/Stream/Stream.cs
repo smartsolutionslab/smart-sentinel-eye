@@ -44,10 +44,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
 
     private Stream() { }
 
-    public static Stream Provision(
-        CameraIdentifier camera,
-        OperatorIdentifier provisionedBy,
-        IClock clock)
+    public static Stream Provision(CameraIdentifier camera, OperatorIdentifier provisionedBy, IClock clock)
     {
         Ensure.That(clock).IsNotNull();
 

@@ -1,14 +1,12 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Http.Resilience;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
 using SmartSentinelEye.StreamDistribution.Application.Commands;
 using SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
-using SmartSentinelEye.StreamDistribution.Application.DTOs;
 using SmartSentinelEye.StreamDistribution.Application.EventHandlers;
 using SmartSentinelEye.StreamDistribution.Application.Queries;
 using SmartSentinelEye.StreamDistribution.Application.Queries.Handlers;
@@ -80,8 +78,7 @@ public static class StreamDistributionInfrastructureModule
         // mirrors the spec's outage-retry schedule.
         builder.Services.AddHttpClient<IRtspGateway, MediaMtxRtspGateway>((sp, client) =>
         {
-            MediaMtxOptions options = sp.GetRequiredService<
-                Microsoft.Extensions.Options.IOptions<MediaMtxOptions>>().Value;
+            MediaMtxOptions options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MediaMtxOptions>>().Value;
             client.BaseAddress = new Uri(options.ManagementUrl);
         }).AddStandardResilienceHandler();
 
@@ -104,13 +101,11 @@ public static class StreamDistributionInfrastructureModule
         string managementUrl =
             builder.Configuration["services:mediamtx:api:0"]
             ?? builder.Configuration.GetConnectionString("mediamtx-api")
-            ?? throw new InvalidOperationException(
-                "MediaMTX management URL not configured (services:mediamtx:api:0).");
+            ?? throw new InvalidOperationException("MediaMTX management URL not configured (services:mediamtx:api:0).");
         string whepBaseUrl =
             builder.Configuration["services:mediamtx:whep:0"]
             ?? builder.Configuration.GetConnectionString("mediamtx-whep")
-            ?? throw new InvalidOperationException(
-                "MediaMTX WHEP URL not configured (services:mediamtx:whep:0).");
+            ?? throw new InvalidOperationException("MediaMTX WHEP URL not configured (services:mediamtx:whep:0).");
 
         builder.Services.Configure<MediaMtxOptions>(options =>
         {
@@ -126,11 +121,9 @@ public static class StreamDistributionInfrastructureModule
             builder.Configuration.GetConnectionString("keycloak")
             ?? builder.Configuration["services:keycloak:http:0"]
             ?? builder.Configuration["services:keycloak:https:0"]
-            ?? throw new InvalidOperationException(
-                "Keycloak base URL not configured for WHEP auth validator.");
+            ?? throw new InvalidOperationException("Keycloak base URL not configured for WHEP auth validator.");
 
-        string realm =
-            builder.Configuration["Keycloak:Realm"] ?? "smart-sentinel-eye";
+        string realm = builder.Configuration["Keycloak:Realm"] ?? "smart-sentinel-eye";
 
         builder.Services.Configure<WhepAuthOptions>(options =>
         {

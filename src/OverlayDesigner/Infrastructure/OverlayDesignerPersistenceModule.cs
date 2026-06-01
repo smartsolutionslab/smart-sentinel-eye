@@ -22,9 +22,7 @@ public static class OverlayDesignerPersistenceModule
     {
         Ensure.That(builder).IsNotNull();
 
-        string connectionString = builder.Configuration.GetConnectionString(DatabaseConnectionName)
-            ?? throw new InvalidOperationException(
-                $"Connection string '{DatabaseConnectionName}' is required.");
+        string connectionString = builder.Configuration.GetConnectionString(DatabaseConnectionName) ?? throw new InvalidOperationException($"Connection string '{DatabaseConnectionName}' is required.");
 
         builder.Services.AddDbContextFactory<OverlayDesignerDbContext>(options =>
             options.UseNpgsql(connectionString));

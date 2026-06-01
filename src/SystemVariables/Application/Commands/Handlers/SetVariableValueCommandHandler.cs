@@ -5,32 +5,24 @@ using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
 
-public sealed class SetVariableValueCommandHandler(
-    IVariableRepository variables,
-    IClock clock,
-    ILogger<SetVariableValueCommandHandler> logger)
+public sealed class SetVariableValueCommandHandler(IVariableRepository variables, IClock clock, ILogger<SetVariableValueCommandHandler> logger)
     : ICommandHandler<SetVariableValueCommand, Result<VariableIdentifier, SetVariableValueError>>
 {
-    public async Task<Result<VariableIdentifier, SetVariableValueError>> HandleAsync(
-        SetVariableValueCommand command,
-        CancellationToken cancellationToken)
+    public async Task<Result<VariableIdentifier, SetVariableValueError>> HandleAsync(SetVariableValueCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
         var (name, wireValue, changedBy) = command;
 
-        Option<Variable> found = await variables
-            .GetByNameAsync(name, cancellationToken);
+        var found = await variables.GetByNameAsync(name, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<VariableIdentifier, SetVariableValueError>.Failure(
-                new SetVariableValueError.VariableNotFound(name.Value));
+            return Result<VariableIdentifier, SetVariableValueError>.Failure(new SetVariableValueError.VariableNotFound(name.Value));
         }
 
         Variable variable = found.Value;
         if (variable.State == VariableState.Archived)
         {
-            return Result<VariableIdentifier, SetVariableValueError>.Failure(
-                new SetVariableValueError.VariableArchived(name.Value));
+            return Result<VariableIdentifier, SetVariableValueError>.Failure(new SetVariableValueError.VariableArchived(name.Value));
         }
 
         VariableValue typedValue;
@@ -40,8 +32,7 @@ public sealed class SetVariableValueCommandHandler(
         }
         catch (ArgumentException ex)
         {
-            return Result<VariableIdentifier, SetVariableValueError>.Failure(
-                new SetVariableValueError.VariableTypeMismatch(variable.Type.Value, ex.Message));
+            return Result<VariableIdentifier, SetVariableValueError>.Failure(new SetVariableValueError.VariableTypeMismatch(variable.Type.Value, ex.Message));
         }
 
         variable.SetValue(typedValue, changedBy, clock);

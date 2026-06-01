@@ -15,6 +15,7 @@ public readonly record struct StreamIdentifier(Guid Value) : IStronglyTypedId<Gu
     public static StreamIdentifier From(Guid value)
     {
         Ensure.That(value).IsNotEmpty();
+
         return new(value);
     }
 

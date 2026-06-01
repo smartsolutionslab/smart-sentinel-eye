@@ -21,9 +21,8 @@ public sealed partial record MediaMtxPath : StringValueObject
 
     public static MediaMtxPath From(string value)
     {
-        Ensure.That(value, nameof(value))
-            .IsNotNullOrWhiteSpace()
-            .Matches(PathPattern, "must look like cam-{guid}");
+        Ensure.That(value).IsNotNullOrWhiteSpace().Matches(PathPattern, "must look like cam-{guid}");
+
         return new MediaMtxPath(value);
     }
 

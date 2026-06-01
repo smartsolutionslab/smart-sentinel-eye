@@ -5,26 +5,20 @@ using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
 
-public sealed class DefineVariableCommandHandler(
-    IVariableRepository variables,
-    IClock clock,
-    ILogger<DefineVariableCommandHandler> logger)
+public sealed class DefineVariableCommandHandler(IVariableRepository variables, IClock clock, ILogger<DefineVariableCommandHandler> logger)
     : ICommandHandler<DefineVariableCommand, Result<VariableIdentifier, DefineVariableError>>
 {
-    public async Task<Result<VariableIdentifier, DefineVariableError>> HandleAsync(
-        DefineVariableCommand command,
-        CancellationToken cancellationToken)
+    public async Task<Result<VariableIdentifier, DefineVariableError>> HandleAsync(DefineVariableCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
+
         var (name, type, initialValue, booleanLabels, definedBy) = command;
 
         // Name uniqueness (FR-001 / FR-005). Archived names are free.
-        Option<Variable> existing = await variables
-            .GetByNameAsync(name, cancellationToken);
+        var existing = await variables.GetByNameAsync(name, cancellationToken);
         if (existing.HasValue)
         {
-            return Result<VariableIdentifier, DefineVariableError>.Failure(
-                new DefineVariableError.VariableNameTaken(name.Value));
+            return Result<VariableIdentifier, DefineVariableError>.Failure(new DefineVariableError.VariableNameTaken(name.Value));
         }
 
         // BooleanLabels presence rules. The domain aggregate enforces
@@ -32,28 +26,23 @@ public sealed class DefineVariableCommandHandler(
         // HTTP layer gets a 400 instead of a 500.
         if (type == VariableType.Boolean && booleanLabels is null)
         {
-            return Result<VariableIdentifier, DefineVariableError>.Failure(
-                new DefineVariableError.BooleanLabelsRequired());
+            return Result<VariableIdentifier, DefineVariableError>.Failure(new DefineVariableError.BooleanLabelsRequired());
         }
         if (type != VariableType.Boolean && booleanLabels is not null)
         {
-            return Result<VariableIdentifier, DefineVariableError>.Failure(
-                new DefineVariableError.BooleanLabelsOnlyOnBoolean());
+            return Result<VariableIdentifier, DefineVariableError>.Failure(new DefineVariableError.BooleanLabelsOnlyOnBoolean());
         }
 
         Variable variable;
         try
         {
-            variable = Variable.Define(
-                name, type, initialValue,
-                booleanLabels, definedBy, clock);
+            variable = Variable.Define(name, type, initialValue, booleanLabels, definedBy, clock);
         }
         catch (ArgumentException)
         {
             // The domain aggregate raised on initial-value-vs-type
             // mismatch; remap to a typed ApiError.
-            return Result<VariableIdentifier, DefineVariableError>.Failure(
-                new DefineVariableError.InitialValueTypeMismatch(type.Value));
+            return Result<VariableIdentifier, DefineVariableError>.Failure(new DefineVariableError.InitialValueTypeMismatch(type.Value));
         }
 
         variables.Add(variable);

@@ -9,18 +9,15 @@ namespace SmartSentinelEye.SystemVariables.Application.Queries.Handlers;
 public sealed class GetVariableQueryHandler(IVariableQuerySource variables)
     : IQueryHandler<GetVariableQuery, Result<VariableDto, GetVariableError>>
 {
-    public async Task<Result<VariableDto, GetVariableError>> HandleAsync(
-        GetVariableQuery query, CancellationToken cancellationToken)
+    public async Task<Result<VariableDto, GetVariableError>> HandleAsync(GetVariableQuery query, CancellationToken cancellationToken)
     {
         Ensure.That(query).IsNotNull();
 
-        Variable? variable = await variables.Variables
-            .SingleOrDefaultAsync(candidate => candidate.Name == query.Name, cancellationToken);
+        Variable? variable = await variables.Variables.SingleOrDefaultAsync(candidate => candidate.Name == query.Name, cancellationToken);
 
         if (variable is null)
         {
-            return Result<VariableDto, GetVariableError>.Failure(
-                new GetVariableError.VariableNotFound(query.Name.Value));
+            return Result<VariableDto, GetVariableError>.Failure(new GetVariableError.VariableNotFound(query.Name.Value));
         }
 
         return Result<VariableDto, GetVariableError>.Success(Map(variable));

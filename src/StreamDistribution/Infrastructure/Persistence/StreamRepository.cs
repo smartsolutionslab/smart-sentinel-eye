@@ -5,32 +5,25 @@ using SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 
-public sealed class StreamRepository(
-    StreamDistributionDbContext dbContext,
-    IDomainEventDispatcher domainEventDispatcher) : IStreamRepository
+public sealed class StreamRepository(StreamDistributionDbContext dbContext, IDomainEventDispatcher domainEventDispatcher)
+    : IStreamRepository
 {
-    public async Task<Option<Domain.Stream.Stream>> GetByIdentifierAsync(
-        StreamIdentifier stream, CancellationToken cancellationToken)
+    public async Task<Option<Domain.Stream.Stream>> GetByIdentifierAsync(StreamIdentifier stream, CancellationToken cancellationToken)
     {
-        Domain.Stream.Stream? found = await dbContext.Streams
-            .FirstOrDefaultAsync(candidate => candidate.Id == stream, cancellationToken);
+        var found = await dbContext.Streams.FirstOrDefaultAsync(candidate => candidate.Id == stream, cancellationToken);
         return found is null ? Option<Domain.Stream.Stream>.None : Option<Domain.Stream.Stream>.Some(found);
     }
 
-    public async Task<Option<Domain.Stream.Stream>> GetByCameraAsync(
-        CameraIdentifier camera, CancellationToken cancellationToken)
+    public async Task<Option<Domain.Stream.Stream>> GetByCameraAsync(CameraIdentifier camera, CancellationToken cancellationToken)
     {
-        Domain.Stream.Stream? found = await dbContext.Streams
-            .FirstOrDefaultAsync(candidate => candidate.Camera == camera, cancellationToken);
+        var found = await dbContext.Streams.FirstOrDefaultAsync(candidate => candidate.Camera == camera, cancellationToken);
         return found is null ? Option<Domain.Stream.Stream>.None : Option<Domain.Stream.Stream>.Some(found);
     }
 
-    public async Task<Option<Domain.Stream.Stream>> GetByPathAsync(
-        MediaMtxPath path, CancellationToken cancellationToken)
+    public async Task<Option<Domain.Stream.Stream>> GetByPathAsync(MediaMtxPath path, CancellationToken cancellationToken)
     {
         Ensure.That(path).IsNotNull();
-        Domain.Stream.Stream? found = await dbContext.Streams
-            .FirstOrDefaultAsync(candidate => candidate.Path == path, cancellationToken);
+        var found = await dbContext.Streams.FirstOrDefaultAsync(candidate => candidate.Path == path, cancellationToken);
         return found is null ? Option<Domain.Stream.Stream>.None : Option<Domain.Stream.Stream>.Some(found);
     }
 
@@ -42,15 +35,14 @@ public sealed class StreamRepository(
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        Domain.Stream.Stream[] tracked = dbContext.ChangeTracker
-            .Entries<Domain.Stream.Stream>()
+        var tracked = dbContext.ChangeTracker.Entries<Domain.Stream.Stream>()
             .Where(entry => entry.Entity.PendingEvents.Count > 0)
             .Select(entry => entry.Entity)
             .ToArray();
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        foreach (Domain.Stream.Stream stream in tracked)
+        foreach (var stream in tracked)
         {
             IDomainEvent[] events = stream.PendingEvents.ToArray();
             stream.ClearPendingEvents();

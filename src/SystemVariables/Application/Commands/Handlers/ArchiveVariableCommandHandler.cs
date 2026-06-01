@@ -5,25 +5,19 @@ using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
 
-public sealed class ArchiveVariableCommandHandler(
-    IVariableRepository variables,
-    IClock clock,
-    ILogger<ArchiveVariableCommandHandler> logger)
+public sealed class ArchiveVariableCommandHandler(IVariableRepository variables, IClock clock, ILogger<ArchiveVariableCommandHandler> logger)
     : ICommandHandler<ArchiveVariableCommand, Result<VariableIdentifier, ArchiveVariableError>>
 {
-    public async Task<Result<VariableIdentifier, ArchiveVariableError>> HandleAsync(
-        ArchiveVariableCommand command,
-        CancellationToken cancellationToken)
+    public async Task<Result<VariableIdentifier, ArchiveVariableError>> HandleAsync(ArchiveVariableCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
+
         var (name, archivedBy) = command;
 
-        Option<Variable> found = await variables
-            .GetByNameAsync(name, cancellationToken);
+        var found = await variables.GetByNameAsync(name, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<VariableIdentifier, ArchiveVariableError>.Failure(
-                new ArchiveVariableError.VariableNotFound(name.Value));
+            return Result<VariableIdentifier, ArchiveVariableError>.Failure(new ArchiveVariableError.VariableNotFound(name.Value));
         }
 
         Variable variable = found.Value;
