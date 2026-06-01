@@ -109,8 +109,7 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
             .OrderByDescending(auditEvent => auditEvent.OccurredAt)
             .ThenByDescending(auditEvent => auditEvent.Id)
             .Take(pageSize + 1)
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .ToListAsync(cancellationToken);
 
         string? nextCursor = null;
         if (rows.Count > pageSize)

@@ -45,8 +45,7 @@ public static partial class OverlayEndpoints
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<OverlayIdentifier, CreateOverlayDraftError> result = await handler
-            .HandleAsync(new CreateOverlayDraftCommand(name, label, actingOperator), cancellationToken)
-            .ConfigureAwait(false);
+            .HandleAsync(new CreateOverlayDraftCommand(name, label, actingOperator), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Created($"/overlays/{identifier}", identifier.Value),
@@ -80,8 +79,7 @@ public static partial class OverlayEndpoints
         Result<OverlayRevisionNumber, PublishRevisionError> result = await handler
             .HandleAsync(
                 new PublishRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, actingOperator),
-                cancellationToken)
-            .ConfigureAwait(false);
+                cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: published => Results.Ok(published.Value),
@@ -115,8 +113,7 @@ public static partial class OverlayEndpoints
         Result<OverlayRevisionNumber, ArchiveRevisionError> result = await handler
             .HandleAsync(
                 new ArchiveRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, actingOperator),
-                cancellationToken)
-            .ConfigureAwait(false);
+                cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: archived => Results.Ok(archived.Value),
@@ -141,8 +138,7 @@ public static partial class OverlayEndpoints
         Result<OverlayRevisionNumber, BranchDraftRevisionError> result = await handler
             .HandleAsync(
                 new BranchDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), actingOperator),
-                cancellationToken)
-            .ConfigureAwait(false);
+                cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: branched => Results.Created(
@@ -190,8 +186,7 @@ public static partial class OverlayEndpoints
         Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler
             .HandleAsync(
                 new EditDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, label),
-                cancellationToken)
-            .ConfigureAwait(false);
+                cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: edited => Results.Ok(edited.Value),
@@ -225,8 +220,7 @@ public static partial class OverlayEndpoints
         Result<OverlayRevisionNumber, RevertRevisionError> result = await handler
             .HandleAsync(
                 new RevertRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, actingOperator),
-                cancellationToken)
-            .ConfigureAwait(false);
+                cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: reverted => Results.Ok(reverted.Value),

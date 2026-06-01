@@ -41,8 +41,7 @@ public sealed class ReverseIndexSeederHostedService(
 #pragma warning restore S1075
 
             using HttpResponseMessage response = await client
-                .GetAsync("/overlays?state=Published", cancellationToken)
-                .ConfigureAwait(false);
+                .GetAsync("/overlays?state=Published", cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -51,7 +50,7 @@ public sealed class ReverseIndexSeederHostedService(
             }
 
             JsonElement payload = await response.Content
-                .ReadFromJsonAsync<JsonElement>(cancellationToken).ConfigureAwait(false);
+                .ReadFromJsonAsync<JsonElement>(cancellationToken);
             if (!payload.TryGetProperty("published", out JsonElement published))
             {
                 logger.SeedMissingPublishedKey();

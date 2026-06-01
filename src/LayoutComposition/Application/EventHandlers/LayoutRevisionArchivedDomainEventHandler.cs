@@ -29,13 +29,13 @@ public sealed class LayoutRevisionArchivedDomainEventHandler(
                 ArchivedAt: domainEvent.ArchivedAt,
                 ArchivedBy: domainEvent.ArchivedBy.Value,
                 Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ArchivedAt, null, domainEvent.ArchivedBy.Value)),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
 
         await broadcaster.ArchivedAsync(
             new LayoutRevisionArchivedNotification(
                 domainEvent.Layout,
                 domainEvent.RevisionNumber,
                 domainEvent.ArchivedAt),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
     }
 }

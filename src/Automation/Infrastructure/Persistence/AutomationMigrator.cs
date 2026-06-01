@@ -13,10 +13,10 @@ public sealed class AutomationMigrator(
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         await using AutomationDbContext context =
-            await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         logger.ApplyingMigrations();
-        await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+        await context.Database.MigrateAsync(cancellationToken);
         logger.MigrationsApplied();
     }
 }

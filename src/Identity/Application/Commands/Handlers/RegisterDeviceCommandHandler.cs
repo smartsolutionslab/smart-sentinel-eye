@@ -41,7 +41,7 @@ public sealed class RegisterDeviceCommandHandler(
         }
 
         Option<RegisteredClientAggregate> existing = await clients
-            .GetByClientIdAsync(clientId, cancellationToken).ConfigureAwait(false);
+            .GetByClientIdAsync(clientId, cancellationToken);
         if (existing.HasValue)
         {
             return Result<DeviceCredentialsDto, RegisterDeviceError>.Failure(
@@ -71,7 +71,7 @@ public sealed class RegisterDeviceCommandHandler(
             credentials = await keycloak.CreateClientAsync(
                 representation,
                 fabGroupPath: $"/fabs/{fab.Value}",
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
         }
         catch (KeycloakClientAlreadyExistsException ex)
         {
@@ -87,7 +87,7 @@ public sealed class RegisterDeviceCommandHandler(
         RegisteredClientAggregate registered = RegisteredClientAggregate.Register(
             clientId, ClientKind.Device, fab, registeredBy, clock);
         clients.Add(registered);
-        await clients.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await clients.SaveAsync(cancellationToken);
 
         logger.RegisteredDevice(registered.Id, clientId, deviceType, deviceIdentifier, fab);
 

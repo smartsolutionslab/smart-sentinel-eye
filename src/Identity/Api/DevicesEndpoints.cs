@@ -62,12 +62,12 @@ public static class DevicesEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken).ConfigureAwait(false);
+        await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken);
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<DeviceCredentialsDto, RegisterDeviceError> result = await handler.HandleAsync(
             new RegisterDeviceCommand(body.DeviceType, body.DeviceIdentifier, fab, actingOperator),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: dto => Results.Created($"/devices/{dto.ClientId}", dto),
@@ -92,7 +92,7 @@ public static class DevicesEndpoints
         }
 
         Result<RegisteredClientIdentifier, DisableDeviceError> result = await handler.HandleAsync(
-            new DisableDeviceCommand(parsed), cancellationToken).ConfigureAwait(false);
+            new DisableDeviceCommand(parsed), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: id => Results.Ok(id.Value),

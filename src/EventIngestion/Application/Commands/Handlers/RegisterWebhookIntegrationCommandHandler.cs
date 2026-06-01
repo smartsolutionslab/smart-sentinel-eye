@@ -20,8 +20,7 @@ public sealed class RegisterWebhookIntegrationCommandHandler(
         var (name, defaultKind) = command;
 
         Option<WebhookIntegration> existing = await integrations
-            .GetByNameAsync(name, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByNameAsync(name, cancellationToken);
         if (existing.HasValue)
         {
             return Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError>.Failure(
@@ -32,7 +31,7 @@ public sealed class RegisterWebhookIntegrationCommandHandler(
             WebhookIntegration.Register(name, defaultKind, clock);
 
         integrations.Add(integration);
-        await integrations.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await integrations.SaveAsync(cancellationToken);
 
         logger.WebhookIntegrationRegistered(integration.Name, integration.Id);
 

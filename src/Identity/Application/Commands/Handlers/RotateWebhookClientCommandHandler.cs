@@ -51,7 +51,7 @@ public sealed class RotateWebhookClientCommandHandler(
         }
 
         Option<RegisteredClientAggregate> existing = await clients
-            .GetByClientIdAsync(clientId, cancellationToken).ConfigureAwait(false);
+            .GetByClientIdAsync(clientId, cancellationToken);
 
         string clientSecret;
         RegisteredClientAggregate aggregate;
@@ -60,8 +60,7 @@ public sealed class RotateWebhookClientCommandHandler(
             if (existing.HasValue)
             {
                 KeycloakClientCredentials rolled = await keycloak
-                    .RotateClientSecretAsync(clientId.Value, cancellationToken)
-                    .ConfigureAwait(false);
+                    .RotateClientSecretAsync(clientId.Value, cancellationToken);
                 clientSecret = rolled.ClientSecret;
                 aggregate = existing.Value;
                 aggregate.Rotate(clock);
@@ -86,7 +85,7 @@ public sealed class RotateWebhookClientCommandHandler(
                 KeycloakClientCredentials credentials = await keycloak.CreateClientAsync(
                     representation,
                     fabGroupPath: $"/fabs/{fab.Value}",
-                    cancellationToken).ConfigureAwait(false);
+                    cancellationToken);
                 clientSecret = credentials.ClientSecret;
 
                 aggregate = RegisteredClientAggregate.Register(
@@ -102,7 +101,7 @@ public sealed class RotateWebhookClientCommandHandler(
                 new RotateWebhookClientError.KeycloakUnavailable(ex.Message));
         }
 
-        await clients.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await clients.SaveAsync(cancellationToken);
 
         // Tell EventIngestion to flip the integration's
         // bearer-validation path from hash-compare to JWT-validate.
@@ -110,7 +109,7 @@ public sealed class RotateWebhookClientCommandHandler(
             new WebhookIntegrationRotatedV1(
                 integrationName, clientId.Value, clock.UtcNow,
                 Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, fab.Value, rotatedBy.Value)),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
 
         logger.RotatedWebhookIntegration(integrationName, clientId);
 

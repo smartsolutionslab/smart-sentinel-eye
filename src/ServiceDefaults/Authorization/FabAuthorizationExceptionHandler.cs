@@ -31,8 +31,7 @@ public sealed class FabAuthorizationExceptionHandler : IExceptionHandler
             Detail = $"Caller is not a member of fab '{fabException.FabId}'.",
             Status = StatusCodes.Status403Forbidden,
         };
-        await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
+        await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken: cancellationToken);
 
         return true;
     }

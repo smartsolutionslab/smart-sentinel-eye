@@ -20,7 +20,7 @@ public sealed class DisableKioskCommandHandler(
         Ensure.That(command).IsNotNull();
 
         Option<RegisteredClientAggregate> found = await clients
-            .GetByClientIdAsync(command.ClientId, cancellationToken).ConfigureAwait(false);
+            .GetByClientIdAsync(command.ClientId, cancellationToken);
         if (!found.HasValue || found.Value.Kind != ClientKind.Kiosk)
         {
             return Result<RegisteredClientIdentifier, DisableKioskError>.Failure(
@@ -29,8 +29,7 @@ public sealed class DisableKioskCommandHandler(
 
         try
         {
-            await keycloak.DisableClientAsync(command.ClientId.Value, cancellationToken)
-                .ConfigureAwait(false);
+            await keycloak.DisableClientAsync(command.ClientId.Value, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -40,7 +39,7 @@ public sealed class DisableKioskCommandHandler(
 
         RegisteredClientAggregate client = found.Value;
         client.Disable(clock);
-        await clients.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await clients.SaveAsync(cancellationToken);
 
         logger.DisabledKiosk(client.Id, command.ClientId);
 

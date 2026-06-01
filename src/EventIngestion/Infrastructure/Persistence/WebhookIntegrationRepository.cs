@@ -15,8 +15,7 @@ public sealed class WebhookIntegrationRepository(
         Ensure.That(name).IsNotNull();
         WebhookIntegration? found = await dbContext.WebhookIntegrations
             .Where(integration => integration.Name == name)
-            .FirstOrDefaultAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(cancellationToken);
         return found is null ? Option<WebhookIntegration>.None : Option<WebhookIntegration>.Some(found);
     }
 
@@ -34,13 +33,13 @@ public sealed class WebhookIntegrationRepository(
             .Select(entry => entry.Entity)
             .ToArray();
 
-        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         foreach (WebhookIntegration integration in tracked)
         {
             var events = integration.PendingEvents.ToArray();
             integration.ClearPendingEvents();
-            await domainEventDispatcher.DispatchAsync(events, cancellationToken).ConfigureAwait(false);
+            await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }
     }
 }

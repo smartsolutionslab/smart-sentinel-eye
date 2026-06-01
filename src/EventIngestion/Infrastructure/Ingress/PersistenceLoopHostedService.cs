@@ -27,9 +27,9 @@ public sealed class PersistenceLoopHostedService(
         logger.PersistenceLoopStarted();
         try
         {
-            await foreach (EventEnvelope envelope in channel.ReadAllAsync(stoppingToken).ConfigureAwait(false))
+            await foreach (EventEnvelope envelope in channel.ReadAllAsync(stoppingToken))
             {
-                await DispatchAsync(envelope, stoppingToken).ConfigureAwait(false);
+                await DispatchAsync(envelope, stoppingToken);
             }
         }
         catch (OperationCanceledException ex) when (stoppingToken.IsCancellationRequested)
@@ -45,8 +45,7 @@ public sealed class PersistenceLoopHostedService(
             scope.ServiceProvider.GetRequiredService<IngestEventCommandHandler>();
 
         Result<EventIdentifier, IngestEventError> result = await handler
-            .HandleAsync(new IngestEventCommand(envelope), cancellationToken)
-            .ConfigureAwait(false);
+            .HandleAsync(new IngestEventCommand(envelope), cancellationToken);
 
         if (!result.IsSuccess)
         {

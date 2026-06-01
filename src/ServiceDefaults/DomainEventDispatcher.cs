@@ -21,7 +21,7 @@ public sealed class DomainEventDispatcher(IServiceProvider services) : IDomainEv
         foreach (IDomainEvent domainEvent in domainEvents)
         {
             DomainEventInvoker invoker = InvokersByEventType.GetOrAdd(domainEvent.GetType(), BuildInvoker);
-            await invoker.InvokeAsync(services, domainEvent, cancellationToken).ConfigureAwait(false);
+            await invoker.InvokeAsync(services, domainEvent, cancellationToken);
         }
     }
 
@@ -43,7 +43,7 @@ public sealed class DomainEventDispatcher(IServiceProvider services) : IDomainEv
             foreach (object handler in (System.Collections.IEnumerable)handlers)
             {
                 Task task = (Task)handleMethod.Invoke(handler, [domainEvent, cancellationToken])!;
-                await task.ConfigureAwait(false);
+                await task;
             }
         }
     }

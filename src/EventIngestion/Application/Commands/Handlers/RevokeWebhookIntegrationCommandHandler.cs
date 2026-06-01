@@ -19,8 +19,7 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
         Ensure.That(command).IsNotNull();
 
         Option<WebhookIntegration> found = await integrations
-            .GetByNameAsync(command.Name, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByNameAsync(command.Name, cancellationToken);
         if (!found.HasValue)
         {
             return Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>.Failure(
@@ -29,7 +28,7 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
 
         WebhookIntegration integration = found.Value;
         integration.Revoke(clock);
-        await integrations.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await integrations.SaveAsync(cancellationToken);
 
         logger.WebhookIntegrationRevoked(integration.Name, integration.Id);
 

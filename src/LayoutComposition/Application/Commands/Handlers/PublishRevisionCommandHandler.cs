@@ -19,8 +19,7 @@ public sealed class PublishRevisionCommandHandler(
         var (layoutIdentifier, revisionNumber, publishedBy) = command;
 
         Option<Layout> found = await layouts
-            .GetByIdentifierAsync(layoutIdentifier, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Result<LayoutRevisionNumber, PublishRevisionError>.Failure(
@@ -42,7 +41,7 @@ public sealed class PublishRevisionCommandHandler(
         }
 
         layout.Publish(revisionNumber, publishedBy, clock);
-        await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await layouts.SaveAsync(cancellationToken);
 
         logger.PublishedRevision(layout.Id, revisionNumber, publishedBy);
 

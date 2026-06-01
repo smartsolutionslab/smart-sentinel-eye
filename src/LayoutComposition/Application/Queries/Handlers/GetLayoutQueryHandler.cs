@@ -15,8 +15,7 @@ public sealed class GetLayoutQueryHandler(ILayoutQuerySource layouts)
         Ensure.That(query).IsNotNull();
 
         Layout? layout = await layouts.Layouts
-            .SingleOrDefaultAsync(candidate => candidate.Id == query.Layout, cancellationToken)
-            .ConfigureAwait(false);
+            .SingleOrDefaultAsync(candidate => candidate.Id == query.Layout, cancellationToken);
 
         if (layout is null)
         {

@@ -18,8 +18,7 @@ public sealed class RevertRevisionCommandHandler(
         var (overlayIdentifier, revisionNumber, revertedBy) = command;
 
         Option<Overlay> found = await overlays
-            .GetByIdentifierAsync(overlayIdentifier, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Result<OverlayRevisionNumber, RevertRevisionError>.Failure(
@@ -41,7 +40,7 @@ public sealed class RevertRevisionCommandHandler(
         }
 
         overlay.Revert(revisionNumber, revertedBy, clock);
-        await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await overlays.SaveAsync(cancellationToken);
 
         logger.RevertedRevision(revisionNumber, overlay.Id, revertedBy);
 

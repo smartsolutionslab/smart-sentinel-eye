@@ -21,7 +21,7 @@ public sealed class TimescaleAuditChunkInventory(
         DateTimeOffset boundary, CancellationToken cancellationToken)
     {
         await using AuditObservabilityDbContext context =
-            await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         // `range_end` is exclusive in TimescaleDB's chunk view —
         // a chunk has fully aged out only once it's strictly
@@ -38,7 +38,7 @@ public sealed class TimescaleAuditChunkInventory(
                   AND range_end <= {boundary}
                 ORDER BY range_end ASC
                 """)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+            .ToListAsync(cancellationToken);
 
         return [.. rows.Select(row => new AuditChunk(
             DeterministicChunkIdentifier(row.ChunkName),
@@ -51,7 +51,7 @@ public sealed class TimescaleAuditChunkInventory(
         Ensure.That(chunk).IsNotNull();
 
         await using AuditObservabilityDbContext context =
-            await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         // `drop_chunks` accepts a window and drops every chunk whose
         // range_end <= older_than. Passing the chunk's exact end
@@ -60,7 +60,7 @@ public sealed class TimescaleAuditChunkInventory(
             $"""
             SELECT drop_chunks('audit_events', older_than => {chunk.OccurredUntil})
             """,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
 
         logger.DroppedChunks(chunk.OccurredUntil, count);
     }

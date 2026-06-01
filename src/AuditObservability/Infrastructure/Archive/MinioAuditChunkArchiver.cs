@@ -41,16 +41,16 @@ public sealed class MinioAuditChunkArchiver(
         Ensure.That(chunk).IsNotNull();
 
         MinioOptions opts = options.Value;
-        await EnsureBucketAsync(opts.Bucket, cancellationToken).ConfigureAwait(false);
+        await EnsureBucketAsync(opts.Bucket, cancellationToken);
 
         string objectKey = BuildObjectKey(opts.ObjectKeyTemplate, chunk);
 
         await using AuditObservabilityDbContext context =
-            await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         List<AuditEventEntity> rows = await context.AuditEvents
             .Where(auditEvent => auditEvent.OccurredAt >= chunk.OccurredFrom && auditEvent.OccurredAt < chunk.OccurredUntil)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+            .ToListAsync(cancellationToken);
 
         using MemoryStream payload = new();
         await using (GZipStream gz = new(payload, CompressionLevel.Optimal, leaveOpen: true))
@@ -59,7 +59,7 @@ public sealed class MinioAuditChunkArchiver(
             foreach (AuditEventEntity row in rows)
             {
                 await writer.WriteLineAsync(
-                    JsonSerializer.Serialize(MinioAuditRow.From(row))).ConfigureAwait(false);
+                    JsonSerializer.Serialize(MinioAuditRow.From(row)));
             }
         }
 
@@ -71,8 +71,7 @@ public sealed class MinioAuditChunkArchiver(
         // Idempotency: a previous successful run leaves the
         // object in place; only re-upload if it's missing or
         // the checksum drifted.
-        string? existingEtag = await TryGetEtagAsync(opts.Bucket, objectKey, cancellationToken)
-            .ConfigureAwait(false);
+        string? existingEtag = await TryGetEtagAsync(opts.Bucket, objectKey, cancellationToken);
         if (existingEtag is not null && string.Equals(existingEtag, contentMd5, StringComparison.OrdinalIgnoreCase))
         {
             logger.ChunkAlreadyArchived(chunk.ChunkIdentifier, objectKey);
@@ -93,7 +92,7 @@ public sealed class MinioAuditChunkArchiver(
                     ["Content-MD5"] = Convert.ToBase64String(MD5.HashData(payload.ToArray())),
 #pragma warning restore CA5351
                 }),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
 
         logger.ArchivedAuditChunk(chunk.ChunkIdentifier, rows.Count, objectKey);
 
@@ -103,11 +102,11 @@ public sealed class MinioAuditChunkArchiver(
     private async Task EnsureBucketAsync(string bucket, CancellationToken cancellationToken)
     {
         bool exists = await minio.BucketExistsAsync(
-            new BucketExistsArgs().WithBucket(bucket), cancellationToken).ConfigureAwait(false);
+            new BucketExistsArgs().WithBucket(bucket), cancellationToken);
         if (!exists)
         {
             await minio.MakeBucketAsync(
-                new MakeBucketArgs().WithBucket(bucket), cancellationToken).ConfigureAwait(false);
+                new MakeBucketArgs().WithBucket(bucket), cancellationToken);
         }
     }
 
@@ -118,7 +117,7 @@ public sealed class MinioAuditChunkArchiver(
         {
             var stat = await minio.StatObjectAsync(
                 new StatObjectArgs().WithBucket(bucket).WithObject(objectKey),
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
             return stat.ETag?.Trim('"');
         }
         catch (ObjectNotFoundException)

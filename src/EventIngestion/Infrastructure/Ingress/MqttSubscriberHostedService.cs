@@ -50,7 +50,7 @@ public sealed class MqttSubscriberHostedService(
         _client.ApplicationMessageReceivedAsync += OnMessageReceived;
 
         string topic = options.Value.SubscribeTopic;
-        await _client.SubscribeAsync(topic, MqttQualityOfServiceLevel.AtLeastOnce).ConfigureAwait(false);
+        await _client.SubscribeAsync(topic, MqttQualityOfServiceLevel.AtLeastOnce);
 
         logger.MqttSubscriberStarted(topic);
     }
@@ -59,7 +59,7 @@ public sealed class MqttSubscriberHostedService(
     {
         if (_client is null) return;
         _client.ApplicationMessageReceivedAsync -= OnMessageReceived;
-        await _client.StopAsync().ConfigureAwait(false);
+        await _client.StopAsync();
         _client.Dispose();
         _client = null;
         logger.MqttSubscriberStopped();
@@ -73,13 +73,13 @@ public sealed class MqttSubscriberHostedService(
         ParseResult result = TryParseEnvelope(topic, body);
         if (result.Envelope is null)
         {
-            await CaptureDeadLetterAsync(topic, body, result.Error ?? "unknown parse failure").ConfigureAwait(false);
+            await CaptureDeadLetterAsync(topic, body, result.Error ?? "unknown parse failure");
             return;
         }
 
         // WriteAsync blocks when the bounded channel is full — the
         // broker stops receiving ACKs and holds queue depth (FR-022).
-        await channel.WriteAsync(result.Envelope, CancellationToken.None).ConfigureAwait(false);
+        await channel.WriteAsync(result.Envelope, CancellationToken.None);
     }
 
     private static ParseResult TryParseEnvelope(string topic, ReadOnlyMemory<byte> body)
@@ -140,7 +140,7 @@ public sealed class MqttSubscriberHostedService(
             IDeadLetterRepository deadLetters =
                 scope.ServiceProvider.GetRequiredService<IDeadLetterRepository>();
             deadLetters.Add(DeadLetter.Capture(topic, raw, error, clock));
-            await deadLetters.SaveAsync(CancellationToken.None).ConfigureAwait(false);
+            await deadLetters.SaveAsync(CancellationToken.None);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

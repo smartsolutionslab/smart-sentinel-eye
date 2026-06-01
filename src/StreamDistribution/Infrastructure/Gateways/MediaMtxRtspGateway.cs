@@ -27,8 +27,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         // hooks in the YAML; not needed for v1 because we only ship the
         // latest-ffmpeg image).
         using HttpResponseMessage response = await http
-            .PostAsJsonAsync($"/v3/config/paths/add/{path.Value}", new { source = rtspSourceUrl }, cancellationToken)
-            .ConfigureAwait(false);
+            .PostAsJsonAsync($"/v3/config/paths/add/{path.Value}", new { source = rtspSourceUrl }, cancellationToken);
 
         response.EnsureSuccessStatusCode();
         logger.RegisteredMediaMtxPath(path, rtspSourceUrl);
@@ -39,8 +38,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         Ensure.That(path).IsNotNull();
 
         using HttpResponseMessage response = await http
-            .DeleteAsync($"/v3/config/paths/delete/{path.Value}", cancellationToken)
-            .ConfigureAwait(false);
+            .DeleteAsync($"/v3/config/paths/delete/{path.Value}", cancellationToken);
 
         // 404 is fine — path may have already been removed by a prior call.
         if (response.StatusCode != System.Net.HttpStatusCode.NotFound)
@@ -56,13 +54,11 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         // Filters to canonical cam-{guid} names so manually-created MediaMTX
         // paths are left alone.
         using HttpResponseMessage response = await http
-            .GetAsync("/v3/config/paths/list", cancellationToken)
-            .ConfigureAwait(false);
+            .GetAsync("/v3/config/paths/list", cancellationToken);
         response.EnsureSuccessStatusCode();
 
         JsonElement payload = await response.Content
-            .ReadFromJsonAsync<JsonElement>(cancellationToken)
-            .ConfigureAwait(false);
+            .ReadFromJsonAsync<JsonElement>(cancellationToken);
 
         if (!payload.TryGetProperty("items", out JsonElement items) ||
             items.ValueKind != JsonValueKind.Array)
@@ -93,8 +89,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         Ensure.That(path).IsNotNull();
 
         using HttpResponseMessage response = await http
-            .GetAsync($"/v3/paths/get/{path.Value}", cancellationToken)
-            .ConfigureAwait(false);
+            .GetAsync($"/v3/paths/get/{path.Value}", cancellationToken);
 
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -109,8 +104,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         // Response shape (subset of MediaMTX /v3/paths/get):
         //   { "ready": bool, "readyTime": "ISO-8601" | null, "tracks": [...] }
         JsonElement payload = await response.Content
-            .ReadFromJsonAsync<JsonElement>(cancellationToken)
-            .ConfigureAwait(false);
+            .ReadFromJsonAsync<JsonElement>(cancellationToken);
 
         bool ready = payload.TryGetProperty("ready", out JsonElement readyEl) && readyEl.GetBoolean();
         DateTimeOffset? readyTime = TryReadIsoTimestamp(payload, "readyTime");

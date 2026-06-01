@@ -31,8 +31,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
         await BroadcastAsync(
             () => hub.Clients.All.LayoutRevisionPublished(message),
-            ex => logger.LayoutRevisionPublishedBroadcastFailed(ex, notification.Layout, notification.RevisionNumber))
-            .ConfigureAwait(false);
+            ex => logger.LayoutRevisionPublishedBroadcastFailed(ex, notification.Layout, notification.RevisionNumber));
     }
 
     public async Task ArchivedAsync(LayoutRevisionArchivedNotification notification, CancellationToken cancellationToken)
@@ -46,8 +45,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
         await BroadcastAsync(
             () => hub.Clients.All.LayoutRevisionArchived(message),
-            ex => logger.LayoutRevisionArchivedBroadcastFailed(ex, notification.Layout, notification.RevisionNumber))
-            .ConfigureAwait(false);
+            ex => logger.LayoutRevisionArchivedBroadcastFailed(ex, notification.Layout, notification.RevisionNumber));
     }
 
     public async Task OverlayPublishedAsync(OverlayLifecyclePublishedNotification notification, CancellationToken cancellationToken)
@@ -67,8 +65,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
         await BroadcastAsync(
             () => hub.Clients.All.OverlayRevisionPublished(message),
-            ex => logger.OverlayRevisionPublishedBroadcastFailed(ex, notification.Overlay, notification.RevisionNumber))
-            .ConfigureAwait(false);
+            ex => logger.OverlayRevisionPublishedBroadcastFailed(ex, notification.Overlay, notification.RevisionNumber));
     }
 
     public async Task OverlayArchivedAsync(OverlayLifecycleArchivedNotification notification, CancellationToken cancellationToken)
@@ -82,8 +79,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
         await BroadcastAsync(
             () => hub.Clients.All.OverlayRevisionArchived(message),
-            ex => logger.OverlayRevisionArchivedBroadcastFailed(ex, notification.Overlay, notification.RevisionNumber))
-            .ConfigureAwait(false);
+            ex => logger.OverlayRevisionArchivedBroadcastFailed(ex, notification.Overlay, notification.RevisionNumber));
     }
 
     public async Task ResolvedOverlayTextChangedAsync(ResolvedOverlayTextChangedNotification notification, CancellationToken cancellationToken)
@@ -97,8 +93,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
         await BroadcastAsync(
             () => hub.Clients.All.ResolvedOverlayTextChanged(message),
-            ex => logger.ResolvedOverlayTextChangedBroadcastFailed(ex, notification.Overlay, notification.Version))
-            .ConfigureAwait(false);
+            ex => logger.ResolvedOverlayTextChangedBroadcastFailed(ex, notification.Overlay, notification.Version));
     }
 
     public async Task OverlayHighlightedAsync(OverlayHighlightedNotification notification, CancellationToken cancellationToken)
@@ -111,8 +106,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
         await BroadcastAsync(
             () => hub.Clients.All.OverlayHighlightChanged(message),
-            ex => logger.OverlayHighlightChangedBroadcastFailed(ex, notification.Overlay, notification.DurationMs))
-            .ConfigureAwait(false);
+            ex => logger.OverlayHighlightChangedBroadcastFailed(ex, notification.Overlay, notification.DurationMs));
     }
 
     // Best-effort broadcast: a transient hub failure is logged and swallowed
@@ -123,7 +117,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
     {
         try
         {
-            await send().ConfigureAwait(false);
+            await send();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

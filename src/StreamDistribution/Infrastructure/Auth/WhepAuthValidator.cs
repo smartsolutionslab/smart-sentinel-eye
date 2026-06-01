@@ -53,7 +53,7 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
         try
         {
             OpenIdConnectConfiguration configuration =
-                await _oidc.GetConfigurationAsync(cancellationToken).ConfigureAwait(false);
+                await _oidc.GetConfigurationAsync(cancellationToken);
             TokenValidationParameters parameters = _parameters.Clone();
             parameters.IssuerSigningKeys = configuration.SigningKeys;
 

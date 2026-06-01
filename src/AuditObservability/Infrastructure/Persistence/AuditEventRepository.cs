@@ -53,7 +53,7 @@ public sealed class AuditEventRepository(AuditObservabilityDbContext dbContext) 
                     {row.SchemaVersion})
                 ON CONFLICT (event_identifier, occurred_at) DO NOTHING
                 """,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
         }
 
         _pending.Clear();

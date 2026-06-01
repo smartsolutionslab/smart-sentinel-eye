@@ -45,7 +45,7 @@ public sealed class ClientRegisteredDomainEventHandler(
                     Fab: domainEvent.Fab.Value,
                     RegisteredAt: domainEvent.RegisteredAt,
                     Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.RegisteredAt, domainEvent.Fab.Value, null)),
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
             logger.PublishedDeviceRegisteredV1(domainEvent.ClientId);
             return;
         }
@@ -59,7 +59,7 @@ public sealed class ClientRegisteredDomainEventHandler(
                     Fab: domainEvent.Fab.Value,
                     EnrolledAt: domainEvent.RegisteredAt,
                     Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.RegisteredAt, domainEvent.Fab.Value, null)),
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
             logger.PublishedKioskEnrolledV1(domainEvent.ClientId);
         }
 

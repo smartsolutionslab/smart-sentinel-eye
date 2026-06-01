@@ -71,8 +71,7 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
             .OrderBy(auditEvent => auditEvent.OccurredAt)
             .ThenBy(auditEvent => auditEvent.Id)
             .Take(pageSize + 1)
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .ToListAsync(cancellationToken);
 
         string? nextCursor = null;
         if (rows.Count > pageSize)

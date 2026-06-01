@@ -40,6 +40,6 @@ public sealed class OverlayRevisionPublishedDomainEventHandler(IEventBus events)
                 PublishedAt: domainEvent.PublishedAt,
                 PublishedBy: domainEvent.PublishedBy.Value,
                 Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.PublishedAt, null, domainEvent.PublishedBy.Value)),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
     }
 }

@@ -18,8 +18,7 @@ public sealed class ArchiveRevisionCommandHandler(
         var (layoutIdentifier, revisionNumber, archivedBy) = command;
 
         Option<Layout> found = await layouts
-            .GetByIdentifierAsync(layoutIdentifier, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Result<LayoutRevisionNumber, ArchiveRevisionError>.Failure(
@@ -35,7 +34,7 @@ public sealed class ArchiveRevisionCommandHandler(
         }
 
         layout.ArchiveRevision(revisionNumber, archivedBy, clock);
-        await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await layouts.SaveAsync(cancellationToken);
 
         logger.ArchivedRevision(layout.Id, revisionNumber, archivedBy);
 

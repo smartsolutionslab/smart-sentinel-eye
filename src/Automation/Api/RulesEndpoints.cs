@@ -78,7 +78,7 @@ public static class RulesEndpoints
         var actingOperator = user.ToOperatorIdentifier();
         var result = await handler.HandleAsync(
             new CreateRuleCommand(name, body.TriggerSource, body.TriggerKind, predicate, action, actingOperator),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: id => Results.Created($"/rules/{name.Value}", id.Value),
@@ -97,7 +97,7 @@ public static class RulesEndpoints
             return Results.Problem(title: "RULE_INVALID_INPUT", detail: ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var result = await handler.HandleAsync(new PublishRuleCommand(parsed), cancellationToken).ConfigureAwait(false);
+        var result = await handler.HandleAsync(new PublishRuleCommand(parsed), cancellationToken);
 
         return result.Match<IResult>(onSuccess: id => Results.Ok(id.Value), onFailure: error => error.ToProblem());
     }
@@ -114,7 +114,7 @@ public static class RulesEndpoints
             return Results.Problem(title: "RULE_INVALID_INPUT", detail: ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var result = await handler.HandleAsync(new ArchiveRuleCommand(parsed), cancellationToken).ConfigureAwait(false);
+        var result = await handler.HandleAsync(new ArchiveRuleCommand(parsed), cancellationToken);
 
         return result.Match<IResult>(onSuccess: id => Results.Ok(id.Value), onFailure: error => error.ToProblem());
     }

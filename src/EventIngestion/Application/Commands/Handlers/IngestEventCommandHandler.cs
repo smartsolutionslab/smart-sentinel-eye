@@ -31,8 +31,7 @@ public sealed class IngestEventCommandHandler(
         // backstop; this round-trip avoids raising
         // FabEventIngestedV1 twice on retry.
         bool exists = await events
-            .ExistsAsync(envelope.Fab, envelope.Identifier, cancellationToken)
-            .ConfigureAwait(false);
+            .ExistsAsync(envelope.Fab, envelope.Identifier, cancellationToken);
         if (exists)
         {
             logger.IdempotentReDelivery(envelope.Identifier, envelope.Fab);
@@ -62,7 +61,7 @@ public sealed class IngestEventCommandHandler(
         }
 
         events.Add(@event);
-        await events.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await events.SaveAsync(cancellationToken);
 
         return Result<EventIdentifier, IngestEventError>.Success(@event.Id);
     }

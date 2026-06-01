@@ -59,7 +59,7 @@ public static partial class EventsEndpoints
         Ensure.That(request).IsNotNull();
 
         WebhookIntegration? integration = await AuthenticateWebhookAsync(
-            integrationName, request, fabId, integrations, cancellationToken).ConfigureAwait(false);
+            integrationName, request, fabId, integrations, cancellationToken);
         if (integration is null)
         {
             return Results.Unauthorized();
@@ -119,7 +119,7 @@ public static partial class EventsEndpoints
         }
 
         Option<WebhookIntegration> found = await integrations
-            .GetByNameAsync(parsedName, cancellationToken).ConfigureAwait(false);
+            .GetByNameAsync(parsedName, cancellationToken);
         if (!found.HasValue || found.Value.IsRevoked)
         {
             return null;
@@ -127,7 +127,7 @@ public static partial class EventsEndpoints
 
         WebhookIntegration integration = found.Value;
         bool authorized = integration.ValidationMode == BearerValidationMode.Jwt
-            ? await ValidateJwtAsync(request, integration, fabId).ConfigureAwait(false)
+            ? await ValidateJwtAsync(request, integration, fabId)
             : integration.TokenHash.Matches(token);
         return authorized ? integration : null;
     }
@@ -144,7 +144,7 @@ public static partial class EventsEndpoints
         HttpRequest request, WebhookIntegration integration, string fabId)
     {
         AuthenticateResult auth = await request.HttpContext
-            .AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme).ConfigureAwait(false);
+            .AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme);
         if (!auth.Succeeded || auth.Principal is null)
         {
             return false;

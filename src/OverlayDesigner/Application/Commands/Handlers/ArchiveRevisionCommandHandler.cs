@@ -18,8 +18,7 @@ public sealed class ArchiveRevisionCommandHandler(
         var (overlayIdentifier, revisionNumber, archivedBy) = command;
 
         Option<Overlay> found = await overlays
-            .GetByIdentifierAsync(overlayIdentifier, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Result<OverlayRevisionNumber, ArchiveRevisionError>.Failure(
@@ -35,7 +34,7 @@ public sealed class ArchiveRevisionCommandHandler(
         }
 
         overlay.ArchiveRevision(revisionNumber, archivedBy, clock);
-        await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await overlays.SaveAsync(cancellationToken);
 
         logger.ArchivedRevision(overlay.Id, revisionNumber, archivedBy);
 

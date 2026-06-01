@@ -16,8 +16,7 @@ public sealed class EventRepository(
     {
         EventAggregate? found = await dbContext.Events
             .Where(eventEntity => eventEntity.Fab == fab && eventEntity.Id == identifier)
-            .FirstOrDefaultAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .FirstOrDefaultAsync(cancellationToken);
         return found is null ? Option<EventAggregate>.None : Option<EventAggregate>.Some(found);
     }
 
@@ -39,13 +38,13 @@ public sealed class EventRepository(
             .Select(entry => entry.Entity)
             .ToArray();
 
-        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         foreach (EventAggregate @event in tracked)
         {
             IDomainEvent[] events = @event.PendingEvents.ToArray();
             @event.ClearPendingEvents();
-            await domainEventDispatcher.DispatchAsync(events, cancellationToken).ConfigureAwait(false);
+            await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }
     }
 }

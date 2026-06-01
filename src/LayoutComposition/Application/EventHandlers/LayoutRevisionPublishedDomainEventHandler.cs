@@ -38,7 +38,7 @@ public sealed class LayoutRevisionPublishedDomainEventHandler(
                 PublishedAt: domainEvent.PublishedAt,
                 PublishedBy: domainEvent.PublishedBy.Value,
                 Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.PublishedAt, null, domainEvent.PublishedBy.Value)),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
 
         await broadcaster.PublishedAsync(
             new LayoutRevisionPublishedNotification(
@@ -47,6 +47,6 @@ public sealed class LayoutRevisionPublishedDomainEventHandler(
                 domainEvent.Name,
                 domainEvent.Camera,
                 domainEvent.PublishedAt),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
     }
 }

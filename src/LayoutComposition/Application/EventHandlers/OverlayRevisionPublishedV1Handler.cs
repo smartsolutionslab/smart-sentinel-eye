@@ -34,7 +34,7 @@ public sealed class OverlayRevisionPublishedV1Handler(
                 NormalizedHeight: message.NormalizedHeight,
                 FontSizePx: message.FontSizePx,
                 PublishedAt: message.PublishedAt),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
 
         logger.BroadcastOverlayPublished(message.Overlay, message.RevisionNumber);
     }

@@ -49,7 +49,7 @@ public static partial class EventsEndpoints
                 fab, sourceVo, deviceVo, kindVo,
                 occurredAfter, occurredBefore, ingestedAfter, ingestedBefore,
                 pageSize ?? 100, cursor),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
@@ -77,7 +77,7 @@ public static partial class EventsEndpoints
         }
 
         Result<EventDto, GetEventError> result = await handler.HandleAsync(
-            new GetEventQuery(fab, identifier), cancellationToken).ConfigureAwait(false);
+            new GetEventQuery(fab, identifier), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
@@ -91,7 +91,7 @@ public static partial class EventsEndpoints
     {
         Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError> result =
             await handler.HandleAsync(
-                new ListDeadLettersQuery(limit ?? 100), cancellationToken).ConfigureAwait(false);
+                new ListDeadLettersQuery(limit ?? 100), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,

@@ -29,10 +29,9 @@ public sealed class EventPartitionRolloverMigrator(
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         await using EventIngestionDbContext context =
-            await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        string[] fabPartitions = await DiscoverFabPartitionsAsync(context, cancellationToken)
-            .ConfigureAwait(false);
+        string[] fabPartitions = await DiscoverFabPartitionsAsync(context, cancellationToken);
         if (fabPartitions.Length == 0)
         {
             logger.NoFabPartitions();
@@ -52,7 +51,7 @@ public sealed class EventPartitionRolloverMigrator(
                 string ddl =
                     $"CREATE TABLE IF NOT EXISTS {monthlyTable} PARTITION OF {fabPartition} " +
                     $"FOR VALUES FROM ('{fromBound}') TO ('{toBound}');";
-                await context.Database.ExecuteSqlRawAsync(ddl, cancellationToken).ConfigureAwait(false);
+                await context.Database.ExecuteSqlRawAsync(ddl, cancellationToken);
                 logger.EnsuredPartition(monthlyTable, fromBound, toBound);
             }
         }
@@ -75,12 +74,12 @@ public sealed class EventPartitionRolloverMigrator(
 
         await using var command = context.Database.GetDbConnection().CreateCommand();
         command.CommandText = discoverySql;
-        await context.Database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await context.Database.OpenConnectionAsync(cancellationToken);
         try
         {
-            await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             List<string> names = new();
-            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            while (await reader.ReadAsync(cancellationToken))
             {
                 names.Add(reader.GetString(0));
             }
@@ -88,7 +87,7 @@ public sealed class EventPartitionRolloverMigrator(
         }
         finally
         {
-            await context.Database.CloseConnectionAsync().ConfigureAwait(false);
+            await context.Database.CloseConnectionAsync();
         }
     }
 

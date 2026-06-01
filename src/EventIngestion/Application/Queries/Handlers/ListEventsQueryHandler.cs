@@ -43,8 +43,7 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
         }
 
         List<EventAggregate> rows = await BuildPagedQuery(events.Events, query, cursor, pageSize)
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .ToListAsync(cancellationToken);
 
         string? nextCursor = null;
         if (rows.Count > pageSize)

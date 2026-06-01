@@ -54,6 +54,11 @@ dotnet_style_object_initializer = true:suggestion
 dotnet_style_collection_initializer = true:suggestion
 dotnet_style_namespace_match_folder = true:warning
 
+# ADR-0049: ConfigureAwait banned in application code. Enforced via
+# BannedApiAnalyzers + BannedSymbols.txt, scoped to non-Shared, non-test
+# projects in Directory.Build.props. Error so it cannot creep back.
+dotnet_diagnostic.RS0030.severity = error
+
 # Naming
 dotnet_naming_rule.interface_should_be_begins_with_i.severity = warning
 dotnet_naming_rule.interface_should_be_begins_with_i.symbols = interface

@@ -36,7 +36,7 @@ public sealed class MediaMtxReconciler(
     {
         try
         {
-            await ReconcileOnceAsync(cancellationToken).ConfigureAwait(false);
+            await ReconcileOnceAsync(cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -57,16 +57,15 @@ public sealed class MediaMtxReconciler(
         IRtspGateway gateway = scope.ServiceProvider.GetRequiredService<IRtspGateway>();
 
         await using StreamDistributionDbContext context =
-            await factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            await factory.CreateDbContextAsync(cancellationToken);
 
         HashSet<MediaMtxPath> expected = (await context.Streams
             .AsNoTracking()
             .Select(stream => stream.Path)
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false)).ToHashSet();
+            .ToListAsync(cancellationToken)).ToHashSet();
 
         IReadOnlyList<MediaMtxPath> configured =
-            await gateway.ListConfiguredPathsAsync(cancellationToken).ConfigureAwait(false);
+            await gateway.ListConfiguredPathsAsync(cancellationToken);
 
         int removed = 0;
         foreach (MediaMtxPath path in configured)
@@ -74,7 +73,7 @@ public sealed class MediaMtxReconciler(
             if (expected.Contains(path)) continue;
             try
             {
-                await gateway.RemovePathAsync(path, cancellationToken).ConfigureAwait(false);
+                await gateway.RemovePathAsync(path, cancellationToken);
                 removed++;
                 logger.ReconcilerRemovedOrphanPath(path);
             }

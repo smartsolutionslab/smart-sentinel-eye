@@ -36,7 +36,7 @@ public sealed class VariableArchivedDomainEventHandler(
                 ArchivedAt: domainEvent.ArchivedAt,
                 ArchivedBy: domainEvent.ArchivedBy.Value,
                 Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ArchivedAt, null, domainEvent.ArchivedBy.Value)),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
 
         IReadOnlyCollection<Guid> affectedOverlays =
             reverseIndex.LookupOverlays(domainEvent.Name.Value);
@@ -60,8 +60,7 @@ public sealed class VariableArchivedDomainEventHandler(
                 catch (ArgumentException) { continue; }
 
                 Option<Variable> other = await variables
-                    .GetByNameAsync(parsed, cancellationToken)
-                    .ConfigureAwait(false);
+                    .GetByNameAsync(parsed, cancellationToken);
                 if (!other.HasValue) continue;
 
                 Variable variable = other.Value;
@@ -80,7 +79,7 @@ public sealed class VariableArchivedDomainEventHandler(
                     ResolvedText: resolvedText,
                     Version: version,
                     Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ArchivedAt, null, domainEvent.ArchivedBy.Value)),
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
         }
 
         logger.PushedResolvedTextAfterArchive(affectedOverlays.Count, domainEvent.Name);

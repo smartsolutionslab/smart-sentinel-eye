@@ -19,8 +19,7 @@ public sealed class PublishRevisionCommandHandler(
         var (overlayIdentifier, revisionNumber, publishedBy) = command;
 
         Option<Overlay> found = await overlays
-            .GetByIdentifierAsync(overlayIdentifier, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Result<OverlayRevisionNumber, PublishRevisionError>.Failure(
@@ -42,7 +41,7 @@ public sealed class PublishRevisionCommandHandler(
         }
 
         overlay.Publish(revisionNumber, publishedBy, clock);
-        await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await overlays.SaveAsync(cancellationToken);
 
         logger.PublishedRevision(overlay.Id, revisionNumber, publishedBy);
 

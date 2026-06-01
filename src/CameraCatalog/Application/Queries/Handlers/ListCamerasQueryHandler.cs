@@ -46,7 +46,7 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
         bool descending = order == "desc";
         IQueryable<Camera> source = SortBy(cameras.Cameras, sort, descending);
 
-        int total = await source.CountAsync(cancellationToken).ConfigureAwait(false);
+        int total = await source.CountAsync(cancellationToken);
 
         List<CameraSummaryDto> items = await source
             .Skip(offset)
@@ -56,8 +56,7 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
                 camera.Name.Value,
                 camera.Url.Value,
                 camera.RegisteredAt))
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .ToListAsync(cancellationToken);
 
         return Result<CameraListPageDto, ListCamerasError>.Success(
             new CameraListPageDto(items, total, offset, limit));

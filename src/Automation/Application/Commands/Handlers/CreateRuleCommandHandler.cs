@@ -22,8 +22,7 @@ public sealed class CreateRuleCommandHandler(
         // Name uniqueness (FR-002). Archived names are released for
         // re-use; the repository's GetByNameAsync ignores Archived.
         Option<Rule> existing = await rules
-            .GetByNameAsync(name, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByNameAsync(name, cancellationToken);
         if (existing.HasValue)
         {
             return Result<RuleIdentifier, CreateRuleError>.Failure(
@@ -63,7 +62,7 @@ public sealed class CreateRuleCommandHandler(
             predicate, action, createdBy, clock);
 
         rules.Add(rule);
-        await rules.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await rules.SaveAsync(cancellationToken);
 
         logger.CreatedRule(rule.Id, name, triggerSource, triggerKind, createdBy);
 

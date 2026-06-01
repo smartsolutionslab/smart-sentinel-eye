@@ -110,8 +110,7 @@ public static class SystemVariableEndpoints
         Result<VariableIdentifier, DefineVariableError> result = await handler
             .HandleAsync(
                 new DefineVariableCommand(name, type, initialValue, booleanLabels, actingOperator),
-                cancellationToken)
-            .ConfigureAwait(false);
+                cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Created($"/system-variables/{name.Value}", identifier.Value),
@@ -140,8 +139,7 @@ public static class SystemVariableEndpoints
         Result<VariableIdentifier, SetVariableValueError> result = await handler
             .HandleAsync(
                 new SetVariableValueCommand(parsed, body.Value, actingOperator),
-                cancellationToken)
-            .ConfigureAwait(false);
+                cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Ok(identifier.Value),
@@ -163,8 +161,7 @@ public static class SystemVariableEndpoints
         }
 
         Result<VariableDto, GetVariableError> result = await handler
-            .HandleAsync(new GetVariableQuery(parsed), cancellationToken)
-            .ConfigureAwait(false);
+            .HandleAsync(new GetVariableQuery(parsed), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
@@ -193,8 +190,7 @@ public static class SystemVariableEndpoints
         }
 
         Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler
-            .HandleAsync(new ListVariablesQuery(filter), cancellationToken)
-            .ConfigureAwait(false);
+            .HandleAsync(new ListVariablesQuery(filter), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
@@ -215,8 +211,7 @@ public static class SystemVariableEndpoints
         }
 
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result = await handler
-            .HandleAsync(new GetOverlaySnapshotQuery(overlayIdentifier), cancellationToken)
-            .ConfigureAwait(false);
+            .HandleAsync(new GetOverlaySnapshotQuery(overlayIdentifier), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
@@ -240,8 +235,7 @@ public static class SystemVariableEndpoints
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<VariableIdentifier, ArchiveVariableError> result = await handler
-            .HandleAsync(new ArchiveVariableCommand(parsed, actingOperator), cancellationToken)
-            .ConfigureAwait(false);
+            .HandleAsync(new ArchiveVariableCommand(parsed, actingOperator), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Ok(identifier.Value),

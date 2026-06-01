@@ -20,8 +20,7 @@ public sealed class DefineVariableCommandHandler(
 
         // Name uniqueness (FR-001 / FR-005). Archived names are free.
         Option<Variable> existing = await variables
-            .GetByNameAsync(name, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByNameAsync(name, cancellationToken);
         if (existing.HasValue)
         {
             return Result<VariableIdentifier, DefineVariableError>.Failure(
@@ -58,7 +57,7 @@ public sealed class DefineVariableCommandHandler(
         }
 
         variables.Add(variable);
-        await variables.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await variables.SaveAsync(cancellationToken);
 
         logger.DefinedVariable(variable.Id, name, type, definedBy);
 

@@ -1,0 +1,5 @@
+M:System.Threading.Tasks.Task.ConfigureAwait(System.Boolean);ConfigureAwait is banned in application code (ADR-0049): ASP.NET Core has no SynchronizationContext, so it is behaviour-preserving noise. Use a plain await. (Shared.* libraries are exempt.)
+M:System.Threading.Tasks.Task`1.ConfigureAwait(System.Boolean);ConfigureAwait is banned in application code (ADR-0049). Use a plain await.
+M:System.Threading.Tasks.ValueTask.ConfigureAwait(System.Boolean);ConfigureAwait is banned in application code (ADR-0049). Use a plain await.
+M:System.Threading.Tasks.ValueTask`1.ConfigureAwait(System.Boolean);ConfigureAwait is banned in application code (ADR-0049). Use a plain await.
+M:System.Threading.Tasks.Task.ConfigureAwait(System.Threading.Tasks.ConfigureAwaitOptions);ConfigureAwait is banned in application code (ADR-0049). Use a plain await.

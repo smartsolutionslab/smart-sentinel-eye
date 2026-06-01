@@ -19,8 +19,7 @@ public sealed class ArchiveRuleCommandHandler(
         Ensure.That(command).IsNotNull();
 
         Option<Rule> found = await rules
-            .GetByNameAsync(command.Name, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByNameAsync(command.Name, cancellationToken);
         if (!found.HasValue)
         {
             return Result<RuleIdentifier, ArchiveRuleError>.Failure(
@@ -29,7 +28,7 @@ public sealed class ArchiveRuleCommandHandler(
 
         Rule rule = found.Value;
         rule.Archive(clock);
-        await rules.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await rules.SaveAsync(cancellationToken);
 
         // Live cache eviction so the next matching event is not
         // evaluated against the archived rule.

@@ -18,8 +18,7 @@ public sealed class RevertRevisionCommandHandler(
         var (layoutIdentifier, revisionNumber, revertedBy) = command;
 
         Option<Layout> found = await layouts
-            .GetByIdentifierAsync(layoutIdentifier, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Result<LayoutRevisionNumber, RevertRevisionError>.Failure(
@@ -41,7 +40,7 @@ public sealed class RevertRevisionCommandHandler(
         }
 
         layout.Revert(revisionNumber, revertedBy, clock);
-        await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await layouts.SaveAsync(cancellationToken);
 
         logger.RevertedRevision(revisionNumber, layout.Id, revertedBy);
 

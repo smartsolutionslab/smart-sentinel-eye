@@ -19,8 +19,7 @@ public sealed class SetVariableValueCommandHandler(
         var (name, wireValue, changedBy) = command;
 
         Option<Variable> found = await variables
-            .GetByNameAsync(name, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByNameAsync(name, cancellationToken);
         if (!found.HasValue)
         {
             return Result<VariableIdentifier, SetVariableValueError>.Failure(
@@ -46,7 +45,7 @@ public sealed class SetVariableValueCommandHandler(
         }
 
         variable.SetValue(typedValue, changedBy, clock);
-        await variables.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await variables.SaveAsync(cancellationToken);
 
         logger.SetVariable(variable.Id, name, wireValue, changedBy);
 

@@ -15,8 +15,7 @@ public sealed class GetOverlayQueryHandler(IOverlayQuerySource overlays)
         Ensure.That(query).IsNotNull();
 
         Overlay? overlay = await overlays.Overlays
-            .SingleOrDefaultAsync(candidate => candidate.Id == query.Overlay, cancellationToken)
-            .ConfigureAwait(false);
+            .SingleOrDefaultAsync(candidate => candidate.Id == query.Overlay, cancellationToken);
 
         if (overlay is null)
         {

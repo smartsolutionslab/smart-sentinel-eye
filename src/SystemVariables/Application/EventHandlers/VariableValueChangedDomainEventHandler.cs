@@ -39,7 +39,7 @@ public sealed class VariableValueChangedDomainEventHandler(
                 ChangedAt: domainEvent.ChangedAt,
                 ChangedBy: domainEvent.ChangedBy.Value,
                 Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ChangedAt, null, domainEvent.ChangedBy.Value)),
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken);
 
         IReadOnlyCollection<Guid> affectedOverlays =
             reverseIndex.LookupOverlays(domainEvent.Name.Value);
@@ -55,7 +55,7 @@ public sealed class VariableValueChangedDomainEventHandler(
             if (labelText is null) continue;
 
             IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot =
-                await BuildSnapshotAsync(labelText, domainEvent, cancellationToken).ConfigureAwait(false);
+                await BuildSnapshotAsync(labelText, domainEvent, cancellationToken);
 
             string resolvedText = resolver.Resolve(labelText, snapshot);
             long version = reverseIndex.NextVersionFor(overlayId);
@@ -66,7 +66,7 @@ public sealed class VariableValueChangedDomainEventHandler(
                     ResolvedText: resolvedText,
                     Version: version,
                     Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ChangedAt, null, domainEvent.ChangedBy.Value)),
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken);
         }
 
         logger.PushedResolvedTextAfterChange(affectedOverlays.Count, domainEvent.Name);
@@ -108,8 +108,7 @@ public sealed class VariableValueChangedDomainEventHandler(
             }
 
             Option<Variable> other = await variables
-                .GetByNameAsync(parsed, cancellationToken)
-                .ConfigureAwait(false);
+                .GetByNameAsync(parsed, cancellationToken);
             if (!other.HasValue) continue;
 
             Variable variable = other.Value;

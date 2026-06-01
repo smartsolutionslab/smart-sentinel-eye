@@ -32,13 +32,12 @@ public sealed class RuleCacheSeederHostedService(
         try
         {
             await using AutomationDbContext context = await dbContextFactory
-                .CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+                .CreateDbContextAsync(cancellationToken);
 
             List<RuleAggregate> active = await context.Rules
                 .Where(rule => rule.State == RuleState.Active)
                 .AsNoTracking()
-                .ToListAsync(cancellationToken)
-                .ConfigureAwait(false);
+                .ToListAsync(cancellationToken);
 
             foreach (RuleAggregate rule in active)
             {

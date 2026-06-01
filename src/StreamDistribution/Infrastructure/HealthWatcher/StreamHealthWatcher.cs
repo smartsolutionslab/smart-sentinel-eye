@@ -38,7 +38,7 @@ public sealed class StreamHealthWatcher(
         {
             try
             {
-                await PollOnceAsync(stoppingToken).ConfigureAwait(false);
+                await PollOnceAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -51,7 +51,7 @@ public sealed class StreamHealthWatcher(
 
             try
             {
-                await Task.Delay(PollInterval, stoppingToken).ConfigureAwait(false);
+                await Task.Delay(PollInterval, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -72,14 +72,13 @@ public sealed class StreamHealthWatcher(
                 ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>>>();
 
         await using StreamDistributionDbContext context =
-            await factory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            await factory.CreateDbContextAsync(cancellationToken);
 
         List<(Guid Camera, MediaMtxPath Path, StreamState State)> streams = await context.Streams
             .AsNoTracking()
             .Select(stream => new ValueTuple<Guid, MediaMtxPath, StreamState>(
                 stream.Camera.Value, stream.Path, stream.State))
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .ToListAsync(cancellationToken);
 
         DateTimeOffset now = clock.UtcNow;
 
@@ -88,7 +87,7 @@ public sealed class StreamHealthWatcher(
             RtspPathHealth observation;
             try
             {
-                observation = await gateway.GetPathHealthAsync(path, cancellationToken).ConfigureAwait(false);
+                observation = await gateway.GetPathHealthAsync(path, cancellationToken);
             }
             catch (HttpRequestException ex)
             {
@@ -102,7 +101,7 @@ public sealed class StreamHealthWatcher(
                 observation,
                 declareOffline);
 
-            await handler.HandleAsync(command, cancellationToken).ConfigureAwait(false);
+            await handler.HandleAsync(command, cancellationToken);
         }
     }
 

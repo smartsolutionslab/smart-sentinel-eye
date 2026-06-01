@@ -18,8 +18,7 @@ public sealed class EditDraftRevisionCommandHandler(
         var (overlayIdentifier, revisionNumber, label) = command;
 
         Option<Overlay> found = await overlays
-            .GetByIdentifierAsync(overlayIdentifier, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Result<OverlayRevisionNumber, EditDraftRevisionError>.Failure(
@@ -41,7 +40,7 @@ public sealed class EditDraftRevisionCommandHandler(
         }
 
         overlay.EditDraft(revisionNumber, label, clock);
-        await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await overlays.SaveAsync(cancellationToken);
 
         logger.EditedDraftRevision(revisionNumber, overlay.Id);
 

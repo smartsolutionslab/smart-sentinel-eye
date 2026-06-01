@@ -18,8 +18,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         var (overlayIdentifier, branchedBy) = command;
 
         Option<Overlay> found = await overlays
-            .GetByIdentifierAsync(overlayIdentifier, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Result<OverlayRevisionNumber, BranchDraftRevisionError>.Failure(
@@ -34,7 +33,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         }
 
         Revision branched = overlay.BranchDraft(branchedBy, clock);
-        await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await overlays.SaveAsync(cancellationToken);
 
         logger.BranchedDraftRevision(branched.Number, overlay.Id, branchedBy);
 

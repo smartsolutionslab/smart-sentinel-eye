@@ -27,8 +27,7 @@ public sealed class ProvisionStreamCommandHandler(
         }
 
         Option<Stream> existing = await streams
-            .GetByCameraAsync(camera, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByCameraAsync(camera, cancellationToken);
 
         if (existing.HasValue)
         {
@@ -41,8 +40,7 @@ public sealed class ProvisionStreamCommandHandler(
 
         try
         {
-            await rtsp.AddPathAsync(stream.Path, rtspSourceUrl, cancellationToken)
-                .ConfigureAwait(false);
+            await rtsp.AddPathAsync(stream.Path, rtspSourceUrl, cancellationToken);
         }
         catch (HttpRequestException ex)
         {
@@ -51,7 +49,7 @@ public sealed class ProvisionStreamCommandHandler(
                 new ProvisionStreamError.RtspGatewayUnavailable(ex.Message));
         }
 
-        await streams.SaveAsync(cancellationToken).ConfigureAwait(false);
+        await streams.SaveAsync(cancellationToken);
 
         logger.ProvisionedStream(stream.Id, stream.Camera, stream.Path);
 

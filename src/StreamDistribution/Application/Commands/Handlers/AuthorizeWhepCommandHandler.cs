@@ -27,8 +27,7 @@ public sealed class AuthorizeWhepCommandHandler(
         }
 
         Option<WhepAuthSubject> subject = await whepAuth
-            .ValidateAsync(bearerToken, cancellationToken)
-            .ConfigureAwait(false);
+            .ValidateAsync(bearerToken, cancellationToken);
 
         if (!subject.HasValue)
         {
@@ -43,8 +42,7 @@ public sealed class AuthorizeWhepCommandHandler(
         }
 
         Option<Stream> stream = await streams
-            .GetByPathAsync(path, cancellationToken)
-            .ConfigureAwait(false);
+            .GetByPathAsync(path, cancellationToken);
 
         if (stream.HasValue && stream.Value.State == StreamState.Offline)
         {
