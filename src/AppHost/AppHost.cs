@@ -274,6 +274,7 @@ if (isE2ETests)
 // gateway, so the latency budget (constitution §IV) is untouched.
 builder
     .AddProject<Projects.SmartSentinelEye_ApiGateway>("api-gateway")
+    .WithHttpEndpoint()
     .WithExternalHttpEndpoints()
     .WithReference(cameraCatalog)
     .WithReference(streamDistribution)
