@@ -46,13 +46,11 @@ public static class WolverineDefaults
 
         string postgresConnection =
             builder.Configuration.GetConnectionString(postgresConnectionName)
-            ?? throw new InvalidOperationException(
-                $"Connection string '{postgresConnectionName}' is required for the Wolverine outbox.");
+            ?? throw new InvalidOperationException($"Connection string '{postgresConnectionName}' is required for the Wolverine outbox.");
 
         string rabbitConnection =
             builder.Configuration.GetConnectionString(rabbitConnectionName)
-            ?? throw new InvalidOperationException(
-                $"Connection string '{rabbitConnectionName}' is required for Wolverine RabbitMQ transport.");
+            ?? throw new InvalidOperationException($"Connection string '{rabbitConnectionName}' is required for Wolverine RabbitMQ transport.");
 
         Assembly applicationAssembly = TryLoadApplicationAssembly(typeof(TDbContext).Assembly);
 
@@ -95,14 +93,9 @@ public static class WolverineDefaults
     {
         const string InfrastructureSuffix = ".Infrastructure";
         string name = infrastructureAssembly.GetName().Name ?? string.Empty;
-        if (!name.EndsWith(InfrastructureSuffix, StringComparison.Ordinal))
-        {
-            return null;
-        }
+        if (!name.EndsWith(InfrastructureSuffix, StringComparison.Ordinal)) return null;
 
-        string applicationName = string.Concat(
-            name.AsSpan(0, name.Length - InfrastructureSuffix.Length),
-            ".Application");
+        string applicationName = string.Concat(name.AsSpan(0, name.Length - InfrastructureSuffix.Length), ".Application");
 
         try
         {

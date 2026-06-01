@@ -25,14 +25,14 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
         }
         catch (ArgumentException ex)
         {
-            Log.InvalidRotationName(logger, ex, message.IntegrationName);
+            logger.InvalidRotationName(ex, message.IntegrationName);
             return;
         }
 
         Option<WebhookIntegration> found = await integrations.GetByNameAsync(name, cancellationToken).ConfigureAwait(false);
         if (!found.HasValue)
         {
-            Log.RotationTargetMissing(logger, message.IntegrationName);
+            logger.RotationTargetMissing(message.IntegrationName);
             return;
         }
 
@@ -40,6 +40,6 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
         integration.MarkAsRotated(message.ClientId, clock);
         await integrations.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.WebhookIntegrationFlippedToJwt(logger, message.IntegrationName, message.ClientId);
+        logger.WebhookIntegrationFlippedToJwt(message.IntegrationName, message.ClientId);
     }
 }

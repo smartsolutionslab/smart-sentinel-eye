@@ -30,6 +30,47 @@ The remainder of this ADR is retained for historical context; treat the
 Serilog-specific mechanics (UseSerilog, sinks, enrichers,
 Serilog.Analyzers) as **not in effect**.
 
+### Convention (2026-06-01) — `[LoggerMessage]` catalogs are `ILogger` extension methods
+
+Each project layer that logs owns one **central catalog**: an
+`internal static partial class Log` (one per `Application` /
+`Infrastructure`, plus `ServiceDefaults` and `MigrationRunner`), marked
+`[ExcludeFromCodeCoverage]`, holding every `[LoggerMessage]` method for
+that layer with its template, level, and (generated) EventId in one
+greppable place.
+
+Each method is an **extension method on `ILogger`** — the first parameter
+is `this ILogger logger`. Call sites therefore read as a method on the
+injected logger, not a static helper that takes the logger as an argument:
+
+```csharp
+// catalog — Infrastructure/Log.cs
+[LoggerMessage(Level = LogLevel.Information,
+    Message = "Archived audit chunk {ChunkIdentifier} ({RowCount} rows) to {ObjectKey}.")]
+public static partial void ArchivedAuditChunk(
+    this ILogger logger, Guid chunkIdentifier, int rowCount, string objectKey);
+
+// call site
+logger.ArchivedAuditChunk(chunk.ChunkIdentifier, rows.Count, objectKey);   // ✓
+Log.ArchivedAuditChunk(logger, chunk.ChunkIdentifier, rows.Count, objectKey);  // ✗ old shape
+```
+
+Rules:
+
+- **`this ILogger` first parameter**, always. The generator emits the
+  extension method; the call site never passes the logger explicitly.
+- **Exception-carrying methods** keep the `Exception` parameter (any
+  position after the logger); call as `logger.Foo(ex, …)`.
+- **Keep the catalog centralized** — do *not* scatter messages as private
+  `partial` methods on individual services (instance-mode
+  `[LoggerMessage]`). The per-layer catalog is the point: one inventory of
+  messages + EventIds per bounded context layer.
+- The structured-fields-only rule (no string interpolation) from the
+  Addendum still applies.
+
+This is a call-shape convention within the existing `[LoggerMessage]`
+decision — no behavioural change to emitted logs.
+
 ## Context
 
 ADR-0026 commits us to OpenTelemetry-instrumented services exporting

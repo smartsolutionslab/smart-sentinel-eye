@@ -42,7 +42,7 @@ public sealed class DisableKioskCommandHandler(
         client.Disable(clock);
         await clients.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.DisabledKiosk(logger, client.Id, command.ClientId);
+        logger.DisabledKiosk(client.Id, command.ClientId);
 
         return Result<RegisteredClientIdentifier, DisableKioskError>.Success(client.Id);
     }

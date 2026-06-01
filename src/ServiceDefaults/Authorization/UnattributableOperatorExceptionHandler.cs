@@ -19,14 +19,10 @@ public sealed class UnattributableOperatorExceptionHandler : IExceptionHandler
 {
     public const string ErrorCode = "OPERATOR_UNIDENTIFIED";
 
-    public async ValueTask<bool> TryHandleAsync(
-        HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
+    public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
         Ensure.That(httpContext).IsNotNull();
-        if (exception is not UnattributableOperatorException)
-        {
-            return false;
-        }
+        if (exception is not UnattributableOperatorException) return false;
 
         httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
         ProblemDetails problem = new()
@@ -35,9 +31,9 @@ public sealed class UnattributableOperatorExceptionHandler : IExceptionHandler
             Detail = "The request could not be attributed to an operator; the token carries no usable 'sub' claim.",
             Status = StatusCodes.Status401Unauthorized,
         };
-        await httpContext.Response
-            .WriteAsJsonAsync(problem, cancellationToken: cancellationToken)
+        await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
+
         return true;
     }
 }

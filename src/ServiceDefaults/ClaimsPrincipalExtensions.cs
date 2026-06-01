@@ -39,10 +39,5 @@ public static class ClaimsPrincipalExtensions
 /// <c>401 OPERATOR_UNIDENTIFIED</c> by
 /// <see cref="Authorization.UnattributableOperatorExceptionHandler"/>.
 /// </summary>
-public sealed class UnattributableOperatorException : Exception
-{
-    public UnattributableOperatorException()
-        : base("The authenticated principal carries no usable 'sub' claim; the operator cannot be identified.")
-    {
-    }
-}
+public sealed class UnattributableOperatorException()
+    : Exception("The authenticated principal carries no usable 'sub' claim; the operator cannot be identified.");

@@ -7,8 +7,8 @@ namespace SmartSentinelEye.OverlayDesigner.Infrastructure;
 internal static partial class Log
 {
     [LoggerMessage(Level = LogLevel.Information, Message = "Applying OverlayDesigner EF Core migrations.")]
-    public static partial void ApplyingMigrations(ILogger logger);
+    public static partial void ApplyingMigrations(this ILogger logger);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "OverlayDesigner migrations applied.")]
-    public static partial void MigrationsApplied(ILogger logger);
+    public static partial void MigrationsApplied(this ILogger logger);
 }

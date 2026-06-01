@@ -43,7 +43,7 @@ public sealed class EditDraftRevisionCommandHandler(
         overlay.EditDraft(revisionNumber, label, clock);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.EditedDraftRevision(logger, revisionNumber, overlay.Id);
+        logger.EditedDraftRevision(revisionNumber, overlay.Id);
 
         return Result<OverlayRevisionNumber, EditDraftRevisionError>.Success(revisionNumber);
     }

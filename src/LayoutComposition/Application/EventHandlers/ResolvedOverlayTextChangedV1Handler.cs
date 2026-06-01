@@ -28,6 +28,6 @@ public sealed class ResolvedOverlayTextChangedV1Handler(
                 message.Version),
             cancellationToken).ConfigureAwait(false);
 
-        Log.BroadcastResolvedOverlayTextChanged(logger, message.Overlay, message.Version);
+        logger.BroadcastResolvedOverlayTextChanged(message.Overlay, message.Version);
     }
 }

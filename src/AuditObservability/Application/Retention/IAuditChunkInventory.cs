@@ -9,8 +9,7 @@ namespace SmartSentinelEye.AuditObservability.Application.Retention;
 /// </summary>
 public interface IAuditChunkInventory
 {
-    Task<IReadOnlyList<AuditChunk>> ListChunksOlderThanAsync(
-        DateTimeOffset boundary, CancellationToken cancellationToken);
+    Task<IReadOnlyList<AuditChunk>> ListChunksOlderThanAsync(DateTimeOffset boundary, CancellationToken cancellationToken);
 
     Task DropChunkAsync(AuditChunk chunk, CancellationToken cancellationToken);
 }
@@ -18,7 +17,4 @@ public interface IAuditChunkInventory
 /// <summary>
 /// One TimescaleDB chunk that has crossed the retention boundary.
 /// </summary>
-public sealed record AuditChunk(
-    Guid ChunkIdentifier,
-    DateTimeOffset OccurredFrom,
-    DateTimeOffset OccurredUntil);
+public sealed record AuditChunk(Guid ChunkIdentifier, DateTimeOffset OccurredFrom, DateTimeOffset OccurredUntil);

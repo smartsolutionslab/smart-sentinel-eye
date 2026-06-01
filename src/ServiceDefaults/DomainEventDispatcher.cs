@@ -27,19 +27,17 @@ public sealed class DomainEventDispatcher(IServiceProvider services) : IDomainEv
 
     private static DomainEventInvoker BuildInvoker(Type eventType)
     {
-        Type handlerType = typeof(IDomainEventHandler<>).MakeGenericType(eventType);
-        Type enumerableType = typeof(IEnumerable<>).MakeGenericType(handlerType);
-        System.Reflection.MethodInfo handleMethod = handlerType.GetMethod(nameof(IDomainEventHandler<IDomainEvent>.Handle))
-            ?? throw new InvalidOperationException(
-                $"Expected Handle method on {handlerType.FullName}.");
+        var handlerType = typeof(IDomainEventHandler<>).MakeGenericType(eventType);
+        var enumerableType = typeof(IEnumerable<>).MakeGenericType(handlerType);
+        var handleMethod = handlerType.GetMethod(nameof(IDomainEventHandler<IDomainEvent>.Handle))
+            ?? throw new InvalidOperationException($"Expected Handle method on {handlerType.FullName}.");
 
         return new DomainEventInvoker(enumerableType, handleMethod);
     }
 
     private sealed class DomainEventInvoker(Type enumerableHandlerType, System.Reflection.MethodInfo handleMethod)
     {
-        public async Task InvokeAsync(
-            IServiceProvider provider, IDomainEvent domainEvent, CancellationToken cancellationToken)
+        public async Task InvokeAsync(IServiceProvider provider, IDomainEvent domainEvent, CancellationToken cancellationToken)
         {
             object handlers = provider.GetRequiredService(enumerableHandlerType);
             foreach (object handler in (System.Collections.IEnumerable)handlers)

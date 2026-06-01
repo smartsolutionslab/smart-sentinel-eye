@@ -37,7 +37,7 @@ public sealed class ArchiveRevisionCommandHandler(
         overlay.ArchiveRevision(revisionNumber, archivedBy, clock);
         await overlays.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.ArchivedRevision(logger, overlay.Id, revisionNumber, archivedBy);
+        logger.ArchivedRevision(overlay.Id, revisionNumber, archivedBy);
 
         return Result<OverlayRevisionNumber, ArchiveRevisionError>.Success(revisionNumber);
     }

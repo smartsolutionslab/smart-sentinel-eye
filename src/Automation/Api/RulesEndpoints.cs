@@ -75,8 +75,8 @@ public static class RulesEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
+        var actingOperator = user.ToOperatorIdentifier();
+        var result = await handler.HandleAsync(
             new CreateRuleCommand(name, body.TriggerSource, body.TriggerKind, predicate, action, actingOperator),
             cancellationToken).ConfigureAwait(false);
 
@@ -85,10 +85,7 @@ public static class RulesEndpoints
             onFailure: error => error.ToProblem());
     }
 
-    private static async Task<IResult> Publish(
-        string name,
-        [FromServices] PublishRuleCommandHandler handler,
-        CancellationToken cancellationToken)
+    private static async Task<IResult> Publish(string name, [FromServices] PublishRuleCommandHandler handler, CancellationToken cancellationToken)
     {
         RuleName parsed;
         try
@@ -97,23 +94,15 @@ public static class RulesEndpoints
         }
         catch (ArgumentException ex)
         {
-            return Results.Problem(
-                title: "RULE_INVALID_INPUT", detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return Results.Problem(title: "RULE_INVALID_INPUT", detail: ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<RuleIdentifier, PublishRuleError> result = await handler.HandleAsync(
-            new PublishRuleCommand(parsed), cancellationToken).ConfigureAwait(false);
+        var result = await handler.HandleAsync(new PublishRuleCommand(parsed), cancellationToken).ConfigureAwait(false);
 
-        return result.Match<IResult>(
-            onSuccess: id => Results.Ok(id.Value),
-            onFailure: error => error.ToProblem());
+        return result.Match<IResult>(onSuccess: id => Results.Ok(id.Value), onFailure: error => error.ToProblem());
     }
 
-    private static async Task<IResult> Archive(
-        string name,
-        [FromServices] ArchiveRuleCommandHandler handler,
-        CancellationToken cancellationToken)
+    private static async Task<IResult> Archive(string name, [FromServices] ArchiveRuleCommandHandler handler, CancellationToken cancellationToken)
     {
         RuleName parsed;
         try
@@ -122,17 +111,12 @@ public static class RulesEndpoints
         }
         catch (ArgumentException ex)
         {
-            return Results.Problem(
-                title: "RULE_INVALID_INPUT", detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return Results.Problem(title: "RULE_INVALID_INPUT", detail: ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<RuleIdentifier, ArchiveRuleError> result = await handler.HandleAsync(
-            new ArchiveRuleCommand(parsed), cancellationToken).ConfigureAwait(false);
+        var result = await handler.HandleAsync(new ArchiveRuleCommand(parsed), cancellationToken).ConfigureAwait(false);
 
-        return result.Match<IResult>(
-            onSuccess: id => Results.Ok(id.Value),
-            onFailure: error => error.ToProblem());
+        return result.Match<IResult>(onSuccess: id => Results.Ok(id.Value), onFailure: error => error.ToProblem());
     }
 
     private static RuleAction BuildAction(CreateRuleRequest body)
@@ -141,20 +125,15 @@ public static class RulesEndpoints
         {
             SetVariableValue =>
                 RuleAction.SetVariableValue.From(
-                    body.VariableName ?? throw new ArgumentException(
-                        "VariableName is required for SetVariableValue actions."),
-                    body.ValueExpression ?? throw new ArgumentException(
-                        "ValueExpression is required for SetVariableValue actions.")),
+                    body.VariableName ?? throw new ArgumentException("VariableName is required for SetVariableValue actions."),
+                    body.ValueExpression ?? throw new ArgumentException("ValueExpression is required for SetVariableValue actions.")),
 
             HighlightOverlay =>
                 RuleAction.HighlightOverlay.From(
-                    body.OverlayIdentifier ?? throw new ArgumentException(
-                        "OverlayIdentifier is required for HighlightOverlay actions."),
-                    body.DurationMs ?? throw new ArgumentException(
-                        "DurationMs is required for HighlightOverlay actions.")),
+                    body.OverlayIdentifier ?? throw new ArgumentException("OverlayIdentifier is required for HighlightOverlay actions."),
+                    body.DurationMs ?? throw new ArgumentException("DurationMs is required for HighlightOverlay actions.")),
 
-            _ => throw new ArgumentException(
-                $"Unknown ActionType '{body.ActionType}'. Expected: SetVariableValue | HighlightOverlay."),
+            _ => throw new ArgumentException($"Unknown ActionType '{body.ActionType}'. Expected: SetVariableValue | HighlightOverlay."),
         };
     }
 }

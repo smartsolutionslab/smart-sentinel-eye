@@ -17,5 +17,5 @@ internal static partial class Log
 {
     [LoggerMessage(Level = LogLevel.Debug,
         Message = "Publishing integration event {EventType} via Wolverine.")]
-    public static partial void PublishingIntegrationEvent(ILogger logger, string eventType);
+    public static partial void PublishingIntegrationEvent(this ILogger logger, string eventType);
 }

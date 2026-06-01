@@ -25,6 +25,7 @@ public sealed record ActorIdentifier : IValueObject<Guid>
     public static ActorIdentifier From(Guid value)
     {
         Ensure.That(value).IsNotEmpty($"cannot be empty for a human caller; use {nameof(ActorIdentifier)}.{nameof(System)} for system events.");
+
         return new ActorIdentifier(value);
     }
 

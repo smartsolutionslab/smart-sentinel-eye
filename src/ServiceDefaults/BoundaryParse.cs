@@ -27,15 +27,14 @@ public static class BoundaryParse
         {
             value = parse();
             problem = null;
+
             return true;
         }
         catch (ArgumentException exception)
         {
             value = default;
-            problem = Results.Problem(
-                title: errorCode,
-                detail: exception.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            problem = Results.Problem(title: errorCode, detail: exception.Message, statusCode: StatusCodes.Status400BadRequest);
+
             return false;
         }
     }

@@ -45,7 +45,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
             .ConfigureAwait(false);
         if (!reserved)
         {
-            Log.DedupHit(logger, message.Name, message.CausingEventIdentifier);
+            logger.DedupHit(message.Name, message.CausingEventIdentifier);
             return;
         }
 
@@ -56,7 +56,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
         }
         catch (ArgumentException ex)
         {
-            Log.InvalidVariableName(logger, ex, message.Name, message.CausingEventIdentifier);
+            logger.InvalidVariableName(ex, message.Name, message.CausingEventIdentifier);
             return;
         }
 
@@ -66,7 +66,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
 
         if (!result.IsSuccess)
         {
-            Log.SetVariableValueFailed(logger, message.Name, message.Value, message.CausingEventIdentifier, result.Error.Code);
+            logger.SetVariableValueFailed(message.Name, message.Value, message.CausingEventIdentifier, result.Error.Code);
         }
     }
 }

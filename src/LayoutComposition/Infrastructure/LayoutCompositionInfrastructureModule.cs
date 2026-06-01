@@ -33,12 +33,8 @@ public static class LayoutCompositionInfrastructureModule
 
         builder.Services.AddScoped<ILayoutRepository, LayoutRepository>();
         builder.Services.AddScoped<ILayoutQuerySource, LayoutQuerySource>();
-        builder.Services.AddScoped<
-            IDomainEventHandler<LayoutRevisionPublishedDomainEvent>,
-            LayoutRevisionPublishedDomainEventHandler>();
-        builder.Services.AddScoped<
-            IDomainEventHandler<LayoutRevisionArchivedDomainEvent>,
-            LayoutRevisionArchivedDomainEventHandler>();
+        builder.Services.AddScoped<IDomainEventHandler<LayoutRevisionPublishedDomainEvent>, LayoutRevisionPublishedDomainEventHandler>();
+        builder.Services.AddScoped<IDomainEventHandler<LayoutRevisionArchivedDomainEvent>, LayoutRevisionArchivedDomainEventHandler>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddScoped<IEventBus, WolverineEventBus>();

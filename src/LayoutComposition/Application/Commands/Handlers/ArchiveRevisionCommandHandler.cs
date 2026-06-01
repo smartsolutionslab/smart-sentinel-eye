@@ -37,7 +37,7 @@ public sealed class ArchiveRevisionCommandHandler(
         layout.ArchiveRevision(revisionNumber, archivedBy, clock);
         await layouts.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.ArchivedRevision(logger, layout.Id, revisionNumber, archivedBy);
+        logger.ArchivedRevision(layout.Id, revisionNumber, archivedBy);
 
         return Result<LayoutRevisionNumber, ArchiveRevisionError>.Success(revisionNumber);
     }

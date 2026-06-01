@@ -34,8 +34,7 @@ public class ListStreamsIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         await WaitForStreamAsync(streamClient, camera1, ProvisionTimeout);
         await WaitForStreamAsync(streamClient, camera2, ProvisionTimeout);
 
-        HttpResponseMessage response = await streamClient.GetAsync(
-            $"/streams?cameraIdentifiers={camera1},{camera2}");
+        HttpResponseMessage response = await streamClient.GetAsync($"/streams?cameraIdentifiers={camera1},{camera2}");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         JsonElement items = await response.Content.ReadFromJsonAsync<JsonElement>();

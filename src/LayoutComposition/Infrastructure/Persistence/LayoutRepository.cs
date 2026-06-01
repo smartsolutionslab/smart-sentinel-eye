@@ -5,21 +5,17 @@ using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 
-public sealed class LayoutRepository(
-    LayoutCompositionDbContext dbContext,
-    IDomainEventDispatcher domainEventDispatcher) : ILayoutRepository
+public sealed class LayoutRepository(LayoutCompositionDbContext dbContext, IDomainEventDispatcher domainEventDispatcher)
+    : ILayoutRepository
 {
-    public async Task<Option<Layout>> GetByIdentifierAsync(
-        LayoutIdentifier layout, CancellationToken cancellationToken)
+    public async Task<Option<Layout>> GetByIdentifierAsync(LayoutIdentifier layout, CancellationToken cancellationToken)
     {
-        Layout? found = await dbContext.Layouts
-            .FirstOrDefaultAsync(candidate => candidate.Id == layout, cancellationToken)
+        Layout? found = await dbContext.Layouts.FirstOrDefaultAsync(candidate => candidate.Id == layout, cancellationToken)
             .ConfigureAwait(false);
         return found is null ? Option<Layout>.None : Option<Layout>.Some(found);
     }
 
-    public async Task<Option<Layout>> GetByNameAsync(
-        LayoutName name, CancellationToken cancellationToken)
+    public async Task<Option<Layout>> GetByNameAsync(LayoutName name, CancellationToken cancellationToken)
     {
         Ensure.That(name).IsNotNull();
         // FR-006: ignore archived chains for name-uniqueness. A chain is
@@ -37,6 +33,7 @@ public sealed class LayoutRepository(
     public void Add(Layout layout)
     {
         Ensure.That(layout).IsNotNull();
+
         dbContext.Layouts.Add(layout);
     }
 

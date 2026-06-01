@@ -12,8 +12,8 @@ namespace SmartSentinelEye.MigrationRunner;
 internal static partial class Log
 {
     [LoggerMessage(Level = LogLevel.Information, Message = "Running migrations for {Context}.")]
-    public static partial void RunningMigrations(ILogger logger, string context);
+    public static partial void RunningMigrations(this ILogger logger, string context);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "All migrations applied; MigrationRunner exiting.")]
-    public static partial void AllMigrationsApplied(ILogger logger);
+    public static partial void AllMigrationsApplied(this ILogger logger);
 }

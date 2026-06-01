@@ -32,7 +32,7 @@ public sealed class ProvisionStreamCommandHandler(
 
         if (existing.HasValue)
         {
-            Log.StreamAlreadyExists(logger, camera);
+            logger.StreamAlreadyExists(camera);
             return Result<StreamIdentifier, ProvisionStreamError>.Success(existing.Value.Id);
         }
 
@@ -46,14 +46,14 @@ public sealed class ProvisionStreamCommandHandler(
         }
         catch (HttpRequestException ex)
         {
-            Log.PathRegistrationFailed(logger, ex, camera);
+            logger.PathRegistrationFailed(ex, camera);
             return Result<StreamIdentifier, ProvisionStreamError>.Failure(
                 new ProvisionStreamError.RtspGatewayUnavailable(ex.Message));
         }
 
         await streams.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.ProvisionedStream(logger, stream.Id, stream.Camera, stream.Path);
+        logger.ProvisionedStream(stream.Id, stream.Camera, stream.Path);
 
         return Result<StreamIdentifier, ProvisionStreamError>.Success(stream.Id);
     }

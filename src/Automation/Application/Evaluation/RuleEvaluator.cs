@@ -49,7 +49,7 @@ public sealed class RuleEvaluator(
                     break;
 
                 default:
-                    Log.UnhandledRuleActionCase(logger, rule.Action.GetType().Name, rule.Identifier);
+                    logger.UnhandledRuleActionCase(rule.Action.GetType().Name, rule.Identifier);
                     break;
             }
         }
@@ -65,7 +65,7 @@ public sealed class RuleEvaluator(
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
         {
-            Log.PredicateEvaluationFailed(logger, ex, rule.Identifier);
+            logger.PredicateEvaluationFailed(ex, rule.Identifier);
             return false;
         }
     }
@@ -83,7 +83,7 @@ public sealed class RuleEvaluator(
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
         {
-            Log.ValueExpressionEvaluationFailed(logger, ex, rule.Identifier);
+            logger.ValueExpressionEvaluationFailed(ex, rule.Identifier);
             return false;
         }
     }

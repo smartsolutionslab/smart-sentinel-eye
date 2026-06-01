@@ -83,6 +83,6 @@ public sealed class VariableArchivedDomainEventHandler(
                 cancellationToken).ConfigureAwait(false);
         }
 
-        Log.PushedResolvedTextAfterArchive(logger, affectedOverlays.Count, domainEvent.Name);
+        logger.PushedResolvedTextAfterArchive(affectedOverlays.Count, domainEvent.Name);
     }
 }

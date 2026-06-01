@@ -42,7 +42,7 @@ public sealed class MediaMtxReconciler(
         {
             // A reconcile failure must not block the host from starting.
             // Streams keep working; the next restart retries.
-            Log.ReconcilerStartupPassFailed(logger, ex);
+            logger.ReconcilerStartupPassFailed(ex);
         }
     }
 
@@ -76,14 +76,14 @@ public sealed class MediaMtxReconciler(
             {
                 await gateway.RemovePathAsync(path, cancellationToken).ConfigureAwait(false);
                 removed++;
-                Log.ReconcilerRemovedOrphanPath(logger, path);
+                logger.ReconcilerRemovedOrphanPath(path);
             }
             catch (HttpRequestException ex)
             {
-                Log.ReconcilerFailedToRemoveOrphanPath(logger, ex, path);
+                logger.ReconcilerFailedToRemoveOrphanPath(ex, path);
             }
         }
 
-        Log.ReconcilerStartupPassComplete(logger, configured.Count, expected.Count, removed);
+        logger.ReconcilerStartupPassComplete(configured.Count, expected.Count, removed);
     }
 }

@@ -35,7 +35,7 @@ public sealed class ArchiveRuleCommandHandler(
         // evaluated against the archived rule.
         cache.Remove(rule.Id);
 
-        Log.ArchivedRule(logger, rule.Id, command.Name);
+        logger.ArchivedRule(rule.Id, command.Name);
 
         return Result<RuleIdentifier, ArchiveRuleError>.Success(rule.Id);
     }

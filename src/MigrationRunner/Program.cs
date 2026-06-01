@@ -34,10 +34,10 @@ await host.StartAsync().ConfigureAwait(false);
 IEnumerable<IMigrator> migrators = host.Services.GetServices<IMigrator>();
 foreach (IMigrator migrator in migrators)
 {
-    Log.RunningMigrations(logger, migrator.ContextName);
+    logger.RunningMigrations(migrator.ContextName);
     await migrator.RunAsync(host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping)
         .ConfigureAwait(false);
 }
 
-Log.AllMigrationsApplied(logger);
+logger.AllMigrationsApplied();
 await host.StopAsync().ConfigureAwait(false);

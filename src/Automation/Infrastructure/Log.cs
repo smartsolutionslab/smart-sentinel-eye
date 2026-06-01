@@ -7,14 +7,14 @@ namespace SmartSentinelEye.Automation.Infrastructure;
 internal static partial class Log
 {
     [LoggerMessage(Level = LogLevel.Information, Message = "Seeded rule cache with {Count} Active rule(s).")]
-    public static partial void SeededRuleCache(ILogger logger, int count);
+    public static partial void SeededRuleCache(this ILogger logger, int count);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Rule cache seeding failed; cache will start empty and self-heal on the next Publish.")]
-    public static partial void RuleCacheSeedingFailed(ILogger logger, Exception exception);
+    public static partial void RuleCacheSeedingFailed(this ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Applying Automation EF Core migrations.")]
-    public static partial void ApplyingMigrations(ILogger logger);
+    public static partial void ApplyingMigrations(this ILogger logger);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Automation migrations applied.")]
-    public static partial void MigrationsApplied(ILogger logger);
+    public static partial void MigrationsApplied(this ILogger logger);
 }

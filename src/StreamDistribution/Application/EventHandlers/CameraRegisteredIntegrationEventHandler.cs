@@ -37,7 +37,7 @@ public sealed class CameraRegisteredIntegrationEventHandler(
 
         if (result.IsFailure)
         {
-            Log.ProvisionAttemptFailed(logger, camera, result.Error.Code, result.Error.Message);
+            logger.ProvisionAttemptFailed(camera, result.Error.Code, result.Error.Message);
             // Wolverine treats an exception as a retry signal. Failures here
             // (e.g. RtspGatewayUnavailable) are transient — re-throw so the
             // outbox re-delivers after MediaMTX recovers.

@@ -114,6 +114,5 @@ public sealed record V1Mapping(
     Option<ResourceIdentifier> ResourceIdentifier)
 {
     /// <summary>Mapping for a V1 whose resource shape isn't known to the registry.</summary>
-    public static V1Mapping Unmapped { get; } =
-        new(Option<ResourceKind>.None, Option<ResourceIdentifier>.None);
+    public static V1Mapping Unmapped { get; } = new(Option<ResourceKind>.None, Option<ResourceIdentifier>.None);
 }

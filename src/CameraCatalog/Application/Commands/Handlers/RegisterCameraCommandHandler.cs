@@ -20,7 +20,7 @@ public sealed class RegisterCameraCommandHandler(
 
         if (await cameras.ExistsByNameAsync(name, cancellationToken).ConfigureAwait(false))
         {
-            Log.RejectedCameraRegistrationNameInUse(logger, name);
+            logger.RejectedCameraRegistrationNameInUse(name);
             return Result<CameraIdentifier, RegisterCameraError>.Failure(
                 new RegisterCameraError.NameAlreadyTaken());
         }
@@ -31,7 +31,7 @@ public sealed class RegisterCameraCommandHandler(
         cameras.Add(camera);
         await cameras.SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        Log.RegisteredCamera(logger, camera.Id, camera.Name);
+        logger.RegisteredCamera(camera.Id, camera.Name);
 
         return Result<CameraIdentifier, RegisterCameraError>.Success(camera.Id);
     }

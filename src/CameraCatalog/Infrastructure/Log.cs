@@ -7,8 +7,8 @@ namespace SmartSentinelEye.CameraCatalog.Infrastructure;
 internal static partial class Log
 {
     [LoggerMessage(Level = LogLevel.Information, Message = "Applying Camera Catalog EF Core migrations.")]
-    public static partial void ApplyingMigrations(ILogger logger);
+    public static partial void ApplyingMigrations(this ILogger logger);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Camera Catalog migrations applied.")]
-    public static partial void MigrationsApplied(ILogger logger);
+    public static partial void MigrationsApplied(this ILogger logger);
 }

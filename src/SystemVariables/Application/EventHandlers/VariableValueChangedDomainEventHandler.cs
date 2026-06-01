@@ -45,7 +45,7 @@ public sealed class VariableValueChangedDomainEventHandler(
             reverseIndex.LookupOverlays(domainEvent.Name.Value);
         if (affectedOverlays.Count == 0)
         {
-            Log.NoOverlaysReferenceVariable(logger, domainEvent.Name);
+            logger.NoOverlaysReferenceVariable(domainEvent.Name);
             return;
         }
 
@@ -69,7 +69,7 @@ public sealed class VariableValueChangedDomainEventHandler(
                 cancellationToken).ConfigureAwait(false);
         }
 
-        Log.PushedResolvedTextAfterChange(logger, affectedOverlays.Count, domainEvent.Name);
+        logger.PushedResolvedTextAfterChange(affectedOverlays.Count, domainEvent.Name);
     }
 
     /// <summary>

@@ -18,11 +18,11 @@ public sealed record EventKind : StringValueObject
 
     public static EventKind From(string value)
     {
-        Ensure.That(value, nameof(value))
+        Ensure.That(value)
             .IsNotNullOrWhiteSpace()
             .HasMaxLength(MaximumLength)
-            .Satisfies(IsValid,
-                "must start with a letter and contain only letters or digits");
+            .Satisfies(IsValid, "must start with a letter and contain only letters or digits");
+
         return new EventKind(value);
     }
 
