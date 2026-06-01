@@ -58,6 +58,7 @@
     <ProjectReference Include="..\..\src\AuditObservability\Application\SmartSentinelEye.AuditObservability.Application.csproj" />
     <ProjectReference Include="..\..\src\AuditObservability\Infrastructure\SmartSentinelEye.AuditObservability.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\AuditObservability\Api\SmartSentinelEye.AuditObservability.Api.csproj" />
+    <ProjectReference Include="..\..\src\ApiGateway\SmartSentinelEye.ApiGateway.csproj" />
   </ItemGroup>
 
 </Project>

@@ -78,6 +78,26 @@ public class BoundaryTests
     }
 
     /// <summary>
+    /// ADR-0106 (#1006): the API gateway is a pure edge proxy — it reaches the
+    /// context services over HTTP via Aspire service discovery, never by
+    /// project reference. Its assembly must depend on no bounded context.
+    /// </summary>
+    [Fact]
+    public void ApiGateway_references_no_bounded_context()
+    {
+        Assembly gateway = Assembly.Load("SmartSentinelEye.ApiGateway");
+
+        TestResult result = Types
+            .InAssembly(gateway)
+            .Should()
+            .NotHaveDependencyOnAny(AllContexts)
+            .GetResult();
+
+        result.IsSuccessful.ShouldBeTrue(
+            $"ApiGateway has forbidden cross-context dependencies: {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    /// <summary>
     /// Spec 005 T095 — SystemVariables.Domain must remain free of
     /// SignalR / EF Core / Wolverine / Npgsql refs even though
     /// Application + Infrastructure use them via the bridge.
