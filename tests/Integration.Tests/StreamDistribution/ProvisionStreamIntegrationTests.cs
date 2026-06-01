@@ -42,7 +42,7 @@ public class ProvisionStreamIntegrationTests(AspireFixture aspire) : IAsyncLifet
         await using StreamDistributionDbContext context =
             await aspire.CreateStreamDistributionDbContextAsync();
         CameraIdentifier cameraId = CameraIdentifier.From(camera);
-        var streamRecord = await context.Streams
+        Stream? streamRecord = await context.Streams
             .AsNoTracking()
             .SingleOrDefaultAsync(s => s.Camera == cameraId);
         streamRecord.ShouldNotBeNull();

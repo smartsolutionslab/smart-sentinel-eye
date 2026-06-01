@@ -11,9 +11,9 @@ public sealed class SetVariableValueCommandHandler(IVariableRepository variables
     public async Task<Result<VariableIdentifier, SetVariableValueError>> HandleAsync(SetVariableValueCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (name, wireValue, changedBy) = command;
+        (VariableName? name, string? wireValue, OperatorIdentifier changedBy) = command;
 
-        var found = await variables.GetByNameAsync(name, cancellationToken);
+        Option<Variable> found = await variables.GetByNameAsync(name, cancellationToken);
         if (!found.HasValue)
         {
             return Result<VariableIdentifier, SetVariableValueError>.Failure(new SetVariableValueError.VariableNotFound(name.Value));

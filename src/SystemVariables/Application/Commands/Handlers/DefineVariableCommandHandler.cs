@@ -12,10 +12,10 @@ public sealed class DefineVariableCommandHandler(IVariableRepository variables, 
     {
         Ensure.That(command).IsNotNull();
 
-        var (name, type, initialValue, booleanLabels, definedBy) = command;
+        (VariableName? name, VariableType? type, VariableValue? initialValue, BooleanLabels? booleanLabels, OperatorIdentifier definedBy) = command;
 
         // Name uniqueness (FR-001 / FR-005). Archived names are free.
-        var existing = await variables.GetByNameAsync(name, cancellationToken);
+        Option<Variable> existing = await variables.GetByNameAsync(name, cancellationToken);
         if (existing.HasValue)
         {
             return Result<VariableIdentifier, DefineVariableError>.Failure(new DefineVariableError.VariableNameTaken(name.Value));

@@ -16,7 +16,7 @@ public sealed class PublishRevisionCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (layoutIdentifier, revisionNumber, publishedBy) = command;
+        (LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, OperatorIdentifier publishedBy) = command;
 
         Option<Layout> found = await layouts
             .GetByIdentifierAsync(layoutIdentifier, cancellationToken);

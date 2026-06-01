@@ -1,8 +1,8 @@
-using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.Shared.Kernel;
+using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
 
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence.Configurations;
 

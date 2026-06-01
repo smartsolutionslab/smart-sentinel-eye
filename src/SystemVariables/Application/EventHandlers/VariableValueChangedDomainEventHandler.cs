@@ -30,7 +30,7 @@ public sealed class VariableValueChangedDomainEventHandler(
     {
         Ensure.That(domainEvent).IsNotNull();
 
-        var systemVariableValueChangedEvent = new SystemVariableValueChangedV1(
+        SystemVariableValueChangedV1 systemVariableValueChangedEvent = new(
             Variable: domainEvent.Variable.Value,
             Name: domainEvent.Name.Value,
             Type: domainEvent.Type.Value,
@@ -40,7 +40,7 @@ public sealed class VariableValueChangedDomainEventHandler(
             Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ChangedAt, null, domainEvent.ChangedBy.Value));
         await events.PublishAsync(systemVariableValueChangedEvent, cancellationToken);
 
-        var affectedOverlays = reverseIndex.LookupOverlays(domainEvent.Name.Value);
+        IReadOnlyCollection<Guid> affectedOverlays = reverseIndex.LookupOverlays(domainEvent.Name.Value);
         if (affectedOverlays.Count == 0)
         {
             logger.NoOverlaysReferenceVariable(domainEvent.Name);
@@ -52,12 +52,12 @@ public sealed class VariableValueChangedDomainEventHandler(
             string? labelText = reverseIndex.LookupLabelText(overlayId);
             if (labelText is null) continue;
 
-            var snapshot = await BuildSnapshotAsync(labelText, domainEvent, cancellationToken);
+            IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot = await BuildSnapshotAsync(labelText, domainEvent, cancellationToken);
 
             string resolvedText = resolver.Resolve(labelText, snapshot);
             long version = reverseIndex.NextVersionFor(overlayId);
 
-            var @event = new ResolvedOverlayTextChangedV1(
+            ResolvedOverlayTextChangedV1 @event = new(
                 Overlay: overlayId,
                 ResolvedText: resolvedText,
                 Version: version,
@@ -103,7 +103,7 @@ public sealed class VariableValueChangedDomainEventHandler(
                 continue;
             }
 
-            var other = await variables.GetByNameAsync(parsed, cancellationToken);
+            Option<Variable> other = await variables.GetByNameAsync(parsed, cancellationToken);
             if (!other.HasValue) continue;
 
             Variable variable = other.Value;

@@ -13,7 +13,7 @@ public sealed class GetStreamQueryHandler(IStreamQuerySource streams, IStreamWhe
     {
         Ensure.That(query).IsNotNull();
 
-        var stream = await streams.Streams.SingleOrDefaultAsync(candidate => candidate.Camera == query.Camera, cancellationToken);
+        Stream? stream = await streams.Streams.SingleOrDefaultAsync(candidate => candidate.Camera == query.Camera, cancellationToken);
 
         if (stream is null) return Result<StreamHealthDto, GetStreamError>.Failure(new GetStreamError.StreamNotFound(query.Camera.Value));
 

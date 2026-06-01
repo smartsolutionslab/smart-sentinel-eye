@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Http;
-using SmartSentinelEye.ServiceDefaults;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.EventIngestion.Application.DTOs;
 using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
 using SmartSentinelEye.EventIngestion.Domain.Event;
+using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Api;

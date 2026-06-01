@@ -1,7 +1,7 @@
-using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Shared.Kernel;
+using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 
 namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 

@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.CameraCatalog.Domain.Camera;
 using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -29,7 +30,7 @@ public class RegisterCameraIntegrationTests(AspireFixture aspire) : IAsyncLifeti
         response.Headers.Location?.ToString().ShouldEndWith($"/cameras/{identifier}");
 
         await using CameraCatalogDbContext context = await aspire.CreateCameraCatalogDbContextAsync();
-        var persisted = await context.Cameras.SingleAsync();
+        Camera persisted = await context.Cameras.SingleAsync();
         persisted.Id.Value.ShouldBe(identifier);
         persisted.Name.Value.ShouldBe("Line-1-Entrance");
         persisted.Url.Value.ShouldBe("rtsp://10.0.5.12/h264");

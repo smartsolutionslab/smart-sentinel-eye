@@ -16,7 +16,7 @@ public sealed class PublishRevisionCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (overlayIdentifier, revisionNumber, publishedBy) = command;
+        (OverlayIdentifier overlayIdentifier, OverlayRevisionNumber revisionNumber, OperatorIdentifier publishedBy) = command;
 
         Option<Overlay> found = await overlays
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);

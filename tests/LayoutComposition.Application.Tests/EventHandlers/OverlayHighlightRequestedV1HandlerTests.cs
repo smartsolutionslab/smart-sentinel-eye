@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
+using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 
@@ -29,7 +30,7 @@ public class OverlayHighlightRequestedV1HandlerTests
 
         await handler.Handle(message, CancellationToken.None);
 
-        var notification = broadcaster.Highlighted.ShouldHaveSingleItem();
+        OverlayHighlightedNotification notification = broadcaster.Highlighted.ShouldHaveSingleItem();
         notification.Overlay.ShouldBe(overlay);
         notification.DurationMs.ShouldBe(10_000);
     }

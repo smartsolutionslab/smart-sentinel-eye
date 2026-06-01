@@ -93,7 +93,7 @@ public sealed class AuditRetentionHostedService(
         {
             ChunkArchiveResult result = await deps.Archiver.ArchiveChunkAsync(chunk, cancellationToken);
 
-            var @event = new AuditChunkArchivedV1(
+            AuditChunkArchivedV1 @event = new(
                 chunk.ChunkIdentifier,
                 FabId: null,
                 result.RowCount,

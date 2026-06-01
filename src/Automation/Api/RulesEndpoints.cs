@@ -7,9 +7,9 @@ using SmartSentinelEye.Automation.Api.Requests;
 using SmartSentinelEye.Automation.Application.Commands;
 using SmartSentinelEye.Automation.Application.Commands.Handlers;
 using SmartSentinelEye.Automation.Domain.Rule;
+using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
-using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.Automation.Api;
 
@@ -75,8 +75,8 @@ public static class RulesEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var actingOperator = user.ToOperatorIdentifier();
-        var result = await handler.HandleAsync(
+        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
+        Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
             new CreateRuleCommand(name, body.TriggerSource, body.TriggerKind, predicate, action, actingOperator),
             cancellationToken);
 
@@ -97,7 +97,7 @@ public static class RulesEndpoints
             return Results.Problem(title: "RULE_INVALID_INPUT", detail: ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var result = await handler.HandleAsync(new PublishRuleCommand(parsed), cancellationToken);
+        Result<RuleIdentifier, PublishRuleError> result = await handler.HandleAsync(new PublishRuleCommand(parsed), cancellationToken);
 
         return result.Match<IResult>(onSuccess: id => Results.Ok(id.Value), onFailure: error => error.ToProblem());
     }
@@ -114,7 +114,7 @@ public static class RulesEndpoints
             return Results.Problem(title: "RULE_INVALID_INPUT", detail: ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var result = await handler.HandleAsync(new ArchiveRuleCommand(parsed), cancellationToken);
+        Result<RuleIdentifier, ArchiveRuleError> result = await handler.HandleAsync(new ArchiveRuleCommand(parsed), cancellationToken);
 
         return result.Match<IResult>(onSuccess: id => Results.Ok(id.Value), onFailure: error => error.ToProblem());
     }

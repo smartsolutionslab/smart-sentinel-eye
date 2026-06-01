@@ -25,7 +25,7 @@ public class ArchiveRevisionCommandHandlerTests
 
         ArchiveRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<ArchiveRevisionCommandHandler>.Instance);
-        var result = await handler.HandleAsync(
+        Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler.HandleAsync(
             new ArchiveRevisionCommand(layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 

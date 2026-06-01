@@ -15,7 +15,7 @@ public sealed class StreamDistributionMigrator(IDbContextFactory<StreamDistribut
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using StreamDistributionDbContext context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         logger.ApplyingMigrations();
         await context.Database.MigrateAsync(cancellationToken);

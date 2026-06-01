@@ -22,7 +22,7 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
         // The filter fields are consumed by BuildPagedQuery (which takes the
         // whole query so its EF translation can be verified offline); only the
         // paging inputs are handled here.
-        var (_, _, _, _, _, _, _, _, rawPageSize, rawCursor) = query;
+        (Domain.Event.FabIdentifier _, Domain.Event.Source _, Domain.Event.DeviceIdentifier _, Domain.Event.Kind _, DateTimeOffset? _, DateTimeOffset? _, DateTimeOffset? _, DateTimeOffset? _, int rawPageSize, string? rawCursor) = query;
 
         int pageSize = rawPageSize <= 0 ? DefaultPageSize : rawPageSize;
         if (pageSize > MaximumPageSize)

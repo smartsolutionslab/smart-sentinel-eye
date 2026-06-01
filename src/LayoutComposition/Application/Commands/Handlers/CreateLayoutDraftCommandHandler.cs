@@ -16,7 +16,7 @@ public sealed class CreateLayoutDraftCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (name, camera, createdBy, overlay) = command;
+        (LayoutName? name, CameraIdentifier camera, OperatorIdentifier createdBy, OverlayIdentifier? overlay) = command;
 
         Option<Layout> existing = await layouts
             .GetByNameAsync(name, cancellationToken);

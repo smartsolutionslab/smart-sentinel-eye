@@ -21,7 +21,7 @@ public sealed class RegisterDeviceCommandHandler(
         RegisterDeviceCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (deviceType, deviceIdentifier, fab, registeredBy) = command;
+        (string? deviceType, string? deviceIdentifier, FabIdentifier? fab, OperatorIdentifier registeredBy) = command;
 
         if (!AllowedDeviceTypes.Contains(deviceType, StringComparer.Ordinal))
         {

@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
+using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
 
@@ -31,7 +32,7 @@ public class ResolvedOverlayTextChangedV1HandlerTests
 
         await handler.Handle(message, CancellationToken.None);
 
-        var notification = broadcaster.ResolvedTextChanged.ShouldHaveSingleItem();
+        ResolvedOverlayTextChangedNotification notification = broadcaster.ResolvedTextChanged.ShouldHaveSingleItem();
         notification.Overlay.ShouldBe(overlay);
         notification.ResolvedText.ShouldBe("OEE: 82.5%");
         notification.Version.ShouldBe(7);

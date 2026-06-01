@@ -16,7 +16,7 @@ public sealed class CreateOverlayDraftCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (name, label, createdBy) = command;
+        (OverlayName? name, Label? label, OperatorIdentifier createdBy) = command;
 
         Option<Overlay> existing = await overlays
             .GetByNameAsync(name, cancellationToken);

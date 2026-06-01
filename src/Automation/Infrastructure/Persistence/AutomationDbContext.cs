@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 using SmartSentinelEye.Shared.Kernel;
+using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 
 namespace SmartSentinelEye.Automation.Infrastructure.Persistence;
 

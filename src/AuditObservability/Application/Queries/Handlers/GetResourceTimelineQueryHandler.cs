@@ -19,7 +19,7 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
     {
         Ensure.That(query).IsNotNull();
 
-        var (resourceKind, resourceIdentifier, fab, since, until, rawPageSize, rawCursor) = query;
+        (string? resourceKind, string? resourceIdentifier, string? fab, DateTimeOffset? since, DateTimeOffset? until, int rawPageSize, string? rawCursor) = query;
 
         if (!DomainResourceKind.All.Any(kind => kind.Value == resourceKind))
         {

@@ -60,13 +60,13 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
 
     private async Task PollOnceAsync(CancellationToken cancellationToken)
     {
-        await using var scope = scopeFactory.CreateAsyncScope();
+        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
 
-        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<StreamDistributionDbContext>>();
-        var gateway = scope.ServiceProvider.GetRequiredService<IRtspGateway>();
-        var handler = scope.ServiceProvider.GetRequiredService<ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>>>();
+        IDbContextFactory<StreamDistributionDbContext> factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<StreamDistributionDbContext>>();
+        IRtspGateway gateway = scope.ServiceProvider.GetRequiredService<IRtspGateway>();
+        ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>> handler = scope.ServiceProvider.GetRequiredService<ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>>>();
 
-        await using var context = await factory.CreateDbContextAsync(cancellationToken);
+        await using StreamDistributionDbContext context = await factory.CreateDbContextAsync(cancellationToken);
 
         List<(Guid Camera, MediaMtxPath Path, StreamState State)> streams = await context.Streams
             .AsNoTracking()

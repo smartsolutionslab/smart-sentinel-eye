@@ -49,7 +49,7 @@ public sealed record ResourceKind(string Value) : IValueObject<string>
 
     public static ResourceKind From(string value)
     {
-        var found = All.FirstOrDefault(kind => kind.Value == value);
+        ResourceKind? found = All.FirstOrDefault(kind => kind.Value == value);
         return found ?? throw new ArgumentException($"Unknown ResourceKind '{value}'. Expected one of: {string.Join(" | ", All.Select(kind => kind.Value))}.", nameof(value));
     }
 

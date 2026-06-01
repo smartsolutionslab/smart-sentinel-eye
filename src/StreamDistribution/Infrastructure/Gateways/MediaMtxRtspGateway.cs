@@ -38,7 +38,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
     {
         Ensure.That(path).IsNotNull();
 
-        using var response = await http.DeleteAsync($"/v3/config/paths/delete/{path.Value}", cancellationToken);
+        using HttpResponseMessage response = await http.DeleteAsync($"/v3/config/paths/delete/{path.Value}", cancellationToken);
 
         // 404 is fine — path may have already been removed by a prior call.
         if (response.StatusCode != System.Net.HttpStatusCode.NotFound)
@@ -53,10 +53,10 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         // Reads the MediaMTX paths list endpoint (items: [{ name, source, ... }]).
         // Filters to canonical cam-{guid} names so manually-created MediaMTX
         // paths are left alone.
-        using var response = await http.GetAsync("/v3/config/paths/list", cancellationToken);
+        using HttpResponseMessage response = await http.GetAsync("/v3/config/paths/list", cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
         if (!payload.TryGetProperty("items", out JsonElement items) || items.ValueKind != JsonValueKind.Array)
         {
@@ -85,7 +85,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
     {
         Ensure.That(path).IsNotNull();
 
-        using var response = await http.GetAsync($"/v3/paths/get/{path.Value}", cancellationToken);
+        using HttpResponseMessage response = await http.GetAsync($"/v3/paths/get/{path.Value}", cancellationToken);
 
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {

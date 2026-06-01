@@ -14,14 +14,14 @@ public sealed class AuthorizeWhepCommandHandler(IWhepAuthValidator whepAuth, ISt
     {
         Ensure.That(command).IsNotNull();
 
-        var (path, bearerToken) = command;
+        (MediaMtxPath? path, string? bearerToken) = command;
 
         if (string.IsNullOrWhiteSpace(bearerToken))
         {
             return Result<MediaMtxPath, AuthorizeWhepError>.Failure(new AuthorizeWhepError.Unauthorized());
         }
 
-        var subject = await whepAuth.ValidateAsync(bearerToken, cancellationToken);
+        Option<WhepAuthSubject> subject = await whepAuth.ValidateAsync(bearerToken, cancellationToken);
 
         if (!subject.HasValue)
         {
@@ -33,7 +33,7 @@ public sealed class AuthorizeWhepCommandHandler(IWhepAuthValidator whepAuth, ISt
             return Result<MediaMtxPath, AuthorizeWhepError>.Failure(new AuthorizeWhepError.Forbidden());
         }
 
-        var stream = await streams.GetByPathAsync(path, cancellationToken);
+        Option<Stream> stream = await streams.GetByPathAsync(path, cancellationToken);
 
         if (stream.HasValue && stream.Value.State == StreamState.Offline)
         {

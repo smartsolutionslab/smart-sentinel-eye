@@ -19,7 +19,7 @@ public sealed class GetOverlaySnapshotQueryHandler(IReverseIndex reverseIndex, I
             return Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError>.Failure(new GetOverlaySnapshotError.OverlayNotInReverseIndex(query.OverlayIdentifier));
         }
 
-        var snapshot = await BuildSnapshotAsync(labelText, cancellationToken);
+        IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot = await BuildSnapshotAsync(labelText, cancellationToken);
 
         string resolvedText = resolver.Resolve(labelText, snapshot);
         long version = reverseIndex.CurrentVersionFor(query.OverlayIdentifier);
@@ -36,7 +36,7 @@ public sealed class GetOverlaySnapshotQueryHandler(IReverseIndex reverseIndex, I
             try { parsed = VariableName.From(name); }
             catch (ArgumentException) { continue; }
 
-            var found = await variables.GetByNameAsync(parsed, cancellationToken);
+            Option<Variable> found = await variables.GetByNameAsync(parsed, cancellationToken);
             if (!found.HasValue) continue;
 
             Variable variable = found.Value;

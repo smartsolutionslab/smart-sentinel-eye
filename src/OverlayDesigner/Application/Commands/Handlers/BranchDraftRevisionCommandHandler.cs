@@ -15,7 +15,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         BranchDraftRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (overlayIdentifier, branchedBy) = command;
+        (OverlayIdentifier overlayIdentifier, OperatorIdentifier branchedBy) = command;
 
         Option<Overlay> found = await overlays
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);

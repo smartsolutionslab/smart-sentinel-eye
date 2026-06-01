@@ -37,7 +37,7 @@ public sealed class RotateWebhookClientCommandHandler(
         RotateWebhookClientCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (integrationName, fab, rotatedBy) = command;
+        (string? integrationName, FabIdentifier? fab, OperatorIdentifier rotatedBy) = command;
 
         ClientId clientId;
         try

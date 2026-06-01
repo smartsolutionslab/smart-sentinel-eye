@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
-using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 using SmartSentinelEye.Automation.Application.Evaluation;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Shared.Kernel;
+using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 
 namespace SmartSentinelEye.Automation.Infrastructure.Cache;
 
@@ -46,7 +46,7 @@ public sealed class InMemoryRuleCache : IRuleCache
         Ensure.That(rule).IsNotNull();
         if (rule.State != RuleState.Active) return;
         CompiledRule compiled = CompiledRule.From(rule);
-        var key = (rule.TriggerSource, rule.TriggerKind);
+        (string TriggerSource, string TriggerKind) key = (rule.TriggerSource, rule.TriggerKind);
 
         List<CompiledRule> bucket = _byTrigger.GetOrAdd(key, _ => new List<CompiledRule>());
         lock (_gate)

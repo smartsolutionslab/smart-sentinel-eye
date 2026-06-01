@@ -1,7 +1,9 @@
+using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Application.Queries;
 using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.AuditObservability.Application.Tests.TestData;
+using SmartSentinelEye.Shared.Kernel;
 using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 
 namespace SmartSentinelEye.AuditObservability.Application.Tests.Queries.Handlers;
@@ -30,7 +32,7 @@ public class SearchAuditQueryHandlerTests
 
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([older, newer, wrongFab]));
 
-        var result = await handler.HandleAsync(DefaultQuery(), default);
+        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(DefaultQuery(), default);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Rows.Count.ShouldBe(2);
@@ -47,7 +49,7 @@ public class SearchAuditQueryHandlerTests
 
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, berlin, unscoped]));
 
-        var result = await handler.HandleAsync(
+        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
             DefaultQuery(fab: null, callerFabs: ["munich"]), default);
 
         result.IsSuccess.ShouldBeTrue();
@@ -68,11 +70,11 @@ public class SearchAuditQueryHandlerTests
 
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource(rows));
 
-        var page1 = await handler.HandleAsync(DefaultQuery(pageSize: 2), default);
+        Result<AuditPageDto, SearchAuditError> page1 = await handler.HandleAsync(DefaultQuery(pageSize: 2), default);
         page1.Value.Rows.Count.ShouldBe(2);
         page1.Value.NextCursor.ShouldNotBeNull();
 
-        var page2 = await handler.HandleAsync(
+        Result<AuditPageDto, SearchAuditError> page2 = await handler.HandleAsync(
             DefaultQuery(pageSize: 2, cursor: page1.Value.NextCursor), default);
         page2.Value.Rows.Count.ShouldBe(2);
         page2.Value.NextCursor.ShouldNotBeNull();
@@ -87,7 +89,7 @@ public class SearchAuditQueryHandlerTests
     {
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([]));
 
-        var result = await handler.HandleAsync(DefaultQuery(), default);
+        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(DefaultQuery(), default);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Rows.ShouldBeEmpty();
@@ -99,7 +101,7 @@ public class SearchAuditQueryHandlerTests
     {
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([]));
 
-        var result = await handler.HandleAsync(
+        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
             DefaultQuery(cursor: "this-is-not-a-cursor"), default);
 
         result.IsFailure.ShouldBeTrue();
@@ -111,7 +113,7 @@ public class SearchAuditQueryHandlerTests
     {
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([]));
 
-        var result = await handler.HandleAsync(DefaultQuery(pageSize: 201), default);
+        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(DefaultQuery(pageSize: 201), default);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBeOfType<SearchAuditError.PageSizeOutOfRange>();
@@ -127,7 +129,7 @@ public class SearchAuditQueryHandlerTests
 
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([admin, operatorRow]));
 
-        var result = await handler.HandleAsync(
+        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
             DefaultQuery(actorUsername: "admin@munich.test"), default);
 
         result.IsSuccess.ShouldBeTrue();

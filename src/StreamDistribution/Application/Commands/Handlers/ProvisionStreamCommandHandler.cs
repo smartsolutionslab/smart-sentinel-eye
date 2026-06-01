@@ -12,14 +12,14 @@ public sealed class ProvisionStreamCommandHandler(IStreamRepository streams, IRt
     {
         Ensure.That(command).IsNotNull();
 
-        var (camera, rtspSourceUrl, provisionedBy) = command;
+        (CameraIdentifier camera, string? rtspSourceUrl, OperatorIdentifier provisionedBy) = command;
 
         if (string.IsNullOrWhiteSpace(rtspSourceUrl))
         {
             return Result<StreamIdentifier, ProvisionStreamError>.Failure(new ProvisionStreamError.InvalidRtspSource("source URL is required"));
         }
 
-        var existing = await streams.GetByCameraAsync(camera, cancellationToken);
+        Option<Stream> existing = await streams.GetByCameraAsync(camera, cancellationToken);
 
         if (existing.HasValue)
         {

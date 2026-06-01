@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Reflection;
 using Microsoft.EntityFrameworkCore.Query;
 using SmartSentinelEye.SystemVariables.Application.Queries;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
@@ -57,7 +58,7 @@ internal sealed class TestAsyncQueryProvider<TEntity>(IQueryProvider inner) : IA
         if (resultType.IsGenericType && resultType.GetGenericTypeDefinition() == typeof(Task<>))
         {
             Type innerType = resultType.GetGenericArguments()[0];
-            var taskFromResult = typeof(Task).GetMethod(nameof(Task.FromResult))!
+            MethodInfo taskFromResult = typeof(Task).GetMethod(nameof(Task.FromResult))!
                 .MakeGenericMethod(innerType);
             return (TResult)taskFromResult.Invoke(null, [executionResult])!;
         }

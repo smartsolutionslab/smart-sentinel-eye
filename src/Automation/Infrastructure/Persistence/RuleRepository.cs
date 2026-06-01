@@ -48,7 +48,7 @@ public sealed class RuleRepository(
 
         foreach (RuleAggregate rule in tracked)
         {
-            var events = rule.PendingEvents.ToArray();
+            IDomainEvent[] events = rule.PendingEvents.ToArray();
             rule.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }

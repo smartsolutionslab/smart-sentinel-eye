@@ -17,7 +17,7 @@ public sealed class CreateRuleCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        var (name, triggerSource, triggerKind, predicate, action, createdBy) = command;
+        (RuleName? name, string? triggerSource, string? triggerKind, RulePredicate? predicate, RuleAction? action, OperatorIdentifier createdBy) = command;
 
         // Name uniqueness (FR-002). Archived names are released for
         // re-use; the repository's GetByNameAsync ignores Archived.

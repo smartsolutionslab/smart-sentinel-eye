@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Http;
-using SmartSentinelEye.ServiceDefaults;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.OverlayDesigner.Application.DTOs;
 using SmartSentinelEye.OverlayDesigner.Application.Queries;
 using SmartSentinelEye.OverlayDesigner.Application.Queries.Handlers;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
+using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.OverlayDesigner.Api;

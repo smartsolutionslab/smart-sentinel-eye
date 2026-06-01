@@ -19,7 +19,7 @@ public sealed class EnrollKioskCommandHandler(
         EnrollKioskCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        var (clientId, fab, enrolledBy) = command;
+        (ClientId? clientId, FabIdentifier? fab, OperatorIdentifier enrolledBy) = command;
 
         Option<RegisteredClientAggregate> existing = await clients
             .GetByClientIdAsync(clientId, cancellationToken);

@@ -12,9 +12,9 @@ public sealed class ReportStreamHealthCommandHandler(IStreamRepository streams, 
     {
         Ensure.That(command).IsNotNull();
 
-        var (camera, observation, declareOffline) = command;
+        (CameraIdentifier camera, RtspPathHealth? observation, bool declareOffline) = command;
 
-        var existing = await streams.GetByCameraAsync(camera, cancellationToken);
+        Option<Stream> existing = await streams.GetByCameraAsync(camera, cancellationToken);
 
         if (!existing.HasValue)
         {
