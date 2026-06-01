@@ -270,10 +270,13 @@ if (isE2ETests)
 
 // React apps per ADR-0074: two pnpm-workspace apps under apps/. Skipped in
 // test mode so the integration suite doesn't start two Node dev servers.
+// Endpoints are proxyless (isProxied: false): the Vite dev server binds the
+// fixed PORT (5173/5174) directly, so DCP must NOT also proxy that port — a
+// shared port makes Vite fail to start with "Port is already in use".
 if (isRunMode && !isE2ETests)
 {
     builder.AddNpmApp("management-web", "../../apps/management-web", "dev")
-        .WithHttpEndpoint(env: "PORT", port: 5173)
+        .WithHttpEndpoint(env: "PORT", port: 5173, isProxied: false)
         .WithReference(cameraCatalog)
         .WithReference(layoutComposition)
         .WithReference(overlayDesigner)
@@ -282,7 +285,7 @@ if (isRunMode && !isE2ETests)
         .WithExternalHttpEndpoints();
 
     builder.AddNpmApp("kiosk-web", "../../apps/kiosk-web", "dev")
-        .WithHttpEndpoint(env: "PORT", port: 5174)
+        .WithHttpEndpoint(env: "PORT", port: 5174, isProxied: false)
         .WithReference(cameraCatalog)
         .WithReference(streamDistribution)
         .WithReference(layoutComposition)
