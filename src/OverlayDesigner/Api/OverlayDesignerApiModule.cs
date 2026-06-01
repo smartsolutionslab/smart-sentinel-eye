@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using SmartSentinelEye.OverlayDesigner.Application.Commands.Handlers;
 using SmartSentinelEye.OverlayDesigner.Application.Queries.Handlers;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.OverlayDesigner.Api;
 
@@ -15,7 +16,7 @@ public static class OverlayDesignerApiModule
 {
     public static IServiceCollection AddOverlayDesignerApi(this IServiceCollection services)
     {
-        ArgumentNullException.ThrowIfNull(services);
+        Ensure.That(services).IsNotNull();
 
         services.AddScoped<CreateOverlayDraftCommandHandler>();
         services.AddScoped<PublishRevisionCommandHandler>();

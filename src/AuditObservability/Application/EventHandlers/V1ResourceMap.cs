@@ -71,7 +71,7 @@ public sealed partial class V1ResourceMap
     /// </summary>
     public V1Mapping Lookup(Type integrationEventType, object payloadInstance)
     {
-        ArgumentNullException.ThrowIfNull(integrationEventType);
+        Ensure.That(integrationEventType).IsNotNull();
         if (!_entries.TryGetValue(integrationEventType, out V1MappingEntry? entry))
         {
             return V1Mapping.Unmapped;

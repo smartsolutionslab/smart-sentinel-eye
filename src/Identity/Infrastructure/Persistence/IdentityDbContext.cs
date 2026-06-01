@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Infrastructure.Persistence;
 
@@ -16,7 +17,7 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        ArgumentNullException.ThrowIfNull(modelBuilder);
+        Ensure.That(modelBuilder).IsNotNull();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(IdentityDbContext).Assembly);
     }
 }

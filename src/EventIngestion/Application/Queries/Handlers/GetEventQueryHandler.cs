@@ -12,7 +12,7 @@ public sealed class GetEventQueryHandler(IEventQuerySource events)
     public async Task<Result<EventDto, GetEventError>> HandleAsync(
         GetEventQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
         var (fab, identifier) = query;
 
         EventAggregate? found = await events.Events

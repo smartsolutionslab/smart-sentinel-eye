@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 
@@ -16,7 +17,7 @@ public sealed class OverlayDesignerDbContext(DbContextOptions<OverlayDesignerDbC
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        ArgumentNullException.ThrowIfNull(modelBuilder);
+        Ensure.That(modelBuilder).IsNotNull();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OverlayDesignerDbContext).Assembly);
     }
 }

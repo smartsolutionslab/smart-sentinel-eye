@@ -19,7 +19,7 @@ public sealed class CameraRepository(
 
     public async Task<bool> ExistsByNameAsync(CameraName name, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(name);
+        Ensure.That(name).IsNotNull();
 
         return await dbContext.Cameras
             .AnyAsync(candidate => candidate.Name == name, cancellationToken)
@@ -28,7 +28,7 @@ public sealed class CameraRepository(
 
     public void Add(Camera camera)
     {
-        ArgumentNullException.ThrowIfNull(camera);
+        Ensure.That(camera).IsNotNull();
         dbContext.Cameras.Add(camera);
     }
 

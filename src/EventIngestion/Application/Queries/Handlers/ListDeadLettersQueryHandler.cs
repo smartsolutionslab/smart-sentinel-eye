@@ -15,7 +15,7 @@ public sealed class ListDeadLettersQueryHandler(IDeadLetterQuerySource deadLette
     public async Task<Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError>> HandleAsync(
         ListDeadLettersQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
 
         int limit = query.Limit <= 0 ? DefaultLimit : Math.Min(query.Limit, MaximumLimit);
 

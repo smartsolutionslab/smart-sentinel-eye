@@ -23,7 +23,7 @@ public sealed class IngestEventCommandHandler(
     public async Task<Result<EventIdentifier, IngestEventError>> HandleAsync(
         IngestEventCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         EventEnvelope envelope = command.Envelope;
 
         // Hybrid-idempotency check (FR-002). The unique

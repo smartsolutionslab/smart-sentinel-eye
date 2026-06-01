@@ -76,7 +76,9 @@ phases 4–6. Internalize the operational rules:
   config knobs for needs that don't exist yet — except the
   explicitly-scoped forward-compat interfaces in constitution §IX.
 - **No drive-by error handling.** Validate at trust boundaries only.
-  Swallowed exceptions are review blockers.
+  Swallowed exceptions are review blockers. Argument guards use
+  `Ensure.That(x).IsNotNull()` (ADR-0105), not
+  `ArgumentNullException.ThrowIfNull`.
 - **No drive-by comments.** Code says what; comments say *why*, only
   when the why is non-obvious. References to issues/tasks belong in
   the PR body, not the code.
@@ -156,6 +158,7 @@ down as:
 | Domain layout | Per-aggregate folder containing aggregate + VOs + repository + `Events/` subfolder | 0092 |
 | Application layout | Per-message-kind: `Commands/`, `Queries/`, `EventHandlers/`, `DTOs/`, each with `Handlers/` subfolder and paired `*Errors.cs` | 0093 |
 | Errors | `Result<T, Error>` with `ApiError(Code, Message, HttpStatusCode)` base | 0047, 0089 |
+| Argument guards | **`Ensure.That(x).IsNotNull()`** — never `ArgumentNullException.ThrowIfNull` or bare `throw new ArgumentException` for argument preconditions (AppHost + generated migrations + parse/format errors excepted) | 0059, 0105 |
 | Nulls | **NRT disabled + `Option<T>` everywhere** | 0048 |
 | Async | `CancellationToken` mandatory last param; no `ConfigureAwait` | 0049 |
 | Persistence | PostgreSQL (+ Marten for ES contexts with inline projections) | 0009, 0071 |

@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Infrastructure;
 
@@ -19,7 +20,7 @@ public static class LayoutCompositionPersistenceModule
 
     public static IHostApplicationBuilder AddLayoutCompositionPersistence(this IHostApplicationBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         string connectionString = builder.Configuration.GetConnectionString(DatabaseConnectionName)
             ?? throw new InvalidOperationException(

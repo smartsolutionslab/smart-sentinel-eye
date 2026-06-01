@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using SmartSentinelEye.CameraCatalog.Application.Commands.Handlers;
 using SmartSentinelEye.CameraCatalog.Application.Queries.Handlers;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.CameraCatalog.Api;
 
@@ -12,7 +13,7 @@ public static class CameraCatalogApiModule
 {
     public static IServiceCollection AddCameraCatalogApi(this IServiceCollection services)
     {
-        ArgumentNullException.ThrowIfNull(services);
+        Ensure.That(services).IsNotNull();
 
         services.AddScoped<RegisterCameraCommandHandler>();
         services.AddScoped<ListCamerasQueryHandler>();

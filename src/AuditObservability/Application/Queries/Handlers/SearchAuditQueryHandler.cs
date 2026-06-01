@@ -17,7 +17,7 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
     public async Task<Result<AuditPageDto, SearchAuditError>> HandleAsync(
         SearchAuditQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
 
         var (fab, callerFabs, actor, actorUsername, eventKind, resourceKind,
             resourceIdentifier, since, until, rawPageSize, rawCursor) = query;

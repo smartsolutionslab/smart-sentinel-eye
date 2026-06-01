@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 
@@ -43,7 +44,7 @@ public sealed class HttpKeycloakAdminClient(
         string fabGroupPath,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(representation);
+        Ensure.That(representation).IsNotNull();
 
         string realm = options.Value.Realm;
         await AuthorizeAsync(cancellationToken).ConfigureAwait(false);

@@ -21,7 +21,7 @@ public sealed class VariableRepository(
     public async Task<Option<Variable>> GetByNameAsync(
         VariableName name, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(name);
+        Ensure.That(name).IsNotNull();
         // FR-005: archived names are released for re-use; only return non-Archived rows.
         Variable? found = await dbContext.Variables
             .Where(variable => variable.Name == name)
@@ -33,7 +33,7 @@ public sealed class VariableRepository(
 
     public void Add(Variable variable)
     {
-        ArgumentNullException.ThrowIfNull(variable);
+        Ensure.That(variable).IsNotNull();
         dbContext.Variables.Add(variable);
     }
 

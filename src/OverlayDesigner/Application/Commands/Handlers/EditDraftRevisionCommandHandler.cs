@@ -14,7 +14,7 @@ public sealed class EditDraftRevisionCommandHandler(
     public async Task<Result<OverlayRevisionNumber, EditDraftRevisionError>> HandleAsync(
         EditDraftRevisionCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (overlayIdentifier, revisionNumber, label) = command;
 
         Option<Overlay> found = await overlays

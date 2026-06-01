@@ -34,7 +34,7 @@ public static class StreamDistributionInfrastructureModule
 
     public static IHostApplicationBuilder AddStreamDistributionInfrastructure(this IHostApplicationBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.AddStreamDistributionPersistence();
 

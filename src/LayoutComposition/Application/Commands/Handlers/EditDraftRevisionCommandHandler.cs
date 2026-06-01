@@ -14,7 +14,7 @@ public sealed class EditDraftRevisionCommandHandler(
     public async Task<Result<LayoutRevisionNumber, EditDraftRevisionError>> HandleAsync(
         EditDraftRevisionCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (layoutIdentifier, revisionNumber, camera, overlay) = command;
 
         Option<Layout> found = await layouts

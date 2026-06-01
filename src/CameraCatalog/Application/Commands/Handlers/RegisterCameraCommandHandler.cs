@@ -15,7 +15,7 @@ public sealed class RegisterCameraCommandHandler(
         RegisterCameraCommand command,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (name, url, registeredBy) = command;
 
         if (await cameras.ExistsByNameAsync(name, cancellationToken).ConfigureAwait(false))

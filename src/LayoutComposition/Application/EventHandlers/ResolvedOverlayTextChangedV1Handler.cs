@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 
@@ -18,7 +19,7 @@ public sealed class ResolvedOverlayTextChangedV1Handler(
 {
     public async Task Handle(ResolvedOverlayTextChangedV1 message, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(message);
+        Ensure.That(message).IsNotNull();
 
         await broadcaster.ResolvedOverlayTextChangedAsync(
             new ResolvedOverlayTextChangedNotification(

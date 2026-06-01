@@ -3,6 +3,7 @@ using SmartSentinelEye.LayoutComposition.Domain.Layout.Events;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 using SmartSentinelEye.Shared.CQRS;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 
@@ -26,7 +27,7 @@ public sealed class LayoutRevisionPublishedDomainEventHandler(
 {
     public async Task Handle(LayoutRevisionPublishedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvent);
+        Ensure.That(domainEvent).IsNotNull();
 
         await events.PublishAsync(
             new LayoutRevisionPublishedV1(

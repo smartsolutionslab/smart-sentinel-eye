@@ -27,7 +27,7 @@ public static class AutomationInfrastructureModule
 
     public static IHostApplicationBuilder AddAutomationInfrastructure(this IHostApplicationBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.AddAutomationPersistence();
 

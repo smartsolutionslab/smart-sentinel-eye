@@ -4,6 +4,7 @@ using SmartSentinelEye.Identity.Domain.RegisteredClient.Events;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.Identity;
 using SmartSentinelEye.Shared.CQRS;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Application.EventHandlers;
 
@@ -30,7 +31,7 @@ public sealed class ClientRegisteredDomainEventHandler(
 {
     public async Task Handle(ClientRegisteredDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvent);
+        Ensure.That(domainEvent).IsNotNull();
 
         if (domainEvent.Kind == ClientKind.Device)
         {

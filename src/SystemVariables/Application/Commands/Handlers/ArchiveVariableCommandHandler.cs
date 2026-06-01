@@ -15,7 +15,7 @@ public sealed class ArchiveVariableCommandHandler(
         ArchiveVariableCommand command,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (name, archivedBy) = command;
 
         Option<Variable> found = await variables

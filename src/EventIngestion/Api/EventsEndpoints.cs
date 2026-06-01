@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.EventIngestion.Application.DTOs;
 using SmartSentinelEye.ServiceDefaults.Authorization;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Api;
 
@@ -16,7 +17,7 @@ public static partial class EventsEndpoints
 {
     public static IEndpointRouteBuilder MapEventsEndpoints(this IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
+        Ensure.That(app).IsNotNull();
 
         RouteGroupBuilder writes = app.MapGroup("/events").WithTags("Events");
 

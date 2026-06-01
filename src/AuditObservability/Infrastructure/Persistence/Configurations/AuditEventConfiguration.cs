@@ -1,7 +1,8 @@
+using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
-using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence.Configurations;
 
@@ -15,7 +16,7 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
 {
     public void Configure(EntityTypeBuilder<AuditEventEntity> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.ToTable("audit_events");
 

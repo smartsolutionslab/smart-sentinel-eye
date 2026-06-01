@@ -78,7 +78,7 @@ public sealed class Revision
 
     internal void EditLabel(Label newLabel)
     {
-        ArgumentNullException.ThrowIfNull(newLabel);
+        Ensure.That(newLabel).IsNotNull();
         if (State != OverlayRevisionState.Draft)
         {
             throw new InvalidOperationException(

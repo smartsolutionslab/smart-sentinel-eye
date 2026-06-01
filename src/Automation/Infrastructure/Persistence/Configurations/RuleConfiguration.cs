@@ -21,7 +21,7 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
 {
     public void Configure(EntityTypeBuilder<RuleAggregate> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.ToTable("rules");
         builder.HasKey(rule => rule.Id);
@@ -123,7 +123,7 @@ internal static class RuleActionColumnConverter
 
     public static RuleAction FromColumn(string packed)
     {
-        ArgumentNullException.ThrowIfNull(packed);
+        Ensure.That(packed).IsNotNull();
         int firstSep = packed.IndexOf('|', StringComparison.Ordinal);
         if (firstSep < 0)
         {

@@ -15,7 +15,7 @@ public sealed class GetStreamQueryHandler(
         GetStreamQuery query,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
 
         Stream? stream = await streams.Streams
             .SingleOrDefaultAsync(candidate => candidate.Camera == query.Camera, cancellationToken)

@@ -2,6 +2,7 @@ using SmartSentinelEye.OverlayDesigner.Domain.Overlay.Events;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.OverlayDesigner;
 using SmartSentinelEye.Shared.CQRS;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.OverlayDesigner.Application.EventHandlers;
 
@@ -23,7 +24,7 @@ public sealed class OverlayRevisionPublishedDomainEventHandler(IEventBus events)
 {
     public async Task Handle(OverlayRevisionPublishedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvent);
+        Ensure.That(domainEvent).IsNotNull();
 
         await events.PublishAsync(
             new OverlayRevisionPublishedV1(

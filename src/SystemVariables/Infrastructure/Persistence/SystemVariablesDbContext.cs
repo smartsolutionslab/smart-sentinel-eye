@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Infrastructure.Persistence;
@@ -16,7 +17,7 @@ public sealed class SystemVariablesDbContext(DbContextOptions<SystemVariablesDbC
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        ArgumentNullException.ThrowIfNull(modelBuilder);
+        Ensure.That(modelBuilder).IsNotNull();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(SystemVariablesDbContext).Assembly);
     }
 }

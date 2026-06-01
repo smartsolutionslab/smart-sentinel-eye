@@ -17,7 +17,7 @@ public sealed class DisableKioskCommandHandler(
     public async Task<Result<RegisteredClientIdentifier, DisableKioskError>> HandleAsync(
         DisableKioskCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
 
         Option<RegisteredClientAggregate> found = await clients
             .GetByClientIdAsync(command.ClientId, cancellationToken).ConfigureAwait(false);

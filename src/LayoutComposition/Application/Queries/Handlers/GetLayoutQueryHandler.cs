@@ -12,7 +12,7 @@ public sealed class GetLayoutQueryHandler(ILayoutQuerySource layouts)
     public async Task<Result<LayoutDto, GetLayoutError>> HandleAsync(
         GetLayoutQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
 
         Layout? layout = await layouts.Layouts
             .SingleOrDefaultAsync(candidate => candidate.Id == query.Layout, cancellationToken)

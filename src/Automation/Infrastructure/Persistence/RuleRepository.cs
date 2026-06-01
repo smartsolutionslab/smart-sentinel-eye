@@ -22,7 +22,7 @@ public sealed class RuleRepository(
     public async Task<Option<RuleAggregate>> GetByNameAsync(
         RuleName name, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(name);
+        Ensure.That(name).IsNotNull();
         // FR-002: archived names are released for re-use; ignore Archived rows.
         RuleAggregate? found = await dbContext.Rules
             .Where(rule => rule.Name == name)
@@ -34,7 +34,7 @@ public sealed class RuleRepository(
 
     public void Add(RuleAggregate rule)
     {
-        ArgumentNullException.ThrowIfNull(rule);
+        Ensure.That(rule).IsNotNull();
         dbContext.Rules.Add(rule);
     }
 

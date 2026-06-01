@@ -36,7 +36,7 @@ public sealed class RotateWebhookClientCommandHandler(
     public async Task<Result<WebhookClientCredentialsDto, RotateWebhookClientError>> HandleAsync(
         RotateWebhookClientCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (integrationName, fab, rotatedBy) = command;
 
         ClientId clientId;

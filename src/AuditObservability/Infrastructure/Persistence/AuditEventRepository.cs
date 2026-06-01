@@ -1,6 +1,7 @@
+using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
-using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 
@@ -20,7 +21,7 @@ public sealed class AuditEventRepository(AuditObservabilityDbContext dbContext) 
 
     public void Add(AuditEventEntity audit)
     {
-        ArgumentNullException.ThrowIfNull(audit);
+        Ensure.That(audit).IsNotNull();
         _pending.Add(audit);
     }
 

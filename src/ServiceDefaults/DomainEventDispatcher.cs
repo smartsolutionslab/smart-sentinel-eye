@@ -16,7 +16,7 @@ public sealed class DomainEventDispatcher(IServiceProvider services) : IDomainEv
 
     public async Task DispatchAsync(IEnumerable<IDomainEvent> domainEvents, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvents);
+        Ensure.That(domainEvents).IsNotNull();
 
         foreach (IDomainEvent domainEvent in domainEvents)
         {

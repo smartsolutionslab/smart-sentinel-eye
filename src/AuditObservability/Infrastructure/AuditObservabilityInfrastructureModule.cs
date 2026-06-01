@@ -28,7 +28,7 @@ public static class AuditObservabilityInfrastructureModule
 
     public static IHostApplicationBuilder AddAuditObservabilityInfrastructure(this IHostApplicationBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.AddAuditObservabilityPersistence();
 

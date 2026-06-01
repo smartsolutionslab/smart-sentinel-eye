@@ -12,7 +12,7 @@ public sealed class ListLayoutsQueryHandler(ILayoutQuerySource layouts)
     public async Task<Result<ListLayoutsResult, ListLayoutsError>> HandleAsync(
         ListLayoutsQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
 
         if (query.State == LayoutRevisionState.Published)
         {

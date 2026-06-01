@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 
@@ -17,7 +18,7 @@ public sealed class OverlayHighlightRequestedV1Handler(
 {
     public async Task Handle(OverlayHighlightRequestedV1 message, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(message);
+        Ensure.That(message).IsNotNull();
         await broadcaster.OverlayHighlightedAsync(
             new OverlayHighlightedNotification(message.OverlayIdentifier, message.DurationMs),
             cancellationToken).ConfigureAwait(false);

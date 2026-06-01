@@ -30,7 +30,7 @@ public static class EventIngestionInfrastructureModule
 
     public static IHostApplicationBuilder AddEventIngestionInfrastructure(this IHostApplicationBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.AddEventIngestionPersistence();
 

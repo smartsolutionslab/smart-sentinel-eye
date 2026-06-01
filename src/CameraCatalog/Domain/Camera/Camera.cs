@@ -25,9 +25,9 @@ public sealed class Camera : AggregateRoot<CameraIdentifier>
 
     public static Camera Register(CameraName name, RtspUrl url, OperatorIdentifier registeredBy, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(name);
-        ArgumentNullException.ThrowIfNull(url);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(name).IsNotNull();
+        Ensure.That(url).IsNotNull();
+        Ensure.That(clock).IsNotNull();
 
         Camera camera = new()
         {

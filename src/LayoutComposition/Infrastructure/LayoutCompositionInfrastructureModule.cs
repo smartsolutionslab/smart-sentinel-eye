@@ -27,7 +27,7 @@ public static class LayoutCompositionInfrastructureModule
 
     public static IHostApplicationBuilder AddLayoutCompositionInfrastructure(this IHostApplicationBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.AddLayoutCompositionPersistence();
 

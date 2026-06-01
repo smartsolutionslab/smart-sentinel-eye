@@ -33,7 +33,7 @@ public static class OverlayDesignerInfrastructureModule
 
     public static IHostApplicationBuilder AddOverlayDesignerInfrastructure(this IHostApplicationBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.AddOverlayDesignerPersistence();
 

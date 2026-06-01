@@ -31,7 +31,7 @@ public static class CameraCatalogInfrastructureModule
 
     public static IHostApplicationBuilder AddCameraCatalogPersistence(this IHostApplicationBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         string connectionString = builder.Configuration.GetConnectionString(DatabaseConnectionName)
             ?? throw new InvalidOperationException(
@@ -47,7 +47,7 @@ public static class CameraCatalogInfrastructureModule
 
     public static IHostApplicationBuilder AddCameraCatalogInfrastructure(this IHostApplicationBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.AddCameraCatalogPersistence();
 

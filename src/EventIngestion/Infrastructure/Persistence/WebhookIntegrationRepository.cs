@@ -12,7 +12,7 @@ public sealed class WebhookIntegrationRepository(
     public async Task<Option<WebhookIntegration>> GetByNameAsync(
         WebhookIntegrationName name, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(name);
+        Ensure.That(name).IsNotNull();
         WebhookIntegration? found = await dbContext.WebhookIntegrations
             .Where(integration => integration.Name == name)
             .FirstOrDefaultAsync(cancellationToken)
@@ -22,7 +22,7 @@ public sealed class WebhookIntegrationRepository(
 
     public void Add(WebhookIntegration integration)
     {
-        ArgumentNullException.ThrowIfNull(integration);
+        Ensure.That(integration).IsNotNull();
         dbContext.WebhookIntegrations.Add(integration);
     }
 

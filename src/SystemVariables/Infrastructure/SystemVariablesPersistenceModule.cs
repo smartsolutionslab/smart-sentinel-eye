@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Infrastructure.Persistence;
 
 namespace SmartSentinelEye.SystemVariables.Infrastructure;
@@ -19,7 +20,7 @@ public static class SystemVariablesPersistenceModule
 
     public static IHostApplicationBuilder AddSystemVariablesPersistence(this IHostApplicationBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         string connectionString = builder.Configuration.GetConnectionString(DatabaseConnectionName)
             ?? throw new InvalidOperationException(

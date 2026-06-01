@@ -16,7 +16,7 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
     public async Task<Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>> HandleAsync(
         RevokeWebhookIntegrationCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
 
         Option<WebhookIntegration> found = await integrations
             .GetByNameAsync(command.Name, cancellationToken)

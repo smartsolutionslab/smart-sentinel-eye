@@ -24,7 +24,7 @@ public static class WebhookRotationEndpoints
 {
     public static IEndpointRouteBuilder MapWebhookRotationEndpoints(this IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
+        Ensure.That(app).IsNotNull();
 
         RouteGroupBuilder group = app.MapGroup("/webhook-integrations")
             .RequireAuthorization(Scope.Sse.Webhooks.Write)
@@ -48,7 +48,7 @@ public static class WebhookRotationEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(body);
+        Ensure.That(body).IsNotNull();
 
         FabIdentifier fab;
         try

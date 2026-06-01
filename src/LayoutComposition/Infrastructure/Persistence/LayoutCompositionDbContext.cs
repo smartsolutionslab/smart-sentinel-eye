@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 
@@ -16,7 +17,7 @@ public sealed class LayoutCompositionDbContext(DbContextOptions<LayoutCompositio
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        ArgumentNullException.ThrowIfNull(modelBuilder);
+        Ensure.That(modelBuilder).IsNotNull();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LayoutCompositionDbContext).Assembly);
     }
 }

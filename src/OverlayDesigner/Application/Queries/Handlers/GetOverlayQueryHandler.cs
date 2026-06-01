@@ -12,7 +12,7 @@ public sealed class GetOverlayQueryHandler(IOverlayQuerySource overlays)
     public async Task<Result<OverlayDto, GetOverlayError>> HandleAsync(
         GetOverlayQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
 
         Overlay? overlay = await overlays.Overlays
             .SingleOrDefaultAsync(candidate => candidate.Id == query.Overlay, cancellationToken)

@@ -1,6 +1,7 @@
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.StreamDistribution;
 using SmartSentinelEye.Shared.CQRS;
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Domain.Stream.Events;
 
 namespace SmartSentinelEye.StreamDistribution.Application.EventHandlers;
@@ -15,7 +16,7 @@ public sealed class StreamHealthChangedDomainEventHandler(IEventBus events)
 {
     public Task Handle(StreamHealthChangedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvent);
+        Ensure.That(domainEvent).IsNotNull();
         return events.PublishAsync(
             new StreamHealthChangedV1(
                 Camera: domainEvent.Camera.Value,

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Automation.Application.Ael;
 
@@ -13,7 +14,7 @@ public static class AelLexer
 {
     public static IReadOnlyList<AelToken> Tokenize(string source)
     {
-        ArgumentNullException.ThrowIfNull(source);
+        Ensure.That(source).IsNotNull();
 
         List<AelToken> tokens = new();
         int i = 0;

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.AuditObservability.Application.Retention;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 
@@ -47,7 +48,7 @@ public sealed class TimescaleAuditChunkInventory(
 
     public async Task DropChunkAsync(AuditChunk chunk, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(chunk);
+        Ensure.That(chunk).IsNotNull();
 
         await using AuditObservabilityDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);

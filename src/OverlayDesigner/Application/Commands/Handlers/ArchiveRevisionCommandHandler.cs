@@ -14,7 +14,7 @@ public sealed class ArchiveRevisionCommandHandler(
     public async Task<Result<OverlayRevisionNumber, ArchiveRevisionError>> HandleAsync(
         ArchiveRevisionCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (overlayIdentifier, revisionNumber, archivedBy) = command;
 
         Option<Overlay> found = await overlays

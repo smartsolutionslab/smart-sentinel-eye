@@ -16,7 +16,7 @@ public sealed class RegisterWebhookIntegrationCommandHandler(
     public async Task<Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError>> HandleAsync(
         RegisterWebhookIntegrationCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (name, defaultKind) = command;
 
         Option<WebhookIntegration> existing = await integrations

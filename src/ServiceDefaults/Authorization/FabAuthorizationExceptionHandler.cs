@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults.Authorization;
 
@@ -20,7 +21,7 @@ public sealed class FabAuthorizationExceptionHandler : IExceptionHandler
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(httpContext);
+        Ensure.That(httpContext).IsNotNull();
         if (exception is not FabAuthorizationException fabException)
         {
             return false;

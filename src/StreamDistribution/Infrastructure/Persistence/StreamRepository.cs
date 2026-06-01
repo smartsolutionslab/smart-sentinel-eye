@@ -30,7 +30,7 @@ public sealed class StreamRepository(
     public async Task<Option<Domain.Stream.Stream>> GetByPathAsync(
         MediaMtxPath path, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(path);
+        Ensure.That(path).IsNotNull();
         Domain.Stream.Stream? found = await dbContext.Streams
             .FirstOrDefaultAsync(candidate => candidate.Path == path, cancellationToken)
             .ConfigureAwait(false);
@@ -39,7 +39,7 @@ public sealed class StreamRepository(
 
     public void Add(Domain.Stream.Stream stream)
     {
-        ArgumentNullException.ThrowIfNull(stream);
+        Ensure.That(stream).IsNotNull();
         dbContext.Streams.Add(stream);
     }
 

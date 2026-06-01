@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
+using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -10,7 +11,7 @@ using Minio.DataModel.Args;
 using Minio.Exceptions;
 using SmartSentinelEye.AuditObservability.Application.Retention;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
-using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.AuditObservability.Infrastructure.Archive;
 
@@ -37,7 +38,7 @@ public sealed class MinioAuditChunkArchiver(
     public async Task<ChunkArchiveResult> ArchiveChunkAsync(
         AuditChunk chunk, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(chunk);
+        Ensure.That(chunk).IsNotNull();
 
         MinioOptions opts = options.Value;
         await EnsureBucketAsync(opts.Bucket, cancellationToken).ConfigureAwait(false);

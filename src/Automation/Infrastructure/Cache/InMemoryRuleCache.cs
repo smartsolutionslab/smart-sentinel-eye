@@ -1,7 +1,8 @@
 using System.Collections.Concurrent;
+using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 using SmartSentinelEye.Automation.Application.Evaluation;
 using SmartSentinelEye.Automation.Domain.Rule;
-using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Automation.Infrastructure.Cache;
 
@@ -42,7 +43,7 @@ public sealed class InMemoryRuleCache : IRuleCache
 
     public void Upsert(RuleAggregate rule)
     {
-        ArgumentNullException.ThrowIfNull(rule);
+        Ensure.That(rule).IsNotNull();
         if (rule.State != RuleState.Active) return;
         CompiledRule compiled = CompiledRule.From(rule);
         var key = (rule.TriggerSource, rule.TriggerKind);

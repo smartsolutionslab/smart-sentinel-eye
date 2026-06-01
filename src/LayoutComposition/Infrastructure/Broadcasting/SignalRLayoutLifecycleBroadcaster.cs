@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 
@@ -19,7 +20,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 {
     public async Task PublishedAsync(LayoutRevisionPublishedNotification notification, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(notification);
+        Ensure.That(notification).IsNotNull();
         LayoutRevisionPublishedHubMessage message = new(
             Layout: notification.Layout.Value,
             RevisionNumber: notification.RevisionNumber.Value,
@@ -35,7 +36,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
     public async Task ArchivedAsync(LayoutRevisionArchivedNotification notification, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(notification);
+        Ensure.That(notification).IsNotNull();
         LayoutRevisionArchivedHubMessage message = new(
             Layout: notification.Layout.Value,
             RevisionNumber: notification.RevisionNumber.Value,
@@ -49,7 +50,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
     public async Task OverlayPublishedAsync(OverlayLifecyclePublishedNotification notification, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(notification);
+        Ensure.That(notification).IsNotNull();
         OverlayRevisionPublishedHubMessage message = new(
             Overlay: notification.Overlay,
             RevisionNumber: notification.RevisionNumber,
@@ -70,7 +71,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
     public async Task OverlayArchivedAsync(OverlayLifecycleArchivedNotification notification, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(notification);
+        Ensure.That(notification).IsNotNull();
         OverlayRevisionArchivedHubMessage message = new(
             Overlay: notification.Overlay,
             RevisionNumber: notification.RevisionNumber,
@@ -84,7 +85,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
     public async Task ResolvedOverlayTextChangedAsync(ResolvedOverlayTextChangedNotification notification, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(notification);
+        Ensure.That(notification).IsNotNull();
         ResolvedOverlayTextChangedHubMessage message = new(
             Overlay: notification.Overlay,
             ResolvedText: notification.ResolvedText,
@@ -98,7 +99,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
     public async Task OverlayHighlightedAsync(OverlayHighlightedNotification notification, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(notification);
+        Ensure.That(notification).IsNotNull();
         OverlayHighlightChangedHubMessage message = new(
             Overlay: notification.Overlay,
             DurationMs: notification.DurationMs);

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Api;
 
@@ -13,7 +14,7 @@ public static class EventIngestionApiModule
 {
     public static IServiceCollection AddEventIngestionApi(this IServiceCollection services)
     {
-        ArgumentNullException.ThrowIfNull(services);
+        Ensure.That(services).IsNotNull();
         return services;
     }
 }

@@ -25,7 +25,7 @@ public static class RulesEndpoints
 
     public static IEndpointRouteBuilder MapRulesEndpoints(this IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
+        Ensure.That(app).IsNotNull();
 
         RouteGroupBuilder group = app.MapGroup("/rules")
             .RequireAuthorization(Scope.Sse.Rules.Write)
@@ -57,7 +57,7 @@ public static class RulesEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(body);
+        Ensure.That(body).IsNotNull();
 
         RuleName name;
         RulePredicate predicate;

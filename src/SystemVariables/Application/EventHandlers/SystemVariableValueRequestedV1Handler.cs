@@ -38,7 +38,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
 
     public async Task Handle(SystemVariableValueRequestedV1 message, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(message);
+        Ensure.That(message).IsNotNull();
 
         bool reserved = await dedup.TryReserveAsync(
             message.Name, message.CausingEventIdentifier, cancellationToken)

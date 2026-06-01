@@ -12,7 +12,7 @@ public sealed class GetVariableQueryHandler(IVariableQuerySource variables)
     public async Task<Result<VariableDto, GetVariableError>> HandleAsync(
         GetVariableQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
 
         Variable? variable = await variables.Variables
             .SingleOrDefaultAsync(candidate => candidate.Name == query.Name, cancellationToken)

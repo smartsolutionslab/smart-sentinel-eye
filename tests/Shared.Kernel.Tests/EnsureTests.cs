@@ -100,4 +100,43 @@ public class EnsureTests
 
         act.ShouldThrow<ArgumentException>();
     }
+
+    [Fact]
+    public void IsNotNull_passes_through_a_non_null_reference()
+    {
+        object instance = new();
+
+        Ensure.That(instance).IsNotNull().AndReturn().ShouldBeSameAs(instance);
+    }
+
+    [Fact]
+    public void IsNotNull_throws_ArgumentNullException_on_null()
+    {
+        object missing = null;
+
+        Action act = () => Ensure.That(missing).IsNotNull();
+
+        act.ShouldThrow<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void IsNotNull_names_the_argument_from_the_call_site()
+    {
+        List<int> numbers = null;
+
+        ArgumentNullException thrown =
+            Should.Throw<ArgumentNullException>(() => Ensure.That(numbers).IsNotNull());
+
+        thrown.ParamName.ShouldBe("numbers");
+    }
+
+    [Fact]
+    public void A_string_argument_still_binds_to_the_string_overload()
+    {
+        // The generic overload also accepts strings; the more specific string
+        // overload must win so value-object invariant chains keep compiling.
+        EnsuredString chained = Ensure.That("value");
+
+        chained.IsNotNullOrWhiteSpace().AndReturn().ShouldBe("value");
+    }
 }

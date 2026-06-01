@@ -28,7 +28,7 @@ public sealed class VariableValueChangedDomainEventHandler(
 {
     public async Task Handle(VariableValueChangedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvent);
+        Ensure.That(domainEvent).IsNotNull();
 
         await events.PublishAsync(
             new SystemVariableValueChangedV1(

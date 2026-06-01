@@ -16,7 +16,7 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
         ListCamerasQuery query,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
         var (sort, order, offset, limit) = query;
 
         if (!AllowedSortFields.Contains(sort, StringComparer.Ordinal))

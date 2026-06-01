@@ -29,7 +29,7 @@ public static class IdentityInfrastructureModule
 
     public static IHostApplicationBuilder AddIdentityInfrastructure(this IHostApplicationBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.AddIdentityPersistence();
 

@@ -19,7 +19,7 @@ public static partial class LayoutEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(body);
+        Ensure.That(body).IsNotNull();
 
         LayoutName name;
         CameraIdentifier camera;
@@ -154,7 +154,7 @@ public static partial class LayoutEndpoints
         [FromServices] EditDraftRevisionCommandHandler handler,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(body);
+        Ensure.That(body).IsNotNull();
         if (layoutIdentifier == Guid.Empty)
         {
             return Results.Problem(

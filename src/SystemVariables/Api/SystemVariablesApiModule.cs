@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
 using SmartSentinelEye.SystemVariables.Application.Queries.Handlers;
 
@@ -15,7 +16,7 @@ public static class SystemVariablesApiModule
 {
     public static IServiceCollection AddSystemVariablesApi(this IServiceCollection services)
     {
-        ArgumentNullException.ThrowIfNull(services);
+        Ensure.That(services).IsNotNull();
 
         services.AddScoped<DefineVariableCommandHandler>();
         services.AddScoped<SetVariableValueCommandHandler>();

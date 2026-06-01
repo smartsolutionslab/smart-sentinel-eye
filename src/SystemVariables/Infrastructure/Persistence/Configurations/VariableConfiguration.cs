@@ -26,7 +26,7 @@ public sealed class VariableConfiguration : IEntityTypeConfiguration<Variable>
 {
     public void Configure(EntityTypeBuilder<Variable> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.ToTable("system_variables");
         builder.HasKey(variable => variable.Id);
@@ -117,7 +117,7 @@ internal static class VariableValueColumnConverter
 
     public static VariableValue FromColumn(string packed)
     {
-        ArgumentNullException.ThrowIfNull(packed);
+        Ensure.That(packed).IsNotNull();
         int sep = packed.IndexOf('|', StringComparison.Ordinal);
         if (sep < 0) throw new ArgumentException($"Malformed packed VariableValue '{packed}'.", nameof(packed));
         string kind = packed[..sep];

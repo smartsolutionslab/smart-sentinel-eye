@@ -28,7 +28,7 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
 {
     public void Configure(EntityTypeBuilder<Layout> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.ToTable("layouts");
         builder.HasKey(layout => layout.Id);

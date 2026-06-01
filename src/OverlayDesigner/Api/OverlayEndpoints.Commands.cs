@@ -19,8 +19,8 @@ public static partial class OverlayEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(body);
-        ArgumentNullException.ThrowIfNull(body.Label);
+        Ensure.That(body).IsNotNull();
+        Ensure.That(body.Label).IsNotNull();
 
         OverlayName name;
         Label label;
@@ -157,8 +157,8 @@ public static partial class OverlayEndpoints
         [FromServices] EditDraftRevisionCommandHandler handler,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(body);
-        ArgumentNullException.ThrowIfNull(body.Label);
+        Ensure.That(body).IsNotNull();
+        Ensure.That(body.Label).IsNotNull();
         if (overlayIdentifier == Guid.Empty)
         {
             return Results.Problem(

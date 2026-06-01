@@ -21,7 +21,7 @@ public static partial class EventsEndpoints
         [FromQuery] string fabId,
         [FromServices] IIngestChannel channel)
     {
-        ArgumentNullException.ThrowIfNull(body);
+        Ensure.That(body).IsNotNull();
 
         EventEnvelope envelope;
         try
@@ -55,8 +55,8 @@ public static partial class EventsEndpoints
         [FromServices] IClock clock,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(body);
-        ArgumentNullException.ThrowIfNull(request);
+        Ensure.That(body).IsNotNull();
+        Ensure.That(request).IsNotNull();
 
         WebhookIntegration? integration = await AuthenticateWebhookAsync(
             integrationName, request, fabId, integrations, cancellationToken).ConfigureAwait(false);

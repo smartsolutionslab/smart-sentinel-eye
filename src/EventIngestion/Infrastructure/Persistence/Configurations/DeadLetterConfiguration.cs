@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence.Configurations;
 
@@ -8,7 +9,7 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
 {
     public void Configure(EntityTypeBuilder<DeadLetter> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.ToTable("dead_letters");
         builder.HasKey(deadLetter => deadLetter.Id);

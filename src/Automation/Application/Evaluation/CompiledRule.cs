@@ -1,5 +1,6 @@
 using SmartSentinelEye.Automation.Application.Ael;
 using SmartSentinelEye.Automation.Domain.Rule;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Automation.Application.Evaluation;
 
@@ -49,7 +50,7 @@ public sealed class CompiledRule
 
     public static CompiledRule From(Rule rule)
     {
-        ArgumentNullException.ThrowIfNull(rule);
+        Ensure.That(rule).IsNotNull();
         AelExpression predicate = AelParser.Parse(rule.Predicate.Value);
         AelExpression? valueExpression = rule.Action is RuleAction.SetVariableValue setVariableValue
             ? AelParser.Parse(setVariableValue.ValueExpression)

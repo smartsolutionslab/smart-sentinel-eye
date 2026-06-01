@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Resolution;
 
 namespace SmartSentinelEye.SystemVariables.Infrastructure.Resolution;
@@ -24,7 +25,7 @@ public sealed class InMemoryReverseIndex : IReverseIndex
 
     public void UpsertOverlayReferences(Guid overlayIdentifier, string labelText)
     {
-        ArgumentNullException.ThrowIfNull(labelText);
+        Ensure.That(labelText).IsNotNull();
         RemoveOverlayInternal(overlayIdentifier);
         _labelByOverlay[overlayIdentifier] = labelText;
         foreach (string name in PlaceholderParser.ExtractNames(labelText))

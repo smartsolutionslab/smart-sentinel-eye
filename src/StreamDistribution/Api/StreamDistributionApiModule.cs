@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 using SmartSentinelEye.StreamDistribution.Application.Queries.Handlers;
 
@@ -15,7 +16,7 @@ public static class StreamDistributionApiModule
 {
     public static IServiceCollection AddStreamDistributionApi(this IServiceCollection services)
     {
-        ArgumentNullException.ThrowIfNull(services);
+        Ensure.That(services).IsNotNull();
 
         services.AddScoped<GetStreamQueryHandler>();
         services.AddScoped<ListStreamsQueryHandler>();

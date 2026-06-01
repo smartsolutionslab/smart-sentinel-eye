@@ -14,7 +14,7 @@ public sealed class RevertRevisionCommandHandler(
     public async Task<Result<OverlayRevisionNumber, RevertRevisionError>> HandleAsync(
         RevertRevisionCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (overlayIdentifier, revisionNumber, revertedBy) = command;
 
         Option<Overlay> found = await overlays

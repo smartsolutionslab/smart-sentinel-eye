@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.AuditObservability.Api;
 
@@ -13,7 +14,7 @@ public static class AuditObservabilityApiModule
 {
     public static IServiceCollection AddAuditObservabilityApi(this IServiceCollection services)
     {
-        ArgumentNullException.ThrowIfNull(services);
+        Ensure.That(services).IsNotNull();
         return services;
     }
 }
