@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.OverlayDesigner.Domain.Overlay;
@@ -13,9 +14,7 @@ public readonly record struct OverlayIdentifier(Guid Value) : IStronglyTypedId<G
     public static OverlayIdentifier New() => new(Guid.CreateVersion7());
 
     public static OverlayIdentifier From(Guid value) =>
-        value == Guid.Empty
-            ? throw new ArgumentException("OverlayIdentifier cannot be empty.", nameof(value))
-            : new OverlayIdentifier(value);
+        new(Ensure.That(value).IsNotEmpty().AndReturn());
 
     public static implicit operator Guid(OverlayIdentifier id) => id.Value;
 

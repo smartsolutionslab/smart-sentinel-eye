@@ -9,9 +9,7 @@ namespace SmartSentinelEye.Shared.Kernel;
 public readonly record struct OperatorIdentifier(Guid Value) : IStronglyTypedId<Guid>, IComparable<OperatorIdentifier>
 {
     public static OperatorIdentifier From(Guid value) =>
-        value == Guid.Empty
-            ? throw new ArgumentException("OperatorIdentifier cannot be empty.", nameof(value))
-            : new OperatorIdentifier(value);
+        new(Ensure.That(value).IsNotEmpty().AndReturn());
 
     public static implicit operator Guid(OperatorIdentifier id) => id.Value;
 

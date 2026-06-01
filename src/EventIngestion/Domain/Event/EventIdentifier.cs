@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.EventIngestion.Domain.Event;
@@ -13,9 +14,7 @@ public readonly record struct EventIdentifier(Guid Value) : IStronglyTypedId<Gui
     public static EventIdentifier New() => new(Guid.CreateVersion7());
 
     public static EventIdentifier From(Guid value) =>
-        value == Guid.Empty
-            ? throw new ArgumentException("EventIdentifier cannot be empty.", nameof(value))
-            : new EventIdentifier(value);
+        new(Ensure.That(value).IsNotEmpty().AndReturn());
 
     public static implicit operator Guid(EventIdentifier id) => id.Value;
 

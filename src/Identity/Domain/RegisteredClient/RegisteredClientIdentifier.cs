@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.Identity.Domain.RegisteredClient;
@@ -15,9 +16,7 @@ public readonly record struct RegisteredClientIdentifier(Guid Value) : IStrongly
     public static RegisteredClientIdentifier New() => new(Guid.CreateVersion7());
 
     public static RegisteredClientIdentifier From(Guid value) =>
-        value == Guid.Empty
-            ? throw new ArgumentException("RegisteredClientIdentifier cannot be empty.", nameof(value))
-            : new RegisteredClientIdentifier(value);
+        new(Ensure.That(value).IsNotEmpty().AndReturn());
 
     public static implicit operator Guid(RegisteredClientIdentifier id) => id.Value;
 

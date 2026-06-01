@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
@@ -15,9 +16,7 @@ public readonly record struct AuditEventIdentifier(Guid Value)
     public static AuditEventIdentifier New() => new(Guid.CreateVersion7());
 
     public static AuditEventIdentifier From(Guid value) =>
-        value == Guid.Empty
-            ? throw new ArgumentException("AuditEventIdentifier cannot be empty.", nameof(value))
-            : new AuditEventIdentifier(value);
+        new(Ensure.That(value).IsNotEmpty().AndReturn());
 
     /// <summary>
     /// Implicit unwrap to the underlying <see cref="Guid"/> so EF Core can

@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
@@ -12,9 +13,7 @@ public readonly record struct LayoutIdentifier(Guid Value) : IStronglyTypedId<Gu
     public static LayoutIdentifier New() => new(Guid.CreateVersion7());
 
     public static LayoutIdentifier From(Guid value) =>
-        value == Guid.Empty
-            ? throw new ArgumentException("LayoutIdentifier cannot be empty.", nameof(value))
-            : new LayoutIdentifier(value);
+        new(Ensure.That(value).IsNotEmpty().AndReturn());
 
     public static implicit operator Guid(LayoutIdentifier id) => id.Value;
 

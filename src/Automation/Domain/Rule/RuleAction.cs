@@ -56,14 +56,8 @@ public abstract record RuleAction
 
         public static HighlightOverlay From(Guid overlay, int durationMs)
         {
-            if (overlay == Guid.Empty)
-            {
-                throw new ArgumentException("Overlay identifier cannot be empty.", nameof(overlay));
-            }
-            if (durationMs < MinimumDurationMs || durationMs > MaximumDurationMs)
-            {
-                throw new ArgumentException($"durationMs must be between {MinimumDurationMs} and {MaximumDurationMs}; got {durationMs}.", nameof(durationMs));
-            }
+            Ensure.That(overlay).IsNotEmpty();
+            Ensure.That(durationMs).InRange(MinimumDurationMs, MaximumDurationMs);
             return new HighlightOverlay(overlay, durationMs);
         }
     }

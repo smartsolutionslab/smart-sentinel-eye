@@ -45,12 +45,7 @@ public sealed record Label(
         EnsurePositiveNormalized(normalizedWidth, nameof(normalizedWidth));
         EnsurePositiveNormalized(normalizedHeight, nameof(normalizedHeight));
 
-        if (fontSizePx is < MinimumFontSizePx or > MaximumFontSizePx)
-        {
-            throw new ArgumentException(
-                $"fontSizePx must be in [{MinimumFontSizePx}, {MaximumFontSizePx}]; got {fontSizePx}.",
-                nameof(fontSizePx));
-        }
+        Ensure.That(fontSizePx).InRange(MinimumFontSizePx, MaximumFontSizePx);
 
         return new Label(
             validatedText.Trim(),

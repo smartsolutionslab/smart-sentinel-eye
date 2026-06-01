@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
@@ -12,9 +13,7 @@ public readonly record struct WebhookIntegrationIdentifier(Guid Value) : IStrong
     public static WebhookIntegrationIdentifier New() => new(Guid.CreateVersion7());
 
     public static WebhookIntegrationIdentifier From(Guid value) =>
-        value == Guid.Empty
-            ? throw new ArgumentException("WebhookIntegrationIdentifier cannot be empty.", nameof(value))
-            : new WebhookIntegrationIdentifier(value);
+        new(Ensure.That(value).IsNotEmpty().AndReturn());
 
     public static implicit operator Guid(WebhookIntegrationIdentifier id) => id.Value;
 

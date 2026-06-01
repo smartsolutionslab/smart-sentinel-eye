@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.EventIngestion.Domain.DeadLetter;
@@ -7,9 +8,7 @@ public readonly record struct DeadLetterIdentifier(Guid Value) : IStronglyTypedI
     public static DeadLetterIdentifier New() => new(Guid.CreateVersion7());
 
     public static DeadLetterIdentifier From(Guid value) =>
-        value == Guid.Empty
-            ? throw new ArgumentException("DeadLetterIdentifier cannot be empty.", nameof(value))
-            : new DeadLetterIdentifier(value);
+        new(Ensure.That(value).IsNotEmpty().AndReturn());
 
     public static implicit operator Guid(DeadLetterIdentifier id) => id.Value;
 
