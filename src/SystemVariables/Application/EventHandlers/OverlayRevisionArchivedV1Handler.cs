@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Shared.Contracts.OverlayDesigner;
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Resolution;
 
 namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
@@ -16,7 +17,7 @@ public sealed class OverlayRevisionArchivedV1Handler(
 {
     public Task Handle(OverlayRevisionArchivedV1 message, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(message);
+        Ensure.That(message).IsNotNull();
         reverseIndex.RemoveOverlay(message.Overlay);
         Log.ReverseIndexDroppedOverlay(logger, message.Overlay);
         return Task.CompletedTask;

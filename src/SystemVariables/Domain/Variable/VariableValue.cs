@@ -1,4 +1,5 @@
 using System.Globalization;
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.SystemVariables.Domain.Variable;
@@ -27,8 +28,8 @@ public abstract record VariableValue : IValueObject
     /// </summary>
     public static VariableValue From(VariableType type, string raw)
     {
-        ArgumentNullException.ThrowIfNull(type);
-        ArgumentNullException.ThrowIfNull(raw);
+        Ensure.That(type).IsNotNull();
+        Ensure.That(raw).IsNotNull();
 
         if (type == VariableType.String)
         {

@@ -16,7 +16,7 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
 {
     public async Task Handle(WebhookIntegrationRotatedV1 message, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(message);
+        Ensure.That(message).IsNotNull();
 
         WebhookIntegrationName name;
         try

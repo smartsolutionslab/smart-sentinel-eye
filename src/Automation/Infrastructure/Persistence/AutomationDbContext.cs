@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Automation.Infrastructure.Persistence;
 
@@ -16,7 +17,7 @@ public sealed class AutomationDbContext(DbContextOptions<AutomationDbContext> op
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        ArgumentNullException.ThrowIfNull(modelBuilder);
+        Ensure.That(modelBuilder).IsNotNull();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AutomationDbContext).Assembly);
     }
 }

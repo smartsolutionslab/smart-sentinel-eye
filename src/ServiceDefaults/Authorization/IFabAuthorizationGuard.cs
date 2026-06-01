@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults.Authorization;
 
@@ -36,7 +37,7 @@ public sealed class DefaultFabAuthorizationGuard : IFabAuthorizationGuard
 
     public Task EnsureAccessAsync(ClaimsPrincipal user, string fabId, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(user);
+        Ensure.That(user).IsNotNull();
         ArgumentException.ThrowIfNullOrWhiteSpace(fabId);
         cancellationToken.ThrowIfCancellationRequested();
 

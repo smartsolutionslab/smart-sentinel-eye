@@ -16,7 +16,7 @@ public sealed class ArchiveRuleCommandHandler(
     public async Task<Result<RuleIdentifier, ArchiveRuleError>> HandleAsync(
         ArchiveRuleCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
 
         Option<Rule> found = await rules
             .GetByNameAsync(command.Name, cancellationToken)

@@ -25,7 +25,7 @@ public static class SystemVariableEndpoints
 {
     public static IEndpointRouteBuilder MapSystemVariableEndpoints(this IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
+        Ensure.That(app).IsNotNull();
 
         RouteGroupBuilder group = app.MapGroup("/system-variables")
             .RequireAuthorization()
@@ -77,7 +77,7 @@ public static class SystemVariableEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(body);
+        Ensure.That(body).IsNotNull();
 
         VariableName name;
         VariableType type;
@@ -125,7 +125,7 @@ public static class SystemVariableEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(body);
+        Ensure.That(body).IsNotNull();
 
         if (!BoundaryParse.TryParse(
             () => VariableName.From(name),

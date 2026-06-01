@@ -15,7 +15,7 @@ public sealed class CreateLayoutDraftCommandHandler(
         CreateLayoutDraftCommand command,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (name, camera, createdBy, overlay) = command;
 
         Option<Layout> existing = await layouts

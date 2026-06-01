@@ -14,7 +14,7 @@ public sealed class BranchDraftRevisionCommandHandler(
     public async Task<Result<LayoutRevisionNumber, BranchDraftRevisionError>> HandleAsync(
         BranchDraftRevisionCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (layoutIdentifier, branchedBy) = command;
 
         Option<Layout> found = await layouts

@@ -19,7 +19,7 @@ public static partial class LayoutEndpoints
 {
     public static IEndpointRouteBuilder MapLayoutEndpoints(this IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
+        Ensure.That(app).IsNotNull();
 
         RouteGroupBuilder group = app.MapGroup("/layouts")
             .WithTags("Layouts");

@@ -23,7 +23,7 @@ public static class CameraEndpoints
 {
     public static IEndpointRouteBuilder MapCameraCatalogEndpoints(this IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
+        Ensure.That(app).IsNotNull();
 
         RouteGroupBuilder writes = app.MapGroup("/cameras")
             .WithTags("Cameras")
@@ -53,7 +53,7 @@ public static class CameraEndpoints
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request);
+        Ensure.That(request).IsNotNull();
 
         CameraName name;
         RtspUrl url;

@@ -16,7 +16,7 @@ public sealed class RegisteredClientConfiguration : IEntityTypeConfiguration<Reg
 {
     public void Configure(EntityTypeBuilder<RegisteredClientAggregate> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.ToTable("registered_clients");
         builder.HasKey(client => client.Id);

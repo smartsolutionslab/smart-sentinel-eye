@@ -49,7 +49,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
         OperatorIdentifier provisionedBy,
         IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
 
         MediaMtxPath path = MediaMtxPath.For(camera);
         DateTimeOffset now = clock.UtcNow;
@@ -78,8 +78,8 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
 
     public void ReportHealthy(TranscodeMode detectedMode, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(detectedMode);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(detectedMode).IsNotNull();
+        Ensure.That(clock).IsNotNull();
 
         StreamState previous = State;
         DateTimeOffset now = clock.UtcNow;
@@ -104,7 +104,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
     public void ReportDegraded(string error, IClock clock)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(error);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
 
         StreamState previous = State;
         DateTimeOffset now = clock.UtcNow;
@@ -127,7 +127,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
     public void ReportOffline(string error, IClock clock)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(error);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
 
         if (State != StreamState.Degraded && State != StreamState.Offline)
         {

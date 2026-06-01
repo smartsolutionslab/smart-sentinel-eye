@@ -16,7 +16,7 @@ public sealed class PublishRuleCommandHandler(
     public async Task<Result<RuleIdentifier, PublishRuleError>> HandleAsync(
         PublishRuleCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
 
         Option<Rule> found = await rules
             .GetByNameAsync(command.Name, cancellationToken)

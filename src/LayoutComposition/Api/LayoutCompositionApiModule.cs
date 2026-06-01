@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Api;
 
@@ -17,7 +18,7 @@ public static class LayoutCompositionApiModule
 {
     public static IServiceCollection AddLayoutCompositionApi(this IServiceCollection services)
     {
-        ArgumentNullException.ThrowIfNull(services);
+        Ensure.That(services).IsNotNull();
 
         services.AddScoped<CreateLayoutDraftCommandHandler>();
         services.AddScoped<PublishRevisionCommandHandler>();

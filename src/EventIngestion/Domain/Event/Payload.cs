@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.EventIngestion.Domain.Event;
@@ -22,7 +23,7 @@ public sealed record Payload : IValueObject<string>
     /// <summary>Builds a Payload from a parsed <see cref="JsonDocument"/>.</summary>
     public static Payload From(JsonDocument document)
     {
-        ArgumentNullException.ThrowIfNull(document);
+        Ensure.That(document).IsNotNull();
         using MemoryStream buffer = new();
         using (Utf8JsonWriter writer = new(buffer))
         {
@@ -40,7 +41,7 @@ public sealed record Payload : IValueObject<string>
     /// <summary>Parses raw JSON text into a Payload (rejects malformed JSON).</summary>
     public static Payload From(string rawJson)
     {
-        ArgumentNullException.ThrowIfNull(rawJson);
+        Ensure.That(rawJson).IsNotNull();
         if (Encoding.UTF8.GetByteCount(rawJson) > MaximumBytes)
         {
             throw new ArgumentException(

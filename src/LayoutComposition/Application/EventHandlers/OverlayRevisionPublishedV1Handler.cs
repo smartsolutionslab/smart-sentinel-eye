@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts.OverlayDesigner;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 
@@ -19,7 +20,7 @@ public sealed class OverlayRevisionPublishedV1Handler(
 {
     public async Task Handle(OverlayRevisionPublishedV1 message, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(message);
+        Ensure.That(message).IsNotNull();
 
         await broadcaster.OverlayPublishedAsync(
             new OverlayLifecyclePublishedNotification(

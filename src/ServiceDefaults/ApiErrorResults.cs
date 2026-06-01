@@ -14,7 +14,7 @@ public static class ApiErrorResults
 {
     public static IResult ToProblem(this ApiError error)
     {
-        ArgumentNullException.ThrowIfNull(error);
+        Ensure.That(error).IsNotNull();
         return Results.Problem(
             title: error.Code,
             detail: error.Message,

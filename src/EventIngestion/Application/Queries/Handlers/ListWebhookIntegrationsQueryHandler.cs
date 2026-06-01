@@ -12,7 +12,7 @@ public sealed class ListWebhookIntegrationsQueryHandler(IWebhookIntegrationQuery
     public async Task<Result<IReadOnlyList<WebhookIntegrationDto>, ListWebhookIntegrationsError>> HandleAsync(
         ListWebhookIntegrationsQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
 
         IQueryable<WebhookIntegration> source = integrations.WebhookIntegrations;
         if (!query.IncludeRevoked)

@@ -39,9 +39,9 @@ public sealed class AuditingMessageHandler(
         V1Envelope envelope,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(payloadType);
-        ArgumentNullException.ThrowIfNull(payload);
-        ArgumentNullException.ThrowIfNull(envelope);
+        Ensure.That(payloadType).IsNotNull();
+        Ensure.That(payload).IsNotNull();
+        Ensure.That(envelope).IsNotNull();
 
         V1Mapping mapping = resourceMap.Lookup(payloadType, payload);
         AuditEventEntity row = AuditEventEntity.From(envelope, mapping, clock);

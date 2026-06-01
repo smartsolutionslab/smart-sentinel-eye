@@ -16,7 +16,7 @@ public sealed class AuthorizeWhepCommandHandler(
         AuthorizeWhepCommand command,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
 
         var (path, bearerToken) = command;
 

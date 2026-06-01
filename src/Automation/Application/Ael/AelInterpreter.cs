@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Automation.Application.Ael;
 
@@ -17,7 +18,7 @@ public static class AelInterpreter
 {
     public static AelValue Evaluate(AelExpression expression, EvaluationContext context)
     {
-        ArgumentNullException.ThrowIfNull(expression);
+        Ensure.That(expression).IsNotNull();
         return Eval(expression, context);
     }
 

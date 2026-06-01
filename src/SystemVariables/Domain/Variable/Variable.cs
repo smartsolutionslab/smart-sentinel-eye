@@ -50,9 +50,9 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
         OperatorIdentifier definedBy,
         IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(name);
-        ArgumentNullException.ThrowIfNull(type);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(name).IsNotNull();
+        Ensure.That(type).IsNotNull();
+        Ensure.That(clock).IsNotNull();
 
         if (type == VariableType.Boolean && booleanLabels is null)
         {
@@ -90,8 +90,8 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
     /// </summary>
     public void SetValue(VariableValue value, OperatorIdentifier changedBy, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(value);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(value).IsNotNull();
+        Ensure.That(clock).IsNotNull();
         if (State != VariableState.Defined)
         {
             throw new InvalidOperationException(
@@ -108,7 +108,7 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
     /// </summary>
     public void Archive(OperatorIdentifier archivedBy, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         if (State == VariableState.Archived) return;
         State = VariableState.Archived;
         Value = VariableValue.Unset.Instance;

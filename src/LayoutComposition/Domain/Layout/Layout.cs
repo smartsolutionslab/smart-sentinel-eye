@@ -37,8 +37,8 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
         IClock clock,
         OverlayIdentifier? overlay = null)
     {
-        ArgumentNullException.ThrowIfNull(name);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(name).IsNotNull();
+        Ensure.That(clock).IsNotNull();
 
         DateTimeOffset now = clock.UtcNow;
         Layout layout = new()
@@ -60,7 +60,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     /// </summary>
     public Revision BranchDraft(OperatorIdentifier by, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         Revision baseRevision = CurrentPublishedOrNull()
             ?? throw new InvalidOperationException(
                 "BranchDraft requires a currently-Published revision to copy from.");
@@ -78,7 +78,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     public void EditDraft(
         LayoutRevisionNumber number, CameraIdentifier camera, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         Revision target = RequireRevision(number);
         target.EditCamera(camera);
     }
@@ -90,7 +90,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     public void AttachOverlay(
         LayoutRevisionNumber number, OverlayIdentifier? overlay, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         Revision target = RequireRevision(number);
         target.AttachOverlay(overlay);
     }
@@ -104,7 +104,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     /// </summary>
     public void Publish(LayoutRevisionNumber number, OperatorIdentifier by, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         Revision target = RequireRevision(number);
         Revision? prior = CurrentPublishedOrNull();
         DateTimeOffset now = clock.UtcNow;
@@ -126,7 +126,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     /// </summary>
     public void Revert(LayoutRevisionNumber number, OperatorIdentifier by, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         Revision target = RequireRevision(number);
         target.Revert();
         Raise(new LayoutRevisionArchivedDomainEvent(Id, number, clock.UtcNow, by));
@@ -139,7 +139,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     public void ArchiveRevision(
         LayoutRevisionNumber number, OperatorIdentifier by, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         Revision target = RequireRevision(number);
         if (target.State == LayoutRevisionState.Archived) return;
         bool wasObservable = target.State == LayoutRevisionState.Published;

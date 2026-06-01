@@ -26,7 +26,7 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
 {
     public void Configure(EntityTypeBuilder<Overlay> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.ToTable("overlays");
         builder.HasKey(overlay => overlay.Id);

@@ -18,7 +18,7 @@ public sealed class EnrollKioskCommandHandler(
     public async Task<Result<KioskCredentialsDto, EnrollKioskError>> HandleAsync(
         EnrollKioskCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (clientId, fab, enrolledBy) = command;
 
         Option<RegisteredClientAggregate> existing = await clients

@@ -12,7 +12,7 @@ public sealed class GetAuditEventQueryHandler(IAuditEventQuerySource events)
     public async Task<Result<AuditRowDto, GetAuditEventError>> HandleAsync(
         GetAuditEventQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
 
         AuditEventEntity? row = await events.AuditEvents
             .FirstOrDefaultAsync(auditEvent => auditEvent.Id.Value == query.AuditIdentifier, cancellationToken)

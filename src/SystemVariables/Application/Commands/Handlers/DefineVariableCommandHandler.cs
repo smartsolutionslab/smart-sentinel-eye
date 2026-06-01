@@ -15,7 +15,7 @@ public sealed class DefineVariableCommandHandler(
         DefineVariableCommand command,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (name, type, initialValue, booleanLabels, definedBy) = command;
 
         // Name uniqueness (FR-001 / FR-005). Archived names are free.

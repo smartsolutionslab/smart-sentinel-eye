@@ -21,9 +21,9 @@ public sealed class DeadLetter : AggregateRoot<DeadLetterIdentifier>
     public static DeadLetter Capture(string topic, string rawPayload, string error, IClock clock)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(topic);
-        ArgumentNullException.ThrowIfNull(rawPayload);
+        Ensure.That(rawPayload).IsNotNull();
         ArgumentException.ThrowIfNullOrWhiteSpace(error);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         return new DeadLetter
         {
             Id = DeadLetterIdentifier.New(),

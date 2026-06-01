@@ -37,7 +37,7 @@ public static class SystemVariablesInfrastructureModule
 
     public static IHostApplicationBuilder AddSystemVariablesInfrastructure(this IHostApplicationBuilder builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.AddSystemVariablesPersistence();
 

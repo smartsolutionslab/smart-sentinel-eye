@@ -12,7 +12,7 @@ public sealed class ListVariablesQueryHandler(IVariableQuerySource variables)
     public async Task<Result<IReadOnlyList<VariableDto>, ListVariablesError>> HandleAsync(
         ListVariablesQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
 
         IQueryable<Variable> source = variables.Variables;
         if (query.State is not null)

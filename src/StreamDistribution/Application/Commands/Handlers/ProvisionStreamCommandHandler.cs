@@ -16,7 +16,7 @@ public sealed class ProvisionStreamCommandHandler(
         ProvisionStreamCommand command,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
 
         var (camera, rtspSourceUrl, provisionedBy) = command;
 

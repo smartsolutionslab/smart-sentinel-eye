@@ -24,7 +24,7 @@ public static class WebhookIntegrationsEndpoints
 {
     public static IEndpointRouteBuilder MapWebhookIntegrationsEndpoints(this IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
+        Ensure.That(app).IsNotNull();
 
         RouteGroupBuilder group = app.MapGroup("/webhook-integrations")
             .RequireAuthorization(Scope.Sse.Webhooks.Write)
@@ -50,7 +50,7 @@ public static class WebhookIntegrationsEndpoints
         [FromServices] RegisterWebhookIntegrationCommandHandler handler,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(body);
+        Ensure.That(body).IsNotNull();
 
         WebhookIntegrationName name;
         Kind defaultKind;

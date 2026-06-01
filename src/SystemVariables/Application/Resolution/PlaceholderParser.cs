@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.SystemVariables.Application.Resolution;
 
@@ -23,7 +24,7 @@ public static partial class PlaceholderParser
     /// </summary>
     public static IReadOnlyCollection<string> ExtractNames(string labelText)
     {
-        ArgumentNullException.ThrowIfNull(labelText);
+        Ensure.That(labelText).IsNotNull();
         if (labelText.Length == 0) return Array.Empty<string>();
 
         HashSet<string> seen = new(StringComparer.Ordinal);
@@ -44,8 +45,8 @@ public static partial class PlaceholderParser
     /// </summary>
     public static string Substitute(string labelText, Func<string, string?> resolveOne)
     {
-        ArgumentNullException.ThrowIfNull(labelText);
-        ArgumentNullException.ThrowIfNull(resolveOne);
+        Ensure.That(labelText).IsNotNull();
+        Ensure.That(resolveOne).IsNotNull();
 
         return PlaceholderRegex().Replace(labelText, match =>
         {

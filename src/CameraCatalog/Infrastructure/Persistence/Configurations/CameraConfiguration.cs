@@ -14,7 +14,7 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
 {
     public void Configure(EntityTypeBuilder<Camera> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.ToTable("cameras");
 

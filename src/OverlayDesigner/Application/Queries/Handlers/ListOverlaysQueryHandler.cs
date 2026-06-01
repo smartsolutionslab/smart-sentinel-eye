@@ -12,7 +12,7 @@ public sealed class ListOverlaysQueryHandler(IOverlayQuerySource overlays)
     public async Task<Result<ListOverlaysResult, ListOverlaysError>> HandleAsync(
         ListOverlaysQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
 
         if (query.State == OverlayRevisionState.Published)
         {

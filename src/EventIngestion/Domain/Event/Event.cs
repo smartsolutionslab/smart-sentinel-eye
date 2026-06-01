@@ -46,13 +46,13 @@ public sealed class Event : AggregateRoot<EventIdentifier>
         Payload payload,
         IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(fab);
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(device);
-        ArgumentNullException.ThrowIfNull(kind);
-        ArgumentNullException.ThrowIfNull(occurredAt);
-        ArgumentNullException.ThrowIfNull(payload);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(fab).IsNotNull();
+        Ensure.That(source).IsNotNull();
+        Ensure.That(device).IsNotNull();
+        Ensure.That(kind).IsNotNull();
+        Ensure.That(occurredAt).IsNotNull();
+        Ensure.That(payload).IsNotNull();
+        Ensure.That(clock).IsNotNull();
 
         DateTimeOffset now = clock.UtcNow;
         if (occurredAt.Value > now.Add(MaximumFutureSkew))

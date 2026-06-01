@@ -20,7 +20,7 @@ public sealed class RegisterDeviceCommandHandler(
     public async Task<Result<DeviceCredentialsDto, RegisterDeviceError>> HandleAsync(
         RegisterDeviceCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (deviceType, deviceIdentifier, fab, registeredBy) = command;
 
         if (!AllowedDeviceTypes.Contains(deviceType, StringComparer.Ordinal))

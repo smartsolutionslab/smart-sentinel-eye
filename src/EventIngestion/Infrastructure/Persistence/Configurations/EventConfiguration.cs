@@ -1,7 +1,8 @@
+using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.EventIngestion.Domain.Event;
-using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence.Configurations;
 
@@ -22,7 +23,7 @@ public sealed class EventConfiguration : IEntityTypeConfiguration<EventAggregate
 {
     public void Configure(EntityTypeBuilder<EventAggregate> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.ToTable("events");
         builder.HasKey(eventEntity => new { eventEntity.Fab, eventEntity.Id, eventEntity.IngestedAt });

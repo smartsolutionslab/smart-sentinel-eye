@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 
@@ -15,7 +16,7 @@ public sealed class CameraCatalogDbContext(DbContextOptions<CameraCatalogDbConte
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        ArgumentNullException.ThrowIfNull(modelBuilder);
+        Ensure.That(modelBuilder).IsNotNull();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CameraCatalogDbContext).Assembly);
     }
 }

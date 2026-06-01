@@ -27,7 +27,7 @@ public sealed class EventRepository(
 
     public void Add(EventAggregate @event)
     {
-        ArgumentNullException.ThrowIfNull(@event);
+        Ensure.That(@event).IsNotNull();
         dbContext.Events.Add(@event);
     }
 

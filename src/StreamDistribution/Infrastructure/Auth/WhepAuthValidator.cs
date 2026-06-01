@@ -22,7 +22,7 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
 
     public WhepAuthValidator(IOptions<WhepAuthOptions> options)
     {
-        ArgumentNullException.ThrowIfNull(options);
+        Ensure.That(options).IsNotNull();
         string authority = options.Value.Authority.TrimEnd('/');
 
         // Allow an http metadata authority (dev/test/Aspire); production

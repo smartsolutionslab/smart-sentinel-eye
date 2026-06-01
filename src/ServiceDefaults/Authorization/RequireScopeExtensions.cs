@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults.Authorization;
 
@@ -37,8 +38,8 @@ public static class RequireScopeExtensions
     public static AuthorizationBuilder AddScopePolicies(
         this AuthorizationBuilder builder, IEnumerable<string> scopes)
     {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(scopes);
+        Ensure.That(builder).IsNotNull();
+        Ensure.That(scopes).IsNotNull();
 
         foreach (string scope in scopes)
         {
@@ -79,7 +80,7 @@ public static class RequireScopeExtensions
     public static RouteHandlerBuilder RequireScope(
         this RouteHandlerBuilder builder, string scope)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
         ArgumentException.ThrowIfNullOrWhiteSpace(scope);
         return builder.RequireAuthorization(scope);
     }

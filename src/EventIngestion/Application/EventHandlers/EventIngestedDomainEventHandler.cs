@@ -3,6 +3,7 @@ using SmartSentinelEye.EventIngestion.Domain.Event.Events;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.EventIngestion;
 using SmartSentinelEye.Shared.CQRS;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Application.EventHandlers;
 
@@ -17,7 +18,7 @@ public sealed class EventIngestedDomainEventHandler(IEventBus events, ILogger<Ev
 {
     public async Task Handle(EventIngestedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvent);
+        Ensure.That(domainEvent).IsNotNull();
 
         await events.PublishAsync(
             new FabEventIngestedV1(

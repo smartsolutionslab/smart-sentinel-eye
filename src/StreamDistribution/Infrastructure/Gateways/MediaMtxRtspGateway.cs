@@ -16,7 +16,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
 {
     public async Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(path);
+        Ensure.That(path).IsNotNull();
         ArgumentException.ThrowIfNullOrWhiteSpace(rtspSourceUrl);
 
         // POST /v3/config/paths/add/{name}
@@ -36,7 +36,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
 
     public async Task RemovePathAsync(MediaMtxPath path, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(path);
+        Ensure.That(path).IsNotNull();
 
         using HttpResponseMessage response = await http
             .DeleteAsync($"/v3/config/paths/delete/{path.Value}", cancellationToken)
@@ -90,7 +90,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
 
     public async Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(path);
+        Ensure.That(path).IsNotNull();
 
         using HttpResponseMessage response = await http
             .GetAsync($"/v3/paths/get/{path.Value}", cancellationToken)

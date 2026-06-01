@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Application.Ingress;
 
@@ -33,13 +34,13 @@ public sealed class BoundedIngestChannel : IIngestChannel
 
     public bool TryWrite(EventEnvelope envelope)
     {
-        ArgumentNullException.ThrowIfNull(envelope);
+        Ensure.That(envelope).IsNotNull();
         return _channel.Writer.TryWrite(envelope);
     }
 
     public ValueTask WriteAsync(EventEnvelope envelope, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(envelope);
+        Ensure.That(envelope).IsNotNull();
         return _channel.Writer.WriteAsync(envelope, cancellationToken);
     }
 

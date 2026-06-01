@@ -19,7 +19,7 @@ public static partial class OverlayEndpoints
 {
     public static IEndpointRouteBuilder MapOverlayEndpoints(this IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
+        Ensure.That(app).IsNotNull();
 
         RouteGroupBuilder group = app.MapGroup("/overlays")
             .WithTags("Overlays");

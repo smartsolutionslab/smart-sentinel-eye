@@ -21,7 +21,7 @@ public sealed class LayoutRepository(
     public async Task<Option<Layout>> GetByNameAsync(
         LayoutName name, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(name);
+        Ensure.That(name).IsNotNull();
         // FR-006: ignore archived chains for name-uniqueness. A chain is
         // "archived" when every revision is in Archived state. Implemented
         // here in LINQ; the application-level uniqueness check is the
@@ -36,7 +36,7 @@ public sealed class LayoutRepository(
 
     public void Add(Layout layout)
     {
-        ArgumentNullException.ThrowIfNull(layout);
+        Ensure.That(layout).IsNotNull();
         dbContext.Layouts.Add(layout);
     }
 

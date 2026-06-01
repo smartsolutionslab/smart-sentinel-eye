@@ -27,7 +27,7 @@ public sealed class VariableArchivedDomainEventHandler(
 {
     public async Task Handle(VariableArchivedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(domainEvent);
+        Ensure.That(domainEvent).IsNotNull();
 
         await events.PublishAsync(
             new SystemVariableArchivedV1(

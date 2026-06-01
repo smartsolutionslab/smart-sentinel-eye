@@ -1,7 +1,8 @@
+using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
-using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 
@@ -23,7 +24,7 @@ public sealed class EventIngestionDbContext(DbContextOptions<EventIngestionDbCon
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        ArgumentNullException.ThrowIfNull(modelBuilder);
+        Ensure.That(modelBuilder).IsNotNull();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(EventIngestionDbContext).Assembly);
     }
 }

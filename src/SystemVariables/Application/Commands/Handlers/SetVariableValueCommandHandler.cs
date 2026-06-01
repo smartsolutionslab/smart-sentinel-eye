@@ -15,7 +15,7 @@ public sealed class SetVariableValueCommandHandler(
         SetVariableValueCommand command,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (name, wireValue, changedBy) = command;
 
         Option<Variable> found = await variables

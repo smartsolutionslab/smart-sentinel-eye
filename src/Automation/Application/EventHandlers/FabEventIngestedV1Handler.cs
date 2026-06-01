@@ -33,7 +33,7 @@ public sealed class FabEventIngestedV1Handler(
 {
     public async Task Handle(FabEventIngestedV1 message, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(message);
+        Ensure.That(message).IsNotNull();
 
         EvaluationContext context = BuildContext(message);
         IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(

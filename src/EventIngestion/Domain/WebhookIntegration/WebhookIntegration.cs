@@ -50,9 +50,9 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
         Kind defaultKind,
         IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(name);
-        ArgumentNullException.ThrowIfNull(defaultKind);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(name).IsNotNull();
+        Ensure.That(defaultKind).IsNotNull();
+        Ensure.That(clock).IsNotNull();
 
         (BearerTokenHash hash, string plaintext) = BearerTokenHash.Generate();
         DateTimeOffset now = clock.UtcNow;
@@ -73,7 +73,7 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
 
     public void Revoke(IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         if (IsRevoked) return; // idempotent
         RevokedAt = clock.UtcNow;
         Raise(new WebhookIntegrationRevokedDomainEvent(Name, RevokedAt.Value));
@@ -89,7 +89,7 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
     public void MarkAsRotated(string keycloakClientId, IClock clock)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(keycloakClientId);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
 
         if (ValidationMode == BearerValidationMode.Jwt &&
             string.Equals(KeycloakClientId, keycloakClientId, StringComparison.Ordinal))

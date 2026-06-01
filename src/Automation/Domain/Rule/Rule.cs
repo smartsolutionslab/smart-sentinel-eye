@@ -53,10 +53,10 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
         OperatorIdentifier createdBy,
         IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(name);
-        ArgumentNullException.ThrowIfNull(predicate);
-        ArgumentNullException.ThrowIfNull(action);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(name).IsNotNull();
+        Ensure.That(predicate).IsNotNull();
+        Ensure.That(action).IsNotNull();
+        Ensure.That(clock).IsNotNull();
         ArgumentException.ThrowIfNullOrWhiteSpace(triggerSource);
         ArgumentException.ThrowIfNullOrWhiteSpace(triggerKind);
 
@@ -84,7 +84,7 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
     /// </summary>
     public void Publish(IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         if (State == RuleState.Active) return; // idempotent
         if (State == RuleState.Archived)
         {
@@ -102,7 +102,7 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
     /// </summary>
     public void Archive(IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         if (State == RuleState.Archived) return; // idempotent
         State = RuleState.Archived;
         ArchivedAt = clock.UtcNow;

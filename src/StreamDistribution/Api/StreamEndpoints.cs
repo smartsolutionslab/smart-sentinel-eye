@@ -23,7 +23,7 @@ public static class StreamEndpoints
 {
     public static IEndpointRouteBuilder MapStreamEndpoints(this IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
+        Ensure.That(app).IsNotNull();
 
         RouteGroupBuilder group = app.MapGroup("/streams")
             .WithTags("Streams");
@@ -109,7 +109,7 @@ public static class StreamEndpoints
         [FromServices] AuthorizeWhepCommandHandler handler,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(body);
+        Ensure.That(body).IsNotNull();
 
         MediaMtxPath parsedPath;
         try

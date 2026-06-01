@@ -14,7 +14,7 @@ public sealed class ArchiveRevisionCommandHandler(
     public async Task<Result<LayoutRevisionNumber, ArchiveRevisionError>> HandleAsync(
         ArchiveRevisionCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (layoutIdentifier, revisionNumber, archivedBy) = command;
 
         Option<Layout> found = await layouts

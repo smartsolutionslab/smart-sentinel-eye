@@ -15,7 +15,7 @@ public sealed class CreateRuleCommandHandler(
     public async Task<Result<RuleIdentifier, CreateRuleError>> HandleAsync(
         CreateRuleCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
 
         var (name, triggerSource, triggerKind, predicate, action, createdBy) = command;
 

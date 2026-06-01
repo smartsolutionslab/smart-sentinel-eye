@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults;
 
@@ -21,7 +22,7 @@ public static class BoundaryParse
     /// </summary>
     public static bool TryParse<T>(Func<T> parse, string errorCode, out T value, out IResult problem)
     {
-        ArgumentNullException.ThrowIfNull(parse);
+        Ensure.That(parse).IsNotNull();
         try
         {
             value = parse();

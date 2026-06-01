@@ -15,7 +15,7 @@ public sealed class ListStreamsQueryHandler(
         ListStreamsQuery query,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
 
         if (query.Cameras.Count > ListStreamsDefaults.MaximumBatchSize)
         {

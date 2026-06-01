@@ -17,7 +17,7 @@ public sealed class DisableDeviceCommandHandler(
     public async Task<Result<RegisteredClientIdentifier, DisableDeviceError>> HandleAsync(
         DisableDeviceCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
 
         Option<RegisteredClientAggregate> found = await clients
             .GetByClientIdAsync(command.ClientId, cancellationToken).ConfigureAwait(false);

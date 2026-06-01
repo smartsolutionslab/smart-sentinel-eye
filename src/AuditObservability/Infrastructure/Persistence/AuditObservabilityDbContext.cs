@@ -1,5 +1,6 @@
-using Microsoft.EntityFrameworkCore;
 using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
+using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 
@@ -16,7 +17,7 @@ public sealed class AuditObservabilityDbContext(DbContextOptions<AuditObservabil
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        ArgumentNullException.ThrowIfNull(modelBuilder);
+        Ensure.That(modelBuilder).IsNotNull();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AuditObservabilityDbContext).Assembly);
     }
 }

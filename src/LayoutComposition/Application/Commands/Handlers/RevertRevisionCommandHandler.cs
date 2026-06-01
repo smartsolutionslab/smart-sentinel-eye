@@ -14,7 +14,7 @@ public sealed class RevertRevisionCommandHandler(
     public async Task<Result<LayoutRevisionNumber, RevertRevisionError>> HandleAsync(
         RevertRevisionCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (layoutIdentifier, revisionNumber, revertedBy) = command;
 
         Option<Layout> found = await layouts

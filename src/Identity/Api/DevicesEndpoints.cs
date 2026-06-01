@@ -18,7 +18,7 @@ public static class DevicesEndpoints
 {
     public static IEndpointRouteBuilder MapDevicesEndpoints(this IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
+        Ensure.That(app).IsNotNull();
 
         RouteGroupBuilder group = app.MapGroup("/devices")
             .RequireAuthorization(Scope.Sse.Identity.DeviceClients.Write)
@@ -48,7 +48,7 @@ public static class DevicesEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(body);
+        Ensure.That(body).IsNotNull();
 
         FabIdentifier fab;
         try

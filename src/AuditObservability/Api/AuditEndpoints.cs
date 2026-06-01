@@ -25,7 +25,7 @@ public static class AuditEndpoints
 
     public static IEndpointRouteBuilder MapAuditEndpoints(this IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
+        Ensure.That(app).IsNotNull();
 
         RouteGroupBuilder group = app.MapGroup("/audit")
             .RequireAuthorization(Scope.Sse.Audit.Read)
@@ -156,7 +156,7 @@ public static class AuditEndpoints
 
     private static List<string> ExtractFabSet(ClaimsPrincipal user)
     {
-        ArgumentNullException.ThrowIfNull(user);
+        Ensure.That(user).IsNotNull();
         return [.. user.FindAll(GroupClaimType)
             .SelectMany(claim => claim.Value.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries))
             .Where(token => token.StartsWith(FabGroupPrefix, StringComparison.Ordinal))

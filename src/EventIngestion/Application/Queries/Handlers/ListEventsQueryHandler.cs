@@ -17,7 +17,7 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
     public async Task<Result<EventPageDto, ListEventsError>> HandleAsync(
         ListEventsQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
 
         // The filter fields are consumed by BuildPagedQuery (which takes the
         // whole query so its EF translation can be verified offline); only the

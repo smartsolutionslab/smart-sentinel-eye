@@ -18,7 +18,7 @@ public static class KiosksEndpoints
 {
     public static IEndpointRouteBuilder MapKiosksEndpoints(this IEndpointRouteBuilder app)
     {
-        ArgumentNullException.ThrowIfNull(app);
+        Ensure.That(app).IsNotNull();
 
         RouteGroupBuilder group = app.MapGroup("/kiosks")
             .RequireAuthorization(Scope.Sse.Identity.KioskClients.Write)
@@ -48,7 +48,7 @@ public static class KiosksEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(body);
+        Ensure.That(body).IsNotNull();
 
         ClientId clientId;
         FabIdentifier fab;

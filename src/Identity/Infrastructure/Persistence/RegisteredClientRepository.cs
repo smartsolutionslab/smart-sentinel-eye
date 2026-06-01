@@ -24,7 +24,7 @@ public sealed class RegisteredClientRepository(
     public async Task<Option<RegisteredClientAggregate>> GetByClientIdAsync(
         ClientId clientId, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(clientId);
+        Ensure.That(clientId).IsNotNull();
         // Disabled rows release the clientId for re-registration
         // (mirrors spec 005's archived-name pattern).
         RegisteredClientAggregate? found = await dbContext.RegisteredClients
@@ -39,7 +39,7 @@ public sealed class RegisteredClientRepository(
 
     public void Add(RegisteredClientAggregate client)
     {
-        ArgumentNullException.ThrowIfNull(client);
+        Ensure.That(client).IsNotNull();
         dbContext.RegisteredClients.Add(client);
     }
 

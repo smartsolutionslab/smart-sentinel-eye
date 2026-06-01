@@ -1,4 +1,5 @@
 using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 
@@ -6,7 +7,7 @@ public sealed class DeadLetterRepository(EventIngestionDbContext dbContext) : ID
 {
     public void Add(DeadLetter deadLetter)
     {
-        ArgumentNullException.ThrowIfNull(deadLetter);
+        Ensure.That(deadLetter).IsNotNull();
         dbContext.DeadLetters.Add(deadLetter);
     }
 

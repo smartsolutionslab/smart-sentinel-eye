@@ -64,9 +64,9 @@ public sealed class AuditEvent
     /// </summary>
     public static AuditEvent From(V1Envelope envelope, V1Mapping mapping, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(envelope);
-        ArgumentNullException.ThrowIfNull(mapping);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(envelope).IsNotNull();
+        Ensure.That(mapping).IsNotNull();
+        Ensure.That(clock).IsNotNull();
 
         return new AuditEvent
         {

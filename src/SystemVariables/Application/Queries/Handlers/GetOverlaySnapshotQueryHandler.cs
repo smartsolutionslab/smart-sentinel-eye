@@ -15,7 +15,7 @@ public sealed class GetOverlaySnapshotQueryHandler(
     public async Task<Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError>> HandleAsync(
         GetOverlaySnapshotQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
 
         string? labelText = reverseIndex.LookupLabelText(query.OverlayIdentifier);
         if (labelText is null)

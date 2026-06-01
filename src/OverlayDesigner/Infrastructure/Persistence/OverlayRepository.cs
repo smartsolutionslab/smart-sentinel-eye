@@ -21,7 +21,7 @@ public sealed class OverlayRepository(
     public async Task<Option<Overlay>> GetByNameAsync(
         OverlayName name, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(name);
+        Ensure.That(name).IsNotNull();
         Overlay? found = await dbContext.Overlays
             .Where(candidate => candidate.Name == name)
             .Where(candidate => candidate.Revisions.Any(revision => revision.State != OverlayRevisionState.Archived))
@@ -32,7 +32,7 @@ public sealed class OverlayRepository(
 
     public void Add(Overlay overlay)
     {
-        ArgumentNullException.ThrowIfNull(overlay);
+        Ensure.That(overlay).IsNotNull();
         dbContext.Overlays.Add(overlay);
     }
 

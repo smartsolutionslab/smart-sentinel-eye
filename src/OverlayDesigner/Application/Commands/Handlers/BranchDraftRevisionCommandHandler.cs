@@ -14,7 +14,7 @@ public sealed class BranchDraftRevisionCommandHandler(
     public async Task<Result<OverlayRevisionNumber, BranchDraftRevisionError>> HandleAsync(
         BranchDraftRevisionCommand command, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(command);
+        Ensure.That(command).IsNotNull();
         var (overlayIdentifier, branchedBy) = command;
 
         Option<Overlay> found = await overlays

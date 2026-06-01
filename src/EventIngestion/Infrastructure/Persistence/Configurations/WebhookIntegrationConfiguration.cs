@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence.Configurations;
 
@@ -9,7 +10,7 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
 {
     public void Configure(EntityTypeBuilder<WebhookIntegration> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.ToTable("webhook_integrations");
         builder.HasKey(integration => integration.Id);

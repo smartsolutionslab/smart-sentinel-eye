@@ -15,7 +15,7 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
 {
     public void Configure(EntityTypeBuilder<Domain.Stream.Stream> builder)
     {
-        ArgumentNullException.ThrowIfNull(builder);
+        Ensure.That(builder).IsNotNull();
 
         builder.ToTable("streams");
 

@@ -22,7 +22,7 @@ public sealed class CameraRegisteredIntegrationEventHandler(
 {
     public async Task Handle(CameraRegisteredV1 message, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(message);
+        Ensure.That(message).IsNotNull();
 
         CameraIdentifier camera = CameraIdentifier.From(message.Camera);
         OperatorIdentifier provisionedBy = OperatorIdentifier.From(message.RegisteredBy);

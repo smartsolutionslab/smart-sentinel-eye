@@ -17,7 +17,7 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
     public async Task<Result<AuditPageDto, GetResourceTimelineError>> HandleAsync(
         GetResourceTimelineQuery query, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(query);
+        Ensure.That(query).IsNotNull();
 
         var (resourceKind, resourceIdentifier, fab, since, until, rawPageSize, rawCursor) = query;
 

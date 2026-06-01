@@ -45,10 +45,10 @@ public sealed class RegisteredClient : AggregateRoot<RegisteredClientIdentifier>
         OperatorIdentifier registeredBy,
         IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clientId);
-        ArgumentNullException.ThrowIfNull(kind);
-        ArgumentNullException.ThrowIfNull(fab);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clientId).IsNotNull();
+        Ensure.That(kind).IsNotNull();
+        Ensure.That(fab).IsNotNull();
+        Ensure.That(clock).IsNotNull();
 
         DateTimeOffset now = clock.UtcNow;
         RegisteredClient registered = new()
@@ -73,7 +73,7 @@ public sealed class RegisteredClient : AggregateRoot<RegisteredClientIdentifier>
     /// </summary>
     public void Disable(IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         if (DisabledAt is not null) return;
         DisabledAt = clock.UtcNow;
         Raise(new ClientDisabledDomainEvent(Id, ClientId, DisabledAt.Value));
@@ -87,7 +87,7 @@ public sealed class RegisteredClient : AggregateRoot<RegisteredClientIdentifier>
     /// </summary>
     public void Rotate(IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         if (DisabledAt is not null)
         {
             throw new InvalidOperationException(

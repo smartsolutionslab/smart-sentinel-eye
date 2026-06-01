@@ -34,9 +34,9 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
         OperatorIdentifier createdBy,
         IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(name);
-        ArgumentNullException.ThrowIfNull(label);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(name).IsNotNull();
+        Ensure.That(label).IsNotNull();
+        Ensure.That(clock).IsNotNull();
 
         DateTimeOffset now = clock.UtcNow;
         Overlay overlay = new()
@@ -58,7 +58,7 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
     /// </summary>
     public Revision BranchDraft(OperatorIdentifier by, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         Revision baseRevision = CurrentPublishedOrNull()
             ?? throw new InvalidOperationException(
                 "BranchDraft requires a currently-Published revision to copy from.");
@@ -75,8 +75,8 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
     public void EditDraft(
         OverlayRevisionNumber number, Label label, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(label);
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(label).IsNotNull();
+        Ensure.That(clock).IsNotNull();
         Revision target = RequireRevision(number);
         target.EditLabel(label);
     }
@@ -89,7 +89,7 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
     /// </summary>
     public void Publish(OverlayRevisionNumber number, OperatorIdentifier by, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         Revision target = RequireRevision(number);
         Revision? prior = CurrentPublishedOrNull();
         DateTimeOffset now = clock.UtcNow;
@@ -111,7 +111,7 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
     /// </summary>
     public void Revert(OverlayRevisionNumber number, OperatorIdentifier by, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         Revision target = RequireRevision(number);
         target.Revert();
         Raise(new OverlayRevisionArchivedDomainEvent(Id, number, clock.UtcNow, by));
@@ -124,7 +124,7 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
     public void ArchiveRevision(
         OverlayRevisionNumber number, OperatorIdentifier by, IClock clock)
     {
-        ArgumentNullException.ThrowIfNull(clock);
+        Ensure.That(clock).IsNotNull();
         Revision target = RequireRevision(number);
         if (target.State == OverlayRevisionState.Archived) return;
         bool wasObservable = target.State == OverlayRevisionState.Published;
