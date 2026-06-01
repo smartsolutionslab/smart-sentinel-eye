@@ -12,8 +12,11 @@ public readonly record struct CameraIdentifier(Guid Value) : IStronglyTypedId<Gu
 {
     public static CameraIdentifier New() => new(Guid.CreateVersion7());
 
-    public static CameraIdentifier From(Guid value) =>
-        new(Ensure.That(value).IsNotEmpty().AndReturn());
+    public static CameraIdentifier From(Guid value)
+    {
+        Ensure.That(value).IsNotEmpty();
+        return new(value);
+    }
 
     public static implicit operator Guid(CameraIdentifier id) => id.Value;
 

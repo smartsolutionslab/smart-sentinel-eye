@@ -17,13 +17,12 @@ public sealed record DeviceIdentifier : StringValueObject
 
     public static DeviceIdentifier From(string value)
     {
-        string validated = Ensure.That(value, nameof(value))
+        Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
             .HasMaxLength(MaximumLength)
             .Satisfies(IsValid,
-                "must be alphanumeric or '.', '_', '-' and start with a letter or digit")
-            .AndReturn();
-        return new DeviceIdentifier(validated);
+                "must be alphanumeric or '.', '_', '-' and start with a letter or digit");
+        return new DeviceIdentifier(value);
     }
 
     private static bool IsValid(string s)

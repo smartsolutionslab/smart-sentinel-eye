@@ -129,8 +129,6 @@ public readonly struct EnsuredString
         }
         return this;
     }
-
-    public string AndReturn() => _value;
 }
 
 /// <summary>
@@ -159,8 +157,6 @@ public readonly struct EnsuredObject<T>
         }
         return this;
     }
-
-    public T AndReturn() => _value;
 }
 
 /// <summary>
@@ -180,16 +176,16 @@ public readonly struct EnsuredGuid
         _parameter = parameter;
     }
 
-    public EnsuredGuid IsNotEmpty()
+    public EnsuredGuid IsNotEmpty(string message = null)
     {
         if (_value == Guid.Empty)
         {
-            throw new ArgumentException($"{_parameter} must not be empty.", _parameter);
+            throw new ArgumentException(
+                message is null ? $"{_parameter} must not be empty." : $"{_parameter}: {message}",
+                _parameter);
         }
         return this;
     }
-
-    public Guid AndReturn() => _value;
 }
 
 /// <summary>
@@ -237,6 +233,4 @@ public readonly struct EnsuredValue<T>
         }
         return this;
     }
-
-    public T AndReturn() => _value;
 }

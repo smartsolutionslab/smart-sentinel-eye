@@ -19,14 +19,12 @@ public sealed record RtspUrl : StringValueObject
 
     public static RtspUrl From(string value)
     {
-        string validated = Ensure.That(value, nameof(value))
+        Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
             .HasMaxLength(MaximumLength)
             .StartsWith(RequiredScheme, StringComparison.OrdinalIgnoreCase)
-            .Satisfies(HasNoUserInfo, "must not contain a user:password@ segment")
-            .AndReturn();
-
-        return new RtspUrl(validated);
+            .Satisfies(HasNoUserInfo, "must not contain a user:password@ segment");
+        return new RtspUrl(value);
     }
 
     private static bool HasNoUserInfo(string url)

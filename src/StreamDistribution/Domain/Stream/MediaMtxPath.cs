@@ -21,11 +21,10 @@ public sealed partial record MediaMtxPath : StringValueObject
 
     public static MediaMtxPath From(string value)
     {
-        string validated = Ensure.That(value, nameof(value))
+        Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
-            .Matches(PathPattern, "must look like cam-{guid}")
-            .AndReturn();
-        return new MediaMtxPath(validated);
+            .Matches(PathPattern, "must look like cam-{guid}");
+        return new MediaMtxPath(value);
     }
 
     /// <summary>

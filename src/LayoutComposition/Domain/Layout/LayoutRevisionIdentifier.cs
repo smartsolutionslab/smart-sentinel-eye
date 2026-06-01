@@ -12,8 +12,11 @@ public readonly record struct LayoutRevisionIdentifier(Guid Value) : IStronglyTy
 {
     public static LayoutRevisionIdentifier New() => new(Guid.CreateVersion7());
 
-    public static LayoutRevisionIdentifier From(Guid value) =>
-        new(Ensure.That(value).IsNotEmpty().AndReturn());
+    public static LayoutRevisionIdentifier From(Guid value)
+    {
+        Ensure.That(value).IsNotEmpty();
+        return new(value);
+    }
 
     public static implicit operator Guid(LayoutRevisionIdentifier id) => id.Value;
 

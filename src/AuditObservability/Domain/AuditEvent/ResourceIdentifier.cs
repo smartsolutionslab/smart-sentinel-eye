@@ -17,10 +17,9 @@ public sealed record ResourceIdentifier : StringValueObject
 
     public static ResourceIdentifier From(string value)
     {
-        string validated = Ensure.That(value, nameof(value))
+        Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
-            .HasMaxLength(MaximumLength)
-            .AndReturn();
-        return new ResourceIdentifier(validated);
+            .HasMaxLength(MaximumLength);
+        return new ResourceIdentifier(value);
     }
 }

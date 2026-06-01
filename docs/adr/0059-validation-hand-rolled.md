@@ -14,14 +14,19 @@ we adopt the validator chain pattern regardless.
 ## Decision
 
 - **Inside value objects:** use the `Ensure.That(...)` fluent chain
-  (adopted from Yumney). `Ensure` lives in `Shared.Kernel`:
+  (adopted from Yumney). `Ensure` lives in `Shared.Kernel`. The chain is
+  **validate-only** — it runs for its throw-on-failure side effect, and
+  the factory constructs from the original argument:
 
   ```csharp
-  var name = Ensure.That(input).IsNotNullOrWhiteSpace().HasMaxLength(200).AndReturn().Trim();
+  Ensure.That(input).IsNotNullOrWhiteSpace().HasMaxLength(200);
+  var name = input.Trim();
   ```
 
   Each predicate throws on failure; the VO constructor catches and
-  surfaces via `Result<T, ValidationError>`.
+  surfaces via `Result<T, ValidationError>`. (The chain originally ended
+  in a `.AndReturn()` terminal that bound the validated value back out;
+  that was removed — see ADR-0105's 2026-06-01 amendment.)
 
 - **At the API boundary:** hand-rolled `IRequestValidator<TRequest>`
   interface in `Shared.Api`. Endpoint filter resolves the validator,

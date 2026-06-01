@@ -15,8 +15,11 @@ public readonly record struct AuditEventIdentifier(Guid Value)
 {
     public static AuditEventIdentifier New() => new(Guid.CreateVersion7());
 
-    public static AuditEventIdentifier From(Guid value) =>
-        new(Ensure.That(value).IsNotEmpty().AndReturn());
+    public static AuditEventIdentifier From(Guid value)
+    {
+        Ensure.That(value).IsNotEmpty();
+        return new(value);
+    }
 
     /// <summary>
     /// Implicit unwrap to the underlying <see cref="Guid"/> so EF Core can

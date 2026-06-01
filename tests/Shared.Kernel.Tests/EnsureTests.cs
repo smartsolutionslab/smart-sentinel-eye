@@ -6,11 +6,9 @@ namespace SmartSentinelEye.Shared.Kernel.Tests;
 public class EnsureTests
 {
     [Fact]
-    public void IsNotNullOrWhiteSpace_passes_through_non_empty_strings()
+    public void IsNotNullOrWhiteSpace_accepts_non_empty_strings()
     {
-        string result = Ensure.That("hello").IsNotNullOrWhiteSpace().AndReturn();
-
-        result.ShouldBe("hello");
+        Should.NotThrow(() => Ensure.That("hello").IsNotNullOrWhiteSpace());
     }
 
     [Theory]
@@ -19,7 +17,7 @@ public class EnsureTests
     [InlineData("\t")]
     public void IsNotNullOrWhiteSpace_throws_on_blank(string value)
     {
-        Action act = () => Ensure.That(value).IsNotNullOrWhiteSpace().AndReturn();
+        Action act = () => Ensure.That(value).IsNotNullOrWhiteSpace();
 
         act.ShouldThrow<ArgumentException>();
     }
@@ -27,14 +25,14 @@ public class EnsureTests
     [Fact]
     public void HasMinLength_accepts_strings_at_or_above_the_floor()
     {
-        Ensure.That("abc").HasMinLength(3).AndReturn().ShouldBe("abc");
-        Ensure.That("abcd").HasMinLength(3).AndReturn().ShouldBe("abcd");
+        Should.NotThrow(() => Ensure.That("abc").HasMinLength(3));
+        Should.NotThrow(() => Ensure.That("abcd").HasMinLength(3));
     }
 
     [Fact]
     public void HasMinLength_throws_when_too_short()
     {
-        Action act = () => Ensure.That("ab").HasMinLength(3).AndReturn();
+        Action act = () => Ensure.That("ab").HasMinLength(3);
 
         act.ShouldThrow<ArgumentException>();
     }
@@ -42,14 +40,14 @@ public class EnsureTests
     [Fact]
     public void HasMaxLength_accepts_strings_at_or_below_the_ceiling()
     {
-        Ensure.That("abc").HasMaxLength(3).AndReturn().ShouldBe("abc");
-        Ensure.That("ab").HasMaxLength(3).AndReturn().ShouldBe("ab");
+        Should.NotThrow(() => Ensure.That("abc").HasMaxLength(3));
+        Should.NotThrow(() => Ensure.That("ab").HasMaxLength(3));
     }
 
     [Fact]
     public void HasMaxLength_throws_when_too_long()
     {
-        Action act = () => Ensure.That("abcd").HasMaxLength(3).AndReturn();
+        Action act = () => Ensure.That("abcd").HasMaxLength(3);
 
         act.ShouldThrow<ArgumentException>();
     }
@@ -57,14 +55,14 @@ public class EnsureTests
     [Fact]
     public void StartsWith_accepts_matching_prefix_case_insensitively_when_asked()
     {
-        Ensure.That("RTSP://cam").StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase).AndReturn()
-            .ShouldBe("RTSP://cam");
+        Should.NotThrow(() =>
+            Ensure.That("RTSP://cam").StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
     public void StartsWith_throws_when_prefix_does_not_match()
     {
-        Action act = () => Ensure.That("http://cam").StartsWith("rtsp://", StringComparison.Ordinal).AndReturn();
+        Action act = () => Ensure.That("http://cam").StartsWith("rtsp://", StringComparison.Ordinal);
 
         act.ShouldThrow<ArgumentException>();
     }
@@ -74,7 +72,7 @@ public class EnsureTests
     {
         Regex pattern = new("^[a-z]+$");
 
-        Ensure.That("hello").Matches(pattern, "must be lowercase letters").AndReturn().ShouldBe("hello");
+        Should.NotThrow(() => Ensure.That("hello").Matches(pattern, "must be lowercase letters"));
     }
 
     [Fact]
@@ -82,7 +80,7 @@ public class EnsureTests
     {
         Regex pattern = new("^[a-z]+$");
 
-        Action act = () => Ensure.That("Hello1").Matches(pattern, "must be lowercase letters").AndReturn();
+        Action act = () => Ensure.That("Hello1").Matches(pattern, "must be lowercase letters");
 
         act.ShouldThrow<ArgumentException>();
     }
@@ -90,23 +88,23 @@ public class EnsureTests
     [Fact]
     public void Satisfies_accepts_inputs_that_pass_the_predicate()
     {
-        Ensure.That("OK").Satisfies(value => value.Length == 2, "must be two chars").AndReturn().ShouldBe("OK");
+        Should.NotThrow(() => Ensure.That("OK").Satisfies(value => value.Length == 2, "must be two chars"));
     }
 
     [Fact]
     public void Satisfies_throws_when_predicate_returns_false()
     {
-        Action act = () => Ensure.That("X").Satisfies(value => value.Length == 2, "must be two chars").AndReturn();
+        Action act = () => Ensure.That("X").Satisfies(value => value.Length == 2, "must be two chars");
 
         act.ShouldThrow<ArgumentException>();
     }
 
     [Fact]
-    public void IsNotNull_passes_through_a_non_null_reference()
+    public void IsNotNull_accepts_a_non_null_reference()
     {
         object instance = new();
 
-        Ensure.That(instance).IsNotNull().AndReturn().ShouldBeSameAs(instance);
+        Should.NotThrow(() => Ensure.That(instance).IsNotNull());
     }
 
     [Fact]
@@ -137,15 +135,15 @@ public class EnsureTests
         // overload must win so value-object invariant chains keep compiling.
         EnsuredString chained = Ensure.That("value");
 
-        chained.IsNotNullOrWhiteSpace().AndReturn().ShouldBe("value");
+        Should.NotThrow(() => chained.IsNotNullOrWhiteSpace());
     }
 
     [Fact]
-    public void IsNotEmpty_passes_through_a_non_empty_guid()
+    public void IsNotEmpty_accepts_a_non_empty_guid()
     {
         Guid id = Guid.CreateVersion7();
 
-        Ensure.That(id).IsNotEmpty().AndReturn().ShouldBe(id);
+        Should.NotThrow(() => Ensure.That(id).IsNotEmpty());
     }
 
     [Fact]
@@ -159,12 +157,24 @@ public class EnsureTests
         thrown.ParamName.ShouldBe("identifier");
     }
 
+    [Fact]
+    public void IsNotEmpty_throws_carrying_a_custom_message_when_supplied()
+    {
+        Guid identifier = Guid.Empty;
+
+        ArgumentException thrown = Should.Throw<ArgumentException>(
+            () => Ensure.That(identifier).IsNotEmpty("use the System sentinel"));
+
+        thrown.ParamName.ShouldBe("identifier");
+        thrown.Message.ShouldContain("use the System sentinel");
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(5)]
     public void AtLeast_accepts_values_at_or_above_the_floor(int value)
     {
-        Ensure.That(value).AtLeast(1).AndReturn().ShouldBe(value);
+        Should.NotThrow(() => Ensure.That(value).AtLeast(1));
     }
 
     [Fact]
@@ -180,7 +190,7 @@ public class EnsureTests
     [InlineData(60000)]
     public void InRange_accepts_values_within_the_inclusive_bounds(int value)
     {
-        Ensure.That(value).InRange(100, 60000).AndReturn().ShouldBe(value);
+        Should.NotThrow(() => Ensure.That(value).InRange(100, 60000));
     }
 
     [Theory]

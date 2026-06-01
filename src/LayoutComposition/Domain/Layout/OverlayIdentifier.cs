@@ -13,8 +13,11 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 /// </summary>
 public readonly record struct OverlayIdentifier(Guid Value) : IStronglyTypedId<Guid>, IComparable<OverlayIdentifier>
 {
-    public static OverlayIdentifier From(Guid value) =>
-        new(Ensure.That(value).IsNotEmpty().AndReturn());
+    public static OverlayIdentifier From(Guid value)
+    {
+        Ensure.That(value).IsNotEmpty();
+        return new(value);
+    }
 
     public static implicit operator Guid(OverlayIdentifier id) => id.Value;
 

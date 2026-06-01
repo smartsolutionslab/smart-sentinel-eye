@@ -13,8 +13,11 @@ public readonly record struct OverlayIdentifier(Guid Value) : IStronglyTypedId<G
 {
     public static OverlayIdentifier New() => new(Guid.CreateVersion7());
 
-    public static OverlayIdentifier From(Guid value) =>
-        new(Ensure.That(value).IsNotEmpty().AndReturn());
+    public static OverlayIdentifier From(Guid value)
+    {
+        Ensure.That(value).IsNotEmpty();
+        return new(value);
+    }
 
     public static implicit operator Guid(OverlayIdentifier id) => id.Value;
 

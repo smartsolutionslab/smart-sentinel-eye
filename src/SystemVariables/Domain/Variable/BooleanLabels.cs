@@ -17,14 +17,12 @@ public sealed record BooleanLabels(string TruthyLabel, string FalsyLabel) : IVal
 
     public static BooleanLabels From(string truthyLabel, string falsyLabel)
     {
-        string truthy = Ensure.That(truthyLabel, nameof(truthyLabel))
+        Ensure.That(truthyLabel, nameof(truthyLabel))
             .IsNotNullOrWhiteSpace()
-            .HasMaxLength(MaximumLength)
-            .AndReturn();
-        string falsy = Ensure.That(falsyLabel, nameof(falsyLabel))
+            .HasMaxLength(MaximumLength);
+        Ensure.That(falsyLabel, nameof(falsyLabel))
             .IsNotNullOrWhiteSpace()
-            .HasMaxLength(MaximumLength)
-            .AndReturn();
-        return new BooleanLabels(truthy, falsy);
+            .HasMaxLength(MaximumLength);
+        return new BooleanLabels(truthyLabel, falsyLabel);
     }
 }

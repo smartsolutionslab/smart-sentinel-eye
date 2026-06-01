@@ -12,8 +12,11 @@ public readonly record struct LayoutIdentifier(Guid Value) : IStronglyTypedId<Gu
 {
     public static LayoutIdentifier New() => new(Guid.CreateVersion7());
 
-    public static LayoutIdentifier From(Guid value) =>
-        new(Ensure.That(value).IsNotEmpty().AndReturn());
+    public static LayoutIdentifier From(Guid value)
+    {
+        Ensure.That(value).IsNotEmpty();
+        return new(value);
+    }
 
     public static implicit operator Guid(LayoutIdentifier id) => id.Value;
 

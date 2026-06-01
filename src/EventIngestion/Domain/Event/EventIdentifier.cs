@@ -13,8 +13,11 @@ public readonly record struct EventIdentifier(Guid Value) : IStronglyTypedId<Gui
 {
     public static EventIdentifier New() => new(Guid.CreateVersion7());
 
-    public static EventIdentifier From(Guid value) =>
-        new(Ensure.That(value).IsNotEmpty().AndReturn());
+    public static EventIdentifier From(Guid value)
+    {
+        Ensure.That(value).IsNotEmpty();
+        return new(value);
+    }
 
     public static implicit operator Guid(EventIdentifier id) => id.Value;
 

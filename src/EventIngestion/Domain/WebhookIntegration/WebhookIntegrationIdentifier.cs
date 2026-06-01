@@ -12,8 +12,11 @@ public readonly record struct WebhookIntegrationIdentifier(Guid Value) : IStrong
 {
     public static WebhookIntegrationIdentifier New() => new(Guid.CreateVersion7());
 
-    public static WebhookIntegrationIdentifier From(Guid value) =>
-        new(Ensure.That(value).IsNotEmpty().AndReturn());
+    public static WebhookIntegrationIdentifier From(Guid value)
+    {
+        Ensure.That(value).IsNotEmpty();
+        return new(value);
+    }
 
     public static implicit operator Guid(WebhookIntegrationIdentifier id) => id.Value;
 

@@ -18,13 +18,12 @@ public sealed record Kind : StringValueObject
 
     public static Kind From(string value)
     {
-        string validated = Ensure.That(value, nameof(value))
+        Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
             .HasMaxLength(MaximumLength)
             .Satisfies(IsValid,
-                "must start with an uppercase letter and contain only letters or digits")
-            .AndReturn();
-        return new Kind(validated);
+                "must start with an uppercase letter and contain only letters or digits");
+        return new Kind(value);
     }
 
     private static bool IsValid(string s)
