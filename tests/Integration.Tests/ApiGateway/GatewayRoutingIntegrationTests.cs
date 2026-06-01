@@ -44,6 +44,26 @@ public class GatewayRoutingIntegrationTests(AspireFixture aspire)
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
+    /// <summary>
+    /// ADR-0106 (#1003): the gateway owns one CORS policy for the browser apps.
+    /// A CORS preflight (OPTIONS + Origin + Access-Control-Request-Method) for an
+    /// allowed origin is answered at the edge — the gateway echoes the origin in
+    /// Access-Control-Allow-Origin rather than forwarding the probe to a service.
+    /// </summary>
+    [Fact]
+    public async Task Gateway_answers_the_cors_preflight_for_an_allowed_origin()
+    {
+        using HttpClient gateway = await CreateGatewayClientAsync();
+        using HttpRequestMessage preflight = new(HttpMethod.Options, "/camera-catalog/health");
+        preflight.Headers.Add("Origin", "http://localhost:5173");
+        preflight.Headers.Add("Access-Control-Request-Method", "GET");
+
+        HttpResponseMessage response = await gateway.SendAsync(preflight);
+
+        response.Headers.Contains("Access-Control-Allow-Origin").ShouldBeTrue();
+        response.Headers.GetValues("Access-Control-Allow-Origin").ShouldContain("http://localhost:5173");
+    }
+
     private async Task<HttpClient> CreateGatewayClientAsync()
     {
         using CancellationTokenSource cts = new(TimeSpan.FromMinutes(2));
