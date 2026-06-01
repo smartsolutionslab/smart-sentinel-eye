@@ -229,7 +229,7 @@ var systemVariables = builder
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
     .WaitFor(overlayDesigner);
-builder
+var automation = builder
     .AddProject<Projects.SmartSentinelEye_Automation_Api>("automation")
     .WithHttpEndpoint()
     .WithReference(automationDb)
@@ -238,7 +238,7 @@ builder
     .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
-builder
+var identity = builder
     .AddProject<Projects.SmartSentinelEye_Identity_Api>("identity")
     .WithHttpEndpoint()
     .WithReference(identityDb)
@@ -268,15 +268,22 @@ if (isE2ETests)
     auditObservability.WithEnvironment("AuditObservability__Retention__TickInterval", "00:00:03");
 }
 
-// ADR-0106: single YARP API gateway at the edge — fronts the context REST APIs
-// via service discovery, owning CORS/TLS/rate-limiting (follow-up issues). This
-// scaffold (#1001) routes only camera-catalog; the full route table is #1002.
-// Realtime WebSocket (ADR-0076) and WebRTC media stay direct, off the gateway.
+// ADR-0106: single YARP API gateway at the edge — fronts all nine context REST
+// APIs via service discovery (#1002). CORS/TLS (#1003) and rate limiting (#1004)
+// follow. Realtime WebSocket (ADR-0076) and WebRTC media stay direct, off the
+// gateway, so the latency budget (constitution §IV) is untouched.
 builder
     .AddProject<Projects.SmartSentinelEye_ApiGateway>("api-gateway")
     .WithExternalHttpEndpoints()
     .WithReference(cameraCatalog)
-    .WaitFor(cameraCatalog);
+    .WithReference(streamDistribution)
+    .WithReference(layoutComposition)
+    .WithReference(eventIngestion)
+    .WithReference(overlayDesigner)
+    .WithReference(systemVariables)
+    .WithReference(auditObservability)
+    .WithReference(automation)
+    .WithReference(identity);
 
 // React apps per ADR-0074: two pnpm-workspace apps under apps/. Skipped in
 // test mode so the integration suite doesn't start two Node dev servers.
