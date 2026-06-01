@@ -33,15 +33,13 @@ public sealed class SystemVariableValueRequestedV1Handler(
     /// downstream audit row still has a non-null
     /// <c>ChangedBy</c>. The literal Guid is fixed across instances.
     /// </summary>
-    public static readonly OperatorIdentifier AutomationOperator =
-        OperatorIdentifier.From(new Guid("a07a07a0-7000-7000-8000-000000000007"));
+    public static readonly OperatorIdentifier AutomationOperator = OperatorIdentifier.From(new Guid("a07a07a0-7000-7000-8000-000000000007"));
 
     public async Task Handle(SystemVariableValueRequestedV1 message, CancellationToken cancellationToken)
     {
         Ensure.That(message).IsNotNull();
 
-        bool reserved = await dedup.TryReserveAsync(
-            message.Name, message.CausingEventIdentifier, cancellationToken);
+        bool reserved = await dedup.TryReserveAsync(message.Name, message.CausingEventIdentifier, cancellationToken);
         if (!reserved)
         {
             logger.DedupHit(message.Name, message.CausingEventIdentifier);
@@ -59,9 +57,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
             return;
         }
 
-        Result<VariableIdentifier, SetVariableValueError> result = await setHandler
-            .HandleAsync(new SetVariableValueCommand(name, message.Value, AutomationOperator),
-                cancellationToken);
+        var result = await setHandler.HandleAsync(new SetVariableValueCommand(name, message.Value, AutomationOperator), cancellationToken);
 
         if (!result.IsSuccess)
         {

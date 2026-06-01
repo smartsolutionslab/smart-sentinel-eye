@@ -107,10 +107,8 @@ public static class SystemVariableEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<VariableIdentifier, DefineVariableError> result = await handler
-            .HandleAsync(
-                new DefineVariableCommand(name, type, initialValue, booleanLabels, actingOperator),
-                cancellationToken);
+        var command = new DefineVariableCommand(name, type, initialValue, booleanLabels, actingOperator);
+        var result = await handler.HandleAsync(command, cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Created($"/system-variables/{name.Value}", identifier.Value),
@@ -136,20 +134,13 @@ public static class SystemVariableEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<VariableIdentifier, SetVariableValueError> result = await handler
-            .HandleAsync(
-                new SetVariableValueCommand(parsed, body.Value, actingOperator),
-                cancellationToken);
+        var command = new SetVariableValueCommand(parsed, body.Value, actingOperator);
+        var result = await handler.HandleAsync(command, cancellationToken);
 
-        return result.Match<IResult>(
-            onSuccess: identifier => Results.Ok(identifier.Value),
-            onFailure: error => error.ToProblem());
+        return result.Match<IResult>(onSuccess: identifier => Results.Ok(identifier.Value), onFailure: error => error.ToProblem());
     }
 
-    private static async Task<IResult> GetOne(
-        string name,
-        [FromServices] GetVariableQueryHandler handler,
-        CancellationToken cancellationToken)
+    private static async Task<IResult> GetOne(string name, [FromServices] GetVariableQueryHandler handler, CancellationToken cancellationToken)
     {
         if (!BoundaryParse.TryParse(
             () => VariableName.From(name),
@@ -160,18 +151,12 @@ public static class SystemVariableEndpoints
             return problem;
         }
 
-        Result<VariableDto, GetVariableError> result = await handler
-            .HandleAsync(new GetVariableQuery(parsed), cancellationToken);
+        var result = await handler.HandleAsync(new GetVariableQuery(parsed), cancellationToken);
 
-        return result.Match<IResult>(
-            onSuccess: Results.Ok,
-            onFailure: error => error.ToProblem());
+        return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
 
-    private static async Task<IResult> List(
-        [FromQuery] string? state,
-        [FromServices] ListVariablesQueryHandler handler,
-        CancellationToken cancellationToken)
+    private static async Task<IResult> List([FromQuery] string? state, [FromServices] ListVariablesQueryHandler handler, CancellationToken cancellationToken)
     {
         VariableState? filter = null;
         if (!string.IsNullOrWhiteSpace(state))
@@ -189,18 +174,12 @@ public static class SystemVariableEndpoints
             }
         }
 
-        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler
-            .HandleAsync(new ListVariablesQuery(filter), cancellationToken);
+        var result = await handler.HandleAsync(new ListVariablesQuery(filter), cancellationToken);
 
-        return result.Match<IResult>(
-            onSuccess: Results.Ok,
-            onFailure: error => error.ToProblem());
+        return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
 
-    private static async Task<IResult> GetSnapshot(
-        [FromQuery] Guid overlayIdentifier,
-        [FromServices] GetOverlaySnapshotQueryHandler handler,
-        CancellationToken cancellationToken)
+    private static async Task<IResult> GetSnapshot([FromQuery] Guid overlayIdentifier, [FromServices] GetOverlaySnapshotQueryHandler handler, CancellationToken cancellationToken)
     {
         if (overlayIdentifier == Guid.Empty)
         {
@@ -210,12 +189,9 @@ public static class SystemVariableEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result = await handler
-            .HandleAsync(new GetOverlaySnapshotQuery(overlayIdentifier), cancellationToken);
+        var result = await handler.HandleAsync(new GetOverlaySnapshotQuery(overlayIdentifier), cancellationToken);
 
-        return result.Match<IResult>(
-            onSuccess: Results.Ok,
-            onFailure: error => error.ToProblem());
+        return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> Archive(
@@ -234,11 +210,8 @@ public static class SystemVariableEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<VariableIdentifier, ArchiveVariableError> result = await handler
-            .HandleAsync(new ArchiveVariableCommand(parsed, actingOperator), cancellationToken);
+        var result = await handler.HandleAsync(new ArchiveVariableCommand(parsed, actingOperator), cancellationToken);
 
-        return result.Match<IResult>(
-            onSuccess: identifier => Results.Ok(identifier.Value),
-            onFailure: error => error.ToProblem());
+        return result.Match<IResult>(onSuccess: identifier => Results.Ok(identifier.Value), onFailure: error => error.ToProblem());
     }
 }

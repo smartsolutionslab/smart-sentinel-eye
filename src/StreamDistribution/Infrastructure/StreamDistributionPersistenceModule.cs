@@ -23,8 +23,7 @@ public static class StreamDistributionPersistenceModule
         Ensure.That(builder).IsNotNull();
 
         string connectionString = builder.Configuration.GetConnectionString(DatabaseConnectionName)
-            ?? throw new InvalidOperationException(
-                $"Connection string '{DatabaseConnectionName}' is required.");
+            ?? throw new InvalidOperationException($"Connection string '{DatabaseConnectionName}' is required.");
 
         builder.Services.AddDbContextFactory<StreamDistributionDbContext>(options =>
             options.UseNpgsql(connectionString));

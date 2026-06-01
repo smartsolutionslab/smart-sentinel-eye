@@ -20,10 +20,8 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.HealthWatcher;
 /// Per-stream timing tracking (5-minute Offline window) lives in this
 /// service so the aggregate stays free of wall-clock logic.
 /// </summary>
-public sealed class StreamHealthWatcher(
-    IServiceScopeFactory scopeFactory,
-    IClock clock,
-    ILogger<StreamHealthWatcher> logger) : BackgroundService
+public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, IClock clock, ILogger<StreamHealthWatcher> logger)
+    : BackgroundService
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan OfflineAfter = TimeSpan.FromMinutes(5);
@@ -62,22 +60,17 @@ public sealed class StreamHealthWatcher(
 
     private async Task PollOnceAsync(CancellationToken cancellationToken)
     {
-        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        await using var scope = scopeFactory.CreateAsyncScope();
 
-        IDbContextFactory<StreamDistributionDbContext> factory =
-            scope.ServiceProvider.GetRequiredService<IDbContextFactory<StreamDistributionDbContext>>();
-        IRtspGateway gateway = scope.ServiceProvider.GetRequiredService<IRtspGateway>();
-        ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>> handler =
-            scope.ServiceProvider.GetRequiredService<
-                ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>>>();
+        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<StreamDistributionDbContext>>();
+        var gateway = scope.ServiceProvider.GetRequiredService<IRtspGateway>();
+        var handler = scope.ServiceProvider.GetRequiredService<ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>>>();
 
-        await using StreamDistributionDbContext context =
-            await factory.CreateDbContextAsync(cancellationToken);
+        await using var context = await factory.CreateDbContextAsync(cancellationToken);
 
         List<(Guid Camera, MediaMtxPath Path, StreamState State)> streams = await context.Streams
             .AsNoTracking()
-            .Select(stream => new ValueTuple<Guid, MediaMtxPath, StreamState>(
-                stream.Camera.Value, stream.Path, stream.State))
+            .Select(stream => new ValueTuple<Guid, MediaMtxPath, StreamState>(stream.Camera.Value, stream.Path, stream.State))
             .ToListAsync(cancellationToken);
 
         DateTimeOffset now = clock.UtcNow;
@@ -96,17 +89,13 @@ public sealed class StreamHealthWatcher(
             }
 
             bool declareOffline = ShouldDeclareOffline(cameraGuid, observation, state, now);
-            ReportStreamHealthCommand command = new(
-                CameraIdentifier.From(cameraGuid),
-                observation,
-                declareOffline);
+            ReportStreamHealthCommand command = new(CameraIdentifier.From(cameraGuid), observation, declareOffline);
 
             await handler.HandleAsync(command, cancellationToken);
         }
     }
 
-    private bool ShouldDeclareOffline(
-        Guid camera, RtspPathHealth observation, StreamState currentState, DateTimeOffset now)
+    private bool ShouldDeclareOffline(Guid camera, RtspPathHealth observation, StreamState currentState, DateTimeOffset now)
     {
         if (observation.IsReady)
         {

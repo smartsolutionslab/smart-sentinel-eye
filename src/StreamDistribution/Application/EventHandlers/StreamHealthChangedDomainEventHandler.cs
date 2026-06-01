@@ -17,14 +17,14 @@ public sealed class StreamHealthChangedDomainEventHandler(IEventBus events)
     public Task Handle(StreamHealthChangedDomainEvent domainEvent, CancellationToken cancellationToken)
     {
         Ensure.That(domainEvent).IsNotNull();
-        return events.PublishAsync(
-            new StreamHealthChangedV1(
-                Camera: domainEvent.Camera.Value,
-                FromState: domainEvent.FromState.Value,
-                ToState: domainEvent.ToState.Value,
-                ChangedAt: domainEvent.ChangedAt,
-                Error: domainEvent.Error,
-                Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ChangedAt, null, null)),
-            cancellationToken);
+
+        var @event = new StreamHealthChangedV1(
+            Camera: domainEvent.Camera.Value,
+            FromState: domainEvent.FromState.Value,
+            ToState: domainEvent.ToState.Value,
+            ChangedAt: domainEvent.ChangedAt,
+            Error: domainEvent.Error,
+            Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ChangedAt, null, null));
+        return events.PublishAsync(@event, cancellationToken);
     }
 }

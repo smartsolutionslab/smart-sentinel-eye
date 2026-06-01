@@ -6,36 +6,28 @@ using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Application.Queries.Handlers;
 
-public sealed class GetOverlaySnapshotQueryHandler(
-    IReverseIndex reverseIndex,
-    IVariableRepository variables,
-    IResolver resolver)
+public sealed class GetOverlaySnapshotQueryHandler(IReverseIndex reverseIndex, IVariableRepository variables, IResolver resolver)
     : IQueryHandler<GetOverlaySnapshotQuery, Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError>>
 {
-    public async Task<Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError>> HandleAsync(
-        GetOverlaySnapshotQuery query, CancellationToken cancellationToken)
+    public async Task<Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError>> HandleAsync(GetOverlaySnapshotQuery query, CancellationToken cancellationToken)
     {
         Ensure.That(query).IsNotNull();
 
         string? labelText = reverseIndex.LookupLabelText(query.OverlayIdentifier);
         if (labelText is null)
         {
-            return Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError>.Failure(
-                new GetOverlaySnapshotError.OverlayNotInReverseIndex(query.OverlayIdentifier));
+            return Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError>.Failure(new GetOverlaySnapshotError.OverlayNotInReverseIndex(query.OverlayIdentifier));
         }
 
-        IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot =
-            await BuildSnapshotAsync(labelText, cancellationToken);
+        var snapshot = await BuildSnapshotAsync(labelText, cancellationToken);
 
         string resolvedText = resolver.Resolve(labelText, snapshot);
         long version = reverseIndex.CurrentVersionFor(query.OverlayIdentifier);
 
-        return Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError>.Success(
-            new ResolvedOverlaySnapshotDto(query.OverlayIdentifier, resolvedText, version));
+        return Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError>.Success(new ResolvedOverlaySnapshotDto(query.OverlayIdentifier, resolvedText, version));
     }
 
-    private async Task<IReadOnlyDictionary<string, VariableSnapshotEntry>> BuildSnapshotAsync(
-        string labelText, CancellationToken cancellationToken)
+    private async Task<IReadOnlyDictionary<string, VariableSnapshotEntry>> BuildSnapshotAsync(string labelText, CancellationToken cancellationToken)
     {
         Dictionary<string, VariableSnapshotEntry> snapshot = new(StringComparer.Ordinal);
         foreach (string name in PlaceholderParser.ExtractNames(labelText))
@@ -44,8 +36,7 @@ public sealed class GetOverlaySnapshotQueryHandler(
             try { parsed = VariableName.From(name); }
             catch (ArgumentException) { continue; }
 
-            Option<Variable> found = await variables
-                .GetByNameAsync(parsed, cancellationToken);
+            var found = await variables.GetByNameAsync(parsed, cancellationToken);
             if (!found.HasValue) continue;
 
             Variable variable = found.Value;

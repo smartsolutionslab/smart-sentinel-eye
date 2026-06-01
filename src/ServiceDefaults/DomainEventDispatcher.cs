@@ -29,8 +29,7 @@ public sealed class DomainEventDispatcher(IServiceProvider services) : IDomainEv
     {
         var handlerType = typeof(IDomainEventHandler<>).MakeGenericType(eventType);
         var enumerableType = typeof(IEnumerable<>).MakeGenericType(handlerType);
-        var handleMethod = handlerType.GetMethod(nameof(IDomainEventHandler<IDomainEvent>.Handle))
-            ?? throw new InvalidOperationException($"Expected Handle method on {handlerType.FullName}.");
+        var handleMethod = handlerType.GetMethod(nameof(IDomainEventHandler<IDomainEvent>.Handle)) ?? throw new InvalidOperationException($"Expected Handle method on {handlerType.FullName}.");
 
         return new DomainEventInvoker(enumerableType, handleMethod);
     }

@@ -25,7 +25,7 @@ public class RevertRevisionCommandHandlerTests
 
         RevertRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RevertRevisionCommand(layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -40,7 +40,7 @@ public class RevertRevisionCommandHandlerTests
         RevertRevisionCommandHandler handler = new(
             layouts, new FakeClock(FixedMoment), NullLogger<RevertRevisionCommandHandler>.Instance);
 
-        Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RevertRevisionCommand(
                 LayoutIdentifier.New(), LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
@@ -59,7 +59,7 @@ public class RevertRevisionCommandHandlerTests
 
         RevertRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RevertRevisionCommand(
                 layout.Id, LayoutRevisionNumber.From(99), OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
@@ -78,7 +78,7 @@ public class RevertRevisionCommandHandlerTests
 
         RevertRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RevertRevisionCommand(
                 layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);

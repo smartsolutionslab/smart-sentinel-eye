@@ -33,7 +33,10 @@ public static class BoundaryParse
         catch (ArgumentException exception)
         {
             value = default;
-            problem = Results.Problem(title: errorCode, detail: exception.Message, statusCode: StatusCodes.Status400BadRequest);
+            problem = Results.Problem(
+                title: errorCode,
+                detail: exception.Message,
+                statusCode: StatusCodes.Status400BadRequest);
 
             return false;
         }

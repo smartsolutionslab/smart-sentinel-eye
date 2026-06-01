@@ -5,27 +5,20 @@ using SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 
-public sealed class ReportStreamHealthCommandHandler(
-    IStreamRepository streams,
-    IClock clock,
-    ILogger<ReportStreamHealthCommandHandler> logger)
+public sealed class ReportStreamHealthCommandHandler(IStreamRepository streams, IClock clock, ILogger<ReportStreamHealthCommandHandler> logger)
     : ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>>
 {
-    public async Task<Result<StreamState, ReportStreamHealthError>> HandleAsync(
-        ReportStreamHealthCommand command,
-        CancellationToken cancellationToken)
+    public async Task<Result<StreamState, ReportStreamHealthError>> HandleAsync(ReportStreamHealthCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
 
         var (camera, observation, declareOffline) = command;
 
-        Option<Stream> existing = await streams
-            .GetByCameraAsync(camera, cancellationToken);
+        var existing = await streams.GetByCameraAsync(camera, cancellationToken);
 
         if (!existing.HasValue)
         {
-            return Result<StreamState, ReportStreamHealthError>.Failure(
-                new ReportStreamHealthError.StreamNotFound(camera.Value));
+            return Result<StreamState, ReportStreamHealthError>.Failure(new ReportStreamHealthError.StreamNotFound(camera.Value));
         }
 
         Stream stream = existing.Value;
@@ -34,9 +27,7 @@ public sealed class ReportStreamHealthCommandHandler(
         {
             if (declareOffline)
             {
-                stream.ReportOffline(
-                    observation.LastError ?? "offline (no frames within retry window)",
-                    clock);
+                stream.ReportOffline(observation.LastError ?? "offline (no frames within retry window)", clock);
             }
             else if (observation.IsReady)
             {
@@ -44,9 +35,7 @@ public sealed class ReportStreamHealthCommandHandler(
             }
             else
             {
-                stream.ReportDegraded(
-                    observation.LastError ?? "no frame within the health-watcher window",
-                    clock);
+                stream.ReportDegraded(observation.LastError ?? "no frame within the health-watcher window", clock);
             }
         }
         catch (InvalidOperationException ex)

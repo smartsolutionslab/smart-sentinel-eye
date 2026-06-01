@@ -1,7 +1,4 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Commands;
@@ -54,10 +51,7 @@ public static class StreamEndpoints
         return app;
     }
 
-    private static async Task<IResult> GetOne(
-        Guid cameraIdentifier,
-        [FromServices] GetStreamQueryHandler handler,
-        CancellationToken cancellationToken)
+    private static async Task<IResult> GetOne(Guid cameraIdentifier, [FromServices] GetStreamQueryHandler handler, CancellationToken cancellationToken)
     {
         if (cameraIdentifier == Guid.Empty)
         {
@@ -67,18 +61,13 @@ public static class StreamEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<StreamHealthDto, GetStreamError> result = await handler
-            .HandleAsync(new GetStreamQuery(CameraIdentifier.From(cameraIdentifier)), cancellationToken);
+        var query = new GetStreamQuery(CameraIdentifier.From(cameraIdentifier));
+        var result = await handler.HandleAsync(query, cancellationToken);
 
-        return result.Match<IResult>(
-            onSuccess: Results.Ok,
-            onFailure: error => error.ToProblem());
+        return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
 
-    private static async Task<IResult> ListByCameras(
-        [FromQuery] string? cameraIdentifiers,
-        [FromServices] ListStreamsQueryHandler handler,
-        CancellationToken cancellationToken)
+    private static async Task<IResult> ListByCameras([FromQuery] string? cameraIdentifiers, [FromServices] ListStreamsQueryHandler handler, CancellationToken cancellationToken)
     {
         IReadOnlyList<CameraIdentifier> parsed;
         try
@@ -93,12 +82,9 @@ public static class StreamEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result = await handler
-            .HandleAsync(new ListStreamsQuery(parsed), cancellationToken);
+        var result = await handler.HandleAsync(new ListStreamsQuery(parsed), cancellationToken);
 
-        return result.Match<IResult>(
-            onSuccess: Results.Ok,
-            onFailure: error => error.ToProblem());
+        return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> AuthorizeWhep(
@@ -128,20 +114,14 @@ public static class StreamEndpoints
             bearer = bearer["Bearer ".Length..].Trim();
         }
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler
-            .HandleAsync(new AuthorizeWhepCommand(parsedPath, bearer), cancellationToken);
+        var result = await handler.HandleAsync(new AuthorizeWhepCommand(parsedPath, bearer), cancellationToken);
 
-        return result.Match<IResult>(
-            onSuccess: _ => Results.Ok(),
-            onFailure: error => error.ToProblem());
+        return result.Match<IResult>(onSuccess: _ => Results.Ok(), onFailure: error => error.ToProblem());
     }
 
     private static IReadOnlyList<CameraIdentifier> ParseCameraIdentifiers(string? raw)
     {
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return Array.Empty<CameraIdentifier>();
-        }
+        if (string.IsNullOrWhiteSpace(raw)) return Array.Empty<CameraIdentifier>();
 
         string[] parts = raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         List<CameraIdentifier> result = new(parts.Length);

@@ -39,12 +39,8 @@ public static class OverlayDesignerInfrastructureModule
 
         builder.Services.AddScoped<IOverlayRepository, OverlayRepository>();
         builder.Services.AddScoped<IOverlayQuerySource, OverlayQuerySource>();
-        builder.Services.AddScoped<
-            IDomainEventHandler<OverlayRevisionPublishedDomainEvent>,
-            OverlayRevisionPublishedDomainEventHandler>();
-        builder.Services.AddScoped<
-            IDomainEventHandler<OverlayRevisionArchivedDomainEvent>,
-            OverlayRevisionArchivedDomainEventHandler>();
+        builder.Services.AddScoped<IDomainEventHandler<OverlayRevisionPublishedDomainEvent>, OverlayRevisionPublishedDomainEventHandler>();
+        builder.Services.AddScoped<IDomainEventHandler<OverlayRevisionArchivedDomainEvent>, OverlayRevisionArchivedDomainEventHandler>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddScoped<IEventBus, WolverineEventBus>();

@@ -18,6 +18,7 @@ public sealed class OverlayRevisionArchivedV1Handler(
     public Task Handle(OverlayRevisionArchivedV1 message, CancellationToken cancellationToken = default)
     {
         Ensure.That(message).IsNotNull();
+
         reverseIndex.RemoveOverlay(message.Overlay);
         logger.ReverseIndexDroppedOverlay(message.Overlay);
         return Task.CompletedTask;

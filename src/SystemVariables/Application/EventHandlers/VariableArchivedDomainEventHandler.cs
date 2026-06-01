@@ -29,17 +29,16 @@ public sealed class VariableArchivedDomainEventHandler(
     {
         Ensure.That(domainEvent).IsNotNull();
 
-        await events.PublishAsync(
-            new SystemVariableArchivedV1(
-                Variable: domainEvent.Variable.Value,
-                Name: domainEvent.Name.Value,
-                ArchivedAt: domainEvent.ArchivedAt,
-                ArchivedBy: domainEvent.ArchivedBy.Value,
-                Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ArchivedAt, null, domainEvent.ArchivedBy.Value)),
-            cancellationToken);
+        var systemVariableArchivedEvent = new SystemVariableArchivedV1(
+            Variable: domainEvent.Variable.Value,
+            Name: domainEvent.Name.Value,
+            ArchivedAt: domainEvent.ArchivedAt,
+            ArchivedBy: domainEvent.ArchivedBy.Value,
+            Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ArchivedAt, null, domainEvent.ArchivedBy.Value));
 
-        IReadOnlyCollection<Guid> affectedOverlays =
-            reverseIndex.LookupOverlays(domainEvent.Name.Value);
+        await events.PublishAsync(systemVariableArchivedEvent, cancellationToken);
+
+        IReadOnlyCollection<Guid> affectedOverlays = reverseIndex.LookupOverlays(domainEvent.Name.Value);
         if (affectedOverlays.Count == 0) return;
 
         foreach (Guid overlayId in affectedOverlays)
@@ -59,8 +58,7 @@ public sealed class VariableArchivedDomainEventHandler(
                 try { parsed = VariableName.From(name); }
                 catch (ArgumentException) { continue; }
 
-                Option<Variable> other = await variables
-                    .GetByNameAsync(parsed, cancellationToken);
+                var other = await variables.GetByNameAsync(parsed, cancellationToken);
                 if (!other.HasValue) continue;
 
                 Variable variable = other.Value;
@@ -73,13 +71,12 @@ public sealed class VariableArchivedDomainEventHandler(
             string resolvedText = resolver.Resolve(labelText, snapshot);
             long version = reverseIndex.NextVersionFor(overlayId);
 
-            await events.PublishAsync(
-                new ResolvedOverlayTextChangedV1(
-                    Overlay: overlayId,
-                    ResolvedText: resolvedText,
-                    Version: version,
-                    Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ArchivedAt, null, domainEvent.ArchivedBy.Value)),
-                cancellationToken);
+            var resolvedOverlayTextChangedEvent = new ResolvedOverlayTextChangedV1(
+                Overlay: overlayId,
+                ResolvedText: resolvedText,
+                Version: version,
+                Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ArchivedAt, null, domainEvent.ArchivedBy.Value));
+            await events.PublishAsync(resolvedOverlayTextChangedEvent, cancellationToken);
         }
 
         logger.PushedResolvedTextAfterArchive(affectedOverlays.Count, domainEvent.Name);

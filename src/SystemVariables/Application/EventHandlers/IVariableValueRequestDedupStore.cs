@@ -20,6 +20,5 @@ public interface IVariableValueRequestDedupStore
     /// is the first time we've seen the pair (proceed) or <c>false</c>
     /// if we've already processed it (no-op).
     /// </summary>
-    Task<bool> TryReserveAsync(
-        string variableName, Guid causingEventIdentifier, CancellationToken cancellationToken);
+    Task<bool> TryReserveAsync(string variableName, Guid causingEventIdentifier, CancellationToken cancellationToken);
 }

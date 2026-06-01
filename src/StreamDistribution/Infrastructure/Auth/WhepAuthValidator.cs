@@ -52,22 +52,18 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
     {
         try
         {
-            OpenIdConnectConfiguration configuration =
-                await _oidc.GetConfigurationAsync(cancellationToken);
-            TokenValidationParameters parameters = _parameters.Clone();
+            var configuration = await _oidc.GetConfigurationAsync(cancellationToken);
+            var parameters = _parameters.Clone();
             parameters.IssuerSigningKeys = configuration.SigningKeys;
 
-            System.Security.Claims.ClaimsPrincipal principal = _handler.ValidateToken(
-                bearerToken, parameters, out _);
+            var principal = _handler.ValidateToken(bearerToken, parameters, out _);
 
             string? subject = principal.FindFirst("sub")?.Value;
-            if (subject is null)
-            {
-                return Option<WhepAuthSubject>.None;
-            }
+            if (subject is null) return Option<WhepAuthSubject>.None;
 
             string scopeClaim = principal.FindFirst("scope")?.Value ?? string.Empty;
             string[] scopes = scopeClaim.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
             return Option<WhepAuthSubject>.Some(new WhepAuthSubject(subject, scopes));
         }
         catch (SecurityTokenException)
@@ -82,10 +78,4 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
             return Option<WhepAuthSubject>.None;
         }
     }
-}
-
-public sealed class WhepAuthOptions
-{
-    public const string SectionName = "WhepAuth";
-    public string Authority { get; set; } = string.Empty;
 }

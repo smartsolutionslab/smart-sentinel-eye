@@ -5,16 +5,10 @@ using SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 
-public sealed class ProvisionStreamCommandHandler(
-    IStreamRepository streams,
-    IRtspGateway rtsp,
-    IClock clock,
-    ILogger<ProvisionStreamCommandHandler> logger)
+public sealed class ProvisionStreamCommandHandler(IStreamRepository streams, IRtspGateway rtsp, IClock clock, ILogger<ProvisionStreamCommandHandler> logger)
     : ICommandHandler<ProvisionStreamCommand, Result<StreamIdentifier, ProvisionStreamError>>
 {
-    public async Task<Result<StreamIdentifier, ProvisionStreamError>> HandleAsync(
-        ProvisionStreamCommand command,
-        CancellationToken cancellationToken)
+    public async Task<Result<StreamIdentifier, ProvisionStreamError>> HandleAsync(ProvisionStreamCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
 
@@ -22,12 +16,10 @@ public sealed class ProvisionStreamCommandHandler(
 
         if (string.IsNullOrWhiteSpace(rtspSourceUrl))
         {
-            return Result<StreamIdentifier, ProvisionStreamError>.Failure(
-                new ProvisionStreamError.InvalidRtspSource("source URL is required"));
+            return Result<StreamIdentifier, ProvisionStreamError>.Failure(new ProvisionStreamError.InvalidRtspSource("source URL is required"));
         }
 
-        Option<Stream> existing = await streams
-            .GetByCameraAsync(camera, cancellationToken);
+        var existing = await streams.GetByCameraAsync(camera, cancellationToken);
 
         if (existing.HasValue)
         {
@@ -45,8 +37,7 @@ public sealed class ProvisionStreamCommandHandler(
         catch (HttpRequestException ex)
         {
             logger.PathRegistrationFailed(ex, camera);
-            return Result<StreamIdentifier, ProvisionStreamError>.Failure(
-                new ProvisionStreamError.RtspGatewayUnavailable(ex.Message));
+            return Result<StreamIdentifier, ProvisionStreamError>.Failure(new ProvisionStreamError.RtspGatewayUnavailable(ex.Message));
         }
 
         await streams.SaveAsync(cancellationToken);

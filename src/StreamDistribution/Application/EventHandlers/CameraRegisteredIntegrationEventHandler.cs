@@ -16,24 +16,21 @@ namespace SmartSentinelEye.StreamDistribution.Application.EventHandlers;
 /// <c>stream-distribution.SmartSentinelEye.Shared.Contracts.CameraCatalog.CameraRegisteredV1</c>
 /// per ADR-0088's per-module queue isolation.
 /// </summary>
-public sealed class CameraRegisteredIntegrationEventHandler(
-    ICommandHandler<ProvisionStreamCommand, Result<StreamIdentifier, ProvisionStreamError>> handler,
-    ILogger<CameraRegisteredIntegrationEventHandler> logger)
+public sealed class CameraRegisteredIntegrationEventHandler(ICommandHandler<ProvisionStreamCommand, Result<StreamIdentifier, ProvisionStreamError>> handler, ILogger<CameraRegisteredIntegrationEventHandler> logger)
 {
     public async Task Handle(CameraRegisteredV1 message, CancellationToken cancellationToken = default)
     {
         Ensure.That(message).IsNotNull();
 
-        CameraIdentifier camera = CameraIdentifier.From(message.Camera);
-        OperatorIdentifier provisionedBy = OperatorIdentifier.From(message.RegisteredBy);
+        var camera = CameraIdentifier.From(message.Camera);
+        var provisionedBy = OperatorIdentifier.From(message.RegisteredBy);
 
         ProvisionStreamCommand command = new(
             Camera: camera,
             RtspSourceUrl: message.Url,
             ProvisionedBy: provisionedBy);
 
-        Result<StreamIdentifier, ProvisionStreamError> result =
-            await handler.HandleAsync(command, cancellationToken);
+        var result = await handler.HandleAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {
@@ -41,8 +38,7 @@ public sealed class CameraRegisteredIntegrationEventHandler(
             // Wolverine treats an exception as a retry signal. Failures here
             // (e.g. RtspGatewayUnavailable) are transient — re-throw so the
             // outbox re-delivers after MediaMTX recovers.
-            throw new InvalidOperationException(
-                $"ProvisionStreamCommand failed for camera {camera}: {result.Error.Code}");
+            throw new InvalidOperationException($"ProvisionStreamCommand failed for camera {camera}: {result.Error.Code}");
         }
     }
 }
