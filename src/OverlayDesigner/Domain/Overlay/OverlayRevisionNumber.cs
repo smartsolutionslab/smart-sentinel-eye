@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.OverlayDesigner.Domain.Overlay;
@@ -11,10 +12,7 @@ public readonly record struct OverlayRevisionNumber(int Value) : IValueObject<in
     public static readonly OverlayRevisionNumber One = new(1);
 
     public static OverlayRevisionNumber From(int value) =>
-        value < 1
-            ? throw new ArgumentException(
-                $"OverlayRevisionNumber must be >= 1; got {value}.", nameof(value))
-            : new OverlayRevisionNumber(value);
+        new(Ensure.That(value).AtLeast(1).AndReturn());
 
     public OverlayRevisionNumber Next() => new(Value + 1);
 

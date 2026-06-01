@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.StreamDistribution.Domain.Stream;
@@ -12,9 +13,7 @@ public readonly record struct StreamIdentifier(Guid Value) : IStronglyTypedId<Gu
     public static StreamIdentifier New() => new(Guid.CreateVersion7());
 
     public static StreamIdentifier From(Guid value) =>
-        value == Guid.Empty
-            ? throw new ArgumentException("StreamIdentifier cannot be empty.", nameof(value))
-            : new StreamIdentifier(value);
+        new(Ensure.That(value).IsNotEmpty().AndReturn());
 
     public static implicit operator Guid(StreamIdentifier id) => id.Value;
 

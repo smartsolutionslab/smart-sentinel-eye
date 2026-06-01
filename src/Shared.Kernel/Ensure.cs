@@ -28,6 +28,29 @@ public static class Ensure
         [CallerArgumentExpression(nameof(value))] string parameterName = "")
         where T : class =>
         new(value, parameterName);
+
+    /// <summary>
+    /// Begins a guard chain for a <see cref="Guid"/> argument; pair with
+    /// <see cref="EnsuredGuid.IsNotEmpty"/> in place of a
+    /// <c>value == Guid.Empty ? throw …</c> precondition (ADR-0105).
+    /// A dedicated overload is needed because value types do not bind to
+    /// the reference-type <c>That&lt;T&gt;</c> above.
+    /// </summary>
+    public static EnsuredGuid That(
+        Guid value,
+        [CallerArgumentExpression(nameof(value))] string parameterName = "") =>
+        new(value, parameterName);
+
+    /// <summary>
+    /// Begins a guard chain for an <see cref="int"/> argument; pair with
+    /// <see cref="EnsuredValue{T}.AtLeast"/> / <see cref="EnsuredValue{T}.InRange"/>
+    /// / <see cref="EnsuredValue{T}.Satisfies"/> in place of a numeric-range
+    /// <c>throw new ArgumentException</c> precondition (ADR-0105).
+    /// </summary>
+    public static EnsuredValue<int> That(
+        int value,
+        [CallerArgumentExpression(nameof(value))] string parameterName = "") =>
+        new(value, parameterName);
 }
 
 public readonly struct EnsuredString
@@ -133,6 +156,84 @@ public readonly struct EnsuredObject<T>
         if (_value is null)
         {
             throw new ArgumentNullException(_parameter);
+        }
+        return this;
+    }
+
+    public T AndReturn() => _value;
+}
+
+/// <summary>
+/// Guard chain for a <see cref="Guid"/> argument (ADR-0105).
+/// <see cref="IsNotEmpty"/> throws <see cref="ArgumentException"/> on
+/// <see cref="Guid.Empty"/> — the value-type analogue of
+/// <see cref="EnsuredObject{T}.IsNotNull"/>.
+/// </summary>
+public readonly struct EnsuredGuid
+{
+    private readonly Guid _value;
+    private readonly string _parameter;
+
+    internal EnsuredGuid(Guid value, string parameter)
+    {
+        _value = value;
+        _parameter = parameter;
+    }
+
+    public EnsuredGuid IsNotEmpty()
+    {
+        if (_value == Guid.Empty)
+        {
+            throw new ArgumentException($"{_parameter} must not be empty.", _parameter);
+        }
+        return this;
+    }
+
+    public Guid AndReturn() => _value;
+}
+
+/// <summary>
+/// Guard chain for a comparable value-type argument (ADR-0105). Failures
+/// throw <see cref="ArgumentException"/>, consistent with the string and
+/// object chains.
+/// </summary>
+public readonly struct EnsuredValue<T>
+    where T : struct, IComparable<T>
+{
+    private readonly T _value;
+    private readonly string _parameter;
+
+    internal EnsuredValue(T value, string parameter)
+    {
+        _value = value;
+        _parameter = parameter;
+    }
+
+    public EnsuredValue<T> AtLeast(T minimum)
+    {
+        if (_value.CompareTo(minimum) < 0)
+        {
+            throw new ArgumentException($"{_parameter} must be >= {minimum}; got {_value}.", _parameter);
+        }
+        return this;
+    }
+
+    public EnsuredValue<T> InRange(T minimum, T maximum)
+    {
+        if (_value.CompareTo(minimum) < 0 || _value.CompareTo(maximum) > 0)
+        {
+            throw new ArgumentException(
+                $"{_parameter} must be in [{minimum}, {maximum}]; got {_value}.", _parameter);
+        }
+        return this;
+    }
+
+    public EnsuredValue<T> Satisfies(Func<T, bool> predicate, string message)
+    {
+        Ensure.That(predicate).IsNotNull();
+        if (!predicate(_value))
+        {
+            throw new ArgumentException($"{_parameter}: {message}", _parameter);
         }
         return this;
     }

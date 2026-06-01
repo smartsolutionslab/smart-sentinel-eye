@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.SystemVariables.Domain.Variable;
@@ -12,9 +13,7 @@ public readonly record struct VariableIdentifier(Guid Value) : IStronglyTypedId<
     public static VariableIdentifier New() => new(Guid.CreateVersion7());
 
     public static VariableIdentifier From(Guid value) =>
-        value == Guid.Empty
-            ? throw new ArgumentException("VariableIdentifier cannot be empty.", nameof(value))
-            : new VariableIdentifier(value);
+        new(Ensure.That(value).IsNotEmpty().AndReturn());
 
     public static implicit operator Guid(VariableIdentifier id) => id.Value;
 

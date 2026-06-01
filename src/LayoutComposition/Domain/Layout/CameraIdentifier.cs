@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
@@ -12,9 +13,7 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 public readonly record struct CameraIdentifier(Guid Value) : IStronglyTypedId<Guid>, IComparable<CameraIdentifier>
 {
     public static CameraIdentifier From(Guid value) =>
-        value == Guid.Empty
-            ? throw new ArgumentException("CameraIdentifier cannot be empty.", nameof(value))
-            : new CameraIdentifier(value);
+        new(Ensure.That(value).IsNotEmpty().AndReturn());
 
     public static implicit operator Guid(CameraIdentifier id) => id.Value;
 

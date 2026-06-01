@@ -40,6 +40,13 @@ choice.
   (`That<T>(T) where T : class`) returning `EnsuredObject<T>`. The
   `string` overload is more specific, so string arguments still bind to
   the value-object chain.
+- **Value-type guards** (added in the follow-up): `That(Guid)` →
+  `EnsuredGuid.IsNotEmpty()` replaces `value == Guid.Empty ? throw …`
+  precondition ternaries; `That(int)` → `EnsuredValue<int>` with
+  `AtLeast`, `InRange`, and `Satisfies(predicate, message)` replaces
+  numeric-range `throw new ArgumentException` preconditions. Value types
+  use dedicated non-generic overloads because a `That<T> where T : struct`
+  would be an illegal constraint-only overload against the reference one.
 
 ### Scope and exclusions
 
@@ -57,14 +64,20 @@ modules, broadcasters, hosted services.
   tooling; never hand-edited.
 - **Parse / format / deserialization failures** — e.g. the
   `RuleConfiguration` packed-string decoder's
-  `throw new ArgumentException("Malformed packed RuleAction …")`. These
-  are *data-format* errors, not argument-null/precondition guards;
-  `Ensure` is not the right tool and they keep throwing
-  `ArgumentException`/`FormatException`.
-- **Value-range preconditions on primitives** (`int`, `double`, …).
-  `Ensure` today guards reference types (`IsNotNull`) and string
-  invariants. A value-type predicate API is not introduced
-  speculatively; revisit if such guards proliferate.
+  `throw new ArgumentException("Malformed packed RuleAction …")` and the
+  exhaustive enum-`switch` `_ => throw new ArgumentException("Unknown X …")`
+  arms. These are *data-format* / mapping errors, not argument-null or
+  range preconditions; `Ensure` is not the right tool and they keep
+  throwing `ArgumentException`/`FormatException`.
+- **`Label`'s normalized-coordinate (`decimal`) guards** keep their
+  existing private `EnsureNormalized` / `EnsurePositiveNormalized`
+  helpers — already clean, named, local guards that `Ensure.That` would
+  not improve (and the `(0, 1]` exclusive-low bound has no named chain
+  method). No `That(decimal)` overload is added until a second caller needs
+  one.
+- **`ActorIdentifier.From`** keeps its bespoke `throw` — its message
+  ("…use `ActorIdentifier.System` for system events.") carries domain
+  guidance that the generic `IsNotEmpty()` message would lose.
 
 ## Consequences
 

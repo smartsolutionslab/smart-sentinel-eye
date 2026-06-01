@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.Automation.Domain.Rule;
@@ -10,9 +11,7 @@ public readonly record struct RuleIdentifier(Guid Value) : IStronglyTypedId<Guid
     public static RuleIdentifier New() => new(Guid.CreateVersion7());
 
     public static RuleIdentifier From(Guid value) =>
-        value == Guid.Empty
-            ? throw new ArgumentException("RuleIdentifier cannot be empty.", nameof(value))
-            : new RuleIdentifier(value);
+        new(Ensure.That(value).IsNotEmpty().AndReturn());
 
     public static implicit operator Guid(RuleIdentifier id) => id.Value;
 

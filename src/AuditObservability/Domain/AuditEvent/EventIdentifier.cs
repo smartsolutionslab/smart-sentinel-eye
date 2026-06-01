@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
@@ -13,9 +14,7 @@ namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 public sealed record EventIdentifier(Guid Value) : IValueObject<Guid>
 {
     public static EventIdentifier From(Guid value) =>
-        value == Guid.Empty
-            ? throw new ArgumentException("EventIdentifier cannot be empty.", nameof(value))
-            : new EventIdentifier(value);
+        new(Ensure.That(value).IsNotEmpty().AndReturn());
 
     public sealed override string ToString() => Value.ToString();
 }
