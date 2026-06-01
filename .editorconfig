@@ -92,5 +92,15 @@ dotnet_diagnostic.IDE0161.severity = none
 dotnet_diagnostic.CA1825.severity = none
 dotnet_diagnostic.S125.severity = none
 
+[src/AppHost/**.cs]
+# AppHost is the Aspire composition root — framework builder code, already
+# excepted from several house rules (ADR-0105). var is idiomatic here, and some
+# Aspire resource types are [Obsolete] (naming them explicitly trips CS0618), so
+# the explicit-types / braces enforcement does not apply.
+csharp_style_var_for_built_in_types = true:silent
+csharp_style_var_when_type_is_apparent = true:silent
+csharp_style_var_elsewhere = true:silent
+csharp_prefer_braces = true:silent
+
 [*.sln]
 indent_style = tab
