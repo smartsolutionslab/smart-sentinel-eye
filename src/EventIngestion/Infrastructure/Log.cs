@@ -13,7 +13,7 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Persistence loop stopping (cancellation).")]
     public static partial void PersistenceLoopStopping(this ILogger logger, Exception exception);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Ingest failed for {Identifier} ({Source}/{Device}): {Code}")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Ingest failed for {Identifier} ({Source}/{Device}): {Code}.")]
     public static partial void IngestFailed(this ILogger logger, EventIdentifier identifier, Source source, DeviceIdentifier device, string code);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "MQTT subscriber started; subscribed to topic '{Topic}' at QoS 1.")]
@@ -22,10 +22,10 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "MQTT subscriber stopped.")]
     public static partial void MqttSubscriberStopped(this ILogger logger);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Rejecting MQTT delivery on '{Topic}': {Error}")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Rejecting MQTT delivery on '{Topic}': {Error}.")]
     public static partial void RejectingMqttDelivery(this ILogger logger, string topic, string error);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to capture dead letter for topic '{Topic}': {Message}")]
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to capture dead letter for topic '{Topic}': {Message}.")]
     public static partial void DeadLetterCaptureFailed(this ILogger logger, Exception exception, string topic, string message);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "No per-fab partitions under 'events' yet; skipping rollover. Add a fab via 'CREATE TABLE events_<fabId> PARTITION OF events FOR VALUES IN (...)'.")]

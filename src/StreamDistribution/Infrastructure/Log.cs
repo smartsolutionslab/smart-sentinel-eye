@@ -25,10 +25,10 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Removed MediaMTX path {Path}.")]
     public static partial void RemovedMediaMtxPath(this ILogger logger, MediaMtxPath path);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Applying Stream Distribution EF Core migrations.")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "Applying StreamDistribution EF Core migrations.")]
     public static partial void ApplyingMigrations(this ILogger logger);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Stream Distribution migrations applied.")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "StreamDistribution migrations applied.")]
     public static partial void MigrationsApplied(this ILogger logger);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "StreamHealthWatcher started (poll every {Interval}).")]

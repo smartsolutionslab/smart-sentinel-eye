@@ -10,6 +10,6 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Rejected camera registration: name {CameraName} already in use.")]
     public static partial void RejectedCameraRegistrationNameInUse(this ILogger logger, CameraName cameraName);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Registered camera {CameraId} with name {CameraName}.")]
-    public static partial void RegisteredCamera(this ILogger logger, CameraIdentifier cameraId, CameraName cameraName);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Registered camera {CameraIdentifier} with name {CameraName}.")]
+    public static partial void RegisteredCamera(this ILogger logger, CameraIdentifier cameraIdentifier, CameraName cameraName);
 }
