@@ -196,6 +196,33 @@ Husky pre-commit hooks run formatters on **staged files only** — fast
 local loop. CI verifies with `--verify-no-changes` so a bypassed hook
 still fails the PR.
 
+### IDE code cleanup — don't bulk-run it
+
+The C# house style is **explicit types (never `var`) and braces on all
+control flow**, enforced three ways: `.editorconfig`
+(`csharp_style_var_* = false`, `csharp_prefer_braces = true` — errors in
+`Release`), the Roslyn analyzers, and the committed
+`SmartSentinelEye.slnx.DotSettings` (pins ReSharper to the same).
+
+**Do not bulk-run ReSharper / Rider _Cleanup Code_ or _Reformat Code_
+across files, folders, or the whole solution**, and don't enable an
+aggressive _Reformat and cleanup code on save_ profile. A solution-wide
+cleanup pass produces large drive-by diffs — `var`-ification,
+line-collapsing, brace churn — that:
+
+- violate the smallest-change rule (ADR-0036) and bury the real change
+  in noise,
+- collide with everyone else's in-flight work on rebase, and
+- fight the house style (the `var`/brace passes are exactly what the
+  enforcement above now rejects).
+
+The committed `.DotSettings` already pins ReSharper to the house style,
+so editor-default behaviour conforms — **keep it; don't override it
+locally.** For whitespace, rely on the Husky pre-commit hook (staged
+files only) and the CI `dotnet format --verify-no-changes` gate, not a
+manual sweep. `AppHost` is exempt from the `var`/brace rules (Aspire
+composition root, ADR-0105).
+
 ## Guided phased development — ADR-0037
 
 Every feature or non-trivial change moves through **seven phases**.
