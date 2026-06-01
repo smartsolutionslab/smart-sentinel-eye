@@ -1,6 +1,6 @@
 # ADR-0106: API Gateway — single YARP reverse proxy at the edge
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-06-01
 **Supersedes:** —
 **Superseded by:** —

@@ -19,6 +19,7 @@
     <ProjectReference Include="..\Identity\Api\SmartSentinelEye.Identity.Api.csproj" />
     <ProjectReference Include="..\AuditObservability\Api\SmartSentinelEye.AuditObservability.Api.csproj" />
     <ProjectReference Include="..\MigrationRunner\SmartSentinelEye.MigrationRunner.csproj" />
+    <ProjectReference Include="..\ApiGateway\SmartSentinelEye.ApiGateway.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

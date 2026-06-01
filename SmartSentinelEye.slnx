@@ -3,6 +3,9 @@
   <Folder Name="/src/AppHost/">
     <Project Path="src/AppHost/SmartSentinelEye.AppHost.csproj" />
   </Folder>
+  <Folder Name="/src/ApiGateway/">
+    <Project Path="src/ApiGateway/SmartSentinelEye.ApiGateway.csproj" />
+  </Folder>
   <Folder Name="/src/AuditObservability/" />
   <Folder Name="/src/AuditObservability/Api/">
     <Project Path="src/AuditObservability/Api/SmartSentinelEye.AuditObservability.Api.csproj" />

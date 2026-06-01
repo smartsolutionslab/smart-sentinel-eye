@@ -268,6 +268,16 @@ if (isE2ETests)
     auditObservability.WithEnvironment("AuditObservability__Retention__TickInterval", "00:00:03");
 }
 
+// ADR-0106: single YARP API gateway at the edge — fronts the context REST APIs
+// via service discovery, owning CORS/TLS/rate-limiting (follow-up issues). This
+// scaffold (#1001) routes only camera-catalog; the full route table is #1002.
+// Realtime WebSocket (ADR-0076) and WebRTC media stay direct, off the gateway.
+builder
+    .AddProject<Projects.SmartSentinelEye_ApiGateway>("api-gateway")
+    .WithExternalHttpEndpoints()
+    .WithReference(cameraCatalog)
+    .WaitFor(cameraCatalog);
+
 // React apps per ADR-0074: two pnpm-workspace apps under apps/. Skipped in
 // test mode so the integration suite doesn't start two Node dev servers.
 // Endpoints are proxyless (isProxied: false): the Vite dev server binds the
