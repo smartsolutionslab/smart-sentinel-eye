@@ -98,6 +98,32 @@ public class BoundaryTests
     }
 
     /// <summary>
+    /// ADR-0106 (#1006): the gateway carries only REST/CRUD traffic, so it must
+    /// stay off the constitution §IV latency legs. The per-kiosk WebSocket push
+    /// (ADR-0076) and the WebRTC/SFU media (ADR-0011/0012) stay direct — proven
+    /// structurally here by the gateway assembly depending on no SignalR or
+    /// WebSocket transport. With the route table carrying only REST contexts,
+    /// the event-to-overlay and media legs never traverse the gateway hop.
+    /// </summary>
+    [Fact]
+    public void ApiGateway_does_not_sit_on_the_realtime_or_media_latency_legs()
+    {
+        Assembly gateway = Assembly.Load("SmartSentinelEye.ApiGateway");
+
+        TestResult result = Types
+            .InAssembly(gateway)
+            .Should()
+            .NotHaveDependencyOnAny(
+                "Microsoft.AspNetCore.SignalR",
+                "Microsoft.AspNetCore.WebSockets",
+                "Microsoft.AspNetCore.Http.Connections")
+            .GetResult();
+
+        result.IsSuccessful.ShouldBeTrue(
+            $"ApiGateway must not touch the realtime/media transport (the §IV legs stay direct): {string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    /// <summary>
     /// Spec 005 T095 — SystemVariables.Domain must remain free of
     /// SignalR / EF Core / Wolverine / Npgsql refs even though
     /// Application + Infrastructure use them via the bridge.

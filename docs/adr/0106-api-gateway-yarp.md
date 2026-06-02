@@ -107,6 +107,14 @@ registered as an Aspire resource and deployed to k3s.
   (besides the realtime WS edge); Ingress targets it.
 - NetArchTest: the gateway may reference `Shared.Contracts` /
   `Shared.Kernel` only — no cross-context domain references.
-- Add a verification step asserting the gateway hop is **not** on the
-  event→overlay or media legs and that REST overhead stays within a
-  small bound.
+  (`ApiGateway_references_no_bounded_context`.)
+- **Latency note (verified, #1006).** A NetArchTest
+  (`ApiGateway_does_not_sit_on_the_realtime_or_media_latency_legs`)
+  asserts the gateway assembly depends on no SignalR / WebSocket
+  transport, so the per-kiosk WebSocket push (ADR-0076) and the
+  WebRTC/SFU media (ADR-0011/0012) cannot route through it. The route
+  table carries only the nine REST contexts — no WS/media routes — so
+  the `event → overlay state` and `SFU → kiosk decode` legs never
+  traverse the gateway hop. The added hop is the sub-millisecond YARP
+  proxy on REST/CRUD paths only, and is **N/A to the §IV budget** by
+  construction.
