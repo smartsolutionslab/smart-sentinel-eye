@@ -1,6 +1,20 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
+import { type ReactNode } from 'react';
+
+// App is gated behind OIDC; render as an authenticated operator so these tests
+// exercise the shell rather than the sign-in screen.
+vi.mock('react-oidc-context', () => ({
+  AuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+  useAuth: () => ({
+    isLoading: false,
+    isAuthenticated: true,
+    error: undefined,
+    user: { access_token: 'test-token' },
+    signinRedirect: vi.fn(),
+  }),
+}));
 
 vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/cameras.api')>();

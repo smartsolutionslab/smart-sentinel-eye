@@ -1,8 +1,12 @@
 import type { AuthProviderProps } from 'react-oidc-context';
 
-const KEYCLOAK_BASE_URL =
-  (typeof window !== 'undefined' && (window as { __KEYCLOAK_URL__?: string }).__KEYCLOAK_URL__) ??
-  'http://localhost:8080';
+// Injected by the host (Aspire: VITE_KEYCLOAK_URL) and MUST match the issuer the
+// services validate (ServiceDefaults.AddBearerAuthentication uses the same Aspire
+// endpoint), so we never hardcode the port. The deploy layer supplies it in prod.
+const KEYCLOAK_BASE_URL = (import.meta.env.VITE_KEYCLOAK_URL ?? 'http://localhost:8080').replace(
+  /\/+$/,
+  '',
+);
 
 /**
  * OIDC config for kiosk-web. Same Keycloak realm as management-web,
@@ -17,7 +21,9 @@ export const oidcConfig: AuthProviderProps = {
     typeof window !== 'undefined'
       ? `${window.location.origin}/oidc/callback`
       : 'http://localhost:5174/oidc/callback',
-  scope: 'openid profile sse.management',
+  // The realm does not expose a requestable `profile` scope; `sse.management`
+  // is a default client scope and grandfathers the granular sse.* policies.
+  scope: 'openid sse.management',
   onSigninCallback: () => {
     if (typeof window !== 'undefined') {
       window.history.replaceState({}, document.title, '/');

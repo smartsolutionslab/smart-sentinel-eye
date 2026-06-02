@@ -1,3 +1,5 @@
+import { fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+
 // ADR-0106 (#1005): the browser apps reach every context REST API through the
 // single API gateway, cross-origin. The gateway's CORS policy (#1003) allows the
 // app origins, and it routes on `/<context>/...` — stripping that prefix before
@@ -12,3 +14,28 @@
 const gatewayOrigin: string = (import.meta.env.VITE_API_GATEWAY_URL ?? '').replace(/\/+$/, '');
 
 export const gatewayApiUrl = (route: string): string => `${gatewayOrigin}/${route}`;
+
+// Every context API requires a Keycloak-minted JWT (ADR-0007/0008; the gateway
+// forwards Authorization unmodified, ADR-0106). The RTK Query clients live in
+// this shared package and are app-agnostic, so each app registers a getter that
+// sources the current access token from its OIDC user; prepareHeaders attaches
+// it as a bearer on every gateway request.
+type AccessTokenGetter = () => string | undefined;
+
+let accessTokenProvider: AccessTokenGetter = () => undefined;
+
+export const setAccessTokenProvider = (provider: AccessTokenGetter): void => {
+  accessTokenProvider = provider;
+};
+
+export const gatewayBaseQuery = (route: string): ReturnType<typeof fetchBaseQuery> =>
+  fetchBaseQuery({
+    baseUrl: gatewayApiUrl(route),
+    prepareHeaders: (headers) => {
+      const token = accessTokenProvider();
+      if (token !== undefined && token !== '') {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+      return headers;
+    },
+  });

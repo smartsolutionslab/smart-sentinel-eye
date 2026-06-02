@@ -1,5 +1,5 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { gatewayApiUrl } from './gateway.js';
+import { createApi } from '@reduxjs/toolkit/query/react';
+import { gatewayBaseQuery } from './gateway.js';
 import type { DefineVariableInput } from './systemVariables.schema.js';
 
 export type { DefineVariableInput };
@@ -33,7 +33,7 @@ export interface ResolvedOverlaySnapshot {
 
 export const systemVariablesApi = createApi({
   reducerPath: 'systemVariablesApi',
-  baseQuery: fetchBaseQuery({ baseUrl: gatewayApiUrl('system-variables/system-variables') }),
+  baseQuery: gatewayBaseQuery('system-variables/system-variables'),
   tagTypes: ['Variable', 'VariableList', 'OverlaySnapshot'],
   endpoints: (build) => ({
     defineVariable: build.mutation<string, DefineVariableInput>({

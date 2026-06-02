@@ -1,5 +1,5 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { gatewayApiUrl } from './gateway.js';
+import { createApi } from '@reduxjs/toolkit/query/react';
+import { gatewayBaseQuery } from './gateway.js';
 
 export type StreamState = 'Provisioning' | 'Healthy' | 'Degraded' | 'Offline';
 
@@ -16,7 +16,7 @@ export interface StreamHealth {
 
 export const streamsApi = createApi({
   reducerPath: 'streamsApi',
-  baseQuery: fetchBaseQuery({ baseUrl: gatewayApiUrl('stream-distribution/streams') }),
+  baseQuery: gatewayBaseQuery('stream-distribution/streams'),
   tagTypes: ['Stream'],
   endpoints: (build) => ({
     getStream: build.query<StreamHealth, string>({
