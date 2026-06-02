@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { signInAsOperator } from './support/sign-in';
 
 // ADR-0108 — cameras vertical slice against the live Aspire stack. An operator
 // signs in through the real Keycloak login, then the management Cameras page
@@ -6,21 +7,6 @@ import { test, expect, type Page } from '@playwright/test';
 // Any auth / route / CORS / scope failure surfaces an error, so these prove the
 // authenticated path end to end: OIDC -> token -> cross-origin gateway ->
 // service -> DB.
-
-async function signInAsOperator(page: Page): Promise<void> {
-  await page.goto('/');
-
-  // Unauthenticated: the management shell shows the sign-in screen.
-  await page.getByRole('button', { name: /sign in/i }).click();
-
-  // Real Keycloak login form (standard login-theme element ids).
-  await page.locator('#username').fill('operator');
-  await page.locator('#password').fill('Operator1234');
-  await page.locator('#kc-login').click();
-
-  // Back in the app, authenticated — the Cameras heading renders.
-  await expect(page.getByRole('heading', { name: 'Cameras', exact: true })).toBeVisible();
-}
 
 test('operator signs in and the cameras list loads through the gateway', async ({ page }) => {
   await signInAsOperator(page);
