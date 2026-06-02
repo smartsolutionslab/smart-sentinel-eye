@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { gatewayApiUrl } from './gateway.js';
 
 /** One audit row as returned by the AuditObservability read API (spec 009 FR-008/010). */
 export interface AuditRow {
@@ -63,7 +64,7 @@ function definedParams(input: Record<string, string | number | undefined>): Reco
 
 export const auditApi = createApi({
   reducerPath: 'auditApi',
-  baseQuery: fetchBaseQuery({ baseUrl: '/api/audit' }),
+  baseQuery: fetchBaseQuery({ baseUrl: gatewayApiUrl('audit-observability/audit') }),
   tagTypes: ['AuditPage', 'AuditEvent'],
   endpoints: (build) => ({
     searchAudit: build.query<AuditPage, SearchAuditInput>({

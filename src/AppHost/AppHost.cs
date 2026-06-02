@@ -272,7 +272,7 @@ if (isE2ETests)
 // APIs via service discovery (#1002). CORS/TLS (#1003) and rate limiting (#1004)
 // follow. Realtime WebSocket (ADR-0076) and WebRTC media stay direct, off the
 // gateway, so the latency budget (constitution §IV) is untouched.
-builder
+var apiGateway = builder
     .AddProject<Projects.SmartSentinelEye_ApiGateway>("api-gateway")
     .WithHttpEndpoint()
     .WithExternalHttpEndpoints()
@@ -286,6 +286,14 @@ builder
     .WithReference(automation)
     .WithReference(identity);
 
+// HA (#1005): run >= 2 gateway replicas so the single REST front door is not a
+// single point of failure (ADR-0106). Kept to one instance under E2E tests so
+// the gateway routing/rate-limit integration tests resolve a single endpoint.
+if (!isE2ETests)
+{
+    apiGateway.WithReplicas(2);
+}
+
 // React apps per ADR-0074: two pnpm-workspace apps under apps/. Skipped in
 // test mode so the integration suite doesn't start two Node dev servers.
 // Endpoints are proxyless (isProxied: false): the Vite dev server binds the
@@ -293,23 +301,24 @@ builder
 // shared port makes Vite fail to start with "Port is already in use".
 if (isRunMode && !isE2ETests)
 {
+    // REST goes through the gateway (#1005): each app gets VITE_API_GATEWAY_URL
+    // and calls `${gateway}/<context>/...` cross-origin (the gateway's CORS
+    // policy allows the app origins, #1003). The realtime WebSocket hub
+    // (ADR-0076, LayoutComposition) and WebRTC media stay direct — a direct
+    // reference to layout-composition keeps that URL resolvable, off the
+    // gateway. Keycloak (OIDC) is also reached directly.
     builder.AddNpmApp("management-web", "../../apps/management-web", "dev")
         .WithHttpEndpoint(env: "PORT", port: 5173, isProxied: false)
-        .WithReference(cameraCatalog)
+        .WithReference(apiGateway)
+        .WithEnvironment("VITE_API_GATEWAY_URL", apiGateway.GetEndpoint("http"))
         .WithReference(layoutComposition)
-        .WithReference(overlayDesigner)
-        .WithReference(systemVariables)
-        .WithReference(auditObservability)
         .WithExternalHttpEndpoints();
 
     builder.AddNpmApp("kiosk-web", "../../apps/kiosk-web", "dev")
         .WithHttpEndpoint(env: "PORT", port: 5174, isProxied: false)
-        .WithReference(cameraCatalog)
-        .WithReference(streamDistribution)
+        .WithReference(apiGateway)
+        .WithEnvironment("VITE_API_GATEWAY_URL", apiGateway.GetEndpoint("http"))
         .WithReference(layoutComposition)
-        .WithReference(overlayDesigner)
-        .WithReference(systemVariables)
-        .WithReference(eventIngestion)
         .WithReference(keycloak)
         .WithExternalHttpEndpoints();
 }
