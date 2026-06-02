@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { AuthProvider, useAuth } from 'react-oidc-context';
 import { RouterProvider } from 'react-router-dom';
+import { setAccessTokenProvider } from '@smart-sentinel-eye/shared/api/gateway';
 import { oidcConfig } from './app/auth.js';
 import { router } from './app/router.js';
 
@@ -13,6 +15,12 @@ export function App() {
 
 function AuthGate() {
   const auth = useAuth();
+
+  // The shared RTK Query clients read the access token through this getter so
+  // every gateway REST call carries the bearer (ADR-0007/0008).
+  useEffect(() => {
+    setAccessTokenProvider(() => auth.user?.access_token);
+  }, [auth.user?.access_token]);
 
   if (auth.isLoading) {
     return (

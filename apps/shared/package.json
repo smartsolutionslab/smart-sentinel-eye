@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api/index.ts",
+    "./api/gateway": "./src/api/gateway.ts",
     "./api/cameras.api": "./src/api/cameras.api.ts",
     "./api/cameras.schema": "./src/api/cameras.schema.ts",
     "./api/streams.api": "./src/api/streams.api.ts",

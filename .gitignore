@@ -62,3 +62,9 @@ aspire-dashboard-storage/
 # Misc
 *.tmp
 *.bak
+
+# Playwright (ADR-0108) — e2e artifacts
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

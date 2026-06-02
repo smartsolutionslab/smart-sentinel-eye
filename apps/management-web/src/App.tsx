@@ -1,4 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { AuthProvider, useAuth } from 'react-oidc-context';
+import { setAccessTokenProvider } from '@smart-sentinel-eye/shared/api/gateway';
+import { oidcConfig } from './app/auth.js';
 import { CamerasPage } from './features/cameras/CamerasPage.js';
 import { LayoutsPage } from './features/layouts/LayoutsPage.js';
 import { OverlaysPage } from './features/overlays/OverlaysPage.js';
@@ -7,10 +10,66 @@ import { AuditPage } from './features/audit/AuditPage.js';
 
 type View = 'cameras' | 'layouts' | 'overlays' | 'system-variables' | 'audit';
 
+export function App() {
+  return (
+    <AuthProvider {...oidcConfig}>
+      <AuthGate />
+    </AuthProvider>
+  );
+}
+
+function AuthGate() {
+  const auth = useAuth();
+
+  // The shared RTK Query clients read the access token through this getter, so
+  // every gateway REST call carries the bearer (ADR-0007/0008). Kept in sync
+  // with the OIDC user.
+  useEffect(() => {
+    setAccessTokenProvider(() => auth.user?.access_token);
+  }, [auth.user?.access_token]);
+
+  if (auth.isLoading) {
+    return <Centered>Signing in…</Centered>;
+  }
+
+  if (auth.error !== undefined) {
+    return (
+      <Centered>
+        <h1 className="text-2xl font-semibold">Sign-in failed</h1>
+        <p className="text-fg-muted">{auth.error.message}</p>
+        <button
+          type="button"
+          className="rounded-md bg-accent-active/20 px-4 py-2 text-accent-active"
+          onClick={() => void auth.signinRedirect()}
+        >
+          Try again
+        </button>
+      </Centered>
+    );
+  }
+
+  if (!auth.isAuthenticated) {
+    return (
+      <Centered>
+        <h1 className="text-3xl font-semibold">Smart Sentinel Eye — Management</h1>
+        <button
+          type="button"
+          className="rounded-md bg-accent-active px-6 py-3 text-bg-base"
+          onClick={() => void auth.signinRedirect()}
+        >
+          Sign in
+        </button>
+      </Centered>
+    );
+  }
+
+  return <Shell />;
+}
+
 // Placeholder shell for the management app. A real router lands when more
 // than three surfaces exist; for spec 004 we toggle between cameras,
 // layouts, and overlays so the nav remains visible everywhere.
-export function App() {
+function Shell() {
   const [view, setView] = useState<View>('cameras');
 
   return (
@@ -37,6 +96,14 @@ export function App() {
       {view === 'overlays' && <OverlaysPage />}
       {view === 'system-variables' && <SystemVariablesPage />}
       {view === 'audit' && <AuditPage />}
+    </main>
+  );
+}
+
+function Centered({ children }: { children: ReactNode }) {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg-base text-fg-primary">
+      {children}
     </main>
   );
 }

@@ -1,5 +1,5 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { gatewayApiUrl } from './gateway.js';
+import { createApi } from '@reduxjs/toolkit/query/react';
+import { gatewayBaseQuery } from './gateway.js';
 import type { CreateOverlayDraftInput } from './overlays.schema.js';
 
 export type { CreateOverlayDraftInput };
@@ -53,7 +53,7 @@ export interface OverlayRevisionRouteInput {
 
 export const overlaysApi = createApi({
   reducerPath: 'overlaysApi',
-  baseQuery: fetchBaseQuery({ baseUrl: gatewayApiUrl('overlay-designer/overlays') }),
+  baseQuery: gatewayBaseQuery('overlay-designer/overlays'),
   tagTypes: ['Overlay', 'OverlayList'],
   endpoints: (build) => ({
     createOverlayDraft: build.mutation<string, CreateOverlayDraftInput>({

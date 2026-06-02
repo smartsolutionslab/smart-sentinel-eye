@@ -1,5 +1,5 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { gatewayApiUrl } from './gateway.js';
+import { createApi } from '@reduxjs/toolkit/query/react';
+import { gatewayBaseQuery } from './gateway.js';
 import type { CreateLayoutDraftInput } from './layouts.schema.js';
 
 export type { CreateLayoutDraftInput };
@@ -49,7 +49,7 @@ export interface RevisionRouteInput {
 
 export const layoutsApi = createApi({
   reducerPath: 'layoutsApi',
-  baseQuery: fetchBaseQuery({ baseUrl: gatewayApiUrl('layout-composition/layouts') }),
+  baseQuery: gatewayBaseQuery('layout-composition/layouts'),
   tagTypes: ['Layout', 'LayoutList'],
   endpoints: (build) => ({
     createLayoutDraft: build.mutation<string, CreateLayoutDraftInput>({

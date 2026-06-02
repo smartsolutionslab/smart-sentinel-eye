@@ -13,9 +13,12 @@
     "test": "pnpm -r --filter \"./apps/**\" test",
     "typecheck": "pnpm -r --filter \"./apps/**\" typecheck",
     "format": "prettier --write \"apps/**/*.{ts,tsx,js,jsx,json,css,md,yaml,yml}\"",
-    "format:check": "prettier --check \"apps/**/*.{ts,tsx,js,jsx,json,css,md,yaml,yml}\""
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx,js,jsx,json,css,md,yaml,yml}\"",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "prettier": "3.4.2",
     "typescript": "5.7.3"
   }

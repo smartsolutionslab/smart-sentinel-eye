@@ -303,14 +303,18 @@ if (isRunMode && !isE2ETests)
 {
     // REST goes through the gateway (#1005): each app gets VITE_API_GATEWAY_URL
     // and calls `${gateway}/<context>/...` cross-origin (the gateway's CORS
-    // policy allows the app origins, #1003). The realtime WebSocket hub
-    // (ADR-0076, LayoutComposition) and WebRTC media stay direct — a direct
-    // reference to layout-composition keeps that URL resolvable, off the
-    // gateway. Keycloak (OIDC) is also reached directly.
+    // policy allows the app origins, #1003). Auth is direct to Keycloak (OIDC):
+    // VITE_KEYCLOAK_URL is the same Aspire endpoint the services validate tokens
+    // against, so the issuer matches (ServiceDefaults.AddBearerAuthentication).
+    // The realtime WebSocket hub (ADR-0076, LayoutComposition) and WebRTC media
+    // stay direct — a direct reference to layout-composition keeps that URL
+    // resolvable, off the gateway.
     builder.AddNpmApp("management-web", "../../apps/management-web", "dev")
         .WithHttpEndpoint(env: "PORT", port: 5173, isProxied: false)
         .WithReference(apiGateway)
         .WithEnvironment("VITE_API_GATEWAY_URL", apiGateway.GetEndpoint("http"))
+        .WithReference(keycloak)
+        .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
         .WithReference(layoutComposition)
         .WithExternalHttpEndpoints();
 
@@ -318,8 +322,9 @@ if (isRunMode && !isE2ETests)
         .WithHttpEndpoint(env: "PORT", port: 5174, isProxied: false)
         .WithReference(apiGateway)
         .WithEnvironment("VITE_API_GATEWAY_URL", apiGateway.GetEndpoint("http"))
-        .WithReference(layoutComposition)
         .WithReference(keycloak)
+        .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
+        .WithReference(layoutComposition)
         .WithExternalHttpEndpoints();
 }
 
