@@ -14,3 +14,20 @@ test('operator opens system variables and the list loads through the gateway', a
   await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
+
+test('operator defines a system variable and it appears in the list', async ({ page }) => {
+  await signInAsOperator(page);
+
+  await page.getByRole('button', { name: /^system variables$/i }).click();
+  await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+
+  // POST /system-variables/system-variables (Bearer; sse.management grandfathers
+  // sse.variables.write); the list invalidates and refetches.
+  await page.getByRole('button', { name: /new variable/i }).click();
+  const name = `E2E_Var_${Date.now()}`;
+  await page.locator('#variable-name').fill(name);
+  // Type defaults to String, so the name alone is a valid definition.
+  await page.getByRole('button', { name: /^define$/i }).click();
+
+  await expect(page.getByText(name)).toBeVisible();
+});
