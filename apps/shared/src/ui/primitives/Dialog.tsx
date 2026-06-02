@@ -18,6 +18,9 @@ export function Dialog({ open, onOpenChange, title, description, children }: Dia
         <RadixDialog.Content
           className={clsx(
             'fixed left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 ' +
+              // Cap to the viewport and scroll: tall content (e.g. the overlay
+              // editor canvas) must not push the action buttons off-screen.
+              'max-h-[90vh] overflow-y-auto ' +
               'rounded-lg bg-bg-elevated p-6 shadow-xl border border-fg-muted text-fg-primary',
           )}
         >
