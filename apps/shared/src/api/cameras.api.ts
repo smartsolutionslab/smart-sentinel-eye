@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { gatewayApiUrl } from './gateway.js';
 import type { RegisterCameraInput } from './cameras.schema.js';
 
 export type RegisterCameraResponse = string;
@@ -29,7 +30,7 @@ export interface CameraListPage {
 
 export const camerasApi = createApi({
   reducerPath: 'camerasApi',
-  baseQuery: fetchBaseQuery({ baseUrl: '/api/cameras' }),
+  baseQuery: fetchBaseQuery({ baseUrl: gatewayApiUrl('camera-catalog/cameras') }),
   tagTypes: ['Camera'],
   endpoints: (build) => ({
     registerCamera: build.mutation<RegisterCameraResponse, RegisterCameraInput>({
