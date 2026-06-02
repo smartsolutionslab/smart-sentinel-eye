@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { AuthProvider, useAuth } from 'react-oidc-context';
 import { setAccessTokenProvider } from '@smart-sentinel-eye/shared/api/gateway';
 import { oidcConfig } from './app/auth.js';
@@ -21,12 +21,12 @@ export function App() {
 function AuthGate() {
   const auth = useAuth();
 
-  // The shared RTK Query clients read the access token through this getter, so
-  // every gateway REST call carries the bearer (ADR-0007/0008). Kept in sync
-  // with the OIDC user.
-  useEffect(() => {
-    setAccessTokenProvider(() => auth.user?.access_token);
-  }, [auth.user?.access_token]);
+  // Register the bearer getter synchronously, before any child query dispatches,
+  // so the first authenticated REST call already carries the token (ADR-0007/
+  // 0008). A useEffect here fires AFTER the child query's mount effect (effects
+  // run child-first), which races the token and 401s the first request. Setting
+  // a module-level getter during render is idempotent.
+  setAccessTokenProvider(() => auth.user?.access_token);
 
   if (auth.isLoading) {
     return <Centered>Signing in…</Centered>;
