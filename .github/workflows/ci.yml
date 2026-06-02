@@ -140,3 +140,85 @@ jobs:
           name: integration-test-results
           path: '**/TestResults/*.trx'
           retention-days: 14
+
+  e2e:
+    name: e2e (Playwright, full stack)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    # Boots the full Aspire stack in RUN mode (web apps + gateway + Keycloak)
+    # and drives the browser through it (ADR-0108). Gated on the cheap jobs so a
+    # branch that already fails lint/units doesn't burn the boot budget.
+    timeout-minutes: 40
+    env:
+      ASPIRE_ALLOW_UNSECURED_TRANSPORT: 'true'
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up .NET (version pinned via global.json)
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 10.30.3
+
+      - name: Set up Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Cache NuGet packages
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/Directory.Packages.props', 'global.json', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Verify Docker is available
+        run: docker info
+
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Ensure the ASP.NET dev cert exists (Keycloak HTTPS)
+        run: dotnet dev-certs https
+
+      - name: Build the stack (Release)
+        run: |
+          dotnet restore SmartSentinelEye.slnx
+          dotnet build SmartSentinelEye.slnx -c Release --no-restore
+
+      - name: Boot the Aspire stack (run mode) in the background
+        run: |
+          nohup dotnet run --project src/AppHost/SmartSentinelEye.AppHost.csproj -c Release --no-build > apphost.log 2>&1 &
+          echo "$!" > apphost.pid
+          echo "AppHost PID $(cat apphost.pid)"
+
+      - name: Wait for the stack to be ready
+        run: bash scripts/wait-for-e2e-stack.sh
+
+      - name: Run the Playwright e2e suite
+        run: pnpm test:e2e
+
+      - name: AppHost log (on failure)
+        if: failure()
+        run: tail -n 300 apphost.log || true
+
+      - name: Stop the AppHost
+        if: always()
+        run: |
+          if [ -f apphost.pid ]; then kill "$(cat apphost.pid)" 2>/dev/null || true; fi
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 14
