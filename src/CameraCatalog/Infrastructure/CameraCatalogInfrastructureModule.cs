@@ -6,6 +6,7 @@ using SmartSentinelEye.CameraCatalog.Application.EventHandlers;
 using SmartSentinelEye.CameraCatalog.Application.Queries;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
 using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
+using SmartSentinelEye.CameraCatalog.Infrastructure.Seeding;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -64,6 +65,24 @@ public static class CameraCatalogInfrastructureModule
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
             postgresConnectionName: DatabaseConnectionName);
+
+        return builder;
+    }
+
+    /// <summary>
+    /// DEV-ONLY: registers the <see cref="SimulatedCameraSeeder"/> when AppHost
+    /// sets <c>CameraCatalog:SeedSimulatedCameras=true</c> (run mode, never
+    /// E2ETests/CI). No-op otherwise, so production and the test suites never
+    /// see seeded cameras.
+    /// </summary>
+    public static IHostApplicationBuilder AddSimulatedCameraSeeding(this IHostApplicationBuilder builder)
+    {
+        Ensure.That(builder).IsNotNull();
+
+        if (builder.Configuration.GetValue<bool>("CameraCatalog:SeedSimulatedCameras"))
+        {
+            builder.Services.AddHostedService<SimulatedCameraSeeder>();
+        }
 
         return builder;
     }

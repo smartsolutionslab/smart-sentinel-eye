@@ -1,7 +1,10 @@
 # MediaMTX configuration for Smart Sentinel Eye (spec 002, T002).
 #
-# - Paths are added dynamically by StreamDistribution.Api against
-#   MediaMTX's HTTP API on port 9997; the `paths:` block below stays empty.
+# - The `cam-{guid}` paths are added dynamically by StreamDistribution.Api
+#   against MediaMTX's HTTP API on port 9997; they must NOT appear in the
+#   `paths:` block below (static entries would conflict with API-managed ones).
+# - The `sim-cam-*` paths below are DEV-ONLY camera simulation (see comment at
+#   `paths:`); they are static on-demand FFmpeg sources, not API-managed.
 # - WHEP playback is exposed on port 8889 with HTTP external
 #   authentication; MediaMTX POSTs every WHEP open to
 #   StreamDistribution.Api's /streams/{path}/authorize for bearer-token
@@ -30,7 +33,65 @@ authHTTPExclude:
   - action: api
   - action: metrics
   - action: pprof
+  # Dev-only camera simulation (see `paths:` below). The `sim-cam-*`
+  # synthetic sources have no browser JWT to forward, on either leg:
+  #   1. the on-demand FFmpeg process PUBLISHES into `sim-cam-N`, and
+  #   2. MediaMTX READS `sim-cam-N` internally when it pulls it as the
+  #      source of a real `cam-{guid}` path.
+  # StreamDistribution's auth endpoint only accepts the canonical
+  # `cam-{guid}` path shape and would 403 both legs, so we exclude the
+  # `sim-cam-*` paths from the HTTP auth hook. The exclude is path-scoped, so
+  # real operator WHEP reads of `cam-{guid}` paths stay fully authenticated.
+  # authHTTPExclude entries take the same action+path form as user
+  # permissions; a `~` prefix marks the path as a regular expression.
+  - action: publish
+    path: ~^sim-cam-[0-9]+$
+  - action: read
+    path: ~^sim-cam-[0-9]+$
 
-# Dynamic paths block — populated at runtime via the HTTP API. Static
-# entries here would conflict with the API-managed entries.
-paths: {}
+# On-demand defaults for the `sim-cam-*` sources below.
+pathDefaults:
+  runOnDemandStartTimeout: 10s
+  runOnDemandCloseAfter: 10s
+
+# DEV-ONLY camera simulation so a plain `aspire run` shows live tiles with no
+# real cameras. Each `sim-cam-N` is an on-demand source: when a reader first
+# requests it — here, the MediaMTX RTSP client that backs a real `cam-{guid}`
+# path whose source is `rtsp://mediamtx:8554/sim-cam-N` — MediaMTX spawns the
+# bundled FFmpeg (the image is `latest-ffmpeg`) to publish a distinct,
+# labelled H.264 test pattern, and stops it when the last reader disconnects.
+# The AppHost CameraCatalog dev seeder (gated to run mode, off under E2ETests)
+# registers three catalog cameras whose RtspUrl points at these paths, so the
+# existing CameraRegistered -> ProvisionStream -> AddPath flow wires
+# `cam-{guid}` -> `sim-cam-N` with no sidecar container and no extra moving
+# parts.
+paths:
+  sim-cam-1:
+    # SMPTE colour bars, 1280x720@25, labelled "SIM CAM 1 - Station 4".
+    runOnDemand: >
+      ffmpeg -re -f lavfi -i smptebars=size=1280x720:rate=25
+      -f lavfi -i sine=frequency=440:sample_rate=48000
+      -vf "drawtext=text='SIM CAM 1 - Station 4':x=40:y=40:fontsize=42:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=12,drawtext=text='%{localtime}':x=40:y=h-70:fontsize=28:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=8"
+      -c:v libx264 -preset ultrafast -tune zerolatency -profile:v baseline
+      -pix_fmt yuv420p -g 50 -b:v 2M -c:a aac -b:a 64k
+      -f rtsp rtsp://localhost:8554/$MTX_PATH
+
+  sim-cam-2:
+    # Test pattern (testsrc2), 1280x720@25, labelled "SIM CAM 2 - Loading Bay".
+    runOnDemand: >
+      ffmpeg -re -f lavfi -i testsrc2=size=1280x720:rate=25
+      -f lavfi -i sine=frequency=660:sample_rate=48000
+      -vf "drawtext=text='SIM CAM 2 - Loading Bay':x=40:y=40:fontsize=42:fontcolor=yellow:box=1:boxcolor=black@0.5:boxborderw=12,drawtext=text='%{localtime}':x=40:y=h-70:fontsize=28:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=8"
+      -c:v libx264 -preset ultrafast -tune zerolatency -profile:v baseline
+      -pix_fmt yuv420p -g 50 -b:v 2M -c:a aac -b:a 64k
+      -f rtsp rtsp://localhost:8554/$MTX_PATH
+
+  sim-cam-3:
+    # Moving fractal (mandelbrot), 1280x720@25, labelled "SIM CAM 3 - Line A".
+    runOnDemand: >
+      ffmpeg -re -f lavfi -i mandelbrot=size=1280x720:rate=25
+      -f lavfi -i sine=frequency=880:sample_rate=48000
+      -vf "drawtext=text='SIM CAM 3 - Line A':x=40:y=40:fontsize=42:fontcolor=cyan:box=1:boxcolor=black@0.5:boxborderw=12,drawtext=text='%{localtime}':x=40:y=h-70:fontsize=28:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=8"
+      -c:v libx264 -preset ultrafast -tune zerolatency -profile:v baseline
+      -pix_fmt yuv420p -g 50 -b:v 2M -c:a aac -b:a 64k
+      -f rtsp rtsp://localhost:8554/$MTX_PATH
