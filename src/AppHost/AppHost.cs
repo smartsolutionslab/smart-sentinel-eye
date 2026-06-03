@@ -177,6 +177,19 @@ var cameraCatalog = builder
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
 
+if (isRunMode && !isE2ETests)
+{
+    // Dev-only camera simulation: seed 2-3 catalog cameras whose RtspUrl
+    // points at the static `sim-cam-*` on-demand FFmpeg sources in
+    // Resources/mediamtx.yml, so a plain `aspire run` shows live tiles with
+    // no real hardware. The seeder (CameraCatalog.Infrastructure) registers
+    // them via the normal RegisterCamera command; the CameraRegistered ->
+    // ProvisionStream -> AddPath pipeline then points each MediaMTX
+    // `cam-{guid}` path at its `sim-cam-N` source. Off under E2ETests/CI so
+    // the integration + e2e suites see an empty catalog.
+    cameraCatalog.WithEnvironment("CameraCatalog__SeedSimulatedCameras", "true");
+}
+
 var streamDistribution = builder
     .AddProject<Projects.SmartSentinelEye_StreamDistribution_Api>("stream-distribution")
     .WithHttpEndpoint()
