@@ -64,6 +64,27 @@ Both `main` and `develop` enforce:
 - ✅ Branch deletion blocked
 - ⬜ Signed commits — deferred until GPG/SSH signing is set up
 
+## Parallel slices — ADR-0109
+
+Independent slices can be developed **concurrently**, each in its own git
+worktree on its own branch off `develop`, each its own PR — by parallel agents
+or contributors. The load-bearing constraint comes straight from rebase-only +
+linear history above: **parallel branches that touch the same file collide.** A
+batch is only parallelizable if its slices own **disjoint file sets.**
+
+Treat these as **contention files** — single-owner per batch, or edit them
+serially *before* the fan-out:
+
+- `src/Shared.Kernel/*`, `src/Shared.Contracts/*`
+- `src/AppHost/AppHost.cs`
+- `apps/shared/*` (Dialog primitive, gateway client, `*.api.ts`)
+- `e2e/support/*` and any spec touched by more than one slice
+- `.github/workflows/ci.yml`, `Directory.Packages.props`, `global.json`
+
+Clean splits: **one bounded context per agent**, or **one frontend feature +
+its own e2e spec per agent**. The orchestrator integrates by rebase-merging in
+dependency order; gates (ADR-0037) still bind. See ADR-0109.
+
 ## Commit messages — ADR-030
 
 **Human commits** use [Conventional Commits](https://www.conventionalcommits.org/)
