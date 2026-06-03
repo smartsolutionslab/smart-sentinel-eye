@@ -8,7 +8,6 @@ builder.AddServiceDefaults();
 builder.AddBearerAuthentication();
 builder.AddCameraCatalogInfrastructure();
 builder.Services.AddCameraCatalogApi();
-builder.AddSimulatedCameraSeeding();
 builder.Services.AddOpenApi();
 
 WebApplication app = builder.Build();
