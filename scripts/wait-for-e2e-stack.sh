@@ -45,6 +45,6 @@ done
 if [ "$ready" = "1" ]; then
   echo "Stack ready (gateway probe confirmed)."
 else
-  echo "Gateway probe inconclusive; proceeding after a buffer (Playwright CI retries will absorb warm-up)."
-  sleep 45
+  echo "Gateway probe inconclusive; proceeding after a short buffer (Playwright CI retries absorb residual warm-up)."
+  sleep 15
 fi
