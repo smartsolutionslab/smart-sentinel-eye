@@ -1,0 +1,30 @@
+# camera-sim — the second, config-clean MediaMTX for the Scenario Simulator
+# (ADR-0111). Dev-only. Unlike the main `mediamtx.yml`, this server holds NO
+# static paths: the ScenarioSimulator worker provisions a looping-video path
+# per catalog camera via the HTTP control API (port 9997). Each provisioned
+# path carries a `runOnDemand` FFmpeg command that loops `/media/sim-loop.mp4`
+# and republishes it as RTSP, so a stream only runs while the main MediaMTX
+# pulls it on a WHEP open.
+#
+# Auth is internal/permissive: this server is only reachable on the AppHost
+# Docker network (the worker on the control API, the main MediaMTX pulling
+# RTSP). It is never exposed externally and never runs in CI/E2E/prod.
+
+logLevel: info
+logDestinations: [stdout]
+
+# HTTP control API — the worker POSTs /v3/config/paths/add/<path> here.
+api: yes
+apiAddress: :9997
+
+# RTSP listener — the main MediaMTX pulls the looped streams from here, and
+# the runOnDemand FFmpeg publishes back to localhost:8554.
+rtsp: yes
+rtspAddress: :8554
+
+# No external auth hook: permissive internal auth so the worker can manage
+# paths and the main MediaMTX can read them on the AppHost network.
+authMethod: internal
+
+# No static paths — every path is added at runtime by the worker.
+paths: {}

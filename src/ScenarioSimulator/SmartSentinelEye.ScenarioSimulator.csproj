@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <!-- Dev-only Scenario Simulator (ADR-0111). Plays a realistic scenario's
+       cameras as looping video: seeds the camera catalog over HTTP, then
+       (driven by CameraRegisteredV1) provisions a runOnDemand loop path on
+       the second, config-clean MediaMTX (camera-sim). Never deployed; the
+       AppHost gates it behind `isRunMode && !isE2ETests`. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- NRT disabled + Option<T> elsewhere (ADR-0048); mirror the solution. -->
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-SmartSentinelEye.ScenarioSimulator-7f3c1e90-4d52-4a18-9b7e-2c6f5a0d1e44</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+    <PackageReference Include="WolverineFx" />
+    <PackageReference Include="WolverineFx.RabbitMQ" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
+    <ProjectReference Include="..\ServiceDefaults\SmartSentinelEye.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Scenario files are already implicit Content (Worker SDK); just ensure
+         they're copied next to the app so Program.cs can merge them at startup. -->
+    <Content Update="Scenarios\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
