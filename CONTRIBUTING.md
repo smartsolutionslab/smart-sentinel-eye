@@ -85,6 +85,11 @@ Clean splits: **one bounded context per agent**, or **one frontend feature +
 its own e2e spec per agent**. The orchestrator integrates by rebase-merging in
 dependency order; gates (ADR-0037) still bind. See ADR-0109.
 
+Specialized **agent roles** per phase/concern live in `.claude/agents/`
+(architect; infra/backend/frontend engineers; a constructive + an adversarial
+tester; read-only backend/frontend reviewers). The orchestrator dispatches the
+right role per slice and runs the matching reviewer before merge — ADR-0110.
+
 ## Commit messages — ADR-030
 
 **Human commits** use [Conventional Commits](https://www.conventionalcommits.org/)
