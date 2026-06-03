@@ -31,3 +31,22 @@ test('operator defines a system variable and it appears in the list', async ({ p
 
   await expect(page.getByText(name)).toBeVisible();
 });
+
+test('operator defines a Boolean system variable and it appears in the list', async ({ page }) => {
+  await signInAsOperator(page);
+
+  await page.getByRole('button', { name: /^system variables$/i }).click();
+  await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+
+  // Selecting Boolean reveals the conditional truthy/falsy label fields, which the
+  // schema requires for the Boolean code path (else the Define POST never fires).
+  await page.getByRole('button', { name: /new variable/i }).click();
+  const name = `E2E_Bool_${Date.now()}`;
+  await page.locator('#variable-name').fill(name);
+  await page.locator('#variable-type').selectOption('Boolean');
+  await page.locator('#variable-truthy').fill('On');
+  await page.locator('#variable-falsy').fill('Off');
+  await page.getByRole('button', { name: /^define$/i }).click();
+
+  await expect(page.getByText(name)).toBeVisible();
+});
