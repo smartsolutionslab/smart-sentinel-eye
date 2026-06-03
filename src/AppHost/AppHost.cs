@@ -23,6 +23,11 @@ var keycloakPassword = builder.AddParameter("KeycloakPassword", "dev-only-keyclo
 // service-account token (spec 008 ADR-0100).
 var identityAdminClientSecret = builder.AddParameter("IdentityAdminClientSecret", "dev-only-identity-admin-secret", secret: true);
 var rabbitPassword = builder.AddParameter("RabbitMqPassword", "dev-only-rabbit-password", secret: true);
+// Mirrors the dev-only `scenario-simulator` confidential client seeded in
+// Realms/smart-sentinel-eye-realm.json. The Scenario Simulator worker
+// (ADR-0111) reads it as `ScenarioSimulator:Runtime:ClientSecret` to mint a
+// client_credentials token (scope sse.cameras.write) for seeding the catalog.
+var scenarioSimulatorClientSecret = builder.AddParameter("ScenarioSimulatorClientSecret", "dev-only-scenario-simulator-secret", secret: true);
 
 // Spec 009 ADR-0101: the postgres image carries the timescaledb
 // extension so the audit-observability hypertable + compression
@@ -93,6 +98,7 @@ if (isRunMode && !isE2ETests)
 {
     mediamtx.WithLifetime(ContainerLifetime.Persistent);
 }
+
 
 // Mosquitto MQTT broker for spec 006 EventIngestion (ADR-0095). Each
 // PLC and inference device publishes on a per-device topic; the
@@ -326,6 +332,39 @@ if (isRunMode && !isE2ETests)
         .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
         .WithReference(layoutComposition)
         .WithExternalHttpEndpoints();
+}
+
+// Scenario Simulator (ADR-0111 M1) — dev-only, gated `isRunMode && !isE2ETests`
+// so CI/E2E/prod never see it and the main `mediamtx.yml` stays clean.
+//
+// - camera-sim: a second, config-clean MediaMTX. Holds NO static paths; the
+//   worker provisions a `runOnDemand` loop path per catalog camera via the HTTP
+//   API (9997). The loop clip is bind-mounted at /media.
+// - scenario-simulator worker: seeds the camera catalog over HTTP
+//   (client_credentials via Keycloak), then — driven by CameraRegisteredV1 over
+//   RabbitMQ — provisions the looping video on camera-sim. Waits for the things
+//   it calls on startup.
+if (isRunMode && !isE2ETests)
+{
+    var cameraSim = builder
+        .AddContainer("camera-sim", "bluenviron/mediamtx", "latest-ffmpeg")
+        .WithBindMount("Resources/camera-sim.yml", "/mediamtx.yml")
+        .WithBindMount("Resources/sim-loop.mp4", "/media/sim-loop.mp4")
+        .WithHttpEndpoint(targetPort: 9997, name: "api")
+        .WithEndpoint(targetPort: 8554, name: "rtsp", scheme: "tcp")
+        .WithLifetime(ContainerLifetime.Persistent);
+
+    builder
+        .AddProject<Projects.SmartSentinelEye_ScenarioSimulator>("scenario-simulator")
+        .WithReference(cameraCatalog)
+        .WithReference(cameraSim.GetEndpoint("api"))
+        .WithReference(rabbitmq)
+        .WithReference(keycloak)
+        .WithEnvironment("ScenarioSimulator__Runtime__ClientSecret", scenarioSimulatorClientSecret)
+        .WaitFor(cameraCatalog)
+        .WaitFor(cameraSim)
+        .WaitFor(rabbitmq)
+        .WaitFor(keycloak);
 }
 
 await builder.Build().RunAsync();

@@ -229,6 +229,19 @@
       "secret": "dev-only-identity-admin-secret",
       "protocol": "openid-connect",
       "defaultClientScopes": ["basic", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "scenario-simulator",
+      "name": "Smart Sentinel Eye — Scenario Simulator (dev-only service account)",
+      "description": "Dev-only (ADR-0111). Service account the Scenario Simulator worker uses to seed the camera catalog via client_credentials. Never deployed.",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "secret": "dev-only-scenario-simulator-secret",
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["basic", "profile", "email", "roles", "sse.cameras.write"]
     }
   ],
   "users": [
@@ -306,6 +319,11 @@
           "query-groups"
         ]
       }
+    },
+    {
+      "username": "service-account-scenario-simulator",
+      "enabled": true,
+      "serviceAccountClientId": "scenario-simulator"
     }
   ]
 }

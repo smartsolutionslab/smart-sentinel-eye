@@ -1,0 +1,44 @@
+{
+  "ScenarioSimulator": {
+    "Scenarios": {
+      "rolling-mill": {
+        "Name": "Rolling Mill (Walzwerk)",
+        "Assets": [
+          {
+            "Key": "station-4-roughing",
+            "Name": "Station 4 — Roughing Stand",
+            "Camera": { "Path": "station-4-roughing", "Loop": true },
+            "Sensors": [
+              { "Kind": "temperature", "Unit": "degC", "Behaviour": "ramp" },
+              { "Kind": "rolling-force", "Unit": "kN", "Behaviour": "burst" }
+            ]
+          },
+          {
+            "Key": "station-7-finishing",
+            "Name": "Station 7 — Finishing Stand",
+            "Camera": { "Path": "station-7-finishing", "Loop": true },
+            "Sensors": [
+              { "Kind": "strip-speed", "Unit": "m/s", "Behaviour": "steady" }
+            ]
+          },
+          {
+            "Key": "cooling-bed",
+            "Name": "Cooling Bed",
+            "Camera": { "Path": "cooling-bed", "Loop": true },
+            "Sensors": [
+              { "Kind": "temperature", "Unit": "degC", "Behaviour": "decay" }
+            ]
+          },
+          {
+            "Key": "coiler",
+            "Name": "Coiler",
+            "Camera": { "Path": "coiler", "Loop": true },
+            "Sensors": [
+              { "Kind": "coil-weight", "Unit": "t", "Behaviour": "step" }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

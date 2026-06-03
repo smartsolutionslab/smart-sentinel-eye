@@ -87,6 +87,9 @@
   <Folder Name="/src/MigrationRunner/">
     <Project Path="src/MigrationRunner/SmartSentinelEye.MigrationRunner.csproj" />
   </Folder>
+  <Folder Name="/src/ScenarioSimulator/">
+    <Project Path="src/ScenarioSimulator/SmartSentinelEye.ScenarioSimulator.csproj" />
+  </Folder>
   <Folder Name="/src/OverlayDesigner/" />
   <Folder Name="/src/OverlayDesigner/Api/">
     <Project Path="src/OverlayDesigner/Api/SmartSentinelEye.OverlayDesigner.Api.csproj" />
