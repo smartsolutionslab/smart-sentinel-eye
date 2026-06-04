@@ -2,3 +2,35 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Per-tile overlay highlight (spec 010 US3, ADR-0112 §5). Applied to a
+ * grid tile while a matching OverlayHighlightChanged frame is active; the
+ * kiosk removes the class on the per-overlay expiry. A ring + pulse glow
+ * draws the operator's eye without obscuring the live frame. Net-new — no
+ * `ssE-overlay-highlight` consumer existed before this feature.
+ */
+@layer components {
+  .ssE-overlay-highlight {
+    outline: 3px solid var(--color-accent-active);
+    outline-offset: -3px;
+    box-shadow: 0 0 0 3px var(--color-accent-active);
+    animation: ssE-overlay-highlight-pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes ssE-overlay-highlight-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 12px 2px var(--color-accent-active);
+    }
+    50% {
+      box-shadow: 0 0 28px 8px var(--color-accent-active);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ssE-overlay-highlight {
+      animation: none;
+    }
+  }
+}

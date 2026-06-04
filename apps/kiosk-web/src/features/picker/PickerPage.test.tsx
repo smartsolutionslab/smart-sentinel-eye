@@ -57,8 +57,16 @@ function published(overrides: Partial<ListLayoutsResponse['published'][number]> 
     layoutIdentifier: '11111111-1111-1111-1111-111111111111',
     name: 'Line-1',
     revisionNumber: 1,
-    cameraIdentifier: '22222222-2222-2222-2222-222222222222',
-    overlayIdentifier: null,
+    gridRows: 1,
+    gridCols: 1,
+    tiles: [
+      {
+        cameraIdentifier: '22222222-2222-2222-2222-222222222222',
+        overlayIdentifier: null,
+        row: 0,
+        col: 0,
+      },
+    ],
     publishedAt: '2026-05-26T10:00:00Z',
     ...overrides,
   };

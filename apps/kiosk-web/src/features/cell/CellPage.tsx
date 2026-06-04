@@ -1,4 +1,5 @@
 import { useGetLayoutQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
+import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
 import {
   overlaysApi,
   useGetOverlayQuery,
@@ -8,6 +9,7 @@ import {
   useGetOverlaySnapshotQuery,
 } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
+import clsx from 'clsx';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '../../app/store.js';
@@ -16,16 +18,20 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useLayoutLifecycle } from '../revocation/useLayoutLifecycle.js';
 
 /**
- * Single-cell kiosk view (spec 003 US2 + US3 → spec 004 US2/US3 →
- * spec 005 US3). Renders the camera tied to the layout's Published
- * revision; if the revision is bound to an overlay, fetches the
- * overlay (for geometry + font size) AND its resolved-text snapshot
- * from SystemVariables (for the live label text) and renders both.
+ * Kiosk wall view (spec 010 US2 + US3). Renders the Published revision's
+ * tile set as a CSS grid (`gridRows × gridCols`); each populated cell is a
+ * `<CameraViewer>` (spec 002 composite, unchanged) owning its per-tile
+ * overlay fetch + resolved-text snapshot. Empty cells render a placeholder.
  *
- * Spec 005 variable push: a variable-value change pushes a
- * ResolvedOverlayTextChanged frame; the kiosk validates the
- * monotonic version, updates the snapshot in-place, and the label
- * re-renders without a re-fetch.
+ * N=1 (including layouts migrated from before this feature) is a 1×1 grid
+ * with one tile, so it renders identically to the pre-feature single-cell
+ * view (FR-011, SC-004).
+ *
+ * Per-tile highlight (US3): on an `OverlayHighlightChanged` frame, every
+ * tile whose `overlayIdentifier` matches lights for `durationMs`, then
+ * auto-reverts; overlapping durations on the same overlay are OR'd
+ * (highlight-all-matching, ADR-0112 §5). A highlight for an overlay bound
+ * to no rendered tile is a no-op.
  */
 export function CellPage() {
   const { layoutIdentifier = '' } = useParams<{ layoutIdentifier: string }>();
@@ -37,26 +43,47 @@ export function CellPage() {
   });
 
   const published = data?.revisions.find((revision) => revision.state === 'Published');
-  // Spec 010: a revision now carries a tile grid. The single-cell view
-  // renders the primary (first) tile; the full grid renderer is spec 010 S3.
-  const primaryTile = published?.tiles[0] ?? null;
-  const overlayIdentifier = primaryTile?.overlayIdentifier ?? null;
-  const { data: overlay } = useGetOverlayQuery(overlayIdentifier ?? '', {
-    skip: overlayIdentifier === null,
-  });
-  const { data: snapshot } = useGetOverlaySnapshotQuery(overlayIdentifier ?? '', {
-    skip: overlayIdentifier === null,
-  });
-  const [overlayUnavailable, setOverlayUnavailable] = useState(false);
+  const tiles = published?.tiles ?? [];
 
-  // Track the highest version we've applied so out-of-order pushes
-  // are dropped on the floor.
-  const latestVersionRef = useRef<number>(snapshot?.version ?? 0);
-  useEffect(() => {
-    if (snapshot !== undefined) {
-      latestVersionRef.current = Math.max(latestVersionRef.current, snapshot.version);
+  // Cross-tile event state. The hub is a single subscription on this page;
+  // overlay-scoped events are routed by `overlayIdentifier` to whichever
+  // tile(s) bind that overlay (a tile derives its own flag from the set).
+  const [unavailableOverlays, setUnavailableOverlays] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [highlightedOverlays, setHighlightedOverlays] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  // Monotonic per-overlay version guard for resolved-text pushes — drops
+  // out-of-order frames (mirrors the pre-feature single-cell ref).
+  const overlayTextVersionsRef = useRef<Map<string, number>>(new Map());
+  // Per-overlay highlight expiry (epoch ms) so overlapping highlights on the
+  // same overlay survive until the LATER expiry (OR'd, FR-012 / US3 sc.3).
+  const highlightExpiryRef = useRef<Map<string, number>>(new Map());
+
+  // The set of overlays actually bound to a rendered tile — used so a
+  // highlight (or any overlay event) for an unbound overlay is a no-op.
+  const boundOverlays = tilesToBoundOverlays(tiles);
+
+  const startHighlight = (overlay: string, durationMs: number) => {
+    if (!boundOverlays.has(overlay)) {
+      // No rendered tile binds this overlay — nothing to light (US3 sc.4).
+      return;
     }
-  }, [snapshot]);
+    const expireAt = Date.now() + durationMs;
+    const expiries = highlightExpiryRef.current;
+    expiries.set(overlay, Math.max(expiries.get(overlay) ?? 0, expireAt));
+    setHighlightedOverlays((current) => withAdded(current, overlay));
+
+    window.setTimeout(() => {
+      // Only revert once the LATEST expiry has passed; a later overlapping
+      // highlight pushes the expiry out and keeps the tile lit (US3 sc.3).
+      if (Date.now() >= (highlightExpiryRef.current.get(overlay) ?? 0)) {
+        highlightExpiryRef.current.delete(overlay);
+        setHighlightedOverlays((current) => withRemoved(current, overlay));
+      }
+    }, durationMs);
+  };
 
   useLayoutLifecycle({
     accessTokenFactory: () => auth.user?.access_token ?? '',
@@ -67,36 +94,34 @@ export function CellPage() {
       }
     },
     onOverlayPublished: (message) => {
-      if (overlayIdentifier !== null && message.overlay === overlayIdentifier) {
-        dispatch(overlaysApi.util.invalidateTags([{ type: 'Overlay', id: overlayIdentifier }]));
-        dispatch(
-          systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: overlayIdentifier }]),
-        );
-        setOverlayUnavailable(false);
-      }
+      if (!boundOverlays.has(message.overlay)) return;
+      dispatch(overlaysApi.util.invalidateTags([{ type: 'Overlay', id: message.overlay }]));
+      dispatch(
+        systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: message.overlay }]),
+      );
+      setUnavailableOverlays((current) => withRemoved(current, message.overlay));
     },
     onOverlayArchived: (message) => {
-      if (overlayIdentifier !== null && message.overlay === overlayIdentifier) {
-        setOverlayUnavailable(true);
-      }
+      if (!boundOverlays.has(message.overlay)) return;
+      setUnavailableOverlays((current) => withAdded(current, message.overlay));
     },
     onResolvedOverlayTextChanged: (message) => {
-      if (overlayIdentifier === null || message.overlay !== overlayIdentifier) return;
-      if (message.version <= latestVersionRef.current) return;
-      latestVersionRef.current = message.version;
-      // Patch the snapshot cache in place so the render updates
-      // without a full re-fetch.
+      if (!boundOverlays.has(message.overlay)) return;
+      const versions = overlayTextVersionsRef.current;
+      if (message.version <= (versions.get(message.overlay) ?? 0)) return;
+      versions.set(message.overlay, message.version);
+      // Patch the snapshot cache in place so the bound tile re-renders
+      // without a full re-fetch (spec 005 variable push).
       dispatch(
-        systemVariablesApi.util.upsertQueryData(
-          'getOverlaySnapshot',
-          overlayIdentifier,
-          {
-            overlayIdentifier: message.overlay,
-            resolvedText: message.resolvedText,
-            version: message.version,
-          },
-        ),
+        systemVariablesApi.util.upsertQueryData('getOverlaySnapshot', message.overlay, {
+          overlayIdentifier: message.overlay,
+          resolvedText: message.resolvedText,
+          version: message.version,
+        }),
       );
+    },
+    onOverlayHighlightChanged: (message) => {
+      startHighlight(message.overlay, message.durationMs);
     },
     onReconnected: () => {
       void refetch();
@@ -112,7 +137,7 @@ export function CellPage() {
   if (isLoading) {
     return <FullScreen message="Loading camera…" />;
   }
-  if (error !== undefined || data === undefined || published === undefined || primaryTile === null) {
+  if (error !== undefined || data === undefined || published === undefined || tiles.length === 0) {
     return (
       <FullScreen
         message="Layout is no longer available."
@@ -129,23 +154,7 @@ export function CellPage() {
     );
   }
 
-  const publishedOverlay = overlay?.revisions.find((r) => r.state === 'Published');
-  // Prefer the SystemVariables-resolved text over the raw label so any
-  // `{{name}}` placeholders show their live values. Falls back to the
-  // raw label if SystemVariables is unreachable (overlayUnavailable
-  // banner also shows when the variable went Unset/Archived).
-  const resolvedText = snapshot?.resolvedText ?? publishedOverlay?.text;
-  const renderOverlay =
-    !overlayUnavailable && publishedOverlay !== undefined && resolvedText !== undefined
-      ? {
-          text: resolvedText,
-          normalizedX: publishedOverlay.normalizedX,
-          normalizedY: publishedOverlay.normalizedY,
-          normalizedWidth: publishedOverlay.normalizedWidth,
-          normalizedHeight: publishedOverlay.normalizedHeight,
-          fontSizePx: publishedOverlay.fontSizePx,
-        }
-      : undefined;
+  const cells = buildGridCells(published.gridRows, published.gridCols, tiles);
 
   return (
     <main className="relative min-h-screen bg-black">
@@ -159,23 +168,169 @@ export function CellPage() {
           Back
         </button>
       </header>
-      {overlayUnavailable && (
+      <div
+        data-testid="layout-grid"
+        className="grid h-screen gap-1 p-1"
+        style={{
+          gridTemplateColumns: `repeat(${published.gridCols}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${published.gridRows}, minmax(0, 1fr))`,
+        }}
+      >
+        {cells.map((cell) =>
+          cell.tile === null ? (
+            <EmptyCell key={cell.key} />
+          ) : (
+            <Tile
+              key={cell.key}
+              tile={cell.tile}
+              getToken={() => Promise.resolve(auth.user?.access_token ?? null)}
+              unavailable={
+                cell.tile.overlayIdentifier !== null &&
+                unavailableOverlays.has(cell.tile.overlayIdentifier)
+              }
+              highlighted={
+                cell.tile.overlayIdentifier !== null &&
+                highlightedOverlays.has(cell.tile.overlayIdentifier)
+              }
+            />
+          ),
+        )}
+      </div>
+    </main>
+  );
+}
+
+interface TileProps {
+  tile: LayoutTile;
+  getToken: () => Promise<string | null>;
+  /** The bound overlay went Archived (spec 004 path, applied per tile). */
+  unavailable: boolean;
+  /** A matching `OverlayHighlightChanged` frame is currently active. */
+  highlighted: boolean;
+}
+
+/**
+ * One populated grid cell. Owns its overlay fetch + resolved-text snapshot
+ * so each tile resolves its own label independently (per-tile binding,
+ * FR-011). The bound overlay's geometry comes from OverlayDesigner; the live
+ * label text comes from the SystemVariables snapshot, falling back to the
+ * raw label when the snapshot is unavailable.
+ */
+function Tile({ tile, getToken, unavailable, highlighted }: TileProps) {
+  const overlayIdentifier = tile.overlayIdentifier;
+  const { data: overlay } = useGetOverlayQuery(overlayIdentifier ?? '', {
+    skip: overlayIdentifier === null,
+  });
+  const { data: snapshot } = useGetOverlaySnapshotQuery(overlayIdentifier ?? '', {
+    skip: overlayIdentifier === null,
+  });
+
+  const publishedOverlay = overlay?.revisions.find((r) => r.state === 'Published');
+  // Prefer the SystemVariables-resolved text over the raw label so any
+  // `{{name}}` placeholders show their live values; fall back to the raw
+  // label if SystemVariables is unreachable.
+  const resolvedText = snapshot?.resolvedText ?? publishedOverlay?.text;
+  const renderOverlay =
+    !unavailable && publishedOverlay !== undefined && resolvedText !== undefined
+      ? {
+          text: resolvedText,
+          normalizedX: publishedOverlay.normalizedX,
+          normalizedY: publishedOverlay.normalizedY,
+          normalizedWidth: publishedOverlay.normalizedWidth,
+          normalizedHeight: publishedOverlay.normalizedHeight,
+          fontSizePx: publishedOverlay.fontSizePx,
+        }
+      : undefined;
+
+  return (
+    <div
+      data-testid="layout-tile"
+      data-highlighted={highlighted ? 'true' : 'false'}
+      className={clsx(
+        'relative flex h-full w-full items-center justify-center overflow-hidden rounded-md',
+        highlighted && 'ssE-overlay-highlight',
+      )}
+    >
+      {unavailable && (
         <div
           role="status"
-          className="absolute left-1/2 top-16 z-10 -translate-x-1/2 rounded-md bg-accent-warn/30 px-4 py-1 text-sm text-accent-warn"
+          className="absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-md bg-accent-warn/30 px-4 py-1 text-sm text-accent-warn"
         >
           Overlay unavailable
         </div>
       )}
-      <div className="flex h-screen items-center justify-center">
-        <CameraViewer
-          cameraIdentifier={primaryTile.cameraIdentifier}
-          getToken={() => Promise.resolve(auth.user?.access_token ?? null)}
-          overlay={renderOverlay}
-        />
-      </div>
-    </main>
+      <CameraViewer
+        cameraIdentifier={tile.cameraIdentifier}
+        getToken={getToken}
+        overlay={renderOverlay}
+      />
+    </div>
   );
+}
+
+function EmptyCell() {
+  return (
+    <div
+      data-testid="layout-empty-cell"
+      className="flex h-full w-full items-center justify-center rounded-md border border-dashed border-fg-muted/30 bg-bg-elevated/20 text-sm text-fg-muted"
+    >
+      Empty
+    </div>
+  );
+}
+
+interface GridCell {
+  key: string;
+  tile: LayoutTile | null;
+}
+
+/**
+ * Lay out every grid coordinate in row-major order, slotting each tile at
+ * its `(row, col)`. Cells without a tile are `null` (rendered as a
+ * placeholder). Out-of-bounds tiles are ignored defensively (the aggregate
+ * already enforces in-bounds; this keeps the renderer total).
+ */
+function buildGridCells(rows: number, cols: number, tiles: LayoutTile[]): GridCell[] {
+  const byPosition = new Map<string, LayoutTile>();
+  for (const tile of tiles) {
+    byPosition.set(positionKey(tile.row, tile.col), tile);
+  }
+  const cells: GridCell[] = [];
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      const key = positionKey(row, col);
+      cells.push({ key, tile: byPosition.get(key) ?? null });
+    }
+  }
+  return cells;
+}
+
+function tilesToBoundOverlays(tiles: LayoutTile[]): ReadonlySet<string> {
+  const bound = new Set<string>();
+  for (const tile of tiles) {
+    if (tile.overlayIdentifier !== null) {
+      bound.add(tile.overlayIdentifier);
+    }
+  }
+  return bound;
+}
+
+function positionKey(row: number, col: number): string {
+  return `${row}:${col}`;
+}
+
+function withAdded(current: ReadonlySet<string>, value: string): ReadonlySet<string> {
+  if (current.has(value)) return current;
+  const next = new Set(current);
+  next.add(value);
+  return next;
+}
+
+function withRemoved(current: ReadonlySet<string>, value: string): ReadonlySet<string> {
+  if (!current.has(value)) return current;
+  const next = new Set(current);
+  next.delete(value);
+  return next;
 }
 
 function FullScreen({ message, action }: { message: string; action?: ReactNode }) {
