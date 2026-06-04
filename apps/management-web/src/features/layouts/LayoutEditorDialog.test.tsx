@@ -6,7 +6,7 @@ import { store } from '../../app/store.js';
 import type { LayoutEditTarget } from './LayoutEditorDialog.js';
 
 const createDraftMock = vi.fn(async () => ({ data: 'noop' }));
-const editDraftMock = vi.fn(async () => ({ data: 2 }));
+const editDraftMock = vi.fn(async (_body: unknown) => ({ data: 2 }));
 
 vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/layouts.api')>();
@@ -141,8 +141,8 @@ describe('LayoutEditorDialog — create', () => {
 
     const cameraSelects = screen.getAllByRole('combobox', { name: /camera/i });
     expect(cameraSelects).toHaveLength(2);
-    await user.selectOptions(cameraSelects[0], CAMERA_A);
-    await user.selectOptions(cameraSelects[1], CAMERA_B);
+    await user.selectOptions(cameraSelects[0]!, CAMERA_A);
+    await user.selectOptions(cameraSelects[1]!, CAMERA_B);
     await user.click(screen.getByRole('button', { name: /save as draft/i }));
 
     expect(createDraftMock).toHaveBeenCalledWith({
@@ -163,7 +163,7 @@ describe('LayoutEditorDialog — create', () => {
     await user.click(screen.getByRole('radio', { name: '1×2' }));
 
     const cameraSelects = screen.getAllByRole('combobox', { name: /camera/i });
-    await user.selectOptions(cameraSelects[0], CAMERA_A);
+    await user.selectOptions(cameraSelects[0]!, CAMERA_A);
     // Leave cell 2 empty.
     await user.click(screen.getByRole('button', { name: /save as draft/i }));
 
@@ -221,8 +221,8 @@ describe('LayoutEditorDialog — edit', () => {
     expect(screen.queryByLabelText(/name/i)).not.toBeInTheDocument();
     const cameraSelects = screen.getAllByRole('combobox', { name: /camera/i });
     expect(cameraSelects).toHaveLength(2);
-    expect((cameraSelects[0] as HTMLSelectElement).value).toBe(CAMERA_A);
-    expect((cameraSelects[1] as HTMLSelectElement).value).toBe(CAMERA_B);
+    expect(cameraSelects[0]!).toHaveValue(CAMERA_A);
+    expect(cameraSelects[1]!).toHaveValue(CAMERA_B);
 
     await user.click(screen.getByRole('button', { name: /save draft/i }));
 
@@ -243,10 +243,10 @@ describe('LayoutEditorDialog — edit', () => {
     renderDialog(editTarget);
 
     const cameraSelects = screen.getAllByRole('combobox', { name: /camera/i });
-    await user.selectOptions(cameraSelects[1], CAMERA_A);
+    await user.selectOptions(cameraSelects[1]!, CAMERA_A);
     await user.click(screen.getByRole('button', { name: /save draft/i }));
 
-    const body = editDraftMock.mock.calls[0]?.[0] as { tiles: Array<{ cameraIdentifier: string }> };
-    expect(body.tiles[1].cameraIdentifier).toBe(CAMERA_A);
+    const body = editDraftMock.mock.calls[0]![0] as { tiles: Array<{ cameraIdentifier: string }> };
+    expect(body.tiles[1]!.cameraIdentifier).toBe(CAMERA_A);
   });
 });

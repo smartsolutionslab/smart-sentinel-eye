@@ -6,7 +6,7 @@ import {
   buildCells,
   GRID_PRESETS,
   type GridDesignerValue,
-} from './gridDesigner.js';
+} from './gridDesignerModel.js';
 
 export interface GridDesignerProps {
   form: UseFormReturn<GridDesignerValue>;
