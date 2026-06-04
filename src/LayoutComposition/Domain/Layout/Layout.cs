@@ -10,6 +10,16 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 /// <em>at-most-one-Published-revision-per-chain</em> (FR-002) is
 /// enforced inside this aggregate's transaction; the partial unique
 /// index in Postgres is a belt-and-braces backstop.
+///
+/// <para>
+/// Spec 010 (ADR-0112): a revision now carries a multi-tile grid.
+/// <see cref="ValidateGrid"/> is the single source of truth for the four
+/// grid invariants (≥1 tile, no duplicate position, in-bounds, ≤4);
+/// command handlers call it and map the first violation to a
+/// <c>LAYOUT_GRID_*</c> <c>400</c> error before invoking a write method.
+/// Illegal <em>state transitions</em> keep throwing
+/// <see cref="InvalidOperationException"/> (programmer error).
+/// </para>
 /// </summary>
 public sealed class Layout : AggregateRoot<LayoutIdentifier>
 {
@@ -26,18 +36,49 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     private Layout() { }
 
     /// <summary>
+    /// Validates a candidate grid + tile set against the four spec-010
+    /// invariants (ADR-0112 §2), returning the first violation or
+    /// <see cref="Option{T}.None"/> when valid. The single source of
+    /// truth shared by create + edit so both paths reject identically.
+    /// </summary>
+    public static Option<GridViolation> ValidateGrid(GridDimensions grid, IReadOnlyList<Tile> tiles)
+    {
+        Ensure.That(tiles).IsNotNull();
+
+        if (tiles.Count == 0)
+        {
+            return Option<GridViolation>.Some(GridViolation.Empty);
+        }
+        if (grid.Rows * grid.Cols > GridDimensions.MaxCells || tiles.Count > GridDimensions.MaxTiles)
+        {
+            return Option<GridViolation>.Some(GridViolation.TooLarge);
+        }
+        if (tiles.Any(tile => !grid.Contains(tile.Position)))
+        {
+            return Option<GridViolation>.Some(GridViolation.OutOfBounds);
+        }
+        if (tiles.Select(tile => tile.Position).Distinct().Count() != tiles.Count)
+        {
+            return Option<GridViolation>.Some(GridViolation.DuplicatePosition);
+        }
+        return Option<GridViolation>.None;
+    }
+
+    /// <summary>
     /// Mints a new logical Layout chain with its first revision in
     /// <c>Draft</c> state. No domain event is raised — drafts are not
     /// observable to kiosks; the first observable transition is Publish.
+    /// The grid + tiles must already be valid (<see cref="ValidateGrid"/>).
     /// </summary>
     public static Layout CreateDraft(
         LayoutName name,
-        CameraIdentifier camera,
+        GridDimensions grid,
+        IReadOnlyList<Tile> tiles,
         OperatorIdentifier createdBy,
-        IClock clock,
-        OverlayIdentifier? overlay = null)
+        IClock clock)
     {
         Ensure.That(name).IsNotNull();
+        Ensure.That(tiles).IsNotNull();
         Ensure.That(clock).IsNotNull();
 
         DateTimeOffset now = clock.UtcNow;
@@ -49,13 +90,13 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
             CreatedBy = createdBy,
         };
         layout._revisions.Add(
-            Revision.NewDraft(LayoutRevisionNumber.One, camera, overlay, now, createdBy));
+            Revision.NewDraft(LayoutRevisionNumber.One, grid, tiles, now, createdBy));
         return layout;
     }
 
     /// <summary>
     /// Branches a new Draft revision off the chain's current Published
-    /// revision (spec 003 US4). Pre-fills the camera from the prior
+    /// revision (spec 003 US4). Pre-fills the grid + tiles from the prior
     /// revision so the editor can mutate from a known-good baseline.
     /// </summary>
     public Revision BranchDraft(OperatorIdentifier by, IClock clock)
@@ -66,33 +107,25 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
                 "BranchDraft requires a currently-Published revision to copy from.");
 
         LayoutRevisionNumber next = MaxRevisionNumber().Next();
-        Revision draft = Revision.Branch(next, baseRevision.Camera, baseRevision.Overlay, clock.UtcNow, by);
+        Revision draft = Revision.Branch(
+            next, baseRevision.Grid, baseRevision.Tiles, clock.UtcNow, by);
         _revisions.Add(draft);
         return draft;
     }
 
     /// <summary>
-    /// In-place edit of an existing Draft revision (spec 003 FR-005).
-    /// Drafts can be mutated without spawning further revisions.
+    /// In-place edit of an existing Draft revision (spec 003 FR-005,
+    /// spec 010): atomically replaces its grid + tile set. The grid +
+    /// tiles must already be valid (<see cref="ValidateGrid"/>). Drafts
+    /// can be mutated without spawning further revisions.
     /// </summary>
     public void EditDraft(
-        LayoutRevisionNumber number, CameraIdentifier camera, IClock clock)
+        LayoutRevisionNumber number, GridDimensions grid, IReadOnlyList<Tile> tiles, IClock clock)
     {
+        Ensure.That(tiles).IsNotNull();
         Ensure.That(clock).IsNotNull();
         Revision target = RequireRevision(number);
-        target.EditCamera(camera);
-    }
-
-    /// <summary>
-    /// Binds (or clears, via null) the optional overlay reference on a
-    /// Draft revision (spec 004 FR-009). Idempotent on the same value.
-    /// </summary>
-    public void AttachOverlay(
-        LayoutRevisionNumber number, OverlayIdentifier? overlay, IClock clock)
-    {
-        Ensure.That(clock).IsNotNull();
-        Revision target = RequireRevision(number);
-        target.AttachOverlay(overlay);
+        target.ReplaceTiles(grid, tiles);
     }
 
     /// <summary>
@@ -116,7 +149,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
             Raise(new LayoutRevisionArchivedDomainEvent(Id, prior.Number, now, by));
         }
         Raise(new LayoutRevisionPublishedDomainEvent(
-            Id, number, Name, target.Camera, now, by));
+            Id, number, Name, target.Grid, target.Tiles, now, by));
     }
 
     /// <summary>

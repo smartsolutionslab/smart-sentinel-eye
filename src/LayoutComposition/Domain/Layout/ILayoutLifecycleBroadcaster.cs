@@ -23,15 +23,17 @@ public interface ILayoutLifecycleBroadcaster
 }
 
 /// <summary>
-/// Wire shape for "a revision became Published" pushes. Mirrors the
-/// integration event but stays inside the domain so the broadcaster
-/// contract doesn't need a Shared.Contracts dependency.
+/// Wire shape for "a revision became Published" pushes. Spec 010 keeps
+/// the lifecycle frame <em>lean</em> (ADR-0112 §3, plan T010): it carries
+/// only the chain identity + name so the picker invalidates its list and
+/// re-queries. The tile set rides the <c>LayoutRevisionPublishedV2</c>
+/// integration event, not this SignalR frame. Stays inside the domain so
+/// the broadcaster contract doesn't need a Shared.Contracts dependency.
 /// </summary>
 public sealed record LayoutRevisionPublishedNotification(
     LayoutIdentifier Layout,
     LayoutRevisionNumber RevisionNumber,
     LayoutName Name,
-    CameraIdentifier Camera,
     DateTimeOffset PublishedAt);
 
 /// <summary>

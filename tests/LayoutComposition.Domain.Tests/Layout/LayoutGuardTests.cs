@@ -16,12 +16,16 @@ public class LayoutGuardTests
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
+    private static IReadOnlyList<Tile> OneTile() =>
+        [new Tile(CameraIdentifier.From(Guid.CreateVersion7()), Option<OverlayIdentifier>.None, GridPosition.From(0, 0))];
+
     [Fact]
     public void CreateDraft_rejects_a_null_name()
     {
         Action act = () => Domain.Layout.Layout.CreateDraft(
             name: null!,
-            CameraIdentifier.From(Guid.CreateVersion7()),
+            GridDimensions.Cell,
+            OneTile(),
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new LayoutBuilder.TestClock(FixedMoment));
         act.ShouldThrow<ArgumentNullException>();
@@ -32,7 +36,8 @@ public class LayoutGuardTests
     {
         Action act = () => Domain.Layout.Layout.CreateDraft(
             LayoutName.From("Line-1"),
-            CameraIdentifier.From(Guid.CreateVersion7()),
+            GridDimensions.Cell,
+            OneTile(),
             OperatorIdentifier.From(Guid.CreateVersion7()),
             clock: null!);
         act.ShouldThrow<ArgumentNullException>();
@@ -54,7 +59,8 @@ public class LayoutGuardTests
         Domain.Layout.Layout layout = new LayoutBuilder().Build();
         Action act = () => layout.EditDraft(
             LayoutRevisionNumber.One,
-            CameraIdentifier.From(Guid.CreateVersion7()),
+            GridDimensions.Cell,
+            OneTile(),
             clock: null!);
         act.ShouldThrow<ArgumentNullException>();
     }

@@ -19,15 +19,13 @@ public class LifecycleNotificationTests
     public void LayoutRevisionPublishedNotification_exposes_every_field()
     {
         LayoutIdentifier layout = LayoutIdentifier.New();
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
 
         LayoutRevisionPublishedNotification notification = new(
-            layout, LayoutRevisionNumber.One, LayoutName.From("Line-1"), camera, FixedMoment);
+            layout, LayoutRevisionNumber.One, LayoutName.From("Line-1"), FixedMoment);
 
         notification.Layout.ShouldBe(layout);
         notification.RevisionNumber.ShouldBe(LayoutRevisionNumber.One);
         notification.Name.Value.ShouldBe("Line-1");
-        notification.Camera.ShouldBe(camera);
         notification.PublishedAt.ShouldBe(FixedMoment);
     }
 
