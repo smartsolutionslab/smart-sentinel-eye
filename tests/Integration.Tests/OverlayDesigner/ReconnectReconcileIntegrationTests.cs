@@ -40,7 +40,12 @@ public class ReconnectReconcileIntegrationTests(AspireFixture aspire) : IAsyncLi
         // Seed: a Published layout the client is "rendering".
         HttpResponseMessage created = await admin.PostAsJsonAsync(
             "/layouts",
-            new { name = $"Rcn-{Guid.NewGuid():N}".Substring(0, 16), cameraIdentifier = Guid.CreateVersion7() });
+            new
+            {
+                name = $"Rcn-{Guid.NewGuid():N}".Substring(0, 16),
+                grid = new { rows = 1, cols = 1 },
+                tiles = new[] { new { cameraIdentifier = Guid.CreateVersion7(), overlayIdentifier = (Guid?)null, row = 0, col = 0 } },
+            });
         created.EnsureSuccessStatusCode();
         Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
         HttpResponseMessage publish = await admin.PostAsync(
