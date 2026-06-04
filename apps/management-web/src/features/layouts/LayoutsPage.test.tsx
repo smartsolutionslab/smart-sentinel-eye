@@ -11,7 +11,9 @@ import type {
 const listLayoutsMock = vi.fn();
 const publishMock = vi.fn(async () => ({ data: 1 }));
 const archiveMock = vi.fn(async () => ({ data: 1 }));
+const branchMock = vi.fn(async () => ({ data: 2 }));
 const createDraftMock = vi.fn(async () => ({ data: 'noop' }));
+const editDraftMock = vi.fn(async () => ({ data: 2 }));
 
 vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/layouts.api')>();
@@ -20,9 +22,10 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
     useListLayoutsQuery: (...args: unknown[]) => listLayoutsMock(...args),
     usePublishRevisionMutation: () => [publishMock, { isLoading: false }],
     useArchiveRevisionMutation: () => [archiveMock, { isLoading: false }],
-    useBranchDraftRevisionMutation: () => [vi.fn(async () => ({ data: 2 })), { isLoading: false }],
+    useBranchDraftRevisionMutation: () => [branchMock, { isLoading: false }],
     useRevertRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), { isLoading: false }],
     useCreateLayoutDraftMutation: () => [createDraftMock, { isLoading: false, error: undefined, reset: vi.fn() }],
+    useEditDraftRevisionMutation: () => [editDraftMock, { isLoading: false, error: undefined, reset: vi.fn() }],
   };
 });
 
@@ -80,6 +83,8 @@ describe('LayoutsPage', () => {
     listLayoutsMock.mockReset();
     publishMock.mockClear();
     archiveMock.mockClear();
+    branchMock.mockClear();
+    editDraftMock.mockClear();
   });
 
   it('Shows an empty-state message when no layouts exist', () => {
@@ -145,5 +150,79 @@ describe('LayoutsPage', () => {
 
     await user.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  it('Summarizes a multi-tile revision as "N tiles, R×C"', () => {
+    listLayoutsMock.mockReturnValue({
+      data: response([
+        chain({
+          revisions: [
+            {
+              revisionIdentifier: '33333333-3333-3333-3333-333333333333',
+              revisionNumber: 1,
+              state: 'Draft',
+              gridRows: 2,
+              gridCols: 2,
+              tiles: [
+                { cameraIdentifier: 'a', overlayIdentifier: null, row: 0, col: 0 },
+                { cameraIdentifier: 'b', overlayIdentifier: null, row: 0, col: 1 },
+                { cameraIdentifier: 'c', overlayIdentifier: null, row: 1, col: 0 },
+                { cameraIdentifier: 'd', overlayIdentifier: null, row: 1, col: 1 },
+              ],
+              createdAt: '2026-05-26T10:00:00Z',
+              createdBy: '22222222-2222-2222-2222-222222222222',
+              publishedAt: null,
+              archivedAt: null,
+            },
+          ],
+        }),
+      ]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.getByText('4 tiles, 2×2')).toBeInTheDocument();
+  });
+
+  it('Clicking Edit on a Published chain branches a draft and opens the editor', async () => {
+    const user = userEvent.setup();
+    listLayoutsMock.mockReturnValue({
+      data: response([
+        chain({
+          revisions: [
+            {
+              revisionIdentifier: '33333333-3333-3333-3333-333333333333',
+              revisionNumber: 3,
+              state: 'Published',
+              gridRows: 1,
+              gridCols: 2,
+              tiles: [
+                { cameraIdentifier: 'a', overlayIdentifier: null, row: 0, col: 0 },
+                { cameraIdentifier: 'b', overlayIdentifier: null, row: 0, col: 1 },
+              ],
+              createdAt: '2026-05-26T10:00:00Z',
+              createdBy: '22222222-2222-2222-2222-222222222222',
+              publishedAt: '2026-05-27T10:00:00Z',
+              archivedAt: null,
+            },
+          ],
+        }),
+      ]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /edit \(new draft\)/i }));
+    expect(branchMock).toHaveBeenCalledWith('11111111-1111-1111-1111-111111111111');
+    // The editor opens pre-loaded: its "Edit layout" dialog title appears.
+    expect(await screen.findByText(/edit layout/i)).toBeInTheDocument();
   });
 });
