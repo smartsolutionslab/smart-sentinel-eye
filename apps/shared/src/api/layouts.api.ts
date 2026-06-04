@@ -1,18 +1,31 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
 import { gatewayBaseQuery } from './gateway.js';
-import type { CreateLayoutDraftInput } from './layouts.schema.js';
+import type { CreateLayoutDraftInput, EditDraftRevisionInput } from './layouts.schema.js';
 
-export type { CreateLayoutDraftInput };
+export type { CreateLayoutDraftInput, EditDraftRevisionInput };
 
 export type LayoutRevisionState = 'Draft' | 'Published' | 'Archived';
+
+/**
+ * One tile of a layout grid (spec 010). Mirrors the backend `TileDto`
+ * shape exactly: a required camera, an optional overlay (`null` when
+ * unbound), at zero-indexed `(row, col)`. An overlay MAY be reused across
+ * tiles (ADR-0112 §2 — highlight-all-matching).
+ */
+export interface LayoutTile {
+  cameraIdentifier: string;
+  overlayIdentifier: string | null;
+  row: number;
+  col: number;
+}
 
 export interface LayoutRevision {
   revisionIdentifier: string;
   revisionNumber: number;
   state: LayoutRevisionState;
-  cameraIdentifier: string;
-  /** Spec 004 binding. `null` when no overlay is attached to the layout. */
-  overlayIdentifier: string | null;
+  gridRows: number;
+  gridCols: number;
+  tiles: LayoutTile[];
   createdAt: string;
   createdBy: string;
   publishedAt: string | null;
@@ -31,9 +44,9 @@ export interface PublishedLayout {
   layoutIdentifier: string;
   name: string;
   revisionNumber: number;
-  cameraIdentifier: string;
-  /** Spec 004 binding (current Published revision's overlay). `null` if unbound. */
-  overlayIdentifier: string | null;
+  gridRows: number;
+  gridCols: number;
+  tiles: LayoutTile[];
   publishedAt: string;
 }
 
@@ -58,10 +71,8 @@ export const layoutsApi = createApi({
         method: 'POST',
         body: {
           name: body.name,
-          cameraIdentifier: body.cameraIdentifier,
-          ...(body.overlayIdentifier !== undefined && body.overlayIdentifier !== ''
-            ? { overlayIdentifier: body.overlayIdentifier }
-            : {}),
+          grid: body.grid,
+          tiles: body.tiles,
         },
       }),
       invalidatesTags: [{ type: 'LayoutList', id: 'ALL' }],
@@ -112,12 +123,12 @@ export const layoutsApi = createApi({
     }),
     editDraftRevision: build.mutation<
       number,
-      RevisionRouteInput & { cameraIdentifier: string }
+      RevisionRouteInput & EditDraftRevisionInput
     >({
-      query: ({ layoutIdentifier, revisionNumber, cameraIdentifier }) => ({
+      query: ({ layoutIdentifier, revisionNumber, grid, tiles }) => ({
         url: `/${layoutIdentifier}/revisions/${revisionNumber}`,
         method: 'PATCH',
-        body: { cameraIdentifier },
+        body: { grid, tiles },
       }),
       invalidatesTags: (_r, _e, { layoutIdentifier }) => [
         { type: 'Layout', id: layoutIdentifier },

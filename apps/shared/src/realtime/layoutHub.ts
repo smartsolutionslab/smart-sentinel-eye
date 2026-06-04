@@ -1,10 +1,15 @@
 import { HubConnectionBuilder, type HubConnection, HubConnectionState } from '@microsoft/signalr';
 
+/**
+ * Lean lifecycle frame (spec 010, ADR-0112 §3): no tile set — the picker
+ * re-queries `GET /layouts?state=published` on receipt. The published
+ * tiles ride the `LayoutRevisionPublishedV2` integration event, not this
+ * SignalR frame.
+ */
 export interface LayoutRevisionPublishedMessage {
   layout: string;
   revisionNumber: number;
   name: string;
-  camera: string;
   publishedAt: string;
 }
 
@@ -51,12 +56,25 @@ export interface ResolvedOverlayTextChangedMessage {
   version: number;
 }
 
+/**
+ * Wire shape for overlay-highlight SignalR frames (spec 007 / spec 010
+ * US3). Pushed when an Automation rule's HighlightOverlay action fires.
+ * The kiosk applies the `ssE-overlay-highlight` class to *every* tile
+ * bound to `overlay` for `durationMs` ms, then auto-reverts (overlay
+ * reuse → highlight-all-matching, ADR-0112 §5).
+ */
+export interface OverlayHighlightChangedMessage {
+  overlay: string;
+  durationMs: number;
+}
+
 export interface LayoutHubCallbacks {
   onPublished?: (message: LayoutRevisionPublishedMessage) => void;
   onArchived?: (message: LayoutRevisionArchivedMessage) => void;
   onOverlayPublished?: (message: OverlayRevisionPublishedMessage) => void;
   onOverlayArchived?: (message: OverlayRevisionArchivedMessage) => void;
   onResolvedOverlayTextChanged?: (message: ResolvedOverlayTextChangedMessage) => void;
+  onOverlayHighlightChanged?: (message: OverlayHighlightChangedMessage) => void;
   onReconnected?: () => void;
 }
 
@@ -97,6 +115,9 @@ export function createLayoutHubClient(config: LayoutHubConfig, callbacks: Layout
   }
   if (callbacks.onResolvedOverlayTextChanged !== undefined) {
     connection.on('ResolvedOverlayTextChanged', callbacks.onResolvedOverlayTextChanged);
+  }
+  if (callbacks.onOverlayHighlightChanged !== undefined) {
+    connection.on('OverlayHighlightChanged', callbacks.onOverlayHighlightChanged);
   }
   if (callbacks.onReconnected !== undefined) {
     connection.onreconnected(() => {
