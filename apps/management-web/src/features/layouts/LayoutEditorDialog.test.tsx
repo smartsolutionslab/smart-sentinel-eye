@@ -96,12 +96,19 @@ describe('LayoutEditorDialog', () => {
 
     expect(createDraftMock).toHaveBeenCalledWith({
       name: 'Line-1',
-      cameraIdentifier: '11111111-1111-1111-1111-111111111111',
-      overlayIdentifier: '55555555-5555-5555-5555-555555555555',
+      grid: { rows: 1, cols: 1 },
+      tiles: [
+        {
+          cameraIdentifier: '11111111-1111-1111-1111-111111111111',
+          overlayIdentifier: '55555555-5555-5555-5555-555555555555',
+          row: 0,
+          col: 0,
+        },
+      ],
     });
   });
 
-  it('Submits with overlayIdentifier="" when "(none)" is selected', async () => {
+  it('Submits with overlayIdentifier=null when "(none)" is selected', async () => {
     const user = userEvent.setup();
     renderDialog();
 
@@ -114,8 +121,15 @@ describe('LayoutEditorDialog', () => {
 
     expect(createDraftMock).toHaveBeenCalledWith({
       name: 'Line-2',
-      cameraIdentifier: '11111111-1111-1111-1111-111111111111',
-      overlayIdentifier: '',
+      grid: { rows: 1, cols: 1 },
+      tiles: [
+        {
+          cameraIdentifier: '11111111-1111-1111-1111-111111111111',
+          overlayIdentifier: null,
+          row: 0,
+          col: 0,
+        },
+      ],
     });
   });
 
