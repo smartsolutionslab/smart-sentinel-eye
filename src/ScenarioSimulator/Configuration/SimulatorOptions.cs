@@ -15,6 +15,21 @@ public sealed class SimulatorOptions
     /// <summary>HTTP control-plane base URL of the camera-sim MediaMTX (v3 API).</summary>
     public string CameraSimApiUrl { get; set; } = string.Empty;
 
+    /// <summary>Base URL of the overlay-designer REST API (POST /overlays).</summary>
+    public string OverlayDesignerUrl { get; set; } = string.Empty;
+
+    /// <summary>Base URL of the automation REST API (POST /rules).</summary>
+    public string AutomationUrl { get; set; } = string.Empty;
+
+    /// <summary>Base URL of the layout-composition REST API (POST /layouts).</summary>
+    public string LayoutCompositionUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Mosquitto MQTT broker <c>host:port</c> the billet timeline publishes to,
+    /// e.g. <c>localhost:1883</c>. Resolved from the AppHost mosquitto endpoint.
+    /// </summary>
+    public string MqttHost { get; set; } = string.Empty;
+
     /// <summary>
     /// RTSP host:port the camera catalog stores as the source and that the main
     /// MediaMTX pulls from, e.g. <c>camera-sim:8554</c>. The RtspUrl is

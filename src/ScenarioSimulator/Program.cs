@@ -106,6 +106,26 @@ static void BindRuntime(IConfiguration config, SimulatorOptions options)
         ?? config["ScenarioSimulator:Runtime:CameraSimApiUrl"]
         ?? throw new InvalidOperationException("camera-sim API URL not configured (services:camera-sim:api:0).");
 
+    options.OverlayDesignerUrl =
+        config["services:overlay-designer:http:0"]
+        ?? config["ScenarioSimulator:Runtime:OverlayDesignerUrl"]
+        ?? throw new InvalidOperationException("overlay-designer URL not configured (services:overlay-designer:http:0).");
+
+    options.AutomationUrl =
+        config["services:automation:http:0"]
+        ?? config["ScenarioSimulator:Runtime:AutomationUrl"]
+        ?? throw new InvalidOperationException("automation URL not configured (services:automation:http:0).");
+
+    options.LayoutCompositionUrl =
+        config["services:layout-composition:http:0"]
+        ?? config["ScenarioSimulator:Runtime:LayoutCompositionUrl"]
+        ?? throw new InvalidOperationException("layout-composition URL not configured (services:layout-composition:http:0).");
+
+    options.MqttHost =
+        config["services:mosquitto:mqtt:0"]
+        ?? config["ScenarioSimulator:Runtime:MqttHost"]
+        ?? throw new InvalidOperationException("mosquitto MQTT host not configured (services:mosquitto:mqtt:0).");
+
     options.KeycloakUrl =
         config.GetConnectionString("keycloak")
         ?? config["services:keycloak:http:0"]

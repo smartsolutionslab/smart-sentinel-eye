@@ -3,38 +3,145 @@
     "Scenarios": {
       "rolling-mill": {
         "Name": "Rolling Mill (Walzwerk)",
+        "Timeline": {
+          "DwellMs": 6000,
+          "TickMs": 500,
+          "LoopGapMs": 3000
+        },
+        "Wall": {
+          "Name": "rolling-mill-wall",
+          "Rows": 2,
+          "Cols": 2
+        },
         "Assets": [
           {
             "Key": "station-4-roughing",
             "Name": "Station 4 — Roughing Stand",
             "Camera": { "Path": "station-4-roughing", "Loop": true },
+            "Tile": { "Row": 0, "Col": 0 },
+            "Overlay": {
+              "Label": "ROUGHING — HOT BILLET",
+              "X": 0.1,
+              "Y": 0.05,
+              "Width": 0.8,
+              "Height": 0.18,
+              "FontSize": 28
+            },
+            "Highlight": {
+              "TriggerKind": "temperature",
+              "Comparison": "gte",
+              "Threshold": 1100,
+              "DurationMs": 4000
+            },
             "Sensors": [
-              { "Kind": "temperature", "Unit": "degC", "Behaviour": "ramp" },
-              { "Kind": "rolling-force", "Unit": "kN", "Behaviour": "burst" }
+              {
+                "Kind": "temperature",
+                "Unit": "degC",
+                "Behaviour": "ramp",
+                "Source": "plc",
+                "Min": 950,
+                "Max": 1180
+              },
+              {
+                "Kind": "rolling-force",
+                "Unit": "kN",
+                "Behaviour": "burst",
+                "Source": "plc",
+                "Peak": 4200,
+                "Mean": 1800,
+                "Jitter": 120
+              }
             ]
           },
           {
             "Key": "station-7-finishing",
             "Name": "Station 7 — Finishing Stand",
             "Camera": { "Path": "station-7-finishing", "Loop": true },
+            "Tile": { "Row": 0, "Col": 1 },
+            "Overlay": {
+              "Label": "FINISHING — STRIP",
+              "X": 0.1,
+              "Y": 0.05,
+              "Width": 0.8,
+              "Height": 0.18,
+              "FontSize": 28
+            },
+            "Highlight": {
+              "TriggerKind": "strip-speed",
+              "Comparison": "gte",
+              "Threshold": 8,
+              "DurationMs": 4000
+            },
             "Sensors": [
-              { "Kind": "strip-speed", "Unit": "m/s", "Behaviour": "steady" }
+              {
+                "Kind": "strip-speed",
+                "Unit": "m/s",
+                "Behaviour": "steady",
+                "Source": "plc",
+                "Mean": 9.2,
+                "Jitter": 0.4
+              }
             ]
           },
           {
             "Key": "cooling-bed",
             "Name": "Cooling Bed",
             "Camera": { "Path": "cooling-bed", "Loop": true },
+            "Tile": { "Row": 1, "Col": 0 },
+            "Overlay": {
+              "Label": "COOLING BED",
+              "X": 0.1,
+              "Y": 0.05,
+              "Width": 0.8,
+              "Height": 0.18,
+              "FontSize": 28
+            },
+            "Highlight": {
+              "TriggerKind": "temperature",
+              "Comparison": "lte",
+              "Threshold": 700,
+              "DurationMs": 4000
+            },
             "Sensors": [
-              { "Kind": "temperature", "Unit": "degC", "Behaviour": "decay" }
+              {
+                "Kind": "temperature",
+                "Unit": "degC",
+                "Behaviour": "decay",
+                "Source": "plc",
+                "Start": 980,
+                "Floor": 580
+              }
             ]
           },
           {
             "Key": "coiler",
             "Name": "Coiler",
             "Camera": { "Path": "coiler", "Loop": true },
+            "Tile": { "Row": 1, "Col": 1 },
+            "Overlay": {
+              "Label": "COILER — COIL READY",
+              "X": 0.1,
+              "Y": 0.05,
+              "Width": 0.8,
+              "Height": 0.18,
+              "FontSize": 28
+            },
+            "Highlight": {
+              "TriggerKind": "coil-weight",
+              "Comparison": "gte",
+              "Threshold": 20,
+              "DurationMs": 4000
+            },
             "Sensors": [
-              { "Kind": "coil-weight", "Unit": "t", "Behaviour": "step" }
+              {
+                "Kind": "coil-weight",
+                "Unit": "t",
+                "Behaviour": "step",
+                "Source": "plc",
+                "Before": 4,
+                "After": 24,
+                "StepAtFraction": 0.6
+              }
             ]
           }
         ]
