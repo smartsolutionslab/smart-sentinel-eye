@@ -58,15 +58,16 @@ public sealed class Revision
             Id = LayoutRevisionIdentifier.New(),
             Number = number,
             State = LayoutRevisionState.Draft,
-            Grid = grid,
+            Grid = new GridDimensions(grid.Rows, grid.Cols),
             CreatedAt = createdAt,
             CreatedBy = createdBy,
         };
-        // Clone each tile so the revision owns fresh instances. BranchDraft
-        // copies a Published revision's tiles, which EF already tracks as
-        // owned entities under that revision; reusing the same instances
-        // would make EF see one owned entity under two owners and throw on
-        // save. Cloning is a harmless copy on the create path (fresh tiles).
+        // Clone the owned entities (Grid above + each tile below) so the
+        // revision owns fresh instances. BranchDraft copies a Published
+        // revision's Grid + tiles, which EF already tracks as owned entities
+        // under that revision; reusing the same instances would make EF see
+        // one owned entity under two owners and throw on save. Cloning is a
+        // harmless copy on the create path (fresh grid + tiles).
         foreach (Tile tile in tiles)
         {
             revision._tiles.Add(new Tile(tile.Camera, tile.Overlay, tile.Position));
