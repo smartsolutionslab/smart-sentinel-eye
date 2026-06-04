@@ -1,51 +1,111 @@
 import { useListCamerasQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
-import { useCreateLayoutDraftMutation } from '@smart-sentinel-eye/shared/api/layouts.api';
 import {
-  createLayoutDraftSchema,
-  type CreateLayoutDraftInput,
-} from '@smart-sentinel-eye/shared/api/layouts.schema';
+  useCreateLayoutDraftMutation,
+  useEditDraftRevisionMutation,
+  type LayoutTile,
+} from '@smart-sentinel-eye/shared/api/layouts.api';
 import { useListOverlaysQuery } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
+import { GridDesigner } from './GridDesigner.js';
+import {
+  buildCells,
+  cellsFromTiles,
+  createGridDesignerResolver,
+  tilesFromCells,
+  type GridDesignerValue,
+} from './gridDesigner.js';
+
+/**
+ * The revision the dialog edits in edit-after-publish (US4). The page branches
+ * a new draft off the Published chain first, then hands the new draft's
+ * revision number plus the baseline grid+tiles (branch copies them verbatim)
+ * so the designer opens pre-loaded.
+ */
+export interface LayoutEditTarget {
+  layoutIdentifier: string;
+  revisionNumber: number;
+  name: string;
+  grid: { rows: number; cols: number };
+  tiles: LayoutTile[];
+}
 
 export interface LayoutEditorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** When set the dialog edits an existing draft (US4); otherwise it creates. */
+  editTarget?: LayoutEditTarget;
 }
 
-export function LayoutEditorDialog({ open, onOpenChange }: LayoutEditorDialogProps) {
-  const [createLayoutDraft, { isLoading, error, reset: resetMutationState }] = useCreateLayoutDraftMutation();
+const EMPTY_CREATE: GridDesignerValue = {
+  name: '',
+  grid: { rows: 1, cols: 1 },
+  cells: buildCells(1, 1),
+};
+
+export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEditorDialogProps) {
+  const isEdit = editTarget !== undefined;
+  const [createLayoutDraft, createState] = useCreateLayoutDraftMutation();
+  const [editDraftRevision, editState] = useEditDraftRevisionMutation();
+  const { isLoading, error, reset: resetMutationState } = isEdit ? editState : createState;
 
   // Drop any prior backend error when the dialog closes so a stale banner
   // doesn't greet the operator on the next open.
   useEffect(() => {
     if (!open) resetMutationState();
   }, [open, resetMutationState]);
+
   const { data: cameras, isLoading: camerasLoading } = useListCamerasQuery({ limit: 50 });
   const { data: overlays, isLoading: overlaysLoading } = useListOverlaysQuery('Published');
 
+  const defaultValues = useMemo<GridDesignerValue>(() => {
+    if (editTarget === undefined) return EMPTY_CREATE;
+    return {
+      name: editTarget.name,
+      grid: editTarget.grid,
+      cells: cellsFromTiles(editTarget.grid.rows, editTarget.grid.cols, editTarget.tiles),
+    };
+  }, [editTarget]);
+
+  const form = useForm<GridDesignerValue>({
+    resolver: createGridDesignerResolver(isEdit ? 'edit' : 'create'),
+    defaultValues,
+  });
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
-  } = useForm<CreateLayoutDraftInput>({
-    resolver: zodResolver(createLayoutDraftSchema),
-    // Spec 010: a layout is a grid of tiles. This dialog authors the N=1
-    // single-tile case (1×1); the full grid designer is spec 010 S2.
-    defaultValues: { name: '', grid: { rows: 1, cols: 1 }, tiles: [{ cameraIdentifier: '', overlayIdentifier: null, row: 0, col: 0 }] },
-  });
+  } = form;
 
-  const onSubmit = handleSubmit(async (input) => {
-    const result = await createLayoutDraft(input);
+  // Re-seed when the target (or create/edit mode) changes between opens.
+  useEffect(() => {
+    reset(defaultValues);
+  }, [defaultValues, reset]);
+
+  const onSubmit = handleSubmit(async (value) => {
+    const tiles = tilesFromCells(value.cells);
+    if (editTarget !== undefined) {
+      const result = await editDraftRevision({
+        layoutIdentifier: editTarget.layoutIdentifier,
+        revisionNumber: editTarget.revisionNumber,
+        grid: value.grid,
+        tiles,
+      });
+      if (!('error' in result)) {
+        reset(defaultValues);
+        onOpenChange(false);
+      }
+      return;
+    }
+    const result = await createLayoutDraft({ name: value.name, grid: value.grid, tiles });
     if (!('error' in result)) {
-      reset();
+      reset(EMPTY_CREATE);
       onOpenChange(false);
     }
   });
@@ -58,48 +118,29 @@ export function LayoutEditorDialog({ open, onOpenChange }: LayoutEditorDialogPro
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) {
-          reset();
-        }
+        if (!next) reset(defaultValues);
         onOpenChange(next);
       }}
-      title="New layout"
-      description="Pick a name and one registered camera. The layout starts as a draft."
+      title={isEdit ? 'Edit layout' : 'New layout'}
+      description={
+        isEdit
+          ? 'Adjust the grid and tiles, then save the draft.'
+          : 'Name the wall, pick a grid size, and assign a camera to each tile. It starts as a draft.'
+      }
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <FormField label="Name" htmlFor="layout-name" error={errors.name?.message}>
-          <Input id="layout-name" autoFocus {...register('name')} />
-        </FormField>
-        <FormField label="Camera" htmlFor="layout-camera" error={errors.tiles?.[0]?.cameraIdentifier?.message}>
-          <select
-            id="layout-camera"
-            className="w-full rounded-md border border-fg-muted/40 bg-bg-base px-3 py-2 text-fg-primary"
-            {...register('tiles.0.cameraIdentifier')}
-          >
-            <option value="">
-              {camerasLoading ? 'Loading cameras…' : 'Select a camera'}
-            </option>
-            {cameraItems.map((camera) => (
-              <option key={camera.cameraIdentifier} value={camera.cameraIdentifier}>
-                {camera.name}
-              </option>
-            ))}
-          </select>
-        </FormField>
-        <FormField label="Overlay" htmlFor="layout-overlay" error={errors.tiles?.[0]?.overlayIdentifier?.message}>
-          <select
-            id="layout-overlay"
-            className="w-full rounded-md border border-fg-muted/40 bg-bg-base px-3 py-2 text-fg-primary"
-            {...register('tiles.0.overlayIdentifier', { setValueAs: (v) => (v === '' ? null : v) })}
-          >
-            <option value="">{overlaysLoading ? 'Loading overlays…' : '(none)'}</option>
-            {overlayItems.map((overlay) => (
-              <option key={overlay.overlayIdentifier} value={overlay.overlayIdentifier}>
-                {overlay.name}
-              </option>
-            ))}
-          </select>
-        </FormField>
+        {!isEdit && (
+          <FormField label="Name" htmlFor="layout-name" error={errors.name?.message}>
+            <Input id="layout-name" autoFocus {...register('name')} />
+          </FormField>
+        )}
+        <GridDesigner
+          form={form}
+          cameras={cameraItems}
+          overlays={overlayItems}
+          camerasLoading={camerasLoading}
+          overlaysLoading={overlaysLoading}
+        />
         {backendError !== null && (
           <p role="alert" className="text-sm text-accent-fault">
             {backendError}
@@ -110,11 +151,10 @@ export function LayoutEditorDialog({ open, onOpenChange }: LayoutEditorDialogPro
             Cancel
           </Button>
           <Button type="submit" disabled={isLoading || cameraItems.length === 0}>
-            {isLoading ? 'Saving…' : 'Save as draft'}
+            {isLoading ? 'Saving…' : isEdit ? 'Save draft' : 'Save as draft'}
           </Button>
         </div>
       </form>
     </Dialog>
   );
 }
-

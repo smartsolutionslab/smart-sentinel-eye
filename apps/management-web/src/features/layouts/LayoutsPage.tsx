@@ -5,11 +5,12 @@ import {
   usePublishRevisionMutation,
   useRevertRevisionMutation,
   type Layout,
+  type LayoutRevision,
   type LayoutRevisionState,
 } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useState } from 'react';
-import { LayoutEditorDialog } from './LayoutEditorDialog.js';
+import { LayoutEditorDialog, type LayoutEditTarget } from './LayoutEditorDialog.js';
 
 const STATE_FILTERS: ReadonlyArray<LayoutRevisionState | 'All'> = [
   'All',
@@ -19,7 +20,8 @@ const STATE_FILTERS: ReadonlyArray<LayoutRevisionState | 'All'> = [
 ];
 
 export function LayoutsPage() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<LayoutEditTarget>();
   const [filter, setFilter] = useState<LayoutRevisionState | 'All'>('All');
 
   const { data, isLoading, isFetching, error, refetch } = useListLayoutsQuery(undefined);
@@ -31,11 +33,27 @@ export function LayoutsPage() {
   const chains = data?.chains ?? [];
   const visible = filter === 'All' ? chains : chains.filter((c) => containsRevisionIn(c, filter));
 
+  // Edit-after-publish (US4): branch a new draft off the Published baseline,
+  // then open the designer pre-loaded with that baseline's grid + tiles. The
+  // branch copies the baseline verbatim, so the new draft's revision number is
+  // the published revision's + 1 (the returned number).
+  const onEdit = async (chain: Layout, published: LayoutRevision) => {
+    const result = await branchDraft(chain.layoutIdentifier);
+    if ('error' in result) return;
+    setEditTarget({
+      layoutIdentifier: chain.layoutIdentifier,
+      revisionNumber: result.data,
+      name: chain.name,
+      grid: { rows: published.gridRows, cols: published.gridCols },
+      tiles: published.tiles,
+    });
+  };
+
   return (
     <section className="p-6">
       <header className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">Layouts</h1>
-        <Button onClick={() => setDialogOpen(true)}>New layout</Button>
+        <Button onClick={() => setCreateOpen(true)}>New layout</Button>
       </header>
 
       <div className="mb-4 flex gap-2">
@@ -93,6 +111,7 @@ export function LayoutsPage() {
               <p className="mt-1 text-xs text-fg-muted font-mono">
                 {chain.layoutIdentifier}
               </p>
+              <p className="mt-1 text-xs text-fg-muted">{tileSummary(newest)}</p>
               <div className="mt-3 flex gap-2">
                 {newest.state === 'Draft' && (
                   <Button
@@ -113,7 +132,7 @@ export function LayoutsPage() {
                     <Button
                       variant="secondary"
                       disabled={disabled}
-                      onClick={() => void branchDraft(chain.layoutIdentifier)}
+                      onClick={() => void onEdit(chain, newest)}
                     >
                       Edit (new draft)
                     </Button>
@@ -151,7 +170,14 @@ export function LayoutsPage() {
         })}
       </ul>
 
-      <LayoutEditorDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <LayoutEditorDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <LayoutEditorDialog
+        open={editTarget !== undefined}
+        onOpenChange={(next) => {
+          if (!next) setEditTarget(undefined);
+        }}
+        editTarget={editTarget}
+      />
     </section>
   );
 }
@@ -162,4 +188,12 @@ function newestRevision(chain: Layout) {
 
 function containsRevisionIn(chain: Layout, state: LayoutRevisionState): boolean {
   return chain.revisions.some((r) => r.state === state);
+}
+
+// Row summary (T023): the tile count + grid shape replaces the old single
+// camera/identifier line, so a 2×2 wall reads "4 tiles, 2×2".
+function tileSummary(revision: LayoutRevision): string {
+  const count = revision.tiles.length;
+  const noun = count === 1 ? 'tile' : 'tiles';
+  return `${count} ${noun}, ${revision.gridRows}×${revision.gridCols}`;
 }
