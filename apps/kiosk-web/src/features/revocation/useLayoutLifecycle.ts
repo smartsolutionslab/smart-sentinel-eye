@@ -7,6 +7,7 @@ import {
   createLayoutHubClient,
   type LayoutRevisionArchivedMessage,
   type LayoutRevisionPublishedMessage,
+  type OverlayHighlightChangedMessage,
   type OverlayRevisionArchivedMessage,
   type OverlayRevisionPublishedMessage,
   type ResolvedOverlayTextChangedMessage,
@@ -28,6 +29,8 @@ export interface UseLayoutLifecycleOptions {
   onOverlayArchived?: (message: OverlayRevisionArchivedMessage) => void;
   /** Called when an overlay's resolved text changes (spec 005 US2). */
   onResolvedOverlayTextChanged?: (message: ResolvedOverlayTextChangedMessage) => void;
+  /** Called when an overlay highlight is requested (spec 010 US3). */
+  onOverlayHighlightChanged?: (message: OverlayHighlightChangedMessage) => void;
   /** Called after a successful SignalR reconnect. */
   onReconnected?: () => void;
   /**
@@ -76,6 +79,8 @@ export function useLayoutLifecycle(options: UseLayoutLifecycleOptions): void {
         onOverlayArchived: (message) => optionsRef.current.onOverlayArchived?.(message),
         onResolvedOverlayTextChanged: (message) =>
           optionsRef.current.onResolvedOverlayTextChanged?.(message),
+        onOverlayHighlightChanged: (message) =>
+          optionsRef.current.onOverlayHighlightChanged?.(message),
         onReconnected: () => {
           dispatch(layoutsApi.util.invalidateTags([{ type: 'LayoutList', id: 'ALL' }]));
           dispatch(overlaysApi.util.invalidateTags([{ type: 'OverlayList', id: 'ALL' }]));

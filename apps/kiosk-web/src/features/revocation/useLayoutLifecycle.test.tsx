@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import type { ReactNode } from 'react';
 import type {
   LayoutHubCallbacks,
+  OverlayHighlightChangedMessage,
   ResolvedOverlayTextChangedMessage,
 } from '@smart-sentinel-eye/shared/realtime/layoutHub';
 import { store } from '../../app/store.js';
@@ -62,5 +63,23 @@ describe('useLayoutLifecycle', () => {
 
     expect(second).toHaveBeenCalledWith(message);
     expect(first).not.toHaveBeenCalled();
+  });
+
+  // Spec 010 US3: the new overlay-highlight frame is forwarded to the
+  // consumer's `onOverlayHighlightChanged` through the same latest-options ref.
+  it('forwards OverlayHighlightChanged frames to the latest callback', () => {
+    const accessTokenFactory = () => 'token';
+    const onHighlight = vi.fn();
+
+    renderHook(
+      ({ onChanged }: { onChanged: (message: OverlayHighlightChangedMessage) => void }) =>
+        useLayoutLifecycle({ accessTokenFactory, onOverlayHighlightChanged: onChanged }),
+      { wrapper, initialProps: { onChanged: onHighlight } },
+    );
+
+    const message: OverlayHighlightChangedMessage = { overlay: 'ovl-1', durationMs: 1500 };
+    capturedCallbacks?.onOverlayHighlightChanged?.(message);
+
+    expect(onHighlight).toHaveBeenCalledWith(message);
   });
 });
