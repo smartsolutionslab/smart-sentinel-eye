@@ -37,6 +37,10 @@ public class GetLayoutQueryHandlerTests
         dto.Revisions.Count.ShouldBe(2);
         dto.Revisions[0].RevisionNumber.ShouldBe(1);
         dto.Revisions[1].RevisionNumber.ShouldBe(branched.Number.Value);
+        LayoutRevisionDto first = dto.Revisions[0];
+        first.GridRows.ShouldBe(1);
+        first.GridCols.ShouldBe(1);
+        first.Tiles.ShouldHaveSingleItem().Row.ShouldBe(0);
     }
 
     [Fact]

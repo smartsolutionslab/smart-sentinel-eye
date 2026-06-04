@@ -42,10 +42,22 @@ public sealed class GetLayoutQueryHandler(ILayoutQuerySource layouts)
             RevisionIdentifier: revision.Id.Value,
             RevisionNumber: revision.Number.Value,
             State: revision.State.Value,
-            CameraIdentifier: revision.Camera.Value,
-            OverlayIdentifier: revision.Overlay?.Value,
+            GridRows: revision.Grid.Rows,
+            GridCols: revision.Grid.Cols,
+            Tiles: MapTiles(revision),
             CreatedAt: revision.CreatedAt,
             CreatedBy: revision.CreatedBy.Value,
             PublishedAt: revision.PublishedAt,
             ArchivedAt: revision.ArchivedAt);
+
+    internal static IReadOnlyList<TileDto> MapTiles(Revision revision) =>
+        revision.Tiles
+            .OrderBy(tile => tile.Position.Row)
+            .ThenBy(tile => tile.Position.Col)
+            .Select(tile => new TileDto(
+                CameraIdentifier: tile.Camera.Value,
+                OverlayIdentifier: tile.Overlay.Match(overlay => (Guid?)overlay.Value, () => null),
+                Row: tile.Position.Row,
+                Col: tile.Position.Col))
+            .ToList();
 }
