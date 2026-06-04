@@ -39,7 +39,7 @@ public sealed class IntegrationEventAuditHandler(AuditingMessageHandler auditing
     public Task Handle(KioskEnrolledV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
     public Task Handle(WebhookIntegrationRotatedV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
     public Task Handle(LayoutRevisionArchivedV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
-    public Task Handle(LayoutRevisionPublishedV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
+    public Task Handle(LayoutRevisionPublishedV2 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
     public Task Handle(OverlayHighlightRequestedV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
     public Task Handle(OverlayRevisionArchivedV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
     public Task Handle(OverlayRevisionPublishedV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
