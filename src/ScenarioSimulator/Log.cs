@@ -35,4 +35,56 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Camera URL {Url} has no path component; not a simulated camera, skipping.")]
     public static partial void SkippedNonSimulatedCamera(this ILogger logger, string url);
+
+    // --- M2 seeding (Phase A overlays / Phase B rules / Phase D wall) ---
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Seeded overlay '{Name}' -> {Overlay}.")]
+    public static partial void OverlaySeeded(this ILogger logger, string name, Guid overlay);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Overlay '{Name}' already exists; reusing {Overlay} (idempotent).")]
+    public static partial void OverlayAlreadyExists(this ILogger logger, string name, Guid overlay);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Seeded rule '{Name}' -> overlay {Overlay}.")]
+    public static partial void RuleSeeded(this ILogger logger, string name, Guid overlay);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Rule '{Name}' already exists; skipping (idempotent).")]
+    public static partial void RuleAlreadyExists(this ILogger logger, string name);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Seeded wall layout '{Name}' ({Rows}x{Cols}) -> {Layout}.")]
+    public static partial void WallSeeded(this ILogger logger, string name, int rows, int cols, Guid layout);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Wall layout '{Name}' already exists; skipping (idempotent).")]
+    public static partial void WallAlreadyExists(this ILogger logger, string name);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Recorded camera {Camera} for asset '{Asset}'.")]
+    public static partial void AssetCameraRecorded(this ILogger logger, string asset, Guid camera);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Wall not yet complete: {Ready}/{Total} asset(s) have both overlay and camera.")]
+    public static partial void WallNotYetComplete(this ILogger logger, int ready, int total);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Asset '{Asset}' is missing its {Field}; cannot seed it.")]
+    public static partial void AssetMissingField(this ILogger logger, string asset, string field);
+
+    // --- M2 billet timeline + MQTT publisher ---
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Billet run started: {Stations} station(s), dwell {DwellMs}ms, tick {TickMs}ms.")]
+    public static partial void BilletRunStarted(this ILogger logger, int stations, int dwellMs, int tickMs);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Billet entered station '{Asset}' (device '{Device}').")]
+    public static partial void BilletEnteredStation(this ILogger logger, string asset, string device);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Emitted {Topic} = {Value} {Unit} (kind '{Kind}').")]
+    public static partial void BilletSampleEmitted(this ILogger logger, string topic, double value, string unit, string kind);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Billet run complete; looping after {LoopGapMs}ms.")]
+    public static partial void BilletRunComplete(this ILogger logger, int loopGapMs);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "MQTT publisher connected to '{Host}' as '{Username}'.")]
+    public static partial void MqttPublisherConnected(this ILogger logger, string host, string username);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "MQTT publisher disconnected from '{Host}'; reconnecting.")]
+    public static partial void MqttPublisherDisconnected(this ILogger logger, string host);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "MQTT publish to '{Topic}' failed: {Reason}.")]
+    public static partial void MqttPublishFailed(this ILogger logger, string topic, string reason);
 }
