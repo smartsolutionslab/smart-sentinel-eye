@@ -11,3 +11,10 @@ topic write fab/munich/inference/camera-12
 
 user event-ingestion
 topic read fab/+/+/+
+
+# Scenario Simulator (dev-only, ADR-0111 M2). Publishes simulated PLC +
+# inference events across many device topics under one username, so it needs a
+# wildcard write grant per source.
+user scenario-simulator
+topic write fab/munich/plc/#
+topic write fab/munich/inference/#

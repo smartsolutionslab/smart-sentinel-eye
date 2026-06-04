@@ -241,7 +241,7 @@
       "directAccessGrantsEnabled": false,
       "secret": "dev-only-scenario-simulator-secret",
       "protocol": "openid-connect",
-      "defaultClientScopes": ["basic", "profile", "email", "roles", "sse.cameras.write"]
+      "defaultClientScopes": ["basic", "profile", "email", "roles", "sse.cameras.write", "sse.overlays.write", "sse.rules.write", "sse.layouts.write"]
     }
   ],
   "users": [
