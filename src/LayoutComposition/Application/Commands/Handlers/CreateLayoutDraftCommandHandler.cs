@@ -16,7 +16,14 @@ public sealed class CreateLayoutDraftCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (LayoutName? name, CameraIdentifier camera, OperatorIdentifier createdBy, OverlayIdentifier? overlay) = command;
+        (LayoutName? name, GridDimensions grid, IReadOnlyList<Tile> tiles, OperatorIdentifier createdBy) = command;
+
+        Option<GridViolation> violation = Layout.ValidateGrid(grid, tiles);
+        if (violation.HasValue)
+        {
+            return Result<LayoutIdentifier, CreateLayoutDraftError>.Failure(
+                CreateLayoutDraftError.FromViolation(violation.Value));
+        }
 
         Option<Layout> existing = await layouts
             .GetByNameAsync(name, cancellationToken);
@@ -26,7 +33,7 @@ public sealed class CreateLayoutDraftCommandHandler(
                 new CreateLayoutDraftError.LayoutNameTaken(name.Value));
         }
 
-        Layout layout = Layout.CreateDraft(name, camera, createdBy, clock, overlay);
+        Layout layout = Layout.CreateDraft(name, grid, tiles, createdBy, clock);
         layouts.Add(layout);
         await layouts.SaveAsync(cancellationToken);
 

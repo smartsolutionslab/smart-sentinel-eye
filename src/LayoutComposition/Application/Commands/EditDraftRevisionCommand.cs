@@ -5,30 +5,15 @@ using SmartSentinelEye.Shared.Kernel;
 namespace SmartSentinelEye.LayoutComposition.Application.Commands;
 
 /// <summary>
-/// Mutates a Draft revision's camera (and, per spec 004, its optional
-/// overlay binding) in place. The overlay field is a tri-state via
-/// <see cref="OverlayChange"/>: <c>None</c> leaves the binding
-/// untouched, <c>Set(overlayIdentifier)</c> updates it,
-/// <c>Clear()</c> removes it. This avoids confusing "null means
-/// clear" with "null means leave alone".
+/// Replaces a Draft revision's grid + tile set in place (spec 010). A
+/// multi-tile edit swaps the whole set atomically, so there is no
+/// per-tile or tri-state overlay input — the command carries the new
+/// grid + tiles and the aggregate replaces the revision's payload. The
+/// grid + tiles must satisfy the four grid invariants (ADR-0112 §2).
 /// </summary>
 public sealed record EditDraftRevisionCommand(
     LayoutIdentifier Layout,
     LayoutRevisionNumber RevisionNumber,
-    CameraIdentifier Camera,
-    OverlayChange Overlay = default)
+    GridDimensions Grid,
+    IReadOnlyList<Tile> Tiles)
     : ICommand<Result<LayoutRevisionNumber, EditDraftRevisionError>>;
-
-/// <summary>
-/// Three-valued overlay-edit input. ``default(OverlayChange)`` is
-/// equivalent to <see cref="None"/> so existing callers that don't
-/// pass the new argument keep working unchanged.
-/// </summary>
-public readonly record struct OverlayChange(bool ShouldChange, OverlayIdentifier? Value)
-{
-    public static OverlayChange None => default;
-
-    public static OverlayChange Set(OverlayIdentifier overlay) => new(true, overlay);
-
-    public static OverlayChange Clear() => new(true, null);
-}

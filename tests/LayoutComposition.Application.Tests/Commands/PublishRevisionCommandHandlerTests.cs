@@ -126,15 +126,19 @@ public class PublishRevisionCommandHandlerTests
     {
         // Belt-and-braces: assert the event shape so future serializer
         // changes don't silently drop fields.
+        IReadOnlyList<Tile> tiles =
+            [new Tile(CameraIdentifier.From(Guid.CreateVersion7()), Option<OverlayIdentifier>.None, GridPosition.From(0, 0))];
         LayoutRevisionPublishedDomainEvent published = new(
             LayoutIdentifier.New(),
             LayoutRevisionNumber.One,
             LayoutName.From("Line-1"),
-            CameraIdentifier.From(Guid.CreateVersion7()),
+            GridDimensions.Cell,
+            tiles,
             FixedMoment,
             OperatorIdentifier.From(Guid.CreateVersion7()));
         published.RevisionNumber.Value.ShouldBe(1);
         published.PublishedAt.ShouldBe(FixedMoment);
+        published.Tiles.ShouldHaveSingleItem();
 
         LayoutRevisionArchivedDomainEvent archived = new(
             LayoutIdentifier.New(),

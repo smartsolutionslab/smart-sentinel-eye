@@ -14,24 +14,31 @@ public class EditDraftRevisionCommandHandlerTests
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
+    private static Tile TileAt(int row, int col, OverlayIdentifier? overlay = null) =>
+        new(
+            CameraIdentifier.From(Guid.CreateVersion7()),
+            overlay.HasValue ? Option<OverlayIdentifier>.Some(overlay.Value) : Option<OverlayIdentifier>.None,
+            GridPosition.From(row, col));
+
     [Fact]
-    public async Task Editing_a_Draft_updates_the_camera()
+    public async Task Editing_a_Draft_replaces_its_grid_and_tile_set()
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        CameraIdentifier original = CameraIdentifier.From(Guid.CreateVersion7());
-        CameraIdentifier replacement = CameraIdentifier.From(Guid.CreateVersion7());
-        Layout layout = new LayoutBuilder().ForCamera(original).At(FixedMoment).Build();
+        Layout layout = new LayoutBuilder().At(FixedMoment).Build();
         layouts.Add(layout);
 
         EditDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand(layout.Id, LayoutRevisionNumber.One, replacement),
+            new EditDraftRevisionCommand(
+                layout.Id, LayoutRevisionNumber.One, GridDimensions.Default, [TileAt(0, 0), TileAt(1, 1)]),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        layout.Revisions.Single().Camera.ShouldBe(replacement);
+        Revision revision = layout.Revisions.Single();
+        revision.Grid.ShouldBe(GridDimensions.Default);
+        revision.Tiles.Count.ShouldBe(2);
     }
 
     [Fact]
@@ -43,9 +50,7 @@ public class EditDraftRevisionCommandHandlerTests
 
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                LayoutIdentifier.New(),
-                LayoutRevisionNumber.One,
-                CameraIdentifier.From(Guid.CreateVersion7())),
+                LayoutIdentifier.New(), LayoutRevisionNumber.One, GridDimensions.Cell, [TileAt(0, 0)]),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -64,9 +69,7 @@ public class EditDraftRevisionCommandHandlerTests
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                layout.Id,
-                LayoutRevisionNumber.From(42),
-                CameraIdentifier.From(Guid.CreateVersion7())),
+                layout.Id, LayoutRevisionNumber.From(42), GridDimensions.Cell, [TileAt(0, 0)]),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -74,12 +77,11 @@ public class EditDraftRevisionCommandHandlerTests
     }
 
     [Fact]
-    public async Task Editing_with_OverlayChange_Set_binds_the_overlay()
+    public async Task Editing_a_tile_with_an_overlay_binds_it()
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        Layout layout = new LayoutBuilder().ForCamera(camera).At(FixedMoment).Build();
+        Layout layout = new LayoutBuilder().At(FixedMoment).Build();
         layouts.Add(layout);
         OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
 
@@ -87,53 +89,47 @@ public class EditDraftRevisionCommandHandlerTests
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                layout.Id, LayoutRevisionNumber.One, camera, OverlayChange.Set(overlay)),
+                layout.Id, LayoutRevisionNumber.One, GridDimensions.Cell, [TileAt(0, 0, overlay)]),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        layout.Revisions.Single().Overlay.ShouldBe(overlay);
+        layout.Revisions.Single().Tiles.Single().Overlay.Value.ShouldBe(overlay);
     }
 
     [Fact]
-    public async Task Editing_with_OverlayChange_Clear_removes_the_binding()
+    public async Task An_empty_tile_set_returns_LAYOUT_GRID_EMPTY()
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
-        Layout layout = new LayoutBuilder().ForCamera(camera).WithOverlay(overlay).At(FixedMoment).Build();
+        Layout layout = new LayoutBuilder().At(FixedMoment).Build();
         layouts.Add(layout);
 
         EditDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                layout.Id, LayoutRevisionNumber.One, camera, OverlayChange.Clear()),
+                layout.Id, LayoutRevisionNumber.One, GridDimensions.Cell, Array.Empty<Tile>()),
             CancellationToken.None);
 
-        result.IsSuccess.ShouldBeTrue();
-        layout.Revisions.Single().Overlay.ShouldBeNull();
+        result.Error.ShouldBeOfType<EditDraftRevisionError.GridEmpty>();
     }
 
     [Fact]
-    public async Task Editing_with_OverlayChange_None_leaves_the_binding_unchanged()
+    public async Task A_duplicate_tile_position_returns_LAYOUT_TILE_POSITION_DUPLICATE()
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
-        Layout layout = new LayoutBuilder().ForCamera(camera).WithOverlay(overlay).At(FixedMoment).Build();
+        Layout layout = new LayoutBuilder().At(FixedMoment).Build();
         layouts.Add(layout);
 
         EditDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                layout.Id, LayoutRevisionNumber.One, camera),
+                layout.Id, LayoutRevisionNumber.One, GridDimensions.Default, [TileAt(0, 0), TileAt(0, 0)]),
             CancellationToken.None);
 
-        result.IsSuccess.ShouldBeTrue();
-        layout.Revisions.Single().Overlay.ShouldBe(overlay);
+        result.Error.ShouldBeOfType<EditDraftRevisionError.TilePositionDuplicate>();
     }
 
     [Fact]
@@ -149,9 +145,7 @@ public class EditDraftRevisionCommandHandlerTests
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                layout.Id,
-                LayoutRevisionNumber.One,
-                CameraIdentifier.From(Guid.CreateVersion7())),
+                layout.Id, LayoutRevisionNumber.One, GridDimensions.Cell, [TileAt(0, 0)]),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();

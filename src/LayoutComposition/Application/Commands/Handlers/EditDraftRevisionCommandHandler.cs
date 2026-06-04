@@ -15,7 +15,14 @@ public sealed class EditDraftRevisionCommandHandler(
         EditDraftRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, CameraIdentifier camera, OverlayChange overlay) = command;
+        (LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, GridDimensions grid, IReadOnlyList<Tile> tiles) = command;
+
+        Option<GridViolation> violation = Layout.ValidateGrid(grid, tiles);
+        if (violation.HasValue)
+        {
+            return Result<LayoutRevisionNumber, EditDraftRevisionError>.Failure(
+                EditDraftRevisionError.FromViolation(violation.Value));
+        }
 
         Option<Layout> found = await layouts
             .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
@@ -39,11 +46,7 @@ public sealed class EditDraftRevisionCommandHandler(
                 new EditDraftRevisionError.NotADraft(revision.State.Value));
         }
 
-        layout.EditDraft(revisionNumber, camera, clock);
-        if (overlay.ShouldChange)
-        {
-            layout.AttachOverlay(revisionNumber, overlay.Value, clock);
-        }
+        layout.EditDraft(revisionNumber, grid, tiles, clock);
         await layouts.SaveAsync(cancellationToken);
 
         logger.EditedDraftRevision(revisionNumber, layout.Id);

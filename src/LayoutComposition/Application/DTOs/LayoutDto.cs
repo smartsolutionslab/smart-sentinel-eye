@@ -17,13 +17,16 @@ public sealed record LayoutDto(
 /// Per-revision row inside <see cref="LayoutDto"/>. The list endpoint
 /// returns one row per logical chain — the read model collapses the
 /// chain to its "current Published" revision when filtering by state.
+/// Spec 010: carries the grid dimensions + tile set (the scalar
+/// camera/overlay fields are removed, ADR-0112 §3).
 /// </summary>
 public sealed record LayoutRevisionDto(
     Guid RevisionIdentifier,
     int RevisionNumber,
     string State,
-    Guid CameraIdentifier,
-    Guid? OverlayIdentifier,
+    int GridRows,
+    int GridCols,
+    IReadOnlyList<TileDto> Tiles,
     DateTimeOffset CreatedAt,
     Guid CreatedBy,
     DateTimeOffset? PublishedAt,
@@ -31,12 +34,26 @@ public sealed record LayoutRevisionDto(
 
 /// <summary>
 /// Single-row projection for the kiosk picker (FR-016): one entry per
-/// chain that currently has a Published revision.
+/// chain that currently has a Published revision. Spec 010: carries the
+/// grid + tiles of the current Published revision.
 /// </summary>
 public sealed record PublishedLayoutDto(
     Guid LayoutIdentifier,
     string Name,
     int RevisionNumber,
+    int GridRows,
+    int GridCols,
+    IReadOnlyList<TileDto> Tiles,
+    DateTimeOffset PublishedAt);
+
+/// <summary>
+/// One tile of a layout grid on the read side: a required camera, an
+/// optional overlay (<c>null</c> when unbound), at zero-indexed
+/// <c>(Row, Col)</c>. The TS <c>LayoutTile</c> seam type mirrors this
+/// shape exactly (plan T015).
+/// </summary>
+public sealed record TileDto(
     Guid CameraIdentifier,
     Guid? OverlayIdentifier,
-    DateTimeOffset PublishedAt);
+    int Row,
+    int Col);

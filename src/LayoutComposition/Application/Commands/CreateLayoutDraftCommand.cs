@@ -6,11 +6,13 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands;
 
 /// <summary>
 /// Creates the first revision of a new logical Layout chain in Draft
-/// state. Name must be unique across all non-Archived chains (FR-006).
+/// state (spec 003 FR-006, spec 010). Name must be unique across all
+/// non-Archived chains; the grid + tile set must satisfy the four
+/// grid invariants (ADR-0112 §2).
 /// </summary>
 public sealed record CreateLayoutDraftCommand(
     LayoutName Name,
-    CameraIdentifier Camera,
-    OperatorIdentifier CreatedBy,
-    OverlayIdentifier? Overlay = null)
+    GridDimensions Grid,
+    IReadOnlyList<Tile> Tiles,
+    OperatorIdentifier CreatedBy)
     : ICommand<Result<LayoutIdentifier, CreateLayoutDraftError>>;

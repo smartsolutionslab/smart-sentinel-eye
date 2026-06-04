@@ -30,8 +30,9 @@ public sealed class ListLayoutsQueryHandler(ILayoutQuerySource layouts)
                         LayoutIdentifier: layout.Id.Value,
                         Name: layout.Name.Value,
                         RevisionNumber: pub.Number.Value,
-                        CameraIdentifier: pub.Camera.Value,
-                        OverlayIdentifier: pub.Overlay?.Value,
+                        GridRows: pub.Grid.Rows,
+                        GridCols: pub.Grid.Cols,
+                        Tiles: GetLayoutQueryHandler.MapTiles(pub),
                         PublishedAt: pub.PublishedAt!.Value);
                 })
                 .OrderBy(dto => dto.Name, StringComparer.OrdinalIgnoreCase)
