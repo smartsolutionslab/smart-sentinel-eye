@@ -68,3 +68,7 @@ aspire-dashboard-storage/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Scenario Simulator (ADR-0111) — generated dev-only loop clip (~7 MB).
+# Not versioned; regenerate once via scripts/generate-sim-loop.sh.
+/src/AppHost/Resources/sim-loop.mp4
