@@ -7,6 +7,7 @@ using SmartSentinelEye.ScenarioSimulator.EventHandlers;
 using SmartSentinelEye.ScenarioSimulator.Keycloak;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
 using SmartSentinelEye.ScenarioSimulator.Seeding;
+using SmartSentinelEye.ScenarioSimulator.Timeline;
 using SmartSentinelEye.ServiceDefaults;
 using Wolverine;
 using Wolverine.RabbitMQ;
@@ -51,6 +52,11 @@ builder.Services.AddHttpClient<CameraSimProvisioner>((sp, client) =>
         client.BaseAddress = new Uri(options.CameraSimApiUrl);
     })
     .AddStandardResilienceHandler();
+
+// M2 (ADR-0111): overlay/rule/layout seed clients + the asset correlation
+// table, and the billet timeline that publishes correlated sensor MQTT.
+builder.AddScenarioSeeding();
+builder.AddBilletTimeline();
 
 builder.Services.AddHostedService<ScenarioSeeder>();
 

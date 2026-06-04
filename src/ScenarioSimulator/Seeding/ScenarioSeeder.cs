@@ -8,15 +8,20 @@ using SmartSentinelEye.ScenarioSimulator.Scenario;
 namespace SmartSentinelEye.ScenarioSimulator.Seeding;
 
 /// <summary>
-/// Background service that, once on startup, reads the active scenario and
-/// registers each asset's camera in the catalog (ADR-0111 M1). Registration is
-/// the trigger: camera-catalog publishes <c>CameraRegisteredV1</c>, which this
-/// same worker consumes (<c>CameraRegisteredSimHandler</c>) to provision the
-/// matching loop path on camera-sim. Idempotent — a duplicate name returns 409
-/// and is skipped, so a restart re-syncs without duplicating.
+/// Background service that, once on startup, reads the active scenario and seeds
+/// it (ADR-0111). For each asset it seeds the per-station overlay (Phase A,
+/// capturing its id + tile for the wall join) + the highlight rule (Phase B),
+/// then registers the camera (Phase C) — which publishes <c>CameraRegisteredV1</c>,
+/// consumed by <c>CameraRegisteredSimHandler</c> to provision the loop path and,
+/// once all four stations are complete, create the single 2×2 wall (Phase D).
+/// Idempotent throughout (stable names; 409/existing → reuse), so a restart
+/// re-syncs without duplicating.
 /// </summary>
 public sealed class ScenarioSeeder(
     CameraCatalogClient catalog,
+    OverlayDesignerClient overlays,
+    AutomationRulesClient rules,
+    AssetCorrelationTable correlation,
     IOptions<ScenarioOptions> scenarioOptions,
     IOptions<SimulatorOptions> simulatorOptions,
     ILogger<ScenarioSeeder> logger) : BackgroundService
@@ -36,16 +41,53 @@ public sealed class ScenarioSeeder(
 
         foreach (AssetDefinition asset in scenario.Assets)
         {
+            await SeedOverlayAndRuleAsync(asset, stoppingToken);
+
             string rtspUrl = $"rtsp://{runtime.RtspHost.Trim('/')}/{asset.Camera.Path}";
             await catalog.RegisterCameraAsync(asset.Name, rtspUrl, stoppingToken);
-
-            // M2 EXTENSION POINT (NOT IMPLEMENTED — ADR-0111):
-            // Per asset.Sensors, start a simulated PLC / inference device that
-            // publishes MQTT on event-ingestion's per-device topic, correlated
-            // by asset.Key, on a timeline. The asset identity + scenario file are
-            // already shared, so M2 plugs in here with no rework.
         }
 
         logger.ScenarioSeeded(scenario.Name);
+    }
+
+    private async Task SeedOverlayAndRuleAsync(AssetDefinition asset, CancellationToken cancellationToken)
+    {
+        if (asset.Overlay is null || asset.Tile is null)
+        {
+            return;
+        }
+
+        string assetKey = asset.Camera.Path;
+        OverlayLabel label = new(
+            asset.Overlay.Label,
+            (decimal)asset.Overlay.X,
+            (decimal)asset.Overlay.Y,
+            (decimal)asset.Overlay.Width,
+            (decimal)asset.Overlay.Height,
+            (int)asset.Overlay.FontSize);
+
+        Guid overlay = await overlays.EnsureOverlayAsync($"rolling-mill-{asset.Key}", label, cancellationToken);
+        correlation.RecordOverlay(assetKey, overlay, asset.Tile.Row, asset.Tile.Col);
+
+        if (asset.Highlight is null)
+        {
+            logger.AssetMissingField(asset.Key, "highlight");
+            return;
+        }
+
+        string triggerSource = asset.Sensors
+                .FirstOrDefault(sensor => string.Equals(sensor.Kind, asset.Highlight.TriggerKind, StringComparison.Ordinal))?.Source
+            ?? "plc";
+
+        await rules.EnsureRuleAsync(
+            $"rolling-mill-{asset.Key}-highlight",
+            triggerSource,
+            asset.Highlight.TriggerKind,
+            assetKey,
+            asset.Highlight.Comparison,
+            asset.Highlight.Threshold,
+            overlay,
+            asset.Highlight.DurationMs,
+            cancellationToken);
     }
 }
