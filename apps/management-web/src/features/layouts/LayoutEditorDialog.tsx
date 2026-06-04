@@ -19,7 +19,7 @@ import {
   createGridDesignerResolver,
   tilesFromCells,
   type GridDesignerValue,
-} from './gridDesigner.js';
+} from './gridDesignerModel.js';
 
 /**
  * The revision the dialog edits in edit-after-publish (US4). The page branches
