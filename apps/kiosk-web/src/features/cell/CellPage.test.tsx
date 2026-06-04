@@ -248,8 +248,8 @@ describe('CellPage', () => {
 
     renderPage();
     const viewers = screen.getAllByTestId('camera-viewer');
-    expect(viewers[0].getAttribute('data-overlay-text')).toBe('Production Line 1');
-    expect(viewers[1].getAttribute('data-overlay-text')).toBe('');
+    expect(viewers[0]!.getAttribute('data-overlay-text')).toBe('Production Line 1');
+    expect(viewers[1]!.getAttribute('data-overlay-text')).toBe('');
   });
 
   it('Falls back to the picker prompt when no Published revision exists', () => {
@@ -285,15 +285,14 @@ describe('CellPage', () => {
       vi.useRealTimers();
     });
 
-    function highlightedTiles(): HTMLElement[] {
+    function highlightedTiles() {
       return screen
         .queryAllByTestId('layout-tile')
         .filter((el) => el.dataset.highlighted === 'true');
     }
 
-    function cameraOf(tileEl: HTMLElement): string {
-      return within(tileEl).getByTestId('camera-viewer').textContent ?? '';
-    }
+    const cameraOf = (tileEl: ReturnType<typeof highlightedTiles>[number]): string =>
+      within(tileEl).getByTestId('camera-viewer').textContent ?? '';
 
     it('Scenario 1: lights only the tile bound to the highlighted overlay, then reverts', () => {
       mockLayout(
@@ -312,7 +311,7 @@ describe('CellPage', () => {
 
       const lit = highlightedTiles();
       expect(lit).toHaveLength(1);
-      expect(cameraOf(lit[0])).toBe('cam-a');
+      expect(cameraOf(lit[0]!)).toBe('cam-a');
 
       // Auto-reverts after the duration.
       act(() => {
