@@ -37,7 +37,10 @@ export function CellPage() {
   });
 
   const published = data?.revisions.find((revision) => revision.state === 'Published');
-  const overlayIdentifier = published?.overlayIdentifier ?? null;
+  // Spec 010: a revision now carries a tile grid. The single-cell view
+  // renders the primary (first) tile; the full grid renderer is spec 010 S3.
+  const primaryTile = published?.tiles[0] ?? null;
+  const overlayIdentifier = primaryTile?.overlayIdentifier ?? null;
   const { data: overlay } = useGetOverlayQuery(overlayIdentifier ?? '', {
     skip: overlayIdentifier === null,
   });
@@ -109,7 +112,7 @@ export function CellPage() {
   if (isLoading) {
     return <FullScreen message="Loading camera…" />;
   }
-  if (error !== undefined || data === undefined || published === undefined) {
+  if (error !== undefined || data === undefined || published === undefined || primaryTile === null) {
     return (
       <FullScreen
         message="Layout is no longer available."
@@ -166,7 +169,7 @@ export function CellPage() {
       )}
       <div className="flex h-screen items-center justify-center">
         <CameraViewer
-          cameraIdentifier={published.cameraIdentifier}
+          cameraIdentifier={primaryTile.cameraIdentifier}
           getToken={() => Promise.resolve(auth.user?.access_token ?? null)}
           overlay={renderOverlay}
         />

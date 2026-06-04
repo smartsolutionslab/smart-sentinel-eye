@@ -37,7 +37,9 @@ export function LayoutEditorDialog({ open, onOpenChange }: LayoutEditorDialogPro
     reset,
   } = useForm<CreateLayoutDraftInput>({
     resolver: zodResolver(createLayoutDraftSchema),
-    defaultValues: { name: '', cameraIdentifier: '', overlayIdentifier: '' },
+    // Spec 010: a layout is a grid of tiles. This dialog authors the N=1
+    // single-tile case (1×1); the full grid designer is spec 010 S2.
+    defaultValues: { name: '', grid: { rows: 1, cols: 1 }, tiles: [{ cameraIdentifier: '', overlayIdentifier: null, row: 0, col: 0 }] },
   });
 
   const onSubmit = handleSubmit(async (input) => {
@@ -68,11 +70,11 @@ export function LayoutEditorDialog({ open, onOpenChange }: LayoutEditorDialogPro
         <FormField label="Name" htmlFor="layout-name" error={errors.name?.message}>
           <Input id="layout-name" autoFocus {...register('name')} />
         </FormField>
-        <FormField label="Camera" htmlFor="layout-camera" error={errors.cameraIdentifier?.message}>
+        <FormField label="Camera" htmlFor="layout-camera" error={errors.tiles?.[0]?.cameraIdentifier?.message}>
           <select
             id="layout-camera"
             className="w-full rounded-md border border-fg-muted/40 bg-bg-base px-3 py-2 text-fg-primary"
-            {...register('cameraIdentifier')}
+            {...register('tiles.0.cameraIdentifier')}
           >
             <option value="">
               {camerasLoading ? 'Loading cameras…' : 'Select a camera'}
@@ -84,11 +86,11 @@ export function LayoutEditorDialog({ open, onOpenChange }: LayoutEditorDialogPro
             ))}
           </select>
         </FormField>
-        <FormField label="Overlay" htmlFor="layout-overlay" error={errors.overlayIdentifier?.message}>
+        <FormField label="Overlay" htmlFor="layout-overlay" error={errors.tiles?.[0]?.overlayIdentifier?.message}>
           <select
             id="layout-overlay"
             className="w-full rounded-md border border-fg-muted/40 bg-bg-base px-3 py-2 text-fg-primary"
-            {...register('overlayIdentifier')}
+            {...register('tiles.0.overlayIdentifier', { setValueAs: (v) => (v === '' ? null : v) })}
           >
             <option value="">{overlaysLoading ? 'Loading overlays…' : '(none)'}</option>
             {overlayItems.map((overlay) => (
