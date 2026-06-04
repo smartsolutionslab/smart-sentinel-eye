@@ -57,8 +57,8 @@ public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifeti
             new
             {
                 name = $"Bnd-{Guid.NewGuid():N}".Substring(0, 16),
-                cameraIdentifier = Guid.CreateVersion7(),
-                overlayIdentifier,
+                grid = new { rows = 1, cols = 1 },
+                tiles = new[] { new { cameraIdentifier = Guid.CreateVersion7(), overlayIdentifier = (Guid?)overlayIdentifier, row = 0, col = 0 } },
             });
         layoutCreated.StatusCode.ShouldBe(HttpStatusCode.Created);
         Guid layoutIdentifier = await layoutCreated.Content.ReadFromJsonAsync<Guid>();
@@ -71,7 +71,7 @@ public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifeti
         layoutFetched.StatusCode.ShouldBe(HttpStatusCode.OK);
         JsonElement layoutPayload = await layoutFetched.Content.ReadFromJsonAsync<JsonElement>();
         JsonElement published = layoutPayload.GetProperty("revisions")[0];
-        published.GetProperty("overlayIdentifier").GetGuid().ShouldBe(overlayIdentifier);
+        published.GetProperty("tiles")[0].GetProperty("overlayIdentifier").GetGuid().ShouldBe(overlayIdentifier);
 
         // 4. GET /overlays/{id} returns the same overlay with its Published Label.
         HttpResponseMessage overlayFetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
@@ -92,7 +92,8 @@ public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifeti
             new
             {
                 name = $"Sol-{Guid.NewGuid():N}".Substring(0, 16),
-                cameraIdentifier = Guid.CreateVersion7(),
+                grid = new { rows = 1, cols = 1 },
+                tiles = new[] { new { cameraIdentifier = Guid.CreateVersion7(), overlayIdentifier = (Guid?)null, row = 0, col = 0 } },
             });
         created.EnsureSuccessStatusCode();
         Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
@@ -100,6 +101,6 @@ public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifeti
         HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
         JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
         payload.GetProperty("revisions")[0]
-            .GetProperty("overlayIdentifier").ValueKind.ShouldBe(JsonValueKind.Null);
+            .GetProperty("tiles")[0].GetProperty("overlayIdentifier").ValueKind.ShouldBe(JsonValueKind.Null);
     }
 }
