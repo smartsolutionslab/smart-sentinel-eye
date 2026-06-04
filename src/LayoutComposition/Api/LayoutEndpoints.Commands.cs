@@ -22,15 +22,13 @@ public static partial class LayoutEndpoints
         Ensure.That(body).IsNotNull();
 
         LayoutName name;
-        CameraIdentifier camera;
-        OverlayIdentifier? overlay;
+        GridDimensions grid;
+        IReadOnlyList<Tile> tiles;
         try
         {
             name = LayoutName.From(body.Name);
-            camera = CameraIdentifier.From(body.CameraIdentifier);
-            overlay = body.OverlayIdentifier is { } overlayId
-                ? OverlayIdentifier.From(overlayId)
-                : null;
+            grid = GridDimensions.From(body.Grid.Rows, body.Grid.Cols);
+            tiles = ParseTiles(body.Tiles);
         }
         catch (ArgumentException ex)
         {
@@ -42,7 +40,7 @@ public static partial class LayoutEndpoints
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler
-            .HandleAsync(new CreateLayoutDraftCommand(name, camera, actingOperator, overlay), cancellationToken);
+            .HandleAsync(new CreateLayoutDraftCommand(name, grid, tiles, actingOperator), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Created($"/layouts/{identifier.Value}", identifier.Value),
@@ -159,13 +157,13 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
         LayoutRevisionNumber number;
-        CameraIdentifier camera;
-        OverlayChange overlayChange;
+        GridDimensions grid;
+        IReadOnlyList<Tile> tiles;
         try
         {
             number = LayoutRevisionNumber.From(revisionNumber);
-            camera = CameraIdentifier.From(body.CameraIdentifier);
-            overlayChange = TranslateOverlayChange(body.Overlay);
+            grid = GridDimensions.From(body.Grid.Rows, body.Grid.Cols);
+            tiles = ParseTiles(body.Tiles);
         }
         catch (ArgumentException ex)
         {
@@ -177,7 +175,7 @@ public static partial class LayoutEndpoints
 
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler
             .HandleAsync(
-                new EditDraftRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, camera, overlayChange),
+                new EditDraftRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, grid, tiles),
                 cancellationToken);
 
         return result.Match<IResult>(
@@ -219,18 +217,16 @@ public static partial class LayoutEndpoints
             onFailure: error => error.ToProblem());
     }
 
-    private static OverlayChange TranslateOverlayChange(OverlayBindingUpdate? update)
+    private static List<Tile> ParseTiles(IReadOnlyList<TileRequest> requests)
     {
-        if (update is null)
-        {
-            return OverlayChange.None;
-        }
-
-        if (update.Identifier is { } overlayId)
-        {
-            return OverlayChange.Set(OverlayIdentifier.From(overlayId));
-        }
-
-        return OverlayChange.Clear();
+        Ensure.That(requests).IsNotNull();
+        return requests
+            .Select(request => new Tile(
+                CameraIdentifier.From(request.CameraIdentifier),
+                request.OverlayIdentifier is { } overlayId
+                    ? Option<OverlayIdentifier>.Some(OverlayIdentifier.From(overlayId))
+                    : Option<OverlayIdentifier>.None,
+                GridPosition.From(request.Row, request.Col)))
+            .ToList();
     }
 }
