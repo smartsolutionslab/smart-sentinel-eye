@@ -26,7 +26,6 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
             Layout: notification.Layout.Value,
             RevisionNumber: notification.RevisionNumber.Value,
             Name: notification.Name.Value,
-            Camera: notification.Camera.Value,
             PublishedAt: notification.PublishedAt);
 
         await BroadcastAsync(

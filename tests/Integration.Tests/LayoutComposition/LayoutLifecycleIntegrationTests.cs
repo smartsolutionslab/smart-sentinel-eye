@@ -30,7 +30,7 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
         Stopwatch sw = Stopwatch.StartNew();
         HttpResponseMessage created = await layouts.PostAsJsonAsync(
             "/layouts",
-            new { name = $"Line-{Guid.NewGuid():N}".Substring(0, 16), cameraIdentifier = Guid.CreateVersion7() });
+            SingleTileBody($"Line-{Guid.NewGuid():N}".Substring(0, 16), Guid.CreateVersion7()));
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
         Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
         layoutIdentifier.ShouldNotBe(Guid.Empty);
@@ -59,11 +59,11 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
         string sharedName = $"Cam-{Guid.NewGuid():N}".Substring(0, 16);
 
         HttpResponseMessage first = await layouts.PostAsJsonAsync(
-            "/layouts", new { name = sharedName, cameraIdentifier = Guid.CreateVersion7() });
+            "/layouts", SingleTileBody(sharedName, Guid.CreateVersion7()));
         first.StatusCode.ShouldBe(HttpStatusCode.Created);
 
         HttpResponseMessage second = await layouts.PostAsJsonAsync(
-            "/layouts", new { name = sharedName, cameraIdentifier = Guid.CreateVersion7() });
+            "/layouts", SingleTileBody(sharedName, Guid.CreateVersion7()));
         second.StatusCode.ShouldBe(HttpStatusCode.Conflict);
         JsonElement problem = await second.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_NAME_TAKEN");
@@ -77,11 +77,11 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
         string pubName = $"Pub-{Guid.NewGuid():N}".Substring(0, 16);
 
         HttpResponseMessage draftRaw = await layouts.PostAsJsonAsync(
-            "/layouts", new { name = draftName, cameraIdentifier = Guid.CreateVersion7() });
+            "/layouts", SingleTileBody(draftName, Guid.CreateVersion7()));
         draftRaw.EnsureSuccessStatusCode();
 
         HttpResponseMessage pubRaw = await layouts.PostAsJsonAsync(
-            "/layouts", new { name = pubName, cameraIdentifier = Guid.CreateVersion7() });
+            "/layouts", SingleTileBody(pubName, Guid.CreateVersion7()));
         pubRaw.EnsureSuccessStatusCode();
         Guid pubIdentifier = await pubRaw.Content.ReadFromJsonAsync<Guid>();
         HttpResponseMessage publish = await layouts.PostAsync(
@@ -113,4 +113,71 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
             $"/layouts/{Guid.CreateVersion7()}");
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
+
+    [Fact]
+    public async Task A_4_tile_2x2_wall_round_trips_through_persistence()
+    {
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        Guid[] cameras = [Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7()];
+        Guid overlay = Guid.CreateVersion7();
+        object body = new
+        {
+            name = $"Wall-{Guid.NewGuid():N}".Substring(0, 16),
+            grid = new { rows = 2, cols = 2 },
+            tiles = new[]
+            {
+                new { cameraIdentifier = cameras[0], overlayIdentifier = (Guid?)overlay, row = 0, col = 0 },
+                new { cameraIdentifier = cameras[1], overlayIdentifier = (Guid?)null, row = 0, col = 1 },
+                new { cameraIdentifier = cameras[2], overlayIdentifier = (Guid?)null, row = 1, col = 0 },
+                new { cameraIdentifier = cameras[3], overlayIdentifier = (Guid?)null, row = 1, col = 1 },
+            },
+        };
+
+        HttpResponseMessage created = await layouts.PostAsJsonAsync("/layouts", body);
+        created.StatusCode.ShouldBe(HttpStatusCode.Created);
+        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+
+        HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        fetched.EnsureSuccessStatusCode();
+        JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        JsonElement revision = payload.GetProperty("revisions")[0];
+        revision.GetProperty("gridRows").GetInt32().ShouldBe(2);
+        revision.GetProperty("gridCols").GetInt32().ShouldBe(2);
+        JsonElement tiles = revision.GetProperty("tiles");
+        tiles.GetArrayLength().ShouldBe(4);
+
+        JsonElement origin = tiles.EnumerateArray()
+            .Single(tile => tile.GetProperty("row").GetInt32() == 0 && tile.GetProperty("col").GetInt32() == 0);
+        origin.GetProperty("cameraIdentifier").GetGuid().ShouldBe(cameras[0]);
+        origin.GetProperty("overlayIdentifier").GetGuid().ShouldBe(overlay);
+    }
+
+    [Fact]
+    public async Task A_single_camera_layout_persists_as_a_1x1_tile_at_origin()
+    {
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        Guid camera = Guid.CreateVersion7();
+
+        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+            "/layouts", SingleTileBody($"Cell-{Guid.NewGuid():N}".Substring(0, 16), camera));
+        created.EnsureSuccessStatusCode();
+        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+
+        HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        JsonElement revision = payload.GetProperty("revisions")[0];
+        revision.GetProperty("gridRows").GetInt32().ShouldBe(1);
+        revision.GetProperty("gridCols").GetInt32().ShouldBe(1);
+        JsonElement tile = revision.GetProperty("tiles").EnumerateArray().Single();
+        tile.GetProperty("row").GetInt32().ShouldBe(0);
+        tile.GetProperty("col").GetInt32().ShouldBe(0);
+        tile.GetProperty("cameraIdentifier").GetGuid().ShouldBe(camera);
+    }
+
+    private static object SingleTileBody(string name, Guid camera) => new
+    {
+        name,
+        grid = new { rows = 1, cols = 1 },
+        tiles = new[] { new { cameraIdentifier = camera, overlayIdentifier = (Guid?)null, row = 0, col = 0 } },
+    };
 }
