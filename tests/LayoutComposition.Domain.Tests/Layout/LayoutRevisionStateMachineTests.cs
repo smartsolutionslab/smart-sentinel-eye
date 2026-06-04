@@ -103,8 +103,9 @@ public class LayoutRevisionStateMachineTests
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
 
-        CameraIdentifier other = CameraIdentifier.From(Guid.CreateVersion7());
-        Action act = () => layout.EditDraft(LayoutRevisionNumber.One, other, clock);
+        IReadOnlyList<Tile> tiles =
+            [new Tile(CameraIdentifier.From(Guid.CreateVersion7()), Option<OverlayIdentifier>.None, GridPosition.From(0, 0))];
+        Action act = () => layout.EditDraft(LayoutRevisionNumber.One, GridDimensions.Cell, tiles, clock);
         act.ShouldThrow<InvalidOperationException>();
     }
 }

@@ -7,14 +7,17 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
 /// <summary>
 /// Fluent builder for Layout aggregates in tests (ADR-0054). Sensible
 /// defaults; .With...() overrides per scenario. Returns a Layout whose
-/// only revision is a fresh Draft so tests typically Publish first.
+/// only revision is a fresh Draft (a single 1×1 tile, mirroring a
+/// migrated single-camera layout) so tests typically Publish first.
 /// </summary>
 public sealed class LayoutBuilder
 {
     private LayoutName _name = LayoutName.From("Line-1-Entrance");
     private CameraIdentifier _camera = CameraIdentifier.From(Guid.CreateVersion7());
     private OperatorIdentifier _createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
-    private OverlayIdentifier? _overlay;
+    private Option<OverlayIdentifier> _overlay = Option<OverlayIdentifier>.None;
+    private GridDimensions _grid = GridDimensions.Cell;
+    private IReadOnlyList<Tile> _tiles = null!;
     private IClock _clock = new TestClock(
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture));
 
@@ -32,7 +35,7 @@ public sealed class LayoutBuilder
 
     public LayoutBuilder WithOverlay(OverlayIdentifier overlay)
     {
-        _overlay = overlay;
+        _overlay = Option<OverlayIdentifier>.Some(overlay);
         return this;
     }
 
@@ -42,14 +45,30 @@ public sealed class LayoutBuilder
         return this;
     }
 
+    public LayoutBuilder WithGrid(GridDimensions grid)
+    {
+        _grid = grid;
+        return this;
+    }
+
+    public LayoutBuilder WithTiles(IReadOnlyList<Tile> tiles)
+    {
+        _tiles = tiles;
+        return this;
+    }
+
     public LayoutBuilder At(DateTimeOffset moment)
     {
         _clock = new TestClock(moment);
         return this;
     }
 
-    public Domain.Layout.Layout Build() =>
-        Domain.Layout.Layout.CreateDraft(_name, _camera, _createdBy, _clock, _overlay);
+    public Domain.Layout.Layout Build()
+    {
+        IReadOnlyList<Tile> tiles = _tiles
+            ?? new[] { new Tile(_camera, _overlay, GridPosition.From(0, 0)) };
+        return Domain.Layout.Layout.CreateDraft(_name, _grid, tiles, _createdBy, _clock);
+    }
 
     public IClock Clock => _clock;
 

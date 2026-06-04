@@ -11,6 +11,9 @@ public class LayoutTests
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
+    private static Tile TileAt(CameraIdentifier camera, int row, int col) =>
+        new(camera, Option<OverlayIdentifier>.None, GridPosition.From(row, col));
+
     [Fact]
     public void CreateDraft_yields_revision_one_in_Draft_state_with_no_pending_events()
     {
@@ -27,10 +30,28 @@ public class LayoutTests
         Revision only = layout.Revisions[0];
         only.Number.ShouldBe(LayoutRevisionNumber.One);
         only.State.ShouldBe(LayoutRevisionState.Draft);
-        only.Camera.ShouldBe(camera);
+        only.Grid.ShouldBe(GridDimensions.Cell);
+        only.Tiles.ShouldHaveSingleItem().Camera.ShouldBe(camera);
         only.PublishedAt.ShouldBeNull();
         only.ArchivedAt.ShouldBeNull();
         layout.PendingEvents.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void CreateDraft_carries_the_full_multi_tile_grid()
+    {
+        CameraIdentifier cameraA = CameraIdentifier.From(Guid.CreateVersion7());
+        CameraIdentifier cameraB = CameraIdentifier.From(Guid.CreateVersion7());
+        IReadOnlyList<Tile> tiles = [TileAt(cameraA, 0, 0), TileAt(cameraB, 0, 1)];
+
+        Domain.Layout.Layout layout = new LayoutBuilder()
+            .WithGrid(GridDimensions.From(1, 2))
+            .WithTiles(tiles)
+            .Build();
+
+        Revision only = layout.Revisions.Single();
+        only.Grid.ShouldBe(GridDimensions.From(1, 2));
+        only.Tiles.Count.ShouldBe(2);
     }
 
     [Fact]
@@ -50,10 +71,12 @@ public class LayoutTests
         evt.Layout.ShouldBe(layout.Id);
         evt.RevisionNumber.ShouldBe(LayoutRevisionNumber.One);
         evt.PublishedBy.ShouldBe(by);
+        evt.Tiles.ShouldHaveSingleItem();
+        evt.Grid.ShouldBe(GridDimensions.Cell);
     }
 
     [Fact]
-    public void BranchDraft_off_Published_yields_revision_two_in_Draft_with_the_same_camera()
+    public void BranchDraft_off_Published_yields_revision_two_in_Draft_with_the_same_tiles()
     {
         CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
         Domain.Layout.Layout layout = new LayoutBuilder().ForCamera(camera).Build();
@@ -66,7 +89,7 @@ public class LayoutTests
 
         draft.Number.Value.ShouldBe(2);
         draft.State.ShouldBe(LayoutRevisionState.Draft);
-        draft.Camera.ShouldBe(camera);
+        draft.Tiles.ShouldHaveSingleItem().Camera.ShouldBe(camera);
         layout.Revisions.Count.ShouldBe(2);
     }
 
@@ -125,17 +148,21 @@ public class LayoutTests
     }
 
     [Fact]
-    public void EditDraft_in_place_does_not_spawn_a_new_revision()
+    public void EditDraft_in_place_replaces_the_tile_set_without_spawning_a_new_revision()
     {
         Domain.Layout.Layout layout = new LayoutBuilder().Build();
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
-        CameraIdentifier other = CameraIdentifier.From(Guid.CreateVersion7());
+        CameraIdentifier cameraA = CameraIdentifier.From(Guid.CreateVersion7());
+        CameraIdentifier cameraB = CameraIdentifier.From(Guid.CreateVersion7());
+        IReadOnlyList<Tile> tiles = [TileAt(cameraA, 0, 0), TileAt(cameraB, 1, 1)];
 
-        layout.EditDraft(LayoutRevisionNumber.One, other, clock);
+        layout.EditDraft(LayoutRevisionNumber.One, GridDimensions.Default, tiles, clock);
 
         layout.Revisions.Count.ShouldBe(1);
-        layout.Revisions.Single().Camera.ShouldBe(other);
-        layout.Revisions.Single().State.ShouldBe(LayoutRevisionState.Draft);
+        Revision only = layout.Revisions.Single();
+        only.State.ShouldBe(LayoutRevisionState.Draft);
+        only.Grid.ShouldBe(GridDimensions.Default);
+        only.Tiles.Count.ShouldBe(2);
     }
 
     [Fact]
@@ -166,53 +193,18 @@ public class LayoutTests
     }
 
     [Fact]
-    public void CreateDraft_carries_the_optional_overlay_identifier()
+    public void CreateDraft_carries_the_optional_overlay_on_its_tile()
     {
         OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
         Domain.Layout.Layout layout = new LayoutBuilder().WithOverlay(overlay).Build();
 
-        layout.Revisions.Single().Overlay.ShouldBe(overlay);
+        Tile tile = layout.Revisions.Single().Tiles.ShouldHaveSingleItem();
+        tile.Overlay.HasValue.ShouldBeTrue();
+        tile.Overlay.Value.ShouldBe(overlay);
     }
 
     [Fact]
-    public void AttachOverlay_on_a_Draft_revision_updates_the_binding()
-    {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
-        IClock clock = new LayoutBuilder.TestClock(FixedMoment);
-
-        layout.AttachOverlay(LayoutRevisionNumber.One, overlay, clock);
-
-        layout.Revisions.Single().Overlay.ShouldBe(overlay);
-    }
-
-    [Fact]
-    public void AttachOverlay_with_null_clears_the_binding()
-    {
-        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
-        Domain.Layout.Layout layout = new LayoutBuilder().WithOverlay(overlay).Build();
-        IClock clock = new LayoutBuilder.TestClock(FixedMoment);
-
-        layout.AttachOverlay(LayoutRevisionNumber.One, null, clock);
-
-        layout.Revisions.Single().Overlay.ShouldBeNull();
-    }
-
-    [Fact]
-    public void AttachOverlay_on_a_Published_revision_throws()
-    {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
-        IClock clock = new LayoutBuilder.TestClock(FixedMoment);
-        layout.Publish(LayoutRevisionNumber.One, by, clock);
-
-        Action act = () => layout.AttachOverlay(
-            LayoutRevisionNumber.One, OverlayIdentifier.From(Guid.CreateVersion7()), clock);
-        act.ShouldThrow<InvalidOperationException>();
-    }
-
-    [Fact]
-    public void BranchDraft_carries_the_overlay_from_the_Published_revision()
+    public void BranchDraft_carries_the_overlay_from_the_Published_revisions_tile()
     {
         OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
         Domain.Layout.Layout layout = new LayoutBuilder().WithOverlay(overlay).Build();
@@ -222,6 +214,84 @@ public class LayoutTests
 
         Revision draft = layout.BranchDraft(by, clock);
 
-        draft.Overlay.ShouldBe(overlay);
+        draft.Tiles.ShouldHaveSingleItem().Overlay.Value.ShouldBe(overlay);
+    }
+
+    [Fact]
+    public void EditDraft_on_a_Published_revision_throws()
+    {
+        Domain.Layout.Layout layout = new LayoutBuilder().Build();
+        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        IClock clock = new LayoutBuilder.TestClock(FixedMoment);
+        layout.Publish(LayoutRevisionNumber.One, by, clock);
+        IReadOnlyList<Tile> tiles = [TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 0)];
+
+        Action act = () => layout.EditDraft(LayoutRevisionNumber.One, GridDimensions.Cell, tiles, clock);
+        act.ShouldThrow<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void ValidateGrid_accepts_a_valid_full_2x2_wall()
+    {
+        IReadOnlyList<Tile> tiles =
+        [
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 0),
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 1),
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 1, 0),
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 1, 1),
+        ];
+
+        Domain.Layout.Layout.ValidateGrid(GridDimensions.Default, tiles).HasValue.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void ValidateGrid_accepts_a_sparse_grid()
+    {
+        IReadOnlyList<Tile> tiles = [TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 0)];
+
+        Domain.Layout.Layout.ValidateGrid(GridDimensions.Default, tiles).HasValue.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void ValidateGrid_rejects_an_empty_tile_set_as_Empty()
+    {
+        Option<GridViolation> violation =
+            Domain.Layout.Layout.ValidateGrid(GridDimensions.Cell, Array.Empty<Tile>());
+
+        violation.HasValue.ShouldBeTrue();
+        violation.Value.ShouldBe(GridViolation.Empty);
+    }
+
+    [Fact]
+    public void ValidateGrid_rejects_two_tiles_at_the_same_position_as_DuplicatePosition()
+    {
+        IReadOnlyList<Tile> tiles =
+        [
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 0),
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 0),
+        ];
+
+        Domain.Layout.Layout.ValidateGrid(GridDimensions.Default, tiles)
+            .Value.ShouldBe(GridViolation.DuplicatePosition);
+    }
+
+    [Fact]
+    public void ValidateGrid_rejects_an_out_of_bounds_tile_as_OutOfBounds()
+    {
+        IReadOnlyList<Tile> tiles = [TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 1)];
+
+        Domain.Layout.Layout.ValidateGrid(GridDimensions.Cell, tiles)
+            .Value.ShouldBe(GridViolation.OutOfBounds);
+    }
+
+    [Fact]
+    public void ValidateGrid_rejects_an_oversized_grid_as_TooLarge()
+    {
+        IReadOnlyList<Tile> tiles = [TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 0)];
+
+        // 3x3 = 9 cells > MaxCells; GridDimensions.From would reject too, but
+        // ValidateGrid guards even a manually-constructed oversize grid.
+        Domain.Layout.Layout.ValidateGrid(new GridDimensions(3, 3), tiles)
+            .Value.ShouldBe(GridViolation.TooLarge);
     }
 }

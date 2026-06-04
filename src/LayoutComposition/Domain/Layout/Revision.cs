@@ -8,23 +8,33 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 /// aggregate is the sole entry point — keeps the
 /// at-most-one-Published-per-chain invariant inside the aggregate
 /// transaction.
+///
+/// <para>
+/// Spec 010 (ADR-0112): a revision carries a <see cref="GridDimensions"/>
+/// and a non-empty, in-bounds set of <see cref="Tile"/>s instead of a
+/// single camera + optional overlay. A single-camera layout is a 1-tile
+/// wall on a 1×1 grid. The grid invariants are validated by the owning
+/// aggregate before the tile set is set here.
+/// </para>
 /// </summary>
 public sealed class Revision
 {
+    private readonly List<Tile> _tiles = new();
+
     public LayoutRevisionIdentifier Id { get; private set; }
 
     public LayoutRevisionNumber Number { get; private set; }
 
     public LayoutRevisionState State { get; private set; } = null!;
 
-    public CameraIdentifier Camera { get; private set; }
+    public GridDimensions Grid { get; private set; } = null!;
 
     /// <summary>
-    /// Optional overlay binding (spec 004). Null means "no overlay
-    /// composited over this cell"; non-null is a latest-Published
-    /// reference into the OverlayDesigner bounded context.
+    /// The non-empty, in-bounds set of tiles composited on this revision
+    /// (spec 010). Replaced atomically via <see cref="ReplaceTiles"/> —
+    /// there is no per-tile mutator.
     /// </summary>
-    public OverlayIdentifier? Overlay { get; private set; }
+    public IReadOnlyList<Tile> Tiles => _tiles;
 
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -38,28 +48,31 @@ public sealed class Revision
 
     internal static Revision NewDraft(
         LayoutRevisionNumber number,
-        CameraIdentifier camera,
-        OverlayIdentifier? overlay,
+        GridDimensions grid,
+        IReadOnlyList<Tile> tiles,
         DateTimeOffset createdAt,
-        OperatorIdentifier createdBy) =>
-        new()
+        OperatorIdentifier createdBy)
+    {
+        Revision revision = new()
         {
             Id = LayoutRevisionIdentifier.New(),
             Number = number,
             State = LayoutRevisionState.Draft,
-            Camera = camera,
-            Overlay = overlay,
+            Grid = grid,
             CreatedAt = createdAt,
             CreatedBy = createdBy,
         };
+        revision._tiles.AddRange(tiles);
+        return revision;
+    }
 
     internal static Revision Branch(
         LayoutRevisionNumber number,
-        CameraIdentifier camera,
-        OverlayIdentifier? overlay,
+        GridDimensions grid,
+        IReadOnlyList<Tile> tiles,
         DateTimeOffset createdAt,
         OperatorIdentifier createdBy) =>
-        NewDraft(number, camera, overlay, createdAt, createdBy);
+        NewDraft(number, grid, tiles, createdAt, createdBy);
 
     internal void Publish(DateTimeOffset publishedAt)
     {
@@ -83,24 +96,22 @@ public sealed class Revision
         PublishedAt = null;
     }
 
-    internal void EditCamera(CameraIdentifier camera)
+    /// <summary>
+    /// Atomically replaces this Draft revision's grid + entire tile set
+    /// (spec 010). The aggregate validates the grid invariants before
+    /// calling this; only the Draft-state guard lives here (a programmer
+    /// error to edit a non-Draft revision — throws as before).
+    /// </summary>
+    internal void ReplaceTiles(GridDimensions grid, IReadOnlyList<Tile> tiles)
     {
         if (State != LayoutRevisionState.Draft)
         {
             throw new InvalidOperationException(
                 $"Revision {Number} is {State}; only Draft revisions are editable.");
         }
-        Camera = camera;
-    }
-
-    internal void AttachOverlay(OverlayIdentifier? overlay)
-    {
-        if (State != LayoutRevisionState.Draft)
-        {
-            throw new InvalidOperationException(
-                $"Revision {Number} is {State}; only Draft revisions are editable.");
-        }
-        Overlay = overlay;
+        Grid = grid;
+        _tiles.Clear();
+        _tiles.AddRange(tiles);
     }
 
     internal void Archive(DateTimeOffset archivedAt)
