@@ -25,7 +25,7 @@ test('operator opens layouts and the list loads through the gateway', async ({ p
 // passing run proves the authenticated POST /layout-composition/layouts path end
 // to end (Bearer; sse.management grandfathers sse.layouts.write), plus the
 // cross-context reads the dialog depends on.
-test('operator creates a layout referencing a camera and overlay and it appears in the list', async ({ page }) => {
+test('operator authors a 2×2 wall referencing a camera and overlay and it appears in the list', async ({ page }) => {
   await signInAsOperator(page);
 
   const stamp = Date.now();
@@ -61,9 +61,14 @@ test('operator creates a layout referencing a camera and overlay and it appears 
 
   await page.getByRole('button', { name: /new layout/i }).click();
   await page.locator('#layout-name').fill(layoutName);
-  // Options render the camera/overlay name as their visible text.
-  await page.locator('#layout-camera').selectOption({ label: cameraName });
-  await page.locator('#layout-overlay').selectOption({ label: overlayName });
+  // Author a 2×2 wall (spec 010): pick the grid size, assign the camera to
+  // every tile (a camera may be reused across tiles, ADR-0112 §2), and bind
+  // the overlay to tile 0. Options render the camera/overlay name as text.
+  await page.getByRole('radio', { name: '2×2' }).click();
+  for (const tile of [0, 1, 2, 3]) {
+    await page.locator(`#tile-${tile}-camera`).selectOption({ label: cameraName });
+  }
+  await page.locator('#tile-0-overlay').selectOption({ label: overlayName });
   await page.getByRole('button', { name: /save as draft/i }).click();
 
   // The dialog closes and the new layout chain renders as an <h2>.
