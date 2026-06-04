@@ -82,17 +82,42 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
                 .HasConversion(state => state.Value, value => LayoutRevisionState.From(value))
                 .IsRequired();
 
-            revisions.Property(revision => revision.Camera)
-                .HasColumnName("camera_id")
-                .HasConversion(camera => camera.Value, value => CameraIdentifier.From(value))
-                .IsRequired();
+            // GridDimensions is a struct value object flattened across two
+            // columns on layout_revisions via an owned reference (mirrors the
+            // OverlayDesigner Label pattern).
+            revisions.OwnsOne(revision => revision.Grid, grid =>
+            {
+                grid.Property(dimensions => dimensions.Rows).HasColumnName("grid_rows").IsRequired();
+                grid.Property(dimensions => dimensions.Cols).HasColumnName("grid_cols").IsRequired();
+            });
 
-            revisions.Property(revision => revision.Overlay)
-                .HasColumnName("overlay_id")
-                .HasConversion(
-                    overlay => overlay.HasValue ? overlay.Value.Value : (Guid?)null,
-                    value => value.HasValue ? OverlayIdentifier.From(value.Value) : (OverlayIdentifier?)null)
-                .IsRequired(false);
+            // Tiles are a nested owned collection on layout_revision_tiles
+            // (ADR-0112 §3). A tile has no identity of its own, so the
+            // composite key is (revision_id, row, col) — the tile's grid
+            // position, flattened from the owned Position value object.
+            revisions.OwnsMany(revision => revision.Tiles, tiles =>
+            {
+                tiles.ToTable("layout_revision_tiles");
+                tiles.WithOwner().HasForeignKey("revision_id");
+
+                tiles.Property(tile => tile.Row).HasColumnName("row").IsRequired();
+                tiles.Property(tile => tile.Col).HasColumnName("col").IsRequired();
+                tiles.HasKey("revision_id", nameof(Tile.Row), nameof(Tile.Col));
+                tiles.Ignore(tile => tile.Position);
+                tiles.Ignore(tile => tile.Overlay);
+
+                tiles.Property(tile => tile.Camera)
+                    .HasColumnName("camera_id")
+                    .HasConversion(camera => camera.Value, value => CameraIdentifier.From(value))
+                    .IsRequired();
+
+                tiles.Property(tile => tile.OverlayValue)
+                    .HasColumnName("overlay_id")
+                    .HasConversion(
+                        overlay => overlay.HasValue ? overlay.Value.Value : (Guid?)null,
+                        value => value.HasValue ? OverlayIdentifier.From(value.Value) : (OverlayIdentifier?)null)
+                    .IsRequired(false);
+            });
 
             revisions.Property(revision => revision.CreatedAt)
                 .HasColumnName("created_at")

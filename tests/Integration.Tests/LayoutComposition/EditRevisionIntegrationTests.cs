@@ -36,7 +36,11 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
         HttpResponseMessage edited = await layouts.PatchAsJsonAsync(
             $"/layouts/{layoutIdentifier}/revisions/{draftNumber}",
-            new { cameraIdentifier = camera2 });
+            new
+            {
+                grid = new { rows = 1, cols = 1 },
+                tiles = new[] { new { cameraIdentifier = camera2, overlayIdentifier = (Guid?)null, row = 0, col = 0 } },
+            });
         edited.EnsureSuccessStatusCode();
 
         HttpResponseMessage published = await layouts.PostAsync(
@@ -54,7 +58,8 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             .ToDictionary(e => e.GetProperty("revisionNumber").GetInt32(), e => e);
         byNumber[1].GetProperty("state").GetString().ShouldBe("Archived");
         byNumber[2].GetProperty("state").GetString().ShouldBe("Published");
-        byNumber[2].GetProperty("cameraIdentifier").GetGuid().ShouldBe(camera2);
+        byNumber[2].GetProperty("tiles").EnumerateArray().Single()
+            .GetProperty("cameraIdentifier").GetGuid().ShouldBe(camera2);
     }
 
     [Fact]
@@ -78,7 +83,7 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     {
         using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
         HttpResponseMessage created = await layouts.PostAsJsonAsync(
-            "/layouts", new { name = $"Drf-{Guid.NewGuid():N}".Substring(0, 16), cameraIdentifier = Guid.CreateVersion7() });
+            "/layouts", SingleTileBody($"Drf-{Guid.NewGuid():N}".Substring(0, 16), Guid.CreateVersion7()));
         created.EnsureSuccessStatusCode();
         Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
@@ -91,7 +96,7 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     {
         string name = $"{namePrefix}-{Guid.NewGuid():N}".Substring(0, 16);
         HttpResponseMessage created = await layouts.PostAsJsonAsync(
-            "/layouts", new { name, cameraIdentifier = camera });
+            "/layouts", SingleTileBody(name, camera));
         created.EnsureSuccessStatusCode();
         Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
         HttpResponseMessage published = await layouts.PostAsync(
@@ -99,4 +104,11 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         published.EnsureSuccessStatusCode();
         return layoutIdentifier;
     }
+
+    private static object SingleTileBody(string name, Guid camera) => new
+    {
+        name,
+        grid = new { rows = 1, cols = 1 },
+        tiles = new[] { new { cameraIdentifier = camera, overlayIdentifier = (Guid?)null, row = 0, col = 0 } },
+    };
 }
