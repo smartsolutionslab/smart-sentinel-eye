@@ -62,7 +62,16 @@ public sealed class Revision
             CreatedAt = createdAt,
             CreatedBy = createdBy,
         };
-        revision._tiles.AddRange(tiles);
+        // Clone each tile so the revision owns fresh instances. BranchDraft
+        // copies a Published revision's tiles, which EF already tracks as
+        // owned entities under that revision; reusing the same instances
+        // would make EF see one owned entity under two owners and throw on
+        // save. Cloning is a harmless copy on the create path (fresh tiles).
+        foreach (Tile tile in tiles)
+        {
+            revision._tiles.Add(new Tile(tile.Camera, tile.Overlay, tile.Position));
+        }
+
         return revision;
     }
 
