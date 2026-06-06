@@ -195,6 +195,24 @@ var streamDistribution = builder
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
     .WaitFor(mediamtx);
+
+// In run mode the stream-distribution service runs as a host process, so the
+// mediamtx container can't reach it via the `stream-distribution` service name
+// baked into mediamtx.yml's authHTTPAddress (that DNS name resolves only among
+// containers on the AppHost network). Override the WHEP auth hook with the
+// Aspire-resolved, container-reachable endpoint so every WHEP open can be
+// authorized; without it MediaMTX's auth callback fails with "no such host" and
+// returns 401 to the browser. Publish mode containerizes stream-distribution, so
+// the baked-in service name is correct there and this override is run-only.
+if (isRunMode)
+{
+    mediamtx.WithEnvironment(context =>
+    {
+        context.EnvironmentVariables["MTX_AUTHHTTPADDRESS"] =
+            ReferenceExpression.Create($"{streamDistribution.GetEndpoint("http")}/streams/authorize");
+    });
+}
+
 var layoutComposition = builder
     .AddProject<Projects.SmartSentinelEye_LayoutComposition_Api>("layout-composition")
     .WithHttpEndpoint()
