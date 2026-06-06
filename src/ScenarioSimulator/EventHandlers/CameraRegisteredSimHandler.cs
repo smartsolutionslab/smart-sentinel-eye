@@ -36,12 +36,17 @@ public sealed class CameraRegisteredSimHandler(
             return;
         }
 
-        await provisioner.ProvisionLoopPathAsync(path, cancellationToken);
-
+        // Record the camera and (on the four-way join) build the wall FIRST — the
+        // wall needs only the camera id, not a provisioned loop path. Provisioning
+        // is best-effort and runs last: if it throws Wolverine retries the whole
+        // handler, and RecordCamera + the wall claim/read-back are both idempotent,
+        // so a camera-sim hiccup can never block the wall from being created.
         correlation.RecordCamera(path, message.Camera);
         logger.AssetCameraRecorded(path, message.Camera);
 
         await TryCreateWallAsync(cancellationToken);
+
+        await provisioner.ProvisionLoopPathAsync(path, cancellationToken);
     }
 
     private async Task TryCreateWallAsync(CancellationToken cancellationToken)
