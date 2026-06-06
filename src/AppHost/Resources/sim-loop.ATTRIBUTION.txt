@@ -1,0 +1,13 @@
+sim-loop.mp4 — dev-only Scenario Simulator placeholder camera feed (ADR-0111).
+
+It is a 20-second excerpt (a hot-plate rolling pass) of:
+
+  Title:   Proizvodnja vroče valjane debele pločevine v Acroni SIJ Jesenice
+  Author:  MZaplotnik
+  Source:  https://commons.wikimedia.org/wiki/File:Proizvodnja_vro%C4%8De_valjane_debele_plo%C4%8Devine_v_Acroni_SIJ_Jesenice.ogv
+  License: Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0)
+           https://creativecommons.org/licenses/by-sa/3.0/
+
+As a derivative work, this excerpt is likewise licensed under CC BY-SA 3.0.
+Regenerate it with scripts/generate-sim-loop.sh. Used only by the dev-only
+camera-sim (gated off in CI/E2E/prod by the AppHost).
