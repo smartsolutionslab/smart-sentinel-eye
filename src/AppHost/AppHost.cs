@@ -171,7 +171,10 @@ var migrations = builder
     .WaitFor(eventIngestionDb)
     .WaitFor(automationDb)
     .WaitFor(identityDb)
-    .WaitFor(auditDb);
+    .WaitFor(auditDb)
+    // Dashboard grouping: nest the one-shot migration runner under postgres (the
+    // data tier) — it migrates every per-context database, then exits.
+    .WithParentRelationship(postgres);
 
 var cameraCatalog = builder
     .AddProject<Projects.SmartSentinelEye_CameraCatalog_Api>("camera-catalog")
@@ -340,7 +343,9 @@ if (isRunMode && !isE2ETests)
         .WithReference(keycloak)
         .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
         .WithReference(layoutComposition)
-        .WithExternalHttpEndpoints();
+        .WithExternalHttpEndpoints()
+        // Dashboard grouping: nest the SPAs under the gateway they call.
+        .WithParentRelationship(apiGateway);
 
     builder.AddNpmApp("kiosk-web", "../../apps/kiosk-web", "dev")
         .WithHttpEndpoint(env: "PORT", port: 5174, isProxied: false)
@@ -349,7 +354,8 @@ if (isRunMode && !isE2ETests)
         .WithReference(keycloak)
         .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
         .WithReference(layoutComposition)
-        .WithExternalHttpEndpoints();
+        .WithExternalHttpEndpoints()
+        .WithParentRelationship(apiGateway);
 }
 
 // Scenario Simulator (ADR-0111 M1) — dev-only, gated `isRunMode && !isE2ETests`
@@ -372,7 +378,7 @@ if (isRunMode && !isE2ETests)
         .WithEndpoint(targetPort: 8554, name: "rtsp", scheme: "tcp")
         .WithLifetime(ContainerLifetime.Persistent);
 
-    builder
+    var scenarioSimulator = builder
         .AddProject<Projects.SmartSentinelEye_ScenarioSimulator>("scenario-simulator")
         .WithReference(cameraCatalog)
         .WithReference(cameraSim.GetEndpoint("api"))
@@ -391,6 +397,10 @@ if (isRunMode && !isE2ETests)
         .WaitFor(mosquitto)
         .WaitFor(rabbitmq)
         .WaitFor(keycloak);
+
+    // Dashboard grouping: nest the dev-only camera-sim MediaMTX under the
+    // simulator worker that provisions + drives its loop paths.
+    cameraSim.WithParentRelationship(scenarioSimulator);
 }
 
 await builder.Build().RunAsync();
