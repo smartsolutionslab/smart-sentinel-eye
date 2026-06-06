@@ -221,11 +221,18 @@ function Tile({ tile, getToken, unavailable, highlighted }: TileProps) {
   const { data: overlay } = useGetOverlayQuery(overlayIdentifier ?? '', {
     skip: overlayIdentifier === null,
   });
-  const { data: snapshot } = useGetOverlaySnapshotQuery(overlayIdentifier ?? '', {
-    skip: overlayIdentifier === null,
-  });
 
   const publishedOverlay = overlay?.revisions.find((r) => r.state === 'Published');
+  // The SystemVariables snapshot only matters for overlays whose label embeds
+  // `{{name}}` placeholders; a static label has none, so the service holds no
+  // resolved snapshot for it and the fetch would 404. Skip it for static labels
+  // (avoids the console noise + a pointless round-trip); the resolved-text
+  // SignalR push still upserts the cache for overlays that do use variables.
+  const hasPlaceholder = publishedOverlay?.text?.includes('{{') ?? false;
+  const { data: snapshot } = useGetOverlaySnapshotQuery(overlayIdentifier ?? '', {
+    skip: overlayIdentifier === null || !hasPlaceholder,
+  });
+
   // Prefer the SystemVariables-resolved text over the raw label so any
   // `{{name}}` placeholders show their live values; fall back to the raw
   // label if SystemVariables is unreachable.
