@@ -37,11 +37,12 @@ public static class StreamEndpoints
             .Produces<IReadOnlyList<StreamHealthDto>>(StatusCodes.Status200OK)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest);
 
-        // MediaMTX's external auth hook can't carry its own JWT; it forwards
-        // the browser's bearer in the POST body. AllowAnonymous lets the
-        // route accept the call; the handler validates the forwarded token
-        // via IWhepAuthValidator (spec FR-007).
-        group.MapPost("/{path}/authorize", AuthorizeWhep)
+        // MediaMTX's external auth hook POSTs to a single fixed address with the
+        // stream path + the client's bearer in the JSON body — it can't template
+        // the path into the URL, so the route is fixed and the path is read from
+        // the body. AllowAnonymous lets the route accept the call; the handler
+        // validates the forwarded token via IWhepAuthValidator (spec FR-007).
+        group.MapPost("/authorize", AuthorizeWhep)
             .AllowAnonymous()
             .WithName("AuthorizeWhep")
             .Produces(StatusCodes.Status200OK)
@@ -88,7 +89,6 @@ public static class StreamEndpoints
     }
 
     private static async Task<IResult> AuthorizeWhep(
-        string path,
         [FromBody] MediaMtxAuthorizeRequest body,
         [FromServices] AuthorizeWhepCommandHandler handler,
         CancellationToken cancellationToken)
@@ -98,7 +98,7 @@ public static class StreamEndpoints
         MediaMtxPath parsedPath;
         try
         {
-            parsedPath = MediaMtxPath.From(path);
+            parsedPath = MediaMtxPath.From(body.Path ?? string.Empty);
         }
         catch (ArgumentException)
         {
@@ -143,7 +143,7 @@ public static class StreamEndpoints
 /// <summary>
 /// MediaMTX's external-auth POST body. Fields match MediaMTX v1.x
 /// (<c>user</c>, <c>password</c>, <c>token</c>, <c>action</c>, <c>path</c>).
-/// We only consume <c>token</c> (the forwarded bearer); other fields are
-/// accepted but ignored.
+/// We consume <c>path</c> (the stream being opened) and <c>token</c> (the
+/// forwarded bearer); other fields are accepted but ignored.
 /// </summary>
-public sealed record MediaMtxAuthorizeRequest(string? Token);
+public sealed record MediaMtxAuthorizeRequest(string? Token, string? Path);

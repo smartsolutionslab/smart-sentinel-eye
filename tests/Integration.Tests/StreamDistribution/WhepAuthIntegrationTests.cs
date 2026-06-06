@@ -24,8 +24,8 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     public async Task Authorize_without_a_token_returns_401()
     {
         HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
-            $"/streams/cam-{Guid.CreateVersion7()}/authorize",
-            new { token = (string?)null });
+            "/streams/authorize",
+            new { token = (string?)null, path = $"cam-{Guid.CreateVersion7()}" });
 
         await AssertStatusAsync(response, HttpStatusCode.Unauthorized);
     }
@@ -37,8 +37,8 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             AspireFixture.AdminUsername, AspireFixture.AdminPassword);
 
         HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
-            "/streams/not-a-cam-guid/authorize",
-            new { token });
+            "/streams/authorize",
+            new { token, path = "not-a-cam-guid" });
 
         await AssertStatusAsync(response, HttpStatusCode.Forbidden);
     }
@@ -53,8 +53,8 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         // through to "stream not registered" which is treated as
         // "allow because the WHEP path will 404 later anyway".
         HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
-            $"/streams/cam-{Guid.CreateVersion7()}/authorize",
-            new { token });
+            "/streams/authorize",
+            new { token, path = $"cam-{Guid.CreateVersion7()}" });
 
         await AssertStatusAsync(response, HttpStatusCode.OK);
     }
@@ -63,8 +63,8 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     public async Task Authorize_with_a_malformed_token_returns_401()
     {
         HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
-            $"/streams/cam-{Guid.CreateVersion7()}/authorize",
-            new { token = "this-is-not-a-jwt" });
+            "/streams/authorize",
+            new { token = "this-is-not-a-jwt", path = $"cam-{Guid.CreateVersion7()}" });
 
         await AssertStatusAsync(response, HttpStatusCode.Unauthorized);
     }
@@ -76,8 +76,8 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             AspireFixture.AdminUsername, AspireFixture.AdminPassword);
 
         HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
-            $"/streams/cam-{Guid.CreateVersion7()}/authorize",
-            new { token = $"Bearer {token}" });
+            "/streams/authorize",
+            new { token = $"Bearer {token}", path = $"cam-{Guid.CreateVersion7()}" });
 
         await AssertStatusAsync(response, HttpStatusCode.OK);
     }
