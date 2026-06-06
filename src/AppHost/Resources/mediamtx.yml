@@ -3,9 +3,9 @@
 # - Paths are added dynamically by StreamDistribution.Api against
 #   MediaMTX's HTTP API on port 9997; the `paths:` block below stays empty.
 # - WHEP playback is exposed on port 8889 with HTTP external
-#   authentication; MediaMTX POSTs every WHEP open to
-#   StreamDistribution.Api's /streams/{path}/authorize for bearer-token
-#   validation (FR-007 + AuthorizeWhepCommandHandler, ADR-0007).
+#   authentication; MediaMTX POSTs every WHEP open to a single fixed address,
+#   StreamDistribution.Api's /streams/authorize, with the stream path + the
+#   client bearer in the JSON body (FR-007 + AuthorizeWhepCommandHandler).
 # - RTSP ingest port (8554) accepts source pulls.
 
 logLevel: info

@@ -5,7 +5,7 @@ namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 
 /// <summary>
 /// Spec 002 T086 — measures click-to-first-frame latency through the
-/// part of the WHEP handshake we control: <c>POST /streams/{path}/authorize</c>,
+/// part of the WHEP handshake we control: <c>POST /streams/authorize</c>,
 /// the MediaMTX external-auth callback. Asserts p95 stays under 3 s over
 /// 20 sequential opens against the Aspire stack (warm-cache regime).
 ///
@@ -38,7 +38,7 @@ public class WhepHandshakeLatencyTests(AspireFixture aspire) : IAsyncLifetime
         // call hits Keycloak's well-known endpoint; subsequent calls reuse
         // the cached signing keys. The SLO covers the warm regime.
         await aspire.StreamDistribution.PostAsJsonAsync(
-            $"/streams/cam-{Guid.CreateVersion7()}/authorize", new { token });
+            "/streams/authorize", new { token, path = $"cam-{Guid.CreateVersion7()}" });
 
         double[] elapsedMs = new double[Iterations];
         for (int i = 0; i < Iterations; i++)
@@ -46,7 +46,7 @@ public class WhepHandshakeLatencyTests(AspireFixture aspire) : IAsyncLifetime
             Guid camera = Guid.CreateVersion7();
             Stopwatch sw = Stopwatch.StartNew();
             HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
-                $"/streams/cam-{camera}/authorize", new { token });
+                "/streams/authorize", new { token, path = $"cam-{camera}" });
             sw.Stop();
             if (response.StatusCode != System.Net.HttpStatusCode.OK)
             {
