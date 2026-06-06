@@ -17,6 +17,13 @@ apiAddress: :9997
 # Webrtc + RTSP listeners
 webrtc: yes
 webrtcAddress: :8889
+# Bind a TCP ICE mux alongside the default UDP mux (:8189). In dev the host
+# browser reaches the SFU through a Docker port map where UDP ICE often can't
+# traverse Docker Desktop's VM NAT; the TCP mux gives a reliable media path.
+# The host-reachable candidate is injected by the AppHost (run mode) via
+# MTX_WEBRTCADDITIONALHOSTS. In prod the browser + SFU share an L2 (spec 002),
+# so MediaMTX's local interface candidates suffice.
+webrtcLocalTCPAddress: :8189
 rtsp: yes
 rtspAddress: :8554
 
