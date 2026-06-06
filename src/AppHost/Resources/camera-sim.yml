@@ -22,9 +22,18 @@ apiAddress: :9997
 rtsp: yes
 rtspAddress: :8554
 
-# No external auth hook: permissive internal auth so the worker can manage
-# paths and the main MediaMTX can read them on the AppHost network.
-authMethod: internal
+# Permissive internal auth — reachable only on the AppHost Docker network, never
+# externally / in CI/E2E/prod. MediaMTX's default internal user omits the `api`
+# action, so the worker's path-add calls get 401; grant the anonymous `any` user
+# everything the worker + SFU need: `api` to add paths via the control API,
+# `publish` for the runOnDemand FFmpeg, `read`/`playback` for the main SFU pull.
+authInternalUsers:
+  - user: any
+    permissions:
+      - action: api
+      - action: publish
+      - action: read
+      - action: playback
 
 # No static paths — every path is added at runtime by the worker.
 paths: {}
