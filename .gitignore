@@ -58,6 +58,9 @@ aspire-dashboard-storage/
 # Agent state (Spec-Kit init warns about this)
 .claude/settings.local.json
 .claude/.cache/
+# Per-agent git worktrees created by the isolation:worktree workflow (ADR-0109);
+# local runtime state, never committed.
+.claude/worktrees/
 
 # Misc
 *.tmp
