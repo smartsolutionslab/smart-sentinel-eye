@@ -96,7 +96,17 @@ var mediamtx = builder
 
 if (isRunMode && !isE2ETests)
 {
-    mediamtx.WithLifetime(ContainerLifetime.Persistent);
+    // WebRTC media (ICE) must reach the host browser, which can't route to the
+    // container IP MediaMTX advertises by default. Aspire's DCP proxies container
+    // endpoints on random TCP host ports, which ICE can't use (the advertised
+    // candidate port wouldn't match and UDP wouldn't traverse), so publish the
+    // ICE mux directly with a raw docker port map (host 8189 -> container 8189,
+    // UDP + TCP) and advertise the host loopback. Dev-only; prod browsers share
+    // an L2 with the SFU (spec 002), so local candidates suffice.
+    mediamtx
+        .WithLifetime(ContainerLifetime.Persistent)
+        .WithContainerRuntimeArgs("--publish", "8189:8189/udp", "--publish", "8189:8189/tcp")
+        .WithEnvironment("MTX_WEBRTCADDITIONALHOSTS", "127.0.0.1");
 }
 
 
