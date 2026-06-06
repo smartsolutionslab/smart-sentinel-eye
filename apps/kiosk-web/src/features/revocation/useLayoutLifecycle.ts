@@ -90,12 +90,24 @@ export function useLayoutLifecycle(options: UseLayoutLifecycleOptions): void {
       },
     );
 
-    void hub.start().catch(() => {
-      // Initial connect failures recover on the next automatic reconnect.
-    });
+    // Defer the connect by a tick so React 18 StrictMode's dev double-mount
+    // (mount → cleanup → mount) cancels this start before it begins
+    // negotiating; otherwise the cleanup's hub.stop() aborts the in-flight
+    // start() and SignalR logs a spurious "stopped during negotiation" error.
+    // The surviving mount's start fires on the next tick and connects normally.
+    let started = false;
+    const startTimer = setTimeout(() => {
+      started = true;
+      void hub.start().catch(() => {
+        // Initial connect failures recover on the next automatic reconnect.
+      });
+    }, 0);
 
     return () => {
-      void hub.stop().catch(() => undefined);
+      clearTimeout(startTimer);
+      if (started) {
+        void hub.stop().catch(() => undefined);
+      }
     };
   }, [enabled, dispatch]);
 }
