@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
+using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
@@ -14,6 +15,23 @@ public sealed partial class AspireFixture
     public const string LayoutCompositionConnectionName = "layout-composition-db";
     public const string OverlayDesignerConnectionName = "overlay-designer-db";
     public const string AuditObservabilityConnectionName = "audit-db";
+    public const string EventIngestionConnectionName = "event-ingestion-db";
+
+    public async Task<EventIngestionDbContext> CreateEventIngestionDbContextAsync()
+    {
+        string? connectionString = await App.GetConnectionStringAsync(EventIngestionConnectionName)
+            .ConfigureAwait(false);
+
+        if (connectionString is null)
+        {
+            throw new InvalidOperationException(
+                $"Connection string '{EventIngestionConnectionName}' was not provisioned by Aspire.");
+        }
+
+        DbContextOptionsBuilder<EventIngestionDbContext> optionsBuilder = new();
+        optionsBuilder.UseNpgsql(connectionString);
+        return new EventIngestionDbContext(optionsBuilder.Options);
+    }
 
     public async Task<AuditObservabilityDbContext> CreateAuditObservabilityDbContextAsync()
     {
