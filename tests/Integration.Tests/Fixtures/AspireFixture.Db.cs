@@ -132,7 +132,8 @@ public sealed partial class AspireFixture
         using HttpClient client = App.CreateHttpClient("mediamtx", "api");
         for (int page = 0; page < 16; page++)
         {
-            using HttpResponseMessage list = await client.GetAsync("/v3/config/paths/list").ConfigureAwait(false);
+            using HttpResponseMessage list =
+                await SendMediaMtxWithRetryAsync(() => client.GetAsync("/v3/config/paths/list")).ConfigureAwait(false);
             if (!list.IsSuccessStatusCode)
             {
                 return;
@@ -159,8 +160,8 @@ public sealed partial class AspireFixture
                     continue;
                 }
 
-                using HttpResponseMessage del = await client
-                    .DeleteAsync($"/v3/config/paths/delete/{pathName}").ConfigureAwait(false);
+                using HttpResponseMessage del = await SendMediaMtxWithRetryAsync(() =>
+                    client.DeleteAsync($"/v3/config/paths/delete/{pathName}")).ConfigureAwait(false);
                 removed++;
             }
             if (removed == 0)
@@ -168,5 +169,30 @@ public sealed partial class AspireFixture
                 return;
             }
         }
+    }
+
+    // CI-only flake (#964): requests to the MediaMTX API intermittently hit a
+    // transient connection error on the Linux runner even though the SFU is up
+    // (its boot probe in WaitForMediaMtxAsync already passed). Retry a few times
+    // so the per-test reset doesn't take out the run.
+    private static async Task<HttpResponseMessage> SendMediaMtxWithRetryAsync(
+        Func<Task<HttpResponseMessage>> send)
+    {
+        HttpRequestException? last = null;
+        for (int attempt = 0; attempt < 10; attempt++)
+        {
+            try
+            {
+                return await send().ConfigureAwait(false);
+            }
+            catch (HttpRequestException ex)
+            {
+                last = ex;
+                await Task.Delay(TimeSpan.FromMilliseconds(500)).ConfigureAwait(false);
+            }
+        }
+
+        throw new HttpRequestException(
+            "MediaMTX API was unreachable after 10 attempts during the per-test reset.", last);
     }
 }
