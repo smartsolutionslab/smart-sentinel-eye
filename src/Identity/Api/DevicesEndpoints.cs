@@ -7,6 +7,8 @@ using SmartSentinelEye.Identity.Api.Requests;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
 using SmartSentinelEye.Identity.Application.DTOs;
+using SmartSentinelEye.Identity.Application.Queries;
+using SmartSentinelEye.Identity.Application.Queries.Handlers;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
@@ -37,7 +39,55 @@ public static class DevicesEndpoints
             .Produces<Guid>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        RouteGroupBuilder reads = app.MapGroup("/devices")
+            .RequireAuthorization(Scope.Sse.Identity.DeviceClients.Read)
+            .WithTags("IdentityDevices");
+
+        reads.MapGet("/", List)
+            .WithName("ListDevices")
+            .WithSummary("List registered devices, optionally filtered by fab. Required scope: sse.identity.devices.read")
+            .Produces<IReadOnlyList<RegisteredClientSummaryDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
+
         return app;
+    }
+
+    private static async Task<IResult> List(
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        [FromServices] ListDevicesQueryHandler handler,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken,
+        [FromQuery] string? fabId = null)
+    {
+        Option<FabIdentifier> fab;
+        if (string.IsNullOrWhiteSpace(fabId))
+        {
+            fab = Option<FabIdentifier>.None;
+        }
+        else
+        {
+            FabIdentifier parsed;
+            try
+            {
+                parsed = FabIdentifier.From(fabId);
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.Problem(
+                    title: "DEVICE_INVALID_INPUT", detail: ex.Message,
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            await fabGuard.EnsureAccessAsync(user, parsed.Value, cancellationToken);
+            fab = Option<FabIdentifier>.Some(parsed);
+        }
+
+        Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
+            await handler.HandleAsync(new ListDevicesQuery(fab), cancellationToken);
+
+        return result.Match<IResult>(
+            onSuccess: Results.Ok,
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> Register(
