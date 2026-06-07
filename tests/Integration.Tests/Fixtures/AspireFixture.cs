@@ -40,6 +40,8 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
     public HttpClient AuditObservability { get; private set; } = null!;
 
+    public HttpClient EventIngestion { get; private set; } = null!;
+
     public async Task InitializeAsync()
     {
         string[] parameters =
@@ -100,6 +102,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 .WaitForResourceAsync("audit-observability", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
+            await _app.ResourceNotifications
+                .WaitForResourceAsync("event-ingestion", KnownResourceStates.Running, cts.Token)
+                .ConfigureAwait(false);
+
             await WaitForKeycloakRealmAsync(cts.Token).ConfigureAwait(false);
             await WaitForMediaMtxAsync(cts.Token).ConfigureAwait(false);
         }
@@ -121,6 +127,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         LayoutComposition = App.CreateHttpClient("layout-composition");
         OverlayDesigner = App.CreateHttpClient("overlay-designer");
         AuditObservability = App.CreateHttpClient("audit-observability");
+        EventIngestion = App.CreateHttpClient("event-ingestion");
     }
 
     public async Task DisposeAsync()
@@ -130,6 +137,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         LayoutComposition?.Dispose();
         OverlayDesigner?.Dispose();
         AuditObservability?.Dispose();
+        EventIngestion?.Dispose();
 
         if (_logCts is not null)
         {

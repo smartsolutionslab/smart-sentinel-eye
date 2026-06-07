@@ -42,16 +42,39 @@ public sealed partial class AspireFixture
         return token.AccessToken;
     }
 
-    private async Task<CachedToken> FetchAccessTokenAsync(string username, string password)
+    /// <summary>
+    /// Mints an access token via the password grant for an explicit
+    /// <paramref name="clientId"/> and <paramref name="scope"/>. Unlike
+    /// <see cref="GetAccessTokenAsync(string, string)"/> (which always uses
+    /// <see cref="ClientId"/> + the legacy <c>sse.management</c> bundle), this
+    /// lets a test exercise the webhook JWT path, where the token's
+    /// <c>azp</c> must equal the integration's Keycloak clientId and the
+    /// scope must contain the concrete <c>sse.events.write</c>.
+    /// Not cached: each call requests fresh, since the client/scope pairing is
+    /// per-test and short-lived.
+    /// </summary>
+    public async Task<string> GetAccessTokenForClientAsync(
+        string clientId, string username, string password, string scope)
+    {
+        CachedToken token = await FetchAccessTokenAsync(username, password, clientId, scope)
+            .ConfigureAwait(false);
+        return token.AccessToken;
+    }
+
+    private Task<CachedToken> FetchAccessTokenAsync(string username, string password) =>
+        FetchAccessTokenAsync(username, password, ClientId, "openid sse.management");
+
+    private async Task<CachedToken> FetchAccessTokenAsync(
+        string username, string password, string clientId, string scope)
     {
         using HttpClient keycloak = App.CreateHttpClient("keycloak");
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "password",
-            ["client_id"] = ClientId,
+            ["client_id"] = clientId,
             ["username"] = username,
             ["password"] = password,
-            ["scope"] = "openid sse.management",
+            ["scope"] = scope,
         };
 
         HttpResponseMessage response = await keycloak.PostAsync(
