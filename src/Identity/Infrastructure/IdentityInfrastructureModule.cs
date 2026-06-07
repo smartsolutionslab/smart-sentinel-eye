@@ -6,6 +6,8 @@ using SmartSentinelEye.Identity.Application.Commands.Handlers;
 using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Application.EventHandlers;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
+using SmartSentinelEye.Identity.Application.Queries;
+using SmartSentinelEye.Identity.Application.Queries.Handlers;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Identity.Domain.RegisteredClient.Events;
 using SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
@@ -34,6 +36,7 @@ public static class IdentityInfrastructureModule
         builder.AddIdentityPersistence();
 
         builder.Services.AddScoped<IRegisteredClientRepository, RegisteredClientRepository>();
+        builder.Services.AddScoped<IRegisteredClientQuerySource, RegisteredClientQuerySource>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddScoped<IEventBus, WolverineEventBus>();
@@ -86,6 +89,16 @@ public static class IdentityInfrastructureModule
                 RotateWebhookClientCommand,
                 Result<WebhookClientCredentialsDto, RotateWebhookClientError>>,
             RotateWebhookClientCommandHandler>();
+
+        // Hand-rolled query handler registrations (read side; issues #826/#827).
+        builder.Services.AddScoped<ListDevicesQueryHandler>();
+        builder.Services.AddScoped<
+            IQueryHandler<ListDevicesQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
+            ListDevicesQueryHandler>();
+        builder.Services.AddScoped<ListKiosksQueryHandler>();
+        builder.Services.AddScoped<
+            IQueryHandler<ListKiosksQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
+            ListKiosksQueryHandler>();
 
         builder.AddWolverineForContext<IdentityDbContext>(
             moduleQueuePrefix: ContextName,

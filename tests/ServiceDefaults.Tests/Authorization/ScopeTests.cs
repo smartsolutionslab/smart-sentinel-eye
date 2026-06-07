@@ -19,7 +19,9 @@ public class ScopeTests
     [InlineData("sse.cameras.write")]
     [InlineData("sse.events.publish")]
     [InlineData("sse.rules.write")]
+    [InlineData("sse.identity.devices.read")]
     [InlineData("sse.identity.devices.write")]
+    [InlineData("sse.identity.kiosks.read")]
     [InlineData("sse.identity.kiosks.write")]
     [InlineData("sse.audit.read")]
     public void Catalogue_contains_the_documented_v1_scope(string expected) =>

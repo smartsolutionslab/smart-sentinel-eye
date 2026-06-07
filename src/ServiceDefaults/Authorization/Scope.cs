@@ -73,11 +73,13 @@ public static class Scope
         {
             public static class DeviceClients
             {
+                public const string Read = "sse.identity.devices.read";
                 public const string Write = "sse.identity.devices.write";
             }
 
             public static class KioskClients
             {
+                public const string Read = "sse.identity.kiosks.read";
                 public const string Write = "sse.identity.kiosks.write";
             }
         }
@@ -104,8 +106,8 @@ public static class Scope
         Sse.Rules.Read, Sse.Rules.Write,
         Sse.Events.Read, Sse.Events.Write, Sse.Events.Publish,
         Sse.Webhooks.Write,
-        Sse.Identity.DeviceClients.Write,
-        Sse.Identity.KioskClients.Write,
+        Sse.Identity.DeviceClients.Read, Sse.Identity.DeviceClients.Write,
+        Sse.Identity.KioskClients.Read, Sse.Identity.KioskClients.Write,
         Sse.Audit.Read,
     ];
 }
