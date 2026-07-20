@@ -85,7 +85,13 @@ export const systemVariablesApi = createApi({
         method: 'GET',
         params: { overlayIdentifier },
       }),
-      providesTags: (_r, _e, id) => [{ type: 'OverlaySnapshot', id }],
+      // The 'ALL' sentinel mirrors the *List tag pattern: without it the
+      // id:'ALL' invalidations (mutations + reconnect reconciliation,
+      // spec 011 FR-008) never match a mounted snapshot query.
+      providesTags: (_r, _e, id) => [
+        { type: 'OverlaySnapshot', id },
+        { type: 'OverlaySnapshot', id: 'ALL' },
+      ],
     }),
     archiveVariable: build.mutation<string, string>({
       query: (name) => ({

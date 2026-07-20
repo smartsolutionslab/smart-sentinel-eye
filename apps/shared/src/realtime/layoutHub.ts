@@ -1,4 +1,11 @@
-import { HubConnectionBuilder, type HubConnection, HubConnectionState } from '@microsoft/signalr';
+import {
+  HubConnectionBuilder,
+  type HubConnection,
+  HubConnectionState,
+  type IRetryPolicy,
+} from '@microsoft/signalr';
+import { logResilienceEvent } from '../observability/resilienceLog.js';
+import { layoutHubUrl } from './hubUrl.js';
 
 /**
  * Lean lifecycle frame (spec 010, ADR-0112 §3): no tile set — the picker
@@ -68,6 +75,8 @@ export interface OverlayHighlightChangedMessage {
   durationMs: number;
 }
 
+export type LayoutHubConnectionState = 'connecting' | 'connected' | 'degraded';
+
 export interface LayoutHubCallbacks {
   onPublished?: (message: LayoutRevisionPublishedMessage) => void;
   onArchived?: (message: LayoutRevisionArchivedMessage) => void;
@@ -75,32 +84,57 @@ export interface LayoutHubCallbacks {
   onOverlayArchived?: (message: OverlayRevisionArchivedMessage) => void;
   onResolvedOverlayTextChanged?: (message: ResolvedOverlayTextChangedMessage) => void;
   onOverlayHighlightChanged?: (message: OverlayHighlightChangedMessage) => void;
+  /** Fires on every recovery — SignalR auto-reconnect AND manual restart. */
   onReconnected?: () => void;
+  /** Fires on every connection-state transition, incl. the initial connect. */
+  onStateChange?: (state: LayoutHubConnectionState) => void;
 }
 
 export interface LayoutHubConfig {
-  hubUrl: string;
+  /** Override for tests; defaults to the deploy-time resolved hub endpoint. */
+  hubUrl?: string;
   accessTokenFactory: () => string | Promise<string>;
 }
+
+// Unbounded reconnect ladder (spec 011 FR-006, research R4): 0/2/5/10/30 s,
+// then every 30 s. Full ±20% jitter keeps 20 kiosks (and their restart loops)
+// from synchronizing reconnects after a backend restart (SC-005).
+const RETRY_LADDER_MS: readonly number[] = [0, 2_000, 5_000, 10_000, 30_000];
+
+function jitteredRetryDelayMs(previousRetryCount: number): number {
+  const base = RETRY_LADDER_MS[Math.min(previousRetryCount, RETRY_LADDER_MS.length - 1)] ?? 30_000;
+  return Math.round(base * (0.8 + Math.random() * 0.4));
+}
+
+// Never returns null — a permanent give-up state is forbidden (FR-006).
+const unboundedRetryPolicy: IRetryPolicy = {
+  nextRetryDelayInMilliseconds: (context) => jitteredRetryDelayMs(context.previousRetryCount),
+};
 
 /**
  * Thin SignalR client wrapper for the LayoutLifecycle hub
  * (spec 003 FR-009). Hides the @microsoft/signalr surface behind a
  * focused callback API so the kiosk pages only deal with typed events.
  *
- * The native client handles exponential reconnect; `onReconnected`
- * fires after a successful reconnect so the caller can re-fetch
- * `GET /layouts?state=published` and reconcile any missed events
- * (FR-012).
+ * Resilience (spec 011 US2): reconnects are unbounded via the jittered
+ * ladder, `start()` owns an initial-connect retry loop on the same ladder,
+ * and server-initiated closes reschedule a restart. `onReconnected` fires
+ * after every recovery so the caller can reconcile missed events;
+ * `onStateChange` surfaces connected/degraded for the UI badge.
  */
 export function createLayoutHubClient(config: LayoutHubConfig, callbacks: LayoutHubCallbacks): LayoutHubHandle {
   const connection: HubConnection = new HubConnectionBuilder()
-    .withUrl(config.hubUrl, {
+    .withUrl(config.hubUrl ?? layoutHubUrl, {
       accessTokenFactory: () => Promise.resolve(config.accessTokenFactory()),
     })
-    .withAutomaticReconnect()
+    .withAutomaticReconnect(unboundedRetryPolicy)
     .build();
 
+  registerMessageHandlers(connection, callbacks);
+  return createResilientHandle(connection, callbacks);
+}
+
+function registerMessageHandlers(connection: HubConnection, callbacks: LayoutHubCallbacks): void {
   if (callbacks.onPublished !== undefined) {
     connection.on('LayoutRevisionPublished', callbacks.onPublished);
   }
@@ -119,15 +153,86 @@ export function createLayoutHubClient(config: LayoutHubConfig, callbacks: Layout
   if (callbacks.onOverlayHighlightChanged !== undefined) {
     connection.on('OverlayHighlightChanged', callbacks.onOverlayHighlightChanged);
   }
-  if (callbacks.onReconnected !== undefined) {
-    connection.onreconnected(() => {
+}
+
+/**
+ * The recovery lifecycle around the raw connection. SignalR's automatic
+ * reconnect only covers drops of an ESTABLISHED connection; the manual
+ * restart loop here covers the two paths it does not — initial-connect
+ * failures and server-initiated closes (`onclose`). `stop()` is the only
+ * way out of the loop.
+ */
+function createResilientHandle(connection: HubConnection, callbacks: LayoutHubCallbacks): LayoutHubHandle {
+  let lastState: LayoutHubConnectionState | undefined;
+  let stopped = false;
+  let restartAttempt = 0;
+  let restartTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const emitState = (state: LayoutHubConnectionState): void => {
+    if (state === lastState) {
+      return;
+    }
+    logResilienceEvent('hub', `${lastState ?? 'idle'}→${state}`);
+    lastState = state;
+    callbacks.onStateChange?.(state);
+  };
+
+  const scheduleRestart = (): void => {
+    if (stopped || restartTimer !== undefined) {
+      return;
+    }
+    restartTimer = setTimeout(() => {
+      restartTimer = undefined;
+      void tryStart();
+    }, jitteredRetryDelayMs(restartAttempt));
+    restartAttempt += 1;
+  };
+
+  const tryStart = async (): Promise<void> => {
+    if (stopped) {
+      return;
+    }
+    try {
+      await connection.start();
+    } catch {
+      emitState('degraded');
+      scheduleRestart();
+      return;
+    }
+    restartAttempt = 0;
+    const recovering = lastState === 'degraded';
+    emitState('connected');
+    if (recovering) {
       callbacks.onReconnected?.();
-    });
-  }
+    }
+  };
+
+  connection.onreconnecting(() => emitState('degraded'));
+  connection.onreconnected(() => {
+    restartAttempt = 0;
+    emitState('connected');
+    callbacks.onReconnected?.();
+  });
+  connection.onclose(() => {
+    if (stopped) {
+      return;
+    }
+    emitState('degraded');
+    scheduleRestart();
+  });
 
   return {
-    start: () => connection.start(),
+    start: async () => {
+      stopped = false;
+      emitState('connecting');
+      await tryStart();
+    },
     stop: async () => {
+      stopped = true;
+      if (restartTimer !== undefined) {
+        clearTimeout(restartTimer);
+        restartTimer = undefined;
+      }
       if (connection.state !== HubConnectionState.Disconnected) {
         await connection.stop();
       }
@@ -137,7 +242,13 @@ export function createLayoutHubClient(config: LayoutHubConfig, callbacks: Layout
 }
 
 export interface LayoutHubHandle {
+  /**
+   * Resolves once the connection is started or a retry is scheduled; the
+   * internal ladder owns initial-start failures and post-close restarts,
+   * so a caller never needs its own retry loop (FR-006).
+   */
   start: () => Promise<void>;
+  /** Cancels all pending retries; no restart fires after this resolves. */
   stop: () => Promise<void>;
   state: () => HubConnectionState;
 }
