@@ -1,9 +1,13 @@
 import { AuthProvider, useAuth } from 'react-oidc-context';
 import { RouterProvider } from 'react-router-dom';
 import { setAccessTokenProvider } from '@smart-sentinel-eye/shared/api/gateway';
+import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
+import { ErrorBoundary } from '@smart-sentinel-eye/shared/ui/composites/ErrorBoundary';
 import { oidcConfig } from './app/auth.js';
 import { router } from './app/router.js';
 import { hasBeenAuthenticated, useSessionExpiry } from './app/useSessionExpiry.js';
+import { DevCrashTrigger } from './features/recovery/DevCrashTrigger.js';
+import { KioskCrashRecovery } from './features/recovery/KioskCrashRecovery.js';
 
 export function App() {
   return (
@@ -89,5 +93,17 @@ function AuthGate() {
     );
   }
 
-  return <RouterProvider router={router} />;
+  return (
+    <ErrorBoundary
+      onError={(error) =>
+        logResilienceEvent('crash', 'render-error', {
+          message: error instanceof Error ? error.message : String(error),
+        })
+      }
+      fallback={() => <KioskCrashRecovery />}
+    >
+      <DevCrashTrigger />
+      <RouterProvider router={router} />
+    </ErrorBoundary>
+  );
 }

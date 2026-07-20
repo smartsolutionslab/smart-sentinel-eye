@@ -25,6 +25,7 @@ export default [
         clearTimeout: 'readonly',
         setInterval: 'readonly',
         clearInterval: 'readonly',
+        performance: 'readonly',
         fetch: 'readonly',
         WebSocket: 'readonly',
         URL: 'readonly',
