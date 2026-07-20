@@ -32,6 +32,7 @@
     "./ui/composites/FormField": "./src/ui/composites/FormField.tsx",
     "./ui/composites/DataTable": "./src/ui/composites/DataTable.tsx",
     "./ui/composites/CameraViewer": "./src/ui/composites/CameraViewer.tsx",
+    "./ui/composites/ErrorBoundary": "./src/ui/composites/ErrorBoundary.tsx",
     "./ui/composites/OverlayEditor": "./src/ui/composites/OverlayEditor.tsx",
     "./ui/tokens/*": "./src/ui/tokens/*",
     "./hooks": "./src/hooks/index.ts",

@@ -42,6 +42,19 @@ vi.mock('react-oidc-context', () => ({
   }),
 }));
 
+// A page that can be told to throw lets the tests drive the crash-containment
+// boundary that Shell wraps around the page area (spec 011 FR-016).
+const crashFlag = vi.hoisted(() => ({ throwOnRender: false }));
+
+vi.mock('./features/audit/AuditPage.js', () => ({
+  AuditPage: () => {
+    if (crashFlag.throwOnRender) {
+      throw new Error('audit page exploded');
+    }
+    return <p>audit page healthy</p>;
+  },
+}));
+
 vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/cameras.api')>();
   return {
@@ -173,6 +186,37 @@ describe('App shell', () => {
 
     oidcMocks.signinSilent.mockResolvedValueOnce(null);
     await expect(sessionCallbacks.renew?.()).resolves.toBe(false);
+  });
+
+  it('Contains an uncaught rendering error in a bounded panel while the nav stays alive', () => {
+    // React reports caught boundary errors via console.error; keep output clean.
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const consoleInfo = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    crashFlag.throwOnRender = true;
+    try {
+      render(
+        <Provider store={store}>
+          <App />
+        </Provider>,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /^audit$/i }));
+
+      expect(screen.getByRole('heading', { name: /something went wrong/i })).toBeInTheDocument();
+      expect(screen.getByText(/audit page exploded/i)).toBeInTheDocument();
+      // The shell nav is outside the boundary and must survive the crash.
+      expect(screen.getByRole('button', { name: /^cameras$/i })).toBeInTheDocument();
+
+      crashFlag.throwOnRender = false;
+      fireEvent.click(screen.getByRole('button', { name: /try again/i }));
+
+      expect(screen.queryByRole('heading', { name: /something went wrong/i })).toBeNull();
+      expect(screen.getByText(/audit page healthy/i)).toBeInTheDocument();
+    } finally {
+      crashFlag.throwOnRender = false;
+      consoleError.mockRestore();
+      consoleInfo.mockRestore();
+    }
   });
 
   it('Restores the stashed path in the sign-in callback', () => {

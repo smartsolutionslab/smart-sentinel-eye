@@ -5,6 +5,8 @@ import {
   setOnSessionExpired,
   setSessionRenewer,
 } from '@smart-sentinel-eye/shared/api/gateway';
+import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
+import { ErrorBoundary } from '@smart-sentinel-eye/shared/ui/composites/ErrorBoundary';
 import { oidcConfig } from './app/auth.js';
 import { CamerasPage } from './features/cameras/CamerasPage.js';
 import { LayoutsPage } from './features/layouts/LayoutsPage.js';
@@ -122,12 +124,46 @@ function Shell() {
           Audit
         </NavButton>
       </nav>
-      {view === 'cameras' && <CamerasPage />}
-      {view === 'layouts' && <LayoutsPage />}
-      {view === 'overlays' && <OverlaysPage />}
-      {view === 'system-variables' && <SystemVariablesPage />}
-      {view === 'audit' && <AuditPage />}
+      <ErrorBoundary
+        // Keyed on the view so navigating away from a crashed page renders
+        // the next page fresh instead of a stale error panel. The nav above
+        // stays outside the boundary and survives any page crash (FR-016).
+        key={view}
+        onError={(error) =>
+          logResilienceEvent('crash', 'render-error', { message: describeError(error) })
+        }
+        fallback={(error, reset) => <CrashPanel message={describeError(error)} onRetry={reset} />}
+      >
+        {view === 'cameras' && <CamerasPage />}
+        {view === 'layouts' && <LayoutsPage />}
+        {view === 'overlays' && <OverlaysPage />}
+        {view === 'system-variables' && <SystemVariablesPage />}
+        {view === 'audit' && <AuditPage />}
+      </ErrorBoundary>
     </main>
+  );
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function CrashPanel({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <section
+      role="alert"
+      className="mx-auto mt-16 flex max-w-lg flex-col items-center gap-4 rounded-lg border border-fg-muted/30 p-8 text-center"
+    >
+      <h1 className="text-2xl font-semibold">Something went wrong</h1>
+      <p className="text-fg-muted">{message}</p>
+      <button
+        type="button"
+        className="rounded-md bg-accent-active px-6 py-3 text-bg-base"
+        onClick={onRetry}
+      >
+        Try again
+      </button>
+    </section>
   );
 }
 

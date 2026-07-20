@@ -19,8 +19,13 @@ interface FakeHubConnectionLike {
   reconnectedCallback: ((connectionId?: string) => void) | undefined;
 }
 
+interface WithUrlOptionsLike {
+  accessTokenFactory?: () => string | Promise<string>;
+}
+
 const fakes = vi.hoisted(() => ({
   urls: [] as string[],
+  withUrlOptions: [] as (WithUrlOptionsLike | undefined)[],
   retryPolicies: [] as RetryPolicyLike[],
   connections: [] as FakeHubConnectionLike[],
 }));
@@ -60,8 +65,9 @@ vi.mock('@microsoft/signalr', () => {
   }
 
   class HubConnectionBuilder {
-    withUrl(url: string): this {
+    withUrl(url: string, options?: { accessTokenFactory?: () => string | Promise<string> }): this {
       fakes.urls.push(url);
+      fakes.withUrlOptions.push(options);
       return this;
     }
 
@@ -117,6 +123,7 @@ function retryDelay(policy: RetryPolicyLike, previousRetryCount: number): number
 describe('layout hub resilience (spec 011 FR-006/007)', () => {
   beforeEach(() => {
     fakes.urls.length = 0;
+    fakes.withUrlOptions.length = 0;
     fakes.retryPolicies.length = 0;
     fakes.connections.length = 0;
     vi.useFakeTimers();
@@ -236,5 +243,23 @@ describe('layout hub resilience (spec 011 FR-006/007)', () => {
     connection.reconnectedCallback?.('connection-2');
 
     expect(states).toEqual(['connecting', 'connected', 'degraded', 'connected']);
+  });
+
+  it('Presents the latest token through the captured factory after a drop and restart (FR-015)', async () => {
+    let token = 'token-before-renewal';
+    const handle = createLayoutHubClient({ accessTokenFactory: () => token }, {});
+    await handle.start();
+    const connection = lastConnection();
+    const factory = fakes.withUrlOptions[fakes.withUrlOptions.length - 1]?.accessTokenFactory;
+    expect(factory).toBeDefined();
+    await expect(Promise.resolve(factory!())).resolves.toBe('token-before-renewal');
+
+    // The session renews while the hub is down; the restart must carry it.
+    token = 'token-after-renewal';
+    connection.closeCallback?.(new Error('server closed'));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(connection.startCalls).toBe(2);
+    await expect(Promise.resolve(factory!())).resolves.toBe('token-after-renewal');
   });
 });

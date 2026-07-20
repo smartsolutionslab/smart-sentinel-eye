@@ -226,6 +226,32 @@ describe('WhepClient', () => {
     expect((init as RequestInit).keepalive).toBe(true);
   });
 
+  it('close() DELETEs with the token current at close time, not the connect-time one (FR-015)', async () => {
+    let token = 'token-at-connect';
+    fetchMock.mockResolvedValue(
+      new Response(answerSdp, {
+        status: 200,
+        headers: { Location: '/cam-x/whep/sessions/abc' },
+      }),
+    );
+    const client = new WhepClient({
+      whepUrl: 'http://mediamtx.test/cam-x/whep',
+      getToken: async () => token,
+    });
+    await client.connect(videoEl);
+
+    token = 'token-after-renewal';
+    client.close();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const deleteCalls = fetchMock.mock.calls.filter(
+      ([, init]) => (init as RequestInit).method === 'DELETE',
+    );
+    expect(deleteCalls).toHaveLength(1);
+    const headers = (deleteCalls[0]![1] as RequestInit).headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer token-after-renewal');
+  });
+
   it('close() without a captured session URL performs local teardown only', async () => {
     fetchMock.mockResolvedValue(new Response(answerSdp, { status: 200 }));
     const client = new WhepClient({
