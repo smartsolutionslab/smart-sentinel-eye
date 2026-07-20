@@ -76,7 +76,7 @@
 - [x] T017 [US3] Implement contracts §4 in apps/shared/src/api/gateway.ts: `setSessionRenewer`, `setOnSessionExpired`, reauth-wrapping `gatewayBaseQuery` with renewal mutex, `logResilienceEvent('session', …)`
 - [x] T018 [P] [US3] Kiosk session flow (data-model §3): register renewer/expiry handlers, oidc `addSilentRenewError`/`addAccessTokenExpired` wiring, auto `signinRedirect({state})` with `sessionStorage` loop guard (`sse.auth.redirectGuard`), full-screen session-expired state, `onSigninCallback` restores stashed path, in apps/kiosk-web/src/App.tsx and apps/kiosk-web/src/app/auth.ts, with AuthGate state tests in apps/kiosk-web/src/App.test.tsx (expired→redirect once, guard→expired-final screen, callback restores path)
 - [x] T019 [P] [US3] Management session flow: register renewer, session-expired re-sign-in prompt replacing generic failure, return-path restoration through `onSigninCallback`, in apps/management-web/src/App.tsx and apps/management-web/src/app/auth.ts, with tests in apps/management-web/src/App.test.tsx
-- [ ] T020 [P] [US3] FR-015 regression tests: WHEP `getToken` and hub `accessTokenFactory` resolve the CURRENT token on a post-renewal (re)connect attempt, in apps/shared/src/streaming/WhepClient.test.ts and apps/shared/src/realtime/layoutHub.spec.ts
+- [x] T020 [P] [US3] FR-015 regression tests: WHEP `getToken` and hub `accessTokenFactory` resolve the CURRENT token on a post-renewal (re)connect attempt, in apps/shared/src/streaming/WhepClient.test.ts and apps/shared/src/realtime/layoutHub.spec.ts
 
 **Checkpoint**: US1–US3 independently verifiable.
 
@@ -88,9 +88,9 @@
 
 **Independent Test**: quickstart §4 — `?crash=render` dev trigger; management panel retries; kiosk auto-reloads to the same layout with stepped delays.
 
-- [ ] T021 [US4] Create ErrorBoundary per contracts §7 (class component, render-prop fallback, `onError` hook) with tests in apps/shared/src/ui/composites/ErrorBoundary.tsx + ErrorBoundary.test.tsx
-- [ ] T022 [US4] Kiosk crash recovery: fallback scheduling `location.reload()` with `sse.crash.count`/`sse.crash.lastAt` backoff (5/15/60 s, clear after 5 min stable), URL preserved, dev-only `?crash=render` trigger stripped before reload, wire into apps/kiosk-web/src/App.tsx, tests with fake timers in apps/kiosk-web/src/features/recovery/KioskCrashRecovery.test.tsx (new module apps/kiosk-web/src/features/recovery/KioskCrashRecovery.tsx)
-- [ ] T023 [P] [US4] Wrap the management shell in ErrorBoundary with bounded panel + reset fallback in apps/management-web/src/App.tsx, test in apps/management-web/src/App.test.tsx
+- [x] T021 [US4] Create ErrorBoundary per contracts §7 (class component, render-prop fallback, `onError` hook) with tests in apps/shared/src/ui/composites/ErrorBoundary.tsx + ErrorBoundary.test.tsx
+- [x] T022 [US4] Kiosk crash recovery: fallback scheduling `location.reload()` with `sse.crash.count`/`sse.crash.lastAt` backoff (5/15/60 s, clear after 5 min stable), URL preserved, dev-only `?crash=render` trigger stripped before reload, wire into apps/kiosk-web/src/App.tsx, tests with fake timers in apps/kiosk-web/src/features/recovery/KioskCrashRecovery.test.tsx (new module apps/kiosk-web/src/features/recovery/KioskCrashRecovery.tsx)
+- [x] T023 [P] [US4] Wrap the management shell in ErrorBoundary with bounded panel + reset fallback in apps/management-web/src/App.tsx, test in apps/management-web/src/App.test.tsx
 - [x] T024 [P] [US4] Make highlight timers leak-free and monotonic (tracked handles cleared on unmount; `performance.now()` deltas instead of `Date.now()` epochs) in apps/kiosk-web/src/features/cell/CellPage.tsx, with a fake-timer test covering unmount-clears-timers and clock-step immunity
 
 **Checkpoint**: all four stories independently verifiable.
