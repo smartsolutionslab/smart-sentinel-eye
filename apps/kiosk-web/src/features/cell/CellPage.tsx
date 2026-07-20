@@ -15,6 +15,7 @@ import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '../../app/store.js';
 import { useAuth } from 'react-oidc-context';
 import { useNavigate, useParams } from 'react-router-dom';
+import { LiveUpdatesBadge } from '../revocation/LiveUpdatesBadge.js';
 import { useLayoutLifecycle } from '../revocation/useLayoutLifecycle.js';
 
 /**
@@ -85,7 +86,7 @@ export function CellPage() {
     }, durationMs);
   };
 
-  useLayoutLifecycle({
+  const { degraded } = useLayoutLifecycle({
     accessTokenFactory: () => auth.user?.access_token ?? '',
     enabled: auth.isAuthenticated,
     onArchived: (message) => {
@@ -196,6 +197,7 @@ export function CellPage() {
           ),
         )}
       </div>
+      <LiveUpdatesBadge degraded={degraded} />
     </main>
   );
 }
@@ -223,6 +225,10 @@ function Tile({ tile, getToken, unavailable, highlighted }: TileProps) {
   });
 
   const publishedOverlay = overlay?.revisions.find((r) => r.state === 'Published');
+  // FR-009 (spec 011): unavailability is derived state — a pushed
+  // OverlayArchived frame OR a fetched overlay with no Published revision
+  // (archived before this kiosk ever loaded the layout).
+  const overlayUnavailable = unavailable || (overlay !== undefined && publishedOverlay === undefined);
   // The SystemVariables snapshot only matters for overlays whose label embeds
   // `{{name}}` placeholders; a static label has none, so the service holds no
   // resolved snapshot for it and the fetch would 404. Skip it for static labels
@@ -238,7 +244,7 @@ function Tile({ tile, getToken, unavailable, highlighted }: TileProps) {
   // label if SystemVariables is unreachable.
   const resolvedText = snapshot?.resolvedText ?? publishedOverlay?.text;
   const renderOverlay =
-    !unavailable && publishedOverlay !== undefined && resolvedText !== undefined
+    !overlayUnavailable && publishedOverlay !== undefined && resolvedText !== undefined
       ? {
           text: resolvedText,
           normalizedX: publishedOverlay.normalizedX,
@@ -258,7 +264,7 @@ function Tile({ tile, getToken, unavailable, highlighted }: TileProps) {
         highlighted && 'ssE-overlay-highlight',
       )}
     >
-      {unavailable && (
+      {overlayUnavailable && (
         <div
           role="status"
           className="absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-md bg-accent-warn/30 px-4 py-1 text-sm text-accent-warn"

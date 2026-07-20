@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import type { ReactNode } from 'react';
+import { layoutsApi } from '@smart-sentinel-eye/shared/api/layouts.api';
+import { overlaysApi } from '@smart-sentinel-eye/shared/api/overlays.api';
+import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import type {
   LayoutHubCallbacks,
   OverlayHighlightChangedMessage,
@@ -81,5 +84,59 @@ describe('useLayoutLifecycle', () => {
     capturedCallbacks?.onOverlayHighlightChanged?.(message);
 
     expect(onHighlight).toHaveBeenCalledWith(message);
+  });
+
+  // Spec 011 FR-008: on reconnect the kiosk reconciles everything push can
+  // change while disconnected — layout lifecycle (incl. revocation via the
+  // list refetch), overlay list, mounted per-overlay queries (bare type),
+  // and resolved-text snapshots.
+  it('Dispatches all four reconciliation invalidations on reconnect', () => {
+    // Record raw dispatches — spying on the invalidateTags creators themselves
+    // would strip the `.match` RTK's middleware relies on.
+    const dispatchSpy = vi.spyOn(store, 'dispatch');
+
+    renderHook(() => useLayoutLifecycle({ accessTokenFactory: () => 'token' }), { wrapper });
+
+    act(() => {
+      capturedCallbacks?.onReconnected?.();
+    });
+
+    const dispatched: unknown[] = dispatchSpy.mock.calls.map(([action]) => action);
+    const payloadsOf = (creator: { match: (action: unknown) => boolean }) =>
+      dispatched
+        .filter((action) => creator.match(action))
+        .map((action) => (action as { payload: unknown }).payload);
+
+    expect(payloadsOf(layoutsApi.util.invalidateTags)).toContainEqual([
+      { type: 'LayoutList', id: 'ALL' },
+    ]);
+    expect(payloadsOf(overlaysApi.util.invalidateTags)).toContainEqual([
+      { type: 'OverlayList', id: 'ALL' },
+    ]);
+    expect(payloadsOf(overlaysApi.util.invalidateTags)).toContainEqual(['Overlay']);
+    expect(payloadsOf(systemVariablesApi.util.invalidateTags)).toContainEqual([
+      { type: 'OverlaySnapshot', id: 'ALL' },
+    ]);
+  });
+
+  // Spec 011 FR-007: the degraded flag drives the discreet badge; it flips
+  // with the hub's state events and clears on reconnection.
+  it('Flips degraded with the hub state events', () => {
+    const { result } = renderHook(
+      () => useLayoutLifecycle({ accessTokenFactory: () => 'token' }),
+      { wrapper },
+    );
+
+    expect(result.current.degraded).toBe(false);
+
+    act(() => {
+      capturedCallbacks?.onStateChange?.('degraded');
+    });
+    expect(result.current.degraded).toBe(true);
+
+    act(() => {
+      capturedCallbacks?.onStateChange?.('connected');
+    });
+    expect(result.current.degraded).toBe(false);
   });
 });

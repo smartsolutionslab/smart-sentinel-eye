@@ -1,13 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import type { ListLayoutsResponse } from '@smart-sentinel-eye/shared/api/layouts.api';
+import type { LayoutHubCallbacks } from '@smart-sentinel-eye/shared/realtime/layoutHub';
 import { store } from '../../app/store.js';
 
 const listLayoutsMock = vi.fn();
 const navigateMock = vi.fn();
+
+// Capture the callbacks the lifecycle hook hands to the hub so a test can
+// drive connection-state events (spec 011 FR-007 badge).
+let capturedCallbacks: LayoutHubCallbacks | undefined;
 
 vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/layouts.api')>();
@@ -25,11 +30,14 @@ vi.mock('react-oidc-context', () => ({
 }));
 
 vi.mock('@smart-sentinel-eye/shared/realtime/layoutHub', () => ({
-  createLayoutHubClient: () => ({
-    start: () => Promise.resolve(),
-    stop: () => Promise.resolve(),
-    state: () => 'Disconnected',
-  }),
+  createLayoutHubClient: (_config: unknown, callbacks: LayoutHubCallbacks) => {
+    capturedCallbacks = callbacks;
+    return {
+      start: () => Promise.resolve(),
+      stop: () => Promise.resolve(),
+      state: () => 'Disconnected',
+    };
+  },
 }));
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -76,6 +84,7 @@ describe('PickerPage', () => {
   beforeEach(() => {
     listLayoutsMock.mockReset();
     navigateMock.mockReset();
+    capturedCallbacks = undefined;
   });
 
   it('Shows an empty-state message when no Published layouts exist', () => {
@@ -130,5 +139,44 @@ describe('PickerPage', () => {
     renderPage();
     await user.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  it('Shows the degraded badge while live updates are down and clears it on recovery', () => {
+    listLayoutsMock.mockReturnValue({
+      data: { chains: [], published: [published()] },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+    expect(screen.queryByTestId('live-updates-degraded')).not.toBeInTheDocument();
+
+    act(() => {
+      capturedCallbacks?.onStateChange?.('degraded');
+    });
+    expect(screen.getByTestId('live-updates-degraded')).toBeInTheDocument();
+
+    act(() => {
+      capturedCallbacks?.onStateChange?.('connected');
+    });
+    expect(screen.queryByTestId('live-updates-degraded')).not.toBeInTheDocument();
+  });
+
+  it('Shows the degraded badge on the empty state too', () => {
+    listLayoutsMock.mockReturnValue({
+      data: { chains: [], published: [] },
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+    act(() => {
+      capturedCallbacks?.onStateChange?.('degraded');
+    });
+
+    expect(screen.getByText(/no layouts published yet/i)).toBeInTheDocument();
+    expect(screen.getByTestId('live-updates-degraded')).toBeInTheDocument();
   });
 });

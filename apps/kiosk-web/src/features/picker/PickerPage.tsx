@@ -2,20 +2,23 @@ import { useListLayoutsQuery } from '@smart-sentinel-eye/shared/api/layouts.api'
 import type { ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
+import { LiveUpdatesBadge } from '../revocation/LiveUpdatesBadge.js';
 import { useLayoutLifecycle } from '../revocation/useLayoutLifecycle.js';
 
 /**
  * Kiosk picker (spec 003 US2). Lists Published layouts and routes to
  * the cell view on tap. Live updates via the SignalR hub:
  * ``LayoutRevisionPublished`` invalidates the cache so the picker
- * picks up newly-published layouts within ~1 s.
+ * picks up newly-published layouts within ~1 s. The degraded badge
+ * (spec 011 FR-007) renders in every picker state, so an unattended
+ * display always shows when live updates are down.
  */
 export function PickerPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const { data, isLoading, error, refetch } = useListLayoutsQuery('Published');
 
-  useLayoutLifecycle({
+  const { degraded } = useLayoutLifecycle({
     accessTokenFactory: () => auth.user?.access_token ?? '',
     enabled: auth.isAuthenticated,
     onPublished: () => {
@@ -26,10 +29,33 @@ export function PickerPage() {
     },
   });
 
+  return (
+    <>
+      <PickerBody
+        isLoading={isLoading}
+        hasError={error !== undefined}
+        published={data?.published ?? []}
+        onRetry={() => void refetch()}
+        onOpen={(layoutIdentifier) => navigate(`/layouts/${layoutIdentifier}`)}
+      />
+      <LiveUpdatesBadge degraded={degraded} />
+    </>
+  );
+}
+
+interface PickerBodyProps {
+  isLoading: boolean;
+  hasError: boolean;
+  published: { layoutIdentifier: string; name: string; revisionNumber: number }[];
+  onRetry: () => void;
+  onOpen: (layoutIdentifier: string) => void;
+}
+
+function PickerBody({ isLoading, hasError, published, onRetry, onOpen }: PickerBodyProps) {
   if (isLoading) {
     return <FullScreen message="Loading layouts…" />;
   }
-  if (error !== undefined) {
+  if (hasError) {
     return (
       <FullScreen
         message="Could not load layouts."
@@ -37,7 +63,7 @@ export function PickerPage() {
           <button
             type="button"
             className="rounded-md bg-accent-active/20 px-4 py-2 text-accent-active"
-            onClick={() => void refetch()}
+            onClick={onRetry}
           >
             Retry
           </button>
@@ -45,8 +71,6 @@ export function PickerPage() {
       />
     );
   }
-
-  const published = data?.published ?? [];
   if (published.length === 0) {
     return (
       <FullScreen
@@ -64,7 +88,7 @@ export function PickerPage() {
           <li key={layout.layoutIdentifier}>
             <button
               type="button"
-              onClick={() => navigate(`/layouts/${layout.layoutIdentifier}`)}
+              onClick={() => onOpen(layout.layoutIdentifier)}
               className="w-full rounded-lg border border-fg-muted/30 bg-bg-elevated p-6 text-left transition hover:border-accent-active"
             >
               <h2 className="text-xl font-medium">{layout.name}</h2>

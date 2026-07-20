@@ -21,5 +21,18 @@ export default defineConfig({
     video: 'retain-on-failure',
     ignoreHTTPSErrors: true,
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    // Management app (:5173) — everything except the kiosk specs.
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      testIgnore: /kiosk-.*\.spec\.ts/,
+    },
+    // Kiosk app (:5174) — spec 011: kiosk-* specs only.
+    {
+      name: 'kiosk',
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5174' },
+      testMatch: /kiosk-.*\.spec\.ts/,
+    },
+  ],
 });

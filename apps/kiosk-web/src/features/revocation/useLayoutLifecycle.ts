@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { layoutsApi } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { overlaysApi } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import {
   createLayoutHubClient,
   type LayoutRevisionArchivedMessage,
@@ -13,8 +14,6 @@ import {
   type ResolvedOverlayTextChangedMessage,
 } from '@smart-sentinel-eye/shared/realtime/layoutHub';
 import type { AppDispatch } from '../../app/store.js';
-
-const HUB_PATH = '/hubs/layouts';
 
 export interface UseLayoutLifecycleOptions {
   /** OIDC access token factory; called on every reconnect. */
@@ -41,14 +40,26 @@ export interface UseLayoutLifecycleOptions {
   enabled?: boolean;
 }
 
+export interface UseLayoutLifecycleResult {
+  /**
+   * True while the hub is degraded (spec 011 FR-007) — the pages render
+   * the discreet badge from this. The transient boot-time `connecting`
+   * state is NOT degraded, so the badge never flashes on a healthy load.
+   */
+  degraded: boolean;
+}
+
 /**
- * Subscribes to the LayoutLifecycle SignalR hub for the lifetime of
- * the component. On reconnect, invalidates the Published list cache so
- * any missed events get reconciled (spec 003 FR-012).
+ * Subscribes to the LayoutLifecycle SignalR hub for the lifetime of the
+ * component. The hub handle owns unbounded (re)connect retries (spec 011
+ * FR-006); on every reconnect this hook reconciles the full pushed state
+ * (FR-008): the Published layout list (covers revocation), the overlay
+ * list, every mounted per-overlay query, and the resolved-text snapshots.
  */
-export function useLayoutLifecycle(options: UseLayoutLifecycleOptions): void {
+export function useLayoutLifecycle(options: UseLayoutLifecycleOptions): UseLayoutLifecycleResult {
   const dispatch = useDispatch<AppDispatch>();
   const enabled = options.enabled ?? true;
+  const [degraded, setDegraded] = useState(false);
 
   // The hub connection is long-lived — rebuilt only when `enabled` flips,
   // not on every render. Its callbacks must therefore read the LATEST
@@ -69,7 +80,6 @@ export function useLayoutLifecycle(options: UseLayoutLifecycleOptions): void {
 
     const hub = createLayoutHubClient(
       {
-        hubUrl: HUB_PATH,
         accessTokenFactory: () => optionsRef.current.accessTokenFactory(),
       },
       {
@@ -81,9 +91,12 @@ export function useLayoutLifecycle(options: UseLayoutLifecycleOptions): void {
           optionsRef.current.onResolvedOverlayTextChanged?.(message),
         onOverlayHighlightChanged: (message) =>
           optionsRef.current.onOverlayHighlightChanged?.(message),
+        onStateChange: (state) => setDegraded(state === 'degraded'),
         onReconnected: () => {
+          logResilienceEvent('hub', 'reconnected-reconciliation');
           dispatch(layoutsApi.util.invalidateTags([{ type: 'LayoutList', id: 'ALL' }]));
           dispatch(overlaysApi.util.invalidateTags([{ type: 'OverlayList', id: 'ALL' }]));
+          dispatch(overlaysApi.util.invalidateTags(['Overlay']));
           dispatch(systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: 'ALL' }]));
           optionsRef.current.onReconnected?.();
         },
@@ -98,9 +111,9 @@ export function useLayoutLifecycle(options: UseLayoutLifecycleOptions): void {
     let started = false;
     const startTimer = setTimeout(() => {
       started = true;
-      void hub.start().catch(() => {
-        // Initial connect failures recover on the next automatic reconnect.
-      });
+      // Retry ownership lives in the hub handle (spec 011 FR-006): start()
+      // resolves once the connection is started or a retry is scheduled.
+      void hub.start();
     }, 0);
 
     return () => {
@@ -110,4 +123,6 @@ export function useLayoutLifecycle(options: UseLayoutLifecycleOptions): void {
       }
     };
   }, [enabled, dispatch]);
+
+  return { degraded };
 }

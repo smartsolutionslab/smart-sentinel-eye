@@ -276,6 +276,70 @@ describe('CellPage', () => {
     expect(screen.getByText(/layout is no longer available/i)).toBeInTheDocument();
   });
 
+  describe('live-update resilience (spec 011 US2)', () => {
+    it('Shows the degraded badge while live updates are down and clears it on recovery', () => {
+      mockLayout(chain());
+      renderPage();
+      expect(screen.queryByTestId('live-updates-degraded')).not.toBeInTheDocument();
+
+      act(() => {
+        capturedCallbacks?.onStateChange?.('degraded');
+      });
+      expect(screen.getByTestId('live-updates-degraded')).toBeInTheDocument();
+
+      act(() => {
+        capturedCallbacks?.onStateChange?.('connected');
+      });
+      expect(screen.queryByTestId('live-updates-degraded')).not.toBeInTheDocument();
+    });
+
+    it('Flags a tile bound to an overlay archived before the kiosk loaded (FR-009)', () => {
+      mockLayout(
+        publishedRevision(1, 1, [tile({ overlayIdentifier: 'ovl-gone', row: 0, col: 0 })]),
+      );
+      // The fetched overlay exists but has no Published revision — archived
+      // pre-mount, so no OverlayArchived push was ever observed.
+      getOverlayMock.mockReturnValue({
+        data: {
+          overlayIdentifier: 'ovl-gone',
+          name: 'Retired label',
+          createdAt: '2026-05-27T10:00:00Z',
+          createdBy: '00000000-0000-0000-0000-000000000001',
+          revisions: [
+            {
+              revisionIdentifier: 'or1',
+              revisionNumber: 1,
+              state: 'Archived',
+              text: 'Old text',
+              normalizedX: 0.5,
+              normalizedY: 0.05,
+              normalizedWidth: 0.3,
+              normalizedHeight: 0.08,
+              fontSizePx: 48,
+              createdAt: '2026-05-27T10:00:00Z',
+              createdBy: '00000000-0000-0000-0000-000000000001',
+              publishedAt: '2026-05-27T10:00:00Z',
+              archivedAt: '2026-05-28T10:00:00Z',
+            },
+          ],
+        },
+      });
+
+      renderPage();
+      expect(screen.getByText(/overlay unavailable/i)).toBeInTheDocument();
+    });
+
+    it('Does not flag a tile while its overlay is still loading', () => {
+      mockLayout(
+        publishedRevision(1, 1, [tile({ overlayIdentifier: 'ovl-pending', row: 0, col: 0 })]),
+      );
+      getOverlayMock.mockReturnValue({ data: undefined });
+
+      renderPage();
+      expect(screen.queryByText(/overlay unavailable/i)).not.toBeInTheDocument();
+    });
+  });
+
   describe('per-tile overlay highlight (US3)', () => {
     beforeEach(() => {
       vi.useFakeTimers();
