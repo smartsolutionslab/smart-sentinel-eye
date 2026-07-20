@@ -100,7 +100,7 @@
 ## Phase 7: Polish & Cross-Cutting
 
 - [x] T025 [P] Document the deploy env contract (contracts §6 table: `VITE_API_GATEWAY_URL`, `VITE_KEYCLOAK_URL`, `VITE_LAYOUT_HUB_URL`, PROD fail-loudly) in docs/deployment-frontend-env.md and link it from the throw messages
-- [ ] T026 Run the full gates — `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:e2e` — and fix fallout; verify a `pnpm build` (PROD) of both apps fails loudly with the env vars unset and succeeds with them set
+- [x] T026 Run the full gates — `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:e2e` — and fix fallout; verify a `pnpm build` (PROD) of both apps fails loudly with the env vars unset and succeeds with them set
 - [ ] T027 Execute quickstart.md §§1–4 end-to-end against the Aspire stack and record the observations (per-SC pass/fail, console `[resilience]` excerpts) as the Phase-5 verification note for the PR
 
 ---
