@@ -17,7 +17,7 @@
 
 **Purpose**: The one helper every story logs through (FR-017).
 
-- [ ] T001 Create `logResilienceEvent(subsystem, transition, detail?)` per contracts §8 in apps/shared/src/observability/resilienceLog.ts, with unit test apps/shared/src/observability/resilienceLog.spec.ts (stable `[resilience]` prefix, structured payload)
+- [x] T001 Create `logResilienceEvent(subsystem, transition, detail?)` per contracts §8 in apps/shared/src/observability/resilienceLog.ts, with unit test apps/shared/src/observability/resilienceLog.spec.ts (stable `[resilience]` prefix, structured payload)
 
 ---
 
@@ -25,9 +25,9 @@
 
 **Purpose**: FR-010 fail-loudly configuration — US2 (hub URL) and US3 (auth guards) both build on it.
 
-- [ ] T002 [P] Create hub-URL resolution `VITE_LAYOUT_HUB_URL ?? '/hubs/layouts'` with PROD module-load throw per contracts §6 in apps/shared/src/realtime/hubUrl.ts + apps/shared/src/realtime/hubUrl.spec.ts
-- [ ] T003 [P] Add PROD guard (throw when `VITE_API_GATEWAY_URL` missing in `import.meta.env.PROD`) in apps/shared/src/api/gateway.ts, keeping dev/test same-origin fallback
-- [ ] T004 [P] Add PROD guard for `VITE_KEYCLOAK_URL` in apps/kiosk-web/src/app/auth.ts and apps/management-web/src/app/auth.ts (dev fallback unchanged)
+- [x] T002 [P] Create hub-URL resolution `VITE_LAYOUT_HUB_URL ?? '/hubs/layouts'` with PROD module-load throw per contracts §6 in apps/shared/src/realtime/hubUrl.ts + apps/shared/src/realtime/hubUrl.spec.ts
+- [x] T003 [P] Add PROD guard (throw when `VITE_API_GATEWAY_URL` missing in `import.meta.env.PROD`) in apps/shared/src/api/gateway.ts, keeping dev/test same-origin fallback
+- [x] T004 [P] Add PROD guard for `VITE_KEYCLOAK_URL` in apps/kiosk-web/src/app/auth.ts and apps/management-web/src/app/auth.ts (dev fallback unchanged)
 
 **Checkpoint**: `pnpm typecheck && pnpm test` green; dev behaviour unchanged.
 

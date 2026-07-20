@@ -20,6 +20,8 @@
     "./api/problemDetail": "./src/api/problemDetail.ts",
     "./realtime": "./src/realtime/index.ts",
     "./realtime/layoutHub": "./src/realtime/layoutHub.ts",
+    "./realtime/hubUrl": "./src/realtime/hubUrl.ts",
+    "./observability/resilienceLog": "./src/observability/resilienceLog.ts",
     "./streaming": "./src/streaming/index.ts",
     "./streaming/WhepClient": "./src/streaming/WhepClient.ts",
     "./ui": "./src/ui/index.ts",

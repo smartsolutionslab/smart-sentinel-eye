@@ -8,6 +8,14 @@ const KEYCLOAK_BASE_URL = (import.meta.env.VITE_KEYCLOAK_URL ?? 'http://localhos
   '',
 );
 
+// Spec 011 FR-010: a prod bundle without the Keycloak origin would try to
+// authenticate against localhost on the kiosk device — fail loudly.
+if (import.meta.env.PROD && (import.meta.env.VITE_KEYCLOAK_URL ?? '') === '') {
+  throw new Error(
+    'VITE_KEYCLOAK_URL must be set in production builds (see docs/deployment-frontend-env.md).',
+  );
+}
+
 /**
  * OIDC config for kiosk-web. Same Keycloak realm as management-web,
  * separate public client (``smart-sentinel-eye-kiosk``) added to the
