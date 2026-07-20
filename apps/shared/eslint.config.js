@@ -27,6 +27,7 @@ export default [
         HTMLVideoElement: 'readonly',
         MediaStream: 'readonly',
         RTCPeerConnection: 'readonly',
+        RTCPeerConnectionState: 'readonly',
         RTCSessionDescriptionInit: 'readonly',
         AbortController: 'readonly',
         AbortSignal: 'readonly',

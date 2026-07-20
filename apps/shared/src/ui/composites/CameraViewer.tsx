@@ -1,16 +1,10 @@
 import clsx from 'clsx';
-import { useEffect, useRef, useState } from 'react';
 import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';
 import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
-import { WhepClient } from '@smart-sentinel-eye/shared/streaming/WhepClient';
+import { useWhepSession } from './useWhepSession.js';
+import type { CameraViewerStatus } from './useWhepSession.js';
 
-export type CameraViewerStatus =
-  | 'idle'
-  | 'connecting'
-  | 'live'
-  | 'reconnecting'
-  | 'error'
-  | 'offline';
+export type { CameraViewerStatus } from './useWhepSession.js';
 
 /**
  * Optional label drawn over the live video. Coordinates are normalized
@@ -44,69 +38,13 @@ export function CameraViewer({ cameraIdentifier, getToken, overlay, className }:
   const { data: stream, error: queryError } = useGetStreamQuery(cameraIdentifier, {
     pollingInterval: 5000,
   });
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [status, setStatus] = useState<CameraViewerStatus>('idle');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const whepUrl = stream?.whepUrl;
-  const isOffline = stream?.state === 'Offline';
-  const offlineError = stream?.error ?? null;
-
-  // Callers commonly pass getToken as a fresh inline closure
-  // (e.g. () => Promise.resolve(auth.user?.access_token)), so its identity
-  // changes on every parent render. Hold the latest reference and read it
-  // at connect time, so the effect below doesn't tear down and renegotiate
-  // the RTCPeerConnection on every render — only when the stream changes.
-  const getTokenRef = useRef(getToken);
-  useEffect(() => {
-    getTokenRef.current = getToken;
+  const { videoRef, status, errorMessage } = useWhepSession({
+    cameraIdentifier,
+    whepUrl: stream?.whepUrl,
+    streamState: stream?.state,
+    streamError: stream?.error ?? null,
+    getToken,
   });
-
-  useEffect(() => {
-    const videoEl = videoRef.current;
-    if (!whepUrl || !videoEl) return undefined;
-    if (isOffline) {
-      setStatus('offline');
-      setErrorMessage(offlineError ?? 'Stream is offline.');
-      return undefined;
-    }
-
-    const controller = new AbortController();
-    const client = new WhepClient({ whepUrl, getToken: () => getTokenRef.current() });
-    setStatus('connecting');
-    setErrorMessage(null);
-
-    client
-      .connect(videoEl, controller.signal)
-      .then(() => {
-        setStatus('live');
-      })
-      .catch((cause: unknown) => {
-        if (controller.signal.aborted) return;
-        const message = cause instanceof Error ? cause.message : String(cause);
-        setStatus('error');
-        setErrorMessage(message);
-      });
-
-    return () => {
-      controller.abort();
-      client.close();
-    };
-  }, [whepUrl, isOffline, offlineError]);
-
-  const streamState = stream?.state;
-  const streamError = stream?.error ?? null;
-
-  useEffect(() => {
-    if (streamState === 'Degraded' && status === 'live') {
-      setStatus('reconnecting');
-      setErrorMessage(streamError ?? 'Source unreachable. Reconnecting…');
-    }
-    if (streamState === 'Healthy' && status === 'reconnecting') {
-      setStatus('live');
-      setErrorMessage(null);
-    }
-  }, [streamState, streamError, status]);
 
   return (
     <div className={clsx('relative aspect-video w-full overflow-hidden rounded-md bg-black', className)}>
