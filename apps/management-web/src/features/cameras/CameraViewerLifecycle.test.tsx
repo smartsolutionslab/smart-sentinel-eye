@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { act, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
 
@@ -38,6 +38,10 @@ describe('CameraViewer connection lifecycle', () => {
     close.mockClear();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('Does not renegotiate the peer connection when the getToken closure changes between renders', () => {
     const { rerender } = render(
       <Provider store={store}>
@@ -55,5 +59,41 @@ describe('CameraViewer connection lifecycle', () => {
     );
     expect(construct).toHaveBeenCalledTimes(1);
     expect(close).not.toHaveBeenCalled();
+  });
+
+  it('Reconnects automatically with a fresh WhepClient after the peer connection fails', () => {
+    vi.useFakeTimers();
+    render(
+      <Provider store={store}>
+        <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} />
+      </Provider>,
+    );
+    expect(construct).toHaveBeenCalledTimes(1);
+    const options = construct.mock.calls[0]![0] as {
+      onConnectionStateChange?: (state: string) => void;
+    };
+
+    act(() => options.onConnectionStateChange?.('failed'));
+    expect(screen.getByText('Reconnecting…')).toBeInTheDocument();
+
+    // Backoff base is 1 s with ±20% jitter, so 1.2 s always covers it.
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(construct).toHaveBeenCalledTimes(2);
+  });
+
+  it('Closes the WHEP session when the viewer unmounts', () => {
+    const { unmount } = render(
+      <Provider store={store}>
+        <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} />
+      </Provider>,
+    );
+
+    unmount();
+
+    expect(close).toHaveBeenCalledTimes(1);
   });
 });
