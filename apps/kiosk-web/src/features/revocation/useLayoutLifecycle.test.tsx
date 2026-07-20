@@ -103,29 +103,18 @@ describe('useLayoutLifecycle', () => {
 
     const dispatched: unknown[] = dispatchSpy.mock.calls.map(([action]) => action);
     const payloadsOf = (creator: { match: (action: unknown) => boolean }) =>
-      dispatched
-        .filter((action) => creator.match(action))
-        .map((action) => (action as { payload: unknown }).payload);
+      dispatched.filter((action) => creator.match(action)).map((action) => (action as { payload: unknown }).payload);
 
-    expect(payloadsOf(layoutsApi.util.invalidateTags)).toContainEqual([
-      { type: 'LayoutList', id: 'ALL' },
-    ]);
-    expect(payloadsOf(overlaysApi.util.invalidateTags)).toContainEqual([
-      { type: 'OverlayList', id: 'ALL' },
-    ]);
+    expect(payloadsOf(layoutsApi.util.invalidateTags)).toContainEqual([{ type: 'LayoutList', id: 'ALL' }]);
+    expect(payloadsOf(overlaysApi.util.invalidateTags)).toContainEqual([{ type: 'OverlayList', id: 'ALL' }]);
     expect(payloadsOf(overlaysApi.util.invalidateTags)).toContainEqual(['Overlay']);
-    expect(payloadsOf(systemVariablesApi.util.invalidateTags)).toContainEqual([
-      { type: 'OverlaySnapshot', id: 'ALL' },
-    ]);
+    expect(payloadsOf(systemVariablesApi.util.invalidateTags)).toContainEqual([{ type: 'OverlaySnapshot', id: 'ALL' }]);
   });
 
   // Spec 011 FR-007: the degraded flag drives the discreet badge; it flips
   // with the hub's state events and clears on reconnection.
   it('Flips degraded with the hub state events', () => {
-    const { result } = renderHook(
-      () => useLayoutLifecycle({ accessTokenFactory: () => 'token' }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => useLayoutLifecycle({ accessTokenFactory: () => 'token' }), { wrapper });
 
     expect(result.current.degraded).toBe(false);
 

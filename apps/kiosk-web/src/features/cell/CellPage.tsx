@@ -1,13 +1,7 @@
 import { useGetLayoutQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
 import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
-import {
-  overlaysApi,
-  useGetOverlayQuery,
-} from '@smart-sentinel-eye/shared/api/overlays.api';
-import {
-  systemVariablesApi,
-  useGetOverlaySnapshotQuery,
-} from '@smart-sentinel-eye/shared/api/systemVariables.api';
+import { overlaysApi, useGetOverlayQuery } from '@smart-sentinel-eye/shared/api/overlays.api';
+import { systemVariablesApi, useGetOverlaySnapshotQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 import clsx from 'clsx';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -49,12 +43,8 @@ export function CellPage() {
   // Cross-tile event state. The hub is a single subscription on this page;
   // overlay-scoped events are routed by `overlayIdentifier` to whichever
   // tile(s) bind that overlay (a tile derives its own flag from the set).
-  const [unavailableOverlays, setUnavailableOverlays] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const [highlightedOverlays, setHighlightedOverlays] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
+  const [unavailableOverlays, setUnavailableOverlays] = useState<ReadonlySet<string>>(() => new Set());
+  const [highlightedOverlays, setHighlightedOverlays] = useState<ReadonlySet<string>>(() => new Set());
   // Monotonic per-overlay version guard for resolved-text pushes — drops
   // out-of-order frames (mirrors the pre-feature single-cell ref).
   const overlayTextVersionsRef = useRef<Map<string, number>>(new Map());
@@ -113,9 +103,7 @@ export function CellPage() {
     onOverlayPublished: (message) => {
       if (!boundOverlays.has(message.overlay)) return;
       dispatch(overlaysApi.util.invalidateTags([{ type: 'Overlay', id: message.overlay }]));
-      dispatch(
-        systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: message.overlay }]),
-      );
+      dispatch(systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: message.overlay }]));
       setUnavailableOverlays((current) => withRemoved(current, message.overlay));
     },
     onOverlayArchived: (message) => {
@@ -177,11 +165,7 @@ export function CellPage() {
     <main className="relative min-h-screen bg-black">
       <header className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between bg-black/50 px-6 py-3 text-fg-primary">
         <h1 className="text-lg font-medium">{data.name}</h1>
-        <button
-          type="button"
-          className="rounded-md bg-bg-elevated/60 px-3 py-1 text-sm"
-          onClick={() => navigate('/')}
-        >
+        <button type="button" className="rounded-md bg-bg-elevated/60 px-3 py-1 text-sm" onClick={() => navigate('/')}>
           Back
         </button>
       </header>
@@ -201,14 +185,8 @@ export function CellPage() {
               key={cell.key}
               tile={cell.tile}
               getToken={() => Promise.resolve(auth.user?.access_token ?? null)}
-              unavailable={
-                cell.tile.overlayIdentifier !== null &&
-                unavailableOverlays.has(cell.tile.overlayIdentifier)
-              }
-              highlighted={
-                cell.tile.overlayIdentifier !== null &&
-                highlightedOverlays.has(cell.tile.overlayIdentifier)
-              }
+              unavailable={cell.tile.overlayIdentifier !== null && unavailableOverlays.has(cell.tile.overlayIdentifier)}
+              highlighted={cell.tile.overlayIdentifier !== null && highlightedOverlays.has(cell.tile.overlayIdentifier)}
             />
           ),
         )}
@@ -288,11 +266,7 @@ function Tile({ tile, getToken, unavailable, highlighted }: TileProps) {
           Overlay unavailable
         </div>
       )}
-      <CameraViewer
-        cameraIdentifier={tile.cameraIdentifier}
-        getToken={getToken}
-        overlay={renderOverlay}
-      />
+      <CameraViewer cameraIdentifier={tile.cameraIdentifier} getToken={getToken} overlay={renderOverlay} />
     </div>
   );
 }

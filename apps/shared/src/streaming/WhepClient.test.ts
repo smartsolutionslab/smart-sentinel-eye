@@ -83,8 +83,7 @@ describe('WhepClient', () => {
   beforeEach(() => {
     FakePeerConnection.instances = [];
     FakePeerConnection.initialIceGatheringState = 'complete';
-    (globalThis as unknown as { RTCPeerConnection: typeof FakePeerConnection }).RTCPeerConnection =
-      FakePeerConnection;
+    (globalThis as unknown as { RTCPeerConnection: typeof FakePeerConnection }).RTCPeerConnection = FakePeerConnection;
     videoEl = { srcObject: null } as unknown as HTMLVideoElement;
     fetchMock = vi.fn();
     globalThis.fetch = fetchMock as unknown as typeof fetch;
@@ -215,9 +214,7 @@ describe('WhepClient', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(FakePeerConnection.lastInstance().closed).toBe(true);
-    const deleteCalls = fetchMock.mock.calls.filter(
-      ([, init]) => (init as RequestInit).method === 'DELETE',
-    );
+    const deleteCalls = fetchMock.mock.calls.filter(([, init]) => (init as RequestInit).method === 'DELETE');
     expect(deleteCalls).toHaveLength(1);
     const [url, init] = deleteCalls[0]!;
     expect(url).toBe('http://mediamtx.test/cam-x/whep/sessions/abc');
@@ -244,9 +241,7 @@ describe('WhepClient', () => {
     client.close();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    const deleteCalls = fetchMock.mock.calls.filter(
-      ([, init]) => (init as RequestInit).method === 'DELETE',
-    );
+    const deleteCalls = fetchMock.mock.calls.filter(([, init]) => (init as RequestInit).method === 'DELETE');
     expect(deleteCalls).toHaveLength(1);
     const headers = (deleteCalls[0]![1] as RequestInit).headers as Record<string, string>;
     expect(headers.Authorization).toBe('Bearer token-after-renewal');

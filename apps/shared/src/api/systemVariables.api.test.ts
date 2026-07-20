@@ -8,10 +8,10 @@ vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
 const { systemVariablesApi } = await import('./systemVariables.api.js');
 
 function snapshotResponse(): Response {
-  return new Response(
-    JSON.stringify({ overlayIdentifier: 'ovl-1', resolvedText: 'Line 1', version: 1 }),
-    { status: 200, headers: { 'Content-Type': 'application/json' } },
-  );
+  return new Response(JSON.stringify({ overlayIdentifier: 'ovl-1', resolvedText: 'Line 1', version: 1 }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
 function createStore() {
@@ -34,9 +34,7 @@ describe('getOverlaySnapshot cache tags (spec 011 FR-008)', () => {
     await store.dispatch(systemVariablesApi.endpoints.getOverlaySnapshot.initiate('ovl-1'));
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    store.dispatch(
-      systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: 'ALL' }]),
-    );
+    store.dispatch(systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: 'ALL' }]));
 
     await vi.waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -51,9 +49,7 @@ describe('getOverlaySnapshot cache tags (spec 011 FR-008)', () => {
     await store.dispatch(systemVariablesApi.endpoints.getOverlaySnapshot.initiate('ovl-1'));
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    store.dispatch(
-      systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: 'ovl-1' }]),
-    );
+    store.dispatch(systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: 'ovl-1' }]));
 
     await vi.waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);

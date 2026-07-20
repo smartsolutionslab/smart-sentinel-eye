@@ -43,9 +43,7 @@ export const systemVariablesApi = createApi({
         body: {
           name: body.name,
           type: body.type,
-          ...(body.initialValue !== undefined && body.initialValue !== ''
-            ? { initialValue: body.initialValue }
-            : {}),
+          ...(body.initialValue !== undefined && body.initialValue !== '' ? { initialValue: body.initialValue } : {}),
           ...(body.truthyLabel !== undefined ? { truthyLabel: body.truthyLabel } : {}),
           ...(body.falsyLabel !== undefined ? { falsyLabel: body.falsyLabel } : {}),
         },

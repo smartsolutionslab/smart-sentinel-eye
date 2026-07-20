@@ -108,8 +108,7 @@ describe('CameraViewer stream session state machine', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     FakePeerConnection.instances = [];
-    (globalThis as unknown as { RTCPeerConnection: typeof FakePeerConnection }).RTCPeerConnection =
-      FakePeerConnection;
+    (globalThis as unknown as { RTCPeerConnection: typeof FakePeerConnection }).RTCPeerConnection = FakePeerConnection;
     fetchMock = vi.fn().mockResolvedValue(sdpResponse());
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     streamHealth = undefined;

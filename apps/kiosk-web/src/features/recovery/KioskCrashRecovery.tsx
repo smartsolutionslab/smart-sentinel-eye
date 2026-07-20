@@ -19,12 +19,9 @@ interface CrashState {
 function readCrashState(): CrashState {
   const lastAtRaw = window.sessionStorage.getItem(CRASH_LAST_AT_STORAGE_KEY);
   const stableAgain = lastAtRaw !== null && Date.now() - Number(lastAtRaw) > STABILITY_WINDOW_MS;
-  const previousCount = stableAgain
-    ? 0
-    : Number(window.sessionStorage.getItem(CRASH_COUNT_STORAGE_KEY)) || 0;
+  const previousCount = stableAgain ? 0 : Number(window.sessionStorage.getItem(CRASH_COUNT_STORAGE_KEY)) || 0;
   const count = previousCount + 1;
-  const delayMs =
-    RELOAD_DELAY_LADDER_MS[Math.min(count, RELOAD_DELAY_LADDER_MS.length) - 1] ?? 60_000;
+  const delayMs = RELOAD_DELAY_LADDER_MS[Math.min(count, RELOAD_DELAY_LADDER_MS.length) - 1] ?? 60_000;
   return { count, delayMs };
 }
 
@@ -65,8 +62,7 @@ export function KioskCrashRecovery() {
     >
       <h1 className="text-3xl font-semibold">Recovering…</h1>
       <p className="text-fg-muted">
-        The display hit an unexpected error and will reload in {Math.round(delayMs / 1000)}{' '}
-        seconds.
+        The display hit an unexpected error and will reload in {Math.round(delayMs / 1000)} seconds.
       </p>
     </main>
   );

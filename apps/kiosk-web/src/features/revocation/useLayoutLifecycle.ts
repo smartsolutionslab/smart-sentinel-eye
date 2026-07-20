@@ -87,10 +87,8 @@ export function useLayoutLifecycle(options: UseLayoutLifecycleOptions): UseLayou
         onArchived: (message) => optionsRef.current.onArchived?.(message),
         onOverlayPublished: (message) => optionsRef.current.onOverlayPublished?.(message),
         onOverlayArchived: (message) => optionsRef.current.onOverlayArchived?.(message),
-        onResolvedOverlayTextChanged: (message) =>
-          optionsRef.current.onResolvedOverlayTextChanged?.(message),
-        onOverlayHighlightChanged: (message) =>
-          optionsRef.current.onOverlayHighlightChanged?.(message),
+        onResolvedOverlayTextChanged: (message) => optionsRef.current.onResolvedOverlayTextChanged?.(message),
+        onOverlayHighlightChanged: (message) => optionsRef.current.onOverlayHighlightChanged?.(message),
         onStateChange: (state) => setDegraded(state === 'degraded'),
         onReconnected: () => {
           logResilienceEvent('hub', 'reconnected-reconciliation');

@@ -69,13 +69,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 });
 
 vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
-  CameraViewer: ({
-    cameraIdentifier,
-    overlay,
-  }: {
-    cameraIdentifier: string;
-    overlay?: { text: string };
-  }) => (
+  CameraViewer: ({ cameraIdentifier, overlay }: { cameraIdentifier: string; overlay?: { text: string } }) => (
     <div data-testid="camera-viewer" data-overlay-text={overlay?.text ?? ''}>
       {cameraIdentifier}
     </div>
@@ -294,9 +288,7 @@ describe('CellPage', () => {
     });
 
     it('Flags a tile bound to an overlay archived before the kiosk loaded (FR-009)', () => {
-      mockLayout(
-        publishedRevision(1, 1, [tile({ overlayIdentifier: 'ovl-gone', row: 0, col: 0 })]),
-      );
+      mockLayout(publishedRevision(1, 1, [tile({ overlayIdentifier: 'ovl-gone', row: 0, col: 0 })]));
       // The fetched overlay exists but has no Published revision — archived
       // pre-mount, so no OverlayArchived push was ever observed.
       getOverlayMock.mockReturnValue({
@@ -330,9 +322,7 @@ describe('CellPage', () => {
     });
 
     it('Does not flag a tile while its overlay is still loading', () => {
-      mockLayout(
-        publishedRevision(1, 1, [tile({ overlayIdentifier: 'ovl-pending', row: 0, col: 0 })]),
-      );
+      mockLayout(publishedRevision(1, 1, [tile({ overlayIdentifier: 'ovl-pending', row: 0, col: 0 })]));
       getOverlayMock.mockReturnValue({ data: undefined });
 
       renderPage();
@@ -355,9 +345,7 @@ describe('CellPage', () => {
     });
 
     function highlightedTiles() {
-      return screen
-        .queryAllByTestId('layout-tile')
-        .filter((el) => el.dataset.highlighted === 'true');
+      return screen.queryAllByTestId('layout-tile').filter((el) => el.dataset.highlighted === 'true');
     }
 
     const cameraOf = (tileEl: ReturnType<typeof highlightedTiles>[number]): string =>
@@ -457,9 +445,7 @@ describe('CellPage', () => {
 
     it('A wall-clock step does not expire an active highlight early', () => {
       mockLayout(
-        publishedRevision(1, 1, [
-          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-x', row: 0, col: 0 }),
-        ]),
+        publishedRevision(1, 1, [tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-x', row: 0, col: 0 })]),
       );
       renderPage();
 
@@ -481,9 +467,7 @@ describe('CellPage', () => {
 
     it('Unmount clears pending highlight timers', () => {
       mockLayout(
-        publishedRevision(1, 1, [
-          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-x', row: 0, col: 0 }),
-        ]),
+        publishedRevision(1, 1, [tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-x', row: 0, col: 0 })]),
       );
       const view = renderPage();
 

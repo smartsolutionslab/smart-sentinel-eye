@@ -1,10 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { AuthProvider, useAuth } from 'react-oidc-context';
-import {
-  setAccessTokenProvider,
-  setOnSessionExpired,
-  setSessionRenewer,
-} from '@smart-sentinel-eye/shared/api/gateway';
+import { setAccessTokenProvider, setOnSessionExpired, setSessionRenewer } from '@smart-sentinel-eye/shared/api/gateway';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import { ErrorBoundary } from '@smart-sentinel-eye/shared/ui/composites/ErrorBoundary';
 import { oidcConfig } from './app/auth.js';
@@ -51,9 +47,7 @@ function AuthGate() {
         <button
           type="button"
           className="rounded-md bg-accent-active px-6 py-3 text-bg-base"
-          onClick={() =>
-            void auth.signinRedirect({ state: { returnTo: window.location.pathname } })
-          }
+          onClick={() => void auth.signinRedirect({ state: { returnTo: window.location.pathname } })}
         >
           Sign in
         </button>
@@ -129,9 +123,7 @@ function Shell() {
         // the next page fresh instead of a stale error panel. The nav above
         // stays outside the boundary and survives any page crash (FR-016).
         key={view}
-        onError={(error) =>
-          logResilienceEvent('crash', 'render-error', { message: describeError(error) })
-        }
+        onError={(error) => logResilienceEvent('crash', 'render-error', { message: describeError(error) })}
         fallback={(error, reset) => <CrashPanel message={describeError(error)} onRetry={reset} />}
       >
         {view === 'cameras' && <CamerasPage />}
@@ -156,11 +148,7 @@ function CrashPanel({ message, onRetry }: { message: string; onRetry: () => void
     >
       <h1 className="text-2xl font-semibold">Something went wrong</h1>
       <p className="text-fg-muted">{message}</p>
-      <button
-        type="button"
-        className="rounded-md bg-accent-active px-6 py-3 text-bg-base"
-        onClick={onRetry}
-      >
+      <button type="button" className="rounded-md bg-accent-active px-6 py-3 text-bg-base" onClick={onRetry}>
         Try again
       </button>
     </section>
@@ -175,15 +163,7 @@ function Centered({ children }: { children: ReactNode }) {
   );
 }
 
-function NavButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
+function NavButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
