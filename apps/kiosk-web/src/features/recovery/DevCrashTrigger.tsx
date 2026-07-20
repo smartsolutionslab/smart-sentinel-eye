@@ -5,10 +5,7 @@
  * dead-code-eliminates the throw — it cannot ship active.
  */
 export function DevCrashTrigger(): null {
-  if (
-    import.meta.env.DEV &&
-    new URLSearchParams(window.location.search).get('crash') === 'render'
-  ) {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('crash') === 'render') {
     throw new Error('Dev crash trigger: ?crash=render');
   }
   return null;

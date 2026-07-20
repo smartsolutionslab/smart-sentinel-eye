@@ -1,12 +1,10 @@
-export type WhepErrorKind =
-  | 'unauthorized'
-  | 'forbidden'
-  | 'stream-unavailable'
-  | 'network'
-  | 'sdp';
+export type WhepErrorKind = 'unauthorized' | 'forbidden' | 'stream-unavailable' | 'network' | 'sdp';
 
 export class WhepError extends Error {
-  constructor(public readonly kind: WhepErrorKind, message: string) {
+  constructor(
+    public readonly kind: WhepErrorKind,
+    message: string,
+  ) {
     super(message);
     this.name = 'WhepError';
   }
@@ -137,9 +135,7 @@ async function errorForResponse(response: Response): Promise<WhepError> {
   const detail = await response.text().catch(() => '');
   if (response.status === 401) return new WhepError('unauthorized', detail || 'unauthorized');
   if (response.status === 403) {
-    const kind: WhepErrorKind = detail.toLowerCase().includes('unavailable')
-      ? 'stream-unavailable'
-      : 'forbidden';
+    const kind: WhepErrorKind = detail.toLowerCase().includes('unavailable') ? 'stream-unavailable' : 'forbidden';
     return new WhepError(kind, detail || 'forbidden');
   }
   return new WhepError('network', `WHEP returned ${response.status}: ${detail}`);

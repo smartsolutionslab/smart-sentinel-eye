@@ -17,9 +17,7 @@ const gatewayOrigin: string = (import.meta.env.VITE_API_GATEWAY_URL ?? '').repla
 // Spec 011 FR-010: a prod bundle without the gateway origin would silently
 // fire API calls at the static-file origin — fail loudly at load instead.
 if (import.meta.env.PROD && gatewayOrigin === '') {
-  throw new Error(
-    'VITE_API_GATEWAY_URL must be set in production builds (see docs/deployment-frontend-env.md).',
-  );
+  throw new Error('VITE_API_GATEWAY_URL must be set in production builds (see docs/deployment-frontend-env.md).');
 }
 
 export const gatewayApiUrl = (route: string): string => `${gatewayOrigin}/${route}`;

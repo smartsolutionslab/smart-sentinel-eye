@@ -4,13 +4,7 @@ import type { StreamState } from '@smart-sentinel-eye/shared/api/streams.api';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import { WhepClient } from '@smart-sentinel-eye/shared/streaming/WhepClient';
 
-export type CameraViewerStatus =
-  | 'idle'
-  | 'connecting'
-  | 'live'
-  | 'reconnecting'
-  | 'error'
-  | 'offline';
+export type CameraViewerStatus = 'idle' | 'connecting' | 'live' | 'reconnecting' | 'error' | 'offline';
 
 export interface WhepSessionOptions {
   cameraIdentifier: string;

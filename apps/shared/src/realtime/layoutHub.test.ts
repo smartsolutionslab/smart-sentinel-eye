@@ -169,10 +169,7 @@ describe('layout hub resilience (spec 011 FR-006/007)', () => {
     createClient();
     expect(fakes.urls[0]).toBe('/hubs/layouts');
 
-    createLayoutHubClient(
-      { hubUrl: 'https://fab.example/hubs/layouts', accessTokenFactory: () => 'token' },
-      {},
-    );
+    createLayoutHubClient({ hubUrl: 'https://fab.example/hubs/layouts', accessTokenFactory: () => 'token' }, {});
     expect(fakes.urls[1]).toBe('https://fab.example/hubs/layouts');
   });
 

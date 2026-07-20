@@ -78,12 +78,7 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
   // A kiosk that was signed in and lost its session must re-authenticate on
   // its own instead of falling back to the manual sign-in screen (FR-013).
   useEffect(() => {
-    if (
-      !auth.isAuthenticated &&
-      !auth.isLoading &&
-      auth.activeNavigator === undefined &&
-      hasBeenAuthenticated()
-    ) {
+    if (!auth.isAuthenticated && !auth.isLoading && auth.activeNavigator === undefined && hasBeenAuthenticated()) {
       beginReauthentication();
     }
   }, [auth.isAuthenticated, auth.isLoading, auth.activeNavigator, beginReauthentication]);

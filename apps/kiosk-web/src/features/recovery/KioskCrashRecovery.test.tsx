@@ -1,10 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  CRASH_COUNT_STORAGE_KEY,
-  CRASH_LAST_AT_STORAGE_KEY,
-  KioskCrashRecovery,
-} from './KioskCrashRecovery.js';
+import { CRASH_COUNT_STORAGE_KEY, CRASH_LAST_AT_STORAGE_KEY, KioskCrashRecovery } from './KioskCrashRecovery.js';
 
 // jsdom's location.reload is own + non-configurable, so the whole location
 // object is swapped for a stub (window's `location` property IS configurable).
@@ -66,9 +62,7 @@ describe('KioskCrashRecovery reload watchdog', () => {
       render(<KioskCrashRecovery />);
 
       expect(screen.getByText(notice)).toBeInTheDocument();
-      expect(window.sessionStorage.getItem(CRASH_COUNT_STORAGE_KEY)).toBe(
-        String(Number(previousCount) + 1),
-      );
+      expect(window.sessionStorage.getItem(CRASH_COUNT_STORAGE_KEY)).toBe(String(Number(previousCount) + 1));
       vi.advanceTimersByTime(delayMs - 1);
       expect(reloadMock).not.toHaveBeenCalled();
       vi.advanceTimersByTime(1);
@@ -103,9 +97,7 @@ describe('KioskCrashRecovery reload watchdog', () => {
     expect(rewrittenUrl.pathname).toBe('/layouts/abc');
     expect(reloadMock).toHaveBeenCalledTimes(1);
     // The param must be gone BEFORE the reload navigates.
-    expect(replaceState.mock.invocationCallOrder[0]!).toBeLessThan(
-      reloadMock.mock.invocationCallOrder[0]!,
-    );
+    expect(replaceState.mock.invocationCallOrder[0]!).toBeLessThan(reloadMock.mock.invocationCallOrder[0]!);
   });
 
   it('Leaves the URL untouched when there is no crash trigger param', () => {

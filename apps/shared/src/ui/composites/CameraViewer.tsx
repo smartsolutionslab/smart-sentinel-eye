@@ -76,9 +76,7 @@ function ViewerOverlay({
         ? 'text-accent-warn'
         : 'text-fg-muted';
 
-  const hint =
-    message ??
-    (queryError !== undefined ? 'Could not reach the streaming service.' : null);
+  const hint = message ?? (queryError !== undefined ? 'Could not reach the streaming service.' : null);
 
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 text-center text-sm">

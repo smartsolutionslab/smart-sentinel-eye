@@ -1,9 +1,4 @@
-import {
-  HubConnectionBuilder,
-  type HubConnection,
-  HubConnectionState,
-  type IRetryPolicy,
-} from '@microsoft/signalr';
+import { HubConnectionBuilder, type HubConnection, HubConnectionState, type IRetryPolicy } from '@microsoft/signalr';
 import { logResilienceEvent } from '../observability/resilienceLog.js';
 import { layoutHubUrl } from './hubUrl.js';
 
