@@ -26,7 +26,11 @@ public sealed class OverlayRevisionArchivedDomainEventHandler(IEventBus events)
                 RevisionNumber: domainEvent.RevisionNumber.Value,
                 ArchivedAt: domainEvent.ArchivedAt,
                 ArchivedBy: domainEvent.ArchivedBy.Value,
-                Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ArchivedAt, null, domainEvent.ArchivedBy.Value)),
+                Metadata: new EventMetadata(
+                    Guid.CreateVersion7(),
+                    domainEvent.ArchivedAt,
+                    null,
+                    domainEvent.ArchivedBy.Value)),
             cancellationToken);
     }
 }
