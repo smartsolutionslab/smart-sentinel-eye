@@ -39,11 +39,11 @@
 
 **Independent Test**: quickstart §1 — stop/start `mediamtx`; tiles must leave "Live" ≤ 10 s, keep retrying, resume unaided; layout switch DELETEs sessions.
 
-- [ ] T005 [US1] Write failing WhepClient tests (connection-state callback, Location capture, DELETE-on-close exactly once, close-without-Location, abort-mid-connect leaves no live PC, ≤250 ms gathering wait) in apps/shared/src/streaming/WhepClient.test.ts
-- [ ] T006 [US1] Extend WhepClient per contracts §1: `onConnectionStateChange` option, ICE-gathering wait (250 ms cap), capture WHEP `Location`, fire-and-forget bearer DELETE (`keepalive: true`) in `close()` before unconditional local teardown, in apps/shared/src/streaming/WhepClient.ts
-- [ ] T007 [US1] Write failing CameraViewer state-machine tests (data-model §1: live requires connected PC; `failed` → immediate retry; `disconnected` → 5 s grace; connect-reject → backoff 1 s base ×2 cap 15 s ±20% jitter, unbounded; `Offline` suspends; Degraded→Healthy bumps nonce not label; teardown aborts + closes) with fake timers in apps/shared/src/ui/composites/CameraViewer.test.tsx
-- [ ] T008 [US1] Implement truthful status + retry ladder in CameraViewer (retryNonce effect dep, per-attempt WhepClient instance, `logResilienceEvent('stream', …)` on every transition) in apps/shared/src/ui/composites/CameraViewer.tsx
-- [ ] T009 [US1] Update the existing management-web viewer suites for the new semantics (no behavioural assertions weakened — "Reconnects automatically" now true) in apps/management-web/src/features/cameras/CameraViewerLifecycle.test.tsx and CameraViewer.test.tsx
+- [x] T005 [US1] Write failing WhepClient tests (connection-state callback, Location capture, DELETE-on-close exactly once, close-without-Location, abort-mid-connect leaves no live PC, ≤250 ms gathering wait) in apps/shared/src/streaming/WhepClient.test.ts
+- [x] T006 [US1] Extend WhepClient per contracts §1: `onConnectionStateChange` option, ICE-gathering wait (250 ms cap), capture WHEP `Location`, fire-and-forget bearer DELETE (`keepalive: true`) in `close()` before unconditional local teardown, in apps/shared/src/streaming/WhepClient.ts
+- [x] T007 [US1] Write failing CameraViewer state-machine tests (data-model §1: live requires connected PC; `failed` → immediate retry; `disconnected` → 5 s grace; connect-reject → backoff 1 s base ×2 cap 15 s ±20% jitter, unbounded; `Offline` suspends; Degraded→Healthy bumps nonce not label; teardown aborts + closes) with fake timers in apps/shared/src/ui/composites/CameraViewer.test.tsx
+- [x] T008 [US1] Implement truthful status + retry ladder in CameraViewer (retryNonce effect dep, per-attempt WhepClient instance, `logResilienceEvent('stream', …)` on every transition) in apps/shared/src/ui/composites/CameraViewer.tsx
+- [x] T009 [US1] Update the existing management-web viewer suites for the new semantics (no behavioural assertions weakened — "Reconnects automatically" now true) in apps/management-web/src/features/cameras/CameraViewerLifecycle.test.tsx and CameraViewer.test.tsx
 
 **Checkpoint**: US1 fully verifiable via quickstart §1 on its own — MVP.
 
