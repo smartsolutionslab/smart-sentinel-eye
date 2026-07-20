@@ -58,9 +58,23 @@ export function CellPage() {
   // Monotonic per-overlay version guard for resolved-text pushes — drops
   // out-of-order frames (mirrors the pre-feature single-cell ref).
   const overlayTextVersionsRef = useRef<Map<string, number>>(new Map());
-  // Per-overlay highlight expiry (epoch ms) so overlapping highlights on the
-  // same overlay survive until the LATER expiry (OR'd, FR-012 / US3 sc.3).
+  // Per-overlay highlight expiry so overlapping highlights on the same
+  // overlay survive until the LATER expiry (OR'd, FR-012 / US3 sc.3).
+  // performance.now(), never Date.now(): fab clocks are PTP-stepped and an
+  // epoch comparison can pin a highlight on forever or clear it early
+  // (spec 011 edge case).
   const highlightExpiryRef = useRef<Map<string, number>>(new Map());
+  const highlightTimersRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    const timers = highlightTimersRef.current;
+    return () => {
+      for (const timer of timers) {
+        window.clearTimeout(timer);
+      }
+      timers.clear();
+    };
+  }, []);
 
   // The set of overlays actually bound to a rendered tile — used so a
   // highlight (or any overlay event) for an unbound overlay is a no-op.
@@ -71,19 +85,21 @@ export function CellPage() {
       // No rendered tile binds this overlay — nothing to light (US3 sc.4).
       return;
     }
-    const expireAt = Date.now() + durationMs;
+    const expireAt = performance.now() + durationMs;
     const expiries = highlightExpiryRef.current;
     expiries.set(overlay, Math.max(expiries.get(overlay) ?? 0, expireAt));
     setHighlightedOverlays((current) => withAdded(current, overlay));
 
-    window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
+      highlightTimersRef.current.delete(timer);
       // Only revert once the LATEST expiry has passed; a later overlapping
       // highlight pushes the expiry out and keeps the tile lit (US3 sc.3).
-      if (Date.now() >= (highlightExpiryRef.current.get(overlay) ?? 0)) {
+      if (performance.now() >= (highlightExpiryRef.current.get(overlay) ?? 0)) {
         highlightExpiryRef.current.delete(overlay);
         setHighlightedOverlays((current) => withRemoved(current, overlay));
       }
     }, durationMs);
+    highlightTimersRef.current.add(timer);
   };
 
   const { degraded } = useLayoutLifecycle({

@@ -342,7 +342,12 @@ describe('CellPage', () => {
 
   describe('per-tile overlay highlight (US3)', () => {
     beforeEach(() => {
-      vi.useFakeTimers();
+      // Highlight expiry math runs on performance.now() (spec 011 T024 —
+      // PTP clock steps must not affect it), which vitest's default
+      // toFake set does not include.
+      vi.useFakeTimers({
+        toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'performance'],
+      });
     });
     afterEach(() => {
       vi.runOnlyPendingTimers();
@@ -448,6 +453,46 @@ describe('CellPage', () => {
       });
 
       expect(highlightedTiles()).toHaveLength(0);
+    });
+
+    it('A wall-clock step does not expire an active highlight early', () => {
+      mockLayout(
+        publishedRevision(1, 1, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-x', row: 0, col: 0 }),
+        ]),
+      );
+      renderPage();
+
+      act(() => {
+        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', durationMs: 1000 });
+      });
+      // A PTP step forward moves Date, not the monotonic clock; the timer
+      // has not fired yet, so the highlight must still be lit.
+      act(() => {
+        vi.setSystemTime(Date.now() + 60_000);
+      });
+      expect(highlightedTiles()).toHaveLength(1);
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(highlightedTiles()).toHaveLength(0);
+    });
+
+    it('Unmount clears pending highlight timers', () => {
+      mockLayout(
+        publishedRevision(1, 1, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-x', row: 0, col: 0 }),
+        ]),
+      );
+      const view = renderPage();
+
+      act(() => {
+        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', durationMs: 1000 });
+      });
+      view.unmount();
+
+      expect(vi.getTimerCount()).toBe(0);
     });
   });
 });
