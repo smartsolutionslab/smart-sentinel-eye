@@ -91,7 +91,7 @@
 - [ ] T021 [US4] Create ErrorBoundary per contracts §7 (class component, render-prop fallback, `onError` hook) with tests in apps/shared/src/ui/composites/ErrorBoundary.tsx + ErrorBoundary.test.tsx
 - [ ] T022 [US4] Kiosk crash recovery: fallback scheduling `location.reload()` with `sse.crash.count`/`sse.crash.lastAt` backoff (5/15/60 s, clear after 5 min stable), URL preserved, dev-only `?crash=render` trigger stripped before reload, wire into apps/kiosk-web/src/App.tsx, tests with fake timers in apps/kiosk-web/src/features/recovery/KioskCrashRecovery.test.tsx (new module apps/kiosk-web/src/features/recovery/KioskCrashRecovery.tsx)
 - [ ] T023 [P] [US4] Wrap the management shell in ErrorBoundary with bounded panel + reset fallback in apps/management-web/src/App.tsx, test in apps/management-web/src/App.test.tsx
-- [ ] T024 [P] [US4] Make highlight timers leak-free and monotonic (tracked handles cleared on unmount; `performance.now()` deltas instead of `Date.now()` epochs) in apps/kiosk-web/src/features/cell/CellPage.tsx, with a fake-timer test covering unmount-clears-timers and clock-step immunity
+- [x] T024 [P] [US4] Make highlight timers leak-free and monotonic (tracked handles cleared on unmount; `performance.now()` deltas instead of `Date.now()` epochs) in apps/kiosk-web/src/features/cell/CellPage.tsx, with a fake-timer test covering unmount-clears-timers and clock-step immunity
 
 **Checkpoint**: all four stories independently verifiable.
 
