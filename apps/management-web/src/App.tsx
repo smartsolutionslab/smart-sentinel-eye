@@ -1,6 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { AuthProvider, useAuth } from 'react-oidc-context';
-import { setAccessTokenProvider } from '@smart-sentinel-eye/shared/api/gateway';
+import {
+  setAccessTokenProvider,
+  setOnSessionExpired,
+  setSessionRenewer,
+} from '@smart-sentinel-eye/shared/api/gateway';
 import { oidcConfig } from './app/auth.js';
 import { CamerasPage } from './features/cameras/CamerasPage.js';
 import { LayoutsPage } from './features/layouts/LayoutsPage.js';
@@ -20,13 +24,40 @@ export function App() {
 
 function AuthGate() {
   const auth = useAuth();
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   // Register the bearer getter synchronously, before any child query dispatches,
   // so the first authenticated REST call already carries the token (ADR-0007/
   // 0008). A useEffect here fires AFTER the child query's mount effect (effects
   // run child-first), which races the token and 401s the first request. Setting
-  // a module-level getter during render is idempotent.
+  // a module-level getter during render is idempotent. The session renewer and
+  // expiry escalation (spec 011 FR-012/014) register the same way.
   setAccessTokenProvider(() => auth.user?.access_token);
+  setSessionRenewer(() =>
+    auth
+      .signinSilent()
+      .then((user) => user !== null)
+      .catch(() => false),
+  );
+  setOnSessionExpired(() => setSessionExpired(true));
+
+  if (sessionExpired) {
+    return (
+      <Centered>
+        <h1 className="text-2xl font-semibold">Session expired</h1>
+        <p className="text-fg-muted">Your session could not be renewed. Sign in to continue.</p>
+        <button
+          type="button"
+          className="rounded-md bg-accent-active px-6 py-3 text-bg-base"
+          onClick={() =>
+            void auth.signinRedirect({ state: { returnTo: window.location.pathname } })
+          }
+        >
+          Sign in
+        </button>
+      </Centered>
+    );
+  }
 
   if (auth.isLoading) {
     return <Centered>Signing in…</Centered>;

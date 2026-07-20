@@ -1,4 +1,5 @@
 import { fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { logResilienceEvent } from '../observability/resilienceLog.js';
 
 // ADR-0106 (#1005): the browser apps reach every context REST API through the
 // single API gateway, cross-origin. The gateway's CORS policy (#1003) allows the
@@ -36,8 +37,44 @@ export const setAccessTokenProvider = (provider: AccessTokenGetter): void => {
   accessTokenProvider = provider;
 };
 
-export const gatewayBaseQuery = (route: string): ReturnType<typeof fetchBaseQuery> =>
-  fetchBaseQuery({
+// Spec 011 FR-011/012: a 401 gets exactly one silent renewal and one retry
+// before the session counts as expired. Both hooks are app-registered module
+// singletons for the same reason as setAccessTokenProvider: the shared clients
+// are app-agnostic, and registration must happen during render, before the
+// first query dispatches.
+type SessionRenewer = () => Promise<boolean>;
+
+let sessionRenewer: SessionRenewer = () => Promise.resolve(false);
+let onSessionExpired: () => void = () => undefined;
+
+export const setSessionRenewer = (renew: SessionRenewer): void => {
+  sessionRenewer = renew;
+};
+
+export const setOnSessionExpired = (handler: () => void): void => {
+  onSessionExpired = handler;
+};
+
+// A burst of queries after token death must not stampede the identity
+// provider: every concurrent 401 awaits the single in-flight renewal.
+let renewalInFlight: Promise<boolean> | null = null;
+
+const renewSessionOnce = (): Promise<boolean> => {
+  if (renewalInFlight === null) {
+    logResilienceEvent('session', 'renew-start');
+    renewalInFlight = sessionRenewer()
+      .catch(() => false)
+      .then((renewed) => {
+        renewalInFlight = null;
+        logResilienceEvent('session', renewed ? 'renew-success' : 'renew-failure');
+        return renewed;
+      });
+  }
+  return renewalInFlight;
+};
+
+export const gatewayBaseQuery = (route: string): ReturnType<typeof fetchBaseQuery> => {
+  const baseQuery = fetchBaseQuery({
     baseUrl: gatewayApiUrl(route),
     prepareHeaders: (headers) => {
       const token = accessTokenProvider();
@@ -47,3 +84,22 @@ export const gatewayBaseQuery = (route: string): ReturnType<typeof fetchBaseQuer
       return headers;
     },
   });
+
+  return async (args, queryApi, extraOptions) => {
+    let result = await baseQuery(args, queryApi, extraOptions);
+    if (result.error === undefined || result.error.status !== 401) {
+      return result;
+    }
+
+    if (await renewSessionOnce()) {
+      result = await baseQuery(args, queryApi, extraOptions);
+      if (result.error === undefined || result.error.status !== 401) {
+        return result;
+      }
+    }
+
+    logResilienceEvent('session', 'expired');
+    onSessionExpired();
+    return result;
+  };
+};

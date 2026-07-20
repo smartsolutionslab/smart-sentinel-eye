@@ -1,7 +1,32 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { type ReactNode } from 'react';
+
+const oidcMocks = vi.hoisted(() => ({
+  signinRedirect: vi.fn(() => Promise.resolve()),
+  signinSilent: vi.fn(() => Promise.resolve<unknown>({ access_token: 'renewed' })),
+}));
+
+// The AuthGate registers its session hooks against the shared gateway module
+// singletons; capture them so tests can drive the 401-renewal/expiry flow.
+const sessionCallbacks = vi.hoisted(() => ({
+  renew: undefined as (() => Promise<boolean>) | undefined,
+  expired: undefined as (() => void) | undefined,
+}));
+
+vi.mock('@smart-sentinel-eye/shared/api/gateway', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/gateway')>();
+  return {
+    ...actual,
+    setSessionRenewer: (renew: () => Promise<boolean>) => {
+      sessionCallbacks.renew = renew;
+    },
+    setOnSessionExpired: (handler: () => void) => {
+      sessionCallbacks.expired = handler;
+    },
+  };
+});
 
 // App is gated behind OIDC; render as an authenticated operator so these tests
 // exercise the shell rather than the sign-in screen.
@@ -12,7 +37,8 @@ vi.mock('react-oidc-context', () => ({
     isAuthenticated: true,
     error: undefined,
     user: { access_token: 'test-token' },
-    signinRedirect: vi.fn(),
+    signinRedirect: oidcMocks.signinRedirect,
+    signinSilent: oidcMocks.signinSilent,
   }),
 }));
 
@@ -99,6 +125,7 @@ vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOrigi
 
 const { App } = await import('./App.js');
 const { store } = await import('./app/store.js');
+const { oidcConfig } = await import('./app/auth.js');
 
 describe('App shell', () => {
   it('Renders the Cameras page heading and the Register button', () => {
@@ -118,5 +145,41 @@ describe('App shell', () => {
       </Provider>,
     );
     expect(screen.getByRole('button', { name: /^layouts$/i })).toBeInTheDocument();
+  });
+
+  it('Escalates an expired session to an explicit re-sign-in prompt', () => {
+    render(
+      <Provider store={store}>
+        <App />
+      </Provider>,
+    );
+
+    act(() => sessionCallbacks.expired?.());
+
+    expect(screen.getByRole('heading', { name: /session expired/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
+    expect(oidcMocks.signinRedirect).toHaveBeenCalledWith({ state: { returnTo: '/' } });
+  });
+
+  it('Registers a session renewer that reports silent-renewal success and failure', async () => {
+    render(
+      <Provider store={store}>
+        <App />
+      </Provider>,
+    );
+
+    oidcMocks.signinSilent.mockResolvedValueOnce({ access_token: 'fresh' });
+    await expect(sessionCallbacks.renew?.()).resolves.toBe(true);
+
+    oidcMocks.signinSilent.mockResolvedValueOnce(null);
+    await expect(sessionCallbacks.renew?.()).resolves.toBe(false);
+  });
+
+  it('Restores the stashed path in the sign-in callback', () => {
+    oidcConfig.onSigninCallback?.({ state: { returnTo: '/layouts' } } as never);
+    expect(window.location.pathname).toBe('/layouts');
+
+    oidcConfig.onSigninCallback?.({ state: { returnTo: 'https://evil.example/' } } as never);
+    expect(window.location.pathname).toBe('/');
   });
 });
