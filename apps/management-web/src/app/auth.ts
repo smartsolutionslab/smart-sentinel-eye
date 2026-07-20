@@ -10,6 +10,14 @@ import type { AuthProviderProps } from 'react-oidc-context';
 // processes the callback in place; onSigninCallback strips the code/state query.
 const KEYCLOAK_BASE_URL = (import.meta.env.VITE_KEYCLOAK_URL ?? 'http://localhost:8080').replace(/\/+$/, '');
 
+// Spec 011 FR-010: a prod bundle without the Keycloak origin would try to
+// authenticate against localhost on the operator's machine — fail loudly.
+if (import.meta.env.PROD && (import.meta.env.VITE_KEYCLOAK_URL ?? '') === '') {
+  throw new Error(
+    'VITE_KEYCLOAK_URL must be set in production builds (see docs/deployment-frontend-env.md).',
+  );
+}
+
 export const oidcConfig: AuthProviderProps = {
   authority: `${KEYCLOAK_BASE_URL}/realms/smart-sentinel-eye`,
   client_id: 'smart-sentinel-eye-web',
