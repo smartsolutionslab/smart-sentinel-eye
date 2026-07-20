@@ -1,4 +1,5 @@
 import type { AuthProviderProps } from 'react-oidc-context';
+import { REDIRECT_GUARD_STORAGE_KEY } from './useSessionExpiry.js';
 
 // Injected by the host (Aspire: VITE_KEYCLOAK_URL) and MUST match the issuer the
 // services validate (ServiceDefaults.AddBearerAuthentication uses the same Aspire
@@ -32,9 +33,21 @@ export const oidcConfig: AuthProviderProps = {
   // The realm does not expose a requestable `profile` scope; `sse.management`
   // is a default client scope and grandfathers the granular sse.* policies.
   scope: 'openid sse.management',
-  onSigninCallback: () => {
-    if (typeof window !== 'undefined') {
-      window.history.replaceState({}, document.title, '/');
+  // Spec 011 FR-013: a completed sign-in ends any expiry flow — drop the loop
+  // guard and land back on the layout the kiosk was showing (deep-link
+  // restoration through the OIDC state round-trip).
+  onSigninCallback: (user) => {
+    if (typeof window === 'undefined') {
+      return;
     }
+    window.sessionStorage.removeItem(REDIRECT_GUARD_STORAGE_KEY);
+    const state = user?.state as { returnTo?: unknown } | undefined;
+    const returnTo =
+      typeof state?.returnTo === 'string' &&
+      state.returnTo.startsWith('/') &&
+      !state.returnTo.startsWith('//')
+        ? state.returnTo
+        : '/';
+    window.history.replaceState({}, document.title, returnTo);
   },
 };

@@ -27,9 +27,19 @@ export const oidcConfig: AuthProviderProps = {
   // is a default client scope of smart-sentinel-eye-web and grandfathers the
   // granular sse.* policies (ServiceDefaults RequireScopeExtensions).
   scope: 'openid sse.management',
-  onSigninCallback: () => {
-    if (typeof window !== 'undefined') {
-      window.history.replaceState({}, document.title, '/');
+  // Spec 011 FR-013: land back where the operator was when the sign-in
+  // round-trip started (deep-link restoration via the OIDC state).
+  onSigninCallback: (user) => {
+    if (typeof window === 'undefined') {
+      return;
     }
+    const state = user?.state as { returnTo?: unknown } | undefined;
+    const returnTo =
+      typeof state?.returnTo === 'string' &&
+      state.returnTo.startsWith('/') &&
+      !state.returnTo.startsWith('//')
+        ? state.returnTo
+        : '/';
+    window.history.replaceState({}, document.title, returnTo);
   },
 };
