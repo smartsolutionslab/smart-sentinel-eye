@@ -3,17 +3,23 @@ import { WhepClient } from './WhepClient.js';
 
 class FakePeerConnection {
   static instances: FakePeerConnection[] = [];
+  static initialIceGatheringState = 'complete';
   static lastInstance(): FakePeerConnection {
     return FakePeerConnection.instances[FakePeerConnection.instances.length - 1]!;
   }
   ontrack: ((event: { streams: MediaStream[] }) => void) | null = null;
+  onconnectionstatechange: (() => void) | null = null;
+  connectionState = 'new';
+  iceGatheringState: string;
   transceivers: { direction: string; kind: string }[] = [];
   localDescription: RTCSessionDescriptionInit | null = null;
   remoteDescription: RTCSessionDescriptionInit | null = null;
   closed = false;
   receivers: { track: { stop: () => void } }[] = [];
+  private iceGatheringListeners: (() => void)[] = [];
 
   constructor() {
+    this.iceGatheringState = FakePeerConnection.initialIceGatheringState;
     FakePeerConnection.instances.push(this);
   }
 
@@ -40,6 +46,34 @@ class FakePeerConnection {
   close() {
     this.closed = true;
   }
+
+  addEventListener(_type: string, listener: () => void) {
+    this.iceGatheringListeners.push(listener);
+  }
+
+  removeEventListener(_type: string, listener: () => void) {
+    this.iceGatheringListeners = this.iceGatheringListeners.filter((l) => l !== listener);
+  }
+
+  completeIceGathering() {
+    this.iceGatheringState = 'complete';
+    for (const listener of [...this.iceGatheringListeners]) {
+      listener();
+    }
+  }
+
+  setConnectionState(state: string) {
+    this.connectionState = state;
+    this.onconnectionstatechange?.();
+  }
+}
+
+const answerSdp = 'v=0\r\no=mediamtx 1 1 IN IP4 127.0.0.1\r\ns=-\r\n';
+
+async function flushMicrotasks(): Promise<void> {
+  for (let i = 0; i < 10; i += 1) {
+    await Promise.resolve();
+  }
 }
 
 describe('WhepClient', () => {
@@ -48,6 +82,7 @@ describe('WhepClient', () => {
 
   beforeEach(() => {
     FakePeerConnection.instances = [];
+    FakePeerConnection.initialIceGatheringState = 'complete';
     (globalThis as unknown as { RTCPeerConnection: typeof FakePeerConnection }).RTCPeerConnection =
       FakePeerConnection;
     videoEl = { srcObject: null } as unknown as HTMLVideoElement;
@@ -56,12 +91,13 @@ describe('WhepClient', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
   it('Posts an SDP offer with the bearer token and applies the answer', async () => {
     fetchMock.mockResolvedValue(
-      new Response('v=0\r\no=mediamtx 1 1 IN IP4 127.0.0.1\r\ns=-\r\n', {
+      new Response(answerSdp, {
         status: 200,
         headers: { 'Content-Type': 'application/sdp' },
       }),
@@ -122,9 +158,7 @@ describe('WhepClient', () => {
   });
 
   it('close() releases the peer connection', async () => {
-    fetchMock.mockResolvedValue(
-      new Response('v=0\r\no=mediamtx 1 1 IN IP4 127.0.0.1\r\ns=-\r\n', { status: 200 }),
-    );
+    fetchMock.mockResolvedValue(new Response(answerSdp, { status: 200 }));
     const client = new WhepClient({
       whepUrl: 'http://mediamtx.test/cam-x/whep',
       getToken: async () => 'token',
@@ -137,9 +171,7 @@ describe('WhepClient', () => {
   });
 
   it('Throws when reused without creating a new instance', async () => {
-    fetchMock.mockResolvedValue(
-      new Response('v=0\r\no=mediamtx 1 1 IN IP4 127.0.0.1\r\ns=-\r\n', { status: 200 }),
-    );
+    fetchMock.mockResolvedValue(new Response(answerSdp, { status: 200 }));
     const client = new WhepClient({
       whepUrl: 'http://mediamtx.test/cam-x/whep',
       getToken: async () => 'token',
@@ -148,5 +180,122 @@ describe('WhepClient', () => {
 
     await expect(client.connect(videoEl)).rejects.toThrow(/already connected/i);
   });
-});
 
+  it('Invokes onConnectionStateChange whenever the peer connection state changes', async () => {
+    fetchMock.mockResolvedValue(new Response(answerSdp, { status: 200 }));
+    const states: string[] = [];
+    const client = new WhepClient({
+      whepUrl: 'http://mediamtx.test/cam-x/whep',
+      getToken: async () => 'token',
+      onConnectionStateChange: (state) => states.push(state),
+    });
+    await client.connect(videoEl);
+
+    FakePeerConnection.lastInstance().setConnectionState('connected');
+    FakePeerConnection.lastInstance().setConnectionState('failed');
+
+    expect(states).toEqual(['connected', 'failed']);
+  });
+
+  it('close() DELETEs the captured WHEP session exactly once with the bearer token', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(answerSdp, {
+        status: 200,
+        headers: { Location: '/cam-x/whep/sessions/abc' },
+      }),
+    );
+    const client = new WhepClient({
+      whepUrl: 'http://mediamtx.test/cam-x/whep',
+      getToken: async () => 'token',
+    });
+    await client.connect(videoEl);
+
+    client.close();
+    client.close();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(FakePeerConnection.lastInstance().closed).toBe(true);
+    const deleteCalls = fetchMock.mock.calls.filter(
+      ([, init]) => (init as RequestInit).method === 'DELETE',
+    );
+    expect(deleteCalls).toHaveLength(1);
+    const [url, init] = deleteCalls[0]!;
+    expect(url).toBe('http://mediamtx.test/cam-x/whep/sessions/abc');
+    const headers = (init as RequestInit).headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer token');
+    expect((init as RequestInit).keepalive).toBe(true);
+  });
+
+  it('close() without a captured session URL performs local teardown only', async () => {
+    fetchMock.mockResolvedValue(new Response(answerSdp, { status: 200 }));
+    const client = new WhepClient({
+      whepUrl: 'http://mediamtx.test/cam-x/whep',
+      getToken: async () => 'token',
+    });
+    await client.connect(videoEl);
+    fetchMock.mockClear();
+
+    client.close();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(FakePeerConnection.lastInstance().closed).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('Aborting mid-connect leaves no live peer connection', async () => {
+    fetchMock.mockImplementation(
+      (_url: unknown, init?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+        }),
+    );
+    const controller = new AbortController();
+    const client = new WhepClient({
+      whepUrl: 'http://mediamtx.test/cam-x/whep',
+      getToken: async () => 'token',
+    });
+    const pending = client.connect(videoEl, controller.signal);
+    await flushMicrotasks();
+
+    controller.abort();
+
+    await expect(pending).rejects.toMatchObject({ name: 'WhepError', kind: 'network' });
+    expect(FakePeerConnection.lastInstance().closed).toBe(true);
+  });
+
+  it('Waits for ICE gathering completion before posting the offer', async () => {
+    FakePeerConnection.initialIceGatheringState = 'gathering';
+    fetchMock.mockResolvedValue(new Response(answerSdp, { status: 200 }));
+    const client = new WhepClient({
+      whepUrl: 'http://mediamtx.test/cam-x/whep',
+      getToken: async () => 'token',
+    });
+    const pending = client.connect(videoEl);
+    await flushMicrotasks();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    FakePeerConnection.lastInstance().completeIceGathering();
+    await pending;
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('Caps the ICE gathering wait at 250 ms', async () => {
+    vi.useFakeTimers();
+    FakePeerConnection.initialIceGatheringState = 'gathering';
+    fetchMock.mockResolvedValue(new Response(answerSdp, { status: 200 }));
+    const client = new WhepClient({
+      whepUrl: 'http://mediamtx.test/cam-x/whep',
+      getToken: async () => 'token',
+    });
+    const pending = client.connect(videoEl);
+
+    await vi.advanceTimersByTimeAsync(249);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await pending;
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+});
