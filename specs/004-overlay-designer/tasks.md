@@ -29,13 +29,13 @@ Setup tasks from specs 001-003 (Option, Result, Ensure, AggregateRoot, AspireFix
 
 Blocks every user-story task. Adds OverlayDesigner-specific infrastructure without touching the aggregate's shape.
 
-- [ ] **T001 [P] [FOUND]** Add ``react-rnd@10.5.2`` to ``apps/shared/package.json`` as a dependency. Run ``pnpm install``; commit the lockfile.
-- [ ] **T002 [FOUND]** Add ``overlay-designer-db`` database to the existing ``postgres`` resource in ``src/AppHost/AppHost.cs``: ``var overlayDesignerDb = postgres.AddDatabase("overlay-designer-db");`` + ``migrations.WithReference(overlayDesignerDb).WaitFor(overlayDesignerDb)``.
-- [ ] **T003 [FOUND]** Wire the ``overlay-designer`` API project in ``AppHost.cs``: ``builder.AddProject<Projects.SmartSentinelEye_OverlayDesigner_Api>("overlay-designer")`` with ``WithHttpEndpoint()``, ``WithReference(overlayDesignerDb)``, ``WithReference(rabbitmq)``, ``WithReference(keycloak)``, ``WaitForCompletion(migrations)``. Both management-web and kiosk-web get ``WithReference(overlayDesigner)``.
-- [ ] **T004 [P] [FOUND]** ``OverlayDesigner.Infrastructure`` NuGet refs mirror ``LayoutComposition.Infrastructure``: EFCore + Npgsql + WolverineFx stack + FrameworkReference Microsoft.AspNetCore.App (for IHubContext later when we share the LayoutLifecycle hub).
-- [ ] **T005 [P] [FOUND]** ``OverlayDesigner.Application`` project refs: Domain + Shared.Kernel + Shared.CQRS + Shared.Contracts. PackageReference Microsoft.Extensions.Logging.Abstractions + Microsoft.EntityFrameworkCore (the IQueryable.ToListAsync seam).
-- [ ] **T006 [P] [FOUND]** ``OverlayRevisionPublishedV1`` integration event in ``src/Shared.Contracts/OverlayDesigner/OverlayRevisionPublishedV1.cs``: ``(Guid Overlay, int RevisionNumber, string Name, string Text, decimal NormalizedX, decimal NormalizedY, decimal NormalizedWidth, decimal NormalizedHeight, int FontSizePx, DateTimeOffset PublishedAt, Guid PublishedBy) : IIntegrationEvent``.
-- [ ] **T007 [P] [FOUND]** ``OverlayRevisionArchivedV1``: ``(Guid Overlay, int RevisionNumber, DateTimeOffset ArchivedAt, Guid ArchivedBy) : IIntegrationEvent``.
+- [x] **T001 [P] [FOUND]** Add ``react-rnd@10.5.2`` to ``apps/shared/package.json`` as a dependency. Run ``pnpm install``; commit the lockfile.
+- [x] **T002 [FOUND]** Add ``overlay-designer-db`` database to the existing ``postgres`` resource in ``src/AppHost/AppHost.cs``: ``var overlayDesignerDb = postgres.AddDatabase("overlay-designer-db");`` + ``migrations.WithReference(overlayDesignerDb).WaitFor(overlayDesignerDb)``.
+- [x] **T003 [FOUND]** Wire the ``overlay-designer`` API project in ``AppHost.cs``: ``builder.AddProject<Projects.SmartSentinelEye_OverlayDesigner_Api>("overlay-designer")`` with ``WithHttpEndpoint()``, ``WithReference(overlayDesignerDb)``, ``WithReference(rabbitmq)``, ``WithReference(keycloak)``, ``WaitForCompletion(migrations)``. Both management-web and kiosk-web get ``WithReference(overlayDesigner)``.
+- [x] **T004 [P] [FOUND]** ``OverlayDesigner.Infrastructure`` NuGet refs mirror ``LayoutComposition.Infrastructure``: EFCore + Npgsql + WolverineFx stack + FrameworkReference Microsoft.AspNetCore.App (for IHubContext later when we share the LayoutLifecycle hub).
+- [x] **T005 [P] [FOUND]** ``OverlayDesigner.Application`` project refs: Domain + Shared.Kernel + Shared.CQRS + Shared.Contracts. PackageReference Microsoft.Extensions.Logging.Abstractions + Microsoft.EntityFrameworkCore (the IQueryable.ToListAsync seam).
+- [x] **T006 [P] [FOUND]** ``OverlayRevisionPublishedV1`` integration event in ``src/Shared.Contracts/OverlayDesigner/OverlayRevisionPublishedV1.cs``: ``(Guid Overlay, int RevisionNumber, string Name, string Text, decimal NormalizedX, decimal NormalizedY, decimal NormalizedWidth, decimal NormalizedHeight, int FontSizePx, DateTimeOffset PublishedAt, Guid PublishedBy) : IIntegrationEvent``.
+- [x] **T007 [P] [FOUND]** ``OverlayRevisionArchivedV1``: ``(Guid Overlay, int RevisionNumber, DateTimeOffset ArchivedAt, Guid ArchivedBy) : IIntegrationEvent``.
 
 **Checkpoint:** ``aspire run`` brings up ``overlay-designer`` (failing to start — OK; the goal is connection-string availability + project resource appearing in the dashboard).
 
@@ -49,86 +49,86 @@ Blocks every user-story task. Adds OverlayDesigner-specific infrastructure witho
 
 ### Tests first (TDD per Karpathy guideline #4)
 
-- [ ] **T008 [P] [US1]** ``OverlayIdentifierTests`` — ``New()`` returns Guid v7, ``From(Guid.Empty)`` throws.
-- [ ] **T009 [P] [US1]** ``OverlayRevisionIdentifierTests``.
-- [ ] **T010 [P] [US1]** ``OverlayNameTests`` — non-empty, ≤ 80 chars, no newlines (clone of LayoutName rules).
-- [ ] **T011 [P] [US1]** ``OverlayRevisionNumberTests`` — ≥ 1 invariant, ``One`` singleton, ``Next()``.
-- [ ] **T012 [P] [US1]** ``OverlayRevisionStateTests`` — three canonical singletons + ``From(string)`` round-trip.
-- [ ] **T013 [P] [US1]** ``LabelTests`` — text validation (non-empty trim, ≤ 256), normalized bounds (0..1, width/height > 0), font-size bounds (8..256), all-fields-required.
-- [ ] **T014 [P] [US1]** ``OverlayRevisionStateMachineTests`` — every allowed + forbidden transition (clone of LayoutRevisionStateMachineTests shape).
-- [ ] **T015 [P] [US1]** ``OverlayTests`` — chain invariants (at-most-one-Published, atomic swap on publish, BranchDraft copies prior Published's label, etc.).
-- [ ] **T016 [P] [US1]** ``OverlayBuilder`` fluent test helper (ADR-0054).
-- [ ] **T017 [P] [US1]** Application test fakes: ``InMemoryOverlayRepository``, ``InMemoryOverlayQuerySource`` (clone the TestAsyncEnumerable from LayoutComposition.Application.Tests), ``FakeOverlayLifecycleBroadcaster``, ``FakeClock``.
-- [ ] **T018 [P] [US1]** ``CreateOverlayDraftCommandHandlerTests`` — happy path, name-collision returns ``OverlayNameTaken``.
-- [ ] **T019 [P] [US1]** ``PublishRevisionCommandHandlerTests`` — happy path + 4 error cases (NotFound / RevisionNotFound / InvalidStateTransition / atomic-swap-archives-prior).
-- [ ] **T020 [P] [US1]** ``OverlayRevisionPublishedDomainEventHandlerTests`` — fires V1 + calls broadcaster's overlay-method.
-- [ ] **T021 [US1]** Extend ``AspireFixture`` (in ``tests/Integration.Tests/Fixtures/AspireFixture.cs``): wait for ``overlay-designer``; expose ``OverlayDesigner`` HttpClient; ``CreateOverlayDesignerDbContextAsync``; ``ResetOverlayDesignerAsync``.
-- [ ] **T022 [US1]** ``OverlayLifecycleIntegrationTests.Create_and_publish_an_overlay_emits_OverlayRevisionPublishedV1_within_500_ms`` in ``tests/Integration.Tests/OverlayDesigner/``.
+- [x] **T008 [P] [US1]** ``OverlayIdentifierTests`` — ``New()`` returns Guid v7, ``From(Guid.Empty)`` throws.
+- [x] **T009 [P] [US1]** ``OverlayRevisionIdentifierTests``.
+- [x] **T010 [P] [US1]** ``OverlayNameTests`` — non-empty, ≤ 80 chars, no newlines (clone of LayoutName rules).
+- [x] **T011 [P] [US1]** ``OverlayRevisionNumberTests`` — ≥ 1 invariant, ``One`` singleton, ``Next()``.
+- [x] **T012 [P] [US1]** ``OverlayRevisionStateTests`` — three canonical singletons + ``From(string)`` round-trip.
+- [x] **T013 [P] [US1]** ``LabelTests`` — text validation (non-empty trim, ≤ 256), normalized bounds (0..1, width/height > 0), font-size bounds (8..256), all-fields-required.
+- [x] **T014 [P] [US1]** ``OverlayRevisionStateMachineTests`` — every allowed + forbidden transition (clone of LayoutRevisionStateMachineTests shape).
+- [x] **T015 [P] [US1]** ``OverlayTests`` — chain invariants (at-most-one-Published, atomic swap on publish, BranchDraft copies prior Published's label, etc.).
+- [x] **T016 [P] [US1]** ``OverlayBuilder`` fluent test helper (ADR-0054).
+- [x] **T017 [P] [US1]** Application test fakes: ``InMemoryOverlayRepository``, ``InMemoryOverlayQuerySource`` (clone the TestAsyncEnumerable from LayoutComposition.Application.Tests), ``FakeOverlayLifecycleBroadcaster``, ``FakeClock``.
+- [x] **T018 [P] [US1]** ``CreateOverlayDraftCommandHandlerTests`` — happy path, name-collision returns ``OverlayNameTaken``.
+- [x] **T019 [P] [US1]** ``PublishRevisionCommandHandlerTests`` — happy path + 4 error cases (NotFound / RevisionNotFound / InvalidStateTransition / atomic-swap-archives-prior).
+- [x] **T020 [P] [US1]** ``OverlayRevisionPublishedDomainEventHandlerTests`` — fires V1 + calls broadcaster's overlay-method.
+- [x] **T021 [US1]** Extend ``AspireFixture`` (in ``tests/Integration.Tests/Fixtures/AspireFixture.cs``): wait for ``overlay-designer``; expose ``OverlayDesigner`` HttpClient; ``CreateOverlayDesignerDbContextAsync``; ``ResetOverlayDesignerAsync``.
+- [x] **T022 [US1]** ``OverlayLifecycleIntegrationTests.Create_and_publish_an_overlay_emits_OverlayRevisionPublishedV1_within_500_ms`` in ``tests/Integration.Tests/OverlayDesigner/``.
 
 ### Domain layer
 
-- [ ] **T023 [P] [US1]** ``OverlayIdentifier`` value object (Guid v7 IStronglyTypedId).
-- [ ] **T024 [P] [US1]** ``OverlayRevisionIdentifier``.
-- [ ] **T025 [P] [US1]** ``OverlayName`` string VO.
-- [ ] **T026 [P] [US1]** ``OverlayRevisionNumber`` int VO; ``One`` static; ``Next()``.
-- [ ] **T027 [P] [US1]** ``OverlayRevisionState`` enum-backed VO (Draft / Published / Archived).
-- [ ] **T028 [P] [US1]** ``Label`` value object — text + normalized x/y/width/height + fontSizePx; all validated via ``Ensure.That(...)``. Decimal bounds via ``.Satisfies(...)``.
-- [ ] **T029 [P] [US1]** ``OverlayRevisionPublishedDomainEvent`` (in-process); carries identifier + revision number + Label + timestamps + operator.
-- [ ] **T030 [P] [US1]** ``OverlayRevisionArchivedDomainEvent``.
-- [ ] **T031 [US1]** ``Revision`` entity in ``src/OverlayDesigner/Domain/Overlay/Revision.cs`` — internal mutators for Publish/Revert/EditLabel/Archive; mirrors Layout's Revision shape.
-- [ ] **T032 [US1]** ``Overlay`` aggregate root — CreateDraft / BranchDraft / EditDraft / Publish / Revert / ArchiveRevision (mirrors Layout aggregate signatures with Label replacing Camera).
-- [ ] **T033 [P] [US1]** ``IOverlayRepository`` interface: GetByIdentifier / GetByName (filters out fully-archived chains) / Add / SaveAsync.
+- [x] **T023 [P] [US1]** ``OverlayIdentifier`` value object (Guid v7 IStronglyTypedId).
+- [x] **T024 [P] [US1]** ``OverlayRevisionIdentifier``.
+- [x] **T025 [P] [US1]** ``OverlayName`` string VO.
+- [x] **T026 [P] [US1]** ``OverlayRevisionNumber`` int VO; ``One`` static; ``Next()``.
+- [x] **T027 [P] [US1]** ``OverlayRevisionState`` enum-backed VO (Draft / Published / Archived).
+- [x] **T028 [P] [US1]** ``Label`` value object — text + normalized x/y/width/height + fontSizePx; all validated via ``Ensure.That(...)``. Decimal bounds via ``.Satisfies(...)``.
+- [x] **T029 [P] [US1]** ``OverlayRevisionPublishedDomainEvent`` (in-process); carries identifier + revision number + Label + timestamps + operator.
+- [x] **T030 [P] [US1]** ``OverlayRevisionArchivedDomainEvent``.
+- [x] **T031 [US1]** ``Revision`` entity in ``src/OverlayDesigner/Domain/Overlay/Revision.cs`` — internal mutators for Publish/Revert/EditLabel/Archive; mirrors Layout's Revision shape.
+- [x] **T032 [US1]** ``Overlay`` aggregate root — CreateDraft / BranchDraft / EditDraft / Publish / Revert / ArchiveRevision (mirrors Layout aggregate signatures with Label replacing Camera).
+- [x] **T033 [P] [US1]** ``IOverlayRepository`` interface: GetByIdentifier / GetByName (filters out fully-archived chains) / Add / SaveAsync.
 
 ### Application layer
 
-- [ ] **T034 [P] [US1]** ``CreateOverlayDraftCommand`` + ``CreateOverlayDraftErrors`` (``OverlayNameTaken``).
-- [ ] **T035 [US1]** ``CreateOverlayDraftCommandHandler``.
-- [ ] **T036 [P] [US1]** ``PublishRevisionCommand`` + ``PublishRevisionErrors`` (LayoutNotFound / RevisionNotFound / InvalidStateTransition — names mirror Layout).
-- [ ] **T037 [US1]** ``PublishRevisionCommandHandler``.
-- [ ] **T038 [P] [US1]** ``OverlayRevisionPublishedDomainEventHandler`` — publishes V1 + calls ``ILayoutLifecycleBroadcaster.OverlayPublishedAsync`` (cross-context broadcaster reference; see T053).
-- [ ] **T039 [P] [US1]** ``OverlayRevisionArchivedDomainEventHandler`` — publishes V1 + calls ``ILayoutLifecycleBroadcaster.OverlayArchivedAsync``.
-- [ ] **T040 [P] [US1]** ``OverlayDto`` + ``OverlayRevisionDto`` (DTOs carry full Label).
+- [x] **T034 [P] [US1]** ``CreateOverlayDraftCommand`` + ``CreateOverlayDraftErrors`` (``OverlayNameTaken``).
+- [x] **T035 [US1]** ``CreateOverlayDraftCommandHandler``.
+- [x] **T036 [P] [US1]** ``PublishRevisionCommand`` + ``PublishRevisionErrors`` (LayoutNotFound / RevisionNotFound / InvalidStateTransition — names mirror Layout).
+- [x] **T037 [US1]** ``PublishRevisionCommandHandler``.
+- [x] **T038 [P] [US1]** ``OverlayRevisionPublishedDomainEventHandler`` — publishes V1 + calls ``ILayoutLifecycleBroadcaster.OverlayPublishedAsync`` (cross-context broadcaster reference; see T053).
+- [x] **T039 [P] [US1]** ``OverlayRevisionArchivedDomainEventHandler`` — publishes V1 + calls ``ILayoutLifecycleBroadcaster.OverlayArchivedAsync``.
+- [x] **T040 [P] [US1]** ``OverlayDto`` + ``OverlayRevisionDto`` (DTOs carry full Label).
 
 ### Infrastructure layer
 
-- [ ] **T041 [P] [US1]** ``OverlayDesignerDbContext`` + ``ApplyConfigurationsFromAssembly``.
-- [ ] **T042 [P] [US1]** ``OverlayConfiguration`` — aggregate + ``OwnsMany(o => o.Revisions)``; the Label is mapped via individual columns on each revision (label_text / label_x / label_y / label_width / label_height / label_font_size_px). Indexes: ``ux_overlay_revisions_number (overlay_id, revision_number)`` + partial ``ux_overlay_revisions_one_published (overlay_id) WHERE state='Published'``.
-- [ ] **T043 [P] [US1]** ``OverlayRepository`` (IOverlayRepository impl) — same SaveAsync-then-dispatch pattern as LayoutRepository.
-- [ ] **T044 [P] [US1]** ``OverlayQuerySource`` (``IOverlayQuerySource`` impl, ``AsNoTracking``).
-- [ ] **T045 [P] [US1]** ``OverlayDesignerMigrator`` + ``DesignTimeDbContextFactory``.
-- [ ] **T046 [US1]** EF migration ``<timestamp>_InitialOverlayDesigner.cs`` — creates the two tables + the partial unique index.
-- [ ] **T047 [P] [US1]** ``OverlayDesignerPersistenceModule.AddOverlayDesignerPersistence`` (slim, used by MigrationRunner).
-- [ ] **T048 [US1]** ``OverlayDesignerInfrastructureModule.AddOverlayDesignerInfrastructure`` — registers ``IOverlayRepository``, domain-event handlers, ``IDomainEventDispatcher``, ``IClock``, ``IEventBus``, ``IOverlayQuerySource``. Wires ``AddWolverineForContext`` with ``configureMore``. **Does NOT register ``ILayoutLifecycleBroadcaster`` — that's consumed from LayoutComposition's container registration via the shared abstraction.**
-- [ ] **T049 [US1]** ``MigrationRunner.Program.cs`` adds ``builder.AddOverlayDesignerPersistence();``.
+- [x] **T041 [P] [US1]** ``OverlayDesignerDbContext`` + ``ApplyConfigurationsFromAssembly``.
+- [x] **T042 [P] [US1]** ``OverlayConfiguration`` — aggregate + ``OwnsMany(o => o.Revisions)``; the Label is mapped via individual columns on each revision (label_text / label_x / label_y / label_width / label_height / label_font_size_px). Indexes: ``ux_overlay_revisions_number (overlay_id, revision_number)`` + partial ``ux_overlay_revisions_one_published (overlay_id) WHERE state='Published'``.
+- [x] **T043 [P] [US1]** ``OverlayRepository`` (IOverlayRepository impl) — same SaveAsync-then-dispatch pattern as LayoutRepository.
+- [x] **T044 [P] [US1]** ``OverlayQuerySource`` (``IOverlayQuerySource`` impl, ``AsNoTracking``).
+- [x] **T045 [P] [US1]** ``OverlayDesignerMigrator`` + ``DesignTimeDbContextFactory``.
+- [x] **T046 [US1]** EF migration ``<timestamp>_InitialOverlayDesigner.cs`` — creates the two tables + the partial unique index.
+- [x] **T047 [P] [US1]** ``OverlayDesignerPersistenceModule.AddOverlayDesignerPersistence`` (slim, used by MigrationRunner).
+- [x] **T048 [US1]** ``OverlayDesignerInfrastructureModule.AddOverlayDesignerInfrastructure`` — registers ``IOverlayRepository``, domain-event handlers, ``IDomainEventDispatcher``, ``IClock``, ``IEventBus``, ``IOverlayQuerySource``. Wires ``AddWolverineForContext`` with ``configureMore``. **Does NOT register ``ILayoutLifecycleBroadcaster`` — that's consumed from LayoutComposition's container registration via the shared abstraction.**
+- [x] **T049 [US1]** ``MigrationRunner.Program.cs`` adds ``builder.AddOverlayDesignerPersistence();``.
 
 ### Application + Domain → Broadcaster bridge (the cross-context exception)
 
-- [ ] **T050 [US1]** Extend ``ILayoutLifecycleBroadcaster`` (in ``src/LayoutComposition/Domain/Layout/ILayoutLifecycleBroadcaster.cs``) with two new methods: ``OverlayPublishedAsync(OverlayLifecyclePublishedNotification, CancellationToken)`` and ``OverlayArchivedAsync(OverlayLifecycleArchivedNotification, CancellationToken)``. Notification records live alongside the interface.
+- [x] **T050 [US1]** Extend ``ILayoutLifecycleBroadcaster`` (in ``src/LayoutComposition/Domain/Layout/ILayoutLifecycleBroadcaster.cs``) with two new methods: ``OverlayPublishedAsync(OverlayLifecyclePublishedNotification, CancellationToken)`` and ``OverlayArchivedAsync(OverlayLifecycleArchivedNotification, CancellationToken)``. Notification records live alongside the interface.
 
   > Cross-context note: ``OverlayLifecyclePublishedNotification`` carries primitive types only (Guid + int + string + decimals). No reference to ``OverlayDesigner.Domain.Label`` — the broadcaster contract stays free of OverlayDesigner types so the architecture rule allowing this reference doesn't widen.
 
-- [ ] **T051 [US1]** Update ``SignalRLayoutLifecycleBroadcaster`` (Infrastructure) to implement the two new methods; map the notification to ``OverlayRevisionPublishedHubMessage`` / ``OverlayRevisionArchivedHubMessage`` and call ``hub.Clients.All.OverlayRevisionPublished/Archived(message)``.
-- [ ] **T052 [US1]** Add ``LayoutRevisionPublishedHubMessage`` siblings: ``OverlayRevisionPublishedHubMessage`` (primitive types only, mirrors the V1 shape) and ``OverlayRevisionArchivedHubMessage`` in ``src/LayoutComposition/Infrastructure/Broadcasting/``.
-- [ ] **T053 [US1]** ``ILayoutLifecycleClient`` (in ``Infrastructure/Broadcasting``) grows ``OverlayRevisionPublished(OverlayRevisionPublishedHubMessage)`` and ``OverlayRevisionArchived(OverlayRevisionArchivedHubMessage)`` methods.
+- [x] **T051 [US1]** Update ``SignalRLayoutLifecycleBroadcaster`` (Infrastructure) to implement the two new methods; map the notification to ``OverlayRevisionPublishedHubMessage`` / ``OverlayRevisionArchivedHubMessage`` and call ``hub.Clients.All.OverlayRevisionPublished/Archived(message)``.
+- [x] **T052 [US1]** Add ``LayoutRevisionPublishedHubMessage`` siblings: ``OverlayRevisionPublishedHubMessage`` (primitive types only, mirrors the V1 shape) and ``OverlayRevisionArchivedHubMessage`` in ``src/LayoutComposition/Infrastructure/Broadcasting/``.
+- [x] **T053 [US1]** ``ILayoutLifecycleClient`` (in ``Infrastructure/Broadcasting``) grows ``OverlayRevisionPublished(OverlayRevisionPublishedHubMessage)`` and ``OverlayRevisionArchived(OverlayRevisionArchivedHubMessage)`` methods.
 
 ### Api layer
 
-- [ ] **T054 [P] [US1]** ``OverlayEndpoints.MapOverlayEndpoints`` — POST /overlays, GET /overlays/{id}, GET /overlays?state=..., POST /overlays/{id}/revisions/{n}/publish, POST /overlays/{id}/revisions/{n}/archive (the four additional revisions endpoints land in PR F). Admin policy + Result.Match → Created/OK/Problem.
-- [ ] **T055 [P] [US1]** ``OverlayDesignerApiModule.AddOverlayDesignerApi`` — registers the concrete command/query handler classes.
-- [ ] **T056 [P] [US1]** ``CreateOverlayRequest`` body record + ``LabelRequest`` shared body for label payloads.
-- [ ] **T057 [US1]** ``Program.cs``: ``AddServiceDefaults`` + ``AddBearerAuthentication`` + ``AddOverlayDesignerInfrastructure`` + ``AddOverlayDesignerApi`` + ``MapOverlayEndpoints``.
+- [x] **T054 [P] [US1]** ``OverlayEndpoints.MapOverlayEndpoints`` — POST /overlays, GET /overlays/{id}, GET /overlays?state=..., POST /overlays/{id}/revisions/{n}/publish, POST /overlays/{id}/revisions/{n}/archive (the four additional revisions endpoints land in PR F). Admin policy + Result.Match → Created/OK/Problem.
+- [x] **T055 [P] [US1]** ``OverlayDesignerApiModule.AddOverlayDesignerApi`` — registers the concrete command/query handler classes.
+- [x] **T056 [P] [US1]** ``CreateOverlayRequest`` body record + ``LabelRequest`` shared body for label payloads.
+- [x] **T057 [US1]** ``Program.cs``: ``AddServiceDefaults`` + ``AddBearerAuthentication`` + ``AddOverlayDesignerInfrastructure`` + ``AddOverlayDesignerApi`` + ``MapOverlayEndpoints``.
 
 ### Frontend (management-web)
 
-- [ ] **T058 [P] [US1]** ``overlays.api.ts`` in ``apps/shared/src/api/``: RTK Query slice — createOverlayDraft / getOverlay / listOverlays / publishRevision / archiveRevision (branch/edit/revert land in PR F). Tag types ``Overlay`` + ``OverlayList``. ``./api/overlays.api`` export added to shared package.json.
-- [ ] **T059 [P] [US1]** ``OverlayEditor.tsx`` in ``apps/shared/src/ui/composites/``: react-rnd-based composite. Renders a fixed-aspect placeholder background; ``<Rnd>`` wraps the label preview; ``<input type="range">`` for font size; ``<input type="text">`` for label text. All four normalized values clamped to [0,1] before ``onChange``. ``./ui/composites/OverlayEditor`` export.
-- [ ] **T060 [US1]** ``app/store.ts`` (management-web): add ``overlaysApi`` reducer + middleware.
-- [ ] **T061 [P] [US1]** ``OverlayEditorDialog.tsx`` in ``apps/management-web/src/features/overlays/``: Dialog wrapping ``<OverlayEditor>`` + a name field. Reused for new-chain (CreateOverlayDraftMutation) and new-revision (BranchDraftRevisionMutation in PR F) flows.
-- [ ] **T062 [P] [US1]** ``OverlayEditorDialog.test.tsx`` — render, submit, validation.
-- [ ] **T063 [US1]** ``OverlaysPage.tsx`` in ``apps/management-web/src/features/overlays/``: DataTable + state-filter chips + per-row Publish / Archive actions. Same shape as LayoutsPage.
-- [ ] **T064 [P] [US1]** ``OverlaysPage.test.tsx`` — empty state, populated list, Publish fires mutation, retry control.
-- [ ] **T065 [US1]** ``App.tsx`` (management-web): add **Overlays** to the nav toggle.
-- [ ] **T066 [P] [US1]** Update ``App.test.tsx`` smoke test to mock the four ``overlaysApi`` hooks.
+- [x] **T058 [P] [US1]** ``overlays.api.ts`` in ``apps/shared/src/api/``: RTK Query slice — createOverlayDraft / getOverlay / listOverlays / publishRevision / archiveRevision (branch/edit/revert land in PR F). Tag types ``Overlay`` + ``OverlayList``. ``./api/overlays.api`` export added to shared package.json.
+- [x] **T059 [P] [US1]** ``OverlayEditor.tsx`` in ``apps/shared/src/ui/composites/``: react-rnd-based composite. Renders a fixed-aspect placeholder background; ``<Rnd>`` wraps the label preview; ``<input type="range">`` for font size; ``<input type="text">`` for label text. All four normalized values clamped to [0,1] before ``onChange``. ``./ui/composites/OverlayEditor`` export.
+- [x] **T060 [US1]** ``app/store.ts`` (management-web): add ``overlaysApi`` reducer + middleware.
+- [x] **T061 [P] [US1]** ``OverlayEditorDialog.tsx`` in ``apps/management-web/src/features/overlays/``: Dialog wrapping ``<OverlayEditor>`` + a name field. Reused for new-chain (CreateOverlayDraftMutation) and new-revision (BranchDraftRevisionMutation in PR F) flows.
+- [x] **T062 [P] [US1]** ``OverlayEditorDialog.test.tsx`` — render, submit, validation.
+- [x] **T063 [US1]** ``OverlaysPage.tsx`` in ``apps/management-web/src/features/overlays/``: DataTable + state-filter chips + per-row Publish / Archive actions. Same shape as LayoutsPage.
+- [x] **T064 [P] [US1]** ``OverlaysPage.test.tsx`` — empty state, populated list, Publish fires mutation, retry control.
+- [x] **T065 [US1]** ``App.tsx`` (management-web): add **Overlays** to the nav toggle.
+- [x] **T066 [P] [US1]** Update ``App.test.tsx`` smoke test to mock the four ``overlaysApi`` hooks.
 
 **Checkpoint:** Admin can create + publish an overlay end-to-end. The bus carries ``OverlayRevisionPublishedV1``. No kiosk-side rendering yet.
 
@@ -140,12 +140,12 @@ Blocks every user-story task. Adds OverlayDesigner-specific infrastructure witho
 
 **Independent Test:** ``LayoutComposition.Domain.Tests/Layout/LayoutTests.cs`` extended with ``CreateDraft_with_an_overlay_carries_it_into_the_first_revision``.
 
-- [ ] **T067 [LAYOUTEXT]** New value-copy struct ``OverlayIdentifier`` in ``src/LayoutComposition/Domain/Layout/OverlayIdentifier.cs`` (Guid v7 IStronglyTypedId). Same shape as ``CameraIdentifier`` — a value-copy of the OverlayDesigner identifier; **no project reference**.
-- [ ] **T068 [LAYOUTEXT]** ``Revision`` (in LayoutComposition.Domain) gains ``public OverlayIdentifier? Overlay { get; private set; }`` + ``internal void AttachOverlay(OverlayIdentifier?)``.
-- [ ] **T069 [LAYOUTEXT]** ``Layout.CreateDraft`` + ``BranchDraft`` + ``EditDraft`` signatures grow an optional ``OverlayIdentifier?`` parameter. ``BranchDraft`` copies the overlay from the current Published.
-- [ ] **T070 [LAYOUTEXT]** Update ``CreateLayoutDraftCommand`` + ``EditDraftRevisionCommand`` to carry ``OverlayIdentifier?``; matching DTOs + API request bodies. ``null`` clears the binding on EditDraft.
-- [ ] **T071 [LAYOUTEXT]** EF migration ``<timestamp>_AddLayoutOverlayBinding.cs``: ``ALTER TABLE layout_revisions ADD COLUMN overlay_id uuid NULL`` + EF mapping update in ``LayoutConfiguration``.
-- [ ] **T072 [LAYOUTEXT]** Extend ``LayoutComposition.Domain.Tests`` and ``LayoutComposition.Application.Tests`` to cover the new field. Existing tests stay green (the default for the new arg is ``null``).
+- [x] **T067 [LAYOUTEXT]** New value-copy struct ``OverlayIdentifier`` in ``src/LayoutComposition/Domain/Layout/OverlayIdentifier.cs`` (Guid v7 IStronglyTypedId). Same shape as ``CameraIdentifier`` — a value-copy of the OverlayDesigner identifier; **no project reference**.
+- [x] **T068 [LAYOUTEXT]** ``Revision`` (in LayoutComposition.Domain) gains ``public OverlayIdentifier? Overlay { get; private set; }`` + ``internal void AttachOverlay(OverlayIdentifier?)``.
+- [x] **T069 [LAYOUTEXT]** ``Layout.CreateDraft`` + ``BranchDraft`` + ``EditDraft`` signatures grow an optional ``OverlayIdentifier?`` parameter. ``BranchDraft`` copies the overlay from the current Published.
+- [x] **T070 [LAYOUTEXT]** Update ``CreateLayoutDraftCommand`` + ``EditDraftRevisionCommand`` to carry ``OverlayIdentifier?``; matching DTOs + API request bodies. ``null`` clears the binding on EditDraft.
+- [x] **T071 [LAYOUTEXT]** EF migration ``<timestamp>_AddLayoutOverlayBinding.cs``: ``ALTER TABLE layout_revisions ADD COLUMN overlay_id uuid NULL`` + EF mapping update in ``LayoutConfiguration``.
+- [x] **T072 [LAYOUTEXT]** Extend ``LayoutComposition.Domain.Tests`` and ``LayoutComposition.Application.Tests`` to cover the new field. Existing tests stay green (the default for the new arg is ``null``).
 
 **Checkpoint:** Layouts can carry an overlay binding (no kiosk rendering yet).
 
@@ -157,14 +157,14 @@ Blocks every user-story task. Adds OverlayDesigner-specific infrastructure witho
 
 **Independent Test:** ``OverlayBindingIntegrationTests.Bound_overlay_appears_in_GET_layout_and_in_GET_overlay`` + a kiosk-web vitest that asserts ``<CameraViewer overlay={...}>`` renders the label span.
 
-- [ ] **T073 [P] [US2]** Extend ``CameraViewer.tsx`` (``apps/shared/src/ui/composites/CameraViewer.tsx``): add optional ``overlay?: { text, normalizedX, normalizedY, normalizedWidth, normalizedHeight, fontSizePx }`` prop. When set, render an absolutely-positioned ``<span>`` over the ``<video>`` with the label; CSS ``clamp(...)`` ties fontSizePx to the viewport.
-- [ ] **T074 [P] [US2]** ``CameraViewer.test.tsx`` extends to cover the overlay rendering case.
-- [ ] **T075 [P] [US2]** ``LayoutDto`` + ``LayoutRevisionDto`` carry the new ``OverlayIdentifier?`` field (from Phase B'); the kiosk-web layouts.api types learn it.
-- [ ] **T076 [US2]** ``CellPage.tsx`` (kiosk-web): when ``data.revisions[Published].overlayIdentifier`` is set, call ``useGetOverlayQuery(overlayIdentifier)`` (new hook from ``overlays.api.ts``); pass the Published revision's ``Label`` into ``<CameraViewer overlay={...}>``.
-- [ ] **T077 [P] [US2]** ``CellPage.test.tsx`` extends — bound overlay renders the label; unbound layout renders the viewer alone (no regression).
-- [ ] **T078 [US2]** Extend ``LayoutEditorDialog.tsx`` (management-web) with an **Overlay** dropdown fed by ``useListOverlaysQuery('Published')``. ``(none)`` clears binding; otherwise sets ``overlayIdentifier``.
-- [ ] **T079 [P] [US2]** ``LayoutEditorDialog.test.tsx`` extension — overlay-picker submits the right body.
-- [ ] **T080 [US2]** ``OverlayBindingIntegrationTests`` in ``tests/Integration.Tests/OverlayDesigner/``: publish overlay, publish layout that references it, ``GET /layouts/{id}`` carries the overlayIdentifier, ``GET /overlays/{id}`` returns the Published label.
+- [x] **T073 [P] [US2]** Extend ``CameraViewer.tsx`` (``apps/shared/src/ui/composites/CameraViewer.tsx``): add optional ``overlay?: { text, normalizedX, normalizedY, normalizedWidth, normalizedHeight, fontSizePx }`` prop. When set, render an absolutely-positioned ``<span>`` over the ``<video>`` with the label; CSS ``clamp(...)`` ties fontSizePx to the viewport.
+- [x] **T074 [P] [US2]** ``CameraViewer.test.tsx`` extends to cover the overlay rendering case.
+- [x] **T075 [P] [US2]** ``LayoutDto`` + ``LayoutRevisionDto`` carry the new ``OverlayIdentifier?`` field (from Phase B'); the kiosk-web layouts.api types learn it.
+- [x] **T076 [US2]** ``CellPage.tsx`` (kiosk-web): when ``data.revisions[Published].overlayIdentifier`` is set, call ``useGetOverlayQuery(overlayIdentifier)`` (new hook from ``overlays.api.ts``); pass the Published revision's ``Label`` into ``<CameraViewer overlay={...}>``.
+- [x] **T077 [P] [US2]** ``CellPage.test.tsx`` extends — bound overlay renders the label; unbound layout renders the viewer alone (no regression).
+- [x] **T078 [US2]** Extend ``LayoutEditorDialog.tsx`` (management-web) with an **Overlay** dropdown fed by ``useListOverlaysQuery('Published')``. ``(none)`` clears binding; otherwise sets ``overlayIdentifier``.
+- [x] **T079 [P] [US2]** ``LayoutEditorDialog.test.tsx`` extension — overlay-picker submits the right body.
+- [x] **T080 [US2]** ``OverlayBindingIntegrationTests`` in ``tests/Integration.Tests/OverlayDesigner/``: publish overlay, publish layout that references it, ``GET /layouts/{id}`` carries the overlayIdentifier, ``GET /overlays/{id}`` returns the Published label.
 
 **Checkpoint:** Operator picks the layout on the kiosk and sees the camera + overlay composited.
 
@@ -176,11 +176,11 @@ Blocks every user-story task. Adds OverlayDesigner-specific infrastructure witho
 
 **Independent Test:** ``OverlayPushIntegrationTests.Overlay_republish_pushes_to_connected_clients_within_one_second``.
 
-- [ ] **T081 [P] [US3]** ``useLayoutLifecycle`` hook (kiosk-web) grows ``onOverlayPublished`` / ``onOverlayArchived`` callbacks. On reconnect, invalidates the overlay-by-identifier cache the same way layout-list is invalidated.
-- [ ] **T082 [US3]** ``CellPage.tsx`` subscribes to ``onOverlayPublished`` for the bound overlay identifier; on match, invalidates the overlay cache so RTK Query re-fetches.
-- [ ] **T083 [US3]** ``CellPage.tsx`` ``onOverlayArchived`` for the bound overlay: hide the label + show a small banner ("overlay unavailable").
-- [ ] **T084 [P] [US3]** ``OverlayPushIntegrationTests`` — two SignalR clients; admin publishes overlay revision 2 (via the API); both clients receive ``OverlayRevisionPublished`` within 1 s; payload carries the new Label fields.
-- [ ] **T085 [P] [US3]** Update ``apps/shared/src/realtime/layoutHub.ts`` (the SignalR client wrapper) — add typed ``onOverlayPublished`` / ``onOverlayArchived`` to the callbacks contract; subscribe via ``connection.on("OverlayRevisionPublished", ...)``.
+- [x] **T081 [P] [US3]** ``useLayoutLifecycle`` hook (kiosk-web) grows ``onOverlayPublished`` / ``onOverlayArchived`` callbacks. On reconnect, invalidates the overlay-by-identifier cache the same way layout-list is invalidated.
+- [x] **T082 [US3]** ``CellPage.tsx`` subscribes to ``onOverlayPublished`` for the bound overlay identifier; on match, invalidates the overlay cache so RTK Query re-fetches.
+- [x] **T083 [US3]** ``CellPage.tsx`` ``onOverlayArchived`` for the bound overlay: hide the label + show a small banner ("overlay unavailable").
+- [x] **T084 [P] [US3]** ``OverlayPushIntegrationTests`` — two SignalR clients; admin publishes overlay revision 2 (via the API); both clients receive ``OverlayRevisionPublished`` within 1 s; payload carries the new Label fields.
+- [x] **T085 [P] [US3]** Update ``apps/shared/src/realtime/layoutHub.ts`` (the SignalR client wrapper) — add typed ``onOverlayPublished`` / ``onOverlayArchived`` to the callbacks contract; subscribe via ``connection.on("OverlayRevisionPublished", ...)``.
 
 **Checkpoint:** Admin republishes an overlay; every kiosk rendering a Layout that references it updates the label without page reload.
 
@@ -192,15 +192,15 @@ Blocks every user-story task. Adds OverlayDesigner-specific infrastructure witho
 
 **Independent Test:** ``OverlayLifecycleIntegrationTests.Publish_a_new_revision_atomically_archives_the_previous_published_revision``.
 
-- [ ] **T086 [P] [US4]** ``BranchDraftRevisionCommand`` + ``BranchDraftRevisionErrors`` (LayoutNotFound / NoPublishedRevisionToBranchFrom — mirror Layout naming).
-- [ ] **T087 [US4]** ``BranchDraftRevisionCommandHandler``.
-- [ ] **T088 [P] [US4]** ``EditDraftRevisionCommand`` (carries the full Label) + Errors.
-- [ ] **T089 [US4]** ``EditDraftRevisionCommandHandler``.
-- [ ] **T090 [P] [US4]** ``RevertRevisionCommand`` + Errors + Handler.
-- [ ] **T091 [US4]** Map the three new endpoints in ``OverlayEndpoints.cs``: ``POST /overlays/{id}/draft``, ``PATCH /overlays/{id}/revisions/{n}``, ``POST /overlays/{id}/revisions/{n}/revert``.
-- [ ] **T092 [P] [US4]** Extend ``overlays.api.ts`` with ``branchDraftRevision`` / ``editDraftRevision`` / ``revertRevision`` mutations.
-- [ ] **T093 [US4]** Extend ``OverlaysPage.tsx`` with **Edit (new draft)** + **Revert** + **Archive** actions per state. The Edit action opens ``OverlayEditorDialog`` in branch-from-Published mode (pre-fills with the current Label).
-- [ ] **T094 [US4]** ``OverlayLifecycleIntegrationTests.Publish_a_new_revision_atomically_archives_the_previous_published_revision``.
+- [x] **T086 [P] [US4]** ``BranchDraftRevisionCommand`` + ``BranchDraftRevisionErrors`` (LayoutNotFound / NoPublishedRevisionToBranchFrom — mirror Layout naming).
+- [x] **T087 [US4]** ``BranchDraftRevisionCommandHandler``.
+- [x] **T088 [P] [US4]** ``EditDraftRevisionCommand`` (carries the full Label) + Errors.
+- [x] **T089 [US4]** ``EditDraftRevisionCommandHandler``.
+- [x] **T090 [P] [US4]** ``RevertRevisionCommand`` + Errors + Handler.
+- [x] **T091 [US4]** Map the three new endpoints in ``OverlayEndpoints.cs``: ``POST /overlays/{id}/draft``, ``PATCH /overlays/{id}/revisions/{n}``, ``POST /overlays/{id}/revisions/{n}/revert``.
+- [x] **T092 [P] [US4]** Extend ``overlays.api.ts`` with ``branchDraftRevision`` / ``editDraftRevision`` / ``revertRevision`` mutations.
+- [x] **T093 [US4]** Extend ``OverlaysPage.tsx`` with **Edit (new draft)** + **Revert** + **Archive** actions per state. The Edit action opens ``OverlayEditorDialog`` in branch-from-Published mode (pre-fills with the current Label).
+- [x] **T094 [US4]** ``OverlayLifecycleIntegrationTests.Publish_a_new_revision_atomically_archives_the_previous_published_revision``.
 
 **Checkpoint:** Full revision chain works end-to-end on overlays.
 
@@ -208,12 +208,12 @@ Blocks every user-story task. Adds OverlayDesigner-specific infrastructure witho
 
 ## Phase 6: Polish
 
-- [ ] **T095 [P] [POLISH]** Coverage gates: extend ``scripts/coverage-check.ps1`` with ``OverlayDesigner.Domain >= 90%`` and ``OverlayDesigner.Application >= 80%``. Backfill any missing handler/query tests.
-- [ ] **T096 [P] [POLISH]** ``OverlayRevisionPublishedV1Tests`` + ``OverlayRevisionArchivedV1Tests`` in ``tests/Shared.Contracts.Tests/`` — positional ctor, IIntegrationEvent, equality, JSON round-trip.
-- [ ] **T097 [P] [POLISH]** Architecture tests confirm: ``OverlayDesigner.Domain`` no SignalR / EF / Wolverine refs; no cross-context project references except the documented ``OverlayDesigner.Application → LayoutComposition.Domain.ILayoutLifecycleBroadcaster`` allow-rule (add an explicit assertion exercising the rule).
-- [ ] **T098 [POLISH]** ``ReconnectReconcileIntegrationTests`` (still owed from spec 003 PR G, tracked by #306) lands here as well — drop+reconnect a SignalR client; archive an overlay's bound layout; assert force-disconnect within 5 s of reconnect.
-- [ ] **T099 [POLISH]** Update ``README.md`` quickstart: append a **"Compose an overlay on the layout"** section after the existing "Publish a layout and view it on a kiosk" step.
-- [ ] **T100 [POLISH]** Phase-5 verification gate (per ADR-0037): start ``aspire run``, sign in as admin, register a camera, create+publish an overlay, edit a Layout to bind it, observe the kiosk render the overlay over the live frame, edit+republish the overlay, observe the kiosk update within 1 s. Capture a screenshot or describe clearly in the PR.
+- [x] **T095 [P] [POLISH]** Coverage gates: extend ``scripts/coverage-check.ps1`` with ``OverlayDesigner.Domain >= 90%`` and ``OverlayDesigner.Application >= 80%``. Backfill any missing handler/query tests.
+- [x] **T096 [P] [POLISH]** ``OverlayRevisionPublishedV1Tests`` + ``OverlayRevisionArchivedV1Tests`` in ``tests/Shared.Contracts.Tests/`` — positional ctor, IIntegrationEvent, equality, JSON round-trip.
+- [x] **T097 [P] [POLISH]** Architecture tests confirm: ``OverlayDesigner.Domain`` no SignalR / EF / Wolverine refs; no cross-context project references except the documented ``OverlayDesigner.Application → LayoutComposition.Domain.ILayoutLifecycleBroadcaster`` allow-rule (add an explicit assertion exercising the rule).
+- [x] **T098 [POLISH]** ``ReconnectReconcileIntegrationTests`` (still owed from spec 003 PR G, tracked by #306) lands here as well — drop+reconnect a SignalR client; archive an overlay's bound layout; assert force-disconnect within 5 s of reconnect.
+- [x] **T099 [POLISH]** Update ``README.md`` quickstart: append a **"Compose an overlay on the layout"** section after the existing "Publish a layout and view it on a kiosk" step.
+- [x] **T100 [POLISH]** Phase-5 verification gate (per ADR-0037): start ``aspire run``, sign in as admin, register a camera, create+publish an overlay, edit a Layout to bind it, observe the kiosk render the overlay over the live frame, edit+republish the overlay, observe the kiosk update within 1 s. Capture a screenshot or describe clearly in the PR.
 
 ---
 
