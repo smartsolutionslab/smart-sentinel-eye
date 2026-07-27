@@ -347,12 +347,19 @@ if (isRunMode && !isE2ETests)
     // stay direct — a direct reference to layout-composition keeps that URL
     // resolvable, off the gateway.
     //
-    // WaitFor(layoutComposition) is load-bearing, not just ordering polish: each
-    // app's vite.config.ts reads `services__layout-composition__http__0` ONCE, at
-    // config-evaluation time, to build the `/hubs` proxy. If Vite boots before the
-    // endpoint resolves, the proxy is silently omitted for the life of the process
-    // and every `/hubs/layouts/negotiate` 404s forever — the kiosk then sits on a
-    // permanently-stuck "live updates degraded" badge (spec 011 FR-006/FR-010).
+    // VITE_LAYOUT_HUB_ORIGIN is the shell-safe alias the SPAs actually use to
+    // build their `/hubs` dev proxy. Aspire's own service-discovery key is
+    // `services__layout-composition__http__0`, and that name contains hyphens —
+    // POSIX shells (bash, dash) refuse to import environment variables whose
+    // names aren't valid identifiers, so `npm run dev` (which spawns Vite via
+    // `sh -c`) drops it on Linux. cmd.exe keeps it, so this reproduces only off
+    // Windows: the proxy is silently omitted, every `/hubs/layouts/negotiate`
+    // 404s, and the kiosk sits on a permanently-stuck "live updates degraded"
+    // badge (spec 011 FR-006/FR-010).
+    //
+    // WaitFor(layoutComposition) is ordering hygiene — vite.config.ts reads the
+    // environment once, at config-evaluation time, so the endpoint should be
+    // resolvable before the app starts.
     builder.AddNpmApp("management-web", "../../apps/management-web", "dev")
         .WithHttpEndpoint(env: "PORT", port: 5173, isProxied: false)
         .WithReference(apiGateway)
@@ -360,6 +367,7 @@ if (isRunMode && !isE2ETests)
         .WithReference(keycloak)
         .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
         .WithReference(layoutComposition)
+        .WithEnvironment("VITE_LAYOUT_HUB_ORIGIN", layoutComposition.GetEndpoint("http"))
         .WaitFor(layoutComposition)
         .WithExternalHttpEndpoints()
         // Dashboard grouping: nest the SPAs under the gateway they call.
@@ -372,6 +380,7 @@ if (isRunMode && !isE2ETests)
         .WithReference(keycloak)
         .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
         .WithReference(layoutComposition)
+        .WithEnvironment("VITE_LAYOUT_HUB_ORIGIN", layoutComposition.GetEndpoint("http"))
         .WaitFor(layoutComposition)
         .WithExternalHttpEndpoints()
         .WithParentRelationship(apiGateway);
