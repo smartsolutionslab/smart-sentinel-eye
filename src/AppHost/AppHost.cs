@@ -346,6 +346,13 @@ if (isRunMode && !isE2ETests)
     // The realtime WebSocket hub (ADR-0076, LayoutComposition) and WebRTC media
     // stay direct — a direct reference to layout-composition keeps that URL
     // resolvable, off the gateway.
+    //
+    // WaitFor(layoutComposition) is load-bearing, not just ordering polish: each
+    // app's vite.config.ts reads `services__layout-composition__http__0` ONCE, at
+    // config-evaluation time, to build the `/hubs` proxy. If Vite boots before the
+    // endpoint resolves, the proxy is silently omitted for the life of the process
+    // and every `/hubs/layouts/negotiate` 404s forever — the kiosk then sits on a
+    // permanently-stuck "live updates degraded" badge (spec 011 FR-006/FR-010).
     builder.AddNpmApp("management-web", "../../apps/management-web", "dev")
         .WithHttpEndpoint(env: "PORT", port: 5173, isProxied: false)
         .WithReference(apiGateway)
@@ -353,6 +360,7 @@ if (isRunMode && !isE2ETests)
         .WithReference(keycloak)
         .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
         .WithReference(layoutComposition)
+        .WaitFor(layoutComposition)
         .WithExternalHttpEndpoints()
         // Dashboard grouping: nest the SPAs under the gateway they call.
         .WithParentRelationship(apiGateway);
@@ -364,6 +372,7 @@ if (isRunMode && !isE2ETests)
         .WithReference(keycloak)
         .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
         .WithReference(layoutComposition)
+        .WaitFor(layoutComposition)
         .WithExternalHttpEndpoints()
         .WithParentRelationship(apiGateway);
 }
