@@ -3,11 +3,11 @@
 **Branch:** `011-frontend-247-resilience` · **Protocol:** [quickstart.md](./quickstart.md) §§1–5
 **Runs:** §5 and §2-badge on 2026-07-27; §§1, 3, 4 on 2026-07-28.
 
-**Outcome: §§1–5 all executed.** SC-001, SC-004 (badge leg), SC-006 and FR-017
-pass on observed behaviour. SC-002 lands exactly on its 10 s budget. Two
-protocol/implementation mismatches were found (§3.3 wording, §4.1 missing dev
-trigger) and one criterion could not be exercised (silent renewal, FR-011).
-Details and residual gaps below.
+**Outcome: §§1–5 all executed; all six success criteria have a verdict.**
+SC-001, SC-003 (dev-loop leg), SC-004, SC-005, SC-006 and FR-008/011/017 pass on
+observed behaviour. SC-002 passes but lands exactly on its 10 s budget. Two
+protocol/implementation mismatches were found — §3.3's wording, and §4.1 being
+unrunnable because management-web has no dev crash trigger.
 
 ## Environment
 
@@ -38,10 +38,11 @@ matches the intended mechanism.
 | 1 | **SC-002** never "Live" > 10 s when dead | **PASS at the boundary — 10.1 s** (1 s sampling) |
 | 1 | retries never give up (≥ 2 min outage) | **PASS** — all 4 tiles still retrying at 125 s |
 | 1 | SC-005 jitter sanity | **PASS** — transitions spread over ~1.9 s, not synchronised |
-| 2 | **SC-004** degraded badge + unbounded retry | **PASS** — `kiosk-live-updates.spec.ts` |
-| 2 | SC-004 reconnect reconciliation | **not run** |
+| 2 | **SC-004** degraded badge + unbounded retry | **PASS** — badge held through a 125 s outage |
+| 2 | **SC-004** reconnect reconciliation | **PASS** — new value + "Overlay unavailable", no reload |
+| 2 | pre-mount archived overlay (FR-009) | **PASS** |
 | 3 | wall survives token expiry (60 s ×2) | **PASS** — grid + 4 tiles continuously to 171 s |
-| 3 | **FR-011** silent renew logged | **NOT EXERCISED** — see below |
+| 3 | **FR-011** silent renew on 401 mid-flight | **PASS** — renewed and retried exactly once |
 | 3 | expiry detected, deep link kept, no loop | **PASS** — `expired→redirecting` with `returnTo` |
 | 3 | dedicated session-expired screen | **MISMATCH** — see below |
 | 4 | **SC-006** kiosk reload ≤ 30 s, same layout | **PASS — 5.7 s** |
@@ -93,12 +94,20 @@ NAV https://…/realms/smart-sentinel-eye/protocol/openid-connect/auth?client_id
 The deep link is preserved in `returnTo`, and there was **no redirect loop** —
 one redirect, then stable for the remaining 2 minutes.
 
-**FR-011 silent renewal was not exercised.** No `session renewing→authenticated`
-line appeared, because nothing triggered a 401 in that window: the tiles were
-already live and the hub already connected, so no authenticated request was
-made. The wall survived because it needed no fresh token, *not* because renewal
-was proven to work. Exercising it needs a forced 401 mid-flight (quickstart
-§3.5), which was not run.
+**FR-011 silent renewal — §3.5, PASS.** Watching the wall alone proves nothing
+here: across the two token lifetimes no `session` line appeared at all, because
+the tiles were already live and the hub already connected, so no authenticated
+request was made. The wall survived because it *needed no fresh token*. Forcing
+exactly one gateway response to 401 exercises it properly:
+
+```
+FORCED-401 GET /layout-composition/layouts?state=Published
+PASSTHRU   GET /layout-composition/layouts?state=Published    <- retried once
+[resilience] {subsystem: session, transition: renew-start}
+[resilience] {subsystem: session, transition: renew-success}
+```
+
+Exactly one retry, no visible error banner, picker rendered normally.
 
 **§3.3 wording does not match the implementation.** The quickstart expects the
 dedicated full-screen session-expired state when interaction is required. In
@@ -143,14 +152,47 @@ the protocol.
 | unit — shared / kiosk-web / management-web | 49 / 35 / 61 tests |
 | `pnpm test:e2e` | 11/11, 25.0 s |
 
+### §2 steps 3–7 — reconnect reconciliation (SC-004)
+
+The seeded scenario has no variable bound to an overlay, so the binding the
+quickstart assumes was created first: `billetTemp = 700`, and the roughing
+overlay's label branched, edited to `ROUGHING — {{billetTemp}}C`, and published.
+The wall then resolved it to `ROUGHING — 700C`.
+
+The hub outage was induced **client-side** (aborting `/hubs/**`, the same
+technique as the committed e2e) rather than by stopping LayoutComposition, so
+that the backend stayed up to accept the step-3 changes. The badge appeared,
+`hub connecting→degraded` was logged, and it held for 125 s.
+
+While the kiosk was blind: `setValue(billetTemp, 900)` → 200, and the coiler
+overlay's published revision archived → 200. On restoring the hub:
+
+```
+[resilience] {subsystem: hub, transition: degraded→connected}
+[resilience] {subsystem: hub, transition: reconnected-reconciliation}
+```
+
+Badge cleared after 8.0 s; both changes had already reconciled by the first poll:
+
+```
+rolling-mill-wall Back ROUGHING — 900C FINISHING — STRIP COOLING BED Overlay unavailable
+```
+
+`layout-grid` stayed mounted throughout — **no page reload**. §2.7 (pre-mount)
+also passed: a fresh load showed the archived overlay as unavailable and the new
+value immediately. §2.6's boot-order case was covered incidentally — the kiosk
+was reloaded while the hub was blocked (badge shown from the start) and
+reconnected without a further reload.
+
 ## Residual gaps
 
-1. **§2 steps 3–7** — reconnect reconciliation (a variable changed while
-   disconnected showing its new value; an overlay archived while disconnected
-   rendering "Overlay unavailable"). Still the largest untested part of SC-004.
-2. **FR-011 silent renew** — needs the §3.5 forced-401 case.
-3. **§4.1 management crash** — blocked on the missing dev trigger.
-4. **SC-003's full 72 h soak** — pilot-rig scope, not a dev-loop check.
+1. **§4.1 management crash panel** — cannot be executed; `DevCrashTrigger`
+   exists only in kiosk-web. The boundary is wired and unit-tested, but has no
+   end-to-end trigger.
+2. **SC-003's full 72 h soak** — pilot-rig scope, not a dev-loop check. The
+   dev-loop proxy (§§1–3 in one session with no manual reload) passed.
+3. **SC-002's margin** — 10.1 s against a 10 s budget at 1 s sampling deserves a
+   finer measurement before anyone treats it as comfortably met.
 
 ## Defects found while running
 
