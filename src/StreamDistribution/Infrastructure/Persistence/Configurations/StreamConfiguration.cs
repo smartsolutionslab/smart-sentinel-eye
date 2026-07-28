@@ -37,6 +37,12 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
             .HasConversion(path => path.Value, value => MediaMtxPath.From(value))
             .IsRequired();
 
+        builder.Property(stream => stream.SourceUrl)
+            .HasColumnName("source_url")
+            .HasMaxLength(StreamSourceUrl.MaximumLength)
+            .HasConversion(url => url.Value, value => StreamSourceUrl.From(value))
+            .IsRequired();
+
         builder.Property(stream => stream.State)
             .HasColumnName("state")
             .HasMaxLength(16)

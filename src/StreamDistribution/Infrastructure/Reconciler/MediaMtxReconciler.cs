@@ -20,12 +20,13 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Reconciler;
 /// </para>
 ///
 /// <para>
-/// The complementary "re-add missing paths" half requires persisting the
-/// camera's RTSP source URL on the Stream aggregate — non-trivial domain
-/// change that's tracked separately. For now, missing paths are recovered
-/// on the next CameraRegistered redelivery or operator-triggered
-/// reprovisioning, which is acceptable because a missing path manifests
-/// as a 404 on WHEP open (loud + recoverable) rather than a silent leak.
+/// It also re-adds the complementary half: any Stream whose path is absent
+/// from MediaMTX is re-created from the <see cref="StreamSourceUrl"/>
+/// persisted on the aggregate. Before that URL was persisted (#197) the
+/// reconciler knew a path's name but not what to point it at, so a MediaMTX
+/// restart left every stream 404ing on WHEP open until a CameraRegistered
+/// redelivery happened to re-provision it — which never fires for cameras
+/// that already exist.
 /// </para>
 /// </summary>
 public sealed class MediaMtxReconciler(
@@ -59,10 +60,12 @@ public sealed class MediaMtxReconciler(
         await using StreamDistributionDbContext context =
             await factory.CreateDbContextAsync(cancellationToken);
 
-        HashSet<MediaMtxPath> expected = (await context.Streams
+        List<(MediaMtxPath Path, StreamSourceUrl SourceUrl)> streams = await context.Streams
             .AsNoTracking()
-            .Select(stream => stream.Path)
-            .ToListAsync(cancellationToken)).ToHashSet();
+            .Select(stream => ValueTuple.Create(stream.Path, stream.SourceUrl))
+            .ToListAsync(cancellationToken);
+
+        HashSet<MediaMtxPath> expected = streams.Select(entry => entry.Path).ToHashSet();
 
         IReadOnlyList<MediaMtxPath> configured =
             await gateway.ListConfiguredPathsAsync(cancellationToken);
@@ -87,6 +90,31 @@ public sealed class MediaMtxReconciler(
             }
         }
 
-        logger.ReconcilerStartupPassComplete(configured.Count, expected.Count, removed);
+        // Re-add the other half: a Stream whose path MediaMTX no longer knows
+        // about. Without this a MediaMTX restart leaves every stream 404ing,
+        // because CameraRegisteredV1 does not re-fire for existing cameras.
+        HashSet<MediaMtxPath> present = configured.ToHashSet();
+
+        int readded = 0;
+        foreach ((MediaMtxPath path, StreamSourceUrl sourceUrl) in streams)
+        {
+            if (present.Contains(path))
+            {
+                continue;
+            }
+
+            try
+            {
+                await gateway.AddPathAsync(path, sourceUrl.Value, cancellationToken);
+                readded++;
+                logger.ReconcilerReaddedMissingPath(path, sourceUrl.Value);
+            }
+            catch (HttpRequestException ex)
+            {
+                logger.ReconcilerFailedToReaddMissingPath(ex, path);
+            }
+        }
+
+        logger.ReconcilerStartupPassComplete(configured.Count, expected.Count, removed, readded);
     }
 }

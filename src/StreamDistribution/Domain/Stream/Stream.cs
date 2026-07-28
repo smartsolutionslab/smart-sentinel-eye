@@ -30,6 +30,12 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
 
     public MediaMtxPath Path { get; private set; } = null!;
 
+    /// <summary>
+    /// The RTSP source this path pulls. Persisted so the startup reconciler can
+    /// re-create the path in MediaMTX after it loses its runtime configuration.
+    /// </summary>
+    public StreamSourceUrl SourceUrl { get; private set; } = null!;
+
     public StreamState State { get; private set; } = null!;
 
     public TranscodeMode TranscodeMode { get; private set; } = null!;
@@ -44,8 +50,13 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
 
     private Stream() { }
 
-    public static Stream Provision(CameraIdentifier camera, OperatorIdentifier provisionedBy, IClock clock)
+    public static Stream Provision(
+        CameraIdentifier camera,
+        StreamSourceUrl sourceUrl,
+        OperatorIdentifier provisionedBy,
+        IClock clock)
     {
+        Ensure.That(sourceUrl).IsNotNull();
         Ensure.That(clock).IsNotNull();
 
         MediaMtxPath path = MediaMtxPath.For(camera);
@@ -55,6 +66,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
             Id = StreamIdentifier.New(),
             Camera = camera,
             Path = path,
+            SourceUrl = sourceUrl,
             State = StreamState.Provisioning,
             TranscodeMode = TranscodeMode.Unknown,
             LastSuccessAt = null,

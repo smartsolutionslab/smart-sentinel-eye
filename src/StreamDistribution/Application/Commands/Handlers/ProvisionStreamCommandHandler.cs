@@ -19,6 +19,18 @@ public sealed class ProvisionStreamCommandHandler(IStreamRepository streams, IRt
             return Result<StreamIdentifier, ProvisionStreamError>.Failure(new ProvisionStreamError.InvalidRtspSource("source URL is required"));
         }
 
+        // Re-validated at the trust boundary: the URL arrives as a primitive
+        // from CameraCatalog, so its invariants are asserted again on the way in.
+        StreamSourceUrl sourceUrl;
+        try
+        {
+            sourceUrl = StreamSourceUrl.From(rtspSourceUrl);
+        }
+        catch (ArgumentException ex)
+        {
+            return Result<StreamIdentifier, ProvisionStreamError>.Failure(new ProvisionStreamError.InvalidRtspSource(ex.Message));
+        }
+
         Option<Stream> existing = await streams.GetByCameraAsync(camera, cancellationToken);
 
         if (existing.HasValue)
@@ -27,7 +39,7 @@ public sealed class ProvisionStreamCommandHandler(IStreamRepository streams, IRt
             return Result<StreamIdentifier, ProvisionStreamError>.Success(existing.Value.Id);
         }
 
-        Stream stream = Stream.Provision(camera, provisionedBy, clock);
+        Stream stream = Stream.Provision(camera, sourceUrl, provisionedBy, clock);
         streams.Add(stream);
 
         try
