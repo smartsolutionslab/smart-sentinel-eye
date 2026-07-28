@@ -60,9 +60,11 @@ public sealed class MediaMtxReconciler(
         await using StreamDistributionDbContext context =
             await factory.CreateDbContextAsync(cancellationToken);
 
-        List<(MediaMtxPath Path, StreamSourceUrl SourceUrl)> streams = await context.Streams
+        // Anonymous type, not ValueTuple.Create: both properties carry value
+        // converters and EF cannot translate the factory call into SQL.
+        var streams = await context.Streams
             .AsNoTracking()
-            .Select(stream => ValueTuple.Create(stream.Path, stream.SourceUrl))
+            .Select(stream => new { stream.Path, stream.SourceUrl })
             .ToListAsync(cancellationToken);
 
         HashSet<MediaMtxPath> expected = streams.Select(entry => entry.Path).ToHashSet();
@@ -96,8 +98,11 @@ public sealed class MediaMtxReconciler(
         HashSet<MediaMtxPath> present = configured.ToHashSet();
 
         int readded = 0;
-        foreach ((MediaMtxPath path, StreamSourceUrl sourceUrl) in streams)
+        foreach (var entry in streams)
         {
+            MediaMtxPath path = entry.Path;
+            StreamSourceUrl sourceUrl = entry.SourceUrl;
+
             if (present.Contains(path))
             {
                 continue;
