@@ -85,6 +85,18 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+
+    <!-- Transitive pins for security advisories (#1125). Neither package is
+         referenced directly; CentralPackageTransitivePinningEnabled lifts them.
+         Both stay inside their current major so the packages that pull them in
+         (Microsoft.AspNetCore.OpenApi / Microsoft.AspNetCore.SignalR.Client)
+         keep a compatible dependency. Drop a pin once its parent ships a
+         version that already resolves past the advisory. -->
+    <!-- GHSA-v5pm-xwqc-g5wc (high) — pulled in by Microsoft.AspNetCore.OpenApi 10.0.8 at 2.0.0. -->
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.11.0" />
+    <!-- GHSA-hv8m-jj95-wg3x + GHSA-vh6j-jc39-fggf (high) and 8 moderate —
+         pulled in by Microsoft.AspNetCore.SignalR.Client 10.0.8 at 2.5.192. -->
+    <PackageVersion Include="MessagePack" Version="2.5.302" />
   </ItemGroup>
 
   <!-- Additional <PackageVersion Include="..." Version="..." /> -->

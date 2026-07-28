@@ -39,7 +39,11 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Restore
-        run: dotnet restore SmartSentinelEye.slnx
+        # -p:Configuration=Release so the NuGet audit runs under the same
+        # config as the build. TreatWarningsAsErrors is Release-only, so a
+        # default (Debug) restore leaves NU1902/NU1903 as warnings and a
+        # vulnerable package can never fail this job (#1125).
+        run: dotnet restore SmartSentinelEye.slnx -p:Configuration=Release
 
       - name: Build (Release)
         run: dotnet build SmartSentinelEye.slnx -c Release --no-restore
@@ -121,7 +125,7 @@ jobs:
         run: docker info
 
       - name: Restore
-        run: dotnet restore tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj
+        run: dotnet restore tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj -p:Configuration=Release
 
       - name: Build integration tests (Release)
         run: dotnet build tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj -c Release --no-restore
@@ -196,7 +200,7 @@ jobs:
 
       - name: Build the stack (Release)
         run: |
-          dotnet restore SmartSentinelEye.slnx
+          dotnet restore SmartSentinelEye.slnx -p:Configuration=Release
           dotnet build SmartSentinelEye.slnx -c Release --no-restore
 
       - name: Boot the Aspire stack (run mode) in the background
