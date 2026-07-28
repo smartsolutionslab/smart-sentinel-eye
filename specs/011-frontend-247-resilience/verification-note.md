@@ -1,115 +1,164 @@
 # Phase-5 verification note — 011 Frontend 24/7 Resilience (T027)
 
-**Date:** 2026-07-27 · **Branch:** `011-frontend-247-resilience` · **Protocol:** [quickstart.md](./quickstart.md) §§1–5
+**Branch:** `011-frontend-247-resilience` · **Protocol:** [quickstart.md](./quickstart.md) §§1–5
+**Runs:** §5 and §2-badge on 2026-07-27; §§1, 3, 4 on 2026-07-28.
 
-**Outcome: PARTIAL.** §5 passed in full and the §2 degraded-badge leg passed
-via its e2e proxy. §§1, 3, 4 and the remainder of §2 were **not** executed —
-they require an interactive kiosk session, which could not be established (see
-*Why §§1–4 were not run*). T027 remains open.
+**Outcome: §§1–5 all executed.** SC-001, SC-004 (badge leg), SC-006 and FR-017
+pass on observed behaviour. SC-002 lands exactly on its 10 s budget. Two
+protocol/implementation mismatches were found (§3.3 wording, §4.1 missing dev
+trigger) and one criterion could not be exercised (silent renewal, FR-011).
+Details and residual gaps below.
 
 ## Environment
 
-`aspire run` against the full local stack. `migrations` reached **Finished**;
-Postgres, Keycloak, RabbitMQ, MediaMTX, MinIO, Mosquitto and all nine services
-reported **Healthy**. Seeded data present from a prior run: 4 cameras, 4
-streams, 4 overlays (4 revisions), 1 layout with a **Published** revision and 4
-tiles.
+`aspire run` against the full local stack; migrations Finished, all services
+Healthy. Four cameras, four overlays, one Published 4-tile layout
+(`rolling-mill-wall`). Video baseline confirmed before each section — all four
+`cam-*` paths `ready:true`, `tracks:["H264"]`.
 
-Video baseline confirmed live before testing — all four `cam-*` paths on the
-main MediaMTX reported `ready:true`, `tracks:["H264"]`, ~5 MB received each.
+> **Baseline caveat.** MediaMTX paths were provisioned by hand, replicating
+> `CameraSimProvisioner` and `MediaMtxRtspGateway.AddPathAsync`, because
+> [#1121](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/1121)
+> crashes the simulator on any already-seeded stack and
+> [#197](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/197)
+> loses the paths on every MediaMTX restart. §1 therefore measures the frontend
+> against a hand-built baseline.
 
-> **Caveat on the baseline.** The stream paths were **provisioned by hand** for
-> this run, replicating `CameraSimProvisioner` (loop paths on `camera-sim`) and
-> `MediaMtxRtspGateway.AddPathAsync` (source paths on `mediamtx`). They were not
-> produced by the normal path, because of the two defects below. Any future §1
-> result obtained this way is measuring the frontend against a hand-built
-> baseline, not against the system's own provisioning.
+§§1, 3, 4 were driven through Playwright rather than by hand: it authenticates
+itself, and being Node it can stop/start resources mid-run, so the timings below
+are measured rather than eyeballed. `resilienceLog.ts` documents the
+`[resilience]` shape as an observable contract asserted by Playwright, so this
+matches the intended mechanism.
 
 ## Results
 
-| § | Criteria | Result | Evidence |
-|---|---|---|---|
-| 1 | SC-001, SC-002 — stream recovery | **not run** | requires interactive kiosk |
-| 2 | SC-004 — degraded badge + unbounded retry (FR-006/007) | **PASS** | `e2e/kiosk-live-updates.spec.ts` |
-| 2 | SC-004 — remainder (variable change while down, archived overlay → "Overlay unavailable", pre-mount case) | **not run** | requires interactive kiosk |
-| 3 | SC-003 leg — session survival | **not run** | requires interactive kiosk + realm edits |
-| 4 | SC-006 — crash containment | **not run** | requires interactive kiosk |
-| 5 | Automated checks | **PASS** | below |
+| § | Criterion | Result |
+|---|---|---|
+| 1 | **SC-001** recovery ≤ 60 s, no reload | **PASS — 1.0 s** |
+| 1 | **SC-002** never "Live" > 10 s when dead | **PASS at the boundary — 10.1 s** (1 s sampling) |
+| 1 | retries never give up (≥ 2 min outage) | **PASS** — all 4 tiles still retrying at 125 s |
+| 1 | SC-005 jitter sanity | **PASS** — transitions spread over ~1.9 s, not synchronised |
+| 2 | **SC-004** degraded badge + unbounded retry | **PASS** — `kiosk-live-updates.spec.ts` |
+| 2 | SC-004 reconnect reconciliation | **not run** |
+| 3 | wall survives token expiry (60 s ×2) | **PASS** — grid + 4 tiles continuously to 171 s |
+| 3 | **FR-011** silent renew logged | **NOT EXERCISED** — see below |
+| 3 | expiry detected, deep link kept, no loop | **PASS** — `expired→redirecting` with `returnTo` |
+| 3 | dedicated session-expired screen | **MISMATCH** — see below |
+| 4 | **SC-006** kiosk reload ≤ 30 s, same layout | **PASS — 5.7 s** |
+| 4 | crash-loop ladder 5 → 15 → 60 s | **PASS — 5.7 / 15.5 / 60.8 s** |
+| 4 | management bounded panel | **CANNOT RUN** — see below |
+| 5 | automated checks | **PASS** |
 
-### §5 — automated checks (all green)
+### §1 — stream recovery
+
+Stopping `mediamtx` with four tiles live:
+
+```
+t+0.0s  ["LIVE","LIVE","LIVE","LIVE"]
+t+8.1s  ["LIVE","LIVE","LIVE","LIVE"]
+t+10.1s ["Reconnecting…","Connecting…","Reconnecting…","Connecting…"]   <- all left Live
+```
+
+Console, three tiles at `:23.048` and the fourth at `:23.972`:
+
+```
+[resilience] {subsystem: stream, transition: live→reconnecting, cameraIdentifier: …}
+[resilience] {subsystem: stream, transition: reconnecting→connecting, cameraIdentifier: …}
+```
+
+After 125 s of outage all four were still cycling — retries never gave up.
+Restart + re-provision recovered **all four tiles in 1.0 s with no page reload**
+(the Playwright console listeners survived, which a reload would have severed).
+
+**SC-002 is met but with no margin.** Measured 10.1 s against a ≤ 10 s budget at
+1 s sampling, so the true value is 9.1–10.1 s. Tiles showed a frozen frame
+labelled Live for ~10 s. If that budget is meant strictly, this needs a finer
+measurement and probably a tighter disconnect grace
+(`useWhepSession.ts` `DISCONNECT_GRACE_MS = 5_000`).
+
+### §3 — session survival
+
+Realm temporarily set to `accessTokenLifespan=60`, `ssoSessionMaxLifespan=180`,
+`ssoSessionIdleTimeout=180`; **originals (3600 / 36000 / 1800) restored
+afterwards and verified**.
+
+The wall stayed up continuously (grid + 4 tiles) from t+5 s to t+171 s, spanning
+two full 60 s token lifetimes — no visual interruption. At t+180 s exactly:
+
+```
+[resilience] {subsystem: session, transition: expired→redirecting, returnTo: /layouts/019fa58c-…}
+NAV https://…/realms/smart-sentinel-eye/protocol/openid-connect/auth?client_id=smart-sentinel-eye-kiosk…
+```
+
+The deep link is preserved in `returnTo`, and there was **no redirect loop** —
+one redirect, then stable for the remaining 2 minutes.
+
+**FR-011 silent renewal was not exercised.** No `session renewing→authenticated`
+line appeared, because nothing triggered a 401 in that window: the tiles were
+already live and the hub already connected, so no authenticated request was
+made. The wall survived because it needed no fresh token, *not* because renewal
+was proven to work. Exercising it needs a forced 401 mid-flight (quickstart
+§3.5), which was not run.
+
+**§3.3 wording does not match the implementation.** The quickstart expects the
+dedicated full-screen session-expired state when interaction is required. In
+practice `useSessionExpiry` calls `auth.signinRedirect()`, so Keycloak presents
+*its own* login form and waits. The app's "Session expired" screen
+(`App.tsx:33`) is reached only via `expired→final`, which requires the redirect
+to bounce back **still unauthenticated** inside the 60 s guard window — a
+different scenario. Landing on Keycloak's form is defensible for a kiosk; the
+quickstart should be reworded, or the flow changed to use `prompt=none` first.
+Note the app's own plain sign-in-button screen was never shown under a torn-down
+wall, which is what FR-014 actually forbids.
+
+### §4 — crash containment
+
+| Crash | Recovered | Scheduled delay | sessionStorage |
+|---|---|---|---|
+| #1 | 5.7 s | `delayMs: 5000, count: 1` | `count=1` |
+| #2 | 15.5 s | `delayMs: 15000, count: 2` | `count=2` |
+| #3 | 60.8 s | `delayMs: 60000, count: 3` | `count=3` |
+
+Every reload returned to the **same layout URL** with `?crash=render` stripped,
+so the trigger cannot survive a reload and hot-loop. The ladder matches
+`RELOAD_DELAY_LADDER_MS = [5_000, 15_000, 60_000]` exactly. SC-006's ≤ 30 s
+applies to the first crash (5.7 s); the longer waits are the intended crash-loop
+brake.
+
+**§4.1 cannot be run as written.** `DevCrashTrigger` exists only in
+`apps/kiosk-web/`; management-web ignores `?crash=render` and rendered normally.
+The boundary itself *is* correctly wired (`App.tsx:121–134`): keyed on `view`,
+nav deliberately outside it so the shell survives (FR-016), `onError` logging,
+and a `CrashPanel` fallback with a working reset. So T023 shipped — it simply has
+no end-to-end trigger, and its behaviour is covered only by
+`ErrorBoundary.test.tsx`. Either add the trigger to management or drop §4.1 from
+the protocol.
+
+### §5 — automated checks
 
 | Check | Result |
 |---|---|
 | `pnpm typecheck` | 3/3 projects |
-| `pnpm lint` (`eslint --max-warnings 0`) | 3/3 projects |
-| `pnpm test` — `apps/shared` | 8 files, **49 tests** |
-| `pnpm test` — `apps/kiosk-web` | 5 files, **35 tests** |
-| `pnpm test` — `apps/management-web` | 13 files, **61 tests** |
-| `pnpm test:e2e` (chromium + kiosk) | **11/11 passed**, 25.0 s |
+| `pnpm lint` (`--max-warnings 0`) | 3/3 projects |
+| unit — shared / kiosk-web / management-web | 49 / 35 / 61 tests |
+| `pnpm test:e2e` | 11/11, 25.0 s |
 
-### §2 — what the e2e proxy actually proves
+## Residual gaps
 
-`kiosk shows the degraded badge while the hub is unreachable and clears it
-after recovery` (passed, 4.5–7.6 s over two runs):
+1. **§2 steps 3–7** — reconnect reconciliation (a variable changed while
+   disconnected showing its new value; an overlay archived while disconnected
+   rendering "Overlay unavailable"). Still the largest untested part of SC-004.
+2. **FR-011 silent renew** — needs the §3.5 forced-401 case.
+3. **§4.1 management crash** — blocked on the missing dev trigger.
+4. **SC-003's full 72 h soak** — pilot-rig scope, not a dev-loop check.
 
-1. Signs in to the kiosk as the seeded `operator` and reaches the picker.
-2. Aborts **every** `/hubs/**` request (negotiate + transport) and reloads, so
-   even the *initial* connect fails — this is the FR-006 case that initial-connect
-   failures must retry indefinitely rather than give up.
-3. Asserts `live-updates-degraded` becomes visible.
-4. Restores the network and asserts the badge is hidden within 45 s, covering
-   the retry ladder's 30 s ±20 % jitter ceiling.
+## Defects found while running
 
-This is a genuine test of the badge and the unbounded-retry recovery. It does
-**not** cover the reconnect *reconciliation* half of SC-004 — that a variable
-changed while the hub was down shows its new value, and that an overlay archived
-while down renders "Overlay unavailable" — which is the part §2 steps 3–5 exist
-to check.
-
-## Why §§1–4 were not run
-
-The protocol needs a browser signed into the kiosk with devtools open. The
-Chrome instance attached to automation opened its tab in a **background
-window**, and sign-in attempts kept landing in a different, visible window.
-Confirmed directly on the automation tab: `visibility: "hidden"`,
-`focused: false`, username field empty, OIDC `state` unchanged across attempts.
-Only one browser was paired, so there was no other session to switch to.
-
-Nothing about this indicates a product defect — it is a harness limitation.
-The remaining legs need either that window brought to the foreground, or a
-manual pass.
-
-## Defects found while preparing the stack
-
-Both are **pre-existing and unrelated to spec 011**, but both block a clean
-first-boot run of this protocol.
-
-1. **`scenario-simulator` crashes on every boot — no cameras or loop paths get
-   provisioned.** It `POST`s an overlay → `409` (already seeded from a prior
-   run), falls back to `GET /overlays` → **403**, because its token carries only
-   `*.write` scopes. The exception is unhandled and
-   `BackgroundServiceExceptionBehavior=StopHost` takes the whole worker down.
-   Fix direction: treat the `409` as success instead of reading back.
-
-2. **MediaMTX paths do not survive a restart.** Both MediaMTX instances came up
-   with zero paths and nothing restored them — this is open tech-debt
-   [#197](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/197)
-   (`SourceUrl` is not persisted on the `Stream` aggregate, so the reconciler
-   cannot re-add missing paths). This also means **§1 cannot be run as written**
-   without re-provisioning by hand after each `mediamtx` restart: stopping and
-   restarting the resource destroys its paths, so the stream could never return
-   and the kiosk would appear to fail SC-001 for a reason that has nothing to do
-   with the frontend.
-
-## To finish T027
-
-1. Bring the automation Chrome window to the foreground (or run manually) and
-   execute §§1, 3, 4 plus §2 steps 3–7.
-2. For §1, re-provision the four `cam-*` source paths immediately after each
-   `mediamtx` restart until #197 is fixed.
-3. For §3, record the realm's current *SSO Session Max* and *Access Token
-   Lifespan*, set them to ≈3 min / ≈1 min, run the section, then restore the
-   originals — the `keycloak-data` volume is sticky, so the change otherwise
-   persists.
-4. SC-003's full 72-hour criterion is a pilot-rig soak and is out of scope for
-   the dev loop; the dev proxy is §§1–3 in one session with no manual reload.
+- [#1121](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/1121) —
+  `scenario-simulator` 403s on read-back and dies on every already-seeded boot.
+- [#197](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/197) —
+  MediaMTX paths lost on restart; makes §1 unrunnable without manual
+  re-provisioning after each restart.
+- The `/hubs` proxy defect fixed on this branch: hyphenated Aspire
+  service-discovery keys are dropped by POSIX shells, so the dev proxy silently
+  did not exist on Linux.
