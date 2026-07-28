@@ -47,6 +47,7 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
         {
             Stream stream = Stream.Provision(
                 CameraIdentifier.From(keptCamera),
+                StreamSourceUrl.From("rtsp://10.0.7.1/h264"),
                 OperatorIdentifier.From(Guid.CreateVersion7()),
                 new TestClock(DateTimeOffset.UtcNow));
             context.Streams.Add(stream);
@@ -59,6 +60,45 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
         IReadOnlyList<string> remaining = await ListMediaMtxPathNamesAsync(mediaMtx);
         remaining.ShouldContain(keptPath.Value);
         remaining.ShouldNotContain(orphanPath.Value);
+    }
+
+    /// <summary>
+    /// #197 — the complementary half. A Stream whose MediaMTX path is missing
+    /// (the "MediaMTX restarted and lost its runtime config" case) must be
+    /// re-created from the SourceUrl persisted on the aggregate. Before that URL
+    /// was persisted the reconciler knew the path name but not its source, so
+    /// every stream stayed 404 until a CameraRegistered redelivery — which never
+    /// fires for a camera that already exists.
+    /// </summary>
+    [Fact]
+    public async Task Reconciler_re_adds_a_missing_path_from_the_persisted_source_url()
+    {
+        using HttpClient mediaMtx = aspire.App.CreateHttpClient("mediamtx", "api");
+
+        Guid camera = Guid.CreateVersion7();
+        MediaMtxPath missingPath = MediaMtxPath.For(CameraIdentifier.From(camera));
+        const string source = "rtsp://10.0.9.9/h264";
+
+        // Stream row exists; MediaMTX knows nothing about it.
+        await using (StreamDistributionDbContext context =
+            await aspire.CreateStreamDistributionDbContextAsync())
+        {
+            Stream stream = Stream.Provision(
+                CameraIdentifier.From(camera),
+                StreamSourceUrl.From(source),
+                OperatorIdentifier.From(Guid.CreateVersion7()),
+                new TestClock(DateTimeOffset.UtcNow));
+            context.Streams.Add(stream);
+            await context.SaveChangesAsync();
+        }
+
+        (await ListMediaMtxPathNamesAsync(mediaMtx)).ShouldNotContain(missingPath.Value);
+
+        MediaMtxReconciler reconciler = await BuildReconcilerAsync();
+        await reconciler.ReconcileOnceAsync(CancellationToken.None);
+
+        IReadOnlyList<string> configured = await ListMediaMtxPathNamesAsync(mediaMtx);
+        configured.ShouldContain(missingPath.Value);
     }
 
     private async Task<MediaMtxReconciler> BuildReconcilerAsync()

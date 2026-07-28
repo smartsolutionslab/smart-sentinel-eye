@@ -16,8 +16,14 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "Reconciler failed to remove orphan path {Path}; will retry on next restart.")]
     public static partial void ReconcilerFailedToRemoveOrphanPath(this ILogger logger, Exception exception, MediaMtxPath path);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "MediaMtxReconciler startup pass complete. Configured={Configured}, expected={Expected}, removed={Removed}.")]
-    public static partial void ReconcilerStartupPassComplete(this ILogger logger, int configured, int expected, int removed);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Reconciler re-added missing MediaMTX path {Path} -> {SourceUrl}.")]
+    public static partial void ReconcilerReaddedMissingPath(this ILogger logger, MediaMtxPath path, string sourceUrl);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Reconciler failed to re-add missing path {Path}; will retry on next restart.")]
+    public static partial void ReconcilerFailedToReaddMissingPath(this ILogger logger, Exception exception, MediaMtxPath path);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "MediaMtxReconciler startup pass complete. Configured={Configured}, expected={Expected}, removed={Removed}, readded={Readded}.")]
+    public static partial void ReconcilerStartupPassComplete(this ILogger logger, int configured, int expected, int removed, int readded);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Registered MediaMTX path {Path} -> {Source}.")]
     public static partial void RegisteredMediaMtxPath(this ILogger logger, MediaMtxPath path, string source);

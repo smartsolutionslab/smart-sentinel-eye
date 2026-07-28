@@ -34,6 +34,33 @@ public class StreamTests
     }
 
     [Fact]
+    public void Provision_persists_the_source_url_so_the_reconciler_can_re_add_the_path()
+    {
+        StreamSourceUrl source = StreamSourceUrl.From("rtsp://camera-sim:8554/station-4");
+
+        Domain.Stream.Stream stream = new StreamBuilder()
+            .WithSourceUrl(source)
+            .Build();
+
+        stream.SourceUrl.ShouldBe(source);
+    }
+
+    [Fact]
+    public void Provision_requires_a_source_url()
+    {
+        Should.Throw<ArgumentException>(() => Domain.Stream.Stream.Provision(
+            CameraIdentifier.From(Guid.CreateVersion7()),
+            null!,
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            new FixedClock(FixedMoment)));
+    }
+
+    private sealed class FixedClock(DateTimeOffset moment) : IClock
+    {
+        public DateTimeOffset UtcNow { get; } = moment;
+    }
+
+    [Fact]
     public void Report_healthy_from_provisioning_transitions_and_raises_HealthChanged()
     {
         Domain.Stream.Stream stream = new StreamBuilder().Build();
