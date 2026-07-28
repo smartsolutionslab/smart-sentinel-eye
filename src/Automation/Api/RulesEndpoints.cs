@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.Automation.Api.Requests;
 using SmartSentinelEye.Automation.Application.Commands;
 using SmartSentinelEye.Automation.Application.Commands.Handlers;
+using SmartSentinelEye.Automation.Application.DTOs;
+using SmartSentinelEye.Automation.Application.Queries;
+using SmartSentinelEye.Automation.Application.Queries.Handlers;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
@@ -48,7 +51,76 @@ public static class RulesEndpoints
             .Produces<Guid>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // Reads are a separate group: sse.rules.read, not the write scope
+        // (spec 007 T090).
+        RouteGroupBuilder reads = app.MapGroup("/rules")
+            .RequireAuthorization(Scope.Sse.Rules.Read)
+            .WithTags("Rules");
+
+        reads.MapGet("/", List)
+            .WithName("ListRules")
+            .Produces<IReadOnlyList<RuleDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
+
+        reads.MapGet("/{name}", GetOne)
+            .WithName("GetRule")
+            .Produces<RuleDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        // Dry-run is a POST because it carries a sample-event body, but it is
+        // a read: nothing is persisted and no integration event is published,
+        // so it sits behind the read scope.
+        reads.MapPost("/{name}/dry-run", DryRun)
+            .WithName("DryRunRule")
+            .Produces<DryRunResultDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return app;
+    }
+
+    private static async Task<IResult> List(
+        [FromQuery] string state,
+        [FromQuery] string triggerSource,
+        [FromQuery] string triggerKind,
+        [FromServices] ListRulesQueryHandler handler,
+        CancellationToken cancellationToken)
+    {
+        Result<IReadOnlyList<RuleDto>, ListRulesError> result = await handler.HandleAsync(
+            new ListRulesQuery(state, triggerSource, triggerKind), cancellationToken);
+
+        return result.Match<IResult>(
+            onSuccess: Results.Ok,
+            onFailure: error => error.ToProblem());
+    }
+
+    private static async Task<IResult> GetOne(
+        string name,
+        [FromServices] GetRuleQueryHandler handler,
+        CancellationToken cancellationToken)
+    {
+        Result<RuleDto, GetRuleError> result = await handler.HandleAsync(
+            new GetRuleQuery(name), cancellationToken);
+
+        return result.Match<IResult>(
+            onSuccess: Results.Ok,
+            onFailure: error => error.ToProblem());
+    }
+
+    private static async Task<IResult> DryRun(
+        string name,
+        [FromBody] DryRunRuleRequest body,
+        [FromServices] DryRunRuleQueryHandler handler,
+        CancellationToken cancellationToken)
+    {
+        Ensure.That(body).IsNotNull();
+
+        Result<DryRunResultDto, DryRunRuleError> result = await handler.HandleAsync(
+            new DryRunRuleQuery(name, body.SampleEvent), cancellationToken);
+
+        return result.Match<IResult>(
+            onSuccess: Results.Ok,
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> Create(

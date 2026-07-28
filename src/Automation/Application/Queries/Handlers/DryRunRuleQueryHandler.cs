@@ -1,0 +1,81 @@
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.Automation.Application.Ael;
+using SmartSentinelEye.Automation.Application.DTOs;
+using SmartSentinelEye.Automation.Application.Evaluation;
+using SmartSentinelEye.Automation.Domain.Rule;
+using SmartSentinelEye.Shared.CQRS;
+using SmartSentinelEye.Shared.Kernel;
+
+namespace SmartSentinelEye.Automation.Application.Queries.Handlers;
+
+/// <summary>
+/// Compiles the stored rule and evaluates it against a caller-supplied sample
+/// event. Deliberately bypasses <c>IRuleCache</c> and goes to the rule as
+/// persisted, so a Draft rule — which is never in the cache — can be tried
+/// before it is published. Nothing is written and no integration event is
+/// raised.
+/// </summary>
+public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
+    : IQueryHandler<DryRunRuleQuery, Result<DryRunResultDto, DryRunRuleError>>
+{
+    public async Task<Result<DryRunResultDto, DryRunRuleError>> HandleAsync(
+        DryRunRuleQuery query, CancellationToken cancellationToken)
+    {
+        Ensure.That(query).IsNotNull();
+
+        Rule? rule = await rules.Rules
+            .SingleOrDefaultAsync(candidate => candidate.Name.Value == query.Name, cancellationToken);
+
+        if (rule is null)
+        {
+            return Result<DryRunResultDto, DryRunRuleError>.Failure(
+                new DryRunRuleError.RuleNotFound(query.Name));
+        }
+
+        JsonDocument sample;
+        try
+        {
+            sample = JsonDocument.Parse(query.SampleEvent ?? string.Empty);
+        }
+        catch (JsonException ex)
+        {
+            return Result<DryRunResultDto, DryRunRuleError>.Failure(
+                new DryRunRuleError.SampleEventNotJson(ex.Message));
+        }
+
+        using (sample)
+        {
+            EvaluationContext context = new(sample.RootElement);
+            CompiledRule compiled = CompiledRule.From(rule);
+
+            try
+            {
+                AelValue verdict = AelInterpreter.Evaluate(compiled.CompiledPredicate, context);
+
+                // Same truthiness rule as RuleEvaluator — a non-boolean result
+                // does NOT match. A dry run that disagreed with the live
+                // pipeline would be worse than no dry run at all.
+                if (verdict is not AelValue.BoolValue { Value: true })
+                {
+                    return Result<DryRunResultDto, DryRunRuleError>.Success(
+                        new DryRunResultDto(Matched: false, EvaluatedValue: null));
+                }
+
+                // Only SetVariableValue produces a value; HighlightOverlay
+                // matches but has nothing to evaluate.
+                string? evaluated = compiled.CompiledValueExpression is null
+                    ? null
+                    : AelInterpreter.Evaluate(compiled.CompiledValueExpression, context).ToWireString();
+
+                return Result<DryRunResultDto, DryRunRuleError>.Success(
+                    new DryRunResultDto(Matched: true, EvaluatedValue: evaluated));
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or AelParseException)
+            {
+                return Result<DryRunResultDto, DryRunRuleError>.Failure(
+                    new DryRunRuleError.EvaluationFailed(ex.Message));
+            }
+        }
+    }
+}

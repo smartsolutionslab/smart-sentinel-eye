@@ -2,8 +2,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.Automation.Application.Commands;
 using SmartSentinelEye.Automation.Application.Commands.Handlers;
+using SmartSentinelEye.Automation.Application.DTOs;
 using SmartSentinelEye.Automation.Application.Evaluation;
 using SmartSentinelEye.Automation.Application.EventHandlers;
+using SmartSentinelEye.Automation.Application.Queries;
+using SmartSentinelEye.Automation.Application.Queries.Handlers;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Infrastructure.Cache;
 using SmartSentinelEye.Automation.Infrastructure.Persistence;
@@ -60,6 +63,21 @@ public static class AutomationInfrastructureModule
         builder.Services.AddScoped<
             ICommandHandler<ArchiveRuleCommand, Result<RuleIdentifier, ArchiveRuleError>>,
             ArchiveRuleCommandHandler>();
+
+        // Read side (spec 007 T059 + T089).
+        builder.Services.AddScoped<IRuleQuerySource, RuleQuerySource>();
+        builder.Services.AddScoped<GetRuleQueryHandler>();
+        builder.Services.AddScoped<
+            IQueryHandler<GetRuleQuery, Result<RuleDto, GetRuleError>>,
+            GetRuleQueryHandler>();
+        builder.Services.AddScoped<ListRulesQueryHandler>();
+        builder.Services.AddScoped<
+            IQueryHandler<ListRulesQuery, Result<IReadOnlyList<RuleDto>, ListRulesError>>,
+            ListRulesQueryHandler>();
+        builder.Services.AddScoped<DryRunRuleQueryHandler>();
+        builder.Services.AddScoped<
+            IQueryHandler<DryRunRuleQuery, Result<DryRunResultDto, DryRunRuleError>>,
+            DryRunRuleQueryHandler>();
 
         builder.AddWolverineForContext<AutomationDbContext>(
             moduleQueuePrefix: ContextName,
