@@ -10,8 +10,17 @@ namespace SmartSentinelEye.ScenarioSimulator.Seeding;
 /// Seeds + publishes a per-asset overlay over the OverlayDesigner REST API
 /// (ADR-0111 M2) and returns its identifier. Idempotent: a duplicate name (409)
 /// reads the existing overlay back by name. Bearer via the scenario-simulator
-/// client_credentials grant (scope sse.overlays.write).
+/// client_credentials grant.
 /// </summary>
+/// <remarks>
+/// The read-back needs <c>sse.overlays.read</c> as well as the write scopes.
+/// The grant was write-only until #1121: the 409 branch then 403'd, the
+/// exception escaped <see cref="ScenarioSeeder"/>, and
+/// <c>BackgroundServiceExceptionBehavior.StopHost</c> killed the worker — so a
+/// re-run of an already-seeded stack came up with no cameras and no video at
+/// all. The identifier cannot simply be skipped on 409: it is what binds each
+/// overlay to its layout tile.
+/// </remarks>
 public sealed class OverlayDesignerClient(
     HttpClient http,
     KeycloakTokenProvider tokens,
