@@ -3,6 +3,7 @@ import { camerasApi } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { streamsApi } from '@smart-sentinel-eye/shared/api/streams.api';
 import { layoutsApi } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { overlaysApi } from '@smart-sentinel-eye/shared/api/overlays.api';
+import { rulesApi } from '@smart-sentinel-eye/shared/api/rules.api';
 import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { auditApi } from '@smart-sentinel-eye/shared/api/audit.api';
 
@@ -13,6 +14,7 @@ export const store = configureStore({
     [streamsApi.reducerPath]: streamsApi.reducer,
     [layoutsApi.reducerPath]: layoutsApi.reducer,
     [overlaysApi.reducerPath]: overlaysApi.reducer,
+    [rulesApi.reducerPath]: rulesApi.reducer,
     [systemVariablesApi.reducerPath]: systemVariablesApi.reducer,
     [auditApi.reducerPath]: auditApi.reducer,
   },
@@ -22,6 +24,7 @@ export const store = configureStore({
       streamsApi.middleware,
       layoutsApi.middleware,
       overlaysApi.middleware,
+      rulesApi.middleware,
       systemVariablesApi.middleware,
       auditApi.middleware,
     ),

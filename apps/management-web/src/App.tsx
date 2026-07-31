@@ -7,10 +7,11 @@ import { oidcConfig } from './app/auth.js';
 import { CamerasPage } from './features/cameras/CamerasPage.js';
 import { LayoutsPage } from './features/layouts/LayoutsPage.js';
 import { OverlaysPage } from './features/overlays/OverlaysPage.js';
+import { RulesPage } from './features/rules/RulesPage';
 import { SystemVariablesPage } from './features/systemVariables/SystemVariablesPage.js';
 import { AuditPage } from './features/audit/AuditPage.js';
 
-type View = 'cameras' | 'layouts' | 'overlays' | 'system-variables' | 'audit';
+type View = 'cameras' | 'layouts' | 'overlays' | 'rules' | 'system-variables' | 'audit';
 
 export function App() {
   return (
@@ -111,6 +112,9 @@ function Shell() {
         <NavButton active={view === 'overlays'} onClick={() => setView('overlays')}>
           Overlays
         </NavButton>
+        <NavButton active={view === 'rules'} onClick={() => setView('rules')}>
+          Rules
+        </NavButton>
         <NavButton active={view === 'system-variables'} onClick={() => setView('system-variables')}>
           System variables
         </NavButton>
@@ -129,6 +133,7 @@ function Shell() {
         {view === 'cameras' && <CamerasPage />}
         {view === 'layouts' && <LayoutsPage />}
         {view === 'overlays' && <OverlaysPage />}
+        {view === 'rules' && <RulesPage />}
         {view === 'system-variables' && <SystemVariablesPage />}
         {view === 'audit' && <AuditPage />}
       </ErrorBoundary>
