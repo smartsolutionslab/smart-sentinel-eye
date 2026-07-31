@@ -49,10 +49,19 @@ public sealed class EventPartitionRolloverMigrator(
                 DateTime nextMonth = month.AddMonths(1);
                 string toBound = nextMonth.ToString("yyyy-MM-01", CultureInfo.InvariantCulture);
 
+                // S2077 flags the interpolated DDL. Suppressed: table and
+                // partition names cannot be parameterised in Postgres, and
+                // nothing here is attacker-reachable. `fabPartition` comes
+                // from `pg_class.relname` via DiscoverFabPartitionsAsync — a
+                // constant catalog query, so it can only name a table that
+                // already exists; `monthlyTable` derives from it; both bounds
+                // are invariant-formatted dates off DateTime.UtcNow.
                 string ddl =
                     $"CREATE TABLE IF NOT EXISTS {monthlyTable} PARTITION OF {fabPartition} " +
                     $"FOR VALUES FROM ('{fromBound}') TO ('{toBound}');";
+#pragma warning disable S2077
                 await context.Database.ExecuteSqlRawAsync(ddl, cancellationToken);
+#pragma warning restore S2077
                 logger.EnsuredPartition(monthlyTable, fromBound, toBound);
             }
         }

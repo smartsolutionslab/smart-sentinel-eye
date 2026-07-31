@@ -77,7 +77,7 @@ public class StreamHealthChangedV1Tests
         StreamHealthChangedV1 original = new(camera, "Degraded", "Healthy", at, null, Metadata: TestMetadata);
 
         string json = JsonSerializer.Serialize(original);
-        StreamHealthChangedV1 deserialized = JsonSerializer.Deserialize<StreamHealthChangedV1>(json)!;
+        StreamHealthChangedV1 deserialized = JsonSerializer.Deserialize<StreamHealthChangedV1>(json);
 
         deserialized.ShouldBe(original);
     }

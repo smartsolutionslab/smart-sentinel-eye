@@ -53,18 +53,22 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             "E2ETests=true",
         ];
 
+        // The startup budget covers the whole bring-up, not just StartAsync.
+        // A hung CreateAsync or BuildAsync previously had no token at all and
+        // would block the run indefinitely.
+        using CancellationTokenSource cts = new(StartupTimeout);
+
         IDistributedApplicationTestingBuilder builder =
-            await DistributedApplicationTestingBuilder.CreateAsync<Projects.SmartSentinelEye_AppHost>(parameters)
+            await DistributedApplicationTestingBuilder
+                .CreateAsync<Projects.SmartSentinelEye_AppHost>(parameters, cts.Token)
                 .ConfigureAwait(false);
 
         builder.Services.ConfigureHttpClientDefaults(http => http.AddStandardResilienceHandler());
 
-        _app = await builder.BuildAsync().ConfigureAwait(false);
+        _app = await builder.BuildAsync(cts.Token).ConfigureAwait(false);
 
         _logCts = new CancellationTokenSource();
-        _logTailTask = Task.Run(() => TailCameraCatalogLogsAsync(_logCts.Token));
-
-        using CancellationTokenSource cts = new(StartupTimeout);
+        _logTailTask = Task.Run(() => TailCameraCatalogLogsAsync(_logCts.Token), _logCts.Token);
 
         try
         {
@@ -163,7 +167,9 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
         if (_app is not null)
         {
-            await _app.StopAsync().ConfigureAwait(false);
+            // No token by design: teardown runs after _logCts is disposed and
+            // must release the stack even if the run is being torn down.
+            await _app.StopAsync(CancellationToken.None).ConfigureAwait(false);
             await ((IAsyncDisposable)_app).DisposeAsync().ConfigureAwait(false);
         }
     }

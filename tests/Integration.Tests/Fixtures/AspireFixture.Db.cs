@@ -17,9 +17,11 @@ public sealed partial class AspireFixture
     public const string AuditObservabilityConnectionName = "audit-db";
     public const string EventIngestionConnectionName = "event-ingestion-db";
 
-    public async Task<EventIngestionDbContext> CreateEventIngestionDbContextAsync()
+    public async Task<EventIngestionDbContext> CreateEventIngestionDbContextAsync(
+        CancellationToken cancellationToken = default)
     {
-        string? connectionString = await App.GetConnectionStringAsync(EventIngestionConnectionName)
+        string? connectionString = await App
+            .GetConnectionStringAsync(EventIngestionConnectionName, cancellationToken)
             .ConfigureAwait(false);
 
         if (connectionString is null)
@@ -33,9 +35,11 @@ public sealed partial class AspireFixture
         return new EventIngestionDbContext(optionsBuilder.Options);
     }
 
-    public async Task<AuditObservabilityDbContext> CreateAuditObservabilityDbContextAsync()
+    public async Task<AuditObservabilityDbContext> CreateAuditObservabilityDbContextAsync(
+        CancellationToken cancellationToken = default)
     {
-        string? connectionString = await App.GetConnectionStringAsync(AuditObservabilityConnectionName)
+        string? connectionString = await App
+            .GetConnectionStringAsync(AuditObservabilityConnectionName, cancellationToken)
             .ConfigureAwait(false);
 
         if (connectionString is null)
@@ -49,9 +53,11 @@ public sealed partial class AspireFixture
         return new AuditObservabilityDbContext(optionsBuilder.Options);
     }
 
-    public async Task<CameraCatalogDbContext> CreateCameraCatalogDbContextAsync()
+    public async Task<CameraCatalogDbContext> CreateCameraCatalogDbContextAsync(
+        CancellationToken cancellationToken = default)
     {
-        string? connectionString = await App.GetConnectionStringAsync(CameraCatalogConnectionName)
+        string? connectionString = await App
+            .GetConnectionStringAsync(CameraCatalogConnectionName, cancellationToken)
             .ConfigureAwait(false);
 
         if (connectionString is null)
@@ -65,15 +71,18 @@ public sealed partial class AspireFixture
         return new CameraCatalogDbContext(optionsBuilder.Options);
     }
 
-    public async Task ResetCameraCatalogAsync()
+    public async Task ResetCameraCatalogAsync(CancellationToken cancellationToken = default)
     {
-        await using CameraCatalogDbContext context = await CreateCameraCatalogDbContextAsync().ConfigureAwait(false);
-        await context.Cameras.ExecuteDeleteAsync().ConfigureAwait(false);
+        await using CameraCatalogDbContext context =
+            await CreateCameraCatalogDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await context.Cameras.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<StreamDistributionDbContext> CreateStreamDistributionDbContextAsync()
+    public async Task<StreamDistributionDbContext> CreateStreamDistributionDbContextAsync(
+        CancellationToken cancellationToken = default)
     {
-        string? connectionString = await App.GetConnectionStringAsync(StreamDistributionConnectionName)
+        string? connectionString = await App
+            .GetConnectionStringAsync(StreamDistributionConnectionName, cancellationToken)
             .ConfigureAwait(false);
 
         if (connectionString is null)
@@ -87,16 +96,18 @@ public sealed partial class AspireFixture
         return new StreamDistributionDbContext(optionsBuilder.Options);
     }
 
-    public async Task ResetStreamDistributionAsync()
+    public async Task ResetStreamDistributionAsync(CancellationToken cancellationToken = default)
     {
         await using StreamDistributionDbContext context =
-            await CreateStreamDistributionDbContextAsync().ConfigureAwait(false);
-        await context.Streams.ExecuteDeleteAsync().ConfigureAwait(false);
+            await CreateStreamDistributionDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await context.Streams.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<LayoutCompositionDbContext> CreateLayoutCompositionDbContextAsync()
+    public async Task<LayoutCompositionDbContext> CreateLayoutCompositionDbContextAsync(
+        CancellationToken cancellationToken = default)
     {
-        string? connectionString = await App.GetConnectionStringAsync(LayoutCompositionConnectionName)
+        string? connectionString = await App
+            .GetConnectionStringAsync(LayoutCompositionConnectionName, cancellationToken)
             .ConfigureAwait(false);
 
         if (connectionString is null)
@@ -110,16 +121,18 @@ public sealed partial class AspireFixture
         return new LayoutCompositionDbContext(optionsBuilder.Options);
     }
 
-    public async Task ResetLayoutCompositionAsync()
+    public async Task ResetLayoutCompositionAsync(CancellationToken cancellationToken = default)
     {
         await using LayoutCompositionDbContext context =
-            await CreateLayoutCompositionDbContextAsync().ConfigureAwait(false);
-        await context.Layouts.ExecuteDeleteAsync().ConfigureAwait(false);
+            await CreateLayoutCompositionDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await context.Layouts.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<OverlayDesignerDbContext> CreateOverlayDesignerDbContextAsync()
+    public async Task<OverlayDesignerDbContext> CreateOverlayDesignerDbContextAsync(
+        CancellationToken cancellationToken = default)
     {
-        string? connectionString = await App.GetConnectionStringAsync(OverlayDesignerConnectionName)
+        string? connectionString = await App
+            .GetConnectionStringAsync(OverlayDesignerConnectionName, cancellationToken)
             .ConfigureAwait(false);
 
         if (connectionString is null)
@@ -133,11 +146,11 @@ public sealed partial class AspireFixture
         return new OverlayDesignerDbContext(optionsBuilder.Options);
     }
 
-    public async Task ResetOverlayDesignerAsync()
+    public async Task ResetOverlayDesignerAsync(CancellationToken cancellationToken = default)
     {
         await using OverlayDesignerDbContext context =
-            await CreateOverlayDesignerDbContextAsync().ConfigureAwait(false);
-        await context.Overlays.ExecuteDeleteAsync().ConfigureAwait(false);
+            await CreateOverlayDesignerDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await context.Overlays.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -145,20 +158,21 @@ public sealed partial class AspireFixture
     /// the next test starts with an empty SFU. The mediamtx HTTP API
     /// returns a paged list under <c>items</c>.
     /// </summary>
-    public async Task ResetMediaMtxAsync()
+    public async Task ResetMediaMtxAsync(CancellationToken cancellationToken = default)
     {
         using HttpClient client = App.CreateHttpClient("mediamtx", "api");
         for (int page = 0; page < 16; page++)
         {
-            using HttpResponseMessage list =
-                await SendMediaMtxWithRetryAsync(() => client.GetAsync("/v3/config/paths/list")).ConfigureAwait(false);
+            using HttpResponseMessage list = await SendMediaMtxWithRetryAsync(
+                () => client.GetAsync("/v3/config/paths/list", cancellationToken),
+                cancellationToken).ConfigureAwait(false);
             if (!list.IsSuccessStatusCode)
             {
                 return;
             }
 
-            System.Text.Json.JsonElement payload =
-                await list.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>().ConfigureAwait(false);
+            System.Text.Json.JsonElement payload = await list.Content
+                .ReadFromJsonAsync<System.Text.Json.JsonElement>(cancellationToken).ConfigureAwait(false);
             if (!payload.TryGetProperty("items", out System.Text.Json.JsonElement items))
             {
                 return;
@@ -178,8 +192,9 @@ public sealed partial class AspireFixture
                     continue;
                 }
 
-                using HttpResponseMessage del = await SendMediaMtxWithRetryAsync(() =>
-                    client.DeleteAsync($"/v3/config/paths/delete/{pathName}")).ConfigureAwait(false);
+                using HttpResponseMessage del = await SendMediaMtxWithRetryAsync(
+                    () => client.DeleteAsync($"/v3/config/paths/delete/{pathName}", cancellationToken),
+                    cancellationToken).ConfigureAwait(false);
                 removed++;
             }
             if (removed == 0)
@@ -194,7 +209,7 @@ public sealed partial class AspireFixture
     // (its boot probe in WaitForMediaMtxAsync already passed). Retry a few times
     // so the per-test reset doesn't take out the run.
     private static async Task<HttpResponseMessage> SendMediaMtxWithRetryAsync(
-        Func<Task<HttpResponseMessage>> send)
+        Func<Task<HttpResponseMessage>> send, CancellationToken cancellationToken)
     {
         HttpRequestException? last = null;
         for (int attempt = 0; attempt < 10; attempt++)
@@ -206,7 +221,7 @@ public sealed partial class AspireFixture
             catch (HttpRequestException ex)
             {
                 last = ex;
-                await Task.Delay(TimeSpan.FromMilliseconds(500)).ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken).ConfigureAwait(false);
             }
         }
 

@@ -102,5 +102,11 @@ csharp_style_var_when_type_is_apparent = true:silent
 csharp_style_var_elsewhere = true:silent
 csharp_prefer_braces = true:silent
 
+[**/DesignTimeDbContextFactory.cs]
+# The connection strings here are localhost placeholders that let `dotnet ef`
+# construct a DbContext outside the Aspire host to generate migrations. Nothing
+# ever connects with them, and the real credentials come from Aspire at runtime.
+dotnet_diagnostic.S2068.severity = none
+
 [*.sln]
 indent_style = tab

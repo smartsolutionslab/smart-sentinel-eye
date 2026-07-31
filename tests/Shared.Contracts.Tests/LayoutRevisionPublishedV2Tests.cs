@@ -66,7 +66,7 @@ public class LayoutRevisionPublishedV2Tests
             Metadata: TestMetadata);
 
         string json = JsonSerializer.Serialize(original);
-        LayoutRevisionPublishedV2 deserialized = JsonSerializer.Deserialize<LayoutRevisionPublishedV2>(json)!;
+        LayoutRevisionPublishedV2 deserialized = JsonSerializer.Deserialize<LayoutRevisionPublishedV2>(json);
 
         deserialized.Layout.ShouldBe(original.Layout);
         deserialized.GridRows.ShouldBe(original.GridRows);
