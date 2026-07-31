@@ -62,12 +62,14 @@ describe('RuleDialog', () => {
     await user.click(screen.getByRole('button', { name: /create draft/i }));
 
     expect(createMock).toHaveBeenCalledTimes(1);
-    expect(createMock.mock.calls[0][0]).toMatchObject({
-      name: 'high-oee',
-      triggerKind: 'PlcCycleStart',
-      actionType: 'SetVariableValue',
-      variableName: 'oeeLine1',
-    });
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'high-oee',
+        triggerKind: 'PlcCycleStart',
+        actionType: 'SetVariableValue',
+        variableName: 'oeeLine1',
+      }),
+    );
   });
 
   it('Rejects a name that is not lowercase kebab-case', async () => {
