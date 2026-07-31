@@ -50,7 +50,7 @@ public class ResolvedOverlayTextChangedV1Tests
 
         string json = JsonSerializer.Serialize(original);
         ResolvedOverlayTextChangedV1 deserialized =
-            JsonSerializer.Deserialize<ResolvedOverlayTextChangedV1>(json)!;
+            JsonSerializer.Deserialize<ResolvedOverlayTextChangedV1>(json);
 
         deserialized.ShouldBe(original);
     }

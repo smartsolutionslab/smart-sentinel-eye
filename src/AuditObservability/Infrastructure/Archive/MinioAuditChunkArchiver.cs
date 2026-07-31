@@ -65,9 +65,9 @@ public sealed class MinioAuditChunkArchiver(
         }
 
         payload.Position = 0;
-#pragma warning disable CA5351 // S3's Content-MD5 header is an integrity check, not a security primitive.
+#pragma warning disable CA5351, S4790 // S3's Content-MD5 header is an integrity check, not a security primitive.
         string contentMd5 = Convert.ToHexStringLower(MD5.HashData(payload.ToArray()));
-#pragma warning restore CA5351
+#pragma warning restore CA5351, S4790
 
         // Idempotency: a previous successful run leaves the
         // object in place; only re-upload if it's missing or
@@ -89,9 +89,9 @@ public sealed class MinioAuditChunkArchiver(
                 .WithContentType("application/x-ndjson")
                 .WithHeaders(new Dictionary<string, string>
                 {
-#pragma warning disable CA5351
+#pragma warning disable CA5351, S4790
                     ["Content-MD5"] = Convert.ToBase64String(MD5.HashData(payload.ToArray())),
-#pragma warning restore CA5351
+#pragma warning restore CA5351, S4790
                 }),
             cancellationToken);
 

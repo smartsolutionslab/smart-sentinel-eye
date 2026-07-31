@@ -32,13 +32,15 @@ public sealed class ReverseIndexSeederHostedService(
         try
         {
             HttpClient client = httpClientFactory.CreateClient("overlay-designer");
-            // S1075 flags the literal URI. Suppressed: Aspire service
-            // discovery resolves "http://overlay-designer" to the
-            // actual endpoint at runtime — there's no configurable
-            // alternative for v1.
-#pragma warning disable S1075
+            // S1075 flags the literal URI, S5332 the clear-text scheme.
+            // Suppressed: this is not a real address. Aspire service
+            // discovery treats "overlay-designer" as a logical resource
+            // name and rewrites the whole URI — scheme included — to
+            // whichever endpoint the resource actually publishes, in dev
+            // and on k3s alike. There's no configurable alternative for v1.
+#pragma warning disable S1075, S5332
             client.BaseAddress ??= new Uri("http://overlay-designer");
-#pragma warning restore S1075
+#pragma warning restore S1075, S5332
 
             using HttpResponseMessage response = await client
                 .GetAsync("/overlays?state=Published", cancellationToken);

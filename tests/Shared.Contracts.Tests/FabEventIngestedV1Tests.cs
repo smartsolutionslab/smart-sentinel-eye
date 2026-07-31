@@ -71,7 +71,7 @@ public class FabEventIngestedV1Tests
 
         string json = JsonSerializer.Serialize(original);
         FabEventIngestedV1 deserialized =
-            JsonSerializer.Deserialize<FabEventIngestedV1>(json)!;
+            JsonSerializer.Deserialize<FabEventIngestedV1>(json);
 
         deserialized.ShouldBe(original);
         Encoding.UTF8.GetByteCount(deserialized.Payload).ShouldBeGreaterThan(60 * 1024);

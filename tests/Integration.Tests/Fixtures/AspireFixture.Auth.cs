@@ -57,18 +57,21 @@ public sealed partial class AspireFixture
     public Uri HubUri(string resourceName, string hubPath) =>
         new(App.GetEndpoint(resourceName, "http").ToString().TrimEnd('/') + hubPath);
 
-    public Task<HttpClient> CreateAdminClientAsync(string resourceName) =>
-        CreateAuthenticatedClientAsync(resourceName, AdminUsername, AdminPassword);
+    public Task<HttpClient> CreateAdminClientAsync(
+        string resourceName, CancellationToken cancellationToken = default) =>
+        CreateAuthenticatedClientAsync(resourceName, AdminUsername, AdminPassword, cancellationToken);
 
-    public async Task<HttpClient> CreateAuthenticatedClientAsync(string resourceName, string username, string password)
+    public async Task<HttpClient> CreateAuthenticatedClientAsync(
+        string resourceName, string username, string password, CancellationToken cancellationToken = default)
     {
-        string token = await GetAccessTokenAsync(username, password).ConfigureAwait(false);
+        string token = await GetAccessTokenAsync(username, password, cancellationToken).ConfigureAwait(false);
         HttpClient client = CreateServiceClient(resourceName);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
     }
 
-    public async Task<string> GetAccessTokenAsync(string username, string password)
+    public async Task<string> GetAccessTokenAsync(
+        string username, string password, CancellationToken cancellationToken = default)
     {
         string cacheKey = $"{username}|{password}";
         if (_tokenCache.TryGetValue(cacheKey, out CachedToken? cached) &&
@@ -77,7 +80,8 @@ public sealed partial class AspireFixture
             return cached.AccessToken;
         }
 
-        CachedToken token = await FetchAccessTokenAsync(username, password).ConfigureAwait(false);
+        CachedToken token = await FetchAccessTokenAsync(username, password, cancellationToken)
+            .ConfigureAwait(false);
         _tokenCache[cacheKey] = token;
         return token.AccessToken;
     }
@@ -94,18 +98,21 @@ public sealed partial class AspireFixture
     /// per-test and short-lived.
     /// </summary>
     public async Task<string> GetAccessTokenForClientAsync(
-        string clientId, string username, string password, string scope)
+        string clientId, string username, string password, string scope,
+        CancellationToken cancellationToken = default)
     {
-        CachedToken token = await FetchAccessTokenAsync(username, password, clientId, scope)
+        CachedToken token = await FetchAccessTokenAsync(username, password, clientId, scope, cancellationToken)
             .ConfigureAwait(false);
         return token.AccessToken;
     }
 
-    private Task<CachedToken> FetchAccessTokenAsync(string username, string password) =>
-        FetchAccessTokenAsync(username, password, ClientId, "openid sse.management");
+    private Task<CachedToken> FetchAccessTokenAsync(
+        string username, string password, CancellationToken cancellationToken) =>
+        FetchAccessTokenAsync(username, password, ClientId, "openid sse.management", cancellationToken);
 
     private async Task<CachedToken> FetchAccessTokenAsync(
-        string username, string password, string clientId, string scope)
+        string username, string password, string clientId, string scope,
+        CancellationToken cancellationToken)
     {
         using HttpClient keycloak = CreateKeycloakClient();
         Dictionary<string, string> form = new()
@@ -119,16 +126,17 @@ public sealed partial class AspireFixture
 
         HttpResponseMessage response = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token",
-            new FormUrlEncodedContent(form)).ConfigureAwait(false);
+            new FormUrlEncodedContent(form), cancellationToken).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
         {
-            string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             throw new InvalidOperationException(
                 $"Keycloak password grant failed for '{username}': {response.StatusCode} {body}");
         }
 
-        JsonElement tokenJson = await response.Content.ReadFromJsonAsync<JsonElement>().ConfigureAwait(false);
+        JsonElement tokenJson = await response.Content
+            .ReadFromJsonAsync<JsonElement>(cancellationToken).ConfigureAwait(false);
         string accessToken = tokenJson.GetProperty("access_token").GetString()!;
         int expiresIn = tokenJson.TryGetProperty("expires_in", out JsonElement expiresProperty)
             ? expiresProperty.GetInt32() : 60;

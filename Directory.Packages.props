@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <!-- Analyzers (transitively applied via Directory.Build.props) -->
-    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.9.0.115408" />
+    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.31.0.145097" />
     <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4" />
 
     <!-- Architecture tests -->

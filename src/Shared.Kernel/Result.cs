@@ -30,10 +30,10 @@ public readonly struct Result<TValue, TError>
         _isSuccess ? throw new InvalidOperationException("Result is a success; no error.") : _error;
 
     public static Result<TValue, TError> Success(TValue value) =>
-        new(value, default!, isSuccess: true);
+        new(value, default, isSuccess: true);
 
     public static Result<TValue, TError> Failure(TError error) =>
-        new(default!, error, isSuccess: false);
+        new(default, error, isSuccess: false);
 
     public TOut Match<TOut>(Func<TValue, TOut> onSuccess, Func<TError, TOut> onFailure) =>
         _isSuccess ? onSuccess(_value) : onFailure(_error);

@@ -66,7 +66,7 @@ public class CameraRegisteredV1Tests
         CameraRegisteredV1 original = new(camera, "Line-1", "rtsp://10.0.5.1/h264", at, operatorId, Metadata: TestMetadata);
 
         string json = JsonSerializer.Serialize(original);
-        CameraRegisteredV1 deserialized = JsonSerializer.Deserialize<CameraRegisteredV1>(json)!;
+        CameraRegisteredV1 deserialized = JsonSerializer.Deserialize<CameraRegisteredV1>(json);
 
         deserialized.ShouldBe(original);
     }

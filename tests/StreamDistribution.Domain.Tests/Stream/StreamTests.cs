@@ -50,7 +50,7 @@ public class StreamTests
     {
         Should.Throw<ArgumentException>(() => Domain.Stream.Stream.Provision(
             CameraIdentifier.From(Guid.CreateVersion7()),
-            null!,
+            null,
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new FixedClock(FixedMoment)));
     }

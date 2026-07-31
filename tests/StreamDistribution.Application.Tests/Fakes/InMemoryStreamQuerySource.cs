@@ -60,13 +60,13 @@ internal sealed class TestAsyncQueryProvider<TEntity>(IQueryProvider inner) : IA
     {
         Type expectedResultType = typeof(TResult).GetGenericArguments()[0];
         object executionResult = typeof(IQueryProvider)
-            .GetMethod(name: nameof(IQueryProvider.Execute), genericParameterCount: 1, types: [typeof(Expression)])!
+            .GetMethod(name: nameof(IQueryProvider.Execute), genericParameterCount: 1, types: [typeof(Expression)])
             .MakeGenericMethod(expectedResultType)
-            .Invoke(inner, [expression])!;
+            .Invoke(inner, [expression]);
 
         return (TResult)typeof(Task)
-            .GetMethod(nameof(Task.FromResult))!
+            .GetMethod(nameof(Task.FromResult))
             .MakeGenericMethod(expectedResultType)
-            .Invoke(null, [executionResult])!;
+            .Invoke(null, [executionResult]);
     }
 }
