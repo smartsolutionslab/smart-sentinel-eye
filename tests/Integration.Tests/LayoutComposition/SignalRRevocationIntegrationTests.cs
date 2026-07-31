@@ -46,7 +46,7 @@ public class SignalRRevocationIntegrationTests(AspireFixture aspire) : IAsyncLif
             $"/layouts/{layoutIdentifier}/revisions/1/publish", content: null);
         publish.EnsureSuccessStatusCode();
 
-        Uri hubUri = new(aspire.App.GetEndpoint("layout-composition").ToString().TrimEnd('/') + LayoutLifecycleHub.Path);
+        Uri hubUri = aspire.HubUri("layout-composition", LayoutLifecycleHub.Path);
 
         await using HubConnection alpha = BuildClient(hubUri, accessToken);
         await using HubConnection beta = BuildClient(hubUri, accessToken);

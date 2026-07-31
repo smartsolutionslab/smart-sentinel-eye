@@ -58,7 +58,7 @@ public class OverlayPushIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
         // Connect two clients to the layout-composition SignalR hub
         // (spec 004 plan: overlay events fan out over the same hub).
-        Uri hubUri = new(aspire.App.GetEndpoint("layout-composition").ToString().TrimEnd('/') + LayoutLifecycleHub.Path);
+        Uri hubUri = aspire.HubUri("layout-composition", LayoutLifecycleHub.Path);
         await using HubConnection alpha = BuildClient(hubUri, accessToken);
         await using HubConnection beta = BuildClient(hubUri, accessToken);
 
