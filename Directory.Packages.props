@@ -22,15 +22,15 @@
     <PackageVersion Include="Moq" Version="4.20.72" />
 
     <!-- Aspire integration testing (Integration.Tests fixture, ADR-0068 — pre-wired so the package resolves) -->
-    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.3.5" />
 
     <!-- Aspire NodeJs integration: AppHost registers management-web and kiosk-web npm apps (ADR-0074) -->
     <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
 
     <!-- Aspire infrastructure resources (ADR-0007 + ADR-0009 + ADR-0010). Version-aligned with
          Yumney's working .NET 10 stack. Keycloak hosting is preview-only at the moment. -->
-    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.4.6" />
-    <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.3.5" />
+    <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="13.3.5" />
     <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.3.5-preview.1.26270.6" />
 
     <!-- Aspire client integration for ASP.NET Core services that consume Postgres -->
@@ -67,8 +67,8 @@
          resource + typed client wrapper, both via the Aspire
          Community Toolkit. Transitively pulls in the official
          `Minio` .NET SDK. -->
-    <PackageVersion Include="CommunityToolkit.Aspire.Hosting.Minio" Version="13.4.0" />
-    <PackageVersion Include="CommunityToolkit.Aspire.Minio.Client" Version="13.4.0" />
+    <PackageVersion Include="CommunityToolkit.Aspire.Hosting.Minio" Version="13.3.0" />
+    <PackageVersion Include="CommunityToolkit.Aspire.Minio.Client" Version="13.3.0" />
 
     <!-- ASP.NET Core / Hosting / Resilience / Service Discovery -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
@@ -91,11 +91,17 @@
          its current major so Microsoft.AspNetCore.OpenApi keeps a compatible
          dependency. Re-checked on the 10.0.10 bump (#1130): that release still
          resolves Microsoft.OpenApi 2.0.0, so the pin is still doing work.
-         The companion MessagePack pin was dropped in the same pass —
-         Microsoft.AspNetCore.SignalR.Client 10.0.10 resolves past its advisory
-         unaided. Drop this one the same way once its parent does. -->
+         Drop it once Microsoft.AspNetCore.OpenApi resolves past the advisory
+         on its own. -->
     <!-- GHSA-v5pm-xwqc-g5wc (high) — pulled in by Microsoft.AspNetCore.OpenApi at 2.0.0. -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.11.0" />
+    <!-- GHSA-hv8m-jj95-wg3x + GHSA-vh6j-jc39-fggf (high) and 8 moderate.
+         Reaches us through src/AppHost via Aspire.Hosting — NOT via
+         Microsoft.AspNetCore.SignalR.Client, which is what it looks like at a
+         glance. Aspire.Hosting 13.4.6 does resolve past this advisory, so this
+         pin can go when that bump lands; it is held back for now because
+         13.4.6 breaks the integration fixture's TLS trust (see #1133). -->
+    <PackageVersion Include="MessagePack" Version="2.5.302" />
   </ItemGroup>
 
   <!-- Additional <PackageVersion Include="..." Version="..." /> -->
