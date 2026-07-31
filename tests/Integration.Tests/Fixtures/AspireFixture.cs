@@ -122,12 +122,22 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 ex);
         }
 
-        CameraCatalog = App.CreateHttpClient("camera-catalog");
-        StreamDistribution = App.CreateHttpClient("stream-distribution");
-        LayoutComposition = App.CreateHttpClient("layout-composition");
-        OverlayDesigner = App.CreateHttpClient("overlay-designer");
-        AuditObservability = App.CreateHttpClient("audit-observability");
-        EventIngestion = App.CreateHttpClient("event-ingestion");
+        // Name the endpoint explicitly. Every service declares WithHttpEndpoint()
+        // in AppHost and none declares an https one, but an ASP.NET project also
+        // carries an https launch profile — so leaving the choice to
+        // CreateHttpClient's default made these clients depend on which endpoint
+        // that default happened to prefer. Aspire 13.4.6 changed that preference
+        // to https, and CI's integration job has no dev cert (only the e2e job
+        // runs `dotnet dev-certs https`), so every request failed with
+        // UntrustedRoot — 54 of 75 tests, while passing on a developer machine
+        // where the cert is trusted. Naming the endpoint removes the ambient
+        // dependency entirely (#1133).
+        CameraCatalog = App.CreateHttpClient("camera-catalog", "http");
+        StreamDistribution = App.CreateHttpClient("stream-distribution", "http");
+        LayoutComposition = App.CreateHttpClient("layout-composition", "http");
+        OverlayDesigner = App.CreateHttpClient("overlay-designer", "http");
+        AuditObservability = App.CreateHttpClient("audit-observability", "http");
+        EventIngestion = App.CreateHttpClient("event-ingestion", "http");
     }
 
     public async Task DisposeAsync()
