@@ -17,13 +17,43 @@ public sealed partial class AspireFixture
     private static readonly TimeSpan ExpirySafetyMargin = TimeSpan.FromMinutes(1);
     private readonly ConcurrentDictionary<string, CachedToken> _tokenCache = new();
 
+    /// <summary>
+    /// Every service declares <c>WithHttpEndpoint()</c> in AppHost and none
+    /// declares an https one, but an ASP.NET project also carries an https
+    /// launch profile — so leaving the choice to <c>CreateHttpClient</c>'s
+    /// default made these clients depend on whichever endpoint that default
+    /// preferred. Aspire 13.4.6 changed that preference to https and every
+    /// request started failing with UntrustedRoot on CI, which has no dev cert.
+    /// Naming the endpoint removes the ambient dependency (#1133).
+    /// </summary>
+    public HttpClient CreateServiceClient(string resourceName) =>
+        App.CreateHttpClient(resourceName, "http");
+
+    /// <summary>
+    /// Keycloak is the exception: it exposes https only, so there is no http
+    /// endpoint to name. It presents the ASP.NET dev certificate, which is
+    /// trusted on a developer machine but not on CI — only the e2e job runs
+    /// <c>dotnet dev-certs https</c>. Validating a self-signed dev cert on a
+    /// throwaway container proves nothing, so this accepts it explicitly rather
+    /// than depending on whether the host happens to trust it (#1133).
+    /// </summary>
+    public HttpClient CreateKeycloakClient()
+    {
+        HttpClientHandler handler = new()
+        {
+            ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+        };
+        return new HttpClient(handler) { BaseAddress = App.GetEndpoint("keycloak") };
+    }
+
     public Task<HttpClient> CreateAdminClientAsync(string resourceName) =>
         CreateAuthenticatedClientAsync(resourceName, AdminUsername, AdminPassword);
 
     public async Task<HttpClient> CreateAuthenticatedClientAsync(string resourceName, string username, string password)
     {
         string token = await GetAccessTokenAsync(username, password).ConfigureAwait(false);
-        HttpClient client = App.CreateHttpClient(resourceName);
+        HttpClient client = CreateServiceClient(resourceName);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
     }
@@ -67,7 +97,7 @@ public sealed partial class AspireFixture
     private async Task<CachedToken> FetchAccessTokenAsync(
         string username, string password, string clientId, string scope)
     {
-        using HttpClient keycloak = App.CreateHttpClient("keycloak");
+        using HttpClient keycloak = CreateKeycloakClient();
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "password",

@@ -49,6 +49,6 @@ public class GatewayRateLimitIntegrationTests(AspireFixture aspire)
         using CancellationTokenSource cts = new(TimeSpan.FromMinutes(2));
         await aspire.App.ResourceNotifications
             .WaitForResourceAsync("api-gateway", KnownResourceStates.Running, cts.Token);
-        return aspire.App.CreateHttpClient("api-gateway");
+        return aspire.CreateServiceClient("api-gateway");
     }
 }

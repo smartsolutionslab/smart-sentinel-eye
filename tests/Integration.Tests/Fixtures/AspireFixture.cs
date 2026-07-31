@@ -294,7 +294,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
     private async Task WaitForKeycloakRealmAsync(CancellationToken cancellationToken)
     {
-        using HttpClient probe = App.CreateHttpClient("keycloak");
+        using HttpClient probe = CreateKeycloakClient();
         for (int attempt = 0; attempt < 60; attempt++)
         {
             try
