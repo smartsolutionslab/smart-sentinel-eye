@@ -16,21 +16,21 @@
     <!-- xUnit test stack (ADR-0052) -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="Moq" Version="4.20.72" />
 
     <!-- Aspire integration testing (Integration.Tests fixture, ADR-0068 — pre-wired so the package resolves) -->
-    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.3.5" />
+    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.4.6" />
 
     <!-- Aspire NodeJs integration: AppHost registers management-web and kiosk-web npm apps (ADR-0074) -->
     <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
 
     <!-- Aspire infrastructure resources (ADR-0007 + ADR-0009 + ADR-0010). Version-aligned with
          Yumney's working .NET 10 stack. Keycloak hosting is preview-only at the moment. -->
-    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.3.5" />
-    <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="13.3.5" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="13.4.6" />
     <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.3.5-preview.1.26270.6" />
 
     <!-- Aspire client integration for ASP.NET Core services that consume Postgres -->
@@ -39,18 +39,18 @@
     <!-- ASP.NET Core auth (ADR-0007 + ADR-0008 + ADR-0023). Plain JwtBearer; no Aspire
          Keycloak client package needed — realm URL comes from the Aspire-injected
          connection string. -->
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
 
     <!-- SignalR client for integration-test consumers (spec 003 PR E).
          The server-side SignalR types come from Microsoft.AspNetCore.App
          via the FrameworkReference; this is only needed in tests. -->
-    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.10" />
 
     <!-- EF Core for state-based contexts (ADR-0009) -->
-    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.8" />
-    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
 
     <!-- Wolverine (ADR-0042, ADR-0057, ADR-0088). Version-aligned with Yumney. -->
     <PackageVersion Include="WolverineFx" Version="5.39.3" />
@@ -67,36 +67,35 @@
          resource + typed client wrapper, both via the Aspire
          Community Toolkit. Transitively pulls in the official
          `Minio` .NET SDK. -->
-    <PackageVersion Include="CommunityToolkit.Aspire.Hosting.Minio" Version="13.3.0" />
-    <PackageVersion Include="CommunityToolkit.Aspire.Minio.Client" Version="13.3.0" />
+    <PackageVersion Include="CommunityToolkit.Aspire.Hosting.Minio" Version="13.4.0" />
+    <PackageVersion Include="CommunityToolkit.Aspire.Minio.Client" Version="13.4.0" />
 
     <!-- ASP.NET Core / Hosting / Resilience / Service Discovery -->
-    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.8" />
-    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.5.0" />
-    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.5.0" />
-    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery.Yarp" Version="10.5.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery.Yarp" Version="10.8.0" />
     <PackageVersion Include="Yarp.ReverseProxy" Version="2.3.0" />
 
     <!-- OpenTelemetry (ADR-0026, ADR-0050) -->
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
 
-    <!-- Transitive pins for security advisories (#1125). Neither package is
-         referenced directly; CentralPackageTransitivePinningEnabled lifts them.
-         Both stay inside their current major so the packages that pull them in
-         (Microsoft.AspNetCore.OpenApi / Microsoft.AspNetCore.SignalR.Client)
-         keep a compatible dependency. Drop a pin once its parent ships a
-         version that already resolves past the advisory. -->
-    <!-- GHSA-v5pm-xwqc-g5wc (high) — pulled in by Microsoft.AspNetCore.OpenApi 10.0.8 at 2.0.0. -->
+    <!-- Transitive pin for a security advisory (#1125). Not referenced
+         directly; CentralPackageTransitivePinningEnabled lifts it. Stays inside
+         its current major so Microsoft.AspNetCore.OpenApi keeps a compatible
+         dependency. Re-checked on the 10.0.10 bump (#1130): that release still
+         resolves Microsoft.OpenApi 2.0.0, so the pin is still doing work.
+         The companion MessagePack pin was dropped in the same pass —
+         Microsoft.AspNetCore.SignalR.Client 10.0.10 resolves past its advisory
+         unaided. Drop this one the same way once its parent does. -->
+    <!-- GHSA-v5pm-xwqc-g5wc (high) — pulled in by Microsoft.AspNetCore.OpenApi at 2.0.0. -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.11.0" />
-    <!-- GHSA-hv8m-jj95-wg3x + GHSA-vh6j-jc39-fggf (high) and 8 moderate —
-         pulled in by Microsoft.AspNetCore.SignalR.Client 10.0.8 at 2.5.192. -->
-    <PackageVersion Include="MessagePack" Version="2.5.302" />
   </ItemGroup>
 
   <!-- Additional <PackageVersion Include="..." Version="..." /> -->
