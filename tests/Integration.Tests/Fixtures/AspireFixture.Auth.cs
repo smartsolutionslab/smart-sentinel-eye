@@ -47,6 +47,16 @@ public sealed partial class AspireFixture
         return new HttpClient(handler) { BaseAddress = App.GetEndpoint("keycloak") };
     }
 
+    /// <summary>
+    /// SignalR hub URI for a resource. Same reasoning as
+    /// <see cref="CreateServiceClient"/>: <c>GetEndpoint</c> without an
+    /// endpoint name inherits whatever default Aspire prefers, which 13.4.6
+    /// changed to https. The hub tests build HubConnections rather than
+    /// HttpClients, so they were a second route to the same bug (#1133).
+    /// </summary>
+    public Uri HubUri(string resourceName, string hubPath) =>
+        new(App.GetEndpoint(resourceName, "http").ToString().TrimEnd('/') + hubPath);
+
     public Task<HttpClient> CreateAdminClientAsync(string resourceName) =>
         CreateAuthenticatedClientAsync(resourceName, AdminUsername, AdminPassword);
 
