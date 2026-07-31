@@ -67,7 +67,7 @@ public class ListCamerasIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task List_without_a_token_returns_401()
     {
-        using HttpClient client = aspire.App.CreateHttpClient("camera-catalog");
+        using HttpClient client = aspire.CreateServiceClient("camera-catalog");
 
         HttpResponseMessage response = await client.GetAsync("/cameras");
 

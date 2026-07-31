@@ -53,7 +53,7 @@ public class KeycloakAdminTokenProviderTests
 
     private KeycloakAdminTokenProvider CreateProvider()
     {
-        HttpClient http = _fixture.App.CreateHttpClient("keycloak");
+        HttpClient http = _fixture.CreateKeycloakClient();
         KeycloakAdminOptions options = new()
         {
             BaseUrl = http.BaseAddress!.ToString(),

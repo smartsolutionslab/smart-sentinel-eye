@@ -58,7 +58,7 @@ public class RegisterCameraIntegrationTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task Register_a_camera_without_a_token_returns_401()
     {
-        using HttpClient client = aspire.App.CreateHttpClient("camera-catalog");
+        using HttpClient client = aspire.CreateServiceClient("camera-catalog");
 
         HttpResponseMessage response = await client.PostAsJsonAsync(
             "/cameras",

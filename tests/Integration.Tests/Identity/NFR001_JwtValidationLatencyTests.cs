@@ -55,7 +55,7 @@ public class NFR001_JwtValidationLatencyTests(AspireFixture aspire, ITestOutputH
     {
         string token = await aspire.GetAccessTokenAsync(AspireFixture.AdminUsername, AspireFixture.AdminPassword);
 
-        using HttpClient keycloak = aspire.App.CreateHttpClient("keycloak");
+        using HttpClient keycloak = aspire.CreateKeycloakClient();
         string authority = $"{keycloak.BaseAddress!.ToString().TrimEnd('/')}/realms/smart-sentinel-eye";
 
         HttpDocumentRetriever retriever = new() { RequireHttps = false };

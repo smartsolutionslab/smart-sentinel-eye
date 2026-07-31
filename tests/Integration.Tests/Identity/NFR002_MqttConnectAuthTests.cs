@@ -106,7 +106,7 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire) : IAsyncLifetime
 
     private async Task<DeviceCredentials> RegisterDeviceAsync(string adminToken)
     {
-        using HttpClient identity = aspire.App.CreateHttpClient("identity");
+        using HttpClient identity = aspire.CreateServiceClient("identity");
         using HttpRequestMessage request = new(HttpMethod.Post, "/devices/register?fabId=munich")
         {
             Content = JsonContent.Create(new
@@ -132,7 +132,7 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire) : IAsyncLifetime
 
     private async Task<string> MintDeviceTokenAsync(DeviceCredentials device)
     {
-        using HttpClient keycloak = aspire.App.CreateHttpClient("keycloak");
+        using HttpClient keycloak = aspire.CreateKeycloakClient();
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "client_credentials",
