@@ -6,7 +6,7 @@ namespace SmartSentinelEye.Shared.Kernel;
 /// Aggregate root base per ADR-0045 + ADR-0043. Carries the version field for
 /// optimistic concurrency and the in-flight domain-event list.
 /// </summary>
-public abstract class AggregateRoot<TIdentifier>
+public abstract class AggregateRoot<TIdentifier> : IVersionedAggregate
     where TIdentifier : struct, IStronglyTypedId<Guid>
 {
     private readonly List<IDomainEvent> _pendingEvents = new();
