@@ -112,6 +112,13 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
             await WaitForKeycloakRealmAsync(cts.Token).ConfigureAwait(false);
             await WaitForMediaMtxAsync(cts.Token).ConfigureAwait(false);
+
+            // Running only means the process launched — it does not mean Kestrel
+            // has bound its listener, so the waits above can return while the
+            // first request would still be refused. OverlayDesigner is the one
+            // that lost this race on the Linux runner, timing out ~9 tests while
+            // passing on Windows dev boxes.
+            await WaitForServiceHealthAsync("overlay-designer", cts.Token).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is OperationCanceledException or TaskCanceledException)
         {
@@ -351,5 +358,33 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
         throw new TimeoutException(
             "MediaMTX /v3/paths/list was not reachable after 60 attempts.");
+    }
+
+    private async Task WaitForServiceHealthAsync(string resourceName, CancellationToken cancellationToken)
+    {
+        // Name the endpoint for the same reason the per-API clients do: an
+        // unnamed one resolves to whichever endpoint Aspire happens to prefer.
+        using HttpClient probe = App.CreateHttpClient(resourceName, "http");
+        for (int attempt = 0; attempt < 60; attempt++)
+        {
+            try
+            {
+                HttpResponseMessage response = await probe.GetAsync(
+                    "/health", cancellationToken).ConfigureAwait(false);
+                if (response.IsSuccessStatusCode)
+                {
+                    return;
+                }
+            }
+            catch (HttpRequestException)
+            {
+                // listener not bound yet
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
+        }
+
+        throw new TimeoutException(
+            $"{resourceName} /health was not reachable after 60 attempts.");
     }
 }
