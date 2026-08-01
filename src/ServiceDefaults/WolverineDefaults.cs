@@ -57,13 +57,18 @@ public static class WolverineDefaults
 
         builder.UseWolverine(opts =>
         {
-            // Wolverine 6 flipped this default from AllowedButWarn to NotAllowed,
-            // which fails handler codegen at startup for two registrations we
-            // legitimately rely on: IRtspGateway (a typed HttpClient, always an
-            // opaque lambda factory) and DomainEventDispatcher (reflection-based,
-            // so it takes IServiceProvider). Keeping 5.x semantics; narrowing to
-            // NotAllowed with per-type AlwaysUseServiceLocationFor opt-ins is
-            // tracked separately.
+            // Deliberate, not a leftover. Wolverine 6 defaults this to NotAllowed,
+            // which sounds stricter but fails quietly: when codegen cannot build a
+            // dependency it drops that handler and the service still starts and
+            // reports healthy. Measured, not assumed — removing a single opt-in
+            // left the build clean, /health green and the e2e suite passing while
+            // cameras stopped provisioning streams entirely.
+            //
+            // AllowedButWarn falls back to service location and warns instead, so
+            // a dependency nobody anticipated still works. Two already need it:
+            // IRtspGateway (typed HttpClient behind an opaque lambda factory) and
+            // DomainEventDispatcher (takes IServiceProvider, resolving handlers
+            // reflectively). Tightening this trades a warning for a silent outage.
             opts.ServiceLocationPolicy = ServiceLocationPolicy.AllowedButWarn;
 
             opts.AutoBuildMessageStorageOnStartup = AutoCreate.CreateOrUpdate;
