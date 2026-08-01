@@ -11,6 +11,12 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Shouldly" />
+
+    <!-- A real relational provider so the test model can map owned
+         collections to their own tables, as Layout and Overlay do. The
+         provider is never connected: these tests exercise the change
+         tracker, not the database. -->
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
   </ItemGroup>
 
   <ItemGroup>
