@@ -102,12 +102,6 @@ jobs:
     # Integration tests are gated on the cheaper backend job passing
     # first; no point burning the 30-minute container-startup budget on
     # a branch that already fails unit tests.
-    #
-    # NON-BLOCKING during stabilisation (tracked by #423): the Linux/CI
-    # environment surfaces failures that don't repro on Windows dev boxes.
-    # The job runs, logs failures, and uploads the .trx — but doesn't fail
-    # the check. Remove ``continue-on-error`` once the flakes are stabilised.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
