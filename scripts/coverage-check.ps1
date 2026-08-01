@@ -66,8 +66,30 @@ try {
         '--results-directory', $rawDir
     )
     if ($NoBuild) { $testArgs += '--no-build' }
-    & dotnet @testArgs
+    & dotnet @testArgs 2>&1 | Tee-Object -Variable testOutput
     if ($LASTEXITCODE -ne 0) { throw "dotnet test failed (exit $LASTEXITCODE)." }
+
+    # When parallel test hosts race to restore an instrumented module, the
+    # coverlet collector gives up on that assembly and emits no coverage rows
+    # for it — it does not fail the run. A gate computed from the merged report
+    # then measures less code than it appears to, so it can pass for the wrong
+    # reason. Silent green is the dangerous direction, so treat any collector
+    # failure as fatal rather than gating on data known to be incomplete (#1142).
+    if ($testOutput | Select-String -Pattern 'CoverletDataCollectorException' -Quiet) {
+        $dropped = $testOutput |
+            Select-String -Pattern "cannot access the file '([^']+\.dll)'" -AllMatches |
+            ForEach-Object { $_.Matches } |
+            ForEach-Object { Split-Path $_.Groups[1].Value -Leaf } |
+            Sort-Object -Unique
+        $which = if ($dropped) { $dropped -join ', ' } else { '(assembly not identified)' }
+        Write-Warning ("Coverlet failed to restore $which, so it contributed no coverage rows. " +
+                       "Dropped data can only lower a figure, never raise one, so this cannot " +
+                       "turn a failing gate green — but it can depress one unfairly. A failed " +
+                       "restore also leaves that DLL and its PDB mismatched, which makes every " +
+                       "later --no-build run report the assembly as 0.0%: delete the affected " +
+                       "test project's bin/obj and rebuild rather than just re-running. " +
+                       "The checks below will fail the run if a gated assembly is affected.")
+    }
 
     Write-Host "==> Restoring local tools..."
     & dotnet tool restore | Out-Null
@@ -111,6 +133,20 @@ try {
     [xml]$report = Get-Content $cobertura
 
     Write-Host "`n==> Coverage gate (ADR-0065):"
+
+    # The gate loop below only evaluates thresholds it finds a package for, so a
+    # gated assembly missing from the merged report is skipped in silence and the
+    # run still reports "All gates pass". That is the one way this script can go
+    # green without having measured the code, so check for it explicitly (#1142).
+    $reported = @($report.coverage.packages.package | ForEach-Object { $_.name })
+    $absent = @($thresholds.Keys | Where-Object { $reported -notcontains $_ })
+    if ($absent) {
+        throw ("These gated assemblies are absent from the coverage report: $($absent -join ', '). " +
+               "Their thresholds would be skipped silently rather than enforced, so the run is " +
+               "failing instead of reporting a pass it has not earned. Usually a lost or " +
+               "incomplete coverlet collection — rebuild the affected test projects. See #1142.")
+    }
+
     $failed = @()
     foreach ($pkg in $report.coverage.packages.package) {
         if (-not $thresholds.ContainsKey($pkg.name)) { continue }
@@ -127,6 +163,22 @@ try {
     if ($OpenReport) {
         $indexHtml = Join-Path $reportDir 'index.html'
         if (Test-Path $indexHtml) { Start-Process $indexHtml }
+    }
+
+    # A gated assembly reading exactly 0.0% is not a coverage problem — every
+    # gated project has tests, and they are asserted to pass above. It means the
+    # coverage data for that assembly was lost. The usual cause is a stale
+    # DLL/PDB pair left behind when a coverlet host failed to restore an
+    # instrumented module: the mismatch stops line mapping silently, and every
+    # later --no-build run repeats the 0.0% until the output is rebuilt (#1142).
+    $lost = $failed | Where-Object { $_.Measured -eq 0 }
+    if ($lost) {
+        Write-Host ''
+        throw ("Coverage data was lost for: $($lost.Assembly -join ', '). A gated assembly " +
+               "cannot genuinely be at 0.0% when its tests pass, so the gate result is " +
+               "meaningless rather than failing. This is usually a stale DLL/PDB pair from an " +
+               "interrupted coverlet run — delete the affected test project's bin/obj, rebuild, " +
+               "and re-run. See #1142.")
     }
 
     if ($failed.Count -gt 0) {
