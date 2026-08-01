@@ -1,4 +1,5 @@
 using System.Reflection;
+using JasperFx.CodeGeneration.Model;
 using SmartSentinelEye.ScenarioSimulator;
 using SmartSentinelEye.ScenarioSimulator.CameraCatalog;
 using SmartSentinelEye.ScenarioSimulator.CameraSim;
@@ -65,6 +66,11 @@ builder.Services.AddHostedService<ScenarioSeeder>();
 // inbox/outbox — re-provisioning camera-sim on redelivery is idempotent.
 builder.UseWolverine(opts =>
 {
+    // Same reason as WolverineDefaults: Wolverine 6 defaults this to NotAllowed,
+    // which fails handler codegen at startup for registrations that genuinely
+    // need service location.
+    opts.ServiceLocationPolicy = ServiceLocationPolicy.AllowedButWarn;
+
     string rabbitConnection =
         builder.Configuration.GetConnectionString("rabbitmq")
         ?? throw new InvalidOperationException("Connection string 'rabbitmq' is required for the scenario simulator.");

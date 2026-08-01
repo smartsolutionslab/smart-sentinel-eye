@@ -1,5 +1,6 @@
 using System.Reflection;
 using JasperFx;
+using JasperFx.CodeGeneration.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -56,6 +57,15 @@ public static class WolverineDefaults
 
         builder.UseWolverine(opts =>
         {
+            // Wolverine 6 flipped this default from AllowedButWarn to NotAllowed,
+            // which fails handler codegen at startup for two registrations we
+            // legitimately rely on: IRtspGateway (a typed HttpClient, always an
+            // opaque lambda factory) and DomainEventDispatcher (reflection-based,
+            // so it takes IServiceProvider). Keeping 5.x semantics; narrowing to
+            // NotAllowed with per-type AlwaysUseServiceLocationFor opt-ins is
+            // tracked separately.
+            opts.ServiceLocationPolicy = ServiceLocationPolicy.AllowedButWarn;
+
             opts.AutoBuildMessageStorageOnStartup = AutoCreate.CreateOrUpdate;
 
             opts.PersistMessagesWithPostgresql(postgresConnection, outboxSchema);
