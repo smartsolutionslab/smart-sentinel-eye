@@ -53,11 +53,17 @@
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
 
     <!-- Wolverine (ADR-0042, ADR-0057, ADR-0088). Version-aligned with Yumney. -->
-    <PackageVersion Include="WolverineFx" Version="5.39.3" />
-    <PackageVersion Include="WolverineFx.Http" Version="5.39.3" />
-    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="5.39.3" />
-    <PackageVersion Include="WolverineFx.Postgresql" Version="5.39.3" />
-    <PackageVersion Include="WolverineFx.RabbitMQ" Version="5.39.3" />
+    <PackageVersion Include="WolverineFx" Version="6.24.2" />
+    <PackageVersion Include="WolverineFx.Http" Version="6.24.2" />
+    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="6.24.2" />
+    <PackageVersion Include="WolverineFx.Postgresql" Version="6.24.2" />
+    <PackageVersion Include="WolverineFx.RabbitMQ" Version="6.24.2" />
+    <!-- Wolverine 6 dropped JasperFx.RuntimeCompiler from the core package, so
+         runtime codegen is now opt-in. Both UseWolverine call sites run on the
+         implicit TypeLoadMode.Dynamic, which fails fast at startup without an
+         IAssemblyGenerator. Referenced by ServiceDefaults + ScenarioSimulator,
+         the two hosts that call UseWolverine. -->
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.24.2" />
 
     <!-- MQTT (spec 006, ADR-0096): .NET client + managed-client wrapper for the Mosquitto broker (ADR-0095). -->
     <PackageVersion Include="MQTTnet" Version="4.3.7.1207" />
