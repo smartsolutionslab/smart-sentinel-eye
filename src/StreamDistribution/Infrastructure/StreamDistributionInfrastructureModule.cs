@@ -88,12 +88,7 @@ public static class StreamDistributionInfrastructureModule
         builder.AddWolverineForContext<StreamDistributionDbContext>(
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
-            postgresConnectionName: StreamDistributionPersistenceModule.DatabaseConnectionName,
-            // A typed HttpClient is registered through an opaque lambda factory,
-            // so codegen cannot construct it inline. CameraRegisteredV1's handler
-            // reaches it via ProvisionStreamCommandHandler.
-            configureMore: opts =>
-                opts.CodeGeneration.AlwaysUseServiceLocationFor<IRtspGateway>());
+            postgresConnectionName: StreamDistributionPersistenceModule.DatabaseConnectionName);
 
         return builder;
     }
