@@ -2,6 +2,16 @@
 
 **Status:** Accepted
 **Date:** 2026-05-25
+**Superseded in part by:** [ADR-0113](./0113-optimistic-concurrency-two-layer.md)
+
+> **Read ADR-0113 before acting on this one.** Three statements below are
+> superseded: the Marten exemption for Overlays and Automation (both are
+> EF Core, so nothing is exempt), the retry-once instruction (harmful —
+> it re-applies a mutation over the other writer's work), and the
+> implicit assumption that a database concurrency token is sufficient
+> (it catches only overlapping transactions, not the cross-request case
+> this ADR's own motivating scenario describes). ADR-0113 also records
+> that the mechanism specified here was never actually implemented.
 
 ## Context
 
