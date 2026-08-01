@@ -4,6 +4,7 @@ using JasperFx.CodeGeneration.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using SmartSentinelEye.Shared.CQRS;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.Postgresql;
@@ -57,14 +58,18 @@ public static class WolverineDefaults
 
         builder.UseWolverine(opts =>
         {
-            // Wolverine 6 flipped this default from AllowedButWarn to NotAllowed,
-            // which fails handler codegen at startup for two registrations we
-            // legitimately rely on: IRtspGateway (a typed HttpClient, always an
-            // opaque lambda factory) and DomainEventDispatcher (reflection-based,
-            // so it takes IServiceProvider). Keeping 5.x semantics; narrowing to
-            // NotAllowed with per-type AlwaysUseServiceLocationFor opt-ins is
-            // tracked separately.
-            opts.ServiceLocationPolicy = ServiceLocationPolicy.AllowedButWarn;
+            // NotAllowed makes codegen fail at startup instead of falling back to
+            // a runtime resolve. The fallback is what makes a broken handler
+            // invisible: the queue, binding and outbox all stay healthy while the
+            // handler quietly never runs. Types that genuinely cannot be built
+            // inline opt back in explicitly, one at a time.
+            opts.ServiceLocationPolicy = ServiceLocationPolicy.NotAllowed;
+
+            // Resolves handlers reflectively per event type, so it takes
+            // IServiceProvider and codegen can never construct it. Every
+            // repository depends on it and every handler on a repository, so this
+            // applies to all contexts rather than any one of them.
+            opts.CodeGeneration.AlwaysUseServiceLocationFor<IDomainEventDispatcher>();
 
             opts.AutoBuildMessageStorageOnStartup = AutoCreate.CreateOrUpdate;
 

@@ -66,9 +66,11 @@ builder.Services.AddHostedService<ScenarioSeeder>();
 // inbox/outbox — re-provisioning camera-sim on redelivery is idempotent.
 builder.UseWolverine(opts =>
 {
-    // Same reason as WolverineDefaults: Wolverine 6 defaults this to NotAllowed,
-    // which fails handler codegen at startup for registrations that genuinely
-    // need service location.
+    // Deliberately still permissive while the nine contexts run on NotAllowed.
+    // CameraRegisteredSimHandler reaches CameraSimProvisioner, a typed HttpClient
+    // behind a lambda factory, so tightening this needs an explicit opt-in — and
+    // this host is gated off in CI, so nothing automated would catch getting it
+    // wrong. Tightened separately, against a live run.
     opts.ServiceLocationPolicy = ServiceLocationPolicy.AllowedButWarn;
 
     string rabbitConnection =
