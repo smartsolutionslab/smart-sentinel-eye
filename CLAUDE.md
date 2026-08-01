@@ -162,7 +162,7 @@ down as:
 | Nulls | **NRT disabled + `Option<T>` everywhere** | 0048 |
 | Async | `CancellationToken` mandatory last param; no `ConfigureAwait` | 0049 |
 | Persistence | PostgreSQL (+ Marten for ES contexts with inline projections) | 0009, 0071 |
-| Concurrency | Optimistic with explicit `Version` field on aggregates | 0043 |
+| Concurrency | Two-layer optimistic: `If-Match` expected version (cross-request) + EF token (in-transaction); no retry-on-conflict | 0043, **0113** |
 | Object store | MinIO (future) | 0009 |
 | Messaging | RabbitMQ (via Wolverine) | 0010, 0042 |
 | Sagas | Wolverine state machines + compensating actions | 0072 |
