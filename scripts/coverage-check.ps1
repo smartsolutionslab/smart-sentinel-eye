@@ -54,20 +54,40 @@ New-Item -ItemType Directory -Force -Path $rawDir | Out-Null
 Push-Location $repoRoot
 try {
     Write-Host "==> Running unit tests with coverage ($Configuration)..."
-    # Exclude the Integration.Tests project by assembly name, NOT by
-    # FullyQualifiedName substring — spec 006 introduces classes
-    # named `WebhookIntegration` whose tests would otherwise be
-    # filtered out by an `!~Integration` substring match.
-    $testArgs = @(
-        'test'
-        '--filter', 'FullyQualifiedName!~SmartSentinelEye.Integration.Tests'
-        '-c', $Configuration
-        '--collect:XPlat Code Coverage'
-        '--results-directory', $rawDir
-    )
-    if ($NoBuild) { $testArgs += '--no-build' }
-    & dotnet @testArgs 2>&1 | Tee-Object -Variable testOutput
-    if ($LASTEXITCODE -ne 0) { throw "dotnet test failed (exit $LASTEXITCODE)." }
+    # One project at a time, each writing into its own results directory.
+    # Running the whole solution in one `dotnet test` let MSBuild start several
+    # test hosts at once; coverlet instruments an assembly by swapping in a
+    # modified copy and restoring it at host exit, so concurrent hosts race over
+    # the same files. The loser drops that assembly's coverage rows *and* leaves
+    # its DLL and PDB mismatched, which makes every later --no-build run report
+    # it as 0.0% until the output is rebuilt (#1142). Sequencing removes the
+    # contention rather than detecting it after the fact.
+    #
+    # Selecting projects directly also retires the old FullyQualifiedName
+    # exclusion filter, which existed only to keep Integration.Tests out of a
+    # solution-wide run and had to be written against the assembly name because
+    # class names like `WebhookIntegration` matched an `!~Integration` substring.
+    $testProjects = Get-ChildItem -Path (Join-Path $repoRoot 'tests') -Filter '*.csproj' -Recurse |
+        Where-Object { $_.Name -ne 'SmartSentinelEye.Integration.Tests.csproj' } |
+        Sort-Object Name
+    if (-not $testProjects) { throw 'No test projects found under tests/.' }
+
+    $testOutput = @()
+    foreach ($proj in $testProjects) {
+        $projectName = [IO.Path]::GetFileNameWithoutExtension($proj.Name)
+        Write-Host "  -> $projectName"
+        $testArgs = @(
+            'test', $proj.FullName
+            '-c', $Configuration
+            '--collect:XPlat Code Coverage'
+            '--results-directory', (Join-Path $rawDir $projectName)
+        )
+        if ($NoBuild) { $testArgs += '--no-build' }
+        & dotnet @testArgs 2>&1 | Tee-Object -Variable projectOutput
+        $exitCode = $LASTEXITCODE
+        $testOutput += $projectOutput
+        if ($exitCode -ne 0) { throw "dotnet test failed for $projectName (exit $exitCode)." }
+    }
 
     # When parallel test hosts race to restore an instrumented module, the
     # coverlet collector gives up on that assembly and emits no coverage rows
