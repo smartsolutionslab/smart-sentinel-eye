@@ -31,6 +31,22 @@ public class RuleQueryHandlerTests
 
     // ---- GetRuleQuery ----
 
+    // Without the version on the read side a caller has nothing to put in
+    // If-Match, and the cross-request check degrades to no check (ADR-0113).
+    [Fact]
+    public async Task Get_returns_the_aggregate_version()
+    {
+        RuleAggregate rule = new RuleBuilder().WithName("versioned-rule").WithClock(Moment).Build();
+        (_, IRuleQuerySource source) = Seed(rule);
+
+        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+            .HandleAsync(new GetRuleQuery("versioned-rule"), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Version.ShouldBe(rule.Version);
+    }
+
+
     [Fact]
     public async Task Get_returns_the_rule_when_the_name_matches()
     {

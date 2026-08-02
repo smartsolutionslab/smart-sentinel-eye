@@ -12,6 +12,7 @@ internal static class RuleMapper
     public static RuleDto Map(Rule rule) =>
         new(
             RuleIdentifier: rule.Id.Value,
+            Version: rule.Version,
             Name: rule.Name.Value,
             TriggerSource: rule.TriggerSource,
             TriggerKind: rule.TriggerKind,

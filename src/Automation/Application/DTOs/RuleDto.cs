@@ -20,6 +20,12 @@ namespace SmartSentinelEye.Automation.Application.DTOs;
 /// </summary>
 public sealed record RuleDto(
     Guid RuleIdentifier,
+    /// <summary>
+    /// Optimistic-concurrency version (ADR-0113). Echoed back via
+    /// <c>If-Match</c> to mutate; also on the body so the list endpoint hands
+    /// every row a version without a per-row fetch.
+    /// </summary>
+    int Version,
     string Name,
     string TriggerSource,
     string TriggerKind,
