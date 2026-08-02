@@ -99,6 +99,10 @@ public static class IdentityInfrastructureModule
         builder.Services.AddScoped<
             IQueryHandler<ListKiosksQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
             ListKiosksQueryHandler>();
+        builder.Services.AddScoped<ListWebhookClientsQueryHandler>();
+        builder.Services.AddScoped<
+            IQueryHandler<ListWebhookClientsQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
+            ListWebhookClientsQueryHandler>();
 
         builder.AddWolverineForContext<IdentityDbContext>(
             moduleQueuePrefix: ContextName,

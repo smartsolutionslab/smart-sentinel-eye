@@ -14,16 +14,19 @@ namespace SmartSentinelEye.Identity.Application.Commands;
 /// Keycloak client is created and a <c>RegisteredClient</c> row
 /// is added.
 /// </summary>
+/// <param name="ExpectedVersion">
+/// Which of the two operations the caller intends (ADR-0113).
+/// <see cref="Option{T}.None"/> asserts the client does not exist yet and
+/// only the register branch is acceptable; a value asserts it exists at
+/// exactly that version and only the rotate branch is acceptable. The
+/// handler refuses the mismatch either way rather than silently taking the
+/// other branch.
+/// </param>
 public sealed record RotateWebhookClientCommand(
     string IntegrationName,
     FabIdentifier Fab,
     OperatorIdentifier RotatedBy,
-    /// <summary>
-    /// Compared only when the Keycloak client already exists (ADR-0113).
-    /// A first-time rotation registers it, so there is no prior version for
-    /// the caller to have gone stale against — see the handler.
-    /// </summary>
-    int ExpectedVersion)
+    Option<int> ExpectedVersion)
     : ICommand<Result<WebhookClientCredentialsDto, RotateWebhookClientError>>;
 
 public abstract record RotateWebhookClientError(string Code, string Message, HttpStatusCode Status)
@@ -41,13 +44,35 @@ public abstract record RotateWebhookClientError(string Code, string Message, Htt
 
     /// <summary>
     /// The caller acted on a version of the webhook client that has since
-    /// moved on (ADR-0113 Layer 1). Only reachable on a re-rotation: the
-    /// first-time path registers the client and has no prior version to have
-    /// gone stale against.
+    /// moved on (ADR-0113 Layer 1).
     /// </summary>
     public sealed record WebhookClientStale(string ClientId, int ExpectedVersion, int ActualVersion)
         : RotateWebhookClientError(
             "WEBHOOK_CLIENT_STALE",
             $"Webhook client '{ClientId}' has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
             HttpStatusCode.Conflict);
+
+    /// <summary>
+    /// The caller sent <c>If-None-Match: *</c> — "create it, it does not
+    /// exist" — but it does. Refused rather than rotated: taking the other
+    /// branch would roll a live secret for a caller who believed they were
+    /// creating something.
+    /// </summary>
+    public sealed record WebhookClientAlreadyExists(string ClientId, int ActualVersion)
+        : RotateWebhookClientError(
+            "WEBHOOK_CLIENT_ALREADY_EXISTS",
+            $"Webhook client '{ClientId}' already exists (version {ActualVersion}). Send If-Match with that version to rotate it.",
+            HttpStatusCode.PreconditionFailed);
+
+    /// <summary>
+    /// The caller sent <c>If-Match</c> — "it exists at version N" — but no
+    /// client exists. Refused rather than registered: creating a Keycloak
+    /// client for a caller who mistyped the integration name would mint a
+    /// live credential nobody asked for.
+    /// </summary>
+    public sealed record WebhookClientNotFound(string ClientId, int ExpectedVersion)
+        : RotateWebhookClientError(
+            "WEBHOOK_CLIENT_NOT_FOUND",
+            $"No webhook client '{ClientId}' exists to be at version {ExpectedVersion}. Send If-None-Match: * to create it.",
+            HttpStatusCode.PreconditionFailed);
 }

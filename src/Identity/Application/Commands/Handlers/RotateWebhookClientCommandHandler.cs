@@ -37,7 +37,7 @@ public sealed class RotateWebhookClientCommandHandler(
         RotateWebhookClientCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (string? integrationName, FabIdentifier? fab, OperatorIdentifier rotatedBy, int expectedVersion) = command;
+        (string? integrationName, FabIdentifier? fab, OperatorIdentifier rotatedBy, Option<int> expectedVersion) = command;
 
         ClientId clientId;
         try
@@ -53,17 +53,26 @@ public sealed class RotateWebhookClientCommandHandler(
         Option<RegisteredClientAggregate> existing = await clients
             .GetByClientIdAsync(clientId, cancellationToken);
 
-        // ADR-0113 Layer 1, applied to the mutate half of this upsert only.
-        // The register branch below has no prior version to compare against,
-        // so gating it would reject every first-time rotation. Checked ahead
-        // of the Keycloak call because rolling a secret is irreversible: a
-        // stale request that rolled it first would invalidate a live
-        // credential and then report a conflict.
-        if (existing.HasValue && existing.Value.Version != expectedVersion)
+        // ADR-0113 Layer 1. The caller says which branch it intends, and a
+        // mismatch is refused rather than quietly resolved the other way:
+        // rotating for a caller who thought they were creating rolls a live
+        // secret, and creating for a caller who mistyped the name mints a
+        // Keycloak client nobody asked for.
+        if (existing.HasValue != expectedVersion.HasValue)
+        {
+            return Result<WebhookClientCredentialsDto, RotateWebhookClientError>.Failure(
+                existing.HasValue
+                    ? new RotateWebhookClientError.WebhookClientAlreadyExists(
+                        clientId.Value, existing.Value.Version)
+                    : new RotateWebhookClientError.WebhookClientNotFound(
+                        clientId.Value, expectedVersion.Value));
+        }
+
+        if (existing.HasValue && existing.Value.Version != expectedVersion.Value)
         {
             return Result<WebhookClientCredentialsDto, RotateWebhookClientError>.Failure(
                 new RotateWebhookClientError.WebhookClientStale(
-                    clientId.Value, expectedVersion, existing.Value.Version));
+                    clientId.Value, expectedVersion.Value, existing.Value.Version));
         }
 
         string clientSecret;
@@ -72,11 +81,24 @@ public sealed class RotateWebhookClientCommandHandler(
         {
             if (existing.HasValue)
             {
+                // Claim the write before rolling the secret. The version check
+                // above is a read-then-compare with no lock, so two callers
+                // holding the same version both pass it; only Layer 2 (the EF
+                // token on this save) picks a winner. Rolling first would let
+                // the loser invalidate the winner's live credential and then
+                // report 409 — the secret would belong to nobody.
+                //
+                // The residual failure is the inverse and much cheaper: if the
+                // save commits and Keycloak then fails, LastRotatedAt is early
+                // and the old secret still works, so the integration keeps
+                // running and the caller retries.
+                aggregate = existing.Value;
+                aggregate.Rotate(clock);
+                await clients.SaveAsync(cancellationToken);
+
                 KeycloakClientCredentials rolled = await keycloak
                     .RotateClientSecretAsync(clientId.Value, cancellationToken);
                 clientSecret = rolled.ClientSecret;
-                aggregate = existing.Value;
-                aggregate.Rotate(clock);
             }
             else
             {
@@ -105,6 +127,13 @@ public sealed class RotateWebhookClientCommandHandler(
                     clientId, ClientKind.WebhookIntegration,
                     fab, rotatedBy, clock);
                 clients.Add(aggregate);
+
+                // The register branch keeps the opposite order on purpose. If
+                // the row were written first and CreateClientAsync then failed,
+                // GetByClientIdAsync would find it on the retry, which would
+                // take the rotate branch and try to roll a secret for a
+                // Keycloak client that was never created.
+                await clients.SaveAsync(cancellationToken);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException
@@ -113,8 +142,6 @@ public sealed class RotateWebhookClientCommandHandler(
             return Result<WebhookClientCredentialsDto, RotateWebhookClientError>.Failure(
                 new RotateWebhookClientError.KeycloakUnavailable(ex.Message));
         }
-
-        await clients.SaveAsync(cancellationToken);
 
         // Tell EventIngestion to flip the integration's
         // bearer-validation path from hash-compare to JWT-validate.
@@ -128,6 +155,8 @@ public sealed class RotateWebhookClientCommandHandler(
 
         // Read after SaveAsync: the interceptor bumps the version during the
         // save, so this is the value the next rotation must send in If-Match.
+        // GET /webhook-integrations serves the same value, so a caller who
+        // loses this response is not locked out of rotating again.
         return Result<WebhookClientCredentialsDto, RotateWebhookClientError>.Success(
             new WebhookClientCredentialsDto(
                 aggregate.Id.Value,
