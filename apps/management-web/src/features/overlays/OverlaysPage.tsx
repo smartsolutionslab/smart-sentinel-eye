@@ -100,6 +100,7 @@ export function OverlaysPage() {
                       void publishRevision({
                         overlayIdentifier: chain.overlayIdentifier,
                         revisionNumber: newest.revisionNumber,
+                        version: chain.version,
                       })
                     }
                   >
@@ -111,7 +112,7 @@ export function OverlaysPage() {
                     <Button
                       variant="secondary"
                       disabled={disabled}
-                      onClick={() => void branchDraft(chain.overlayIdentifier)}
+                      onClick={() => void branchDraft({ overlayIdentifier: chain.overlayIdentifier, version: chain.version })}
                     >
                       Edit (new draft)
                     </Button>
@@ -122,6 +123,7 @@ export function OverlaysPage() {
                         void revertRevision({
                           overlayIdentifier: chain.overlayIdentifier,
                           revisionNumber: newest.revisionNumber,
+                          version: chain.version,
                         })
                       }
                     >
@@ -137,6 +139,7 @@ export function OverlaysPage() {
                       void archiveRevision({
                         overlayIdentifier: chain.overlayIdentifier,
                         revisionNumber: newest.revisionNumber,
+                        version: chain.version,
                       })
                     }
                   >

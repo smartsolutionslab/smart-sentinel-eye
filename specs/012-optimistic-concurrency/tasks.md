@@ -334,6 +334,28 @@ through one chokepoint — so transport is one file, not seven.
       comment at :4-7 declares the format a breaking-change contract
       asserted on by Playwright — a deliberate change, not incidental.
 
+### Per-context transport — added 2026-08-02
+
+The plan budgeted frontend transport **once**, for Layout, because it
+assumed a central ETag store would cover every context at the same time.
+That store was dropped (T047), so each context now needs its own small
+transport step — and it must land **before** that context's server-side
+requirement, or its mutations 428 from the running UI.
+
+Missing this for Overlay was caught while sequencing T023; recording the
+rest so the remaining three do not surface the same way.
+
+- [x] **T060 [FE]** OverlayDesigner — send `If-Match` on the four mutating
+      overlay endpoints. Blocks T023-T026.
+- [ ] **T061 [FE]** SystemVariables — send `If-Match` on `setVariableValue`
+      and `archiveVariable`. Blocks T029-T031.
+- [ ] **T062 [FE]** Automation — send `If-Match` on publish + archive.
+      **Not `dryRunRule`** (T048). Blocks T034-T035.
+- [ ] **T063 [FE]** Identity / EventIngestion have no SPA client, so their
+      server-side halves (T038-T044) need no transport step. Confirm before
+      requiring the header there — a headless caller would 428 with no UI to
+      fix.
+
 ### E2E
 
 - [ ] **T054 [FE]** Two-context conflict test modelled on
@@ -383,6 +405,9 @@ through one chokepoint — so transport is one file, not seven.
   Implementation Notes.
 - Phase 6's conflict handling (T049-T053) still requires the Phase-5
   blocks, since there is no 409 to handle until the server compares.
+- **Each context's transport task (T060-T062) blocks its own server-side
+  block**, not just Layout's: T060 → T023-T026, T061 → T029-T031,
+  T062 → T034-T035.
 - T054/T055 require Phase 6 transport.
 
 ## Implementation strategy
