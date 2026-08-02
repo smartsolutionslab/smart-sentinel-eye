@@ -65,12 +65,12 @@ public class OverlayETagIntegrationTests(AspireFixture aspire) : IAsyncLifetime
                 name = $"Etag-{Guid.NewGuid():N}"[..16],
                 label = new
                 {
-                    text = "Hello",
-                    x = 0.1m,
-                    y = 0.1m,
-                    width = 0.3m,
-                    height = 0.08m,
-                    fontSize = 32,
+                    text = "Production Line 1",
+                    normalizedX = 0.5m,
+                    normalizedY = 0.05m,
+                    normalizedWidth = 0.3m,
+                    normalizedHeight = 0.08m,
+                    fontSizePx = 48,
                 },
             });
         created.EnsureSuccessStatusCode();
