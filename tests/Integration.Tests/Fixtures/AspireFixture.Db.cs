@@ -5,6 +5,7 @@ using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
+using SmartSentinelEye.SystemVariables.Infrastructure.Persistence;
 
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -16,6 +17,7 @@ public sealed partial class AspireFixture
     public const string OverlayDesignerConnectionName = "overlay-designer-db";
     public const string AuditObservabilityConnectionName = "audit-db";
     public const string EventIngestionConnectionName = "event-ingestion-db";
+    public const string SystemVariablesConnectionName = "system-variables-db";
 
     public async Task<EventIngestionDbContext> CreateEventIngestionDbContextAsync(
         CancellationToken cancellationToken = default)
@@ -151,6 +153,31 @@ public sealed partial class AspireFixture
         await using OverlayDesignerDbContext context =
             await CreateOverlayDesignerDbContextAsync(cancellationToken).ConfigureAwait(false);
         await context.Overlays.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<SystemVariablesDbContext> CreateSystemVariablesDbContextAsync(
+        CancellationToken cancellationToken = default)
+    {
+        string? connectionString = await App
+            .GetConnectionStringAsync(SystemVariablesConnectionName, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (connectionString is null)
+        {
+            throw new InvalidOperationException(
+                $"Connection string '{SystemVariablesConnectionName}' was not provisioned by Aspire.");
+        }
+
+        DbContextOptionsBuilder<SystemVariablesDbContext> optionsBuilder = new();
+        optionsBuilder.UseNpgsql(connectionString);
+        return new SystemVariablesDbContext(optionsBuilder.Options);
+    }
+
+    public async Task ResetSystemVariablesAsync(CancellationToken cancellationToken = default)
+    {
+        await using SystemVariablesDbContext context =
+            await CreateSystemVariablesDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await context.Variables.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
