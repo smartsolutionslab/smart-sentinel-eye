@@ -2,8 +2,10 @@ import { useListCamerasQuery } from '@smart-sentinel-eye/shared/api/cameras.api'
 import {
   useCreateLayoutDraftMutation,
   useEditDraftRevisionMutation,
+  useGetLayoutQuery,
   type LayoutTile,
 } from '@smart-sentinel-eye/shared/api/layouts.api';
+import { skipToken } from '@reduxjs/toolkit/query/react';
 import { useListOverlaysQuery } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
@@ -52,6 +54,14 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   const isEdit = editTarget !== undefined;
   const [createLayoutDraft, createState] = useCreateLayoutDraftMutation();
   const [editDraftRevision, editState] = useEditDraftRevisionMutation();
+
+  // The If-Match version has to be the chain's *current* one (ADR-0113).
+  // The page branches a new draft before opening this dialog, and that branch
+  // is itself a write, so the version the page held is already one behind.
+  // Reading it back rather than inferring "+1" keeps the client from doing
+  // arithmetic on server state -- and still fails correctly if another
+  // operator moves the chain while the dialog is open.
+  const { data: currentChain } = useGetLayoutQuery(editTarget?.layoutIdentifier ?? skipToken);
   const { isLoading, error, reset: resetMutationState } = isEdit ? editState : createState;
 
   // Drop any prior backend error when the dialog closes so a stale banner
@@ -91,9 +101,11 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   const onSubmit = handleSubmit(async (value) => {
     const tiles = tilesFromCells(value.cells);
     if (editTarget !== undefined) {
+      if (currentChain === undefined) return;
       const result = await editDraftRevision({
         layoutIdentifier: editTarget.layoutIdentifier,
         revisionNumber: editTarget.revisionNumber,
+        version: currentChain.version,
         grid: value.grid,
         tiles,
       });

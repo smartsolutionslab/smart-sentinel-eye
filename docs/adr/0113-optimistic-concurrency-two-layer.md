@@ -248,6 +248,35 @@ Therefore:
 Steps 2 and 3 must not be separated such that a bump is active without
 the mapping.
 
+**The same hazard applies to the API contract, in the opposite
+direction.** Making `If-Match` required is a breaking change for any
+client that does not yet send it — and the management SPA is such a
+client until its transport is updated. Requiring the header first would
+return `428` on every layout mutation from the real UI until the
+frontend caught up.
+
+So step 4 splits, and the client moves first:
+
+- **4a.** The read side returns the version (`ETag` + body field), and
+  the SPA starts *sending* `If-Match`. A header the server ignores is a
+  no-op, so nothing breaks.
+- **4b.** The server starts *requiring* and comparing it. The client is
+  already compliant.
+
+Do not bridge this by accepting requests without `If-Match` "for now".
+An optional precondition is one that never gets sent, and it is the same
+silent fallback this ADR rejects — the hole would simply move from the
+database to the API.
+
+**The client passes the version explicitly, and does not cache entity
+tags.** A central `ETag` store in the shared gateway client would have
+to map a request URL back to the resource whose tag guards it — `POST
+/layouts/{id}/revisions/2/publish` is guarded by the tag from `GET
+/layouts/{id}` — and any miss would degrade to a request with no
+version. Threading the version through each mutation's arguments instead
+makes the type checker reject a call site that forgets, which is the
+property that matters here.
+
 **Verification is behavioural, not structural.** The two tests that
 matter are a real two-`DbContext` conflict (Layer 2) and a
 `GET` → mutate → stale-`ETag` mutate → 409 sequence (Layer 1). A mocked

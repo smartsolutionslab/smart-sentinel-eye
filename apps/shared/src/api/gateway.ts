@@ -22,6 +22,19 @@ if (import.meta.env.PROD && gatewayOrigin === '') {
 
 export const gatewayApiUrl = (route: string): string => `${gatewayOrigin}/${route}`;
 
+// ADR-0113 Layer 1: a mutating request carries the aggregate version it was
+// read at, so the server can refuse an edit built on a stale view instead of
+// silently overwriting whoever wrote in between.
+//
+// The version is threaded explicitly through each mutation's arguments rather
+// than cached here and injected centrally. A central store would have to map a
+// request URL back to the resource whose ETag it needs -- `POST
+// /layouts/{id}/revisions/2/publish` is guarded by the ETag from `GET
+// /layouts/{id}` -- and any miss degrades to a request with no version, which
+// is the silent fallback this whole mechanism exists to remove. Passing it as
+// an argument makes TypeScript reject a call site that forgets.
+export const ifMatch = (version: number): Record<string, string> => ({ 'If-Match': `"${version}"` });
+
 // Every context API requires a Keycloak-minted JWT (ADR-0007/0008; the gateway
 // forwards Authorization unmodified, ADR-0106). The RTK Query clients live in
 // this shared package and are app-agnostic, so each app registers a getter that

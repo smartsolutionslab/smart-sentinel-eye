@@ -38,7 +38,7 @@ export function LayoutsPage() {
   // branch copies the baseline verbatim, so the new draft's revision number is
   // the published revision's + 1 (the returned number).
   const onEdit = async (chain: Layout, published: LayoutRevision) => {
-    const result = await branchDraft(chain.layoutIdentifier);
+    const result = await branchDraft({ layoutIdentifier: chain.layoutIdentifier, version: chain.version });
     if ('error' in result) return;
     setEditTarget({
       layoutIdentifier: chain.layoutIdentifier,
@@ -121,6 +121,7 @@ export function LayoutsPage() {
                       void publishRevision({
                         layoutIdentifier: chain.layoutIdentifier,
                         revisionNumber: newest.revisionNumber,
+                        version: chain.version,
                       })
                     }
                   >
@@ -143,6 +144,7 @@ export function LayoutsPage() {
                         void revertRevision({
                           layoutIdentifier: chain.layoutIdentifier,
                           revisionNumber: newest.revisionNumber,
+                          version: chain.version,
                         })
                       }
                     >
@@ -158,6 +160,7 @@ export function LayoutsPage() {
                       void archiveRevision({
                         layoutIdentifier: chain.layoutIdentifier,
                         revisionNumber: newest.revisionNumber,
+                        version: chain.version,
                       })
                     }
                   >

@@ -20,6 +20,12 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
       editDraftMock,
       { isLoading: false, error: undefined, reset: vi.fn() },
     ],
+    // The dialog reads the chain back to learn its current version; the page
+    // branched a draft just before opening, so the version it held is stale.
+    useGetLayoutQuery: () => ({
+      data: { layoutIdentifier: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', version: 7 },
+      isLoading: false,
+    }),
   };
 });
 
@@ -229,6 +235,7 @@ describe('LayoutEditorDialog — edit', () => {
     expect(editDraftMock).toHaveBeenCalledWith({
       layoutIdentifier: editTarget.layoutIdentifier,
       revisionNumber: 2,
+      version: 7,
       grid: { rows: 1, cols: 2 },
       tiles: [
         { cameraIdentifier: CAMERA_A, overlayIdentifier: OVERLAY_X, row: 0, col: 0 },

@@ -20,6 +20,7 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
   return {
     ...actual,
     useListLayoutsQuery: (...args: unknown[]) => listLayoutsMock(...args),
+    useGetLayoutQuery: () => ({ data: chain(), isLoading: false }),
     usePublishRevisionMutation: () => [publishMock, { isLoading: false }],
     useArchiveRevisionMutation: () => [archiveMock, { isLoading: false }],
     useBranchDraftRevisionMutation: () => [branchMock, { isLoading: false }],
@@ -45,6 +46,7 @@ const { LayoutsPage } = await import('./LayoutsPage.js');
 function chain(overrides: Partial<Layout> = {}): Layout {
   return {
     layoutIdentifier: '11111111-1111-1111-1111-111111111111',
+    version: 0,
     name: 'Line-1',
     createdAt: '2026-05-26T10:00:00Z',
     createdBy: '22222222-2222-2222-2222-222222222222',
@@ -132,6 +134,7 @@ describe('LayoutsPage', () => {
     expect(publishMock).toHaveBeenCalledWith({
       layoutIdentifier: '11111111-1111-1111-1111-111111111111',
       revisionNumber: 1,
+      version: 0,
     });
   });
 
@@ -221,7 +224,10 @@ describe('LayoutsPage', () => {
     renderPage();
 
     await user.click(screen.getByRole('button', { name: /edit \(new draft\)/i }));
-    expect(branchMock).toHaveBeenCalledWith('11111111-1111-1111-1111-111111111111');
+    expect(branchMock).toHaveBeenCalledWith({
+      layoutIdentifier: '11111111-1111-1111-1111-111111111111',
+      version: 0,
+    });
     // The editor opens pre-loaded: its "Edit layout" dialog title appears.
     expect(await screen.findByText(/edit layout/i)).toBeInTheDocument();
   });
