@@ -43,6 +43,24 @@ public class GetLayoutQueryHandlerTests
         first.Tiles.ShouldHaveSingleItem().Row.ShouldBe(0);
     }
 
+    // The version has to reach the read side or a caller has nothing to put in
+    // If-Match, and the cross-request check silently degrades to no check at
+    // all (ADR-0113 Layer 1).
+    [Fact]
+    public async Task The_dto_carries_the_aggregate_version()
+    {
+        InMemoryLayoutRepository repository = new();
+        Layout layout = new LayoutBuilder().Named("Line-2").At(FixedMoment).Build();
+        repository.Add(layout);
+
+        GetLayoutQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
+        Result<LayoutDto, GetLayoutError> result = await handler.HandleAsync(
+            new GetLayoutQuery(layout.Id), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Version.ShouldBe(layout.Version);
+    }
+
     [Fact]
     public async Task Unknown_layout_returns_LayoutNotFound()
     {

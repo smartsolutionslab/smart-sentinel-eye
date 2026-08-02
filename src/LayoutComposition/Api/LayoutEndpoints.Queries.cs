@@ -14,6 +14,7 @@ public static partial class LayoutEndpoints
 {
     private static async Task<IResult> GetOne(
         Guid layoutIdentifier,
+        HttpResponse response,
         [FromServices] GetLayoutQueryHandler handler,
         CancellationToken cancellationToken)
     {
@@ -29,7 +30,14 @@ public static partial class LayoutEndpoints
             .HandleAsync(new GetLayoutQuery(LayoutIdentifier.From(layoutIdentifier)), cancellationToken);
 
         return result.Match<IResult>(
-            onSuccess: Results.Ok,
+            onSuccess: layout =>
+            {
+                // The version the caller must echo back in If-Match to mutate
+                // this chain (ADR-0113).
+                response.Headers.ETag = ConcurrencyHeaders.ETag(layout.Version);
+
+                return Results.Ok(layout);
+            },
             onFailure: error => error.ToProblem());
     }
 
