@@ -26,6 +26,7 @@ public sealed class GetVariableQueryHandler(IVariableQuerySource variables)
     internal static VariableDto Map(Variable variable) =>
         new(
             VariableIdentifier: variable.Id.Value,
+            Version: variable.Version,
             Name: variable.Name.Value,
             Type: variable.Type.Value,
             State: variable.State.Value,
