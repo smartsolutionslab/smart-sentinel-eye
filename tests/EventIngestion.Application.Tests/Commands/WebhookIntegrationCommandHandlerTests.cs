@@ -72,7 +72,7 @@ public class WebhookIntegrationCommandHandlerTests
 
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> result =
             await handler.HandleAsync(
-                new RevokeWebhookIntegrationCommand(WebhookIntegrationName.From("qa")),
+                new RevokeWebhookIntegrationCommand(WebhookIntegrationName.From("qa"), 0),
                 CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -90,7 +90,7 @@ public class WebhookIntegrationCommandHandlerTests
 
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> result =
             await handler.HandleAsync(
-                new RevokeWebhookIntegrationCommand(WebhookIntegrationName.From("ghost")),
+                new RevokeWebhookIntegrationCommand(WebhookIntegrationName.From("ghost"), 0),
                 CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();

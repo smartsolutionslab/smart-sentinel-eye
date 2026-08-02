@@ -39,8 +39,12 @@ public static class WebhookIntegrationsEndpoints
             .Produces<IReadOnlyList<WebhookIntegrationDto>>(StatusCodes.Status200OK);
 
         group.MapDelete("/{name}", Revoke)
+            .WithSummary("Revoke a webhook integration. Requires If-Match with the version from GET /webhook-integrations.")
             .Produces<Guid>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
         return app;
     }
@@ -95,6 +99,7 @@ public static class WebhookIntegrationsEndpoints
 
     private static async Task<IResult> Revoke(
         string name,
+        HttpRequest request,
         [FromServices] RevokeWebhookIntegrationCommandHandler handler,
         CancellationToken cancellationToken)
     {
@@ -110,9 +115,14 @@ public static class WebhookIntegrationsEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> result =
             await handler.HandleAsync(
-                new RevokeWebhookIntegrationCommand(parsed),
+                new RevokeWebhookIntegrationCommand(parsed, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(
