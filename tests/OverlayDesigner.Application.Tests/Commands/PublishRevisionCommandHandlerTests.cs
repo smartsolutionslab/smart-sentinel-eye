@@ -35,7 +35,7 @@ public class PublishRevisionCommandHandlerTests
         Result<OverlayRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
             new PublishRevisionCommand(
                 overlay.Id, OverlayRevisionNumber.One,
-                OperatorIdentifier.From(Guid.CreateVersion7())),
+                OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -53,7 +53,7 @@ public class PublishRevisionCommandHandlerTests
             new PublishRevisionCommand(
                 OverlayIdentifier.New(),
                 OverlayRevisionNumber.One,
-                OperatorIdentifier.From(Guid.CreateVersion7())),
+                OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -72,7 +72,7 @@ public class PublishRevisionCommandHandlerTests
         Result<OverlayRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
             new PublishRevisionCommand(
                 overlay.Id, OverlayRevisionNumber.From(42),
-                OperatorIdentifier.From(Guid.CreateVersion7())),
+                OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -92,7 +92,7 @@ public class PublishRevisionCommandHandlerTests
         Result<OverlayRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
             new PublishRevisionCommand(
                 overlay.Id, OverlayRevisionNumber.One,
-                OperatorIdentifier.From(Guid.CreateVersion7())),
+                OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();

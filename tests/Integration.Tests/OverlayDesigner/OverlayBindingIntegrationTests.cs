@@ -47,8 +47,7 @@ public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifeti
             });
         overlayCreated.EnsureSuccessStatusCode();
         Guid overlayIdentifier = await overlayCreated.Content.ReadFromJsonAsync<Guid>();
-        HttpResponseMessage overlayPublished = await overlays.PostAsync(
-            $"/overlays/{overlayIdentifier}/revisions/1/publish", content: null);
+        HttpResponseMessage overlayPublished = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/1/publish");
         overlayPublished.EnsureSuccessStatusCode();
 
         // 2. Create + publish a layout bound to that overlay.

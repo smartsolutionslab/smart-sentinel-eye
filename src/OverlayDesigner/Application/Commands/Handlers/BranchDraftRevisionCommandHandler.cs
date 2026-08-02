@@ -15,7 +15,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         BranchDraftRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (OverlayIdentifier overlayIdentifier, OperatorIdentifier branchedBy) = command;
+        (OverlayIdentifier overlayIdentifier, OperatorIdentifier branchedBy, int expectedVersion) = command;
 
         Option<Overlay> found = await overlays
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
@@ -26,6 +26,15 @@ public sealed class BranchDraftRevisionCommandHandler(
         }
 
         Overlay overlay = found.Value;
+
+        // ADR-0113 Layer 1: refuse an edit built on a view of the chain that
+        // has since moved. Checked before any mutation so nothing is applied
+        // on top of stale intent.
+        if (overlay.Version != expectedVersion)
+        {
+            return Result<OverlayRevisionNumber, BranchDraftRevisionError>.Failure(
+                new BranchDraftRevisionError.OverlayRevisionStale(overlayIdentifier.Value, expectedVersion, overlay.Version));
+        }
         if (!overlay.Revisions.Any(revision => revision.State == OverlayRevisionState.Published))
         {
             return Result<OverlayRevisionNumber, BranchDraftRevisionError>.Failure(

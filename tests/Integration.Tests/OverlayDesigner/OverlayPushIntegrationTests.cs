@@ -52,8 +52,7 @@ public class OverlayPushIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             });
         created.EnsureSuccessStatusCode();
         Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
-        HttpResponseMessage publishOne = await overlays.PostAsync(
-            $"/overlays/{overlayIdentifier}/revisions/1/publish", content: null);
+        HttpResponseMessage publishOne = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/1/publish");
         publishOne.EnsureSuccessStatusCode();
 
         // Connect two clients to the layout-composition SignalR hub
@@ -81,7 +80,7 @@ public class OverlayPushIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         // ≤1 s budget is a steady-state SLO, so warm the path with a throwaway
         // publish, wait for both clients to receive it, then measure the next.
         Guid warmupIdentifier = await CreateOverlayAsync(overlays);
-        (await overlays.PostAsync($"/overlays/{warmupIdentifier}/revisions/1/publish", content: null))
+        (await OverlayRequests.PostAsync(overlays, warmupIdentifier, $"revisions/1/publish"))
             .EnsureSuccessStatusCode();
         using (CancellationTokenSource warmupBudget = new(TimeSpan.FromSeconds(20)))
         {
@@ -94,9 +93,14 @@ public class OverlayPushIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         // exercises the same Published broadcast).
         Guid siblingIdentifier = await CreateOverlayAsync(overlays);
 
+        // Version read before the clock starts: this window measures
+        // publish→push, not the lookup.
+        HttpRequestMessage publishRequest = OverlayRequests.Conditional(
+            HttpMethod.Post, siblingIdentifier, "revisions/1/publish",
+            await OverlayRequests.VersionAsync(overlays, siblingIdentifier));
+
         Stopwatch sw = Stopwatch.StartNew();
-        HttpResponseMessage publishSibling = await overlays.PostAsync(
-            $"/overlays/{siblingIdentifier}/revisions/1/publish", content: null);
+        HttpResponseMessage publishSibling = await overlays.SendAsync(publishRequest);
         publishSibling.EnsureSuccessStatusCode();
 
         using CancellationTokenSource budget = new(TimeSpan.FromSeconds(5));

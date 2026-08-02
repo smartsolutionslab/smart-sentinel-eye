@@ -15,7 +15,7 @@ public sealed class ArchiveRevisionCommandHandler(
         ArchiveRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (OverlayIdentifier overlayIdentifier, OverlayRevisionNumber revisionNumber, OperatorIdentifier archivedBy) = command;
+        (OverlayIdentifier overlayIdentifier, OverlayRevisionNumber revisionNumber, OperatorIdentifier archivedBy, int expectedVersion) = command;
 
         Option<Overlay> found = await overlays
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
@@ -26,6 +26,15 @@ public sealed class ArchiveRevisionCommandHandler(
         }
 
         Overlay overlay = found.Value;
+
+        // ADR-0113 Layer 1: refuse an edit built on a view of the chain that
+        // has since moved. Checked before any mutation so nothing is applied
+        // on top of stale intent.
+        if (overlay.Version != expectedVersion)
+        {
+            return Result<OverlayRevisionNumber, ArchiveRevisionError>.Failure(
+                new ArchiveRevisionError.OverlayRevisionStale(overlayIdentifier.Value, expectedVersion, overlay.Version));
+        }
         if (!overlay.Revisions.Any(revision => revision.Number == revisionNumber))
         {
             return Result<OverlayRevisionNumber, ArchiveRevisionError>.Failure(

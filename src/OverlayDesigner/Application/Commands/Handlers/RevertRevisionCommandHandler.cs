@@ -15,7 +15,7 @@ public sealed class RevertRevisionCommandHandler(
         RevertRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (OverlayIdentifier overlayIdentifier, OverlayRevisionNumber revisionNumber, OperatorIdentifier revertedBy) = command;
+        (OverlayIdentifier overlayIdentifier, OverlayRevisionNumber revisionNumber, OperatorIdentifier revertedBy, int expectedVersion) = command;
 
         Option<Overlay> found = await overlays
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
@@ -26,6 +26,15 @@ public sealed class RevertRevisionCommandHandler(
         }
 
         Overlay overlay = found.Value;
+
+        // ADR-0113 Layer 1: refuse an edit built on a view of the chain that
+        // has since moved. Checked before any mutation so nothing is applied
+        // on top of stale intent.
+        if (overlay.Version != expectedVersion)
+        {
+            return Result<OverlayRevisionNumber, RevertRevisionError>.Failure(
+                new RevertRevisionError.OverlayRevisionStale(overlayIdentifier.Value, expectedVersion, overlay.Version));
+        }
         Revision? revision = overlay.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
         if (revision is null)
         {

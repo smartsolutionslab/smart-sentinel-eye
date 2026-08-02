@@ -31,7 +31,7 @@ public class BranchDraftRevisionCommandHandlerTests
             overlays, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
         Result<OverlayRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
             new BranchDraftRevisionCommand(
-                overlay.Id, OperatorIdentifier.From(Guid.CreateVersion7())),
+                overlay.Id, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -48,7 +48,7 @@ public class BranchDraftRevisionCommandHandlerTests
 
         Result<OverlayRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
             new BranchDraftRevisionCommand(
-                OverlayIdentifier.New(), OperatorIdentifier.From(Guid.CreateVersion7())),
+                OverlayIdentifier.New(), OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -71,7 +71,7 @@ public class BranchDraftRevisionCommandHandlerTests
             overlays, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
         Result<OverlayRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
             new BranchDraftRevisionCommand(
-                overlay.Id, OperatorIdentifier.From(Guid.CreateVersion7())),
+                overlay.Id, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
