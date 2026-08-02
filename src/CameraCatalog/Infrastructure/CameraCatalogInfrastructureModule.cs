@@ -7,6 +7,7 @@ using SmartSentinelEye.CameraCatalog.Application.Queries;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
 using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -38,7 +39,8 @@ public static class CameraCatalogInfrastructureModule
                 $"Connection string '{DatabaseConnectionName}' is required.");
 
         builder.Services.AddDbContextFactory<CameraCatalogDbContext>(options =>
-            options.UseNpgsql(connectionString));
+            options.UseNpgsql(connectionString)
+                .AddInterceptors(new AggregateVersionInterceptor()));
 
         builder.Services.AddSingleton<IMigrator, CameraCatalogMigrator>();
 

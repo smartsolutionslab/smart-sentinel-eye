@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Infrastructure;
@@ -27,7 +28,8 @@ public static class EventIngestionPersistenceModule
                 $"Connection string '{DatabaseConnectionName}' is required.");
 
         builder.Services.AddDbContextFactory<EventIngestionDbContext>(options =>
-            options.UseNpgsql(connectionString));
+            options.UseNpgsql(connectionString)
+                .AddInterceptors(new AggregateVersionInterceptor()));
 
         builder.Services.AddSingleton<IMigrator, EventIngestionMigrator>();
         // Partition rollover runs *after* the EF migrations because

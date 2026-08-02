@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.OverlayDesigner.Infrastructure;
@@ -25,7 +26,8 @@ public static class OverlayDesignerPersistenceModule
         string connectionString = builder.Configuration.GetConnectionString(DatabaseConnectionName) ?? throw new InvalidOperationException($"Connection string '{DatabaseConnectionName}' is required.");
 
         builder.Services.AddDbContextFactory<OverlayDesignerDbContext>(options =>
-            options.UseNpgsql(connectionString));
+            options.UseNpgsql(connectionString)
+                .AddInterceptors(new AggregateVersionInterceptor()));
 
         builder.Services.AddSingleton<IMigrator, OverlayDesignerMigrator>();
 

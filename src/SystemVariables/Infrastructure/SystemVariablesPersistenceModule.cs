@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Infrastructure.Persistence;
 
@@ -27,7 +28,8 @@ public static class SystemVariablesPersistenceModule
                 $"Connection string '{DatabaseConnectionName}' is required.");
 
         builder.Services.AddDbContextFactory<SystemVariablesDbContext>(options =>
-            options.UseNpgsql(connectionString));
+            options.UseNpgsql(connectionString)
+                .AddInterceptors(new AggregateVersionInterceptor()));
 
         builder.Services.AddSingleton<IMigrator, SystemVariablesMigrator>();
 

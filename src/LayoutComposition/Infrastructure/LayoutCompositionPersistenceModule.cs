@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Infrastructure;
@@ -25,7 +26,8 @@ public static class LayoutCompositionPersistenceModule
         string connectionString = builder.Configuration.GetConnectionString(DatabaseConnectionName) ?? throw new InvalidOperationException($"Connection string '{DatabaseConnectionName}' is required.");
 
         builder.Services.AddDbContextFactory<LayoutCompositionDbContext>(options =>
-            options.UseNpgsql(connectionString));
+            options.UseNpgsql(connectionString)
+                .AddInterceptors(new AggregateVersionInterceptor()));
 
         builder.Services.AddSingleton<IMigrator, LayoutCompositionMigrator>();
 
