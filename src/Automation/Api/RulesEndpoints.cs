@@ -164,7 +164,11 @@ public static class RulesEndpoints
             onFailure: error => error.ToProblem());
     }
 
-    private static async Task<IResult> Publish(string name, [FromServices] PublishRuleCommandHandler handler, CancellationToken cancellationToken)
+    private static async Task<IResult> Publish(
+        string name,
+        HttpRequest request,
+        [FromServices] PublishRuleCommandHandler handler,
+        CancellationToken cancellationToken)
     {
         RuleName parsed;
         try
@@ -176,12 +180,21 @@ public static class RulesEndpoints
             return Results.Problem(title: "RULE_INVALID_INPUT", detail: ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<RuleIdentifier, PublishRuleError> result = await handler.HandleAsync(new PublishRuleCommand(parsed), cancellationToken);
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
+        Result<RuleIdentifier, PublishRuleError> result = await handler.HandleAsync(new PublishRuleCommand(parsed, expectedVersion), cancellationToken);
 
         return result.Match<IResult>(onSuccess: id => Results.Ok(id.Value), onFailure: error => error.ToProblem());
     }
 
-    private static async Task<IResult> Archive(string name, [FromServices] ArchiveRuleCommandHandler handler, CancellationToken cancellationToken)
+    private static async Task<IResult> Archive(
+        string name,
+        HttpRequest request,
+        [FromServices] ArchiveRuleCommandHandler handler,
+        CancellationToken cancellationToken)
     {
         RuleName parsed;
         try
@@ -193,7 +206,12 @@ public static class RulesEndpoints
             return Results.Problem(title: "RULE_INVALID_INPUT", detail: ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<RuleIdentifier, ArchiveRuleError> result = await handler.HandleAsync(new ArchiveRuleCommand(parsed), cancellationToken);
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
+        Result<RuleIdentifier, ArchiveRuleError> result = await handler.HandleAsync(new ArchiveRuleCommand(parsed, expectedVersion), cancellationToken);
 
         return result.Match<IResult>(onSuccess: id => Results.Ok(id.Value), onFailure: error => error.ToProblem());
     }
