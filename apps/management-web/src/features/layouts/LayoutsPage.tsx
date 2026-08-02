@@ -8,6 +8,7 @@ import {
   type LayoutRevision,
   type LayoutRevisionState,
 } from '@smart-sentinel-eye/shared/api/layouts.api';
+import { isConflict, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useState } from 'react';
 import { LayoutEditorDialog, type LayoutEditTarget } from './LayoutEditorDialog.js';
@@ -25,10 +26,21 @@ export function LayoutsPage() {
   const [filter, setFilter] = useState<LayoutRevisionState | 'All'>('All');
 
   const { data, isLoading, isFetching, error, refetch } = useListLayoutsQuery(undefined);
-  const [publishRevision, { isLoading: publishing }] = usePublishRevisionMutation();
-  const [archiveRevision, { isLoading: archiving }] = useArchiveRevisionMutation();
-  const [branchDraft, { isLoading: branching }] = useBranchDraftRevisionMutation();
-  const [revertRevision, { isLoading: reverting }] = useRevertRevisionMutation();
+  const [publishRevision, publishState] = usePublishRevisionMutation();
+  const [archiveRevision, archiveState] = useArchiveRevisionMutation();
+  const [branchDraft, branchState] = useBranchDraftRevisionMutation();
+  const [revertRevision, revertState] = useRevertRevisionMutation();
+
+  const { isLoading: publishing } = publishState;
+  const { isLoading: archiving } = archiveState;
+  const { isLoading: branching } = branchState;
+  const { isLoading: reverting } = revertState;
+
+  // Every one of these used to discard its failure, so a rejected publish or
+  // archive looked identical to a successful one. With optimistic concurrency
+  // live (ADR-0113) a rejection is routine, not exceptional.
+  const mutationError =
+    publishState.error ?? archiveState.error ?? branchState.error ?? revertState.error;
 
   const chains = data?.chains ?? [];
   const visible = filter === 'All' ? chains : chains.filter((c) => containsRevisionIn(c, filter));
@@ -82,6 +94,22 @@ export function LayoutsPage() {
           <button type="button" className="underline" onClick={() => void refetch()}>
             Retry
           </button>
+        </div>
+      )}
+
+      {mutationError !== undefined && (
+        <div
+          role="alert"
+          className="mb-4 rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
+        >
+          {problemDetail(mutationError, 'Could not apply that change.')}{' '}
+          {isConflict(mutationError) && (
+            // Reload, never retry: retrying replays the same stale intent over
+            // whoever wrote in between.
+            <button type="button" className="underline" onClick={() => void refetch()}>
+              Reload
+            </button>
+          )}
         </div>
       )}
 
