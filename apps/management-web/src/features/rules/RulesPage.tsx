@@ -54,12 +54,12 @@ export function RulesPage() {
       cell: (rule) => (
         <div className="flex gap-1">
           {rule.state === 'Draft' && (
-            <Button type="button" variant="secondary" onClick={() => void publishRule(rule.name)}>
+            <Button type="button" variant="secondary" onClick={() => void publishRule({ name: rule.name, version: rule.version })}>
               Publish
             </Button>
           )}
           {rule.state !== 'Archived' && (
-            <Button type="button" variant="ghost" onClick={() => void archiveRule(rule.name)}>
+            <Button type="button" variant="ghost" onClick={() => void archiveRule({ name: rule.name, version: rule.version })}>
               Archive
             </Button>
           )}

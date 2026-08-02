@@ -1,5 +1,5 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import { gatewayBaseQuery } from './gateway.js';
+import { gatewayBaseQuery, ifMatch } from './gateway.js';
 import type { CreateRuleInput } from './rules.schema.js';
 
 export type { CreateRuleInput };
@@ -23,6 +23,8 @@ export interface RuleAction {
 }
 
 export interface Rule {
+  /** Optimistic-concurrency version; echo it back via If-Match to mutate (ADR-0113). */
+  version: number;
   ruleIdentifier: string;
   name: string;
   triggerSource: string;
@@ -41,6 +43,11 @@ export interface ListRulesFilters {
   state?: RuleState;
   triggerSource?: string;
   triggerKind?: string;
+}
+
+export interface RuleRouteInput {
+  name: string;
+  version: number;
 }
 
 export interface DryRunInput {
@@ -77,13 +84,21 @@ export const rulesApi = createApi({
       query: (body) => ({ url: '', method: 'POST', body }),
       invalidatesTags: [{ type: 'RuleList', id: 'ALL' }],
     }),
-    publishRule: build.mutation<string, string>({
-      query: (name) => ({ url: `/${encodeURIComponent(name)}/publish`, method: 'POST' }),
-      invalidatesTags: (_r, _e, name) => [{ type: 'Rule', id: name }, { type: 'RuleList', id: 'ALL' }],
+    publishRule: build.mutation<string, RuleRouteInput>({
+      query: ({ name, version }) => ({
+        url: `/${encodeURIComponent(name)}/publish`,
+        method: 'POST',
+        headers: ifMatch(version),
+      }),
+      invalidatesTags: (_r, _e, { name }) => [{ type: 'Rule', id: name }, { type: 'RuleList', id: 'ALL' }],
     }),
-    archiveRule: build.mutation<string, string>({
-      query: (name) => ({ url: `/${encodeURIComponent(name)}/archive`, method: 'POST' }),
-      invalidatesTags: (_r, _e, name) => [{ type: 'Rule', id: name }, { type: 'RuleList', id: 'ALL' }],
+    archiveRule: build.mutation<string, RuleRouteInput>({
+      query: ({ name, version }) => ({
+        url: `/${encodeURIComponent(name)}/archive`,
+        method: 'POST',
+        headers: ifMatch(version),
+      }),
+      invalidatesTags: (_r, _e, { name }) => [{ type: 'Rule', id: name }, { type: 'RuleList', id: 'ALL' }],
     }),
     // A POST that is a read: it carries a sample-event body but persists
     // nothing, so it is a mutation only in RTK's HTTP-verb sense and
