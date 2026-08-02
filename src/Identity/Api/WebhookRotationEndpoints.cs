@@ -32,7 +32,7 @@ public static class WebhookRotationEndpoints
 
         group.MapPost("/{name}/rotate", Rotate)
             .WithName("RotateWebhookClient")
-            .WithSummary("Rotate a webhook integration's bearer onto a Keycloak JWT. Requires If-Match with the version from GET /devices (send 0 on a first-time rotation, which has no client yet). Required scope: sse.webhooks.write")
+            .WithSummary("Rotate a webhook integration's bearer onto a Keycloak JWT. Requires If-Match with the version from the previous rotation's response body, or 0 for a first-time rotation. Required scope: sse.webhooks.write")
             .Produces<WebhookClientCredentialsDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status409Conflict)
@@ -69,7 +69,9 @@ public static class WebhookRotationEndpoints
         // conditional on the client already existing: the caller cannot know
         // which branch it will take, and an optional header is the silent
         // opt-out ADR-0113 rejects. The handler ignores the value when there
-        // is no client to have gone stale.
+        // is no client to have gone stale, so a first-time rotation sends 0.
+        // The response then carries the version for the next one — this is the
+        // only endpoint whose own response is the caller's source for it.
         if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
         {
             return precondition;

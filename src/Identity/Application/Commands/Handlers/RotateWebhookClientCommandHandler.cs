@@ -126,9 +126,12 @@ public sealed class RotateWebhookClientCommandHandler(
 
         logger.RotatedWebhookIntegration(integrationName, clientId);
 
+        // Read after SaveAsync: the interceptor bumps the version during the
+        // save, so this is the value the next rotation must send in If-Match.
         return Result<WebhookClientCredentialsDto, RotateWebhookClientError>.Success(
             new WebhookClientCredentialsDto(
                 aggregate.Id.Value,
+                aggregate.Version,
                 clientId.Value,
                 integrationName,
                 fab.Value,

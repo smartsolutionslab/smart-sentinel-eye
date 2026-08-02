@@ -99,6 +99,25 @@ public class StaleVersionRejectionTests
     }
 
     [Fact]
+    public async Task Each_rotation_hands_back_the_version_the_next_one_must_send()
+    {
+        // Webhook clients appear in no list endpoint — both filter to devices
+        // and kiosks — so the rotation response is the caller's only source
+        // for the version. If it stopped carrying one, every rotation from the
+        // third on would 409 with nothing the caller could do about it.
+        RotateWebhookClientCommandHandler handler = Rotator(
+            new InMemoryRegisteredClientRepository(), new FakeKeycloakAdminClient(), new FakeEventBus());
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> first =
+            await handler.HandleAsync(Rotation(0), CancellationToken.None);
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> second =
+            await handler.HandleAsync(Rotation(first.Value.Version), CancellationToken.None);
+
+        first.IsSuccess.ShouldBeTrue();
+        second.IsSuccess.ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task The_matching_version_is_accepted()
     {
         (InMemoryRegisteredClientRepository clients, FakeKeycloakAdminClient keycloak) =
