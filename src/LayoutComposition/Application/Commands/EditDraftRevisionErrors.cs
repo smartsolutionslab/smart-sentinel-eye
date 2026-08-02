@@ -63,4 +63,15 @@ public abstract record EditDraftRevisionError(string Code, string Message, HttpS
             GridViolation.TooLarge => new GridTooLarge(),
             _ => throw new ArgumentOutOfRangeException(nameof(violation), violation, "Unknown grid violation."),
         };
+
+    /// <summary>
+    /// The caller acted on a chain version that has since moved on
+    /// (ADR-0113 Layer 1). 409 rather than 412 so it reads as the domain
+    /// conflict it is, consistent with the other Conflict cases here.
+    /// </summary>
+    public sealed record LayoutRevisionStale(Guid Layout, int ExpectedVersion, int ActualVersion)
+        : EditDraftRevisionError(
+            "LAYOUT_REVISION_STALE",
+            $"Layout {Layout} has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
+            HttpStatusCode.Conflict);
 }
