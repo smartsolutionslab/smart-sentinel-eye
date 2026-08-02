@@ -365,9 +365,26 @@ API uses to mint kiosk + device clients on demand.
 5. **Rotate a webhook integration** off the legacy hash-compare
    bearer onto JWT validation (hard-cut migration, FR-016):
    ```bash
+   # First rotation: If-None-Match: * asserts the Keycloak client
+   # does not exist yet, so this call creates it (ADR-0113).
    curl -X POST 'http://localhost:5046/webhook-integrations/qa/rotate' \
      -H 'Authorization: Bearer <admin-token>' \
      -H 'Content-Type: application/json' \
+     -H 'If-None-Match: *' \
+     -d '{"fabId":"munich"}'
+   ```
+   The response carries `version`. To rotate again, read the
+   current version and echo it back — the request is conditional,
+   so a rotation built on a superseded view is refused with `409`
+   rather than silently replacing someone else's secret:
+   ```bash
+   curl 'http://localhost:5046/webhook-integrations?fabId=munich' \
+     -H 'Authorization: Bearer <admin-token>'
+
+   curl -X POST 'http://localhost:5046/webhook-integrations/qa/rotate' \
+     -H 'Authorization: Bearer <admin-token>' \
+     -H 'Content-Type: application/json' \
+     -H 'If-Match: "1"' \
      -d '{"fabId":"munich"}'
    ```
    EventIngestion's `WebhookIntegrationRotatedV1Handler` flips
