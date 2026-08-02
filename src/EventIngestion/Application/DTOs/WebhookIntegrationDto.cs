@@ -7,6 +7,13 @@ namespace SmartSentinelEye.EventIngestion.Application.DTOs;
 /// </summary>
 public sealed record WebhookIntegrationDto(
     Guid Identifier,
+    /// <summary>
+    /// Optimistic-concurrency version (ADR-0113). Echoed back via
+    /// <c>If-Match</c> to revoke. It rides the body rather than an
+    /// <c>ETag</c> because this context exposes no single-resource read —
+    /// the list is the only way in.
+    /// </summary>
+    int Version,
     string Name,
     string DefaultKind,
     DateTimeOffset RegisteredAt,

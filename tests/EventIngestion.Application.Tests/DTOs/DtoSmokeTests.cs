@@ -60,9 +60,10 @@ public class DtoSmokeTests
     {
         Guid id = Guid.CreateVersion7();
         WebhookIntegrationDto dto = new(
-            id, "qa", "QaResult", DateTimeOffset.UnixEpoch, RevokedAt: null);
+            id, 7, "qa", "QaResult", DateTimeOffset.UnixEpoch, RevokedAt: null);
 
         dto.Identifier.ShouldBe(id);
+        dto.Version.ShouldBe(7);
         dto.Name.ShouldBe("qa");
         dto.DefaultKind.ShouldBe("QaResult");
         dto.RegisteredAt.ShouldBe(DateTimeOffset.UnixEpoch);

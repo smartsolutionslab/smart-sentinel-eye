@@ -40,4 +40,24 @@ public class ListWebhookIntegrationsQueryHandlerTests
         // In-memory ordering by name (the handler sorts after pulling).
         result.Value.Select(d => d.Name).ShouldBe(["alpha", "beta"]);
     }
+
+    [Fact]
+    public async Task Projects_the_aggregate_version_so_a_caller_has_something_to_send_in_If_Match()
+    {
+        // The list is the only read path in this context, so without the
+        // version on the row a caller has nothing to put in If-Match and the
+        // cross-request check degrades to no check (ADR-0113). The version
+        // only ever moves under the EF interceptor, so the value here is
+        // necessarily 0; WebhookIntegrationConcurrencyIntegrationTests is
+        // what proves it tracks a real mutation.
+        WebhookIntegration integration = BuildActive("alpha");
+        ListWebhookIntegrationsQueryHandler handler = new(
+            new TestWebhookIntegrationQuerySource([integration]));
+
+        Result<IReadOnlyList<WebhookIntegrationDto>, ListWebhookIntegrationsError> result =
+            await handler.HandleAsync(
+                new ListWebhookIntegrationsQuery(IncludeRevoked: true), CancellationToken.None);
+
+        result.Value.ShouldHaveSingleItem().Version.ShouldBe(integration.Version);
+    }
 }
