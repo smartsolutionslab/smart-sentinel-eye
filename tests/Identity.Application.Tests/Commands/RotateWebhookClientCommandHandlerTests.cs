@@ -15,8 +15,10 @@ public class RotateWebhookClientCommandHandlerTests
     private static readonly DateTimeOffset Now =
         DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture);
 
+    // Version 0 is what a freshly-registered aggregate carries: the EF
+    // interceptor that moves it is not in play behind the in-memory repository.
     private static RotateWebhookClientCommand HappyCommand(string name = "qa") =>
-        new(name, FabIdentifier.From("munich"), OperatorIdentifier.From(Guid.CreateVersion7()));
+        new(name, FabIdentifier.From("munich"), OperatorIdentifier.From(Guid.CreateVersion7()), 0);
 
     [Fact]
     public async Task First_rotation_creates_the_Keycloak_client_and_publishes_WebhookIntegrationRotatedV1()

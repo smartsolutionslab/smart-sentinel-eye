@@ -27,6 +27,17 @@ public sealed class DisableDeviceCommandHandler(
                 new DisableDeviceError.DeviceNotFound(command.ClientId.Value));
         }
 
+        // ADR-0113 Layer 1: refuse an edit built on a view of the device that
+        // has since moved. Checked ahead of the Keycloak call, not just ahead
+        // of the local write — disabling the Keycloak client is a real,
+        // unwound-by-nothing side effect, and a stale request must not cause it.
+        if (found.Value.Version != command.ExpectedVersion)
+        {
+            return Result<RegisteredClientIdentifier, DisableDeviceError>.Failure(
+                new DisableDeviceError.DeviceStale(
+                    command.ClientId.Value, command.ExpectedVersion, found.Value.Version));
+        }
+
         try
         {
             await keycloak.DisableClientAsync(command.ClientId.Value, cancellationToken);

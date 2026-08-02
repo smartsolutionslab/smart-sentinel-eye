@@ -5,7 +5,7 @@ using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Application.Commands;
 
-public sealed record DisableDeviceCommand(ClientId ClientId)
+public sealed record DisableDeviceCommand(ClientId ClientId, int ExpectedVersion)
     : ICommand<Result<RegisteredClientIdentifier, DisableDeviceError>>;
 
 public abstract record DisableDeviceError(string Code, string Message, HttpStatusCode Status)

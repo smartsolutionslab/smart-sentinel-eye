@@ -37,7 +37,7 @@ public sealed class RotateWebhookClientCommandHandler(
         RotateWebhookClientCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (string? integrationName, FabIdentifier? fab, OperatorIdentifier rotatedBy) = command;
+        (string? integrationName, FabIdentifier? fab, OperatorIdentifier rotatedBy, int expectedVersion) = command;
 
         ClientId clientId;
         try
@@ -52,6 +52,19 @@ public sealed class RotateWebhookClientCommandHandler(
 
         Option<RegisteredClientAggregate> existing = await clients
             .GetByClientIdAsync(clientId, cancellationToken);
+
+        // ADR-0113 Layer 1, applied to the mutate half of this upsert only.
+        // The register branch below has no prior version to compare against,
+        // so gating it would reject every first-time rotation. Checked ahead
+        // of the Keycloak call because rolling a secret is irreversible: a
+        // stale request that rolled it first would invalidate a live
+        // credential and then report a conflict.
+        if (existing.HasValue && existing.Value.Version != expectedVersion)
+        {
+            return Result<WebhookClientCredentialsDto, RotateWebhookClientError>.Failure(
+                new RotateWebhookClientError.WebhookClientStale(
+                    clientId.Value, expectedVersion, existing.Value.Version));
+        }
 
         string clientSecret;
         RegisteredClientAggregate aggregate;
