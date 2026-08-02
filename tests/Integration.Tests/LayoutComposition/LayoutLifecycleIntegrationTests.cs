@@ -35,8 +35,12 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
         Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
         layoutIdentifier.ShouldNotBe(Guid.Empty);
 
-        HttpResponseMessage published = await layouts.PostAsync(
-            $"/layouts/{layoutIdentifier}/revisions/1/publish", content: null);
+        // Deliberately not LayoutRequests.PostAsync: that reads the version
+        // first, and the extra round trip would come out of this test's 500 ms
+        // budget. A just-created chain is at version 0.
+        HttpRequestMessage publishRequest = new(HttpMethod.Post, $"/layouts/{layoutIdentifier}/revisions/1/publish");
+        publishRequest.Headers.TryAddWithoutValidation("If-Match", "\"0\"");
+        HttpResponseMessage published = await layouts.SendAsync(publishRequest);
         sw.Stop();
 
         published.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -84,8 +88,7 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
             "/layouts", SingleTileBody(pubName, Guid.CreateVersion7()));
         pubRaw.EnsureSuccessStatusCode();
         Guid pubIdentifier = await pubRaw.Content.ReadFromJsonAsync<Guid>();
-        HttpResponseMessage publish = await layouts.PostAsync(
-            $"/layouts/{pubIdentifier}/revisions/1/publish", content: null);
+        HttpResponseMessage publish = await LayoutRequests.PostAsync(layouts, pubIdentifier, "revisions/1/publish");
         publish.EnsureSuccessStatusCode();
 
         HttpResponseMessage response = await layouts.GetAsync("/layouts?state=Published");

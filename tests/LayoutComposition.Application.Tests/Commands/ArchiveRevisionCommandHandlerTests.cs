@@ -26,7 +26,7 @@ public class ArchiveRevisionCommandHandlerTests
         ArchiveRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<ArchiveRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler.HandleAsync(
-            new ArchiveRevisionCommand(layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7())),
+            new ArchiveRevisionCommand(layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -44,7 +44,7 @@ public class ArchiveRevisionCommandHandlerTests
         ArchiveRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<ArchiveRevisionCommandHandler>.Instance);
         await handler.HandleAsync(
-            new ArchiveRevisionCommand(layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7())),
+            new ArchiveRevisionCommand(layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         layout.Revisions.Single().State.ShouldBe(LayoutRevisionState.Archived);
@@ -59,7 +59,7 @@ public class ArchiveRevisionCommandHandlerTests
 
         Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler.HandleAsync(
             new ArchiveRevisionCommand(
-                LayoutIdentifier.New(), LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7())),
+                LayoutIdentifier.New(), LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -78,7 +78,7 @@ public class ArchiveRevisionCommandHandlerTests
             layouts, clock, NullLogger<ArchiveRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler.HandleAsync(
             new ArchiveRevisionCommand(
-                layout.Id, LayoutRevisionNumber.From(99), OperatorIdentifier.From(Guid.CreateVersion7())),
+                layout.Id, LayoutRevisionNumber.From(99), OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();

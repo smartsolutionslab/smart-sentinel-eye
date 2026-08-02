@@ -11,5 +11,6 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands;
 /// </summary>
 public sealed record BranchDraftRevisionCommand(
     LayoutIdentifier Layout,
-    OperatorIdentifier BranchedBy)
+    OperatorIdentifier BranchedBy,
+    int ExpectedVersion)
     : ICommand<Result<LayoutRevisionNumber, BranchDraftRevisionError>>;

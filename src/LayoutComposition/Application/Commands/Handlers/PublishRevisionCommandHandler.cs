@@ -16,7 +16,7 @@ public sealed class PublishRevisionCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, OperatorIdentifier publishedBy) = command;
+        (LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, OperatorIdentifier publishedBy, int expectedVersion) = command;
 
         Option<Layout> found = await layouts
             .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
@@ -27,6 +27,15 @@ public sealed class PublishRevisionCommandHandler(
         }
 
         Layout layout = found.Value;
+
+        // ADR-0113 Layer 1: refuse an edit built on a view of the chain that
+        // has since moved. Checked before any mutation so nothing is applied
+        // on top of stale intent.
+        if (layout.Version != expectedVersion)
+        {
+            return Result<LayoutRevisionNumber, PublishRevisionError>.Failure(
+                new PublishRevisionError.LayoutRevisionStale(layoutIdentifier.Value, expectedVersion, layout.Version));
+        }
         Revision? revision = layout.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
         if (revision is null)
         {

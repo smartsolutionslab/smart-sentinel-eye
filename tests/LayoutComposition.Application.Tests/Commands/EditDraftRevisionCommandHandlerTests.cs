@@ -32,7 +32,7 @@ public class EditDraftRevisionCommandHandlerTests
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                layout.Id, LayoutRevisionNumber.One, GridDimensions.Default, [TileAt(0, 0), TileAt(1, 1)]),
+                layout.Id, LayoutRevisionNumber.One, GridDimensions.Default, [TileAt(0, 0), TileAt(1, 1)], 0),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -50,7 +50,7 @@ public class EditDraftRevisionCommandHandlerTests
 
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                LayoutIdentifier.New(), LayoutRevisionNumber.One, GridDimensions.Cell, [TileAt(0, 0)]),
+                LayoutIdentifier.New(), LayoutRevisionNumber.One, GridDimensions.Cell, [TileAt(0, 0)], 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -69,7 +69,7 @@ public class EditDraftRevisionCommandHandlerTests
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                layout.Id, LayoutRevisionNumber.From(42), GridDimensions.Cell, [TileAt(0, 0)]),
+                layout.Id, LayoutRevisionNumber.From(42), GridDimensions.Cell, [TileAt(0, 0)], 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -89,7 +89,7 @@ public class EditDraftRevisionCommandHandlerTests
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                layout.Id, LayoutRevisionNumber.One, GridDimensions.Cell, [TileAt(0, 0, overlay)]),
+                layout.Id, LayoutRevisionNumber.One, GridDimensions.Cell, [TileAt(0, 0, overlay)], 0),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -108,7 +108,7 @@ public class EditDraftRevisionCommandHandlerTests
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                layout.Id, LayoutRevisionNumber.One, GridDimensions.Cell, Array.Empty<Tile>()),
+                layout.Id, LayoutRevisionNumber.One, GridDimensions.Cell, Array.Empty<Tile>(), 0),
             CancellationToken.None);
 
         result.Error.ShouldBeOfType<EditDraftRevisionError.GridEmpty>();
@@ -126,7 +126,7 @@ public class EditDraftRevisionCommandHandlerTests
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                layout.Id, LayoutRevisionNumber.One, GridDimensions.Default, [TileAt(0, 0), TileAt(0, 0)]),
+                layout.Id, LayoutRevisionNumber.One, GridDimensions.Default, [TileAt(0, 0), TileAt(0, 0)], 0),
             CancellationToken.None);
 
         result.Error.ShouldBeOfType<EditDraftRevisionError.TilePositionDuplicate>();
@@ -145,7 +145,7 @@ public class EditDraftRevisionCommandHandlerTests
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                layout.Id, LayoutRevisionNumber.One, GridDimensions.Cell, [TileAt(0, 0)]),
+                layout.Id, LayoutRevisionNumber.One, GridDimensions.Cell, [TileAt(0, 0)], 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();

@@ -26,7 +26,7 @@ public class RevertRevisionCommandHandlerTests
         RevertRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
-            new RevertRevisionCommand(layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7())),
+            new RevertRevisionCommand(layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -42,7 +42,7 @@ public class RevertRevisionCommandHandlerTests
 
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
             new RevertRevisionCommand(
-                LayoutIdentifier.New(), LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7())),
+                LayoutIdentifier.New(), LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -61,7 +61,7 @@ public class RevertRevisionCommandHandlerTests
             layouts, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
             new RevertRevisionCommand(
-                layout.Id, LayoutRevisionNumber.From(99), OperatorIdentifier.From(Guid.CreateVersion7())),
+                layout.Id, LayoutRevisionNumber.From(99), OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -80,7 +80,7 @@ public class RevertRevisionCommandHandlerTests
             layouts, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
             new RevertRevisionCommand(
-                layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7())),
+                layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();

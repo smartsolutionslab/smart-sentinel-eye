@@ -12,5 +12,6 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands;
 public sealed record RevertRevisionCommand(
     LayoutIdentifier Layout,
     LayoutRevisionNumber RevisionNumber,
-    OperatorIdentifier RevertedBy)
+    OperatorIdentifier RevertedBy,
+    int ExpectedVersion)
     : ICommand<Result<LayoutRevisionNumber, RevertRevisionError>>;

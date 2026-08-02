@@ -15,7 +15,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         BranchDraftRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (LayoutIdentifier layoutIdentifier, OperatorIdentifier branchedBy) = command;
+        (LayoutIdentifier layoutIdentifier, OperatorIdentifier branchedBy, int expectedVersion) = command;
 
         Option<Layout> found = await layouts
             .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
@@ -26,6 +26,15 @@ public sealed class BranchDraftRevisionCommandHandler(
         }
 
         Layout layout = found.Value;
+
+        // ADR-0113 Layer 1: refuse an edit built on a view of the chain that
+        // has since moved. Checked before any mutation so nothing is applied
+        // on top of stale intent.
+        if (layout.Version != expectedVersion)
+        {
+            return Result<LayoutRevisionNumber, BranchDraftRevisionError>.Failure(
+                new BranchDraftRevisionError.LayoutRevisionStale(layoutIdentifier.Value, expectedVersion, layout.Version));
+        }
         if (!layout.Revisions.Any(revision => revision.State == LayoutRevisionState.Published))
         {
             return Result<LayoutRevisionNumber, BranchDraftRevisionError>.Failure(

@@ -15,5 +15,6 @@ public sealed record EditDraftRevisionCommand(
     LayoutIdentifier Layout,
     LayoutRevisionNumber RevisionNumber,
     GridDimensions Grid,
-    IReadOnlyList<Tile> Tiles)
+    IReadOnlyList<Tile> Tiles,
+    int ExpectedVersion)
     : ICommand<Result<LayoutRevisionNumber, EditDraftRevisionError>>;

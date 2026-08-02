@@ -28,14 +28,13 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
         Guid layoutIdentifier = await CreateAndPublishAsync(layouts, "Line-Edit", camera1);
 
-        HttpResponseMessage branched = await layouts.PostAsync(
-            $"/layouts/{layoutIdentifier}/draft", content: null);
+        HttpResponseMessage branched = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "draft");
         branched.StatusCode.ShouldBe(HttpStatusCode.Created);
         int draftNumber = await branched.Content.ReadFromJsonAsync<int>();
         draftNumber.ShouldBe(2);
 
-        HttpResponseMessage edited = await layouts.PatchAsJsonAsync(
-            $"/layouts/{layoutIdentifier}/revisions/{draftNumber}",
+        HttpResponseMessage edited = await LayoutRequests.PatchAsync(
+            layouts, layoutIdentifier, $"revisions/{draftNumber}",
             new
             {
                 grid = new { rows = 1, cols = 1 },
@@ -43,8 +42,8 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             });
         edited.EnsureSuccessStatusCode();
 
-        HttpResponseMessage published = await layouts.PostAsync(
-            $"/layouts/{layoutIdentifier}/revisions/{draftNumber}/publish", content: null);
+        HttpResponseMessage published = await LayoutRequests.PostAsync(
+            layouts, layoutIdentifier, $"revisions/{draftNumber}/publish");
         published.EnsureSuccessStatusCode();
 
         HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
@@ -69,8 +68,7 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         Guid layoutIdentifier = await CreateAndPublishAsync(
             layouts, "Line-Revert", Guid.CreateVersion7());
 
-        HttpResponseMessage reverted = await layouts.PostAsync(
-            $"/layouts/{layoutIdentifier}/revisions/1/revert", content: null);
+        HttpResponseMessage reverted = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/revert");
         reverted.EnsureSuccessStatusCode();
 
         HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
@@ -87,8 +85,7 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         created.EnsureSuccessStatusCode();
         Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
-        HttpResponseMessage branchAttempt = await layouts.PostAsync(
-            $"/layouts/{layoutIdentifier}/draft", content: null);
+        HttpResponseMessage branchAttempt = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "draft");
         branchAttempt.StatusCode.ShouldBe(HttpStatusCode.Conflict);
     }
 
@@ -99,8 +96,7 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             "/layouts", SingleTileBody(name, camera));
         created.EnsureSuccessStatusCode();
         Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
-        HttpResponseMessage published = await layouts.PostAsync(
-            $"/layouts/{layoutIdentifier}/revisions/1/publish", content: null);
+        HttpResponseMessage published = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/publish");
         published.EnsureSuccessStatusCode();
         return layoutIdentifier;
     }

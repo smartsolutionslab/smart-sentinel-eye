@@ -26,7 +26,7 @@ public class BranchDraftRevisionCommandHandlerTests
         BranchDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
-            new BranchDraftRevisionCommand(layout.Id, OperatorIdentifier.From(Guid.CreateVersion7())),
+            new BranchDraftRevisionCommand(layout.Id, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -42,7 +42,7 @@ public class BranchDraftRevisionCommandHandlerTests
             layouts, new FakeClock(FixedMoment), NullLogger<BranchDraftRevisionCommandHandler>.Instance);
 
         Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
-            new BranchDraftRevisionCommand(LayoutIdentifier.New(), OperatorIdentifier.From(Guid.CreateVersion7())),
+            new BranchDraftRevisionCommand(LayoutIdentifier.New(), OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -60,7 +60,7 @@ public class BranchDraftRevisionCommandHandlerTests
         BranchDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
-            new BranchDraftRevisionCommand(draftOnly.Id, OperatorIdentifier.From(Guid.CreateVersion7())),
+            new BranchDraftRevisionCommand(draftOnly.Id, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();

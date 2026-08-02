@@ -50,6 +50,7 @@ public static partial class LayoutEndpoints
     private static async Task<IResult> Publish(
         Guid layoutIdentifier,
         int revisionNumber,
+        HttpRequest request,
         [FromServices] PublishRevisionCommandHandler handler,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
@@ -70,10 +71,15 @@ public static partial class LayoutEndpoints
             return problem;
         }
 
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler
             .HandleAsync(
-                new PublishRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, actingOperator),
+                new PublishRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, actingOperator, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(
@@ -84,6 +90,7 @@ public static partial class LayoutEndpoints
     private static async Task<IResult> Archive(
         Guid layoutIdentifier,
         int revisionNumber,
+        HttpRequest request,
         [FromServices] ArchiveRevisionCommandHandler handler,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
@@ -104,10 +111,15 @@ public static partial class LayoutEndpoints
             return problem;
         }
 
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler
             .HandleAsync(
-                new ArchiveRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, actingOperator),
+                new ArchiveRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, actingOperator, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(
@@ -117,6 +129,7 @@ public static partial class LayoutEndpoints
 
     private static async Task<IResult> BranchDraft(
         Guid layoutIdentifier,
+        HttpRequest request,
         [FromServices] BranchDraftRevisionCommandHandler handler,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
@@ -129,10 +142,15 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler
             .HandleAsync(
-                new BranchDraftRevisionCommand(LayoutIdentifier.From(layoutIdentifier), actingOperator),
+                new BranchDraftRevisionCommand(LayoutIdentifier.From(layoutIdentifier), actingOperator, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(
@@ -144,6 +162,7 @@ public static partial class LayoutEndpoints
     private static async Task<IResult> EditDraft(
         Guid layoutIdentifier,
         int revisionNumber,
+        HttpRequest request,
         [FromBody] EditDraftRequest body,
         [FromServices] EditDraftRevisionCommandHandler handler,
         CancellationToken cancellationToken)
@@ -173,9 +192,14 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler
             .HandleAsync(
-                new EditDraftRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, grid, tiles),
+                new EditDraftRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, grid, tiles, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(
@@ -186,6 +210,7 @@ public static partial class LayoutEndpoints
     private static async Task<IResult> Revert(
         Guid layoutIdentifier,
         int revisionNumber,
+        HttpRequest request,
         [FromServices] RevertRevisionCommandHandler handler,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
@@ -206,10 +231,15 @@ public static partial class LayoutEndpoints
             return problem;
         }
 
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler
             .HandleAsync(
-                new RevertRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, actingOperator),
+                new RevertRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, actingOperator, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(

@@ -28,7 +28,7 @@ public class PublishRevisionCommandHandlerTests
             new PublishRevisionCommand(
                 draft.Id,
                 LayoutRevisionNumber.One,
-                OperatorIdentifier.From(Guid.CreateVersion7())),
+                OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -47,7 +47,7 @@ public class PublishRevisionCommandHandlerTests
             new PublishRevisionCommand(
                 LayoutIdentifier.New(),
                 LayoutRevisionNumber.One,
-                OperatorIdentifier.From(Guid.CreateVersion7())),
+                OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -67,7 +67,7 @@ public class PublishRevisionCommandHandlerTests
             new PublishRevisionCommand(
                 draft.Id,
                 LayoutRevisionNumber.From(99),
-                OperatorIdentifier.From(Guid.CreateVersion7())),
+                OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -89,7 +89,7 @@ public class PublishRevisionCommandHandlerTests
             new PublishRevisionCommand(
                 draft.Id,
                 LayoutRevisionNumber.One,
-                OperatorIdentifier.From(Guid.CreateVersion7())),
+                OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -110,7 +110,7 @@ public class PublishRevisionCommandHandlerTests
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
         await handler.HandleAsync(
-            new PublishRevisionCommand(layout.Id, draftTwo.Number, op),
+            new PublishRevisionCommand(layout.Id, draftTwo.Number, op, 0),
             CancellationToken.None);
 
         // The SaveAsync inside the handler clears events, but we asserted
