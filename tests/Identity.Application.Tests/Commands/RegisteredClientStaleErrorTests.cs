@@ -5,70 +5,68 @@ using SmartSentinelEye.Shared.Kernel;
 namespace SmartSentinelEye.Identity.Application.Tests.Commands;
 
 /// <summary>
-/// ADR-0047 gives every command its own error union, so the stale-version
-/// case is declared three times.
+/// Contract for the webhook rotation's three precondition failures.
 ///
 /// <para>
-/// Identity is one of the two contexts where these unions live **inline** in
-/// the <c>*Command.cs</c> files rather than in a separate <c>*Errors.cs</c>,
-/// so a glob over <c>Commands/*Errors.cs</c> misses them. This test names all
-/// three explicitly so the set cannot drift apart unnoticed.
+/// Only the rotation carries them. The device and kiosk disables were
+/// reviewed out: a disable is terminal and
+/// <c>RegisteredClientRepository.GetByClientIdAsync</c> stops returning the
+/// row, so their version cannot move while they are still reachable and a
+/// stale case there could only ever fire for a version the client never had.
 /// </para>
 ///
 /// <para>
-/// Unlike the other contexts these do **not** share one code: Identity
-/// already flavours its codes per command — <c>DEVICE_NOT_FOUND</c> versus
-/// <c>KIOSK_NOT_FOUND</c> for the same aggregate — and a caller disabling a
-/// kiosk should not be handed a code naming a device.
+/// The fixture client id deliberately ends in no digit. With something like
+/// <c>plc-station-4</c>, asserting the message contains "4" is satisfied by
+/// the id itself, so a message that dropped the actual version still passes.
 /// </para>
 /// </summary>
 public class RegisteredClientStaleErrorTests
 {
-    private static ApiError[] EveryStaleCase() =>
-    [
-        new DisableDeviceError.DeviceStale("plc-station-4", 3, 4),
-        new DisableKioskError.KioskStale("plc-station-4", 3, 4),
-        new RotateWebhookClientError.WebhookClientStale("plc-station-4", 3, 4),
-    ];
+    private const string ClientId = "webhook-qa";
 
     [Fact]
-    public void Every_mutating_command_has_a_stale_case()
+    public void The_stale_case_is_a_409_naming_both_versions()
     {
-        EveryStaleCase().Length.ShouldBe(3);
+        ApiError error = new RotateWebhookClientError.WebhookClientStale(ClientId, 3, 4);
+
+        error.Code.ShouldBe("WEBHOOK_CLIENT_STALE");
+        error.Status.ShouldBe(HttpStatusCode.Conflict);
+        error.Message.ShouldContain(ClientId);
+        error.Message.ShouldContain("3");
+        error.Message.ShouldContain("4");
+    }
+
+    // 412 rather than 409 for the next two: they are not "the resource moved
+    // under you" but "the operation you asked for is not the one that applies
+    // here", which is the precondition-failed shape.
+    [Fact]
+    public void Creating_something_that_exists_is_a_412_pointing_at_the_version_to_use()
+    {
+        ApiError error = new RotateWebhookClientError.WebhookClientAlreadyExists(ClientId, 7);
+
+        error.Code.ShouldBe("WEBHOOK_CLIENT_ALREADY_EXISTS");
+        error.Status.ShouldBe(HttpStatusCode.PreconditionFailed);
+        error.Message.ShouldContain("7");
+        error.Message.ShouldContain("If-Match");
     }
 
     [Fact]
-    public void Every_stale_case_carries_a_distinct_code_naming_its_own_client_kind()
+    public void Rotating_something_absent_is_a_412_pointing_at_the_create_header()
     {
-        string[] codes = [.. EveryStaleCase().Select(error => error.Code)];
+        ApiError error = new RotateWebhookClientError.WebhookClientNotFound(ClientId, 3);
 
-        codes.ShouldBe(["DEVICE_STALE", "KIOSK_STALE", "WEBHOOK_CLIENT_STALE"]);
-        codes.Distinct().Count().ShouldBe(codes.Length);
-    }
-
-    // 409 rather than 412: the caller can act on it, and it matches the
-    // Conflict cases already in these unions (ADR-0113).
-    [Fact]
-    public void Every_stale_case_maps_to_409_conflict()
-    {
-        EveryStaleCase().ShouldAllBe(error => error.Status == HttpStatusCode.Conflict);
+        error.Code.ShouldBe("WEBHOOK_CLIENT_NOT_FOUND");
+        error.Status.ShouldBe(HttpStatusCode.PreconditionFailed);
+        error.Message.ShouldContain("If-None-Match");
     }
 
     [Fact]
-    public void The_message_names_the_client_and_both_versions()
+    public void The_stale_message_tells_the_caller_to_re_read_rather_than_retry()
     {
-        foreach (ApiError error in EveryStaleCase())
-        {
-            error.Message.ShouldContain("plc-station-4");
-            error.Message.ShouldContain("3");
-            error.Message.ShouldContain("4");
-        }
-    }
+        ApiError error = new RotateWebhookClientError.WebhookClientStale(ClientId, 3, 4);
 
-    [Fact]
-    public void The_message_tells_the_caller_to_re_read_rather_than_retry()
-    {
-        EveryStaleCase().ShouldAllBe(error => error.Message.Contains("Re-read", StringComparison.Ordinal));
-        EveryStaleCase().ShouldAllBe(error => !error.Message.Contains("Try again", StringComparison.OrdinalIgnoreCase));
+        error.Message.ShouldContain("Re-read");
+        error.Message.ShouldNotContain("Try again");
     }
 }

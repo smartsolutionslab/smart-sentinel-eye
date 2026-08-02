@@ -25,7 +25,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// <see cref="HttpRequestException"/> a test sees carries only "500" — the
     /// server's exception lives here.
     /// </summary>
-    private static readonly string[] TailedResources = ["camera-catalog", "automation"];
+    private static readonly string[] TailedResources = ["camera-catalog", "automation", "identity", "event-ingestion"];
 
     private readonly ConcurrentDictionary<string, ConcurrentQueue<string>> _logTails = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, string> _logTailFailures = new(StringComparer.Ordinal);
