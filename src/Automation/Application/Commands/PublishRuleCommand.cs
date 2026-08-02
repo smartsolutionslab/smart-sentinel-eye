@@ -5,7 +5,7 @@ using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Automation.Application.Commands;
 
-public sealed record PublishRuleCommand(RuleName Name)
+public sealed record PublishRuleCommand(RuleName Name, int ExpectedVersion)
     : ICommand<Result<RuleIdentifier, PublishRuleError>>;
 
 public abstract record PublishRuleError(string Code, string Message, HttpStatusCode Status)

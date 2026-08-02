@@ -27,6 +27,15 @@ public sealed class PublishRuleCommandHandler(
         }
 
         Rule rule = found.Value;
+
+        // ADR-0113 Layer 1: refuse an edit built on a view of the rule that has
+        // since moved. Checked before any mutation so nothing is applied on top
+        // of stale intent.
+        if (rule.Version != command.ExpectedVersion)
+        {
+            return Result<RuleIdentifier, PublishRuleError>.Failure(
+                new PublishRuleError.RuleStale(command.Name.Value, command.ExpectedVersion, rule.Version));
+        }
         try
         {
             rule.Publish(clock);
