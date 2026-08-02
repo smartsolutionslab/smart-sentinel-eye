@@ -4,38 +4,31 @@ using SmartSentinelEye.Integration.Tests.Fixtures;
 namespace SmartSentinelEye.Integration.Tests.Identity;
 
 /// <summary>
-/// ADR-0113 Layer 1 for Identity (spec 012 T040), against the real stack —
-/// so the version these tests read is one the EF interceptor actually moved,
-/// which no Application-layer fake can reproduce.
+/// ADR-0113 Layer 1 for Identity (spec 012 T040), against the real stack — so
+/// the versions here are ones the EF interceptor actually moved, which no
+/// Application-layer fake reproduces.
 ///
 /// <para>
-/// The two halves of this context behave differently, and the tests are split
-/// to say so rather than to look uniform:
+/// The gate applies to the webhook rotation only. The device and kiosk
+/// disables were reviewed out: a disable is terminal and
+/// <c>GetByClientIdAsync</c> stops returning the row, so their version cannot
+/// move while they are still reachable, and requiring a precondition there
+/// would have been a breaking change buying nothing.
 /// </para>
 ///
 /// <para>
-/// <b>Disables</b> get the precondition but no lost-update protection. A
-/// disable is terminal, and <c>RegisteredClientRepository.GetByClientIdAsync</c>
-/// skips rows with a <c>DisabledAt</c>, so the second writer is answered 404
-/// before any version is compared — the version can never move on a row that
-/// is still reachable by clientId. <c>DEVICE_STALE</c> is therefore only
-/// reachable by sending a version the device never had, which is what the 409
-/// test below does. That is a well-formedness check, not a race.
+/// Rotation is the genuine lost update: two admins rotating concurrently
+/// leaves the first holding a secret the second invalidated. The conflict
+/// test proves the refused rotation left the live credential working by
+/// authenticating with it, not by comparing it to another freshly minted
+/// secret — that comparison passes even when the credential has been
+/// destroyed.
 /// </para>
 ///
 /// <para>
-/// <b>Rotation</b> is the genuine lost update in this context: two admins
-/// rotating concurrently leaves the first holding a secret the second has
-/// already invalidated. It is the only Identity aggregate whose version moves
-/// while it is still reachable, so it is the only one that can be raced here —
-/// and it is raced, below.
-/// </para>
-///
-/// <para>
-/// No per-test reset: registering a device and rotating a webhook both create
-/// real Keycloak clients, and wiping the Postgres rows would leave those
-/// behind and desynchronised. Each test mints its own client instead, as
-/// <c>NFR002_MqttConnectAuthTests</c> already does.
+/// No per-test reset: rotating creates real Keycloak clients, and wiping the
+/// Postgres rows would leave those behind and desynchronised. Each test mints
+/// its own name, as <c>NFR002_MqttConnectAuthTests</c> already does.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
@@ -53,59 +46,39 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
-    public async Task A_registered_device_is_listed_with_the_version_its_disable_will_need()
+    public async Task Disabling_a_device_needs_no_precondition()
     {
         using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
         string clientId = await RegisterDeviceAsync(identity);
 
-        JsonElement row = await FindDeviceAsync(identity, clientId);
-
-        row.GetProperty("version").GetInt32().ShouldBeGreaterThanOrEqualTo(0);
-    }
-
-    [Fact]
-    public async Task A_disable_without_If_Match_is_refused_with_428_and_leaves_the_device_active()
-    {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string clientId = await RegisterDeviceAsync(identity);
-
-        HttpResponseMessage refused = await identity.DeleteAsync($"/devices/{clientId}");
-
-        refused.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired);
-
-        // Status alone would pass even if the disable had gone through.
-        (await FindDeviceAsync(identity, clientId)).GetProperty("disabledAt").ValueKind
-            .ShouldBe(JsonValueKind.Null);
-    }
-
-    [Fact]
-    public async Task A_disable_carrying_a_version_the_device_never_had_is_refused_with_409()
-    {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string clientId = await RegisterDeviceAsync(identity);
-
-        HttpResponseMessage refused = await identity.SendAsync(
-            Conditional(HttpMethod.Delete, $"/devices/{clientId}", version: 99));
-
-        refused.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-        (await ProblemAsync(refused)).ShouldBe("DEVICE_STALE");
-        (await FindDeviceAsync(identity, clientId)).GetProperty("disabledAt").ValueKind
-            .ShouldBe(JsonValueKind.Null);
-    }
-
-    [Fact]
-    public async Task A_disable_carrying_the_listed_version_succeeds()
-    {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string clientId = await RegisterDeviceAsync(identity);
-        int version = (await FindDeviceAsync(identity, clientId)).GetProperty("version").GetInt32();
-
-        HttpResponseMessage disabled = await identity.SendAsync(
-            Conditional(HttpMethod.Delete, $"/devices/{clientId}", version));
+        HttpResponseMessage disabled = await identity.DeleteAsync($"/devices/{clientId}");
 
         disabled.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(disabled));
         (await FindDeviceAsync(identity, clientId)).GetProperty("disabledAt").ValueKind
             .ShouldNotBe(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task A_rotation_without_a_precondition_is_refused_with_428()
+    {
+        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
+
+        HttpResponseMessage refused = await identity.PostAsync(
+            $"/webhook-integrations/{UniqueIntegrationName()}/rotate", Body());
+
+        refused.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired);
+    }
+
+    [Fact]
+    public async Task A_created_client_is_listed_with_the_version_its_next_rotation_needs()
+    {
+        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
+        string name = UniqueIntegrationName();
+        int returned = await CreateAsync(identity, name);
+
+        // The read path exists so a caller who lost the rotation response is
+        // not locked out of ever rotating again.
+        (await FindWebhookAsync(identity, name)).GetProperty("version").GetInt32().ShouldBe(returned);
     }
 
     [Fact]
@@ -115,37 +88,90 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
         string name = UniqueIntegrationName();
 
         // Chained three deep on purpose. Two would still pass if the response
-        // version were hardcoded to 0, because an Added root is not bumped —
-        // the third is what proves the value tracks the interceptor.
-        int afterFirst = await RotateAsync(identity, name, expectedVersion: 0);
-        int afterSecond = await RotateAsync(identity, name, afterFirst);
+        // version were frozen at 0, because an Added root is not bumped — the
+        // third is what proves the value tracks the interceptor.
+        int afterCreate = await CreateAsync(identity, name);
+        int afterSecond = await RotateAsync(identity, name, afterCreate);
         int afterThird = await RotateAsync(identity, name, afterSecond);
 
-        afterSecond.ShouldBeGreaterThan(afterFirst);
+        afterSecond.ShouldBeGreaterThan(afterCreate);
         afterThird.ShouldBeGreaterThan(afterSecond);
     }
 
     [Fact]
-    public async Task A_rotation_superseded_by_another_admin_is_refused_with_409()
+    public async Task A_rotation_superseded_by_another_admin_leaves_the_live_secret_working()
     {
         using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
         string name = UniqueIntegrationName();
+        int shared = await CreateAsync(identity, name);
 
-        // Both admins hold the version the first rotation handed out.
-        int shared = await RotateAsync(identity, name, expectedVersion: 0);
-        string secretTheFirstAdminGot = await RotateForSecretAsync(identity, name, shared);
+        // Both admins hold `shared`. The first wins and its secret is live.
+        (int version, string secret) winner = await RotateForSecretAsync(identity, name, shared);
 
         HttpResponseMessage refused = await identity.SendAsync(
-            Conditional(HttpMethod.Post, $"/webhook-integrations/{name}/rotate", shared, Body()));
+            Conditional(name, shared, Body()));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Conflict);
         (await ProblemAsync(refused)).ShouldBe("WEBHOOK_CLIENT_STALE");
 
-        // The point of the gate: the secret the first admin walked away with is
-        // still the live one. Without it the second rotation would have rolled
-        // it out from under them and reported success.
-        string live = await RotateForSecretAsync(identity, name, shared + 1);
-        live.ShouldNotBe(secretTheFirstAdminGot);
+        // The assertion that matters: the winner's credential still
+        // authenticates. Comparing it to another freshly rotated secret would
+        // pass even if the refused request had destroyed it.
+        (await CanAuthenticateAsync($"webhook-{name}", winner.secret))
+            .ShouldBeTrue("the refused rotation invalidated the live secret");
+    }
+
+    [Fact]
+    public async Task Rotating_a_client_that_does_not_exist_creates_nothing()
+    {
+        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
+        string name = UniqueIntegrationName();
+
+        HttpResponseMessage refused = await identity.SendAsync(Conditional(name, 0, Body()));
+
+        refused.StatusCode.ShouldBe(HttpStatusCode.PreconditionFailed);
+        (await ProblemAsync(refused)).ShouldBe("WEBHOOK_CLIENT_NOT_FOUND");
+        (await ListWebhooksAsync(identity)).EnumerateArray()
+            .ShouldNotContain(row => row.GetProperty("clientId").GetString() == $"webhook-{name}");
+    }
+
+    [Fact]
+    public async Task Re_creating_an_existing_client_does_not_roll_its_secret()
+    {
+        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
+        string name = UniqueIntegrationName();
+        await CreateAsync(identity, name);
+        (int version, string secret) live = await RotateForSecretAsync(identity, name, 0);
+
+        // The replayed first-time rotation: If-None-Match: * against a client
+        // that now exists.
+        HttpResponseMessage refused = await identity.SendAsync(CreateConditional(name, Body()));
+
+        refused.StatusCode.ShouldBe(HttpStatusCode.PreconditionFailed);
+        (await ProblemAsync(refused)).ShouldBe("WEBHOOK_CLIENT_ALREADY_EXISTS");
+        (await CanAuthenticateAsync($"webhook-{name}", live.secret))
+            .ShouldBeTrue("the refused create rolled the existing secret");
+    }
+
+    /// <summary>
+    /// Client-credentials grant with the rotated secret. This is what the
+    /// webhook sender does, so it is the only assertion that actually
+    /// distinguishes a live credential from a dead one.
+    /// </summary>
+    private async Task<bool> CanAuthenticateAsync(string clientId, string clientSecret)
+    {
+        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using FormUrlEncodedContent form = new(new Dictionary<string, string>
+        {
+            ["grant_type"] = "client_credentials",
+            ["client_id"] = clientId,
+            ["client_secret"] = clientSecret,
+        });
+
+        HttpResponseMessage token = await keycloak.PostAsync(
+            "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
+
+        return token.IsSuccessStatusCode;
     }
 
     private async Task<string> RegisterDeviceAsync(HttpClient identity)
@@ -158,6 +184,42 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
         return (await created.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("clientId").GetString()!;
     }
+
+    private async Task<int> CreateAsync(HttpClient identity, string name)
+    {
+        HttpResponseMessage created = await identity.SendAsync(CreateConditional(name, Body()));
+        created.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(created));
+
+        return (await created.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("version").GetInt32();
+    }
+
+    private async Task<int> RotateAsync(HttpClient identity, string name, int expectedVersion) =>
+        (await RotateForSecretAsync(identity, name, expectedVersion)).Version;
+
+    private async Task<(int Version, string Secret)> RotateForSecretAsync(
+        HttpClient identity, string name, int expectedVersion)
+    {
+        HttpResponseMessage rotated = await identity.SendAsync(
+            Conditional(name, expectedVersion, Body()));
+        rotated.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(rotated));
+
+        JsonElement body = await rotated.Content.ReadFromJsonAsync<JsonElement>();
+
+        return (body.GetProperty("version").GetInt32(), body.GetProperty("clientSecret").GetString()!);
+    }
+
+    private static async Task<JsonElement> ListWebhooksAsync(HttpClient identity)
+    {
+        HttpResponseMessage listed = await identity.GetAsync($"/webhook-integrations?fabId={Fab}");
+        listed.EnsureSuccessStatusCode();
+
+        return await listed.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    private static async Task<JsonElement> FindWebhookAsync(HttpClient identity, string name) =>
+        (await ListWebhooksAsync(identity)).EnumerateArray().Single(row =>
+            string.Equals(row.GetProperty("clientId").GetString(), $"webhook-{name}", StringComparison.Ordinal));
 
     /// <summary>
     /// The list is fab-wide and shared with every other test in the run, so the
@@ -174,33 +236,26 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
             string.Equals(row.GetProperty("clientId").GetString(), clientId, StringComparison.Ordinal));
     }
 
-    private async Task<int> RotateAsync(HttpClient identity, string name, int expectedVersion)
-    {
-        HttpResponseMessage rotated = await identity.SendAsync(
-            Conditional(HttpMethod.Post, $"/webhook-integrations/{name}/rotate", expectedVersion, Body()));
-        rotated.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(rotated));
-
-        return (await rotated.Content.ReadFromJsonAsync<JsonElement>())
-            .GetProperty("version").GetInt32();
-    }
-
-    private async Task<string> RotateForSecretAsync(HttpClient identity, string name, int expectedVersion)
-    {
-        HttpResponseMessage rotated = await identity.SendAsync(
-            Conditional(HttpMethod.Post, $"/webhook-integrations/{name}/rotate", expectedVersion, Body()));
-        rotated.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(rotated));
-
-        return (await rotated.Content.ReadFromJsonAsync<JsonElement>())
-            .GetProperty("clientSecret").GetString()!;
-    }
-
     private static JsonContent Body() => JsonContent.Create(new { fabId = Fab });
 
-    private static HttpRequestMessage Conditional(
-        HttpMethod method, string path, int version, JsonContent? content = null)
+    private static HttpRequestMessage Conditional(string name, int version, JsonContent content)
     {
-        HttpRequestMessage request = new(method, path) { Content = content };
+        HttpRequestMessage request = new(HttpMethod.Post, $"/webhook-integrations/{name}/rotate")
+        {
+            Content = content,
+        };
         request.Headers.TryAddWithoutValidation("If-Match", $"\"{version}\"");
+
+        return request;
+    }
+
+    private static HttpRequestMessage CreateConditional(string name, JsonContent content)
+    {
+        HttpRequestMessage request = new(HttpMethod.Post, $"/webhook-integrations/{name}/rotate")
+        {
+            Content = content,
+        };
+        request.Headers.TryAddWithoutValidation("If-None-Match", "*");
 
         return request;
     }
