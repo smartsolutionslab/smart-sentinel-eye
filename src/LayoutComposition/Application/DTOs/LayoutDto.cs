@@ -5,9 +5,17 @@ namespace SmartSentinelEye.LayoutComposition.Application.DTOs;
 /// <c>GET /layouts/{layoutIdentifier}</c>. Carries every revision in
 /// the chain so the management UI can show the full history with one
 /// fetch.
+///
+/// <para>
+/// <see cref="Version"/> is the chain's optimistic-concurrency version
+/// (ADR-0113). The single-layout read also returns it as an <c>ETag</c>;
+/// it is on the body as well so the list endpoint can hand every row a
+/// version without the caller re-fetching each one.
+/// </para>
 /// </summary>
 public sealed record LayoutDto(
     Guid LayoutIdentifier,
+    int Version,
     string Name,
     DateTimeOffset CreatedAt,
     Guid CreatedBy,

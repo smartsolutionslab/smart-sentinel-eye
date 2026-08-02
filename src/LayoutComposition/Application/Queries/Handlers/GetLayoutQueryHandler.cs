@@ -29,6 +29,7 @@ public sealed class GetLayoutQueryHandler(ILayoutQuerySource layouts)
     internal static LayoutDto Map(Layout layout) =>
         new(
             LayoutIdentifier: layout.Id.Value,
+            Version: layout.Version,
             Name: layout.Name.Value,
             CreatedAt: layout.CreatedAt,
             CreatedBy: layout.CreatedBy.Value,
