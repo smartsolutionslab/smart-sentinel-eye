@@ -140,7 +140,11 @@ public static class SystemVariableEndpoints
         return result.Match<IResult>(onSuccess: identifier => Results.Ok(identifier.Value), onFailure: error => error.ToProblem());
     }
 
-    private static async Task<IResult> GetOne(string name, [FromServices] GetVariableQueryHandler handler, CancellationToken cancellationToken)
+    private static async Task<IResult> GetOne(
+        string name,
+        HttpResponse response,
+        [FromServices] GetVariableQueryHandler handler,
+        CancellationToken cancellationToken)
     {
         if (!BoundaryParse.TryParse(
             () => VariableName.From(name),
@@ -153,7 +157,15 @@ public static class SystemVariableEndpoints
 
         Result<VariableDto, GetVariableError> result = await handler.HandleAsync(new GetVariableQuery(parsed), cancellationToken);
 
-        return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
+        return result.Match<IResult>(
+            onSuccess: variable =>
+            {
+                // The version the caller must echo back in If-Match (ADR-0113).
+                response.Headers.ETag = ConcurrencyHeaders.ETag(variable.Version);
+
+                return Results.Ok(variable);
+            },
+            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> List([FromQuery] string? state, [FromServices] ListVariablesQueryHandler handler, CancellationToken cancellationToken)

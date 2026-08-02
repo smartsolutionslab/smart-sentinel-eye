@@ -23,6 +23,23 @@ public class GetVariableQueryHandlerTests
         result.Error.ShouldBeOfType<GetVariableError.VariableNotFound>();
     }
 
+    // Without the version on the read side a caller has nothing to put in
+    // If-Match, and the cross-request check degrades to no check (ADR-0113).
+    [Fact]
+    public async Task The_dto_carries_the_aggregate_version()
+    {
+        Variable variable = new VariableBuilder()
+            .Named("oeeLine2").OfType(VariableType.Number)
+            .WithInitialValue(new VariableValue.NumberValue(1)).Build();
+
+        GetVariableQueryHandler handler = new(new TestVariableQuerySource([variable]));
+        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+            new GetVariableQuery(variable.Name), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Version.ShouldBe(variable.Version);
+    }
+
     [Fact]
     public async Task Returns_a_mapped_DTO_when_the_variable_exists()
     {
