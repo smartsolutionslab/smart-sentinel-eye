@@ -50,6 +50,75 @@ public static class ConcurrencyHeaders
     /// lost-update hole ADR-0113 closes.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Reads the precondition for an endpoint that upserts, where the caller
+    /// must say which of the two operations it intends:
+    /// <c>If-None-Match: *</c> for "only if it does not exist yet", or
+    /// <c>If-Match: "N"</c> for "only if it is still at version N".
+    ///
+    /// <para>
+    /// A single <c>If-Match</c> cannot express both. Reusing version 0 for
+    /// "no resource yet" collides with a real version 0 — an aggregate that
+    /// has been created but never modified sits at exactly 0, because
+    /// <c>AggregateVersionInterceptor</c> does not bump <c>Added</c> roots —
+    /// so a replayed create would be accepted as an update.
+    /// </para>
+    ///
+    /// <para>
+    /// <see cref="Option{T}.None"/> means the caller asserted the resource
+    /// does not exist. Unlike <see cref="TryReadExpectedVersion"/> the
+    /// wildcard is meaningful here, but only on <c>If-None-Match</c>: it is
+    /// the RFC 7232 spelling of "must not exist", not an opt-out.
+    /// </para>
+    /// </summary>
+    public static bool TryReadUpsertPrecondition(
+        HttpRequest request, out Option<int> expectedVersion, out IResult problem)
+    {
+        Ensure.That(request).IsNotNull();
+
+        expectedVersion = Option<int>.None;
+        problem = null;
+
+        bool hasIfMatch = request.Headers.IfMatch.Count > 0;
+        bool hasIfNoneMatch = request.Headers.IfNoneMatch.Count > 0;
+
+        if (hasIfMatch && hasIfNoneMatch)
+        {
+            problem = Malformed("Send either If-Match or If-None-Match, not both.");
+
+            return false;
+        }
+
+        if (hasIfNoneMatch)
+        {
+            string raw = request.Headers.IfNoneMatch[0]?.Trim();
+            if (!string.Equals(raw, Wildcard, StringComparison.Ordinal))
+            {
+                problem = Malformed("If-None-Match must be '*' here; it asserts the resource does not exist yet.");
+
+                return false;
+            }
+
+            return true;
+        }
+
+        if (!hasIfMatch)
+        {
+            problem = MissingUpsert();
+
+            return false;
+        }
+
+        if (!TryReadExpectedVersion(request, out int version, out problem))
+        {
+            return false;
+        }
+
+        expectedVersion = Option<int>.Some(version);
+
+        return true;
+    }
+
     public static bool TryReadExpectedVersion(HttpRequest request, out int expectedVersion, out IResult problem)
     {
         Ensure.That(request).IsNotNull();
@@ -130,6 +199,12 @@ public static class ConcurrencyHeaders
     private static IResult Missing() => Results.Problem(
         title: MissingErrorCode,
         detail: "This request must be conditional. Send If-Match with the version the resource was read at.",
+        statusCode: StatusCodes.Status428PreconditionRequired);
+
+    private static IResult MissingUpsert() => Results.Problem(
+        title: MissingErrorCode,
+        detail: "This request must be conditional. Send If-Match with the version the resource was read at, "
+                + "or If-None-Match: * if you are creating it.",
         statusCode: StatusCodes.Status428PreconditionRequired);
 
     private static IResult Malformed(string detail) => Results.Problem(
