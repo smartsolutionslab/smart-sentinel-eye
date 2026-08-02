@@ -1,5 +1,5 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import { gatewayBaseQuery } from './gateway.js';
+import { gatewayBaseQuery, ifMatch } from './gateway.js';
 import type { DefineVariableInput } from './systemVariables.schema.js';
 
 export type { DefineVariableInput };
@@ -9,6 +9,8 @@ export type VariableState = 'Defined' | 'Archived';
 
 export interface Variable {
   variableIdentifier: string;
+  /** Optimistic-concurrency version; echo it back via If-Match to mutate (ADR-0113). */
+  version: number;
   name: string;
   type: VariableType;
   state: VariableState;
@@ -23,6 +25,13 @@ export interface Variable {
 export interface SetVariableValueInput {
   name: string;
   value: string;
+  /** The version this edit was built on (ADR-0113). */
+  version: number;
+}
+
+export interface ArchiveVariableInput {
+  name: string;
+  version: number;
 }
 
 export interface ResolvedOverlaySnapshot {
@@ -63,9 +72,10 @@ export const systemVariablesApi = createApi({
       providesTags: () => [{ type: 'VariableList', id: 'ALL' }],
     }),
     setVariableValue: build.mutation<string, SetVariableValueInput>({
-      query: ({ name, value }) => ({
+      query: ({ name, value, version }) => ({
         url: `/${encodeURIComponent(name)}/value`,
         method: 'PUT',
+        headers: ifMatch(version),
         body: { value },
       }),
       invalidatesTags: (_r, _e, { name }) => [
@@ -91,12 +101,13 @@ export const systemVariablesApi = createApi({
         { type: 'OverlaySnapshot', id: 'ALL' },
       ],
     }),
-    archiveVariable: build.mutation<string, string>({
-      query: (name) => ({
+    archiveVariable: build.mutation<string, ArchiveVariableInput>({
+      query: ({ name, version }) => ({
         url: `/${encodeURIComponent(name)}/archive`,
         method: 'POST',
+        headers: ifMatch(version),
       }),
-      invalidatesTags: (_r, _e, name) => [
+      invalidatesTags: (_r, _e, { name }) => [
         { type: 'Variable', id: name },
         { type: 'VariableList', id: 'ALL' },
         { type: 'OverlaySnapshot', id: 'ALL' },

@@ -25,6 +25,7 @@ const { SystemVariablesPage } = await import('./SystemVariablesPage.js');
 function variable(overrides: Partial<Variable> = {}): Variable {
   return {
     variableIdentifier: '11111111-1111-1111-1111-111111111111',
+    version: 0,
     name: 'oeeLine1',
     type: 'Number',
     state: 'Defined',
@@ -106,7 +107,7 @@ describe('SystemVariablesPage', () => {
     await user.type(input, '99.5');
     await user.click(screen.getByRole('button', { name: /set value/i }));
 
-    expect(setValueMock).toHaveBeenCalledWith({ name: 'oeeLine1', value: '99.5' });
+    expect(setValueMock).toHaveBeenCalledWith({ name: 'oeeLine1', value: '99.5', version: 0 });
   });
 
   it('Shows a retry control when the list query fails', async () => {

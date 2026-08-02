@@ -26,7 +26,7 @@ export function SystemVariablesPage() {
   const onValueSubmit = async (variable: Variable) => {
     const raw = pendingEdit[variable.name];
     if (raw === undefined) return;
-    await setVariableValue({ name: variable.name, value: raw });
+    await setVariableValue({ name: variable.name, value: raw, version: variable.version });
     setPendingEdit((prev) => {
       const next = { ...prev };
       delete next[variable.name];
@@ -115,7 +115,7 @@ export function SystemVariablesPage() {
                   <Button
                     variant="secondary"
                     disabled={inProgress || archiving}
-                    onClick={() => void archiveVariable(variable.name)}
+                    onClick={() => void archiveVariable({ name: variable.name, version: variable.version })}
                   >
                     Archive
                   </Button>
