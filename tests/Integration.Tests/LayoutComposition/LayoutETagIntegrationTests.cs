@@ -55,6 +55,56 @@ public class LayoutETagIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task A_mutation_without_If_Match_is_refused_with_428()
+    {
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        Guid layoutIdentifier = await CreateDraftAsync(layouts);
+
+        HttpResponseMessage published = await layouts.PostAsync(
+            $"/layouts/{layoutIdentifier}/revisions/1/publish", content: null);
+
+        published.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired);
+    }
+
+    // The scenario ADR-0043 describes and an EF token can never see: a caller
+    // acting on a version it read before someone else moved the chain.
+    [Fact]
+    public async Task A_mutation_carrying_a_superseded_version_is_refused_with_409()
+    {
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        Guid layoutIdentifier = await CreateDraftAsync(layouts);
+        int readAt = await LayoutRequests.VersionAsync(layouts, layoutIdentifier);
+
+        HttpResponseMessage published = await LayoutRequests.PostAsync(
+            layouts, layoutIdentifier, "revisions/1/publish");
+        published.EnsureSuccessStatusCode();
+
+        HttpRequestMessage stale = new(HttpMethod.Post, $"/layouts/{layoutIdentifier}/revisions/1/archive");
+        stale.Headers.TryAddWithoutValidation("If-Match", $"\"{readAt}\"");
+        HttpResponseMessage refused = await layouts.SendAsync(stale);
+
+        refused.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("LAYOUT_REVISION_STALE");
+    }
+
+    [Fact]
+    public async Task The_same_mutation_succeeds_once_the_caller_re_reads()
+    {
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        Guid layoutIdentifier = await CreateDraftAsync(layouts);
+
+        HttpResponseMessage published = await LayoutRequests.PostAsync(
+            layouts, layoutIdentifier, "revisions/1/publish");
+        published.EnsureSuccessStatusCode();
+
+        HttpResponseMessage archived = await LayoutRequests.PostAsync(
+            layouts, layoutIdentifier, "revisions/1/archive");
+
+        archived.EnsureSuccessStatusCode();
+    }
+
     private static async Task<Guid> CreateDraftAsync(HttpClient layouts)
     {
         string name = $"Etag-{Guid.NewGuid():N}"[..16];

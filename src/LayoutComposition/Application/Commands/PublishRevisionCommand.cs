@@ -11,5 +11,6 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands;
 public sealed record PublishRevisionCommand(
     LayoutIdentifier Layout,
     LayoutRevisionNumber RevisionNumber,
-    OperatorIdentifier PublishedBy)
+    OperatorIdentifier PublishedBy,
+    int ExpectedVersion)
     : ICommand<Result<LayoutRevisionNumber, PublishRevisionError>>;

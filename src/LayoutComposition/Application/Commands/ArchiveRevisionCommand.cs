@@ -7,5 +7,6 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands;
 public sealed record ArchiveRevisionCommand(
     LayoutIdentifier Layout,
     LayoutRevisionNumber RevisionNumber,
-    OperatorIdentifier ArchivedBy)
+    OperatorIdentifier ArchivedBy,
+    int ExpectedVersion)
     : ICommand<Result<LayoutRevisionNumber, ArchiveRevisionError>>;

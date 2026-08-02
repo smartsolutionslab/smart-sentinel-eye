@@ -42,8 +42,7 @@ public class SignalRRevocationIntegrationTests(AspireFixture aspire) : IAsyncLif
             });
         created.EnsureSuccessStatusCode();
         Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
-        HttpResponseMessage publish = await admin.PostAsync(
-            $"/layouts/{layoutIdentifier}/revisions/1/publish", content: null);
+        HttpResponseMessage publish = await LayoutRequests.PostAsync(admin, layoutIdentifier, "revisions/1/publish");
         publish.EnsureSuccessStatusCode();
 
         Uri hubUri = aspire.HubUri("layout-composition", LayoutLifecycleHub.Path);
@@ -61,9 +60,14 @@ public class SignalRRevocationIntegrationTests(AspireFixture aspire) : IAsyncLif
         await alpha.StartAsync();
         await beta.StartAsync();
 
+        // Read the precondition before the clock starts: this window measures
+        // archive→push, not the version lookup.
+        int archiveVersion = await LayoutRequests.VersionAsync(admin, layoutIdentifier);
+        HttpRequestMessage archiveRequest = new(HttpMethod.Post, $"/layouts/{layoutIdentifier}/revisions/1/archive");
+        archiveRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{archiveVersion}\"");
+
         Stopwatch sw = Stopwatch.StartNew();
-        HttpResponseMessage archived = await admin.PostAsync(
-            $"/layouts/{layoutIdentifier}/revisions/1/archive", content: null);
+        HttpResponseMessage archived = await admin.SendAsync(archiveRequest);
         archived.EnsureSuccessStatusCode();
 
         using CancellationTokenSource budget = new(TimeSpan.FromSeconds(5));
