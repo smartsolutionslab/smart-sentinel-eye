@@ -18,9 +18,19 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     private static readonly TimeSpan StartupTimeout = TimeSpan.FromMinutes(8);
 
     private DistributedApplication? _app;
-    private readonly ConcurrentQueue<string> _cameraCatalogLogTail = new();
+
+    /// <summary>
+    /// Services whose console output is tailed for diagnostics. A resource can
+    /// be <c>Running</c> and still fault every request, and the client-side
+    /// <see cref="HttpRequestException"/> a test sees carries only "500" — the
+    /// server's exception lives here.
+    /// </summary>
+    private static readonly string[] TailedResources = ["camera-catalog", "automation"];
+
+    private readonly ConcurrentDictionary<string, ConcurrentQueue<string>> _logTails = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, string> _logTailFailures = new(StringComparer.Ordinal);
     private CancellationTokenSource? _logCts;
-    private Task? _logTailTask;
+    private Task[]? _logTailTasks;
 
     // xUnit invokes DisposeAsync; this IDisposable.Dispose only exists to
     // satisfy CA1001 (the type owns _logCts). Resource disposal happens in
@@ -43,6 +53,8 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     public HttpClient EventIngestion { get; private set; } = null!;
 
     public HttpClient SystemVariables { get; private set; } = null!;
+
+    public HttpClient Automation { get; private set; } = null!;
 
     public async Task InitializeAsync()
     {
@@ -70,11 +82,23 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         _app = await builder.BuildAsync(cts.Token).ConfigureAwait(false);
 
         _logCts = new CancellationTokenSource();
-        _logTailTask = Task.Run(() => TailCameraCatalogLogsAsync(_logCts.Token), _logCts.Token);
 
         try
         {
             await _app.StartAsync(cts.Token).ConfigureAwait(false);
+
+            // Subscribe only once the resources exist. Started before
+            // StartAsync, WatchAsync has nothing to watch and completes
+            // immediately — which is why the first attempt at this captured
+            // nothing and reported it as "the service said nothing".
+            foreach (string resource in TailedResources)
+            {
+                _logTails.TryAdd(resource, new ConcurrentQueue<string>());
+            }
+
+            _logTailTasks = TailedResources
+                .Select(resource => Task.Run(() => TailResourceLogsAsync(resource, _logCts.Token), _logCts.Token))
+                .ToArray();
 
             await _app.ResourceNotifications
                 .WaitForResourceAsync("keycloak", KnownResourceStates.Running, cts.Token)
@@ -116,6 +140,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 .WaitForResourceAsync("system-variables", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
+            await _app.ResourceNotifications
+                .WaitForResourceAsync("automation", KnownResourceStates.Running, cts.Token)
+                .ConfigureAwait(false);
+
             await WaitForKeycloakRealmAsync(cts.Token).ConfigureAwait(false);
             await WaitForMediaMtxAsync(cts.Token).ConfigureAwait(false);
 
@@ -128,7 +156,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         }
         catch (Exception ex) when (ex is OperationCanceledException or TaskCanceledException)
         {
-            string logTail = string.Join('\n', _cameraCatalogLogTail.TakeLast(120));
+            string logTail = RecentLogs("camera-catalog");
             Dictionary<string, string> states = await CaptureResourceStateMapAsync().ConfigureAwait(false);
             string failedLogs = await CaptureFailedResourceLogsAsync(states).ConfigureAwait(false);
             throw new TimeoutException(
@@ -156,6 +184,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         AuditObservability = App.CreateHttpClient("audit-observability", "http");
         EventIngestion = App.CreateHttpClient("event-ingestion", "http");
         SystemVariables = App.CreateHttpClient("system-variables", "http");
+        Automation = App.CreateHttpClient("automation", "http");
     }
 
     public async Task DisposeAsync()
@@ -170,9 +199,9 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         if (_logCts is not null)
         {
             await _logCts.CancelAsync().ConfigureAwait(false);
-            if (_logTailTask is not null)
+            if (_logTailTasks is not null)
             {
-                try { await _logTailTask.ConfigureAwait(false); }
+                try { await Task.WhenAll(_logTailTasks).ConfigureAwait(false); }
                 catch (OperationCanceledException) { /* expected */ }
             }
             _logCts.Dispose();
@@ -277,12 +306,38 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         return lines.Count == 0 ? "(no logs captured)" : string.Join('\n', lines.TakeLast(60));
     }
 
-    private async Task TailCameraCatalogLogsAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// The last few hundred lines a tailed service wrote. Use it when a test
+    /// gets a status it cannot explain — a 500 tells you nothing on its own,
+    /// and CI has no other route to the service's stack trace.
+    /// </summary>
+    public string RecentLogs(string resourceName, int lines = 120)
+    {
+        if (!_logTails.TryGetValue(resourceName, out ConcurrentQueue<string>? tail))
+        {
+            return $"(not tailed — add '{resourceName}' to AspireFixture.TailedResources)";
+        }
+
+        string[] recent = tail.TakeLast(lines).ToArray();
+
+        if (recent.Length > 0)
+        {
+            return string.Join(Environment.NewLine, recent);
+        }
+
+        return _logTailFailures.TryGetValue(resourceName, out string? failure)
+            ? $"(log tail failed: {failure})"
+            : "(tail subscribed but the resource emitted nothing)";
+    }
+
+    private async Task TailResourceLogsAsync(string resourceName, CancellationToken cancellationToken)
     {
         if (_app is null)
         {
             return;
         }
+
+        ConcurrentQueue<string> tail = _logTails.GetOrAdd(resourceName, _ => new ConcurrentQueue<string>());
 
         try
         {
@@ -290,14 +345,14 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 _app.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
 
             await foreach (IReadOnlyList<LogLine> batch in
-                loggers.WatchAsync("camera-catalog").WithCancellation(cancellationToken))
+                loggers.WatchAsync(resourceName).WithCancellation(cancellationToken))
             {
                 foreach (LogLine line in batch)
                 {
-                    _cameraCatalogLogTail.Enqueue(line.Content);
-                    while (_cameraCatalogLogTail.Count > 200)
+                    tail.Enqueue(line.Content);
+                    while (tail.Count > 400)
                     {
-                        _cameraCatalogLogTail.TryDequeue(out _);
+                        tail.TryDequeue(out _);
                     }
                 }
             }
@@ -306,9 +361,11 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         {
             // expected on shutdown
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // diagnostic-only path; never block startup
+            // Still must not block startup — but record why, so an empty tail
+            // is distinguishable from a broken one.
+            _logTailFailures[resourceName] = $"{ex.GetType().Name}: {ex.Message}";
         }
     }
 

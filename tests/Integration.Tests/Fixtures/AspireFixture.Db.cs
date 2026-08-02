@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
+using SmartSentinelEye.Automation.Infrastructure.Persistence;
 using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
@@ -18,6 +19,7 @@ public sealed partial class AspireFixture
     public const string AuditObservabilityConnectionName = "audit-db";
     public const string EventIngestionConnectionName = "event-ingestion-db";
     public const string SystemVariablesConnectionName = "system-variables-db";
+    public const string AutomationConnectionName = "automation-db";
 
     public async Task<EventIngestionDbContext> CreateEventIngestionDbContextAsync(
         CancellationToken cancellationToken = default)
@@ -178,6 +180,31 @@ public sealed partial class AspireFixture
         await using SystemVariablesDbContext context =
             await CreateSystemVariablesDbContextAsync(cancellationToken).ConfigureAwait(false);
         await context.Variables.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<AutomationDbContext> CreateAutomationDbContextAsync(
+        CancellationToken cancellationToken = default)
+    {
+        string? connectionString = await App
+            .GetConnectionStringAsync(AutomationConnectionName, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (connectionString is null)
+        {
+            throw new InvalidOperationException(
+                $"Connection string '{AutomationConnectionName}' was not provisioned by Aspire.");
+        }
+
+        DbContextOptionsBuilder<AutomationDbContext> optionsBuilder = new();
+        optionsBuilder.UseNpgsql(connectionString);
+        return new AutomationDbContext(optionsBuilder.Options);
+    }
+
+    public async Task ResetAutomationAsync(CancellationToken cancellationToken = default)
+    {
+        await using AutomationDbContext context =
+            await CreateAutomationDbContextAsync(cancellationToken).ConfigureAwait(false);
+        await context.Rules.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
