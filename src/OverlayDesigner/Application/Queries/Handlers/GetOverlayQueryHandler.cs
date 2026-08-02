@@ -26,6 +26,7 @@ public sealed class GetOverlayQueryHandler(IOverlayQuerySource overlays)
     internal static OverlayDto Map(Overlay overlay) =>
         new(
             OverlayIdentifier: overlay.Id.Value,
+            Version: overlay.Version,
             Name: overlay.Name.Value,
             CreatedAt: overlay.CreatedAt,
             CreatedBy: overlay.CreatedBy.Value,

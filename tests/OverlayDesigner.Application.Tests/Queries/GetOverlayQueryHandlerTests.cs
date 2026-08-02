@@ -37,6 +37,28 @@ public class GetOverlayQueryHandlerTests
         result.Value.Revisions.Single().Text.ShouldBe("Hello");
     }
 
+    // Without the version on the read side a caller has nothing to put in
+    // If-Match, and the cross-request check degrades to no check (ADR-0113).
+    [Fact]
+    public async Task The_dto_carries_the_aggregate_version()
+    {
+        InMemoryOverlayRepository overlays = new();
+        FakeClock clock = new(FixedMoment);
+        Overlay overlay = new OverlayBuilder()
+            .At(clock.UtcNow)
+            .Named("Line-2")
+            .WithLabel(Label.From("Hello", 0.1m, 0.1m, 0.3m, 0.08m, 32))
+            .Build();
+        overlays.Add(overlay);
+
+        GetOverlayQueryHandler handler = new(new InMemoryOverlayQuerySource(overlays));
+        Result<OverlayDto, GetOverlayError> result = await handler.HandleAsync(
+            new GetOverlayQuery(overlay.Id), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Version.ShouldBe(overlay.Version);
+    }
+
     [Fact]
     public async Task Returns_OverlayNotFound_when_the_chain_does_not_exist()
     {

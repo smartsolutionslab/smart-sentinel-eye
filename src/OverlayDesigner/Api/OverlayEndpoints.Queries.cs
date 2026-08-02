@@ -14,6 +14,7 @@ public static partial class OverlayEndpoints
 {
     private static async Task<IResult> GetOne(
         Guid overlayIdentifier,
+        HttpResponse response,
         [FromServices] GetOverlayQueryHandler handler,
         CancellationToken cancellationToken)
     {
@@ -29,7 +30,14 @@ public static partial class OverlayEndpoints
             .HandleAsync(new GetOverlayQuery(OverlayIdentifier.From(overlayIdentifier)), cancellationToken);
 
         return result.Match<IResult>(
-            onSuccess: Results.Ok,
+            onSuccess: overlay =>
+            {
+                // The version the caller must echo back in If-Match to mutate
+                // this chain (ADR-0113).
+                response.Headers.ETag = ConcurrencyHeaders.ETag(overlay.Version);
+
+                return Results.Ok(overlay);
+            },
             onFailure: error => error.ToProblem());
     }
 
