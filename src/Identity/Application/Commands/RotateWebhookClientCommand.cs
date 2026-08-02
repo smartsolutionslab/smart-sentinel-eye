@@ -32,4 +32,16 @@ public abstract record RotateWebhookClientError(string Code, string Message, Htt
             "KEYCLOAK_UNAVAILABLE",
             $"Keycloak Admin API call failed: {Reason}",
             HttpStatusCode.BadGateway);
+
+    /// <summary>
+    /// The caller acted on a version of the webhook client that has since
+    /// moved on (ADR-0113 Layer 1). Only reachable on a re-rotation: the
+    /// first-time path registers the client and has no prior version to have
+    /// gone stale against.
+    /// </summary>
+    public sealed record WebhookClientStale(string ClientId, int ExpectedVersion, int ActualVersion)
+        : RotateWebhookClientError(
+            "WEBHOOK_CLIENT_STALE",
+            $"Webhook client '{ClientId}' has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
+            HttpStatusCode.Conflict);
 }
