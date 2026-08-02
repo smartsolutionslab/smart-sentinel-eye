@@ -31,6 +31,7 @@ const { OverlaysPage } = await import('./OverlaysPage.js');
 function chain(overrides: Partial<Overlay> = {}): Overlay {
   return {
     overlayIdentifier: '11111111-1111-1111-1111-111111111111',
+    version: 0,
     name: 'Line-1 Title',
     createdAt: '2026-05-27T10:00:00Z',
     createdBy: '22222222-2222-2222-2222-222222222222',
@@ -119,6 +120,7 @@ describe('OverlaysPage', () => {
     expect(publishMock).toHaveBeenCalledWith({
       overlayIdentifier: '11111111-1111-1111-1111-111111111111',
       revisionNumber: 1,
+      version: 0,
     });
   });
 

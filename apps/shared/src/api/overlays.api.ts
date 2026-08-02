@@ -1,5 +1,5 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import { gatewayBaseQuery } from './gateway.js';
+import { gatewayBaseQuery, ifMatch } from './gateway.js';
 import type { CreateOverlayDraftInput } from './overlays.schema.js';
 
 export type { CreateOverlayDraftInput };
@@ -27,6 +27,8 @@ export interface OverlayRevision extends OverlayLabel {
 
 export interface Overlay {
   overlayIdentifier: string;
+  /** Optimistic-concurrency version; echo it back via If-Match to mutate (ADR-0113). */
+  version: number;
   name: string;
   createdAt: string;
   createdBy: string;
@@ -49,6 +51,13 @@ export interface ListOverlaysResponse {
 export interface OverlayRevisionRouteInput {
   overlayIdentifier: string;
   revisionNumber: number;
+  /** The chain version this edit was built on (ADR-0113). */
+  version: number;
+}
+
+export interface OverlayChainRouteInput {
+  overlayIdentifier: string;
+  version: number;
 }
 
 export const overlaysApi = createApi({
@@ -75,9 +84,10 @@ export const overlaysApi = createApi({
       providesTags: () => [{ type: 'OverlayList', id: 'ALL' }],
     }),
     publishOverlayRevision: build.mutation<number, OverlayRevisionRouteInput>({
-      query: ({ overlayIdentifier, revisionNumber }) => ({
+      query: ({ overlayIdentifier, revisionNumber, version }) => ({
         url: `/${overlayIdentifier}/revisions/${revisionNumber}/publish`,
         method: 'POST',
+        headers: ifMatch(version),
       }),
       invalidatesTags: (_r, _e, { overlayIdentifier }) => [
         { type: 'Overlay', id: overlayIdentifier },
@@ -85,21 +95,23 @@ export const overlaysApi = createApi({
       ],
     }),
     archiveOverlayRevision: build.mutation<number, OverlayRevisionRouteInput>({
-      query: ({ overlayIdentifier, revisionNumber }) => ({
+      query: ({ overlayIdentifier, revisionNumber, version }) => ({
         url: `/${overlayIdentifier}/revisions/${revisionNumber}/archive`,
         method: 'POST',
+        headers: ifMatch(version),
       }),
       invalidatesTags: (_r, _e, { overlayIdentifier }) => [
         { type: 'Overlay', id: overlayIdentifier },
         { type: 'OverlayList', id: 'ALL' },
       ],
     }),
-    branchDraftOverlayRevision: build.mutation<number, string>({
-      query: (overlayIdentifier) => ({
+    branchDraftOverlayRevision: build.mutation<number, OverlayChainRouteInput>({
+      query: ({ overlayIdentifier, version }) => ({
         url: `/${overlayIdentifier}/draft`,
         method: 'POST',
+        headers: ifMatch(version),
       }),
-      invalidatesTags: (_r, _e, overlayIdentifier) => [
+      invalidatesTags: (_r, _e, { overlayIdentifier }) => [
         { type: 'Overlay', id: overlayIdentifier },
         { type: 'OverlayList', id: 'ALL' },
       ],
@@ -108,9 +120,10 @@ export const overlaysApi = createApi({
       number,
       OverlayRevisionRouteInput & { label: OverlayLabel }
     >({
-      query: ({ overlayIdentifier, revisionNumber, label }) => ({
+      query: ({ overlayIdentifier, revisionNumber, version, label }) => ({
         url: `/${overlayIdentifier}/revisions/${revisionNumber}`,
         method: 'PATCH',
+        headers: ifMatch(version),
         body: { label },
       }),
       invalidatesTags: (_r, _e, { overlayIdentifier }) => [
@@ -119,9 +132,10 @@ export const overlaysApi = createApi({
       ],
     }),
     revertOverlayRevision: build.mutation<number, OverlayRevisionRouteInput>({
-      query: ({ overlayIdentifier, revisionNumber }) => ({
+      query: ({ overlayIdentifier, revisionNumber, version }) => ({
         url: `/${overlayIdentifier}/revisions/${revisionNumber}/revert`,
         method: 'POST',
+        headers: ifMatch(version),
       }),
       invalidatesTags: (_r, _e, { overlayIdentifier }) => [
         { type: 'Overlay', id: overlayIdentifier },
