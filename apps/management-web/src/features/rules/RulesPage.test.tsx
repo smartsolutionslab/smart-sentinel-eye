@@ -11,6 +11,7 @@ const listMock = vi.fn();
 function rule(overrides: Record<string, unknown> = {}) {
   return {
     ruleIdentifier: '019f-aaaa',
+    version: 0,
     name: 'high-oee',
     triggerSource: 'plc',
     triggerKind: 'PlcCycleStart',
@@ -100,14 +101,14 @@ describe('RulesPage', () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole('button', { name: 'Publish' }));
-    expect(publishMock).toHaveBeenCalledWith('high-oee');
+    expect(publishMock).toHaveBeenCalledWith({ name: 'high-oee', version: 0 });
   });
 
   it('Archives a rule from its row action', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole('button', { name: 'Archive' }));
-    expect(archiveMock).toHaveBeenCalledWith('high-oee');
+    expect(archiveMock).toHaveBeenCalledWith({ name: 'high-oee', version: 0 });
   });
 
   it('Offers no Publish action for an Active rule', () => {
