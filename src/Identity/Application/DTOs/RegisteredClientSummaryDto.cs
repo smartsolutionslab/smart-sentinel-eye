@@ -6,15 +6,14 @@ namespace SmartSentinelEye.Identity.Application.DTOs;
 /// absent — it is write-once and never persisted, so the list side cannot
 /// and must not surface it.
 /// </summary>
+/// <param name="Version">
+/// Optimistic-concurrency version (ADR-0113). Echoed back via
+/// <c>If-Match</c> to rotate a webhook client. It rides the body rather than
+/// an <c>ETag</c> because Identity exposes no single-resource read to hang a
+/// response header on — the list is the only way in.
+/// </param>
 public sealed record RegisteredClientSummaryDto(
     Guid RegisteredClientIdentifier,
-    /// <summary>
-    /// Optimistic-concurrency version (ADR-0113). Echoed back via
-    /// <c>If-Match</c> to disable or rotate the client. It rides the body
-    /// rather than an <c>ETag</c> because Identity exposes no
-    /// single-resource read to hang a response header on — the list is the
-    /// only way in.
-    /// </summary>
     int Version,
     string ClientId,
     string Kind,

@@ -15,10 +15,11 @@ public class RotateWebhookClientCommandHandlerTests
     private static readonly DateTimeOffset Now =
         DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture);
 
-    // Version 0 is what a freshly-registered aggregate carries: the EF
-    // interceptor that moves it is not in play behind the in-memory repository.
+    // None is the "create it, it does not exist yet" intent (If-None-Match: *).
+    // These tests all start from an empty repository, so that is the branch
+    // they mean; Some(v) would be refused as WEBHOOK_CLIENT_NOT_FOUND.
     private static RotateWebhookClientCommand HappyCommand(string name = "qa") =>
-        new(name, FabIdentifier.From("munich"), OperatorIdentifier.From(Guid.CreateVersion7()), 0);
+        new(name, FabIdentifier.From("munich"), OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.None);
 
     [Fact]
     public async Task First_rotation_creates_the_Keycloak_client_and_publishes_WebhookIntegrationRotatedV1()
@@ -54,9 +55,15 @@ public class RotateWebhookClientCommandHandlerTests
             repo, keycloak, bus, new FakeClock(Now),
             NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
-        await handler.HandleAsync(HappyCommand(), CancellationToken.None);
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> second =
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> first =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        // The second call is an update, so it carries the version the first
+        // handed back rather than repeating the create intent.
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> second =
+            await handler.HandleAsync(
+                HappyCommand() with { ExpectedVersion = Option<int>.Some(first.Value.Version) },
+                CancellationToken.None);
 
         second.IsSuccess.ShouldBeTrue();
         second.Value.ClientSecret.ShouldBe("secret-webhook-qa-rotated");
