@@ -34,6 +34,7 @@ internal static class RegisteredClientProjection
             .OrderByDescending(client => client.RegisteredAt)
             .Select(client => new RegisteredClientSummaryDto(
                 client.Id.Value,
+                client.Version,
                 client.ClientId.Value,
                 client.Kind.Value,
                 client.Fab.Value,

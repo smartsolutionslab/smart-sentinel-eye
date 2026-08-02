@@ -84,6 +84,24 @@ public class ListDevicesQueryHandlerTests
     }
 
     [Fact]
+    public async Task Projects_the_aggregate_version_so_a_caller_has_something_to_send_in_If_Match()
+    {
+        // Identity has no single-resource GET, so the list is the only place a
+        // caller can source the version from — without it on the row, If-Match
+        // has no value to carry and the check degrades to no check (ADR-0113).
+        // The version only ever moves under the EF interceptor, so the value
+        // here is necessarily 0; RegisteredClientLifecycleIntegrationTests is
+        // what proves it tracks a real mutation.
+        RegisteredClientAggregate device = Build(ClientKind.Device, "plc-station-4", "munich");
+
+        Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
+            await HandlerFor(device).HandleAsync(
+                new ListDevicesQuery(Option<FabIdentifier>.None), CancellationToken.None);
+
+        result.Value.ShouldHaveSingleItem().Version.ShouldBe(device.Version);
+    }
+
+    [Fact]
     public async Task Summary_dto_never_exposes_a_client_secret_property()
     {
         // The secret is write-once and never persisted; assert structurally

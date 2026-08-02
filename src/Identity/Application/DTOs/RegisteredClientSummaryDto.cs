@@ -8,6 +8,14 @@ namespace SmartSentinelEye.Identity.Application.DTOs;
 /// </summary>
 public sealed record RegisteredClientSummaryDto(
     Guid RegisteredClientIdentifier,
+    /// <summary>
+    /// Optimistic-concurrency version (ADR-0113). Echoed back via
+    /// <c>If-Match</c> to disable or rotate the client. It rides the body
+    /// rather than an <c>ETag</c> because Identity exposes no
+    /// single-resource read to hang a response header on — the list is the
+    /// only way in.
+    /// </summary>
+    int Version,
     string ClientId,
     string Kind,
     string Fab,
