@@ -49,8 +49,11 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
         Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
         overlayIdentifier.ShouldNotBe(Guid.Empty);
 
-        HttpResponseMessage published = await overlays.PostAsync(
-            $"/overlays/{overlayIdentifier}/revisions/1/publish", content: null);
+        // Not OverlayRequests.PostAsync: it reads the version first, and that
+        // round trip would come out of this test's 500 ms budget. A
+        // just-created chain is at version 0.
+        HttpResponseMessage published = await overlays.SendAsync(
+            OverlayRequests.Conditional(HttpMethod.Post, overlayIdentifier, "revisions/1/publish", version: 0));
         sw.Stop();
 
         published.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -99,8 +102,7 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
             "/overlays", new { name = pubName, label = SampleLabelBody() });
         pubRaw.EnsureSuccessStatusCode();
         Guid pubIdentifier = await pubRaw.Content.ReadFromJsonAsync<Guid>();
-        HttpResponseMessage publish = await overlays.PostAsync(
-            $"/overlays/{pubIdentifier}/revisions/1/publish", content: null);
+        HttpResponseMessage publish = await OverlayRequests.PostAsync(overlays, pubIdentifier, $"revisions/1/publish");
         publish.EnsureSuccessStatusCode();
 
         HttpResponseMessage response = await overlays.GetAsync("/overlays?state=Published");

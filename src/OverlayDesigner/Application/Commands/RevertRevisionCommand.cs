@@ -12,5 +12,6 @@ namespace SmartSentinelEye.OverlayDesigner.Application.Commands;
 public sealed record RevertRevisionCommand(
     OverlayIdentifier Overlay,
     OverlayRevisionNumber RevisionNumber,
-    OperatorIdentifier RevertedBy)
+    OperatorIdentifier RevertedBy,
+    int ExpectedVersion)
     : ICommand<Result<OverlayRevisionNumber, RevertRevisionError>>;

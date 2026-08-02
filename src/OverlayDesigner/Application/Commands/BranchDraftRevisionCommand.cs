@@ -11,5 +11,6 @@ namespace SmartSentinelEye.OverlayDesigner.Application.Commands;
 /// </summary>
 public sealed record BranchDraftRevisionCommand(
     OverlayIdentifier Overlay,
-    OperatorIdentifier BranchedBy)
+    OperatorIdentifier BranchedBy,
+    int ExpectedVersion)
     : ICommand<Result<OverlayRevisionNumber, BranchDraftRevisionError>>;

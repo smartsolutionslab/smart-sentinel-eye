@@ -7,5 +7,6 @@ namespace SmartSentinelEye.OverlayDesigner.Application.Commands;
 public sealed record ArchiveRevisionCommand(
     OverlayIdentifier Overlay,
     OverlayRevisionNumber RevisionNumber,
-    OperatorIdentifier ArchivedBy)
+    OperatorIdentifier ArchivedBy,
+    int ExpectedVersion)
     : ICommand<Result<OverlayRevisionNumber, ArchiveRevisionError>>;

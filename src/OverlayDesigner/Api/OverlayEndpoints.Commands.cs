@@ -55,6 +55,7 @@ public static partial class OverlayEndpoints
     private static async Task<IResult> Publish(
         Guid overlayIdentifier,
         int revisionNumber,
+        HttpRequest request,
         [FromServices] PublishRevisionCommandHandler handler,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
@@ -75,10 +76,15 @@ public static partial class OverlayEndpoints
             return problem;
         }
 
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<OverlayRevisionNumber, PublishRevisionError> result = await handler
             .HandleAsync(
-                new PublishRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, actingOperator),
+                new PublishRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, actingOperator, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(
@@ -89,6 +95,7 @@ public static partial class OverlayEndpoints
     private static async Task<IResult> Archive(
         Guid overlayIdentifier,
         int revisionNumber,
+        HttpRequest request,
         [FromServices] ArchiveRevisionCommandHandler handler,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
@@ -109,10 +116,15 @@ public static partial class OverlayEndpoints
             return problem;
         }
 
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<OverlayRevisionNumber, ArchiveRevisionError> result = await handler
             .HandleAsync(
-                new ArchiveRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, actingOperator),
+                new ArchiveRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, actingOperator, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(
@@ -122,6 +134,7 @@ public static partial class OverlayEndpoints
 
     private static async Task<IResult> BranchDraft(
         Guid overlayIdentifier,
+        HttpRequest request,
         [FromServices] BranchDraftRevisionCommandHandler handler,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
@@ -134,10 +147,15 @@ public static partial class OverlayEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<OverlayRevisionNumber, BranchDraftRevisionError> result = await handler
             .HandleAsync(
-                new BranchDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), actingOperator),
+                new BranchDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), actingOperator, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(
@@ -149,6 +167,7 @@ public static partial class OverlayEndpoints
     private static async Task<IResult> EditDraft(
         Guid overlayIdentifier,
         int revisionNumber,
+        HttpRequest request,
         [FromBody] EditDraftRequest body,
         [FromServices] EditDraftRevisionCommandHandler handler,
         CancellationToken cancellationToken)
@@ -183,9 +202,14 @@ public static partial class OverlayEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
         Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler
             .HandleAsync(
-                new EditDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, label),
+                new EditDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, label, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(
@@ -196,6 +220,7 @@ public static partial class OverlayEndpoints
     private static async Task<IResult> Revert(
         Guid overlayIdentifier,
         int revisionNumber,
+        HttpRequest request,
         [FromServices] RevertRevisionCommandHandler handler,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
@@ -216,10 +241,15 @@ public static partial class OverlayEndpoints
             return problem;
         }
 
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<OverlayRevisionNumber, RevertRevisionError> result = await handler
             .HandleAsync(
-                new RevertRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, actingOperator),
+                new RevertRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, actingOperator, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(

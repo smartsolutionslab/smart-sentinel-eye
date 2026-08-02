@@ -11,5 +11,6 @@ namespace SmartSentinelEye.OverlayDesigner.Application.Commands;
 public sealed record PublishRevisionCommand(
     OverlayIdentifier Overlay,
     OverlayRevisionNumber RevisionNumber,
-    OperatorIdentifier PublishedBy)
+    OperatorIdentifier PublishedBy,
+    int ExpectedVersion)
     : ICommand<Result<OverlayRevisionNumber, PublishRevisionError>>;

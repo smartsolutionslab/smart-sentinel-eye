@@ -45,26 +45,23 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
         Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
         // v1 → Published.
-        HttpResponseMessage publishOne = await overlays.PostAsync(
-            $"/overlays/{overlayIdentifier}/revisions/1/publish", content: null);
+        HttpResponseMessage publishOne = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/1/publish");
         publishOne.EnsureSuccessStatusCode();
 
         // Branch v2 (Draft, label inherited from v1).
-        HttpResponseMessage branched = await overlays.PostAsync(
-            $"/overlays/{overlayIdentifier}/draft", content: null);
+        HttpResponseMessage branched = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"draft");
         branched.StatusCode.ShouldBe(HttpStatusCode.Created);
         int v2 = await branched.Content.ReadFromJsonAsync<int>();
         v2.ShouldBe(2);
 
         // Edit v2's label.
-        HttpResponseMessage edited = await overlays.PatchAsJsonAsync(
-            $"/overlays/{overlayIdentifier}/revisions/{v2}",
+        HttpResponseMessage edited = await OverlayRequests.PatchAsync(
+            overlays, overlayIdentifier, $"revisions/{v2}",
             new { label = SampleLabelBody("Updated label", 64) });
         edited.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         // Publish v2 → atomic swap: v1 becomes Archived, v2 becomes Published.
-        HttpResponseMessage publishTwo = await overlays.PostAsync(
-            $"/overlays/{overlayIdentifier}/revisions/{v2}/publish", content: null);
+        HttpResponseMessage publishTwo = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/{v2}/publish");
         publishTwo.EnsureSuccessStatusCode();
 
         HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
@@ -96,12 +93,10 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
         created.EnsureSuccessStatusCode();
         Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
-        HttpResponseMessage publish = await overlays.PostAsync(
-            $"/overlays/{overlayIdentifier}/revisions/1/publish", content: null);
+        HttpResponseMessage publish = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/1/publish");
         publish.EnsureSuccessStatusCode();
 
-        HttpResponseMessage revert = await overlays.PostAsync(
-            $"/overlays/{overlayIdentifier}/revisions/1/revert", content: null);
+        HttpResponseMessage revert = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/1/revert");
         revert.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");

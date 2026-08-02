@@ -33,7 +33,7 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand(overlay.Id, OverlayRevisionNumber.One, replacement),
+            new EditDraftRevisionCommand(overlay.Id, OverlayRevisionNumber.One, replacement, 0),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -49,7 +49,7 @@ public class EditDraftRevisionCommandHandlerTests
 
         Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                OverlayIdentifier.New(), OverlayRevisionNumber.One, OtherLabel()),
+                OverlayIdentifier.New(), OverlayRevisionNumber.One, OtherLabel(), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -72,7 +72,7 @@ public class EditDraftRevisionCommandHandlerTests
             overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                overlay.Id, OverlayRevisionNumber.From(42), OtherLabel()),
+                overlay.Id, OverlayRevisionNumber.From(42), OtherLabel(), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -95,7 +95,7 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand(overlay.Id, OverlayRevisionNumber.One, OtherLabel()),
+            new EditDraftRevisionCommand(overlay.Id, OverlayRevisionNumber.One, OtherLabel(), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
