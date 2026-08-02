@@ -5,6 +5,7 @@ import {
   type Variable,
   type VariableState,
 } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+import { isConflict, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useState } from 'react';
 import { SystemVariableDialog } from './SystemVariableDialog.js';
@@ -17,8 +18,12 @@ export function SystemVariablesPage() {
   const [pendingEdit, setPendingEdit] = useState<Record<string, string>>({});
 
   const { data, isLoading, isFetching, error, refetch } = useListVariablesQuery(undefined);
-  const [setVariableValue, { isLoading: saving }] = useSetVariableValueMutation();
-  const [archiveVariable, { isLoading: archiving }] = useArchiveVariableMutation();
+  const [setVariableValue, setValueState] = useSetVariableValueMutation();
+  const [archiveVariable, archiveState] = useArchiveVariableMutation();
+
+  const { isLoading: saving } = setValueState;
+  const { isLoading: archiving } = archiveState;
+  const mutationError = setValueState.error ?? archiveState.error;
 
   const variables = data ?? [];
   const visible = filter === 'All' ? variables : variables.filter((v) => v.state === filter);
@@ -26,7 +31,19 @@ export function SystemVariablesPage() {
   const onValueSubmit = async (variable: Variable) => {
     const raw = pendingEdit[variable.name];
     if (raw === undefined) return;
-    await setVariableValue({ name: variable.name, value: raw, version: variable.version });
+    const result = await setVariableValue({
+      name: variable.name,
+      value: raw,
+      version: variable.version,
+    });
+
+    // Only drop the operator's typing once it has actually been stored. This
+    // used to clear unconditionally, so a rejected write looked exactly like a
+    // successful one: the value they typed vanished and the old one came back
+    // with no explanation. On a conflict that would lose their work twice —
+    // once to the other writer, once to the UI.
+    if ('error' in result) return;
+
     setPendingEdit((prev) => {
       const next = { ...prev };
       delete next[variable.name];
@@ -67,6 +84,20 @@ export function SystemVariablesPage() {
           <button type="button" className="underline" onClick={() => void refetch()}>
             Retry
           </button>
+        </div>
+      )}
+
+      {mutationError !== undefined && (
+        <div
+          role="alert"
+          className="mb-4 rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
+        >
+          {problemDetail(mutationError, 'Could not apply that change.')}{' '}
+          {isConflict(mutationError) && (
+            <button type="button" className="underline" onClick={() => void refetch()}>
+              Reload
+            </button>
+          )}
         </div>
       )}
 
