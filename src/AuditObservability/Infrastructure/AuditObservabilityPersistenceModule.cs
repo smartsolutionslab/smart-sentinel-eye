@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.AuditObservability.Infrastructure;
@@ -30,7 +31,8 @@ public static class AuditObservabilityPersistenceModule
         // WaitForCompletion(migrations), gates every API service into
         // FailedToStart.
         builder.Services.AddDbContextFactory<AuditObservabilityDbContext>(options =>
-            options.UseNpgsql(connectionString));
+            options.UseNpgsql(connectionString)
+                .AddInterceptors(new AggregateVersionInterceptor()));
         builder.Services.AddScoped<AuditObservabilityDbContext>(serviceProvider =>
             serviceProvider.GetRequiredService<IDbContextFactory<AuditObservabilityDbContext>>()
                 .CreateDbContext());

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.ServiceDefaults.Authorization;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 
 namespace SmartSentinelEye.ServiceDefaults;
 
@@ -67,6 +68,7 @@ public static class AuthenticationDefaults
         builder.Services.AddSingleton<IFabAuthorizationGuard, DefaultFabAuthorizationGuard>();
         builder.Services.AddExceptionHandler<FabAuthorizationExceptionHandler>();
         builder.Services.AddExceptionHandler<UnattributableOperatorExceptionHandler>();
+        builder.Services.AddExceptionHandler<ConcurrencyConflictExceptionHandler>();
         builder.Services.AddProblemDetails();
         builder.Services.AddAuthorizationBuilder()
             .AddScopePolicies(Scope.All)
