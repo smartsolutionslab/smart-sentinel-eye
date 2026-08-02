@@ -42,6 +42,8 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
     public HttpClient EventIngestion { get; private set; } = null!;
 
+    public HttpClient SystemVariables { get; private set; } = null!;
+
     public async Task InitializeAsync()
     {
         string[] parameters =
@@ -110,6 +112,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 .WaitForResourceAsync("event-ingestion", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
+            await _app.ResourceNotifications
+                .WaitForResourceAsync("system-variables", KnownResourceStates.Running, cts.Token)
+                .ConfigureAwait(false);
+
             await WaitForKeycloakRealmAsync(cts.Token).ConfigureAwait(false);
             await WaitForMediaMtxAsync(cts.Token).ConfigureAwait(false);
 
@@ -149,6 +155,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         OverlayDesigner = App.CreateHttpClient("overlay-designer", "http");
         AuditObservability = App.CreateHttpClient("audit-observability", "http");
         EventIngestion = App.CreateHttpClient("event-ingestion", "http");
+        SystemVariables = App.CreateHttpClient("system-variables", "http");
     }
 
     public async Task DisposeAsync()
