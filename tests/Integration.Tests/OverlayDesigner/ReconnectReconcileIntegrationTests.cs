@@ -48,8 +48,8 @@ public class ReconnectReconcileIntegrationTests(AspireFixture aspire) : IAsyncLi
             });
         created.EnsureSuccessStatusCode();
         Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
-        HttpResponseMessage publish = await admin.PostAsync(
-            $"/layouts/{layoutIdentifier}/revisions/1/publish", content: null);
+        HttpResponseMessage publish = await LayoutRequests.PostAsync(
+            admin, layoutIdentifier, "revisions/1/publish");
         publish.EnsureSuccessStatusCode();
 
         Uri hubUri = aspire.HubUri("layout-composition", LayoutLifecycleHub.Path);
@@ -74,8 +74,8 @@ public class ReconnectReconcileIntegrationTests(AspireFixture aspire) : IAsyncLi
         await client.StopAsync();
 
         // While the client is disconnected, archive the layout.
-        HttpResponseMessage archived = await admin.PostAsync(
-            $"/layouts/{layoutIdentifier}/revisions/1/archive", content: null);
+        HttpResponseMessage archived = await LayoutRequests.PostAsync(
+            admin, layoutIdentifier, "revisions/1/archive");
         archived.EnsureSuccessStatusCode();
 
         // Reconnect (manual re-Start since StopAsync forces a fresh handshake).

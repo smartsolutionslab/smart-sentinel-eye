@@ -62,8 +62,8 @@ public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifeti
             });
         layoutCreated.StatusCode.ShouldBe(HttpStatusCode.Created);
         Guid layoutIdentifier = await layoutCreated.Content.ReadFromJsonAsync<Guid>();
-        HttpResponseMessage layoutPublished = await layouts.PostAsync(
-            $"/layouts/{layoutIdentifier}/revisions/1/publish", content: null);
+        HttpResponseMessage layoutPublished = await LayoutRequests.PostAsync(
+            layouts, layoutIdentifier, "revisions/1/publish");
         layoutPublished.EnsureSuccessStatusCode();
 
         // 3. GET /layouts/{id} carries the overlay identifier on the Published revision.
