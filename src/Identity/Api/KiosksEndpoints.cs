@@ -35,12 +35,9 @@ public static class KiosksEndpoints
 
         group.MapDelete("/{clientId}", Disable)
             .WithName("DisableKiosk")
-            .WithSummary("Disable an enrolled kiosk. Requires If-Match with the version from GET /kiosks. Required scope: sse.identity.kiosks.write")
+            .WithSummary("Disable an enrolled kiosk. Required scope: sse.identity.kiosks.write")
             .Produces<Guid>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict)
-            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         RouteGroupBuilder reads = app.MapGroup("/kiosks")
             .RequireAuthorization(Scope.Sse.Identity.KioskClients.Read)
@@ -130,7 +127,6 @@ public static class KiosksEndpoints
 
     private static async Task<IResult> Disable(
         string clientId,
-        HttpRequest request,
         [FromServices] DisableKioskCommandHandler handler,
         CancellationToken cancellationToken)
     {
@@ -146,13 +142,8 @@ public static class KiosksEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
-        {
-            return precondition;
-        }
-
         Result<RegisteredClientIdentifier, DisableKioskError> result = await handler.HandleAsync(
-            new DisableKioskCommand(parsed, expectedVersion), cancellationToken);
+            new DisableKioskCommand(parsed), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: id => Results.Ok(id.Value),

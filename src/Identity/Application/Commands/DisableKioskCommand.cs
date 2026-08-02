@@ -5,7 +5,7 @@ using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Application.Commands;
 
-public sealed record DisableKioskCommand(ClientId ClientId, int ExpectedVersion)
+public sealed record DisableKioskCommand(ClientId ClientId)
     : ICommand<Result<RegisteredClientIdentifier, DisableKioskError>>;
 
 public abstract record DisableKioskError(string Code, string Message, HttpStatusCode Status)
@@ -22,15 +22,4 @@ public abstract record DisableKioskError(string Code, string Message, HttpStatus
             "KEYCLOAK_UNAVAILABLE",
             $"Keycloak Admin API call failed: {Reason}",
             HttpStatusCode.BadGateway);
-
-    /// <summary>
-    /// The caller acted on a version of the kiosk that has since moved on
-    /// (ADR-0113 Layer 1). 409 rather than 412 so it reads as the domain
-    /// conflict it is, consistent with the other contexts.
-    /// </summary>
-    public sealed record KioskStale(string ClientId, int ExpectedVersion, int ActualVersion)
-        : DisableKioskError(
-            "KIOSK_STALE",
-            $"Kiosk '{ClientId}' has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
-            HttpStatusCode.Conflict);
 }

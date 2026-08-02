@@ -35,12 +35,9 @@ public static class DevicesEndpoints
 
         group.MapDelete("/{clientId}", Disable)
             .WithName("DisableDevice")
-            .WithSummary("Disable a registered device. Requires If-Match with the version from GET /devices. Required scope: sse.identity.devices.write")
+            .WithSummary("Disable a registered device. Required scope: sse.identity.devices.write")
             .Produces<Guid>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict)
-            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         RouteGroupBuilder reads = app.MapGroup("/devices")
             .RequireAuthorization(Scope.Sse.Identity.DeviceClients.Read)
@@ -129,7 +126,6 @@ public static class DevicesEndpoints
 
     private static async Task<IResult> Disable(
         string clientId,
-        HttpRequest request,
         [FromServices] DisableDeviceCommandHandler handler,
         CancellationToken cancellationToken)
     {
@@ -145,13 +141,8 @@ public static class DevicesEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
-        {
-            return precondition;
-        }
-
         Result<RegisteredClientIdentifier, DisableDeviceError> result = await handler.HandleAsync(
-            new DisableDeviceCommand(parsed, expectedVersion), cancellationToken);
+            new DisableDeviceCommand(parsed), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: id => Results.Ok(id.Value),
