@@ -91,6 +91,7 @@ function tile(overrides: Partial<LayoutTile> = {}): LayoutTile {
 function chain(overrides: Partial<Layout> = {}): Layout {
   return {
     layoutIdentifier: 'cam-1',
+    version: 0,
     name: 'Line-1',
     createdAt: '2026-05-26T10:00:00Z',
     createdBy: '00000000-0000-0000-0000-000000000001',

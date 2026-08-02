@@ -1,5 +1,5 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import { gatewayBaseQuery } from './gateway.js';
+import { gatewayBaseQuery, ifMatch } from './gateway.js';
 import type { CreateLayoutDraftInput, EditDraftRevisionInput } from './layouts.schema.js';
 
 export type { CreateLayoutDraftInput, EditDraftRevisionInput };
@@ -34,6 +34,8 @@ export interface LayoutRevision {
 
 export interface Layout {
   layoutIdentifier: string;
+  /** Optimistic-concurrency version; echo it back via If-Match to mutate (ADR-0113). */
+  version: number;
   name: string;
   createdAt: string;
   createdBy: string;
@@ -58,6 +60,13 @@ export interface ListLayoutsResponse {
 export interface RevisionRouteInput {
   layoutIdentifier: string;
   revisionNumber: number;
+  /** The chain version this edit was built on (ADR-0113). */
+  version: number;
+}
+
+export interface ChainRouteInput {
+  layoutIdentifier: string;
+  version: number;
 }
 
 export const layoutsApi = createApi({
@@ -92,9 +101,10 @@ export const layoutsApi = createApi({
       providesTags: () => [{ type: 'LayoutList', id: 'ALL' }],
     }),
     publishRevision: build.mutation<number, RevisionRouteInput>({
-      query: ({ layoutIdentifier, revisionNumber }) => ({
+      query: ({ layoutIdentifier, revisionNumber, version }) => ({
         url: `/${layoutIdentifier}/revisions/${revisionNumber}/publish`,
         method: 'POST',
+        headers: ifMatch(version),
       }),
       invalidatesTags: (_r, _e, { layoutIdentifier }) => [
         { type: 'Layout', id: layoutIdentifier },
@@ -102,21 +112,23 @@ export const layoutsApi = createApi({
       ],
     }),
     archiveRevision: build.mutation<number, RevisionRouteInput>({
-      query: ({ layoutIdentifier, revisionNumber }) => ({
+      query: ({ layoutIdentifier, revisionNumber, version }) => ({
         url: `/${layoutIdentifier}/revisions/${revisionNumber}/archive`,
         method: 'POST',
+        headers: ifMatch(version),
       }),
       invalidatesTags: (_r, _e, { layoutIdentifier }) => [
         { type: 'Layout', id: layoutIdentifier },
         { type: 'LayoutList', id: 'ALL' },
       ],
     }),
-    branchDraftRevision: build.mutation<number, string>({
-      query: (layoutIdentifier) => ({
+    branchDraftRevision: build.mutation<number, ChainRouteInput>({
+      query: ({ layoutIdentifier, version }) => ({
         url: `/${layoutIdentifier}/draft`,
         method: 'POST',
+        headers: ifMatch(version),
       }),
-      invalidatesTags: (_r, _e, layoutIdentifier) => [
+      invalidatesTags: (_r, _e, { layoutIdentifier }) => [
         { type: 'Layout', id: layoutIdentifier },
         { type: 'LayoutList', id: 'ALL' },
       ],
@@ -125,9 +137,10 @@ export const layoutsApi = createApi({
       number,
       RevisionRouteInput & EditDraftRevisionInput
     >({
-      query: ({ layoutIdentifier, revisionNumber, grid, tiles }) => ({
+      query: ({ layoutIdentifier, revisionNumber, version, grid, tiles }) => ({
         url: `/${layoutIdentifier}/revisions/${revisionNumber}`,
         method: 'PATCH',
+        headers: ifMatch(version),
         body: { grid, tiles },
       }),
       invalidatesTags: (_r, _e, { layoutIdentifier }) => [
@@ -136,9 +149,10 @@ export const layoutsApi = createApi({
       ],
     }),
     revertRevision: build.mutation<number, RevisionRouteInput>({
-      query: ({ layoutIdentifier, revisionNumber }) => ({
+      query: ({ layoutIdentifier, revisionNumber, version }) => ({
         url: `/${layoutIdentifier}/revisions/${revisionNumber}/revert`,
         method: 'POST',
+        headers: ifMatch(version),
       }),
       invalidatesTags: (_r, _e, { layoutIdentifier }) => [
         { type: 'Layout', id: layoutIdentifier },

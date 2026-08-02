@@ -288,17 +288,23 @@ through one chokepoint — so transport is one file, not seven.
 
 ### Transport
 
-- [ ] **T046 [FE]** ETag capture + `If-Match` injection in
-      `apps/shared/src/api/gateway.ts:74-103`. Two constraints:
-      (a) `fetchBaseQuery`'s default `responseHandler` **discards
-      `Response.headers`**, so the ETag cannot come from `result.data` —
-      needs a custom `responseHandler` or replacing the inner
-      `fetchBaseQuery`; (b) the wrapper **already retries once on 401**
-      (:86-102), so the retry must resend the same `If-Match`, and the
-      409 path must not be folded into that retry.
-- [ ] **T047 [P] [FE]** ETag store keyed by entity, following the
-      established module-singleton seam of `setAccessTokenProvider`
-      (`gateway.ts:30-36`).
+- [x] **T046 [FE]** `If-Match` on every mutating layout endpoint, from
+      the version the client already holds. The shared `ifMatch()` helper
+      in `gateway.ts` is the single source of the header format, mirroring
+      the backend's `ConcurrencyHeaders.ETag`. Note the response-header
+      problem that ruled out central capture: `fetchBaseQuery`'s default
+      `responseHandler` discards `Response.headers`, so a tag could not
+      be read from `result.data` without replacing the handler — moot now
+      that the version travels on the body.
+- [x] **T047 [P] [FE]** ~~ETag store keyed by entity~~ — **superseded
+      2026-08-02.** A central store must map a request URL back to the
+      resource whose tag guards it (`POST /layouts/{id}/revisions/2/publish`
+      is guarded by the tag from `GET /layouts/{id}`), and any miss
+      degrades to a request with no version — the silent fallback
+      ADR-0113 rejects. The version is threaded through each mutation's
+      arguments instead, so the type checker rejects a call site that
+      forgets. The header format lives in one place, `ifMatch()` in
+      `gateway.ts`.
 - [ ] **T048 [FE]** Exclude `dryRunRule` (`rules.api.ts:91`) from
       `If-Match` — a mutation only in RTK's HTTP-verb sense.
 
@@ -368,7 +374,15 @@ through one chokepoint — so transport is one file, not seven.
   parallelisable once Phase 4 is in. Within a block, the `[P]` pair
   (DTO + error cases) can run concurrently; thread/endpoint/tests are
   sequential after them.
-- Phase 6 requires the Phase-5 blocks for Layout, Overlay, Variable, Rule.
+- **Phase 6's transport (T046-T048) must land BEFORE Phase 5's endpoint
+  half (T018 and its per-context siblings).** Corrected 2026-08-02 —
+  the original order had the server requiring `If-Match` while the SPA
+  still did not send it, which returns 428 on every layout mutation from
+  the real UI until the frontend catches up. Sending a header the server
+  ignores is a no-op, so the client goes first. Recorded in ADR-0113's
+  Implementation Notes.
+- Phase 6's conflict handling (T049-T053) still requires the Phase-5
+  blocks, since there is no 409 to handle until the server compares.
 - T054/T055 require Phase 6 transport.
 
 ## Implementation strategy
