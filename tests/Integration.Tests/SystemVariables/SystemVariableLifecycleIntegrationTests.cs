@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -52,8 +53,7 @@ public class SystemVariableLifecycleIntegrationTests(AspireFixture aspire) : IAs
         string name = UniqueName();
         (await DefineNumberAsync(variables, name, "1")).EnsureSuccessStatusCode();
 
-        HttpResponseMessage updated = await variables.PutAsJsonAsync(
-            $"/system-variables/{name}/value", new { value = "99" });
+        HttpResponseMessage updated = await VariableRequests.SetValueAsync(variables, name, "99");
         updated.EnsureSuccessStatusCode();
 
         JsonElement payload = await ReadAsync(variables, name);
@@ -79,8 +79,7 @@ public class SystemVariableLifecycleIntegrationTests(AspireFixture aspire) : IAs
         string name = UniqueName();
         (await DefineNumberAsync(variables, name, "1")).EnsureSuccessStatusCode();
 
-        HttpResponseMessage refused = await variables.PutAsJsonAsync(
-            $"/system-variables/{name}/value", new { value = "not-a-number" });
+        HttpResponseMessage refused = await VariableRequests.SetValueAsync(variables, name, "not-a-number");
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
@@ -92,8 +91,7 @@ public class SystemVariableLifecycleIntegrationTests(AspireFixture aspire) : IAs
         string name = UniqueName();
         (await DefineNumberAsync(variables, name, "1")).EnsureSuccessStatusCode();
 
-        HttpResponseMessage archived = await variables.PostAsync(
-            $"/system-variables/{name}/archive", content: null);
+        HttpResponseMessage archived = await VariableRequests.ArchiveAsync(variables, name);
         archived.EnsureSuccessStatusCode();
 
         JsonElement payload = await ReadAsync(variables, name);
@@ -124,6 +122,60 @@ public class SystemVariableLifecycleIntegrationTests(AspireFixture aspire) : IAs
         payload.EnumerateArray()
             .Select(row => row.GetProperty("name").GetString())
             .ShouldContain(name);
+    }
+
+    [Fact]
+    public async Task A_mutation_without_If_Match_is_refused_with_428()
+    {
+        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+        string name = UniqueName();
+        (await DefineNumberAsync(variables, name, "1")).EnsureSuccessStatusCode();
+
+        HttpResponseMessage refused = await variables.PutAsJsonAsync(
+            $"/system-variables/{name}/value", new { value = "2" });
+
+        refused.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired);
+    }
+
+    // The lost update this whole spec is aimed at, on the one aggregate with
+    // no revision history to make it visible after the fact.
+    [Fact]
+    public async Task A_second_writer_holding_the_old_version_is_refused_with_409()
+    {
+        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+        string name = UniqueName();
+        (await DefineNumberAsync(variables, name, "1")).EnsureSuccessStatusCode();
+
+        int bothRead = await VariableRequests.VersionAsync(variables, name);
+
+        HttpResponseMessage first = await VariableRequests.SetValueAsync(variables, name, "10");
+        first.EnsureSuccessStatusCode();
+
+        HttpRequestMessage second = VariableRequests.Conditional(HttpMethod.Put, name, "value", bothRead);
+        second.Content = JsonContent.Create(new { value = "20" });
+        HttpResponseMessage refused = await variables.SendAsync(second);
+
+        refused.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("VARIABLE_STALE");
+
+        // The first writer's value survives — that is the whole point.
+        JsonElement stored = await ReadAsync(variables, name);
+        stored.GetProperty("value").GetString().ShouldBe("10");
+    }
+
+    [Fact]
+    public async Task The_same_write_succeeds_once_the_caller_re_reads()
+    {
+        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+        string name = UniqueName();
+        (await DefineNumberAsync(variables, name, "1")).EnsureSuccessStatusCode();
+
+        (await VariableRequests.SetValueAsync(variables, name, "10")).EnsureSuccessStatusCode();
+        HttpResponseMessage retried = await VariableRequests.SetValueAsync(variables, name, "20");
+
+        retried.EnsureSuccessStatusCode();
+        (await ReadAsync(variables, name)).GetProperty("value").GetString().ShouldBe("20");
     }
 
     private static Task<HttpResponseMessage> DefineNumberAsync(HttpClient variables, string name, string initial) =>

@@ -38,7 +38,7 @@ public class SetVariableValueCommandHandlerTests
         Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(
             new SetVariableValueCommand(
                 VariableName.From("oeeLine1"), "82.4",
-                OperatorIdentifier.From(Guid.CreateVersion7())),
+                OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.Some(0)),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -55,7 +55,7 @@ public class SetVariableValueCommandHandlerTests
         Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(
             new SetVariableValueCommand(
                 VariableName.From("ghost"), "1.0",
-                OperatorIdentifier.From(Guid.CreateVersion7())),
+                OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.Some(0)),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -72,7 +72,7 @@ public class SetVariableValueCommandHandlerTests
         Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(
             new SetVariableValueCommand(
                 VariableName.From("oeeLine1"), "not-a-number",
-                OperatorIdentifier.From(Guid.CreateVersion7())),
+                OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.Some(0)),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();

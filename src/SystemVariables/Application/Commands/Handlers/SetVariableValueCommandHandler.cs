@@ -11,7 +11,7 @@ public sealed class SetVariableValueCommandHandler(IVariableRepository variables
     public async Task<Result<VariableIdentifier, SetVariableValueError>> HandleAsync(SetVariableValueCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (VariableName? name, string? wireValue, OperatorIdentifier changedBy) = command;
+        (VariableName? name, string? wireValue, OperatorIdentifier changedBy, Option<int> expectedVersion) = command;
 
         Option<Variable> found = await variables.GetByNameAsync(name, cancellationToken);
         if (!found.HasValue)
@@ -20,6 +20,22 @@ public sealed class SetVariableValueCommandHandler(IVariableRepository variables
         }
 
         Variable variable = found.Value;
+
+        // ADR-0113 Layer 1: refuse an edit built on a view of the variable that
+        // has since moved. Checked before any mutation so nothing is applied on
+        // top of stale intent.
+        //
+        // None means the caller holds no prior view to be stale against —
+        // automation reacting to an event says "set this to X now", it did not
+        // read a value first. Gating that would reject a writer that never had
+        // the chance to be wrong. The wire contract is unaffected: the HTTP
+        // endpoint still rejects a missing If-Match with 428, so an operator
+        // can never reach this branch.
+        if (expectedVersion.HasValue && variable.Version != expectedVersion.Value)
+        {
+            return Result<VariableIdentifier, SetVariableValueError>.Failure(
+                new SetVariableValueError.VariableStale(name.Value, expectedVersion.Value, variable.Version));
+        }
         if (variable.State == VariableState.Archived)
         {
             return Result<VariableIdentifier, SetVariableValueError>.Failure(new SetVariableValueError.VariableArchived(name.Value));

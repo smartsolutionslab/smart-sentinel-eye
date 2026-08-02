@@ -117,6 +117,7 @@ public static class SystemVariableEndpoints
 
     private static async Task<IResult> SetValue(
         string name,
+        HttpRequest request,
         [FromBody] SetVariableValueRequest body,
         [FromServices] SetVariableValueCommandHandler handler,
         ClaimsPrincipal user,
@@ -133,8 +134,13 @@ public static class SystemVariableEndpoints
             return problem;
         }
 
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        SetVariableValueCommand command = new(parsed, body.Value, actingOperator);
+        SetVariableValueCommand command = new(parsed, body.Value, actingOperator, Option<int>.Some(expectedVersion));
         Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(command, cancellationToken);
 
         return result.Match<IResult>(onSuccess: identifier => Results.Ok(identifier.Value), onFailure: error => error.ToProblem());
@@ -208,6 +214,7 @@ public static class SystemVariableEndpoints
 
     private static async Task<IResult> Archive(
         string name,
+        HttpRequest request,
         [FromServices] ArchiveVariableCommandHandler handler,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
@@ -222,7 +229,12 @@ public static class SystemVariableEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<VariableIdentifier, ArchiveVariableError> result = await handler.HandleAsync(new ArchiveVariableCommand(parsed, actingOperator), cancellationToken);
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
+        Result<VariableIdentifier, ArchiveVariableError> result = await handler.HandleAsync(new ArchiveVariableCommand(parsed, actingOperator, expectedVersion), cancellationToken);
 
         return result.Match<IResult>(onSuccess: identifier => Results.Ok(identifier.Value), onFailure: error => error.ToProblem());
     }

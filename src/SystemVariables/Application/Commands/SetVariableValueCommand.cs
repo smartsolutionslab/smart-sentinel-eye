@@ -13,5 +13,6 @@ namespace SmartSentinelEye.SystemVariables.Application.Commands;
 public sealed record SetVariableValueCommand(
     VariableName Name,
     string WireValue,
-    OperatorIdentifier ChangedBy)
+    OperatorIdentifier ChangedBy,
+    Option<int> ExpectedVersion)
     : ICommand<Result<VariableIdentifier, SetVariableValueError>>;
