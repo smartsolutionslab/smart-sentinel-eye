@@ -44,6 +44,8 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
     public HttpClient SystemVariables { get; private set; } = null!;
 
+    public HttpClient Automation { get; private set; } = null!;
+
     public async Task InitializeAsync()
     {
         string[] parameters =
@@ -116,6 +118,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 .WaitForResourceAsync("system-variables", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
+            await _app.ResourceNotifications
+                .WaitForResourceAsync("automation", KnownResourceStates.Running, cts.Token)
+                .ConfigureAwait(false);
+
             await WaitForKeycloakRealmAsync(cts.Token).ConfigureAwait(false);
             await WaitForMediaMtxAsync(cts.Token).ConfigureAwait(false);
 
@@ -156,6 +162,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         AuditObservability = App.CreateHttpClient("audit-observability", "http");
         EventIngestion = App.CreateHttpClient("event-ingestion", "http");
         SystemVariables = App.CreateHttpClient("system-variables", "http");
+        Automation = App.CreateHttpClient("automation", "http");
     }
 
     public async Task DisposeAsync()
