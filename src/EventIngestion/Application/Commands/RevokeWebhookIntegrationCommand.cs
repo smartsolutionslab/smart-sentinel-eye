@@ -4,5 +4,5 @@ using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Application.Commands;
 
-public sealed record RevokeWebhookIntegrationCommand(WebhookIntegrationName Name)
+public sealed record RevokeWebhookIntegrationCommand(WebhookIntegrationName Name, int ExpectedVersion)
     : ICommand<Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>>;
