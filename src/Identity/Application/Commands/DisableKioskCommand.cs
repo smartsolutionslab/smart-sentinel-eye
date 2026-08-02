@@ -5,7 +5,7 @@ using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Application.Commands;
 
-public sealed record DisableKioskCommand(ClientId ClientId)
+public sealed record DisableKioskCommand(ClientId ClientId, int ExpectedVersion)
     : ICommand<Result<RegisteredClientIdentifier, DisableKioskError>>;
 
 public abstract record DisableKioskError(string Code, string Message, HttpStatusCode Status)

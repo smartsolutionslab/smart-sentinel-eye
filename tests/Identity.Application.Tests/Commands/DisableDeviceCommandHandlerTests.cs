@@ -41,7 +41,7 @@ public class DisableDeviceCommandHandlerTests
             NullLogger<DisableDeviceCommandHandler>.Instance);
 
         Result<RegisteredClientIdentifier, DisableDeviceError> result = await handler.HandleAsync(
-            new DisableDeviceCommand(ClientId.From("plc-station-4")), CancellationToken.None);
+            new DisableDeviceCommand(ClientId.From("plc-station-4"), 0), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         keycloak.Disabled.ShouldContain("plc-station-4");
@@ -59,7 +59,7 @@ public class DisableDeviceCommandHandlerTests
             NullLogger<DisableDeviceCommandHandler>.Instance);
 
         Result<RegisteredClientIdentifier, DisableDeviceError> result = await handler.HandleAsync(
-            new DisableDeviceCommand(ClientId.From("ghost")), CancellationToken.None);
+            new DisableDeviceCommand(ClientId.From("ghost"), 0), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<DisableDeviceError.DeviceNotFound>();
@@ -79,7 +79,7 @@ public class DisableDeviceCommandHandlerTests
             NullLogger<DisableDeviceCommandHandler>.Instance);
 
         Result<RegisteredClientIdentifier, DisableDeviceError> result = await handler.HandleAsync(
-            new DisableDeviceCommand(ClientId.From("kiosk-3")), CancellationToken.None);
+            new DisableDeviceCommand(ClientId.From("kiosk-3"), 0), CancellationToken.None);
 
         result.Error.ShouldBeOfType<DisableDeviceError.DeviceNotFound>();
     }

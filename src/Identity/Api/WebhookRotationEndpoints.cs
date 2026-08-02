@@ -32,9 +32,11 @@ public static class WebhookRotationEndpoints
 
         group.MapPost("/{name}/rotate", Rotate)
             .WithName("RotateWebhookClient")
-            .WithSummary("Rotate a webhook integration's bearer onto a Keycloak JWT. Required scope: sse.webhooks.write")
+            .WithSummary("Rotate a webhook integration's bearer onto a Keycloak JWT. Requires If-Match with the version from GET /devices (send 0 on a first-time rotation, which has no client yet). Required scope: sse.webhooks.write")
             .Produces<WebhookClientCredentialsDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired)
             .ProducesProblem(StatusCodes.Status502BadGateway);
 
         return app;
@@ -43,6 +45,7 @@ public static class WebhookRotationEndpoints
     private static async Task<IResult> Rotate(
         string name,
         [FromBody] RotateWebhookClientRequest body,
+        HttpRequest request,
         [FromServices] IFabAuthorizationGuard fabGuard,
         [FromServices] RotateWebhookClientCommandHandler handler,
         ClaimsPrincipal user,
@@ -62,11 +65,21 @@ public static class WebhookRotationEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
+        // Required here as on every other mutating endpoint, rather than made
+        // conditional on the client already existing: the caller cannot know
+        // which branch it will take, and an optional header is the silent
+        // opt-out ADR-0113 rejects. The handler ignores the value when there
+        // is no client to have gone stale.
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
         await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken);
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler.HandleAsync(
-            new RotateWebhookClientCommand(name, fab, actingOperator), cancellationToken);
+            new RotateWebhookClientCommand(name, fab, actingOperator, expectedVersion), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,

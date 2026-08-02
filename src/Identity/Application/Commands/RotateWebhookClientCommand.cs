@@ -17,7 +17,13 @@ namespace SmartSentinelEye.Identity.Application.Commands;
 public sealed record RotateWebhookClientCommand(
     string IntegrationName,
     FabIdentifier Fab,
-    OperatorIdentifier RotatedBy)
+    OperatorIdentifier RotatedBy,
+    /// <summary>
+    /// Compared only when the Keycloak client already exists (ADR-0113).
+    /// A first-time rotation registers it, so there is no prior version for
+    /// the caller to have gone stale against — see the handler.
+    /// </summary>
+    int ExpectedVersion)
     : ICommand<Result<WebhookClientCredentialsDto, RotateWebhookClientError>>;
 
 public abstract record RotateWebhookClientError(string Code, string Message, HttpStatusCode Status)
