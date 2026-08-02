@@ -42,7 +42,7 @@ public class SystemVariableLifecycleIntegrationTests(AspireFixture aspire) : IAs
         payload.GetProperty("name").GetString().ShouldBe(name);
         payload.GetProperty("type").GetString().ShouldBe("Number");
         payload.GetProperty("value").GetString().ShouldBe("41");
-        payload.GetProperty("state").GetString().ShouldBe("Active");
+        payload.GetProperty("state").GetString().ShouldBe("Defined");
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class SystemVariableLifecycleIntegrationTests(AspireFixture aspire) : IAs
         archived.EnsureSuccessStatusCode();
 
         JsonElement payload = await ReadAsync(variables, name);
-        payload.GetProperty("state").GetString().ShouldNotBe("Active");
+        payload.GetProperty("state").GetString().ShouldBe("Archived");
     }
 
     [Fact]
