@@ -63,7 +63,7 @@ endpoints.
 Blocks everything. Implementing against an unamended ADR would leave the
 code contradicting the decision record.
 
-- [ ] **T001 [ADR]** Write `docs/adr/0113-optimistic-concurrency-two-layer.md`
+- [x] **T001 [ADR]** Write `docs/adr/0113-optimistic-concurrency-two-layer.md`
       amending ADR-0043. Must record: (a) Overlays and Automation are
       **EF Core, not Marten** — the stream-version exemption ADR-0043
       grants them is not real; (b) **drop retry-once** — re-applying a
@@ -71,7 +71,7 @@ code contradicting the decision record.
       removes; (c) the **two-layer design** and why either alone is
       insufficient; (d) the `If-Match` transport decision, justified by
       the 14 bodiless endpoints; (e) the 409-vs-412 call.
-- [ ] **T002 [ADR]** Add `**Superseded in part by:** ADR-0113` to
+- [x] **T002 [ADR]** Add `**Superseded in part by:** ADR-0113` to
       ADR-0043's header so a reader landing there first is not misled.
 
 ---
@@ -83,33 +83,33 @@ bump without the handling turns today's silent bug into 500s.
 
 ### Tests first (the interceptor is system-wide; test before wiring)
 
-- [ ] **T003 [P] [CORE]** `AggregateVersionInterceptorTests` in
+- [x] **T003 [P] [CORE]** `AggregateVersionInterceptorTests` in
       `tests/ServiceDefaults.Tests/Persistence/`: a `Modified` root is
       incremented by exactly 1.
-- [ ] **T004 [P] [CORE]** `Added` roots are **not** bumped; `Unchanged`
+- [x] **T004 [P] [CORE]** `Added` roots are **not** bumped; `Unchanged`
       roots with no dirty descendants are not bumped and stay `Unchanged`.
-- [ ] **T005 [CORE]** **The subtle case** — a root whose own columns are
+- [x] **T005 [CORE]** **The subtle case** — a root whose own columns are
       untouched but which has a dirty *owned* descendant (added,
       modified, deleted: three cases) **is** bumped and promoted to
       `Modified`. Without this assertion `Layout` and `Overlay` stay
       unprotected, which is most of the point of the change.
-- [ ] **T006 [CORE]** After a bump, `OriginalValue` is unchanged while
+- [x] **T006 [CORE]** After a bump, `OriginalValue` is unchanged while
       `CurrentValue` is `+1` — the `WHERE` predicate still targets the
       loaded version. Assert on the `PropertyEntry`, not generated SQL.
 
 ### Implementation
 
-- [ ] **T007 [CORE]** Non-generic aggregate-root marker in
+- [x] **T007 [CORE]** Non-generic aggregate-root marker in
       `src/Shared.Kernel/`, mirroring the `IValueObject<T>` convention,
       implemented by `AggregateRoot<TIdentifier>`. Needed because the
       interceptor cannot pattern-match an open generic. `Version` keeps
       its `protected set` — EF writes through the change tracker.
-- [ ] **T008 [CORE]** `AggregateVersionInterceptor : SaveChangesInterceptor`
+- [x] **T008 [CORE]** `AggregateVersionInterceptor : SaveChangesInterceptor`
       in `src/ServiceDefaults/Persistence/`. Skip `Added`/`Deleted`; bump
       when `Modified` **or** any owned descendant is dirty (recursive
       traversal); bump via
       `entry.Property(...).CurrentValue = OriginalValue + 1`.
-- [ ] **T009 [P] [CORE]** Explicit `Microsoft.EntityFrameworkCore`
+- [x] **T009 [P] [CORE]** Explicit `Microsoft.EntityFrameworkCore`
       `PackageReference` in
       `src/ServiceDefaults/SmartSentinelEye.ServiceDefaults.csproj`
       rather than relying on the transitive one from
@@ -124,10 +124,10 @@ bump without the handling turns today's silent bug into 500s.
 Lands with Phase 2. ADR-0047 assigns infrastructure signals to
 middleware, so this needs no `try`/`catch` in 18 handlers.
 
-- [ ] **T010 [CORE]** Shared `DbUpdateConcurrencyException` → 409 Problem
+- [x] **T010 [CORE]** Shared `DbUpdateConcurrencyException` → 409 Problem
       Details mapping, shaped consistently with
       `ApiErrorResults.ToProblem()` (`src/ServiceDefaults/ApiErrorResults.cs:15-20`).
-- [ ] **T011 [CORE]** Integration test: two `DbContext`s from the factory
+- [x] **T011 [CORE]** Integration test: two `DbContext`s from the factory
       load the same aggregate and both save; the second fails and
       surfaces as 409. **Not a mocked throw** — a mock proves nothing
       about the EF wiring, which is the entire point of #1154.
@@ -136,7 +136,7 @@ middleware, so this needs no `try`/`catch` in 18 handlers.
 
 ## Phase 4: Wire the interceptor
 
-- [ ] **T012 [CTX]** Register the interceptor at all nine
+- [x] **T012 [CTX]** Register the interceptor at all nine
       `AddDbContextFactory` sites:
       `AuditObservabilityPersistenceModule.cs:32`,
       `AutomationPersistenceModule.cs:28`,
@@ -151,7 +151,7 @@ middleware, so this needs no `try`/`catch` in 18 handlers.
       **AuditObservability also has an extra `AddScoped` registration at
       `:34`** — the interceptor must go on both, and the comment at
       :22-31 explains why a second `AddDbContext` breaks MigrationRunner.
-- [ ] **T013 [CTX]** Confirm and document that `AuditEventRepository` is
+- [x] **T013 [CTX]** Confirm and document that `AuditEventRepository` is
       unaffected — it buffers rows and issues raw
       `ExecuteSqlInterpolatedAsync` upserts, never calling
       `SaveChangesAsync`, so it bypasses the change tracker. Record the
@@ -164,7 +164,7 @@ The token is live everywhere and conflicts return 409, not 500.
 
 ## Phase 5: Cross-request layer
 
-- [ ] **T014 [XREQ]** Shared `If-Match` helper in `src/ServiceDefaults/`:
+- [x] **T014 [XREQ]** Shared `If-Match` helper in `src/ServiceDefaults/`:
       parse the header into an expected version; **reject a mutating
       request that omits it**. A silent fallback would recreate exactly
       today's bug. Decide the missing-header status here (428 vs 400) and
@@ -172,24 +172,24 @@ The token is live everywhere and conflicts return 409, not 500.
 
 ### LayoutComposition — 5 mutate commands, 4 bodiless endpoints
 
-- [ ] **T015 [P] [XREQ]** `Version` on `LayoutDto`
+- [x] **T015 [P] [XREQ]** `Version` on `LayoutDto`
       (`src/LayoutComposition/Application/DTOs/LayoutDto.cs:9`); emit it
       as `ETag` on `GET /layouts/{id}`.
-- [ ] **T016 [P] [XREQ]** `LayoutRevisionStale` case in all five error
+- [x] **T016 [P] [XREQ]** `LayoutRevisionStale` case in all five error
       unions (`PublishRevisionErrors.cs`, `ArchiveRevisionErrors.cs`,
       `BranchDraftRevisionErrors.cs`, `EditDraftRevisionErrors.cs`,
       `RevertRevisionErrors.cs`), shaped after
       `PublishRevisionError.InvalidStateTransition`
       (`PublishRevisionErrors.cs:25`), status `Conflict`.
       **Closes #240 and #283.**
-- [ ] **T017 [XREQ]** Thread the expected version through the five
+- [x] **T017 [XREQ]** Thread the expected version through the five
       commands and handlers; compare after load, **before** mutating.
-- [ ] **T018 [XREQ]** Read `If-Match` on all five mutating endpoints —
+- [x] **T018 [XREQ]** Read `If-Match` on all five mutating endpoints —
       `LayoutEndpoints.cs:46, 53, 59, 66, 73` (four are bodiless).
-- [ ] **T019 [XREQ]** Update existing mutating integration tests for the
+- [x] **T019 [XREQ]** Update existing mutating integration tests for the
       now-required header. Mechanical but broad — belongs in this change,
       not a follow-up.
-- [ ] **T020 [XREQ]** Integration test: `GET` → mutate → mutate again
+- [x] **T020 [XREQ]** Integration test: `GET` → mutate → mutate again
       with the stale `ETag` → 409, deterministically and without racing.
 
 ### OverlayDesigner — identical by ADR-0104
@@ -197,64 +197,89 @@ The token is live everywhere and conflicts return 409, not 500.
 ADR-0104 §"Intentional-pattern note" requires the sibling context to
 receive the same lifecycle change. Structure mirrors T015–T020 exactly.
 
-- [ ] **T021 [P] [XREQ]** `Version` on `OverlayDto` (`OverlayDto.cs:8`) + `ETag`.
-- [ ] **T022 [P] [XREQ]** Stale case in the five error unions.
-- [ ] **T023 [XREQ]** Thread + compare in the five handlers.
-- [ ] **T024 [XREQ]** `If-Match` on `OverlayEndpoints.cs:46, 53, 59, 66, 73`.
-- [ ] **T025 [XREQ]** Update existing integration tests.
-- [ ] **T026 [XREQ]** Stale-version integration test.
+- [x] **T021 [P] [XREQ]** `Version` on `OverlayDto` (`OverlayDto.cs:8`) + `ETag`.
+- [x] **T022 [P] [XREQ]** Stale case in the five error unions.
+- [x] **T023 [XREQ]** Thread + compare in the five handlers.
+- [x] **T024 [XREQ]** `If-Match` on `OverlayEndpoints.cs:46, 53, 59, 66, 73`.
+- [x] **T025 [XREQ]** Update existing integration tests.
+- [x] **T026 [XREQ]** Stale-version integration test.
 
 ### SystemVariables — 2 mutate commands
 
-- [ ] **T027 [P] [XREQ]** `Version` on `VariableDto` (`VariableDto.cs:9`) + `ETag`.
-- [ ] **T028 [P] [XREQ]** Stale cases in `SetVariableValueErrors.cs`,
+- [x] **T027 [P] [XREQ]** `Version` on `VariableDto` (`VariableDto.cs:9`) + `ETag`.
+- [x] **T028 [P] [XREQ]** Stale cases in `SetVariableValueErrors.cs`,
       `ArchiveVariableErrors.cs`.
-- [ ] **T029 [XREQ]** Thread + compare in both handlers.
-- [ ] **T030 [XREQ]** `If-Match` on `SystemVariableEndpoints.cs:57`
+- [x] **T029 [XREQ]** Thread + compare in both handlers.
+- [x] **T030 [XREQ]** `If-Match` on `SystemVariableEndpoints.cs:57`
       (`PUT /{name}/value`) and `:65` (bodiless archive).
-- [ ] **T031 [XREQ]** Integration test. `PUT /{name}/value` is the
+- [x] **T031 [XREQ]** Integration test. `PUT /{name}/value` is the
       cleanest lost-update in the system — prioritise this one.
 
 ### Automation — 2 mutate commands, both inline-error
 
-- [ ] **T032 [P] [XREQ]** `Version` on `RuleDto` (`RuleDto.cs:21`) + `ETag`.
-- [ ] **T033 [P] [XREQ]** Stale cases — **declared inline** in
+- [x] **T032 [P] [XREQ]** `Version` on `RuleDto` (`RuleDto.cs:21`) + `ETag`.
+- [x] **T033 [P] [XREQ]** Stale cases — **declared inline** in
       `ArchiveRuleCommand.cs:11` and `PublishRuleCommand.cs:11`, not in a
       `*Errors.cs` file. See trap 1.
-- [ ] **T034 [XREQ]** Thread + compare; `If-Match` on
+- [x] **T034 [XREQ]** Thread + compare; `If-Match` on
       `RulesEndpoints.cs:43, 49` (both bodiless).
       **Do not touch `:73` (dry-run)** — it persists nothing.
-- [ ] **T035 [XREQ]** Integration test.
+- [x] **T035 [XREQ]** Integration test.
 
 ### Identity — 2 mutate + 1 hybrid
 
-- [ ] **T036 [P] [XREQ]** `Version` on `RegisteredClientSummaryDto`
+- [x] **T036 [P] [XREQ]** `Version` on `RegisteredClientSummaryDto`
       (`RegisteredClientSummaryDto.cs:9`) + `ETag`. Note the other three
       Identity DTOs are POST-response-only and need nothing.
-- [ ] **T037 [P] [XREQ]** Stale cases — **inline** in
+- [x] **T037 [P] [XREQ]** Stale cases — **inline** in
       `DisableDeviceCommand.cs:11`, `DisableKioskCommand.cs:11`,
       `RotateWebhookClientCommand.cs:23`.
-- [ ] **T038 [XREQ]** Thread + compare. **`RotateWebhookClient` is an
+- [x] **T038 [XREQ]** Thread + compare. **`RotateWebhookClient` is an
       upsert** — gate only the mutate branch
       (`RotateWebhookClientCommandHandler.cs:66`), never the register
       branch (`:91-94`), which has no prior version to compare against.
-- [ ] **T039 [XREQ]** `If-Match` on `DevicesEndpoints.cs:36`,
+- [x] **T039 [XREQ]** `If-Match` on `DevicesEndpoints.cs:36`,
       `KiosksEndpoints.cs:36` (both bodiless DELETEs), and
       `WebhookRotationEndpoints.cs:33`.
-- [ ] **T040 [XREQ]** Integration test.
+- [x] **T040 [XREQ]** Integration test.
+
+> **Amended on delivery (PR #1243, after the xhigh review).** T036–T039 as
+> written above describe a design that did not survive. What shipped:
+>
+> - **The disables carry no gate.** `DEVICE_STALE`/`KIOSK_STALE` are
+>   unreachable by any race — a disable is terminal and
+>   `GetByClientIdAsync` skips rows with a `DisabledAt`, so the version
+>   never moves on a row still reachable by clientId. Requiring `If-Match`
+>   on the two DELETEs was a breaking change buying nothing, and was
+>   reverted. **Do not re-add it.**
+> - **No `ETag` anywhere in Identity** (T036) — there is no
+>   single-resource GET to hang one on. The version rides the body.
+> - **`WebhookClientCredentialsDto` gained `Version`**, contradicting
+>   T036's note that the POST-response DTOs "need nothing". That note was
+>   reasoning about which DTOs a caller sources an `If-Match` from, and
+>   stopped being true once rotation required one.
+> - **The rotation states its intent on the wire**: `If-None-Match: *` to
+>   create, `If-Match: "N"` to rotate. A lone `If-Match` cannot carry both
+>   — version 0 is a real version, since the interceptor does not bump
+>   `Added` roots, so a replayed create would pass as an update.
+> - **`GET /webhook-integrations`** (new, on `sse.webhooks.write`) gives
+>   the version a durable read path.
+> - **The rotation commits before rolling the secret.** The version check
+>   is unlocked, so only Layer 2 picks a winner; rolling first let the
+>   loser invalidate the winner's live credential.
 
 ### EventIngestion — 1 mutate command
 
-- [ ] **T041 [P] [XREQ]** `Version` on `WebhookIntegrationDto`
+- [x] **T041 [P] [XREQ]** `Version` on `WebhookIntegrationDto`
       (`WebhookIntegrationDto.cs:8`) + `ETag`.
-- [ ] **T042 [P] [XREQ]** Stale case in `RevokeWebhookIntegrationErrors.cs`.
-- [ ] **T043 [XREQ]** Thread + compare; `If-Match` on
+- [x] **T042 [P] [XREQ]** Stale case in `RevokeWebhookIntegrationErrors.cs`.
+- [x] **T043 [XREQ]** Thread + compare; `If-Match` on
       `WebhookIntegrationsEndpoints.cs:41` (bodiless DELETE).
-- [ ] **T044 [XREQ]** Integration test.
+- [x] **T044 [XREQ]** Integration test.
 
 ### Deliberate exclusions
 
-- [ ] **T045 [XREQ]** Record these in the PR body so a later reader does
+- [x] **T045 [XREQ]** Record these in the PR body so a later reader does
       not "fix" them:
       - **`ReportStreamHealth`** is mutate-existing but **machine-driven**
         (health watcher, not an operator). An expected-version gate would
@@ -310,7 +335,7 @@ through one chokepoint — so transport is one file, not seven.
 
 ### Conflict handling — current behaviour is actively wrong
 
-- [ ] **T049 [FE]** Status-aware error helper alongside
+- [x] **T049 [FE]** Status-aware error helper alongside
       `apps/shared/src/api/problemDetail.ts:11`, which is **status-blind**
       and cannot distinguish 409 from 400/500.
 - [ ] **T050 [FE]** Fix the conflict copy in `LayoutEditorDialog.tsx:113`
@@ -319,14 +344,14 @@ through one chokepoint — so transport is one file, not seven.
       exact overwrite this work prevents. The dialogs already stay open
       on error (`LayoutEditorDialog.tsx:100-110`), so only the message
       and the refetch are missing.
-- [ ] **T051 [FE]** Surface swallowed mutation errors. `LayoutsPage.tsx:42`
+- [x] **T051 [FE]** Surface swallowed mutation errors. `LayoutsPage.tsx:42`
       discards with `if ('error' in result) return;`;
       `SystemVariablesPage.tsx:29` never inspects the result and then
       clears the pending edit (:30-32), so on a conflict the operator
       watches their value vanish and the old one return, unexplained. The
       `role="alert"` banners there are bound to the **list query's**
       error, not the mutation's.
-- [ ] **T052 [FE]** Conflict UX: reload-and-discard as the honest first
+- [x] **T052 [FE]** Conflict UX: reload-and-discard as the honest first
       cut. **Never retry automatically.**
 - [ ] **T053 [P] [FE]** If conflicts are logged via
       `apps/shared/src/observability/resilienceLog.ts:9`, they need a new
@@ -347,11 +372,11 @@ rest so the remaining three do not surface the same way.
 
 - [x] **T060 [FE]** OverlayDesigner — send `If-Match` on the four mutating
       overlay endpoints. Blocks T023-T026.
-- [ ] **T061 [FE]** SystemVariables — send `If-Match` on `setVariableValue`
+- [x] **T061 [FE]** SystemVariables — send `If-Match` on `setVariableValue`
       and `archiveVariable`. Blocks T029-T031.
-- [ ] **T062 [FE]** Automation — send `If-Match` on publish + archive.
+- [x] **T062 [FE]** Automation — send `If-Match` on publish + archive.
       **Not `dryRunRule`** (T048). Blocks T034-T035.
-- [ ] **T063 [FE]** Identity / EventIngestion have no SPA client, so their
+- [x] **T063 [FE]** Identity / EventIngestion have no SPA client, so their
       server-side halves (T038-T044) need no transport step. Confirm before
       requiring the header there — a headless caller would 428 with no UI to
       fix.
