@@ -12,7 +12,7 @@ public sealed class ArchiveVariableCommandHandler(IVariableRepository variables,
     {
         Ensure.That(command).IsNotNull();
 
-        (VariableName? name, OperatorIdentifier archivedBy) = command;
+        (VariableName? name, OperatorIdentifier archivedBy, int expectedVersion) = command;
 
         Option<Variable> found = await variables.GetByNameAsync(name, cancellationToken);
         if (!found.HasValue)
@@ -21,6 +21,15 @@ public sealed class ArchiveVariableCommandHandler(IVariableRepository variables,
         }
 
         Variable variable = found.Value;
+
+        // ADR-0113 Layer 1: refuse an edit built on a view of the variable that
+        // has since moved. Checked before any mutation so nothing is applied on
+        // top of stale intent.
+        if (variable.Version != expectedVersion)
+        {
+            return Result<VariableIdentifier, ArchiveVariableError>.Failure(
+                new ArchiveVariableError.VariableStale(name.Value, expectedVersion, variable.Version));
+        }
         variable.Archive(archivedBy, clock);
         await variables.SaveAsync(cancellationToken);
 

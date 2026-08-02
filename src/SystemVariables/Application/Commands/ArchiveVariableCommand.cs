@@ -11,5 +11,6 @@ namespace SmartSentinelEye.SystemVariables.Application.Commands;
 /// </summary>
 public sealed record ArchiveVariableCommand(
     VariableName Name,
-    OperatorIdentifier ArchivedBy)
+    OperatorIdentifier ArchivedBy,
+    int ExpectedVersion)
     : ICommand<Result<VariableIdentifier, ArchiveVariableError>>;
