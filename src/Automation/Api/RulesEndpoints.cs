@@ -96,6 +96,7 @@ public static class RulesEndpoints
 
     private static async Task<IResult> GetOne(
         string name,
+        HttpResponse response,
         [FromServices] GetRuleQueryHandler handler,
         CancellationToken cancellationToken)
     {
@@ -103,7 +104,13 @@ public static class RulesEndpoints
             new GetRuleQuery(name), cancellationToken);
 
         return result.Match<IResult>(
-            onSuccess: Results.Ok,
+            onSuccess: rule =>
+            {
+                // The version the caller must echo back in If-Match (ADR-0113).
+                response.Headers.ETag = ConcurrencyHeaders.ETag(rule.Version);
+
+                return Results.Ok(rule);
+            },
             onFailure: error => error.ToProblem());
     }
 
