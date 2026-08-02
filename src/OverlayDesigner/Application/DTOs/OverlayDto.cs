@@ -4,9 +4,18 @@ namespace SmartSentinelEye.OverlayDesigner.Application.DTOs;
 /// Read-side projection of an Overlay chain returned by
 /// <c>GET /overlays/{overlayIdentifier}</c>. Carries every revision in
 /// the chain so the management UI can show full history with one fetch.
+///
+/// <para>
+/// <c>Version</c> is the chain's optimistic-concurrency version
+/// (ADR-0113), echoed back via <c>If-Match</c> to mutate. The
+/// single-overlay read also returns it as an <c>ETag</c>; it is on the
+/// body as well so the list endpoint can hand every row a version
+/// without a per-row fetch.
+/// </para>
 /// </summary>
 public sealed record OverlayDto(
     Guid OverlayIdentifier,
+    int Version,
     string Name,
     DateTimeOffset CreatedAt,
     Guid CreatedBy,
