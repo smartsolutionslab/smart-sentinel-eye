@@ -76,3 +76,27 @@ public abstract record RotateWebhookClientError(string Code, string Message, Htt
             $"No webhook client '{ClientId}' exists to be at version {ExpectedVersion}. Send If-None-Match: * to create it.",
             HttpStatusCode.PreconditionFailed);
 }
+
+/// <summary>
+/// Builds a <see cref="RotateWebhookClientError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class RotateWebhookClientFailures
+{
+    public static RotateWebhookClientError InvalidIntegrationName(string reason) =>
+        new RotateWebhookClientError.InvalidIntegrationName(reason);
+
+    public static RotateWebhookClientError KeycloakUnavailable(string reason) =>
+        new RotateWebhookClientError.KeycloakUnavailable(reason);
+
+    public static RotateWebhookClientError WebhookClientStale(string clientId, int expectedVersion, int actualVersion) =>
+        new RotateWebhookClientError.WebhookClientStale(clientId, expectedVersion, actualVersion);
+
+    public static RotateWebhookClientError WebhookClientAlreadyExists(string clientId, int actualVersion) =>
+        new RotateWebhookClientError.WebhookClientAlreadyExists(clientId, actualVersion);
+
+    public static RotateWebhookClientError WebhookClientNotFound(string clientId, int expectedVersion) =>
+        new RotateWebhookClientError.WebhookClientNotFound(clientId, expectedVersion);
+}

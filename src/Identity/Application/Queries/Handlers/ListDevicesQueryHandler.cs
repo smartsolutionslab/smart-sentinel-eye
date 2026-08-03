@@ -17,6 +17,6 @@ public sealed class ListDevicesQueryHandler(IRegisteredClientQuerySource clients
         IReadOnlyList<RegisteredClientSummaryDto> devices = await RegisteredClientProjection.ListAsync(
             clients, ClientKind.Device, query.Fab, cancellationToken);
 
-        return Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>.Success(devices);
+        return Success(devices);
     }
 }

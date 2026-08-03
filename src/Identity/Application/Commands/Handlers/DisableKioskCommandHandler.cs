@@ -23,8 +23,7 @@ public sealed class DisableKioskCommandHandler(
             .GetByClientIdAsync(command.ClientId, cancellationToken);
         if (!found.HasValue || found.Value.Kind != ClientKind.Kiosk)
         {
-            return Result<RegisteredClientIdentifier, DisableKioskError>.Failure(
-                new DisableKioskError.KioskNotFound(command.ClientId.Value));
+            return Failure(DisableKioskFailures.KioskNotFound(command.ClientId.Value));
         }
 
         try
@@ -33,8 +32,7 @@ public sealed class DisableKioskCommandHandler(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return Result<RegisteredClientIdentifier, DisableKioskError>.Failure(
-                new DisableKioskError.KeycloakUnavailable(ex.Message));
+            return Failure(DisableKioskFailures.KeycloakUnavailable(ex.Message));
         }
 
         RegisteredClientAggregate client = found.Value;
@@ -43,6 +41,6 @@ public sealed class DisableKioskCommandHandler(
 
         logger.DisabledKiosk(client.Id, command.ClientId);
 
-        return Result<RegisteredClientIdentifier, DisableKioskError>.Success(client.Id);
+        return Success(client.Id);
     }
 }

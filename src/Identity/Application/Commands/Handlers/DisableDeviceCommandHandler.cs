@@ -23,8 +23,7 @@ public sealed class DisableDeviceCommandHandler(
             .GetByClientIdAsync(command.ClientId, cancellationToken);
         if (!found.HasValue || found.Value.Kind != ClientKind.Device)
         {
-            return Result<RegisteredClientIdentifier, DisableDeviceError>.Failure(
-                new DisableDeviceError.DeviceNotFound(command.ClientId.Value));
+            return Failure(DisableDeviceFailures.DeviceNotFound(command.ClientId.Value));
         }
 
         try
@@ -33,8 +32,7 @@ public sealed class DisableDeviceCommandHandler(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return Result<RegisteredClientIdentifier, DisableDeviceError>.Failure(
-                new DisableDeviceError.KeycloakUnavailable(ex.Message));
+            return Failure(DisableDeviceFailures.KeycloakUnavailable(ex.Message));
         }
 
         RegisteredClientAggregate client = found.Value;
@@ -43,6 +41,6 @@ public sealed class DisableDeviceCommandHandler(
 
         logger.DisabledDevice(client.Id, command.ClientId);
 
-        return Result<RegisteredClientIdentifier, DisableDeviceError>.Success(client.Id);
+        return Success(client.Id);
     }
 }

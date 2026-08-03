@@ -38,7 +38,7 @@ public sealed class ListLayoutsQueryHandler(ILayoutQuerySource layouts)
                 .OrderBy(dto => dto.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            return Result<ListLayoutsResult, ListLayoutsError>.Success(
+            return Success(
                 new ListLayoutsResult(Array.Empty<LayoutDto>(), published));
         }
 
@@ -51,7 +51,7 @@ public sealed class ListLayoutsQueryHandler(ILayoutQuerySource layouts)
             .OrderByDescending(dto => dto.CreatedAt)
             .ToList();
 
-        return Result<ListLayoutsResult, ListLayoutsError>.Success(
+        return Success(
             new ListLayoutsResult(chains, Array.Empty<PublishedLayoutDto>()));
     }
 }

@@ -21,8 +21,7 @@ public sealed class RevertRevisionCommandHandler(
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<OverlayRevisionNumber, RevertRevisionError>.Failure(
-                new RevertRevisionError.OverlayNotFound(overlayIdentifier.Value));
+            return Failure(RevertRevisionFailures.OverlayNotFound(overlayIdentifier.Value));
         }
 
         Overlay overlay = found.Value;
@@ -32,20 +31,17 @@ public sealed class RevertRevisionCommandHandler(
         // on top of stale intent.
         if (overlay.Version != expectedVersion)
         {
-            return Result<OverlayRevisionNumber, RevertRevisionError>.Failure(
-                new RevertRevisionError.OverlayRevisionStale(overlayIdentifier.Value, expectedVersion, overlay.Version));
+            return Failure(RevertRevisionFailures.OverlayRevisionStale(overlayIdentifier.Value, expectedVersion, overlay.Version));
         }
         Revision? revision = overlay.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
         if (revision is null)
         {
-            return Result<OverlayRevisionNumber, RevertRevisionError>.Failure(
-                new RevertRevisionError.OverlayRevisionNotFound(
+            return Failure(RevertRevisionFailures.OverlayRevisionNotFound(
                     overlayIdentifier.Value, revisionNumber.Value));
         }
         if (revision.State != OverlayRevisionState.Published)
         {
-            return Result<OverlayRevisionNumber, RevertRevisionError>.Failure(
-                new RevertRevisionError.NotPublished(revision.State.Value));
+            return Failure(RevertRevisionFailures.NotPublished(revision.State.Value));
         }
 
         overlay.Revert(revisionNumber, revertedBy, clock);
@@ -53,6 +49,6 @@ public sealed class RevertRevisionCommandHandler(
 
         logger.RevertedRevision(revisionNumber, overlay.Id, revertedBy);
 
-        return Result<OverlayRevisionNumber, RevertRevisionError>.Success(revisionNumber);
+        return Success(revisionNumber);
     }
 }

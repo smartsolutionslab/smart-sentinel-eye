@@ -28,3 +28,21 @@ public abstract record AuthorizeWhepError(string Code, string Message, HttpStatu
             "The requested stream is offline; cannot open a WHEP session.",
             HttpStatusCode.Forbidden);
 }
+
+/// <summary>
+/// Builds a <see cref="AuthorizeWhepError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class AuthorizeWhepFailures
+{
+    public static AuthorizeWhepError Unauthorized() =>
+        new AuthorizeWhepError.Unauthorized();
+
+    public static AuthorizeWhepError Forbidden() =>
+        new AuthorizeWhepError.Forbidden();
+
+    public static AuthorizeWhepError StreamUnavailable() =>
+        new AuthorizeWhepError.StreamUnavailable();
+}

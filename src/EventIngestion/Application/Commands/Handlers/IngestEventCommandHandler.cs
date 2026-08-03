@@ -35,8 +35,7 @@ public sealed class IngestEventCommandHandler(
         if (exists)
         {
             logger.IdempotentReDelivery(envelope.Identifier, envelope.Fab);
-            return Result<EventIdentifier, IngestEventError>.Failure(
-                new IngestEventError.EventAlreadyIngested(envelope.Identifier.Value));
+            return Failure(IngestEventFailures.EventAlreadyIngested(envelope.Identifier.Value));
         }
 
         EventAggregate @event;
@@ -56,13 +55,12 @@ public sealed class IngestEventCommandHandler(
         {
             // Future-skew rule rejected (FR-014). Remap so the HTTP
             // layer can return a 400 with the typed code.
-            return Result<EventIdentifier, IngestEventError>.Failure(
-                new IngestEventError.OccurredAtTooFarInFuture(envelope.OccurredAt.Value));
+            return Failure(IngestEventFailures.OccurredAtTooFarInFuture(envelope.OccurredAt.Value));
         }
 
         events.Add(@event);
         await events.SaveAsync(cancellationToken);
 
-        return Result<EventIdentifier, IngestEventError>.Success(@event.Id);
+        return Success(@event.Id);
     }
 }

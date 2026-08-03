@@ -21,3 +21,18 @@ public abstract record ReportStreamHealthError(string Code, string Message, Http
             $"Cannot transition stream from {From} to {To}: {Reason}",
             HttpStatusCode.Conflict);
 }
+
+/// <summary>
+/// Builds a <see cref="ReportStreamHealthError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class ReportStreamHealthFailures
+{
+    public static ReportStreamHealthError StreamNotFound(Guid camera) =>
+        new ReportStreamHealthError.StreamNotFound(camera);
+
+    public static ReportStreamHealthError InvalidStateTransition(string from, string to, string reason) =>
+        new ReportStreamHealthError.InvalidStateTransition(from, to, reason);
+}

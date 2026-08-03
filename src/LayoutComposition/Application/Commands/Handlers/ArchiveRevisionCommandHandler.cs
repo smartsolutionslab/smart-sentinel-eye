@@ -21,8 +21,7 @@ public sealed class ArchiveRevisionCommandHandler(
             .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<LayoutRevisionNumber, ArchiveRevisionError>.Failure(
-                new ArchiveRevisionError.LayoutNotFound(layoutIdentifier.Value));
+            return Failure(ArchiveRevisionFailures.LayoutNotFound(layoutIdentifier.Value));
         }
 
         Layout layout = found.Value;
@@ -32,13 +31,11 @@ public sealed class ArchiveRevisionCommandHandler(
         // on top of stale intent.
         if (layout.Version != expectedVersion)
         {
-            return Result<LayoutRevisionNumber, ArchiveRevisionError>.Failure(
-                new ArchiveRevisionError.LayoutRevisionStale(layoutIdentifier.Value, expectedVersion, layout.Version));
+            return Failure(ArchiveRevisionFailures.LayoutRevisionStale(layoutIdentifier.Value, expectedVersion, layout.Version));
         }
-        if (!layout.Revisions.Any(revision => revision.Number == revisionNumber))
+        if (layout.Revisions.All(revision => revision.Number != revisionNumber))
         {
-            return Result<LayoutRevisionNumber, ArchiveRevisionError>.Failure(
-                new ArchiveRevisionError.LayoutRevisionNotFound(
+            return Failure(ArchiveRevisionFailures.LayoutRevisionNotFound(
                     layoutIdentifier.Value, revisionNumber.Value));
         }
 
@@ -47,6 +44,6 @@ public sealed class ArchiveRevisionCommandHandler(
 
         logger.ArchivedRevision(layout.Id, revisionNumber, archivedBy);
 
-        return Result<LayoutRevisionNumber, ArchiveRevisionError>.Success(revisionNumber);
+        return Success(revisionNumber);
     }
 }

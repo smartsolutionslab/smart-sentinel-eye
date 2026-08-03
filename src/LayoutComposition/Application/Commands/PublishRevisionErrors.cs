@@ -39,3 +39,24 @@ public abstract record PublishRevisionError(string Code, string Message, HttpSta
             $"Layout {Layout} has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
             HttpStatusCode.Conflict);
 }
+
+/// <summary>
+/// Builds a <see cref="PublishRevisionError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class PublishRevisionFailures
+{
+    public static PublishRevisionError LayoutNotFound(Guid layout) =>
+        new PublishRevisionError.LayoutNotFound(layout);
+
+    public static PublishRevisionError LayoutRevisionNotFound(Guid layout, int revisionNumber) =>
+        new PublishRevisionError.LayoutRevisionNotFound(layout, revisionNumber);
+
+    public static PublishRevisionError InvalidStateTransition(string fromState) =>
+        new PublishRevisionError.InvalidStateTransition(fromState);
+
+    public static PublishRevisionError LayoutRevisionStale(Guid layout, int expectedVersion, int actualVersion) =>
+        new PublishRevisionError.LayoutRevisionStale(layout, expectedVersion, actualVersion);
+}

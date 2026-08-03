@@ -18,8 +18,7 @@ public sealed class GetAuditEventQueryHandler(IAuditEventQuerySource events)
             .FirstOrDefaultAsync(auditEvent => auditEvent.Id.Value == query.AuditIdentifier, cancellationToken);
 
         return row is null
-            ? Result<AuditRowDto, GetAuditEventError>.Failure(
-                new GetAuditEventError.AuditEventNotFound(query.AuditIdentifier))
-            : Result<AuditRowDto, GetAuditEventError>.Success(AuditRowMapper.Map(row));
+            ? Failure(GetAuditEventFailures.AuditEventNotFound(query.AuditIdentifier))
+            : Success(AuditRowMapper.Map(row));
     }
 }

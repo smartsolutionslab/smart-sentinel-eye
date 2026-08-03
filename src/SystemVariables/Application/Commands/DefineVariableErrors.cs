@@ -30,3 +30,24 @@ public abstract record DefineVariableError(string Code, string Message, HttpStat
             $"Initial value does not match declared type '{ExpectedType}'.",
             HttpStatusCode.BadRequest);
 }
+
+/// <summary>
+/// Builds a <see cref="DefineVariableError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class DefineVariableFailures
+{
+    public static DefineVariableError VariableNameTaken(string name) =>
+        new DefineVariableError.VariableNameTaken(name);
+
+    public static DefineVariableError BooleanLabelsRequired() =>
+        new DefineVariableError.BooleanLabelsRequired();
+
+    public static DefineVariableError BooleanLabelsOnlyOnBoolean() =>
+        new DefineVariableError.BooleanLabelsOnlyOnBoolean();
+
+    public static DefineVariableError InitialValueTypeMismatch(string expectedType) =>
+        new DefineVariableError.InitialValueTypeMismatch(expectedType);
+}

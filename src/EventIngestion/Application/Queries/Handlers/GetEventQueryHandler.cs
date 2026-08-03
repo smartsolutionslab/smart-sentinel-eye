@@ -21,11 +21,10 @@ public sealed class GetEventQueryHandler(IEventQuerySource events)
 
         if (found is null)
         {
-            return Result<EventDto, GetEventError>.Failure(
-                new GetEventError.EventNotFound(identifier.Value));
+            return Failure(GetEventFailures.EventNotFound(identifier.Value));
         }
 
-        return Result<EventDto, GetEventError>.Success(Map(found));
+        return Success(Map(found));
     }
 
     internal static EventDto Map(EventAggregate @event) =>

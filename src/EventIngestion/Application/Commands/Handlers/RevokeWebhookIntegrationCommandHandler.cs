@@ -22,8 +22,7 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
             .GetByNameAsync(command.Name, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>.Failure(
-                new RevokeWebhookIntegrationError.WebhookIntegrationNotFound(command.Name.Value));
+            return Failure(RevokeWebhookIntegrationFailures.WebhookIntegrationNotFound(command.Name.Value));
         }
 
         WebhookIntegration integration = found.Value;
@@ -40,7 +39,7 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
         // there is no update left to lose.
         if (integration.IsRevoked)
         {
-            return Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>.Success(integration.Id);
+            return Success(integration.Id);
         }
 
         // ADR-0113 Layer 1: refuse a revoke built on a view of the integration
@@ -48,8 +47,7 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
         // applied on top of stale intent.
         if (integration.Version != command.ExpectedVersion)
         {
-            return Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>.Failure(
-                new RevokeWebhookIntegrationError.WebhookIntegrationStale(
+            return Failure(RevokeWebhookIntegrationFailures.WebhookIntegrationStale(
                     command.Name.Value, command.ExpectedVersion, integration.Version));
         }
 
@@ -58,6 +56,6 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
 
         logger.WebhookIntegrationRevoked(integration.Name, integration.Id);
 
-        return Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>.Success(integration.Id);
+        return Success(integration.Id);
     }
 }

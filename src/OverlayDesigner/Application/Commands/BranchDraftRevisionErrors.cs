@@ -29,3 +29,21 @@ public abstract record BranchDraftRevisionError(string Code, string Message, Htt
             $"Overlay {Overlay} has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
             HttpStatusCode.Conflict);
 }
+
+/// <summary>
+/// Builds a <see cref="BranchDraftRevisionError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class BranchDraftRevisionFailures
+{
+    public static BranchDraftRevisionError OverlayNotFound(Guid overlay) =>
+        new BranchDraftRevisionError.OverlayNotFound(overlay);
+
+    public static BranchDraftRevisionError NoPublishedRevisionToBranchFrom(Guid overlay) =>
+        new BranchDraftRevisionError.NoPublishedRevisionToBranchFrom(overlay);
+
+    public static BranchDraftRevisionError OverlayRevisionStale(Guid overlay, int expectedVersion, int actualVersion) =>
+        new BranchDraftRevisionError.OverlayRevisionStale(overlay, expectedVersion, actualVersion);
+}

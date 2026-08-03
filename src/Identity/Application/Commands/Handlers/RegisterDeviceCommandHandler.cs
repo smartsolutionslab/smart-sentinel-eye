@@ -25,8 +25,7 @@ public sealed class RegisterDeviceCommandHandler(
 
         if (!AllowedDeviceTypes.Contains(deviceType, StringComparer.Ordinal))
         {
-            return Result<DeviceCredentialsDto, RegisterDeviceError>.Failure(
-                new RegisterDeviceError.InvalidDeviceType(deviceType));
+            return Failure(RegisterDeviceFailures.InvalidDeviceType(deviceType));
         }
 
         ClientId clientId;
@@ -36,16 +35,14 @@ public sealed class RegisterDeviceCommandHandler(
         }
         catch (ArgumentException ex)
         {
-            return Result<DeviceCredentialsDto, RegisterDeviceError>.Failure(
-                new RegisterDeviceError.InvalidDeviceIdentifier(ex.Message));
+            return Failure(RegisterDeviceFailures.InvalidDeviceIdentifier(ex.Message));
         }
 
         Option<RegisteredClientAggregate> existing = await clients
             .GetByClientIdAsync(clientId, cancellationToken);
         if (existing.HasValue)
         {
-            return Result<DeviceCredentialsDto, RegisterDeviceError>.Failure(
-                new RegisterDeviceError.DeviceAlreadyRegistered(clientId.Value));
+            return Failure(RegisterDeviceFailures.DeviceAlreadyRegistered(clientId.Value));
         }
 
         KeycloakClientRepresentation representation = new(
@@ -75,13 +72,11 @@ public sealed class RegisterDeviceCommandHandler(
         }
         catch (KeycloakClientAlreadyExistsException ex)
         {
-            return Result<DeviceCredentialsDto, RegisterDeviceError>.Failure(
-                new RegisterDeviceError.DeviceAlreadyRegistered(ex.ClientId));
+            return Failure(RegisterDeviceFailures.DeviceAlreadyRegistered(ex.ClientId));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return Result<DeviceCredentialsDto, RegisterDeviceError>.Failure(
-                new RegisterDeviceError.KeycloakUnavailable(ex.Message));
+            return Failure(RegisterDeviceFailures.KeycloakUnavailable(ex.Message));
         }
 
         RegisteredClientAggregate registered = RegisteredClientAggregate.Register(
@@ -91,7 +86,7 @@ public sealed class RegisterDeviceCommandHandler(
 
         logger.RegisteredDevice(registered.Id, clientId, deviceType, deviceIdentifier, fab);
 
-        return Result<DeviceCredentialsDto, RegisterDeviceError>.Success(
+        return Success(
             new DeviceCredentialsDto(
                 registered.Id.Value,
                 clientId.Value,

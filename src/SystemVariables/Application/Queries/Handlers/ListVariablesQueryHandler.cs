@@ -27,6 +27,6 @@ public sealed class ListVariablesQueryHandler(IVariableQuerySource variables)
             .OrderBy(dto => dto.Name, StringComparer.Ordinal)
             .ToList();
 
-        return Result<IReadOnlyList<VariableDto>, ListVariablesError>.Success(dtos);
+        return Success(dtos);
     }
 }

@@ -34,3 +34,21 @@ public abstract record PublishRuleError(string Code, string Message, HttpStatusC
             $"Rule '{Name}' has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
             HttpStatusCode.Conflict);
 }
+
+/// <summary>
+/// Builds a <see cref="PublishRuleError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class PublishRuleFailures
+{
+    public static PublishRuleError RuleNotFound(string name) =>
+        new PublishRuleError.RuleNotFound(name);
+
+    public static PublishRuleError RuleAlreadyArchived(string name) =>
+        new PublishRuleError.RuleAlreadyArchived(name);
+
+    public static PublishRuleError RuleStale(string name, int expectedVersion, int actualVersion) =>
+        new PublishRuleError.RuleStale(name, expectedVersion, actualVersion);
+}

@@ -32,8 +32,7 @@ public sealed class ListRulesQueryHandler(IRuleQuerySource rules)
             }
             catch (ArgumentException)
             {
-                return Result<IReadOnlyList<RuleDto>, ListRulesError>.Failure(
-                    new ListRulesError.InvalidState(query.State));
+                return Failure(ListRulesFailures.InvalidState(query.State));
             }
 
             filtered = filtered.Where(rule => rule.State == state);
@@ -55,6 +54,6 @@ public sealed class ListRulesQueryHandler(IRuleQuerySource rules)
 
         IReadOnlyList<RuleDto> projected = matches.Select(RuleMapper.Map).ToList();
 
-        return Result<IReadOnlyList<RuleDto>, ListRulesError>.Success(projected);
+        return Success(projected);
     }
 }

@@ -29,3 +29,18 @@ public abstract record IngestEventError(string Code, string Message, HttpStatusC
             $"occurredAt {OccurredAt:O} is more than 5 minutes in the future; check the source's clock.",
             HttpStatusCode.BadRequest);
 }
+
+/// <summary>
+/// Builds a <see cref="IngestEventError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class IngestEventFailures
+{
+    public static IngestEventError EventAlreadyIngested(Guid identifier) =>
+        new IngestEventError.EventAlreadyIngested(identifier);
+
+    public static IngestEventError OccurredAtTooFarInFuture(DateTimeOffset occurredAt) =>
+        new IngestEventError.OccurredAtTooFarInFuture(occurredAt);
+}

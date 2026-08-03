@@ -18,7 +18,7 @@ public sealed class ReportStreamHealthCommandHandler(IStreamRepository streams, 
 
         if (!existing.HasValue)
         {
-            return Result<StreamState, ReportStreamHealthError>.Failure(new ReportStreamHealthError.StreamNotFound(camera.Value));
+            return Failure(ReportStreamHealthFailures.StreamNotFound(camera.Value));
         }
 
         Stream stream = existing.Value;
@@ -42,16 +42,15 @@ public sealed class ReportStreamHealthCommandHandler(IStreamRepository streams, 
         {
             string targetState = DescribeTarget(command);
             logger.RejectedHealthTransition(ex, camera);
-            return Result<StreamState, ReportStreamHealthError>.Failure(
-                new ReportStreamHealthError.InvalidStateTransition(
-                    From: stream.State.Value,
-                    To: targetState,
-                    Reason: ex.Message));
+            return Failure(ReportStreamHealthFailures.InvalidStateTransition(
+                    from: stream.State.Value,
+                    to: targetState,
+                    reason: ex.Message));
         }
 
         await streams.SaveAsync(cancellationToken);
 
-        return Result<StreamState, ReportStreamHealthError>.Success(stream.State);
+        return Success(stream.State);
     }
 
     private static string DescribeTarget(ReportStreamHealthCommand command)

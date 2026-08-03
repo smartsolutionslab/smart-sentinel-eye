@@ -43,3 +43,24 @@ public abstract record DryRunRuleError(string Code, string Message, HttpStatusCo
             $"Evaluating the rule against the sample failed: {Reason}",
             HttpStatusCode.BadRequest);
 }
+
+/// <summary>
+/// Builds a <see cref="DryRunRuleError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class DryRunRuleFailures
+{
+    public static DryRunRuleError RuleNotFound(string name) =>
+        new DryRunRuleError.RuleNotFound(name);
+
+    public static DryRunRuleError FabAmbiguous(string name, string fabs) =>
+        new DryRunRuleError.FabAmbiguous(name, fabs);
+
+    public static DryRunRuleError SampleEventNotJson(string reason) =>
+        new DryRunRuleError.SampleEventNotJson(reason);
+
+    public static DryRunRuleError EvaluationFailed(string reason) =>
+        new DryRunRuleError.EvaluationFailed(reason);
+}

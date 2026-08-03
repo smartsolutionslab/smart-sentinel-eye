@@ -22,8 +22,7 @@ public sealed class PublishRevisionCommandHandler(
             .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<LayoutRevisionNumber, PublishRevisionError>.Failure(
-                new PublishRevisionError.LayoutNotFound(layoutIdentifier.Value));
+            return Failure(PublishRevisionFailures.LayoutNotFound(layoutIdentifier.Value));
         }
 
         Layout layout = found.Value;
@@ -33,20 +32,17 @@ public sealed class PublishRevisionCommandHandler(
         // on top of stale intent.
         if (layout.Version != expectedVersion)
         {
-            return Result<LayoutRevisionNumber, PublishRevisionError>.Failure(
-                new PublishRevisionError.LayoutRevisionStale(layoutIdentifier.Value, expectedVersion, layout.Version));
+            return Failure(PublishRevisionFailures.LayoutRevisionStale(layoutIdentifier.Value, expectedVersion, layout.Version));
         }
         Revision? revision = layout.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
         if (revision is null)
         {
-            return Result<LayoutRevisionNumber, PublishRevisionError>.Failure(
-                new PublishRevisionError.LayoutRevisionNotFound(
+            return Failure(PublishRevisionFailures.LayoutRevisionNotFound(
                     layoutIdentifier.Value, revisionNumber.Value));
         }
         if (revision.State != LayoutRevisionState.Draft)
         {
-            return Result<LayoutRevisionNumber, PublishRevisionError>.Failure(
-                new PublishRevisionError.InvalidStateTransition(revision.State.Value));
+            return Failure(PublishRevisionFailures.InvalidStateTransition(revision.State.Value));
         }
 
         layout.Publish(revisionNumber, publishedBy, clock);
@@ -54,6 +50,6 @@ public sealed class PublishRevisionCommandHandler(
 
         logger.PublishedRevision(layout.Id, revisionNumber, publishedBy);
 
-        return Result<LayoutRevisionNumber, PublishRevisionError>.Success(revisionNumber);
+        return Success(revisionNumber);
     }
 }

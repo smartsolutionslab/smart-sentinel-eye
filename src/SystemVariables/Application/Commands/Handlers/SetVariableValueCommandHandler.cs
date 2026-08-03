@@ -16,7 +16,7 @@ public sealed class SetVariableValueCommandHandler(IVariableRepository variables
         Option<Variable> found = await variables.GetByNameAsync(name, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<VariableIdentifier, SetVariableValueError>.Failure(new SetVariableValueError.VariableNotFound(name.Value));
+            return Failure(SetVariableValueFailures.VariableNotFound(name.Value));
         }
 
         Variable variable = found.Value;
@@ -33,12 +33,11 @@ public sealed class SetVariableValueCommandHandler(IVariableRepository variables
         // can never reach this branch.
         if (expectedVersion.HasValue && variable.Version != expectedVersion.Value)
         {
-            return Result<VariableIdentifier, SetVariableValueError>.Failure(
-                new SetVariableValueError.VariableStale(name.Value, expectedVersion.Value, variable.Version));
+            return Failure(SetVariableValueFailures.VariableStale(name.Value, expectedVersion.Value, variable.Version));
         }
         if (variable.State == VariableState.Archived)
         {
-            return Result<VariableIdentifier, SetVariableValueError>.Failure(new SetVariableValueError.VariableArchived(name.Value));
+            return Failure(SetVariableValueFailures.VariableArchived(name.Value));
         }
 
         VariableValue typedValue;
@@ -48,7 +47,7 @@ public sealed class SetVariableValueCommandHandler(IVariableRepository variables
         }
         catch (ArgumentException ex)
         {
-            return Result<VariableIdentifier, SetVariableValueError>.Failure(new SetVariableValueError.VariableTypeMismatch(variable.Type.Value, ex.Message));
+            return Failure(SetVariableValueFailures.VariableTypeMismatch(variable.Type.Value, ex.Message));
         }
 
         variable.SetValue(typedValue, changedBy, clock);
@@ -56,6 +55,6 @@ public sealed class SetVariableValueCommandHandler(IVariableRepository variables
 
         logger.SetVariable(variable.Id, name, wireValue, changedBy);
 
-        return Result<VariableIdentifier, SetVariableValueError>.Success(variable.Id);
+        return Success(variable.Id);
     }
 }

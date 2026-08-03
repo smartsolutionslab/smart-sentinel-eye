@@ -21,26 +21,22 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
 
         if (!AllowedSortFields.Contains(sort, StringComparer.Ordinal))
         {
-            return Result<CameraListPageDto, ListCamerasError>.Failure(
-                new ListCamerasError.InvalidSortField(sort, AllowedSortFields));
+            return Failure(ListCamerasFailures.InvalidSortField(sort, AllowedSortFields));
         }
 
         if (!AllowedSortOrders.Contains(order, StringComparer.Ordinal))
         {
-            return Result<CameraListPageDto, ListCamerasError>.Failure(
-                new ListCamerasError.InvalidSortOrder(order));
+            return Failure(ListCamerasFailures.InvalidSortOrder(order));
         }
 
         if (offset < 0 || limit <= 0)
         {
-            return Result<CameraListPageDto, ListCamerasError>.Failure(
-                new ListCamerasError.InvalidPagination("Offset must be non-negative and limit must be positive."));
+            return Failure(ListCamerasFailures.InvalidPagination("Offset must be non-negative and limit must be positive."));
         }
 
         if (limit > ListCamerasDefaults.MaximumLimit)
         {
-            return Result<CameraListPageDto, ListCamerasError>.Failure(
-                new ListCamerasError.LimitExceeded(limit, ListCamerasDefaults.MaximumLimit));
+            return Failure(ListCamerasFailures.LimitExceeded(limit, ListCamerasDefaults.MaximumLimit));
         }
 
         bool descending = order == "desc";
@@ -58,7 +54,7 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
                 camera.RegisteredAt))
             .ToListAsync(cancellationToken);
 
-        return Result<CameraListPageDto, ListCamerasError>.Success(
+        return Success(
             new CameraListPageDto(items, total, offset, limit));
     }
 

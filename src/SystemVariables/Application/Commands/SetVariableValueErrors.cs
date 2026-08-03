@@ -35,3 +35,24 @@ public abstract record SetVariableValueError(string Code, string Message, HttpSt
             $"System variable '{Name}' has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
             HttpStatusCode.Conflict);
 }
+
+/// <summary>
+/// Builds a <see cref="SetVariableValueError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class SetVariableValueFailures
+{
+    public static SetVariableValueError VariableNotFound(string name) =>
+        new SetVariableValueError.VariableNotFound(name);
+
+    public static SetVariableValueError VariableArchived(string name) =>
+        new SetVariableValueError.VariableArchived(name);
+
+    public static SetVariableValueError VariableTypeMismatch(string expectedType, string reason) =>
+        new SetVariableValueError.VariableTypeMismatch(expectedType, reason);
+
+    public static SetVariableValueError VariableStale(string name, int expectedVersion, int actualVersion) =>
+        new SetVariableValueError.VariableStale(name, expectedVersion, actualVersion);
+}

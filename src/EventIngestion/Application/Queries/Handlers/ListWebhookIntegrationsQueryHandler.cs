@@ -29,6 +29,6 @@ public sealed class ListWebhookIntegrationsQueryHandler(IWebhookIntegrationQuery
             .OrderBy(dto => dto.Name, StringComparer.Ordinal)
             .ToArray();
 
-        return Result<IReadOnlyList<WebhookIntegrationDto>, ListWebhookIntegrationsError>.Success(dtos);
+        return Success(dtos);
     }
 }

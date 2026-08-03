@@ -21,8 +21,7 @@ public sealed class BranchDraftRevisionCommandHandler(
             .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<LayoutRevisionNumber, BranchDraftRevisionError>.Failure(
-                new BranchDraftRevisionError.LayoutNotFound(layoutIdentifier.Value));
+            return Failure(BranchDraftRevisionFailures.LayoutNotFound(layoutIdentifier.Value));
         }
 
         Layout layout = found.Value;
@@ -32,13 +31,11 @@ public sealed class BranchDraftRevisionCommandHandler(
         // on top of stale intent.
         if (layout.Version != expectedVersion)
         {
-            return Result<LayoutRevisionNumber, BranchDraftRevisionError>.Failure(
-                new BranchDraftRevisionError.LayoutRevisionStale(layoutIdentifier.Value, expectedVersion, layout.Version));
+            return Failure(BranchDraftRevisionFailures.LayoutRevisionStale(layoutIdentifier.Value, expectedVersion, layout.Version));
         }
-        if (!layout.Revisions.Any(revision => revision.State == LayoutRevisionState.Published))
+        if (layout.Revisions.All(revision => revision.State != LayoutRevisionState.Published))
         {
-            return Result<LayoutRevisionNumber, BranchDraftRevisionError>.Failure(
-                new BranchDraftRevisionError.NoPublishedRevisionToBranchFrom(layoutIdentifier.Value));
+            return Failure(BranchDraftRevisionFailures.NoPublishedRevisionToBranchFrom(layoutIdentifier.Value));
         }
 
         Revision branched = layout.BranchDraft(branchedBy, clock);
@@ -46,6 +43,6 @@ public sealed class BranchDraftRevisionCommandHandler(
 
         logger.BranchedDraftRevision(branched.Number, layout.Id, branchedBy);
 
-        return Result<LayoutRevisionNumber, BranchDraftRevisionError>.Success(branched.Number);
+        return Success(branched.Number);
     }
 }

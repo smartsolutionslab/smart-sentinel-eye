@@ -55,3 +55,27 @@ public abstract record CreateLayoutDraftError(string Code, string Message, HttpS
             _ => throw new ArgumentOutOfRangeException(nameof(violation), violation, "Unknown grid violation."),
         };
 }
+
+/// <summary>
+/// Builds a <see cref="CreateLayoutDraftError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class CreateLayoutDraftFailures
+{
+    public static CreateLayoutDraftError LayoutNameTaken(string name) =>
+        new CreateLayoutDraftError.LayoutNameTaken(name);
+
+    public static CreateLayoutDraftError GridEmpty() =>
+        new CreateLayoutDraftError.GridEmpty();
+
+    public static CreateLayoutDraftError TilePositionDuplicate() =>
+        new CreateLayoutDraftError.TilePositionDuplicate();
+
+    public static CreateLayoutDraftError TileOutOfBounds() =>
+        new CreateLayoutDraftError.TileOutOfBounds();
+
+    public static CreateLayoutDraftError GridTooLarge() =>
+        new CreateLayoutDraftError.GridTooLarge();
+}

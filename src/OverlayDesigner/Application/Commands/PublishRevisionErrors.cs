@@ -39,3 +39,24 @@ public abstract record PublishRevisionError(string Code, string Message, HttpSta
             $"Overlay {Overlay} has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
             HttpStatusCode.Conflict);
 }
+
+/// <summary>
+/// Builds a <see cref="PublishRevisionError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class PublishRevisionFailures
+{
+    public static PublishRevisionError OverlayNotFound(Guid overlay) =>
+        new PublishRevisionError.OverlayNotFound(overlay);
+
+    public static PublishRevisionError OverlayRevisionNotFound(Guid overlay, int revisionNumber) =>
+        new PublishRevisionError.OverlayRevisionNotFound(overlay, revisionNumber);
+
+    public static PublishRevisionError InvalidStateTransition(string fromState) =>
+        new PublishRevisionError.InvalidStateTransition(fromState);
+
+    public static PublishRevisionError OverlayRevisionStale(Guid overlay, int expectedVersion, int actualVersion) =>
+        new PublishRevisionError.OverlayRevisionStale(overlay, expectedVersion, actualVersion);
+}

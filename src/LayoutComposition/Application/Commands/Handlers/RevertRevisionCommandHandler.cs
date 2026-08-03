@@ -21,8 +21,7 @@ public sealed class RevertRevisionCommandHandler(
             .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<LayoutRevisionNumber, RevertRevisionError>.Failure(
-                new RevertRevisionError.LayoutNotFound(layoutIdentifier.Value));
+            return Failure(RevertRevisionFailures.LayoutNotFound(layoutIdentifier.Value));
         }
 
         Layout layout = found.Value;
@@ -32,20 +31,17 @@ public sealed class RevertRevisionCommandHandler(
         // on top of stale intent.
         if (layout.Version != expectedVersion)
         {
-            return Result<LayoutRevisionNumber, RevertRevisionError>.Failure(
-                new RevertRevisionError.LayoutRevisionStale(layoutIdentifier.Value, expectedVersion, layout.Version));
+            return Failure(RevertRevisionFailures.LayoutRevisionStale(layoutIdentifier.Value, expectedVersion, layout.Version));
         }
         Revision? revision = layout.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
         if (revision is null)
         {
-            return Result<LayoutRevisionNumber, RevertRevisionError>.Failure(
-                new RevertRevisionError.LayoutRevisionNotFound(
+            return Failure(RevertRevisionFailures.LayoutRevisionNotFound(
                     layoutIdentifier.Value, revisionNumber.Value));
         }
         if (revision.State != LayoutRevisionState.Published)
         {
-            return Result<LayoutRevisionNumber, RevertRevisionError>.Failure(
-                new RevertRevisionError.NotPublished(revision.State.Value));
+            return Failure(RevertRevisionFailures.NotPublished(revision.State.Value));
         }
 
         layout.Revert(revisionNumber, revertedBy, clock);
@@ -53,6 +49,6 @@ public sealed class RevertRevisionCommandHandler(
 
         logger.RevertedRevision(revisionNumber, layout.Id, revertedBy);
 
-        return Result<LayoutRevisionNumber, RevertRevisionError>.Success(revisionNumber);
+        return Success(revisionNumber);
     }
 }

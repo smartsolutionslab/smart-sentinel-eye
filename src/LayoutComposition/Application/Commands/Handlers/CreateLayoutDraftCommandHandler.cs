@@ -21,16 +21,14 @@ public sealed class CreateLayoutDraftCommandHandler(
         Option<GridViolation> violation = Layout.ValidateGrid(grid, tiles);
         if (violation.HasValue)
         {
-            return Result<LayoutIdentifier, CreateLayoutDraftError>.Failure(
-                CreateLayoutDraftError.FromViolation(violation.Value));
+            return Failure(CreateLayoutDraftError.FromViolation(violation.Value));
         }
 
         Option<Layout> existing = await layouts
             .GetByNameAsync(name, cancellationToken);
         if (existing.HasValue)
         {
-            return Result<LayoutIdentifier, CreateLayoutDraftError>.Failure(
-                new CreateLayoutDraftError.LayoutNameTaken(name.Value));
+            return Failure(CreateLayoutDraftFailures.LayoutNameTaken(name.Value));
         }
 
         Layout layout = Layout.CreateDraft(name, grid, tiles, createdBy, clock);
@@ -39,6 +37,6 @@ public sealed class CreateLayoutDraftCommandHandler(
 
         logger.CreatedLayout(layout.Id, name, createdBy);
 
-        return Result<LayoutIdentifier, CreateLayoutDraftError>.Success(layout.Id);
+        return Success(layout.Id);
     }
 }

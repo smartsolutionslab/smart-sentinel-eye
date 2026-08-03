@@ -31,13 +31,13 @@ public sealed class ListOverlaysQueryHandler(IOverlayQuerySource overlays)
                 .OrderBy(dto => dto.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            return Result<ListOverlaysResult, ListOverlaysError>.Success(new ListOverlaysResult(Array.Empty<OverlayDto>(), published));
+            return Success(new ListOverlaysResult(Array.Empty<OverlayDto>(), published));
         }
 
         List<Overlay> all = await overlays.Overlays.ToListAsync(cancellationToken);
 
         IReadOnlyList<OverlayDto> chains = all.Select(GetOverlayQueryHandler.Map).OrderByDescending(dto => dto.CreatedAt).ToList();
 
-        return Result<ListOverlaysResult, ListOverlaysError>.Success(new ListOverlaysResult(chains, Array.Empty<PublishedOverlayDto>()));
+        return Success(new ListOverlaysResult(chains, Array.Empty<PublishedOverlayDto>()));
     }
 }
