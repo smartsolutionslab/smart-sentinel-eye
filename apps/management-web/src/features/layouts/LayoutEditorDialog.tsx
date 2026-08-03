@@ -7,7 +7,11 @@ import {
 } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { skipToken } from '@reduxjs/toolkit/query/react';
 import { useListOverlaysQuery } from '@smart-sentinel-eye/shared/api/overlays.api';
-import { problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
+import {
+  CONFLICT_FALLBACK,
+  isStaleConflict,
+  problemDetail,
+} from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
@@ -61,7 +65,9 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   // Reading it back rather than inferring "+1" keeps the client from doing
   // arithmetic on server state -- and still fails correctly if another
   // operator moves the chain while the dialog is open.
-  const { data: currentChain } = useGetLayoutQuery(editTarget?.layoutIdentifier ?? skipToken);
+  const { data: currentChain, refetch: refetchChain } = useGetLayoutQuery(
+    editTarget?.layoutIdentifier ?? skipToken,
+  );
   const { isLoading, error, reset: resetMutationState } = isEdit ? editState : createState;
 
   // Drop any prior backend error when the dialog closes so a stale banner
@@ -122,7 +128,15 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
     }
   });
 
-  const backendError = problemDetail(error, 'Could not save the layout. Try again.');
+  // "Try again" is the wrong advice on a stale conflict — resubmitting replays
+  // the same stale intent over whoever wrote in between, which is the overwrite
+  // this whole mechanism exists to prevent. A name collision keeps it, because
+  // there retrying with a different name is exactly what the operator should do.
+  const staleConflict = isStaleConflict(error);
+  const backendError = problemDetail(
+    error,
+    staleConflict ? CONFLICT_FALLBACK : 'Could not save the layout. Try again.',
+  );
   const cameraItems = cameras?.items ?? [];
   const overlayItems = overlays?.published ?? [];
 
@@ -155,7 +169,15 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
         />
         {backendError !== null && (
           <p role="alert" className="text-sm text-accent-fault">
-            {backendError}
+            {backendError}{' '}
+            {staleConflict && (
+              // Reload, never retry. Refetching the chain replaces the version
+              // the dialog would resubmit with the one the other writer left,
+              // so the operator reapplies against what is actually stored.
+              <button type="button" className="underline" onClick={() => void refetchChain()}>
+                Reload
+              </button>
+            )}
           </p>
         )}
         <div className="flex justify-end gap-2">

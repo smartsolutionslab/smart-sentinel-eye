@@ -6,11 +6,15 @@ import { store } from '../../app/store.js';
 
 const createDraftMock = vi.fn(async () => ({ data: 'noop' }));
 
+// Set per test so the error banner can be exercised; the mutation hook is a
+// module-level mock and cannot take arguments.
+let createError: unknown = undefined;
+
 vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/overlays.api')>();
   return {
     ...actual,
-    useCreateOverlayDraftMutation: () => [createDraftMock, { isLoading: false, error: undefined, reset: vi.fn() }],
+    useCreateOverlayDraftMutation: () => [createDraftMock, { isLoading: false, error: createError, reset: vi.fn() }],
   };
 });
 
@@ -25,7 +29,10 @@ function renderDialog() {
 }
 
 describe('OverlayEditorDialog', () => {
-  beforeEach(() => createDraftMock.mockClear());
+  beforeEach(() => {
+    createDraftMock.mockClear();
+    createError = undefined;
+  });
 
   it('Renders the name input and the embedded WYSIWYG editor controls', () => {
     renderDialog();
@@ -58,5 +65,44 @@ describe('OverlayEditorDialog', () => {
     await user.click(screen.getByRole('button', { name: /save as draft/i }));
     expect(await screen.findByText(/name is required/i)).toBeInTheDocument();
     expect(createDraftMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Spec 012 T050. This dialog only creates, so its 409 is OVERLAY_NAME_TAKEN —
+ * never the stale-version conflict LayoutEditorDialog handles. Keying the copy
+ * on the status alone would hand the operator "reload to see their version",
+ * which is useless advice for a name collision.
+ */
+describe('Conflict copy (spec 012 T050)', () => {
+  beforeEach(() => {
+    createDraftMock.mockClear();
+    createError = undefined;
+  });
+
+  it('Names the collision instead of telling the operator to try again', async () => {
+    createError = { status: 409, data: { title: 'OVERLAY_NAME_TAKEN' } };
+    renderDialog();
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('already taken');
+    expect(alert.textContent).not.toContain('Try again');
+  });
+
+  it("Prefers the server's own detail when it carries one", async () => {
+    createError = {
+      status: 409,
+      data: { title: 'OVERLAY_NAME_TAKEN', detail: "An overlay named 'Line-1 Title' already exists." },
+    };
+    renderDialog();
+
+    expect((await screen.findByRole('alert')).textContent).toContain("named 'Line-1 Title'");
+  });
+
+  it('Keeps retry wording for a failure that is not a name collision', async () => {
+    createError = { status: 500, data: {} };
+    renderDialog();
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Try again');
   });
 });
