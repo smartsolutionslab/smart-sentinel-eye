@@ -13,9 +13,18 @@ namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 ///
 /// <para>
 /// Camera events carry no fab, so the audit row is cross-fab (fab = null).
-/// The <c>operator</c> user has no fab-group membership, so the search
-/// handler scopes its results to cross-fab rows — which is exactly where the
-/// camera row lands.
+/// <c>SearchAuditQueryHandler</c> shows those rows only to a caller who
+/// belongs to no fab — a caller who holds one is filtered to
+/// <c>Fab != null</c> — so this reads as <c>auditor</c>, the account seeded
+/// without a fab group for exactly that reason.
+/// </para>
+///
+/// <para>
+/// It used to read as <c>operator</c>, which worked only because that account
+/// happened to be in no fab either. Spec 013 had to put <c>operator</c> in
+/// <c>/fabs/munich</c> so the rule endpoints would accept it, and this test
+/// began timing out — the row was there, the caller could no longer see it.
+/// The dependency is now deliberate rather than incidental.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
@@ -35,7 +44,7 @@ public class EndToEndIngestionIntegrationTests(AspireFixture aspire)
         cameraId.ShouldNotBe(Guid.Empty);
 
         using HttpClient auditReader = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "operator", "Operator1234");
+            "audit-observability", "auditor", "Auditor1234");
 
         JsonElement row = await PollForAuditRowAsync(auditReader, cameraId);
 
