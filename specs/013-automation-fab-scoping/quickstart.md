@@ -2,9 +2,29 @@
 
 **Feature**: `013-automation-fab-scoping` | **Date**: 2026-08-03
 
-How to see the two defects closed, by hand, against a running stack. Both
-walkthroughs need two fabs; the seeded realm has `munich`, so a second
-(`dresden`) group and an operator assigned to it are the only setup.
+How to see the two defects closed, by hand, against a running stack.
+
+> **The seeded realm has one fab.** `smart-sentinel-eye-realm.json` defines
+> `/fabs/munich` and nothing else, and every seeded account is in it or in no
+> fab at all. Sections 1, 2 and 4 below **cannot be run as written** without
+> first adding a `dresden` group and an operator assigned to it.
+>
+> That edit carries a trap: the persistent `keycloak-data` volume keeps a
+> stale realm, so the change is silently ignored in an existing environment
+> until the volume is dropped. The symptom is a 403 with no obvious cause.
+>
+> Section 3 and the migration check run against the seeded realm unchanged.
+>
+> The walkthrough is a way to *see* the behaviour, not the only evidence for
+> it. What is verified automatically today:
+>
+> | Walkthrough | Covered by |
+> |---|---|
+> | §1 cross-fab firing | `RuleEvaluatorTests`, `FabEventIngestedV1HandlerTests` — unit, checked against two reproductions of #1252 |
+> | §2 unreachable across fabs | `CrossFabEvaluationIntegrationTests` — real stack |
+> | §3 inference | `Authoring_without_naming_a_fab_infers_the_operators_own` — real stack; `FabResolutionTests` — all four rows |
+> | §4 same name in two fabs | `The_same_rule_name_is_accepted_in_two_fabs` — real stack |
+> | migration | `CrossFabEvaluationIntegrationTests`, plus the SQL check below |
 
 Bring the stack up with `dotnet run --project src/AppHost` and wait for
 `migrations` to reach **Finished** and `automation` to reach **Running**.

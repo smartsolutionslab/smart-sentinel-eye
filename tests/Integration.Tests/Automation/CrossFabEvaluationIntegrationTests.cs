@@ -110,6 +110,45 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
     }
 
     /// <summary>
+    /// quickstart.md §3 step 1, as a test rather than a manual step.
+    ///
+    /// <para>
+    /// The seeded admin belongs to exactly one fab, so authoring without
+    /// naming one must infer it (ADR-0114). This is the inference path over
+    /// real HTTP — the endpoint tests in <c>FabResolutionTests</c> drive the
+    /// decision table with synthetic principals, but nothing else proves a
+    /// real Keycloak token reaches it with the groups claim intact.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Authoring_without_naming_a_fab_infers_the_operators_own()
+    {
+        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        string name = UniqueName();
+
+        // No ?fabId= — deliberately.
+        HttpResponseMessage created = await rules.PostAsJsonAsync("/rules", new
+        {
+            name,
+            triggerSource = "plc",
+            triggerKind = "PlcCycleStart",
+            predicate = "$.payload.cycleTime <= 30",
+            actionType = "SetVariableValue",
+            variableName = "oeeLine1",
+            valueExpression = "100 - $.payload.cycleTime * 2",
+            overlayIdentifier = (Guid?)null,
+            durationMs = (int?)null,
+        });
+        created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(created));
+
+        await using AutomationDbContext context = await aspire.CreateAutomationDbContextAsync();
+        RuleName parsed = RuleName.From(name);
+        RuleAggregate stored = await context.Rules.SingleAsync(rule => rule.Name == parsed);
+
+        stored.Fab.Value.ShouldBe("munich");
+    }
+
+    /// <summary>
     /// Writes the rule straight to Postgres in Active state, which is what the
     /// cache seeder reads on startup.
     /// </summary>
