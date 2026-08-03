@@ -47,17 +47,26 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
 
     public Task DisposeAsync() => Task.CompletedTask;
 
+    /// <summary>
+    /// What the cache seeder reads: two Active rules that share a trigger and
+    /// differ only by fab, round-tripped through the real migration's
+    /// <c>fab</c> column.
+    ///
+    /// <para>
+    /// It does not assert on the cache — that is a process-internal singleton
+    /// inside the automation service and unreachable from here. The bucketing
+    /// itself is covered by <c>InMemoryRuleCacheTests</c> against the shipped
+    /// class, each case checked against a reproduction of #1252.
+    /// </para>
+    /// </summary>
     [Fact]
-    public async Task The_seeded_cache_serves_each_fab_only_its_own_rules()
+    public async Task Two_fabs_rules_survive_the_round_trip_distinguishable_by_fab()
     {
         await SeedActiveRuleAsync("munich", "munich-rule", "oeeLine1");
         await SeedActiveRuleAsync("dresden", "dresden-rule", "oeeLine9");
 
         await using AutomationDbContext context = await aspire.CreateAutomationDbContextAsync();
 
-        // Both rules share a trigger and differ only by fab. Before spec 013
-        // the cache bucketed them together, so an event from either fab would
-        // have matched both.
         List<RuleAggregate> stored = await context.Rules
             .Where(rule => rule.State == RuleState.Active)
             .ToListAsync();
