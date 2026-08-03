@@ -18,6 +18,19 @@ namespace SmartSentinelEye.Automation.Domain.Rule;
 /// </summary>
 public sealed class Rule : AggregateRoot<RuleIdentifier>
 {
+    /// <summary>
+    /// The fab this rule belongs to (spec 013). Fixed at creation: a rule is
+    /// never moved between fabs, because doing so would silently change which
+    /// plant's events it acts on. Relocating means re-authoring.
+    ///
+    /// <para>
+    /// Load-bearing for evaluation, not only for access. Before this existed,
+    /// an event from one fab was matched against every fab's rules and the
+    /// resulting change was attributed to the ingesting fab (#1252).
+    /// </para>
+    /// </summary>
+    public FabIdentifier Fab { get; private set; } = null!;
+
     public RuleName Name { get; private set; } = null!;
 
     public string TriggerSource { get; private set; } = string.Empty;
@@ -45,6 +58,7 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
     /// <see cref="RuleCreatedDomainEvent"/>.
     /// </summary>
     public static Rule Create(
+        FabIdentifier fab,
         RuleName name,
         string triggerSource,
         string triggerKind,
@@ -53,6 +67,7 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
         OperatorIdentifier createdBy,
         IClock clock)
     {
+        Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
         Ensure.That(predicate).IsNotNull();
         Ensure.That(action).IsNotNull();
@@ -64,6 +79,7 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
         Rule rule = new()
         {
             Id = RuleIdentifier.New(),
+            Fab = fab,
             Name = name,
             TriggerSource = triggerSource,
             TriggerKind = triggerKind,

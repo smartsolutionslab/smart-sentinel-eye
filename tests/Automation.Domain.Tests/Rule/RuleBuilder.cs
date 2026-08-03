@@ -13,6 +13,10 @@ namespace SmartSentinelEye.Automation.Domain.Tests.Rule;
 /// </summary>
 public sealed class RuleBuilder
 {
+    // Defaults to munich, which is also what the spec-013 migration backfills
+    // pre-existing rules to — so a test that does not care about fabs reads
+    // the same as it did before the field existed.
+    private FabIdentifier _fab = FabIdentifier.From("munich");
     private RuleName _name = RuleName.From("high-oee-on-fast-cycle");
     private string _triggerSource = "plc";
     private string _triggerKind = "PlcCycleStart";
@@ -23,6 +27,7 @@ public sealed class RuleBuilder
     private FakeClock _clock = new(
         DateTimeOffset.Parse("2026-05-28T08:00:00Z", CultureInfo.InvariantCulture));
 
+    public RuleBuilder WithFab(string fab) { _fab = FabIdentifier.From(fab); return this; }
     public RuleBuilder WithName(string name) { _name = RuleName.From(name); return this; }
     public RuleBuilder WithTriggerSource(string source) { _triggerSource = source; return this; }
     public RuleBuilder WithTriggerKind(string kind) { _triggerKind = kind; return this; }
@@ -32,7 +37,7 @@ public sealed class RuleBuilder
     public RuleBuilder WithClock(DateTimeOffset now) { _clock = new FakeClock(now); return this; }
 
     public RuleAggregate Build() => RuleAggregate.Create(
-        _name, _triggerSource, _triggerKind, _predicate, _action, _createdBy, _clock);
+        _fab, _name, _triggerSource, _triggerKind, _predicate, _action, _createdBy, _clock);
 
     public FakeClock Clock => _clock;
 }
