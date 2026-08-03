@@ -36,9 +36,11 @@ public sealed class GetRuleQueryHandler(IRuleQuerySource rules)
         // used (spec 013 FR-007) — a 403 here would confirm the rule exists
         // and let an operator enumerate another fab's names one guess at a
         // time.
-        string[] fabs = [.. query.Fabs.Select(fab => fab.Value)];
+        // Value object, not .Value: Fab is value-converted and a member
+        // access on it fails EF translation (see the RuleName note above).
+        FabIdentifier[] fabs = [.. query.Fabs];
         Rule? rule = await rules.Rules
-            .Where(candidate => fabs.Contains(candidate.Fab.Value))
+            .Where(candidate => fabs.Contains(candidate.Fab))
             .SingleOrDefaultAsync(candidate => candidate.Name == parsed, cancellationToken);
 
         if (rule is null)

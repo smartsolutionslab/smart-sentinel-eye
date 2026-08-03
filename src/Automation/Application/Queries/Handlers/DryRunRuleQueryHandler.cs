@@ -45,9 +45,12 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
         // be usable as a side channel to discover how another fab's rule
         // behaves. Still carries no If-Match — it persists nothing, and spec
         // 012 T048 pinned that with a test.
-        string[] fabs = [.. query.Fabs.Select(fab => fab.Value)];
+        // Compare the value object, not its inner string — same trap as the
+        // RuleName comparison above. Fab is value-converted, so reaching into
+        // .Value throws at translation time and surfaces as a 500.
+        FabIdentifier[] fabs = [.. query.Fabs];
         Rule? rule = await rules.Rules
-            .Where(candidate => fabs.Contains(candidate.Fab.Value))
+            .Where(candidate => fabs.Contains(candidate.Fab))
             .SingleOrDefaultAsync(candidate => candidate.Name == parsed, cancellationToken);
 
         if (rule is null)
