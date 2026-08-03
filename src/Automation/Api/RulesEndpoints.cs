@@ -132,17 +132,23 @@ public static class RulesEndpoints
 
     private static async Task<IResult> Create(
         [FromBody] CreateRuleRequest body,
+        [FromQuery] string fabId,
         [FromServices] CreateRuleCommandHandler handler,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         Ensure.That(body).IsNotNull();
 
+        // Explicit for now. Inferring it for a single-fab operator, and
+        // refusing a multi-fab one who names none, is ADR-0114 and arrives
+        // with the guard in spec 013 T032 — the resolution point is here.
+        FabIdentifier fab;
         RuleName name;
         RulePredicate predicate;
         RuleAction action;
         try
         {
+            fab = FabIdentifier.From(fabId);
             name = RuleName.From(body.Name);
             predicate = RulePredicate.From(body.Predicate);
             action = BuildAction(body);
@@ -156,7 +162,7 @@ public static class RulesEndpoints
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
-            new CreateRuleCommand(name, body.TriggerSource, body.TriggerKind, predicate, action, actingOperator),
+            new CreateRuleCommand(fab, name, body.TriggerSource, body.TriggerKind, predicate, action, actingOperator),
             cancellationToken);
 
         return result.Match<IResult>(

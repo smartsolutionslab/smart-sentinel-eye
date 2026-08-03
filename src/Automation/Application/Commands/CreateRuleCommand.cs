@@ -13,6 +13,7 @@ namespace SmartSentinelEye.Automation.Application.Commands;
 /// <see cref="CreateRuleError.ActionExpressionParseFailed"/>.
 /// </summary>
 public sealed record CreateRuleCommand(
+    FabIdentifier Fab,
     RuleName Name,
     string TriggerSource,
     string TriggerKind,
