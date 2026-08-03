@@ -12,6 +12,17 @@ public abstract record DryRunRuleError(string Code, string Message, HttpStatusCo
             $"No rule named '{Name}' exists.",
             HttpStatusCode.NotFound);
 
+    /// <summary>
+    /// Same ambiguity as the read path: the name resolves in more than one of
+    /// the caller's fabs, and a dry run must not silently pick one — trialling
+    /// a rule the caller did not mean is worse than refusing.
+    /// </summary>
+    public sealed record FabAmbiguous(string Name, string Fabs)
+        : DryRunRuleError(
+            "RULE_FAB_AMBIGUOUS",
+            $"'{Name}' exists in more than one of your fabs ({Fabs}). Name the one you mean with ?fabId=.",
+            HttpStatusCode.BadRequest);
+
     public sealed record SampleEventNotJson(string Reason)
         : DryRunRuleError(
             "RULE_DRY_RUN_SAMPLE_INVALID",

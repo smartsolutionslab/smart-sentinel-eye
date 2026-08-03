@@ -73,6 +73,7 @@ public static class RulesEndpoints
         reads.MapGet("/{name}", GetOne)
             .WithName("GetRule")
             .Produces<RuleDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
