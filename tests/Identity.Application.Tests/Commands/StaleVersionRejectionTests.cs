@@ -6,6 +6,7 @@ using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Tests;
 
 namespace SmartSentinelEye.Identity.Application.Tests.Commands;
 
@@ -24,11 +25,12 @@ namespace SmartSentinelEye.Identity.Application.Tests.Commands;
 /// </para>
 ///
 /// <para>
-/// There is deliberately no unit test for the version *chaining* across
-/// rotations. The in-memory repository does not reproduce
-/// <c>AggregateVersionInterceptor</c>, so every version here is 0 and such a
-/// test could not fail; <c>RegisteredClientConcurrencyIntegrationTests</c>
-/// covers it against the real interceptor.
+/// The in-memory repository mirrors <c>AggregateVersionInterceptor</c>
+/// (#1248), so these run at versions distinguishable from
+/// <c>default(int)</c>. <c>RegisteredClientConcurrencyIntegrationTests</c>
+/// still carries the end-to-end chain against the real interceptor; what is
+/// asserted here is that the handler compares and advances the version it was
+/// actually given.
 /// </para>
 /// </summary>
 public class StaleVersionRejectionTests
@@ -100,6 +102,55 @@ public class StaleVersionRejectionTests
 
         result.IsSuccess.ShouldBeTrue();
         clients.Clients.ShouldHaveSingleItem().Kind.ShouldBe(ClientKind.WebhookIntegration);
+    }
+
+    /// <summary>
+    /// Version 7, not 0. At 0 the accept path cannot distinguish a real
+    /// comparison from a handler that ignored the aggregate and compared
+    /// <c>default(int)</c> to <c>default(int)</c> — which is every version any
+    /// test here could produce until the fake mirrored the interceptor (#1248).
+    /// </summary>
+    [Fact]
+    public async Task The_gate_compares_the_real_version_not_the_default()
+    {
+        (RotateWebhookClientCommandHandler handler,
+            FakeKeycloakAdminClient keycloak,
+            InMemoryRegisteredClientRepository clients) = Registered();
+        AggregateVersions.SetTo(clients.Clients[0], 7);
+        string live = keycloak.CurrentSecrets["webhook-qa"];
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> atZero =
+            await handler.HandleAsync(Update(0), CancellationToken.None);
+
+        atZero.IsFailure.ShouldBeTrue();
+        atZero.Error.Code.ShouldBe("WEBHOOK_CLIENT_STALE");
+        atZero.Error.Message.ShouldContain("7");
+        keycloak.CurrentSecrets["webhook-qa"].ShouldBe(live);
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> atSeven =
+            await handler.HandleAsync(Update(7), CancellationToken.None);
+
+        atSeven.IsSuccess.ShouldBeTrue();
+    }
+
+    /// <summary>
+    /// The bump the rotation contract depends on: the response hands back the
+    /// version the *next* rotation must send, so if a committed rotation did
+    /// not move it, the caller would replay a version the row had left behind.
+    /// </summary>
+    [Fact]
+    public async Task A_committed_rotation_moves_the_version_and_returns_the_new_one()
+    {
+        (RotateWebhookClientCommandHandler handler, _, InMemoryRegisteredClientRepository clients) =
+            Registered();
+        AggregateVersions.SetTo(clients.Clients[0], 3);
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> rotated =
+            await handler.HandleAsync(Update(3), CancellationToken.None);
+
+        rotated.IsSuccess.ShouldBeTrue();
+        clients.Clients.ShouldHaveSingleItem().Version.ShouldBe(4);
+        rotated.Value.Version.ShouldBe(4);
     }
 
     [Fact]

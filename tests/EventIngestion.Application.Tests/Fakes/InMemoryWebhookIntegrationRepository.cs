@@ -1,4 +1,5 @@
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
+using SmartSentinelEye.Shared.Kernel.Tests;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
