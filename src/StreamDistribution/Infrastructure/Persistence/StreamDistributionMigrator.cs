@@ -8,7 +8,9 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 /// MigrationRunner-invoked migrator for the Stream Distribution DbContext
 /// (ADR-0067). Applies pending EF Core migrations once; idempotent.
 /// </summary>
-public sealed class StreamDistributionMigrator(IDbContextFactory<StreamDistributionDbContext> dbContextFactory, ILogger<StreamDistributionMigrator> logger)
+public sealed class StreamDistributionMigrator(
+    IDbContextFactory<StreamDistributionDbContext> dbContextFactory,
+    ILogger<StreamDistributionMigrator> logger)
     : IMigrator
 {
     public string ContextName => "StreamDistribution";

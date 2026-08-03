@@ -64,7 +64,11 @@ public sealed class VariableValueChangedDomainEventHandler(
                 Overlay: overlayId,
                 ResolvedText: resolvedText,
                 Version: version,
-                Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ChangedAt, null, domainEvent.ChangedBy.Value));
+                Metadata: new(
+                    Guid.CreateVersion7(),
+                    domainEvent.ChangedAt,
+                    null,
+                    domainEvent.ChangedBy.Value));
             await events.PublishAsync(@event, cancellationToken);
         }
 
