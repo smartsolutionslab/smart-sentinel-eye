@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Automation.Application.Ael;
 using SmartSentinelEye.Automation.Domain.Rule;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Automation.Application.Evaluation;
 
@@ -23,9 +24,14 @@ public sealed class RuleEvaluator(
     ILogger<RuleEvaluator> logger)
 {
     public IReadOnlyList<RuleActionEffect> Evaluate(
-        string triggerSource, string triggerKind, EvaluationContext context)
+        FabIdentifier fab, string triggerSource, string triggerKind, EvaluationContext context)
     {
-        IReadOnlyList<CompiledRule> candidates = cache.LookupActive(triggerSource, triggerKind);
+        Ensure.That(fab).IsNotNull();
+
+        // Scoped to the originating fab (spec 013 FR-002). Before this, an
+        // event from one fab was matched against every fab's rules and the
+        // resulting change was attributed to the ingesting fab (#1252).
+        IReadOnlyList<CompiledRule> candidates = cache.LookupActive(fab, triggerSource, triggerKind);
         if (candidates.Count == 0)
         {
             return Array.Empty<RuleActionEffect>();

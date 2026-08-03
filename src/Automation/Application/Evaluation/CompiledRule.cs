@@ -14,6 +14,13 @@ public sealed class CompiledRule
 {
     public RuleIdentifier Identifier { get; }
 
+    /// <summary>
+    /// The fab this rule belongs to. Carried into the cache so lookup can be
+    /// keyed on it — without it, an event from one fab matched every fab's
+    /// rules (#1252).
+    /// </summary>
+    public FabIdentifier Fab { get; }
+
     public string TriggerSource { get; }
 
     public string TriggerKind { get; }
@@ -32,6 +39,7 @@ public sealed class CompiledRule
 
     private CompiledRule(
         RuleIdentifier identifier,
+        FabIdentifier fab,
         string triggerSource,
         string triggerKind,
         DateTimeOffset createdAt,
@@ -40,6 +48,7 @@ public sealed class CompiledRule
         AelExpression? compiledValueExpression)
     {
         Identifier = identifier;
+        Fab = fab;
         TriggerSource = triggerSource;
         TriggerKind = triggerKind;
         CreatedAt = createdAt;
@@ -56,7 +65,7 @@ public sealed class CompiledRule
             ? AelParser.Parse(setVariableValue.ValueExpression)
             : null;
         return new CompiledRule(
-            rule.Id, rule.TriggerSource, rule.TriggerKind,
+            rule.Id, rule.Fab, rule.TriggerSource, rule.TriggerKind,
             rule.CreatedAt, predicate, rule.Action, valueExpression);
     }
 }

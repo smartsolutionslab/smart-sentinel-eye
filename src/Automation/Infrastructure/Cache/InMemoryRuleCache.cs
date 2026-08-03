@@ -26,12 +26,19 @@ namespace SmartSentinelEye.Automation.Infrastructure.Cache;
 /// </summary>
 public sealed class InMemoryRuleCache : IRuleCache
 {
-    private readonly ConcurrentDictionary<(string, string), List<CompiledRule>> _byTrigger = new();
+    // Keyed on (fab, source, kind). The fab is part of the key, not a filter
+    // applied to the bucket: filtering afterwards would make lookup cost grow
+    // with the number of rules in *other* fabs, on a path inside the 200 ms
+    // event-to-overlay budget (spec 013 SC-007).
+    private readonly ConcurrentDictionary<(string Fab, string TriggerSource, string TriggerKind), List<CompiledRule>> _byTrigger = new();
     private readonly object _gate = new();
 
-    public IReadOnlyList<CompiledRule> LookupActive(string triggerSource, string triggerKind)
+    public IReadOnlyList<CompiledRule> LookupActive(
+        FabIdentifier fab, string triggerSource, string triggerKind)
     {
-        if (!_byTrigger.TryGetValue((triggerSource, triggerKind), out List<CompiledRule>? bucket))
+        Ensure.That(fab).IsNotNull();
+
+        if (!_byTrigger.TryGetValue((fab.Value, triggerSource, triggerKind), out List<CompiledRule>? bucket))
         {
             return Array.Empty<CompiledRule>();
         }
@@ -50,7 +57,8 @@ public sealed class InMemoryRuleCache : IRuleCache
         }
 
         CompiledRule compiled = CompiledRule.From(rule);
-        (string TriggerSource, string TriggerKind) key = (rule.TriggerSource, rule.TriggerKind);
+        (string Fab, string TriggerSource, string TriggerKind) key =
+            (rule.Fab.Value, rule.TriggerSource, rule.TriggerKind);
 
         List<CompiledRule> bucket = _byTrigger.GetOrAdd(key, _ => new List<CompiledRule>());
         lock (_gate)
