@@ -182,6 +182,26 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
         await context.SaveChangesAsync();
     }
 
+    /// <summary>Left in Draft, so a state filter has something to exclude.</summary>
+    private async Task SeedDraftRuleAsync(string fab, string name)
+    {
+        await using AutomationDbContext context = await aspire.CreateAutomationDbContextAsync();
+
+        RuleAggregate rule = RuleAggregate.Create(
+            FabIdentifier.From(fab),
+            RuleName.From(name),
+            "plc",
+            "PlcCycleStart",
+            RulePredicate.From("$.payload.cycleTime <= 30"),
+            RuleAction.SetVariableValue.From("oeeLine1", "100 - $.payload.cycleTime * 2"),
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            new SystemClock());
+        rule.ClearPendingEvents();
+
+        context.Rules.Add(rule);
+        await context.SaveChangesAsync();
+    }
+
     private static string UniqueName() => $"r-{Guid.NewGuid():N}"[..12];
 
     private async Task<string> DiagnoseAsync(HttpResponseMessage response)
@@ -274,23 +294,11 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
     }
 
     /// <summary>
-    /// Skipped against #1298, not because the behaviour is unverified.
-    ///
-    /// <para>
-    /// <c>GET /rules</c> returns 500 on <c>develop</c> too — confirmed in a
-    /// clean worktree at 9ed60db with none of spec 013 present. The endpoint
-    /// has never worked and nothing noticed, because this is the first test
-    /// in the repo to call it. Fixing it is out of scope for a feature slice.
-    /// </para>
-    ///
-    /// <para>
-    /// Un-skip when #1298 lands; the assertions below are correct as written
-    /// and are the only coverage of fab-scoped listing over HTTP. The
-    /// equivalent behaviour is covered at the handler level by
-    /// <c>RuleQueryHandlerTests.List_omits_rules_from_fabs_the_caller_does_not_hold</c>.
-    /// </para>
+    /// The only coverage of fab-scoped listing over HTTP, and the first test in
+    /// the repo to call <c>GET /rules</c> at all — which is how the endpoint
+    /// shipped broken and stayed that way (#1298).
     /// </summary>
-    [Fact(Skip = "Blocked on #1298 — GET /rules returns 500 on develop, predating this branch.")]
+    [Fact]
     public async Task The_listing_omits_another_fabs_rules()
     {
         string foreign = UniqueName();
@@ -307,6 +315,31 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
 
         names.ShouldContain(own);
         names.ShouldNotContain(foreign);
+    }
+
+    /// <summary>
+    /// The filters are optional, and #1298 was precisely the endpoint not
+    /// agreeing: they were declared non-nullable, so omitting them was a
+    /// binding failure rather than "no filter". Supplying one has to keep
+    /// working, or the fix would have traded one broken call for another.
+    /// </summary>
+    [Fact]
+    public async Task The_listing_still_filters_when_a_filter_is_supplied()
+    {
+        string draft = UniqueName();
+        string active = UniqueName();
+        await SeedDraftRuleAsync("munich", draft);
+        await SeedActiveRuleAsync("munich", active, "oeeLine1");
+
+        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        HttpResponseMessage listed = await rules.GetAsync("/rules?state=Active");
+        listed.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(listed));
+
+        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        string[] names = [.. rows.EnumerateArray().Select(row => row.GetProperty("name").GetString()!)];
+
+        names.ShouldContain(active);
+        names.ShouldNotContain(draft);
     }
 
     /// <summary>
