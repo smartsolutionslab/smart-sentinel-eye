@@ -19,7 +19,7 @@ public sealed class ArchiveRuleCommandHandler(
         Ensure.That(command).IsNotNull();
 
         Option<Rule> found = await rules
-            .GetByNameAsync(command.Name, cancellationToken);
+            .GetByNameAsync(command.Fab, command.Name, cancellationToken);
         if (!found.HasValue)
         {
             return Result<RuleIdentifier, ArchiveRuleError>.Failure(

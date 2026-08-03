@@ -172,13 +172,18 @@ public static class RulesEndpoints
 
     private static async Task<IResult> Publish(
         string name,
+        [FromQuery] string fabId,
         HttpRequest request,
         [FromServices] PublishRuleCommandHandler handler,
         CancellationToken cancellationToken)
     {
+        // Explicit for now; inference and the fab guard arrive with
+        // spec 013 T024/T032.
+        FabIdentifier fab;
         RuleName parsed;
         try
         {
+            fab = FabIdentifier.From(fabId);
             parsed = RuleName.From(name);
         }
         catch (ArgumentException ex)
@@ -191,20 +196,25 @@ public static class RulesEndpoints
             return precondition;
         }
 
-        Result<RuleIdentifier, PublishRuleError> result = await handler.HandleAsync(new PublishRuleCommand(parsed, expectedVersion), cancellationToken);
+        Result<RuleIdentifier, PublishRuleError> result = await handler.HandleAsync(new PublishRuleCommand(fab, parsed, expectedVersion), cancellationToken);
 
         return result.Match<IResult>(onSuccess: id => Results.Ok(id.Value), onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> Archive(
         string name,
+        [FromQuery] string fabId,
         HttpRequest request,
         [FromServices] ArchiveRuleCommandHandler handler,
         CancellationToken cancellationToken)
     {
+        // Explicit for now; inference and the fab guard arrive with
+        // spec 013 T024/T032.
+        FabIdentifier fab;
         RuleName parsed;
         try
         {
+            fab = FabIdentifier.From(fabId);
             parsed = RuleName.From(name);
         }
         catch (ArgumentException ex)
@@ -217,7 +227,7 @@ public static class RulesEndpoints
             return precondition;
         }
 
-        Result<RuleIdentifier, ArchiveRuleError> result = await handler.HandleAsync(new ArchiveRuleCommand(parsed, expectedVersion), cancellationToken);
+        Result<RuleIdentifier, ArchiveRuleError> result = await handler.HandleAsync(new ArchiveRuleCommand(fab, parsed, expectedVersion), cancellationToken);
 
         return result.Match<IResult>(onSuccess: id => Results.Ok(id.Value), onFailure: error => error.ToProblem());
     }
