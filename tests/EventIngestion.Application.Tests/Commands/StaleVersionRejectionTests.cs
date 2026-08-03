@@ -72,6 +72,37 @@ public class StaleVersionRejectionTests
         integrations.Integrations.ShouldHaveSingleItem().IsRevoked.ShouldBeTrue();
     }
 
+    /// <summary>
+    /// The retry case. A client whose response was lost to a gateway timeout
+    /// re-sends the only version it holds — the pre-revoke one — so gating the
+    /// repeat would answer 409 for a change that caller already landed, and
+    /// they could not tell it apart from a real concurrent edit. Revoke is
+    /// idempotent by design, and that has to survive the concurrency gate.
+    /// </summary>
+    [Fact]
+    public async Task A_repeat_revoke_holding_the_pre_revoke_version_still_succeeds()
+    {
+        (InMemoryWebhookIntegrationRepository integrations, WebhookIntegration seeded) = Seeded();
+        int heldByTheCaller = seeded.Version;
+
+        Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> first =
+            await Revoker(integrations).HandleAsync(
+                new RevokeWebhookIntegrationCommand(seeded.Name, heldByTheCaller), CancellationToken.None);
+
+        // The real repository's interceptor moves the version on that save, so
+        // the retry below is exactly the stale-looking request the gate would
+        // otherwise refuse. The fake cannot reproduce the bump, so the stale
+        // value is supplied explicitly rather than relied on.
+        Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> retry =
+            await Revoker(integrations).HandleAsync(
+                new RevokeWebhookIntegrationCommand(seeded.Name, Stale), CancellationToken.None);
+
+        first.IsSuccess.ShouldBeTrue();
+        retry.IsSuccess.ShouldBeTrue();
+        retry.Value.ShouldBe(first.Value);
+        integrations.Integrations.ShouldHaveSingleItem().IsRevoked.ShouldBeTrue();
+    }
+
     private static RevokeWebhookIntegrationCommandHandler Revoker(
         InMemoryWebhookIntegrationRepository integrations) =>
         new(integrations, new FakeClock(Now.AddHours(1)),
