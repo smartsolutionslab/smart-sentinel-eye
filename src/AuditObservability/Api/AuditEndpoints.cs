@@ -72,7 +72,7 @@ public static class AuditEndpoints
             await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken);
         }
 
-        IReadOnlyList<string> callerFabs = ExtractFabSet(user);
+        IReadOnlyList<string> callerFabs = FabClaims.AssignedFabs(user);
 
         SearchAuditQuery query = new(
             Fab: fabId,
@@ -145,13 +145,4 @@ public static class AuditEndpoints
         return Results.Ok(row);
     }
 
-    private static List<string> ExtractFabSet(ClaimsPrincipal user)
-    {
-        Ensure.That(user).IsNotNull();
-
-        return [.. user.FindAll(GroupClaimType)
-            .SelectMany(claim => claim.Value.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries))
-            .Where(token => token.StartsWith(FabGroupPrefix, StringComparison.Ordinal))
-            .Select(token => token[FabGroupPrefix.Length..])];
-    }
 }
