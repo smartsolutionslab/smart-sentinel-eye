@@ -15,8 +15,23 @@ namespace SmartSentinelEye.ServiceDefaults.Authorization;
 /// <c>/fabs/munich</c> and <c>/fabs/berlin</c>) are supported:
 /// the guard only checks that the requested <c>fabId</c> is
 /// present in the caller's group list, so each per-fab API call
-/// passes independently. There is no implicit "current fab"
-/// — the caller picks per request.
+/// passes independently.
+/// </para>
+///
+/// <para>
+/// Callers state the fab per request — with one recorded exception.
+/// Automation's rule endpoints infer it when the operator belongs to
+/// exactly one fab, and refuse a multi-fab operator who names none
+/// (ADR-0114). That is scoped to those endpoints; everywhere else an
+/// explicit <c>fabId</c> is required, and extending inference is a new
+/// decision rather than an application of that one.
+/// </para>
+///
+/// <para>
+/// Enumerating which fabs a caller belongs to is deliberately not on this
+/// interface — see <see cref="FabClaims"/>. This one answers a single
+/// question, and widening it would grow every implementation and test
+/// double with a method most callers never use.
 /// </para>
 /// </summary>
 public interface IFabAuthorizationGuard
