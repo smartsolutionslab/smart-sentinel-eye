@@ -8,6 +8,9 @@ namespace SmartSentinelEye.Automation.Application;
 [ExcludeFromCodeCoverage]
 internal static partial class Log
 {
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Ingested event {Event} carried no usable fab; no rule evaluated.")]
+    public static partial void SkippedEventWithoutFab(this ILogger logger, Guid @event);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Unhandled RuleAction case {Case} on rule {Rule}.")]
     public static partial void UnhandledRuleActionCase(this ILogger logger, string @case, RuleIdentifier rule);
 

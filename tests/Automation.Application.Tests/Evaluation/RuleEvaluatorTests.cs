@@ -27,14 +27,15 @@ public class RuleEvaluatorTests
 
     private static RuleAggregate ActiveRule(
         string name, RuleAction action, DateTimeOffset createdAt,
-        string predicate = "$.payload.cycleTime <= 30") =>
-        BuildRule(name, action, createdAt, predicate, publish: true);
+        string predicate = "$.payload.cycleTime <= 30", string fab = "munich") =>
+        BuildRule(name, action, createdAt, predicate, publish: true, fab: fab);
 
     private static RuleAggregate BuildRule(
         string name, RuleAction action, DateTimeOffset createdAt,
-        string predicate, bool publish)
+        string predicate, bool publish, string fab = "munich")
     {
         RuleAggregate rule = new RuleBuilder()
+            .WithFab(fab)
             .WithName(name)
             .WithPredicate(predicate)
             .WithAction(action)
@@ -62,6 +63,7 @@ public class RuleEvaluatorTests
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
         IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
         RuleActionEffect.SetVariableValue effect =
@@ -82,6 +84,7 @@ public class RuleEvaluatorTests
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
         IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
         effects.ShouldBeEmpty();
@@ -99,6 +102,7 @@ public class RuleEvaluatorTests
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
         IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
         RuleActionEffect.HighlightOverlay effect =
@@ -122,6 +126,7 @@ public class RuleEvaluatorTests
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
         IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
         effects.Count.ShouldBe(2);
@@ -147,6 +152,7 @@ public class RuleEvaluatorTests
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
         IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
         effects.Count.ShouldBe(2);
@@ -173,9 +179,75 @@ public class RuleEvaluatorTests
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
         IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
         effects.ShouldHaveSingleItem()
             .ShouldBeOfType<RuleActionEffect.SetVariableValue>().Value.ShouldBe("99");
+    }
+
+    // ---- spec 013: evaluation is scoped to the originating fab (#1252) ----
+
+    [Fact]
+    public void A_rule_in_another_fab_is_not_evaluated()
+    {
+        InMemoryRuleCache cache = new();
+        cache.Upsert(ActiveRule(
+            "dresden-rule",
+            RuleAction.SetVariableValue.From("oeeLine9", "1"),
+            BaseMoment,
+            fab: "dresden"));
+
+        RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
+        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"),
+            "plc", "PlcCycleStart", Context(PlcCycleStartContext));
+
+        // Before spec 013 this returned the dresden rule's effect, and the
+        // caller then attributed the resulting change to munich.
+        effects.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Only_the_originating_fabs_rule_fires_when_both_match()
+    {
+        InMemoryRuleCache cache = new();
+        cache.Upsert(ActiveRule(
+            "munich-rule",
+            RuleAction.SetVariableValue.From("oeeLine1", "1"),
+            BaseMoment,
+            fab: "munich"));
+        cache.Upsert(ActiveRule(
+            "dresden-rule",
+            RuleAction.SetVariableValue.From("oeeLine9", "2"),
+            BaseMoment,
+            fab: "dresden"));
+
+        RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
+        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"),
+            "plc", "PlcCycleStart", Context(PlcCycleStartContext));
+
+        RuleActionEffect.SetVariableValue effect =
+            effects.ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.SetVariableValue>();
+        effect.Name.ShouldBe("oeeLine1");
+    }
+
+    [Fact]
+    public void A_fab_with_no_rules_evaluates_nothing()
+    {
+        InMemoryRuleCache cache = new();
+        cache.Upsert(ActiveRule(
+            "munich-rule",
+            RuleAction.SetVariableValue.From("oeeLine1", "1"),
+            BaseMoment,
+            fab: "munich"));
+
+        RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
+        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("berlin"),
+            "plc", "PlcCycleStart", Context(PlcCycleStartContext));
+
+        effects.ShouldBeEmpty();
     }
 }

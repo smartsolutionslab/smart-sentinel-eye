@@ -1,3 +1,4 @@
+using SmartSentinelEye.Automation.Domain.Rule;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -35,9 +36,30 @@ public sealed class FabEventIngestedV1Handler(
     {
         Ensure.That(message).IsNotNull();
 
+        // An event that does not say which fab it came from triggers nothing
+        // (spec 013 FR-012). Falling back to evaluating every rule is exactly
+        // the behaviour #1252 describes, so the absence of a fab must fail
+        // closed rather than open.
+        if (string.IsNullOrWhiteSpace(message.Fab))
+        {
+            logger.SkippedEventWithoutFab(message.EventIdentifier);
+            return;
+        }
+
+        FabIdentifier fab;
+        try
+        {
+            fab = FabIdentifier.From(message.Fab);
+        }
+        catch (ArgumentException)
+        {
+            logger.SkippedEventWithoutFab(message.EventIdentifier);
+            return;
+        }
+
         EvaluationContext context = BuildContext(message);
         IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
-            message.Source, message.Kind, context);
+            fab, message.Source, message.Kind, context);
         if (effects.Count == 0)
         {
             return;

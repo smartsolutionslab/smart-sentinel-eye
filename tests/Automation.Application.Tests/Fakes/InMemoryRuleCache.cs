@@ -8,18 +8,28 @@ namespace SmartSentinelEye.Automation.Application.Tests.Fakes;
 /// <summary>
 /// Test-side cache that mirrors the production
 /// <c>Automation.Infrastructure.Cache.InMemoryRuleCache</c> but
-/// without DI / hosted-service plumbing. Stores rules by trigger
-/// key and exposes them in <c>CreatedAt</c> ascending order so the
-/// last-write-wins fan-out (FR-012) is deterministic.
+/// without DI / hosted-service plumbing. Stores rules by
+/// <c>(fab, source, kind)</c> and exposes them in <c>CreatedAt</c> ascending
+/// order so the last-write-wins fan-out (FR-012) is deterministic.
+///
+/// <para>
+/// The fab must be part of the key here exactly as it is in production. A
+/// fake that keyed on the trigger alone would return another fab's rules and
+/// every evaluator test would still pass — which is the shape of the bug
+/// being fixed, reproduced in the thing meant to detect it.
+/// </para>
 /// </summary>
 public sealed class InMemoryRuleCache : IRuleCache
 {
-    private readonly ConcurrentDictionary<(string, string), List<CompiledRule>> _byTrigger = new();
+    private readonly ConcurrentDictionary<(string Fab, string TriggerSource, string TriggerKind), List<CompiledRule>> _byTrigger = new();
     private readonly object _gate = new();
 
-    public IReadOnlyList<CompiledRule> LookupActive(string triggerSource, string triggerKind)
+    public IReadOnlyList<CompiledRule> LookupActive(
+        FabIdentifier fab, string triggerSource, string triggerKind)
     {
-        if (!_byTrigger.TryGetValue((triggerSource, triggerKind), out List<CompiledRule>? bucket))
+        ArgumentNullException.ThrowIfNull(fab);
+
+        if (!_byTrigger.TryGetValue((fab.Value, triggerSource, triggerKind), out List<CompiledRule>? bucket))
         {
             return Array.Empty<CompiledRule>();
         }
@@ -38,7 +48,8 @@ public sealed class InMemoryRuleCache : IRuleCache
         }
 
         CompiledRule compiled = CompiledRule.From(rule);
-        (string TriggerSource, string TriggerKind) key = (rule.TriggerSource, rule.TriggerKind);
+        (string Fab, string TriggerSource, string TriggerKind) key =
+            (rule.Fab.Value, rule.TriggerSource, rule.TriggerKind);
 
         List<CompiledRule> bucket = _byTrigger.GetOrAdd(key, _ => new List<CompiledRule>());
         lock (_gate)
