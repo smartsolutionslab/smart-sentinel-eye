@@ -12,7 +12,8 @@ public sealed class ArchiveRevisionCommandHandler(
     : ICommandHandler<ArchiveRevisionCommand, Result<LayoutRevisionNumber, ArchiveRevisionError>>
 {
     public async Task<Result<LayoutRevisionNumber, ArchiveRevisionError>> HandleAsync(
-        ArchiveRevisionCommand command, CancellationToken cancellationToken)
+        ArchiveRevisionCommand command,
+        CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
         (LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, OperatorIdentifier archivedBy, int expectedVersion) = command;

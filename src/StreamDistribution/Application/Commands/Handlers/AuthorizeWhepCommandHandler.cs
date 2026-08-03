@@ -5,12 +5,16 @@ using SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 
-public sealed class AuthorizeWhepCommandHandler(IWhepAuthValidator whepAuth, IStreamRepository streams)
+public sealed class AuthorizeWhepCommandHandler(
+    IWhepAuthValidator whepAuth,
+    IStreamRepository streams)
     : ICommandHandler<AuthorizeWhepCommand, Result<MediaMtxPath, AuthorizeWhepError>>
 {
     private const string RequiredScope = "sse.management";
 
-    public async Task<Result<MediaMtxPath, AuthorizeWhepError>> HandleAsync(AuthorizeWhepCommand command, CancellationToken cancellationToken)
+    public async Task<Result<MediaMtxPath, AuthorizeWhepError>> HandleAsync(
+        AuthorizeWhepCommand command,
+        CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
 

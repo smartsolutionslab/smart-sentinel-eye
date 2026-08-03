@@ -29,12 +29,11 @@ public sealed class RotateWebhookClientCommandHandler(
     IEventBus events,
     IClock clock,
     ILogger<RotateWebhookClientCommandHandler> logger)
-    : ICommandHandler<
-        RotateWebhookClientCommand,
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError>>
+    : ICommandHandler<RotateWebhookClientCommand, Result<WebhookClientCredentialsDto, RotateWebhookClientError>>
 {
     public async Task<Result<WebhookClientCredentialsDto, RotateWebhookClientError>> HandleAsync(
-        RotateWebhookClientCommand command, CancellationToken cancellationToken)
+        RotateWebhookClientCommand command,
+        CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
         (string? integrationName, FabIdentifier? fab, OperatorIdentifier rotatedBy, Option<int> expectedVersion) = command;

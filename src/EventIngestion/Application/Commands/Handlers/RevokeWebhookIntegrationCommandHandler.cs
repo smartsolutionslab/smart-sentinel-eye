@@ -9,17 +9,15 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
     IWebhookIntegrationRepository integrations,
     IClock clock,
     ILogger<RevokeWebhookIntegrationCommandHandler> logger)
-    : ICommandHandler<
-        RevokeWebhookIntegrationCommand,
-        Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>>
+    : ICommandHandler<RevokeWebhookIntegrationCommand, Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>>
 {
     public async Task<Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>> HandleAsync(
-        RevokeWebhookIntegrationCommand command, CancellationToken cancellationToken)
+        RevokeWebhookIntegrationCommand command,
+        CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
 
-        Option<WebhookIntegration> found = await integrations
-            .GetByNameAsync(command.Name, cancellationToken);
+        Option<WebhookIntegration> found = await integrations.GetByNameAsync(command.Name, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(RevokeWebhookIntegrationFailures.WebhookIntegrationNotFound(command.Name.Value));
