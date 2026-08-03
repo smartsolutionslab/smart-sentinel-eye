@@ -36,7 +36,7 @@ public class ArchiveRuleCommandHandlerTests
             NullLogger<ArchiveRuleCommandHandler>.Instance);
 
         Result<RuleIdentifier, ArchiveRuleError> result = await handler.HandleAsync(
-            new ArchiveRuleCommand(seeded.Name, 0), CancellationToken.None);
+            new ArchiveRuleCommand(FabIdentifier.From("munich"), seeded.Name, 0), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         seeded.State.ShouldBe(RuleState.Archived);
@@ -54,7 +54,7 @@ public class ArchiveRuleCommandHandlerTests
             NullLogger<ArchiveRuleCommandHandler>.Instance);
 
         Result<RuleIdentifier, ArchiveRuleError> result = await handler.HandleAsync(
-            new ArchiveRuleCommand(RuleName.From("ghost"), 0), CancellationToken.None);
+            new ArchiveRuleCommand(FabIdentifier.From("munich"), RuleName.From("ghost"), 0), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<ArchiveRuleError.RuleNotFound>();

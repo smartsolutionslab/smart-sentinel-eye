@@ -5,7 +5,7 @@ using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Automation.Application.Commands;
 
-public sealed record ArchiveRuleCommand(RuleName Name, int ExpectedVersion)
+public sealed record ArchiveRuleCommand(FabIdentifier Fab, RuleName Name, int ExpectedVersion)
     : ICommand<Result<RuleIdentifier, ArchiveRuleError>>;
 
 public abstract record ArchiveRuleError(string Code, string Message, HttpStatusCode Status)

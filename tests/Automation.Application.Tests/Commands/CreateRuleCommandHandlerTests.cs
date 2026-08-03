@@ -16,8 +16,10 @@ public class CreateRuleCommandHandlerTests
     private static CreateRuleCommand HappyCommand(
         string name = "high-oee-on-fast-cycle",
         string predicate = "$.payload.cycleTime <= 30",
-        RuleAction? action = null) =>
+        RuleAction? action = null,
+        string fab = "munich") =>
         new(
+            FabIdentifier.From(fab),
             RuleName.From(name),
             "plc",
             "PlcCycleStart",

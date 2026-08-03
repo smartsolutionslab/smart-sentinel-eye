@@ -21,8 +21,9 @@ public sealed class CreateRuleCommandHandler(
 
         // Name uniqueness (FR-002). Archived names are released for
         // re-use; the repository's GetByNameAsync ignores Archived.
+        // Scoped to the fab: the same name in another fab is not a clash.
         Option<Rule> existing = await rules
-            .GetByNameAsync(name, cancellationToken);
+            .GetByNameAsync(fab, name, cancellationToken);
         if (existing.HasValue)
         {
             return Result<RuleIdentifier, CreateRuleError>.Failure(

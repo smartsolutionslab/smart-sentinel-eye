@@ -34,7 +34,7 @@ public class PublishRuleCommandHandlerTests
             NullLogger<PublishRuleCommandHandler>.Instance);
 
         Result<RuleIdentifier, PublishRuleError> result = await handler.HandleAsync(
-            new PublishRuleCommand(seeded.Name, 0), CancellationToken.None);
+            new PublishRuleCommand(FabIdentifier.From("munich"), seeded.Name, 0), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         seeded.State.ShouldBe(RuleState.Active);
@@ -52,7 +52,7 @@ public class PublishRuleCommandHandlerTests
             NullLogger<PublishRuleCommandHandler>.Instance);
 
         Result<RuleIdentifier, PublishRuleError> result = await handler.HandleAsync(
-            new PublishRuleCommand(RuleName.From("ghost"), 0), CancellationToken.None);
+            new PublishRuleCommand(FabIdentifier.From("munich"), RuleName.From("ghost"), 0), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<PublishRuleError.RuleNotFound>();
@@ -69,9 +69,9 @@ public class PublishRuleCommandHandlerTests
             repo, cache, new FakeClock(Now.AddHours(1)),
             NullLogger<PublishRuleCommandHandler>.Instance);
 
-        await handler.HandleAsync(new PublishRuleCommand(seeded.Name, 0), CancellationToken.None);
+        await handler.HandleAsync(new PublishRuleCommand(FabIdentifier.From("munich"), seeded.Name, 0), CancellationToken.None);
         Result<RuleIdentifier, PublishRuleError> second = await handler.HandleAsync(
-            new PublishRuleCommand(seeded.Name, 0), CancellationToken.None);
+            new PublishRuleCommand(FabIdentifier.From("munich"), seeded.Name, 0), CancellationToken.None);
 
         second.IsSuccess.ShouldBeTrue();
         seeded.State.ShouldBe(RuleState.Active);

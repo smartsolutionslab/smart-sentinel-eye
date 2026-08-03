@@ -30,7 +30,7 @@ public class StaleVersionRejectionTests
         RuleState before = rule.State;
 
         Result<RuleIdentifier, PublishRuleError> result = await Publisher(rules).HandleAsync(
-            new PublishRuleCommand(rule.Name, Stale), CancellationToken.None);
+            new PublishRuleCommand(FabIdentifier.From("munich"), rule.Name, Stale), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("RULE_STALE");
@@ -44,7 +44,7 @@ public class StaleVersionRejectionTests
         RuleState before = rule.State;
 
         Result<RuleIdentifier, ArchiveRuleError> result = await Archiver(rules).HandleAsync(
-            new ArchiveRuleCommand(rule.Name, Stale), CancellationToken.None);
+            new ArchiveRuleCommand(FabIdentifier.From("munich"), rule.Name, Stale), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("RULE_STALE");
@@ -57,7 +57,7 @@ public class StaleVersionRejectionTests
         (InMemoryRuleRepository rules, RuleAggregate rule) = Seeded();
 
         Result<RuleIdentifier, PublishRuleError> result = await Publisher(rules).HandleAsync(
-            new PublishRuleCommand(rule.Name, rule.Version), CancellationToken.None);
+            new PublishRuleCommand(FabIdentifier.From("munich"), rule.Name, rule.Version), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
     }

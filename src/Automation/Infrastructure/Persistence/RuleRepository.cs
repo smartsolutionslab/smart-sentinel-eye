@@ -19,11 +19,15 @@ public sealed class RuleRepository(
     }
 
     public async Task<Option<RuleAggregate>> GetByNameAsync(
-        RuleName name, CancellationToken cancellationToken)
+        FabIdentifier fab, RuleName name, CancellationToken cancellationToken)
     {
+        Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
         // FR-002: archived names are released for re-use; ignore Archived rows.
+        // Fab first: a name is unique only within one (spec 013), so without
+        // it this could return another fab's rule.
         RuleAggregate? found = await dbContext.Rules
+            .Where(rule => rule.Fab == fab)
             .Where(rule => rule.Name == name)
             .Where(rule => rule.State != RuleState.Archived)
             .FirstOrDefaultAsync(cancellationToken);
