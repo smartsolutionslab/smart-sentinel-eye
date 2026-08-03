@@ -163,85 +163,49 @@ public static class RulesEndpoints
     }
 
     /// <summary>
-    /// The fab a write applies to (ADR-0114). Inferred when the operator
-    /// belongs to exactly one and named none; refused when they belong to
-    /// several and named none, because any tie-break would silently place a
-    /// rule in a fab they did not choose.
-    ///
-    /// <para>
-    /// Runs before the <c>If-Match</c> precondition is read, so a caller
-    /// cannot tell "not yours" from "does not exist" by the difference
-    /// between a 403 and a 409.
-    /// </para>
+    /// Automation's binding of the shared decision table (ADR-0114) to its own
+    /// <see cref="FabIdentifier"/>. The table itself lives in
+    /// <see cref="FabResolution"/> so it can be tested without a realm — the
+    /// multi-fab branch has no reachable user in the current deployment.
     /// </summary>
     private static async Task<(FabIdentifier? Fab, IResult? Problem)> ResolveWriteFabAsync(
         ClaimsPrincipal user, string fabId, IFabAuthorizationGuard fabGuard, CancellationToken cancellationToken)
     {
-        IReadOnlyList<string> assigned = FabClaims.AssignedFabs(user);
-
-        if (!string.IsNullOrWhiteSpace(fabId))
+        (string resolved, IResult problem) = await FabResolution.ResolveForWriteAsync(
+            user, fabId, fabGuard, "RULE_FAB_REQUIRED", cancellationToken);
+        if (problem is not null)
         {
-            // Throws FabAuthorizationException -> 403 when not theirs.
-            await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken);
-            try
-            {
-                return (FabIdentifier.From(fabId), null);
-            }
-            catch (ArgumentException ex)
-            {
-                return (null, Results.Problem(
-                    title: "RULE_INVALID_INPUT", detail: ex.Message,
-                    statusCode: StatusCodes.Status400BadRequest));
-            }
+            return (null, problem);
         }
 
-        if (assigned.Count == 1)
+        try
         {
-            return (FabIdentifier.From(assigned[0]), null);
+            return (FabIdentifier.From(resolved), null);
         }
-
-        if (assigned.Count == 0)
+        catch (ArgumentException ex)
         {
-            // Refused rather than answered with an empty result: an operator
-            // assigned to no fab is a misconfiguration worth surfacing.
-            await fabGuard.EnsureAccessAsync(user, "none", cancellationToken);
+            return (null, Results.Problem(
+                title: "RULE_INVALID_INPUT", detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest));
         }
-
-        return (null, Results.Problem(
-            title: "RULE_FAB_REQUIRED",
-            detail: "You are assigned to more than one fab; name the one this rule belongs to with ?fabId=.",
-            statusCode: StatusCodes.Status400BadRequest));
     }
 
-    /// <summary>
-    /// The fabs a read may span. Unlike a write, nothing has to be chosen —
-    /// a multi-fab operator listing rules sees all of theirs.
-    /// </summary>
     private static async Task<(IReadOnlyList<FabIdentifier>? Fabs, IResult? Problem)> ResolveReadFabsAsync(
         ClaimsPrincipal user, string fabId, IFabAuthorizationGuard fabGuard, CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(fabId))
-        {
-            await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken);
-            try
-            {
-                return ([FabIdentifier.From(fabId)], null);
-            }
-            catch (ArgumentException ex)
-            {
-                return (null, Results.Problem(
-                    title: "RULE_INVALID_INPUT", detail: ex.Message,
-                    statusCode: StatusCodes.Status400BadRequest));
-            }
-        }
+        IReadOnlyList<string> resolved = await FabResolution.ResolveForReadAsync(
+            user, fabId, fabGuard, cancellationToken);
 
-        IReadOnlyList<string> assigned = FabClaims.AssignedFabs(user);
-        if (assigned.Count == 0)
+        try
         {
-            await fabGuard.EnsureAccessAsync(user, "none", cancellationToken);
+            return ([.. resolved.Select(FabIdentifier.From)], null);
         }
-
-        return ([.. assigned.Select(FabIdentifier.From)], null);
+        catch (ArgumentException ex)
+        {
+            return (null, Results.Problem(
+                title: "RULE_INVALID_INPUT", detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest));
+        }
     }
 
     private static async Task<IResult> Create(
