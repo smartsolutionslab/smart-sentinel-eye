@@ -31,6 +31,12 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
             .HasConversion(id => id.Value, value => RuleIdentifier.From(value))
             .ValueGeneratedNever();
 
+        builder.Property(rule => rule.Fab)
+            .HasColumnName("fab")
+            .HasMaxLength(FabIdentifier.MaximumLength)
+            .HasConversion(fab => fab.Value, value => FabIdentifier.From(value))
+            .IsRequired();
+
         builder.Property(rule => rule.Name)
             .HasColumnName("name")
             .HasMaxLength(RuleName.MaximumLength)
@@ -84,16 +90,22 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
             .IsConcurrencyToken();
 
         // FR-002 belt-and-braces: at most one non-Archived rule per
-        // name. The application handler is the authoritative source
-        // of truth; this partial unique index prevents drift.
-        builder.HasIndex(rule => rule.Name)
-            .HasDatabaseName("ux_rules_name_active")
+        // name *within a fab* (spec 013 FR-004). The application handler is
+        // the authoritative source of truth; this partial unique index
+        // prevents drift.
+        //
+        // The partial filter is preserved deliberately: archiving a rule has
+        // always released its name for re-use, and scoping the index to a fab
+        // must not quietly take that away.
+        builder.HasIndex(rule => new { rule.Fab, rule.Name })
+            .HasDatabaseName("ux_rules_fab_name_active")
             .IsUnique()
             .HasFilter("state <> 'Archived'");
 
-        // Trigger lookup path used by the cache seeder.
-        builder.HasIndex(rule => new { rule.TriggerSource, rule.TriggerKind, rule.State })
-            .HasDatabaseName("ix_rules_trigger_state");
+        // Trigger lookup path used by the cache seeder. Fab leads, because
+        // every lookup is now scoped to one (spec 013 FR-002).
+        builder.HasIndex(rule => new { rule.Fab, rule.TriggerSource, rule.TriggerKind, rule.State })
+            .HasDatabaseName("ix_rules_fab_trigger_state");
 
         builder.Ignore(rule => rule.PendingEvents);
     }
