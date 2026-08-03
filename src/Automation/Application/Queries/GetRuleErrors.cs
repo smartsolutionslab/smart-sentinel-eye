@@ -11,4 +11,17 @@ public abstract record GetRuleError(string Code, string Message, HttpStatusCode 
             "RULE_NOT_FOUND",
             $"No rule named '{Name}' exists.",
             HttpStatusCode.NotFound);
+
+    /// <summary>
+    /// The name resolves in more than one of the caller's own fabs. Names are
+    /// unique per fab rather than globally (spec 013), so a multi-fab operator
+    /// asking by name alone has asked an ambiguous question. Naming the
+    /// candidates' fabs would leak nothing — they are all fabs the caller
+    /// already holds — but the caller still has to say which one they meant.
+    /// </summary>
+    public sealed record FabAmbiguous(string Name, string Fabs)
+        : GetRuleError(
+            "RULE_FAB_AMBIGUOUS",
+            $"'{Name}' exists in more than one of your fabs ({Fabs}). Name the one you mean with ?fabId=.",
+            HttpStatusCode.BadRequest);
 }

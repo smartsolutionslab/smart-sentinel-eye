@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using SmartSentinelEye.Automation.Application.DTOs;
 using SmartSentinelEye.Automation.Application.Queries;
 using SmartSentinelEye.Automation.Application.Queries.Handlers;
@@ -394,5 +395,82 @@ public class RuleQueryHandlerTests
             .HandleAsync(new GetRuleQuery(Munich, "tagged"), CancellationToken.None);
 
         result.Value.Fab.ShouldBe("munich");
+    }
+
+    // ---- a name is unique per fab, so lookup by name alone can be ambiguous ----
+    //
+    // The_same_rule_name_is_accepted_in_two_fabs asserts this collision is
+    // legal. These pin what the by-name reads do when they hit one: refuse and
+    // say so, rather than picking a rule the caller did not mean — or, as they
+    // did before, throwing out of the handler as a 500.
+
+    private static readonly IReadOnlyList<FabIdentifier> Both =
+        [FabIdentifier.From("munich"), FabIdentifier.From("dresden")];
+
+    [Fact]
+    public async Task Get_refuses_a_name_that_resolves_in_two_of_the_callers_fabs()
+    {
+        (_, IRuleQuerySource source) = Seed(
+            new RuleBuilder().WithFab("munich").WithName("shared").WithClock(Moment).Build(),
+            new RuleBuilder().WithFab("dresden").WithName("shared").WithClock(Moment).Build());
+
+        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+            .HandleAsync(new GetRuleQuery(Both, "shared"), CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<GetRuleError.FabAmbiguous>();
+        result.Error.Status.ShouldBe(HttpStatusCode.BadRequest);
+
+        // Named, so the caller can retry without guessing. Both are fabs they
+        // already hold, so this tells them nothing they could not already see.
+        result.Error.Message.ShouldContain("munich");
+        result.Error.Message.ShouldContain("dresden");
+    }
+
+    [Fact]
+    public async Task Get_answers_when_only_one_of_the_callers_fabs_holds_the_name()
+    {
+        // The refusal above must not become a blanket refusal for multi-fab
+        // callers: the ambiguity is the collision, not the second fab.
+        (_, IRuleQuerySource source) = Seed(
+            new RuleBuilder().WithFab("munich").WithName("munich-only").WithClock(Moment).Build(),
+            new RuleBuilder().WithFab("dresden").WithName("dresden-only").WithClock(Moment).Build());
+
+        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+            .HandleAsync(new GetRuleQuery(Both, "dresden-only"), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Fab.ShouldBe("dresden");
+    }
+
+    [Fact]
+    public async Task DryRun_refuses_a_name_that_resolves_in_two_of_the_callers_fabs()
+    {
+        (_, IRuleQuerySource source) = Seed(
+            new RuleBuilder().WithFab("munich").WithName("shared").WithPredicate("$.payload.cycleTime <= 30").Build(),
+            new RuleBuilder().WithFab("dresden").WithName("shared").WithPredicate("$.payload.cycleTime <= 30").Build());
+
+        Result<DryRunResultDto, DryRunRuleError> result = await new DryRunRuleQueryHandler(source)
+            .HandleAsync(new DryRunRuleQuery(Both, "shared", Sample), CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<DryRunRuleError.FabAmbiguous>();
+        result.Error.Status.ShouldBe(HttpStatusCode.BadRequest);
+        result.Error.Message.ShouldContain("munich");
+        result.Error.Message.ShouldContain("dresden");
+    }
+
+    [Fact]
+    public async Task DryRun_answers_when_only_one_of_the_callers_fabs_holds_the_name()
+    {
+        (_, IRuleQuerySource source) = Seed(
+            new RuleBuilder().WithFab("dresden").WithName("dresden-only")
+                .WithPredicate("$.payload.cycleTime <= 30").Build());
+
+        Result<DryRunResultDto, DryRunRuleError> result = await new DryRunRuleQueryHandler(source)
+            .HandleAsync(new DryRunRuleQuery(Both, "dresden-only", Sample), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Matched.ShouldBeTrue();
     }
 }

@@ -45,19 +45,34 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
         // be usable as a side channel to discover how another fab's rule
         // behaves. Still carries no If-Match — it persists nothing, and spec
         // 012 T048 pinned that with a test.
+        //
         // Compare the value object, not its inner string — same trap as the
         // RuleName comparison above. Fab is value-converted, so reaching into
         // .Value throws at translation time and surfaces as a 500.
+        //
+        // A list, not SingleOrDefaultAsync — same reason as GetRuleQueryHandler:
+        // per-fab uniqueness lets a multi-fab caller match the same name twice,
+        // and the catch further down guards only the evaluation block, so a
+        // Single throw would escape as a 500.
         FabIdentifier[] fabs = [.. query.Fabs];
-        Rule? rule = await rules.Rules
-            .Where(candidate => fabs.Contains(candidate.Fab))
-            .SingleOrDefaultAsync(candidate => candidate.Name == parsed, cancellationToken);
+        List<Rule> matches = await rules.Rules
+            .Where(candidate => fabs.Contains(candidate.Fab) && candidate.Name == parsed)
+            .ToListAsync(cancellationToken);
 
-        if (rule is null)
+        if (matches.Count == 0)
         {
             return Result<DryRunResultDto, DryRunRuleError>.Failure(
                 new DryRunRuleError.RuleNotFound(query.Name));
         }
+
+        if (matches.Count > 1)
+        {
+            return Result<DryRunResultDto, DryRunRuleError>.Failure(
+                new DryRunRuleError.FabAmbiguous(
+                    query.Name, RuleFabCandidates.Describe(matches)));
+        }
+
+        Rule rule = matches[0];
 
         JsonDocument sample;
         try

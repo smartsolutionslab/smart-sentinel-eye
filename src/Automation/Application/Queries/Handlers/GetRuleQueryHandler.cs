@@ -36,18 +36,30 @@ public sealed class GetRuleQueryHandler(IRuleQuerySource rules)
         // used (spec 013 FR-007) — a 403 here would confirm the rule exists
         // and let an operator enumerate another fab's names one guess at a
         // time.
+        //
         // Value object, not .Value: Fab is value-converted and a member
         // access on it fails EF translation (see the RuleName note above).
+        //
+        // A list, not SingleOrDefaultAsync: uniqueness is now per fab, so a
+        // caller holding several fabs can legitimately match the same name more
+        // than once, and Single would throw out of the handler as a 500. The
+        // result is bounded by how many fabs the caller holds.
         FabIdentifier[] fabs = [.. query.Fabs];
-        Rule? rule = await rules.Rules
-            .Where(candidate => fabs.Contains(candidate.Fab))
-            .SingleOrDefaultAsync(candidate => candidate.Name == parsed, cancellationToken);
+        List<Rule> matches = await rules.Rules
+            .Where(candidate => fabs.Contains(candidate.Fab) && candidate.Name == parsed)
+            .ToListAsync(cancellationToken);
 
-        if (rule is null)
+        if (matches.Count == 0)
         {
             return Result<RuleDto, GetRuleError>.Failure(new GetRuleError.RuleNotFound(query.Name));
         }
 
-        return Result<RuleDto, GetRuleError>.Success(RuleMapper.Map(rule));
+        if (matches.Count > 1)
+        {
+            return Result<RuleDto, GetRuleError>.Failure(
+                new GetRuleError.FabAmbiguous(query.Name, RuleFabCandidates.Describe(matches)));
+        }
+
+        return Result<RuleDto, GetRuleError>.Success(RuleMapper.Map(matches[0]));
     }
 }
