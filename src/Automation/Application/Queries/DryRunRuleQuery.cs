@@ -1,3 +1,4 @@
+using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Application.DTOs;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -14,5 +15,5 @@ namespace SmartSentinelEye.Automation.Application.Queries;
 /// so what the author tries here is what the rule will actually see.
 /// </para>
 /// </summary>
-public sealed record DryRunRuleQuery(string Name, string? SampleEvent)
+public sealed record DryRunRuleQuery(IReadOnlyList<FabIdentifier> Fabs, string Name, string? SampleEvent)
     : IQuery<Result<DryRunResultDto, DryRunRuleError>>;

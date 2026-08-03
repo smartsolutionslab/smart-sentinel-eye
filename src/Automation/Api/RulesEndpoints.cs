@@ -83,11 +83,21 @@ public static class RulesEndpoints
         [FromQuery] string state,
         [FromQuery] string triggerSource,
         [FromQuery] string triggerKind,
+        [FromServices] IFabAuthorizationGuard fabGuard,
         [FromServices] ListRulesQueryHandler handler,
-        CancellationToken cancellationToken)
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
     {
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
         Result<IReadOnlyList<RuleDto>, ListRulesError> result = await handler.HandleAsync(
-            new ListRulesQuery(state, triggerSource, triggerKind), cancellationToken);
+            new ListRulesQuery(fabs, state, triggerSource, triggerKind), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
@@ -97,11 +107,21 @@ public static class RulesEndpoints
     private static async Task<IResult> GetOne(
         string name,
         HttpResponse response,
+        [FromServices] IFabAuthorizationGuard fabGuard,
         [FromServices] GetRuleQueryHandler handler,
-        CancellationToken cancellationToken)
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
     {
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
         Result<RuleDto, GetRuleError> result = await handler.HandleAsync(
-            new GetRuleQuery(name), cancellationToken);
+            new GetRuleQuery(fabs, name), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: rule =>
@@ -117,38 +137,135 @@ public static class RulesEndpoints
     private static async Task<IResult> DryRun(
         string name,
         [FromBody] DryRunRuleRequest body,
+        [FromServices] IFabAuthorizationGuard fabGuard,
         [FromServices] DryRunRuleQueryHandler handler,
-        CancellationToken cancellationToken)
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
     {
         Ensure.That(body).IsNotNull();
 
+        // Guarded like the reads: a trial run must not be a side channel for
+        // discovering another fab's rule behaviour (spec 013 FR-006).
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
         Result<DryRunResultDto, DryRunRuleError> result = await handler.HandleAsync(
-            new DryRunRuleQuery(name, body.SampleEvent), cancellationToken);
+            new DryRunRuleQuery(fabs, name, body.SampleEvent), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
             onFailure: error => error.ToProblem());
     }
 
+    /// <summary>
+    /// The fab a write applies to (ADR-0114). Inferred when the operator
+    /// belongs to exactly one and named none; refused when they belong to
+    /// several and named none, because any tie-break would silently place a
+    /// rule in a fab they did not choose.
+    ///
+    /// <para>
+    /// Runs before the <c>If-Match</c> precondition is read, so a caller
+    /// cannot tell "not yours" from "does not exist" by the difference
+    /// between a 403 and a 409.
+    /// </para>
+    /// </summary>
+    private static async Task<(FabIdentifier? Fab, IResult? Problem)> ResolveWriteFabAsync(
+        ClaimsPrincipal user, string fabId, IFabAuthorizationGuard fabGuard, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<string> assigned = FabClaims.AssignedFabs(user);
+
+        if (!string.IsNullOrWhiteSpace(fabId))
+        {
+            // Throws FabAuthorizationException -> 403 when not theirs.
+            await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken);
+            try
+            {
+                return (FabIdentifier.From(fabId), null);
+            }
+            catch (ArgumentException ex)
+            {
+                return (null, Results.Problem(
+                    title: "RULE_INVALID_INPUT", detail: ex.Message,
+                    statusCode: StatusCodes.Status400BadRequest));
+            }
+        }
+
+        if (assigned.Count == 1)
+        {
+            return (FabIdentifier.From(assigned[0]), null);
+        }
+
+        if (assigned.Count == 0)
+        {
+            // Refused rather than answered with an empty result: an operator
+            // assigned to no fab is a misconfiguration worth surfacing.
+            await fabGuard.EnsureAccessAsync(user, "none", cancellationToken);
+        }
+
+        return (null, Results.Problem(
+            title: "RULE_FAB_REQUIRED",
+            detail: "You are assigned to more than one fab; name the one this rule belongs to with ?fabId=.",
+            statusCode: StatusCodes.Status400BadRequest));
+    }
+
+    /// <summary>
+    /// The fabs a read may span. Unlike a write, nothing has to be chosen —
+    /// a multi-fab operator listing rules sees all of theirs.
+    /// </summary>
+    private static async Task<(IReadOnlyList<FabIdentifier>? Fabs, IResult? Problem)> ResolveReadFabsAsync(
+        ClaimsPrincipal user, string fabId, IFabAuthorizationGuard fabGuard, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(fabId))
+        {
+            await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken);
+            try
+            {
+                return ([FabIdentifier.From(fabId)], null);
+            }
+            catch (ArgumentException ex)
+            {
+                return (null, Results.Problem(
+                    title: "RULE_INVALID_INPUT", detail: ex.Message,
+                    statusCode: StatusCodes.Status400BadRequest));
+            }
+        }
+
+        IReadOnlyList<string> assigned = FabClaims.AssignedFabs(user);
+        if (assigned.Count == 0)
+        {
+            await fabGuard.EnsureAccessAsync(user, "none", cancellationToken);
+        }
+
+        return ([.. assigned.Select(FabIdentifier.From)], null);
+    }
+
     private static async Task<IResult> Create(
         [FromBody] CreateRuleRequest body,
-        [FromQuery] string fabId,
+        [FromServices] IFabAuthorizationGuard fabGuard,
         [FromServices] CreateRuleCommandHandler handler,
         ClaimsPrincipal user,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
     {
         Ensure.That(body).IsNotNull();
 
-        // Explicit for now. Inferring it for a single-fab operator, and
-        // refusing a multi-fab one who names none, is ADR-0114 and arrives
-        // with the guard in spec 013 T032 — the resolution point is here.
-        FabIdentifier fab;
+        (FabIdentifier? fab, IResult? fabProblem) =
+            await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
+        if (fab is null)
+        {
+            return fabProblem!;
+        }
+
         RuleName name;
         RulePredicate predicate;
         RuleAction action;
         try
         {
-            fab = FabIdentifier.From(fabId);
             name = RuleName.From(body.Name);
             predicate = RulePredicate.From(body.Predicate);
             action = BuildAction(body);
@@ -172,18 +289,23 @@ public static class RulesEndpoints
 
     private static async Task<IResult> Publish(
         string name,
-        [FromQuery] string fabId,
         HttpRequest request,
+        [FromServices] IFabAuthorizationGuard fabGuard,
         [FromServices] PublishRuleCommandHandler handler,
-        CancellationToken cancellationToken)
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
     {
-        // Explicit for now; inference and the fab guard arrive with
-        // spec 013 T024/T032.
-        FabIdentifier fab;
+        (FabIdentifier? fab, IResult? fabProblem) =
+            await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
+        if (fab is null)
+        {
+            return fabProblem!;
+        }
+
         RuleName parsed;
         try
         {
-            fab = FabIdentifier.From(fabId);
             parsed = RuleName.From(name);
         }
         catch (ArgumentException ex)
@@ -203,18 +325,23 @@ public static class RulesEndpoints
 
     private static async Task<IResult> Archive(
         string name,
-        [FromQuery] string fabId,
         HttpRequest request,
+        [FromServices] IFabAuthorizationGuard fabGuard,
         [FromServices] ArchiveRuleCommandHandler handler,
-        CancellationToken cancellationToken)
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
     {
-        // Explicit for now; inference and the fab guard arrive with
-        // spec 013 T024/T032.
-        FabIdentifier fab;
+        (FabIdentifier? fab, IResult? fabProblem) =
+            await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
+        if (fab is null)
+        {
+            return fabProblem!;
+        }
+
         RuleName parsed;
         try
         {
-            fab = FabIdentifier.From(fabId);
             parsed = RuleName.From(name);
         }
         catch (ArgumentException ex)

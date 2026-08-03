@@ -14,7 +14,12 @@ public sealed class ListRulesQueryHandler(IRuleQuerySource rules)
     {
         Ensure.That(query).IsNotNull();
 
-        IQueryable<Rule> filtered = rules.Rules;
+        // Scoped to the caller's fabs before any user-supplied filter, so a
+        // filter can only ever narrow what they were already entitled to see
+        // (spec 013 FR-005). An empty set yields nothing — an operator
+        // assigned to no fab sees no rules, not every rule.
+        string[] fabs = [.. query.Fabs.Select(fab => fab.Value)];
+        IQueryable<Rule> filtered = rules.Rules.Where(rule => fabs.Contains(rule.Fab.Value));
 
         if (!string.IsNullOrWhiteSpace(query.State))
         {

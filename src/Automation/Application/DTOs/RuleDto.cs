@@ -26,6 +26,12 @@ public sealed record RuleDto(
     /// every row a version without a per-row fetch.
     /// </summary>
     int Version,
+    /// <summary>
+    /// The fab this rule belongs to (spec 013). On the body so an operator
+    /// holding more than one fab can tell rows apart; a rule never appears
+    /// here unless the caller is assigned to its fab.
+    /// </summary>
+    string Fab,
     string Name,
     string TriggerSource,
     string TriggerKind,
