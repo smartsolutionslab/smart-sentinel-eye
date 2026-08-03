@@ -29,3 +29,21 @@ public abstract record BranchDraftRevisionError(string Code, string Message, Htt
             $"Layout {Layout} has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
             HttpStatusCode.Conflict);
 }
+
+/// <summary>
+/// Builds a <see cref="BranchDraftRevisionError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class BranchDraftRevisionFailures
+{
+    public static BranchDraftRevisionError LayoutNotFound(Guid layout) =>
+        new BranchDraftRevisionError.LayoutNotFound(layout);
+
+    public static BranchDraftRevisionError NoPublishedRevisionToBranchFrom(Guid layout) =>
+        new BranchDraftRevisionError.NoPublishedRevisionToBranchFrom(layout);
+
+    public static BranchDraftRevisionError LayoutRevisionStale(Guid layout, int expectedVersion, int actualVersion) =>
+        new BranchDraftRevisionError.LayoutRevisionStale(layout, expectedVersion, actualVersion);
+}

@@ -21,8 +21,7 @@ public sealed class BranchDraftRevisionCommandHandler(
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<OverlayRevisionNumber, BranchDraftRevisionError>.Failure(
-                new BranchDraftRevisionError.OverlayNotFound(overlayIdentifier.Value));
+            return Failure(BranchDraftRevisionFailures.OverlayNotFound(overlayIdentifier.Value));
         }
 
         Overlay overlay = found.Value;
@@ -32,13 +31,11 @@ public sealed class BranchDraftRevisionCommandHandler(
         // on top of stale intent.
         if (overlay.Version != expectedVersion)
         {
-            return Result<OverlayRevisionNumber, BranchDraftRevisionError>.Failure(
-                new BranchDraftRevisionError.OverlayRevisionStale(overlayIdentifier.Value, expectedVersion, overlay.Version));
+            return Failure(BranchDraftRevisionFailures.OverlayRevisionStale(overlayIdentifier.Value, expectedVersion, overlay.Version));
         }
-        if (!overlay.Revisions.Any(revision => revision.State == OverlayRevisionState.Published))
+        if (overlay.Revisions.All(revision => revision.State != OverlayRevisionState.Published))
         {
-            return Result<OverlayRevisionNumber, BranchDraftRevisionError>.Failure(
-                new BranchDraftRevisionError.NoPublishedRevisionToBranchFrom(overlayIdentifier.Value));
+            return Failure(BranchDraftRevisionFailures.NoPublishedRevisionToBranchFrom(overlayIdentifier.Value));
         }
 
         Revision branched = overlay.BranchDraft(branchedBy, clock);
@@ -46,6 +43,6 @@ public sealed class BranchDraftRevisionCommandHandler(
 
         logger.BranchedDraftRevision(branched.Number, overlay.Id, branchedBy);
 
-        return Result<OverlayRevisionNumber, BranchDraftRevisionError>.Success(branched.Number);
+        return Success(branched.Number);
     }
 }

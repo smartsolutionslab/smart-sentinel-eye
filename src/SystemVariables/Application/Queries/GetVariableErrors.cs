@@ -12,3 +12,15 @@ public abstract record GetVariableError(string Code, string Message, HttpStatusC
             $"System variable '{Name}' does not exist.",
             HttpStatusCode.NotFound);
 }
+
+/// <summary>
+/// Builds a <see cref="GetVariableError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class GetVariableFailures
+{
+    public static GetVariableError VariableNotFound(string name) =>
+        new GetVariableError.VariableNotFound(name);
+}

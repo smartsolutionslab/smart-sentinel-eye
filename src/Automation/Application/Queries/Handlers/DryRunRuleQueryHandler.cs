@@ -38,7 +38,7 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
         }
         catch (ArgumentException)
         {
-            return Result<DryRunResultDto, DryRunRuleError>.Failure(new DryRunRuleError.RuleNotFound(query.Name));
+            return Failure(DryRunRuleFailures.RuleNotFound(query.Name));
         }
 
         // Fab-scoped like the reads (spec 013 FR-006): a trial run must not
@@ -61,14 +61,12 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
 
         if (matches.Count == 0)
         {
-            return Result<DryRunResultDto, DryRunRuleError>.Failure(
-                new DryRunRuleError.RuleNotFound(query.Name));
+            return Failure(DryRunRuleFailures.RuleNotFound(query.Name));
         }
 
         if (matches.Count > 1)
         {
-            return Result<DryRunResultDto, DryRunRuleError>.Failure(
-                new DryRunRuleError.FabAmbiguous(
+            return Failure(DryRunRuleFailures.FabAmbiguous(
                     query.Name, RuleFabCandidates.Describe(matches)));
         }
 
@@ -81,8 +79,7 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
         }
         catch (JsonException ex)
         {
-            return Result<DryRunResultDto, DryRunRuleError>.Failure(
-                new DryRunRuleError.SampleEventNotJson(ex.Message));
+            return Failure(DryRunRuleFailures.SampleEventNotJson(ex.Message));
         }
 
         using (sample)
@@ -99,7 +96,7 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
                 // pipeline would be worse than no dry run at all.
                 if (verdict is not AelValue.BoolValue { Value: true })
                 {
-                    return Result<DryRunResultDto, DryRunRuleError>.Success(
+                    return Success(
                         new DryRunResultDto(Matched: false, EvaluatedValue: null));
                 }
 
@@ -109,13 +106,12 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
                     ? null
                     : AelInterpreter.Evaluate(compiled.CompiledValueExpression, context).ToWireString();
 
-                return Result<DryRunResultDto, DryRunRuleError>.Success(
+                return Success(
                     new DryRunResultDto(Matched: true, EvaluatedValue: evaluated));
             }
             catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or AelParseException)
             {
-                return Result<DryRunResultDto, DryRunRuleError>.Failure(
-                    new DryRunRuleError.EvaluationFailed(ex.Message));
+                return Failure(DryRunRuleFailures.EvaluationFailed(ex.Message));
             }
         }
     }

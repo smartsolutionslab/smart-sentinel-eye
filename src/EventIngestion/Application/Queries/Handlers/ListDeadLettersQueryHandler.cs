@@ -28,6 +28,6 @@ public sealed class ListDeadLettersQueryHandler(IDeadLetterQuerySource deadLette
             .Select(deadLetter => new DeadLetterDto(deadLetter.Id.Value, deadLetter.Topic, deadLetter.RawPayload, deadLetter.Error, deadLetter.RejectedAt))
             .ToArray();
 
-        return Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError>.Success(dtos);
+        return Success(dtos);
     }
 }

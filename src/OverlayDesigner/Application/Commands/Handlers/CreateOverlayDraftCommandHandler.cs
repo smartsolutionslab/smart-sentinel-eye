@@ -22,8 +22,7 @@ public sealed class CreateOverlayDraftCommandHandler(
             .GetByNameAsync(name, cancellationToken);
         if (existing.HasValue)
         {
-            return Result<OverlayIdentifier, CreateOverlayDraftError>.Failure(
-                new CreateOverlayDraftError.OverlayNameTaken(name.Value));
+            return Failure(CreateOverlayDraftFailures.OverlayNameTaken(name.Value));
         }
 
         Overlay overlay = Overlay.CreateDraft(name, label, createdBy, clock);
@@ -32,6 +31,6 @@ public sealed class CreateOverlayDraftCommandHandler(
 
         logger.CreatedOverlay(overlay.Id, name, createdBy);
 
-        return Result<OverlayIdentifier, CreateOverlayDraftError>.Success(overlay.Id);
+        return Success(overlay.Id);
     }
 }

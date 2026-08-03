@@ -18,3 +18,18 @@ public abstract record ListEventsError(string Code, string Message, HttpStatusCo
             $"pageSize {PageSize} must be between {Min} and {Max}.",
             HttpStatusCode.BadRequest);
 }
+
+/// <summary>
+/// Builds a <see cref="ListEventsError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class ListEventsFailures
+{
+    public static ListEventsError InvalidCursor(string cursor) =>
+        new ListEventsError.InvalidCursor(cursor);
+
+    public static ListEventsError PageSizeOutOfRange(int pageSize, int min, int max) =>
+        new ListEventsError.PageSizeOutOfRange(pageSize, min, max);
+}

@@ -21,8 +21,7 @@ public sealed class EditDraftRevisionCommandHandler(
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<OverlayRevisionNumber, EditDraftRevisionError>.Failure(
-                new EditDraftRevisionError.OverlayNotFound(overlayIdentifier.Value));
+            return Failure(EditDraftRevisionFailures.OverlayNotFound(overlayIdentifier.Value));
         }
 
         Overlay overlay = found.Value;
@@ -32,20 +31,17 @@ public sealed class EditDraftRevisionCommandHandler(
         // on top of stale intent.
         if (overlay.Version != expectedVersion)
         {
-            return Result<OverlayRevisionNumber, EditDraftRevisionError>.Failure(
-                new EditDraftRevisionError.OverlayRevisionStale(overlayIdentifier.Value, expectedVersion, overlay.Version));
+            return Failure(EditDraftRevisionFailures.OverlayRevisionStale(overlayIdentifier.Value, expectedVersion, overlay.Version));
         }
         Revision? revision = overlay.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
         if (revision is null)
         {
-            return Result<OverlayRevisionNumber, EditDraftRevisionError>.Failure(
-                new EditDraftRevisionError.OverlayRevisionNotFound(
+            return Failure(EditDraftRevisionFailures.OverlayRevisionNotFound(
                     overlayIdentifier.Value, revisionNumber.Value));
         }
         if (revision.State != OverlayRevisionState.Draft)
         {
-            return Result<OverlayRevisionNumber, EditDraftRevisionError>.Failure(
-                new EditDraftRevisionError.NotADraft(revision.State.Value));
+            return Failure(EditDraftRevisionFailures.NotADraft(revision.State.Value));
         }
 
         overlay.EditDraft(revisionNumber, label, clock);
@@ -53,6 +49,6 @@ public sealed class EditDraftRevisionCommandHandler(
 
         logger.EditedDraftRevision(revisionNumber, overlay.Id);
 
-        return Result<OverlayRevisionNumber, EditDraftRevisionError>.Success(revisionNumber);
+        return Success(revisionNumber);
     }
 }

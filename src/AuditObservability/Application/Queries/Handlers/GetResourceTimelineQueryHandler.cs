@@ -21,17 +21,15 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
 
         (string? resourceKind, string? resourceIdentifier, string? fab, DateTimeOffset? since, DateTimeOffset? until, int rawPageSize, string? rawCursor) = query;
 
-        if (!DomainResourceKind.All.Any(kind => kind.Value == resourceKind))
+        if (DomainResourceKind.All.All(kind => kind.Value != resourceKind))
         {
-            return Result<AuditPageDto, GetResourceTimelineError>.Failure(
-                new GetResourceTimelineError.UnknownResourceKind(resourceKind));
+            return Failure(GetResourceTimelineFailures.UnknownResourceKind(resourceKind));
         }
 
         int pageSize = rawPageSize <= 0 ? DefaultPageSize : rawPageSize;
         if (pageSize > MaximumPageSize)
         {
-            return Result<AuditPageDto, GetResourceTimelineError>.Failure(
-                new GetResourceTimelineError.PageSizeOutOfRange(pageSize, 1, MaximumPageSize));
+            return Failure(GetResourceTimelineFailures.PageSizeOutOfRange(pageSize, 1, MaximumPageSize));
         }
 
         (DateTimeOffset OccurredAt, Guid AuditIdentifier)? cursor = null;
@@ -40,8 +38,7 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
             cursor = AuditCursor.TryDecode(rawCursor);
             if (cursor is null)
             {
-                return Result<AuditPageDto, GetResourceTimelineError>.Failure(
-                    new GetResourceTimelineError.InvalidCursor(rawCursor));
+                return Failure(GetResourceTimelineFailures.InvalidCursor(rawCursor));
             }
         }
 
@@ -89,6 +86,6 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
         }
 
         AuditRowDto[] dtos = rows.Select(AuditRowMapper.Map).ToArray();
-        return Result<AuditPageDto, GetResourceTimelineError>.Success(new AuditPageDto(dtos, nextCursor));
+        return Success(new AuditPageDto(dtos, nextCursor));
     }
 }

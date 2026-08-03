@@ -20,16 +20,14 @@ public sealed class EditDraftRevisionCommandHandler(
         Option<GridViolation> violation = Layout.ValidateGrid(grid, tiles);
         if (violation.HasValue)
         {
-            return Result<LayoutRevisionNumber, EditDraftRevisionError>.Failure(
-                EditDraftRevisionError.FromViolation(violation.Value));
+            return Failure(EditDraftRevisionError.FromViolation(violation.Value));
         }
 
         Option<Layout> found = await layouts
             .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<LayoutRevisionNumber, EditDraftRevisionError>.Failure(
-                new EditDraftRevisionError.LayoutNotFound(layoutIdentifier.Value));
+            return Failure(EditDraftRevisionFailures.LayoutNotFound(layoutIdentifier.Value));
         }
 
         Layout layout = found.Value;
@@ -39,20 +37,17 @@ public sealed class EditDraftRevisionCommandHandler(
         // on top of stale intent.
         if (layout.Version != expectedVersion)
         {
-            return Result<LayoutRevisionNumber, EditDraftRevisionError>.Failure(
-                new EditDraftRevisionError.LayoutRevisionStale(layoutIdentifier.Value, expectedVersion, layout.Version));
+            return Failure(EditDraftRevisionFailures.LayoutRevisionStale(layoutIdentifier.Value, expectedVersion, layout.Version));
         }
         Revision? revision = layout.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
         if (revision is null)
         {
-            return Result<LayoutRevisionNumber, EditDraftRevisionError>.Failure(
-                new EditDraftRevisionError.LayoutRevisionNotFound(
+            return Failure(EditDraftRevisionFailures.LayoutRevisionNotFound(
                     layoutIdentifier.Value, revisionNumber.Value));
         }
         if (revision.State != LayoutRevisionState.Draft)
         {
-            return Result<LayoutRevisionNumber, EditDraftRevisionError>.Failure(
-                new EditDraftRevisionError.NotADraft(revision.State.Value));
+            return Failure(EditDraftRevisionFailures.NotADraft(revision.State.Value));
         }
 
         layout.EditDraft(revisionNumber, grid, tiles, clock);
@@ -60,6 +55,6 @@ public sealed class EditDraftRevisionCommandHandler(
 
         logger.EditedDraftRevision(revisionNumber, layout.Id);
 
-        return Result<LayoutRevisionNumber, EditDraftRevisionError>.Success(revisionNumber);
+        return Success(revisionNumber);
     }
 }

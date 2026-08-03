@@ -17,7 +17,7 @@ public sealed class ArchiveVariableCommandHandler(IVariableRepository variables,
         Option<Variable> found = await variables.GetByNameAsync(name, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<VariableIdentifier, ArchiveVariableError>.Failure(new ArchiveVariableError.VariableNotFound(name.Value));
+            return Failure(ArchiveVariableFailures.VariableNotFound(name.Value));
         }
 
         Variable variable = found.Value;
@@ -27,14 +27,13 @@ public sealed class ArchiveVariableCommandHandler(IVariableRepository variables,
         // top of stale intent.
         if (variable.Version != expectedVersion)
         {
-            return Result<VariableIdentifier, ArchiveVariableError>.Failure(
-                new ArchiveVariableError.VariableStale(name.Value, expectedVersion, variable.Version));
+            return Failure(ArchiveVariableFailures.VariableStale(name.Value, expectedVersion, variable.Version));
         }
         variable.Archive(archivedBy, clock);
         await variables.SaveAsync(cancellationToken);
 
         logger.ArchivedVariable(variable.Id, name, archivedBy);
 
-        return Result<VariableIdentifier, ArchiveVariableError>.Success(variable.Id);
+        return Success(variable.Id);
     }
 }

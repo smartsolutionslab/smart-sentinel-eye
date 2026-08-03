@@ -35,3 +35,24 @@ public abstract record RevertRevisionError(string Code, string Message, HttpStat
             $"Layout {Layout} has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
             HttpStatusCode.Conflict);
 }
+
+/// <summary>
+/// Builds a <see cref="RevertRevisionError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class RevertRevisionFailures
+{
+    public static RevertRevisionError LayoutNotFound(Guid layout) =>
+        new RevertRevisionError.LayoutNotFound(layout);
+
+    public static RevertRevisionError LayoutRevisionNotFound(Guid layout, int revisionNumber) =>
+        new RevertRevisionError.LayoutRevisionNotFound(layout, revisionNumber);
+
+    public static RevertRevisionError NotPublished(string fromState) =>
+        new RevertRevisionError.NotPublished(fromState);
+
+    public static RevertRevisionError LayoutRevisionStale(Guid layout, int expectedVersion, int actualVersion) =>
+        new RevertRevisionError.LayoutRevisionStale(layout, expectedVersion, actualVersion);
+}

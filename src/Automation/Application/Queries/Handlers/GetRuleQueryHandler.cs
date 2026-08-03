@@ -28,7 +28,7 @@ public sealed class GetRuleQueryHandler(IRuleQuerySource rules)
         }
         catch (ArgumentException)
         {
-            return Result<RuleDto, GetRuleError>.Failure(new GetRuleError.RuleNotFound(query.Name));
+            return Failure(GetRuleFailures.RuleNotFound(query.Name));
         }
 
         // Resolved within the caller's fabs. A rule in a fab they do not hold
@@ -51,15 +51,14 @@ public sealed class GetRuleQueryHandler(IRuleQuerySource rules)
 
         if (matches.Count == 0)
         {
-            return Result<RuleDto, GetRuleError>.Failure(new GetRuleError.RuleNotFound(query.Name));
+            return Failure(GetRuleFailures.RuleNotFound(query.Name));
         }
 
         if (matches.Count > 1)
         {
-            return Result<RuleDto, GetRuleError>.Failure(
-                new GetRuleError.FabAmbiguous(query.Name, RuleFabCandidates.Describe(matches)));
+            return Failure(GetRuleFailures.FabAmbiguous(query.Name, RuleFabCandidates.Describe(matches)));
         }
 
-        return Result<RuleDto, GetRuleError>.Success(RuleMapper.Map(matches[0]));
+        return Success(RuleMapper.Map(matches[0]));
     }
 }

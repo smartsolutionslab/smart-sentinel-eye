@@ -75,3 +75,36 @@ public abstract record EditDraftRevisionError(string Code, string Message, HttpS
             $"Layout {Layout} has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
             HttpStatusCode.Conflict);
 }
+
+/// <summary>
+/// Builds a <see cref="EditDraftRevisionError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class EditDraftRevisionFailures
+{
+    public static EditDraftRevisionError LayoutNotFound(Guid layout) =>
+        new EditDraftRevisionError.LayoutNotFound(layout);
+
+    public static EditDraftRevisionError LayoutRevisionNotFound(Guid layout, int revisionNumber) =>
+        new EditDraftRevisionError.LayoutRevisionNotFound(layout, revisionNumber);
+
+    public static EditDraftRevisionError NotADraft(string fromState) =>
+        new EditDraftRevisionError.NotADraft(fromState);
+
+    public static EditDraftRevisionError GridEmpty() =>
+        new EditDraftRevisionError.GridEmpty();
+
+    public static EditDraftRevisionError TilePositionDuplicate() =>
+        new EditDraftRevisionError.TilePositionDuplicate();
+
+    public static EditDraftRevisionError TileOutOfBounds() =>
+        new EditDraftRevisionError.TileOutOfBounds();
+
+    public static EditDraftRevisionError GridTooLarge() =>
+        new EditDraftRevisionError.GridTooLarge();
+
+    public static EditDraftRevisionError LayoutRevisionStale(Guid layout, int expectedVersion, int actualVersion) =>
+        new EditDraftRevisionError.LayoutRevisionStale(layout, expectedVersion, actualVersion);
+}

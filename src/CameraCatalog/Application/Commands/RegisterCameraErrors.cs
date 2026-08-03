@@ -14,3 +14,15 @@ public abstract record RegisterCameraError(string Code, string Message, HttpStat
     public sealed record NameAlreadyTaken()
         : RegisterCameraError("CAMERA_NAME_TAKEN", "Camera name already in use.", HttpStatusCode.Conflict);
 }
+
+/// <summary>
+/// Builds a <see cref="RegisterCameraError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class RegisterCameraFailures
+{
+    public static RegisterCameraError NameAlreadyTaken() =>
+        new RegisterCameraError.NameAlreadyTaken();
+}

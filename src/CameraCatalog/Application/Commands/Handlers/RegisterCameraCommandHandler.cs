@@ -21,8 +21,7 @@ public sealed class RegisterCameraCommandHandler(
         if (await cameras.ExistsByNameAsync(name, cancellationToken))
         {
             logger.RejectedCameraRegistrationNameInUse(name);
-            return Result<CameraIdentifier, RegisterCameraError>.Failure(
-                new RegisterCameraError.NameAlreadyTaken());
+            return Failure(RegisterCameraFailures.NameAlreadyTaken());
         }
 
         Domain.Camera.Camera camera = Domain.Camera.Camera.Register(
@@ -33,6 +32,6 @@ public sealed class RegisterCameraCommandHandler(
 
         logger.RegisteredCamera(camera.Id, camera.Name);
 
-        return Result<CameraIdentifier, RegisterCameraError>.Success(camera.Id);
+        return Success(camera.Id);
     }
 }

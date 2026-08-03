@@ -15,12 +15,15 @@ public sealed class ListStreamsQueryHandler(IStreamQuerySource streams, IStreamW
 
         if (query.Cameras.Count > ListStreamsDefaults.MaximumBatchSize)
         {
-            return Result<IReadOnlyList<StreamHealthDto>, ListStreamsError>.Failure(new ListStreamsError.InvalidBatchSize(query.Cameras.Count, ListStreamsDefaults.MaximumBatchSize));
+            return Failure(ListStreamsFailures.InvalidBatchSize(query.Cameras.Count, ListStreamsDefaults.MaximumBatchSize));
         }
 
         if (query.Cameras.Count == 0)
         {
-            return Result<IReadOnlyList<StreamHealthDto>, ListStreamsError>.Success(Array.Empty<StreamHealthDto>());
+            // Named explicitly: the outcome carries the expression's type, and
+            // StreamHealthDto[] is not IReadOnlyList<StreamHealthDto> as far as
+            // the conversion is concerned (generics are invariant).
+            return Success<IReadOnlyList<StreamHealthDto>>([]);
         }
 
         CameraIdentifier[] wanted = [.. query.Cameras];
@@ -29,6 +32,6 @@ public sealed class ListStreamsQueryHandler(IStreamQuerySource streams, IStreamW
 
         IReadOnlyList<StreamHealthDto> dtos = matches.Select(stream => GetStreamQueryHandler.Map(stream, whepUrls)).ToList();
 
-        return Result<IReadOnlyList<StreamHealthDto>, ListStreamsError>.Success(dtos);
+        return Success(dtos);
     }
 }

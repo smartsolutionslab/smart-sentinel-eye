@@ -23,8 +23,7 @@ public sealed class RegisterWebhookIntegrationCommandHandler(
             .GetByNameAsync(name, cancellationToken);
         if (existing.HasValue)
         {
-            return Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError>.Failure(
-                new RegisterWebhookIntegrationError.WebhookIntegrationNameTaken(name.Value));
+            return Failure(RegisterWebhookIntegrationFailures.WebhookIntegrationNameTaken(name.Value));
         }
 
         (WebhookIntegration integration, string plainToken) =
@@ -35,7 +34,7 @@ public sealed class RegisterWebhookIntegrationCommandHandler(
 
         logger.WebhookIntegrationRegistered(integration.Name, integration.Id);
 
-        return Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError>.Success(
+        return Success(
             new RegisterWebhookIntegrationResult(integration.Id, plainToken));
     }
 }

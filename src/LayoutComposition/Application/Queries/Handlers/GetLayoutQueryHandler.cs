@@ -19,11 +19,10 @@ public sealed class GetLayoutQueryHandler(ILayoutQuerySource layouts)
 
         if (layout is null)
         {
-            return Result<LayoutDto, GetLayoutError>.Failure(
-                new GetLayoutError.LayoutNotFound(query.Layout.Value));
+            return Failure(GetLayoutFailures.LayoutNotFound(query.Layout.Value));
         }
 
-        return Result<LayoutDto, GetLayoutError>.Success(Map(layout));
+        return Success(Map(layout));
     }
 
     internal static LayoutDto Map(Layout layout) =>

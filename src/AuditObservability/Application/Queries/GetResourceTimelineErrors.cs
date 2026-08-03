@@ -24,3 +24,21 @@ public abstract record GetResourceTimelineError(string Code, string Message, Htt
             $"pageSize {PageSize} must be between {Min} and {Max}.",
             HttpStatusCode.BadRequest);
 }
+
+/// <summary>
+/// Builds a <see cref="GetResourceTimelineError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class GetResourceTimelineFailures
+{
+    public static GetResourceTimelineError UnknownResourceKind(string resourceKind) =>
+        new GetResourceTimelineError.UnknownResourceKind(resourceKind);
+
+    public static GetResourceTimelineError InvalidCursor(string cursor) =>
+        new GetResourceTimelineError.InvalidCursor(cursor);
+
+    public static GetResourceTimelineError PageSizeOutOfRange(int pageSize, int min, int max) =>
+        new GetResourceTimelineError.PageSizeOutOfRange(pageSize, min, max);
+}

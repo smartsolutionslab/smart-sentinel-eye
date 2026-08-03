@@ -21,4 +21,10 @@
     <ProjectReference Include="..\..\src\Shared.Kernel\SmartSentinelEye.Shared.Kernel.csproj" />
   </ItemGroup>
 
+  <!-- ADR-0047: handlers write Success(...) / Failure(...) without repeating
+       both type arguments. Imported globally so every handler reads the same. -->
+  <ItemGroup>
+    <Using Include="SmartSentinelEye.Shared.Kernel.Result" Static="true" />
+  </ItemGroup>
+
 </Project>

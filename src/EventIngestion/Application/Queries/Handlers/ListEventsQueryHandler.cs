@@ -28,8 +28,7 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
         int pageSize = rawPageSize <= 0 ? DefaultPageSize : rawPageSize;
         if (pageSize > MaximumPageSize)
         {
-            return Result<EventPageDto, ListEventsError>.Failure(
-                new ListEventsError.PageSizeOutOfRange(pageSize, 1, MaximumPageSize));
+            return Failure(ListEventsFailures.PageSizeOutOfRange(pageSize, 1, MaximumPageSize));
         }
 
         (DateTimeOffset Ingested, Guid EventId)? cursor = null;
@@ -38,8 +37,7 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
             cursor = TryDecodeCursor(rawCursor);
             if (cursor is null)
             {
-                return Result<EventPageDto, ListEventsError>.Failure(
-                    new ListEventsError.InvalidCursor(rawCursor));
+                return Failure(ListEventsFailures.InvalidCursor(rawCursor));
             }
         }
 
@@ -55,7 +53,7 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
         }
 
         EventDto[] items = rows.Select(GetEventQueryHandler.Map).ToArray();
-        return Result<EventPageDto, ListEventsError>.Success(
+        return Success(
             new EventPageDto(items, nextCursor));
     }
 

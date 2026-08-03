@@ -16,7 +16,7 @@ public sealed class ProvisionStreamCommandHandler(IStreamRepository streams, IRt
 
         if (string.IsNullOrWhiteSpace(rtspSourceUrl))
         {
-            return Result<StreamIdentifier, ProvisionStreamError>.Failure(new ProvisionStreamError.InvalidRtspSource("source URL is required"));
+            return Failure(ProvisionStreamFailures.InvalidRtspSource("source URL is required"));
         }
 
         // Re-validated at the trust boundary: the URL arrives as a primitive
@@ -28,7 +28,7 @@ public sealed class ProvisionStreamCommandHandler(IStreamRepository streams, IRt
         }
         catch (ArgumentException ex)
         {
-            return Result<StreamIdentifier, ProvisionStreamError>.Failure(new ProvisionStreamError.InvalidRtspSource(ex.Message));
+            return Failure(ProvisionStreamFailures.InvalidRtspSource(ex.Message));
         }
 
         Option<Stream> existing = await streams.GetByCameraAsync(camera, cancellationToken);
@@ -36,7 +36,7 @@ public sealed class ProvisionStreamCommandHandler(IStreamRepository streams, IRt
         if (existing.HasValue)
         {
             logger.StreamAlreadyExists(camera);
-            return Result<StreamIdentifier, ProvisionStreamError>.Success(existing.Value.Id);
+            return Success(existing.Value.Id);
         }
 
         Stream stream = Stream.Provision(camera, sourceUrl, provisionedBy, clock);
@@ -49,13 +49,13 @@ public sealed class ProvisionStreamCommandHandler(IStreamRepository streams, IRt
         catch (HttpRequestException ex)
         {
             logger.PathRegistrationFailed(ex, camera);
-            return Result<StreamIdentifier, ProvisionStreamError>.Failure(new ProvisionStreamError.RtspGatewayUnavailable(ex.Message));
+            return Failure(ProvisionStreamFailures.RtspGatewayUnavailable(ex.Message));
         }
 
         await streams.SaveAsync(cancellationToken);
 
         logger.ProvisionedStream(stream.Id, stream.Camera, stream.Path);
 
-        return Result<StreamIdentifier, ProvisionStreamError>.Success(stream.Id);
+        return Success(stream.Id);
     }
 }

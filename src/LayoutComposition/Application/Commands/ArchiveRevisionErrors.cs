@@ -29,3 +29,21 @@ public abstract record ArchiveRevisionError(string Code, string Message, HttpSta
             $"Layout {Layout} has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
             HttpStatusCode.Conflict);
 }
+
+/// <summary>
+/// Builds a <see cref="ArchiveRevisionError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class ArchiveRevisionFailures
+{
+    public static ArchiveRevisionError LayoutNotFound(Guid layout) =>
+        new ArchiveRevisionError.LayoutNotFound(layout);
+
+    public static ArchiveRevisionError LayoutRevisionNotFound(Guid layout, int revisionNumber) =>
+        new ArchiveRevisionError.LayoutRevisionNotFound(layout, revisionNumber);
+
+    public static ArchiveRevisionError LayoutRevisionStale(Guid layout, int expectedVersion, int actualVersion) =>
+        new ArchiveRevisionError.LayoutRevisionStale(layout, expectedVersion, actualVersion);
+}

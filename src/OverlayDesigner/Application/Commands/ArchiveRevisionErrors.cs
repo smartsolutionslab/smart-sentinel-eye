@@ -29,3 +29,21 @@ public abstract record ArchiveRevisionError(string Code, string Message, HttpSta
             $"Overlay {Overlay} has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
             HttpStatusCode.Conflict);
 }
+
+/// <summary>
+/// Builds a <see cref="ArchiveRevisionError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class ArchiveRevisionFailures
+{
+    public static ArchiveRevisionError OverlayNotFound(Guid overlay) =>
+        new ArchiveRevisionError.OverlayNotFound(overlay);
+
+    public static ArchiveRevisionError OverlayRevisionNotFound(Guid overlay, int revisionNumber) =>
+        new ArchiveRevisionError.OverlayRevisionNotFound(overlay, revisionNumber);
+
+    public static ArchiveRevisionError OverlayRevisionStale(Guid overlay, int expectedVersion, int actualVersion) =>
+        new ArchiveRevisionError.OverlayRevisionStale(overlay, expectedVersion, actualVersion);
+}

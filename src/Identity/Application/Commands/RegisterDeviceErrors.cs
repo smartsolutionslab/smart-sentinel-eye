@@ -30,3 +30,24 @@ public abstract record RegisterDeviceError(string Code, string Message, HttpStat
             $"Keycloak Admin API call failed: {Reason}",
             HttpStatusCode.BadGateway);
 }
+
+/// <summary>
+/// Builds a <see cref="RegisterDeviceError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class RegisterDeviceFailures
+{
+    public static RegisterDeviceError DeviceAlreadyRegistered(string clientId) =>
+        new RegisterDeviceError.DeviceAlreadyRegistered(clientId);
+
+    public static RegisterDeviceError InvalidDeviceType(string deviceType) =>
+        new RegisterDeviceError.InvalidDeviceType(deviceType);
+
+    public static RegisterDeviceError InvalidDeviceIdentifier(string reason) =>
+        new RegisterDeviceError.InvalidDeviceIdentifier(reason);
+
+    public static RegisterDeviceError KeycloakUnavailable(string reason) =>
+        new RegisterDeviceError.KeycloakUnavailable(reason);
+}

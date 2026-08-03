@@ -25,14 +25,12 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         int pageSize = rawPageSize <= 0 ? DefaultPageSize : rawPageSize;
         if (pageSize > MaximumPageSize)
         {
-            return Result<AuditPageDto, SearchAuditError>.Failure(
-                new SearchAuditError.PageSizeOutOfRange(pageSize, 1, MaximumPageSize));
+            return Failure(SearchAuditFailures.PageSizeOutOfRange(pageSize, 1, MaximumPageSize));
         }
 
-        if (resourceKind is { } rk && !DomainResourceKind.All.Any(kind => kind.Value == rk))
+        if (resourceKind is { } rk && DomainResourceKind.All.All(kind => kind.Value != rk))
         {
-            return Result<AuditPageDto, SearchAuditError>.Failure(
-                new SearchAuditError.InvalidResourceKind(rk));
+            return Failure(SearchAuditFailures.InvalidResourceKind(rk));
         }
 
         (DateTimeOffset OccurredAt, Guid AuditIdentifier)? cursor = null;
@@ -41,8 +39,7 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
             cursor = AuditCursor.TryDecode(rawCursor);
             if (cursor is null)
             {
-                return Result<AuditPageDto, SearchAuditError>.Failure(
-                    new SearchAuditError.InvalidCursor(rawCursor));
+                return Failure(SearchAuditFailures.InvalidCursor(rawCursor));
             }
         }
 
@@ -127,6 +124,6 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         }
 
         AuditRowDto[] dtos = rows.Select(AuditRowMapper.Map).ToArray();
-        return Result<AuditPageDto, SearchAuditError>.Success(new AuditPageDto(dtos, nextCursor));
+        return Success(new AuditPageDto(dtos, nextCursor));
     }
 }

@@ -35,3 +35,24 @@ public abstract record RevertRevisionError(string Code, string Message, HttpStat
             $"Overlay {Overlay} has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
             HttpStatusCode.Conflict);
 }
+
+/// <summary>
+/// Builds a <see cref="RevertRevisionError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class RevertRevisionFailures
+{
+    public static RevertRevisionError OverlayNotFound(Guid overlay) =>
+        new RevertRevisionError.OverlayNotFound(overlay);
+
+    public static RevertRevisionError OverlayRevisionNotFound(Guid overlay, int revisionNumber) =>
+        new RevertRevisionError.OverlayRevisionNotFound(overlay, revisionNumber);
+
+    public static RevertRevisionError NotPublished(string fromState) =>
+        new RevertRevisionError.NotPublished(fromState);
+
+    public static RevertRevisionError OverlayRevisionStale(Guid overlay, int expectedVersion, int actualVersion) =>
+        new RevertRevisionError.OverlayRevisionStale(overlay, expectedVersion, actualVersion);
+}

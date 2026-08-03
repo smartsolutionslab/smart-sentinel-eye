@@ -17,10 +17,10 @@ public sealed class GetStreamQueryHandler(IStreamQuerySource streams, IStreamWhe
 
         if (stream is null)
         {
-            return Result<StreamHealthDto, GetStreamError>.Failure(new GetStreamError.StreamNotFound(query.Camera.Value));
+            return Failure(GetStreamFailures.StreamNotFound(query.Camera.Value));
         }
 
-        return Result<StreamHealthDto, GetStreamError>.Success(Map(stream, whepUrls));
+        return Success(Map(stream, whepUrls));
     }
 
     internal static StreamHealthDto Map(Stream stream, IStreamWhepUrlBuilder whepUrls) =>

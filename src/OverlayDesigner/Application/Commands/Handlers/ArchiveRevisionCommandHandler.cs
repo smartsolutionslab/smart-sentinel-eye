@@ -21,8 +21,7 @@ public sealed class ArchiveRevisionCommandHandler(
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<OverlayRevisionNumber, ArchiveRevisionError>.Failure(
-                new ArchiveRevisionError.OverlayNotFound(overlayIdentifier.Value));
+            return Failure(ArchiveRevisionFailures.OverlayNotFound(overlayIdentifier.Value));
         }
 
         Overlay overlay = found.Value;
@@ -32,13 +31,11 @@ public sealed class ArchiveRevisionCommandHandler(
         // on top of stale intent.
         if (overlay.Version != expectedVersion)
         {
-            return Result<OverlayRevisionNumber, ArchiveRevisionError>.Failure(
-                new ArchiveRevisionError.OverlayRevisionStale(overlayIdentifier.Value, expectedVersion, overlay.Version));
+            return Failure(ArchiveRevisionFailures.OverlayRevisionStale(overlayIdentifier.Value, expectedVersion, overlay.Version));
         }
-        if (!overlay.Revisions.Any(revision => revision.Number == revisionNumber))
+        if (overlay.Revisions.All(revision => revision.Number != revisionNumber))
         {
-            return Result<OverlayRevisionNumber, ArchiveRevisionError>.Failure(
-                new ArchiveRevisionError.OverlayRevisionNotFound(
+            return Failure(ArchiveRevisionFailures.OverlayRevisionNotFound(
                     overlayIdentifier.Value, revisionNumber.Value));
         }
 
@@ -47,6 +44,6 @@ public sealed class ArchiveRevisionCommandHandler(
 
         logger.ArchivedRevision(overlay.Id, revisionNumber, archivedBy);
 
-        return Result<OverlayRevisionNumber, ArchiveRevisionError>.Success(revisionNumber);
+        return Success(revisionNumber);
     }
 }

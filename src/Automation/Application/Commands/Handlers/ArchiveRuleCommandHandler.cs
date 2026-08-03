@@ -22,8 +22,7 @@ public sealed class ArchiveRuleCommandHandler(
             .GetByNameAsync(command.Fab, command.Name, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<RuleIdentifier, ArchiveRuleError>.Failure(
-                new ArchiveRuleError.RuleNotFound(command.Name.Value));
+            return Failure(ArchiveRuleFailures.RuleNotFound(command.Name.Value));
         }
 
         Rule rule = found.Value;
@@ -33,8 +32,7 @@ public sealed class ArchiveRuleCommandHandler(
         // of stale intent.
         if (rule.Version != command.ExpectedVersion)
         {
-            return Result<RuleIdentifier, ArchiveRuleError>.Failure(
-                new ArchiveRuleError.RuleStale(command.Name.Value, command.ExpectedVersion, rule.Version));
+            return Failure(ArchiveRuleFailures.RuleStale(command.Name.Value, command.ExpectedVersion, rule.Version));
         }
         rule.Archive(clock);
         await rules.SaveAsync(cancellationToken);
@@ -45,6 +43,6 @@ public sealed class ArchiveRuleCommandHandler(
 
         logger.ArchivedRule(rule.Id, command.Name);
 
-        return Result<RuleIdentifier, ArchiveRuleError>.Success(rule.Id);
+        return Success(rule.Id);
     }
 }

@@ -30,3 +30,21 @@ public abstract record CreateRuleError(string Code, string Message, HttpStatusCo
             $"Action value expression parse failed at position {Position}: {Reason}",
             HttpStatusCode.BadRequest);
 }
+
+/// <summary>
+/// Builds a <see cref="CreateRuleError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class CreateRuleFailures
+{
+    public static CreateRuleError RuleNameTaken(string fab, string name) =>
+        new CreateRuleError.RuleNameTaken(fab, name);
+
+    public static CreateRuleError PredicateParseFailed(string reason, int position) =>
+        new CreateRuleError.PredicateParseFailed(reason, position);
+
+    public static CreateRuleError ActionExpressionParseFailed(string reason, int position) =>
+        new CreateRuleError.ActionExpressionParseFailed(reason, position);
+}

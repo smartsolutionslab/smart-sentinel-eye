@@ -17,10 +17,10 @@ public sealed class GetVariableQueryHandler(IVariableQuerySource variables)
 
         if (variable is null)
         {
-            return Result<VariableDto, GetVariableError>.Failure(new GetVariableError.VariableNotFound(query.Name.Value));
+            return Failure(GetVariableFailures.VariableNotFound(query.Name.Value));
         }
 
-        return Result<VariableDto, GetVariableError>.Success(Map(variable));
+        return Success(Map(variable));
     }
 
     internal static VariableDto Map(Variable variable) =>

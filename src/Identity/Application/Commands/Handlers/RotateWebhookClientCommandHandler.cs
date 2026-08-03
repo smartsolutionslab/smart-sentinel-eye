@@ -46,8 +46,7 @@ public sealed class RotateWebhookClientCommandHandler(
         }
         catch (ArgumentException ex)
         {
-            return Result<WebhookClientCredentialsDto, RotateWebhookClientError>.Failure(
-                new RotateWebhookClientError.InvalidIntegrationName(ex.Message));
+            return Failure(RotateWebhookClientFailures.InvalidIntegrationName(ex.Message));
         }
 
         Option<RegisteredClientAggregate> existing = await clients
@@ -60,18 +59,16 @@ public sealed class RotateWebhookClientCommandHandler(
         // Keycloak client nobody asked for.
         if (existing.HasValue != expectedVersion.HasValue)
         {
-            return Result<WebhookClientCredentialsDto, RotateWebhookClientError>.Failure(
-                existing.HasValue
-                    ? new RotateWebhookClientError.WebhookClientAlreadyExists(
-                        clientId.Value, existing.Value.Version)
-                    : new RotateWebhookClientError.WebhookClientNotFound(
-                        clientId.Value, expectedVersion.Value));
+            return Failure(existing.HasValue
+                ? RotateWebhookClientFailures.WebhookClientAlreadyExists(
+                    clientId.Value, existing.Value.Version)
+                : RotateWebhookClientFailures.WebhookClientNotFound(
+                    clientId.Value, expectedVersion.Value));
         }
 
         if (existing.HasValue && existing.Value.Version != expectedVersion.Value)
         {
-            return Result<WebhookClientCredentialsDto, RotateWebhookClientError>.Failure(
-                new RotateWebhookClientError.WebhookClientStale(
+            return Failure(RotateWebhookClientFailures.WebhookClientStale(
                     clientId.Value, expectedVersion.Value, existing.Value.Version));
         }
 
@@ -139,8 +136,7 @@ public sealed class RotateWebhookClientCommandHandler(
         catch (Exception ex) when (ex is not OperationCanceledException
                                    and not InvalidOperationException)
         {
-            return Result<WebhookClientCredentialsDto, RotateWebhookClientError>.Failure(
-                new RotateWebhookClientError.KeycloakUnavailable(ex.Message));
+            return Failure(RotateWebhookClientFailures.KeycloakUnavailable(ex.Message));
         }
 
         // Tell EventIngestion to flip the integration's
@@ -157,7 +153,7 @@ public sealed class RotateWebhookClientCommandHandler(
         // save, so this is the value the next rotation must send in If-Match.
         // GET /webhook-integrations serves the same value, so a caller who
         // loses this response is not locked out of rotating again.
-        return Result<WebhookClientCredentialsDto, RotateWebhookClientError>.Success(
+        return Success(
             new WebhookClientCredentialsDto(
                 aggregate.Id.Value,
                 aggregate.Version,

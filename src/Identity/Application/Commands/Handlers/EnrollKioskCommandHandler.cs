@@ -25,8 +25,7 @@ public sealed class EnrollKioskCommandHandler(
             .GetByClientIdAsync(clientId, cancellationToken);
         if (existing.HasValue)
         {
-            return Result<KioskCredentialsDto, EnrollKioskError>.Failure(
-                new EnrollKioskError.KioskAlreadyEnrolled(clientId.Value));
+            return Failure(EnrollKioskFailures.KioskAlreadyEnrolled(clientId.Value));
         }
 
         KeycloakClientRepresentation representation = new(
@@ -54,13 +53,11 @@ public sealed class EnrollKioskCommandHandler(
         }
         catch (KeycloakClientAlreadyExistsException ex)
         {
-            return Result<KioskCredentialsDto, EnrollKioskError>.Failure(
-                new EnrollKioskError.KioskAlreadyEnrolled(ex.ClientId));
+            return Failure(EnrollKioskFailures.KioskAlreadyEnrolled(ex.ClientId));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return Result<KioskCredentialsDto, EnrollKioskError>.Failure(
-                new EnrollKioskError.KeycloakUnavailable(ex.Message));
+            return Failure(EnrollKioskFailures.KeycloakUnavailable(ex.Message));
         }
 
         RegisteredClientAggregate registered = RegisteredClientAggregate.Register(
@@ -70,7 +67,7 @@ public sealed class EnrollKioskCommandHandler(
 
         logger.EnrolledKiosk(registered.Id, clientId, fab);
 
-        return Result<KioskCredentialsDto, EnrollKioskError>.Success(
+        return Success(
             new KioskCredentialsDto(
                 registered.Id.Value,
                 clientId.Value,

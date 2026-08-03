@@ -22,8 +22,7 @@ public sealed class PublishRuleCommandHandler(
             .GetByNameAsync(command.Fab, command.Name, cancellationToken);
         if (!found.HasValue)
         {
-            return Result<RuleIdentifier, PublishRuleError>.Failure(
-                new PublishRuleError.RuleNotFound(command.Name.Value));
+            return Failure(PublishRuleFailures.RuleNotFound(command.Name.Value));
         }
 
         Rule rule = found.Value;
@@ -33,8 +32,7 @@ public sealed class PublishRuleCommandHandler(
         // of stale intent.
         if (rule.Version != command.ExpectedVersion)
         {
-            return Result<RuleIdentifier, PublishRuleError>.Failure(
-                new PublishRuleError.RuleStale(command.Name.Value, command.ExpectedVersion, rule.Version));
+            return Failure(PublishRuleFailures.RuleStale(command.Name.Value, command.ExpectedVersion, rule.Version));
         }
         try
         {
@@ -42,8 +40,7 @@ public sealed class PublishRuleCommandHandler(
         }
         catch (InvalidOperationException)
         {
-            return Result<RuleIdentifier, PublishRuleError>.Failure(
-                new PublishRuleError.RuleAlreadyArchived(command.Name.Value));
+            return Failure(PublishRuleFailures.RuleAlreadyArchived(command.Name.Value));
         }
 
         await rules.SaveAsync(cancellationToken);
@@ -54,6 +51,6 @@ public sealed class PublishRuleCommandHandler(
 
         logger.PublishedRule(rule.Id, command.Name);
 
-        return Result<RuleIdentifier, PublishRuleError>.Success(rule.Id);
+        return Success(rule.Id);
     }
 }

@@ -18,28 +18,28 @@ public sealed class AuthorizeWhepCommandHandler(IWhepAuthValidator whepAuth, ISt
 
         if (string.IsNullOrWhiteSpace(bearerToken))
         {
-            return Result<MediaMtxPath, AuthorizeWhepError>.Failure(new AuthorizeWhepError.Unauthorized());
+            return Failure(AuthorizeWhepFailures.Unauthorized());
         }
 
         Option<WhepAuthSubject> subject = await whepAuth.ValidateAsync(bearerToken, cancellationToken);
 
         if (!subject.HasValue)
         {
-            return Result<MediaMtxPath, AuthorizeWhepError>.Failure(new AuthorizeWhepError.Unauthorized());
+            return Failure(AuthorizeWhepFailures.Unauthorized());
         }
 
         if (!subject.Value.Scopes.Contains(RequiredScope, StringComparer.Ordinal))
         {
-            return Result<MediaMtxPath, AuthorizeWhepError>.Failure(new AuthorizeWhepError.Forbidden());
+            return Failure(AuthorizeWhepFailures.Forbidden());
         }
 
         Option<Stream> stream = await streams.GetByPathAsync(path, cancellationToken);
 
         if (stream.HasValue && stream.Value.State == StreamState.Offline)
         {
-            return Result<MediaMtxPath, AuthorizeWhepError>.Failure(new AuthorizeWhepError.StreamUnavailable());
+            return Failure(AuthorizeWhepFailures.StreamUnavailable());
         }
 
-        return Result<MediaMtxPath, AuthorizeWhepError>.Success(path);
+        return Success(path);
     }
 }

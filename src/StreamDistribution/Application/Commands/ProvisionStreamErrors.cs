@@ -24,3 +24,18 @@ public abstract record ProvisionStreamError(string Code, string Message, HttpSta
             $"Could not register the stream with MediaMTX: {Detail}",
             HttpStatusCode.ServiceUnavailable);
 }
+
+/// <summary>
+/// Builds a <see cref="ProvisionStreamError"/> as the base rather than the variant.
+/// Generics are invariant, so an outcome inferred from a variant does not
+/// convert to the Result a handler returns — failure call sites go through
+/// here (ADR-0047).
+/// </summary>
+public static class ProvisionStreamFailures
+{
+    public static ProvisionStreamError InvalidRtspSource(string reason) =>
+        new ProvisionStreamError.InvalidRtspSource(reason);
+
+    public static ProvisionStreamError RtspGatewayUnavailable(string detail) =>
+        new ProvisionStreamError.RtspGatewayUnavailable(detail);
+}

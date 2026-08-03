@@ -17,10 +17,10 @@ public sealed class GetOverlayQueryHandler(IOverlayQuerySource overlays)
 
         if (overlay is null)
         {
-            return Result<OverlayDto, GetOverlayError>.Failure(new GetOverlayError.OverlayNotFound(query.Overlay.Value));
+            return Failure(GetOverlayFailures.OverlayNotFound(query.Overlay.Value));
         }
 
-        return Result<OverlayDto, GetOverlayError>.Success(Map(overlay));
+        return Success(Map(overlay));
     }
 
     internal static OverlayDto Map(Overlay overlay) =>

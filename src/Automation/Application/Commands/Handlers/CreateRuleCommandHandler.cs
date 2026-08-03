@@ -26,8 +26,7 @@ public sealed class CreateRuleCommandHandler(
             .GetByNameAsync(fab, name, cancellationToken);
         if (existing.HasValue)
         {
-            return Result<RuleIdentifier, CreateRuleError>.Failure(
-                new CreateRuleError.RuleNameTaken(fab.Value, name.Value));
+            return Failure(CreateRuleFailures.RuleNameTaken(fab.Value, name.Value));
         }
 
         // Parse the predicate at command-time so a typo surfaces as a
@@ -38,8 +37,7 @@ public sealed class CreateRuleCommandHandler(
         }
         catch (AelParseException ex)
         {
-            return Result<RuleIdentifier, CreateRuleError>.Failure(
-                new CreateRuleError.PredicateParseFailed(ex.Message, ex.Position));
+            return Failure(CreateRuleFailures.PredicateParseFailed(ex.Message, ex.Position));
         }
 
         // SetVariableValue's value expression is parsed up-front so
@@ -53,8 +51,7 @@ public sealed class CreateRuleCommandHandler(
             }
             catch (AelParseException ex)
             {
-                return Result<RuleIdentifier, CreateRuleError>.Failure(
-                    new CreateRuleError.ActionExpressionParseFailed(ex.Message, ex.Position));
+                return Failure(CreateRuleFailures.ActionExpressionParseFailed(ex.Message, ex.Position));
             }
         }
 
@@ -67,6 +64,6 @@ public sealed class CreateRuleCommandHandler(
 
         logger.CreatedRule(rule.Id, name, triggerSource, triggerKind, createdBy);
 
-        return Result<RuleIdentifier, CreateRuleError>.Success(rule.Id);
+        return Success(rule.Id);
     }
 }

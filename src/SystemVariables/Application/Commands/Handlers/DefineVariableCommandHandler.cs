@@ -18,7 +18,7 @@ public sealed class DefineVariableCommandHandler(IVariableRepository variables, 
         Option<Variable> existing = await variables.GetByNameAsync(name, cancellationToken);
         if (existing.HasValue)
         {
-            return Result<VariableIdentifier, DefineVariableError>.Failure(new DefineVariableError.VariableNameTaken(name.Value));
+            return Failure(DefineVariableFailures.VariableNameTaken(name.Value));
         }
 
         // BooleanLabels presence rules. The domain aggregate enforces
@@ -26,11 +26,11 @@ public sealed class DefineVariableCommandHandler(IVariableRepository variables, 
         // HTTP layer gets a 400 instead of a 500.
         if (type == VariableType.Boolean && booleanLabels is null)
         {
-            return Result<VariableIdentifier, DefineVariableError>.Failure(new DefineVariableError.BooleanLabelsRequired());
+            return Failure(DefineVariableFailures.BooleanLabelsRequired());
         }
         if (type != VariableType.Boolean && booleanLabels is not null)
         {
-            return Result<VariableIdentifier, DefineVariableError>.Failure(new DefineVariableError.BooleanLabelsOnlyOnBoolean());
+            return Failure(DefineVariableFailures.BooleanLabelsOnlyOnBoolean());
         }
 
         Variable variable;
@@ -42,7 +42,7 @@ public sealed class DefineVariableCommandHandler(IVariableRepository variables, 
         {
             // The domain aggregate raised on initial-value-vs-type
             // mismatch; remap to a typed ApiError.
-            return Result<VariableIdentifier, DefineVariableError>.Failure(new DefineVariableError.InitialValueTypeMismatch(type.Value));
+            return Failure(DefineVariableFailures.InitialValueTypeMismatch(type.Value));
         }
 
         variables.Add(variable);
@@ -50,6 +50,6 @@ public sealed class DefineVariableCommandHandler(IVariableRepository variables, 
 
         logger.DefinedVariable(variable.Id, name, type, definedBy);
 
-        return Result<VariableIdentifier, DefineVariableError>.Success(variable.Id);
+        return Success(variable.Id);
     }
 }

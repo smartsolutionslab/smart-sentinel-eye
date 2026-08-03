@@ -16,7 +16,7 @@ public sealed class GetOverlaySnapshotQueryHandler(IReverseIndex reverseIndex, I
         string? labelText = reverseIndex.LookupLabelText(query.OverlayIdentifier);
         if (labelText is null)
         {
-            return Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError>.Failure(new GetOverlaySnapshotError.OverlayNotInReverseIndex(query.OverlayIdentifier));
+            return Failure(GetOverlaySnapshotFailures.OverlayNotInReverseIndex(query.OverlayIdentifier));
         }
 
         IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot = await BuildSnapshotAsync(labelText, cancellationToken);
@@ -24,7 +24,7 @@ public sealed class GetOverlaySnapshotQueryHandler(IReverseIndex reverseIndex, I
         string resolvedText = resolver.Resolve(labelText, snapshot);
         long version = reverseIndex.CurrentVersionFor(query.OverlayIdentifier);
 
-        return Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError>.Success(new ResolvedOverlaySnapshotDto(query.OverlayIdentifier, resolvedText, version));
+        return Success(new ResolvedOverlaySnapshotDto(query.OverlayIdentifier, resolvedText, version));
     }
 
     private async Task<IReadOnlyDictionary<string, VariableSnapshotEntry>> BuildSnapshotAsync(string labelText, CancellationToken cancellationToken)
