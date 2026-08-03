@@ -22,7 +22,7 @@ public class DisableKioskCommandHandlerTests
             .WithKind(kind)
             .WithClock(Now)
             .Build();
-        repo.Add(aggregate);
+        repo.Seed(aggregate);
     }
 
     [Fact]

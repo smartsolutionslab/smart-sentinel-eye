@@ -26,7 +26,7 @@ public class DisableDeviceCommandHandlerTests
             .WithKind(kind)
             .WithClock(Now)
             .Build();
-        repo.Add(aggregate);
+        repo.Seed(aggregate);
     }
 
     [Fact]

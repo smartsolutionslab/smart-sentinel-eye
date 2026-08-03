@@ -6,6 +6,7 @@ using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Identity.Domain.Tests.RegisteredClient;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Tests;
 using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
 namespace SmartSentinelEye.Identity.Application.Tests.Queries;
@@ -81,6 +82,27 @@ public class ListDevicesQueryHandlerTests
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Projects_the_aggregate_version_so_a_caller_has_something_to_send_in_If_Match()
+    {
+        // Version 5, not 0. This assertion was deleted during the #1243 review
+        // for comparing two values that were both unavoidably default(int) —
+        // it would have held even if the projection emitted a constant or read
+        // the wrong column. It is restored now that the fake can express a
+        // version (#1248).
+        //
+        // A projection that stopped tracking the real column hands the operator
+        // a version that never matches, and every rotation 409s.
+        RegisteredClientAggregate device = Build(ClientKind.Device, "plc-station-4", "munich");
+        AggregateVersions.SetTo(device, 5);
+
+        Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
+            await HandlerFor(device).HandleAsync(
+                new ListDevicesQuery(Option<FabIdentifier>.None), CancellationToken.None);
+
+        result.Value.ShouldHaveSingleItem().Version.ShouldBe(5);
     }
 
     [Fact]
