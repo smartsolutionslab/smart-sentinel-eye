@@ -28,6 +28,21 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
 
         WebhookIntegration integration = found.Value;
 
+        // Answered before the version gate, because a repeat is not a
+        // conflict. Revoke is idempotent by design (WebhookIntegration.Revoke
+        // short-circuits on IsRevoked), and a client retrying after a lost
+        // response still holds the pre-revoke version — gating that would
+        // report a stale conflict for a change the caller themselves already
+        // landed, indistinguishable from a real concurrent edit.
+        //
+        // Skipping the gate here costs nothing: revoke is the only command on
+        // this aggregate and the row is already in its terminal state, so
+        // there is no update left to lose.
+        if (integration.IsRevoked)
+        {
+            return Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>.Success(integration.Id);
+        }
+
         // ADR-0113 Layer 1: refuse a revoke built on a view of the integration
         // that has since moved. Checked before any mutation so nothing is
         // applied on top of stale intent.
