@@ -140,8 +140,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
 
         if (State != StreamState.Degraded && State != StreamState.Offline)
         {
-            throw new InvalidOperationException(
-                $"Stream {Id} cannot transition from {State} directly to Offline; must pass through Degraded.");
+            throw new InvalidOperationException($"Stream {Id} cannot transition from {State} directly to Offline; must pass through Degraded.");
         }
 
         StreamState previous = State;

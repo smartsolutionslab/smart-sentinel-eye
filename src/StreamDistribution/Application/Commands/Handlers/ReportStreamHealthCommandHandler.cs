@@ -5,10 +5,15 @@ using SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 
-public sealed class ReportStreamHealthCommandHandler(IStreamRepository streams, IClock clock, ILogger<ReportStreamHealthCommandHandler> logger)
+public sealed class ReportStreamHealthCommandHandler(
+    IStreamRepository streams,
+    IClock clock,
+    ILogger<ReportStreamHealthCommandHandler> logger)
     : ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>>
 {
-    public async Task<Result<StreamState, ReportStreamHealthError>> HandleAsync(ReportStreamHealthCommand command, CancellationToken cancellationToken)
+    public async Task<Result<StreamState, ReportStreamHealthError>> HandleAsync(
+        ReportStreamHealthCommand command,
+        CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
 

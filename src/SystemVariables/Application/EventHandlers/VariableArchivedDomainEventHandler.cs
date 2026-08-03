@@ -94,7 +94,11 @@ public sealed class VariableArchivedDomainEventHandler(
                 Overlay: overlayId,
                 ResolvedText: resolvedText,
                 Version: version,
-                Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ArchivedAt, null, domainEvent.ArchivedBy.Value));
+                Metadata: new(
+                    Guid.CreateVersion7(),
+                    domainEvent.ArchivedAt,
+                    null,
+                    domainEvent.ArchivedBy.Value));
             await events.PublishAsync(resolvedOverlayTextChangedEvent, cancellationToken);
         }
 

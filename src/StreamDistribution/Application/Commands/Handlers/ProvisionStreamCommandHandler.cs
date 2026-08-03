@@ -5,10 +5,16 @@ using SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 
-public sealed class ProvisionStreamCommandHandler(IStreamRepository streams, IRtspGateway rtsp, IClock clock, ILogger<ProvisionStreamCommandHandler> logger)
+public sealed class ProvisionStreamCommandHandler(
+    IStreamRepository streams,
+    IRtspGateway rtsp,
+    IClock clock,
+    ILogger<ProvisionStreamCommandHandler> logger)
     : ICommandHandler<ProvisionStreamCommand, Result<StreamIdentifier, ProvisionStreamError>>
 {
-    public async Task<Result<StreamIdentifier, ProvisionStreamError>> HandleAsync(ProvisionStreamCommand command, CancellationToken cancellationToken)
+    public async Task<Result<StreamIdentifier, ProvisionStreamError>> HandleAsync(
+        ProvisionStreamCommand command,
+        CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
 
