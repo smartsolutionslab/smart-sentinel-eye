@@ -8,7 +8,7 @@ import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { OverlayEditor } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
-import { problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
+import { problemCode, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -58,7 +58,18 @@ export function OverlayEditorDialog({ open, onOpenChange }: OverlayEditorDialogP
     }
   });
 
-  const backendError = problemDetail(error, 'Could not save the overlay. Try again.');
+  // This dialog only creates, so its 409 is OVERLAY_NAME_TAKEN — never the
+  // stale-version conflict LayoutEditorDialog handles. Keyed on the code
+  // rather than the status so it stays right if editing is added here later:
+  // "reload to see their version" would be useless advice for a name clash,
+  // and "try again" is useless advice for a stale one.
+  const nameTaken = problemCode(error) === 'OVERLAY_NAME_TAKEN';
+  const backendError = problemDetail(
+    error,
+    nameTaken
+      ? 'That overlay name is already taken. Choose a different one.'
+      : 'Could not save the overlay. Try again.',
+  );
 
   return (
     <Dialog

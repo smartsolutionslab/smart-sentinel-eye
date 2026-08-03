@@ -45,3 +45,33 @@ export function isConflict(error: unknown): boolean {
 /** Fallback used when a 409 arrives without an RFC-7807 detail. */
 export const CONFLICT_FALLBACK =
   'Someone else changed this while you were working. Reload to see their version, then reapply your change.';
+
+/**
+ * The server's error code, carried as the RFC-7807 `title` by
+ * `ApiErrorResults.ToProblem` (ADR-0089) — e.g. `LAYOUT_REVISION_STALE`.
+ */
+export function problemCode(error: unknown): string | null {
+  if (typeof error === 'object' && error !== null && 'data' in error) {
+    const data = (error as { data: unknown }).data;
+    if (typeof data === 'object' && data !== null && 'title' in data) {
+      const title = (data as { title: unknown }).title;
+      if (typeof title === 'string') {
+        return title;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * True only for the lost-update conflict (ADR-0113 Layer 1).
+ *
+ * `isConflict` is status-only, and 409 is not exclusively a stale version:
+ * the create paths return `LAYOUT_NAME_TAKEN` / `OVERLAY_NAME_TAKEN` with the
+ * same status. Offering "reload to see their version" for a name collision
+ * sends the operator somewhere useless, so anything that changes the *advice*
+ * has to key on the code rather than the status.
+ */
+export function isStaleConflict(error: unknown): boolean {
+  return isConflict(error) && (problemCode(error)?.endsWith('_STALE') ?? false);
+}
