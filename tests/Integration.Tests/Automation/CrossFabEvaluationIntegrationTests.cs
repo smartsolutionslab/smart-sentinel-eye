@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -8,23 +9,32 @@ using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 namespace SmartSentinelEye.Integration.Tests.Automation;
 
 /// <summary>
-/// Spec 013 T023 — #1252 against the real stack.
+/// Spec 013 T023 + T031 — fab scoping against the real stack.
 ///
 /// <para>
-/// The unit tests prove the evaluator and the handler ignore other fabs'
-/// rules, but both run against an in-memory cache the test itself populates.
-/// This exercises the pieces they stub: the real migration's <c>fab</c>
-/// column, the real <c>RuleCacheSeederHostedService</c> rebuilding the cache
-/// from Postgres at startup, and the real cache implementation keyed on
-/// <c>(fab, source, kind)</c>.
+/// The unit tests prove the evaluator, the handler and the read handlers
+/// ignore other fabs' rules, but all run against in-memory doubles the test
+/// itself populates. This exercises what they stub: the real migration's
+/// <c>fab</c> column, the real cache seeder reading it from Postgres, the
+/// <c>(fab, name)</c> partial unique index, and the endpoints' own fab
+/// resolution over real HTTP.
 /// </para>
 ///
 /// <para>
-/// Rules are seeded through a <c>DbContext</c> rather than the HTTP API. The
-/// seeded admin belongs to <c>/fabs/munich</c> only, so authoring a dresden
-/// rule over HTTP will start returning 403 the moment the fab guard lands
-/// (T024) — a test written against the API would pass now and break for a
-/// reason unrelated to what it checks.
+/// Rules are seeded through a <c>DbContext</c> rather than the HTTP API,
+/// because the seeded admin belongs to <c>/fabs/munich</c> only — authoring a
+/// dresden rule over HTTP is now refused, which is the very behaviour under
+/// test rather than a way to set it up.
+/// </para>
+///
+/// <para>
+/// Not covered here: driving an ingested event through Wolverine and
+/// asserting the other fab's variable is untouched. That needs a registered
+/// webhook integration, a minted bearer and polling for eventual
+/// consistency. Cross-fab *evaluation* is covered by the unit tests in
+/// <c>RuleEvaluatorTests</c> and <c>FabEventIngestedV1HandlerTests</c>, each
+/// verified against a faithful reproduction of #1252 — so the behaviour is
+/// tested, but not end-to-end through the bus.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
@@ -131,5 +141,144 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
         string body = await response.Content.ReadAsStringAsync();
 
         return $"body: {body}{Environment.NewLine}automation log:{Environment.NewLine}{aspire.RecentLogs("automation")}";
+    }
+
+    // ---- spec 013 T031: another fab's rule is unreachable, and says nothing ----
+    //
+    // The seeded admin belongs to /fabs/munich only, so a dresden rule is
+    // exactly the "not yours" case. Each assertion compares the response to
+    // the one for a name that never existed: if they differ in status, code
+    // or body, the API confirms the rule exists and an operator can
+    // enumerate another fab's names one guess at a time (FR-007).
+
+    [Fact]
+    public async Task Reading_another_fabs_rule_is_indistinguishable_from_one_that_never_existed()
+    {
+        string foreign = UniqueName();
+        await SeedActiveRuleAsync("dresden", foreign, "oeeLine9");
+
+        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+
+        HttpResponseMessage notYours = await rules.GetAsync($"/rules/{foreign}");
+        HttpResponseMessage neverExisted = await rules.GetAsync($"/rules/{UniqueName()}");
+
+        notYours.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        neverExisted.StatusCode.ShouldBe(notYours.StatusCode);
+        (await BodyWithoutDetailAsync(notYours)).ShouldBe(await BodyWithoutDetailAsync(neverExisted));
+    }
+
+    [Fact]
+    public async Task Publishing_another_fabs_rule_is_refused_and_leaves_it_active()
+    {
+        string foreign = UniqueName();
+        await SeedActiveRuleAsync("dresden", foreign, "oeeLine9");
+
+        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        using HttpRequestMessage request = new(HttpMethod.Post, $"/rules/{foreign}/publish");
+        request.Headers.TryAddWithoutValidation("If-Match", "\"0\"");
+
+        HttpResponseMessage refused = await rules.SendAsync(request);
+
+        // 404, not 409: the fab check runs before the version comparison, so
+        // the concurrency layer never gets to reveal that the rule is there.
+        refused.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        await using AutomationDbContext context = await aspire.CreateAutomationDbContextAsync();
+        RuleName parsed = RuleName.From(foreign);
+        RuleAggregate stored = await context.Rules.SingleAsync(rule => rule.Name == parsed);
+        stored.State.ShouldBe(RuleState.Active);
+    }
+
+    [Fact]
+    public async Task Archiving_another_fabs_rule_is_refused_and_leaves_it_active()
+    {
+        string foreign = UniqueName();
+        await SeedActiveRuleAsync("dresden", foreign, "oeeLine9");
+
+        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        using HttpRequestMessage request = new(HttpMethod.Post, $"/rules/{foreign}/archive");
+        request.Headers.TryAddWithoutValidation("If-Match", "\"0\"");
+
+        HttpResponseMessage refused = await rules.SendAsync(request);
+
+        refused.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        await using AutomationDbContext context = await aspire.CreateAutomationDbContextAsync();
+        RuleName parsed = RuleName.From(foreign);
+        RuleAggregate stored = await context.Rules.SingleAsync(rule => rule.Name == parsed);
+        stored.State.ShouldBe(RuleState.Active);
+    }
+
+    [Fact]
+    public async Task Dry_running_another_fabs_rule_is_refused()
+    {
+        // A trial run persists nothing, which is exactly why it would make a
+        // convenient side channel for learning how another fab's rule behaves.
+        string foreign = UniqueName();
+        await SeedActiveRuleAsync("dresden", foreign, "oeeLine9");
+
+        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+
+        HttpResponseMessage refused = await rules.PostAsJsonAsync(
+            $"/rules/{foreign}/dry-run", new { sampleEvent = "{\"payload\":{\"cycleTime\":27}}" });
+
+        refused.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    /// <summary>
+    /// Skipped against #1298, not because the behaviour is unverified.
+    ///
+    /// <para>
+    /// <c>GET /rules</c> returns 500 on <c>develop</c> too — confirmed in a
+    /// clean worktree at 9ed60db with none of spec 013 present. The endpoint
+    /// has never worked and nothing noticed, because this is the first test
+    /// in the repo to call it. Fixing it is out of scope for a feature slice.
+    /// </para>
+    ///
+    /// <para>
+    /// Un-skip when #1298 lands; the assertions below are correct as written
+    /// and are the only coverage of fab-scoped listing over HTTP. The
+    /// equivalent behaviour is covered at the handler level by
+    /// <c>RuleQueryHandlerTests.List_omits_rules_from_fabs_the_caller_does_not_hold</c>.
+    /// </para>
+    /// </summary>
+    [Fact(Skip = "Blocked on #1298 — GET /rules returns 500 on develop, predating this branch.")]
+    public async Task The_listing_omits_another_fabs_rules()
+    {
+        string foreign = UniqueName();
+        string own = UniqueName();
+        await SeedActiveRuleAsync("dresden", foreign, "oeeLine9");
+        await SeedActiveRuleAsync("munich", own, "oeeLine1");
+
+        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        HttpResponseMessage listed = await rules.GetAsync("/rules");
+        listed.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(listed));
+
+        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        string[] names = [.. rows.EnumerateArray().Select(row => row.GetProperty("name").GetString()!)];
+
+        names.ShouldContain(own);
+        names.ShouldNotContain(foreign);
+    }
+
+    /// <summary>
+    /// The problem body with the per-request fields removed. <c>detail</c>
+    /// echoes the requested name and <c>traceId</c> is unique per request, so
+    /// both differ between the two calls for reasons that carry no
+    /// information about the rule. Everything else — status, title, type —
+    /// must match, or the response distinguishes "not yours" from "never
+    /// existed".
+    /// </summary>
+    private static async Task<string> BodyWithoutDetailAsync(HttpResponseMessage response)
+    {
+        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        return string.Join(
+            "|",
+            problem.EnumerateObject()
+                .Where(property => !string.Equals(property.Name, "detail", StringComparison.Ordinal))
+                .Where(property => !string.Equals(property.Name, "traceId", StringComparison.Ordinal))
+                .OrderBy(property => property.Name, StringComparer.Ordinal)
+                .Select(property => $"{property.Name}={property.Value}"));
     }
 }
