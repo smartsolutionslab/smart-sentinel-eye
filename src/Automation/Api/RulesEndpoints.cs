@@ -36,19 +36,25 @@ public static class RulesEndpoints
 
         group.MapPost("/", Create)
             .WithName("CreateRule")
+            .WithSummary("Author a rule. Omit fabId when you belong to exactly one fab; name it when you belong to several (ADR-0114). Required scope: sse.rules.write")
             .Produces<Guid>(StatusCodes.Status201Created)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPost("/{name}/publish", Publish)
             .WithName("PublishRule")
             .Produces<Guid>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPost("/{name}/archive", Archive)
             .WithName("ArchiveRule")
             .Produces<Guid>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         // Reads are a separate group: sse.rules.read, not the write scope
@@ -59,12 +65,15 @@ public static class RulesEndpoints
 
         reads.MapGet("/", List)
             .WithName("ListRules")
+            .WithSummary("List rules in the fabs you are assigned to. Required scope: sse.rules.read")
             .Produces<IReadOnlyList<RuleDto>>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         reads.MapGet("/{name}", GetOne)
             .WithName("GetRule")
             .Produces<RuleDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         // Dry-run is a POST because it carries a sample-event body, but it is
@@ -74,6 +83,7 @@ public static class RulesEndpoints
             .WithName("DryRunRule")
             .Produces<DryRunResultDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         return app;

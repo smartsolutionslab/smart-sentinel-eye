@@ -327,7 +327,8 @@
     {
       "username": "service-account-scenario-simulator",
       "enabled": true,
-      "serviceAccountClientId": "scenario-simulator"
+      "serviceAccountClientId": "scenario-simulator",
+      "groups": ["/fabs/munich"]
     }
   ]
 }
