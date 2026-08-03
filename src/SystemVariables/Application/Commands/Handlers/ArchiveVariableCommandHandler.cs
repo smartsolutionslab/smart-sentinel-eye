@@ -5,10 +5,15 @@ using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
 
-public sealed class ArchiveVariableCommandHandler(IVariableRepository variables, IClock clock, ILogger<ArchiveVariableCommandHandler> logger)
+public sealed class ArchiveVariableCommandHandler(
+    IVariableRepository variables,
+    IClock clock,
+    ILogger<ArchiveVariableCommandHandler> logger)
     : ICommandHandler<ArchiveVariableCommand, Result<VariableIdentifier, ArchiveVariableError>>
 {
-    public async Task<Result<VariableIdentifier, ArchiveVariableError>> HandleAsync(ArchiveVariableCommand command, CancellationToken cancellationToken)
+    public async Task<Result<VariableIdentifier, ArchiveVariableError>> HandleAsync(
+        ArchiveVariableCommand command,
+        CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
 

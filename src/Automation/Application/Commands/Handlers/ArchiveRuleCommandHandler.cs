@@ -14,7 +14,8 @@ public sealed class ArchiveRuleCommandHandler(
     : ICommandHandler<ArchiveRuleCommand, Result<RuleIdentifier, ArchiveRuleError>>
 {
     public async Task<Result<RuleIdentifier, ArchiveRuleError>> HandleAsync(
-        ArchiveRuleCommand command, CancellationToken cancellationToken)
+        ArchiveRuleCommand command,
+        CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
 

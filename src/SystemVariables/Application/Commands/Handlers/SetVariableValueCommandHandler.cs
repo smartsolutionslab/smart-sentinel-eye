@@ -5,10 +5,15 @@ using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
 
-public sealed class SetVariableValueCommandHandler(IVariableRepository variables, IClock clock, ILogger<SetVariableValueCommandHandler> logger)
+public sealed class SetVariableValueCommandHandler(
+    IVariableRepository variables,
+    IClock clock,
+    ILogger<SetVariableValueCommandHandler> logger)
     : ICommandHandler<SetVariableValueCommand, Result<VariableIdentifier, SetVariableValueError>>
 {
-    public async Task<Result<VariableIdentifier, SetVariableValueError>> HandleAsync(SetVariableValueCommand command, CancellationToken cancellationToken)
+    public async Task<Result<VariableIdentifier, SetVariableValueError>> HandleAsync(
+        SetVariableValueCommand command,
+        CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
         (VariableName? name, string? wireValue, OperatorIdentifier changedBy, Option<int> expectedVersion) = command;

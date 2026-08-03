@@ -12,7 +12,8 @@ public sealed class BranchDraftRevisionCommandHandler(
     : ICommandHandler<BranchDraftRevisionCommand, Result<OverlayRevisionNumber, BranchDraftRevisionError>>
 {
     public async Task<Result<OverlayRevisionNumber, BranchDraftRevisionError>> HandleAsync(
-        BranchDraftRevisionCommand command, CancellationToken cancellationToken)
+        BranchDraftRevisionCommand command,
+        CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
         (OverlayIdentifier overlayIdentifier, OperatorIdentifier branchedBy, int expectedVersion) = command;

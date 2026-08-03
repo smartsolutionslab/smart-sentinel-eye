@@ -12,7 +12,8 @@ public sealed class ArchiveRevisionCommandHandler(
     : ICommandHandler<ArchiveRevisionCommand, Result<OverlayRevisionNumber, ArchiveRevisionError>>
 {
     public async Task<Result<OverlayRevisionNumber, ArchiveRevisionError>> HandleAsync(
-        ArchiveRevisionCommand command, CancellationToken cancellationToken)
+        ArchiveRevisionCommand command,
+        CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
         (OverlayIdentifier overlayIdentifier, OverlayRevisionNumber revisionNumber, OperatorIdentifier archivedBy, int expectedVersion) = command;
