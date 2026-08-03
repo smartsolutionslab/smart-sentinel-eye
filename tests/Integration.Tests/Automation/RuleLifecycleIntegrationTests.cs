@@ -83,7 +83,7 @@ public class RuleLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetim
         string name = UniqueName();
         (await CreateAsync(rules, name)).EnsureSuccessStatusCode();
 
-        HttpResponseMessage refused = await rules.PostAsync($"/rules/{name}/publish", content: null);
+        HttpResponseMessage refused = await rules.PostAsync($"/rules/{name}/publish?fabId=munich", content: null);
 
         refused.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired);
     }
@@ -126,7 +126,7 @@ public class RuleLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetim
     }
 
     private static Task<HttpResponseMessage> CreateAsync(HttpClient rules, string name) =>
-        rules.PostAsJsonAsync("/rules", new
+        rules.PostAsJsonAsync("/rules?fabId=munich", new
         {
             name,
             triggerSource = "plc",

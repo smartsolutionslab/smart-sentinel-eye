@@ -25,9 +25,9 @@ internal static class RuleRequests
         return payload.GetProperty("version").GetInt32();
     }
 
-    internal static HttpRequestMessage Conditional(string name, string action, int version)
+    internal static HttpRequestMessage Conditional(string name, string action, int version, string fab = "munich")
     {
-        HttpRequestMessage request = new(HttpMethod.Post, $"/rules/{name}/{action}");
+        HttpRequestMessage request = new(HttpMethod.Post, $"/rules/{name}/{action}?fabId={fab}");
         request.Headers.TryAddWithoutValidation("If-Match", $"\"{version}\"");
 
         return request;

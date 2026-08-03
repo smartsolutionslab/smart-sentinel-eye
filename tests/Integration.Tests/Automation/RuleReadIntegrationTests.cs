@@ -85,7 +85,7 @@ public class RuleReadIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         await response.Content.ReadAsStringAsync();
 
     private static Task<HttpResponseMessage> CreateAsync(HttpClient rules, string name) =>
-        rules.PostAsJsonAsync("/rules", new
+        rules.PostAsJsonAsync("/rules?fabId=munich", new
         {
             name,
             triggerSource = "plc",
