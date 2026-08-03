@@ -40,16 +40,34 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 [Collection(AspireCollection.Name)]
 public class WebhookIntegrationConcurrencyIntegrationTests(AspireFixture aspire)
 {
+    /// <summary>
+    /// Asserts the listed version against one the **running service** moved,
+    /// not against a bound no value can violate. `>= 0` used to be the whole
+    /// assertion, which a projection emitting a constant would also satisfy —
+    /// and a constant is exactly the regression that would make every revoke
+    /// 409 with no way for an operator to remove a compromised credential.
+    /// </summary>
     [Fact]
-    public async Task A_registered_integration_is_listed_with_the_version_its_revoke_will_need()
+    public async Task The_listed_version_tracks_what_the_service_persisted()
     {
         using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
         string name = UniqueName();
         await RegisterAsync(events, name);
 
-        JsonElement row = await FindAsync(events, name);
+        int onCreation = (await FindAsync(events, name)).GetProperty("version").GetInt32();
+        onCreation.ShouldBe(0, "an Added root is not bumped by the interceptor");
 
-        row.GetProperty("version").GetInt32().ShouldBeGreaterThanOrEqualTo(0);
+        // Revoking through the API is the only way to observe a version the
+        // service itself moved; every other test here manufactures the bump
+        // with its own DbContext and so cannot detect the interceptor being
+        // unregistered for this context.
+        (await events.SendAsync(Conditional(name, onCreation)))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        int afterRevoke = (await FindAsync(events, name, includeRevoked: true))
+            .GetProperty("version").GetInt32();
+
+        afterRevoke.ShouldBe(onCreation + 1);
     }
 
     [Fact]
@@ -63,8 +81,12 @@ public class WebhookIntegrationConcurrencyIntegrationTests(AspireFixture aspire)
 
         refused.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired);
 
-        // Status alone would pass even if the revoke had gone through.
-        (await FindAsync(events, name)).GetProperty("revokedAt").ValueKind.ShouldBe(JsonValueKind.Null);
+        // includeRevoked: true is load-bearing. The default listing filters
+        // RevokedAt == null server-side, so a revoke that had wrongly landed
+        // would drop the row out entirely rather than surface a non-null
+        // revokedAt — the assertion could only ever see Null either way.
+        (await FindAsync(events, name, includeRevoked: true))
+            .GetProperty("revokedAt").ValueKind.ShouldBe(JsonValueKind.Null);
     }
 
     [Fact]
@@ -85,7 +107,9 @@ public class WebhookIntegrationConcurrencyIntegrationTests(AspireFixture aspire)
 
         // The rotation survives and the integration is still live — a
         // status-only assertion would pass even if the revoke had landed.
-        JsonElement row = await FindAsync(events, name);
+        // Queried with includeRevoked so a landed revoke would be visible
+        // rather than silently filtered out of the result.
+        JsonElement row = await FindAsync(events, name, includeRevoked: true);
         row.GetProperty("revokedAt").ValueKind.ShouldBe(JsonValueKind.Null);
         row.GetProperty("version").GetInt32().ShouldBeGreaterThan(readAt);
     }

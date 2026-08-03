@@ -46,11 +46,14 @@ public class ListWebhookIntegrationsQueryHandlerTests
     {
         // The list is the only read path in this context, so without the
         // version on the row a caller has nothing to put in If-Match and the
-        // cross-request check degrades to no check (ADR-0113). The version
-        // only ever moves under the EF interceptor, so the value here is
-        // necessarily 0; WebhookIntegrationConcurrencyIntegrationTests is
-        // what proves it tracks a real mutation.
+        // cross-request check degrades to no check (ADR-0113).
+        //
+        // Version 5, not 0: at 0 this assertion held even if the projection
+        // emitted a constant or read the wrong field, since default(int) is
+        // also 0. That is what it used to do.
         WebhookIntegration integration = BuildActive("alpha");
+        AggregateVersions.SetTo(integration, 5);
+
         ListWebhookIntegrationsQueryHandler handler = new(
             new TestWebhookIntegrationQuerySource([integration]));
 
@@ -58,6 +61,6 @@ public class ListWebhookIntegrationsQueryHandlerTests
             await handler.HandleAsync(
                 new ListWebhookIntegrationsQuery(IncludeRevoked: true), CancellationToken.None);
 
-        result.Value.ShouldHaveSingleItem().Version.ShouldBe(integration.Version);
+        result.Value.ShouldHaveSingleItem().Version.ShouldBe(5);
     }
 }

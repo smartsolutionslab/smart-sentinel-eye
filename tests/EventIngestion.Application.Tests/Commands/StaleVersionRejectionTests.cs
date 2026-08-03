@@ -73,6 +73,48 @@ public class StaleVersionRejectionTests
     }
 
     /// <summary>
+    /// Version 7 rather than 0. At 0 the accept path cannot distinguish a real
+    /// comparison from a handler that ignored the aggregate and compared
+    /// <c>default(int)</c> to <c>default(int)</c> — which is what every
+    /// assertion in this file did before the fake reproduced the interceptor.
+    /// </summary>
+    [Fact]
+    public async Task The_gate_compares_the_real_version_not_the_default()
+    {
+        (InMemoryWebhookIntegrationRepository integrations, WebhookIntegration seeded) = Seeded(version: 7);
+
+        Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> atZero =
+            await Revoker(integrations).HandleAsync(
+                new RevokeWebhookIntegrationCommand(seeded.Name, 0), CancellationToken.None);
+
+        atZero.IsFailure.ShouldBeTrue();
+        atZero.Error.Code.ShouldBe("WEBHOOK_INTEGRATION_STALE");
+        atZero.Error.Message.ShouldContain("7");
+
+        Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> atSeven =
+            await Revoker(integrations).HandleAsync(
+                new RevokeWebhookIntegrationCommand(seeded.Name, 7), CancellationToken.None);
+
+        atSeven.IsSuccess.ShouldBeTrue();
+    }
+
+    /// <summary>
+    /// The bump itself, which the handler's contract depends on: without it
+    /// the second writer's expectation would still match and Layer 1 would
+    /// never fire in production.
+    /// </summary>
+    [Fact]
+    public async Task A_committed_revoke_moves_the_version_off_the_value_the_caller_held()
+    {
+        (InMemoryWebhookIntegrationRepository integrations, WebhookIntegration seeded) = Seeded(version: 3);
+
+        await Revoker(integrations).HandleAsync(
+            new RevokeWebhookIntegrationCommand(seeded.Name, 3), CancellationToken.None);
+
+        integrations.Integrations.ShouldHaveSingleItem().Version.ShouldBe(4);
+    }
+
+    /// <summary>
     /// The retry case. A client whose response was lost to a gateway timeout
     /// re-sends the only version it holds — the pre-revoke one — so gating the
     /// repeat would answer 409 for a change that caller already landed, and
@@ -82,20 +124,22 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task A_repeat_revoke_holding_the_pre_revoke_version_still_succeeds()
     {
-        (InMemoryWebhookIntegrationRepository integrations, WebhookIntegration seeded) = Seeded();
+        (InMemoryWebhookIntegrationRepository integrations, WebhookIntegration seeded) = Seeded(version: 3);
         int heldByTheCaller = seeded.Version;
 
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> first =
             await Revoker(integrations).HandleAsync(
                 new RevokeWebhookIntegrationCommand(seeded.Name, heldByTheCaller), CancellationToken.None);
 
-        // The real repository's interceptor moves the version on that save, so
-        // the retry below is exactly the stale-looking request the gate would
-        // otherwise refuse. The fake cannot reproduce the bump, so the stale
-        // value is supplied explicitly rather than relied on.
+        // The retry re-sends the version it still holds, which the committed
+        // revoke has now moved past. That is a genuinely stale request by the
+        // gate's own definition — the assertion is that idempotency outranks
+        // it, not that the version happened not to move.
+        integrations.Integrations[0].Version.ShouldBeGreaterThan(heldByTheCaller);
+
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> retry =
             await Revoker(integrations).HandleAsync(
-                new RevokeWebhookIntegrationCommand(seeded.Name, Stale), CancellationToken.None);
+                new RevokeWebhookIntegrationCommand(seeded.Name, heldByTheCaller), CancellationToken.None);
 
         first.IsSuccess.ShouldBeTrue();
         retry.IsSuccess.ShouldBeTrue();
@@ -108,12 +152,15 @@ public class StaleVersionRejectionTests
         new(integrations, new FakeClock(Now.AddHours(1)),
             NullLogger<RevokeWebhookIntegrationCommandHandler>.Instance);
 
-    private static (InMemoryWebhookIntegrationRepository, WebhookIntegration) Seeded()
+    // Seed, not Add: these tests act on an integration that already exists in
+    // the database, so its next save bumps. Add models a row being created
+    // now, which the interceptor leaves at 0.
+    private static (InMemoryWebhookIntegrationRepository, WebhookIntegration) Seeded(int version = 0)
     {
         InMemoryWebhookIntegrationRepository integrations = new();
         (WebhookIntegration seeded, _) = WebhookIntegration.Register(
             WebhookIntegrationName.From("qa"), Kind.From("QaResult"), new FakeClock(Now));
-        integrations.Add(seeded);
+        integrations.Seed(seeded, version);
 
         return (integrations, seeded);
     }
