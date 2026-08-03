@@ -109,4 +109,56 @@ public class CreateRuleCommandHandlerTests
 
         result.IsSuccess.ShouldBeTrue();
     }
+
+    // ---- spec 013 US4: names are unique per fab, not globally ----
+
+    [Fact]
+    public async Task The_same_name_is_accepted_in_a_second_fab()
+    {
+        InMemoryRuleRepository repo = new();
+        CreateRuleCommandHandler handler = new(
+            repo, new FakeClock(Now), NullLogger<CreateRuleCommandHandler>.Instance);
+
+        Result<RuleIdentifier, CreateRuleError> first =
+            await handler.HandleAsync(HappyCommand(fab: "munich"), CancellationToken.None);
+        Result<RuleIdentifier, CreateRuleError> second =
+            await handler.HandleAsync(HappyCommand(fab: "dresden"), CancellationToken.None);
+
+        first.IsSuccess.ShouldBeTrue();
+        second.IsSuccess.ShouldBeTrue();
+        second.Value.ShouldNotBe(first.Value);
+        repo.Rules.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task The_same_name_twice_in_one_fab_is_still_refused()
+    {
+        InMemoryRuleRepository repo = new();
+        CreateRuleCommandHandler handler = new(
+            repo, new FakeClock(Now), NullLogger<CreateRuleCommandHandler>.Instance);
+
+        await handler.HandleAsync(HappyCommand(fab: "munich"), CancellationToken.None);
+        Result<RuleIdentifier, CreateRuleError> duplicate =
+            await handler.HandleAsync(HappyCommand(fab: "munich"), CancellationToken.None);
+
+        duplicate.IsFailure.ShouldBeTrue();
+        duplicate.Error.Code.ShouldBe("RULE_NAME_TAKEN");
+        repo.Rules.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task The_conflict_names_the_fab_the_name_is_taken_in()
+    {
+        // Without the fab, an operator who can see only their own is told a
+        // name is unavailable with no way to find out why.
+        InMemoryRuleRepository repo = new();
+        CreateRuleCommandHandler handler = new(
+            repo, new FakeClock(Now), NullLogger<CreateRuleCommandHandler>.Instance);
+
+        await handler.HandleAsync(HappyCommand(fab: "dresden"), CancellationToken.None);
+        Result<RuleIdentifier, CreateRuleError> duplicate =
+            await handler.HandleAsync(HappyCommand(fab: "dresden"), CancellationToken.None);
+
+        duplicate.Error.Message.ShouldContain("dresden");
+    }
 }

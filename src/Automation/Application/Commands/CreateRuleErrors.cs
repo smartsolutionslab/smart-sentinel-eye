@@ -6,10 +6,16 @@ namespace SmartSentinelEye.Automation.Application.Commands;
 public abstract record CreateRuleError(string Code, string Message, HttpStatusCode Status)
     : ApiError(Code, Message, Status)
 {
-    public sealed record RuleNameTaken(string Name)
+    /// <summary>
+    /// The name is taken **within this fab** (spec 013 FR-004). The same name
+    /// in another fab is a different rule, not a clash, so the message names
+    /// the fab — otherwise an operator who can see only their own fab is told
+    /// a name is unavailable with no way to find out why.
+    /// </summary>
+    public sealed record RuleNameTaken(string Fab, string Name)
         : CreateRuleError(
             "RULE_NAME_TAKEN",
-            $"A non-archived rule named '{Name}' already exists.",
+            $"A non-archived rule named '{Name}' already exists in fab '{Fab}'.",
             HttpStatusCode.Conflict);
 
     public sealed record PredicateParseFailed(string Reason, int Position)

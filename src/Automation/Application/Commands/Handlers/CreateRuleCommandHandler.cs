@@ -27,7 +27,7 @@ public sealed class CreateRuleCommandHandler(
         if (existing.HasValue)
         {
             return Result<RuleIdentifier, CreateRuleError>.Failure(
-                new CreateRuleError.RuleNameTaken(name.Value));
+                new CreateRuleError.RuleNameTaken(fab.Value, name.Value));
         }
 
         // Parse the predicate at command-time so a typo surfaces as a
