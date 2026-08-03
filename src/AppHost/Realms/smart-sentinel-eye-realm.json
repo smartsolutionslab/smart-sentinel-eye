@@ -284,6 +284,22 @@
       "groups": ["/fabs/munich"]
     },
     {
+      "username": "auditor",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "auditor@smart-sentinel-eye.test",
+      "firstName": "Cross-fab",
+      "lastName": "Auditor",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Auditor1234",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
       "username": "admin@munich.test",
       "enabled": true,
       "emailVerified": true,
