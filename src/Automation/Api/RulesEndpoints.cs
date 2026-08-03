@@ -90,10 +90,17 @@ public static class RulesEndpoints
         return app;
     }
 
+    // The three filters are nullable because they are optional, and in a
+    // project with NRT on that is the difference between an absent filter and
+    // a rejected request: minimal APIs treat a non-nullable parameter with no
+    // default as required, so a plain `GET /rules` never reached the handler.
+    // It surfaced as a 500 rather than a 400 because the binding failure is an
+    // exception, and UseExceptionHandler turns anything it does not recognise
+    // into a generic problem response (#1298).
     private static async Task<IResult> List(
-        [FromQuery] string state,
-        [FromQuery] string triggerSource,
-        [FromQuery] string triggerKind,
+        [FromQuery] string? state,
+        [FromQuery] string? triggerSource,
+        [FromQuery] string? triggerKind,
         [FromServices] IFabAuthorizationGuard fabGuard,
         [FromServices] ListRulesQueryHandler handler,
         ClaimsPrincipal user,

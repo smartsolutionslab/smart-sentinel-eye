@@ -3,28 +3,28 @@ import { signInAsOperator } from './support/sign-in';
 
 // Spec 013 T040 — Automation's first e2e coverage.
 //
-// Skipped in full against #1298. RulesPage calls useListRulesQuery on mount
-// and GET /rules returns 500 on develop, so the screen renders its error
-// state before any of this can be asserted. That defect predates spec 013 —
-// confirmed in a clean worktree at 9ed60db — and fixing it is not a feature
-// slice's job.
+// Still skipped, but no longer for the reason first written here. #1298 — the
+// 500 from GET /rules that stopped the screen loading at all — is fixed, and
+// the listing is covered over HTTP by
+// CrossFabEvaluationIntegrationTests.The_listing_omits_another_fabs_rules.
 //
-// The assertions below are correct as written and cover the two things spec
-// 013 changed for an operator: a rule is authored into their own fab without
-// them naming it (ADR-0114), and another fab's rules never appear. Un-skip
-// when #1298 lands; nothing here should need rewriting.
+// What blocks these two tests is that the frontend half of spec 013 was never
+// built: management-web renders no fab on a rule row and sends none when
+// authoring, so `rule-fab` and the per-row 'munich' label below match nothing.
+// The earlier claim that "nothing here should need rewriting" was wrong — the
+// assertions describe a UI that does not exist yet.
 //
 // Equivalent behaviour is covered where it can run today:
 //   - fab inference and refusal .... FabResolutionTests (all four rows)
-//   - listing scoped to the caller . RuleQueryHandlerTests
+//   - listing scoped to the caller . RuleQueryHandlerTests, and over HTTP in
+//                                    CrossFabEvaluationIntegrationTests
 //   - unreachable across fabs ...... CrossFabEvaluationIntegrationTests
-test.describe.skip('rules — fab scoping (blocked on #1298)', () => {
+test.describe.skip('rules — fab scoping (blocked on the missing UI)', () => {
   test('operator authors a rule and it lands in their own fab without naming it', async ({ page }) => {
     await signInAsOperator(page);
 
     await page.getByRole('button', { name: /^rules$/i }).click();
     await expect(page.getByRole('heading', { name: 'Rules', exact: true })).toBeVisible();
-    // A 500 from GET /rules surfaces here — which is exactly why this is skipped.
     await expect(page.getByRole('alert')).toHaveCount(0);
 
     const name = `e2e-rule-${Date.now()}`;
