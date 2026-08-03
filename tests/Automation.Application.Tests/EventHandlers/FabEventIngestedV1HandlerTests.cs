@@ -24,10 +24,10 @@ public class FabEventIngestedV1HandlerTests
         null,
         null);
 
-    private static FabEventIngestedV1 PlcCycleStart(Guid? causing = null) =>
+    private static FabEventIngestedV1 PlcCycleStart(Guid? causing = null, string fab = "munich") =>
         new(
             EventIdentifier: causing ?? Guid.CreateVersion7(),
-            Fab: "munich",
+            Fab: fab,
             Source: "plc",
             Device: "station-4",
             Kind: "PlcCycleStart",
@@ -36,10 +36,12 @@ public class FabEventIngestedV1HandlerTests
             Payload: "{\"cycleTime\":27}",
             Metadata: TestMetadata);
 
-    private static RuleAggregate ActiveSetVariableRule(string predicate, string valueExpression)
+    private static RuleAggregate ActiveSetVariableRule(
+        string predicate, string valueExpression, string fab = "munich", string name = "test-rule")
     {
         RuleAggregate rule = new RuleBuilder()
-            .WithName("test-rule")
+            .WithFab(fab)
+            .WithName(name)
             .WithPredicate(predicate)
             .WithAction(RuleAction.SetVariableValue.From("oeeLine1", valueExpression))
             .WithClock(BaseMoment)
@@ -119,4 +121,94 @@ public class FabEventIngestedV1HandlerTests
 
         bus.Published.ShouldBeEmpty();
     }
+
+    // ---- spec 013: the handler acts only on the originating fab (#1252) ----
+    //
+    // These assert the *published messages*, not that evaluation returned
+    // empty. A handler that scoped evaluation correctly and then published
+    // anyway would pass the weaker check while still writing another fab's
+    // value — and a published SystemVariableValueRequestedV1 is what actually
+    // changes state downstream.
+
+    [Fact]
+    public async Task An_event_publishes_nothing_for_a_rule_belonging_to_another_fab()
+    {
+        InMemoryRuleCache cache = new();
+        cache.Upsert(ActiveSetVariableRule(
+            "$.payload.cycleTime <= 30", "1", fab: "dresden", name: "dresden-rule"));
+
+        FakeEventBus bus = new();
+        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+
+        await handler.Handle(PlcCycleStart(fab: "munich"), CancellationToken.None);
+
+        bus.Published.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Only_the_originating_fabs_rule_produces_a_published_change()
+    {
+        InMemoryRuleCache cache = new();
+        cache.Upsert(ActiveSetVariableRule(
+            "$.payload.cycleTime <= 30", "100 - $.payload.cycleTime * 2",
+            fab: "munich", name: "munich-rule"));
+        cache.Upsert(ActiveSetVariableRule(
+            "$.payload.cycleTime <= 30", "999", fab: "dresden", name: "dresden-rule"));
+
+        FakeEventBus bus = new();
+        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+
+        await handler.Handle(PlcCycleStart(fab: "munich"), CancellationToken.None);
+
+        SystemVariableValueRequestedV1 published = bus.Published
+            .OfType<SystemVariableValueRequestedV1>()
+            .ShouldHaveSingleItem();
+        published.Value.ShouldBe("46");
+        // 999 is the dresden rule's value; seeing it here would mean another
+        // fab's automation decided a munich variable.
+        published.Value.ShouldNotBe("999");
+    }
+
+    [Fact]
+    public async Task A_change_is_attributed_to_the_fab_the_event_came_from()
+    {
+        InMemoryRuleCache cache = new();
+        cache.Upsert(ActiveSetVariableRule(
+            "$.payload.cycleTime <= 30", "1", fab: "dresden", name: "dresden-rule"));
+
+        FakeEventBus bus = new();
+        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+
+        await handler.Handle(PlcCycleStart(fab: "dresden"), CancellationToken.None);
+
+        SystemVariableValueRequestedV1 published = bus.Published
+            .OfType<SystemVariableValueRequestedV1>()
+            .ShouldHaveSingleItem();
+        published.Metadata.Fab.ShouldBe("dresden");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("NotAFab")]
+    public async Task An_event_without_a_usable_fab_publishes_nothing(string fab)
+    {
+        // Fails closed. Falling back to evaluating everything is the defect
+        // itself, so an unusable fab must trigger nothing rather than all.
+        InMemoryRuleCache cache = new();
+        cache.Upsert(ActiveSetVariableRule("$.payload.cycleTime <= 30", "1"));
+
+        FakeEventBus bus = new();
+        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+
+        await handler.Handle(PlcCycleStart(fab: fab), CancellationToken.None);
+
+        bus.Published.ShouldBeEmpty();
+    }
+
+    private static FabEventIngestedV1Handler HandlerFor(InMemoryRuleCache cache, FakeEventBus bus) =>
+        new(new RuleEvaluator(cache, NullLogger<RuleEvaluator>.Instance),
+            bus,
+            new FakeClock(BaseMoment.AddSeconds(0.05)),
+            NullLogger<FabEventIngestedV1Handler>.Instance);
 }
