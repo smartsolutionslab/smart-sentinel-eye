@@ -13,6 +13,10 @@ namespace SmartSentinelEye.Automation.Application.Tests.Queries;
 /// <summary>Spec 007 T091 — the three read-side query handlers.</summary>
 public class RuleQueryHandlerTests
 {
+    // The caller's fabs, not a filter they chose: these suites all act as an
+    // operator assigned to munich, which is RuleBuilder's default.
+    private static readonly IReadOnlyList<FabIdentifier> Munich = [FabIdentifier.From("munich")];
+
     private static readonly DateTimeOffset Moment =
         DateTimeOffset.Parse("2026-05-28T08:00:00Z", CultureInfo.InvariantCulture);
 
@@ -40,7 +44,7 @@ public class RuleQueryHandlerTests
         (_, IRuleQuerySource source) = Seed(rule);
 
         Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
-            .HandleAsync(new GetRuleQuery("versioned-rule"), CancellationToken.None);
+            .HandleAsync(new GetRuleQuery(Munich, "versioned-rule"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Version.ShouldBe(rule.Version);
@@ -54,7 +58,7 @@ public class RuleQueryHandlerTests
         (_, IRuleQuerySource source) = Seed(rule);
 
         Result<RuleDto, GetRuleError> result =
-            await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery("high-oee"), CancellationToken.None);
+            await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery(Munich, "high-oee"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Name.ShouldBe("high-oee");
@@ -68,7 +72,7 @@ public class RuleQueryHandlerTests
         (_, IRuleQuerySource source) = Seed(new RuleBuilder().WithName("known").Build());
 
         Result<RuleDto, GetRuleError> result =
-            await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery("missing"), CancellationToken.None);
+            await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery(Munich, "missing"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<GetRuleError.RuleNotFound>();
@@ -84,7 +88,7 @@ public class RuleQueryHandlerTests
         (_, IRuleQuerySource source) = Seed(rule);
 
         Result<RuleDto, GetRuleError> result =
-            await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery("cycle"), CancellationToken.None);
+            await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery(Munich, "cycle"), CancellationToken.None);
 
         result.Value.Predicate.ShouldBe("$.payload.cycleTime <= 30");
     }
@@ -99,7 +103,7 @@ public class RuleQueryHandlerTests
         (_, IRuleQuerySource source) = Seed(rule);
 
         RuleActionDto action =
-            (await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery("set-var"), CancellationToken.None))
+            (await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery(Munich, "set-var"), CancellationToken.None))
             .Value.Action;
 
         action.Kind.ShouldBe(RuleActionDto.SetVariableValueKind);
@@ -120,7 +124,7 @@ public class RuleQueryHandlerTests
         (_, IRuleQuerySource source) = Seed(rule);
 
         RuleActionDto action =
-            (await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery("highlight"), CancellationToken.None))
+            (await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery(Munich, "highlight"), CancellationToken.None))
             .Value.Action;
 
         action.Kind.ShouldBe(RuleActionDto.HighlightOverlayKind);
@@ -141,7 +145,7 @@ public class RuleQueryHandlerTests
 
         Result<IReadOnlyList<RuleDto>, ListRulesError> result =
             await new ListRulesQueryHandler(source).HandleAsync(
-                new ListRulesQuery(null, null, null), CancellationToken.None);
+                new ListRulesQuery(Munich, null, null, null), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Count.ShouldBe(2);
@@ -158,7 +162,7 @@ public class RuleQueryHandlerTests
 
         Result<IReadOnlyList<RuleDto>, ListRulesError> result =
             await new ListRulesQueryHandler(source).HandleAsync(
-                new ListRulesQuery(RuleState.Active.Value, null, null), CancellationToken.None);
+                new ListRulesQuery(Munich, RuleState.Active.Value, null, null), CancellationToken.None);
 
         result.Value.Count.ShouldBe(1);
         result.Value[0].Name.ShouldBe("active-rule");
@@ -175,13 +179,13 @@ public class RuleQueryHandlerTests
 
         Result<IReadOnlyList<RuleDto>, ListRulesError> bySource =
             await new ListRulesQueryHandler(source).HandleAsync(
-                new ListRulesQuery(null, "inference", null), CancellationToken.None);
+                new ListRulesQuery(Munich, null, "inference", null), CancellationToken.None);
         bySource.Value.Count.ShouldBe(1);
         bySource.Value[0].Name.ShouldBe("inference-rule");
 
         Result<IReadOnlyList<RuleDto>, ListRulesError> byKind =
             await new ListRulesQueryHandler(source).HandleAsync(
-                new ListRulesQuery(null, null, "PlcCycleStart"), CancellationToken.None);
+                new ListRulesQuery(Munich, null, null, "PlcCycleStart"), CancellationToken.None);
         byKind.Value.Count.ShouldBe(1);
         byKind.Value[0].Name.ShouldBe("plc-rule");
     }
@@ -193,7 +197,7 @@ public class RuleQueryHandlerTests
 
         Result<IReadOnlyList<RuleDto>, ListRulesError> result =
             await new ListRulesQueryHandler(source).HandleAsync(
-                new ListRulesQuery("Retired", null, null), CancellationToken.None);
+                new ListRulesQuery(Munich, "Retired", null, null), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<ListRulesError.InvalidState>();
@@ -213,7 +217,7 @@ public class RuleQueryHandlerTests
 
         Result<DryRunResultDto, DryRunRuleError> result =
             await new DryRunRuleQueryHandler(source).HandleAsync(
-                new DryRunRuleQuery("cycle", Sample), CancellationToken.None);
+                new DryRunRuleQuery(Munich, "cycle", Sample), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Matched.ShouldBeTrue();
@@ -231,7 +235,7 @@ public class RuleQueryHandlerTests
 
         Result<DryRunResultDto, DryRunRuleError> result =
             await new DryRunRuleQueryHandler(source).HandleAsync(
-                new DryRunRuleQuery("cycle", Sample), CancellationToken.None);
+                new DryRunRuleQuery(Munich, "cycle", Sample), CancellationToken.None);
 
         result.Value.Matched.ShouldBeFalse();
         result.Value.EvaluatedValue.ShouldBeNull();
@@ -249,7 +253,7 @@ public class RuleQueryHandlerTests
 
         Result<DryRunResultDto, DryRunRuleError> result =
             await new DryRunRuleQueryHandler(source).HandleAsync(
-                new DryRunRuleQuery("highlight", Sample), CancellationToken.None);
+                new DryRunRuleQuery(Munich, "highlight", Sample), CancellationToken.None);
 
         result.Value.Matched.ShouldBeTrue();
         result.Value.EvaluatedValue.ShouldBeNull();
@@ -264,7 +268,7 @@ public class RuleQueryHandlerTests
 
         Result<DryRunResultDto, DryRunRuleError> result =
             await new DryRunRuleQueryHandler(source).HandleAsync(
-                new DryRunRuleQuery("draft-rule", Sample), CancellationToken.None);
+                new DryRunRuleQuery(Munich, "draft-rule", Sample), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Matched.ShouldBeTrue();
@@ -277,7 +281,7 @@ public class RuleQueryHandlerTests
 
         Result<DryRunResultDto, DryRunRuleError> result =
             await new DryRunRuleQueryHandler(source).HandleAsync(
-                new DryRunRuleQuery("missing", Sample), CancellationToken.None);
+                new DryRunRuleQuery(Munich, "missing", Sample), CancellationToken.None);
 
         result.Error.ShouldBeOfType<DryRunRuleError.RuleNotFound>();
     }
@@ -289,7 +293,7 @@ public class RuleQueryHandlerTests
 
         Result<DryRunResultDto, DryRunRuleError> result =
             await new DryRunRuleQueryHandler(source).HandleAsync(
-                new DryRunRuleQuery("cycle", "not json at all"), CancellationToken.None);
+                new DryRunRuleQuery(Munich, "cycle", "not json at all"), CancellationToken.None);
 
         result.Error.ShouldBeOfType<DryRunRuleError.SampleEventNotJson>();
     }
@@ -308,9 +312,87 @@ public class RuleQueryHandlerTests
 
         Result<DryRunResultDto, DryRunRuleError> result =
             await new DryRunRuleQueryHandler(source).HandleAsync(
-                new DryRunRuleQuery("missing-field", Sample), CancellationToken.None);
+                new DryRunRuleQuery(Munich, "missing-field", Sample), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<DryRunRuleError.EvaluationFailed>();
+    }
+
+    // ---- spec 013: reads are scoped to the caller's fabs (FR-005, FR-007) ----
+
+    private static readonly IReadOnlyList<FabIdentifier> Dresden = [FabIdentifier.From("dresden")];
+
+    [Fact]
+    public async Task Get_reports_another_fabs_rule_as_not_found()
+    {
+        RuleAggregate munichRule = new RuleBuilder().WithFab("munich").WithName("secret-rule").WithClock(Moment).Build();
+        (_, IRuleQuerySource source) = Seed(munichRule);
+
+        Result<RuleDto, GetRuleError> foreign = await new GetRuleQueryHandler(source)
+            .HandleAsync(new GetRuleQuery(Dresden, "secret-rule"), CancellationToken.None);
+        Result<RuleDto, GetRuleError> absent = await new GetRuleQueryHandler(source)
+            .HandleAsync(new GetRuleQuery(Dresden, "never-existed"), CancellationToken.None);
+
+        // Identical, deliberately. A distinguishable refusal would confirm the
+        // rule exists and let an operator enumerate another fab's names one
+        // guess at a time.
+        foreign.IsFailure.ShouldBeTrue();
+        absent.IsFailure.ShouldBeTrue();
+        foreign.Error.Code.ShouldBe(absent.Error.Code);
+        foreign.Error.Status.ShouldBe(absent.Error.Status);
+    }
+
+    [Fact]
+    public async Task List_omits_rules_from_fabs_the_caller_does_not_hold()
+    {
+        (_, IRuleQuerySource source) = Seed(
+            new RuleBuilder().WithFab("munich").WithName("munich-rule").WithClock(Moment).Build(),
+            new RuleBuilder().WithFab("dresden").WithName("dresden-rule").WithClock(Moment).Build());
+
+        Result<IReadOnlyList<RuleDto>, ListRulesError> result = await new ListRulesQueryHandler(source)
+            .HandleAsync(new ListRulesQuery(Munich, null, null, null), CancellationToken.None);
+
+        result.Value.Select(rule => rule.Name).ShouldBe(["munich-rule"]);
+    }
+
+    [Fact]
+    public async Task List_spans_every_fab_the_caller_holds()
+    {
+        (_, IRuleQuerySource source) = Seed(
+            new RuleBuilder().WithFab("munich").WithName("munich-rule").WithClock(Moment).Build(),
+            new RuleBuilder().WithFab("dresden").WithName("dresden-rule").WithClock(Moment).Build());
+
+        IReadOnlyList<FabIdentifier> both = [FabIdentifier.From("munich"), FabIdentifier.From("dresden")];
+        Result<IReadOnlyList<RuleDto>, ListRulesError> result = await new ListRulesQueryHandler(source)
+            .HandleAsync(new ListRulesQuery(both, null, null, null), CancellationToken.None);
+
+        result.Value.Select(rule => rule.Name)
+            .ShouldBe(["munich-rule", "dresden-rule"], ignoreOrder: true);
+    }
+
+    [Fact]
+    public async Task An_operator_assigned_to_no_fab_lists_nothing()
+    {
+        (_, IRuleQuerySource source) = Seed(
+            new RuleBuilder().WithFab("munich").WithName("munich-rule").WithClock(Moment).Build());
+
+        Result<IReadOnlyList<RuleDto>, ListRulesError> result = await new ListRulesQueryHandler(source)
+            .HandleAsync(new ListRulesQuery([], null, null, null), CancellationToken.None);
+
+        // Empty, not everything. The endpoint refuses this caller outright,
+        // but the handler must not fall open if it is ever reached.
+        result.Value.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task The_projected_rule_carries_its_fab()
+    {
+        (_, IRuleQuerySource source) = Seed(
+            new RuleBuilder().WithFab("munich").WithName("tagged").WithClock(Moment).Build());
+
+        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+            .HandleAsync(new GetRuleQuery(Munich, "tagged"), CancellationToken.None);
+
+        result.Value.Fab.ShouldBe("munich");
     }
 }

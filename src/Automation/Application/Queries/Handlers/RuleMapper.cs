@@ -13,6 +13,7 @@ internal static class RuleMapper
         new(
             RuleIdentifier: rule.Id.Value,
             Version: rule.Version,
+            Fab: rule.Fab.Value,
             Name: rule.Name.Value,
             TriggerSource: rule.TriggerSource,
             TriggerKind: rule.TriggerKind,

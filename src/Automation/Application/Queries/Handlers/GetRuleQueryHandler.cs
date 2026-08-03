@@ -31,7 +31,14 @@ public sealed class GetRuleQueryHandler(IRuleQuerySource rules)
             return Result<RuleDto, GetRuleError>.Failure(new GetRuleError.RuleNotFound(query.Name));
         }
 
+        // Resolved within the caller's fabs. A rule in a fab they do not hold
+        // is reported as not found, byte-identical to a name that was never
+        // used (spec 013 FR-007) — a 403 here would confirm the rule exists
+        // and let an operator enumerate another fab's names one guess at a
+        // time.
+        string[] fabs = [.. query.Fabs.Select(fab => fab.Value)];
         Rule? rule = await rules.Rules
+            .Where(candidate => fabs.Contains(candidate.Fab.Value))
             .SingleOrDefaultAsync(candidate => candidate.Name == parsed, cancellationToken);
 
         if (rule is null)

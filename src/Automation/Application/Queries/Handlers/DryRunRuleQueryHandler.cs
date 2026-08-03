@@ -41,7 +41,13 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
             return Result<DryRunResultDto, DryRunRuleError>.Failure(new DryRunRuleError.RuleNotFound(query.Name));
         }
 
+        // Fab-scoped like the reads (spec 013 FR-006): a trial run must not
+        // be usable as a side channel to discover how another fab's rule
+        // behaves. Still carries no If-Match — it persists nothing, and spec
+        // 012 T048 pinned that with a test.
+        string[] fabs = [.. query.Fabs.Select(fab => fab.Value)];
         Rule? rule = await rules.Rules
+            .Where(candidate => fabs.Contains(candidate.Fab.Value))
             .SingleOrDefaultAsync(candidate => candidate.Name == parsed, cancellationToken);
 
         if (rule is null)
