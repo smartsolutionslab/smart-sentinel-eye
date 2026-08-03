@@ -44,8 +44,14 @@ to fab.
 | Element | Before | After |
 |---|---|---|
 | column | — | `fab`, `text`, `NOT NULL` |
-| unique index | `(name)` | `(fab, name)` |
-| lookup index | `(trigger_source, trigger_kind, state)` | `(fab, trigger_source, trigger_kind, state)` |
+| unique index | `ux_rules_name_active` on `(name)`, filtered `state <> 'Archived'` | `ux_rules_fab_name_active` on `(fab, name)`, **same filter** |
+| lookup index | `ix_rules_trigger_state` on `(trigger_source, trigger_kind, state)` | `ix_rules_fab_trigger_state` on `(fab, trigger_source, trigger_kind, state)` |
+
+**The unique index is partial, and stays partial.** Archiving a rule has
+always released its name for re-use; scoping the index to a fab must not
+quietly remove that. An earlier draft of this document described a plain
+unique index on `(fab, name)`, which would have done exactly that — corrected
+here after reading `RuleConfiguration.cs`.
 
 The lookup index gains `fab` as its leading column so the seeder's query and
 any future fab-filtered read are covered by it.
@@ -56,15 +62,17 @@ One migration, ordered so the table is never in a state the application
 cannot serve:
 
 ```sql
-ALTER TABLE rules ADD COLUMN fab text;              -- nullable first
-UPDATE rules SET fab = 'munich' WHERE fab IS NULL;  -- backfill (spec Assumption)
+ALTER TABLE rules ADD COLUMN fab character varying(32);   -- nullable first
+UPDATE rules SET fab = 'munich' WHERE fab IS NULL;        -- backfill (spec Assumption)
 ALTER TABLE rules ALTER COLUMN fab SET NOT NULL;
 
-DROP INDEX ux_rules_name;
-CREATE UNIQUE INDEX ux_rules_fab_name ON rules (fab, name);
+DROP INDEX ux_rules_name_active;
+CREATE UNIQUE INDEX ux_rules_fab_name_active
+    ON rules (fab, name) WHERE state <> 'Archived';       -- filter preserved
 
-DROP INDEX ix_rules_trigger;
-CREATE INDEX ix_rules_fab_trigger ON rules (fab, trigger_source, trigger_kind, state);
+DROP INDEX ix_rules_trigger_state;
+CREATE INDEX ix_rules_fab_trigger_state
+    ON rules (fab, trigger_source, trigger_kind, state);
 ```
 
 `munich` is a literal, not configuration (R4): a migration must produce the
