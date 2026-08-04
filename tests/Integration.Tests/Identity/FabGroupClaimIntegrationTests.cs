@@ -116,6 +116,43 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
     private static string UniqueName() => $"r-{Guid.NewGuid():N}"[..12];
 
     /// <summary>
+    /// management-web reads the operator's fabs from the **ID** token, not the
+    /// access token, so the fab selector it shows a multi-fab operator rests on
+    /// the <c>sse-groups</c> mapper emitting into both (#1303).
+    ///
+    /// <para>
+    /// Nothing else would catch <c>id.token.claim</c> reverting to false. The
+    /// e2e spec signs in as a single-fab operator, who is never shown the
+    /// selector either way, and the unit tests mock the claim outright — so
+    /// the UI would silently stop offering a choice and start being refused by
+    /// the server instead.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_operators_ID_token_carries_the_fab_group_too()
+    {
+        using HttpClient keycloak = aspire.CreateKeycloakClient();
+
+        using FormUrlEncodedContent form = new(new Dictionary<string, string>
+        {
+            ["grant_type"] = "password",
+            ["client_id"] = AspireFixture.ClientId,
+            ["username"] = "operator",
+            ["password"] = "Operator1234",
+            ["scope"] = "openid sse.management",
+        });
+
+        HttpResponseMessage response = await keycloak.PostAsync(
+            "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+
+        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        string identityToken = payload.GetProperty("id_token").GetString()!;
+
+        GroupsOf(identityToken).ShouldContain(FabGroup);
+    }
+
+    /// <summary>
     /// Signs in as the seeded operator through <c>smart-sentinel-eye-web</c> —
     /// the client <c>apps/management-web/src/app/auth.ts</c> actually
     /// configures, not the same-named <c>management-web</c> realm client, which

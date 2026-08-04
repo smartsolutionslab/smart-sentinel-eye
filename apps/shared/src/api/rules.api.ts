@@ -26,6 +26,12 @@ export interface Rule {
   /** Optimistic-concurrency version; echo it back via If-Match to mutate (ADR-0113). */
   version: number;
   ruleIdentifier: string;
+  /**
+   * The fab this rule belongs to (spec 013). A rule never arrives here unless
+   * the caller is assigned to its fab, so this is always one of theirs — which
+   * is what makes it safe to echo straight back as `fabId` on a mutation.
+   */
+  fab: string;
   name: string;
   triggerSource: string;
   triggerKind: string;
@@ -43,17 +49,39 @@ export interface ListRulesFilters {
   state?: RuleState;
   triggerSource?: string;
   triggerKind?: string;
+  /** Omit to span every fab the caller holds; name one to narrow to it. */
+  fabId?: string;
 }
 
 export interface RuleRouteInput {
   name: string;
   version: number;
+  /**
+   * The rule's own fab, taken from the row. A name is unique per fab, not
+   * globally, so a caller holding several can match the same name twice —
+   * sending the fab is what keeps publish and archive unambiguous.
+   */
+  fabId?: string;
 }
 
 export interface DryRunInput {
   name: string;
   sampleEvent: string;
+  fabId?: string;
 }
+
+export interface RuleReadInput {
+  name: string;
+  /**
+   * Omit and the server resolves the name across every fab the caller holds,
+   * which is 400 RULE_FAB_AMBIGUOUS when two of them use it. Name the fab to
+   * settle it.
+   */
+  fabId?: string;
+}
+
+/** `fabId` rides the query string; everything else is the body. */
+export type CreateRuleArgs = CreateRuleInput & { fabId?: string };
 
 export interface DryRunResult {
   matched: boolean;
@@ -76,25 +104,27 @@ export const rulesApi = createApi({
       }),
       providesTags: () => [{ type: 'RuleList', id: 'ALL' }],
     }),
-    getRule: build.query<Rule, string>({
-      query: (name) => ({ url: `/${encodeURIComponent(name)}`, method: 'GET' }),
-      providesTags: (_r, _e, name) => [{ type: 'Rule', id: name }],
+    getRule: build.query<Rule, RuleReadInput>({
+      query: ({ name, fabId }) => ({ url: withFab(`/${encodeURIComponent(name)}`, fabId), method: 'GET' }),
+      providesTags: (_r, _e, { name }) => [{ type: 'Rule', id: name }],
     }),
-    createRule: build.mutation<string, CreateRuleInput>({
-      query: (body) => ({ url: '', method: 'POST', body }),
+    createRule: build.mutation<string, CreateRuleArgs>({
+      // fabId is destructured out so it rides the query string rather than
+      // landing in the body, where the server would ignore it.
+      query: ({ fabId, ...body }) => ({ url: withFab('', fabId), method: 'POST', body }),
       invalidatesTags: [{ type: 'RuleList', id: 'ALL' }],
     }),
     publishRule: build.mutation<string, RuleRouteInput>({
-      query: ({ name, version }) => ({
-        url: `/${encodeURIComponent(name)}/publish`,
+      query: ({ name, version, fabId }) => ({
+        url: withFab(`/${encodeURIComponent(name)}/publish`, fabId),
         method: 'POST',
         headers: ifMatch(version),
       }),
       invalidatesTags: (_r, _e, { name }) => [{ type: 'Rule', id: name }, { type: 'RuleList', id: 'ALL' }],
     }),
     archiveRule: build.mutation<string, RuleRouteInput>({
-      query: ({ name, version }) => ({
-        url: `/${encodeURIComponent(name)}/archive`,
+      query: ({ name, version, fabId }) => ({
+        url: withFab(`/${encodeURIComponent(name)}/archive`, fabId),
         method: 'POST',
         headers: ifMatch(version),
       }),
@@ -104,8 +134,8 @@ export const rulesApi = createApi({
     // nothing, so it is a mutation only in RTK's HTTP-verb sense and
     // deliberately invalidates no tags.
     dryRunRule: build.mutation<DryRunResult, DryRunInput>({
-      query: ({ name, sampleEvent }) => ({
-        url: `/${encodeURIComponent(name)}/dry-run`,
+      query: ({ name, sampleEvent, fabId }) => ({
+        url: withFab(`/${encodeURIComponent(name)}/dry-run`, fabId),
         method: 'POST',
         body: { sampleEvent },
       }),
@@ -118,7 +148,12 @@ function stripEmpty(filters: ListRulesFilters): Record<string, string> {
   if (filters.state) params['state'] = filters.state;
   if (filters.triggerSource) params['triggerSource'] = filters.triggerSource;
   if (filters.triggerKind) params['triggerKind'] = filters.triggerKind;
+  if (filters.fabId) params['fabId'] = filters.fabId;
   return params;
+}
+
+function withFab(path: string, fabId: string | undefined): string {
+  return fabId ? `${path}?fabId=${encodeURIComponent(fabId)}` : path;
 }
 
 export const {

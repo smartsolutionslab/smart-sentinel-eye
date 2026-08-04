@@ -12,6 +12,7 @@ function rule(overrides: Record<string, unknown> = {}) {
   return {
     ruleIdentifier: '019f-aaaa',
     version: 0,
+    fab: 'munich',
     name: 'high-oee',
     triggerSource: 'plc',
     triggerKind: 'PlcCycleStart',
@@ -31,6 +32,12 @@ function rule(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+// The page renders RuleDialog, which reads the operator's fabs from the OIDC
+// claims. One fab: the fab is inferred and no selector appears (ADR-0114).
+vi.mock('react-oidc-context', () => ({
+  useAuth: () => ({ user: { profile: { groups: ['/fabs/munich'] } } }),
+}));
 
 vi.mock('@smart-sentinel-eye/shared/api/rules.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/rules.api')>();
@@ -97,18 +104,26 @@ describe('RulesPage', () => {
     expect(screen.getByText(/Highlight overlay for 5000 ms/)).toBeInTheDocument();
   });
 
-  it('Publishes a Draft rule from its row action', async () => {
+  // Both carry the row's own fab. A name is unique per fab rather than
+  // globally, so without it a multi-fab operator is refused outright — and the
+  // rule is already on screen, so there is nothing to ask.
+  it('Publishes a Draft rule from its row action, naming the rule’s fab', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole('button', { name: 'Publish' }));
-    expect(publishMock).toHaveBeenCalledWith({ name: 'high-oee', version: 0 });
+    expect(publishMock).toHaveBeenCalledWith({ name: 'high-oee', version: 0, fabId: 'munich' });
   });
 
-  it('Archives a rule from its row action', async () => {
+  it('Archives a rule from its row action, naming the rule’s fab', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole('button', { name: 'Archive' }));
-    expect(archiveMock).toHaveBeenCalledWith({ name: 'high-oee', version: 0 });
+    expect(archiveMock).toHaveBeenCalledWith({ name: 'high-oee', version: 0, fabId: 'munich' });
+  });
+
+  it('Shows each rule’s fab, so two rows sharing a name can be told apart', () => {
+    renderPage();
+    expect(screen.getByTestId('rule-fab')).toHaveTextContent('munich');
   });
 
   it('Offers no Publish action for an Active rule', () => {
