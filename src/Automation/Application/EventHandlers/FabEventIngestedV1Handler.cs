@@ -51,9 +51,15 @@ public sealed class FabEventIngestedV1Handler(
         {
             fab = FabIdentifier.From(message.Fab);
         }
-        catch (ArgumentException)
+        catch (ArgumentException exception)
         {
-            logger.SkippedEventWithoutFab(message.EventIdentifier);
+            // Also fails closed, but says so differently: this is not a
+            // publisher omitting a fab, it is EventIngestion and Automation
+            // disagreeing about what a fab looks like, and it silences every
+            // rule for that fab until someone notices. The value and the
+            // reason both go in the log, because neither is recoverable from
+            // the event identifier alone.
+            logger.SkippedEventWithUnparseableFab(exception, message.EventIdentifier, message.Fab);
             return;
         }
 
