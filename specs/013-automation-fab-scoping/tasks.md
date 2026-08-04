@@ -134,7 +134,7 @@ twice in one fab (second refused).
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T040 [P] Add `e2e/rules.spec.ts` — Automation currently has **no e2e spec at all**. Cover authoring as a single-fab operator (fab inferred) and confirm another fab's rule is absent from the list.
+- [x] T040 [P] Add `e2e/rules.spec.ts` — Automation currently has **no e2e spec at all**. Cover authoring as a single-fab operator (fab inferred) and confirm another fab's rule is absent from the list.
 - [x] T041 [P] Update `src/ScenarioSimulator/` if it authors rules, so the simulator keeps working against the new required field.
 - [x] T042 [P] Declare the newly reachable statuses on the rule endpoints in `src/Automation/Api/RulesEndpoints.cs` — 400 and 403 where they became possible — so the generated OpenAPI does not claim they cannot happen. Same omission spec 012 T056 fixed for LayoutComposition.
 - [x] T043 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `Automation.Domain` still clears 90%. It was at 90.8% before this feature; T007 and T010 are what keep it there.
@@ -206,11 +206,11 @@ being no principal that could reach the multi-fab branch: the realm defined
 — including the `RULE_FAB_AMBIGUOUS` read, which until then could only be
 reached from a unit test.
 
-**T040 — file added, tests skipped.** `e2e/rules.spec.ts` exists but every test
-in it is skipped, so it covers nothing at runtime. It was first blocked by
-#1298 (fixed in #1302); it is now blocked by #1303 — management-web renders no
-fab on a rule row and sends none when authoring, so the assertions describe a
-UI that does not exist.
+**T040 — done.** `e2e/rules.spec.ts` runs. It was blocked twice: first by #1298
+(`GET /rules` returned 500, fixed in #1302), then by #1303 (the UI rendered no
+fab and sent none, fixed in #1308). Un-skipping also required correcting three
+assertions that had never been executed — two wrong field ids, the wrong submit
+button, and rows treated as listitems when `DataTable` renders a table.
 
 **T044 — still not done, but no longer blocked.** quickstart.md has never been
 walked end to end against a live stack. The reason it could not be — sections
