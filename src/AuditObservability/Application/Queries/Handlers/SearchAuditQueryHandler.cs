@@ -56,8 +56,14 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         }
         else if (callerFabs.Count > 0)
         {
+            // Cross-fab rows (fab = null) are included, not excluded. They are
+            // not restricted to a fab, so restricting who may read them by fab
+            // made them readable by nobody: every operator belongs to a fab,
+            // and most contexts publish with no fab at all — camera, stream,
+            // layout, overlay and variable events among them. The whole class
+            // of row was invisible to every real caller (#1300).
             List<FabIdentifier> allowed = [.. callerFabs.Select(FabIdentifier.From)];
-            source = source.Where(auditEvent => auditEvent.Fab != null && allowed.Contains(auditEvent.Fab));
+            source = source.Where(auditEvent => auditEvent.Fab == null || allowed.Contains(auditEvent.Fab));
         }
         else
         {
