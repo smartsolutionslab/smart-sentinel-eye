@@ -22,7 +22,9 @@ const STATE_FILTERS: ReadonlyArray<{ label: string; value: RuleState | undefined
 export function RulesPage() {
   const [stateFilter, setStateFilter] = useState<RuleState | undefined>(undefined);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dryRunFor, setDryRunFor] = useState<string | null>(null);
+  // Holds the fab as well as the name: a dry run is fab-scoped, and the row
+  // is the only place the fab is known without asking again.
+  const [dryRunFor, setDryRunFor] = useState<{ name: string; fab: string } | null>(null);
 
   const { data: rules, isLoading, isError, refetch } = useListRulesQuery(
     stateFilter === undefined ? undefined : { state: stateFilter },
@@ -32,6 +34,18 @@ export function RulesPage() {
 
   const columns: DataTableColumn<Rule>[] = [
     { id: 'name', header: 'Name', cell: (rule) => <span className="font-medium">{rule.name}</span> },
+    {
+      // Always rendered, not only for a multi-fab operator: a name is unique
+      // per fab rather than globally, so without it two rows can read
+      // identically and there is no way to tell which is which.
+      id: 'fab',
+      header: 'Fab',
+      cell: (rule) => (
+        <span data-testid="rule-fab" className="text-xs">
+          {rule.fab}
+        </span>
+      ),
+    },
     {
       id: 'trigger',
       header: 'Trigger',
@@ -53,22 +67,37 @@ export function RulesPage() {
       header: 'Actions',
       cell: (rule) => (
         <div className="flex gap-1">
+          {/*
+            Each mutation carries the row's own fab. The rule is already in
+            front of us, so there is nothing to choose and nothing to infer —
+            and a multi-fab operator would otherwise be refused outright.
+          */}
           {rule.state === 'Draft' && (
-            <Button type="button" variant="secondary" onClick={() => void publishRule({ name: rule.name, version: rule.version })}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => void publishRule({ name: rule.name, version: rule.version, fabId: rule.fab })}
+            >
               Publish
             </Button>
           )}
           {rule.state !== 'Archived' && (
-            <Button type="button" variant="ghost" onClick={() => void archiveRule({ name: rule.name, version: rule.version })}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => void archiveRule({ name: rule.name, version: rule.version, fabId: rule.fab })}
+            >
               Archive
             </Button>
           )}
           <Button
             type="button"
             variant="ghost"
-            onClick={() => setDryRunFor(dryRunFor === rule.name ? null : rule.name)}
+            onClick={() =>
+              setDryRunFor(dryRunFor?.name === rule.name ? null : { name: rule.name, fab: rule.fab })
+            }
           >
-            {dryRunFor === rule.name ? 'Hide dry run' : 'Dry run'}
+            {dryRunFor?.name === rule.name ? 'Hide dry run' : 'Dry run'}
           </Button>
         </div>
       ),
@@ -115,7 +144,7 @@ export function RulesPage() {
         />
       )}
 
-      {dryRunFor !== null && <DryRunPanel ruleName={dryRunFor} />}
+      {dryRunFor !== null && <DryRunPanel ruleName={dryRunFor.name} fabId={dryRunFor.fab} />}
 
       <RuleDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </section>

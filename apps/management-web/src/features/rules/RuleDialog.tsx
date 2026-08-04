@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateRuleMutation } from '@smart-sentinel-eye/shared/api/rules.api';
+import { useAssignedFabs } from '../../app/useAssignedFabs';
 import { createRuleSchema, type CreateRuleInput } from '@smart-sentinel-eye/shared/api/rules.schema';
 import { problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
@@ -26,8 +27,21 @@ const DEFAULT_INPUT: CreateRuleInput = {
 export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
   const [createRule, { isLoading, error, reset: resetMutationState }] = useCreateRuleMutation();
 
+  // An operator in one fab has it inferred and is never asked (ADR-0114); one
+  // in several must choose, because any tie-break would file the rule under a
+  // fab they did not pick. `fabId` is deliberately not part of the form: it
+  // travels as a query parameter, and createRuleSchema mirrors the body.
+  const fabs = useAssignedFabs();
+  const mustChooseFab = fabs.length > 1;
+  const [fabId, setFabId] = useState('');
+  const [fabError, setFabError] = useState<string | null>(null);
+
   useEffect(() => {
-    if (!open) resetMutationState();
+    if (!open) {
+      resetMutationState();
+      setFabId('');
+      setFabError(null);
+    }
   }, [open, resetMutationState]);
 
   const {
@@ -46,9 +60,19 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
   const actionType = watch('actionType');
 
   const onSubmit = handleSubmit(async (values) => {
-    const result = await createRule(values);
+    if (mustChooseFab && fabId === '') {
+      // Caught here rather than sent: the server answers this with
+      // 400 RULE_FAB_REQUIRED, which is the right answer to the wrong
+      // question when the operator can simply be asked.
+      setFabError('Choose which fab this rule belongs to.');
+      return;
+    }
+    setFabError(null);
+
+    const result = await createRule(mustChooseFab ? { ...values, fabId } : values);
     if (!('error' in result)) {
       reset(DEFAULT_INPUT);
+      setFabId('');
       onOpenChange(false);
     }
   });
@@ -64,6 +88,24 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
         <FormField label="Name" htmlFor="rule-name" error={errors.name?.message}>
           <Input id="rule-name" placeholder="high-oee-on-fast-cycle" {...register('name')} />
         </FormField>
+
+        {mustChooseFab && (
+          <FormField label="Fab" htmlFor="rule-fab-id" error={fabError ?? undefined}>
+            <select
+              id="rule-fab-id"
+              className="w-full rounded-md border border-fg-muted/30 bg-transparent p-2 text-sm"
+              value={fabId}
+              onChange={(event) => setFabId(event.target.value)}
+            >
+              <option value="">Choose a fab…</option>
+              {fabs.map((fab) => (
+                <option key={fab} value={fab}>
+                  {fab}
+                </option>
+              ))}
+            </select>
+          </FormField>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Trigger source" htmlFor="rule-source" error={errors.triggerSource?.message}>

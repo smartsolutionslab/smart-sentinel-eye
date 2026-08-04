@@ -18,7 +18,7 @@ const DEFAULT_SAMPLE = JSON.stringify(
  * locally first — a typo should read as "not valid JSON" beside the box, not
  * come back as a 400.
  */
-export function DryRunPanel({ ruleName }: { ruleName: string }) {
+export function DryRunPanel({ ruleName, fabId }: { ruleName: string; fabId: string }) {
   const [sample, setSample] = useState(DEFAULT_SAMPLE);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [dryRun, { data, error, isLoading, reset }] = useDryRunRuleMutation();
@@ -31,7 +31,7 @@ export function DryRunPanel({ ruleName }: { ruleName: string }) {
       return;
     }
     setJsonError(null);
-    await dryRun({ name: ruleName, sampleEvent: sample });
+    await dryRun({ name: ruleName, sampleEvent: sample, fabId });
   };
 
   return (
