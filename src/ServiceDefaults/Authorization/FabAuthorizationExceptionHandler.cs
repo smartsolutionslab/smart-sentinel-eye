@@ -31,7 +31,12 @@ public sealed class FabAuthorizationExceptionHandler : IExceptionHandler
         ProblemDetails problem = new()
         {
             Title = ErrorCode,
-            Detail = $"Caller is not a member of fab '{fabException.FabId}'.",
+            // Two refusals, not one: naming a fab you do not hold, and holding
+            // none. Reporting the second as a fab called "none" invented a
+            // resource the caller never asked about.
+            Detail = fabException.FabId is null
+                ? "Caller is not a member of any fab."
+                : $"Caller is not a member of fab '{fabException.FabId}'.",
             Status = StatusCodes.Status403Forbidden,
         };
         await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken: cancellationToken);

@@ -90,6 +90,24 @@ public class FabResolutionTests
                 With("/operators"), fabId: "", new DefaultFabAuthorizationGuard(), Ambiguous, default));
     }
 
+    /// <summary>
+    /// The refusal must not name a fab, because the caller never named one.
+    /// This used to be expressed by pushing the literal <c>"none"</c> through
+    /// the guard, so the 403 read as though they had asked for a fab called
+    /// "none" — a resource that does not exist, in a message meant to explain
+    /// why they were refused.
+    /// </summary>
+    [Fact]
+    public async Task The_no_fab_refusal_does_not_invent_a_fab_name()
+    {
+        FabAuthorizationException refusal = await Should.ThrowAsync<FabAuthorizationException>(() =>
+            FabResolution.ResolveForWriteAsync(
+                With("/operators"), fabId: "", new DefaultFabAuthorizationGuard(), Ambiguous, default));
+
+        refusal.FabId.ShouldBeNull();
+        refusal.Message.ShouldNotContain("none");
+    }
+
     // ---- reads: every fab the caller holds, no choice required ----
 
     [Fact]

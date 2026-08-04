@@ -214,16 +214,36 @@ public static class RulesEndpoints
         IReadOnlyList<string> resolved = await FabResolution.ResolveForReadAsync(
             user, fabId, fabGuard, cancellationToken);
 
-        try
+        // Per entry, not all-or-nothing. A single group under /fabs/ that is
+        // not a usable fab name — a sub-group, or a name outside Automation's
+        // grammar — used to fail the whole read, hiding every rule in the fabs
+        // the caller legitimately holds. One odd group should cost them that
+        // group, not all of them.
+        List<FabIdentifier> fabs = [];
+        foreach (string candidate in resolved)
         {
-            return ([.. resolved.Select(FabIdentifier.From)], null);
+            try
+            {
+                fabs.Add(FabIdentifier.From(candidate));
+            }
+            catch (ArgumentException)
+            {
+                // Skipped, not reported: there is no logger at this layer, and
+                // a caller cannot act on a message about someone else's group
+                // configuration. If *nothing* is usable the request still
+                // fails below, so a wholly-malformed group set is not silent.
+            }
         }
-        catch (ArgumentException ex)
+
+        if (fabs.Count == 0)
         {
             return (null, Results.Problem(
-                title: "RULE_INVALID_INPUT", detail: ex.Message,
+                title: "RULE_INVALID_INPUT",
+                detail: "None of your fab group memberships is a usable fab identifier.",
                 statusCode: StatusCodes.Status400BadRequest));
         }
+
+        return (fabs, null);
     }
 
     private static async Task<IResult> Create(

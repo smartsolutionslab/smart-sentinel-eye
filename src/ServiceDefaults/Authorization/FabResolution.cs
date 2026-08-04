@@ -74,9 +74,11 @@ public static class FabResolution
         if (assigned.Count == 0)
         {
             // Refused rather than answered emptily: an operator assigned to no
-            // fab is a misconfiguration worth surfacing. The literal is never
-            // a real fab, so the guard always rejects it.
-            await fabGuard.EnsureAccessAsync(user, "none", cancellationToken);
+            // fab is a misconfiguration worth surfacing. Thrown directly rather
+            // than routed through the guard with a placeholder fab — there is
+            // no fab to check, and pretending otherwise put the placeholder in
+            // the operator's error message.
+            throw FabAuthorizationException.ForNoFabMembership();
         }
 
         return (null, Results.Problem(
@@ -108,7 +110,10 @@ public static class FabResolution
         IReadOnlyList<string> assigned = FabClaims.AssignedFabs(user);
         if (assigned.Count == 0)
         {
-            await fabGuard.EnsureAccessAsync(user, "none", cancellationToken);
+            // Same refusal as the write path, and for the same reason: an
+            // empty answer would read as "there is nothing here" when what is
+            // true is "you are not configured to see anything".
+            throw FabAuthorizationException.ForNoFabMembership();
         }
 
         return assigned;

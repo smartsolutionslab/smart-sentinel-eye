@@ -78,9 +78,34 @@ public sealed class DefaultFabAuthorizationGuard : IFabAuthorizationGuard
 /// when the caller is not a member of the requested fab. Mapped
 /// to a 403 with <c>title = RESOURCE_FAB_NOT_AUTHORIZED</c>
 /// globally.
+///
+/// <para>
+/// A caller who belongs to no fab at all is a different refusal, and
+/// <see cref="ForNoFabMembership"/> says so. It used to be expressed by
+/// passing the literal <c>"none"</c> through the guard, which reads back to
+/// the operator — and into the logs — as though they had asked for a fab by
+/// that name.
+/// </para>
 /// </summary>
-public sealed class FabAuthorizationException(string fabId)
-    : Exception($"Caller is not authorized to access fab '{fabId}'.")
+public sealed class FabAuthorizationException : Exception
 {
-    public string FabId { get; } = fabId;
+    public FabAuthorizationException(string fabId)
+        : base($"Caller is not authorized to access fab '{fabId}'.") => FabId = fabId;
+
+    private FabAuthorizationException()
+        : base("Caller belongs to no fab.")
+    {
+    }
+
+    /// <summary>
+    /// The fab the caller was refused, or none when they belong to no fab and
+    /// so never named one.
+    /// </summary>
+    public string FabId { get; }
+
+    /// <summary>
+    /// The caller holds no fab membership at all — a misconfigured account
+    /// rather than an overreaching request.
+    /// </summary>
+    public static FabAuthorizationException ForNoFabMembership() => new();
 }
