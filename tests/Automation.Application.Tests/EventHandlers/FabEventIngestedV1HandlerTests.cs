@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Automation.Application.Evaluation;
 using SmartSentinelEye.Automation.Application.EventHandlers;
@@ -205,6 +206,57 @@ public class FabEventIngestedV1HandlerTests
 
         bus.Published.ShouldBeEmpty();
     }
+
+    /// <summary>
+    /// A fab that will not parse silences every rule for that fab, and the
+    /// handler fails closed either way — so "published nothing" cannot tell a
+    /// diagnosable failure from a silent one. The value has to reach the log,
+    /// or the only way to find this is to notice automation has stopped.
+    /// </summary>
+    [Fact]
+    public async Task An_unparseable_fab_is_logged_with_the_value_that_failed()
+    {
+        CapturingLogger<FabEventIngestedV1Handler> logger = new();
+        FabEventIngestedV1Handler handler = new(
+            new RuleEvaluator(new InMemoryRuleCache(), NullLogger<RuleEvaluator>.Instance),
+            new FakeEventBus(),
+            new FakeClock(BaseMoment),
+            logger);
+
+        await handler.Handle(PlcCycleStart(fab: "NotAFab"), CancellationToken.None);
+
+        (LogLevel Level, string Message, Exception? Exception) entry = logger.Entries.ShouldHaveSingleItem();
+        entry.Level.ShouldBe(LogLevel.Warning);
+        entry.Message.ShouldContain("NotAFab");
+        entry.Exception.ShouldBeOfType<ArgumentException>();
+    }
+
+    /// <summary>
+    /// The other half: an event that carries no fab at all is a publisher not
+    /// stamping one, which is a different problem with a different fix, so it
+    /// must not share a message with the case above.
+    /// </summary>
+    [Fact]
+    public async Task An_absent_fab_is_logged_distinctly_from_one_that_will_not_parse()
+    {
+        CapturingLogger<FabEventIngestedV1Handler> absent = new();
+        CapturingLogger<FabEventIngestedV1Handler> unparseable = new();
+
+        // The same event identifier on both, or the rendered messages differ
+        // on the id alone and this passes however identical the templates are.
+        Guid causing = Guid.CreateVersion7();
+        await HandlerWith(absent).Handle(PlcCycleStart(causing, ""), CancellationToken.None);
+        await HandlerWith(unparseable).Handle(PlcCycleStart(causing, "NotAFab"), CancellationToken.None);
+
+        absent.Entries.ShouldHaveSingleItem().Message
+            .ShouldNotBe(unparseable.Entries.ShouldHaveSingleItem().Message);
+    }
+
+    private static FabEventIngestedV1Handler HandlerWith(ILogger<FabEventIngestedV1Handler> logger) =>
+        new(new RuleEvaluator(new InMemoryRuleCache(), NullLogger<RuleEvaluator>.Instance),
+            new FakeEventBus(),
+            new FakeClock(BaseMoment),
+            logger);
 
     private static FabEventIngestedV1Handler HandlerFor(InMemoryRuleCache cache, FakeEventBus bus) =>
         new(new RuleEvaluator(cache, NullLogger<RuleEvaluator>.Instance),

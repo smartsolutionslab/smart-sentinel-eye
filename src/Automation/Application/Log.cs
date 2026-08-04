@@ -8,8 +8,22 @@ namespace SmartSentinelEye.Automation.Application;
 [ExcludeFromCodeCoverage]
 internal static partial class Log
 {
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Ingested event {Event} carried no usable fab; no rule evaluated.")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Ingested event {Event} carried no fab; no rule evaluated.")]
     public static partial void SkippedEventWithoutFab(this ILogger logger, Guid @event);
+
+    /// <summary>
+    /// Distinct from <see cref="SkippedEventWithoutFab"/>, and it names the
+    /// value. A fab that fails Automation's grammar stops every rule for that
+    /// fab, and the two causes want different responses: an event with no fab
+    /// is a publisher not stamping one, whereas an event whose fab will not
+    /// parse is the two contexts disagreeing about the grammar — which is
+    /// diagnosable only if the log says what arrived.
+    /// </summary>
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Ingested event {Event} carried fab '{Fab}', which is not a valid fab identifier; no rule evaluated.")]
+    public static partial void SkippedEventWithUnparseableFab(
+        this ILogger logger, Exception exception, Guid @event, string fab);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Unhandled RuleAction case {Case} on rule {Rule}.")]
     public static partial void UnhandledRuleActionCase(this ILogger logger, string @case, RuleIdentifier rule);

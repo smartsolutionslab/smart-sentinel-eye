@@ -18,9 +18,28 @@ namespace SmartSentinelEye.Automation.Infrastructure.Persistence.Migrations
     /// </para>
     ///
     /// <para>
-    /// <c>'munich'</c> is a literal rather than configuration: a migration
-    /// must produce the same result on every environment, and a config-driven
+    /// <c>'munich'</c> is a literal rather than configuration: a migration must
+    /// produce the same result on every environment, and a config-driven
     /// backfill would silently assign different fabs in dev and prod.
+    /// </para>
+    ///
+    /// <para>
+    /// The assumption that buys, stated plainly: <b>every rule that exists
+    /// before this migration belongs to munich.</b> That holds because munich
+    /// was the only fab when spec 013 landed. It does not hold for a database
+    /// that predates spec 013 in some other fab — there, these rules would be
+    /// attributed to a fab nobody operates, and would simply stop firing. A
+    /// fresh deployment is unaffected either way: the table is empty when this
+    /// runs, so the backfill touches nothing.
+    /// </para>
+    ///
+    /// <para>
+    /// Since the assumption cannot be checked from inside the database — the
+    /// old rows carry no fab, which is the entire point — the backfill counts
+    /// what it changed and says so. On a fresh deployment that is silent; on a
+    /// populated one it puts the assumption in the migration log at the moment
+    /// it is applied, rather than leaving it to be discovered when rules stop
+    /// firing.
     /// </para>
     ///
     /// <para>
@@ -53,7 +72,23 @@ namespace SmartSentinelEye.Automation.Infrastructure.Persistence.Migrations
             // 2 — backfill. Rules authored before this feature belong to the
             // single live fab; archiving them instead would have stopped
             // automation that is currently running (spec 013 Assumptions).
-            migrationBuilder.Sql("UPDATE rules SET fab = 'munich' WHERE fab IS NULL;");
+            //
+            // Warns rather than fails: refusing would block a deployment whose
+            // rules really are munich's, which is every deployment that exists.
+            // The warning is for the one case this cannot detect.
+            migrationBuilder.Sql("""
+                DO $$
+                DECLARE attributed integer;
+                BEGIN
+                    UPDATE rules SET fab = 'munich' WHERE fab IS NULL;
+                    GET DIAGNOSTICS attributed = ROW_COUNT;
+                    IF attributed > 0 THEN
+                        RAISE WARNING
+                            'FabScopeRules attributed % pre-existing rule(s) to fab ''munich''. If this database belongs to another fab, those rules now match no event and will not fire.',
+                            attributed;
+                    END IF;
+                END $$;
+                """);
 
             // 3 — now the constraint can hold.
             migrationBuilder.AlterColumn<string>(
@@ -94,6 +129,12 @@ namespace SmartSentinelEye.Automation.Infrastructure.Persistence.Migrations
                 name: "ux_rules_fab_name_active",
                 table: "rules");
 
+            // Dropping the column discards which fab each rule belonged to,
+            // and rolling forward again re-backfills every one of them to
+            // munich. That is unrecoverable from inside the database, so a
+            // rollback after rules have been authored across fabs wants a dump
+            // taken first. The index conflict below is the louder failure; this
+            // is the quieter and worse one.
             migrationBuilder.DropColumn(
                 name: "fab",
                 table: "rules");
