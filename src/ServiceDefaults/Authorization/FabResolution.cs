@@ -10,10 +10,11 @@ namespace SmartSentinelEye.ServiceDefaults.Authorization;
 ///
 /// <para>
 /// Extracted from the endpoint so the decision table can be tested directly.
-/// The multi-fab branch cannot be reached in the current deployment — the
-/// realm has one fab group and no multi-fab user — so it would otherwise
-/// ship with no coverage at all, which is exactly the branch most likely to
-/// regress unnoticed.
+/// That mattered more than usual while the realm had a single fab group and
+/// no multi-fab user: the multi-fab branch was unreachable end to end, so
+/// these unit tests were its only coverage. The realm now seeds a second fab
+/// and a multi-fab operator, and <c>RuleFabResolutionIntegrationTests</c>
+/// drives the same rows over HTTP.
 /// </para>
 ///
 /// <para>

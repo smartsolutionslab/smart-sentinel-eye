@@ -111,7 +111,7 @@ lands in their fab; repeat as a multi-fab operator and the attempt is refused.
 - [x] T033 [US3] Thread the resolved fab into `src/Automation/Application/Commands/CreateRuleCommand.cs` and `Handlers/CreateRuleCommandHandler.cs`.
 - [x] T034 [US3] Add `RuleFabRequired` and, if reachable per the contract, `RuleFabAmbiguous` to `src/Automation/Application/Commands/CreateRuleErrors.cs` and the query error unions, following the `ApiError(Code, Message, HttpStatusCode)` shape.
 - [x] T035 [P] [US3] Add endpoint-level tests covering all four rows of the resolution table in contracts/rules-api.md, including the no-fabs caller.
-- [ ] T036 [US3] Add `tests/Integration.Tests/Automation/RuleFabResolutionIntegrationTests.cs` with a multi-fab operator: refused without `fabId`, accepted with one of theirs, refused with one they lack.
+- [x] T036 [US3] Add `tests/Integration.Tests/Automation/RuleFabResolutionIntegrationTests.cs` with a multi-fab operator: refused without `fabId`, accepted with one of theirs, refused with one they lack.
 
 **Checkpoint**: quickstart.md §3 passes.
 
@@ -198,13 +198,13 @@ Delivered in #1299; the remainder of the checkboxes were ticked afterwards, so
 this section records what was **not** done rather than leaving three lines
 unexplained.
 
-**T036 — not done.** `RuleFabResolutionIntegrationTests.cs` was never written.
-All four rows of the resolution table are covered by `FabResolutionTests`
-against synthetic principals, and the single-fab inference path is covered over
-real HTTP by
-`CrossFabEvaluationIntegrationTests.Authoring_without_naming_a_fab_infers_the_operators_own`.
-What is missing is the multi-fab refusal over HTTP, which needs a second fab
-group and a multi-fab operator in the realm — neither exists yet.
+**T036 — done, after the realm gained a second fab.** It was blocked on there
+being no principal that could reach the multi-fab branch: the realm defined
+`/fabs/munich` and nothing else. It now seeds `/fabs/dresden`,
+`op-dresden@dresden.test` and `op-multi@smart-sentinel-eye.test`, and
+`RuleFabResolutionIntegrationTests` drives the resolution table over real HTTP
+— including the `RULE_FAB_AMBIGUOUS` read, which until then could only be
+reached from a unit test.
 
 **T040 — file added, tests skipped.** `e2e/rules.spec.ts` exists but every test
 in it is skipped, so it covers nothing at runtime. It was first blocked by
@@ -212,11 +212,11 @@ in it is skipped, so it covers nothing at runtime. It was first blocked by
 fab on a rule row and sends none when authoring, so the assertions describe a
 UI that does not exist.
 
-**T044 — not done.** quickstart.md was never walked end to end against a live
-stack. Its own preamble explains why: sections 1, 2 and 4 need a `dresden`
-group and an operator assigned to it, and the seeded realm has one fab. The
-migration check and section 3 are covered by
-`CrossFabEvaluationIntegrationTests`.
+**T044 — still not done, but no longer blocked.** quickstart.md has never been
+walked end to end against a live stack. The reason it could not be — sections
+1, 2 and 4 needing a `dresden` group — is gone; every section is now runnable
+as written. What remains is somebody actually doing it and recording what they
+saw.
 
 **T031 and T039 landed elsewhere.** Both name
 `RuleLifecycleIntegrationTests.cs`; the cases went into

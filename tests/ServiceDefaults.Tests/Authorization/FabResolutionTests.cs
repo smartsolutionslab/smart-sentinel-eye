@@ -9,12 +9,18 @@ namespace SmartSentinelEye.ServiceDefaults.Tests.Authorization;
 /// The ADR-0114 decision table, exercised directly.
 ///
 /// <para>
-/// These exist because the multi-fab rows have no reachable user: the realm
-/// defines one fab group and every seeded account is in it or in none, so
-/// FR-009 — refuse a multi-fab operator who names no fab — cannot be driven
-/// through an integration test. It is also the branch that will never execute
-/// in the current single-fab deployment, which makes it the one most likely
-/// to rot unnoticed.
+/// These originally existed because the multi-fab rows had no reachable user:
+/// the realm defined one fab group, so FR-009 — refuse a multi-fab operator
+/// who names no fab — could not be driven through an integration test at all.
+/// The realm now seeds <c>/fabs/dresden</c> and
+/// <c>op-multi@smart-sentinel-eye.test</c>, and
+/// <c>RuleFabResolutionIntegrationTests</c> covers the same rows over HTTP.
+/// </para>
+///
+/// <para>
+/// They are kept rather than folded into that suite: driving the table
+/// directly costs milliseconds and no stack, and it distinguishes a bug in
+/// the decision from a bug in the plumbing around it.
 /// </para>
 /// </summary>
 public class FabResolutionTests
