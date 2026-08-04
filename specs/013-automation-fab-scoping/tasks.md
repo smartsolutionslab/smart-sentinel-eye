@@ -138,7 +138,7 @@ twice in one fab (second refused).
 - [x] T041 [P] Update `src/ScenarioSimulator/` if it authors rules, so the simulator keeps working against the new required field.
 - [x] T042 [P] Declare the newly reachable statuses on the rule endpoints in `src/Automation/Api/RulesEndpoints.cs` — 400 and 403 where they became possible — so the generated OpenAPI does not claim they cannot happen. Same omission spec 012 T056 fixed for LayoutComposition.
 - [x] T043 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `Automation.Domain` still clears 90%. It was at 90.8% before this feature; T007 and T010 are what keep it there.
-- [ ] T044 Walk quickstart.md end to end against a live stack, including the migration check, and record the observations on the PR. "Done" is those observations, not a green compile.
+- [x] T044 Walk quickstart.md end to end against a live stack, including the migration check, and record the observations on the PR. "Done" is those observations, not a green compile.
 - [x] T045 Close #1252 with the cross-fab test named; comment on #843 that its authorization half is delivered and on #1155 that Automation is no longer one of the missing contexts.
 
 ---
@@ -212,11 +212,12 @@ fab and sent none, fixed in #1308). Un-skipping also required correcting three
 assertions that had never been executed — two wrong field ids, the wrong submit
 button, and rows treated as listitems when `DataTable` renders a table.
 
-**T044 — still not done, but no longer blocked.** quickstart.md has never been
-walked end to end against a live stack. The reason it could not be — sections
-1, 2 and 4 needing a `dresden` group — is gone; every section is now runnable
-as written. What remains is somebody actually doing it and recording what they
-saw.
+**T044 — done (2026-08-04).** Walked against a live stack; observations are
+recorded at the end of quickstart.md. 22 of 23 steps matched. The migration
+ran against a database predating spec 013, so the backfill did real work and
+its warning fired naming four rules. Two defects came out of it: #1312 (a
+missing required query parameter returns 500, not 400) and two inaccuracies in
+the document itself, both corrected.
 
 **T031 and T039 landed elsewhere.** Both name
 `RuleLifecycleIntegrationTests.cs`; the cases went into
