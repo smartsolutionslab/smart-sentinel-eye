@@ -22,7 +22,8 @@
     {
       "name": "fabs",
       "subGroups": [
-        { "name": "munich", "path": "/fabs/munich" }
+        { "name": "munich", "path": "/fabs/munich" },
+        { "name": "dresden", "path": "/fabs/dresden" }
       ]
     }
   ],
@@ -308,6 +309,32 @@
       ],
       "realmRoles": ["user"],
       "groups": ["/fabs/munich"]
+    },
+    {
+      "username": "op-dresden@dresden.test",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "op-dresden@dresden.test",
+      "firstName": "Dresden",
+      "lastName": "Operator",
+      "credentials": [
+        { "type": "password", "value": "Operator1234", "temporary": false }
+      ],
+      "realmRoles": ["user"],
+      "groups": ["/fabs/dresden"]
+    },
+    {
+      "username": "op-multi@smart-sentinel-eye.test",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "op-multi@smart-sentinel-eye.test",
+      "firstName": "Multi-fab",
+      "lastName": "Operator",
+      "credentials": [
+        { "type": "password", "value": "Operator1234", "temporary": false }
+      ],
+      "realmRoles": ["user"],
+      "groups": ["/fabs/munich", "/fabs/dresden"]
     },
     {
       "username": "service-account-identity-admin",

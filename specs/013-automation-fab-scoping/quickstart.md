@@ -4,16 +4,22 @@
 
 How to see the two defects closed, by hand, against a running stack.
 
-> **The seeded realm has one fab.** `smart-sentinel-eye-realm.json` defines
-> `/fabs/munich` and nothing else, and every seeded account is in it or in no
-> fab at all. Sections 1, 2 and 4 below **cannot be run as written** without
-> first adding a `dresden` group and an operator assigned to it.
+> **The realm now seeds two fabs.** `smart-sentinel-eye-realm.json` defines
+> `/fabs/munich` and `/fabs/dresden`, with three operator shapes to sign in
+> as:
 >
-> That edit carries a trap: the persistent `keycloak-data` volume keeps a
-> stale realm, so the change is silently ignored in an existing environment
-> until the volume is dropped. The symptom is a 403 with no obvious cause.
+> | Account | Password | Fabs |
+> |---|---|---|
+> | `op-3@munich.test` | `Operator1234` | munich |
+> | `op-dresden@dresden.test` | `Operator1234` | dresden |
+> | `op-multi@smart-sentinel-eye.test` | `Operator1234` | munich + dresden |
 >
-> Section 3 and the migration check run against the seeded realm unchanged.
+> Every section below is now runnable as written.
+>
+> **One trap when picking this up in an existing environment:** the
+> persistent `keycloak-data` volume keeps a stale realm, so the second fab
+> will simply not be there until the volume is dropped. The symptom is a 403
+> with no obvious cause, or a sign-in that fails for the new accounts.
 >
 > The walkthrough is a way to *see* the behaviour, not the only evidence for
 > it. What is verified automatically today:
@@ -22,8 +28,8 @@ How to see the two defects closed, by hand, against a running stack.
 > |---|---|
 > | §1 cross-fab firing | `RuleEvaluatorTests`, `FabEventIngestedV1HandlerTests` — unit, checked against two reproductions of #1252 |
 > | §2 unreachable across fabs | `CrossFabEvaluationIntegrationTests` — real stack |
-> | §3 inference | `Authoring_without_naming_a_fab_infers_the_operators_own` — real stack; `FabResolutionTests` — all four rows |
-> | §4 same name in two fabs | `The_same_rule_name_is_accepted_in_two_fabs` — real stack |
+> | §3 inference | `Authoring_without_naming_a_fab_infers_the_operators_own` — real stack; `FabResolutionTests` — all four rows; `RuleFabResolutionIntegrationTests` — the multi-fab rows over HTTP |
+> | §4 same name in two fabs | `The_same_rule_name_is_accepted_in_two_fabs` — real stack; `A_name_held_in_two_of_the_callers_fabs_is_refused_as_ambiguous` — the read side of the collision |
 > | migration | `CrossFabEvaluationIntegrationTests`, plus the SQL check below |
 
 Bring the stack up with `dotnet run --project src/AppHost` and wait for
