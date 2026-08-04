@@ -1,6 +1,9 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
+using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 
@@ -31,21 +34,59 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
         problem.GetProperty("title").GetString().ShouldBe("RESOURCE_FAB_NOT_AUTHORIZED");
     }
 
+    /// <summary>
+    /// The invariant is "never a fab the caller does not hold" — not "always
+    /// the caller's own fab". A cross-fab row carries no fab and so belongs to
+    /// nobody's fab; excluding it hid camera, stream, layout, overlay and
+    /// variable history from every operator, since all of those publish
+    /// without one (#1300).
+    ///
+    /// <para>
+    /// Seeds both a foreign row and a cross-fab row rather than asserting over
+    /// whatever the run happens to have produced: the loop this replaced would
+    /// have passed on an empty page.
+    /// </para>
+    /// </summary>
     [Fact]
-    public async Task Search_without_a_fab_filter_is_scoped_to_the_callers_fab_membership()
+    public async Task Search_without_a_fab_filter_returns_the_callers_fabs_and_cross_fab_rows()
     {
+        await SeedAsync(Row("berlin"), Row(fab: null));
+
         using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", "Admin1234");
 
-        HttpResponseMessage response = await client.GetAsync("/audit?pageSize=50");
+        HttpResponseMessage response = await client.GetAsync("/audit?pageSize=200");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
-        foreach (JsonElement row in page.GetProperty("rows").EnumerateArray())
-        {
-            // A fab-scoped caller sees only its own fab's rows; cross-fab
-            // rows (those without a fab) are excluded for a fab member.
-            row.GetProperty("fab").GetString().ShouldBe("munich");
-        }
+        JsonElement[] rows = [.. page.GetProperty("rows").EnumerateArray()];
+
+        string?[] fabs = [.. rows.Select(row => row.GetProperty("fab").GetString())];
+        fabs.ShouldNotContain("berlin");
+        fabs.ShouldContain((string?)null, "a cross-fab row must be readable by a fab-assigned caller");
+    }
+
+    private static AuditEvent Row(string? fab) =>
+        AuditEvent.From(
+            new V1Envelope(
+                EventTypeName: "CameraRegisteredV1",
+                OccurredAt: DateTimeOffset.UtcNow,
+                Fab: fab is null
+                    ? Option<FabIdentifier>.None
+                    : Option<FabIdentifier>.Some(FabIdentifier.From(fab)),
+                Actor: ActorIdentifier.System,
+                ActorUsername: Option<string>.None,
+                EventIdentifier: EventIdentifier.From(Guid.CreateVersion7()),
+                Payload: """{"seeded":"cross-fab-read-guard"}"""),
+            V1Mapping.Unmapped,
+            new SystemClock());
+
+    private async Task SeedAsync(params AuditEvent[] events)
+    {
+        await using AuditObservabilityDbContext context =
+            await aspire.CreateAuditObservabilityDbContextAsync();
+
+        context.AuditEvents.AddRange(events);
+        await context.SaveChangesAsync();
     }
 }

@@ -45,9 +45,8 @@ public class SearchAuditQueryHandlerTests
     {
         AuditEventEntity munich = new AuditEventBuilder().WithFab("munich").Build();
         AuditEventEntity berlin = new AuditEventBuilder().WithFab("berlin").Build();
-        AuditEventEntity unscoped = new AuditEventBuilder().WithFab(null).Build();
 
-        SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, berlin, unscoped]));
+        SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, berlin]));
 
         Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
             DefaultQuery(fab: null, callerFabs: ["munich"]), default);
@@ -55,6 +54,65 @@ public class SearchAuditQueryHandlerTests
         result.IsSuccess.ShouldBeTrue();
         result.Value.Rows.Count.ShouldBe(1);
         result.Value.Rows[0].Fab.ShouldBe("munich");
+    }
+
+    /// <summary>
+    /// This assertion is the inverse of what it used to be, deliberately.
+    ///
+    /// <para>
+    /// A cross-fab row carries no fab, so it is not another fab's business to
+    /// withhold — but the filter required <c>Fab != null</c>, which made those
+    /// rows readable only by a caller belonging to no fab. Since every real
+    /// operator belongs to one, and camera, stream, layout, overlay and
+    /// variable events all publish without a fab, that whole class of row was
+    /// invisible to everybody (#1300).
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_caller_with_fabs_sees_cross_fab_rows_alongside_their_own()
+    {
+        AuditEventEntity munich = new AuditEventBuilder().WithFab("munich").Build();
+        AuditEventEntity berlin = new AuditEventBuilder().WithFab("berlin").Build();
+        AuditEventEntity unscoped = new AuditEventBuilder().WithFab(null).Build();
+
+        SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, berlin, unscoped]));
+
+        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
+            DefaultQuery(fab: null, callerFabs: ["munich"]), default);
+
+        result.Value.Rows.Select(row => row.Fab).ShouldBe(["munich", null], ignoreOrder: true);
+    }
+
+    [Fact]
+    public async Task Naming_a_fab_still_excludes_cross_fab_rows()
+    {
+        // Asking for one fab is a narrower question than "what may I see": a
+        // row with no fab is not in munich, so it is not an answer to it.
+        AuditEventEntity munich = new AuditEventBuilder().WithFab("munich").Build();
+        AuditEventEntity unscoped = new AuditEventBuilder().WithFab(null).Build();
+
+        SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, unscoped]));
+
+        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
+            DefaultQuery(fab: "munich", callerFabs: ["munich"]), default);
+
+        result.Value.Rows.Count.ShouldBe(1);
+        result.Value.Rows[0].Fab.ShouldBe("munich");
+    }
+
+    [Fact]
+    public async Task A_caller_with_no_fabs_still_sees_only_cross_fab_rows()
+    {
+        AuditEventEntity munich = new AuditEventBuilder().WithFab("munich").Build();
+        AuditEventEntity unscoped = new AuditEventBuilder().WithFab(null).Build();
+
+        SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, unscoped]));
+
+        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
+            DefaultQuery(fab: null, callerFabs: []), default);
+
+        result.Value.Rows.Count.ShouldBe(1);
+        result.Value.Rows[0].Fab.ShouldBeNull();
     }
 
     [Fact]
