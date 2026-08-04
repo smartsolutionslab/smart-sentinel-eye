@@ -25,11 +25,11 @@ worth shipping on their own.
 **Purpose**: Record the decision and remove the duplication before either is
 built on. No project initialisation — this is an existing context.
 
-- [ ] T001 Write `docs/adr/0114-fab-inferred-for-single-fab-operators.md` recording FR-013: inferring a rule's fab from a single-fab operator, why it was chosen over requiring `fabId` on every request, and that it contradicts the "no implicit current fab" position. A **new** ADR, not an amendment — research.md R5 found no ADR asserts that position; it exists only as an XML comment.
-- [ ] T002 Correct the contradicted comment in `src/ServiceDefaults/Authorization/IFabAuthorizationGuard.cs` (the `<para>` beginning "Multi-fab users") to point at ADR-0114 instead of asserting there is no implicit current fab.
-- [ ] T003 [P] Promote fab enumeration to `src/ServiceDefaults/Authorization/FabClaims.cs`, moving the body of the private `ExtractFabSet` from `src/AuditObservability/Api/AuditEndpoints.cs:148`. Keep it **off** `IFabAuthorizationGuard` — that interface answers one question and every test double would otherwise grow a method it does not use (research.md R2).
-- [ ] T004 [P] Cover `FabClaims` in `tests/ServiceDefaults.Tests/Authorization/FabClaimsTests.cs`: space- and tab-separated group claims, repeated single-value claims, entries without the `/fabs/` prefix ignored, and no groups at all yielding an empty set.
-- [ ] T005 Replace `ExtractFabSet` in `src/AuditObservability/Api/AuditEndpoints.cs` with the shared helper and delete the private copy. Run `tests/Integration.Tests/AuditObservability/` to confirm audit fab filtering is unchanged.
+- [x] T001 Write `docs/adr/0114-fab-inferred-for-single-fab-operators.md` recording FR-013: inferring a rule's fab from a single-fab operator, why it was chosen over requiring `fabId` on every request, and that it contradicts the "no implicit current fab" position. A **new** ADR, not an amendment — research.md R5 found no ADR asserts that position; it exists only as an XML comment.
+- [x] T002 Correct the contradicted comment in `src/ServiceDefaults/Authorization/IFabAuthorizationGuard.cs` (the `<para>` beginning "Multi-fab users") to point at ADR-0114 instead of asserting there is no implicit current fab.
+- [x] T003 [P] Promote fab enumeration to `src/ServiceDefaults/Authorization/FabClaims.cs`, moving the body of the private `ExtractFabSet` from `src/AuditObservability/Api/AuditEndpoints.cs:148`. Keep it **off** `IFabAuthorizationGuard` — that interface answers one question and every test double would otherwise grow a method it does not use (research.md R2).
+- [x] T004 [P] Cover `FabClaims` in `tests/ServiceDefaults.Tests/Authorization/FabClaimsTests.cs`: space- and tab-separated group claims, repeated single-value claims, entries without the `/fabs/` prefix ignored, and no groups at all yielding an empty set.
+- [x] T005 Replace `ExtractFabSet` in `src/AuditObservability/Api/AuditEndpoints.cs` with the shared helper and delete the private copy. Run `tests/Integration.Tests/AuditObservability/` to confirm audit fab filtering is unchanged.
 
 ---
 
@@ -41,15 +41,15 @@ against the real shape.
 
 **⚠️ Blocks every user story below.**
 
-- [ ] T006 [P] Add `src/Automation/Domain/Rule/FabIdentifier.cs` as a `StringValueObject` with `From(...)` + `Ensure.That(...)`, mirroring `src/Identity/Domain/RegisteredClient/FabIdentifier.cs` so the same fab string validates identically on both sides. Automation's own copy — constitution §III forbids referencing Identity's (research.md R1).
-- [ ] T007 [P] Add `tests/Automation.Domain.Tests/Rule/FabIdentifierTests.cs` covering the grammar, rejection of null/whitespace, and equality. Lands **with** T006, not after — see the coverage note above.
-- [ ] T008 Add `Fab` to `src/Automation/Domain/Rule/Rule.cs`: private setter, required by `Create`, never mutated afterwards. Do not add a `MoveToFab` — relocation is out of scope (spec Assumptions).
-- [ ] T009 Add `WithFab` to `tests/Automation.Domain.Tests/Rule/RuleBuilder.cs`, defaulting to `munich` so existing call sites stay readable.
-- [ ] T010 Extend `tests/Automation.Domain.Tests/Rule/RuleStateMachineTests.cs` to assert `Fab` survives `Publish` and `Archive` unchanged.
-- [ ] T011 Map the column in `src/Automation/Infrastructure/Persistence/Configurations/RuleConfiguration.cs`: `fab` NOT NULL; unique index `(fab, name)` replacing `(name)`; lookup index gains `fab` as its leading column.
-- [ ] T012 Generate the EF migration under `src/Automation/Infrastructure/Persistence/Migrations/`. Order per data-model.md: add nullable → backfill `'munich'` → set NOT NULL → drop and recreate both indexes **in the same migration**, so uniqueness is never absent in a released state. `'munich'` is a literal, not configuration (research.md R4).
-- [ ] T013 Change `GetByNameAsync` to take a `FabIdentifier` in `src/Automation/Domain/Rule/IRuleRepository.cs` and `src/Automation/Infrastructure/Persistence/RuleRepository.cs`. Without it a now-per-fab-unique name can return another fab's rule, and the `If-Match` check would then compare the wrong aggregate (research.md R6).
-- [ ] T014 Update `tests/Automation.Application.Tests/Fakes/InMemoryRuleRepository.cs` to match, filtering by fab and name together.
+- [x] T006 [P] Add `src/Automation/Domain/Rule/FabIdentifier.cs` as a `StringValueObject` with `From(...)` + `Ensure.That(...)`, mirroring `src/Identity/Domain/RegisteredClient/FabIdentifier.cs` so the same fab string validates identically on both sides. Automation's own copy — constitution §III forbids referencing Identity's (research.md R1).
+- [x] T007 [P] Add `tests/Automation.Domain.Tests/Rule/FabIdentifierTests.cs` covering the grammar, rejection of null/whitespace, and equality. Lands **with** T006, not after — see the coverage note above.
+- [x] T008 Add `Fab` to `src/Automation/Domain/Rule/Rule.cs`: private setter, required by `Create`, never mutated afterwards. Do not add a `MoveToFab` — relocation is out of scope (spec Assumptions).
+- [x] T009 Add `WithFab` to `tests/Automation.Domain.Tests/Rule/RuleBuilder.cs`, defaulting to `munich` so existing call sites stay readable.
+- [x] T010 Extend `tests/Automation.Domain.Tests/Rule/RuleStateMachineTests.cs` to assert `Fab` survives `Publish` and `Archive` unchanged.
+- [x] T011 Map the column in `src/Automation/Infrastructure/Persistence/Configurations/RuleConfiguration.cs`: `fab` NOT NULL; unique index `(fab, name)` replacing `(name)`; lookup index gains `fab` as its leading column.
+- [x] T012 Generate the EF migration under `src/Automation/Infrastructure/Persistence/Migrations/`. Order per data-model.md: add nullable → backfill `'munich'` → set NOT NULL → drop and recreate both indexes **in the same migration**, so uniqueness is never absent in a released state. `'munich'` is a literal, not configuration (research.md R4).
+- [x] T013 Change `GetByNameAsync` to take a `FabIdentifier` in `src/Automation/Domain/Rule/IRuleRepository.cs` and `src/Automation/Infrastructure/Persistence/RuleRepository.cs`. Without it a now-per-fab-unique name can return another fab's rule, and the `If-Match` check would then compare the wrong aggregate (research.md R6).
+- [x] T014 Update `tests/Automation.Application.Tests/Fakes/InMemoryRuleRepository.cs` to match, filtering by fab and name together.
 
 **Checkpoint**: Solution builds, migration applies to a populated database, and every pre-existing rule reports `munich`.
 
@@ -65,15 +65,15 @@ with different targets. Send an event from the first fab; only its rule acts.
 **This phase alone closes the unattended defect, with no authorization work
 done. The branch is worth shipping at this checkpoint.**
 
-- [ ] T015 [US1] Add `Fab` to `src/Automation/Application/Evaluation/CompiledRule.cs` so the cache can key on it.
-- [ ] T016 [US1] Change `LookupActive` to take a fab in `src/Automation/Application/Evaluation/IRuleCache.cs`.
-- [ ] T017 [US1] Key `_byTrigger` on `(fab, source, kind)` in `src/Automation/Infrastructure/Cache/InMemoryRuleCache.cs`. **Widen the key — do not filter the returned bucket.** Filtering makes lookup cost grow with other fabs' rule counts, which fails SC-007 on the axis this system scales along and sits inside the 200 ms event→overlay-state budget (research.md R3).
-- [ ] T018 [US1] Thread the fab through `Evaluate` in `src/Automation/Application/Evaluation/RuleEvaluator.cs`.
-- [ ] T019 [US1] Pass `message.Fab` into evaluation in `src/Automation/Application/EventHandlers/FabEventIngestedV1Handler.cs`, and return without evaluating when the event carries no fab (FR-012).
-- [ ] T020 [US1] Populate `Fab` when building compiled rules in `src/Automation/Infrastructure/Cache/RuleCacheSeederHostedService.cs`.
-- [ ] T021 [P] [US1] Add cross-fab cases to `tests/Automation.Application.Tests/Evaluation/RuleEvaluatorTests.cs`: a rule in another fab is not returned; a matching rule in the event's own fab is; an event with no fab returns nothing.
-- [ ] T022 [P] [US1] Add `tests/Automation.Application.Tests/EventHandlers/FabEventIngestedV1HandlerTests.cs` cases asserting the **downstream effect** — that no `SystemVariableValueRequestedV1` is published for another fab's rule. Assert the published messages, not just that evaluation returned empty; a handler that evaluated correctly but published anyway would pass the weaker check.
-- [ ] T023 [US1] Add `tests/Integration.Tests/Automation/CrossFabEvaluationIntegrationTests.cs`: seed one active rule per fab on the same trigger, ingest an event from one fab, and assert the other fab's target variable is untouched **and** the resulting change is attributed to the ingesting fab (FR-003).
+- [x] T015 [US1] Add `Fab` to `src/Automation/Application/Evaluation/CompiledRule.cs` so the cache can key on it.
+- [x] T016 [US1] Change `LookupActive` to take a fab in `src/Automation/Application/Evaluation/IRuleCache.cs`.
+- [x] T017 [US1] Key `_byTrigger` on `(fab, source, kind)` in `src/Automation/Infrastructure/Cache/InMemoryRuleCache.cs`. **Widen the key — do not filter the returned bucket.** Filtering makes lookup cost grow with other fabs' rule counts, which fails SC-007 on the axis this system scales along and sits inside the 200 ms event→overlay-state budget (research.md R3).
+- [x] T018 [US1] Thread the fab through `Evaluate` in `src/Automation/Application/Evaluation/RuleEvaluator.cs`.
+- [x] T019 [US1] Pass `message.Fab` into evaluation in `src/Automation/Application/EventHandlers/FabEventIngestedV1Handler.cs`, and return without evaluating when the event carries no fab (FR-012).
+- [x] T020 [US1] Populate `Fab` when building compiled rules in `src/Automation/Infrastructure/Cache/RuleCacheSeederHostedService.cs`.
+- [x] T021 [P] [US1] Add cross-fab cases to `tests/Automation.Application.Tests/Evaluation/RuleEvaluatorTests.cs`: a rule in another fab is not returned; a matching rule in the event's own fab is; an event with no fab returns nothing.
+- [x] T022 [P] [US1] Add `tests/Automation.Application.Tests/EventHandlers/FabEventIngestedV1HandlerTests.cs` cases asserting the **downstream effect** — that no `SystemVariableValueRequestedV1` is published for another fab's rule. Assert the published messages, not just that evaluation returned empty; a handler that evaluated correctly but published anyway would pass the weaker check.
+- [x] T023 [US1] Add `tests/Integration.Tests/Automation/CrossFabEvaluationIntegrationTests.cs`: seed one active rule per fab on the same trigger, ingest an event from one fab, and assert the other fab's target variable is untouched **and** the resulting change is attributed to the ingesting fab (FR-003).
 
 **Checkpoint**: #1252 is closed and demonstrable via quickstart.md §1.
 
@@ -86,14 +86,14 @@ done. The branch is worth shipping at this checkpoint.**
 **Independent test**: As a single-fab operator, list rules and request another
 fab's rule by name; only own-fab rules appear and the direct request is refused.
 
-- [ ] T024 [US2] Apply `IFabAuthorizationGuard.EnsureAccessAsync` to every rule endpoint in `src/Automation/Api/RulesEndpoints.cs` — create, publish, archive, list, get, **and dry-run**. Call it right after model binding and **before** `ConcurrencyHeaders` is read (research.md R6).
-- [ ] T025 [US2] Thread the fab into `src/Automation/Application/Queries/ListRulesQuery.cs` and `Handlers/ListRulesQueryHandler.cs`, narrowing results to the caller's fabs (FR-005).
-- [ ] T026 [US2] Thread the fab into `src/Automation/Application/Queries/GetRuleQuery.cs` and `Handlers/GetRuleQueryHandler.cs`, returning the **not-found** shape for another fab's rule (FR-007) — not 403, which would confirm the rule exists and let an operator enumerate names one guess at a time.
-- [ ] T027 [US2] Thread the fab into `src/Automation/Application/Queries/DryRunRuleQuery.cs` and `Handlers/DryRunRuleQueryHandler.cs`. Leave dry-run's **absence of `If-Match` untouched** — spec 012 T048 pinned that with a test and this feature does not change it.
-- [ ] T028 [US2] Thread the fab into `src/Automation/Application/Commands/PublishRuleCommand.cs`, `ArchiveRuleCommand.cs` and their handlers, comparing fab before version.
-- [ ] T029 [US2] Add `Fab` to `src/Automation/Application/DTOs/RuleDto.cs` and `src/Automation/Application/Queries/Handlers/RuleMapper.cs`.
-- [ ] T030 [P] [US2] Add handler tests under `tests/Automation.Application.Tests/Queries/` and `Commands/` for the refusal paths, asserting a foreign-fab rule is indistinguishable from an absent one.
-- [ ] T031 [US2] Extend `tests/Integration.Tests/Automation/RuleLifecycleIntegrationTests.cs` (and `RuleReadIntegrationTests.cs`) with an operator who cannot reach another fab's rule via get, publish, archive or dry-run, asserting **byte-identical** responses for "not yours" and "does not exist".
+- [x] T024 [US2] Apply `IFabAuthorizationGuard.EnsureAccessAsync` to every rule endpoint in `src/Automation/Api/RulesEndpoints.cs` — create, publish, archive, list, get, **and dry-run**. Call it right after model binding and **before** `ConcurrencyHeaders` is read (research.md R6).
+- [x] T025 [US2] Thread the fab into `src/Automation/Application/Queries/ListRulesQuery.cs` and `Handlers/ListRulesQueryHandler.cs`, narrowing results to the caller's fabs (FR-005).
+- [x] T026 [US2] Thread the fab into `src/Automation/Application/Queries/GetRuleQuery.cs` and `Handlers/GetRuleQueryHandler.cs`, returning the **not-found** shape for another fab's rule (FR-007) — not 403, which would confirm the rule exists and let an operator enumerate names one guess at a time.
+- [x] T027 [US2] Thread the fab into `src/Automation/Application/Queries/DryRunRuleQuery.cs` and `Handlers/DryRunRuleQueryHandler.cs`. Leave dry-run's **absence of `If-Match` untouched** — spec 012 T048 pinned that with a test and this feature does not change it.
+- [x] T028 [US2] Thread the fab into `src/Automation/Application/Commands/PublishRuleCommand.cs`, `ArchiveRuleCommand.cs` and their handlers, comparing fab before version.
+- [x] T029 [US2] Add `Fab` to `src/Automation/Application/DTOs/RuleDto.cs` and `src/Automation/Application/Queries/Handlers/RuleMapper.cs`.
+- [x] T030 [P] [US2] Add handler tests under `tests/Automation.Application.Tests/Queries/` and `Commands/` for the refusal paths, asserting a foreign-fab rule is indistinguishable from an absent one.
+- [x] T031 [US2] Extend `tests/Integration.Tests/Automation/RuleLifecycleIntegrationTests.cs` (and `RuleReadIntegrationTests.cs`) with an operator who cannot reach another fab's rule via get, publish, archive or dry-run, asserting **byte-identical** responses for "not yours" and "does not exist".
 
 **Checkpoint**: quickstart.md §2 passes.
 
@@ -107,10 +107,10 @@ must name one.
 **Independent test**: Author as a single-fab operator with no `fabId` and it
 lands in their fab; repeat as a multi-fab operator and the attempt is refused.
 
-- [ ] T032 [US3] Add fab resolution to `src/Automation/Api/RulesEndpoints.cs` using `FabClaims` (T003): infer when the caller has exactly one fab, refuse `400 RULE_FAB_REQUIRED` when they have several and supplied none, `403` when they name one they lack, and `403` when they have none at all.
-- [ ] T033 [US3] Thread the resolved fab into `src/Automation/Application/Commands/CreateRuleCommand.cs` and `Handlers/CreateRuleCommandHandler.cs`.
-- [ ] T034 [US3] Add `RuleFabRequired` and, if reachable per the contract, `RuleFabAmbiguous` to `src/Automation/Application/Commands/CreateRuleErrors.cs` and the query error unions, following the `ApiError(Code, Message, HttpStatusCode)` shape.
-- [ ] T035 [P] [US3] Add endpoint-level tests covering all four rows of the resolution table in contracts/rules-api.md, including the no-fabs caller.
+- [x] T032 [US3] Add fab resolution to `src/Automation/Api/RulesEndpoints.cs` using `FabClaims` (T003): infer when the caller has exactly one fab, refuse `400 RULE_FAB_REQUIRED` when they have several and supplied none, `403` when they name one they lack, and `403` when they have none at all.
+- [x] T033 [US3] Thread the resolved fab into `src/Automation/Application/Commands/CreateRuleCommand.cs` and `Handlers/CreateRuleCommandHandler.cs`.
+- [x] T034 [US3] Add `RuleFabRequired` and, if reachable per the contract, `RuleFabAmbiguous` to `src/Automation/Application/Commands/CreateRuleErrors.cs` and the query error unions, following the `ApiError(Code, Message, HttpStatusCode)` shape.
+- [x] T035 [P] [US3] Add endpoint-level tests covering all four rows of the resolution table in contracts/rules-api.md, including the no-fabs caller.
 - [ ] T036 [US3] Add `tests/Integration.Tests/Automation/RuleFabResolutionIntegrationTests.cs` with a multi-fab operator: refused without `fabId`, accepted with one of theirs, refused with one they lack.
 
 **Checkpoint**: quickstart.md §3 passes.
@@ -124,9 +124,9 @@ lands in their fab; repeat as a multi-fab operator and the attempt is refused.
 **Independent test**: Author the same name in two fabs (both accepted) and
 twice in one fab (second refused).
 
-- [ ] T037 [US4] Scope the duplicate-name check in `src/Automation/Application/Commands/Handlers/CreateRuleCommandHandler.cs` to the rule's fab, and reword `RULE_NAME_TAKEN` so it says the name is taken *in that fab*.
-- [ ] T038 [P] [US4] Add cases to `tests/Automation.Application.Tests/Commands/CreateRuleCommandHandlerTests.cs` asserting the same name is accepted in a second fab and refused in the same fab.
-- [ ] T039 [US4] Add a case to `tests/Integration.Tests/Automation/RuleLifecycleIntegrationTests.cs` authoring the same name in two fabs, proving the unique index from T012 is `(fab, name)` and not `(name)`.
+- [x] T037 [US4] Scope the duplicate-name check in `src/Automation/Application/Commands/Handlers/CreateRuleCommandHandler.cs` to the rule's fab, and reword `RULE_NAME_TAKEN` so it says the name is taken *in that fab*.
+- [x] T038 [P] [US4] Add cases to `tests/Automation.Application.Tests/Commands/CreateRuleCommandHandlerTests.cs` asserting the same name is accepted in a second fab and refused in the same fab.
+- [x] T039 [US4] Add a case to `tests/Integration.Tests/Automation/RuleLifecycleIntegrationTests.cs` authoring the same name in two fabs, proving the unique index from T012 is `(fab, name)` and not `(name)`.
 
 **Checkpoint**: quickstart.md §4 passes.
 
@@ -135,11 +135,11 @@ twice in one fab (second refused).
 ## Phase 7: Polish & Cross-Cutting
 
 - [ ] T040 [P] Add `e2e/rules.spec.ts` — Automation currently has **no e2e spec at all**. Cover authoring as a single-fab operator (fab inferred) and confirm another fab's rule is absent from the list.
-- [ ] T041 [P] Update `src/ScenarioSimulator/` if it authors rules, so the simulator keeps working against the new required field.
-- [ ] T042 [P] Declare the newly reachable statuses on the rule endpoints in `src/Automation/Api/RulesEndpoints.cs` — 400 and 403 where they became possible — so the generated OpenAPI does not claim they cannot happen. Same omission spec 012 T056 fixed for LayoutComposition.
-- [ ] T043 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `Automation.Domain` still clears 90%. It was at 90.8% before this feature; T007 and T010 are what keep it there.
+- [x] T041 [P] Update `src/ScenarioSimulator/` if it authors rules, so the simulator keeps working against the new required field.
+- [x] T042 [P] Declare the newly reachable statuses on the rule endpoints in `src/Automation/Api/RulesEndpoints.cs` — 400 and 403 where they became possible — so the generated OpenAPI does not claim they cannot happen. Same omission spec 012 T056 fixed for LayoutComposition.
+- [x] T043 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `Automation.Domain` still clears 90%. It was at 90.8% before this feature; T007 and T010 are what keep it there.
 - [ ] T044 Walk quickstart.md end to end against a live stack, including the migration check, and record the observations on the PR. "Done" is those observations, not a green compile.
-- [ ] T045 Close #1252 with the cross-fab test named; comment on #843 that its authorization half is delivered and on #1155 that Automation is no longer one of the missing contexts.
+- [x] T045 Close #1252 with the cross-fab test named; comment on #843 that its authorization half is delivered and on #1155 that Automation is no longer one of the missing contexts.
 
 ---
 
@@ -191,3 +191,34 @@ is bounded today by there being one live fab.
 **Do not reorder** so that authorization lands first. It is the more visible
 half and the one the issues describe, but it is not the one silently
 corrupting data.
+
+## Delivery status (2026-08-04)
+
+Delivered in #1299; the remainder of the checkboxes were ticked afterwards, so
+this section records what was **not** done rather than leaving three lines
+unexplained.
+
+**T036 — not done.** `RuleFabResolutionIntegrationTests.cs` was never written.
+All four rows of the resolution table are covered by `FabResolutionTests`
+against synthetic principals, and the single-fab inference path is covered over
+real HTTP by
+`CrossFabEvaluationIntegrationTests.Authoring_without_naming_a_fab_infers_the_operators_own`.
+What is missing is the multi-fab refusal over HTTP, which needs a second fab
+group and a multi-fab operator in the realm — neither exists yet.
+
+**T040 — file added, tests skipped.** `e2e/rules.spec.ts` exists but every test
+in it is skipped, so it covers nothing at runtime. It was first blocked by
+#1298 (fixed in #1302); it is now blocked by #1303 — management-web renders no
+fab on a rule row and sends none when authoring, so the assertions describe a
+UI that does not exist.
+
+**T044 — not done.** quickstart.md was never walked end to end against a live
+stack. Its own preamble explains why: sections 1, 2 and 4 need a `dresden`
+group and an operator assigned to it, and the seeded realm has one fab. The
+migration check and section 3 are covered by
+`CrossFabEvaluationIntegrationTests`.
+
+**T031 and T039 landed elsewhere.** Both name
+`RuleLifecycleIntegrationTests.cs`; the cases went into
+`CrossFabEvaluationIntegrationTests.cs` instead, where the rest of the fab
+scoping lives. The behaviour is tested; only the file differs.
