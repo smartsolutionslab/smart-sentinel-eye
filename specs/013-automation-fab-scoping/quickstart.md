@@ -42,6 +42,11 @@ first.
 
 1. Author a rule in **munich** that reacts to `plc` / `PlcCycleStart` and
    sets `oeeLine1`, then publish it.
+
+   > Driving this by hand through `POST /events/manual` stamps
+   > `source = manual`, not `plc` — the source is the ingest channel, not
+   > something the caller chooses. Author the rules against
+   > `manual` / `PlcCycleStart` if that is the route you use.
 2. Author a rule in **dresden** with the same trigger, a predicate that
    matches the same payload, and a *different* target variable — say
    `oeeLine9`. Publish it.
@@ -55,6 +60,12 @@ the dresden rule's history shows activity.
 
 Repeat with an event carrying no fab: nothing changes anywhere (FR-012).
 
+> **Not reachable through `POST /events/manual`.** `fabId` is a required
+> query parameter there, so an event with no fab cannot be submitted that
+> way — and omitting it currently returns 500 rather than 400 (#1312).
+> FR-012 is about a message that reaches the bus without a fab, which
+> `FabEventIngestedV1HandlerTests` covers directly.
+
 ## 2. An operator cannot reach another fab's rules (User Story 2)
 
 1. Sign in as an operator assigned to **dresden** only.
@@ -67,6 +78,12 @@ Repeat with an event carrying no fab: nothing changes anywhere (FR-012).
    operator that the rule is unchanged.
 5. `POST /rules/<munich rule>/dry-run` — **404**. A trial run must not be a
    side channel.
+
+> Publish and archive need an `If-Match` header (spec 012, ADR-0113), and
+> the precondition is read *before* the fab is resolved. Without it the
+> answer is **428**, not 404 — for your own rules too, so nothing leaks,
+> but the step above only shows what it means to show if you send
+> `If-Match: "0"`.
 
 ## 3. Authoring picks up the operator's fab (User Story 3)
 
@@ -104,3 +121,37 @@ Every pre-existing rule reports `munich`, and no row has a null fab
 A rule in one fab can still point its action at a variable belonging to
 another. That is out of scope by design (spec Assumptions) and no step above
 will surface it — worth knowing so its absence is not read as a passing test.
+
+## Walked (T044, 2026-08-04)
+
+Against a live stack: `dotnet run --project src/AppHost`, Keycloak realm
+re-imported, migrations Finished, automation Running.
+
+**22 of 23 steps matched.** What was observed:
+
+| Section | Result |
+|---|---|
+| §1 cross-fab firing | **PASS.** munich's variable went `0 → 60`; dresden's stayed `0`. #1252 closed end to end, through the real bus. |
+| §1 event with no fab | **Not reachable this way** — see the note above. |
+| §2 unreachable across fabs | **PASS.** Listing shows only dresden; the munich rule and a nonsense name return byte-identical 404s; publish, archive and dry-run all 404 with a valid `If-Match`, and the rule stays Draft. |
+| §3 inference | **PASS.** dresden-only infers dresden; multi-fab with no `fabId` is 400 `RULE_FAB_REQUIRED` and creates nothing; naming munich creates in munich; naming a fab you lack is 403. |
+| §4 same name in two fabs | **PASS.** 201, 201, 409 `RULE_NAME_TAKEN` — and reading the shared name with no `fabId` is 400 `RULE_FAB_AMBIGUOUS`, naming both candidates. |
+| migration | **PASS.** Applied to a database predating spec 013 with four rules: all four report `munich`, none null, index is `ux_rules_fab_name_active (fab, name) WHERE state <> 'Archived'`. |
+
+The migration ran against a genuinely old database rather than a fresh one,
+so the backfill did real work and announced it:
+
+```
+WARNING:  FabScopeRules attributed 4 pre-existing rule(s) to fab 'munich'.
+          If this database belongs to another fab, those rules now match no
+          event and will not fire.
+```
+
+Two defects found by walking it, neither in spec 013's scope:
+
+- **#1312** — a missing required query parameter returns 500 instead of 400,
+  on every endpoint that has one. Found because §1's no-fab step could not be
+  performed.
+- The document itself was wrong twice, both corrected above: the manual
+  ingest route stamps `source = manual`, and publish/archive need `If-Match`
+  before the fab check is reached.
