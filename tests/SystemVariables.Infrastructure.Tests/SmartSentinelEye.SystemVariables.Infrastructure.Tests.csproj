@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Shouldly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="Shouldly" />
+  </ItemGroup>
+
+  <!-- No reference to SystemVariables.Domain.Tests. T002 anticipated needing
+       its builders, but the reverse index deals only in Guid and string —
+       adding the reference now would be a dependency with no user. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SystemVariables\Infrastructure\SmartSentinelEye.SystemVariables.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
