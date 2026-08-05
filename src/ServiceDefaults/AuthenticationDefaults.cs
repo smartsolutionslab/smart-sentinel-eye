@@ -66,6 +66,9 @@ public static class AuthenticationDefaults
             });
 
         builder.Services.AddSingleton<IFabAuthorizationGuard, DefaultFabAuthorizationGuard>();
+        // First: a request the caller got wrong is not a server failure, and
+        // saying 500 sends them away to retry something that cannot succeed.
+        builder.Services.AddExceptionHandler<BadHttpRequestExceptionHandler>();
         builder.Services.AddExceptionHandler<FabAuthorizationExceptionHandler>();
         builder.Services.AddExceptionHandler<UnattributableOperatorExceptionHandler>();
         builder.Services.AddExceptionHandler<ConcurrencyConflictExceptionHandler>();
