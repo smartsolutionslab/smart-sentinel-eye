@@ -1,6 +1,7 @@
 # ADR-0114: A Rule's Fab Is Inferred for Single-Fab Operators
 
-**Status:** **Accepted**
+**Status:** **Accepted** (amended 2026-08-05 — scope extended to the
+SystemVariables endpoints, see below)
 **Date:** 2026-08-03
 **Supersedes:** —
 **Superseded by:** —
@@ -69,10 +70,11 @@ that only appears once a second fab exists, so it is the case least likely to
 be exercised in practice and most likely to regress; spec 013 T035 and T036
 exist to pin it.
 
-**Constrained.** Inference is deliberately confined to Automation's rule
-endpoints. It is not a general licence, and extending it elsewhere is a new
-decision — not an application of this one. Endpoints outside Automation
-continue to require `fabId` explicitly.
+**Constrained.** Inference is deliberately confined to the endpoints named in
+this decision — originally Automation's rule endpoints, extended to
+SystemVariables by the 2026-08-05 amendment below. It is not a general
+licence, and extending it further is a new decision — not an application of
+this one. Every other endpoint continues to require `fabId` explicitly.
 
 **A risk worth naming.** Inference makes it possible to write an endpoint that
 *looks* fab-scoped while never consulting the caller's claim, because the
@@ -118,3 +120,33 @@ reviewer would look.
 - The fab check runs **before** the `If-Match` precondition (ADR-0113), so a
   caller cannot distinguish "not yours" from "does not exist" by the
   difference between a 403 and a 409.
+
+## Amendment (2026-08-05): scope extended to SystemVariables
+
+The decision is unchanged — inferred for a single-fab operator, refused for a
+multi-fab one who names none, 403 for a fab they do not hold. Only its scope
+widens: the SystemVariables endpoints resolve a fab the same way, using the
+same `FabResolution` and `FabClaims` helpers unchanged.
+
+**Why an amendment rather than a new ADR.** The original reasoning was not
+wrong, so superseding it would misrepresent what happened. What the original
+did was refuse to grant a licence it had no evidence for — "extending it
+elsewhere is a new decision" — and this is that decision, made when a second
+context needed it. Recording it here keeps the constraint and its one
+extension in the same place, which is where a reviewer checking whether a
+third context may infer will look.
+
+**What made it necessary.** Spec 014 fab-scopes system variables (#1310). Its
+endpoints need a fab for exactly the reasons the rule endpoints did, and an
+operator who is never asked which fab a rule belongs to but is asked for a
+variable would be meeting two rules for one concept.
+
+**What has not changed.** The risk named above — that an endpoint can look
+fab-scoped while never consulting the caller's claim — applies equally here,
+and the mitigation is the same: the guard call enforces access, not the
+presence of a parameter. Spec 014 applies it to all five SystemVariables
+endpoints including the non-mutating snapshot read.
+
+**Still not a general licence.** A third context wanting inference is a third
+decision. The list of endpoints this covers is exhaustive and is stated in the
+Consequences above.
