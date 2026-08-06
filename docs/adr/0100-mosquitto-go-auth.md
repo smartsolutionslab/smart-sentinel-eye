@@ -43,6 +43,32 @@ The JSON-from-JWT publish **ACL** described under "Decision" below
 device usernames are simply absent from `acl.txt`, so they are
 deny-by-default for publish/subscribe until that follow-up lands.
 
+## Addendum (2026-08-06) — unparked; the password_file path is fiction
+
+The 2026-05-29 addendum below is **superseded**. The first resumption
+path it lists — a thin custom Go plugin doing JWKS-cached validation —
+is what shipped: `src/AppHost/mosquitto/plugin/jwt_auth.go`, built into
+the image by `mosquitto/Dockerfile`, with the JWKS URL injected as
+`SSE_JWT_JWKS_URI`. Two service accounts authenticate this way today,
+both observed connecting against the running broker:
+`scenario-simulator` (publishing) and `event-ingestion` (subscribing
+`fab/+/+/+`).
+
+One claim in the body needs correcting. *"A non-JWT password returns
+`MOSQ_ERR_PLUGIN_DEFER`, so the spec-006 `password_file` users
+(station-4, camera-12, event-ingestion) keep authenticating
+unchanged"* is not true in practice: `mosquitto/passwords.txt` is a
+placeholder containing **no hashes at all**, so those three never had
+credentials to defer to. With `allow_anonymous false` that path
+authenticates nobody, and the EventIngestion subscriber consequently
+never connected — for long enough that MQTT ingestion was silently
+dark. It now presents a Keycloak JWT like every other client; the
+`event-ingestion` row in `acl.txt` still supplies the read grant, and
+the plugin's `azp == username` check is what binds the two together.
+
+The publish ACL under "Decision" (scope/groups/topic binding) is still
+unenforced — the scope note above continues to apply.
+
 ## Addendum (2026-05-29) — Decision parked
 
 Hands-on bring-up against the real broker surfaced three
