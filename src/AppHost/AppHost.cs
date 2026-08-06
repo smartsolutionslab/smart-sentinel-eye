@@ -197,7 +197,6 @@ var cameraCatalog = builder
     .WithReference(cameraCatalogDb)
     .WithReference(rabbitmq)
     .WithReference(keycloak)
-    .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
 
@@ -209,7 +208,6 @@ var streamDistribution = builder
     .WithReference(keycloak)
     .WithReference(mediamtx.GetEndpoint("api"))
     .WithReference(mediamtx.GetEndpoint("whep"))
-    .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
     .WaitFor(mediamtx);
@@ -237,7 +235,6 @@ var layoutComposition = builder
     .WithReference(layoutCompositionDb)
     .WithReference(rabbitmq)
     .WithReference(keycloak)
-    .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
 var eventIngestion = builder
@@ -248,7 +245,6 @@ var eventIngestion = builder
     .WithReference(keycloak)
     .WithReference(mosquitto.GetEndpoint("mqtt"))
     .WithEnvironment("Mosquitto__ClientSecret", eventIngestionMqttClientSecret)
-    .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
     .WaitFor(mosquitto);
@@ -258,7 +254,6 @@ var overlayDesigner = builder
     .WithReference(overlayDesignerDb)
     .WithReference(rabbitmq)
     .WithReference(keycloak)
-    .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
 var systemVariables = builder
@@ -268,7 +263,6 @@ var systemVariables = builder
     .WithReference(rabbitmq)
     .WithReference(keycloak)
     .WithReference(overlayDesigner)
-    .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
     .WaitFor(overlayDesigner);
@@ -278,7 +272,6 @@ var automation = builder
     .WithReference(automationDb)
     .WithReference(rabbitmq)
     .WithReference(keycloak)
-    .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
 var identity = builder
@@ -288,7 +281,6 @@ var identity = builder
     .WithReference(rabbitmq)
     .WithReference(keycloak)
     .WithEnvironment("Keycloak__AdminClientSecret", identityAdminClientSecret)
-    .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
 var auditObservability = builder
@@ -299,13 +291,27 @@ var auditObservability = builder
     .WithReference(keycloak)
     .WithReference(minio)
     .WithEnvironment("Minio__Bucket", "audit-archive")
-    .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
     .WaitFor(minio);
 
 if (isE2ETests)
 {
+    // Ephemeral containers mean an empty database every run, so services must
+    // not boot until the schema exists — Wolverine builds its outbox storage on
+    // startup (AutoBuildMessageStorageOnStartup). This is also the services'
+    // only ordering against the data tier: WithReference injects a connection
+    // string but waits for nothing. Dev reuses a migrated volume, where gating
+    // would only cost startup time.
+    foreach (IResourceBuilder<ProjectResource> dependent in new[]
+    {
+        cameraCatalog, streamDistribution, layoutComposition, eventIngestion,
+        overlayDesigner, systemVariables, automation, identity, auditObservability,
+    })
+    {
+        dependent.WaitForCompletion(migrations);
+    }
+
     // Sweep retention every few seconds in the integration suite so the
     // round-trip test isn't waiting on the production daily timer.
     auditObservability.WithEnvironment("AuditObservability__Retention__TickInterval", "00:00:03");
