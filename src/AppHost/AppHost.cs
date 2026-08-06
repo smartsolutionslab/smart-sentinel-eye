@@ -28,6 +28,11 @@ var rabbitPassword = builder.AddParameter("RabbitMqPassword", "dev-only-rabbit-p
 // (ADR-0111) reads it as `ScenarioSimulator:Runtime:ClientSecret` to mint a
 // client_credentials token (scope sse.cameras.write) for seeding the catalog.
 var scenarioSimulatorClientSecret = builder.AddParameter("ScenarioSimulatorClientSecret", "dev-only-scenario-simulator-secret", secret: true);
+// Mirrors the dev-only `event-ingestion` confidential client seeded in
+// Realms/smart-sentinel-eye-realm.json. The MQTT subscriber mints a
+// client_credentials token and presents it as its broker password; the
+// go-auth plugin (ADR-0100) enforces azp == the MQTT username.
+var eventIngestionMqttClientSecret = builder.AddParameter("EventIngestionMqttClientSecret", "dev-only-event-ingestion-secret", secret: true);
 
 // Spec 009 ADR-0101: the postgres image carries the timescaledb
 // extension so the audit-observability hypertable + compression
@@ -242,6 +247,7 @@ var eventIngestion = builder
     .WithReference(rabbitmq)
     .WithReference(keycloak)
     .WithReference(mosquitto.GetEndpoint("mqtt"))
+    .WithEnvironment("Mosquitto__ClientSecret", eventIngestionMqttClientSecret)
     .WaitForCompletion(migrations)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)

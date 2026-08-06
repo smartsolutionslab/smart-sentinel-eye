@@ -247,6 +247,19 @@
       "secret": "dev-only-scenario-simulator-secret",
       "protocol": "openid-connect",
       "defaultClientScopes": ["basic", "profile", "email", "roles", "sse-groups", "sse.cameras.write", "sse.cameras.read", "sse.overlays.write", "sse.rules.write", "sse.rules.read", "sse.layouts.write", "sse.overlays.read"]
+    },
+    {
+      "clientId": "event-ingestion",
+      "name": "Smart Sentinel Eye — Event Ingestion MQTT subscriber (service account)",
+      "description": "Service account the EventIngestion MQTT subscriber presents as its broker password (ADR-0100). The go-auth plugin enforces azp == MQTT username, so this clientId must match the 'event-ingestion' row in mosquitto/acl.txt that grants 'topic read fab/+/+/+'.",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "secret": "dev-only-event-ingestion-secret",
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["basic", "profile", "email", "roles"]
     }
   ],
   "users": [
@@ -357,6 +370,11 @@
       "enabled": true,
       "serviceAccountClientId": "scenario-simulator",
       "groups": ["/fabs/munich"]
+    },
+    {
+      "username": "service-account-event-ingestion",
+      "enabled": true,
+      "serviceAccountClientId": "event-ingestion"
     }
   ]
 }
