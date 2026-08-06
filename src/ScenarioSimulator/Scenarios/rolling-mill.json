@@ -28,14 +28,14 @@
               "FontSize": 28
             },
             "Highlight": {
-              "TriggerKind": "temperature",
+              "TriggerKind": "Temperature",
               "Comparison": "gte",
               "Threshold": 1100,
               "DurationMs": 4000
             },
             "Sensors": [
               {
-                "Kind": "temperature",
+                "Kind": "Temperature",
                 "Unit": "degC",
                 "Behaviour": "ramp",
                 "Source": "plc",
@@ -43,7 +43,7 @@
                 "Max": 1180
               },
               {
-                "Kind": "rolling-force",
+                "Kind": "RollingForce",
                 "Unit": "kN",
                 "Behaviour": "burst",
                 "Source": "plc",
@@ -67,14 +67,14 @@
               "FontSize": 28
             },
             "Highlight": {
-              "TriggerKind": "strip-speed",
+              "TriggerKind": "StripSpeed",
               "Comparison": "gte",
               "Threshold": 8,
               "DurationMs": 4000
             },
             "Sensors": [
               {
-                "Kind": "strip-speed",
+                "Kind": "StripSpeed",
                 "Unit": "m/s",
                 "Behaviour": "steady",
                 "Source": "plc",
@@ -97,14 +97,14 @@
               "FontSize": 28
             },
             "Highlight": {
-              "TriggerKind": "temperature",
+              "TriggerKind": "Temperature",
               "Comparison": "lte",
               "Threshold": 700,
               "DurationMs": 4000
             },
             "Sensors": [
               {
-                "Kind": "temperature",
+                "Kind": "Temperature",
                 "Unit": "degC",
                 "Behaviour": "decay",
                 "Source": "plc",
@@ -127,14 +127,14 @@
               "FontSize": 28
             },
             "Highlight": {
-              "TriggerKind": "coil-weight",
+              "TriggerKind": "CoilWeight",
               "Comparison": "gte",
               "Threshold": 20,
               "DurationMs": 4000
             },
             "Sensors": [
               {
-                "Kind": "coil-weight",
+                "Kind": "CoilWeight",
                 "Unit": "t",
                 "Behaviour": "step",
                 "Source": "plc",
