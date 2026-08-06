@@ -43,14 +43,21 @@ public sealed class MqttSubscriberHostedService(
     ILogger<MqttSubscriberHostedService> logger) : IHostedService
 {
     private IManagedMqttClient? client;
+    private MqttConnection? connection;
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        client = connectionFactory.Create();
+        connection = await connectionFactory.CreateAsync(cancellationToken);
+        client = connection.Client;
+
         client.ApplicationMessageReceivedAsync += OnMessageReceived;
+        client.ConnectedAsync += OnConnectedAsync;
+        client.DisconnectedAsync += OnDisconnectedAsync;
+        client.ConnectingFailedAsync += OnConnectingFailedAsync;
 
         string topic = options.Value.SubscribeTopic;
         await client.SubscribeAsync(topic, MqttQualityOfServiceLevel.AtLeastOnce);
+        await client.StartAsync(connection.Options);
 
         logger.MqttSubscriberStarted(topic);
     }
@@ -63,10 +70,53 @@ public sealed class MqttSubscriberHostedService(
         }
 
         client.ApplicationMessageReceivedAsync -= OnMessageReceived;
+        client.ConnectedAsync -= OnConnectedAsync;
+        client.DisconnectedAsync -= OnDisconnectedAsync;
+        client.ConnectingFailedAsync -= OnConnectingFailedAsync;
         await client.StopAsync();
         client.Dispose();
         client = null;
+        connection = null;
         logger.MqttSubscriberStopped();
+    }
+
+    private Task OnConnectedAsync(MqttClientConnectedEventArgs args)
+    {
+        MosquittoOptions opts = options.Value;
+        logger.MqttSubscriberConnected($"{opts.Host}:{opts.Port}", opts.Username);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Refreshes the JWT so the imminent auto-reconnect presents a live one.
+    /// The broker closes the connection when the token expires, so without
+    /// this the subscriber would reconnect-loop on a stale credential.
+    /// </summary>
+    private async Task OnDisconnectedAsync(MqttClientDisconnectedEventArgs args)
+    {
+        logger.MqttSubscriberDisconnected(args.Reason.ToString());
+
+        if (connection is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await connection.RefreshTokenAsync(CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.MqttReconnectTokenFailed(ex.Message);
+        }
+    }
+
+    private Task OnConnectingFailedAsync(ConnectingFailedEventArgs args)
+    {
+        MosquittoOptions opts = options.Value;
+        logger.MqttSubscriberConnectFailed(
+            $"{opts.Host}:{opts.Port}", args.Exception?.Message ?? "connect failed");
+        return Task.CompletedTask;
     }
 
     private async Task OnMessageReceived(MqttApplicationMessageReceivedEventArgs args)
@@ -123,14 +173,28 @@ public sealed class MqttSubscriberHostedService(
             return new ParseResult(null, $"payload rejected: {ex.Message}");
         }
 
-        EventEnvelope envelope = new(
-            EventIdentifier.From(payload.EventId),
-            fab,
-            source,
-            device,
-            Kind.From(payload.Kind),
-            OccurredAt.From(payload.OccurredAt),
-            payloadVo);
+        // Guarded like the two blocks above. Unguarded, a field the value
+        // objects reject threw straight out of the MQTT handler: MQTTnet never
+        // ACKed, the broker stalled once its in-flight window filled, and the
+        // delivery was never dead-lettered (FR-015) — so one bad message
+        // wedged ingestion permanently, because QoS 1 redelivers it forever.
+        EventEnvelope envelope;
+        try
+        {
+            envelope = new(
+                EventIdentifier.From(payload.EventId),
+                fab,
+                source,
+                device,
+                Kind.From(payload.Kind),
+                OccurredAt.From(payload.OccurredAt),
+                payloadVo);
+        }
+        catch (ArgumentException ex)
+        {
+            return new ParseResult(null, $"envelope rejected: {ex.Message}");
+        }
+
         return new ParseResult(envelope, null);
     }
 

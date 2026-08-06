@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.EventIngestion.Application.Commands;
@@ -76,8 +77,22 @@ public static class EventIngestionInfrastructureModule
 
         // Bounded channel + ingress.
         builder.Services.AddSingleton<IIngestChannel>(_ => new BoundedIngestChannel());
+        // Resolve the broker + Keycloak from the Aspire-injected endpoints, and
+        // fail fast when they are absent. Defaulting these (it used to be
+        // localhost:1883) turns a wiring gap into a subscriber that silently
+        // retries a dead address forever while /health stays green.
+        (string mqttHost, int mqttPort) = ResolveBroker(builder.Configuration);
+        string keycloakUrl = ResolveKeycloak(builder.Configuration);
+
         builder.Services.AddOptions<MosquittoOptions>()
-            .Bind(builder.Configuration.GetSection(MosquittoOptions.SectionName));
+            .Bind(builder.Configuration.GetSection(MosquittoOptions.SectionName))
+            .PostConfigure(opts =>
+            {
+                opts.Host = mqttHost;
+                opts.Port = mqttPort;
+                opts.KeycloakUrl = keycloakUrl;
+            });
+        builder.Services.AddHttpClient<MqttTokenProvider>();
         builder.Services.AddSingleton<MosquittoConnectionFactory>();
         builder.Services.AddHostedService<MqttSubscriberHostedService>();
         builder.Services.AddHostedService<PersistenceLoopHostedService>();
@@ -89,4 +104,49 @@ public static class EventIngestionInfrastructureModule
 
         return builder;
     }
+
+    /// <summary>
+    /// Broker host + port from the Aspire mosquitto endpoint, e.g.
+    /// <c>tcp://localhost:52643</c>. Throws rather than defaulting: the
+    /// managed MQTT client retries a bad address indefinitely without
+    /// surfacing anything, so a wrong value is far more expensive than a
+    /// failed startup.
+    /// </summary>
+    private static (string Host, int Port) ResolveBroker(IConfiguration configuration)
+    {
+        string endpoint =
+            configuration["services:mosquitto:mqtt:0"]
+            ?? configuration[$"{MosquittoOptions.SectionName}:Endpoint"]
+            ?? throw new InvalidOperationException(
+                "Mosquitto endpoint not found. Looked for services:mosquitto:mqtt:0 and "
+                + $"{MosquittoOptions.SectionName}:Endpoint.");
+
+        string value = endpoint;
+        int scheme = value.IndexOf("://", StringComparison.Ordinal);
+        if (scheme >= 0)
+        {
+            value = value[(scheme + 3)..];
+        }
+
+        string[] parts = value.Split(':');
+        if (parts.Length != 2 || parts[0].Length == 0 || !int.TryParse(parts[1], out int port))
+        {
+            throw new InvalidOperationException($"Mosquitto endpoint '{endpoint}' is not host:port.");
+        }
+
+        return (parts[0], port);
+    }
+
+    /// <summary>
+    /// Keycloak base URL the subscriber mints its MQTT token from. Accepts
+    /// the same three keys as <c>AddBearerAuthentication</c>, so the token
+    /// issuer matches the JWKS the broker plugin validates against.
+    /// </summary>
+    private static string ResolveKeycloak(IConfiguration configuration) =>
+        configuration.GetConnectionString("keycloak")
+        ?? configuration["services:keycloak:http:0"]
+        ?? configuration["services:keycloak:https:0"]
+        ?? throw new InvalidOperationException(
+            "Keycloak base URL not found. Looked for ConnectionStrings:keycloak, "
+            + "services:keycloak:http:0, services:keycloak:https:0.");
 }

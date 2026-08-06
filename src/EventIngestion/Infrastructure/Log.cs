@@ -22,6 +22,21 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "MQTT subscriber stopped.")]
     public static partial void MqttSubscriberStopped(this ILogger logger);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "MQTT subscriber connected to '{Broker}' as '{Username}'.")]
+    public static partial void MqttSubscriberConnected(this ILogger logger, string broker, string username);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "MQTT subscriber disconnected: {Reason}.")]
+    public static partial void MqttSubscriberDisconnected(this ILogger logger, string reason);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "MQTT subscriber could not connect to '{Broker}': {Error}.")]
+    public static partial void MqttSubscriberConnectFailed(this ILogger logger, string broker, string error);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Could not refresh the MQTT token before reconnect: {Error}.")]
+    public static partial void MqttReconnectTokenFailed(this ILogger logger, string error);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Minted event-ingestion MQTT token (expires in {ExpiresIn}s).")]
+    public static partial void MintedMqttToken(this ILogger logger, int expiresIn);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Rejecting MQTT delivery on '{Topic}': {Error}.")]
     public static partial void RejectingMqttDelivery(this ILogger logger, string topic, string error);
 
