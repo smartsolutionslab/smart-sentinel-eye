@@ -49,3 +49,29 @@ builder.AddProject<Projects.SmartSentinelEye_CameraCatalog_Api>("camera-catalog"
   share Postgres.
 - **Manual `dotnet ef database update`** — operational burden, easy
   to forget.
+
+## Addendum (2026-08-06) — dev no longer gates on the runner
+
+The blanket "every other Api service waits on `migrations`" above now
+holds only under **E2E** (`E2ETests=true`). In dev the services start in
+parallel with the runner.
+
+**Why.** Dev reuses a persistent, already-migrated data volume, so the
+gate costs startup time and buys nothing. E2E drops the persistent
+lifetime and the data volume, so every run starts from an empty
+database — and each service builds its Wolverine outbox storage during
+startup (`AutoBuildMessageStorageOnStartup = CreateOrUpdate`), which is
+real DDL against a schema the runner may not have created yet.
+
+**Consequence worth stating plainly.** `WaitForCompletion(migrations)`
+was also the services' *only* ordering against the data tier: the
+runner waits for all nine databases, `WithReference` injects a
+connection string but waits for nothing. In dev the services now have
+no ordering against Postgres at all — they are protected only by the
+persistent container already being up. A cold start with no Postgres
+running would have nine services racing a database that is not
+listening. Accepted as a dev-only ergonomics trade.
+
+Production is unaffected: k3s still runs `MigrationRunner` as an
+initContainer / Helm hook before any Api Deployment, which is a
+stronger guarantee than the AppHost gate ever was.
