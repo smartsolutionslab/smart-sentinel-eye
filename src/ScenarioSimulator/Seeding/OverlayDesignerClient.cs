@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.ScenarioSimulator.Keycloak;
+using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.ScenarioSimulator.Seeding;
 
@@ -37,29 +38,43 @@ public sealed class OverlayDesignerClient(
         create.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using HttpResponseMessage created = await http.SendAsync(create, cancellationToken);
 
+        // On 409 the chain is already there but its first revision may still be
+        // Draft: every run between ADR-0113 making If-Match mandatory and this
+        // client learning to send it created the overlay and then failed to
+        // publish it, so an existing database holds overlays that never render.
         if (created.StatusCode == HttpStatusCode.Conflict)
         {
-            Guid existing = await ReadBackAsync(name, token, cancellationToken);
-            logger.OverlayAlreadyExists(name, existing);
-            return existing;
+            OverlayListItem existing = await ReadBackAsync(name, token, cancellationToken);
+            if (!existing.HasDraftFirstRevision())
+            {
+                logger.OverlayAlreadyExists(name, existing.OverlayIdentifier);
+                return existing.OverlayIdentifier;
+            }
+
+            await PublishAsync(existing.OverlayIdentifier, existing.Version, token, cancellationToken);
+            logger.OverlaySeeded(name, existing.OverlayIdentifier);
+            return existing.OverlayIdentifier;
         }
 
         created.EnsureSuccessStatusCode();
         Guid overlay = await created.Content.ReadFromJsonAsync<Guid>(cancellationToken);
-        await PublishAsync(overlay, token, cancellationToken);
+        await PublishAsync(overlay, FreshChainVersion, token, cancellationToken);
         logger.OverlaySeeded(name, overlay);
         return overlay;
     }
 
-    private async Task PublishAsync(Guid overlay, string token, CancellationToken cancellationToken)
+    private async Task PublishAsync(
+        Guid overlay, int expectedVersion, string token, CancellationToken cancellationToken)
     {
-        using HttpRequestMessage publish = new(HttpMethod.Post, $"/overlays/{overlay}/revisions/1/publish");
+        using HttpRequestMessage publish = new(HttpMethod.Post, $"/overlays/{overlay}/revisions/{FirstRevision}/publish");
         publish.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        publish.Headers.TryAddWithoutValidation(
+            "If-Match", ConcurrencyHeaders.ETag(expectedVersion));
         using HttpResponseMessage response = await http.SendAsync(publish, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 
-    private async Task<Guid> ReadBackAsync(string name, string token, CancellationToken cancellationToken)
+    private async Task<OverlayListItem> ReadBackAsync(string name, string token, CancellationToken cancellationToken)
     {
         // GET /overlays with no state filter returns all chains (the Published
         // branch empties Chains), so omit state to recover the existing id.
@@ -70,13 +85,40 @@ public sealed class OverlayDesignerClient(
 
         OverlayListResponse payload = await response.Content.ReadFromJsonAsync<OverlayListResponse>(cancellationToken);
         OverlayListItem match = payload?.Chains?.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
-        return match?.OverlayIdentifier
+        return match
             ?? throw new InvalidOperationException($"Overlay '{name}' conflicted but could not be read back.");
     }
+
+    /// <summary>
+    /// A chain the seeder just created sits at version 0 —
+    /// <c>AggregateVersionInterceptor</c> does not bump <c>Added</c> roots.
+    /// </summary>
+    private const int FreshChainVersion = 0;
+
+    private const int FirstRevision = 1;
+
+    private const string DraftState = "Draft";
 
     private sealed record CreateOverlayBody(string Name, OverlayLabel Label);
 
     private sealed record OverlayListResponse(IReadOnlyList<OverlayListItem> Chains);
 
-    private sealed record OverlayListItem(Guid OverlayIdentifier, string Name);
+    /// <summary>
+    /// Just the fields the seeder acts on. Deliberately not the full
+    /// <c>OverlayDto</c> — the simulator is dev-only and must not gain a
+    /// compile-time dependency on OverlayDesigner's read model.
+    /// </summary>
+    private sealed record OverlayListItem(
+        Guid OverlayIdentifier,
+        int Version,
+        string Name,
+        IReadOnlyList<OverlayRevisionItem> Revisions)
+    {
+        public bool HasDraftFirstRevision() =>
+            Revisions?.Any(revision =>
+                revision.RevisionNumber == FirstRevision
+                && string.Equals(revision.State, DraftState, StringComparison.Ordinal)) == true;
+    }
+
+    private sealed record OverlayRevisionItem(int RevisionNumber, string State);
 }
