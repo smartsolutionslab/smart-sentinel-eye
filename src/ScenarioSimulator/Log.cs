@@ -33,6 +33,12 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "camera-sim path '{Path}' already exists; skipping (idempotent).")]
     public static partial void CameraSimPathAlreadyExists(this ILogger logger, string path);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "Reconciled camera-sim loop paths for {AssetCount} asset(s).")]
+    public static partial void CameraSimReconciled(this ILogger logger, int assetCount);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not reconcile camera-sim loop path '{Path}': {Error}.")]
+    public static partial void CameraSimReconcileFailed(this ILogger logger, string path, string error);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Camera URL {Url} has no path component; not a simulated camera, skipping.")]
     public static partial void SkippedNonSimulatedCamera(this ILogger logger, string url);
 

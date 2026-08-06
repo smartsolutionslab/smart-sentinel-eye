@@ -61,6 +61,12 @@ builder.AddBilletTimeline();
 
 builder.Services.AddHostedService<ScenarioSeeder>();
 
+// Re-adds every asset's camera-sim loop path on boot. camera-sim holds those
+// paths in runtime config only, and CameraRegisteredV1 does not fire for
+// cameras that already exist, so without this a camera-sim restart leaves the
+// main MediaMTX with nothing to pull.
+builder.Services.AddHostedService<CameraSimReconciler>();
+
 // Wolverine consumer of CameraRegisteredV1 (ADR-0088 per-module queue
 // isolation). No Postgres outbox: a dev-only simulator does not need durable
 // inbox/outbox — re-provisioning camera-sim on redelivery is idempotent.
