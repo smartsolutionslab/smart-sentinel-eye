@@ -8,26 +8,26 @@ public readonly struct Result<TValue, TError>
     where TValue : notnull
     where TError : notnull
 {
-    private readonly TValue _value;
-    private readonly TError _error;
-    private readonly bool _isSuccess;
+    private readonly TValue value;
+    private readonly TError error;
+    private readonly bool isSuccess;
 
     private Result(TValue value, TError error, bool isSuccess)
     {
-        _value = value;
-        _error = error;
-        _isSuccess = isSuccess;
+        this.value = value;
+        this.error = error;
+        this.isSuccess = isSuccess;
     }
 
-    public bool IsSuccess => _isSuccess;
+    public bool IsSuccess => isSuccess;
 
-    public bool IsFailure => !_isSuccess;
+    public bool IsFailure => !isSuccess;
 
     public TValue Value =>
-        _isSuccess ? _value : throw new InvalidOperationException("Result is a failure; no value.");
+        isSuccess ? value : throw new InvalidOperationException("Result is a failure; no value.");
 
     public TError Error =>
-        _isSuccess ? throw new InvalidOperationException("Result is a success; no error.") : _error;
+        isSuccess ? throw new InvalidOperationException("Result is a success; no error.") : error;
 
     public static Result<TValue, TError> Success(TValue value) =>
         new(value, default, isSuccess: true);
@@ -47,7 +47,7 @@ public readonly struct Result<TValue, TError>
         Failure(outcome.Error);
 
     public TOut Match<TOut>(Func<TValue, TOut> onSuccess, Func<TError, TOut> onFailure) =>
-        _isSuccess ? onSuccess(_value) : onFailure(_error);
+        isSuccess ? onSuccess(value) : onFailure(error);
 }
 
 /// <summary>

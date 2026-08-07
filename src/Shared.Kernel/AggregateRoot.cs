@@ -9,15 +9,15 @@ namespace SmartSentinelEye.Shared.Kernel;
 public abstract class AggregateRoot<TIdentifier> : IVersionedAggregate
     where TIdentifier : struct, IStronglyTypedId<Guid>
 {
-    private readonly List<IDomainEvent> _pendingEvents = new();
+    private readonly List<IDomainEvent> pendingEvents = [];
 
     public TIdentifier Id { get; protected set; }
 
     public int Version { get; protected set; }
 
-    public IReadOnlyList<IDomainEvent> PendingEvents => _pendingEvents;
+    public IReadOnlyList<IDomainEvent> PendingEvents => pendingEvents;
 
-    protected void Raise(IDomainEvent domainEvent) => _pendingEvents.Add(domainEvent);
+    protected void Raise(IDomainEvent domainEvent) => pendingEvents.Add(domainEvent);
 
-    public void ClearPendingEvents() => _pendingEvents.Clear();
+    public void ClearPendingEvents() => pendingEvents.Clear();
 }

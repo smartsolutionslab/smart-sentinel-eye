@@ -9,9 +9,9 @@ namespace SmartSentinelEye.StreamDistribution.Application.Tests.Fakes;
 /// </summary>
 public sealed class FakeRtspGateway : IRtspGateway
 {
-    private readonly Dictionary<MediaMtxPath, RtspPathHealth> _paths = new();
-    public List<(MediaMtxPath Path, string Source)> AddCalls { get; } = new();
-    public List<MediaMtxPath> RemoveCalls { get; } = new();
+    private readonly Dictionary<MediaMtxPath, RtspPathHealth> _paths = [];
+    public List<(MediaMtxPath Path, string Source)> AddCalls { get; } = [];
+    public List<MediaMtxPath> RemoveCalls { get; } = [];
     public Action<MediaMtxPath, string> OnAddPath { get; set; } = (_, _) => { };
 
     public Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken)

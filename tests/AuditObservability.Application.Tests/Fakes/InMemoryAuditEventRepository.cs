@@ -5,8 +5,8 @@ namespace SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 
 public sealed class InMemoryAuditEventRepository : IAuditEventRepository
 {
-    private readonly List<AuditEventEntity> _committed = new();
-    private readonly List<AuditEventEntity> _pending = new();
+    private readonly List<AuditEventEntity> _committed = [];
+    private readonly List<AuditEventEntity> _pending = [];
 
     public IReadOnlyList<AuditEventEntity> Committed => _committed;
 

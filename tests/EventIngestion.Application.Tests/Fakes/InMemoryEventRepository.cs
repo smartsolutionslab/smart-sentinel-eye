@@ -6,7 +6,7 @@ namespace SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 
 public sealed class InMemoryEventRepository : IEventRepository
 {
-    private readonly List<EventAggregate> _events = new();
+    private readonly List<EventAggregate> _events = [];
 
     public IReadOnlyList<EventAggregate> Events => _events;
 

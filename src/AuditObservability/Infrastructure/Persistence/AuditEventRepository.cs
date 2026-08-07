@@ -17,22 +17,22 @@ namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 /// </summary>
 public sealed class AuditEventRepository(AuditObservabilityDbContext dbContext) : IAuditEventRepository
 {
-    private readonly List<AuditEventEntity> _pending = new();
+    private readonly List<AuditEventEntity> pending = [];
 
     public void Add(AuditEventEntity audit)
     {
         Ensure.That(audit).IsNotNull();
-        _pending.Add(audit);
+        pending.Add(audit);
     }
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        if (_pending.Count == 0)
+        if (pending.Count == 0)
         {
             return;
         }
 
-        foreach (AuditEventEntity row in _pending)
+        foreach (AuditEventEntity row in pending)
         {
             string? fab = row.Fab?.Value;
             string? resourceKind = row.ResourceKind?.Value;
@@ -59,6 +59,6 @@ public sealed class AuditEventRepository(AuditObservabilityDbContext dbContext) 
                 cancellationToken);
         }
 
-        _pending.Clear();
+        pending.Clear();
     }
 }

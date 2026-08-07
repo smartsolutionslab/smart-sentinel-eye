@@ -16,7 +16,7 @@ public sealed class ScenarioOptions
     public string Active { get; set; } = "rolling-mill";
 
     /// <summary>All known scenarios, keyed by scenario key.</summary>
-    public Dictionary<string, ScenarioDefinition> Scenarios { get; set; } = new();
+    public Dictionary<string, ScenarioDefinition> Scenarios { get; set; } = [];
 }
 
 /// <summary>
@@ -28,7 +28,7 @@ public sealed class ScenarioDefinition
 {
     public string Name { get; set; } = string.Empty;
 
-    public List<AssetDefinition> Assets { get; set; } = new();
+    public List<AssetDefinition> Assets { get; set; } = [];
 
     /// <summary>
     /// M2 billet-timeline cadence (dwell per station, emit tick, loop gap). The
@@ -60,7 +60,7 @@ public sealed class AssetDefinition
     /// M2-only sensor profiles. Carried through the scenario file so M1 and M2
     /// share one asset identity. See <see cref="SensorDefinition"/>.
     /// </summary>
-    public List<SensorDefinition> Sensors { get; set; } = new();
+    public List<SensorDefinition> Sensors { get; set; } = [];
 
     /// <summary>
     /// M2 overlay seeded for this asset (label + normalized geometry). Drives the

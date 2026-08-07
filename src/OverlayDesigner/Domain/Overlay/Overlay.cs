@@ -11,11 +11,11 @@ namespace SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 /// </summary>
 public sealed class Overlay : AggregateRoot<OverlayIdentifier>
 {
-    private readonly List<Revision> _revisions = new();
+    private readonly List<Revision> revisions = [];
 
     public OverlayName Name { get; private set; } = null!;
 
-    public IReadOnlyList<Revision> Revisions => _revisions;
+    public IReadOnlyList<Revision> Revisions => revisions;
 
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -46,7 +46,7 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
             CreatedAt = now,
             CreatedBy = createdBy,
         };
-        overlay._revisions.Add(
+        overlay.revisions.Add(
             Revision.NewDraft(OverlayRevisionNumber.One, label, now, createdBy));
         return overlay;
     }
@@ -65,7 +65,7 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
 
         OverlayRevisionNumber next = MaxRevisionNumber().Next();
         Revision draft = Revision.Branch(next, baseRevision.Label, clock.UtcNow, by);
-        _revisions.Add(draft);
+        revisions.Add(draft);
         return draft;
     }
 
@@ -141,13 +141,13 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
     }
 
     private Revision? CurrentPublishedOrNull() =>
-        _revisions.SingleOrDefault(revision => revision.State == OverlayRevisionState.Published);
+        revisions.SingleOrDefault(revision => revision.State == OverlayRevisionState.Published);
 
     private OverlayRevisionNumber MaxRevisionNumber() =>
-        OverlayRevisionNumber.From(_revisions.Max(revision => revision.Number.Value));
+        OverlayRevisionNumber.From(revisions.Max(revision => revision.Number.Value));
 
     private Revision RequireRevision(OverlayRevisionNumber number) =>
-        _revisions.SingleOrDefault(revision => revision.Number == number)
+        revisions.SingleOrDefault(revision => revision.Number == number)
             ?? throw new InvalidOperationException(
                 $"Overlay {Id} has no revision {number}.");
 }

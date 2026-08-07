@@ -9,8 +9,8 @@ namespace SmartSentinelEye.StreamDistribution.Application.Tests.Fakes;
 /// </summary>
 public sealed class InMemoryStreamRepository : IStreamRepository
 {
-    private readonly List<Domain.Stream.Stream> _streams = new();
-    private readonly List<Domain.Stream.Stream> _pendingAdds = new();
+    private readonly List<Domain.Stream.Stream> _streams = [];
+    private readonly List<Domain.Stream.Stream> _pendingAdds = [];
     public int SaveCallCount { get; private set; }
 
     public IReadOnlyList<Domain.Stream.Stream> Streams => _streams;

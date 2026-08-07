@@ -8,13 +8,13 @@ namespace SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 /// </summary>
 public sealed class FakeLayoutLifecycleBroadcaster : ILayoutLifecycleBroadcaster
 {
-    public List<LayoutRevisionPublishedNotification> Published { get; } = new();
+    public List<LayoutRevisionPublishedNotification> Published { get; } = [];
 
-    public List<LayoutRevisionArchivedNotification> Archived { get; } = new();
+    public List<LayoutRevisionArchivedNotification> Archived { get; } = [];
 
-    public List<OverlayLifecyclePublishedNotification> OverlaysPublished { get; } = new();
+    public List<OverlayLifecyclePublishedNotification> OverlaysPublished { get; } = [];
 
-    public List<OverlayLifecycleArchivedNotification> OverlaysArchived { get; } = new();
+    public List<OverlayLifecycleArchivedNotification> OverlaysArchived { get; } = [];
 
     public Task PublishedAsync(LayoutRevisionPublishedNotification notification, CancellationToken cancellationToken)
     {
@@ -40,7 +40,7 @@ public sealed class FakeLayoutLifecycleBroadcaster : ILayoutLifecycleBroadcaster
         return Task.CompletedTask;
     }
 
-    public List<ResolvedOverlayTextChangedNotification> ResolvedTextChanged { get; } = new();
+    public List<ResolvedOverlayTextChangedNotification> ResolvedTextChanged { get; } = [];
 
     public Task ResolvedOverlayTextChangedAsync(ResolvedOverlayTextChangedNotification notification, CancellationToken cancellationToken)
     {
@@ -48,7 +48,7 @@ public sealed class FakeLayoutLifecycleBroadcaster : ILayoutLifecycleBroadcaster
         return Task.CompletedTask;
     }
 
-    public List<OverlayHighlightedNotification> Highlighted { get; } = new();
+    public List<OverlayHighlightedNotification> Highlighted { get; } = [];
 
     public Task OverlayHighlightedAsync(OverlayHighlightedNotification notification, CancellationToken cancellationToken)
     {

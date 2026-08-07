@@ -23,11 +23,11 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 /// </summary>
 public sealed class Layout : AggregateRoot<LayoutIdentifier>
 {
-    private readonly List<Revision> _revisions = new();
+    private readonly List<Revision> revisions = [];
 
     public LayoutName Name { get; private set; } = null!;
 
-    public IReadOnlyList<Revision> Revisions => _revisions;
+    public IReadOnlyList<Revision> Revisions => revisions;
 
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -89,7 +89,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
             CreatedAt = now,
             CreatedBy = createdBy,
         };
-        layout._revisions.Add(
+        layout.revisions.Add(
             Revision.NewDraft(LayoutRevisionNumber.One, grid, tiles, now, createdBy));
         return layout;
     }
@@ -109,7 +109,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
         LayoutRevisionNumber next = MaxRevisionNumber().Next();
         Revision draft = Revision.Branch(
             next, baseRevision.Grid, baseRevision.Tiles, clock.UtcNow, by);
-        _revisions.Add(draft);
+        revisions.Add(draft);
         return draft;
     }
 
@@ -189,13 +189,13 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     }
 
     private Revision? CurrentPublishedOrNull() =>
-        _revisions.SingleOrDefault(revision => revision.State == LayoutRevisionState.Published);
+        revisions.SingleOrDefault(revision => revision.State == LayoutRevisionState.Published);
 
     private LayoutRevisionNumber MaxRevisionNumber() =>
-        LayoutRevisionNumber.From(_revisions.Max(revision => revision.Number.Value));
+        LayoutRevisionNumber.From(revisions.Max(revision => revision.Number.Value));
 
     private Revision RequireRevision(LayoutRevisionNumber number) =>
-        _revisions.SingleOrDefault(revision => revision.Number == number)
+        revisions.SingleOrDefault(revision => revision.Number == number)
             ?? throw new InvalidOperationException(
                 $"Layout {Id} has no revision {number}.");
 }

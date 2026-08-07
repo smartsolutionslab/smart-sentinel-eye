@@ -10,8 +10,8 @@ namespace SmartSentinelEye.CameraCatalog.Application.Tests.Fakes;
 /// </summary>
 public sealed class InMemoryCameraRepository : ICameraRepository
 {
-    private readonly List<Camera> _cameras = new();
-    private readonly List<Camera> _pendingAdds = new();
+    private readonly List<Camera> _cameras = [];
+    private readonly List<Camera> _pendingAdds = [];
     public int SaveCallCount { get; private set; }
 
     public IReadOnlyList<Camera> Cameras => _cameras;

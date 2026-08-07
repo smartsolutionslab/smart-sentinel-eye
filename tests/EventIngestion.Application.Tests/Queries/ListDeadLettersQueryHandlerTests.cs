@@ -35,7 +35,7 @@ public class ListDeadLettersQueryHandlerTests
     [Fact]
     public async Task Caps_at_MaximumLimit_when_caller_asks_for_more()
     {
-        List<DeadLetter> seed = new();
+        List<DeadLetter> seed = [];
         for (int i = 0; i < 5; i++)
         {
             seed.Add(DeadLetter.Capture(

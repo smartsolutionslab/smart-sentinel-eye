@@ -55,77 +55,77 @@ public static class Ensure
 
 public readonly struct EnsuredString
 {
-    private readonly string _value;
-    private readonly string _parameter;
+    private readonly string value;
+    private readonly string parameter;
 
     internal EnsuredString(string value, string parameter)
     {
-        _value = value;
-        _parameter = parameter;
+        this.value = value;
+        this.parameter = parameter;
     }
 
     public EnsuredString IsNotNull()
     {
-        if (_value is null)
+        if (value is null)
         {
-            throw new ArgumentNullException(_parameter);
+            throw new ArgumentNullException(parameter);
         }
         return this;
     }
 
     public EnsuredString IsNotNullOrWhiteSpace()
     {
-        if (string.IsNullOrWhiteSpace(_value))
+        if (string.IsNullOrWhiteSpace(value))
         {
-            throw new ArgumentException($"{_parameter} must not be null or whitespace.", _parameter);
+            throw new ArgumentException($"{parameter} must not be null or whitespace.", parameter);
         }
         return this;
     }
 
     public EnsuredString HasMinLength(int minimumLength)
     {
-        if (_value.Length < minimumLength)
+        if (value.Length < minimumLength)
         {
             throw new ArgumentException(
-                $"{_parameter} must be at least {minimumLength} character(s).", _parameter);
+                $"{parameter} must be at least {minimumLength} character(s).", parameter);
         }
         return this;
     }
 
     public EnsuredString HasMaxLength(int maximumLength)
     {
-        if (_value.Length > maximumLength)
+        if (value.Length > maximumLength)
         {
             throw new ArgumentException(
-                $"{_parameter} must be no more than {maximumLength} character(s).", _parameter);
+                $"{parameter} must be no more than {maximumLength} character(s).", parameter);
         }
         return this;
     }
 
     public EnsuredString StartsWith(string prefix, StringComparison comparison)
     {
-        if (!_value.StartsWith(prefix, comparison))
+        if (!value.StartsWith(prefix, comparison))
         {
             throw new ArgumentException(
-                $"{_parameter} must start with '{prefix}'.", _parameter);
+                $"{parameter} must start with '{prefix}'.", parameter);
         }
         return this;
     }
 
     public EnsuredString Matches(Regex pattern, string message)
     {
-        if (!pattern.IsMatch(_value))
+        if (!pattern.IsMatch(value))
         {
-            throw new ArgumentException($"{_parameter}: {message}", _parameter);
+            throw new ArgumentException($"{parameter}: {message}", parameter);
         }
         return this;
     }
 
     public EnsuredString Satisfies(Func<string, bool> predicate, string message)
     {
-        if (!predicate(_value))
+        if (!predicate(value))
         {
-            throw new ArgumentException($"{_parameter}: {message}", _parameter);
+            throw new ArgumentException($"{parameter}: {message}", parameter);
         }
         return this;
     }
@@ -140,20 +140,20 @@ public readonly struct EnsuredString
 public readonly struct EnsuredObject<T>
     where T : class
 {
-    private readonly T _value;
-    private readonly string _parameter;
+    private readonly T value;
+    private readonly string parameter;
 
     internal EnsuredObject(T value, string parameter)
     {
-        _value = value;
-        _parameter = parameter;
+        this.value = value;
+        this.parameter = parameter;
     }
 
     public EnsuredObject<T> IsNotNull()
     {
-        if (_value is null)
+        if (value is null)
         {
-            throw new ArgumentNullException(_parameter);
+            throw new ArgumentNullException(parameter);
         }
         return this;
     }
@@ -167,22 +167,22 @@ public readonly struct EnsuredObject<T>
 /// </summary>
 public readonly struct EnsuredGuid
 {
-    private readonly Guid _value;
-    private readonly string _parameter;
+    private readonly Guid value;
+    private readonly string parameter;
 
     internal EnsuredGuid(Guid value, string parameter)
     {
-        _value = value;
-        _parameter = parameter;
+        this.value = value;
+        this.parameter = parameter;
     }
 
     public EnsuredGuid IsNotEmpty(string message = null)
     {
-        if (_value == Guid.Empty)
+        if (value == Guid.Empty)
         {
             throw new ArgumentException(
-                message is null ? $"{_parameter} must not be empty." : $"{_parameter}: {message}",
-                _parameter);
+                message is null ? $"{parameter} must not be empty." : $"{parameter}: {message}",
+                parameter);
         }
         return this;
     }
@@ -196,30 +196,30 @@ public readonly struct EnsuredGuid
 public readonly struct EnsuredValue<T>
     where T : struct, IComparable<T>
 {
-    private readonly T _value;
-    private readonly string _parameter;
+    private readonly T value;
+    private readonly string parameter;
 
     internal EnsuredValue(T value, string parameter)
     {
-        _value = value;
-        _parameter = parameter;
+        this.value = value;
+        this.parameter = parameter;
     }
 
     public EnsuredValue<T> AtLeast(T minimum)
     {
-        if (_value.CompareTo(minimum) < 0)
+        if (value.CompareTo(minimum) < 0)
         {
-            throw new ArgumentException($"{_parameter} must be >= {minimum}; got {_value}.", _parameter);
+            throw new ArgumentException($"{parameter} must be >= {minimum}; got {value}.", parameter);
         }
         return this;
     }
 
     public EnsuredValue<T> InRange(T minimum, T maximum)
     {
-        if (_value.CompareTo(minimum) < 0 || _value.CompareTo(maximum) > 0)
+        if (value.CompareTo(minimum) < 0 || value.CompareTo(maximum) > 0)
         {
             throw new ArgumentException(
-                $"{_parameter} must be in [{minimum}, {maximum}]; got {_value}.", _parameter);
+                $"{parameter} must be in [{minimum}, {maximum}]; got {value}.", parameter);
         }
         return this;
     }
@@ -227,9 +227,9 @@ public readonly struct EnsuredValue<T>
     public EnsuredValue<T> Satisfies(Func<T, bool> predicate, string message)
     {
         Ensure.That(predicate).IsNotNull();
-        if (!predicate(_value))
+        if (!predicate(value))
         {
-            throw new ArgumentException($"{_parameter}: {message}", _parameter);
+            throw new ArgumentException($"{parameter}: {message}", parameter);
         }
         return this;
     }

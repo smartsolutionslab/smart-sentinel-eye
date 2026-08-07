@@ -88,7 +88,7 @@ public sealed class EventPartitionRolloverMigrator(
         try
         {
             await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
-            List<string> names = new();
+            List<string> names = [];
             while (await reader.ReadAsync(cancellationToken))
             {
                 names.Add(reader.GetString(0));

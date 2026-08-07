@@ -4,7 +4,7 @@ namespace SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 
 public sealed class FakeBus : IEventBus
 {
-    private readonly List<object> _published = new();
+    private readonly List<object> _published = [];
 
     public IReadOnlyList<object> Published => _published;
 

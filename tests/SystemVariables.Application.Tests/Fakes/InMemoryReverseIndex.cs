@@ -22,7 +22,7 @@ public sealed class InMemoryReverseIndex : IReverseIndex
         _labelByOverlay[overlayIdentifier] = labelText;
         foreach (string name in PlaceholderParser.ExtractNames(labelText))
         {
-            HashSet<Guid> set = _byName.GetOrAdd(name, _ => new HashSet<Guid>());
+            HashSet<Guid> set = _byName.GetOrAdd(name, _ => []);
             lock (set) { set.Add(overlayIdentifier); }
         }
     }

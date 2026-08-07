@@ -51,7 +51,7 @@ public sealed class InMemoryRuleCache : IRuleCache
         (string Fab, string TriggerSource, string TriggerKind) key =
             (rule.Fab.Value, rule.TriggerSource, rule.TriggerKind);
 
-        List<CompiledRule> bucket = _byTrigger.GetOrAdd(key, _ => new List<CompiledRule>());
+        List<CompiledRule> bucket = _byTrigger.GetOrAdd(key, _ => []);
         lock (_gate)
         {
             bucket.RemoveAll(c => c.Identifier == rule.Id);

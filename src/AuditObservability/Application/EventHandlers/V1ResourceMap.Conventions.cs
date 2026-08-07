@@ -49,7 +49,7 @@ public sealed partial class V1ResourceMap
 
         private static Dictionary<Type, V1MappingEntry> BuildHandTweaks()
         {
-            Dictionary<Type, V1MappingEntry> map = new();
+            Dictionary<Type, V1MappingEntry> map = [];
 
             // Identity contracts split across two resource kinds depending on
             // which client persona the event covers (devices vs kiosks vs

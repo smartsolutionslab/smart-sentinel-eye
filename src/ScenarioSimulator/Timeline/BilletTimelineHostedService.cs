@@ -19,9 +19,9 @@ public sealed class BilletTimelineHostedService(
     MqttPublisher publisher,
     ILogger<BilletTimelineHostedService> logger) : BackgroundService
 {
-    private readonly Dictionary<string, ISensorBehaviour> _behaviours =
+    private readonly Dictionary<string, ISensorBehaviour> behaviours =
         behaviours.ToDictionary(behaviour => behaviour.Name, StringComparer.OrdinalIgnoreCase);
-    private readonly Random _random = new();
+    private readonly Random random = new();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -68,12 +68,12 @@ public sealed class BilletTimelineHostedService(
 
             foreach (SensorDefinition sensor in asset.Sensors)
             {
-                if (!_behaviours.TryGetValue(sensor.Behaviour, out ISensorBehaviour behaviour))
+                if (!behaviours.TryGetValue(sensor.Behaviour, out ISensorBehaviour behaviour))
                 {
                     continue;
                 }
 
-                double value = behaviour.Sample(sensor, fraction, _random);
+                double value = behaviour.Sample(sensor, fraction, random);
                 MqttSample sample = mapper.Map(asset, sensor, value);
                 await publisher.PublishAsync(sample.Topic, sample.Payload, cancellationToken);
                 logger.BilletSampleEmitted(sample.Topic, value, sensor.Unit, sensor.Kind);
