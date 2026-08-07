@@ -45,6 +45,17 @@ public sealed class OverlayDesignerClient(
         if (created.StatusCode == HttpStatusCode.Conflict)
         {
             OverlayListItem existing = await ReadBackAsync(name, token, cancellationToken);
+
+            // The list projection always carries revisions, so null means the
+            // read model changed shape and this recovery has gone blind. Say
+            // so — treating it as "nothing to publish" would be the same
+            // silent skip that stranded these overlays in Draft.
+            if (existing.Revisions is null)
+            {
+                logger.OverlayRevisionsMissing(name, existing.OverlayIdentifier);
+                return existing.OverlayIdentifier;
+            }
+
             if (!existing.HasDraftFirstRevision())
             {
                 logger.OverlayAlreadyExists(name, existing.OverlayIdentifier);
@@ -114,10 +125,11 @@ public sealed class OverlayDesignerClient(
         string Name,
         IReadOnlyList<OverlayRevisionItem> Revisions)
     {
+        /// <summary>Callers check <c>Revisions is null</c> first.</summary>
         public bool HasDraftFirstRevision() =>
-            Revisions?.Any(revision =>
+            Revisions.Any(revision =>
                 revision.RevisionNumber == FirstRevision
-                && string.Equals(revision.State, DraftState, StringComparison.Ordinal)) == true;
+                && string.Equals(revision.State, DraftState, StringComparison.Ordinal));
     }
 
     private sealed record OverlayRevisionItem(int RevisionNumber, string State);

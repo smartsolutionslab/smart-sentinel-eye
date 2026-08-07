@@ -44,6 +44,9 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Overlay '{Name}' already exists; reusing {Overlay} (idempotent).")]
     public static partial void OverlayAlreadyExists(this ILogger logger, string name, Guid overlay);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Overlay '{Name}' ({Overlay}) came back with no revisions; cannot tell whether it still needs publishing.")]
+    public static partial void OverlayRevisionsMissing(this ILogger logger, string name, Guid overlay);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Seeded rule '{Name}' -> overlay {Overlay}.")]
     public static partial void RuleSeeded(this ILogger logger, string name, Guid overlay);
 
