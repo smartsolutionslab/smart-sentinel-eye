@@ -20,13 +20,15 @@ public sealed class OverlayRevisionArchivedV1Handler(
     {
         Ensure.That(message).IsNotNull();
 
+        var (overlay, revisionNumber, archivedAt, _, _) = message;
+
         await broadcaster.OverlayArchivedAsync(
             new OverlayLifecycleArchivedNotification(
-                Overlay: message.Overlay,
-                RevisionNumber: message.RevisionNumber,
-                ArchivedAt: message.ArchivedAt),
+                Overlay: overlay,
+                RevisionNumber: revisionNumber,
+                ArchivedAt: archivedAt),
             cancellationToken);
 
-        logger.BroadcastOverlayArchived(message.Overlay, message.RevisionNumber);
+        logger.BroadcastOverlayArchived(overlay, revisionNumber);
     }
 }

@@ -22,20 +22,22 @@ public sealed class OverlayRevisionPublishedV1Handler(
     {
         Ensure.That(message).IsNotNull();
 
+        var (overlay, revisionNumber, name, text, normalizedX, normalizedY, normalizedWidth, normalizedHeight, fontSizePx, publishedAt, _, _) = message;
+
         await broadcaster.OverlayPublishedAsync(
             new OverlayLifecyclePublishedNotification(
-                Overlay: message.Overlay,
-                RevisionNumber: message.RevisionNumber,
-                Name: message.Name,
-                Text: message.Text,
-                NormalizedX: message.NormalizedX,
-                NormalizedY: message.NormalizedY,
-                NormalizedWidth: message.NormalizedWidth,
-                NormalizedHeight: message.NormalizedHeight,
-                FontSizePx: message.FontSizePx,
-                PublishedAt: message.PublishedAt),
+                Overlay: overlay,
+                RevisionNumber: revisionNumber,
+                Name: name,
+                Text: text,
+                NormalizedX: normalizedX,
+                NormalizedY: normalizedY,
+                NormalizedWidth: normalizedWidth,
+                NormalizedHeight: normalizedHeight,
+                FontSizePx: fontSizePx,
+                PublishedAt: publishedAt),
             cancellationToken);
 
-        logger.BroadcastOverlayPublished(message.Overlay, message.RevisionNumber);
+        logger.BroadcastOverlayPublished(overlay, revisionNumber);
     }
 }

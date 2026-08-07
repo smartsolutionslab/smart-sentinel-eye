@@ -20,17 +20,19 @@ public sealed class OverlayRevisionArchivedDomainEventHandler(IEventBus events)
     {
         Ensure.That(domainEvent).IsNotNull();
 
+        var (overlay, revisionNumber, archivedAt, archivedBy) = domainEvent;
+
         await events.PublishAsync(
             new OverlayRevisionArchivedV1(
-                Overlay: domainEvent.Overlay.Value,
-                RevisionNumber: domainEvent.RevisionNumber.Value,
-                ArchivedAt: domainEvent.ArchivedAt,
-                ArchivedBy: domainEvent.ArchivedBy.Value,
+                Overlay: overlay.Value,
+                RevisionNumber: revisionNumber.Value,
+                ArchivedAt: archivedAt,
+                ArchivedBy: archivedBy.Value,
                 Metadata: new EventMetadata(
                     Guid.CreateVersion7(),
-                    domainEvent.ArchivedAt,
+                    archivedAt,
                     null,
-                    domainEvent.ArchivedBy.Value)),
+                    archivedBy.Value)),
             cancellationToken);
     }
 }
