@@ -44,9 +44,14 @@ public sealed class ScenarioSeeder(
 
             // Record the id whether the camera was created or already existed:
             // it is what correlates the camera to its wall tile, and
-            // CameraRegisteredV1 only supplies it for a genuinely new one.
-            Guid camera = await catalog.RegisterCameraAsync(asset.Name, asset.Camera.Path, stoppingToken);
-            correlation.RecordCamera(asset.Camera.Path, camera);
+            // CameraRegisteredV1 only supplies it for a genuinely new one. Null
+            // means the read-back could not determine it (logged there); the
+            // wall simply stays incomplete rather than the seed failing.
+            Guid? camera = await catalog.RegisterCameraAsync(asset.Name, asset.Camera.Path, stoppingToken);
+            if (camera.HasValue)
+            {
+                correlation.RecordCamera(asset.Camera.Path, camera.Value);
+            }
         }
 
         // The event handler covers live registrations; this covers the restart

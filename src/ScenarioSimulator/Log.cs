@@ -27,6 +27,9 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Camera '{Name}' already registered; skipping (idempotent).")]
     public static partial void CameraAlreadyRegistered(this ILogger logger, string name);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not read back camera '{Name}' ({Reason}); it will not be correlated to a wall tile.")]
+    public static partial void CameraReadBackFailed(this ILogger logger, string name, string reason);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Provisioned camera-sim loop path '{Path}'.")]
     public static partial void CameraSimPathProvisioned(this ILogger logger, string path);
 
