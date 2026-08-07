@@ -31,6 +31,11 @@ public static class ScenarioSeedingExtensions
                 client.BaseAddress = new Uri(Resolve(sp).LayoutCompositionUrl))
             .AddStandardResilienceHandler();
 
+        // Shared by the seeder (restart path) and the CameraRegisteredV1
+        // handler (live path); the correlation table's one-shot claim keeps
+        // the wall created exactly once regardless of which gets there first.
+        builder.Services.AddSingleton<WallSeeder>();
+
         return builder;
     }
 

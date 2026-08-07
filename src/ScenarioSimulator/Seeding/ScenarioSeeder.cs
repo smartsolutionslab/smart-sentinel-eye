@@ -23,13 +23,12 @@ public sealed class ScenarioSeeder(
     AutomationRulesClient rules,
     AssetCorrelationTable correlation,
     IOptions<ScenarioOptions> scenarioOptions,
-    IOptions<SimulatorOptions> simulatorOptions,
+    WallSeeder wall,
     ILogger<ScenarioSeeder> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         ScenarioOptions scenarios = scenarioOptions.Value;
-        SimulatorOptions runtime = simulatorOptions.Value;
 
         if (!scenarios.Scenarios.TryGetValue(scenarios.Active, out ScenarioDefinition scenario))
         {
@@ -43,9 +42,17 @@ public sealed class ScenarioSeeder(
         {
             await SeedOverlayAndRuleAsync(asset, stoppingToken);
 
-            string rtspUrl = $"rtsp://{runtime.RtspHost.Trim('/')}/{asset.Camera.Path}";
-            await catalog.RegisterCameraAsync(asset.Name, rtspUrl, stoppingToken);
+            // Record the id whether the camera was created or already existed:
+            // it is what correlates the camera to its wall tile, and
+            // CameraRegisteredV1 only supplies it for a genuinely new one.
+            Guid camera = await catalog.RegisterCameraAsync(asset.Name, asset.Camera.Path, stoppingToken);
+            correlation.RecordCamera(asset.Camera.Path, camera);
         }
+
+        // The event handler covers live registrations; this covers the restart
+        // where every camera already exists, so no event fires and the wall
+        // would otherwise never be rebuilt. Both are idempotent.
+        await wall.TryCreateAsync(stoppingToken);
 
         logger.ScenarioSeeded(scenario.Name);
     }
