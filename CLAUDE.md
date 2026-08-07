@@ -31,6 +31,36 @@ may say "Main branch" but trust this file over the header.
 `develop`'s protection rules require **linear history** with
 **rebase-merge only** (no squash, no merge commits) — ADR-0087.
 
+### Stacked PRs — retarget the child before merging the parent
+
+Stack a PR only when it genuinely cannot build on `develop` alone —
+a convention change whose call sites depend on it, a contract change
+and its consumers. Otherwise cut from `develop` like everything else.
+
+When you do stack, **retarget the child to `develop` first, then merge
+the parent**:
+
+```sh
+gh pr edit <child> --base develop     # first
+gh pr merge <parent> --rebase         # then
+```
+
+Backwards is unrecoverable. The repo has `delete_branch_on_merge`
+enabled, so merging the parent deletes its branch; GitHub responds by
+**closing** every PR based on that branch rather than reparenting it,
+and a closed PR's base cannot be changed — so it cannot be reopened.
+The branch and its commits survive, but the PR number, its review
+thread and its CI history do not. PR #1378 was lost exactly this way.
+
+Stacked PRs do get the full check set — `ci.yml`'s `pull_request`
+trigger is deliberately unfiltered, because a stacked PR's base is
+itself unreviewed code. Do not narrow it back to `[develop, main]`.
+
+Each commit must build **on its own**, not merely at the tip of the
+stack: rebase-merge lands them individually on `develop`, so a commit
+that only compiles with its successor breaks `git bisect` forever.
+Verify per commit, not per branch.
+
 ## Workflow — guided phased process (ADR-0037)
 
 Seven phases, each with an artifact and an **explicit gate**. **Do not
