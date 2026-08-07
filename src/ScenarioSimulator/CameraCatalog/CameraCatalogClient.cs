@@ -30,7 +30,13 @@ public sealed class CameraCatalogClient(
     IOptions<SimulatorOptions> options,
     ILogger<CameraCatalogClient> logger)
 {
-    public async Task<Guid> RegisterCameraAsync(string name, string cameraPath, CancellationToken cancellationToken)
+    /// <summary>
+    /// The camera's identifier, or <c>null</c> when an already-registered
+    /// camera could not be read back. Null is not fatal: the caller simply
+    /// cannot correlate that camera to a wall tile, which is how this behaved
+    /// before the read-back existed.
+    /// </summary>
+    public async Task<Guid?> RegisterCameraAsync(string name, string cameraPath, CancellationToken cancellationToken)
     {
         string token = await tokens.GetAccessTokenAsync(cancellationToken);
         string rtspUrl = $"rtsp://{options.Value.RtspHost.Trim('/')}/{cameraPath}";
@@ -45,9 +51,8 @@ public sealed class CameraCatalogClient(
 
         if (response.StatusCode == HttpStatusCode.Conflict)
         {
-            Guid existing = await ReadBackAsync(name, token, cancellationToken);
             logger.CameraAlreadyRegistered(name);
-            return existing;
+            return await ReadBackAsync(name, token, cancellationToken);
         }
 
         response.EnsureSuccessStatusCode();
@@ -56,19 +61,38 @@ public sealed class CameraCatalogClient(
         return camera;
     }
 
-    private async Task<Guid> ReadBackAsync(string name, string token, CancellationToken cancellationToken)
+    /// <summary>
+    /// Best-effort read-back. A failure here must not take the worker down:
+    /// the read needs <c>sse.cameras.read</c>, and a grant still missing that
+    /// scope answers 403 — which, thrown, would trip
+    /// <c>BackgroundServiceExceptionBehavior.StopHost</c> and kill the whole
+    /// simulator over a wall tile. Degrade to "id unknown" instead.
+    /// </summary>
+    private async Task<Guid?> ReadBackAsync(string name, string token, CancellationToken cancellationToken)
     {
-        using HttpRequestMessage list = new(HttpMethod.Get, "/cameras?limit=200");
-        list.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using HttpResponseMessage response = await http.SendAsync(list, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        try
+        {
+            using HttpRequestMessage list = new(HttpMethod.Get, "/cameras?limit=200");
+            list.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using HttpResponseMessage response = await http.SendAsync(list, cancellationToken);
+            response.EnsureSuccessStatusCode();
 
-        CameraPage payload = await response.Content.ReadFromJsonAsync<CameraPage>(cancellationToken);
-        CameraSummary match = payload?.Items?
-            .FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
+            CameraPage payload = await response.Content.ReadFromJsonAsync<CameraPage>(cancellationToken);
+            CameraSummary match = payload?.Items?
+                .FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
 
-        return match?.CameraIdentifier
-            ?? throw new InvalidOperationException($"Camera '{name}' conflicted but could not be read back.");
+            if (match is null)
+            {
+                logger.CameraReadBackFailed(name, "not present in the catalog listing");
+            }
+
+            return match?.CameraIdentifier;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.CameraReadBackFailed(name, ex.Message);
+            return null;
+        }
     }
 
     // Matches CameraCatalog.Api RegisterCameraRequest { Name, RtspUrl }.
