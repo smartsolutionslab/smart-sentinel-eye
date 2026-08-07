@@ -36,11 +36,14 @@ public sealed class CameraSimReconciler(
             return;
         }
 
+        int reconciled = 0;
+
         foreach (string path in scenario.Assets.Select(asset => asset.Camera.Path))
         {
             try
             {
                 await provisioner.ProvisionLoopPathAsync(path, cancellationToken);
+                reconciled++;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -51,7 +54,7 @@ public sealed class CameraSimReconciler(
             }
         }
 
-        logger.CameraSimReconciled(scenario.Assets.Count);
+        logger.CameraSimReconciled(reconciled, scenario.Assets.Count);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
