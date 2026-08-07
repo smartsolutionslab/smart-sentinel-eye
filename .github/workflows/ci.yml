@@ -1,8 +1,11 @@
 name: CI
 
 on:
+  # Every pull request, whatever it targets. Filtering to [develop, main] left
+  # stacked PRs — one feature branch based on another — with no checks at all,
+  # which is how a commit that did not build reached PR #1377. A stacked PR is
+  # exactly the case that needs verifying: its base is unreviewed code.
   pull_request:
-    branches: [develop, main]
   push:
     branches: [develop, main]
   workflow_dispatch:
