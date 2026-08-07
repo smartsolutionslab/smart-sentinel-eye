@@ -28,11 +28,13 @@ public sealed class CameraRegisteredSimHandler(
     {
         Ensure.That(message).IsNotNull();
 
-        if (!RtspPath.TryExtract(message.Url, out string path))
+        var (camera, _, url, _, _, _) = message;
+
+        if (!RtspPath.TryExtract(url, out string path))
         {
             // Cameras not registered by this simulator (no path component) are
             // none of our business — log and drop, don't retry.
-            logger.SkippedNonSimulatedCamera(message.Url);
+            logger.SkippedNonSimulatedCamera(url);
             return;
         }
 
@@ -41,8 +43,8 @@ public sealed class CameraRegisteredSimHandler(
         // is best-effort and runs last: if it throws Wolverine retries the whole
         // handler, and RecordCamera + the wall claim/read-back are both idempotent,
         // so a camera-sim hiccup can never block the wall from being created.
-        correlation.RecordCamera(path, message.Camera);
-        logger.AssetCameraRecorded(path, message.Camera);
+        correlation.RecordCamera(path, camera);
+        logger.AssetCameraRecorded(path, camera);
 
         await TryCreateWallAsync(cancellationToken);
 

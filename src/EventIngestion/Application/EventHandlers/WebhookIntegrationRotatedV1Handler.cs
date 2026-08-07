@@ -18,28 +18,30 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
     {
         Ensure.That(message).IsNotNull();
 
+        var (integrationName, clientId, _, _) = message;
+
         WebhookIntegrationName name;
         try
         {
-            name = WebhookIntegrationName.From(message.IntegrationName);
+            name = WebhookIntegrationName.From(integrationName);
         }
         catch (ArgumentException ex)
         {
-            logger.InvalidRotationName(ex, message.IntegrationName);
+            logger.InvalidRotationName(ex, integrationName);
             return;
         }
 
         Option<WebhookIntegration> found = await integrations.GetByNameAsync(name, cancellationToken);
         if (!found.HasValue)
         {
-            logger.RotationTargetMissing(message.IntegrationName);
+            logger.RotationTargetMissing(integrationName);
             return;
         }
 
         WebhookIntegration integration = found.Value;
-        integration.MarkAsRotated(message.ClientId, clock);
+        integration.MarkAsRotated(clientId, clock);
         await integrations.SaveAsync(cancellationToken);
 
-        logger.WebhookIntegrationFlippedToJwt(message.IntegrationName, message.ClientId);
+        logger.WebhookIntegrationFlippedToJwt(integrationName, clientId);
     }
 }

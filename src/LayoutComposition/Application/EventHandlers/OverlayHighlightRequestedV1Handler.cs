@@ -19,10 +19,12 @@ public sealed class OverlayHighlightRequestedV1Handler(
     public async Task Handle(OverlayHighlightRequestedV1 message, CancellationToken cancellationToken)
     {
         Ensure.That(message).IsNotNull();
+
+        var (overlayIdentifier, durationMs, _, causingEventIdentifier, _) = message;
         await broadcaster.OverlayHighlightedAsync(
-            new OverlayHighlightedNotification(message.OverlayIdentifier, message.DurationMs),
+            new OverlayHighlightedNotification(overlayIdentifier, durationMs),
             cancellationToken);
 
-        logger.BroadcastOverlayHighlightChanged(message.OverlayIdentifier, message.DurationMs, message.CausingEventIdentifier);
+        logger.BroadcastOverlayHighlightChanged(overlayIdentifier, durationMs, causingEventIdentifier);
     }
 }

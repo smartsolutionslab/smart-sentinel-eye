@@ -22,20 +22,22 @@ public sealed class LayoutRevisionArchivedDomainEventHandler(
     {
         Ensure.That(domainEvent).IsNotNull();
 
+        var (layout, revisionNumber, archivedAt, archivedBy) = domainEvent;
+
         await events.PublishAsync(
             new LayoutRevisionArchivedV1(
-                Layout: domainEvent.Layout.Value,
-                RevisionNumber: domainEvent.RevisionNumber.Value,
-                ArchivedAt: domainEvent.ArchivedAt,
-                ArchivedBy: domainEvent.ArchivedBy.Value,
-                Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ArchivedAt, null, domainEvent.ArchivedBy.Value)),
+                Layout: layout.Value,
+                RevisionNumber: revisionNumber.Value,
+                ArchivedAt: archivedAt,
+                ArchivedBy: archivedBy.Value,
+                Metadata: new EventMetadata(Guid.CreateVersion7(), archivedAt, null, archivedBy.Value)),
             cancellationToken);
 
         await broadcaster.ArchivedAsync(
             new LayoutRevisionArchivedNotification(
-                domainEvent.Layout,
-                domainEvent.RevisionNumber,
-                domainEvent.ArchivedAt),
+                layout,
+                revisionNumber,
+                archivedAt),
             cancellationToken);
     }
 }

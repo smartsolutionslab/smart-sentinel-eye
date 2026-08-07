@@ -14,6 +14,8 @@ public sealed class GetRuleQueryHandler(IRuleQuerySource rules)
     {
         Ensure.That(query).IsNotNull();
 
+        var (fabs, name) = query;
+
         // Compare the value object, not its inner string. RuleName is mapped
         // with a value conversion (RuleConfiguration), which EF can translate
         // for the whole property but not for a member access on it — reaching
@@ -24,11 +26,11 @@ public sealed class GetRuleQueryHandler(IRuleQuerySource rules)
         RuleName parsed;
         try
         {
-            parsed = RuleName.From(query.Name);
+            parsed = RuleName.From(name);
         }
         catch (ArgumentException)
         {
-            return Failure(GetRuleFailures.RuleNotFound(query.Name));
+            return Failure(GetRuleFailures.RuleNotFound(name));
         }
 
         // Resolved within the caller's fabs. A rule in a fab they do not hold
@@ -44,19 +46,19 @@ public sealed class GetRuleQueryHandler(IRuleQuerySource rules)
         // caller holding several fabs can legitimately match the same name more
         // than once, and Single would throw out of the handler as a 500. The
         // result is bounded by how many fabs the caller holds.
-        FabIdentifier[] fabs = [.. query.Fabs];
+        FabIdentifier[] scopedFabs = [.. fabs];
         List<Rule> matches = await rules.Rules
-            .Where(candidate => fabs.Contains(candidate.Fab) && candidate.Name == parsed)
+            .Where(candidate => scopedFabs.Contains(candidate.Fab) && candidate.Name == parsed)
             .ToListAsync(cancellationToken);
 
         if (matches.Count == 0)
         {
-            return Failure(GetRuleFailures.RuleNotFound(query.Name));
+            return Failure(GetRuleFailures.RuleNotFound(name));
         }
 
         if (matches.Count > 1)
         {
-            return Failure(GetRuleFailures.FabAmbiguous(query.Name, RuleFabCandidates.Describe(matches)));
+            return Failure(GetRuleFailures.FabAmbiguous(name, RuleFabCandidates.Describe(matches)));
         }
 
         return Success(RuleMapper.Map(matches[0]));

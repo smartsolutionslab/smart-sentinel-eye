@@ -14,38 +14,40 @@ public sealed class ListRulesQueryHandler(IRuleQuerySource rules)
     {
         Ensure.That(query).IsNotNull();
 
+        var (fabs, state, triggerSource, triggerKind) = query;
+
         // Scoped to the caller's fabs before any user-supplied filter, so a
         // filter can only ever narrow what they were already entitled to see
         // (spec 013 FR-005). An empty set yields nothing — an operator
         // assigned to no fab sees no rules, not every rule.
         // Value object, not .Value: Fab is value-converted, and a member
         // access on it throws at EF translation time rather than filtering.
-        FabIdentifier[] fabs = [.. query.Fabs];
-        IQueryable<Rule> filtered = rules.Rules.Where(rule => fabs.Contains(rule.Fab));
+        FabIdentifier[] scopedFabs = [.. fabs];
+        IQueryable<Rule> filtered = rules.Rules.Where(rule => scopedFabs.Contains(rule.Fab));
 
-        if (!string.IsNullOrWhiteSpace(query.State))
+        if (!string.IsNullOrWhiteSpace(state))
         {
-            RuleState state;
+            RuleState parsedState;
             try
             {
-                state = RuleState.From(query.State);
+                parsedState = RuleState.From(state);
             }
             catch (ArgumentException)
             {
-                return Failure(ListRulesFailures.InvalidState(query.State));
+                return Failure(ListRulesFailures.InvalidState(state));
             }
 
-            filtered = filtered.Where(rule => rule.State == state);
+            filtered = filtered.Where(rule => rule.State == parsedState);
         }
 
-        if (!string.IsNullOrWhiteSpace(query.TriggerSource))
+        if (!string.IsNullOrWhiteSpace(triggerSource))
         {
-            filtered = filtered.Where(rule => rule.TriggerSource == query.TriggerSource);
+            filtered = filtered.Where(rule => rule.TriggerSource == triggerSource);
         }
 
-        if (!string.IsNullOrWhiteSpace(query.TriggerKind))
+        if (!string.IsNullOrWhiteSpace(triggerKind))
         {
-            filtered = filtered.Where(rule => rule.TriggerKind == query.TriggerKind);
+            filtered = filtered.Where(rule => rule.TriggerKind == triggerKind);
         }
 
         List<Rule> matches = await filtered

@@ -31,7 +31,9 @@ public sealed class LayoutRevisionPublishedDomainEventHandler(
     {
         Ensure.That(domainEvent).IsNotNull();
 
-        IReadOnlyList<LayoutTileV2> tiles = domainEvent.Tiles
+        var (layout, revisionNumber, name, grid, domainTiles, publishedAt, publishedBy) = domainEvent;
+
+        IReadOnlyList<LayoutTileV2> tiles = domainTiles
             .Select(tile => new LayoutTileV2(
                 Camera: tile.Camera.Value,
                 Overlay: tile.Overlay.Match(overlay => (Guid?)overlay.Value, () => null),
@@ -41,23 +43,23 @@ public sealed class LayoutRevisionPublishedDomainEventHandler(
 
         await events.PublishAsync(
             new LayoutRevisionPublishedV2(
-                Layout: domainEvent.Layout.Value,
-                RevisionNumber: domainEvent.RevisionNumber.Value,
-                Name: domainEvent.Name.Value,
+                Layout: layout.Value,
+                RevisionNumber: revisionNumber.Value,
+                Name: name.Value,
                 Tiles: tiles,
-                GridRows: domainEvent.Grid.Rows,
-                GridCols: domainEvent.Grid.Cols,
-                PublishedAt: domainEvent.PublishedAt,
-                PublishedBy: domainEvent.PublishedBy.Value,
-                Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.PublishedAt, null, domainEvent.PublishedBy.Value)),
+                GridRows: grid.Rows,
+                GridCols: grid.Cols,
+                PublishedAt: publishedAt,
+                PublishedBy: publishedBy.Value,
+                Metadata: new EventMetadata(Guid.CreateVersion7(), publishedAt, null, publishedBy.Value)),
             cancellationToken);
 
         await broadcaster.PublishedAsync(
             new LayoutRevisionPublishedNotification(
-                domainEvent.Layout,
-                domainEvent.RevisionNumber,
-                domainEvent.Name,
-                domainEvent.PublishedAt),
+                layout,
+                revisionNumber,
+                name,
+                publishedAt),
             cancellationToken);
     }
 }

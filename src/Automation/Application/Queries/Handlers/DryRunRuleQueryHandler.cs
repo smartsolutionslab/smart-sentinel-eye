@@ -24,6 +24,8 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
     {
         Ensure.That(query).IsNotNull();
 
+        var (fabs, name, sampleEvent) = query;
+
         // Compare the value object, not its inner string. RuleName is mapped
         // with a value conversion (RuleConfiguration), which EF can translate
         // for the whole property but not for a member access on it — reaching
@@ -34,11 +36,11 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
         RuleName parsed;
         try
         {
-            parsed = RuleName.From(query.Name);
+            parsed = RuleName.From(name);
         }
         catch (ArgumentException)
         {
-            return Failure(DryRunRuleFailures.RuleNotFound(query.Name));
+            return Failure(DryRunRuleFailures.RuleNotFound(name));
         }
 
         // Fab-scoped like the reads (spec 013 FR-006): a trial run must not
@@ -54,20 +56,20 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
         // per-fab uniqueness lets a multi-fab caller match the same name twice,
         // and the catch further down guards only the evaluation block, so a
         // Single throw would escape as a 500.
-        FabIdentifier[] fabs = [.. query.Fabs];
+        FabIdentifier[] scopedFabs = [.. fabs];
         List<Rule> matches = await rules.Rules
-            .Where(candidate => fabs.Contains(candidate.Fab) && candidate.Name == parsed)
+            .Where(candidate => scopedFabs.Contains(candidate.Fab) && candidate.Name == parsed)
             .ToListAsync(cancellationToken);
 
         if (matches.Count == 0)
         {
-            return Failure(DryRunRuleFailures.RuleNotFound(query.Name));
+            return Failure(DryRunRuleFailures.RuleNotFound(name));
         }
 
         if (matches.Count > 1)
         {
             return Failure(DryRunRuleFailures.FabAmbiguous(
-                    query.Name, RuleFabCandidates.Describe(matches)));
+                    name, RuleFabCandidates.Describe(matches)));
         }
 
         Rule rule = matches[0];
@@ -75,7 +77,7 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
         JsonDocument sample;
         try
         {
-            sample = JsonDocument.Parse(query.SampleEvent ?? string.Empty);
+            sample = JsonDocument.Parse(sampleEvent ?? string.Empty);
         }
         catch (JsonException ex)
         {
