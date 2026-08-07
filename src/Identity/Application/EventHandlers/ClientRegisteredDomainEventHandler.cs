@@ -33,34 +33,36 @@ public sealed class ClientRegisteredDomainEventHandler(
     {
         Ensure.That(domainEvent).IsNotNull();
 
-        if (domainEvent.Kind == ClientKind.Device)
+        var (client, clientId, kind, fab, registeredAt, _) = domainEvent;
+
+        if (kind == ClientKind.Device)
         {
-            (string deviceType, string deviceIdentifier) = SplitDeviceClientId(domainEvent.ClientId.Value);
+            (string deviceType, string deviceIdentifier) = SplitDeviceClientId(clientId.Value);
             await events.PublishAsync(
                 new DeviceRegisteredV1(
-                    RegisteredClientIdentifier: domainEvent.Client.Value,
-                    ClientId: domainEvent.ClientId.Value,
+                    RegisteredClientIdentifier: client.Value,
+                    ClientId: clientId.Value,
                     DeviceType: deviceType,
                     DeviceIdentifier: deviceIdentifier,
-                    Fab: domainEvent.Fab.Value,
-                    RegisteredAt: domainEvent.RegisteredAt,
-                    Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.RegisteredAt, domainEvent.Fab.Value, null)),
+                    Fab: fab.Value,
+                    RegisteredAt: registeredAt,
+                    Metadata: new EventMetadata(Guid.CreateVersion7(), registeredAt, fab.Value, null)),
                 cancellationToken);
-            logger.PublishedDeviceRegisteredV1(domainEvent.ClientId);
+            logger.PublishedDeviceRegisteredV1(clientId);
             return;
         }
 
-        if (domainEvent.Kind == ClientKind.Kiosk)
+        if (kind == ClientKind.Kiosk)
         {
             await events.PublishAsync(
                 new KioskEnrolledV1(
-                    RegisteredClientIdentifier: domainEvent.Client.Value,
-                    ClientId: domainEvent.ClientId.Value,
-                    Fab: domainEvent.Fab.Value,
-                    EnrolledAt: domainEvent.RegisteredAt,
-                    Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.RegisteredAt, domainEvent.Fab.Value, null)),
+                    RegisteredClientIdentifier: client.Value,
+                    ClientId: clientId.Value,
+                    Fab: fab.Value,
+                    EnrolledAt: registeredAt,
+                    Metadata: new EventMetadata(Guid.CreateVersion7(), registeredAt, fab.Value, null)),
                 cancellationToken);
-            logger.PublishedKioskEnrolledV1(domainEvent.ClientId);
+            logger.PublishedKioskEnrolledV1(clientId);
         }
 
         // WebhookIntegration: no fan-out here — the rotate-command-

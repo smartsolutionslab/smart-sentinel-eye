@@ -30,20 +30,22 @@ public sealed class VariableValueChangedDomainEventHandler(
     {
         Ensure.That(domainEvent).IsNotNull();
 
+        var (variable, name, type, value, changedAt, changedBy, _) = domainEvent;
+
         SystemVariableValueChangedV1 systemVariableValueChangedEvent = new(
-            Variable: domainEvent.Variable.Value,
-            Name: domainEvent.Name.Value,
-            Type: domainEvent.Type.Value,
-            Value: domainEvent.Value.ToWireString(),
-            ChangedAt: domainEvent.ChangedAt,
-            ChangedBy: domainEvent.ChangedBy.Value,
-            Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ChangedAt, null, domainEvent.ChangedBy.Value));
+            Variable: variable.Value,
+            Name: name.Value,
+            Type: type.Value,
+            Value: value.ToWireString(),
+            ChangedAt: changedAt,
+            ChangedBy: changedBy.Value,
+            Metadata: new EventMetadata(Guid.CreateVersion7(), changedAt, null, changedBy.Value));
         await events.PublishAsync(systemVariableValueChangedEvent, cancellationToken);
 
-        IReadOnlyCollection<Guid> affectedOverlays = reverseIndex.LookupOverlays(domainEvent.Name.Value);
+        IReadOnlyCollection<Guid> affectedOverlays = reverseIndex.LookupOverlays(name.Value);
         if (affectedOverlays.Count == 0)
         {
-            logger.NoOverlaysReferenceVariable(domainEvent.Name);
+            logger.NoOverlaysReferenceVariable(name);
             return;
         }
 
@@ -66,13 +68,13 @@ public sealed class VariableValueChangedDomainEventHandler(
                 Version: version,
                 Metadata: new(
                     Guid.CreateVersion7(),
-                    domainEvent.ChangedAt,
+                    changedAt,
                     null,
-                    domainEvent.ChangedBy.Value));
+                    changedBy.Value));
             await events.PublishAsync(@event, cancellationToken);
         }
 
-        logger.PushedResolvedTextAfterChange(affectedOverlays.Count, domainEvent.Name);
+        logger.PushedResolvedTextAfterChange(affectedOverlays.Count, name);
     }
 
     /// <summary>

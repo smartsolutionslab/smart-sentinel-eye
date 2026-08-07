@@ -26,20 +26,22 @@ public sealed class OverlayRevisionPublishedDomainEventHandler(IEventBus events)
     {
         Ensure.That(domainEvent).IsNotNull();
 
+        var (overlay, revisionNumber, name, label, publishedAt, publishedBy) = domainEvent;
+
         await events.PublishAsync(
             new OverlayRevisionPublishedV1(
-                Overlay: domainEvent.Overlay.Value,
-                RevisionNumber: domainEvent.RevisionNumber.Value,
-                Name: domainEvent.Name.Value,
-                Text: domainEvent.Label.Text,
-                NormalizedX: domainEvent.Label.NormalizedX,
-                NormalizedY: domainEvent.Label.NormalizedY,
-                NormalizedWidth: domainEvent.Label.NormalizedWidth,
-                NormalizedHeight: domainEvent.Label.NormalizedHeight,
-                FontSizePx: domainEvent.Label.FontSizePx,
-                PublishedAt: domainEvent.PublishedAt,
-                PublishedBy: domainEvent.PublishedBy.Value,
-                Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.PublishedAt, null, domainEvent.PublishedBy.Value)),
+                Overlay: overlay.Value,
+                RevisionNumber: revisionNumber.Value,
+                Name: name.Value,
+                Text: label.Text,
+                NormalizedX: label.NormalizedX,
+                NormalizedY: label.NormalizedY,
+                NormalizedWidth: label.NormalizedWidth,
+                NormalizedHeight: label.NormalizedHeight,
+                FontSizePx: label.FontSizePx,
+                PublishedAt: publishedAt,
+                PublishedBy: publishedBy.Value,
+                Metadata: new EventMetadata(Guid.CreateVersion7(), publishedAt, null, publishedBy.Value)),
             cancellationToken);
     }
 }

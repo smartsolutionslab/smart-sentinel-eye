@@ -36,20 +36,22 @@ public sealed class FabEventIngestedV1Handler(
     {
         Ensure.That(message).IsNotNull();
 
+        var (eventIdentifier, fab, source, _, kind, _, _, _, _) = message;
+
         // An event that does not say which fab it came from triggers nothing
         // (spec 013 FR-012). Falling back to evaluating every rule is exactly
         // the behaviour #1252 describes, so the absence of a fab must fail
         // closed rather than open.
-        if (string.IsNullOrWhiteSpace(message.Fab))
+        if (string.IsNullOrWhiteSpace(fab))
         {
-            logger.SkippedEventWithoutFab(message.EventIdentifier);
+            logger.SkippedEventWithoutFab(eventIdentifier);
             return;
         }
 
-        FabIdentifier fab;
+        FabIdentifier parsedFab;
         try
         {
-            fab = FabIdentifier.From(message.Fab);
+            parsedFab = FabIdentifier.From(fab);
         }
         catch (ArgumentException exception)
         {
@@ -59,13 +61,13 @@ public sealed class FabEventIngestedV1Handler(
             // rule for that fab until someone notices. The value and the
             // reason both go in the log, because neither is recoverable from
             // the event identifier alone.
-            logger.SkippedEventWithUnparseableFab(exception, message.EventIdentifier, message.Fab);
+            logger.SkippedEventWithUnparseableFab(exception, eventIdentifier, fab);
             return;
         }
 
         EvaluationContext context = BuildContext(message);
         IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
-            fab, message.Source, message.Kind, context);
+            parsedFab, source, kind, context);
         if (effects.Count == 0)
         {
             return;
@@ -79,22 +81,22 @@ public sealed class FabEventIngestedV1Handler(
                 case RuleActionEffect.SetVariableValue setVariableValue:
                     await events.PublishAsync(
                         new SystemVariableValueRequestedV1(
-                            setVariableValue.Name, setVariableValue.Value, requestedAt, message.EventIdentifier,
-                            Metadata: new EventMetadata(Guid.CreateVersion7(), requestedAt, message.Fab, null)),
+                            setVariableValue.Name, setVariableValue.Value, requestedAt, eventIdentifier,
+                            Metadata: new EventMetadata(Guid.CreateVersion7(), requestedAt, fab, null)),
                         cancellationToken);
                     break;
 
                 case RuleActionEffect.HighlightOverlay highlightOverlay:
                     await events.PublishAsync(
                         new OverlayHighlightRequestedV1(
-                            highlightOverlay.Overlay, highlightOverlay.DurationMs, requestedAt, message.EventIdentifier,
-                            Metadata: new EventMetadata(Guid.CreateVersion7(), requestedAt, message.Fab, null)),
+                            highlightOverlay.Overlay, highlightOverlay.DurationMs, requestedAt, eventIdentifier,
+                            Metadata: new EventMetadata(Guid.CreateVersion7(), requestedAt, fab, null)),
                         cancellationToken);
                     break;
             }
         }
 
-        logger.FannedOutActions(effects.Count, message.EventIdentifier, message.Source, message.Kind);
+        logger.FannedOutActions(effects.Count, eventIdentifier, source, kind);
     }
 
     /// <summary>

@@ -21,13 +21,15 @@ public sealed class ResolvedOverlayTextChangedV1Handler(
     {
         Ensure.That(message).IsNotNull();
 
+        var (overlay, resolvedText, version, _) = message;
+
         await broadcaster.ResolvedOverlayTextChangedAsync(
             new ResolvedOverlayTextChangedNotification(
-                message.Overlay,
-                message.ResolvedText,
-                message.Version),
+                overlay,
+                resolvedText,
+                version),
             cancellationToken);
 
-        logger.BroadcastResolvedOverlayTextChanged(message.Overlay, message.Version);
+        logger.BroadcastResolvedOverlayTextChanged(overlay, version);
     }
 }

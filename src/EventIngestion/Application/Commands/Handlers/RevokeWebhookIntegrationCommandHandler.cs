@@ -17,10 +17,12 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        Option<WebhookIntegration> found = await integrations.GetByNameAsync(command.Name, cancellationToken);
+        var (name, expectedVersion) = command;
+
+        Option<WebhookIntegration> found = await integrations.GetByNameAsync(name, cancellationToken);
         if (!found.HasValue)
         {
-            return Failure(RevokeWebhookIntegrationFailures.WebhookIntegrationNotFound(command.Name.Value));
+            return Failure(RevokeWebhookIntegrationFailures.WebhookIntegrationNotFound(name.Value));
         }
 
         WebhookIntegration integration = found.Value;
@@ -43,10 +45,10 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
         // ADR-0113 Layer 1: refuse a revoke built on a view of the integration
         // that has since moved. Checked before any mutation so nothing is
         // applied on top of stale intent.
-        if (integration.Version != command.ExpectedVersion)
+        if (integration.Version != expectedVersion)
         {
             return Failure(RevokeWebhookIntegrationFailures.WebhookIntegrationStale(
-                    command.Name.Value, command.ExpectedVersion, integration.Version));
+                    name.Value, expectedVersion, integration.Version));
         }
 
         integration.Revoke(clock);

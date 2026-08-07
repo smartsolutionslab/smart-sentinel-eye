@@ -19,11 +19,13 @@ public sealed class ArchiveRuleCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
+        var (fab, name, expectedVersion) = command;
+
         Option<Rule> found = await rules
-            .GetByNameAsync(command.Fab, command.Name, cancellationToken);
+            .GetByNameAsync(fab, name, cancellationToken);
         if (!found.HasValue)
         {
-            return Failure(ArchiveRuleFailures.RuleNotFound(command.Name.Value));
+            return Failure(ArchiveRuleFailures.RuleNotFound(name.Value));
         }
 
         Rule rule = found.Value;
@@ -31,9 +33,9 @@ public sealed class ArchiveRuleCommandHandler(
         // ADR-0113 Layer 1: refuse an edit built on a view of the rule that has
         // since moved. Checked before any mutation so nothing is applied on top
         // of stale intent.
-        if (rule.Version != command.ExpectedVersion)
+        if (rule.Version != expectedVersion)
         {
-            return Failure(ArchiveRuleFailures.RuleStale(command.Name.Value, command.ExpectedVersion, rule.Version));
+            return Failure(ArchiveRuleFailures.RuleStale(name.Value, expectedVersion, rule.Version));
         }
         rule.Archive(clock);
         await rules.SaveAsync(cancellationToken);
@@ -42,7 +44,7 @@ public sealed class ArchiveRuleCommandHandler(
         // evaluated against the archived rule.
         cache.Remove(rule.Id);
 
-        logger.ArchivedRule(rule.Id, command.Name);
+        logger.ArchivedRule(rule.Id, name);
 
         return Success(rule.Id);
     }

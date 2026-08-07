@@ -20,19 +20,21 @@ public sealed class EventIngestedDomainEventHandler(IEventBus events, ILogger<Ev
     {
         Ensure.That(domainEvent).IsNotNull();
 
+        var (identifier, fab, source, device, kind, occurredAt, ingestedAt, payload) = domainEvent;
+
         await events.PublishAsync(
             new FabEventIngestedV1(
-                EventIdentifier: domainEvent.Identifier.Value,
-                Fab: domainEvent.Fab.Value,
-                Source: domainEvent.Source.Value,
-                Device: domainEvent.Device.Value,
-                Kind: domainEvent.Kind.Value,
-                OccurredAt: domainEvent.OccurredAt.Value,
-                IngestedAt: domainEvent.IngestedAt.Value,
-                Payload: domainEvent.Payload.Value,
-                Metadata: new EventMetadata(domainEvent.Identifier.Value, domainEvent.OccurredAt.Value, domainEvent.Fab.Value, null)),
+                EventIdentifier: identifier.Value,
+                Fab: fab.Value,
+                Source: source.Value,
+                Device: device.Value,
+                Kind: kind.Value,
+                OccurredAt: occurredAt.Value,
+                IngestedAt: ingestedAt.Value,
+                Payload: payload.Value,
+                Metadata: new EventMetadata(identifier.Value, occurredAt.Value, fab.Value, null)),
             cancellationToken);
 
-        logger.PublishedIntegrationEvent(domainEvent.Identifier, domainEvent.Source, domainEvent.Device);
+        logger.PublishedIntegrationEvent(identifier, source, device);
     }
 }

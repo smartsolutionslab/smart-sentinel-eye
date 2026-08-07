@@ -29,16 +29,18 @@ public sealed class VariableArchivedDomainEventHandler(
     {
         Ensure.That(domainEvent).IsNotNull();
 
+        var (variableIdentifier, variableName, archivedAt, archivedBy) = domainEvent;
+
         SystemVariableArchivedV1 systemVariableArchivedEvent = new(
-            Variable: domainEvent.Variable.Value,
-            Name: domainEvent.Name.Value,
-            ArchivedAt: domainEvent.ArchivedAt,
-            ArchivedBy: domainEvent.ArchivedBy.Value,
-            Metadata: new EventMetadata(Guid.CreateVersion7(), domainEvent.ArchivedAt, null, domainEvent.ArchivedBy.Value));
+            Variable: variableIdentifier.Value,
+            Name: variableName.Value,
+            ArchivedAt: archivedAt,
+            ArchivedBy: archivedBy.Value,
+            Metadata: new EventMetadata(Guid.CreateVersion7(), archivedAt, null, archivedBy.Value));
 
         await events.PublishAsync(systemVariableArchivedEvent, cancellationToken);
 
-        IReadOnlyCollection<Guid> affectedOverlays = reverseIndex.LookupOverlays(domainEvent.Name.Value);
+        IReadOnlyCollection<Guid> affectedOverlays = reverseIndex.LookupOverlays(variableName.Value);
         if (affectedOverlays.Count == 0)
         {
             return;
@@ -58,7 +60,7 @@ public sealed class VariableArchivedDomainEventHandler(
             Dictionary<string, VariableSnapshotEntry> snapshot = new(StringComparer.Ordinal);
             foreach (string name in PlaceholderParser.ExtractNames(labelText))
             {
-                if (string.Equals(name, domainEvent.Name.Value, StringComparison.Ordinal))
+                if (string.Equals(name, variableName.Value, StringComparison.Ordinal))
                 {
                     continue;
                 }
@@ -96,12 +98,12 @@ public sealed class VariableArchivedDomainEventHandler(
                 Version: version,
                 Metadata: new(
                     Guid.CreateVersion7(),
-                    domainEvent.ArchivedAt,
+                    archivedAt,
                     null,
-                    domainEvent.ArchivedBy.Value));
+                    archivedBy.Value));
             await events.PublishAsync(resolvedOverlayTextChangedEvent, cancellationToken);
         }
 
-        logger.PushedResolvedTextAfterArchive(affectedOverlays.Count, domainEvent.Name);
+        logger.PushedResolvedTextAfterArchive(affectedOverlays.Count, variableName);
     }
 }

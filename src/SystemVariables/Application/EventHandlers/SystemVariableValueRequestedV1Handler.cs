@@ -39,35 +39,37 @@ public sealed class SystemVariableValueRequestedV1Handler(
     {
         Ensure.That(message).IsNotNull();
 
-        bool reserved = await dedup.TryReserveAsync(message.Name, message.CausingEventIdentifier, cancellationToken);
+        var (name, value, _, causingEventIdentifier, _) = message;
+
+        bool reserved = await dedup.TryReserveAsync(name, causingEventIdentifier, cancellationToken);
         if (!reserved)
         {
-            logger.DedupHit(message.Name, message.CausingEventIdentifier);
+            logger.DedupHit(name, causingEventIdentifier);
             return;
         }
 
-        VariableName name;
+        VariableName variableName;
         try
         {
-            name = VariableName.From(message.Name);
+            variableName = VariableName.From(name);
         }
         catch (ArgumentException ex)
         {
-            logger.InvalidVariableName(ex, message.Name, message.CausingEventIdentifier);
+            logger.InvalidVariableName(ex, name, causingEventIdentifier);
             return;
         }
 
         Result<VariableIdentifier, SetVariableValueError> result = await setHandler.HandleAsync(
             new SetVariableValueCommand(
-                name,
-                message.Value,
+                variableName,
+                value,
                 AutomationOperator,
                 Option<int>.None),
             cancellationToken);
 
         if (!result.IsSuccess)
         {
-            logger.SetVariableValueFailed(message.Name, message.Value, message.CausingEventIdentifier, result.Error.Code);
+            logger.SetVariableValueFailed(name, value, causingEventIdentifier, result.Error.Code);
         }
     }
 }
