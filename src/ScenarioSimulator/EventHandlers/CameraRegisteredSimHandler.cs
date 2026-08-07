@@ -1,7 +1,5 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator.CameraSim;
-using SmartSentinelEye.ScenarioSimulator.Scenario;
 using SmartSentinelEye.ScenarioSimulator.Seeding;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
 using SmartSentinelEye.Shared.Kernel;
@@ -12,16 +10,22 @@ namespace SmartSentinelEye.ScenarioSimulator.EventHandlers;
 /// Wolverine subscriber that closes the catalog -> sim loop (ADR-0111 M1) and,
 /// for M2, completes the rolling-mill wall. On each <c>CameraRegisteredV1</c> it
 /// provisions the camera-sim loop path, then records the camera id against its
-/// asset key (the path); when all four stations have both camera + overlay it
-/// creates the single 2×2 wall exactly once (the four-way join, ADR-0112). The
-/// queue is namespaced per ADR-0088 so it does not compete with the
-/// StreamDistribution consumer of the same event.
+/// asset key (the path) and asks <see cref="WallSeeder"/> to build the wall once
+/// the four-way join is satisfied (ADR-0112). The queue is namespaced per
+/// ADR-0088 so it does not compete with the StreamDistribution consumer of the
+/// same event.
+///
+/// <para>
+/// This is the live-registration path only. It does not fire for cameras that
+/// already exist, so <c>ScenarioSeeder</c> drives the same
+/// <see cref="WallSeeder"/> at the end of its pass — otherwise a restart with a
+/// seeded catalog could never rebuild a missing wall.
+/// </para>
 /// </summary>
 public sealed class CameraRegisteredSimHandler(
     CameraSimProvisioner provisioner,
     AssetCorrelationTable correlation,
-    LayoutCompositionClient layouts,
-    IOptions<ScenarioOptions> scenarioOptions,
+    WallSeeder wall,
     ILogger<CameraRegisteredSimHandler> logger)
 {
     public async Task Handle(CameraRegisteredV1 message, CancellationToken cancellationToken = default)
@@ -44,45 +48,8 @@ public sealed class CameraRegisteredSimHandler(
         correlation.RecordCamera(path, message.Camera);
         logger.AssetCameraRecorded(path, message.Camera);
 
-        await TryCreateWallAsync(cancellationToken);
+        await wall.TryCreateAsync(cancellationToken);
 
         await provisioner.ProvisionLoopPathAsync(path, cancellationToken);
-    }
-
-    private async Task TryCreateWallAsync(CancellationToken cancellationToken)
-    {
-        ScenarioOptions scenarios = scenarioOptions.Value;
-        if (!scenarios.Scenarios.TryGetValue(scenarios.Active, out ScenarioDefinition scenario) || scenario.Wall is null)
-        {
-            return;
-        }
-
-        int expected = scenario.Assets.Count(asset => asset.Overlay is not null && asset.Tile is not null);
-        if (!correlation.IsWallComplete(expected, out int ready))
-        {
-            logger.WallNotYetComplete(ready, expected);
-            return;
-        }
-
-        if (!correlation.TryClaimWallCreation())
-        {
-            return;
-        }
-
-        try
-        {
-            await layouts.EnsureWallAsync(
-                scenario.Wall.Name,
-                scenario.Wall.Rows,
-                scenario.Wall.Cols,
-                correlation.CompleteTiles(),
-                cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // Release so a later CameraRegisteredV1 retries the wall creation.
-            correlation.ReleaseWallClaim();
-            logger.AssetMissingField(scenario.Wall.Name, $"wall ({ex.Message})");
-        }
     }
 }
