@@ -26,7 +26,7 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan OfflineAfter = TimeSpan.FromMinutes(5);
 
-    private readonly Dictionary<Guid, DateTimeOffset> _degradedSince = new();
+    private readonly Dictionary<Guid, DateTimeOffset> degradedSince = [];
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -99,19 +99,19 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
     {
         if (observation.IsReady)
         {
-            _degradedSince.Remove(camera);
+            degradedSince.Remove(camera);
             return false;
         }
 
         if (currentState == StreamState.Healthy || currentState == StreamState.Provisioning)
         {
-            _degradedSince[camera] = now;
+            degradedSince[camera] = now;
             return false;
         }
 
-        if (!_degradedSince.TryGetValue(camera, out DateTimeOffset degradedAt))
+        if (!degradedSince.TryGetValue(camera, out DateTimeOffset degradedAt))
         {
-            _degradedSince[camera] = now;
+            degradedSince[camera] = now;
             return false;
         }
 

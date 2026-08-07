@@ -18,25 +18,25 @@ public sealed class KeycloakAdminTokenProvider(
     TimeProvider clock,
     ILogger<KeycloakAdminTokenProvider> logger) : IDisposable
 {
-    private readonly SemaphoreSlim _gate = new(initialCount: 1, maxCount: 1);
-    private string? _cachedToken;
-    private DateTimeOffset _refreshAfter = DateTimeOffset.MinValue;
+    private readonly SemaphoreSlim gate = new(initialCount: 1, maxCount: 1);
+    private string? cachedToken;
+    private DateTimeOffset refreshAfter = DateTimeOffset.MinValue;
 
-    public void Dispose() => _gate.Dispose();
+    public void Dispose() => gate.Dispose();
 
     public async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken)
     {
-        if (_cachedToken is not null && clock.GetUtcNow() < _refreshAfter)
+        if (cachedToken is not null && clock.GetUtcNow() < refreshAfter)
         {
-            return _cachedToken;
+            return cachedToken;
         }
 
-        await _gate.WaitAsync(cancellationToken);
+        await gate.WaitAsync(cancellationToken);
         try
         {
-            if (_cachedToken is not null && clock.GetUtcNow() < _refreshAfter)
+            if (cachedToken is not null && clock.GetUtcNow() < refreshAfter)
             {
-                return _cachedToken;
+                return cachedToken;
             }
 
             KeycloakAdminOptions opts = options.Value;
@@ -59,16 +59,16 @@ public sealed class KeycloakAdminTokenProvider(
                 ?? throw new InvalidOperationException(
                     "Keycloak returned an empty token response.");
 
-            _cachedToken = payload.AccessToken;
+            cachedToken = payload.AccessToken;
             // Refresh proactively at 80 % of the lifetime.
-            _refreshAfter = clock.GetUtcNow().AddSeconds(payload.ExpiresIn * 0.8);
+            refreshAfter = clock.GetUtcNow().AddSeconds(payload.ExpiresIn * 0.8);
 
             logger.MintedAdminToken(payload.ExpiresIn);
-            return _cachedToken;
+            return cachedToken;
         }
         finally
         {
-            _gate.Release();
+            gate.Release();
         }
     }
 

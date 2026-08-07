@@ -23,7 +23,7 @@ public class SystemVariableValueRequestedV1HandlerTests
 
     private sealed class FakeDedupStore : IVariableValueRequestDedupStore
     {
-        public HashSet<(string, Guid)> Reserved { get; } = new();
+        public HashSet<(string, Guid)> Reserved { get; } = [];
 
         public Task<bool> TryReserveAsync(
             string variableName, Guid causingEventIdentifier, CancellationToken cancellationToken) =>

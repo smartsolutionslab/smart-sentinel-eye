@@ -31,7 +31,7 @@ public static partial class PlaceholderParser
         }
 
         HashSet<string> seen = new(StringComparer.Ordinal);
-        List<string> ordered = new();
+        List<string> ordered = [];
         foreach (Match m in PlaceholderRegex().Matches(labelText))
         {
             string name = m.Groups["name"].Value;

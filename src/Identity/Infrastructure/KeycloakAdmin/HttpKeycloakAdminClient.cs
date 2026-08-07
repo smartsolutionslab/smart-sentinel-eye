@@ -138,7 +138,7 @@ public sealed class HttpKeycloakAdminClient(
         response.EnsureSuccessStatusCode();
         ClientRow[] rows = await response.Content
             .ReadFromJsonAsync<ClientRow[]>(JsonOptions, cancellationToken)
-            ?? Array.Empty<ClientRow>();
+            ?? [];
         return rows.Length == 0 ? null : rows[0].Id;
     }
 

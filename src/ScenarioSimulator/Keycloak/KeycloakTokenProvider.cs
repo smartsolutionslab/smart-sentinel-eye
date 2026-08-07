@@ -24,25 +24,25 @@ public sealed class KeycloakTokenProvider(
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
     };
 
-    private readonly SemaphoreSlim _gate = new(initialCount: 1, maxCount: 1);
-    private string _cachedToken;
-    private DateTimeOffset _refreshAfter = DateTimeOffset.MinValue;
+    private readonly SemaphoreSlim gate = new(initialCount: 1, maxCount: 1);
+    private string cachedToken;
+    private DateTimeOffset refreshAfter = DateTimeOffset.MinValue;
 
-    public void Dispose() => _gate.Dispose();
+    public void Dispose() => gate.Dispose();
 
     public async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken)
     {
-        if (_cachedToken is not null && clock.GetUtcNow() < _refreshAfter)
+        if (cachedToken is not null && clock.GetUtcNow() < refreshAfter)
         {
-            return _cachedToken;
+            return cachedToken;
         }
 
-        await _gate.WaitAsync(cancellationToken);
+        await gate.WaitAsync(cancellationToken);
         try
         {
-            if (_cachedToken is not null && clock.GetUtcNow() < _refreshAfter)
+            if (cachedToken is not null && clock.GetUtcNow() < refreshAfter)
             {
-                return _cachedToken;
+                return cachedToken;
             }
 
             SimulatorOptions opts = options.Value;
@@ -61,15 +61,15 @@ public sealed class KeycloakTokenProvider(
             TokenResponse payload = await response.Content.ReadFromJsonAsync<TokenResponse>(JsonOpts, cancellationToken)
                 ?? throw new InvalidOperationException("Keycloak returned an empty token response.");
 
-            _cachedToken = payload.AccessToken;
-            _refreshAfter = clock.GetUtcNow().AddSeconds(payload.ExpiresIn * 0.8);
+            cachedToken = payload.AccessToken;
+            refreshAfter = clock.GetUtcNow().AddSeconds(payload.ExpiresIn * 0.8);
 
             logger.MintedSimulatorToken(payload.ExpiresIn);
-            return _cachedToken;
+            return cachedToken;
         }
         finally
         {
-            _gate.Release();
+            gate.Release();
         }
     }
 

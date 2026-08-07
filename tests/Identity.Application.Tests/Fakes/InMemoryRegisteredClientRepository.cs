@@ -14,8 +14,8 @@ namespace SmartSentinelEye.Identity.Application.Tests.Fakes;
 /// </summary>
 public sealed class InMemoryRegisteredClientRepository : IRegisteredClientRepository
 {
-    private readonly List<RegisteredClientAggregate> _clients = new();
-    private readonly HashSet<Guid> _persisted = new();
+    private readonly List<RegisteredClientAggregate> _clients = [];
+    private readonly HashSet<Guid> _persisted = [];
 
     public IReadOnlyList<RegisteredClientAggregate> Clients => _clients;
 

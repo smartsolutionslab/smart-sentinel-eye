@@ -5,7 +5,7 @@ namespace SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
 
 public sealed class InMemoryVariableRepository : IVariableRepository
 {
-    private readonly List<Variable> _variables = new();
+    private readonly List<Variable> _variables = [];
 
     public IReadOnlyList<Variable> Variables => _variables;
 

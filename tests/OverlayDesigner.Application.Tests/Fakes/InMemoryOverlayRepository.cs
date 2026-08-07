@@ -5,7 +5,7 @@ namespace SmartSentinelEye.OverlayDesigner.Application.Tests.Fakes;
 
 public sealed class InMemoryOverlayRepository : IOverlayRepository
 {
-    private readonly List<Overlay> _overlays = new();
+    private readonly List<Overlay> _overlays = [];
 
     public IReadOnlyList<Overlay> Overlays => _overlays;
 

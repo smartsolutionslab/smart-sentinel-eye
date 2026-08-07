@@ -42,30 +42,30 @@ public sealed class MqttSubscriberHostedService(
     IOptions<MosquittoOptions> options,
     ILogger<MqttSubscriberHostedService> logger) : IHostedService
 {
-    private IManagedMqttClient? _client;
+    private IManagedMqttClient? client;
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        _client = connectionFactory.Create();
-        _client.ApplicationMessageReceivedAsync += OnMessageReceived;
+        client = connectionFactory.Create();
+        client.ApplicationMessageReceivedAsync += OnMessageReceived;
 
         string topic = options.Value.SubscribeTopic;
-        await _client.SubscribeAsync(topic, MqttQualityOfServiceLevel.AtLeastOnce);
+        await client.SubscribeAsync(topic, MqttQualityOfServiceLevel.AtLeastOnce);
 
         logger.MqttSubscriberStarted(topic);
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        if (_client is null)
+        if (client is null)
         {
             return;
         }
 
-        _client.ApplicationMessageReceivedAsync -= OnMessageReceived;
-        await _client.StopAsync();
-        _client.Dispose();
-        _client = null;
+        client.ApplicationMessageReceivedAsync -= OnMessageReceived;
+        await client.StopAsync();
+        client.Dispose();
+        client = null;
         logger.MqttSubscriberStopped();
     }
 

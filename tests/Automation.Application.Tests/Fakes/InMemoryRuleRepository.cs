@@ -6,7 +6,7 @@ namespace SmartSentinelEye.Automation.Application.Tests.Fakes;
 
 public sealed class InMemoryRuleRepository : IRuleRepository
 {
-    private readonly List<RuleAggregate> _rules = new();
+    private readonly List<RuleAggregate> _rules = [];
 
     public IReadOnlyList<RuleAggregate> Rules => _rules;
 

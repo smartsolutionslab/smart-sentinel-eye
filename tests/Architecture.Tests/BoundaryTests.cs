@@ -61,7 +61,7 @@ public class BoundaryTests
 
             string[] allowed = AllowedCrossContext.TryGetValue((contextPrefix, layer), out string[]? carved)
                 ? carved
-                : Array.Empty<string>();
+                : [];
             string[] foreignContexts = [.. AllContexts
                 .Where(c => c != contextPrefix)
                 .Where(c => !allowed.Contains(c))];

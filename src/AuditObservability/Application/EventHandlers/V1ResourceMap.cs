@@ -46,13 +46,13 @@ public sealed partial class V1ResourceMap
         "EventIdentifier",
     ];
 
-    private readonly FrozenDictionary<Type, V1MappingEntry> _entries;
-    private readonly HashSet<string> _explicitlyOptedOut;
+    private readonly FrozenDictionary<Type, V1MappingEntry> entries;
+    private readonly HashSet<string> explicitlyOptedOut;
 
     private V1ResourceMap(FrozenDictionary<Type, V1MappingEntry> entries, HashSet<string> explicitlyOptedOut)
     {
-        _entries = entries;
-        _explicitlyOptedOut = explicitlyOptedOut;
+        this.entries = entries;
+        this.explicitlyOptedOut = explicitlyOptedOut;
     }
 
     /// <summary>
@@ -70,7 +70,7 @@ public sealed partial class V1ResourceMap
     public V1Mapping Lookup(Type integrationEventType, object payloadInstance)
     {
         Ensure.That(integrationEventType).IsNotNull();
-        if (!_entries.TryGetValue(integrationEventType, out V1MappingEntry? entry))
+        if (!entries.TryGetValue(integrationEventType, out V1MappingEntry? entry))
         {
             return V1Mapping.Unmapped;
         }
@@ -89,19 +89,19 @@ public sealed partial class V1ResourceMap
     /// <c>V1ResourceMap_covers_every_IIntegrationEvent</c>
     /// (spec 009 T070).
     /// </summary>
-    public IReadOnlyCollection<Type> MappedTypes => _entries.Keys;
+    public IReadOnlyCollection<Type> MappedTypes => entries.Keys;
 
     /// <summary>
     /// V1 type names explicitly marked as not-to-be-mapped via
     /// <see cref="Conventions.OptOut(string)"/>. The architecture
     /// test treats these as known gaps rather than failures.
     /// </summary>
-    public IReadOnlySet<string> ExplicitlyOptedOut => _explicitlyOptedOut;
+    public IReadOnlySet<string> ExplicitlyOptedOut => explicitlyOptedOut;
 
     private static V1ResourceMap BuildDefault()
     {
         Assembly contractsAssembly = typeof(IIntegrationEvent).Assembly;
-        Dictionary<Type, V1MappingEntry> entries = new();
+        Dictionary<Type, V1MappingEntry> entries = [];
 
         foreach (Type type in contractsAssembly.GetTypes())
         {

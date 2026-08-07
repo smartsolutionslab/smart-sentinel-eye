@@ -16,7 +16,7 @@ public static class AelLexer
     {
         Ensure.That(source).IsNotNull();
 
-        List<AelToken> tokens = new();
+        List<AelToken> tokens = [];
         int i = 0;
         while (i < source.Length)
         {

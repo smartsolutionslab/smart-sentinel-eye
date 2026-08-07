@@ -22,39 +22,39 @@ public sealed class MqttPublisher : IAsyncDisposable
 {
     private const string Username = "scenario-simulator";
 
-    private readonly KeycloakTokenProvider _tokens;
-    private readonly ILogger<MqttPublisher> _logger;
-    private readonly string _host;
-    private readonly int _port;
-    private readonly IManagedMqttClient _client;
-    private readonly TokenHolder _token = new();
-    private bool _started;
+    private readonly KeycloakTokenProvider tokens;
+    private readonly ILogger<MqttPublisher> logger;
+    private readonly string host;
+    private readonly int port;
+    private readonly IManagedMqttClient client;
+    private readonly TokenHolder token = new();
+    private bool started;
 
     public MqttPublisher(IOptions<SimulatorOptions> options, KeycloakTokenProvider tokens, ILogger<MqttPublisher> logger)
     {
-        _tokens = tokens;
-        _logger = logger;
-        (_host, _port) = ParseHost(options.Value.MqttHost);
-        _client = new MqttFactory().CreateManagedMqttClient();
-        _client.ConnectedAsync += OnConnectedAsync;
-        _client.DisconnectedAsync += OnDisconnectedAsync;
-        _client.ConnectingFailedAsync += OnConnectingFailedAsync;
+        this.tokens = tokens;
+        this.logger = logger;
+        (host, port) = ParseHost(options.Value.MqttHost);
+        client = new MqttFactory().CreateManagedMqttClient();
+        client.ConnectedAsync += OnConnectedAsync;
+        client.DisconnectedAsync += OnDisconnectedAsync;
+        client.ConnectingFailedAsync += OnConnectingFailedAsync;
     }
 
     /// <summary>Mints the first token and starts the managed client (idempotent).</summary>
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        if (_started)
+        if (started)
         {
             return;
         }
 
-        _token.Value = await _tokens.GetAccessTokenAsync(cancellationToken);
+        token.Value = await tokens.GetAccessTokenAsync(cancellationToken);
 
         MqttClientOptions clientOptions = new MqttClientOptionsBuilder()
             .WithClientId(Username)
-            .WithTcpServer(_host, _port)
-            .WithCredentials(new TokenCredentials(_token))
+            .WithTcpServer(host, port)
+            .WithCredentials(new TokenCredentials(token))
             .WithCleanSession(true)
             .WithKeepAlivePeriod(TimeSpan.FromSeconds(30))
             .Build();
@@ -64,8 +64,8 @@ public sealed class MqttPublisher : IAsyncDisposable
             .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
             .Build();
 
-        await _client.StartAsync(managed);
-        _started = true;
+        await client.StartAsync(managed);
+        started = true;
     }
 
     public async Task PublishAsync(string topic, string payloadJson, CancellationToken cancellationToken)
@@ -77,44 +77,44 @@ public sealed class MqttPublisher : IAsyncDisposable
                 .WithPayload(payloadJson)
                 .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
                 .Build();
-            await _client.EnqueueAsync(message);
+            await client.EnqueueAsync(message);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.MqttPublishFailed(topic, ex.Message);
+            logger.MqttPublishFailed(topic, ex.Message);
         }
     }
 
     private Task OnConnectedAsync(MqttClientConnectedEventArgs args)
     {
-        _logger.MqttPublisherConnected($"{_host}:{_port}", Username);
+        logger.MqttPublisherConnected($"{host}:{port}", Username);
         return Task.CompletedTask;
     }
 
     private async Task OnDisconnectedAsync(MqttClientDisconnectedEventArgs args)
     {
-        _logger.MqttPublisherDisconnected($"{_host}:{_port}");
+        logger.MqttPublisherDisconnected($"{host}:{port}");
         // Refresh the token so the imminent auto-reconnect presents a fresh JWT.
         try
         {
-            _token.Value = await _tokens.GetAccessTokenAsync(CancellationToken.None);
+            token.Value = await tokens.GetAccessTokenAsync(CancellationToken.None);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.MqttPublishFailed("(reconnect-token)", ex.Message);
+            logger.MqttPublishFailed("(reconnect-token)", ex.Message);
         }
     }
 
     private Task OnConnectingFailedAsync(ConnectingFailedEventArgs args)
     {
-        _logger.MqttPublishFailed("(connect)", args.Exception?.Message ?? "connect failed");
+        logger.MqttPublishFailed("(connect)", args.Exception?.Message ?? "connect failed");
         return Task.CompletedTask;
     }
 
     public async ValueTask DisposeAsync()
     {
-        await _client.StopAsync();
-        _client.Dispose();
+        await client.StopAsync();
+        client.Dispose();
     }
 
     private static (string Host, int Port) ParseHost(string mqttHost)

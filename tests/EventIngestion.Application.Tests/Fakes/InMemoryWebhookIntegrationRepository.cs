@@ -14,8 +14,8 @@ namespace SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 /// </summary>
 public sealed class InMemoryWebhookIntegrationRepository : IWebhookIntegrationRepository
 {
-    private readonly List<WebhookIntegration> _integrations = new();
-    private readonly HashSet<Guid> _persisted = new();
+    private readonly List<WebhookIntegration> _integrations = [];
+    private readonly HashSet<Guid> _persisted = [];
 
     public IReadOnlyList<WebhookIntegration> Integrations => _integrations;
 

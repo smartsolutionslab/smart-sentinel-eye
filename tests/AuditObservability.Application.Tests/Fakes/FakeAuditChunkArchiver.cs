@@ -4,9 +4,9 @@ namespace SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 
 public sealed class FakeAuditChunkArchiver : IAuditChunkArchiver
 {
-    private readonly Dictionary<Guid, ChunkArchiveResult> _store = new();
+    private readonly Dictionary<Guid, ChunkArchiveResult> _store = [];
 
-    public List<AuditChunk> ArchivedChunks { get; } = new();
+    public List<AuditChunk> ArchivedChunks { get; } = [];
     public Exception? FailNextCall { get; set; }
 
     public Task<ChunkArchiveResult> ArchiveChunkAsync(
@@ -42,7 +42,7 @@ public sealed class FakeAuditChunkInventory : IAuditChunkInventory
 
     public FakeAuditChunkInventory(IEnumerable<AuditChunk> seed) => _chunks = [.. seed];
 
-    public List<AuditChunk> Dropped { get; } = new();
+    public List<AuditChunk> Dropped { get; } = [];
 
     public Task<IReadOnlyList<AuditChunk>> ListChunksOlderThanAsync(
         DateTimeOffset boundary, CancellationToken cancellationToken)

@@ -10,7 +10,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 /// </summary>
 public sealed class InMemoryLayoutRepository : ILayoutRepository
 {
-    private readonly List<Layout> _layouts = new();
+    private readonly List<Layout> _layouts = [];
 
     public IReadOnlyList<Layout> Layouts => _layouts;
 

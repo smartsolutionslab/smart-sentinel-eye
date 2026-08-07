@@ -19,7 +19,7 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 /// </summary>
 public sealed class Revision
 {
-    private readonly List<Tile> _tiles = new();
+    private readonly List<Tile> tiles = [];
 
     public LayoutRevisionIdentifier Id { get; private set; }
 
@@ -34,7 +34,7 @@ public sealed class Revision
     /// (spec 010). Replaced atomically via <see cref="ReplaceTiles"/> —
     /// there is no per-tile mutator.
     /// </summary>
-    public IReadOnlyList<Tile> Tiles => _tiles;
+    public IReadOnlyList<Tile> Tiles => tiles;
 
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -70,7 +70,7 @@ public sealed class Revision
         // harmless copy on the create path (fresh grid + tiles).
         foreach (Tile tile in tiles)
         {
-            revision._tiles.Add(new Tile(tile.Camera, tile.Overlay, tile.Position));
+            revision.tiles.Add(new Tile(tile.Camera, tile.Overlay, tile.Position));
         }
 
         return revision;
@@ -120,8 +120,8 @@ public sealed class Revision
                 $"Revision {Number} is {State}; only Draft revisions are editable.");
         }
         Grid = grid;
-        _tiles.Clear();
-        _tiles.AddRange(tiles);
+        this.tiles.Clear();
+        this.tiles.AddRange(tiles);
     }
 
     internal void Archive(DateTimeOffset archivedAt)

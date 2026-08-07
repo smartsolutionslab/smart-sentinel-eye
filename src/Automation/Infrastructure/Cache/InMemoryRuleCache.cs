@@ -31,7 +31,7 @@ public sealed class InMemoryRuleCache : IRuleCache
     // with the number of rules in *other* fabs, on a path inside the 200 ms
     // event-to-overlay budget (spec 013 SC-007).
     private readonly ConcurrentDictionary<(string Fab, string TriggerSource, string TriggerKind), List<CompiledRule>> _byTrigger = new();
-    private readonly object _gate = new();
+    private readonly object gate = new();
 
     public IReadOnlyList<CompiledRule> LookupActive(
         FabIdentifier fab, string triggerSource, string triggerKind)
@@ -42,7 +42,7 @@ public sealed class InMemoryRuleCache : IRuleCache
         {
             return Array.Empty<CompiledRule>();
         }
-        lock (_gate)
+        lock (gate)
         {
             return bucket.ToArray();
         }
@@ -60,8 +60,8 @@ public sealed class InMemoryRuleCache : IRuleCache
         (string Fab, string TriggerSource, string TriggerKind) key =
             (rule.Fab.Value, rule.TriggerSource, rule.TriggerKind);
 
-        List<CompiledRule> bucket = _byTrigger.GetOrAdd(key, _ => new List<CompiledRule>());
-        lock (_gate)
+        List<CompiledRule> bucket = _byTrigger.GetOrAdd(key, _ => []);
+        lock (gate)
         {
             bucket.RemoveAll(compiledRule => compiledRule.Identifier == rule.Id);
             bucket.Add(compiled);
@@ -71,7 +71,7 @@ public sealed class InMemoryRuleCache : IRuleCache
 
     public void Remove(RuleIdentifier rule)
     {
-        lock (_gate)
+        lock (gate)
         {
             foreach (List<CompiledRule> bucket in _byTrigger.Values)
             {
@@ -84,7 +84,7 @@ public sealed class InMemoryRuleCache : IRuleCache
     {
         get
         {
-            lock (_gate)
+            lock (gate)
             {
                 return _byTrigger.Values.Sum(bucket => bucket.Count);
             }

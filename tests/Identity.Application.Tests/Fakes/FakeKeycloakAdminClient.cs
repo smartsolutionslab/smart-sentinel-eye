@@ -16,7 +16,7 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
     private readonly Dictionary<string, KeycloakClientRepresentation> _clients =
         new(StringComparer.Ordinal);
 
-    public List<string> Disabled { get; } = new();
+    public List<string> Disabled { get; } = [];
     public Dictionary<string, string> CurrentSecrets { get; } = new(StringComparer.Ordinal);
 
     public string? FailNextCall { get; set; }

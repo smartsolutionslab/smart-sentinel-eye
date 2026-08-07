@@ -4,7 +4,7 @@ namespace SmartSentinelEye.OverlayDesigner.Application.Tests.Fakes;
 
 public sealed class FakeEventBus : IEventBus
 {
-    public List<object> Published { get; } = new();
+    public List<object> Published { get; } = [];
 
     public Task PublishAsync<TEvent>(TEvent integrationEvent, CancellationToken cancellationToken = default)
         where TEvent : notnull

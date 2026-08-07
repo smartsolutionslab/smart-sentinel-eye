@@ -19,18 +19,18 @@ namespace SmartSentinelEye.SystemVariables.Infrastructure.Resolution;
 /// </summary>
 public sealed class InMemoryReverseIndex : IReverseIndex
 {
-    private readonly ConcurrentDictionary<string, HashSet<Guid>> _byName = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<Guid, string> _labelByOverlay = new();
-    private readonly ConcurrentDictionary<Guid, long> _versionByOverlay = new();
+    private readonly ConcurrentDictionary<string, HashSet<Guid>> byName = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<Guid, string> labelByOverlay = new();
+    private readonly ConcurrentDictionary<Guid, long> versionByOverlay = new();
 
     public void UpsertOverlayReferences(Guid overlayIdentifier, string labelText)
     {
         Ensure.That(labelText).IsNotNull();
         RemoveOverlayInternal(overlayIdentifier);
-        _labelByOverlay[overlayIdentifier] = labelText;
+        labelByOverlay[overlayIdentifier] = labelText;
         foreach (string name in PlaceholderParser.ExtractNames(labelText))
         {
-            HashSet<Guid> set = _byName.GetOrAdd(name, _ => new HashSet<Guid>());
+            HashSet<Guid> set = byName.GetOrAdd(name, _ => []);
             lock (set) { set.Add(overlayIdentifier); }
         }
     }
@@ -38,7 +38,7 @@ public sealed class InMemoryReverseIndex : IReverseIndex
     public void RemoveOverlay(Guid overlayIdentifier)
     {
         RemoveOverlayInternal(overlayIdentifier);
-        _labelByOverlay.TryRemove(overlayIdentifier, out _);
+        labelByOverlay.TryRemove(overlayIdentifier, out _);
     }
 
     private void RemoveOverlayInternal(Guid overlayIdentifier)
@@ -47,7 +47,7 @@ public sealed class InMemoryReverseIndex : IReverseIndex
         // lock makes that impossible — we need each HashSet pinned
         // before mutating it.
 #pragma warning disable S3267
-        foreach (KeyValuePair<string, HashSet<Guid>> kv in _byName)
+        foreach (KeyValuePair<string, HashSet<Guid>> kv in byName)
         {
             lock (kv.Value) { kv.Value.Remove(overlayIdentifier); }
         }
@@ -56,7 +56,7 @@ public sealed class InMemoryReverseIndex : IReverseIndex
 
     public IReadOnlyCollection<Guid> LookupOverlays(string variableName)
     {
-        if (!_byName.TryGetValue(variableName, out HashSet<Guid>? set))
+        if (!byName.TryGetValue(variableName, out HashSet<Guid>? set))
         {
             return Array.Empty<Guid>();
         }
@@ -65,13 +65,13 @@ public sealed class InMemoryReverseIndex : IReverseIndex
     }
 
     public string? LookupLabelText(Guid overlayIdentifier) =>
-        _labelByOverlay.TryGetValue(overlayIdentifier, out string? label) ? label : null;
+        labelByOverlay.TryGetValue(overlayIdentifier, out string? label) ? label : null;
 
-    public IReadOnlyCollection<Guid> AllOverlays() => _labelByOverlay.Keys.ToArray();
+    public IReadOnlyCollection<Guid> AllOverlays() => labelByOverlay.Keys.ToArray();
 
     public long NextVersionFor(Guid overlayIdentifier) =>
-        _versionByOverlay.AddOrUpdate(overlayIdentifier, 1, (_, current) => current + 1);
+        versionByOverlay.AddOrUpdate(overlayIdentifier, 1, (_, current) => current + 1);
 
     public long CurrentVersionFor(Guid overlayIdentifier) =>
-        _versionByOverlay.TryGetValue(overlayIdentifier, out long v) ? v : 0;
+        versionByOverlay.TryGetValue(overlayIdentifier, out long v) ? v : 0;
 }

@@ -23,7 +23,7 @@ public class BoundedIngestChannelTests
         BoundedIngestChannel channel, int expected)
     {
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(2));
-        List<EventEnvelope> drained = new();
+        List<EventEnvelope> drained = [];
         try
         {
             await foreach (EventEnvelope envelope in channel.ReadAllAsync(cts.Token))

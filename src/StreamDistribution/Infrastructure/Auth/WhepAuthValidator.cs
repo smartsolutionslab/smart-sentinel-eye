@@ -17,9 +17,9 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
 /// </summary>
 public sealed class WhepAuthValidator : IWhepAuthValidator
 {
-    private readonly ConfigurationManager<OpenIdConnectConfiguration> _oidc;
-    private readonly TokenValidationParameters _parameters;
-    private readonly JwtSecurityTokenHandler _handler = new();
+    private readonly ConfigurationManager<OpenIdConnectConfiguration> oidc;
+    private readonly TokenValidationParameters parameters;
+    private readonly JwtSecurityTokenHandler handler = new();
 
     public WhepAuthValidator(IOptions<WhepAuthOptions> options)
     {
@@ -31,12 +31,12 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
         // JwtBearer pipeline's RequireHttpsMetadata = false (AuthenticationDefaults).
         // Without this the default HttpDocumentRetriever requires https and throws
         // IDX20108 on the dev/CI http authority — a 500 on every WHEP authorize.
-        _oidc = new ConfigurationManager<OpenIdConnectConfiguration>(
+        oidc = new ConfigurationManager<OpenIdConnectConfiguration>(
             $"{authority}/.well-known/openid-configuration",
             new OpenIdConnectConfigurationRetriever(),
             new HttpDocumentRetriever { RequireHttps = false });
 
-        _parameters = new TokenValidationParameters
+        parameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidIssuer = authority,
@@ -46,18 +46,18 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
             NameClaimType = "preferred_username",
         };
 
-        _handler.MapInboundClaims = false;
+        handler.MapInboundClaims = false;
     }
 
     public async Task<Option<WhepAuthSubject>> ValidateAsync(string bearerToken, CancellationToken cancellationToken)
     {
         try
         {
-            OpenIdConnectConfiguration configuration = await _oidc.GetConfigurationAsync(cancellationToken);
-            TokenValidationParameters parameters = _parameters.Clone();
-            parameters.IssuerSigningKeys = configuration.SigningKeys;
+            OpenIdConnectConfiguration configuration = await oidc.GetConfigurationAsync(cancellationToken);
+            TokenValidationParameters validationParameters = parameters.Clone();
+            validationParameters.IssuerSigningKeys = configuration.SigningKeys;
 
-            ClaimsPrincipal principal = _handler.ValidateToken(bearerToken, parameters, out _);
+            ClaimsPrincipal principal = handler.ValidateToken(bearerToken, validationParameters, out _);
 
             string? subject = principal.FindFirst("sub")?.Value;
             if (subject is null)
