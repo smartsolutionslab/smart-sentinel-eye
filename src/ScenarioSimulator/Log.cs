@@ -65,8 +65,14 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Seeded wall layout '{Name}' ({Rows}x{Cols}) -> {Layout}.")]
     public static partial void WallSeeded(this ILogger logger, string name, int rows, int cols, Guid layout);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Wall layout '{Name}' already exists; skipping (idempotent).")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "Wall layout '{Name}' already exists and is published; skipping (idempotent).")]
     public static partial void WallAlreadyExists(this ILogger logger, string name);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Wall layout '{Name}' ({Layout}) was left in Draft; published it.")]
+    public static partial void WallDraftPublished(this ILogger logger, string name, Guid layout);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Wall layout '{Name}' ({Layout}) came back with no revisions; cannot tell whether it still needs publishing.")]
+    public static partial void WallRevisionsMissing(this ILogger logger, string name, Guid layout);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Recorded camera {Camera} for asset '{Asset}'.")]
     public static partial void AssetCameraRecorded(this ILogger logger, string asset, Guid camera);
