@@ -40,11 +40,25 @@ anything changes it. No project initialisation — this is an existing context.
 
 **Purpose**: The value object and the aggregate field every later phase needs.
 
-- [ ] T004 [P] Add `src/SystemVariables/Domain/Variable/FabIdentifier.cs` as a `StringValueObject` with `From(...)` + `Ensure.That(...)`, mirroring `src/Automation/Domain/Rule/FabIdentifier.cs` exactly: 2–32 chars, lowercase letters/digits/`-`, starting with a letter. Per-context by ADR-0044; the grammar must match or a fab string one context accepts and another rejects strands variables that can never resolve.
-- [ ] T005 [P] Add `tests/SystemVariables.Domain.Tests/Variable/FabIdentifierTests.cs` covering the grammar, rejection of null/whitespace/too-short/uppercase/leading-digit, and equality.
-- [ ] T006 Add `Fab` to `src/SystemVariables/Domain/Variable/Variable.cs`: private setter, required by `Define`, never mutated afterwards. Do **not** add a `MoveToFab` — moving a variable would silently repoint every overlay resolving it, and is out of scope by decision.
-- [ ] T007 Add `WithFab` to `tests/SystemVariables.Domain.Tests/Variable/VariableBuilder.cs`, defaulting to `munich` so existing call sites stay readable.
-- [ ] T008 Extend `tests/SystemVariables.Domain.Tests/Variable/VariableStateMachineTests.cs` to assert `Fab` survives value changes and archiving unchanged.
+- [x] T004 [P] Add `src/SystemVariables/Domain/Variable/FabIdentifier.cs` as a `StringValueObject` with `From(...)` + `Ensure.That(...)`, mirroring `src/Automation/Domain/Rule/FabIdentifier.cs` exactly: 2–32 chars, lowercase letters/digits/`-`, starting with a letter. Per-context by ADR-0044; the grammar must match or a fab string one context accepts and another rejects strands variables that can never resolve.
+- [x] T005 [P] Add `tests/SystemVariables.Domain.Tests/Variable/FabIdentifierTests.cs` covering the grammar, rejection of null/whitespace/too-short/uppercase/leading-digit, and equality.
+- [x] T006 Add `Fab` to `src/SystemVariables/Domain/Variable/Variable.cs`: private setter, required by `Define`, never mutated afterwards. Do **not** add a `MoveToFab` — moving a variable would silently repoint every overlay resolving it, and is out of scope by decision.
+  *Making `Define` require the fab forces `DefineVariableCommand` to carry one,
+  which forces the endpoint to supply one — `DefineVariableCommandHandler` calls
+  `Define`, where Automation's `Rule.Create` had no Application caller to break.
+  Until T023 resolves the caller's fab the endpoint passes `munich`, the same fab
+  T010's backfill attributes pre-feature rows to, so behaviour is unchanged.
+  Automation's equivalent commit (62e8862) left its call site uncompiled and
+  needed its successor to build; this one builds alone, as ADR-0087 requires.
+  **T023/T026 must delete that placeholder** — it is the whole of what makes this
+  slice a no-op.*
+- [x] T007 Add `WithFab` to `tests/SystemVariables.Domain.Tests/Variable/VariableBuilder.cs`, defaulting to `munich` so existing call sites stay readable.
+  *Actual path is `Variable/Builders/VariableBuilder.cs`; the same `Builders/`
+  folder holds the rest, so T034's fake is not where this task says either.*
+- [x] T008 Extend `tests/SystemVariables.Domain.Tests/Variable/VariableStateMachineTests.cs` to assert `Fab` survives value changes and archiving unchanged.
+  *Also carries T006's structural guard that the `Fab` setter is not public,
+  mirroring `RuleFabLifetimeTests`. Without it "never mutated afterwards" is
+  the only line of T006 with nothing asserting it.*
 
 **Checkpoint**: The domain carries a fab. Nothing persists it yet.
 

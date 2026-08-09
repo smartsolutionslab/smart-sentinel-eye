@@ -23,6 +23,7 @@ public class DefineVariableCommandHandlerTests
 
         Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(
             new DefineVariableCommand(
+                FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"),
                 VariableType.Number,
                 InitialValue: null,
@@ -46,6 +47,7 @@ public class DefineVariableCommandHandlerTests
         DefineVariableCommandHandler handler = new(repo, builder.Clock, NullLogger<DefineVariableCommandHandler>.Instance);
         Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(
             new DefineVariableCommand(
+                FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"),
                 VariableType.Number,
                 InitialValue: null,
@@ -66,6 +68,7 @@ public class DefineVariableCommandHandlerTests
 
         Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(
             new DefineVariableCommand(
+                FabIdentifier.From("munich"),
                 VariableName.From("lineState"),
                 VariableType.Boolean,
                 InitialValue: null,
@@ -86,6 +89,7 @@ public class DefineVariableCommandHandlerTests
 
         Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(
             new DefineVariableCommand(
+                FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"),
                 VariableType.Number,
                 InitialValue: null,
@@ -106,6 +110,7 @@ public class DefineVariableCommandHandlerTests
 
         Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(
             new DefineVariableCommand(
+                FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"),
                 VariableType.Number,
                 InitialValue: new VariableValue.StringValue("nope"),

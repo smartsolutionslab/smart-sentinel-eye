@@ -12,7 +12,7 @@ public sealed class DefineVariableCommandHandler(IVariableRepository variables, 
     {
         Ensure.That(command).IsNotNull();
 
-        (VariableName? name, VariableType? type, VariableValue? initialValue, BooleanLabels? booleanLabels, OperatorIdentifier definedBy) = command;
+        (FabIdentifier? fab, VariableName? name, VariableType? type, VariableValue? initialValue, BooleanLabels? booleanLabels, OperatorIdentifier definedBy) = command;
 
         // Name uniqueness (FR-001 / FR-005). Archived names are free.
         Option<Variable> existing = await variables.GetByNameAsync(name, cancellationToken);
@@ -36,7 +36,7 @@ public sealed class DefineVariableCommandHandler(IVariableRepository variables, 
         Variable variable;
         try
         {
-            variable = Variable.Define(name, type, initialValue, booleanLabels, definedBy, clock);
+            variable = Variable.Define(fab, name, type, initialValue, booleanLabels, definedBy, clock);
         }
         catch (ArgumentException)
         {
