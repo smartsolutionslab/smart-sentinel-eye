@@ -50,8 +50,11 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Seeded overlay '{Name}' -> {Overlay}.")]
     public static partial void OverlaySeeded(this ILogger logger, string name, Guid overlay);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Overlay '{Name}' already exists; reusing {Overlay} (idempotent).")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "Overlay '{Name}' already exists and needs no publishing; reusing {Overlay} (idempotent).")]
     public static partial void OverlayAlreadyExists(this ILogger logger, string name, Guid overlay);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Overlay '{Name}' ({Overlay}) was left in Draft; published it.")]
+    public static partial void OverlayDraftPublished(this ILogger logger, string name, Guid overlay);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Overlay '{Name}' ({Overlay}) came back with no revisions; cannot tell whether it still needs publishing.")]
     public static partial void OverlayRevisionsMissing(this ILogger logger, string name, Guid overlay);
@@ -65,7 +68,7 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Seeded wall layout '{Name}' ({Rows}x{Cols}) -> {Layout}.")]
     public static partial void WallSeeded(this ILogger logger, string name, int rows, int cols, Guid layout);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Wall layout '{Name}' already exists and is published; skipping (idempotent).")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "Wall layout '{Name}' already exists and needs no publishing; skipping (idempotent).")]
     public static partial void WallAlreadyExists(this ILogger logger, string name);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Wall layout '{Name}' ({Layout}) was left in Draft; published it.")]

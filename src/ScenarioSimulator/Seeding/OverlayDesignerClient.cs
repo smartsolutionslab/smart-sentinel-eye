@@ -63,7 +63,7 @@ public sealed class OverlayDesignerClient(
             }
 
             await PublishAsync(existing.OverlayIdentifier, existing.Version, token, cancellationToken);
-            logger.OverlaySeeded(name, existing.OverlayIdentifier);
+            logger.OverlayDraftPublished(name, existing.OverlayIdentifier);
             return existing.OverlayIdentifier;
         }
 
