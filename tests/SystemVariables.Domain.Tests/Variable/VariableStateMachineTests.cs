@@ -68,4 +68,35 @@ public class VariableStateMachineTests
         Action act = () => v.SetValue(new VariableValue.NumberValue(1.0), By, Clock);
         act.ShouldThrow<InvalidOperationException>();
     }
+
+    // The fab is orthogonal to the state machine: no transition touches it.
+    [Fact]
+    public void The_fab_survives_value_changes_and_archiving()
+    {
+        Domain.Variable.Variable v = new VariableBuilder()
+            .WithFab("dresden")
+            .OfType(VariableType.Number)
+            .Build();
+
+        v.Fab.Value.ShouldBe("dresden");
+
+        v.SetValue(new VariableValue.NumberValue(1.0), By, Clock);
+        v.Fab.Value.ShouldBe("dresden");
+
+        v.Archive(By, Clock);
+        v.Fab.Value.ShouldBe("dresden");
+    }
+
+    [Fact]
+    public void The_aggregate_exposes_no_way_to_move_a_variable_between_fabs()
+    {
+        // Structural: relocation is out of scope by decision (T006) — moving a
+        // variable would silently repoint every overlay resolving it. Asserts
+        // the setter is not public rather than that no method mentions "Fab",
+        // which would match the property getter and pass vacuously.
+        System.Reflection.PropertyInfo fab =
+            typeof(Domain.Variable.Variable).GetProperty("Fab")!;
+
+        fab.SetMethod?.IsPublic.ShouldNotBe(true);
+    }
 }

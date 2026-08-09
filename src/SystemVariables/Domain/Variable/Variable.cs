@@ -18,6 +18,18 @@ namespace SmartSentinelEye.SystemVariables.Domain.Variable;
 /// </summary>
 public sealed class Variable : AggregateRoot<VariableIdentifier>
 {
+    /// <summary>
+    /// The fab this variable belongs to (spec 014). Fixed at creation: a
+    /// variable is never moved between fabs, because doing so would silently
+    /// repoint every overlay resolving it. Relocating means re-defining.
+    ///
+    /// <para>
+    /// Load-bearing for resolution, not only for access. Before this existed,
+    /// one fab's value change overwrote the variable every fab read (#1310).
+    /// </para>
+    /// </summary>
+    public FabIdentifier Fab { get; private set; } = null!;
+
     public VariableName Name { get; private set; } = null!;
 
     public VariableType Type { get; private set; } = null!;
@@ -43,6 +55,7 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
     /// <see cref="VariableDefinedDomainEvent"/>.
     /// </summary>
     public static Variable Define(
+        FabIdentifier fab,
         VariableName name,
         VariableType type,
         VariableValue? initialValue,
@@ -50,6 +63,7 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
         OperatorIdentifier definedBy,
         IClock clock)
     {
+        Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
         Ensure.That(type).IsNotNull();
         Ensure.That(clock).IsNotNull();
@@ -72,6 +86,7 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
         Variable variable = new()
         {
             Id = VariableIdentifier.New(),
+            Fab = fab,
             Name = name,
             Type = type,
             Value = value,

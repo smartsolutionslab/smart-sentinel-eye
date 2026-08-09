@@ -107,7 +107,14 @@ public static class SystemVariableEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        DefineVariableCommand command = new(name, type, initialValue, booleanLabels, actingOperator);
+
+        // Every variable belongs to munich until T023 resolves the caller's
+        // fab from their group membership. That is the same fab T010's
+        // backfill attributes every pre-feature row to, so nothing is
+        // refused or re-attributed that is not already today.
+        FabIdentifier fab = FabIdentifier.From("munich");
+
+        DefineVariableCommand command = new(fab, name, type, initialValue, booleanLabels, actingOperator);
         Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(command, cancellationToken);
 
         return result.Match<IResult>(

@@ -10,6 +10,7 @@ namespace SmartSentinelEye.SystemVariables.Domain.Tests.Variable.Builders;
 /// </summary>
 public sealed class VariableBuilder
 {
+    private FabIdentifier _fab = FabIdentifier.From("munich");
     private VariableName _name = VariableName.From("oeeLine1");
     private VariableType _type = VariableType.Number;
     private VariableValue? _initialValue;
@@ -17,6 +18,12 @@ public sealed class VariableBuilder
     private OperatorIdentifier _definedBy = OperatorIdentifier.From(Guid.CreateVersion7());
     private IClock _clock = new TestClock(
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture));
+
+    public VariableBuilder WithFab(string fab)
+    {
+        _fab = FabIdentifier.From(fab);
+        return this;
+    }
 
     public VariableBuilder Named(string name)
     {
@@ -56,7 +63,7 @@ public sealed class VariableBuilder
 
     public Domain.Variable.Variable Build() =>
         Domain.Variable.Variable.Define(
-            _name, _type, _initialValue, _booleanLabels, _definedBy, _clock);
+            _fab, _name, _type, _initialValue, _booleanLabels, _definedBy, _clock);
 
     public IClock Clock => _clock;
 
