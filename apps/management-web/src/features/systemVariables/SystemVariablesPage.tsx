@@ -15,6 +15,9 @@ const STATE_FILTERS: ReadonlyArray<VariableState | 'All'> = ['All', 'Defined', '
 export function SystemVariablesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filter, setFilter] = useState<VariableState | 'All'>('All');
+  // Keyed on the identifier, not the name. Two fabs may hold the same name
+  // (spec 014), and a name-keyed buffer would show one row's typing in the
+  // other and submit it against the wrong fab.
   const [pendingEdit, setPendingEdit] = useState<Record<string, string>>({});
 
   const { data, isLoading, isFetching, error, refetch } = useListVariablesQuery(undefined);
@@ -29,12 +32,16 @@ export function SystemVariablesPage() {
   const visible = filter === 'All' ? variables : variables.filter((v) => v.state === filter);
 
   const onValueSubmit = async (variable: Variable) => {
-    const raw = pendingEdit[variable.name];
+    const raw = pendingEdit[variable.variableIdentifier];
     if (raw === undefined) return;
     const result = await setVariableValue({
       name: variable.name,
       value: raw,
       version: variable.version,
+      // The row's own fab. A name is unique per fab, not globally, so a
+      // multi-fab operator can see the same name twice — without this the
+      // write is ambiguous and the server refuses it (spec 014).
+      fabId: variable.fab,
     });
 
     // Only drop the operator's typing once it has actually been stored. This
@@ -46,7 +53,7 @@ export function SystemVariablesPage() {
 
     setPendingEdit((prev) => {
       const next = { ...prev };
-      delete next[variable.name];
+      delete next[variable.variableIdentifier];
       return next;
     });
   };
@@ -110,7 +117,7 @@ export function SystemVariablesPage() {
       <ul className="flex flex-col gap-2">
         {visible.map((variable) => {
           const inProgress = saving;
-          const editValue = pendingEdit[variable.name];
+          const editValue = pendingEdit[variable.variableIdentifier];
           return (
             <li
               key={variable.variableIdentifier}
@@ -119,7 +126,7 @@ export function SystemVariablesPage() {
               <header className="flex items-center justify-between">
                 <h2 className="text-lg font-medium">{variable.name}</h2>
                 <span className="text-xs text-fg-muted">
-                  {variable.type} · {variable.state}
+                  {variable.fab} · {variable.type} · {variable.state}
                 </span>
               </header>
               <p className="mt-1 text-sm text-fg-muted">
@@ -132,7 +139,7 @@ export function SystemVariablesPage() {
                     placeholder="New value"
                     value={editValue ?? ''}
                     onChange={(e) =>
-                      setPendingEdit((prev) => ({ ...prev, [variable.name]: e.target.value }))
+                      setPendingEdit((prev) => ({ ...prev, [variable.variableIdentifier]: e.target.value }))
                     }
                     className="flex-1 rounded-md border border-fg-muted/40 bg-bg-base px-3 py-1.5 text-sm text-fg-primary"
                   />
@@ -146,7 +153,13 @@ export function SystemVariablesPage() {
                   <Button
                     variant="secondary"
                     disabled={inProgress || archiving}
-                    onClick={() => void archiveVariable({ name: variable.name, version: variable.version })}
+                    onClick={() =>
+                      void archiveVariable({
+                        name: variable.name,
+                        version: variable.version,
+                        fabId: variable.fab,
+                      })
+                    }
                   >
                     Archive
                   </Button>

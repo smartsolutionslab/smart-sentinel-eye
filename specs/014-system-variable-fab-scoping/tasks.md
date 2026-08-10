@@ -252,11 +252,34 @@ access are both fab-correct; the screen is not yet.
 
 ## Phase 7: Polish
 
-- [ ] T040 [P] Update `apps/` if the management UI lists or defines variables, so a multi-fab operator can author and read them — the same gap #1303 was for rules. If it does not, record that in the PR rather than leaving it unstated.
-- [ ] T041 [P] Add an e2e case to `e2e/` only if T040 changed the UI. Do not add a skipped spec: #1292 sat skipped for two releases asserting against a UI that did not exist.
-- [ ] T042 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `SystemVariables.Domain` still clears 90% and `SystemVariables.Application` 80%.
+- [x] T040 [P] Update `apps/` if the management UI lists or defines variables, so a multi-fab operator can author and read them — the same gap #1303 was for rules. If it does not, record that in the PR rather than leaving it unstated.
+  *It does. `SystemVariablesPage` and `SystemVariableDialog` both existed. The
+  dialog now asks a multi-fab operator which fab (and only then — a single-fab
+  operator is never asked, ADR-0114); the page shows each row's fab and echoes
+  it back on set-value and archive.*
+  ***A real bug found while there**: the page's pending-edit buffer was keyed on
+  the variable name. Two fabs may now hold one name, so typing into one row
+  would have appeared in the other and submitted against the wrong fab. Keyed
+  on the identifier now, with a test.*
+- [x] T041 [P] Add an e2e case to `e2e/` only if T040 changed the UI. Do not add a skipped spec: #1292 sat skipped for two releases asserting against a UI that did not exist.
+  *Added, not skipped, because T040 did change the UI. Covers the single-fab
+  half: the selector must not render, and the row carries `munich`. The
+  multi-fab half stays in `VariableFabResolutionIntegrationTests` — driving a
+  second Keycloak account through the browser would test the login form, not
+  fab resolution, which is the reasoning `rules.spec.ts` already records.*
+- [x] T042 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `SystemVariables.Domain` still clears 90% and `SystemVariables.Application` 80%.
+  ***Domain 92.6% (gate 90%), Application 90.9% (gate 80%).** All 20 gated
+  assemblies pass.*
 - [ ] T043 Walk `quickstart.md` end to end against a live stack and record the observations on the PR. "Done" is the observations, not the walk. Run the migration step against a database that predates this feature, or it proves nothing — a fresh database makes the backfill a no-op and the warning never fires.
-- [ ] T044 Close #1310 naming the cross-fab test; comment on #1155 that SystemVariables is no longer one of the contexts missing the guard; close #461 (T035 reverse-index tests) and the measurement half of #749.
+- [x] T044 Close #1310 naming the cross-fab test; comment on #1155 that SystemVariables is no longer one of the contexts missing the guard; close #461 (T035 reverse-index tests) and the measurement half of #749.
+  *Wired as `Closes`/`Refs` in the PR bodies rather than closed by hand: the
+  stack is unmerged, and closing a tracker before the work lands states
+  something untrue. They close on merge to `develop`.*
+  *#1310's cross-fab test is `CrossFabVariableIntegrationTests`; #461 is closed
+  by T003's `InMemoryReverseIndexTests`; #749's measurement half by
+  `NFR_VariableResolutionLatencyTests`. #1155 gets a comment, not a close —
+  SystemVariables is no longer among the contexts missing the guard, but other
+  contexts still are.*
 
 ---
 

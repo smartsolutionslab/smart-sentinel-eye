@@ -5,6 +5,14 @@ import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
 import type { Variable } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 
+// A single-fab operator is never asked which fab (ADR-0114), so the default
+// keeps the existing cases reading as they did; the multi-fab case overrides it.
+const assignedGroups = { current: ['/fabs/munich'] as string[] };
+
+vi.mock('react-oidc-context', () => ({
+  useAuth: () => ({ user: { profile: { groups: assignedGroups.current } } }),
+}));
+
 const listMock = vi.fn();
 const setValueMock = vi.fn(async () => ({ data: 'noop' }) as unknown);
 let setValueState: { isLoading: boolean; error?: unknown } = { isLoading: false };
@@ -27,6 +35,7 @@ function variable(overrides: Partial<Variable> = {}): Variable {
   return {
     variableIdentifier: '11111111-1111-1111-1111-111111111111',
     version: 0,
+    fab: 'munich',
     name: 'oeeLine1',
     type: 'Number',
     state: 'Defined',
@@ -110,7 +119,14 @@ describe('SystemVariablesPage', () => {
     await user.type(input, '99.5');
     await user.click(screen.getByRole('button', { name: /set value/i }));
 
-    expect(setValueMock).toHaveBeenCalledWith({ name: 'oeeLine1', value: '99.5', version: 0 });
+    // The row's own fab travels with the write: a name is unique per fab, so
+    // a multi-fab operator's edit is otherwise ambiguous (spec 014).
+    expect(setValueMock).toHaveBeenCalledWith({
+      name: 'oeeLine1',
+      value: '99.5',
+      version: 0,
+      fabId: 'munich',
+    });
   });
 
   // The page used to clear the pending edit unconditionally, so a rejected
@@ -187,4 +203,37 @@ describe('SystemVariablesPage', () => {
     await user.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalledOnce();
   });
+
+  // Two fabs may hold one name (spec 014). The edit buffer used to be keyed on
+  // the name, so typing into one row appeared in the other and submitted
+  // against the wrong fab.
+  it('Keeps each fab edit buffer separate when two fabs share a variable name', async () => {
+    const user = userEvent.setup();
+    listMock.mockReturnValue({
+      data: [
+        variable({ variableIdentifier: 'aaaaaaaa-0000-0000-0000-000000000001', fab: 'munich' }),
+        variable({ variableIdentifier: 'bbbbbbbb-0000-0000-0000-000000000002', fab: 'dresden' }),
+      ],
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+    const inputs = screen.getAllByPlaceholderText(/new value/i);
+    await user.type(inputs[0]!, '11');
+
+    expect(inputs[0]).toHaveValue('11');
+    expect(inputs[1]).toHaveValue('');
+
+    await user.click(screen.getAllByRole('button', { name: /set value/i })[0]!);
+    expect(setValueMock).toHaveBeenCalledWith({
+      name: 'oeeLine1',
+      value: '11',
+      version: 0,
+      fabId: 'munich',
+    });
+  });
+
 });
