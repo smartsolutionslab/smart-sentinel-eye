@@ -17,7 +17,7 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
         CancellationToken cancellationToken)
     {
         Ensure.That(query).IsNotNull();
-        (string? sort, string? order, int offset, int limit) = query;
+        (IReadOnlyList<FabIdentifier>? fabs, string? sort, string? order, int offset, int limit) = query;
 
         if (!AllowedSortFields.Contains(sort, StringComparer.Ordinal))
         {
@@ -40,7 +40,11 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
         }
 
         bool descending = order == "desc";
-        IQueryable<Camera> source = SortBy(cameras.Cameras, sort, descending);
+
+        // FR-005: only cameras in fabs the caller holds, and filtered before
+        // the count so the total reflects what they can actually page through.
+        IQueryable<Camera> visible = cameras.Cameras.Where(camera => fabs.Contains(camera.Fab));
+        IQueryable<Camera> source = SortBy(visible, sort, descending);
 
         int total = await source.CountAsync(cancellationToken);
 
