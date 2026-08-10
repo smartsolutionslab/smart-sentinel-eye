@@ -270,7 +270,43 @@ access are both fab-correct; the screen is not yet.
 - [x] T042 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `SystemVariables.Domain` still clears 90% and `SystemVariables.Application` 80%.
   ***Domain 92.6% (gate 90%), Application 90.9% (gate 80%).** All 20 gated
   assemblies pass.*
-- [ ] T043 Walk `quickstart.md` end to end against a live stack and record the observations on the PR. "Done" is the observations, not the walk. Run the migration step against a database that predates this feature, or it proves nothing — a fresh database makes the backfill a no-op and the warning never fires.
+- [x] T043 Walk `quickstart.md` end to end against a live stack and record the observations on the PR. "Done" is the observations, not the walk. Run the migration step against a database that predates this feature, or it proves nothing — a fresh database makes the backfill a no-op and the warning never fires.
+
+  **Walked 2026-08-10. Observations:**
+
+  *Built a database that genuinely predates the feature rather than reusing a
+  migrated one: a throwaway `timescale/timescaledb:2.27.1-pg17` container (the
+  image the AppHost uses), migrated only as far as `AddVariableValueRequestDedup`,
+  then seeded. Confirmed pre-feature before seeding — no `fab` column, and the
+  old `ux_system_variables_name_active` on the name alone.*
+
+  *Seeded 5 system variables (4 Defined, 1 Archived) and 3 dedup rows in the
+  old shape, then applied both migrations through `psql` — `dotnet ef` does not
+  surface PostgreSQL notices, so a `RAISE WARNING` is invisible through it. That
+  is worth knowing: **in production the warning reaches the MigrationRunner's
+  log only if the Npgsql notice handler is wired**, otherwise this evidence
+  exists nowhere at run time.*
+
+  ```
+  WARNING:  FabScopeSystemVariables attributed 5 pre-existing system variable(s)
+            to fab 'munich'. ...
+  WARNING:  FabScopeVariableValueRequestDedup attributed 3 pre-existing dedup
+            row(s) to fab 'munich'. ...
+  ```
+
+  *Counts match the seed exactly (5 and 3). Post-state verified:
+  `system_variables.fab` NOT NULL varchar(32); index swapped to
+  `ux_system_variables_fab_name_active` on `(fab, name)` with the
+  `state <> 'Archived'` partial filter intact; dedup primary key now
+  `(fab, variable_name, causing_event_identifier)`; all 8 rows attributed to
+  munich.*
+
+  ***The check that vindicates T010***: `SELECT count(*) WHERE fab IS NULL OR
+  length(fab) < 2` returns **0**. Had the scaffolded
+  `AddColumn(nullable: false, defaultValue: "")` shipped, all five rows would
+  carry `fab = ''` — not a valid `FabIdentifier`, so every one would fail to
+  materialise on the next read. The four-step form is now observed to be
+  necessary, not merely argued.*
 - [x] T044 Close #1310 naming the cross-fab test; comment on #1155 that SystemVariables is no longer one of the contexts missing the guard; close #461 (T035 reverse-index tests) and the measurement half of #749.
   *Wired as `Closes`/`Refs` in the PR bodies rather than closed by hand: the
   stack is unmerged, and closing a tracker before the work lands states
