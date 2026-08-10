@@ -309,8 +309,12 @@ fixing this one.
   The HTTP decision table is covered by `CameraFabResolutionIntegrationTests`
   (6/6) rather than by hand.*
 - [x] T034 Comment on #1397 that `CameraCatalog` now carries a fab, so the layout-fab decision it blocks is unblocked; comment on #1155 that CameraCatalog is no longer among the contexts missing the guard. **Write `Closes #N, closes #M`** — GitHub honours the keyword only before the *first* number, which left 35 issues open across spec 014's five PRs.
-  *Followed throughout: every commit in this spec repeats the keyword, and the
-  task issues closed as they landed rather than needing a sweep at the end.*
+  *The keyword is repeated correctly in every commit — but **nothing has
+  auto-closed**, and that is a second trap worth recording: a closing keyword
+  only acts when the commit reaches the **default branch**. On an unmerged
+  feature branch the refs sit inert. Spec 014's failure was the comma-list
+  syntax; this one is timing. 29 task issues are open and will close on merge
+  to `develop`. Only the 4 dropped tasks and T034 are closed, all by hand.*
   *Neither #1397 nor #1155 is closed — both have other contexts outstanding.
   #1397 gets the specific unblocking note: cameras now carry a fab, so "is a
   layout's fab derived from its cameras" is answerable. Flagged there that
