@@ -5,6 +5,16 @@ import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
 import type { CameraListPage } from '@smart-sentinel-eye/shared/api/cameras.api';
 
+// The page renders RegisterCameraDialog, which reads the operator's fabs from
+// the OIDC groups claim. A single-fab default keeps the existing cases reading
+// as before; the multi-fab case overrides it.
+const assignedGroups = { current: ['/fabs/munich'] as string[] };
+
+vi.mock('react-oidc-context', () => ({
+  useAuth: () => ({ user: { profile: { groups: assignedGroups.current } } }),
+}));
+
+
 const listCamerasMock = vi.fn();
 const registerCameraMock = vi.fn(async () => ({ data: 'noop' }));
 

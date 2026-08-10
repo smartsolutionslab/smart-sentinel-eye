@@ -62,6 +62,9 @@ export function CamerasPage() {
   const columns = useMemo<DataTableColumn<CameraSummary, CameraSortField>[]>(
     () => [
       { id: 'name', header: 'Name', cell: (row) => row.name, sortKey: 'name' },
+      // A multi-fab operator's listing can hold two rows of one name; without
+      // this column they are indistinguishable (spec 015 FR-013).
+      { id: 'fab', header: 'Fab', cell: (row) => row.fab },
       {
         id: 'rtspUrl',
         header: 'RTSP URL',
