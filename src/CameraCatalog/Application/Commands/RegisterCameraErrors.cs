@@ -11,8 +11,17 @@ namespace SmartSentinelEye.CameraCatalog.Application.Commands;
 public abstract record RegisterCameraError(string Code, string Message, HttpStatusCode Status)
     : ApiError(Code, Message, Status)
 {
-    public sealed record NameAlreadyTaken()
-        : RegisterCameraError("CAMERA_NAME_TAKEN", "Camera name already in use.", HttpStatusCode.Conflict);
+    /// <summary>
+    /// The name is taken <em>in that fab</em> (spec 015 FR-002). Naming the fab
+    /// matters for a multi-fab operator: the same name is legitimately free in
+    /// another of theirs, and an unqualified "already in use" reads as a
+    /// global collision that no longer exists.
+    /// </summary>
+    public sealed record NameAlreadyTaken(string Fab, string Name)
+        : RegisterCameraError(
+            "CAMERA_NAME_TAKEN",
+            $"A camera named '{Name}' already exists in fab '{Fab}'.",
+            HttpStatusCode.Conflict);
 }
 
 /// <summary>
@@ -23,6 +32,6 @@ public abstract record RegisterCameraError(string Code, string Message, HttpStat
 /// </summary>
 public static class RegisterCameraFailures
 {
-    public static RegisterCameraError NameAlreadyTaken() =>
-        new RegisterCameraError.NameAlreadyTaken();
+    public static RegisterCameraError NameAlreadyTaken(string fab, string name) =>
+        new RegisterCameraError.NameAlreadyTaken(fab, name);
 }
