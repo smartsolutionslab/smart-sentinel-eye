@@ -48,7 +48,7 @@ public class StaleVersionRejectionTests
         ArchiveVariableCommandHandler handler = new(
             variables, new FakeClock(FixedMoment), NullLogger<ArchiveVariableCommandHandler>.Instance);
         Result<VariableIdentifier, ArchiveVariableError> result = await handler.HandleAsync(
-            new ArchiveVariableCommand(variable.Name, Editor(), Stale),
+            new ArchiveVariableCommand(variable.Fab, variable.Name, Editor(), Stale),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();

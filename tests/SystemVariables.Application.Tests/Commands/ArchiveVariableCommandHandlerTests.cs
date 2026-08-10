@@ -26,6 +26,7 @@ public class ArchiveVariableCommandHandlerTests
             repo, builder.Clock, NullLogger<ArchiveVariableCommandHandler>.Instance);
         Result<VariableIdentifier, ArchiveVariableError> result = await handler.HandleAsync(
             new ArchiveVariableCommand(
+                FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"),
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
@@ -43,6 +44,7 @@ public class ArchiveVariableCommandHandlerTests
 
         Result<VariableIdentifier, ArchiveVariableError> result = await handler.HandleAsync(
             new ArchiveVariableCommand(
+                FabIdentifier.From("munich"),
                 VariableName.From("ghost"),
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);

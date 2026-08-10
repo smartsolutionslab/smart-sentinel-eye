@@ -27,7 +27,7 @@ public class ListVariablesQueryHandlerTests
         ListVariablesQueryHandler handler = new(new TestVariableQuerySource([]));
 
         Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
-            new ListVariablesQuery(State: null), CancellationToken.None);
+            new ListVariablesQuery([FabIdentifier.From("munich")], State: null), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBeEmpty();
@@ -45,7 +45,7 @@ public class ListVariablesQueryHandlerTests
         ListVariablesQueryHandler handler = new(new TestVariableQuerySource(seeded));
 
         Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
-            new ListVariablesQuery(State: null), CancellationToken.None);
+            new ListVariablesQuery([FabIdentifier.From("munich")], State: null), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Select(v => v.Name).ShouldBe(["alpha", "mike", "zulu"]);
@@ -64,11 +64,47 @@ public class ListVariablesQueryHandlerTests
             new TestVariableQuerySource([defined, archived]));
 
         Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
-            new ListVariablesQuery(State: VariableState.Archived), CancellationToken.None);
+            new ListVariablesQuery([FabIdentifier.From("munich")], State: VariableState.Archived), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         VariableDto only = result.Value.ShouldHaveSingleItem();
         only.Name.ShouldBe("oldVar");
         only.State.ShouldBe("Archived");
+    }
+
+    // ---- spec 014 T028: the listing is fab-scoped ----
+
+    [Fact]
+    public async Task The_listing_omits_variables_in_fabs_the_caller_does_not_hold()
+    {
+        Variable own = new VariableBuilder().WithFab("munich").Named("oeeLine1").Build();
+        Variable foreign = new VariableBuilder().WithFab("dresden").Named("oeeLine9").Build();
+        TestVariableQuerySource source = new([own, foreign]);
+        ListVariablesQueryHandler handler = new(source);
+
+        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
+            new ListVariablesQuery([FabIdentifier.From("munich")], State: null), CancellationToken.None);
+
+        result.Value.Select(dto => dto.Name).ShouldBe(["oeeLine1"]);
+    }
+
+    [Fact]
+    public async Task A_multi_fab_caller_sees_both_fabs_rows_distinguishable_by_fab()
+    {
+        // The same name in two fabs is the case VariableDto.Fab exists for:
+        // without it these two rows are indistinguishable on the wire.
+        Variable munich = new VariableBuilder().WithFab("munich").Named("oeeLine1").Build();
+        Variable dresden = new VariableBuilder().WithFab("dresden").Named("oeeLine1").Build();
+        TestVariableQuerySource source = new([munich, dresden]);
+        ListVariablesQueryHandler handler = new(source);
+
+        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
+            new ListVariablesQuery(
+                [FabIdentifier.From("munich"), FabIdentifier.From("dresden")], State: null),
+            CancellationToken.None);
+
+        // Ordered by name then fab, so the pair has a stable order rather than
+        // whatever the database returned.
+        result.Value.Select(dto => dto.Fab).ShouldBe(["dresden", "munich"]);
     }
 }

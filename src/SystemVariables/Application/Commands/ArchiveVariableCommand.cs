@@ -10,6 +10,7 @@ namespace SmartSentinelEye.SystemVariables.Application.Commands;
 /// <c>DefineVariable</c>.
 /// </summary>
 public sealed record ArchiveVariableCommand(
+    FabIdentifier Fab,
     VariableName Name,
     OperatorIdentifier ArchivedBy,
     int ExpectedVersion)

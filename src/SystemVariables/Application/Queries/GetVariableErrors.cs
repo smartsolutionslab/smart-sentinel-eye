@@ -11,6 +11,18 @@ public abstract record GetVariableError(string Code, string Message, HttpStatusC
             "VARIABLE_NOT_FOUND",
             $"System variable '{Name}' does not exist.",
             HttpStatusCode.NotFound);
+
+    /// <summary>
+    /// The name exists in more than one fab the caller holds. Naming the
+    /// candidates leaks nothing — they are all fabs this caller is already
+    /// entitled to read.
+    /// </summary>
+    public sealed record VariableFabAmbiguous(string Name, IReadOnlyList<string> Candidates)
+        : GetVariableError(
+            "VARIABLE_FAB_AMBIGUOUS",
+            $"System variable '{Name}' exists in more than one of your fabs "
+                + $"({string.Join(", ", Candidates)}); name one with ?fabId=.",
+            HttpStatusCode.BadRequest);
 }
 
 /// <summary>
@@ -23,4 +35,7 @@ public static class GetVariableFailures
 {
     public static GetVariableError VariableNotFound(string name) =>
         new GetVariableError.VariableNotFound(name);
+
+    public static GetVariableError VariableFabAmbiguous(string name, IReadOnlyList<string> candidates) =>
+        new GetVariableError.VariableFabAmbiguous(name, candidates);
 }
