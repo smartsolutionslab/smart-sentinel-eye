@@ -221,7 +221,16 @@ non-enumerable.
   `getRowKey` already uses `cameraIdentifier`, not the name, so two same-named
   rows in different fabs get distinct React keys. A real check with a clean
   result, not a skipped one.*
-- [ ] T028 [P] [US3] Add frontend tests for the selector's presence/absence and for two same-named rows staying independent.
+- [x] T028 [P] [US3] Add frontend tests for the selector's presence/absence and for two same-named rows staying independent.
+  *Five cases in a new `RegisterCameraDialog.test.tsx` — there was none. The
+  "two same-named rows staying independent" half was folded into T027 instead,
+  which found nothing to guard: the page holds no per-row state and keys on
+  `cameraIdentifier`.*
+  *The chosen-fab case asserts **dresden**: munich is first in the list and the
+  default everywhere else, so a dialog ignoring the selection would pass
+  against it. Typecheck caught what the tests did not — the mock was typed as
+  taking no arguments, so inspecting `calls[0][0]` was a tuple-index error that
+  `vitest` alone reported as passing.*
 - [ ] T029 [US3] Add an e2e case to `e2e/cameras.spec.ts` covering the single-fab half: the selector must **not** render, and the row carries `munich`. Do not add a skipped spec — #1292 sat skipped for two releases asserting against a UI that did not exist. The multi-fab half stays in T022; driving a second Keycloak account through the browser tests the login form, not fab resolution.
 
 **Checkpoint**: An operator meets the same fab rule here as in rules and
