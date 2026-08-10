@@ -6,10 +6,10 @@ namespace SmartSentinelEye.SystemVariables.Application.Commands;
 public abstract record DefineVariableError(string Code, string Message, HttpStatusCode Status)
     : ApiError(Code, Message, Status)
 {
-    public sealed record VariableNameTaken(string Name)
+    public sealed record VariableNameTaken(string Fab, string Name)
         : DefineVariableError(
             "VARIABLE_NAME_TAKEN",
-            $"A non-archived system variable with the name '{Name}' already exists.",
+            $"A non-archived system variable with the name '{Name}' already exists in fab '{Fab}'.",
             HttpStatusCode.Conflict);
 
     public sealed record BooleanLabelsRequired()
@@ -39,8 +39,8 @@ public abstract record DefineVariableError(string Code, string Message, HttpStat
 /// </summary>
 public static class DefineVariableFailures
 {
-    public static DefineVariableError VariableNameTaken(string name) =>
-        new DefineVariableError.VariableNameTaken(name);
+    public static DefineVariableError VariableNameTaken(string fab, string name) =>
+        new DefineVariableError.VariableNameTaken(fab, name);
 
     public static DefineVariableError BooleanLabelsRequired() =>
         new DefineVariableError.BooleanLabelsRequired();

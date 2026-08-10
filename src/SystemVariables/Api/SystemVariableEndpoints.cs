@@ -108,10 +108,10 @@ public static class SystemVariableEndpoints
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
 
-        // Every variable belongs to munich until T023 resolves the caller's
-        // fab from their group membership. That is the same fab T010's
-        // backfill attributes every pre-feature row to, so nothing is
-        // refused or re-attributed that is not already today.
+        // Placeholder fab (spec 014 T023 resolves the caller's fab from their
+        // group membership). Every variable belongs to munich until then —
+        // the same fab T010's backfill attributes every pre-feature row to, so
+        // nothing is refused or re-attributed that is not already today.
         FabIdentifier fab = FabIdentifier.From("munich");
 
         DefineVariableCommand command = new(fab, name, type, initialValue, booleanLabels, actingOperator);

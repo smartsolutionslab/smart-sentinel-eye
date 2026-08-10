@@ -19,7 +19,11 @@ public sealed class ArchiveVariableCommandHandler(
 
         (VariableName? name, OperatorIdentifier archivedBy, int expectedVersion) = command;
 
-        Option<Variable> found = await variables.GetByNameAsync(name, cancellationToken);
+        // Placeholder fab (spec 014 T025 replaces this with the resolved fab).
+        // Every variable is in munich until then, so this finds what it finds
+        // today.
+        Option<Variable> found = await variables.GetByNameAsync(
+            FabIdentifier.From("munich"), name, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(ArchiveVariableFailures.VariableNotFound(name.Value));

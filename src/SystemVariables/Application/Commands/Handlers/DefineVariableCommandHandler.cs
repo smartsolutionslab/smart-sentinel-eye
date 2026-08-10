@@ -14,11 +14,12 @@ public sealed class DefineVariableCommandHandler(IVariableRepository variables, 
 
         (FabIdentifier? fab, VariableName? name, VariableType? type, VariableValue? initialValue, BooleanLabels? booleanLabels, OperatorIdentifier definedBy) = command;
 
-        // Name uniqueness (FR-001 / FR-005). Archived names are free.
-        Option<Variable> existing = await variables.GetByNameAsync(name, cancellationToken);
+        // Name uniqueness within the fab (FR-001 / FR-005). Archived names are
+        // free, and another fab holding the name is not a collision at all.
+        Option<Variable> existing = await variables.GetByNameAsync(fab, name, cancellationToken);
         if (existing.HasValue)
         {
-            return Failure(DefineVariableFailures.VariableNameTaken(name.Value));
+            return Failure(DefineVariableFailures.VariableNameTaken(fab.Value, name.Value));
         }
 
         // BooleanLabels presence rules. The domain aggregate enforces

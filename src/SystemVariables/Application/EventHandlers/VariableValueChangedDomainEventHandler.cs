@@ -112,7 +112,11 @@ public sealed class VariableValueChangedDomainEventHandler(
                 continue;
             }
 
-            Option<Variable> other = await variables.GetByNameAsync(parsed, cancellationToken);
+            // Placeholder fab (spec 014 T035 scopes this fan-out to the changed
+            // variable's fab). The domain event carries no fab yet, and every
+            // variable is in munich until then.
+            Option<Variable> other = await variables.GetByNameAsync(
+                FabIdentifier.From("munich"), parsed, cancellationToken);
             if (!other.HasValue)
             {
                 continue;

@@ -72,14 +72,43 @@ the other.
 **Independent test**: Define `oeeLine1` in both fabs, drive an event in each,
 read both back.
 
-- [ ] T009 [US1] Map the column in `src/SystemVariables/Infrastructure/Persistence/Configurations/VariableConfiguration.cs`: `fab` NOT NULL, max length 32, value-converted. Replace `ux_system_variables_name_active` with `ux_system_variables_fab_name_active` on `(fab, name)`, **keeping** the `state <> 'Archived'` partial filter — archiving has always released a name for reuse and scoping to a fab must not quietly take that away.
-- [ ] T010 [US1] Generate the EF migration under `src/SystemVariables/Infrastructure/Persistence/Migrations/`. Hand-correct the scaffold to the four-step form in data-model.md: add nullable → backfill → NOT NULL → swap indexes. `dotnet ef` will generate a single `AddColumn(nullable: false, defaultValue: "")`, which sets every existing variable's fab to the empty string — not a valid `FabIdentifier`, so those rows would fail to materialise on the next read.
-- [ ] T011 [US1] Make the backfill announce itself in the migration from T010 under `src/SystemVariables/Infrastructure/Persistence/Migrations/`: wrap the `UPDATE` in a `DO $$` block that captures `ROW_COUNT` and `RAISE WARNING` naming the count. The assumption "everything that exists belongs to munich" cannot be checked from inside the database — the old rows are exactly the ones with no fab. Spec 013's `FabScopeRules` does this and it fired for real when the quickstart was walked, naming four rules.
-- [ ] T012 [US1] Document in the same migration file under `src/SystemVariables/Infrastructure/Persistence/Migrations/` that `Down` discards each variable's fab and that rolling forward re-attributes everything to munich. The index conflict is the louder failure and the lesser one.
-- [ ] T013 [US1] Scope the duplicate-name check in `src/SystemVariables/Application/Commands/Handlers/DefineVariableCommandHandler.cs` to the variable's fab, and reword `VARIABLE_NAME_TAKEN` so it says the name is taken *in that fab*.
-- [ ] T014 [P] [US1] Add cases to `tests/SystemVariables.Application.Tests/Commands/DefineVariableCommandHandlerTests.cs` asserting the same name is accepted in a second fab and refused in the same fab.
-- [ ] T015 [US1] Change `GetByNameAsync` to take a `FabIdentifier` in `src/SystemVariables/Domain/Variable/IVariableRepository.cs` and its implementation, and update `tests/SystemVariables.Application.Tests/Fakes/InMemoryVariableRepository.cs` to filter on fab and name together.
-- [ ] T016 [US1] Add `tests/Integration.Tests/SystemVariables/CrossFabVariableIntegrationTests.cs`: seed a variable of the same name in two fabs, set one, assert the other is untouched, and assert the unique index is `(fab, name)` and not `(name)` by defining the same name in both fabs successfully. Covers SC-001 and SC-003.
+- [x] T009 [US1] Map the column in `src/SystemVariables/Infrastructure/Persistence/Configurations/VariableConfiguration.cs`: `fab` NOT NULL, max length 32, value-converted. Replace `ux_system_variables_name_active` with `ux_system_variables_fab_name_active` on `(fab, name)`, **keeping** the `state <> 'Archived'` partial filter — archiving has always released a name for reuse and scoping to a fab must not quietly take that away.
+- [x] T010 [US1] Generate the EF migration under `src/SystemVariables/Infrastructure/Persistence/Migrations/`. Hand-correct the scaffold to the four-step form in data-model.md: add nullable → backfill → NOT NULL → swap indexes. `dotnet ef` will generate a single `AddColumn(nullable: false, defaultValue: "")`, which sets every existing variable's fab to the empty string — not a valid `FabIdentifier`, so those rows would fail to materialise on the next read.
+- [x] T011 [US1] Make the backfill announce itself in the migration from T010 under `src/SystemVariables/Infrastructure/Persistence/Migrations/`: wrap the `UPDATE` in a `DO $$` block that captures `ROW_COUNT` and `RAISE WARNING` naming the count. The assumption "everything that exists belongs to munich" cannot be checked from inside the database — the old rows are exactly the ones with no fab. Spec 013's `FabScopeRules` does this and it fired for real when the quickstart was walked, naming four rules.
+- [x] T012 [US1] Document in the same migration file under `src/SystemVariables/Infrastructure/Persistence/Migrations/` that `Down` discards each variable's fab and that rolling forward re-attributes everything to munich. The index conflict is the louder failure and the lesser one.
+- [x] T013 [US1] Scope the duplicate-name check in `src/SystemVariables/Application/Commands/Handlers/DefineVariableCommandHandler.cs` to the variable's fab, and reword `VARIABLE_NAME_TAKEN` so it says the name is taken *in that fab*.
+- [x] T014 [P] [US1] Add cases to `tests/SystemVariables.Application.Tests/Commands/DefineVariableCommandHandlerTests.cs` asserting the same name is accepted in a second fab and refused in the same fab.
+- [x] T015 [US1] Change `GetByNameAsync` to take a `FabIdentifier` in `src/SystemVariables/Domain/Variable/IVariableRepository.cs` and its implementation, and update `tests/SystemVariables.Application.Tests/Fakes/InMemoryVariableRepository.cs` to filter on fab and name together.
+  *Six callers, not one. Only `DefineVariableCommandHandler` has a real fab;
+  `ArchiveVariableCommandHandler`, `SetVariableValueCommandHandler`,
+  `GetOverlaySnapshotQueryHandler` and both domain-event handlers pass the
+  `munich` placeholder until T023/T024/T035 thread the real one. Every site is
+  marked `// Placeholder fab (spec 014 T0NN` — grep that string to find all of
+  them; when it returns nothing the bridge is fully gone.*
+  *`GetVariableQueryHandler` had to be scoped too, and that one is **not**
+  deferrable to T024: it matched on the name with `SingleOrDefaultAsync`, which
+  throws outright once T009's index lets a second fab hold the name. Deferring
+  it would have shipped a 500 on `GET /system-variables/{name}`.*
+- [x] T016 [US1] Add `tests/Integration.Tests/SystemVariables/CrossFabVariableIntegrationTests.cs`: seed a variable of the same name in two fabs, set one, assert the other is untouched, and assert the unique index is `(fab, name)` and not `(name)` by defining the same name in both fabs successfully. Covers SC-001 and SC-003.
+  *Seeded through a `DbContext`, not the API: the endpoint attributes every
+  definition to munich until T023, so a dresden variable cannot be authored
+  over HTTP yet. Mirrors `CrossFabEvaluationIntegrationTests`, which seeds for
+  the same reason. A third case covers the partial filter — an archived name
+  still being reusable — because that is the part of a hand-corrected index
+  most easily dropped.*
+  ***Run: 3/3 green** against the real stack (1.7 min), applying the real
+  migration to a `postgres-data` volume that predated it. The `(fab, name)`
+  index, the fab-scoped write and the archived-name reuse are all observed
+  rather than argued.*
+  ***The backfill count was not captured, and cannot be recovered.** The
+  migration is now in `__EFMigrationsHistory` so it will not fire again, and
+  this suite's own `ResetSystemVariablesAsync` deleted the pre-existing rows
+  during setup. So "the four-step form survives populated data" rests on the
+  migration having applied without error, not on a counted backfill — **T043
+  still owes the deliberate walk**: roll back to
+  `AddVariableValueRequestDedup`, seed rows in the old shape, re-apply, and
+  read the `RAISE WARNING`. A fresh database cannot prove it; the backfill is
+  a no-op there by design.*
 
 **Checkpoint**: Two fabs can hold the same variable name. Values still arrive
 through a consumer that ignores the fab — Phase 4 closes that.

@@ -36,7 +36,11 @@ public sealed class GetOverlaySnapshotQueryHandler(IReverseIndex reverseIndex, I
             try { parsed = VariableName.From(name); }
             catch (ArgumentException) { continue; }
 
-            Option<Variable> found = await variables.GetByNameAsync(parsed, cancellationToken);
+            // Placeholder fab (spec 014 T024 resolves the overlay's fab). Every
+            // variable is in munich until then, so this resolves what it
+            // resolves today.
+            Option<Variable> found = await variables.GetByNameAsync(
+                FabIdentifier.From("munich"), parsed, cancellationToken);
             if (!found.HasValue)
             {
                 continue;

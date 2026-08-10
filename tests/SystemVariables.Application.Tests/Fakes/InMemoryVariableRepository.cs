@@ -15,12 +15,16 @@ public sealed class InMemoryVariableRepository : IVariableRepository
         return Task.FromResult(found is null ? Option<Variable>.None : Option<Variable>.Some(found));
     }
 
-    public Task<Option<Variable>> GetByNameAsync(VariableName name, CancellationToken cancellationToken)
+    public Task<Option<Variable>> GetByNameAsync(FabIdentifier fab, VariableName name, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(fab);
         ArgumentNullException.ThrowIfNull(name);
         // Archived names are released for re-use; only return non-Archived rows.
+        // Fab is part of the match, not a filter applied afterwards: keyed on
+        // the name alone this SingleOrDefault would throw the moment two fabs
+        // use one name, which is the whole point of the feature.
         Variable? found = _variables.SingleOrDefault(v =>
-            v.Name == name && v.State != VariableState.Archived);
+            v.Fab == fab && v.Name == name && v.State != VariableState.Archived);
         return Task.FromResult(found is null ? Option<Variable>.None : Option<Variable>.Some(found));
     }
 

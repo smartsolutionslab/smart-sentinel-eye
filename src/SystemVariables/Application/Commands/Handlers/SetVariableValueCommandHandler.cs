@@ -18,7 +18,11 @@ public sealed class SetVariableValueCommandHandler(
         Ensure.That(command).IsNotNull();
         (VariableName? name, string? wireValue, OperatorIdentifier changedBy, Option<int> expectedVersion) = command;
 
-        Option<Variable> found = await variables.GetByNameAsync(name, cancellationToken);
+        // Placeholder fab (spec 014 T023 replaces this with the resolved fab).
+        // Every variable is in munich until then, so this finds what it finds
+        // today.
+        Option<Variable> found = await variables.GetByNameAsync(
+            FabIdentifier.From("munich"), name, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(SetVariableValueFailures.VariableNotFound(name.Value));

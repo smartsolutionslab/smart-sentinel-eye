@@ -60,6 +60,64 @@ public class DefineVariableCommandHandlerTests
     }
 
     [Fact]
+    public async Task The_same_name_is_accepted_in_a_second_fab()
+    {
+        InMemoryVariableRepository repo = new();
+        VariableBuilder builder = new VariableBuilder()
+            .WithFab("munich")
+            .Named("oeeLine1")
+            .OfType(VariableType.Number);
+        repo.Add(builder.Build());
+
+        DefineVariableCommandHandler handler = new(
+            repo, builder.Clock, NullLogger<DefineVariableCommandHandler>.Instance);
+
+        Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(
+            new DefineVariableCommand(
+                FabIdentifier.From("dresden"),
+                VariableName.From("oeeLine1"),
+                VariableType.Number,
+                InitialValue: null,
+                BooleanLabels: null,
+                OperatorIdentifier.From(Guid.CreateVersion7())),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        repo.Variables.Count.ShouldBe(2);
+        repo.Variables.Select(variable => variable.Fab.Value).ShouldBe(["munich", "dresden"]);
+    }
+
+    [Fact]
+    public async Task The_same_name_is_refused_in_the_same_fab()
+    {
+        InMemoryVariableRepository repo = new();
+        VariableBuilder builder = new VariableBuilder()
+            .WithFab("dresden")
+            .Named("oeeLine1")
+            .OfType(VariableType.Number);
+        repo.Add(builder.Build());
+
+        DefineVariableCommandHandler handler = new(
+            repo, builder.Clock, NullLogger<DefineVariableCommandHandler>.Instance);
+
+        Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(
+            new DefineVariableCommand(
+                FabIdentifier.From("dresden"),
+                VariableName.From("oeeLine1"),
+                VariableType.Number,
+                InitialValue: null,
+                BooleanLabels: null,
+                OperatorIdentifier.From(Guid.CreateVersion7())),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<DefineVariableError.VariableNameTaken>();
+        // The fab is named, so an operator who holds two can tell which one
+        // refused them rather than guessing.
+        result.Error.Message.ShouldContain("dresden");
+    }
+
+    [Fact]
     public async Task Boolean_without_BooleanLabels_returns_BooleanLabelsRequired()
     {
         InMemoryVariableRepository repo = new();
