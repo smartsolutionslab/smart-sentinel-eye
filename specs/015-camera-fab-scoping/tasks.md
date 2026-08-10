@@ -260,7 +260,10 @@ fixing this one.
 
 ## Phase 7: Polish
 
-- [ ] T032 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `CameraCatalog.Domain` still clears 90% and `CameraCatalog.Application` 80%.
+- [x] T032 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `CameraCatalog.Domain` still clears 90% and `CameraCatalog.Application` 80%.
+  ***Domain 93.1% (gate 90%), Application 96.3% (gate 80%).** All 20 gated
+  assemblies pass. Application is now the highest in the solution — this
+  feature added tests to a context whose application layer had 15 of them.*
 - [ ] T033 Walk [quickstart.md](./quickstart.md) end to end and record the observations on the PR. **"Done" is the observations, not the walk.** Run the migration against a database that predates this feature, or it proves nothing — a fresh database makes the backfill a no-op by design and the warning never fires. Record the attributed count and the `length(fab) < 2` check that vindicates the four-step form.
 - [ ] T034 Comment on #1397 that `CameraCatalog` now carries a fab, so the layout-fab decision it blocks is unblocked; comment on #1155 that CameraCatalog is no longer among the contexts missing the guard. **Write `Closes #N, closes #M`** — GitHub honours the keyword only before the *first* number, which left 35 issues open across spec 014's five PRs.
 
