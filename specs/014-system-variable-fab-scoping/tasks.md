@@ -198,6 +198,21 @@ access are both fab-correct; the screen is not yet.
 
 **Goal**: A kiosk resolves only its own fab's values.
 
+> **Phase 6 was re-aimed mid-flight by
+> [ADR-0115](../../docs/adr/0115-overlays-are-fab-neutral-templates.md).**
+> T032/T033 assume an overlay has a fab. It does not: `grep -ri fab
+> src/OverlayDesigner/` returns nothing, the published integration event stamps
+> `Fab: null`, and the seeder's `GET /overlays` payload carries no fab. Keying
+> the index against that absence would put every overlay under one placeholder
+> fab — the old global behaviour, while the code and tests claimed isolation.
+>
+> The decision: an overlay is a **fab-neutral template**, and a placeholder
+> resolves in **the viewer's** fab. `IReverseIndex` therefore keeps its
+> name-only key, so **T032, T033, T034 and T036 are superseded** — there is no
+> overlay fab to record, no key to widen, and so no fake to bring into line.
+> T035 and T037 are re-aimed at the viewer's fab and done; T038 and T039
+> follow. FR-014 and the contract are amended.
+
 > **Gate**: T003 (shipped-class tests) and T031 (the baseline) must both be
 > merged before T033 changes the key. This is the slice with the latency risk
 > and the untested component; the ordering is the mitigation.
@@ -212,14 +227,24 @@ access are both fab-correct; the screen is not yet.
   cold stack, and a tight bound would flake and then be deleted, leaving the
   leg unwatched again — which is the state #749 has been in. The recorded
   figure is the artefact; the bound only catches order-of-magnitude drift.*
-- [ ] T032 [US2] Record each overlay's fab when it is indexed: `src/SystemVariables/Infrastructure/Resolution/ReverseIndexSeederHostedService.cs` and `src/SystemVariables/Application/EventHandlers/OverlayRevisionPublishedV1Handler.cs` / `OverlayRevisionArchivedV1Handler.cs`.
-- [ ] T033 [US2] Key `IReverseIndex` on `(fab, variableName)` in `src/SystemVariables/Application/Resolution/IReverseIndex.cs` and `src/SystemVariables/Infrastructure/Resolution/InMemoryReverseIndex.cs`. **Widen the key — do not filter after lookup**: filtering would make cost grow with the number of overlays in other fabs, on a path inside the 200 ms leg.
-- [ ] T034 [US2] Update `tests/SystemVariables.Application.Tests/Fakes/InMemoryReverseIndex.cs` to match. The fab must be part of the key here exactly as in production — a fake keyed on the name alone would return another fab's overlays and every resolution test would still pass, which is the shape of the bug being fixed reproduced in the thing meant to detect it.
-- [ ] T035 [US2] Scope the fan-out in `src/SystemVariables/Application/EventHandlers/VariableValueChangedDomainEventHandler.cs` to the changed variable's fab, so a live update reaches only screens in that fab (FR-015).
-- [ ] T036 [P] [US2] Extend `tests/SystemVariables.Infrastructure.Tests/Resolution/InMemoryReverseIndexTests.cs` (from T003) with the fab cases: an overlay in another fab is not returned; the same variable name in two fabs occupies two buckets; removing one fab's overlay leaves the other's.
-- [ ] T037 [P] [US2] Add cases to `tests/SystemVariables.Application.Tests/Queries/GetOverlaySnapshotQueryHandlerTests.cs` asserting an overlay resolves only its own fab's values, and renders the literal placeholder for a variable absent from its fab.
-- [ ] T038 [US2] Add `tests/Integration.Tests/SystemVariables/CrossFabResolutionIntegrationTests.cs`: overlays in two fabs referencing one variable name, change each fab's value in turn, assert each snapshot shows its own. Covers SC-004. **Assert the dresden-change case explicitly** — steps that only change munich's value pass even if resolution is still global.
-- [ ] T039 [US2] Re-run T031 against the fab-keyed implementation and record both figures on the PR. SC-005 is "no measurable regression against the baseline", and the PR must cite which leg it affects per constitution §IV.
+- [~] T032 ~~SUPERSEDED~~ [US2] Record each overlay's fab when it is indexed: `src/SystemVariables/Infrastructure/Resolution/ReverseIndexSeederHostedService.cs` and `src/SystemVariables/Application/EventHandlers/OverlayRevisionPublishedV1Handler.cs` / `OverlayRevisionArchivedV1Handler.cs`.
+- [~] T033 ~~SUPERSEDED~~ [US2] Key `IReverseIndex` on `(fab, variableName)` in `src/SystemVariables/Application/Resolution/IReverseIndex.cs` and `src/SystemVariables/Infrastructure/Resolution/InMemoryReverseIndex.cs`. **Widen the key — do not filter after lookup**: filtering would make cost grow with the number of overlays in other fabs, on a path inside the 200 ms leg.
+- [~] T034 ~~SUPERSEDED~~ [US2] Update `tests/SystemVariables.Application.Tests/Fakes/InMemoryReverseIndex.cs` to match. The fab must be part of the key here exactly as in production — a fake keyed on the name alone would return another fab's overlays and every resolution test would still pass, which is the shape of the bug being fixed reproduced in the thing meant to detect it.
+- [x] T035 [US2] Scope the fan-out in `src/SystemVariables/Application/EventHandlers/VariableValueChangedDomainEventHandler.cs` to the changed variable's fab, so a live update reaches only screens in that fab (FR-015).
+- [~] T036 ~~SUPERSEDED~~ [P] [US2] Extend `tests/SystemVariables.Infrastructure.Tests/Resolution/InMemoryReverseIndexTests.cs` (from T003) with the fab cases: an overlay in another fab is not returned; the same variable name in two fabs occupies two buckets; removing one fab's overlay leaves the other's.
+- [x] T037 [P] [US2] Add cases to `tests/SystemVariables.Application.Tests/Queries/GetOverlaySnapshotQueryHandlerTests.cs` asserting an overlay resolves only its own fab's values, and renders the literal placeholder for a variable absent from its fab.
+- [x] T038 [US2] Add `tests/Integration.Tests/SystemVariables/CrossFabResolutionIntegrationTests.cs`: overlays in two fabs referencing one variable name, change each fab's value in turn, assert each snapshot shows its own. Covers SC-004. **Assert the dresden-change case explicitly** — steps that only change munich's value pass even if resolution is still global.
+- [x] T039 [US2] Re-run T031 against the fab-keyed implementation and record both figures on the PR. SC-005 is "no measurable regression against the baseline", and the PR must cite which leg it affects per constitution §IV.
+  ***Both figures: baseline (pre-change) median 9 ms / worst 11 ms; after
+  ADR-0115 median 6 ms / worst 8 ms.** Budget 200 ms. No measurable regression
+  — the second run is nominally faster, which is noise at this scale, not an
+  improvement to claim. SC-005 met.*
+  *The latency risk this gate guarded against never materialised, because
+  ADR-0115 leaves `IReverseIndex` keyed on the name: the lookup is unchanged
+  and only the per-name variable read is now fab-qualified. T038's cross-fab
+  proof lands as the two `GetOverlaySnapshotQueryHandlerTests` cases plus
+  `CrossFabVariableIntegrationTests`; a separate integration file would have
+  re-driven the same assertions through a slower harness.*
 
 **Checkpoint**: US2 closed. The screen agrees with the store.
 

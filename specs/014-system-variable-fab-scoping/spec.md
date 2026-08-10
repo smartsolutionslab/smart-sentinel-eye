@@ -186,8 +186,12 @@ drive a matching Munich event, and look for the record of the drop.
   every operation.
 - **FR-013**: An operator assigned to no fab MUST be refused rather than shown
   an empty result.
-- **FR-014**: An overlay MUST resolve variables only from its own fab, on first
-  render and on live updates.
+- **FR-014**: An overlay MUST resolve variables only from **the viewer's** fab,
+  on first render and on live updates.
+  *Amended 2026-08-10 by [ADR-0115](../../docs/adr/0115-overlays-are-fab-neutral-templates.md).
+  Originally "its own fab" — an overlay has no fab, and giving it one would
+  force the same design to be authored once per fab. An overlay is a template;
+  what a placeholder is worth belongs to the plant looking at the screen.*
 - **FR-015**: A live update to a variable MUST reach only screens in that
   variable's fab.
 - **FR-016**: Variables existing before this feature MUST be assigned to the

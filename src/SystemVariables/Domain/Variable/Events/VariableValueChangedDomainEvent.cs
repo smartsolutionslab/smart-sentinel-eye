@@ -11,6 +11,7 @@ namespace SmartSentinelEye.SystemVariables.Domain.Variable.Events;
 /// </summary>
 public sealed record VariableValueChangedDomainEvent(
     VariableIdentifier Variable,
+    FabIdentifier Fab,
     VariableName Name,
     VariableType Type,
     VariableValue Value,

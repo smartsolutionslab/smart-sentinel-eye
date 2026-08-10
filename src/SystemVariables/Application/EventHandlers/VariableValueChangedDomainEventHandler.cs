@@ -30,7 +30,7 @@ public sealed class VariableValueChangedDomainEventHandler(
     {
         Ensure.That(domainEvent).IsNotNull();
 
-        var (variable, name, type, value, changedAt, changedBy, _) = domainEvent;
+        var (variable, fab, name, type, value, changedAt, changedBy, _) = domainEvent;
 
         SystemVariableValueChangedV1 systemVariableValueChangedEvent = new(
             Variable: variable.Value,
@@ -39,7 +39,7 @@ public sealed class VariableValueChangedDomainEventHandler(
             Value: value.ToWireString(),
             ChangedAt: changedAt,
             ChangedBy: changedBy.Value,
-            Metadata: new EventMetadata(Guid.CreateVersion7(), changedAt, null, changedBy.Value));
+            Metadata: new EventMetadata(Guid.CreateVersion7(), changedAt, fab.Value, changedBy.Value));
         await events.PublishAsync(systemVariableValueChangedEvent, cancellationToken);
 
         IReadOnlyCollection<Guid> affectedOverlays = reverseIndex.LookupOverlays(name.Value);
@@ -112,11 +112,10 @@ public sealed class VariableValueChangedDomainEventHandler(
                 continue;
             }
 
-            // Placeholder fab (spec 014 T035 scopes this fan-out to the changed
-            // variable's fab). The domain event carries no fab yet, and every
-            // variable is in munich until then.
-            Option<Variable> other = await variables.GetByNameAsync(
-                FabIdentifier.From("munich"), parsed, cancellationToken);
+            // Siblings resolve in the fab that changed, not globally: the
+            // overlay is a fab-neutral template and this render belongs to one
+            // plant (ADR-0115).
+            Option<Variable> other = await variables.GetByNameAsync(changed.Fab, parsed, cancellationToken);
             if (!other.HasValue)
             {
                 continue;
