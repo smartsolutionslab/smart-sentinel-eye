@@ -108,7 +108,9 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
             DurationMs: notification.DurationMs);
 
         await BroadcastAsync(
-            () => hub.Clients.All.OverlayHighlightChanged(message),
+            // Group, not All — same reason as the resolved-text push above.
+            () => hub.Clients.Group(LayoutLifecycleHub.FabGroup(notification.Fab))
+                .OverlayHighlightChanged(message),
             ex => logger.OverlayHighlightChangedBroadcastFailed(ex, notification.Overlay, notification.DurationMs));
     }
 

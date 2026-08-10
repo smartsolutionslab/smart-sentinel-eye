@@ -99,6 +99,13 @@ public sealed record ResolvedOverlayTextChangedNotification(
 /// <c>ssE-overlay-highlight</c> CSS class for
 /// <see cref="DurationMs"/> milliseconds and auto-reverts.
 /// </summary>
+/// <para>
+/// <c>Fab</c> decides who receives it (spec 014 FR-015). A highlight is a
+/// visible change on a wall, requested by one plant's rule — the fab travels
+/// on the Automation event that triggers it, so no new concept is needed to
+/// address it correctly (#1397).
+/// </para>
 public sealed record OverlayHighlightedNotification(
     Guid Overlay,
-    int DurationMs);
+    int DurationMs,
+    string Fab);

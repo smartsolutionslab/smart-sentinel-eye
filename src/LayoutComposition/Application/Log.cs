@@ -29,6 +29,9 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Debug, Message = "Broadcast OverlayHighlightChanged for overlay {Overlay} ({Duration} ms; caused by {CausingEvent}).")]
     public static partial void BroadcastOverlayHighlightChanged(this ILogger logger, Guid overlay, int duration, Guid causingEvent);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "OverlayHighlightRequested for overlay {Overlay} carries no fab; not broadcast (caused by {CausingEvent}).")]
+    public static partial void OverlayHighlightWithoutFab(this ILogger logger, Guid overlay, Guid causingEvent);
+
     [LoggerMessage(Level = LogLevel.Debug, Message = "Broadcast ResolvedOverlayTextChanged for overlay {Overlay} (version {Version}).")]
     public static partial void BroadcastResolvedOverlayTextChanged(this ILogger logger, Guid overlay, long version);
 
