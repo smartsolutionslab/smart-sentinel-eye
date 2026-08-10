@@ -19,7 +19,7 @@ public sealed class GetOverlaySnapshotQueryHandler(IReverseIndex reverseIndex, I
             return Failure(GetOverlaySnapshotFailures.OverlayNotInReverseIndex(query.OverlayIdentifier));
         }
 
-        IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot = await BuildSnapshotAsync(labelText, cancellationToken);
+        IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot = await BuildSnapshotAsync(query.Fabs, labelText, cancellationToken);
 
         string resolvedText = resolver.Resolve(labelText, snapshot);
         long version = reverseIndex.CurrentVersionFor(query.OverlayIdentifier);
@@ -27,7 +27,8 @@ public sealed class GetOverlaySnapshotQueryHandler(IReverseIndex reverseIndex, I
         return Success(new ResolvedOverlaySnapshotDto(query.OverlayIdentifier, resolvedText, version));
     }
 
-    private async Task<IReadOnlyDictionary<string, VariableSnapshotEntry>> BuildSnapshotAsync(string labelText, CancellationToken cancellationToken)
+    private async Task<IReadOnlyDictionary<string, VariableSnapshotEntry>> BuildSnapshotAsync(
+        IReadOnlyList<FabIdentifier> fabs, string labelText, CancellationToken cancellationToken)
     {
         Dictionary<string, VariableSnapshotEntry> snapshot = new(StringComparer.Ordinal);
         foreach (string name in PlaceholderParser.ExtractNames(labelText))
@@ -36,11 +37,12 @@ public sealed class GetOverlaySnapshotQueryHandler(IReverseIndex reverseIndex, I
             try { parsed = VariableName.From(name); }
             catch (ArgumentException) { continue; }
 
-            // Placeholder fab (spec 014 T024 resolves the overlay's fab). Every
-            // variable is in munich until then, so this resolves what it
-            // resolves today.
-            Option<Variable> found = await variables.GetByNameAsync(
-                FabIdentifier.From("munich"), parsed, cancellationToken);
+            // The viewer's fab, not the overlay's: an overlay is a fab-neutral
+            // template and what a placeholder is worth belongs to the plant
+            // looking at the screen (ADR-0115). First by fab name where the
+            // caller holds several — arbitrary but stable, and a kiosk holds
+            // exactly one.
+            Option<Variable> found = await FindInAnyFabAsync(fabs, parsed, cancellationToken);
             if (!found.HasValue)
             {
                 continue;
@@ -60,5 +62,27 @@ public sealed class GetOverlaySnapshotQueryHandler(IReverseIndex reverseIndex, I
             snapshot[name] = new VariableSnapshotEntry(variable.Value, variable.BooleanLabels);
         }
         return snapshot;
+    }
+
+    /// <summary>
+    /// The first fab, by name, that defines this variable. A kiosk holds
+    /// exactly one fab so the loop resolves on its first iteration; the
+    /// ordering only matters for a multi-fab operator previewing a snapshot,
+    /// where an arbitrary-but-stable answer beats a refusal on a read that
+    /// returns rendered text rather than a row to act on.
+    /// </summary>
+    private async Task<Option<Variable>> FindInAnyFabAsync(
+        IReadOnlyList<FabIdentifier> fabs, VariableName name, CancellationToken cancellationToken)
+    {
+        foreach (FabIdentifier fab in fabs.OrderBy(candidate => candidate.Value, StringComparer.Ordinal))
+        {
+            Option<Variable> found = await variables.GetByNameAsync(fab, name, cancellationToken);
+            if (found.HasValue)
+            {
+                return found;
+            }
+        }
+
+        return Option<Variable>.None;
     }
 }

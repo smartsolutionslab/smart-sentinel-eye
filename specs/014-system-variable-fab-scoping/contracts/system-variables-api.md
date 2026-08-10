@@ -56,10 +56,16 @@ feature adds no resolution mechanism; it applies the existing one.
 
 ### `GET /system-variables/snapshot` — overlay snapshot
 
-- Already requires `overlayIdentifier`; resolution is scoped to that overlay's
-  own fab (FR-014).
-- A referenced variable absent from the overlay's fab renders the literal
+- Already requires `overlayIdentifier`; resolution is scoped to **the caller's**
+  fab (FR-014, as amended by
+  [ADR-0115](../../../docs/adr/0115-overlays-are-fab-neutral-templates.md)).
+- A referenced variable absent from the caller's fab renders the literal
   placeholder, exactly as for a name that exists nowhere.
+- A multi-fab caller is **not** refused here as they are on `GET /{name}`: a
+  snapshot returns rendered text rather than a row to act on, so resolving each
+  placeholder within the caller's fabs is well-defined even when several are
+  held. Where one name exists in two of them the first by fab name wins, which
+  is arbitrary but stable — a kiosk, the only real caller, holds exactly one.
 
 ## Response shapes
 

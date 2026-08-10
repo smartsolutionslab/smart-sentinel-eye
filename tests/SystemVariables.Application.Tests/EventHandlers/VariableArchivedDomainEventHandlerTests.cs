@@ -31,7 +31,7 @@ public class VariableArchivedDomainEventHandlerTests
         OperatorIdentifier op = OperatorIdentifier.From(Guid.CreateVersion7());
 
         await handler.Handle(
-            new VariableArchivedDomainEvent(id, VariableName.From("oeeLine1"), FixedMoment, op),
+            new VariableArchivedDomainEvent(id, FabIdentifier.From("munich"), VariableName.From("oeeLine1"), FixedMoment, op),
             CancellationToken.None);
 
         SystemVariableArchivedV1 v1 = bus.Published.OfType<SystemVariableArchivedV1>()
@@ -62,7 +62,7 @@ public class VariableArchivedDomainEventHandlerTests
 
         await handler.Handle(
             new VariableArchivedDomainEvent(
-                VariableIdentifier.New(), VariableName.From("oeeLine1"),
+                VariableIdentifier.New(), FabIdentifier.From("munich"), VariableName.From("oeeLine1"),
                 FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -93,7 +93,7 @@ public class VariableArchivedDomainEventHandlerTests
 
         await handler.Handle(
             new VariableArchivedDomainEvent(
-                VariableIdentifier.New(), VariableName.From("target"),
+                VariableIdentifier.New(), FabIdentifier.From("munich"), VariableName.From("target"),
                 FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -116,7 +116,7 @@ public class VariableArchivedDomainEventHandlerTests
 
         await handler.Handle(
             new VariableArchivedDomainEvent(
-                VariableIdentifier.New(), VariableName.From("orphan"),
+                VariableIdentifier.New(), FabIdentifier.From("munich"), VariableName.From("orphan"),
                 FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 

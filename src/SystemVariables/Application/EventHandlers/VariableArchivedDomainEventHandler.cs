@@ -29,7 +29,7 @@ public sealed class VariableArchivedDomainEventHandler(
     {
         Ensure.That(domainEvent).IsNotNull();
 
-        var (variableIdentifier, variableName, archivedAt, archivedBy) = domainEvent;
+        var (variableIdentifier, fab, variableName, archivedAt, archivedBy) = domainEvent;
 
         SystemVariableArchivedV1 systemVariableArchivedEvent = new(
             Variable: variableIdentifier.Value,
@@ -69,11 +69,9 @@ public sealed class VariableArchivedDomainEventHandler(
                 try { parsed = VariableName.From(name); }
                 catch (ArgumentException) { continue; }
 
-                // Placeholder fab (spec 014 T035 scopes this fan-out to the
-                // archived variable's fab). The domain event carries no fab
-                // yet, and every variable is in munich until then.
+                // Siblings resolve in the fab that changed (ADR-0115).
                 Option<Variable> other = await variables.GetByNameAsync(
-                    FabIdentifier.From("munich"), parsed, cancellationToken);
+                    fab, parsed, cancellationToken);
                 if (!other.HasValue)
                 {
                     continue;

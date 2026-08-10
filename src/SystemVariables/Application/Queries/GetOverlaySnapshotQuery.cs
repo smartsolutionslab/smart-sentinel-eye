@@ -1,6 +1,7 @@
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.DTOs;
+using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Application.Queries;
 
@@ -9,5 +10,7 @@ namespace SmartSentinelEye.SystemVariables.Application.Queries;
 /// (spec 005 US3). Used by the kiosk's cold-load path before SignalR
 /// updates start flowing.
 /// </summary>
-public sealed record GetOverlaySnapshotQuery(Guid OverlayIdentifier)
+public sealed record GetOverlaySnapshotQuery(
+    IReadOnlyList<FabIdentifier> Fabs,
+    Guid OverlayIdentifier)
     : IQuery<Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError>>;

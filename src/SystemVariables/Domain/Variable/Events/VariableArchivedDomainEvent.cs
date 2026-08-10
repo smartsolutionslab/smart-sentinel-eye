@@ -10,6 +10,7 @@ namespace SmartSentinelEye.SystemVariables.Domain.Variable.Events;
 /// </summary>
 public sealed record VariableArchivedDomainEvent(
     VariableIdentifier Variable,
+    FabIdentifier Fab,
     VariableName Name,
     DateTimeOffset ArchivedAt,
     OperatorIdentifier ArchivedBy) : IDomainEvent;

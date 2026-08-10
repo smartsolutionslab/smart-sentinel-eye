@@ -20,7 +20,7 @@ public class GetOverlaySnapshotQueryHandlerTests
 
         Guid overlay = Guid.CreateVersion7();
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result =
-            await handler.HandleAsync(new GetOverlaySnapshotQuery(overlay), CancellationToken.None);
+            await handler.HandleAsync(new GetOverlaySnapshotQuery([FabIdentifier.From("munich")], overlay), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<GetOverlaySnapshotError.OverlayNotInReverseIndex>();
@@ -43,7 +43,7 @@ public class GetOverlaySnapshotQueryHandlerTests
         GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver());
 
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result =
-            await handler.HandleAsync(new GetOverlaySnapshotQuery(overlay), CancellationToken.None);
+            await handler.HandleAsync(new GetOverlaySnapshotQuery([FabIdentifier.From("munich")], overlay), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.OverlayIdentifier.ShouldBe(overlay);
@@ -66,9 +66,57 @@ public class GetOverlaySnapshotQueryHandlerTests
         GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver());
 
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result =
-            await handler.HandleAsync(new GetOverlaySnapshotQuery(overlay), CancellationToken.None);
+            await handler.HandleAsync(new GetOverlaySnapshotQuery([FabIdentifier.From("munich")], overlay), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ResolvedText.ShouldBe("{{shift}} - {{unknown}}");
+    }
+
+    // ---- spec 014 T037 (as amended by ADR-0115): the viewer's fab ----
+
+    [Fact]
+    public async Task An_overlay_resolves_the_viewers_fab_not_another()
+    {
+        // The same overlay, rendered for two different plants. This is the
+        // whole point of ADR-0115: one template, per-fab values.
+        Guid overlay = Guid.CreateVersion7();
+        InMemoryVariableRepository repo = new();
+        repo.Add(new VariableBuilder().WithFab("munich").Named("oeeLine1")
+            .OfType(VariableType.Number).WithInitialValue(new VariableValue.NumberValue(41)).Build());
+        repo.Add(new VariableBuilder().WithFab("dresden").Named("oeeLine1")
+            .OfType(VariableType.Number).WithInitialValue(new VariableValue.NumberValue(7)).Build());
+
+        InMemoryReverseIndex index = new();
+        index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
+        GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver());
+
+        Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> munich = await handler.HandleAsync(
+            new GetOverlaySnapshotQuery([FabIdentifier.From("munich")], overlay), CancellationToken.None);
+        Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> dresden = await handler.HandleAsync(
+            new GetOverlaySnapshotQuery([FabIdentifier.From("dresden")], overlay), CancellationToken.None);
+
+        munich.Value.ResolvedText.ShouldBe("OEE: 41%");
+        // The assertion that matters: asserting munich alone would pass just as
+        // well if resolution were still global.
+        dresden.Value.ResolvedText.ShouldBe("OEE: 7%");
+    }
+
+    [Fact]
+    public async Task A_variable_absent_from_the_viewers_fab_renders_the_literal_placeholder()
+    {
+        // Identical to a name that exists nowhere, per the contract.
+        Guid overlay = Guid.CreateVersion7();
+        InMemoryVariableRepository repo = new();
+        repo.Add(new VariableBuilder().WithFab("munich").Named("oeeLine1")
+            .OfType(VariableType.Number).WithInitialValue(new VariableValue.NumberValue(41)).Build());
+
+        InMemoryReverseIndex index = new();
+        index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
+        GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver());
+
+        Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result = await handler.HandleAsync(
+            new GetOverlaySnapshotQuery([FabIdentifier.From("dresden")], overlay), CancellationToken.None);
+
+        result.Value.ResolvedText.ShouldBe("OEE: {{oeeLine1}}%");
     }
 }

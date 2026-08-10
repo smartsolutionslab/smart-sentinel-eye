@@ -115,7 +115,7 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
         EnsureValueMatchesType(Type, value);
         Value = value;
         Raise(new VariableValueChangedDomainEvent(
-            Id, Name, Type, value, clock.UtcNow, changedBy, BooleanLabels));
+            Id, Fab, Name, Type, value, clock.UtcNow, changedBy, BooleanLabels));
     }
 
     /// <summary>
@@ -131,7 +131,7 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
 
         State = VariableState.Archived;
         Value = VariableValue.Unset.Instance;
-        Raise(new VariableArchivedDomainEvent(Id, Name, clock.UtcNow, archivedBy));
+        Raise(new VariableArchivedDomainEvent(Id, Fab, Name, clock.UtcNow, archivedBy));
     }
 
     private static void EnsureValueMatchesType(VariableType type, VariableValue value)

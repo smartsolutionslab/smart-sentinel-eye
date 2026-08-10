@@ -259,7 +259,13 @@ public static class SystemVariableEndpoints
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
 
-    private static async Task<IResult> GetSnapshot([FromQuery] Guid overlayIdentifier, [FromServices] GetOverlaySnapshotQueryHandler handler, CancellationToken cancellationToken)
+    private static async Task<IResult> GetSnapshot(
+        [FromQuery] Guid overlayIdentifier,
+        [FromServices] GetOverlaySnapshotQueryHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
     {
         if (overlayIdentifier == Guid.Empty)
         {
@@ -269,7 +275,15 @@ public static class SystemVariableEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result = await handler.HandleAsync(new GetOverlaySnapshotQuery(overlayIdentifier), cancellationToken);
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
+        Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result = await handler.HandleAsync(
+            new GetOverlaySnapshotQuery(fabs, overlayIdentifier), cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
