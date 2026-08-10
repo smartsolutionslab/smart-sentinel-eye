@@ -45,8 +45,9 @@ nothing enforces.
 2. **Given** the same, **When** an operator registers `line-1-north` in Munich
    again, **Then** it is refused and the refusal says the name is taken *in
    that fab*.
-3. **Given** a camera is retired in one fab, **Then** its name is free for
-   re-use in that fab and the other fab's camera is untouched.
+3. ~~**Given** a camera is retired in one fab, **Then** its name is free for
+   re-use in that fab~~ — **withdrawn with FR-003**: nothing retires a camera
+   today.
 
 ---
 
@@ -136,12 +137,17 @@ start by adding this.
 - **FR-001**: Every camera MUST belong to exactly one fab.
 - **FR-002**: A camera name MUST be unique within a fab, and MUST be usable in
   another fab at the same time.
-- **FR-003**: Retiring a camera MUST release its name for reuse within its own
-  fab, and MUST NOT affect any other fab.
-  *This is a **behaviour change**, discovered during planning: the shipped index
-  has no partial filter, so a decommissioned camera holds its name permanently
-  today. Rules and variables both release theirs. Adopting the filter was
-  confirmed at the Phase 2 gate — see [research.md](./research.md) §3.*
+- **FR-003**: ~~Retiring a camera MUST release its name for reuse within its
+  own fab~~ — **withdrawn 2026-08-10.**
+  *A camera cannot be retired. `CameraStatus.Decommissioned` exists as a value
+  and nothing in the context ever transitions to it; the aggregate has one
+  behaviour, `Register`. Discovered at T005, after the requirement was written
+  and approved.*
+  *The unique index does carry a `status <> 'Decommissioned'` filter, so the
+  behaviour will hold the moment a retire behaviour lands — but it is inert
+  today and this spec does not deliver it. Adding one would widen spec 015
+  past the fab-scoping boundary it was deliberately given. Tracked separately;
+  see [research.md](./research.md) §3.*
 - **FR-004**: A camera MUST NOT be moved between fabs. Relocating a device
   means registering it afresh.
 - **FR-005**: Listing cameras MUST return only those in fabs the caller holds.

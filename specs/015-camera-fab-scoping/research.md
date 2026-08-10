@@ -95,6 +95,13 @@ data-model.md records.
 knob for a need nobody has expressed (constitution §IX, no speculative
 generality).
 
+**Superseded in part, 2026-08-10 (T005).** A camera cannot be retired at all —
+`CameraStatus.Decommissioned` is a value nothing sets. The filter is kept
+because it costs nothing and is correct the moment a retire behaviour lands,
+but **FR-003 is withdrawn**: this spec does not deliver name reuse, because
+nothing frees a name. The decision above stands; only the claim that it buys
+FR-003 today does not.
+
 **Also settled here**: the existing index is case-insensitive by intent (spec
 001 marker 2). Whichever option is taken, that property must survive the swap —
 it is the kind of thing a hand-corrected migration drops silently, and it gets
