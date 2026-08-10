@@ -23,4 +23,32 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 public sealed class LayoutLifecycleHub : Hub<ILayoutLifecycleClient>
 {
     public const string Path = "/hubs/layouts";
+
+    /// <summary>
+    /// The group a connection joins for each fab it holds. Prefixed so it
+    /// cannot collide with any other group name this hub grows later.
+    /// </summary>
+    public static string FabGroup(string fab) => $"fab:{fab}";
+
+    /// <summary>
+    /// Joins one group per fab the connection is assigned to, read from the
+    /// same <c>groups</c> claim the server-side guard uses — so the hub and
+    /// <c>FabClaims</c> cannot disagree about what a caller holds.
+    ///
+    /// <para>
+    /// A connection holding no fab joins nothing and therefore receives no
+    /// resolved-text push. That is the intended failure direction: a
+    /// misconfigured account showing nothing is recoverable, where one shown
+    /// another plant's production figures is not (spec 014 FR-015).
+    /// </para>
+    /// </summary>
+    public override async Task OnConnectedAsync()
+    {
+        foreach (string fab in FabClaims.AssignedFabs(Context.User))
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, FabGroup(fab));
+        }
+
+        await base.OnConnectedAsync();
+    }
 }

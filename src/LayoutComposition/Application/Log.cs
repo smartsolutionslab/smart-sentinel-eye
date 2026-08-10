@@ -32,6 +32,12 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Debug, Message = "Broadcast ResolvedOverlayTextChanged for overlay {Overlay} (version {Version}).")]
     public static partial void BroadcastResolvedOverlayTextChanged(this ILogger logger, Guid overlay, long version);
 
+    // Distinct from a successful broadcast, and at Warning: a frame with no fab
+    // cannot be delivered to anyone (spec 014 FR-015), and a kiosk that never
+    // updates looks identical to one nothing was sent to.
+    [LoggerMessage(Level = LogLevel.Warning, Message = "ResolvedOverlayTextChanged for overlay {Overlay} v{Version} carries no fab; not broadcast.")]
+    public static partial void ResolvedOverlayTextChangedWithoutFab(this ILogger logger, Guid overlay, long version);
+
     [LoggerMessage(Level = LogLevel.Debug, Message = "Broadcast OverlayArchived for overlay {Overlay} revision {Revision}.")]
     public static partial void BroadcastOverlayArchived(this ILogger logger, Guid overlay, int revision);
 

@@ -90,8 +90,12 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
             ResolvedText: notification.ResolvedText,
             Version: notification.Version);
 
+        // Group, not All: the resolved text belongs to one fab (FR-015).
+        // SignalR drops a send to a group nobody has joined, so a fab with no
+        // screens connected costs nothing.
         await BroadcastAsync(
-            () => hub.Clients.All.ResolvedOverlayTextChanged(message),
+            () => hub.Clients.Group(LayoutLifecycleHub.FabGroup(notification.Fab))
+                .ResolvedOverlayTextChanged(message),
             ex => logger.ResolvedOverlayTextChangedBroadcastFailed(ex, notification.Overlay, notification.Version));
     }
 
