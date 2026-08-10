@@ -243,8 +243,15 @@ variables.
 **Goal**: A subscriber can tell which plant a camera event concerns without
 asking.
 
-- [ ] T030 [US4] Stamp `EventMetadata.Fab` with the camera's fab on every camera lifecycle event published from `src/CameraCatalog/Application/`. Additive — the field exists and is currently `null`, so no version bump under ADR-0073 ([research.md](./research.md) §2).
-- [ ] T031 [P] [US4] Add handler tests asserting the fab is on the published event for each lifecycle transition, asserted as **dresden** in at least one so a hard-coded default would fail. Covers SC-006.
+- [x] T030 [US4] Stamp `EventMetadata.Fab` with the camera's fab on every camera lifecycle event published from `src/CameraCatalog/Application/`. Additive — the field exists and is currently `null`, so no version bump under ADR-0073 ([research.md](./research.md) §2).
+  *One lifecycle event, not several: `CameraRegisteredV1` is the only one this
+  context publishes, because a camera cannot be edited or retired (#1433,
+  #1435). The domain event had to carry the fab first — it did not.*
+- [x] T031 [P] [US4] Add handler tests asserting the fab is on the published event for each lifecycle transition, asserted as **dresden** in at least one so a hard-coded default would fail. Covers SC-006.
+  *Needed a `FakeEventBus` and an `EventHandlers/` folder — neither existed in
+  this test project. The second case pins the fab to `Metadata` and asserts
+  `CameraRegisteredV1` has no `Fab` property, so a later "improvement" moving it
+  onto the body fails rather than silently forcing every subscriber to migrate.*
 
 **Checkpoint**: StreamDistribution's own fab scoping can start without first
 fixing this one.

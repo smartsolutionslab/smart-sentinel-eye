@@ -57,6 +57,7 @@ public sealed class Camera : AggregateRoot<CameraIdentifier>
 
         camera.Raise(new CameraRegisteredDomainEvent(
             Camera: camera.Id,
+            Fab: fab,
             Name: name,
             Url: url,
             RegisteredAt: camera.RegisteredAt,
