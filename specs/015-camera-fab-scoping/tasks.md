@@ -264,7 +264,50 @@ fixing this one.
   ***Domain 93.1% (gate 90%), Application 96.3% (gate 80%).** All 20 gated
   assemblies pass. Application is now the highest in the solution — this
   feature added tests to a context whose application layer had 15 of them.*
-- [ ] T033 Walk [quickstart.md](./quickstart.md) end to end and record the observations on the PR. **"Done" is the observations, not the walk.** Run the migration against a database that predates this feature, or it proves nothing — a fresh database makes the backfill a no-op by design and the warning never fires. Record the attributed count and the `length(fab) < 2` check that vindicates the four-step form.
+- [x] T033 Walk [quickstart.md](./quickstart.md) end to end and record the observations on the PR. **"Done" is the observations, not the walk.** Run the migration against a database that predates this feature, or it proves nothing — a fresh database makes the backfill a no-op by design and the warning never fires. Record the attributed count and the `length(fab) < 2` check that vindicates the four-step form.
+
+  **Walked 2026-08-10. Observations:**
+
+  *Built a database that genuinely predates the feature — throwaway
+  `timescale/timescaledb:2.27.1-pg17`, migrated only to `InitialCameraCatalog`.
+  Confirmed pre-feature before seeding: no `fab` column, and
+  `ux_cameras_name_lower UNIQUE, btree (name)` — visibly a plain btree with no
+  `lower()`, which is #1434 sitting in the schema. Seeded 7 cameras, 6
+  Registered and 1 Decommissioned (raw SQL: the aggregate cannot produce a
+  decommissioned camera, #1433).*
+
+  *Ran the **real MigrationRunner**. The warning fired, naming the exact seed:*
+
+  ```
+  warn: PostgresNoticeLoggingInterceptor
+        PostgreSQL: FabScopeCameras attributed 7 pre-existing camera(s) to fab
+        'munich'. If this database belongs to another fab, those cameras are now
+        invisible to every operator of it. (SQLSTATE 01000)
+  ```
+
+  ***The check that vindicates T007**: `SELECT count(*) WHERE fab IS NULL OR
+  length(fab) < 2` returns **0**. Had the scaffolded
+  `AddColumn(nullable: false, defaultValue: "")` shipped, all 7 rows would carry
+  `fab = ''` — not a valid `FabIdentifier`, so every one would fail to
+  materialise on the next read. Observed necessary, not argued.*
+
+  *Post-state: `fab` NOT NULL varchar(32); index swapped to
+  `ux_cameras_fab_name_active UNIQUE, btree (fab, name) WHERE status <>
+  'Decommissioned'`; all 7 rows attributed to munich including the
+  decommissioned one.*
+
+  *Three behaviours then exercised against the migrated data directly:*
+  *— reusing the **decommissioned** camera's name in the same fab: **accepted**
+    — the partial filter works, which is what FR-003 would have needed and what
+    #1433 will make reachable through the API;*
+  *— the same name in a **second fab**: **accepted**;*
+  *— the same name in the **same fab**: **refused**,
+    `duplicate key value violates unique constraint
+    "ux_cameras_fab_name_active"`.*
+
+  *Not walked: the case-insensitivity step, which is #1434 and known failing.
+  The HTTP decision table is covered by `CameraFabResolutionIntegrationTests`
+  (6/6) rather than by hand.*
 - [ ] T034 Comment on #1397 that `CameraCatalog` now carries a fab, so the layout-fab decision it blocks is unblocked; comment on #1155 that CameraCatalog is no longer among the contexts missing the guard. **Write `Closes #N, closes #M`** — GitHub honours the keyword only before the *first* number, which left 35 issues open across spec 014's five PRs.
 
 ---
