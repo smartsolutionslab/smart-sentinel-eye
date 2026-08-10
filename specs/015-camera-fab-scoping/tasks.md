@@ -99,8 +99,18 @@ slice, so no placeholder is ever needed.
   still read "Camera name already in use." with no fab. `NameAlreadyTaken` now
   carries `(Fab, Name)`. Worth noting because T011 was already marked done and
   its issue closed; the check was scoped but the message was not.*
-- [ ] T014 [US1] Add `tests/Integration.Tests/CameraCatalog/CrossFabCameraIntegrationTests.cs`: seed a camera of the same name in two fabs, assert both persist, and assert the unique index is `(fab, name)` and not `(name)`. Covers SC-001. Seed through a `DbContext` — a second fab's camera cannot be authored over HTTP by the seeded admin, which is the behaviour under test rather than a way to set it up.
-- [ ] T015 [US1] Add a case asserting **case-insensitivity survived the index swap**: `Line-1-North` is refused where `line-1-north` exists in that fab. Spec 001 marker 2 made this deliberate and it is exactly what a hand-corrected migration drops silently.
+- [x] T014 [US1] Add `tests/Integration.Tests/CameraCatalog/CrossFabCameraIntegrationTests.cs`: seed a camera of the same name in two fabs, assert both persist, and assert the unique index is `(fab, name)` and not `(name)`. Covers SC-001. Seed through a `DbContext` — a second fab's camera cannot be authored over HTTP by the seeded admin, which is the behaviour under test rather than a way to set it up.
+- [~] T015 [US1] Add a case asserting **case-insensitivity survived the index swap**: `Line-1-North` is refused where `line-1-north` exists in that fab. Spec 001 marker 2 made this deliberate and it is exactly what a hand-corrected migration drops silently.
+  ***Written and skipped — #1434.** The assertion is right and the system is
+  wrong: camera names are **not** case-insensitively unique. The index named
+  `ux_cameras_name_lower` is a plain btree on `name`, and `ExistsByNameAsync`
+  compares the stored column, which holds original casing. `CameraName.Equals`
+  is case-insensitive but never runs, because EF translates the predicate to
+  SQL. **The in-memory double does enforce it**, so every unit test passes while
+  production does not — the T034 failure shape.*
+  ***Predates spec 015**: the old index was equally case-sensitive. Skipped, not
+  deleted or weakened — a red test gets removed and takes the evidence with it,
+  and a test asserting the defect would have to be found and reversed later.*
 - [~] T016 ~~[US1] Add a case asserting a decommissioned name is reusable within its fab~~ — **DROPPED 2026-08-10.** Unwritable: nothing retires a camera, so there is no way to free a name. FR-003 is withdrawn with it and the retire behaviour is tracked as #1433. The index filter stays and is forward-looking.
 
 **Checkpoint**: SC-001 and the index behaviour are observed, not argued.
