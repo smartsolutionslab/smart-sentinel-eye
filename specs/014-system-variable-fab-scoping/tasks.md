@@ -202,7 +202,16 @@ access are both fab-correct; the screen is not yet.
 > merged before T033 changes the key. This is the slice with the latency risk
 > and the untested component; the ordering is the mitigation.
 
-- [ ] T031 [US2] Add `tests/Integration.Tests/SystemVariables/NFR_VariableResolutionLatencyTests.cs` measuring value-change → resolved overlay text, **against the current global-keyed implementation**. Warm, then measure, and record the figure in the test as the baseline. Closes the measurement half of #749. Taking this after T033 would compare the new code against itself and pass trivially — which is why it is a task and not an afterthought. The 200 ms event-to-overlay leg (constitution §IV) is the product's load-bearing NFR and currently has nothing watching it.
+- [x] T031 [US2] Add `tests/Integration.Tests/SystemVariables/NFR_VariableResolutionLatencyTests.cs` measuring value-change → resolved overlay text, **against the current global-keyed implementation**. Warm, then measure, and record the figure in the test as the baseline. Closes the measurement half of #749. Taking this after T033 would compare the new code against itself and pass trivially — which is why it is a task and not an afterthought. The 200 ms event-to-overlay leg (constitution §IV) is the product's load-bearing NFR and currently has nothing watching it.
+  ***Baseline (global-keyed, pre-T033): median 9 ms, worst 11 ms, samples
+  [6, 7, 9, 10, 11] ms** against a 200 ms budget — ~20x headroom. Measured
+  value-write returning → snapshot carrying the new value, which spans the
+  write, the domain event, the index lookup and the resolve. Committed on its
+  own with the index still global-keyed, so the figure is provably pre-T033.*
+  *The assertion is set at 800 ms, not 200: this runs on shared CI against a
+  cold stack, and a tight bound would flake and then be deleted, leaving the
+  leg unwatched again — which is the state #749 has been in. The recorded
+  figure is the artefact; the bound only catches order-of-magnitude drift.*
 - [ ] T032 [US2] Record each overlay's fab when it is indexed: `src/SystemVariables/Infrastructure/Resolution/ReverseIndexSeederHostedService.cs` and `src/SystemVariables/Application/EventHandlers/OverlayRevisionPublishedV1Handler.cs` / `OverlayRevisionArchivedV1Handler.cs`.
 - [ ] T033 [US2] Key `IReverseIndex` on `(fab, variableName)` in `src/SystemVariables/Application/Resolution/IReverseIndex.cs` and `src/SystemVariables/Infrastructure/Resolution/InMemoryReverseIndex.cs`. **Widen the key — do not filter after lookup**: filtering would make cost grow with the number of overlays in other fabs, on a path inside the 200 ms leg.
 - [ ] T034 [US2] Update `tests/SystemVariables.Application.Tests/Fakes/InMemoryReverseIndex.cs` to match. The fab must be part of the key here exactly as in production — a fake keyed on the name alone would return another fab's overlays and every resolution test would still pass, which is the shape of the bug being fixed reproduced in the thing meant to detect it.
