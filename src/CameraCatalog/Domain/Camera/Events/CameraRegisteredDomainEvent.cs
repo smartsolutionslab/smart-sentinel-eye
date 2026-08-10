@@ -10,6 +10,7 @@ namespace SmartSentinelEye.CameraCatalog.Domain.Camera.Events;
 /// </summary>
 public sealed record CameraRegisteredDomainEvent(
     CameraIdentifier Camera,
+    FabIdentifier Fab,
     CameraName Name,
     RtspUrl Url,
     DateTimeOffset RegisteredAt,

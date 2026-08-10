@@ -23,7 +23,17 @@ public sealed class CameraRegisteredDomainEventHandler(IEventBus events)
                 Url: domainEvent.Url.Value,
                 RegisteredAt: domainEvent.RegisteredAt,
                 RegisteredBy: domainEvent.RegisteredBy.Value,
+                // FR-012: the fab travels with the event, so a subscriber can
+                // tell which plant it concerns without calling back into this
+                // context per camera. StreamDistribution's own fab scoping is
+                // the next feature and would otherwise start by adding this.
+                //
+                // Additive: EventMetadata.Fab already exists and was stamped
+                // null, so no version bump under ADR-0073.
                 Metadata: new EventMetadata(
-                    Guid.CreateVersion7(), domainEvent.RegisteredAt, null, domainEvent.RegisteredBy.Value)),
+                    Guid.CreateVersion7(),
+                    domainEvent.RegisteredAt,
+                    domainEvent.Fab.Value,
+                    domainEvent.RegisteredBy.Value)),
             cancellationToken);
 }
