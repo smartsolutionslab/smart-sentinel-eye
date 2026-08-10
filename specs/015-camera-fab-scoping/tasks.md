@@ -94,7 +94,11 @@ slice, so no placeholder is ever needed.
 
 **Independent test**: Register the same name in both fabs and read both back.
 
-- [ ] T013 [P] [US1] Add cases to the register handler tests under `tests/CameraCatalog.Application.Tests/Commands/` asserting the same name is accepted in a second fab and refused in the same fab, with the refusal naming the fab.
+- [x] T013 [P] [US1] Add cases to the register handler tests under `tests/CameraCatalog.Application.Tests/Commands/` asserting the same name is accepted in a second fab and refused in the same fab, with the refusal naming the fab.
+  *Completed T011's other half here: the reword had not been done — the error
+  still read "Camera name already in use." with no fab. `NameAlreadyTaken` now
+  carries `(Fab, Name)`. Worth noting because T011 was already marked done and
+  its issue closed; the check was scoped but the message was not.*
 - [ ] T014 [US1] Add `tests/Integration.Tests/CameraCatalog/CrossFabCameraIntegrationTests.cs`: seed a camera of the same name in two fabs, assert both persist, and assert the unique index is `(fab, name)` and not `(name)`. Covers SC-001. Seed through a `DbContext` — a second fab's camera cannot be authored over HTTP by the seeded admin, which is the behaviour under test rather than a way to set it up.
 - [ ] T015 [US1] Add a case asserting **case-insensitivity survived the index swap**: `Line-1-North` is refused where `line-1-north` exists in that fab. Spec 001 marker 2 made this deliberate and it is exactly what a hand-corrected migration drops silently.
 - [~] T016 ~~[US1] Add a case asserting a decommissioned name is reusable within its fab~~ — **DROPPED 2026-08-10.** Unwritable: nothing retires a camera, so there is no way to free a name. FR-003 is withdrawn with it and the retire behaviour is tracked as #1433. The index filter stays and is forward-looking.

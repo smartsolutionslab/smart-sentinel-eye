@@ -127,4 +127,59 @@ public class RegisterCameraCommandHandlerTests
 
     private static RegisterCameraCommandHandler NewHandler(InMemoryCameraRepository cameras) =>
         new(cameras, new FixedClock(FixedMoment), NullLogger<RegisterCameraCommandHandler>.Instance);
+
+    // ---- spec 015 T013: the name is unique per fab, not globally ----
+
+    [Fact]
+    public async Task The_same_name_is_accepted_in_a_second_fab()
+    {
+        InMemoryCameraRepository cameras = new();
+        RegisterCameraCommandHandler handler = NewHandler(cameras);
+
+        RegisterCameraCommand inMunich = new(
+            Fab: FabIdentifier.From("munich"),
+            Name: CameraName.From("Line-1-North"),
+            Url: RtspUrl.From("rtsp://10.0.5.60/h264"),
+            RegisteredBy: AnAdmin);
+        (await handler.HandleAsync(inMunich, CancellationToken.None)).IsSuccess.ShouldBeTrue();
+
+        RegisterCameraCommand inDresden = new(
+            Fab: FabIdentifier.From("dresden"),
+            Name: CameraName.From("Line-1-North"),
+            Url: RtspUrl.From("rtsp://10.0.5.61/h264"),
+            RegisteredBy: AnAdmin);
+
+        Result<CameraIdentifier, RegisterCameraError> result =
+            await handler.HandleAsync(inDresden, CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        cameras.Cameras.Count.ShouldBe(2);
+        cameras.Cameras.Select(camera => camera.Fab.Value).ShouldBe(["munich", "dresden"]);
+    }
+
+    [Fact]
+    public async Task The_same_name_is_refused_in_the_same_fab_and_the_refusal_names_it()
+    {
+        InMemoryCameraRepository cameras = new();
+        RegisterCameraCommandHandler handler = NewHandler(cameras);
+
+        RegisterCameraCommand first = new(
+            Fab: FabIdentifier.From("dresden"),
+            Name: CameraName.From("Line-1-North"),
+            Url: RtspUrl.From("rtsp://10.0.5.60/h264"),
+            RegisteredBy: AnAdmin);
+        await handler.HandleAsync(first, CancellationToken.None);
+
+        Result<CameraIdentifier, RegisterCameraError> result =
+            await handler.HandleAsync(first with { Url = RtspUrl.From("rtsp://10.0.5.61/h264") },
+                CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<RegisterCameraError.NameAlreadyTaken>();
+        // Named, so a multi-fab operator can tell which of their plants
+        // refused them rather than guessing — the same name is legitimately
+        // free in another of theirs.
+        result.Error.Message.ShouldContain("dresden");
+        result.Error.Message.ShouldContain("Line-1-North");
+    }
 }
