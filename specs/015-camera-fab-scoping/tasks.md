@@ -231,7 +231,7 @@ non-enumerable.
   against it. Typecheck caught what the tests did not — the mock was typed as
   taking no arguments, so inspecting `calls[0][0]` was a tuple-index error that
   `vitest` alone reported as passing.*
-- [ ] T029 [US3] Add an e2e case to `e2e/cameras.spec.ts` covering the single-fab half: the selector must **not** render, and the row carries `munich`. Do not add a skipped spec — #1292 sat skipped for two releases asserting against a UI that did not exist. The multi-fab half stays in T022; driving a second Keycloak account through the browser tests the login form, not fab resolution.
+- [x] T029 [US3] Add an e2e case to `e2e/cameras.spec.ts` covering the single-fab half: the selector must **not** render, and the row carries `munich`. Do not add a skipped spec — #1292 sat skipped for two releases asserting against a UI that did not exist. The multi-fab half stays in T022; driving a second Keycloak account through the browser tests the login form, not fab resolution.
 
 **Checkpoint**: An operator meets the same fab rule here as in rules and
 variables.
