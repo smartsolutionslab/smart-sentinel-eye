@@ -20,9 +20,24 @@ public sealed class OverlayHighlightRequestedV1Handler(
     {
         Ensure.That(message).IsNotNull();
 
-        var (overlayIdentifier, durationMs, _, causingEventIdentifier, _) = message;
+        var (overlayIdentifier, durationMs, _, causingEventIdentifier, metadata) = message;
+
+        // The fab was already on the wire and discarded: Automation is
+        // fab-scoped (spec 013) and stamps it. A highlight lights up a wall,
+        // so sending one plant's to every plant is a visible cross-fab effect,
+        // not just leaked metadata (#1397).
+        //
+        // Dropped rather than broadcast widely when absent, and logged: a
+        // highlight that never appears looks the same as one nobody sent.
+        if (string.IsNullOrWhiteSpace(metadata?.Fab))
+        {
+            logger.OverlayHighlightWithoutFab(overlayIdentifier, causingEventIdentifier);
+
+            return;
+        }
+
         await broadcaster.OverlayHighlightedAsync(
-            new OverlayHighlightedNotification(overlayIdentifier, durationMs),
+            new OverlayHighlightedNotification(overlayIdentifier, durationMs, metadata.Fab),
             cancellationToken);
 
         logger.BroadcastOverlayHighlightChanged(overlayIdentifier, durationMs, causingEventIdentifier);
