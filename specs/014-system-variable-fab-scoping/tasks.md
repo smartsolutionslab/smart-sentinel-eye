@@ -165,14 +165,29 @@ Shippable on its own.
 **Goal**: An operator sees and changes only their own fabs' variables, and is
 asked which fab only when there is a choice.
 
-- [ ] T023 [US3] [US4] Add fab resolution to all five endpoints in `src/SystemVariables/Api/SystemVariableEndpoints.cs` using `FabResolution` and `FabClaims` from `ServiceDefaults` **unchanged** — both already exist, both are tested against all four rows of the decision table, and both are driven over real HTTP by `RuleFabResolutionIntegrationTests`. This feature adds no resolution mechanism.
-- [ ] T024 [US3] Thread the fab into `src/SystemVariables/Application/Queries/ListVariablesQuery.cs`, `GetVariableQuery.cs`, `GetOverlaySnapshotQuery.cs` and their handlers in `src/SystemVariables/Application/Queries/Handlers/`. A variable in a fab the caller lacks returns the **not-found** response, byte-identical to a name that was never used (FR-009) — a 403 would confirm it exists and let an operator enumerate another fab's names one guess at a time.
-- [ ] T025 [US3] Thread the fab into `src/SystemVariables/Application/Commands/ArchiveVariableCommand.cs` and `Handlers/ArchiveVariableCommandHandler.cs`, comparing the resolved fab before the `If-Match` precondition is read.
-- [ ] T026 [US4] Thread the resolved fab into `src/SystemVariables/Application/Commands/DefineVariableCommand.cs` and `Handlers/DefineVariableCommandHandler.cs`; add `VariableFabRequired` and `VariableFabAmbiguous` to `src/SystemVariables/Application/Commands/DefineVariableErrors.cs` per contracts/system-variables-api.md.
-- [ ] T027 [US3] Add `Fab` to `src/SystemVariables/Application/DTOs/VariableDto.cs` and its mapper, so a multi-fab operator can tell two rows apart.
-- [ ] T028 [P] [US3] [US4] Add handler tests under `tests/SystemVariables.Application.Tests/` for the refusal paths, asserting a foreign variable is reported as not found and that an ambiguous name names its candidate fabs.
-- [ ] T029 [US3] [US4] Declare the newly reachable statuses on every endpoint in `src/SystemVariables/Api/SystemVariableEndpoints.cs` — 400 and 403 where they became possible — so the generated OpenAPI does not claim they cannot happen. Spec 013 shipped this wrong on one endpoint and it took a code review to catch.
-- [ ] T030 [US3] [US4] Add `tests/Integration.Tests/SystemVariables/VariableFabResolutionIntegrationTests.cs` driving the resolution table over real HTTP with `op-dresden@dresden.test` and `op-multi@smart-sentinel-eye.test`: refused without `fabId`, accepted when named, 403 for a fab not held, inference for a single-fab operator asserted as **dresden** (not munich, which everything else defaults to), and both sides of the ambiguity. Covers SC-002 and SC-007.
+- [x] T023 [US3] [US4] Add fab resolution to all five endpoints in `src/SystemVariables/Api/SystemVariableEndpoints.cs` using `FabResolution` and `FabClaims` from `ServiceDefaults` **unchanged** — both already exist, both are tested against all four rows of the decision table, and both are driven over real HTTP by `RuleFabResolutionIntegrationTests`. This feature adds no resolution mechanism.
+- [x] T024 [US3] Thread the fab into `src/SystemVariables/Application/Queries/ListVariablesQuery.cs`, `GetVariableQuery.cs`, `GetOverlaySnapshotQuery.cs` and their handlers in `src/SystemVariables/Application/Queries/Handlers/`. A variable in a fab the caller lacks returns the **not-found** response, byte-identical to a name that was never used (FR-009) — a 403 would confirm it exists and let an operator enumerate another fab's names one guess at a time.
+  ***`GetOverlaySnapshotQuery` is deliberately excluded.** The contract scopes
+  the snapshot to *the overlay's own fab* (FR-014), not the caller's, and the
+  overlay's fab is not recorded until T032. Threading the caller's fabs here
+  would contradict FR-014 and have to be undone, so that placeholder stays and
+  now points at T032. **Four of the seven placeholders die in this phase, not
+  all seven** — the two domain-event handlers (T035) and the snapshot (T032)
+  are Phase 6's.*
+- [x] T025 [US3] Thread the fab into `src/SystemVariables/Application/Commands/ArchiveVariableCommand.cs` and `Handlers/ArchiveVariableCommandHandler.cs`, comparing the resolved fab before the `If-Match` precondition is read.
+- [x] T026 [US4] Thread the resolved fab into `src/SystemVariables/Application/Commands/DefineVariableCommand.cs` and `Handlers/DefineVariableCommandHandler.cs`; add `VariableFabRequired` and `VariableFabAmbiguous` to `src/SystemVariables/Application/Commands/DefineVariableErrors.cs` per contracts/system-variables-api.md.
+  *Neither landed in `DefineVariableErrors.cs`, because the contract this task
+  defers to puts them elsewhere. `VARIABLE_FAB_REQUIRED` is the multi-fab
+  caller omitting `fabId` on a **write** — `FabResolution.ResolveForWriteAsync`
+  already emits it from the code passed in, so a typed Define error would be
+  unreachable: the endpoint resolves before the handler is called.
+  `VARIABLE_FAB_AMBIGUOUS` is a name held in two of the caller's own fabs,
+  which the contract puts on **`GET /{name}`**, so it landed in
+  `GetVariableErrors.cs` where the read failure lives.*
+- [x] T027 [US3] Add `Fab` to `src/SystemVariables/Application/DTOs/VariableDto.cs` and its mapper, so a multi-fab operator can tell two rows apart.
+- [x] T028 [P] [US3] [US4] Add handler tests under `tests/SystemVariables.Application.Tests/` for the refusal paths, asserting a foreign variable is reported as not found and that an ambiguous name names its candidate fabs.
+- [x] T029 [US3] [US4] Declare the newly reachable statuses on every endpoint in `src/SystemVariables/Api/SystemVariableEndpoints.cs` — 400 and 403 where they became possible — so the generated OpenAPI does not claim they cannot happen. Spec 013 shipped this wrong on one endpoint and it took a code review to catch.
+- [x] T030 [US3] [US4] Add `tests/Integration.Tests/SystemVariables/VariableFabResolutionIntegrationTests.cs` driving the resolution table over real HTTP with `op-dresden@dresden.test` and `op-multi@smart-sentinel-eye.test`: refused without `fabId`, accepted when named, 403 for a fab not held, inference for a single-fab operator asserted as **dresden** (not munich, which everything else defaults to), and both sides of the ambiguity. Covers SC-002 and SC-007.
 
 **Checkpoint**: The SystemVariables slice of #1155 is closed. Stored values and
 access are both fab-correct; the screen is not yet.

@@ -17,13 +17,13 @@ public sealed class ArchiveVariableCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        (VariableName? name, OperatorIdentifier archivedBy, int expectedVersion) = command;
+        (FabIdentifier? fab, VariableName? name, OperatorIdentifier archivedBy, int expectedVersion) = command;
 
-        // Placeholder fab (spec 014 T025 replaces this with the resolved fab).
-        // Every variable is in munich until then, so this finds what it finds
-        // today.
-        Option<Variable> found = await variables.GetByNameAsync(
-            FabIdentifier.From("munich"), name, cancellationToken);
+        // The fab check runs before the version comparison below, so the
+        // concurrency layer never gets to reveal that another fab's variable
+        // exists: a 409 here would distinguish it from a name that was never
+        // used, which is what FR-009 forbids.
+        Option<Variable> found = await variables.GetByNameAsync(fab, name, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(ArchiveVariableFailures.VariableNotFound(name.Value));
