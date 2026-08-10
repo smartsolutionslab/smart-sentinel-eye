@@ -18,8 +18,9 @@ namespace SmartSentinelEye.SystemVariables.Infrastructure.Persistence.Configurat
 ///
 /// <para>
 /// Name uniqueness is enforced at the application layer (FR-005;
-/// archived names are released for re-use). A partial unique index on
-/// non-archived rows backs it belt-and-braces.
+/// archived names are released for re-use) and is scoped to a fab
+/// (spec 014). A partial unique index on non-archived rows backs it
+/// belt-and-braces.
 /// </para>
 /// </summary>
 public sealed class VariableConfiguration : IEntityTypeConfiguration<Variable>
@@ -35,6 +36,12 @@ public sealed class VariableConfiguration : IEntityTypeConfiguration<Variable>
             .HasColumnName("variable_id")
             .HasConversion(id => id.Value, value => VariableIdentifier.From(value))
             .ValueGeneratedNever();
+
+        builder.Property(variable => variable.Fab)
+            .HasColumnName("fab")
+            .HasMaxLength(FabIdentifier.MaximumLength)
+            .HasConversion(fab => fab.Value, value => FabIdentifier.From(value))
+            .IsRequired();
 
         builder.Property(variable => variable.Name)
             .HasColumnName("name")
@@ -86,10 +93,14 @@ public sealed class VariableConfiguration : IEntityTypeConfiguration<Variable>
             .IsConcurrencyToken();
 
         // FR-005 belt-and-braces: at most one non-Archived variable
-        // per name. The application-level uniqueness check is the
-        // authoritative source of truth.
-        builder.HasIndex(variable => variable.Name)
-            .HasDatabaseName("ux_system_variables_name_active")
+        // per name *within a fab* (spec 014). The application-level
+        // uniqueness check is the authoritative source of truth.
+        //
+        // The partial filter is kept: archiving has always released a name
+        // for re-use, and scoping the index to a fab must not quietly take
+        // that away.
+        builder.HasIndex(variable => new { variable.Fab, variable.Name })
+            .HasDatabaseName("ux_system_variables_fab_name_active")
             .IsUnique()
             .HasFilter("state <> 'Archived'");
 

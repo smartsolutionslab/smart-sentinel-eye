@@ -13,7 +13,14 @@ public sealed class GetVariableQueryHandler(IVariableQuerySource variables)
     {
         Ensure.That(query).IsNotNull();
 
-        Variable? variable = await variables.Variables.SingleOrDefaultAsync(candidate => candidate.Name == query.Name, cancellationToken);
+        // Placeholder fab (spec 014 T024 resolves the caller's fab). Scoping
+        // this is not deferrable to T024: T009's index makes a name unique only
+        // within a fab, so matching on the name alone would throw here the
+        // moment a second fab uses one.
+        FabIdentifier fab = FabIdentifier.From("munich");
+
+        Variable? variable = await variables.Variables.SingleOrDefaultAsync(
+            candidate => candidate.Fab == fab && candidate.Name == query.Name, cancellationToken);
 
         if (variable is null)
         {

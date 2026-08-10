@@ -18,11 +18,13 @@ public sealed class VariableRepository(
     }
 
     public async Task<Option<Variable>> GetByNameAsync(
-        VariableName name, CancellationToken cancellationToken)
+        FabIdentifier fab, VariableName name, CancellationToken cancellationToken)
     {
+        Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
         // FR-005: archived names are released for re-use; only return non-Archived rows.
         Variable? found = await dbContext.Variables
+            .Where(variable => variable.Fab == fab)
             .Where(variable => variable.Name == name)
             .Where(variable => variable.State != VariableState.Archived)
             .FirstOrDefaultAsync(cancellationToken);

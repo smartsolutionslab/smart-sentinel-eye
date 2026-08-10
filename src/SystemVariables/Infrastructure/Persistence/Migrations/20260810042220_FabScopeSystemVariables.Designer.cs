@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartSentinelEye.SystemVariables.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using SmartSentinelEye.SystemVariables.Infrastructure.Persistence;
 namespace SmartSentinelEye.SystemVariables.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(SystemVariablesDbContext))]
-    partial class SystemVariablesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260810042220_FabScopeSystemVariables")]
+    partial class FabScopeSystemVariables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
