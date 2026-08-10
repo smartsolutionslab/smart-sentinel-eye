@@ -166,14 +166,16 @@ operator.
 > - The contract's `PUT` and decommission entries describe endpoints that do
 >   not exist (decommission already withdrawn with #1433).
 >
-> **Done here**: the list query and endpoint are fab-scoped, which is the whole
-> of what FR-005 needs and is genuinely complete.
+> **Resolved 2026-08-10**: FR-006, FR-010 and SC-003 withdrawn; T019 and T023
+> dropped. Spec 015 delivers FR-005 — the listing excludes other fabs' cameras,
+> which is the whole of the non-enumeration guarantee available without a
+> read-by-name endpoint.
 - [x] T018 [US2] Add fab resolution to the two read endpoints in `src/CameraCatalog/Api/CameraEndpoints.cs`. A read spans **all** the caller's fabs when they name none — the deliberate asymmetry with the write path.
-- [ ] T019 [US2] Return **400** `CAMERA_FAB_AMBIGUOUS` naming the candidates when a name resolves in more than one of the caller's own fabs (FR-010). Not tie-broken: whichever row won would be arbitrary, and a caller acting on it would be editing a fab they did not choose.
+- [~] T019 ~~[US2]~~ **DROPPED 2026-08-10** — no read-by-name endpoint exists, so there is nothing to answer ambiguously. FR-010 withdrawn with it. Original: Return **400** `CAMERA_FAB_AMBIGUOUS` naming the candidates when a name resolves in more than one of the caller's own fabs (FR-010). Not tie-broken: whichever row won would be arbitrary, and a caller acting on it would be editing a fab they did not choose.
 - [ ] T020 [P] [US2] Add `Fab` to the camera DTO and its mapper so a multi-fab operator can tell two same-named rows apart (FR-013), and order the listing by name **then fab** — name alone stops being a total order the moment two fabs hold one.
 - [ ] T021 [P] [US2] Add handler tests under `tests/CameraCatalog.Application.Tests/Queries/` for the refusal paths: a foreign camera reported as not found, and an ambiguous name naming its candidate fabs.
 - [ ] T022 [US2] Add `tests/Integration.Tests/CameraCatalog/CameraFabResolutionIntegrationTests.cs` driving the decision table over real HTTP with `op-dresden@dresden.test` and `op-multi@smart-sentinel-eye.test`: refused without `fabId`, accepted when named, 403 for a fab not held, inference asserted as **dresden** (not the munich everything else defaults to), and both sides of the ambiguity. Covers SC-002 and SC-004.
-- [ ] T023 [US2] Assert FR-006 **field by field**, not by status alone: compare the foreign-camera response to a never-existed one with `detail` and `traceId` removed. A difference in title or type is enough to enumerate. Covers SC-003.
+- [~] T023 ~~[US2]~~ **DROPPED 2026-08-10** — no read-by-name endpoint exists, so there is no response to compare. FR-006 and SC-003 withdrawn with it. Original: Assert FR-006 **field by field**, not by status alone: compare the foreign-camera response to a never-existed one with `detail` and `traceId` removed. A difference in title or type is enough to enumerate. Covers SC-003.
 
 **Checkpoint**: The access half of the feature is closed and provably
 non-enumerable.
