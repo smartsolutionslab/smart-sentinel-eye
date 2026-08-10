@@ -146,8 +146,29 @@ slice, so no placeholder is ever needed.
 **Goal**: Munich's cameras are neither listed nor reachable by a Dresden-only
 operator.
 
-- [ ] T017 [US2] Thread the caller's fabs into the list and get-one queries and handlers in `src/CameraCatalog/Application/Queries/`. A camera in a fab the caller lacks returns the **not-found** response, byte-identical to a name never used (FR-006) — a 403 would confirm it exists and let an operator enumerate another fab's names one guess at a time.
-- [ ] T018 [US2] Add fab resolution to the two read endpoints in `src/CameraCatalog/Api/CameraEndpoints.cs`. A read spans **all** the caller's fabs when they name none — the deliberate asymmetry with the write path.
+- [x] T017 [US2] Thread the caller's fabs into the list and get-one queries and handlers in `src/CameraCatalog/Application/Queries/`. A camera in a fab the caller lacks returns the **not-found** response, byte-identical to a name never used (FR-006) — a 403 would confirm it exists and let an operator enumerate another fab's names one guess at a time.
+
+> **CameraCatalog has only TWO endpoints: `POST /cameras` and `GET /cameras`.**
+> No get-one, no edit, no decommission. Verified:
+> `grep -E "MapGet|MapPost|MapPut|MapDelete" src/CameraCatalog/Api/CameraEndpoints.cs`
+> returns exactly two lines.
+>
+> `contracts/cameras-api.md` describes five (later four). I wrote it by analogy
+> to the SystemVariables contract without checking this context's actual
+> surface — the same mistake that produced the FR-003 problem, at larger scale.
+>
+> **Consequences, all needing a decision:**
+> - **T017's get-one half, T019 (`CAMERA_FAB_AMBIGUOUS`) and T023 (FR-006
+>   field-by-field) have nothing to attach to.** There is no read-by-name path.
+> - **FR-006 and FR-010 are largely unimplementable as written.** FR-006 says a
+>   camera in a fab the caller lacks is reported as never existing; nothing
+>   reports a single camera at all.
+> - The contract's `PUT` and decommission entries describe endpoints that do
+>   not exist (decommission already withdrawn with #1433).
+>
+> **Done here**: the list query and endpoint are fab-scoped, which is the whole
+> of what FR-005 needs and is genuinely complete.
+- [x] T018 [US2] Add fab resolution to the two read endpoints in `src/CameraCatalog/Api/CameraEndpoints.cs`. A read spans **all** the caller's fabs when they name none — the deliberate asymmetry with the write path.
 - [ ] T019 [US2] Return **400** `CAMERA_FAB_AMBIGUOUS` naming the candidates when a name resolves in more than one of the caller's own fabs (FR-010). Not tie-broken: whichever row won would be arbitrary, and a caller acting on it would be editing a fab they did not choose.
 - [ ] T020 [P] [US2] Add `Fab` to the camera DTO and its mapper so a multi-fab operator can tell two same-named rows apart (FR-013), and order the listing by name **then fab** — name alone stops being a total order the moment two fabs hold one.
 - [ ] T021 [P] [US2] Add handler tests under `tests/CameraCatalog.Application.Tests/Queries/` for the refusal paths: a foreign camera reported as not found, and an ambiguous name naming its candidate fabs.

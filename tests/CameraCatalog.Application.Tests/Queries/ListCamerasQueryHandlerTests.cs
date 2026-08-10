@@ -154,6 +154,7 @@ public class ListCamerasQueryHandlerTests
 
     private static ListCamerasQuery DefaultQuery() =>
         new(
+            Fabs: [FabIdentifier.From("munich")],
             Sort: ListCamerasDefaults.DefaultSort,
             Order: ListCamerasDefaults.DefaultOrder,
             Offset: ListCamerasDefaults.DefaultOffset,

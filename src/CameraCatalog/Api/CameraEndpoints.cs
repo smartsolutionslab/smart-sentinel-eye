@@ -94,13 +94,24 @@ public static class CameraEndpoints
 
     private static async Task<IResult> List(
         [FromServices] ListCamerasQueryHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        System.Security.Claims.ClaimsPrincipal user,
         CancellationToken cancellationToken,
+        [FromQuery] string fabId = "",
         [FromQuery] string? sort = null,
         [FromQuery] string? order = null,
         [FromQuery] int? offset = null,
         [FromQuery] int? limit = null)
     {
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
         ListCamerasQuery query = new(
+            Fabs: fabs,
             Sort: sort ?? ListCamerasDefaults.DefaultSort,
             Order: order ?? ListCamerasDefaults.DefaultOrder,
             Offset: offset ?? ListCamerasDefaults.DefaultOffset,
@@ -169,5 +180,51 @@ public static class CameraEndpoints
                 title: "CAMERA_INVALID_REQUEST", detail: ex.Message,
                 statusCode: StatusCodes.Status400BadRequest));
         }
+    }
+
+    /// <summary>
+    /// The fabs a read may span. Unlike a write, nothing has to be chosen: a
+    /// multi-fab caller listing sees all of theirs (FR-005).
+    ///
+    /// <para>
+    /// Parsed per entry rather than all-or-nothing. One group under
+    /// <c>/fabs/</c> that is not a usable fab name would otherwise fail the
+    /// whole read, hiding every camera in the fabs the caller legitimately
+    /// holds. Mirrors RulesEndpoints, where that was a real defect.
+    /// </para>
+    /// </summary>
+    private static async Task<(IReadOnlyList<FabIdentifier>? Fabs, IResult? Problem)> ResolveReadFabsAsync(
+        System.Security.Claims.ClaimsPrincipal user,
+        string fabId,
+        IFabAuthorizationGuard fabGuard,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<string> resolved =
+            await FabResolution.ResolveForReadAsync(user, fabId, fabGuard, cancellationToken);
+
+        List<FabIdentifier> fabs = [];
+        foreach (string candidate in resolved)
+        {
+            try
+            {
+                fabs.Add(FabIdentifier.From(candidate));
+            }
+            catch (ArgumentException)
+            {
+                // Skipped, not reported: a caller cannot act on a message about
+                // someone else's group configuration, and if nothing is usable
+                // the request still fails below.
+            }
+        }
+
+        if (fabs.Count == 0)
+        {
+            return (null, Results.Problem(
+                title: "CAMERA_FAB_REQUIRED",
+                detail: "None of your fab groups is a usable fab name.",
+                statusCode: StatusCodes.Status400BadRequest));
+        }
+
+        return (fabs, null);
     }
 }
