@@ -29,10 +29,20 @@ public static class CameraEndpoints
             .WithTags("Cameras")
             .RequireAuthorization(Scope.Sse.Cameras.Write);
 
+        // 403 became reachable when fab resolution landed (spec 015 T024): the
+        // caller may name a fab they do not hold, or hold none at all. 400 was
+        // already declared but now covers a second cause — a multi-fab operator
+        // omitting fabId. Declaring them keeps the generated OpenAPI from
+        // claiming a status that can happen cannot; spec 013 shipped this wrong
+        // on one endpoint and it took a review to catch.
         writes.MapPost("/", Register)
             .WithName("RegisterCamera")
+            .WithSummary(
+                "Register a camera in the resolved fab. Omit fabId when you belong to exactly one fab; "
+                + "name it when you belong to several (ADR-0114). Required scope: sse.cameras.write")
             .Produces<Guid>(StatusCodes.Status201Created)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         RouteGroupBuilder reads = app.MapGroup("/cameras")
@@ -41,8 +51,12 @@ public static class CameraEndpoints
 
         reads.MapGet("/", List)
             .WithName("ListCameras")
+            .WithSummary(
+                "List cameras in your fabs. Omit fabId to span all of them; name one to narrow. "
+                + "A read does not have to choose (spec 015 FR-005).")
             .Produces<CameraListPageDto>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         return app;
     }
