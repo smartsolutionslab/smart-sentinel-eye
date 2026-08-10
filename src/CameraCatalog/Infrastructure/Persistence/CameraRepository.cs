@@ -16,11 +16,14 @@ public sealed class CameraRepository(
         return found is null ? Option<Camera>.None : Option<Camera>.Some(found);
     }
 
-    public async Task<bool> ExistsByNameAsync(CameraName name, CancellationToken cancellationToken)
+    public async Task<bool> ExistsByNameAsync(
+        FabIdentifier fab, CameraName name, CancellationToken cancellationToken)
     {
+        Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
 
         return await dbContext.Cameras
+            .Where(candidate => candidate.Fab == fab)
             .AnyAsync(candidate => candidate.Name == name, cancellationToken);
     }
 

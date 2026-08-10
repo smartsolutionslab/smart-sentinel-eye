@@ -16,16 +16,18 @@ public sealed class RegisterCameraCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (CameraName? name, RtspUrl? url, OperatorIdentifier registeredBy) = command;
+        (FabIdentifier? fab, CameraName? name, RtspUrl? url, OperatorIdentifier registeredBy) = command;
 
-        if (await cameras.ExistsByNameAsync(name, cancellationToken))
+        // Scoped to the fab: another plant holding the name is not a collision
+        // at all (FR-002).
+        if (await cameras.ExistsByNameAsync(fab, name, cancellationToken))
         {
             logger.RejectedCameraRegistrationNameInUse(name);
             return Failure(RegisterCameraFailures.NameAlreadyTaken());
         }
 
         Domain.Camera.Camera camera = Domain.Camera.Camera.Register(
-            name, url, registeredBy, clock);
+            fab, name, url, registeredBy, clock);
 
         cameras.Add(camera);
         await cameras.SaveAsync(cancellationToken);

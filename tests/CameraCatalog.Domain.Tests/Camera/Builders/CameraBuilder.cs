@@ -10,6 +10,7 @@ namespace SmartSentinelEye.CameraCatalog.Domain.Tests.Camera.Builders;
 /// </summary>
 public sealed class CameraBuilder
 {
+    private FabIdentifier _fab = FabIdentifier.From("munich");
     private CameraName _name = CameraName.From("Cam-Default");
     private RtspUrl _url = RtspUrl.From("rtsp://10.0.0.1:554/h264");
     private OperatorIdentifier _registeredBy = OperatorIdentifier.From(Guid.CreateVersion7());
@@ -39,8 +40,14 @@ public sealed class CameraBuilder
         return this;
     }
 
+    public CameraBuilder WithFab(string fab)
+    {
+        _fab = FabIdentifier.From(fab);
+        return this;
+    }
+
     public Domain.Camera.Camera Build() =>
-        Domain.Camera.Camera.Register(_name, _url, _registeredBy, _clock);
+        Domain.Camera.Camera.Register(_fab, _name, _url, _registeredBy, _clock);
 
     private sealed class TestClock(DateTimeOffset moment) : IClock
     {

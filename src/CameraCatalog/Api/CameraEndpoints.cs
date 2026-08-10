@@ -50,8 +50,10 @@ public static class CameraEndpoints
     private static async Task<IResult> Register(
         [FromBody] RegisterCameraRequest request,
         [FromServices] RegisterCameraCommandHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
         HttpContext httpContext,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
     {
         Ensure.That(request).IsNotNull();
 
@@ -69,9 +71,16 @@ public static class CameraEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
+        (FabIdentifier? fab, IResult? fabProblem) =
+            await ResolveWriteFabAsync(httpContext.User, fabId, fabGuard, cancellationToken);
+        if (fab is null)
+        {
+            return fabProblem!;
+        }
+
         OperatorIdentifier registeredBy = ResolveOperator(httpContext);
 
-        RegisterCameraCommand command = new(name, url, registeredBy);
+        RegisterCameraCommand command = new(fab, name, url, registeredBy);
 
         Result<CameraIdentifier, RegisterCameraError> result =
             await handler.HandleAsync(command, cancellationToken);
@@ -129,5 +138,36 @@ public static class CameraEndpoints
         }
 
         return OperatorIdentifier.From(subjectId);
+    }
+
+    /// <summary>
+    /// CameraCatalog's binding of the shared decision table (ADR-0114) to its
+    /// own <see cref="FabIdentifier"/>. The table itself lives in
+    /// <see cref="FabResolution"/>; this feature adds no resolution mechanism,
+    /// it applies the existing one (spec 015).
+    /// </summary>
+    private static async Task<(FabIdentifier? Fab, IResult? Problem)> ResolveWriteFabAsync(
+        System.Security.Claims.ClaimsPrincipal user,
+        string fabId,
+        IFabAuthorizationGuard fabGuard,
+        CancellationToken cancellationToken)
+    {
+        (string resolved, IResult problem) = await FabResolution.ResolveForWriteAsync(
+            user, fabId, fabGuard, "CAMERA_FAB_REQUIRED", cancellationToken);
+        if (problem is not null)
+        {
+            return (null, problem);
+        }
+
+        try
+        {
+            return (FabIdentifier.From(resolved), null);
+        }
+        catch (ArgumentException ex)
+        {
+            return (null, Results.Problem(
+                title: "CAMERA_INVALID_REQUEST", detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest));
+        }
     }
 }

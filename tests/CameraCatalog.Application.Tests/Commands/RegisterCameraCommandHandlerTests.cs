@@ -24,6 +24,7 @@ public class RegisterCameraCommandHandlerTests
         RegisterCameraCommandHandler handler = NewHandler(cameras);
 
         RegisterCameraCommand command = new(
+            Fab: FabIdentifier.From("munich"),
             Name: CameraName.From("Line-1-Entrance"),
             Url: RtspUrl.From("rtsp://10.0.5.12/h264"),
             RegisteredBy: AnAdmin);
@@ -42,6 +43,7 @@ public class RegisterCameraCommandHandlerTests
         RegisterCameraCommandHandler handler = NewHandler(cameras);
 
         RegisterCameraCommand command = new(
+            Fab: FabIdentifier.From("munich"),
             Name: CameraName.From("Line-2-East"),
             Url: RtspUrl.From("rtsp://10.0.5.22/h264"),
             RegisteredBy: AnAdmin);
@@ -60,6 +62,7 @@ public class RegisterCameraCommandHandlerTests
         RegisterCameraCommandHandler handler = NewHandler(cameras);
 
         RegisterCameraCommand command = new(
+            Fab: FabIdentifier.From("munich"),
             Name: CameraName.From("Cam-Event-Test"),
             Url: RtspUrl.From("rtsp://10.0.5.30/h264"),
             RegisteredBy: AnAdmin);
@@ -76,12 +79,14 @@ public class RegisterCameraCommandHandlerTests
         RegisterCameraCommandHandler handler = NewHandler(cameras);
 
         RegisterCameraCommand first = new(
+            Fab: FabIdentifier.From("munich"),
             Name: CameraName.From("Cam-Duplicate"),
             Url: RtspUrl.From("rtsp://10.0.5.50/h264"),
             RegisteredBy: AnAdmin);
         await handler.HandleAsync(first, CancellationToken.None);
 
         RegisterCameraCommand second = new(
+            Fab: FabIdentifier.From("munich"),
             Name: CameraName.From("Cam-Duplicate"),
             Url: RtspUrl.From("rtsp://10.0.5.51/h264"),
             RegisteredBy: AnAdmin);
@@ -103,14 +108,14 @@ public class RegisterCameraCommandHandlerTests
         RegisterCameraCommandHandler handler = NewHandler(cameras);
 
         await handler.HandleAsync(
-            new RegisterCameraCommand(
+            new RegisterCameraCommand(FabIdentifier.From("munich"), 
                 Name: CameraName.From("Line-1-Entrance"),
                 Url: RtspUrl.From("rtsp://10.0.5.12/h264"),
                 RegisteredBy: AnAdmin),
             CancellationToken.None);
 
         Result<CameraIdentifier, RegisterCameraError> result = await handler.HandleAsync(
-            new RegisterCameraCommand(
+            new RegisterCameraCommand(FabIdentifier.From("munich"), 
                 Name: CameraName.From("line-1-entrance"),
                 Url: RtspUrl.From("rtsp://10.0.5.13/h264"),
                 RegisteredBy: AnAdmin),

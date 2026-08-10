@@ -23,7 +23,7 @@ device means registering it afresh.
 `fab VARCHAR(32) NOT NULL` on `cameras`.
 
 `ux_cameras_name_lower` is replaced by `ux_cameras_fab_name_active` — UNIQUE on
-`(fab, lower(name))` `WHERE status <> 'Decommissioned'`.
+`(fab, name)` `WHERE status <> 'Decommissioned'`.
 
 **The partial filter is new behaviour, not a carry-over.** The shipped index has
 none, so a decommissioned camera holds its name forever today; rules and
@@ -34,8 +34,16 @@ It is safe against existing data by construction: a partial unique index is
 strictly **weaker** than the unfiltered one it replaces, so nothing already
 stored can violate it. The forward migration cannot fail here.
 
-**The case-insensitivity must survive the swap.** The shipped index is
-`ux_cameras_name_lower` and spec 001 marker 2 made that deliberate. It is
+**Correction found during implementation.** The shipped index is *named*
+`ux_cameras_name_lower` but is a plain btree on `name` — there is no `lower()`
+expression, and EF's `HasIndex` cannot express one. Case-insensitivity is
+enforced in the **domain**, by `CameraName.NormalizedValue`, which is what
+equality and comparison use. The index name is misleading and predates this
+feature.
+
+That does not change what T015 must assert — registering `Line-1-North` where
+`line-1-north` exists in the same fab must still be refused — only *where* the
+guarantee lives. It is
 exactly the property a hand-corrected migration drops without anyone noticing,
 so it gets a test that registers `Line-1-North` against an existing
 `line-1-north`.

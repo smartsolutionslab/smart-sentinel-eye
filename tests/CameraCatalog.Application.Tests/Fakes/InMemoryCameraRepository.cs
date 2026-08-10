@@ -22,8 +22,13 @@ public sealed class InMemoryCameraRepository : ICameraRepository
         return Task.FromResult(found is null ? Option<Camera>.None : Option<Camera>.Some(found));
     }
 
-    public Task<bool> ExistsByNameAsync(CameraName name, CancellationToken cancellationToken) =>
-        Task.FromResult(_cameras.Any(candidate => candidate.Name.Equals(name)));
+    // Fab is part of the match, not a filter applied afterwards. Keyed on the
+    // name alone this would report another plant's camera as a collision, which
+    // is the bug being fixed reproduced inside the double meant to detect it.
+    public Task<bool> ExistsByNameAsync(
+        FabIdentifier fab, CameraName name, CancellationToken cancellationToken) =>
+        Task.FromResult(_cameras.Any(candidate =>
+            candidate.Fab.Equals(fab) && candidate.Name.Equals(name)));
 
     public void Add(Camera camera) => _pendingAdds.Add(camera);
 
