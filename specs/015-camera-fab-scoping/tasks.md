@@ -207,7 +207,11 @@ non-enumerable.
 > contract surface, and the UI.
 
 - [x] T024 [US3] Declare the newly reachable statuses on every endpoint in `src/CameraCatalog/Api/CameraEndpoints.cs` — 400 and 403 where they became possible — so the generated OpenAPI does not claim they cannot happen. Spec 013 shipped this wrong on one endpoint and it took a review to catch.
-- [ ] T025 [P] [US3] Update `apps/shared/src/api/cameras.api.ts`: `fab` on the camera type, `fabId` as a query parameter on the write and read calls. Mirror `rules.api.ts` — the fab travels as a query parameter, not in the body, so the request schema still mirrors the wire shape.
+- [x] T025 [P] [US3] Update `apps/shared/src/api/cameras.api.ts`: `fab` on the camera type, `fabId` as a query parameter on the write and read calls. Mirror `rules.api.ts` — the fab travels as a query parameter, not in the body, so the request schema still mirrors the wire shape.
+  *Only the write and the list exist to update; there is no read-by-name client
+  call because there is no such endpoint (#1435). Making `fab` required on
+  `CameraSummary` immediately broke the page's test fixtures, which is the type
+  doing its job — they described a camera that can no longer exist.*
 - [ ] T026 [US3] Update the camera surface in `apps/management-web/src/features/cameras/`: show each row's fab, echo it back on edit and decommission, and add a fab selector that appears **only** when the operator holds more than one (ADR-0114). Mirror `RuleDialog`.
 - [ ] T027 [US3] Check the camera page's per-row edit state is keyed on the **camera identifier**, not the name. Two fabs may now hold one name, and a name-keyed buffer shows one row's typing in the other and submits it against the wrong fab — the exact bug found in spec 014's T040.
 - [ ] T028 [P] [US3] Add frontend tests for the selector's presence/absence and for two same-named rows staying independent.

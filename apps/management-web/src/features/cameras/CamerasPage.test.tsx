@@ -37,12 +37,14 @@ function populatedPage(): CameraListPage {
     items: [
       {
         cameraIdentifier: '11111111-1111-1111-1111-111111111111',
+        fab: 'munich',
         name: 'Line-1-Entrance',
         rtspUrl: 'rtsp://10.0.5.12/h264',
         registeredAt: '2026-05-24T10:00:00Z',
       },
       {
         cameraIdentifier: '22222222-2222-2222-2222-222222222222',
+        fab: 'dresden',
         name: 'Line-2-East',
         rtspUrl: 'rtsp://10.0.5.22/h264',
         registeredAt: '2026-05-23T10:00:00Z',
