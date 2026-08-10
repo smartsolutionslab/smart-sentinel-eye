@@ -25,6 +25,12 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
             .HasConversion(id => id.Value, value => CameraIdentifier.From(value))
             .ValueGeneratedNever();
 
+        builder.Property(camera => camera.Fab)
+            .HasColumnName("fab")
+            .HasMaxLength(FabIdentifier.MaximumLength)
+            .HasConversion(fab => fab.Value, value => FabIdentifier.From(value))
+            .IsRequired();
+
         builder.Property(camera => camera.Name)
             .HasColumnName("name")
             .HasMaxLength(CameraName.MaximumLength)
@@ -56,12 +62,24 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
             .HasColumnName("version")
             .IsConcurrencyToken();
 
-        // Case-insensitive uniqueness on Name per spec 001-register-camera marker 2.
-        // Postgres-specific: a unique btree index on the name column.
-        builder.HasIndex(camera => camera.Name)
-            .HasDatabaseName("ux_cameras_name_lower")
+        // Case-insensitive uniqueness on Name *within a fab* (spec 015 FR-002).
+        // Postgres-specific: a unique btree index.
+        //
+        // The partial filter is NEW behaviour, not a carry-over: the shipped
+        // index had none, so a decommissioned camera held its name forever.
+        // Rules and variables both release theirs, and adopting the filter was
+        // decided at spec 015's Phase 2 gate (research.md §3). It is safe
+        // against existing data by construction — a partial unique index is
+        // strictly weaker than the unfiltered one it replaces.
+        //
+        // The case-insensitivity is spec 001 marker 2 and must survive the
+        // swap; T015 tests it, because it is exactly what a hand-corrected
+        // migration drops silently.
+        builder.HasIndex(camera => new { camera.Fab, camera.Name })
+            .HasDatabaseName("ux_cameras_fab_name_active")
             .IsUnique()
-            .HasMethod("btree");
+            .HasMethod("btree")
+            .HasFilter("status <> 'Decommissioned'");
 
         builder.Ignore(camera => camera.PendingEvents);
     }

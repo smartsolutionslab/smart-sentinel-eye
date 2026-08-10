@@ -9,6 +9,7 @@ namespace SmartSentinelEye.CameraCatalog.Application.Commands;
 /// typed RegisterCameraError on business-rule failure.
 /// </summary>
 public sealed record RegisterCameraCommand(
+    FabIdentifier Fab,
     CameraName Name,
     RtspUrl Url,
     OperatorIdentifier RegisteredBy)

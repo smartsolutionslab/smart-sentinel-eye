@@ -168,7 +168,7 @@ public class ListCamerasQueryHandlerTests
     private static Camera RegisterCameraAt(string registeredAtIso, string name, string rtspUrl)
     {
         DateTimeOffset moment = DateTimeOffset.Parse(registeredAtIso, CultureInfo.InvariantCulture);
-        return Camera.Register(
+        return Camera.Register(FabIdentifier.From("munich"), 
             CameraName.From(name),
             RtspUrl.From(rtspUrl),
             AnAdmin,

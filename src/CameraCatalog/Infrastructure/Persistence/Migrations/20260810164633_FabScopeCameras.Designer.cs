@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 namespace SmartSentinelEye.CameraCatalog.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(CameraCatalogDbContext))]
-    partial class CameraCatalogDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260810164633_FabScopeCameras")]
+    partial class FabScopeCameras
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
