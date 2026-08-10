@@ -1,3 +1,12 @@
+using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
+using SmartSentinelEye.Automation.Infrastructure.Persistence;
+using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
+using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
+using SmartSentinelEye.Identity.Infrastructure.Persistence;
+using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
+using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
+using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
+using SmartSentinelEye.SystemVariables.Infrastructure.Persistence;
 using SmartSentinelEye.AuditObservability.Infrastructure;
 using SmartSentinelEye.Automation.Infrastructure;
 using SmartSentinelEye.CameraCatalog.Infrastructure;
@@ -16,6 +25,8 @@ using SmartSentinelEye.SystemVariables.Infrastructure;
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 builder.AddServiceDefaults();
 
+builder.Services.AddSingleton<PostgresNoticeLoggingInterceptor>();
+
 builder.AddCameraCatalogPersistence();
 builder.AddStreamDistributionPersistence();
 builder.AddLayoutCompositionPersistence();
@@ -25,6 +36,20 @@ builder.AddEventIngestionPersistence();
 builder.AddAutomationPersistence();
 builder.AddIdentityPersistence();
 builder.AddAuditObservabilityPersistence();
+
+// Applied per context type: EF reads IDbContextOptionsConfiguration<T> after
+// the options delegate each Add<Context>Persistence supplies, which is the
+// only hook that reaches those options without editing all nine modules — and
+// keeps this to MigrationRunner rather than every service (#1394).
+builder.AddPostgresNoticeLogging<CameraCatalogDbContext>();
+builder.AddPostgresNoticeLogging<StreamDistributionDbContext>();
+builder.AddPostgresNoticeLogging<LayoutCompositionDbContext>();
+builder.AddPostgresNoticeLogging<OverlayDesignerDbContext>();
+builder.AddPostgresNoticeLogging<SystemVariablesDbContext>();
+builder.AddPostgresNoticeLogging<EventIngestionDbContext>();
+builder.AddPostgresNoticeLogging<AutomationDbContext>();
+builder.AddPostgresNoticeLogging<IdentityDbContext>();
+builder.AddPostgresNoticeLogging<AuditObservabilityDbContext>();
 
 IHost host = builder.Build();
 ILogger<Program> logger = host.Services.GetRequiredService<ILogger<Program>>();
