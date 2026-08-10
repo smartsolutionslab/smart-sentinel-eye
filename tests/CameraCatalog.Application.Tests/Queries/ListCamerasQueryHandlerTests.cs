@@ -175,4 +175,50 @@ public class ListCamerasQueryHandlerTests
             AnAdmin,
             new FixedClock(moment));
     }
+
+    // ---- spec 015 T020: the listing is fab-scoped and says which fab ----
+
+    [Fact]
+    public async Task The_summary_carries_the_fab()
+    {
+        Camera camera = Camera.Register(
+            FabIdentifier.From("dresden"),
+            CameraName.From("Line-1-North"),
+            RtspUrl.From("rtsp://10.0.5.12/h264"),
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            new FixedClock(DateTimeOffset.Parse("2026-05-25T10:00:00Z", CultureInfo.InvariantCulture)));
+
+        ListCamerasQueryHandler handler = NewHandler(camera);
+
+        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+            DefaultQuery() with { Fabs = [FabIdentifier.From("dresden")] }, CancellationToken.None);
+
+        // dresden, not munich: everything else defaults to munich, so asserting
+        // the default would pass even if the mapper ignored the camera's fab.
+        result.Value.Items.ShouldHaveSingleItem().Fab.ShouldBe("dresden");
+    }
+
+    [Fact]
+    public async Task The_listing_omits_cameras_in_fabs_the_caller_does_not_hold()
+    {
+        Camera own = Camera.Register(
+            FabIdentifier.From("munich"), CameraName.From("Cam-Own"),
+            RtspUrl.From("rtsp://10.0.5.12/h264"),
+            OperatorIdentifier.From(Guid.CreateVersion7()), new FixedClock(DateTimeOffset.Parse("2026-05-25T10:00:00Z", CultureInfo.InvariantCulture)));
+        Camera foreign = Camera.Register(
+            FabIdentifier.From("dresden"), CameraName.From("Cam-Foreign"),
+            RtspUrl.From("rtsp://10.0.5.13/h264"),
+            OperatorIdentifier.From(Guid.CreateVersion7()), new FixedClock(DateTimeOffset.Parse("2026-05-25T10:00:00Z", CultureInfo.InvariantCulture)));
+
+        ListCamerasQueryHandler handler = NewHandler(own, foreign);
+
+        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+            DefaultQuery(), CancellationToken.None);
+
+        result.Value.Items.Select(item => item.Name).ShouldBe(["Cam-Own"]);
+        // The count must reflect what the caller can page through, not what
+        // exists — a count of 2 with one row returned reads as a broken page.
+        result.Value.Count.ShouldBe(1);
+    }
+
 }

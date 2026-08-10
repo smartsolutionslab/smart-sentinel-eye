@@ -53,6 +53,7 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
             .Take(limit)
             .Select(camera => new CameraSummaryDto(
                 camera.Id.Value,
+                camera.Fab.Value,
                 camera.Name.Value,
                 camera.Url.Value,
                 camera.RegisteredAt))
@@ -69,10 +70,15 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
     private static IQueryable<Camera> SortBy(IQueryable<Camera> source, string field, bool descending) =>
         (field, descending) switch
         {
-            ("name", false) => source.OrderBy(camera => camera.Name),
-            ("name", true) => source.OrderByDescending(camera => camera.Name),
-            ("registeredAt", false) => source.OrderBy(camera => camera.RegisteredAt),
-            ("registeredAt", true) => source.OrderByDescending(camera => camera.RegisteredAt),
+            // Fab breaks the tie: a multi-fab listing can hold two rows of one
+            // name, and ordering by name alone leaves their relative order to
+            // the database — so a page boundary could show one row twice and
+            // the other never.
+            ("name", false) => source.OrderBy(camera => camera.Name).ThenBy(camera => camera.Fab),
+            ("name", true) => source.OrderByDescending(camera => camera.Name).ThenBy(camera => camera.Fab),
+            // Same reason: two cameras can share a registration instant.
+            ("registeredAt", false) => source.OrderBy(camera => camera.RegisteredAt).ThenBy(camera => camera.Fab),
+            ("registeredAt", true) => source.OrderByDescending(camera => camera.RegisteredAt).ThenBy(camera => camera.Fab),
             _ => throw new InvalidOperationException($"Unhandled sort field '{field}'."),
         };
 }
