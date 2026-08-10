@@ -40,8 +40,13 @@ its equivalent in specs 013 and 014** — see the note below.
 
 **Purpose**: The value object, and only that. Nothing here changes behaviour.
 
-- [ ] T001 [P] Add `src/CameraCatalog/Domain/Camera/FabIdentifier.cs` as a `StringValueObject` with `From(...)` + `Ensure.That(...)`, mirroring `src/SystemVariables/Domain/Variable/FabIdentifier.cs` exactly: 2–32 chars, lowercase letters/digits/`-`, starting with a letter. Per-context by ADR-0044.
-- [ ] T002 [P] Add `tests/CameraCatalog.Domain.Tests/Camera/FabIdentifierTests.cs` covering the grammar, rejection of null/whitespace/too-short/uppercase/leading-digit, boundary lengths, and equality. **This is the only thing keeping the four copies in step** — Identity, EventIngestion, Automation and SystemVariables each have one, and nothing but a test asserts they agree.
+- [x] T001 [P] Add `src/CameraCatalog/Domain/Camera/FabIdentifier.cs` as a `StringValueObject` with `From(...)` + `Ensure.That(...)`, mirroring `src/SystemVariables/Domain/Variable/FabIdentifier.cs` exactly: 2–32 chars, lowercase letters/digits/`-`, starting with a letter. Per-context by ADR-0044.
+- [x] T002 [P] Add `tests/CameraCatalog.Domain.Tests/Camera/FabIdentifierTests.cs` covering the grammar, rejection of null/whitespace/too-short/uppercase/leading-digit, boundary lengths, and equality. **This is the only thing keeping the four copies in step** — Identity, EventIngestion, Automation and SystemVariables each have one, and nothing but a test asserts they agree.
+  *18 cases. The null case uses plain `null`, not `null!` — NRT is disabled in
+  this test project and SonarAnalyzer S8970 fails the Release build on a
+  null-forgiving operator that cannot be doing anything. SystemVariables'
+  equivalent has `null!` because its test project differs; copying it verbatim
+  broke the build.*
 
 **Checkpoint**: The context has a fab type. Nothing uses it.
 
