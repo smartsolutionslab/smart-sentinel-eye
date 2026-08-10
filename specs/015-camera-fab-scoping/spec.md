@@ -68,11 +68,11 @@ Munich camera by name.
 
 1. **Given** cameras exist in both fabs, **When** a Dresden-only operator
    lists them, **Then** only Dresden's appear.
-2. **Given** a Munich camera's name, **When** a Dresden-only operator requests
-   it, **Then** the response is indistinguishable from a name that was never
-   used.
-3. **Given** the same, **When** they attempt to edit or retire it, **Then** it
-   is refused and the camera is unchanged.
+2. ~~**Given** a Munich camera's name, **When** a Dresden-only operator
+   requests it, **Then** the response is indistinguishable from a name that was
+   never used.~~ — **withdrawn with FR-006**: no read-by-name endpoint exists.
+3. ~~**Given** the same, **When** they attempt to edit or retire it~~ —
+   **withdrawn**: neither an edit nor a retire endpoint exists.
 
 ---
 
@@ -151,15 +151,21 @@ start by adding this.
 - **FR-004**: A camera MUST NOT be moved between fabs. Relocating a device
   means registering it afresh.
 - **FR-005**: Listing cameras MUST return only those in fabs the caller holds.
-- **FR-006**: A camera in a fab the caller does not hold MUST be reported
-  exactly as a name that was never used — never as refused-because-forbidden.
+- **FR-006**: ~~A camera in a fab the caller does not hold MUST be reported
+  exactly as a name that was never used~~ — **withdrawn 2026-08-10.**
+  *There is no read-by-name endpoint. `CameraCatalog` exposes exactly two
+  routes, `POST /cameras` and `GET /cameras`; nothing reports a single camera,
+  so there is no response to make indistinguishable. The listing already
+  excludes other fabs' cameras (FR-005), which is the whole of the
+  non-enumeration guarantee available today.*
 - **FR-007**: Registering MUST place the camera in the caller's fab when they
   hold exactly one, and MUST require them to name one when they hold several.
 - **FR-008**: Naming a fab the caller does not hold MUST be refused.
 - **FR-009**: An operator holding no fab MUST be refused rather than shown an
   empty result.
-- **FR-010**: A camera name that resolves in more than one of the caller's own
-  fabs MUST be refused as ambiguous, naming the candidates.
+- **FR-010**: ~~A camera name that resolves in more than one of the caller's
+  own fabs MUST be refused as ambiguous~~ — **withdrawn 2026-08-10**, with
+  FR-006. Ambiguity arises only on a read-by-name, which does not exist.
 - **FR-011**: Cameras existing before this feature MUST be assigned to the
   single fab that was live, MUST end with a fab set, and the number so
   assigned MUST be stated where an operator applying the change will see it.
@@ -167,7 +173,7 @@ start by adding this.
   carry the camera's fab.
 - **FR-013**: An operator holding several fabs MUST be able to tell two
   same-named cameras apart when reading them, and to choose a fab when
-  registering.
+  registering. *("Reading" means the listing — the only read there is.)*
 
 ### Key Entities
 
