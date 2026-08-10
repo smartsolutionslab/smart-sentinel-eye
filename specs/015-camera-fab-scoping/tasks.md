@@ -182,8 +182,16 @@ operator.
   defaults to — a mapper ignoring the camera's fab would pass otherwise. The
   scoping case also asserts `Count`, because a count of 2 with one row returned
   reads as a broken page rather than a filtered one.*
-- [ ] T021 [P] [US2] Add handler tests under `tests/CameraCatalog.Application.Tests/Queries/` for the refusal paths: a foreign camera reported as not found, and an ambiguous name naming its candidate fabs.
-- [ ] T022 [US2] Add `tests/Integration.Tests/CameraCatalog/CameraFabResolutionIntegrationTests.cs` driving the decision table over real HTTP with `op-dresden@dresden.test` and `op-multi@smart-sentinel-eye.test`: refused without `fabId`, accepted when named, 403 for a fab not held, inference asserted as **dresden** (not the munich everything else defaults to), and both sides of the ambiguity. Covers SC-002 and SC-004.
+- [~] T021 ~~[P] [US2]~~ **DROPPED 2026-08-10** — its two halves are gone: the refusal path it tested is the read-by-name FR-006 case (withdrawn, #1435), and the list-scoping half is covered by T020's handler cases. Original: Add handler tests under `tests/CameraCatalog.Application.Tests/Queries/` for the refusal paths: a foreign camera reported as not found, and an ambiguous name naming its candidate fabs.
+- [x] T022 [US2] Add `tests/Integration.Tests/CameraCatalog/CameraFabResolutionIntegrationTests.cs` driving the decision table over real HTTP with `op-dresden@dresden.test` and `op-multi@smart-sentinel-eye.test`: refused without `fabId`, accepted when named, 403 for a fab not held, inference asserted as **dresden** (not the munich everything else defaults to), and both sides of the ambiguity. Covers SC-002 and SC-004.
+  ***6/6 green.** Narrower than the sibling suites and not by choice: with only
+  `POST /cameras` and `GET /cameras`, the "indistinguishable from never
+  existed" and ambiguity rows have no endpoint to drive (FR-006/FR-010
+  withdrawn, #1435). Read-back goes through the listing, which only works
+  because T020 put the fab on the row.*
+  *Inference asserted as **dresden**: everything else defaults to munich, so a
+  broken inference falling back to the default would pass against a munich
+  operator and only fail here.*
 - [~] T023 ~~[US2]~~ **DROPPED 2026-08-10** — no read-by-name endpoint exists, so there is no response to compare. FR-006 and SC-003 withdrawn with it. Original: Assert FR-006 **field by field**, not by status alone: compare the foreign-camera response to a never-existed one with `detail` and `traceId` removed. A difference in title or type is enough to enumerate. Covers SC-003.
 
 **Checkpoint**: The access half of the feature is closed and provably
