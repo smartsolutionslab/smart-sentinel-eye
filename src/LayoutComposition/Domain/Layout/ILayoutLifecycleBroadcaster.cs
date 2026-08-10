@@ -80,10 +80,17 @@ public sealed record OverlayLifecycleArchivedNotification(
 /// republished with new references. <c>Version</c> is a monotonic
 /// per-overlay counter so the kiosk can discard out-of-order frames.
 /// </summary>
+/// <para>
+/// <c>Fab</c> decides who receives it (spec 014 FR-015). A resolved text is
+/// one plant's answer for a shared overlay — the same overlay renders
+/// different values in different fabs — so delivering it everywhere would put
+/// Munich's figure on Dresden's wall.
+/// </para>
 public sealed record ResolvedOverlayTextChangedNotification(
     Guid Overlay,
     string ResolvedText,
-    long Version);
+    long Version,
+    string Fab);
 
 /// <summary>
 /// Wire shape for "an overlay should be highlighted" pushes
