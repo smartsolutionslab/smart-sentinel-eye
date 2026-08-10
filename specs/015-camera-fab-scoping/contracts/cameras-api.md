@@ -39,11 +39,11 @@ This feature adds no resolution mechanism; it applies the existing one.
 
 ### ~~`GET /cameras/{name}`` — read one~~
 
-**Withdrawn 2026-08-10.** This endpoint does not exist and this spec does not add one.
+**Withdrawn 2026-08-10.** This endpoint does not exist and this spec does not add one. Tracked as #1435.
 
 ### ~~`PUT /cameras/{name}`` — edit~~
 
-**Withdrawn 2026-08-10.** This endpoint does not exist and this spec does not add one.
+**Withdrawn 2026-08-10.** This endpoint does not exist and this spec does not add one. Tracked as #1435.
 
 ### ~~`POST /cameras/{name}/decommission` — retire~~
 

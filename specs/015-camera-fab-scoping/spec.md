@@ -157,7 +157,8 @@ start by adding this.
   routes, `POST /cameras` and `GET /cameras`; nothing reports a single camera,
   so there is no response to make indistinguishable. The listing already
   excludes other fabs' cameras (FR-005), which is the whole of the
-  non-enumeration guarantee available today.*
+  non-enumeration guarantee available today. Tracked as #1435, which reinstates
+  this requirement when the endpoint lands.*
 - **FR-007**: Registering MUST place the camera in the caller's fab when they
   hold exactly one, and MUST require them to name one when they hold several.
 - **FR-008**: Naming a fab the caller does not hold MUST be refused.
@@ -165,7 +166,7 @@ start by adding this.
   empty result.
 - **FR-010**: ~~A camera name that resolves in more than one of the caller's
   own fabs MUST be refused as ambiguous~~ — **withdrawn 2026-08-10**, with
-  FR-006. Ambiguity arises only on a read-by-name, which does not exist.
+  FR-006. Ambiguity arises only on a read-by-name, which does not exist (#1435).
 - **FR-011**: Cameras existing before this feature MUST be assigned to the
   single fab that was live, MUST end with a fab set, and the number so
   assigned MUST be stated where an operator applying the change will see it.

@@ -167,7 +167,8 @@ operator.
 >   not exist (decommission already withdrawn with #1433).
 >
 > **Resolved 2026-08-10**: FR-006, FR-010 and SC-003 withdrawn; T019 and T023
-> dropped. Spec 015 delivers FR-005 — the listing excludes other fabs' cameras,
+> dropped; the absent endpoints tracked as **#1435**, which reinstates those
+> requirements when they land. Spec 015 delivers FR-005 — the listing excludes other fabs' cameras,
 > which is the whole of the non-enumeration guarantee available without a
 > read-by-name endpoint.
 - [x] T018 [US2] Add fab resolution to the two read endpoints in `src/CameraCatalog/Api/CameraEndpoints.cs`. A read spans **all** the caller's fabs when they name none — the deliberate asymmetry with the write path.
