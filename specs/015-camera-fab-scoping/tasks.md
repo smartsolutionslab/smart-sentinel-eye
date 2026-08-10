@@ -59,7 +59,13 @@ slice, so no placeholder is ever needed.
 
 - [x] T003 Add `Fab` to `src/CameraCatalog/Domain/Camera/Camera.cs`: private setter, required by the registration factory, never mutated (FR-004). Do **not** add a `MoveToFab` — a camera is bolted to a wall in one building.
 - [x] T004 Add `WithFab` to the camera builder in `tests/CameraCatalog.Domain.Tests/`, defaulting to `munich` so existing call sites read as before.
-- [ ] T005 Extend the camera state tests in `tests/CameraCatalog.Domain.Tests/Camera/` to assert `Fab` survives registration → decommission unchanged, plus a structural guard that the `Fab` setter is not public. Without it, "never mutated" is the one line of T003 with nothing asserting it.
+- [x] T005 Extend the camera state tests in `tests/CameraCatalog.Domain.Tests/Camera/` to assert `Fab` survives registration → decommission unchanged, plus a structural guard that the `Fab` setter is not public. Without it, "never mutated" is the one line of T003 with nothing asserting it.
+  *Landed as `CameraFabLifetimeTests.cs`, and **narrower than asked**: there is
+  no decommission behaviour to survive. `CameraStatus` carries a
+  `Decommissioned` value and **nothing in CameraCatalog ever transitions to
+  it** — the aggregate is register-only. Asserting survival across a transition
+  that cannot happen is the shape of the skipped spec #1292.*
+  ***This has consequences past T005 — see the blocker note below.***
 - [x] T006 Map the column in `src/CameraCatalog/Infrastructure/Persistence/Configurations/CameraConfiguration.cs`: `fab` NOT NULL, max length 32, value-converted. Replace `ux_cameras_name_lower` with `ux_cameras_fab_name_active` on `(fab, lower(name))`, **adding** the `status <> 'Decommissioned'` filter and **keeping** case-insensitivity. The filter is new behaviour, decided at the Phase 2 gate ([research.md](./research.md) §3).
 - [x] T007 Generate the EF migration under `src/CameraCatalog/Infrastructure/Persistence/Migrations/`. Hand-correct the scaffold to the four-step form in data-model.md: add nullable → backfill → NOT NULL → swap the index. `dotnet ef` generates a single `AddColumn(nullable: false, defaultValue: "")`, which sets every existing camera's fab to the empty string — not a valid `FabIdentifier`, so those rows fail to materialise on the next read. Spec 014's T043 walk observed this directly.
 - [x] T008 Make the backfill announce itself in the migration from T007: wrap the `UPDATE` in a `DO $$` block capturing `ROW_COUNT` and `RAISE WARNING` naming the count (FR-011). It reaches the log only because #1395 wired the Npgsql notice handler; before that it went nowhere.
@@ -94,6 +100,30 @@ slice, so no placeholder is ever needed.
 - [ ] T016 [US1] Add a case asserting a **decommissioned name is reusable within its fab** and that the other fab is untouched (FR-003). This is the new behaviour the partial filter buys; without a test it is indistinguishable from the filter having been dropped.
 
 **Checkpoint**: SC-001 and the index behaviour are observed, not argued.
+
+> **BLOCKER found at T005: cameras cannot be decommissioned.**
+>
+> `CameraStatus.Decommissioned` exists as a value and nothing ever sets it. The
+> aggregate has one behaviour, `Register`. There is no retire command, handler
+> or endpoint.
+>
+> Three things in this spec assume otherwise and **cannot be implemented as
+> written**:
+>
+> - **FR-003** and **US1 acceptance scenario 3** — "retiring releases the name
+>   for reuse". Nothing retires.
+> - **T016** — the test for exactly that. Unwritable.
+> - **`contracts/cameras-api.md`** lists `POST /cameras/{name}/decommission`.
+>   That endpoint does not exist.
+>
+> The partial index filter added in T006 is therefore **inert today**: it
+> filters on a status no camera can hold. That is harmless and
+> forward-compatible — it costs nothing and is correct the moment a retire
+> behaviour lands — but it is not currently buying the behaviour FR-003 claims.
+>
+> **Needs a decision before T016.** Either add a retire behaviour to this spec
+> (widening it beyond fab scoping, which is how it was deliberately bounded),
+> or amend FR-003 and drop T016, recording that the filter is forward-looking.
 
 ---
 
