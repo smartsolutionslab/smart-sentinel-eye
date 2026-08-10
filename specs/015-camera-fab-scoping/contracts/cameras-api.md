@@ -2,7 +2,7 @@
 
 **Feature**: `015-camera-fab-scoping` | **Date**: 2026-08-10
 
-Five endpoints. All gain a fab; none changes shape otherwise. The context has no
+Four endpoints. All gain a fab; none changes shape otherwise. The context has no
 fab check at all today, so every row below is new behaviour.
 
 ## Fab resolution (applies to every endpoint)
@@ -54,9 +54,12 @@ This feature adds no resolution mechanism; it applies the existing one.
   fab check — the reverse order answers a precondition failure to a request that
   was never the caller's to make.
 
-### `POST /cameras/{name}/decommission` — retire
+### ~~`POST /cameras/{name}/decommission` — retire~~
 
-- Same resolution and same 404 semantics as edit.
+**Withdrawn 2026-08-10.** This endpoint does not exist and this spec does not
+add one — a camera cannot be retired at all today. Listed here in error when
+the contract was drafted. When a retire behaviour lands it takes the same fab
+resolution and the same 404 semantics as edit.
 
 ## Response shapes
 

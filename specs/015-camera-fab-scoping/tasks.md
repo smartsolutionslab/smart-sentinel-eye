@@ -97,7 +97,7 @@ slice, so no placeholder is ever needed.
 - [ ] T013 [P] [US1] Add cases to the register handler tests under `tests/CameraCatalog.Application.Tests/Commands/` asserting the same name is accepted in a second fab and refused in the same fab, with the refusal naming the fab.
 - [ ] T014 [US1] Add `tests/Integration.Tests/CameraCatalog/CrossFabCameraIntegrationTests.cs`: seed a camera of the same name in two fabs, assert both persist, and assert the unique index is `(fab, name)` and not `(name)`. Covers SC-001. Seed through a `DbContext` — a second fab's camera cannot be authored over HTTP by the seeded admin, which is the behaviour under test rather than a way to set it up.
 - [ ] T015 [US1] Add a case asserting **case-insensitivity survived the index swap**: `Line-1-North` is refused where `line-1-north` exists in that fab. Spec 001 marker 2 made this deliberate and it is exactly what a hand-corrected migration drops silently.
-- [ ] T016 [US1] Add a case asserting a **decommissioned name is reusable within its fab** and that the other fab is untouched (FR-003). This is the new behaviour the partial filter buys; without a test it is indistinguishable from the filter having been dropped.
+- [~] T016 ~~[US1] Add a case asserting a decommissioned name is reusable within its fab~~ — **DROPPED 2026-08-10.** Unwritable: nothing retires a camera, so there is no way to free a name. FR-003 is withdrawn with it and the retire behaviour is tracked as #1433. The index filter stays and is forward-looking.
 
 **Checkpoint**: SC-001 and the index behaviour are observed, not argued.
 
@@ -121,9 +121,9 @@ slice, so no placeholder is ever needed.
 > forward-compatible — it costs nothing and is correct the moment a retire
 > behaviour lands — but it is not currently buying the behaviour FR-003 claims.
 >
-> **Needs a decision before T016.** Either add a retire behaviour to this spec
-> (widening it beyond fab scoping, which is how it was deliberately bounded),
-> or amend FR-003 and drop T016, recording that the filter is forward-looking.
+> **Resolved 2026-08-10**: FR-003 withdrawn, T016 dropped, retire behaviour
+> tracked separately as #1433. The filter stays and is forward-looking. Spec 015 keeps
+> the fab-scoping boundary it was given.
 
 ---
 
