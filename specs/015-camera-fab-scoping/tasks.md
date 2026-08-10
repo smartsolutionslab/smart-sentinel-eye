@@ -212,8 +212,15 @@ non-enumerable.
   call because there is no such endpoint (#1435). Making `fab` required on
   `CameraSummary` immediately broke the page's test fixtures, which is the type
   doing its job — they described a camera that can no longer exist.*
-- [ ] T026 [US3] Update the camera surface in `apps/management-web/src/features/cameras/`: show each row's fab, echo it back on edit and decommission, and add a fab selector that appears **only** when the operator holds more than one (ADR-0114). Mirror `RuleDialog`.
-- [ ] T027 [US3] Check the camera page's per-row edit state is keyed on the **camera identifier**, not the name. Two fabs may now hold one name, and a name-keyed buffer shows one row's typing in the other and submits it against the wrong fab — the exact bug found in spec 014's T040.
+- [x] T026 [US3] Update the camera surface in `apps/management-web/src/features/cameras/`: show each row's fab, echo it back on edit and decommission, and add a fab selector that appears **only** when the operator holds more than one (ADR-0114). Mirror `RuleDialog`.
+  *No "echo it back on edit and decommission" half — neither endpoint exists
+  (#1435). The fab column and the selector are the whole of what applies.*
+- [x] T027 [US3] Check the camera page's per-row edit state is keyed on the **camera identifier**, not the name. Two fabs may now hold one name, and a name-keyed buffer shows one row's typing in the other and submits it against the wrong fab — the exact bug found in spec 014's T040.
+  ***Checked, nothing to fix.** The cameras page holds no per-row state at all —
+  there is no editing, because there is no edit endpoint. The table's
+  `getRowKey` already uses `cameraIdentifier`, not the name, so two same-named
+  rows in different fabs get distinct React keys. A real check with a clean
+  result, not a skipped one.*
 - [ ] T028 [P] [US3] Add frontend tests for the selector's presence/absence and for two same-named rows staying independent.
 - [ ] T029 [US3] Add an e2e case to `e2e/cameras.spec.ts` covering the single-fab half: the selector must **not** render, and the row carries `munich`. Do not add a skipped spec — #1292 sat skipped for two releases asserting against a UI that did not exist. The multi-fab half stays in T022; driving a second Keycloak account through the browser tests the login form, not fab resolution.
 
