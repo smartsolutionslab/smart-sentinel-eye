@@ -9,7 +9,8 @@ import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
+import { useAssignedFabs } from '../../app/useAssignedFabs';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 export interface SystemVariableDialogProps {
@@ -24,6 +25,16 @@ const DEFAULT_INPUT: DefineVariableInput = {
 
 export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialogProps) {
   const [defineVariable, { isLoading, error, reset: resetMutationState }] = useDefineVariableMutation();
+
+  // An operator in one fab has it inferred and is never asked (ADR-0114); one
+  // in several must choose, because any tie-break would file the variable
+  // under a fab they did not pick. `fabId` is deliberately not part of the
+  // form: it travels as a query parameter, and defineVariableSchema mirrors
+  // the body.
+  const fabs = useAssignedFabs();
+  const mustChooseFab = fabs.length > 1;
+  const [fabId, setFabId] = useState('');
+  const [fabError, setFabError] = useState<string | null>(null);
 
   // Drop any prior backend error when the dialog closes so a stale banner
   // doesn't greet the operator on the next open.
@@ -45,9 +56,19 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
   const selectedType = watch('type');
 
   const onSubmit = handleSubmit(async (input) => {
-    const result = await defineVariable(input);
+    if (mustChooseFab && fabId === '') {
+      // Caught here rather than sent: the server answers this with
+      // 400 VARIABLE_FAB_REQUIRED, which is the right answer to the wrong
+      // question when the operator can simply be asked.
+      setFabError('Choose which fab this variable belongs to.');
+      return;
+    }
+    setFabError(null);
+
+    const result = await defineVariable(mustChooseFab ? { ...input, fabId } : input);
     if (!('error' in result)) {
       reset(DEFAULT_INPUT);
+      setFabId('');
       onOpenChange(false);
     }
   });
@@ -68,6 +89,24 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
         <FormField label="Name" htmlFor="variable-name" error={errors.name?.message}>
           <Input id="variable-name" autoFocus {...register('name')} />
         </FormField>
+
+        {mustChooseFab && (
+          <FormField label="Fab" htmlFor="variable-fab-id" error={fabError ?? undefined}>
+            <select
+              id="variable-fab-id"
+              className="w-full rounded-md border border-fg-muted/30 bg-transparent p-2 text-sm"
+              value={fabId}
+              onChange={(event) => setFabId(event.target.value)}
+            >
+              <option value="">Choose a fab…</option>
+              {fabs.map((fab) => (
+                <option key={fab} value={fab}>
+                  {fab}
+                </option>
+              ))}
+            </select>
+          </FormField>
+        )}
         <FormField label="Type" htmlFor="variable-type" error={errors.type?.message}>
           <select
             id="variable-type"

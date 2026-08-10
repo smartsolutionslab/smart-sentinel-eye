@@ -11,6 +11,12 @@ export interface Variable {
   variableIdentifier: string;
   /** Optimistic-concurrency version; echo it back via If-Match to mutate (ADR-0113). */
   version: number;
+  /**
+   * The fab this variable belongs to (spec 014). A variable never arrives here
+   * unless the caller is assigned to its fab, so this is always one of theirs —
+   * which is what makes it safe to echo straight back as `fabId` on a mutation.
+   */
+  fab: string;
   name: string;
   type: VariableType;
   state: VariableState;
@@ -27,11 +33,35 @@ export interface SetVariableValueInput {
   value: string;
   /** The version this edit was built on (ADR-0113). */
   version: number;
+  /**
+   * The variable's own fab, taken from the row. A name is unique per fab, not
+   * globally, so a caller holding several can match the same name twice —
+   * sending the fab is what keeps the write unambiguous.
+   */
+  fabId?: string;
 }
 
 export interface ArchiveVariableInput {
   name: string;
   version: number;
+  /** The variable's own fab, as for {@link SetVariableValueInput}. */
+  fabId?: string;
+}
+
+export interface VariableReadInput {
+  name: string;
+  /**
+   * Omit and the server resolves the name across every fab the caller holds,
+   * which is 400 VARIABLE_FAB_AMBIGUOUS when two of them use it. Name the fab
+   * to settle it.
+   */
+  fabId?: string;
+}
+
+export interface ListVariablesInput {
+  state?: VariableState;
+  /** Omit to span every fab the caller holds; name one to narrow to it. */
+  fabId?: string;
 }
 
 export interface ResolvedOverlaySnapshot {
@@ -45,10 +75,14 @@ export const systemVariablesApi = createApi({
   baseQuery: gatewayBaseQuery('system-variables/system-variables'),
   tagTypes: ['Variable', 'VariableList', 'OverlaySnapshot'],
   endpoints: (build) => ({
-    defineVariable: build.mutation<string, DefineVariableInput>({
+    defineVariable: build.mutation<string, DefineVariableInput & { fabId?: string }>({
       query: (body) => ({
         url: '',
         method: 'POST',
+        // fabId travels as a query parameter, not in the body: an operator in
+        // one fab has it inferred and is never asked (ADR-0114), and
+        // defineVariableSchema mirrors the body alone.
+        ...(body.fabId !== undefined && body.fabId !== '' ? { params: { fabId: body.fabId } } : {}),
         body: {
           name: body.name,
           type: body.type,
@@ -59,23 +93,31 @@ export const systemVariablesApi = createApi({
       }),
       invalidatesTags: [{ type: 'VariableList', id: 'ALL' }],
     }),
-    getVariable: build.query<Variable, string>({
-      query: (name) => `/${encodeURIComponent(name)}`,
-      providesTags: (_r, _e, name) => [{ type: 'Variable', id: name }],
+    getVariable: build.query<Variable, VariableReadInput>({
+      query: ({ name, fabId }) => ({
+        url: `/${encodeURIComponent(name)}`,
+        method: 'GET',
+        params: fabId === undefined || fabId === '' ? undefined : { fabId },
+      }),
+      providesTags: (_r, _e, { name }) => [{ type: 'Variable', id: name }],
     }),
-    listVariables: build.query<Variable[], VariableState | undefined>({
-      query: (state) => ({
+    listVariables: build.query<Variable[], ListVariablesInput | undefined>({
+      query: (input) => ({
         url: '',
         method: 'GET',
-        params: state === undefined ? undefined : { state },
+        params: {
+          ...(input?.state === undefined ? {} : { state: input.state }),
+          ...(input?.fabId === undefined || input?.fabId === '' ? {} : { fabId: input.fabId }),
+        },
       }),
       providesTags: () => [{ type: 'VariableList', id: 'ALL' }],
     }),
     setVariableValue: build.mutation<string, SetVariableValueInput>({
-      query: ({ name, value, version }) => ({
+      query: ({ name, value, version, fabId }) => ({
         url: `/${encodeURIComponent(name)}/value`,
         method: 'PUT',
         headers: ifMatch(version),
+        params: fabId === undefined || fabId === '' ? undefined : { fabId },
         body: { value },
       }),
       invalidatesTags: (_r, _e, { name }) => [
@@ -102,10 +144,11 @@ export const systemVariablesApi = createApi({
       ],
     }),
     archiveVariable: build.mutation<string, ArchiveVariableInput>({
-      query: ({ name, version }) => ({
+      query: ({ name, version, fabId }) => ({
         url: `/${encodeURIComponent(name)}/archive`,
         method: 'POST',
         headers: ifMatch(version),
+        params: fabId === undefined || fabId === '' ? undefined : { fabId },
       }),
       invalidatesTags: (_r, _e, { name }) => [
         { type: 'Variable', id: name },

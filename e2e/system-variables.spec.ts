@@ -83,3 +83,35 @@ test('operator sets a variable value and the new value is reflected in the list'
   // A 428 or 409 would render the page-level banner instead of updating.
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
+
+// Spec 014 T041 — the fab half of the variables surface.
+//
+// The seeded `operator` belongs to /fabs/munich only, so this covers the
+// single-fab half of ADR-0114: the fab is inferred, never asked for, and shown
+// on the row. The multi-fab half needs op-multi@smart-sentinel-eye.test and is
+// covered over HTTP by VariableFabResolutionIntegrationTests — driving a second
+// account through the browser would be testing Keycloak's login form, not fab
+// resolution.
+test.describe('system variables — fab scoping', () => {
+  test('operator defines a variable and it lands in their own fab without naming it', async ({ page }) => {
+    await signInAsOperator(page);
+    await page.getByRole('button', { name: /^system variables$/i }).click();
+    await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: /new variable/i }).click();
+
+    // A single-fab operator is never asked which fab: it is inferred from the
+    // one they hold (ADR-0114). The selector must not even render.
+    await expect(page.locator('#variable-fab-id')).toHaveCount(0);
+
+    const name = `E2E_Fab_${Date.now()}`;
+    await page.locator('#variable-name').fill(name);
+    await page.getByRole('button', { name: /^define$/i }).click();
+
+    // The row carries the fab, so a multi-fab operator could tell two
+    // same-named rows apart — the gap #1303 was for rules.
+    const row = page.getByRole('listitem').filter({ hasText: name });
+    await expect(row).toBeVisible();
+    await expect(row).toContainText('munich');
+  });
+});

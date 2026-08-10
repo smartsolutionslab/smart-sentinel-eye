@@ -4,6 +4,14 @@ import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
 
+// A single-fab operator is never asked which fab (ADR-0114), so the default
+// keeps the existing cases reading as they did; the multi-fab case overrides it.
+const assignedGroups = { current: ['/fabs/munich'] as string[] };
+
+vi.mock('react-oidc-context', () => ({
+  useAuth: () => ({ user: { profile: { groups: assignedGroups.current } } }),
+}));
+
 const defineMock = vi.fn(async () => ({ data: 'noop' }));
 
 vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOriginal) => {
