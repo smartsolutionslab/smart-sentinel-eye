@@ -32,8 +32,17 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Debug, Message = "Reverse-index upserted for overlay {Overlay} v{Revision}; label='{Text}'.")]
     public static partial void ReverseIndexUpserted(this ILogger logger, Guid overlay, int revision, string text);
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Dedup hit for variable '{Name}' caused by {CausingEvent}; no-op.")]
-    public static partial void DedupHit(this ILogger logger, string name, Guid causingEvent);
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Dedup hit for variable '{Name}' in fab '{Fab}' caused by {CausingEvent}; no-op.")]
+    public static partial void DedupHit(this ILogger logger, FabIdentifier fab, string name, Guid causingEvent);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Value request for '{Name}' carries no fab; dropping (caused by {CausingEvent}).")]
+    public static partial void ValueRequestWithoutFab(this ILogger logger, string name, Guid causingEvent);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Value request for '{Name}' carries unusable fab '{Fab}'; dropping (caused by {CausingEvent}).")]
+    public static partial void ValueRequestWithUnusableFab(this ILogger logger, Exception exception, string fab, string name, Guid causingEvent);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Variable '{Name}' is not defined in fab '{Fab}'; value change dropped (caused by {CausingEvent}).")]
+    public static partial void VariableNotInFab(this ILogger logger, FabIdentifier fab, string name, Guid causingEvent);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Invalid variable name '{Name}' in V1; dropping (caused by {CausingEvent}).")]
     public static partial void InvalidVariableName(this ILogger logger, Exception exception, string name, Guid causingEvent);

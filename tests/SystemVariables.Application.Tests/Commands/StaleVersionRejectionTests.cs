@@ -30,7 +30,7 @@ public class StaleVersionRejectionTests
 
         SetVariableValueCommandHandler handler = Setter(variables);
         Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(
-            new SetVariableValueCommand(variable.Name, "999", Editor(), Option<int>.Some(Stale)),
+            new SetVariableValueCommand(variable.Fab, variable.Name, "999", Editor(), Option<int>.Some(Stale)),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -62,7 +62,7 @@ public class StaleVersionRejectionTests
         (InMemoryVariableRepository variables, Variable variable) = Seeded();
 
         Result<VariableIdentifier, SetVariableValueError> result = await Setter(variables).HandleAsync(
-            new SetVariableValueCommand(variable.Name, "12", Editor(), Option<int>.Some(variable.Version)),
+            new SetVariableValueCommand(variable.Fab, variable.Name, "12", Editor(), Option<int>.Some(variable.Version)),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -81,7 +81,7 @@ public class StaleVersionRejectionTests
         (InMemoryVariableRepository variables, Variable variable) = Seeded();
 
         Result<VariableIdentifier, SetVariableValueError> result = await Setter(variables).HandleAsync(
-            new SetVariableValueCommand(variable.Name, "77", Editor(), Option<int>.None),
+            new SetVariableValueCommand(variable.Fab, variable.Name, "77", Editor(), Option<int>.None),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();

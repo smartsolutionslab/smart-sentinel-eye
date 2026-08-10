@@ -120,12 +120,40 @@ through a consumer that ignores the fab — Phase 4 closes that.
 **Goal**: A value-change applies only within its own fab, and one that cannot
 be applied says so.
 
-- [ ] T017 [US1] Read `Metadata.Fab` in `src/SystemVariables/Application/EventHandlers/SystemVariableValueRequestedV1Handler.cs` and resolve `(fab, name)`. Return without effect when the message carries no fab (FR-006).
-- [ ] T018 [US1] Add the fab to the dedup key: `TryReserveAsync(fab, variableName, causingEventIdentifier)` in `src/SystemVariables/Application/EventHandlers/IVariableValueRequestDedupStore.cs` and `src/SystemVariables/Infrastructure/Persistence/VariableValueRequestDedupStore.cs`, including whatever backs the reservation. Without this, two fabs' rules reacting to the same ingested event share a causing event identifier and a variable name, so the second fab's legitimate change is swallowed as a redelivery of the first — the normal case once both fabs run rules on the same trigger, not an edge one.
-- [ ] T019 [US5] Add a distinct log message in `src/SystemVariables/Application/Log.cs` for a value-change naming a variable absent from its own fab, carrying **both** the fab and the variable name. It must not share a message with malformed input: #1252 hid for a release behind exactly that shared silence, and spec 013's remedy was a distinct message naming the offending value (FR-005, SC-006).
-- [ ] T020 [P] [US1] Add cases to `tests/SystemVariables.Application.Tests/EventHandlers/SystemVariableValueRequestedV1HandlerTests.cs` asserting the **downstream effect**, not just that nothing threw: a munich request changes munich's variable and leaves dresden's untouched; a request with no fab changes nothing; a request naming another fab's variable changes nothing.
-- [ ] T021 [P] [US5] Add a case asserting the cross-fab miss is logged with the fab and the name, using a capturing logger. The handler fails closed either way, so "published nothing" cannot tell a diagnosable failure from a silent one — mirror `tests/Automation.Application.Tests/Fakes/CapturingLogger.cs`.
-- [ ] T022 [P] [US1] Add `tests/SystemVariables.Infrastructure.Tests/Persistence/VariableValueRequestDedupStoreTests.cs` asserting two fabs' identical `(name, causingEvent)` pairs both reserve successfully, and that a genuine redelivery within one fab still does not.
+- [x] T017 [US1] Read `Metadata.Fab` in `src/SystemVariables/Application/EventHandlers/SystemVariableValueRequestedV1Handler.cs` and resolve `(fab, name)`. Return without effect when the message carries no fab (FR-006).
+  *`SetVariableValueCommand` gained the fab so the handler can pass the real
+  one, which **removed** the placeholder from `SetVariableValueCommandHandler`
+  and moved it to the HTTP endpoint, where T023 will delete it. Net placeholder
+  count is unchanged; it now sits at the boundary rather than in a handler.*
+  *An **unusable** fab (present but outside the grammar) is dropped too, with
+  its own message naming the offending value — distinct from the absent case,
+  which is a misconfigured publisher rather than a malformed one.*
+- [x] T018 [US1] Add the fab to the dedup key: `TryReserveAsync(fab, variableName, causingEventIdentifier)` in `src/SystemVariables/Application/EventHandlers/IVariableValueRequestDedupStore.cs` and `src/SystemVariables/Infrastructure/Persistence/VariableValueRequestDedupStore.cs`, including whatever backs the reservation. Without this, two fabs' rules reacting to the same ingested event share a causing event identifier and a variable name, so the second fab's legitimate change is swallowed as a redelivery of the first — the normal case once both fabs run rules on the same trigger, not an edge one.
+- [x] T019 [US5] Add a distinct log message in `src/SystemVariables/Application/Log.cs` for a value-change naming a variable absent from its own fab, carrying **both** the fab and the variable name. It must not share a message with malformed input: #1252 hid for a release behind exactly that shared silence, and spec 013's remedy was a distinct message naming the offending value (FR-005, SC-006).
+- [x] T020 [P] [US1] Add cases to `tests/SystemVariables.Application.Tests/EventHandlers/SystemVariableValueRequestedV1HandlerTests.cs` asserting the **downstream effect**, not just that nothing threw: a munich request changes munich's variable and leaves dresden's untouched; a request with no fab changes nothing; a request naming another fab's variable changes nothing.
+- [x] T021 [P] [US5] Add a case asserting the cross-fab miss is logged with the fab and the name, using a capturing logger. The handler fails closed either way, so "published nothing" cannot tell a diagnosable failure from a silent one — mirror `tests/Automation.Application.Tests/Fakes/CapturingLogger.cs`.
+- [x] T022 [P] [US1] Add `tests/SystemVariables.Infrastructure.Tests/Persistence/VariableValueRequestDedupStoreTests.cs` asserting two fabs' identical `(name, causingEvent)` pairs both reserve successfully, and that a genuine redelivery within one fab still does not.
+  *Landed as `tests/Integration.Tests/SystemVariables/VariableValueRequestDedupStoreIntegrationTests.cs`
+  instead. The store is raw SQL relying on `INSERT ... ON CONFLICT DO NOTHING`
+  against a real primary key; `SystemVariables.Infrastructure.Tests` has no
+  database, and the EF in-memory provider does not implement the conflict
+  semantics under test — asserting there would prove only that the fake agrees
+  with itself. ADR-0103 puts database-dependent tests on the Aspire fixture.*
+  *T018's key change needed a migration of its own
+  (`FabScopeVariableValueRequestDedup`). The dedup table is raw-SQL managed
+  with no entity type, so `dotnet ef` scaffolds it empty — the body is
+  hand-written, but scaffolding is still required for the `[Migration]`
+  attribute, without which EF never discovers it.*
+  ***What the passing tests prove about that migration**: the `fab` column
+  exists (the insert names it) and the primary key genuinely widened — the
+  two-fabs case would fail on the old key, because the second insert would hit
+  `ON CONFLICT` and return false. Uniqueness is still enforced, since the
+  redelivery case still returns false. So the structural half is observed, not
+  argued.*
+  ***What they do not prove**: this migration's backfill warning, which is
+  unobserved for the same reason as T011's and is now equally unrepeatable —
+  it is recorded in `__EFMigrationsHistory` and will not fire again. **T043's
+  walk should cover both migrations**, not just the variables one.*
 
 **Checkpoint**: #1310's data half is closed. Stored values no longer collide.
 Shippable on its own.
