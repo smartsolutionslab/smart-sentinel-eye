@@ -147,7 +147,12 @@ public static class SystemVariableEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        SetVariableValueCommand command = new(parsed, body.Value, actingOperator, Option<int>.Some(expectedVersion));
+
+        // Placeholder fab (spec 014 T023 resolves the caller's fab). Every
+        // variable is in munich until then, so this addresses the same row it
+        // addresses today.
+        SetVariableValueCommand command = new(
+            FabIdentifier.From("munich"), parsed, body.Value, actingOperator, Option<int>.Some(expectedVersion));
         Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(command, cancellationToken);
 
         return result.Match<IResult>(onSuccess: identifier => Results.Ok(identifier.Value), onFailure: error => error.ToProblem());

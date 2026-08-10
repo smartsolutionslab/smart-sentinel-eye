@@ -11,6 +11,7 @@ namespace SmartSentinelEye.SystemVariables.Application.Commands;
 /// mismatch returns <see cref="SetVariableValueError.VariableTypeMismatch"/>.
 /// </summary>
 public sealed record SetVariableValueCommand(
+    FabIdentifier Fab,
     VariableName Name,
     string WireValue,
     OperatorIdentifier ChangedBy,

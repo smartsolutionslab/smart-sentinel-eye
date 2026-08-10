@@ -16,13 +16,9 @@ public sealed class SetVariableValueCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (VariableName? name, string? wireValue, OperatorIdentifier changedBy, Option<int> expectedVersion) = command;
+        (FabIdentifier? fab, VariableName? name, string? wireValue, OperatorIdentifier changedBy, Option<int> expectedVersion) = command;
 
-        // Placeholder fab (spec 014 T023 replaces this with the resolved fab).
-        // Every variable is in munich until then, so this finds what it finds
-        // today.
-        Option<Variable> found = await variables.GetByNameAsync(
-            FabIdentifier.From("munich"), name, cancellationToken);
+        Option<Variable> found = await variables.GetByNameAsync(fab, name, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(SetVariableValueFailures.VariableNotFound(name.Value));

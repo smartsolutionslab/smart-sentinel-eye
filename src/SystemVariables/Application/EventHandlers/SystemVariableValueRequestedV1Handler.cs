@@ -39,12 +39,32 @@ public sealed class SystemVariableValueRequestedV1Handler(
     {
         Ensure.That(message).IsNotNull();
 
-        var (name, value, _, causingEventIdentifier, _) = message;
+        var (name, value, _, causingEventIdentifier, metadata) = message;
 
-        bool reserved = await dedup.TryReserveAsync(name, causingEventIdentifier, cancellationToken);
+        // FR-006: a request that names no fab applies to none. Dropped before
+        // the dedup reservation, so it consumes no idempotency key — and said
+        // out loud, because a silent drop here is the shape of #1252.
+        if (string.IsNullOrWhiteSpace(metadata?.Fab))
+        {
+            logger.ValueRequestWithoutFab(name, causingEventIdentifier);
+            return;
+        }
+
+        FabIdentifier fab;
+        try
+        {
+            fab = FabIdentifier.From(metadata.Fab);
+        }
+        catch (ArgumentException ex)
+        {
+            logger.ValueRequestWithUnusableFab(ex, metadata.Fab, name, causingEventIdentifier);
+            return;
+        }
+
+        bool reserved = await dedup.TryReserveAsync(fab, name, causingEventIdentifier, cancellationToken);
         if (!reserved)
         {
-            logger.DedupHit(name, causingEventIdentifier);
+            logger.DedupHit(fab, name, causingEventIdentifier);
             return;
         }
 
@@ -61,15 +81,28 @@ public sealed class SystemVariableValueRequestedV1Handler(
 
         Result<VariableIdentifier, SetVariableValueError> result = await setHandler.HandleAsync(
             new SetVariableValueCommand(
+                fab,
                 variableName,
                 value,
                 AutomationOperator,
                 Option<int>.None),
             cancellationToken);
 
-        if (!result.IsSuccess)
+        if (result.IsSuccess)
         {
-            logger.SetVariableValueFailed(name, value, causingEventIdentifier, result.Error.Code);
+            return;
         }
+
+        // FR-005 / SC-006: a variable that exists in another fab but not this
+        // one gets its own message naming both. Sharing SetVariableValueFailed
+        // with malformed input is exactly how #1252 stayed hidden for a
+        // release — the fab-scoping bug and a typo looked identical in the log.
+        if (result.Error is SetVariableValueError.VariableNotFound)
+        {
+            logger.VariableNotInFab(fab, name, causingEventIdentifier);
+            return;
+        }
+
+        logger.SetVariableValueFailed(name, value, causingEventIdentifier, result.Error.Code);
     }
 }

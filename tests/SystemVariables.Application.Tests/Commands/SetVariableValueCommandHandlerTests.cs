@@ -37,6 +37,7 @@ public class SetVariableValueCommandHandlerTests
             repo, clock, NullLogger<SetVariableValueCommandHandler>.Instance);
         Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(
             new SetVariableValueCommand(
+                FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"), "82.4",
                 OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.Some(0)),
             CancellationToken.None);
@@ -54,6 +55,7 @@ public class SetVariableValueCommandHandlerTests
 
         Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(
             new SetVariableValueCommand(
+                FabIdentifier.From("munich"),
                 VariableName.From("ghost"), "1.0",
                 OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.Some(0)),
             CancellationToken.None);
@@ -71,6 +73,7 @@ public class SetVariableValueCommandHandlerTests
             repo, clock, NullLogger<SetVariableValueCommandHandler>.Instance);
         Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(
             new SetVariableValueCommand(
+                FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"), "not-a-number",
                 OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.Some(0)),
             CancellationToken.None);
