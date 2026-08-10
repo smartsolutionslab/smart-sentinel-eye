@@ -308,7 +308,14 @@ fixing this one.
   *Not walked: the case-insensitivity step, which is #1434 and known failing.
   The HTTP decision table is covered by `CameraFabResolutionIntegrationTests`
   (6/6) rather than by hand.*
-- [ ] T034 Comment on #1397 that `CameraCatalog` now carries a fab, so the layout-fab decision it blocks is unblocked; comment on #1155 that CameraCatalog is no longer among the contexts missing the guard. **Write `Closes #N, closes #M`** — GitHub honours the keyword only before the *first* number, which left 35 issues open across spec 014's five PRs.
+- [x] T034 Comment on #1397 that `CameraCatalog` now carries a fab, so the layout-fab decision it blocks is unblocked; comment on #1155 that CameraCatalog is no longer among the contexts missing the guard. **Write `Closes #N, closes #M`** — GitHub honours the keyword only before the *first* number, which left 35 issues open across spec 014's five PRs.
+  *Followed throughout: every commit in this spec repeats the keyword, and the
+  task issues closed as they landed rather than needing a sweep at the end.*
+  *Neither #1397 nor #1155 is closed — both have other contexts outstanding.
+  #1397 gets the specific unblocking note: cameras now carry a fab, so "is a
+  layout's fab derived from its cameras" is answerable. Flagged there that
+  derivation is not automatic — a layout can bind cameras from two fabs today
+  and nothing prevents it, so the rule needs stating.*
 
 ---
 
