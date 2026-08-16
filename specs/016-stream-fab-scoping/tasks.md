@@ -37,8 +37,8 @@ and resolves existing streams against a fab-scoped camera catalogue.
 
 ## Phase 1: Setup
 
-- [ ] T001 [P] Add `src/StreamDistribution/Domain/Stream/FabIdentifier.cs` as a `StringValueObject` mirroring `src/CameraCatalog/Domain/Camera/FabIdentifier.cs` exactly: 2–32 chars, lowercase letters/digits/`-`, starting with a letter. Per-context by ADR-0044 — the sixth copy.
-- [ ] T002 [P] Add `tests/StreamDistribution.Domain.Tests/Stream/FabIdentifierTests.cs` covering the grammar, rejections, boundary lengths and equality. **The only thing keeping six copies in step.** Use plain `null`, not `null!` — SonarAnalyzer S8970 fails the Release build on a null-forgiving operator where NRT is disabled, which caught spec 015 at T002.
+- [x] T001 [P] Add `src/StreamDistribution/Domain/Stream/FabIdentifier.cs` as a `StringValueObject` mirroring `src/CameraCatalog/Domain/Camera/FabIdentifier.cs` exactly: 2–32 chars, lowercase letters/digits/`-`, starting with a letter. Per-context by ADR-0044 — the sixth copy.
+- [x] T002 [P] Add `tests/StreamDistribution.Domain.Tests/Stream/FabIdentifierTests.cs` covering the grammar, rejections, boundary lengths and equality. **The only thing keeping six copies in step.** Use plain `null`, not `null!` — SonarAnalyzer S8970 fails the Release build on a null-forgiving operator where NRT is disabled, which caught spec 015 at T002.
 
 **Checkpoint**: The context has a fab type. Nothing uses it.
 
