@@ -18,6 +18,8 @@ namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
 /// </summary>
 public class StaleVersionRejectionTests
 {
+    private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+
     private const int Stale = 41;
 
     private static readonly DateTimeOffset FixedMoment =
@@ -30,7 +32,7 @@ public class StaleVersionRejectionTests
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
-            new PublishRevisionCommand(layout.Id, LayoutRevisionNumber.One, Editor(), Stale),
+            new PublishRevisionCommand([Munich], layout.Id, LayoutRevisionNumber.One, Editor(), Stale),
             CancellationToken.None);
 
         ShouldBeStale(result.IsFailure, result.Error);
@@ -44,7 +46,7 @@ public class StaleVersionRejectionTests
 
         ArchiveRevisionCommandHandler handler = new(layouts, clock, NullLogger<ArchiveRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler.HandleAsync(
-            new ArchiveRevisionCommand(layout.Id, LayoutRevisionNumber.One, Editor(), Stale),
+            new ArchiveRevisionCommand([Munich], layout.Id, LayoutRevisionNumber.One, Editor(), Stale),
             CancellationToken.None);
 
         ShouldBeStale(result.IsFailure, result.Error);
@@ -59,7 +61,7 @@ public class StaleVersionRejectionTests
 
         BranchDraftRevisionCommandHandler handler = new(layouts, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
-            new BranchDraftRevisionCommand(layout.Id, Editor(), Stale),
+            new BranchDraftRevisionCommand([Munich], layout.Id, Editor(), Stale),
             CancellationToken.None);
 
         ShouldBeStale(result.IsFailure, result.Error);
@@ -74,7 +76,7 @@ public class StaleVersionRejectionTests
 
         RevertRevisionCommandHandler handler = new(layouts, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
-            new RevertRevisionCommand(layout.Id, LayoutRevisionNumber.One, Editor(), Stale),
+            new RevertRevisionCommand([Munich], layout.Id, LayoutRevisionNumber.One, Editor(), Stale),
             CancellationToken.None);
 
         ShouldBeStale(result.IsFailure, result.Error);
@@ -89,7 +91,7 @@ public class StaleVersionRejectionTests
 
         EditDraftRevisionCommandHandler handler = new(layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand(
+            new EditDraftRevisionCommand([Munich], 
                 layout.Id,
                 LayoutRevisionNumber.One,
                 GridDimensions.Cell,
@@ -108,7 +110,7 @@ public class StaleVersionRejectionTests
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
-            new PublishRevisionCommand(layout.Id, LayoutRevisionNumber.One, Editor(), layout.Version),
+            new PublishRevisionCommand([Munich], layout.Id, LayoutRevisionNumber.One, Editor(), layout.Version),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();

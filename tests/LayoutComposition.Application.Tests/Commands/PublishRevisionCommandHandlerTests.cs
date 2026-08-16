@@ -12,6 +12,9 @@ namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
 
 public class PublishRevisionCommandHandlerTests
 {
+    private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+    private static readonly FabIdentifier Dresden = FabIdentifier.From("dresden");
+
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
@@ -25,7 +28,7 @@ public class PublishRevisionCommandHandlerTests
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
-            new PublishRevisionCommand(
+            new PublishRevisionCommand([Munich], 
                 draft.Id,
                 LayoutRevisionNumber.One,
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
@@ -44,7 +47,7 @@ public class PublishRevisionCommandHandlerTests
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
 
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
-            new PublishRevisionCommand(
+            new PublishRevisionCommand([Munich], 
                 LayoutIdentifier.New(),
                 LayoutRevisionNumber.One,
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
@@ -64,7 +67,7 @@ public class PublishRevisionCommandHandlerTests
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
-            new PublishRevisionCommand(
+            new PublishRevisionCommand([Munich], 
                 draft.Id,
                 LayoutRevisionNumber.From(99),
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
@@ -86,7 +89,7 @@ public class PublishRevisionCommandHandlerTests
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
-            new PublishRevisionCommand(
+            new PublishRevisionCommand([Munich], 
                 draft.Id,
                 LayoutRevisionNumber.One,
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
@@ -110,7 +113,7 @@ public class PublishRevisionCommandHandlerTests
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
         await handler.HandleAsync(
-            new PublishRevisionCommand(layout.Id, draftTwo.Number, op, 0),
+            new PublishRevisionCommand([Munich], layout.Id, draftTwo.Number, op, 0),
             CancellationToken.None);
 
         // The SaveAsync inside the handler clears events, but we asserted
@@ -147,5 +150,67 @@ public class PublishRevisionCommandHandlerTests
             OperatorIdentifier.From(Guid.CreateVersion7()));
         archived.RevisionNumber.Value.ShouldBe(1);
         archived.ArchivedAt.ShouldBe(FixedMoment);
+    }
+
+    /// <summary>
+    /// FR-006 on a write. Publishing another fab's layout answers
+    /// LayoutNotFound — the same failure an unknown identifier gives — rather
+    /// than "forbidden", which would confirm the layout exists.
+    ///
+    /// <para>
+    /// Publish stands for all five layout-addressing writes: they scope
+    /// through the one fab-aware <c>GetByIdentifierAsync</c>, so there is one
+    /// place for this to be right or wrong rather than five.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Publishing_a_layout_in_another_fab_returns_LayoutNotFound()
+    {
+        InMemoryLayoutRepository layouts = new();
+        FakeClock clock = new(FixedMoment);
+        Layout inMunich = new LayoutBuilder().WithFab(Munich).At(FixedMoment).Build();
+        layouts.Add(inMunich);
+        PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
+
+        Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+            new PublishRevisionCommand(
+                [Dresden],
+                inMunich.Id,
+                LayoutRevisionNumber.One,
+                OperatorIdentifier.From(Guid.CreateVersion7()),
+                inMunich.Version),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<PublishRevisionError.LayoutNotFound>();
+    }
+
+    /// <summary>
+    /// The ordering FR-006 needs, and the reason the fab lives in the lookup
+    /// rather than in a check after it: a <em>stale version</em> on another
+    /// fab's layout must still answer not-found. Were the precondition read
+    /// first, the mismatch reply would confirm the layout exists and leak its
+    /// current version.
+    /// </summary>
+    [Fact]
+    public async Task A_stale_version_on_another_fabs_layout_still_answers_not_found()
+    {
+        InMemoryLayoutRepository layouts = new();
+        FakeClock clock = new(FixedMoment);
+        Layout inMunich = new LayoutBuilder().WithFab(Munich).At(FixedMoment).Build();
+        layouts.Add(inMunich);
+        PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
+
+        Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+            new PublishRevisionCommand(
+                [Dresden],
+                inMunich.Id,
+                LayoutRevisionNumber.One,
+                OperatorIdentifier.From(Guid.CreateVersion7()),
+                inMunich.Version + 99),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<PublishRevisionError.LayoutNotFound>();
     }
 }

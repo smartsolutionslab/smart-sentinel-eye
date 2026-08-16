@@ -16,10 +16,10 @@ public sealed class BranchDraftRevisionCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (LayoutIdentifier layoutIdentifier, OperatorIdentifier branchedBy, int expectedVersion) = command;
+        (IReadOnlyList<FabIdentifier> fabs, LayoutIdentifier layoutIdentifier, OperatorIdentifier branchedBy, int expectedVersion) = command;
 
         Option<Layout> found = await layouts
-            .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
+            .GetByIdentifierAsync(fabs, layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(BranchDraftRevisionFailures.LayoutNotFound(layoutIdentifier.Value));

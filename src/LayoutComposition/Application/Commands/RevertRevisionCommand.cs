@@ -10,6 +10,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands;
 /// Archived domain event so connected kiosks force-disconnect.
 /// </summary>
 public sealed record RevertRevisionCommand(
+    IReadOnlyList<FabIdentifier> Fabs,
     LayoutIdentifier Layout,
     LayoutRevisionNumber RevisionNumber,
     OperatorIdentifier RevertedBy,

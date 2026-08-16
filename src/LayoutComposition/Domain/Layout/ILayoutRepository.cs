@@ -9,7 +9,22 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 /// </summary>
 public interface ILayoutRepository
 {
-    Task<Option<Layout>> GetByIdentifierAsync(LayoutIdentifier layout, CancellationToken cancellationToken);
+    /// <summary>
+    /// Loads a layout by identifier, **within the fabs the caller holds**
+    /// (spec 017 FR-006).
+    ///
+    /// <para>
+    /// The fabs are part of the lookup rather than a check the caller makes
+    /// afterwards, and that is the point: a layout in another fab and one that
+    /// never existed leave here identically, so every write built on this
+    /// answers "not found" for both. It also fixes the ordering FR-006 needs —
+    /// the fab is applied before any precondition can be read, so a stale-version
+    /// or missing-revision answer can never be given for a layout the caller
+    /// was not entitled to address.
+    /// </para>
+    /// </summary>
+    Task<Option<Layout>> GetByIdentifierAsync(
+        IReadOnlyList<FabIdentifier> fabs, LayoutIdentifier layout, CancellationToken cancellationToken);
 
     /// <summary>
     /// Looks a layout up by name **within one fab** (spec 017 FR-019).

@@ -9,6 +9,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands;
 /// archives the previously-Published revision in the same UoW (FR-003).
 /// </summary>
 public sealed record PublishRevisionCommand(
+    IReadOnlyList<FabIdentifier> Fabs,
     LayoutIdentifier Layout,
     LayoutRevisionNumber RevisionNumber,
     OperatorIdentifier PublishedBy,

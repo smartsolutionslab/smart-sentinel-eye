@@ -14,9 +14,13 @@ public sealed class InMemoryLayoutRepository : ILayoutRepository
 
     public IReadOnlyList<Layout> Layouts => _layouts;
 
-    public Task<Option<Layout>> GetByIdentifierAsync(LayoutIdentifier layout, CancellationToken cancellationToken)
+    public Task<Option<Layout>> GetByIdentifierAsync(
+        IReadOnlyList<FabIdentifier> fabs, LayoutIdentifier layout, CancellationToken cancellationToken)
     {
-        Layout? found = _layouts.SingleOrDefault(candidate => candidate.Id == layout);
+        ArgumentNullException.ThrowIfNull(fabs);
+        // Fab as part of the lookup, mirroring the real repository (FR-006).
+        Layout? found = _layouts.SingleOrDefault(
+            candidate => candidate.Id == layout && fabs.Contains(candidate.Fab));
         return Task.FromResult(found is null ? Option<Layout>.None : Option<Layout>.Some(found));
     }
 

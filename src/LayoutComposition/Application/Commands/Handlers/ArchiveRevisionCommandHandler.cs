@@ -16,10 +16,10 @@ public sealed class ArchiveRevisionCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, OperatorIdentifier archivedBy, int expectedVersion) = command;
+        (IReadOnlyList<FabIdentifier> fabs, LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, OperatorIdentifier archivedBy, int expectedVersion) = command;
 
         Option<Layout> found = await layouts
-            .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
+            .GetByIdentifierAsync(fabs, layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(ArchiveRevisionFailures.LayoutNotFound(layoutIdentifier.Value));

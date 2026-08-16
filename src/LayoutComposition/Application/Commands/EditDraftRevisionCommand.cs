@@ -12,6 +12,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands;
 /// grid + tiles must satisfy the four grid invariants (ADR-0112 §2).
 /// </summary>
 public sealed record EditDraftRevisionCommand(
+    IReadOnlyList<FabIdentifier> Fabs,
     LayoutIdentifier Layout,
     LayoutRevisionNumber RevisionNumber,
     GridDimensions Grid,

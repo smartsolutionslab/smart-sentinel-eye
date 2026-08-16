@@ -15,10 +15,10 @@ public sealed class RevertRevisionCommandHandler(
         RevertRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, OperatorIdentifier revertedBy, int expectedVersion) = command;
+        (IReadOnlyList<FabIdentifier> fabs, LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, OperatorIdentifier revertedBy, int expectedVersion) = command;
 
         Option<Layout> found = await layouts
-            .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
+            .GetByIdentifierAsync(fabs, layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(RevertRevisionFailures.LayoutNotFound(layoutIdentifier.Value));

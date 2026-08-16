@@ -10,6 +10,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands;
 /// revision so the admin edits a known-good baseline.
 /// </summary>
 public sealed record BranchDraftRevisionCommand(
+    IReadOnlyList<FabIdentifier> Fabs,
     LayoutIdentifier Layout,
     OperatorIdentifier BranchedBy,
     int ExpectedVersion)

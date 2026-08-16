@@ -11,6 +11,8 @@ namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
 
 public class ArchiveRevisionCommandHandlerTests
 {
+    private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
@@ -26,7 +28,7 @@ public class ArchiveRevisionCommandHandlerTests
         ArchiveRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<ArchiveRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler.HandleAsync(
-            new ArchiveRevisionCommand(layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
+            new ArchiveRevisionCommand([Munich], layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -44,7 +46,7 @@ public class ArchiveRevisionCommandHandlerTests
         ArchiveRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<ArchiveRevisionCommandHandler>.Instance);
         await handler.HandleAsync(
-            new ArchiveRevisionCommand(layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
+            new ArchiveRevisionCommand([Munich], layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         layout.Revisions.Single().State.ShouldBe(LayoutRevisionState.Archived);
@@ -58,7 +60,7 @@ public class ArchiveRevisionCommandHandlerTests
             layouts, new FakeClock(FixedMoment), NullLogger<ArchiveRevisionCommandHandler>.Instance);
 
         Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler.HandleAsync(
-            new ArchiveRevisionCommand(
+            new ArchiveRevisionCommand([Munich], 
                 LayoutIdentifier.New(), LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
@@ -77,7 +79,7 @@ public class ArchiveRevisionCommandHandlerTests
         ArchiveRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<ArchiveRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler.HandleAsync(
-            new ArchiveRevisionCommand(
+            new ArchiveRevisionCommand([Munich], 
                 layout.Id, LayoutRevisionNumber.From(99), OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 

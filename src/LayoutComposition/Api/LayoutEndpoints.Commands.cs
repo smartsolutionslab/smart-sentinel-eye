@@ -52,6 +52,23 @@ public static partial class LayoutEndpoints
     }
 
     /// <summary>
+    /// Every fab the caller holds, with no narrowing — what the five
+    /// layout-addressing writes need.
+    ///
+    /// <para>
+    /// They deliberately accept no <c>?fabId=</c>: the layout already has a
+    /// fab, so letting the caller name one would allow the two to disagree.
+    /// The fabs are used to scope the lookup, so a layout outside them is
+    /// reported exactly as one that never existed (FR-006).
+    /// </para>
+    /// </summary>
+    private static Task<(IReadOnlyList<FabIdentifier>? Fabs, IResult? Problem)> ResolveCallerFabsAsync(
+        ClaimsPrincipal user,
+        IFabAuthorizationGuard fabGuard,
+        CancellationToken cancellationToken) =>
+        ResolveReadFabsAsync(user, fabId: string.Empty, fabGuard, cancellationToken);
+
+    /// <summary>
     /// The fabs a read may span. Unlike a write, nothing has to be chosen: a
     /// multi-fab caller listing sees all of theirs (FR-005).
     ///
@@ -145,6 +162,7 @@ public static partial class LayoutEndpoints
         int revisionNumber,
         HttpRequest request,
         [FromServices] PublishRevisionCommandHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
@@ -170,9 +188,16 @@ public static partial class LayoutEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler
             .HandleAsync(
-                new PublishRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, actingOperator, expectedVersion),
+                new PublishRevisionCommand(fabs, LayoutIdentifier.From(layoutIdentifier), number, actingOperator, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(
@@ -185,6 +210,7 @@ public static partial class LayoutEndpoints
         int revisionNumber,
         HttpRequest request,
         [FromServices] ArchiveRevisionCommandHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
@@ -210,9 +236,16 @@ public static partial class LayoutEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
         Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler
             .HandleAsync(
-                new ArchiveRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, actingOperator, expectedVersion),
+                new ArchiveRevisionCommand(fabs, LayoutIdentifier.From(layoutIdentifier), number, actingOperator, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(
@@ -224,6 +257,7 @@ public static partial class LayoutEndpoints
         Guid layoutIdentifier,
         HttpRequest request,
         [FromServices] BranchDraftRevisionCommandHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
@@ -241,9 +275,16 @@ public static partial class LayoutEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
         Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler
             .HandleAsync(
-                new BranchDraftRevisionCommand(LayoutIdentifier.From(layoutIdentifier), actingOperator, expectedVersion),
+                new BranchDraftRevisionCommand(fabs, LayoutIdentifier.From(layoutIdentifier), actingOperator, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(
@@ -258,6 +299,8 @@ public static partial class LayoutEndpoints
         HttpRequest request,
         [FromBody] EditDraftRequest body,
         [FromServices] EditDraftRevisionCommandHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         Ensure.That(body).IsNotNull();
@@ -290,9 +333,16 @@ public static partial class LayoutEndpoints
             return precondition;
         }
 
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler
             .HandleAsync(
-                new EditDraftRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, grid, tiles, expectedVersion),
+                new EditDraftRevisionCommand(fabs, LayoutIdentifier.From(layoutIdentifier), number, grid, tiles, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(
@@ -305,6 +355,7 @@ public static partial class LayoutEndpoints
         int revisionNumber,
         HttpRequest request,
         [FromServices] RevertRevisionCommandHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
@@ -330,9 +381,16 @@ public static partial class LayoutEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler
             .HandleAsync(
-                new RevertRevisionCommand(LayoutIdentifier.From(layoutIdentifier), number, actingOperator, expectedVersion),
+                new RevertRevisionCommand(fabs, LayoutIdentifier.From(layoutIdentifier), number, actingOperator, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(
