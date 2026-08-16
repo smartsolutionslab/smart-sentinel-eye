@@ -96,6 +96,16 @@ widening. Three things bound it rather than excuse it:
   by Aspire as `StreamFabAttribution__ClientSecret` and never checked in
   outside the dev-only realm seed.
 
+**A concurrent health transition can lose the pass.** `StreamHealthWatcher`
+polls the same rows every two seconds and writes state changes to them, and
+`Stream` carries an EF concurrency token. A transition landing between the
+attribution read and its save fails the whole batch. Consistent with ADR-0113
+there is no retry-on-conflict: the exception is caught, logged, and the next
+host start runs the pass again over rows that are still null. It fails closed —
+nothing is half-attributed and nothing is misattributed — but a deployment that
+never restarts again would keep those streams invisible, which the unresolved
+count in the log is there to surface.
+
 **Its group membership must be maintained.** A fab added to the realm without
 adding it to this account's groups leaves that fab's pre-existing streams
 unattributed — invisible rather than misattributed, so it fails closed, but it
