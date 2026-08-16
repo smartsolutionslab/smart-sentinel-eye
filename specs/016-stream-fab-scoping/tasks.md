@@ -88,12 +88,12 @@ and resolves existing streams against a fab-scoped camera catalogue.
 
 ## Phase 5: User Story 3 — Streams that predate this feature acquire their fab (P2)
 
-- [ ] T020 [US3] Add `src/StreamDistribution/Infrastructure/Attribution/StreamFabAttributionService.cs` as an `IHostedService` **separate from `MediaMtxReconciler`** ([research.md](./research.md) §1). It selects streams where `fab IS NULL`, resolves each from CameraCatalog over HTTP, and sets it.
-- [ ] T021 [US3] Register the camera-catalog client by name so Aspire service discovery resolves it, mirroring `ReverseIndexSeederHostedService` in SystemVariables. **This is the first HTTP call from this context to another** — plan.md §III records it as a bounded exception.
-- [ ] T022 [US3] Log **both** the count attributed and the count unresolved (FR-008, FR-010), and log **nothing** when there are no null fabs — the steady state must be silent. A stream whose camera cannot be resolved stays null; it is never defaulted.
-- [ ] T023 [US3] Make the failure path **deliberate**: an unreachable CameraCatalog must leave streams unattributed and not block host start, asserted by a test. plan.md §III flags that this behaviour is currently inherited from an existing `try/catch` in the reconciler rather than chosen.
-- [ ] T024 [P] [US3] Add tests under `tests/StreamDistribution.Infrastructure.Tests/` (create the project if absent, mirroring `CameraCatalog`) covering: attribution fills from the camera, an unresolvable camera stays null, and a second run with no null fabs does nothing.
-- [ ] T025 [US3] Add an integration case asserting a stream with a null fab is returned to **nobody** — not to its own fab's operator, not to a multi-fab operator. Covers SC-004 and is the only test of FR-009; when it works it is invisible.
+- [x] T020 [US3] Add `src/StreamDistribution/Infrastructure/Attribution/StreamFabAttributionService.cs` as an `IHostedService` **separate from `MediaMtxReconciler`** ([research.md](./research.md) §1). It selects streams where `fab IS NULL`, resolves each from CameraCatalog over HTTP, and sets it.
+- [x] T021 [US3] Register the camera-catalog client by name so Aspire service discovery resolves it, mirroring `ReverseIndexSeederHostedService` in SystemVariables. **This is the first HTTP call from this context to another** — plan.md §III records it as a bounded exception.
+- [x] T022 [US3] Log **both** the count attributed and the count unresolved (FR-008, FR-010), and log **nothing** when there are no null fabs — the steady state must be silent. A stream whose camera cannot be resolved stays null; it is never defaulted.
+- [x] T023 [US3] Make the failure path **deliberate**: an unreachable CameraCatalog must leave streams unattributed and not block host start, asserted by a test. plan.md §III flags that this behaviour is currently inherited from an existing `try/catch` in the reconciler rather than chosen.
+- [x] T024 [P] [US3] Add tests under `tests/StreamDistribution.Infrastructure.Tests/` (create the project if absent, mirroring `CameraCatalog`) covering: attribution fills from the camera, an unresolvable camera stays null, and a second run with no null fabs does nothing.
+- [x] T025 [US3] Add an integration case asserting a stream with a null fab is returned to **nobody** — not to its own fab's operator, not to a multi-fab operator. Covers SC-004 and is the only test of FR-009; when it works it is invisible.
 
 **Checkpoint**: SC-004 observed. Existing streams attributed or explicitly unresolved.
 

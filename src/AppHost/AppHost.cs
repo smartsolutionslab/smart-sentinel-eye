@@ -33,6 +33,12 @@ var scenarioSimulatorClientSecret = builder.AddParameter("ScenarioSimulatorClien
 // client_credentials token and presents it as its broker password; the
 // go-auth plugin (ADR-0100) enforces azp == the MQTT username.
 var eventIngestionMqttClientSecret = builder.AddParameter("EventIngestionMqttClientSecret", "dev-only-event-ingestion-secret", secret: true);
+// Mirrors the `stream-distribution-attribution` confidential client seeded in
+// Realms/smart-sentinel-eye-realm.json. StreamDistribution reads it as
+// `StreamFabAttribution:ClientSecret` to mint a client_credentials token
+// (scope sse.cameras.read) for the one-time startup attribution of streams
+// provisioned before spec 016 (ADR-0116).
+var streamDistributionAttributionClientSecret = builder.AddParameter("StreamDistributionAttributionClientSecret", "dev-only-stream-distribution-secret", secret: true);
 
 // Spec 009 ADR-0101: the postgres image carries the timescaledb
 // extension so the audit-observability hypertable + compression
@@ -208,6 +214,13 @@ var streamDistribution = builder
     .WithReference(keycloak)
     .WithReference(mediamtx.GetEndpoint("api"))
     .WithReference(mediamtx.GetEndpoint("whep"))
+    // The one cross-context HTTP call this service makes, and only at startup:
+    // a stream provisioned before spec 016 has no fab, and its camera is in
+    // another database (ADR-0116). Not a WaitFor — attribution must not gate
+    // host start, and an unreachable CameraCatalog simply leaves those streams
+    // unattributed and therefore invisible.
+    .WithReference(cameraCatalog)
+    .WithEnvironment("StreamFabAttribution__ClientSecret", streamDistributionAttributionClientSecret)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
     .WaitFor(mediamtx);

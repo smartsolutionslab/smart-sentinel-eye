@@ -169,6 +169,9 @@
   <Folder Name="/tests/StreamDistribution.Domain.Tests/">
     <Project Path="tests/StreamDistribution.Domain.Tests/SmartSentinelEye.StreamDistribution.Domain.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/StreamDistribution.Infrastructure.Tests/">
+    <Project Path="tests/StreamDistribution.Infrastructure.Tests/SmartSentinelEye.StreamDistribution.Infrastructure.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/LayoutComposition.Domain.Tests/">
     <Project Path="tests/LayoutComposition.Domain.Tests/SmartSentinelEye.LayoutComposition.Domain.Tests.csproj" />
   </Folder>

@@ -25,6 +25,12 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "MediaMtxReconciler startup pass complete. Configured={Configured}, expected={Expected}, removed={Removed}, readded={Readded}.")]
     public static partial void ReconcilerStartupPassComplete(this ILogger logger, int configured, int expected, int removed, int readded);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Stream fab attribution failed; streams without a fab stay invisible and the next restart retries.")]
+    public static partial void AttributionPassFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Attributed {Attributed} stream(s) to a fab; {Unresolved} could not be resolved.")]
+    public static partial void AttributionPassComplete(this ILogger logger, int attributed, int unresolved);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Registered MediaMTX path {Path} -> {Source}.")]
     public static partial void RegisteredMediaMtxPath(this ILogger logger, MediaMtxPath path, string source);
 

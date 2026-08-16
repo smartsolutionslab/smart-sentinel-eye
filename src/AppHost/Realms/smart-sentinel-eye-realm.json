@@ -236,6 +236,19 @@
       "defaultClientScopes": ["basic", "profile", "email", "roles"]
     },
     {
+      "clientId": "stream-distribution-attribution",
+      "name": "Smart Sentinel Eye — Stream fab attribution (service account)",
+      "description": "ADR-0116. Read-only account StreamDistribution uses at startup to learn the fab of a stream provisioned before spec 016. In every fab group on purpose: a stream's fab is what is unknown, so the lookup cannot be narrowed first.",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "secret": "dev-only-stream-distribution-secret",
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["basic", "profile", "email", "roles", "sse-groups", "sse.cameras.read"]
+    },
+    {
       "clientId": "scenario-simulator",
       "name": "Smart Sentinel Eye — Scenario Simulator (dev-only service account)",
       "description": "Dev-only (ADR-0111). Service account the Scenario Simulator worker uses to seed the camera catalog via client_credentials. Never deployed.",
@@ -370,6 +383,12 @@
       "enabled": true,
       "serviceAccountClientId": "scenario-simulator",
       "groups": ["/fabs/munich"]
+    },
+    {
+      "username": "service-account-stream-distribution-attribution",
+      "enabled": true,
+      "serviceAccountClientId": "stream-distribution-attribution",
+      "groups": ["/fabs/munich", "/fabs/dresden"]
     },
     {
       "username": "service-account-event-ingestion",

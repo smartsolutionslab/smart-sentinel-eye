@@ -11,6 +11,7 @@ using SmartSentinelEye.StreamDistribution.Application.EventHandlers;
 using SmartSentinelEye.StreamDistribution.Application.Queries;
 using SmartSentinelEye.StreamDistribution.Application.Queries.Handlers;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
+using SmartSentinelEye.StreamDistribution.Infrastructure.Attribution;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 using SmartSentinelEye.StreamDistribution.Infrastructure.HealthWatcher;
@@ -38,6 +39,7 @@ public static class StreamDistributionInfrastructureModule
 
         BindMediaMtxOptions(builder);
         BindWhepAuthOptions(builder);
+        BindStreamFabAttribution(builder);
 
         builder.Services.AddScoped<IStreamRepository, StreamRepository>();
         builder.Services.AddScoped<IStreamQuerySource, StreamQuerySource>();
@@ -84,6 +86,7 @@ public static class StreamDistributionInfrastructureModule
 
         builder.Services.AddHostedService<StreamHealthWatcher>();
         builder.Services.AddHostedService<MediaMtxReconciler>();
+        builder.Services.AddHostedService<StreamFabAttributionService>();
 
         builder.AddWolverineForContext<StreamDistributionDbContext>(
             moduleQueuePrefix: ContextName,
@@ -112,6 +115,41 @@ public static class StreamDistributionInfrastructureModule
             options.ManagementUrl = managementUrl;
             options.WhepBaseUrl = whepBaseUrl;
         });
+    }
+
+    /// <summary>
+    /// The startup attribution pass and its two HTTP clients (ADR-0116). The
+    /// camera-catalog client is registered by resource name so Aspire service
+    /// discovery rewrites <c>http://camera-catalog</c> to whatever endpoint
+    /// that resource publishes, in dev and on k3s alike — the same shape
+    /// SystemVariables' <c>ReverseIndexSeederHostedService</c> already uses.
+    /// </summary>
+    private static void BindStreamFabAttribution(IHostApplicationBuilder builder)
+    {
+        string keycloakBaseUrl =
+            builder.Configuration.GetConnectionString("keycloak")
+            ?? builder.Configuration["services:keycloak:http:0"]
+            ?? builder.Configuration["services:keycloak:https:0"]
+            ?? string.Empty;
+
+        builder.Services.Configure<StreamFabAttributionOptions>(options =>
+        {
+            builder.Configuration.GetSection(StreamFabAttributionOptions.SectionName).Bind(options);
+            options.KeycloakUrl = keycloakBaseUrl;
+            options.Realm = builder.Configuration["Keycloak:Realm"] ?? options.Realm;
+        });
+
+        builder.Services.AddHttpClient<CameraCatalogTokenProvider>();
+
+        builder.Services.AddHttpClient<ICameraFabLookup, CameraCatalogFabLookup>(client =>
+        {
+            // S1075 flags the literal URI, S5332 the clear-text scheme. Neither
+            // applies: "camera-catalog" is a logical resource name and Aspire
+            // rewrites the whole URI, scheme included.
+#pragma warning disable S1075, S5332
+            client.BaseAddress = new Uri("http://camera-catalog");
+#pragma warning restore S1075, S5332
+        }).AddStandardResilienceHandler();
     }
 
     private static void BindWhepAuthOptions(IHostApplicationBuilder builder)
