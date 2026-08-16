@@ -55,6 +55,7 @@ public sealed record LayoutRevisionArchivedNotification(
 /// OverlayDesigner.Domain.
 /// </summary>
 public sealed record OverlayLifecyclePublishedNotification(
+    IReadOnlyList<FabIdentifier> Fabs,
     Guid Overlay,
     int RevisionNumber,
     string Name,
@@ -71,6 +72,7 @@ public sealed record OverlayLifecyclePublishedNotification(
 /// Primitive types only — see <see cref="OverlayLifecyclePublishedNotification"/>.
 /// </summary>
 public sealed record OverlayLifecycleArchivedNotification(
+    IReadOnlyList<FabIdentifier> Fabs,
     Guid Overlay,
     int RevisionNumber,
     DateTimeOffset ArchivedAt);

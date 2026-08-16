@@ -53,10 +53,15 @@ public class LifecycleNotificationTests
         Guid overlay = Guid.CreateVersion7();
 
         OverlayLifecyclePublishedNotification notification = new(
+            [FabIdentifier.From("munich"), FabIdentifier.From("dresden")],
             overlay, 1, "Line-1 Title",
             "Production Line 1", 0.5m, 0.05m, 0.3m, 0.08m, 48,
             FixedMoment);
 
+        // Plural, unlike the layout frames above. An overlay has no fab of its
+        // own (ADR-0115); the set is who *references* it, so two plants
+        // sharing a template are both told (FR-010).
+        notification.Fabs.Select(fab => fab.Value).ShouldBe(["munich", "dresden"]);
         notification.Overlay.ShouldBe(overlay);
         notification.RevisionNumber.ShouldBe(1);
         notification.Name.ShouldBe("Line-1 Title");
@@ -74,8 +79,11 @@ public class LifecycleNotificationTests
     {
         Guid overlay = Guid.CreateVersion7();
 
-        OverlayLifecycleArchivedNotification notification = new(overlay, 2, FixedMoment);
+        // An empty set is legitimate and load-bearing: an overlay no published
+        // layout references reaches nobody (FR-011).
+        OverlayLifecycleArchivedNotification notification = new([], overlay, 2, FixedMoment);
 
+        notification.Fabs.ShouldBeEmpty();
         notification.Overlay.ShouldBe(overlay);
         notification.RevisionNumber.ShouldBe(2);
         notification.ArchivedAt.ShouldBe(FixedMoment);

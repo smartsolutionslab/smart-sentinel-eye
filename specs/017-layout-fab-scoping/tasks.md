@@ -90,11 +90,11 @@
 > **No aggregate, no column, no domain type.** If this phase grows one, it has
 > drifted into giving an overlay a fab (ADR-0115).
 
-- [ ] T026 [US3] Add a read-side query to `src/LayoutComposition/Application/Queries/` answering "which fabs have a **published** layout whose tiles carry this overlay", per the join in [data-model.md](./data-model.md). `state = 'Published'` is FR-013 and lives **only** here.
-- [ ] T027 [US3] Add `Fabs` (a set) to `OverlayLifecyclePublishedNotification` and `OverlayLifecycleArchivedNotification` in `src/LayoutComposition/Domain/Layout/ILayoutLifecycleBroadcaster.cs`. **Plural, unlike the layout frames** — an overlay is used by however many fabs.
-- [ ] T028 [US3] Resolve the fabs in `src/LayoutComposition/Application/EventHandlers/OverlayRevisionPublishedV1Handler.cs` and `OverlayRevisionArchivedV1Handler.cs`. **Not in the broadcaster** — it maps and sends, and a query there would make it the only piece of `Infrastructure/Broadcasting` that reads state.
-- [ ] T029 [US3] Send once per resolved fab in `SignalRLayoutLifecycleBroadcaster.cs`. **An empty set must send nothing at all** (FR-011) — not a send to an empty group.
-- [ ] T030 [P] [US3] Add handler tests under `tests/LayoutComposition.Application.Tests/EventHandlers/` for: referenced by one fab, by both, by **none**, and by a **draft only**. The last two are FR-011 and FR-013 and are invisible when they work.
+- [x] T026 [US3] Add a read-side query to `src/LayoutComposition/Application/Queries/` answering "which fabs have a **published** layout whose tiles carry this overlay", per the join in [data-model.md](./data-model.md). `state = 'Published'` is FR-013 and lives **only** here.
+- [x] T027 [US3] Add `Fabs` (a set) to `OverlayLifecyclePublishedNotification` and `OverlayLifecycleArchivedNotification` in `src/LayoutComposition/Domain/Layout/ILayoutLifecycleBroadcaster.cs`. **Plural, unlike the layout frames** — an overlay is used by however many fabs.
+- [x] T028 [US3] Resolve the fabs in `src/LayoutComposition/Application/EventHandlers/OverlayRevisionPublishedV1Handler.cs` and `OverlayRevisionArchivedV1Handler.cs`. **Not in the broadcaster** — it maps and sends, and a query there would make it the only piece of `Infrastructure/Broadcasting` that reads state.
+- [x] T029 [US3] Send once per resolved fab in `SignalRLayoutLifecycleBroadcaster.cs`. **An empty set must send nothing at all** (FR-011) — not a send to an empty group.
+- [x] T030 [P] [US3] Add handler tests under `tests/LayoutComposition.Application.Tests/EventHandlers/` for: referenced by one fab, by both, by **none**, and by a **draft only**. The last two are FR-011 and FR-013 and are invisible when they work.
 - [ ] T031 [US3] Add `tests/Integration.Tests/LayoutComposition/OverlayFrameFabScopingIntegrationTests.cs` driving a real hub connection per fab. Assert on the **absence** of a frame over a bounded wait, not on "nothing threw". Covers SC-004.
 
 **Checkpoint**: SC-003 and SC-004 observed. #1397 is closed.
