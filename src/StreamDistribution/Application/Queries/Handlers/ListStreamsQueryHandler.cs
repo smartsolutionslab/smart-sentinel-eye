@@ -13,12 +13,14 @@ public sealed class ListStreamsQueryHandler(IStreamQuerySource streams, IStreamW
     {
         Ensure.That(query).IsNotNull();
 
-        if (query.Cameras.Count > ListStreamsDefaults.MaximumBatchSize)
+        (IReadOnlyList<FabIdentifier> fabs, IReadOnlyList<CameraIdentifier> cameras) = query;
+
+        if (cameras.Count > ListStreamsDefaults.MaximumBatchSize)
         {
-            return Failure(ListStreamsFailures.InvalidBatchSize(query.Cameras.Count, ListStreamsDefaults.MaximumBatchSize));
+            return Failure(ListStreamsFailures.InvalidBatchSize(cameras.Count, ListStreamsDefaults.MaximumBatchSize));
         }
 
-        if (query.Cameras.Count == 0)
+        if (cameras.Count == 0)
         {
             // Named explicitly: the outcome carries the expression's type, and
             // StreamHealthDto[] is not IReadOnlyList<StreamHealthDto> as far as
@@ -26,9 +28,14 @@ public sealed class ListStreamsQueryHandler(IStreamQuerySource streams, IStreamW
             return Success<IReadOnlyList<StreamHealthDto>>([]);
         }
 
-        CameraIdentifier[] wanted = [.. query.Cameras];
+        CameraIdentifier[] wanted = [.. cameras];
 
-        List<Stream> matches = await streams.Streams.Where(stream => wanted.Contains(stream.Camera)).ToListAsync(cancellationToken);
+        // FR-005 + FR-006: a stream in a fab the caller does not hold drops out
+        // of the batch exactly like one that was never provisioned. FR-009 comes
+        // free — an unattributed stream satisfies no IN clause.
+        List<Stream> matches = await streams.Streams
+            .Where(stream => wanted.Contains(stream.Camera) && fabs.Contains(stream.Fab))
+            .ToListAsync(cancellationToken);
 
         IReadOnlyList<StreamHealthDto> dtos = matches.Select(stream => GetStreamQueryHandler.Map(stream, whepUrls)).ToList();
 
