@@ -31,7 +31,7 @@ public sealed class LayoutRevisionPublishedDomainEventHandler(
     {
         Ensure.That(domainEvent).IsNotNull();
 
-        var (layout, revisionNumber, name, grid, domainTiles, publishedAt, publishedBy) = domainEvent;
+        var (fab, layout, revisionNumber, name, grid, domainTiles, publishedAt, publishedBy) = domainEvent;
 
         IReadOnlyList<LayoutTileV2> tiles = domainTiles
             .Select(tile => new LayoutTileV2(
@@ -56,6 +56,7 @@ public sealed class LayoutRevisionPublishedDomainEventHandler(
 
         await broadcaster.PublishedAsync(
             new LayoutRevisionPublishedNotification(
+                fab,
                 layout,
                 revisionNumber,
                 name,

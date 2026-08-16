@@ -163,9 +163,22 @@ branch where "unknown" is treated more leniently than "other fab".
 
 ## Events
 
-**Not in scope.** LayoutComposition publishes no integration events carrying a
-layout, so there is nothing to stamp a fab onto. `EventMetadata.Fab` is
-already there if a consumer ever needs one.
+**Corrected during implementation.** This section previously claimed
+LayoutComposition publishes no integration event carrying a layout. It does:
+`LayoutRevisionPublishedV2` and the archived V1, both stamped
+`EventMetadata(..., Fab: null, ...)`.
+
+**The domain events do gain a fab**, because they must: the SignalR frames are
+built from them and the handler never sees the aggregate, so
+`LayoutRevisionPublishedDomainEvent` and `LayoutRevisionArchivedDomainEvent`
+carry `Fab` and the aggregate stamps it when raising.
+
+**The integration events deliberately do not, yet.** Populating
+`EventMetadata.Fab` on them would give AuditObservability a fab on these audit
+rows — a real improvement, and nearly free now the value is in hand — but it
+is outside this spec's requirements and no consumer asks for it. Left as a
+follow-up rather than a drive-by, and recorded here so the null is a decision
+rather than an oversight.
 
 ## Notification records (the four frames)
 

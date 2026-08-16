@@ -31,6 +31,7 @@ public interface ILayoutLifecycleBroadcaster
 /// the broadcaster contract doesn't need a Shared.Contracts dependency.
 /// </summary>
 public sealed record LayoutRevisionPublishedNotification(
+    FabIdentifier Fab,
     LayoutIdentifier Layout,
     LayoutRevisionNumber RevisionNumber,
     LayoutName Name,
@@ -41,6 +42,7 @@ public sealed record LayoutRevisionPublishedNotification(
 /// minimum the kiosk needs to decide whether to force-disconnect.
 /// </summary>
 public sealed record LayoutRevisionArchivedNotification(
+    FabIdentifier Fab,
     LayoutIdentifier Layout,
     LayoutRevisionNumber RevisionNumber,
     DateTimeOffset ArchivedAt);

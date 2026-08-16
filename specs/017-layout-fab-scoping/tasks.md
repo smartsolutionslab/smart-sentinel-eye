@@ -76,10 +76,10 @@
 
 **Goal**: Two of the four frames. **Independent test**: connect a Dresden kiosk, publish and archive in both fabs, record every frame.
 
-- [ ] T022 [US2] Add `Fab` to `LayoutRevisionPublishedNotification` and `LayoutRevisionArchivedNotification` in `src/LayoutComposition/Domain/Layout/ILayoutLifecycleBroadcaster.cs`.
-- [ ] T023 [US2] Fill it in `src/LayoutComposition/Application/EventHandlers/LayoutRevisionPublishedDomainEventHandler.cs` and `LayoutRevisionArchivedDomainEventHandler.cs`. The layout is in hand there — **no query is needed**, and adding one is a sign the fab was taken from the wrong place.
-- [ ] T024 [US2] Swap `Clients.All` for `Clients.Group(LayoutLifecycleHub.FabGroup(...))` on the two layout frames in `src/LayoutComposition/Infrastructure/Broadcasting/SignalRLayoutLifecycleBroadcaster.cs`, matching the two already-scoped sends.
-- [ ] T025 [P] [US2] Extend `tests/LayoutComposition.Domain.Tests/Layout/LifecycleNotificationTests.cs` for the new field.
+- [x] T022 [US2] Add `Fab` to `LayoutRevisionPublishedNotification` and `LayoutRevisionArchivedNotification` in `src/LayoutComposition/Domain/Layout/ILayoutLifecycleBroadcaster.cs`.
+- [x] T023 [US2] Fill it in `src/LayoutComposition/Application/EventHandlers/LayoutRevisionPublishedDomainEventHandler.cs` and `LayoutRevisionArchivedDomainEventHandler.cs`. The layout is in hand there — **no query is needed**, and adding one is a sign the fab was taken from the wrong place.
+- [x] T024 [US2] Swap `Clients.All` for `Clients.Group(LayoutLifecycleHub.FabGroup(...))` on the two layout frames in `src/LayoutComposition/Infrastructure/Broadcasting/SignalRLayoutLifecycleBroadcaster.cs`, matching the two already-scoped sends.
+- [x] T025 [P] [US2] Extend `tests/LayoutComposition.Domain.Tests/Layout/LifecycleNotificationTests.cs` for the new field.
 
 **Checkpoint**: Layout lifecycle no longer crosses fabs.
 

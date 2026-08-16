@@ -132,6 +132,7 @@ public class PublishRevisionCommandHandlerTests
         IReadOnlyList<Tile> tiles =
             [new Tile(CameraIdentifier.From(Guid.CreateVersion7()), Option<OverlayIdentifier>.None, GridPosition.From(0, 0))];
         LayoutRevisionPublishedDomainEvent published = new(
+            Munich,
             LayoutIdentifier.New(),
             LayoutRevisionNumber.One,
             LayoutName.From("Line-1"),
@@ -144,6 +145,7 @@ public class PublishRevisionCommandHandlerTests
         published.Tiles.ShouldHaveSingleItem();
 
         LayoutRevisionArchivedDomainEvent archived = new(
+            Munich,
             LayoutIdentifier.New(),
             LayoutRevisionNumber.One,
             FixedMoment,

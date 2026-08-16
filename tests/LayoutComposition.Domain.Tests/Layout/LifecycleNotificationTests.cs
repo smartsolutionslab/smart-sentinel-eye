@@ -21,8 +21,12 @@ public class LifecycleNotificationTests
         LayoutIdentifier layout = LayoutIdentifier.New();
 
         LayoutRevisionPublishedNotification notification = new(
-            layout, LayoutRevisionNumber.One, LayoutName.From("Line-1"), FixedMoment);
+            FabIdentifier.From("dresden"), layout, LayoutRevisionNumber.One,
+            LayoutName.From("Line-1"), FixedMoment);
 
+        // Singular, unlike the overlay frames below: a layout belongs to one
+        // fab, and this is the group the frame is addressed to (FR-008).
+        notification.Fab.Value.ShouldBe("dresden");
         notification.Layout.ShouldBe(layout);
         notification.RevisionNumber.ShouldBe(LayoutRevisionNumber.One);
         notification.Name.Value.ShouldBe("Line-1");
@@ -35,8 +39,9 @@ public class LifecycleNotificationTests
         LayoutIdentifier layout = LayoutIdentifier.New();
 
         LayoutRevisionArchivedNotification notification = new(
-            layout, LayoutRevisionNumber.One, FixedMoment);
+            FabIdentifier.From("dresden"), layout, LayoutRevisionNumber.One, FixedMoment);
 
+        notification.Fab.Value.ShouldBe("dresden");
         notification.Layout.ShouldBe(layout);
         notification.RevisionNumber.ShouldBe(LayoutRevisionNumber.One);
         notification.ArchivedAt.ShouldBe(FixedMoment);
