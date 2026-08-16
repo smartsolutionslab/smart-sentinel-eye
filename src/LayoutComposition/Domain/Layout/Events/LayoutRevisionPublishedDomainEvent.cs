@@ -10,6 +10,7 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout.Events;
 /// grid + tile set (ADR-0112 §3).
 /// </summary>
 public sealed record LayoutRevisionPublishedDomainEvent(
+    FabIdentifier Fab,
     LayoutIdentifier Layout,
     LayoutRevisionNumber RevisionNumber,
     LayoutName Name,

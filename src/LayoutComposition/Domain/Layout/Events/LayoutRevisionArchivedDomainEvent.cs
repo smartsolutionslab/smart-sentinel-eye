@@ -8,6 +8,7 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout.Events;
 /// chain was just published (the atomic-swap path in spec 003 FR-003).
 /// </summary>
 public sealed record LayoutRevisionArchivedDomainEvent(
+    FabIdentifier Fab,
     LayoutIdentifier Layout,
     LayoutRevisionNumber RevisionNumber,
     DateTimeOffset ArchivedAt,

@@ -10,6 +10,8 @@ namespace SmartSentinelEye.LayoutComposition.Application.Tests.EventHandlers;
 
 public class LayoutRevisionArchivedDomainEventHandlerTests
 {
+    private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
@@ -23,7 +25,7 @@ public class LayoutRevisionArchivedDomainEventHandlerTests
         LayoutIdentifier layout = LayoutIdentifier.New();
         OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
         LayoutRevisionArchivedDomainEvent domainEvent = new(
-            layout, LayoutRevisionNumber.One, FixedMoment, by);
+            Munich, layout, LayoutRevisionNumber.One, FixedMoment, by);
 
         await handler.Handle(domainEvent, CancellationToken.None);
 

@@ -22,7 +22,7 @@ public sealed class LayoutRevisionArchivedDomainEventHandler(
     {
         Ensure.That(domainEvent).IsNotNull();
 
-        var (layout, revisionNumber, archivedAt, archivedBy) = domainEvent;
+        var (fab, layout, revisionNumber, archivedAt, archivedBy) = domainEvent;
 
         await events.PublishAsync(
             new LayoutRevisionArchivedV1(
@@ -35,6 +35,7 @@ public sealed class LayoutRevisionArchivedDomainEventHandler(
 
         await broadcaster.ArchivedAsync(
             new LayoutRevisionArchivedNotification(
+                fab,
                 layout,
                 revisionNumber,
                 archivedAt),

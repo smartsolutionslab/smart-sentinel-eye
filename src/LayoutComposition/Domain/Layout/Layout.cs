@@ -162,10 +162,10 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
         if (prior is not null && prior.Number != number)
         {
             prior.Archive(now);
-            Raise(new LayoutRevisionArchivedDomainEvent(Id, prior.Number, now, by));
+            Raise(new LayoutRevisionArchivedDomainEvent(Fab, Id, prior.Number, now, by));
         }
         Raise(new LayoutRevisionPublishedDomainEvent(
-            Id, number, Name, target.Grid, target.Tiles, now, by));
+            Fab, Id, number, Name, target.Grid, target.Tiles, now, by));
     }
 
     /// <summary>
@@ -178,7 +178,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
         Ensure.That(clock).IsNotNull();
         Revision target = RequireRevision(number);
         target.Revert();
-        Raise(new LayoutRevisionArchivedDomainEvent(Id, number, clock.UtcNow, by));
+        Raise(new LayoutRevisionArchivedDomainEvent(Fab, Id, number, clock.UtcNow, by));
     }
 
     /// <summary>
@@ -200,7 +200,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
         target.Archive(now);
         if (wasObservable)
         {
-            Raise(new LayoutRevisionArchivedDomainEvent(Id, number, now, by));
+            Raise(new LayoutRevisionArchivedDomainEvent(Fab, Id, number, now, by));
         }
     }
 

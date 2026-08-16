@@ -10,6 +10,8 @@ namespace SmartSentinelEye.LayoutComposition.Application.Tests.EventHandlers;
 
 public class LayoutRevisionPublishedDomainEventHandlerTests
 {
+    private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
@@ -31,7 +33,7 @@ public class LayoutRevisionPublishedDomainEventHandlerTests
             new Tile(cameraB, Option<OverlayIdentifier>.None, GridPosition.From(0, 1)),
         ];
         LayoutRevisionPublishedDomainEvent domainEvent = new(
-            layout, LayoutRevisionNumber.One, LayoutName.From("Line-1"),
+            Munich, layout, LayoutRevisionNumber.One, LayoutName.From("Line-1"),
             GridDimensions.From(1, 2), tiles, FixedMoment, by);
 
         await handler.Handle(domainEvent, CancellationToken.None);

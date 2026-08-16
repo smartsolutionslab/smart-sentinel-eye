@@ -29,7 +29,11 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
             PublishedAt: notification.PublishedAt);
 
         await BroadcastAsync(
-            () => hub.Clients.All.LayoutRevisionPublished(message),
+            // Group, not All: a layout belongs to one fab, so only that fab's
+            // screens are told it was published (spec 017 FR-008). Same
+            // mechanism the resolved-text and highlight pushes already use.
+            () => hub.Clients.Group(LayoutLifecycleHub.FabGroup(notification.Fab.Value))
+                .LayoutRevisionPublished(message),
             ex => logger.LayoutRevisionPublishedBroadcastFailed(ex, notification.Layout, notification.RevisionNumber));
     }
 
@@ -43,7 +47,9 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
             ArchivedAt: notification.ArchivedAt);
 
         await BroadcastAsync(
-            () => hub.Clients.All.LayoutRevisionArchived(message),
+            // Group, not All — same reason as the published frame above.
+            () => hub.Clients.Group(LayoutLifecycleHub.FabGroup(notification.Fab.Value))
+                .LayoutRevisionArchived(message),
             ex => logger.LayoutRevisionArchivedBroadcastFailed(ex, notification.Layout, notification.RevisionNumber));
     }
 
