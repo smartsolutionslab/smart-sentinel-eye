@@ -31,6 +31,19 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
             .HasConversion(camera => camera.Value, value => CameraIdentifier.From(value))
             .IsRequired();
 
+        // Nullable, unlike every sibling context's fab column: cameras live in
+        // another database, so no migration here can derive a pre-existing
+        // stream's fab. Those rows acquire it at runtime instead and are
+        // visible to nobody until they do (FR-009). A follow-up migration
+        // tightens this to NOT NULL once no unattributed rows remain.
+        builder.Property(stream => stream.Fab)
+            .HasColumnName("fab")
+            .HasMaxLength(FabIdentifier.MaximumLength)
+            // `fab!` is safe: EF does not invoke a converter for a null value,
+            // so the lambda only ever sees an attributed stream.
+            .HasConversion(fab => fab!.Value, value => FabIdentifier.From(value))
+            .IsRequired(false);
+
         builder.Property(stream => stream.Path)
             .HasColumnName("mediamtx_path")
             .HasMaxLength(80)
@@ -85,6 +98,14 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
         builder.HasIndex(stream => stream.Path)
             .HasDatabaseName("ux_streams_mediamtx_path")
             .IsUnique();
+
+        // Plain, not unique. Rules, variables and cameras make (fab, name)
+        // unique; a stream has no name — it is keyed by its camera, which is
+        // already globally unique — so a composite index would be redundant.
+        // This one supports the listing filter, the only query the column
+        // takes part in.
+        builder.HasIndex(stream => stream.Fab)
+            .HasDatabaseName("ix_streams_fab");
 
         builder.Ignore(stream => stream.PendingEvents);
     }

@@ -46,6 +46,7 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
             await aspire.CreateStreamDistributionDbContextAsync())
         {
             Stream stream = Stream.Provision(
+                FabIdentifier.From("munich"),
                 CameraIdentifier.From(keptCamera),
                 StreamSourceUrl.From("rtsp://10.0.7.1/h264"),
                 OperatorIdentifier.From(Guid.CreateVersion7()),
@@ -84,6 +85,7 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
             await aspire.CreateStreamDistributionDbContextAsync())
         {
             Stream stream = Stream.Provision(
+                FabIdentifier.From("munich"),
                 CameraIdentifier.From(camera),
                 StreamSourceUrl.From(source),
                 OperatorIdentifier.From(Guid.CreateVersion7()),

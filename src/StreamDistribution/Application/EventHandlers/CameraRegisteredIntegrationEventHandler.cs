@@ -22,12 +22,27 @@ public sealed class CameraRegisteredIntegrationEventHandler(ICommandHandler<Prov
     {
         Ensure.That(message).IsNotNull();
 
-        var (cameraId, _, url, _, registeredBy, _) = message;
+        var (cameraId, _, url, _, registeredBy, metadata) = message;
 
         CameraIdentifier camera = CameraIdentifier.From(cameraId);
+
+        if (string.IsNullOrWhiteSpace(metadata.Fab))
+        {
+            // FR-004. Guessing a fab would put a camera's video in front of the
+            // wrong plant's operators, so the stream is not provisioned at all
+            // — and the drop is recorded, because silence here is
+            // indistinguishable from success. A malformed fab is a different
+            // case and deliberately still throws: CameraCatalog accepted it
+            // under the identical grammar, so it cannot occur without one of
+            // the two copies having drifted.
+            logger.CameraRegisteredWithoutFab(camera);
+            return;
+        }
+
         OperatorIdentifier provisionedBy = OperatorIdentifier.From(registeredBy);
 
         ProvisionStreamCommand command = new(
+            Fab: FabIdentifier.From(metadata.Fab),
             Camera: camera,
             RtspSourceUrl: url,
             ProvisionedBy: provisionedBy);

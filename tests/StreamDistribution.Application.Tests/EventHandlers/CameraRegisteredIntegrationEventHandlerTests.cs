@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
@@ -16,10 +17,12 @@ public class CameraRegisteredIntegrationEventHandlerTests
 {
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
-    private static readonly EventMetadata TestMetadata = new(
+    private static readonly EventMetadata TestMetadata = MetadataForFab("munich");
+
+    private static EventMetadata MetadataForFab(string fab) => new(
         Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
         DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture),
-        null,
+        fab,
         null);
 
     [Fact]
@@ -95,6 +98,67 @@ public class CameraRegisteredIntegrationEventHandlerTests
         Func<Task> act = () => handler.Handle(message);
 
         await act.ShouldThrowAsync<InvalidOperationException>();
+    }
+
+    /// <summary>
+    /// US2. Dresden rather than munich on purpose: munich is the default
+    /// everywhere else in these tests, so a hard-coded fab — or one silently
+    /// falling back to a default — would pass a munich assertion.
+    /// </summary>
+    [Fact]
+    public async Task A_camera_registered_in_dresden_provisions_a_dresden_stream()
+    {
+        InMemoryStreamRepository streams = new();
+        FakeRtspGateway gateway = new();
+        ProvisionStreamCommandHandler command = NewCommandHandler(streams, gateway);
+        CameraRegisteredIntegrationEventHandler handler =
+            new(command, NullLogger<CameraRegisteredIntegrationEventHandler>.Instance);
+
+        CameraRegisteredV1 message = new(
+            Camera: Guid.CreateVersion7(),
+            Name: "Line-1",
+            Url: "rtsp://10.0.5.1/h264",
+            RegisteredAt: FixedMoment,
+            RegisteredBy: Guid.CreateVersion7(),
+            Metadata: MetadataForFab("dresden"));
+
+        await handler.Handle(message);
+
+        streams.Streams.Single().Fab.ShouldBe(FabIdentifier.From("dresden"));
+    }
+
+    /// <summary>
+    /// FR-004. The assertion is on the downstream effect — no stream, no
+    /// MediaMTX path — because "nothing threw" is also what a successful
+    /// provision looks like from the handler's return.
+    /// </summary>
+    [Fact]
+    public async Task A_camera_registered_without_a_fab_provisions_nothing_and_is_recorded()
+    {
+        InMemoryStreamRepository streams = new();
+        FakeRtspGateway gateway = new();
+        ProvisionStreamCommandHandler command = NewCommandHandler(streams, gateway);
+        CapturingLogger<CameraRegisteredIntegrationEventHandler> logger = new();
+        CameraRegisteredIntegrationEventHandler handler = new(command, logger);
+
+        Guid camera = Guid.CreateVersion7();
+        CameraRegisteredV1 message = new(
+            Camera: camera,
+            Name: "Line-1",
+            Url: "rtsp://10.0.5.1/h264",
+            RegisteredAt: FixedMoment,
+            RegisteredBy: Guid.CreateVersion7(),
+            Metadata: MetadataForFab(null));
+
+        await handler.Handle(message);
+
+        streams.Streams.ShouldBeEmpty();
+        gateway.AddCalls.ShouldBeEmpty();
+
+        var drop = logger.Entries.ShouldHaveSingleItem();
+        drop.Level.ShouldBe(LogLevel.Warning);
+        drop.Message.ShouldContain(camera.ToString());
+        drop.Message.ShouldContain("without a fab");
     }
 
     private static ProvisionStreamCommandHandler NewCommandHandler(InMemoryStreamRepository streams, FakeRtspGateway gateway) =>
