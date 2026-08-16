@@ -107,12 +107,12 @@
 > hole. Numbered 5 in the spec because it was found late, not because it matters
 > least.
 
-- [ ] T032 [US5] Add `ICameraFabGuard` to `src/LayoutComposition/Application/Tiles/`, returning **the offending camera identifiers** rather than a boolean — US5 scenario 1 requires the refusal to name the tile, and a boolean cannot.
-- [ ] T033 [US5] Implement `CameraCatalogFabGuard` in `src/LayoutComposition/Infrastructure/Cameras/`, calling `GET /cameras?fabId=<layout fab>` with **the caller's own token forwarded**. No service account — that is what makes this a smaller §III exception than ADR-0116's ([research.md](./research.md) §1).
-- [ ] T034 [US5] Register the camera-catalog client by name in `src/LayoutComposition/Infrastructure/LayoutCompositionInfrastructureModule.cs` so Aspire service discovery resolves it, and add `.WithReference(cameraCatalog)` to `layout-composition` in `src/AppHost/AppHost.cs`. **This is the first HTTP call from this context to another** — plan.md §III records it as a bounded exception.
-- [ ] T035 [US5] Enforce the guard in `CreateLayoutDraftCommandHandler` and `EditDraftRevisionCommandHandler`. **An unresolvable camera is refused by the same path** (FR-015) — a separate branch treating "unknown" leniently makes FR-014 bypassable.
-- [ ] T036 [US5] Record a refused cross-fab tile in `src/LayoutComposition/Application/Log.cs` (constitution §VII). It is an attempt to cross a boundary, not a typo.
-- [ ] T037 [P] [US5] Add handler tests with a fake `ICameraFabGuard` under `tests/LayoutComposition.Application.Tests/Commands/`: same-fab accepted, cross-fab refused naming the tile, unknown camera refused.
+- [x] T032 [US5] Add `ICameraFabGuard` to `src/LayoutComposition/Application/Tiles/`, returning **the offending camera identifiers** rather than a boolean — US5 scenario 1 requires the refusal to name the tile, and a boolean cannot.
+- [x] T033 [US5] Implement `CameraCatalogFabGuard` in `src/LayoutComposition/Infrastructure/Cameras/`, calling `GET /cameras?fabId=<layout fab>` with **the caller's own token forwarded**. No service account — that is what makes this a smaller §III exception than ADR-0116's ([research.md](./research.md) §1).
+- [x] T034 [US5] Register the camera-catalog client by name in `src/LayoutComposition/Infrastructure/LayoutCompositionInfrastructureModule.cs` so Aspire service discovery resolves it, and add `.WithReference(cameraCatalog)` to `layout-composition` in `src/AppHost/AppHost.cs`. **This is the first HTTP call from this context to another** — plan.md §III records it as a bounded exception.
+- [x] T035 [US5] Enforce the guard in `CreateLayoutDraftCommandHandler` and `EditDraftRevisionCommandHandler`. **An unresolvable camera is refused by the same path** (FR-015) — a separate branch treating "unknown" leniently makes FR-014 bypassable.
+- [x] T036 [US5] Record a refused cross-fab tile in `src/LayoutComposition/Application/Log.cs` (constitution §VII). It is an attempt to cross a boundary, not a typo.
+- [x] T037 [P] [US5] Add handler tests with a fake `ICameraFabGuard` under `tests/LayoutComposition.Application.Tests/Commands/`: same-fab accepted, cross-fab refused naming the tile, unknown camera refused.
 - [ ] T038 [US5] Add an integration case to `LayoutFabScopingIntegrationTests.cs`: a dresden operator's tile naming a munich camera is refused. Covers SC-006.
 
 **Checkpoint**: SC-006 observed. The route around the isolation is closed.

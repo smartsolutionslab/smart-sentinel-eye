@@ -35,7 +35,7 @@ public class CreateLayoutDraftCommandHandlerTests
     public async Task First_creation_with_a_unique_name_returns_a_new_LayoutIdentifier()
     {
         InMemoryLayoutRepository layouts = new();
-        CreateLayoutDraftCommandHandler handler = new(layouts, new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+        CreateLayoutDraftCommandHandler handler = new(layouts, FakeCameraFabGuard.Permissive(), new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
 
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
             Command("Line-1", GridDimensions.Cell, [TileAt(0, 0)]),
@@ -53,7 +53,7 @@ public class CreateLayoutDraftCommandHandlerTests
     public async Task Creating_a_2x2_wall_carries_every_tile_onto_the_initial_Draft()
     {
         InMemoryLayoutRepository layouts = new();
-        CreateLayoutDraftCommandHandler handler = new(layouts, new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+        CreateLayoutDraftCommandHandler handler = new(layouts, FakeCameraFabGuard.Permissive(), new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
 
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
             Command("Line-1", GridDimensions.Default, [TileAt(0, 0), TileAt(0, 1), TileAt(1, 0), TileAt(1, 1)]),
@@ -70,7 +70,7 @@ public class CreateLayoutDraftCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         CreateLayoutDraftCommandHandler handler = new(
-            layouts, new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+            layouts, FakeCameraFabGuard.Permissive(), new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
         OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
 
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
@@ -85,7 +85,7 @@ public class CreateLayoutDraftCommandHandlerTests
     public async Task An_empty_tile_set_returns_LAYOUT_GRID_EMPTY()
     {
         InMemoryLayoutRepository layouts = new();
-        CreateLayoutDraftCommandHandler handler = new(layouts, new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+        CreateLayoutDraftCommandHandler handler = new(layouts, FakeCameraFabGuard.Permissive(), new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
 
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
             Command("Line-1", GridDimensions.Cell, Array.Empty<Tile>()),
@@ -101,7 +101,7 @@ public class CreateLayoutDraftCommandHandlerTests
     public async Task A_duplicate_tile_position_returns_LAYOUT_TILE_POSITION_DUPLICATE()
     {
         InMemoryLayoutRepository layouts = new();
-        CreateLayoutDraftCommandHandler handler = new(layouts, new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+        CreateLayoutDraftCommandHandler handler = new(layouts, FakeCameraFabGuard.Permissive(), new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
 
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
             Command("Line-1", GridDimensions.Default, [TileAt(0, 0), TileAt(0, 0)]),
@@ -114,7 +114,7 @@ public class CreateLayoutDraftCommandHandlerTests
     public async Task An_out_of_bounds_tile_returns_LAYOUT_TILE_OUT_OF_BOUNDS()
     {
         InMemoryLayoutRepository layouts = new();
-        CreateLayoutDraftCommandHandler handler = new(layouts, new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+        CreateLayoutDraftCommandHandler handler = new(layouts, FakeCameraFabGuard.Permissive(), new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
 
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
             Command("Line-1", GridDimensions.Cell, [TileAt(0, 1)]),
@@ -131,7 +131,7 @@ public class CreateLayoutDraftCommandHandlerTests
         Layout existing = new LayoutBuilder().Named("Line-1").At(FixedMoment).Build();
         layouts.Add(existing);
 
-        CreateLayoutDraftCommandHandler handler = new(layouts, clock, NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+        CreateLayoutDraftCommandHandler handler = new(layouts, FakeCameraFabGuard.Permissive(), clock, NullLogger<CreateLayoutDraftCommandHandler>.Instance);
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
             Command("Line-1", GridDimensions.Cell, [TileAt(0, 0)]),
             CancellationToken.None);
@@ -154,7 +154,7 @@ public class CreateLayoutDraftCommandHandlerTests
         FakeClock clock = new(FixedMoment);
         layouts.Add(new LayoutBuilder().WithFab(Munich).Named("Line-1").At(FixedMoment).Build());
 
-        CreateLayoutDraftCommandHandler handler = new(layouts, clock, NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+        CreateLayoutDraftCommandHandler handler = new(layouts, FakeCameraFabGuard.Permissive(), clock, NullLogger<CreateLayoutDraftCommandHandler>.Instance);
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
             Command(Dresden, "Line-1", GridDimensions.Cell, [TileAt(0, 0)]),
             CancellationToken.None);
@@ -174,7 +174,7 @@ public class CreateLayoutDraftCommandHandlerTests
         FakeClock clock = new(FixedMoment);
         layouts.Add(new LayoutBuilder().WithFab(Dresden).Named("Line-1").At(FixedMoment).Build());
 
-        CreateLayoutDraftCommandHandler handler = new(layouts, clock, NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+        CreateLayoutDraftCommandHandler handler = new(layouts, FakeCameraFabGuard.Permissive(), clock, NullLogger<CreateLayoutDraftCommandHandler>.Instance);
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
             Command(Dresden, "Line-1", GridDimensions.Cell, [TileAt(0, 0)]),
             CancellationToken.None);
@@ -189,7 +189,7 @@ public class CreateLayoutDraftCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         CreateLayoutDraftCommandHandler handler = new(
-            layouts, new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+            layouts, FakeCameraFabGuard.Permissive(), new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
 
         await handler.HandleAsync(
             Command(Dresden, "Line-9", GridDimensions.Cell, [TileAt(0, 0)]),
@@ -198,5 +198,73 @@ public class CreateLayoutDraftCommandHandlerTests
         // dresden, not munich: everything else defaults to munich, so a fab
         // dropped on the floor would still pass a munich assertion.
         layouts.Layouts.Single().Fab.ShouldBe(Dresden);
+    }
+
+    /// <summary>
+    /// FR-014, and the hole this closes: without it a Dresden operator could
+    /// put Munich's camera on their own layout and watch its live video,
+    /// walking around everything the rest of this feature builds.
+    /// </summary>
+    [Fact]
+    public async Task A_tile_naming_another_fabs_camera_is_refused()
+    {
+        InMemoryLayoutRepository layouts = new();
+        Tile munichTile = TileAt(0, 0);
+        FakeCameraFabGuard cameras = FakeCameraFabGuard.Strict().With(Munich, munichTile.Camera);
+
+        CreateLayoutDraftCommandHandler handler = new(
+            layouts, cameras, new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+
+        Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
+            Command(Dresden, "Line-1", GridDimensions.Cell, [munichTile]),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        CreateLayoutDraftError.TileCameraOutsideFab error =
+            result.Error.ShouldBeOfType<CreateLayoutDraftError.TileCameraOutsideFab>();
+        // Names the offending camera: a layout may hold four tiles, and "one
+        // of them is wrong" is not something an operator can act on.
+        error.Cameras.ShouldBe([munichTile.Camera.Value]);
+        layouts.Layouts.ShouldBeEmpty();
+    }
+
+    /// <summary>
+    /// FR-015. Unknown is refused by the same path as other-fab — a branch
+    /// treating it more leniently would make FR-014 bypassable by naming an
+    /// identifier that resolves to nothing.
+    /// </summary>
+    [Fact]
+    public async Task A_tile_naming_a_camera_that_does_not_exist_is_refused()
+    {
+        InMemoryLayoutRepository layouts = new();
+        CreateLayoutDraftCommandHandler handler = new(
+            layouts, FakeCameraFabGuard.Strict(), new FakeClock(FixedMoment),
+            NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+
+        Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
+            Command(Dresden, "Line-1", GridDimensions.Cell, [TileAt(0, 0)]),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<CreateLayoutDraftError.TileCameraOutsideFab>();
+        layouts.Layouts.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_tile_naming_a_camera_in_its_own_fab_is_accepted()
+    {
+        InMemoryLayoutRepository layouts = new();
+        Tile dresdenTile = TileAt(0, 0);
+        FakeCameraFabGuard cameras = FakeCameraFabGuard.Strict().With(Dresden, dresdenTile.Camera);
+
+        CreateLayoutDraftCommandHandler handler = new(
+            layouts, cameras, new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+
+        Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
+            Command(Dresden, "Line-1", GridDimensions.Cell, [dresdenTile]),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        layouts.Layouts.ShouldHaveSingleItem();
     }
 }

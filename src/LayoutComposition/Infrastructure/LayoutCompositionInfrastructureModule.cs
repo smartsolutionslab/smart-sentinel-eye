@@ -4,9 +4,11 @@ using SmartSentinelEye.LayoutComposition.Application.Commands;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 using SmartSentinelEye.LayoutComposition.Application.Queries;
+using SmartSentinelEye.LayoutComposition.Application.Tiles;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Layout.Events;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
+using SmartSentinelEye.LayoutComposition.Infrastructure.Cameras;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.CQRS;
@@ -40,6 +42,25 @@ public static class LayoutCompositionInfrastructureModule
         builder.Services.AddScoped<IEventBus, WolverineEventBus>();
         builder.Services.AddSignalR();
         builder.Services.AddSingleton<ILayoutLifecycleBroadcaster, SignalRLayoutLifecycleBroadcaster>();
+
+        // FR-014: a tile's camera must be in its layout's fab, and only
+        // CameraCatalog knows a camera's fab. The first synchronous call from
+        // this context to another (plan.md §III) — write path only, carrying
+        // the caller's own token, so a CameraCatalog outage stops layout
+        // authoring and nothing else.
+        //
+        // Registered by resource name so Aspire service discovery rewrites
+        // "http://camera-catalog" — scheme included — to whatever that
+        // resource publishes, in dev and on k3s alike. S1075/S5332 flag the
+        // literal; neither applies, because it is a logical name rather than
+        // an address.
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddHttpClient<ICameraFabGuard, CameraCatalogFabGuard>(client =>
+        {
+#pragma warning disable S1075, S5332
+            client.BaseAddress = new Uri("http://camera-catalog");
+#pragma warning restore S1075, S5332
+        }).AddStandardResilienceHandler();
 
         // Hand-rolled command handler registrations (ADR-0042 + ADR-0057).
         builder.Services.AddScoped<

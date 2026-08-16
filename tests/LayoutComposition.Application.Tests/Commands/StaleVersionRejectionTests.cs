@@ -89,7 +89,7 @@ public class StaleVersionRejectionTests
         (InMemoryLayoutRepository layouts, FakeClock clock, Layout layout) = Seeded();
         Guid originalCamera = layout.Revisions.Single().Tiles.Single().Camera.Value;
 
-        EditDraftRevisionCommandHandler handler = new(layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
+        EditDraftRevisionCommandHandler handler = new(layouts, FakeCameraFabGuard.Permissive(), clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand([Munich], 
                 layout.Id,

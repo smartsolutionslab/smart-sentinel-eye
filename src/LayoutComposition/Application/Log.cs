@@ -46,4 +46,6 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Broadcast OverlayPublished for overlay {Overlay} revision {Revision}.")]
     public static partial void BroadcastOverlayPublished(this ILogger logger, Guid overlay, int revision);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Refused {Count} tile(s) naming a camera outside fab {Fab} (spec 017 FR-014).")]
+    public static partial void RefusedCrossFabTiles(this ILogger logger, FabIdentifier fab, int count);
 }
