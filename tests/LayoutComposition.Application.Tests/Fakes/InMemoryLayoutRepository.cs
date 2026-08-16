@@ -20,10 +20,15 @@ public sealed class InMemoryLayoutRepository : ILayoutRepository
         return Task.FromResult(found is null ? Option<Layout>.None : Option<Layout>.Some(found));
     }
 
-    public Task<Option<Layout>> GetByNameAsync(LayoutName name, CancellationToken cancellationToken)
+    public Task<Option<Layout>> GetByNameAsync(
+        FabIdentifier fab, LayoutName name, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(fab);
         ArgumentNullException.ThrowIfNull(name);
+        // Fab first, mirroring the real repository: a name is unique only
+        // within one (spec 017 FR-019).
         Layout? found = _layouts.SingleOrDefault(candidate =>
+            candidate.Fab == fab &&
             candidate.Name == name &&
             candidate.Revisions.Any(r => r.State != LayoutRevisionState.Archived));
         return Task.FromResult(found is null ? Option<Layout>.None : Option<Layout>.Some(found));

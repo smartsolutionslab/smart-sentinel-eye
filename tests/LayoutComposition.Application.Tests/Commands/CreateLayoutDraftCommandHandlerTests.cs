@@ -20,9 +20,16 @@ public class CreateLayoutDraftCommandHandlerTests
             overlay.HasValue ? Option<OverlayIdentifier>.Some(overlay.Value) : Option<OverlayIdentifier>.None,
             GridPosition.From(row, col));
 
+    private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+    private static readonly FabIdentifier Dresden = FabIdentifier.From("dresden");
+
     private static CreateLayoutDraftCommand Command(
         string name, GridDimensions grid, IReadOnlyList<Tile> tiles) =>
-        new(LayoutName.From(name), grid, tiles, OperatorIdentifier.From(Guid.CreateVersion7()));
+        Command(Munich, name, grid, tiles);
+
+    private static CreateLayoutDraftCommand Command(
+        FabIdentifier fab, string name, GridDimensions grid, IReadOnlyList<Tile> tiles) =>
+        new(fab, LayoutName.From(name), grid, tiles, OperatorIdentifier.From(Guid.CreateVersion7()));
 
     [Fact]
     public async Task First_creation_with_a_unique_name_returns_a_new_LayoutIdentifier()
@@ -132,5 +139,64 @@ public class CreateLayoutDraftCommandHandlerTests
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBeOfType<CreateLayoutDraftError.LayoutNameTaken>();
         layouts.Layouts.Count.ShouldBe(1);
+    }
+
+    /// <summary>
+    /// FR-019, and the half that is a leak rather than an inconvenience. A
+    /// global name check answers LAYOUT_NAME_TAKEN for a layout the caller
+    /// cannot see — the same enumeration oracle FR-006 closes on the read
+    /// path, reappearing on the write path.
+    /// </summary>
+    [Fact]
+    public async Task The_same_name_is_accepted_in_a_second_fab()
+    {
+        InMemoryLayoutRepository layouts = new();
+        FakeClock clock = new(FixedMoment);
+        layouts.Add(new LayoutBuilder().WithFab(Munich).Named("Line-1").At(FixedMoment).Build());
+
+        CreateLayoutDraftCommandHandler handler = new(layouts, clock, NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+        Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
+            Command(Dresden, "Line-1", GridDimensions.Cell, [TileAt(0, 0)]),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        layouts.Layouts.Count.ShouldBe(2);
+    }
+
+    /// <summary>
+    /// The other half: within one fab the name is still taken, so FR-019
+    /// widened the key rather than dropping the constraint.
+    /// </summary>
+    [Fact]
+    public async Task The_same_name_is_still_refused_within_one_fab()
+    {
+        InMemoryLayoutRepository layouts = new();
+        FakeClock clock = new(FixedMoment);
+        layouts.Add(new LayoutBuilder().WithFab(Dresden).Named("Line-1").At(FixedMoment).Build());
+
+        CreateLayoutDraftCommandHandler handler = new(layouts, clock, NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+        Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
+            Command(Dresden, "Line-1", GridDimensions.Cell, [TileAt(0, 0)]),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<CreateLayoutDraftError.LayoutNameTaken>();
+        layouts.Layouts.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task A_created_layout_carries_the_resolved_fab()
+    {
+        InMemoryLayoutRepository layouts = new();
+        CreateLayoutDraftCommandHandler handler = new(
+            layouts, new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+
+        await handler.HandleAsync(
+            Command(Dresden, "Line-9", GridDimensions.Cell, [TileAt(0, 0)]),
+            CancellationToken.None);
+
+        // dresden, not munich: everything else defaults to munich, so a fab
+        // dropped on the floor would still pass a munich assertion.
+        layouts.Layouts.Single().Fab.ShouldBe(Dresden);
     }
 }

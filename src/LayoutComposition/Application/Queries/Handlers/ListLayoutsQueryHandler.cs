@@ -14,11 +14,17 @@ public sealed class ListLayoutsQueryHandler(ILayoutQuerySource layouts)
     {
         Ensure.That(query).IsNotNull();
 
-        if (query.State == LayoutRevisionState.Published)
+        (IReadOnlyList<FabIdentifier> fabs, LayoutRevisionState? state) = query;
+
+        // FR-005: only layouts in fabs the caller holds. Applied to both
+        // shapes below — the kiosk picker leaks as readily as the admin list.
+        IQueryable<Layout> visible = layouts.Layouts.Where(layout => fabs.Contains(layout.Fab));
+
+        if (state == LayoutRevisionState.Published)
         {
             // Kiosk picker shape: one row per chain that has a Published revision.
             // Filter pushed into SQL via the LayoutRevisionState value-converter.
-            List<Layout> source = await layouts.Layouts
+            List<Layout> source = await visible
                 .Where(layout => layout.Revisions.Any(revision => revision.State == LayoutRevisionState.Published))
                 .ToListAsync(cancellationToken);
 
@@ -43,7 +49,7 @@ public sealed class ListLayoutsQueryHandler(ILayoutQuerySource layouts)
         }
 
         // Default / admin shape: every chain with its full revision history.
-        List<Layout> all = await layouts.Layouts
+        List<Layout> all = await visible
             .ToListAsync(cancellationToken);
 
         IReadOnlyList<LayoutDto> chains = all

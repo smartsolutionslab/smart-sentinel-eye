@@ -38,6 +38,12 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
             .HasConversion(id => id.Value, value => LayoutIdentifier.From(value))
             .ValueGeneratedNever();
 
+        builder.Property(layout => layout.Fab)
+            .HasColumnName("fab")
+            .HasMaxLength(FabIdentifier.MaximumLength)
+            .HasConversion(fab => fab.Value, value => FabIdentifier.From(value))
+            .IsRequired();
+
         builder.Property(layout => layout.Name)
             .HasColumnName("name")
             .HasMaxLength(LayoutName.MaximumLength)
@@ -57,8 +63,20 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
             .HasColumnName("version")
             .IsConcurrencyToken();
 
-        builder.HasIndex(layout => layout.Name)
-            .HasDatabaseName("ix_layouts_name");
+        // Replaces ix_layouts_name. The name-uniqueness check is enforced in
+        // CreateLayoutDraftCommandHandler and became fab-scoped with spec 017
+        // (FR-019), so the lookup it backs is now (fab, name).
+        //
+        // Still not unique. The constraint is application-level today, and
+        // promoting it to the database is a behaviour change on data that may
+        // already violate it — a separate decision from fab-scoping.
+        builder.HasIndex(layout => new { layout.Fab, layout.Name })
+            .HasDatabaseName("ix_layouts_fab_name");
+
+        // Supports the listing filter, the only query the column alone
+        // participates in.
+        builder.HasIndex(layout => layout.Fab)
+            .HasDatabaseName("ix_layouts_fab");
 
         builder.OwnsMany(layout => layout.Revisions, revisions =>
         {
@@ -117,6 +135,14 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
                         overlay => overlay.HasValue ? overlay.Value.Value : (Guid?)null,
                         value => value.HasValue ? OverlayIdentifier.From(value.Value) : (OverlayIdentifier?)null)
                     .IsRequired(false);
+
+                // The column has existed since spec 010 but nothing has ever
+                // queried by it. Spec 017's overlay-frame scoping asks "which
+                // fabs have a published layout carrying this overlay" on every
+                // overlay publish or archive; without this the join scans
+                // every tile in the product.
+                tiles.HasIndex(tile => tile.OverlayValue)
+                    .HasDatabaseName("ix_layout_revision_tiles_overlay_id");
             });
 
             revisions.Property(revision => revision.CreatedAt)

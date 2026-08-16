@@ -14,6 +14,9 @@ public class GetLayoutQueryHandlerTests
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
+    private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+    private static readonly FabIdentifier Dresden = FabIdentifier.From("dresden");
+
     [Fact]
     public async Task Existing_layout_is_mapped_into_a_LayoutDto_with_ordered_revisions()
     {
@@ -28,7 +31,7 @@ public class GetLayoutQueryHandlerTests
 
         GetLayoutQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
         Result<LayoutDto, GetLayoutError> result = await handler.HandleAsync(
-            new GetLayoutQuery(layout.Id), CancellationToken.None);
+            new GetLayoutQuery([Munich], layout.Id), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         LayoutDto dto = result.Value;
@@ -55,7 +58,7 @@ public class GetLayoutQueryHandlerTests
 
         GetLayoutQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
         Result<LayoutDto, GetLayoutError> result = await handler.HandleAsync(
-            new GetLayoutQuery(layout.Id), CancellationToken.None);
+            new GetLayoutQuery([Munich], layout.Id), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Version.ShouldBe(layout.Version);
@@ -68,9 +71,45 @@ public class GetLayoutQueryHandlerTests
         GetLayoutQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
 
         Result<LayoutDto, GetLayoutError> result = await handler.HandleAsync(
-            new GetLayoutQuery(LayoutIdentifier.New()), CancellationToken.None);
+            new GetLayoutQuery([Munich], LayoutIdentifier.New()), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBeOfType<GetLayoutError.LayoutNotFound>();
+    }
+
+    /// <summary>
+    /// FR-006. Not forbidden — the same failure an unknown identifier
+    /// produces, so the caller cannot learn the layout exists. A distinguishable
+    /// refusal lets an operator enumerate another plant's layouts one guess at
+    /// a time.
+    /// </summary>
+    [Fact]
+    public async Task A_layout_in_a_fab_the_caller_does_not_hold_is_reported_as_not_found()
+    {
+        InMemoryLayoutRepository repository = new();
+        Layout inMunich = new LayoutBuilder().WithFab(Munich).Named("Line-1").At(FixedMoment).Build();
+        repository.Add(inMunich);
+        GetLayoutQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
+
+        Result<LayoutDto, GetLayoutError> result = await handler.HandleAsync(
+            new GetLayoutQuery([Dresden], inMunich.Id), CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<GetLayoutError.LayoutNotFound>();
+    }
+
+    [Fact]
+    public async Task A_multi_fab_caller_reaches_a_layout_in_either_of_their_fabs()
+    {
+        InMemoryLayoutRepository repository = new();
+        Layout inDresden = new LayoutBuilder().WithFab(Dresden).Named("Line-1").At(FixedMoment).Build();
+        repository.Add(inDresden);
+        GetLayoutQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
+
+        Result<LayoutDto, GetLayoutError> result = await handler.HandleAsync(
+            new GetLayoutQuery([Munich, Dresden], inDresden.Id), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Fab.ShouldBe("dresden");
     }
 }
