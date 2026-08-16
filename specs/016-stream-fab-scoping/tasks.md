@@ -66,7 +66,7 @@ and resolves existing streams against a fab-scoped camera catalogue.
 
 - [x] T010 [P] [US2] Add cases to the handler tests under `tests/StreamDistribution.Application.Tests/EventHandlers/` asserting a dresden camera's event provisions a dresden stream. **Assert dresden, not munich** — everything else defaults to munich and a hard-coded fab would pass.
 - [x] T011 [P] [US2] Add a case asserting an event with no fab provisions **nothing** and logs it (FR-004). Assert the downstream effect — that no stream was added — not merely that nothing threw.
-- [ ] T012 [US2] Add `tests/Integration.Tests/StreamDistribution/StreamFabDerivationIntegrationTests.cs`: register a camera in each fab over real HTTP, then assert each provisioned stream carries its camera's fab. Covers SC-003.
+- [x] T012 [US2] Add `tests/Integration.Tests/StreamDistribution/StreamFabDerivationIntegrationTests.cs`: register a camera in each fab over real HTTP, then assert each provisioned stream carries its camera's fab. Covers SC-003.
 
 **Checkpoint**: SC-003 observed. New streams are attributed.
 
