@@ -28,6 +28,11 @@ public static class LayoutCompositionApiModule
         services.AddScoped<RevertRevisionCommandHandler>();
         services.AddScoped<GetLayoutQueryHandler>();
         services.AddScoped<ListLayoutsQueryHandler>();
+        // Not an endpoint's dependency — the two overlay lifecycle subscribers
+        // use it to work out which fabs are told about an overlay (spec 017
+        // FR-010). Registered here with the other query handlers because that
+        // is where they live, not because a route resolves it.
+        services.AddScoped<FabsReferencingOverlayQueryHandler>();
 
         return services;
     }

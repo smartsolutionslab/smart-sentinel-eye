@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
+using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts;
@@ -23,7 +24,8 @@ public class OverlayRevisionArchivedV1HandlerTests
     {
         FakeLayoutLifecycleBroadcaster broadcaster = new();
         OverlayRevisionArchivedV1Handler handler = new(
-            broadcaster, NullLogger<OverlayRevisionArchivedV1Handler>.Instance);
+            broadcaster,
+            new FabsReferencingOverlayQueryHandler(new InMemoryLayoutQuerySource(new InMemoryLayoutRepository())), NullLogger<OverlayRevisionArchivedV1Handler>.Instance);
 
         Guid overlay = Guid.CreateVersion7();
         OverlayRevisionArchivedV1 message = new(

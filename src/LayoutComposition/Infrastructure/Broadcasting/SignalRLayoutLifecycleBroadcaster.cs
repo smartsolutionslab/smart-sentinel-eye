@@ -68,9 +68,16 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
             FontSizePx: notification.FontSizePx,
             PublishedAt: notification.PublishedAt);
 
-        await BroadcastAsync(
-            () => hub.Clients.All.OverlayRevisionPublished(message),
-            ex => logger.OverlayRevisionPublishedBroadcastFailed(ex, notification.Overlay, notification.RevisionNumber));
+        // One send per fab that references the overlay (FR-010), and none at
+        // all when nothing does (FR-011) — the loop simply has nothing to
+        // iterate, rather than sending to an empty group.
+        foreach (FabIdentifier fab in notification.Fabs)
+        {
+            await BroadcastAsync(
+                () => hub.Clients.Group(LayoutLifecycleHub.FabGroup(fab.Value))
+                    .OverlayRevisionPublished(message),
+                ex => logger.OverlayRevisionPublishedBroadcastFailed(ex, notification.Overlay, notification.RevisionNumber));
+        }
     }
 
     public async Task OverlayArchivedAsync(OverlayLifecycleArchivedNotification notification, CancellationToken cancellationToken)
@@ -82,9 +89,14 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
             RevisionNumber: notification.RevisionNumber,
             ArchivedAt: notification.ArchivedAt);
 
-        await BroadcastAsync(
-            () => hub.Clients.All.OverlayRevisionArchived(message),
-            ex => logger.OverlayRevisionArchivedBroadcastFailed(ex, notification.Overlay, notification.RevisionNumber));
+        // Per fab, and nothing for an empty set — as the published frame above.
+        foreach (FabIdentifier fab in notification.Fabs)
+        {
+            await BroadcastAsync(
+                () => hub.Clients.Group(LayoutLifecycleHub.FabGroup(fab.Value))
+                    .OverlayRevisionArchived(message),
+                ex => logger.OverlayRevisionArchivedBroadcastFailed(ex, notification.Overlay, notification.RevisionNumber));
+        }
     }
 
     public async Task ResolvedOverlayTextChangedAsync(ResolvedOverlayTextChangedNotification notification, CancellationToken cancellationToken)
