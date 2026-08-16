@@ -113,7 +113,7 @@ public class AggregateVersionConflictIntegrationTests(AspireFixture aspire) : IA
             grid = new { rows = 1, cols = 1 },
             tiles = new[]
             {
-                new { cameraIdentifier = Guid.CreateVersion7(), overlayIdentifier = (Guid?)null, row = 0, col = 0 },
+                new { cameraIdentifier = await LayoutRequests.RegisterCameraAsync(aspire), overlayIdentifier = (Guid?)null, row = 0, col = 0 },
             },
         });
         created.EnsureSuccessStatusCode();

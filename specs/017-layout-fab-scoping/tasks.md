@@ -113,7 +113,7 @@
 - [x] T035 [US5] Enforce the guard in `CreateLayoutDraftCommandHandler` and `EditDraftRevisionCommandHandler`. **An unresolvable camera is refused by the same path** (FR-015) — a separate branch treating "unknown" leniently makes FR-014 bypassable.
 - [x] T036 [US5] Record a refused cross-fab tile in `src/LayoutComposition/Application/Log.cs` (constitution §VII). It is an attempt to cross a boundary, not a typo.
 - [x] T037 [P] [US5] Add handler tests with a fake `ICameraFabGuard` under `tests/LayoutComposition.Application.Tests/Commands/`: same-fab accepted, cross-fab refused naming the tile, unknown camera refused.
-- [ ] T038 [US5] Add an integration case to `LayoutFabScopingIntegrationTests.cs`: a dresden operator's tile naming a munich camera is refused. Covers SC-006.
+- [x] T038 [US5] Add an integration case to `LayoutFabScopingIntegrationTests.cs`: a dresden operator's tile naming a munich camera is refused. Covers SC-006.
 
 **Checkpoint**: SC-006 observed. The route around the isolation is closed.
 
