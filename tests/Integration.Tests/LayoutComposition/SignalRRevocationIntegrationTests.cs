@@ -38,7 +38,7 @@ public class SignalRRevocationIntegrationTests(AspireFixture aspire) : IAsyncLif
             {
                 name = $"Live-{Guid.NewGuid():N}".Substring(0, 16),
                 grid = new { rows = 1, cols = 1 },
-                tiles = new[] { new { cameraIdentifier = Guid.CreateVersion7(), overlayIdentifier = (Guid?)null, row = 0, col = 0 } },
+                tiles = new[] { new { cameraIdentifier = await LayoutRequests.RegisterCameraAsync(aspire), overlayIdentifier = (Guid?)null, row = 0, col = 0 } },
             });
         created.EnsureSuccessStatusCode();
         Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();

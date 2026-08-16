@@ -23,8 +23,8 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     public async Task Publishing_a_new_revision_atomically_archives_the_previous_Published_revision()
     {
         using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid camera1 = Guid.CreateVersion7();
-        Guid camera2 = Guid.CreateVersion7();
+        Guid camera1 = await LayoutRequests.RegisterCameraAsync(aspire);
+        Guid camera2 = await LayoutRequests.RegisterCameraAsync(aspire);
 
         Guid layoutIdentifier = await CreateAndPublishAsync(layouts, "Line-Edit", camera1);
 
@@ -66,7 +66,7 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     {
         using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
         Guid layoutIdentifier = await CreateAndPublishAsync(
-            layouts, "Line-Revert", Guid.CreateVersion7());
+            layouts, "Line-Revert", await LayoutRequests.RegisterCameraAsync(aspire));
 
         HttpResponseMessage reverted = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/revert");
         reverted.EnsureSuccessStatusCode();
@@ -81,7 +81,7 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     {
         using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
         HttpResponseMessage created = await layouts.PostAsJsonAsync(
-            "/layouts", SingleTileBody($"Drf-{Guid.NewGuid():N}".Substring(0, 16), Guid.CreateVersion7()));
+            "/layouts", SingleTileBody($"Drf-{Guid.NewGuid():N}".Substring(0, 16), await LayoutRequests.RegisterCameraAsync(aspire)));
         created.EnsureSuccessStatusCode();
         Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 

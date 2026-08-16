@@ -30,7 +30,7 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
         Stopwatch sw = Stopwatch.StartNew();
         HttpResponseMessage created = await layouts.PostAsJsonAsync(
             "/layouts",
-            SingleTileBody($"Line-{Guid.NewGuid():N}".Substring(0, 16), Guid.CreateVersion7()));
+            SingleTileBody($"Line-{Guid.NewGuid():N}".Substring(0, 16), await LayoutRequests.RegisterCameraAsync(aspire)));
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
         Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
         layoutIdentifier.ShouldNotBe(Guid.Empty);
@@ -63,11 +63,11 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
         string sharedName = $"Cam-{Guid.NewGuid():N}".Substring(0, 16);
 
         HttpResponseMessage first = await layouts.PostAsJsonAsync(
-            "/layouts", SingleTileBody(sharedName, Guid.CreateVersion7()));
+            "/layouts", SingleTileBody(sharedName, await LayoutRequests.RegisterCameraAsync(aspire)));
         first.StatusCode.ShouldBe(HttpStatusCode.Created);
 
         HttpResponseMessage second = await layouts.PostAsJsonAsync(
-            "/layouts", SingleTileBody(sharedName, Guid.CreateVersion7()));
+            "/layouts", SingleTileBody(sharedName, await LayoutRequests.RegisterCameraAsync(aspire)));
         second.StatusCode.ShouldBe(HttpStatusCode.Conflict);
         JsonElement problem = await second.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_NAME_TAKEN");
@@ -81,11 +81,11 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
         string pubName = $"Pub-{Guid.NewGuid():N}".Substring(0, 16);
 
         HttpResponseMessage draftRaw = await layouts.PostAsJsonAsync(
-            "/layouts", SingleTileBody(draftName, Guid.CreateVersion7()));
+            "/layouts", SingleTileBody(draftName, await LayoutRequests.RegisterCameraAsync(aspire)));
         draftRaw.EnsureSuccessStatusCode();
 
         HttpResponseMessage pubRaw = await layouts.PostAsJsonAsync(
-            "/layouts", SingleTileBody(pubName, Guid.CreateVersion7()));
+            "/layouts", SingleTileBody(pubName, await LayoutRequests.RegisterCameraAsync(aspire)));
         pubRaw.EnsureSuccessStatusCode();
         Guid pubIdentifier = await pubRaw.Content.ReadFromJsonAsync<Guid>();
         HttpResponseMessage publish = await LayoutRequests.PostAsync(layouts, pubIdentifier, "revisions/1/publish");
@@ -121,7 +121,13 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
     public async Task A_4_tile_2x2_wall_round_trips_through_persistence()
     {
         using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid[] cameras = [Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7()];
+        Guid[] cameras =
+        [
+            await LayoutRequests.RegisterCameraAsync(aspire),
+            await LayoutRequests.RegisterCameraAsync(aspire),
+            await LayoutRequests.RegisterCameraAsync(aspire),
+            await LayoutRequests.RegisterCameraAsync(aspire),
+        ];
         Guid overlay = Guid.CreateVersion7();
         object body = new
         {
@@ -159,7 +165,7 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
     public async Task A_single_camera_layout_persists_as_a_1x1_tile_at_origin()
     {
         using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid camera = Guid.CreateVersion7();
+        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire);
 
         HttpResponseMessage created = await layouts.PostAsJsonAsync(
             "/layouts", SingleTileBody($"Cell-{Guid.NewGuid():N}".Substring(0, 16), camera));

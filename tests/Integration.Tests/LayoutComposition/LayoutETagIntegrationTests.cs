@@ -105,9 +105,13 @@ public class LayoutETagIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         archived.EnsureSuccessStatusCode();
     }
 
-    private static async Task<Guid> CreateDraftAsync(HttpClient layouts)
+    private async Task<Guid> CreateDraftAsync(HttpClient layouts)
     {
         string name = $"Etag-{Guid.NewGuid():N}"[..16];
+
+        // A real camera, in the layout's fab: since spec 017 FR-014 a tile
+        // cannot name one that does not exist.
+        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire);
 
         HttpResponseMessage created = await layouts.PostAsJsonAsync("/layouts", new
         {
@@ -115,7 +119,7 @@ public class LayoutETagIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             grid = new { rows = 1, cols = 1 },
             tiles = new[]
             {
-                new { cameraIdentifier = Guid.CreateVersion7(), overlayIdentifier = (Guid?)null, row = 0, col = 0 },
+                new { cameraIdentifier = camera, overlayIdentifier = (Guid?)null, row = 0, col = 0 },
             },
         });
         created.EnsureSuccessStatusCode();

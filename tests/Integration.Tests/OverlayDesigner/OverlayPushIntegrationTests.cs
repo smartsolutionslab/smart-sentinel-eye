@@ -80,6 +80,7 @@ public class OverlayPushIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         // ≤1 s budget is a steady-state SLO, so warm the path with a throwaway
         // publish, wait for both clients to receive it, then measure the next.
         Guid warmupIdentifier = await CreateOverlayAsync(overlays);
+        await ReferenceFromAPublishedLayoutAsync(warmupIdentifier);
         (await OverlayRequests.PostAsync(overlays, warmupIdentifier, $"revisions/1/publish"))
             .EnsureSuccessStatusCode();
         using (CancellationTokenSource warmupBudget = new(TimeSpan.FromSeconds(20)))
@@ -92,6 +93,7 @@ public class OverlayPushIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         // Measured publish over the now-warm path (a fresh sibling overlay
         // exercises the same Published broadcast).
         Guid siblingIdentifier = await CreateOverlayAsync(overlays);
+        await ReferenceFromAPublishedLayoutAsync(siblingIdentifier);
 
         // Version read before the clock starts: this window measures
         // publish→push, not the lookup.
@@ -130,6 +132,45 @@ public class OverlayPushIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             });
         created.EnsureSuccessStatusCode();
         return await created.Content.ReadFromJsonAsync<Guid>();
+    }
+
+    /// <summary>
+    /// Publishes a layout referencing the overlay, so this fab is among those
+    /// told about it.
+    ///
+    /// <para>
+    /// Required since spec 017 FR-010/FR-011: an overlay lifecycle frame goes
+    /// only to the fabs that have a published layout carrying that overlay,
+    /// and an overlay nobody references reaches nobody at all. Before that,
+    /// every overlay publish went to <c>Clients.All</c> and this test's
+    /// listeners heard it without any layout existing. That is precisely the
+    /// leak spec 017 closes, so the test now has to earn its frame.
+    /// </para>
+    /// </summary>
+    private async Task ReferenceFromAPublishedLayoutAsync(Guid overlay)
+    {
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
+
+        HttpResponseMessage created = await layouts.PostAsJsonAsync("/layouts", new
+        {
+            name = $"Ref-{Guid.NewGuid():N}"[..16],
+            grid = new { rows = 1, cols = 1 },
+            tiles = new[]
+            {
+                new
+                {
+                    cameraIdentifier = await LayoutRequests.RegisterCameraAsync(aspire),
+                    overlayIdentifier = (Guid?)overlay,
+                    row = 0,
+                    col = 0,
+                },
+            },
+        });
+        created.EnsureSuccessStatusCode();
+
+        Guid layout = await created.Content.ReadFromJsonAsync<Guid>();
+        (await LayoutRequests.PostAsync(layouts, layout, "revisions/1/publish"))
+            .EnsureSuccessStatusCode();
     }
 
     private static HubConnection BuildClient(Uri hubUri, string accessToken) =>
