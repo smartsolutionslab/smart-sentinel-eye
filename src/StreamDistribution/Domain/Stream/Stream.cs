@@ -105,6 +105,31 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
         return stream;
     }
 
+    /// <summary>
+    /// Fills in the fab of a stream provisioned before spec 016 (FR-008).
+    ///
+    /// <para>
+    /// One-way, and that is the whole of the guarantee: it moves a stream from
+    /// "fab unknown" to "fab known" and refuses anything else. FR-002 says a
+    /// stream's fab and its camera's must never differ; a stream that already
+    /// has one took it from its camera at provisioning, and a camera cannot
+    /// change fab (spec 015 FR-004), so there is no legitimate second call.
+    /// A plain setter would allow one.
+    /// </para>
+    /// </summary>
+    public void AttributeToFab(FabIdentifier fab)
+    {
+        Ensure.That(fab).IsNotNull();
+
+        if (Fab is not null)
+        {
+            throw new InvalidOperationException(
+                $"Stream {Id} already belongs to fab {Fab}; a stream's fab is its camera's and cannot be reassigned.");
+        }
+
+        Fab = fab;
+    }
+
     public void ReportHealthy(TranscodeMode detectedMode, IClock clock)
     {
         Ensure.That(detectedMode).IsNotNull();

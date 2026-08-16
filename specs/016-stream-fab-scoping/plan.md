@@ -104,6 +104,28 @@ slipped in. Three things bound it:
 **Gate: PASS**, with §III recorded as a justified, bounded exception rather
 than a clean sheet.
 
+#### What implementation added to this, and why it needed a decision
+
+Two facts turned up when the call was actually written, neither of which this
+plan had checked:
+
+1. **CameraCatalog has no read-by-identifier route** — only `POST /cameras`
+   and `GET /cameras` (#1435). A stream's camera cannot be resolved
+   individually; the catalogue is read whole and indexed.
+2. **`GET /cameras` is itself fab-scoped** and needs a token. But a stream's
+   fab is precisely what is unknown, so the read cannot be narrowed to the
+   right fab in advance — a caller holding one fab would resolve that fab's
+   streams and leave every other plant's permanently unattributed.
+
+So the pass presents a dedicated service account that is a member of every fab
+group and holds `sse.cameras.read` and nothing else. That is a real widening of
+who can read the camera catalogue, so it is **ADR-0116** rather than a line in
+this plan: read-only, one route, startup only, and never again once no
+unattributed stream remains.
+
+Point 3 above — that the failure path be chosen rather than inherited — is
+asserted by `StreamFabAttributionFailureTests`.
+
 ## Why the obvious alternative was rejected
 
 `20260728210420_PersistStreamSourceUrl` hit this exact cross-database wall and

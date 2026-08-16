@@ -239,25 +239,34 @@ public class StreamTests
     }
 
     /// <summary>
-    /// The guarantee behind FR-002 is structural, not behavioural: nothing
-    /// outside the aggregate can set the fab, so a stream's fab and its
-    /// camera's cannot be made to differ. A test of behaviour would not catch
-    /// someone adding a setter.
+    /// Part of the FR-002 guarantee is structural rather than behavioural: no
+    /// setter exists, so nothing outside the aggregate can assign the fab. A
+    /// behavioural test would not catch someone adding one.
     /// </summary>
     [Fact]
-    public void The_fab_cannot_be_set_from_outside_the_aggregate()
+    public void The_fab_has_no_setter()
     {
         typeof(Domain.Stream.Stream)
             .GetProperty(nameof(Domain.Stream.Stream.Fab))
             .GetSetMethod(nonPublic: false)
             .ShouldBeNull();
+    }
 
-        // Property accessors are excluded — get_Fab is the reader asserted above.
-        typeof(Domain.Stream.Stream)
-            .GetMethods()
-            .Where(method => !method.IsSpecialName)
-            .Select(method => method.Name)
-            .ShouldNotContain(name => name.Contains("Fab", StringComparison.Ordinal));
+    /// <summary>
+    /// The other part, and the one a setter would break: <c>AttributeToFab</c>
+    /// exists for FR-008 and moves a stream from "fab unknown" to "fab known"
+    /// only. A stream that already has a fab took it from its camera, and a
+    /// camera cannot change fab, so a second call has no legitimate meaning.
+    /// </summary>
+    [Fact]
+    public void A_stream_that_already_has_a_fab_cannot_be_reattributed()
+    {
+        Domain.Stream.Stream stream = new StreamBuilder().WithFab(FabIdentifier.From("munich")).Build();
+
+        Action act = () => stream.AttributeToFab(FabIdentifier.From("dresden"));
+
+        act.ShouldThrow<InvalidOperationException>();
+        stream.Fab.ShouldBe(FabIdentifier.From("munich"));
     }
 
     private sealed class TestClock(DateTimeOffset moment) : IClock
