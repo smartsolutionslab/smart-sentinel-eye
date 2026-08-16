@@ -74,13 +74,13 @@ and resolves existing streams against a fab-scoped camera catalogue.
 
 ## Phase 4: User Story 1 — An operator sees only their own plant's video (P1)
 
-- [ ] T013 [US1] Thread the caller's fabs into both queries and handlers in `src/StreamDistribution/Application/Queries/`. The filter is `fab IN (caller's fabs)` — **NULL satisfies no `IN`**, so FR-009 falls out of the query rather than needing a special case.
-- [ ] T014 [US1] Add fab resolution to the two read endpoints in `src/StreamDistribution/Api/StreamEndpoints.cs` using `FabClaims` and `FabResolution.ResolveForReadAsync` **unchanged**. **Do not touch `POST /authorize`** — the caller is MediaMTX and holds no fab ([contracts/streams-api.md](./contracts/streams-api.md)).
-- [ ] T015 [US1] Return **404** for a stream in a fab the caller lacks, byte-identical to a camera with no stream (FR-006). No 403 — a stream record carries the MediaMTX path its video is served on.
-- [ ] T016 [P] [US1] Add `Fab` to the stream DTO and its mapper in `src/StreamDistribution/Application/DTOs/`, so a multi-fab operator can see which plant a stream belongs to without cross-referencing the camera catalogue.
-- [ ] T017 [US1] Declare **403** on both scoped endpoints in `src/StreamDistribution/Api/StreamEndpoints.cs`; it became reachable with this feature. Spec 013 shipped this wrong on one endpoint and it took a review to catch.
-- [ ] T018 [P] [US1] Add handler tests under `tests/StreamDistribution.Application.Tests/Queries/` for the scoping and the not-found path.
-- [ ] T019 [US1] Add `tests/Integration.Tests/StreamDistribution/StreamFabScopingIntegrationTests.cs` with `op-dresden@dresden.test` and `op-multi@smart-sentinel-eye.test`: listing scoped, another fab's stream 404 **compared field by field** with `traceId` removed, and 403 for a fab not held. Covers SC-001 and SC-002.
+- [x] T013 [US1] Thread the caller's fabs into both queries and handlers in `src/StreamDistribution/Application/Queries/`. The filter is `fab IN (caller's fabs)` — **NULL satisfies no `IN`**, so FR-009 falls out of the query rather than needing a special case.
+- [x] T014 [US1] Add fab resolution to the two read endpoints in `src/StreamDistribution/Api/StreamEndpoints.cs` using `FabClaims` and `FabResolution.ResolveForReadAsync` **unchanged**. **Do not touch `POST /authorize`** — the caller is MediaMTX and holds no fab ([contracts/streams-api.md](./contracts/streams-api.md)).
+- [x] T015 [US1] Return **404** for a stream in a fab the caller lacks, byte-identical to a camera with no stream (FR-006). No 403 — a stream record carries the MediaMTX path its video is served on.
+- [x] T016 [P] [US1] Add `Fab` to the stream DTO and its mapper in `src/StreamDistribution/Application/DTOs/`, so a multi-fab operator can see which plant a stream belongs to without cross-referencing the camera catalogue.
+- [x] T017 [US1] Declare **403** on both scoped endpoints in `src/StreamDistribution/Api/StreamEndpoints.cs`; it became reachable with this feature. Spec 013 shipped this wrong on one endpoint and it took a review to catch.
+- [x] T018 [P] [US1] Add handler tests under `tests/StreamDistribution.Application.Tests/Queries/` for the scoping and the not-found path.
+- [x] T019 [US1] Add `tests/Integration.Tests/StreamDistribution/StreamFabScopingIntegrationTests.cs` with `op-dresden@dresden.test` and `op-multi@smart-sentinel-eye.test`: listing scoped, another fab's stream 404 **compared field by field** with `traceId` removed, and 403 for a fab not held. Covers SC-001 and SC-002.
 
 **Checkpoint**: The video is closed. SC-001 and SC-002 observed.
 
@@ -101,7 +101,7 @@ and resolves existing streams against a fab-scoped camera catalogue.
 
 ## Phase 6: Polish
 
-- [ ] T026 [US1] Establish a latency baseline for the read path **before** T013 lands, and re-measure after. SC-005 says no measurable regression; measured afterwards only, it compares the new code against itself. *If T013 has already landed when this is picked up, say so on the PR rather than measuring twice after the fact.*
+- [x] T026 [US1] Establish a latency baseline for the read path **before** T013 lands, and re-measure after. SC-005 says no measurable regression; measured afterwards only, it compares the new code against itself. *If T013 has already landed when this is picked up, say so on the PR rather than measuring twice after the fact.*
 - [ ] T027 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `StreamDistribution.Domain` clears 90% and `Application` 80%.
 - [ ] T028 Walk [quickstart.md](./quickstart.md) end to end and record the observations on the PR. **"Done" is the observations.** Step 1 is the one that cannot be faked: blank the fabs, restart, and confirm streams land in *their own* fabs — if everything lands in munich, the derivation silently fell back to a default.
 - [ ] T029 Comment on #1155 that StreamDistribution is no longer among the contexts missing the guard, and on #1397 that only LayoutComposition remains. **Write `Closes #N, closes #M`** — the keyword must precede each number, and it only fires on merge to the default branch. Both traps caught spec 015.

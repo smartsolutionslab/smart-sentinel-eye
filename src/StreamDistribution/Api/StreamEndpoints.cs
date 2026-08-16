@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
@@ -25,17 +26,30 @@ public static class StreamEndpoints
         RouteGroupBuilder group = app.MapGroup("/streams")
             .WithTags("Streams");
 
+        // 403 became reachable with spec 016 (T017): a caller may name a fab
+        // they do not hold, or hold none at all. Declaring it keeps the
+        // generated OpenAPI from claiming a status that can happen cannot;
+        // spec 013 shipped this wrong on one endpoint and it took a review to
+        // catch.
         group.MapGet("/{cameraIdentifier:guid}", GetOne)
             .RequireAuthorization(Scope.Sse.Streams.Read)
             .WithName("GetStream")
+            .WithSummary(
+                "Get one camera's stream, within your fabs. A stream in a fab you do not hold "
+                + "is reported exactly as a camera with no stream (spec 016 FR-006).")
             .Produces<StreamHealthDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/", ListByCameras)
             .RequireAuthorization(Scope.Sse.Streams.Read)
             .WithName("ListStreams")
+            .WithSummary(
+                "Batch-read stream health within your fabs. Omit fabId to span all of them; "
+                + "name one to narrow.")
             .Produces<IReadOnlyList<StreamHealthDto>>(StatusCodes.Status200OK)
-            .ProducesValidationProblem(StatusCodes.Status400BadRequest);
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         // MediaMTX's external auth hook POSTs to a single fixed address with the
         // stream path + the client's bearer in the JSON body — it can't template
@@ -52,7 +66,13 @@ public static class StreamEndpoints
         return app;
     }
 
-    private static async Task<IResult> GetOne(Guid cameraIdentifier, [FromServices] GetStreamQueryHandler handler, CancellationToken cancellationToken)
+    private static async Task<IResult> GetOne(
+        Guid cameraIdentifier,
+        [FromServices] GetStreamQueryHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        HttpContext httpContext,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
     {
         if (cameraIdentifier == Guid.Empty)
         {
@@ -62,13 +82,26 @@ public static class StreamEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        GetStreamQuery query = new(CameraIdentifier.From(cameraIdentifier));
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveReadFabsAsync(httpContext.User, fabId, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
+        GetStreamQuery query = new(fabs, CameraIdentifier.From(cameraIdentifier));
         Result<StreamHealthDto, GetStreamError> result = await handler.HandleAsync(query, cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
 
-    private static async Task<IResult> ListByCameras([FromQuery] string? cameraIdentifiers, [FromServices] ListStreamsQueryHandler handler, CancellationToken cancellationToken)
+    private static async Task<IResult> ListByCameras(
+        [FromQuery] string cameraIdentifiers,
+        [FromServices] ListStreamsQueryHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        HttpContext httpContext,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
     {
         IReadOnlyList<CameraIdentifier> parsed;
         try
@@ -83,9 +116,64 @@ public static class StreamEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result = await handler.HandleAsync(new ListStreamsQuery(parsed), cancellationToken);
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveReadFabsAsync(httpContext.User, fabId, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
+        Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result =
+            await handler.HandleAsync(new ListStreamsQuery(fabs, parsed), cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
+    }
+
+    /// <summary>
+    /// The fabs a read may span. StreamDistribution's binding of the shared
+    /// decision table (ADR-0114) to its own <see cref="FabIdentifier"/>; the
+    /// table itself is <see cref="FabResolution"/>, used unchanged.
+    ///
+    /// <para>
+    /// Parsed per entry rather than all-or-nothing, mirroring
+    /// <c>CameraEndpoints</c>: one group under <c>/fabs/</c> that is not a
+    /// usable fab name would otherwise hide every stream in the fabs the caller
+    /// legitimately holds.
+    /// </para>
+    /// </summary>
+    private static async Task<(IReadOnlyList<FabIdentifier>? Fabs, IResult? Problem)> ResolveReadFabsAsync(
+        ClaimsPrincipal user,
+        string fabId,
+        IFabAuthorizationGuard fabGuard,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<string> resolved =
+            await FabResolution.ResolveForReadAsync(user, fabId, fabGuard, cancellationToken);
+
+        List<FabIdentifier> fabs = [];
+        foreach (string candidate in resolved)
+        {
+            try
+            {
+                fabs.Add(FabIdentifier.From(candidate));
+            }
+            catch (ArgumentException)
+            {
+                // Skipped, not reported: a caller cannot act on a message about
+                // someone else's group configuration, and if nothing is usable
+                // the request still fails below.
+            }
+        }
+
+        if (fabs.Count == 0)
+        {
+            return (null, Results.Problem(
+                title: "STREAM_FAB_UNUSABLE",
+                detail: "None of your fab groups is a usable fab name.",
+                statusCode: StatusCodes.Status400BadRequest));
+        }
+
+        return (fabs, null);
     }
 
     private static async Task<IResult> AuthorizeWhep(

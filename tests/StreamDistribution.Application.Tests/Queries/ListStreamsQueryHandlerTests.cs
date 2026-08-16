@@ -17,17 +17,20 @@ public class ListStreamsQueryHandlerTests
     private static readonly OperatorIdentifier AnAdmin =
         OperatorIdentifier.From(Guid.CreateVersion7());
 
+    private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+    private static readonly FabIdentifier Dresden = FabIdentifier.From("dresden");
+
     [Fact]
     public async Task Returns_one_dto_per_requested_camera_that_has_a_stream()
     {
         CameraIdentifier camera1 = CameraIdentifier.From(Guid.CreateVersion7());
         CameraIdentifier camera2 = CameraIdentifier.From(Guid.CreateVersion7());
         CameraIdentifier cameraWithoutStream = CameraIdentifier.From(Guid.CreateVersion7());
-        InMemoryStreamRepository streams = Seed(camera1, camera2);
+        InMemoryStreamRepository streams = Seed(Munich, camera1, camera2);
         ListStreamsQueryHandler handler = NewHandler(streams);
 
         Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result = await handler.HandleAsync(
-            new ListStreamsQuery([camera1, camera2, cameraWithoutStream]),
+            new ListStreamsQuery([Munich], [camera1, camera2, cameraWithoutStream]),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -42,7 +45,7 @@ public class ListStreamsQueryHandlerTests
         ListStreamsQueryHandler handler = NewHandler(new InMemoryStreamRepository());
 
         Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result = await handler.HandleAsync(
-            new ListStreamsQuery(Array.Empty<CameraIdentifier>()),
+            new ListStreamsQuery([Munich], Array.Empty<CameraIdentifier>()),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -59,19 +62,65 @@ public class ListStreamsQueryHandlerTests
         ListStreamsQueryHandler handler = NewHandler(new InMemoryStreamRepository());
 
         Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result = await handler.HandleAsync(
-            new ListStreamsQuery(tooMany),
+            new ListStreamsQuery([Munich], tooMany),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBeOfType<ListStreamsError.InvalidBatchSize>();
     }
 
-    private static InMemoryStreamRepository Seed(params CameraIdentifier[] cameras)
+    /// <summary>
+    /// FR-005 + FR-006 on the batch route: another fab's stream drops out of
+    /// the result exactly like a camera that was never provisioned, so the two
+    /// are indistinguishable from the caller's side.
+    /// </summary>
+    [Fact]
+    public async Task A_stream_in_another_fab_is_omitted_like_one_that_does_not_exist()
+    {
+        CameraIdentifier inMunich = CameraIdentifier.From(Guid.CreateVersion7());
+        CameraIdentifier inDresden = CameraIdentifier.From(Guid.CreateVersion7());
+        InMemoryStreamRepository streams = Seed(Munich, inMunich);
+        Add(streams, Dresden, inDresden);
+        ListStreamsQueryHandler handler = NewHandler(streams);
+
+        Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result = await handler.HandleAsync(
+            new ListStreamsQuery([Dresden], [inMunich, inDresden]),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Select(dto => dto.CameraIdentifier).ShouldBe([inDresden.Value]);
+    }
+
+    [Fact]
+    public async Task A_multi_fab_caller_sees_both_plants()
+    {
+        CameraIdentifier inMunich = CameraIdentifier.From(Guid.CreateVersion7());
+        CameraIdentifier inDresden = CameraIdentifier.From(Guid.CreateVersion7());
+        InMemoryStreamRepository streams = Seed(Munich, inMunich);
+        Add(streams, Dresden, inDresden);
+        ListStreamsQueryHandler handler = NewHandler(streams);
+
+        Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result = await handler.HandleAsync(
+            new ListStreamsQuery([Munich, Dresden], [inMunich, inDresden]),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Select(dto => dto.Fab).ShouldBe(["munich", "dresden"], ignoreOrder: true);
+    }
+
+    private static InMemoryStreamRepository Seed(FabIdentifier fab, params CameraIdentifier[] cameras)
     {
         InMemoryStreamRepository streams = new();
+        Add(streams, fab, cameras);
+        return streams;
+    }
+
+    private static void Add(InMemoryStreamRepository streams, FabIdentifier fab, params CameraIdentifier[] cameras)
+    {
         foreach (CameraIdentifier camera in cameras)
         {
             Domain.Stream.Stream stream = new StreamBuilder()
+                .WithFab(fab)
                 .ForCamera(camera)
                 .ProvisionedBy(AnAdmin)
                 .At(FixedMoment)
@@ -80,7 +129,6 @@ public class ListStreamsQueryHandlerTests
             streams.Add(stream);
         }
         streams.SaveAsync(CancellationToken.None).GetAwaiter().GetResult();
-        return streams;
     }
 
     private static ListStreamsQueryHandler NewHandler(InMemoryStreamRepository streams) =>
