@@ -102,7 +102,7 @@ and resolves existing streams against a fab-scoped camera catalogue.
 ## Phase 6: Polish
 
 - [x] T026 [US1] Establish a latency baseline for the read path **before** T013 lands, and re-measure after. SC-005 says no measurable regression; measured afterwards only, it compares the new code against itself. *If T013 has already landed when this is picked up, say so on the PR rather than measuring twice after the fact.*
-- [ ] T027 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `StreamDistribution.Domain` clears 90% and `Application` 80%.
+- [x] T027 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `StreamDistribution.Domain` clears 90% and `Application` 80%.
 - [ ] T028 Walk [quickstart.md](./quickstart.md) end to end and record the observations on the PR. **"Done" is the observations.** Step 1 is the one that cannot be faked: blank the fabs, restart, and confirm streams land in *their own* fabs — if everything lands in munich, the derivation silently fell back to a default.
 - [ ] T029 Comment on #1155 that StreamDistribution is no longer among the contexts missing the guard, and on #1397 that only LayoutComposition remains. **Write `Closes #N, closes #M`** — the keyword must precede each number, and it only fires on merge to the default branch. Both traps caught spec 015.
 
