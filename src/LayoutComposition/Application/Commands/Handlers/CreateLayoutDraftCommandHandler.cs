@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SmartSentinelEye.LayoutComposition.Application.Tiles;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -7,6 +8,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 
 public sealed class CreateLayoutDraftCommandHandler(
     ILayoutRepository layouts,
+    ICameraFabGuard cameraFabs,
     IClock clock,
     ILogger<CreateLayoutDraftCommandHandler> logger)
     : ICommandHandler<CreateLayoutDraftCommand, Result<LayoutIdentifier, CreateLayoutDraftError>>
@@ -22,6 +24,18 @@ public sealed class CreateLayoutDraftCommandHandler(
         if (violation.HasValue)
         {
             return Failure(CreateLayoutDraftError.FromViolation(violation.Value));
+        }
+
+        // FR-014: every tile's camera must be in this layout's fab. Checked
+        // before the name lookup because a cross-fab tile is a boundary
+        // violation, and a name collision is not.
+        IReadOnlyList<CameraIdentifier> outside = await cameraFabs
+            .CamerasOutsideFabAsync(fab, [.. tiles.Select(tile => tile.Camera)], cancellationToken);
+        if (outside.Count > 0)
+        {
+            logger.RefusedCrossFabTiles(fab, outside.Count);
+            return Failure(CreateLayoutDraftFailures.TileCameraOutsideFab(
+                fab.Value, [.. outside.Select(camera => camera.Value)]));
         }
 
         // Scoped to the fab (FR-019). A global check would answer

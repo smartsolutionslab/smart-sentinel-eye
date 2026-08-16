@@ -248,6 +248,15 @@ var layoutComposition = builder
     .WithReference(layoutCompositionDb)
     .WithReference(rabbitmq)
     .WithReference(keycloak)
+    // The one cross-context HTTP call this service makes, and only on the
+    // write path: a tile's camera must be in its layout's fab (spec 017
+    // FR-014), and only CameraCatalog knows a camera's fab. It carries the
+    // caller's own token, so no service account is involved — unlike
+    // ADR-0116's, this exception needs no standing credential.
+    //
+    // Not a WaitFor: a CameraCatalog outage must stop layout *authoring*
+    // only. Reading layouts, the hub pushes and video all carry on.
+    .WithReference(cameraCatalog)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);
 var eventIngestion = builder

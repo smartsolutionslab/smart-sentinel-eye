@@ -21,6 +21,23 @@ public abstract record CreateLayoutDraftError(string Code, string Message, HttpS
             $"A non-archived layout with the name '{Name}' already exists.",
             HttpStatusCode.Conflict);
 
+    /// <summary>
+    /// Spec 017 FR-014 / FR-015. Names the offending cameras, because a layout
+    /// may hold four tiles and "one of them is wrong" is not actionable.
+    ///
+    /// <para>
+    /// The message deliberately does not say <em>which</em> fab an offending
+    /// camera is in, nor whether it exists at all: the caller cannot see that
+    /// fab's cameras, and saying so would turn this refusal into the
+    /// enumeration oracle FR-006 exists to close.
+    /// </para>
+    /// </summary>
+    public sealed record TileCameraOutsideFab(string Fab, IReadOnlyList<Guid> Cameras)
+        : CreateLayoutDraftError(
+            "LAYOUT_TILE_CAMERA_OUTSIDE_FAB",
+            $"These cameras are not available in fab '{Fab}': {string.Join(", ", Cameras)}.",
+            HttpStatusCode.BadRequest);
+
     public sealed record GridEmpty()
         : CreateLayoutDraftError(
             "LAYOUT_GRID_EMPTY",
@@ -66,6 +83,9 @@ public static class CreateLayoutDraftFailures
 {
     public static CreateLayoutDraftError LayoutNameTaken(string name) =>
         new CreateLayoutDraftError.LayoutNameTaken(name);
+
+    public static CreateLayoutDraftError TileCameraOutsideFab(string fab, IReadOnlyList<Guid> cameras) =>
+        new CreateLayoutDraftError.TileCameraOutsideFab(fab, cameras);
 
     public static CreateLayoutDraftError GridEmpty() =>
         new CreateLayoutDraftError.GridEmpty();

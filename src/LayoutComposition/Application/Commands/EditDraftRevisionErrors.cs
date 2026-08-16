@@ -30,6 +30,17 @@ public abstract record EditDraftRevisionError(string Code, string Message, HttpS
             $"Revision is in state '{FromState}'; only Draft revisions can be edited in place.",
             HttpStatusCode.Conflict);
 
+    /// <summary>
+    /// Spec 017 FR-014 / FR-015 on the edit path. Checked against the
+    /// layout's fab, not the caller's: a multi-fab operator editing a dresden
+    /// layout may still only use dresden's cameras.
+    /// </summary>
+    public sealed record TileCameraOutsideFab(string Fab, IReadOnlyList<Guid> Cameras)
+        : EditDraftRevisionError(
+            "LAYOUT_TILE_CAMERA_OUTSIDE_FAB",
+            $"These cameras are not available in fab '{Fab}': {string.Join(", ", Cameras)}.",
+            HttpStatusCode.BadRequest);
+
     public sealed record GridEmpty()
         : EditDraftRevisionError(
             "LAYOUT_GRID_EMPTY",
@@ -86,6 +97,9 @@ public static class EditDraftRevisionFailures
 {
     public static EditDraftRevisionError LayoutNotFound(Guid layout) =>
         new EditDraftRevisionError.LayoutNotFound(layout);
+
+    public static EditDraftRevisionError TileCameraOutsideFab(string fab, IReadOnlyList<Guid> cameras) =>
+        new EditDraftRevisionError.TileCameraOutsideFab(fab, cameras);
 
     public static EditDraftRevisionError LayoutRevisionNotFound(Guid layout, int revisionNumber) =>
         new EditDraftRevisionError.LayoutRevisionNotFound(layout, revisionNumber);
