@@ -28,13 +28,34 @@ context's own database and can simply be attributed
 ([research.md](./research.md) §3). Nullable-then-tightened in one migration is
 the spec 013–015 pattern, and it applies cleanly.
 
-### Why the name is *not* made unique per fab
+### The name uniqueness check must become fab-scoped
 
-Rules, variables and cameras all gained a `(fab, name)` unique index. **A
-layout name is not unique today** — there is no unique index on
-`layouts.name` — so adding `(fab, name)` would be introducing a constraint
-this feature was not asked for, on data that may already violate it. Out of
-scope; noted so its absence does not read as an oversight.
+**Corrected after reading `CreateLayoutDraftCommandHandler`.** A layout name
+*is* unique today — but the rule lives in the **handler**, not the database:
+
+```csharp
+Option<Layout> existing = await layouts.GetByNameAsync(name, cancellationToken);
+if (existing.HasValue) return Failure(CreateLayoutDraftFailures.LayoutNameTaken(name.Value));
+```
+
+`ix_layouts_name` is a plain index, not unique. So the check is global and
+invisible in the schema — which is exactly how it would have been missed by
+drafting against the migration alone.
+
+Left global, it breaks fab isolation in **two** ways:
+
+1. Dresden cannot create a layout named "Main Wall" if Munich already has one.
+2. Worse, the refusal *tells* them Munich has one. `409 LAYOUT_NAME_TAKEN` on a
+   name they cannot see is an enumeration oracle — the same leak FR-006 closes
+   on the read path, reopened on the write path.
+
+So `GetByNameAsync` becomes fab-scoped (FR-019), and `ix_layouts_name` becomes
+`(fab, name)`. That matches what rules, variables and cameras each did.
+
+**Not made a unique *database* index.** The existing constraint is
+application-level, and promoting it is a behaviour change on data that may
+already violate it — a separate decision from fab-scoping. The index stays
+plain, widened to `(fab, name)` so the scoped lookup is indexed.
 
 ## Revision
 
@@ -77,10 +98,15 @@ ALTER TABLE layouts ALTER COLUMN fab SET NOT NULL;
 
 -- 4. the listing filter
 CREATE INDEX ix_layouts_fab ON layouts (fab);
+
+-- 5. widen the name lookup to the fab it is now scoped by (FR-019)
+DROP INDEX ix_layouts_name;
+CREATE INDEX ix_layouts_fab_name ON layouts (fab, name);
 ```
 
-**Plain index, not unique** — for the reason above: a layout name is not
-unique, so there is no composite key to build.
+**Both plain, neither unique.** The name constraint is enforced in the handler
+today and this feature scopes it rather than promoting it to the database —
+promoting it is a behaviour change on data that may already violate it.
 
 **`Down`** drops the index and the column. Safe: nothing outside this column
 depends on it.

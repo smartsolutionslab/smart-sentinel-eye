@@ -59,6 +59,7 @@ none. What exists:
 |---|---|
 | Endpoints | `POST /layouts`, `GET /layouts/{id}`, `GET /layouts`, `POST .../publish`, `POST .../archive`, `POST /{id}/draft`, `PATCH .../revisions/{n}`, `POST .../revert` — **eight**, six of them writes |
 | Aggregate | `Layout` — `Name`, `Revisions`, `CreatedAt`, `CreatedBy`. **No fab.** |
+| Name uniqueness | **Global, and enforced in the handler** (`GetByNameAsync`), not by a unique index — `ix_layouts_name` is plain. Invisible in the schema, so it must become fab-scoped (FR-019) or it leaks. |
 | Sub-entity | `Revision` — `Number`, `State` (Draft/Published/Archived), `Grid`, `Tiles` |
 | Value object | `Tile` — required `CameraIdentifier`, **optional** `OverlayIdentifier`, `GridPosition` |
 | Tables | `layouts`, `layout_revisions`, `layout_revision_tiles` (`camera_id`, `overlay_id`) |

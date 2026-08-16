@@ -85,6 +85,11 @@ Munich layout by identifier.
    answer is about the fab.
 7. **Given** an operator assigned to no fab, **When** they list, **Then** they
    are refused rather than shown an empty list.
+8. **Given** a layout named "Main Wall" exists in Munich, **When** a
+   Dresden-only operator creates one with that name, **Then** it succeeds —
+   and in particular is not reported as a name already taken.
+9. **Given** a layout named "Main Wall" exists in Dresden, **When** a Dresden
+   operator creates another with that name, **Then** it is still refused.
 
 ---
 
@@ -232,6 +237,17 @@ a Munich camera.
 - **FR-007**: An operator holding no fab MUST be refused rather than shown an
   empty result.
 
+- **FR-019**: A layout name MUST be unique **within a fab** rather than
+  globally. Two fabs MUST each be able to hold a layout of the same name, and a
+  name already used in another fab MUST NOT be reported as taken.
+
+  *Why this is a requirement and not a tidy-up*: the uniqueness check is
+  enforced in the create handler today and is global. Left global it both
+  blocks a plant from using an obvious name because another plant did, and —
+  worse — reports "name taken" for a layout the caller cannot see, which is
+  the enumeration oracle FR-006 closes on the read path reappearing on the
+  write path.
+
 ### Half A — the layout frames
 
 - **FR-008**: The layout-published and layout-archived frames MUST reach only
@@ -313,7 +329,9 @@ a Munich camera.
 - **SC-006**: No tile referencing a camera outside its layout's fab can be
   created or edited into existence — 100% of attempts refused, including one
   naming a camera that does not exist.
-- **SC-007**: No measurable regression on the push path, against a baseline
+- **SC-007**: The same layout name is usable in every fab, and using a name
+  another fab holds is not distinguishable from using a name nobody holds.
+- **SC-008**: No measurable regression on the push path, against a baseline
   taken before the change.
 
 ## Assumptions

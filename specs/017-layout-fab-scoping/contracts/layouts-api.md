@@ -41,6 +41,12 @@ Additionally **400** when any tile's camera is not in the resolved fab
 the offending tile's position — a layout has up to four tiles and "one of them
 is wrong" is not actionable.
 
+**409 `LAYOUT_NAME_TAKEN` becomes fab-scoped** (FR-019). It fires only when the
+name is taken *in the resolved fab*. Today the check is global, so a name held
+by another plant answers 409 to a caller who cannot see that layout — an
+enumeration oracle on the write path. After this change, a name held only in
+another fab is indistinguishable from a name nobody holds.
+
 ## `GET /layouts` — list
 
 | | |
