@@ -39,8 +39,8 @@
 
 ## Phase 2: Foundational (blocking) — the resolvers
 
-- [ ] T002 Add `ResolveReadFabsAsync` and `ResolveWriteFabAsync` to `src/EventIngestion/Api/EventsEndpoints.cs`, binding `FabResolution` to this context's `FabIdentifier`. Mirror `CameraEndpoints`, **including its per-entry parse** of the caller's groups — one unusable group must not fail the whole request. Error code `EVENT_FAB_REQUIRED` for the ambiguity refusal.
-- [ ] T003 [P] Add fab-resolution unit tests under `tests/EventIngestion.Application.Tests/` for the ADR-0114 table as this context binds it: inferred, named-and-held, named-and-not-held, ambiguous, no-fab-at-all.
+- [x] T002 Add `ResolveReadFabsAsync` and `ResolveWriteFabAsync` to `src/EventIngestion/Api/EventsEndpoints.cs`, binding `FabResolution` to this context's `FabIdentifier`. Mirror `CameraEndpoints`, **including its per-entry parse** of the caller's groups — one unusable group must not fail the whole request. Error code `EVENT_FAB_REQUIRED` for the ambiguity refusal.
+- [x] T003 [P] Add fab-resolution unit tests under `tests/EventIngestion.Application.Tests/` for the ADR-0114 table as this context binds it: inferred, named-and-held, named-and-not-held, ambiguous, no-fab-at-all.
 
 **Checkpoint**: The resolvers exist. Nothing uses them, and nothing is scoped.
 
@@ -56,11 +56,11 @@
 
 **Goal**: `POST /events/manual` files events only against fabs the caller holds. **Independent test**: as a Dresden-only operator, submit naming Munich, then check Munich's stream is unchanged.
 
-- [ ] T004 [US2] Apply `ResolveWriteFabAsync` to `IngestManual` in `src/EventIngestion/Api/EventsEndpoints.Writes.cs`, replacing the unchecked `[FromQuery] string fabId`. **Resolve before touching the ingest channel** — a refusal that had already enqueued would place a fabricated event in another plant's stream while reporting that it had been stopped (FR-007).
-- [ ] T005 [US2] Make `fabId` optional on that endpoint so a single-fab operator can omit it, per [contracts/events-api.md](./contracts/events-api.md). This makes a **required** parameter optional; no correctly-behaving client changes.
-- [ ] T006 [US2] Declare **400** `EVENT_FAB_REQUIRED` and **403** on `POST /events/manual` in `src/EventIngestion/Api/EventsEndpoints.cs`. Both became reachable with this change. Spec 013 shipped this wrong on one endpoint and it took a review to catch.
-- [ ] T007 [US2] **Do not touch `IngestWebhook`** in the same file. Confirm by diff that the webhook's `"/fabs/" + fabId` check is byte-identical afterwards (FR-014).
-- [ ] T008 [P] [US2] Add integration cases to `tests/Integration.Tests/EventIngestion/` driving the full write table with real tokens, and — for the 403 case — **assert the event is absent from the target fab's listing afterwards**, not merely that the status was 403. Covers SC-003.
+- [x] T004 [US2] Apply `ResolveWriteFabAsync` to `IngestManual` in `src/EventIngestion/Api/EventsEndpoints.Writes.cs`, replacing the unchecked `[FromQuery] string fabId`. **Resolve before touching the ingest channel** — a refusal that had already enqueued would place a fabricated event in another plant's stream while reporting that it had been stopped (FR-007).
+- [x] T005 [US2] Make `fabId` optional on that endpoint so a single-fab operator can omit it, per [contracts/events-api.md](./contracts/events-api.md). This makes a **required** parameter optional; no correctly-behaving client changes.
+- [x] T006 [US2] Declare **400** `EVENT_FAB_REQUIRED` and **403** on `POST /events/manual` in `src/EventIngestion/Api/EventsEndpoints.cs`. Both became reachable with this change. Spec 013 shipped this wrong on one endpoint and it took a review to catch.
+- [x] T007 [US2] **Do not touch `IngestWebhook`** in the same file. Confirm by diff that the webhook's `"/fabs/" + fabId` check is byte-identical afterwards (FR-014).
+- [x] T008 [P] [US2] Add integration cases to `tests/Integration.Tests/EventIngestion/` driving the full write table with real tokens, and — for the 403 case — **assert the event is absent from the target fab's listing afterwards**, not merely that the status was 403. Covers SC-003.
 
 **Checkpoint**: SC-003 observed. One fab can no longer alter another's state.
 

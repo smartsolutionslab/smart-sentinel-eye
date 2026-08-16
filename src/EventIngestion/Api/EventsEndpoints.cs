@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.EventIngestion.Application.DTOs;
+using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -21,11 +23,20 @@ public static partial class EventsEndpoints
 
         RouteGroupBuilder writes = app.MapGroup("/events").WithTags("Events");
 
+        // 403 became reachable with spec 018: the caller may name a fab they do
+        // not hold, or hold none at all. 400 was already declared but now
+        // covers a second cause — a multi-fab operator omitting fabId. Spec 013
+        // shipped this wrong on one endpoint and it took a review to catch.
         writes.MapPost("/manual", IngestManual)
             .RequireAuthorization(Scope.Sse.Events.Write)
             .WithName("IngestManualEvent")
+            .WithSummary(
+                "Ingest an event into the resolved fab. Omit fabId when you belong to exactly one; "
+                + "name it when you belong to several (ADR-0114). The fab is never taken from the "
+                + "request unchecked (spec 018 FR-006).")
             .Produces<Guid>(StatusCodes.Status202Accepted)
             .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
         writes.MapPost("/webhook/{integrationName}", IngestWebhook)
@@ -56,4 +67,41 @@ public static partial class EventsEndpoints
 
         return app;
     }
+
+    /// <summary>
+    /// EventIngestion's binding of the shared decision table (ADR-0114) to its
+    /// own <see cref="FabIdentifier"/>, for the one operator-driven write
+    /// (spec 018 FR-006).
+    ///
+    /// <para>
+    /// <c>POST /events/webhook/{name}</c> does <b>not</b> use this and must
+    /// not: its caller is a machine presenting its own credentials, and it
+    /// already checks the fab against them (FR-014).
+    /// </para>
+    /// </summary>
+    private static async Task<(FabIdentifier? Fab, IResult? Problem)> ResolveWriteFabAsync(
+        ClaimsPrincipal user,
+        string fabId,
+        IFabAuthorizationGuard fabGuard,
+        CancellationToken cancellationToken)
+    {
+        (string resolved, IResult problem) = await FabResolution.ResolveForWriteAsync(
+            user, fabId, fabGuard, "EVENT_FAB_REQUIRED", cancellationToken);
+        if (problem is not null)
+        {
+            return (null, problem);
+        }
+
+        try
+        {
+            return (FabIdentifier.From(resolved), null);
+        }
+        catch (ArgumentException ex)
+        {
+            return (null, Results.Problem(
+                title: "EVENT_INVALID_INPUT", detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest));
+        }
+    }
+
 }
