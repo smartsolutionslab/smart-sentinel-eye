@@ -121,8 +121,8 @@
 
 ## Phase 7: User Story 4 — Layouts that predate this feature acquire a fab (P2)
 
-- [ ] T039 [US4] Verify the backfill on populated data: `SELECT count(*) FROM layouts WHERE fab IS NULL` → **0**, and the `RAISE WARNING` count appears in the migration-runner log. The notice reaches a log at all only because #1395 wired the Npgsql notice handler.
-- [ ] T040 [US4] Confirm pre-existing tiles are **not** retro-validated against FR-014 (FR-018). The mismatch would come from the migration's own guess; failing over it blocks the deployment the migration exists to fix.
+- [x] T039 [US4] Verify the backfill on populated data: `SELECT count(*) FROM layouts WHERE fab IS NULL` → **0**, and the `RAISE WARNING` count appears in the migration-runner log. The notice reaches a log at all only because #1395 wired the Npgsql notice handler.
+- [x] T040 [US4] Confirm pre-existing tiles are **not** retro-validated against FR-014 (FR-018). The mismatch would come from the migration's own guess; failing over it blocks the deployment the migration exists to fix.
 
 **Checkpoint**: SC-005 observed.
 
@@ -130,10 +130,10 @@
 
 ## Phase 8: Polish
 
-- [ ] T041 Establish a push-path latency baseline **before** T024 lands, and re-measure after. SC-008 says no measurable regression; measured afterwards only, it compares the new code against itself. *If T024 has already landed when this is picked up, say so on the PR rather than measuring twice after the fact.*
-- [ ] T042 Confirm `ResolvedOverlayTextChanged` (#1396) and `OverlayHighlightChanged` (#1398) still behave exactly as before. `ResolvedOverlayTextChanged` is the one frame on the latency-critical leg (event → overlay ≤ 200 ms).
-- [ ] T043 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `LayoutComposition.Domain` clears 90% and `Application` 80%.
-- [ ] T044 Walk [quickstart.md](./quickstart.md) end to end and record the observations on the PR. **"Done" is the observations.** Step 4 is the one that cannot be faked: a two-fab kiosk session, asserting on frames that must *not* arrive.
+- [x] T041 Establish a push-path latency baseline **before** T024 lands, and re-measure after. SC-008 says no measurable regression; measured afterwards only, it compares the new code against itself. *If T024 has already landed when this is picked up, say so on the PR rather than measuring twice after the fact.*
+- [x] T042 Confirm `ResolvedOverlayTextChanged` (#1396) and `OverlayHighlightChanged` (#1398) still behave exactly as before. `ResolvedOverlayTextChanged` is the one frame on the latency-critical leg (event → overlay ≤ 200 ms).
+- [x] T043 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `LayoutComposition.Domain` clears 90% and `Application` 80%.
+- [x] T044 Walk [quickstart.md](./quickstart.md) end to end and record the observations on the PR. **"Done" is the observations.** Step 4 is the one that cannot be faked: a two-fab kiosk session, asserting on frames that must *not* arrive.
 - [ ] T045 Comment on #1155 that no context is now missing the guard, and on #1397 that all six frames are scoped — **then close #1397**. **Write `Closes #N, closes #M`**: the keyword must precede each number, and it only fires on merge to the default branch. Both traps caught spec 015; repeating the keyword per number is what made spec 016's 29 issues close.
 
 ---
