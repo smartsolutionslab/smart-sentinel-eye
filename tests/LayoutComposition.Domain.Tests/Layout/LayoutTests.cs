@@ -294,4 +294,89 @@ public class LayoutTests
         Domain.Layout.Layout.ValidateGrid(new GridDimensions(3, 3), tiles)
             .Value.ShouldBe(GridViolation.TooLarge);
     }
+
+    [Fact]
+    public void CreateDraft_records_the_fab_the_layout_belongs_to()
+    {
+        Domain.Layout.Layout layout = new LayoutBuilder()
+            .WithFab(FabIdentifier.From("dresden"))
+            .Build();
+
+        // dresden, not munich: everything else defaults to munich, so an
+        // ignored argument would pass a munich assertion.
+        layout.Fab.ShouldBe(FabIdentifier.From("dresden"));
+    }
+
+    [Fact]
+    public void CreateDraft_requires_a_fab()
+    {
+        Should.Throw<ArgumentException>(() => Domain.Layout.Layout.CreateDraft(
+            null!,
+            LayoutName.From("Line-1 Entrance"),
+            GridDimensions.Cell,
+            [TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 0)],
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            new LayoutBuilder.TestClock(FixedMoment)));
+    }
+
+    /// <summary>
+    /// FR-002: a layout's fab is fixed at creation. Every transition the
+    /// aggregate has must therefore leave it alone. The five below are all of
+    /// them — <c>Publish</c>, <c>BranchDraft</c>, <c>EditDraft</c>,
+    /// <c>Revert</c> and <c>ArchiveRevision</c>; checked against the class
+    /// rather than assumed, because spec 015's equivalent asserted against a
+    /// decommission that was never implemented.
+    /// </summary>
+    [Fact]
+    public void The_fab_survives_every_revision_transition()
+    {
+        FabIdentifier dresden = FabIdentifier.From("dresden");
+        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        LayoutBuilder.TestClock clock = new(FixedMoment);
+        Domain.Layout.Layout layout = new LayoutBuilder().WithFab(dresden).Build();
+
+        layout.Publish(LayoutRevisionNumber.One, by, clock);
+        layout.Fab.ShouldBe(dresden);
+
+        Revision draft = layout.BranchDraft(by, clock);
+        layout.Fab.ShouldBe(dresden);
+
+        layout.EditDraft(
+            draft.Number,
+            GridDimensions.Cell,
+            [TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 0)],
+            clock);
+        layout.Fab.ShouldBe(dresden);
+
+        // Revert targets the *Published* revision (Published -> Draft), not
+        // the draft branched off it.
+        layout.Revert(LayoutRevisionNumber.One, by, clock);
+        layout.Fab.ShouldBe(dresden);
+
+        layout.ArchiveRevision(LayoutRevisionNumber.One, by, clock);
+        layout.Fab.ShouldBe(dresden);
+    }
+
+    /// <summary>
+    /// The FR-002 guarantee is structural, not behavioural: nothing outside
+    /// the aggregate can assign the fab, so it cannot be made to change. A
+    /// behavioural test would not catch someone adding a setter, and unlike
+    /// spec 016 there is no legitimate one-way fill here — the backfill runs
+    /// in SQL, so the aggregate needs no write path at all.
+    /// </summary>
+    [Fact]
+    public void The_fab_cannot_be_set_or_moved_from_outside_the_aggregate()
+    {
+        typeof(Domain.Layout.Layout)
+            .GetProperty(nameof(Domain.Layout.Layout.Fab))!
+            .GetSetMethod(nonPublic: false)
+            .ShouldBeNull();
+
+        // Property accessors excluded — get_Fab is the reader asserted above.
+        typeof(Domain.Layout.Layout)
+            .GetMethods()
+            .Where(method => !method.IsSpecialName)
+            .Select(method => method.Name)
+            .ShouldNotContain(name => name.Contains("Fab", StringComparison.Ordinal));
+    }
 }

@@ -13,7 +13,13 @@ namespace SmartSentinelEye.LayoutComposition.Application.Queries;
 /// The two shapes are returned via the union-style envelope rather than
 /// overloaded queries.
 /// </summary>
-public sealed record ListLayoutsQuery(LayoutRevisionState? State)
+/// <summary>
+/// <c>Fabs</c> is the fabs the caller holds (spec 017 FR-005). A list spans
+/// all of them when none is named — the deliberate asymmetry with the write
+/// path, which must choose. A listing that refused a multi-fab operator would
+/// be unusable for exactly the people it exists for.
+/// </summary>
+public sealed record ListLayoutsQuery(IReadOnlyList<FabIdentifier> Fabs, LayoutRevisionState? State)
     : IQuery<Result<ListLayoutsResult, ListLayoutsError>>;
 
 /// <summary>

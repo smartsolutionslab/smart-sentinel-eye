@@ -12,6 +12,7 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
 /// </summary>
 public sealed class LayoutBuilder
 {
+    private FabIdentifier _fab = FabIdentifier.From("munich");
     private LayoutName _name = LayoutName.From("Line-1-Entrance");
     private CameraIdentifier _camera = CameraIdentifier.From(Guid.CreateVersion7());
     private OperatorIdentifier _createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
@@ -20,6 +21,12 @@ public sealed class LayoutBuilder
     private IReadOnlyList<Tile> _tiles = null!;
     private IClock _clock = new TestClock(
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture));
+
+    public LayoutBuilder WithFab(FabIdentifier fab)
+    {
+        _fab = fab;
+        return this;
+    }
 
     public LayoutBuilder Named(string name)
     {
@@ -67,7 +74,7 @@ public sealed class LayoutBuilder
     {
         IReadOnlyList<Tile> tiles = _tiles
             ?? new[] { new Tile(_camera, _overlay, GridPosition.From(0, 0)) };
-        return Domain.Layout.Layout.CreateDraft(_name, _grid, tiles, _createdBy, _clock);
+        return Domain.Layout.Layout.CreateDraft(_fab, _name, _grid, tiles, _createdBy, _clock);
     }
 
     public IClock Clock => _clock;

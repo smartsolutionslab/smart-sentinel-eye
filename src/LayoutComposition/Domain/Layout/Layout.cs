@@ -25,6 +25,19 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
 {
     private readonly List<Revision> revisions = [];
 
+    /// <summary>
+    /// The fab this layout belongs to (spec 017). Fixed when the chain is
+    /// minted and never changed: there is no setter and no <c>MoveToFab</c>
+    /// (FR-002).
+    ///
+    /// <para>
+    /// A <see cref="Revision"/> deliberately has no fab of its own (FR-003).
+    /// It belongs to this one, so the two cannot disagree — the guarantee is
+    /// that there is nowhere to put a second value.
+    /// </para>
+    /// </summary>
+    public FabIdentifier Fab { get; private set; } = null!;
+
     public LayoutName Name { get; private set; } = null!;
 
     public IReadOnlyList<Revision> Revisions => revisions;
@@ -71,12 +84,14 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     /// The grid + tiles must already be valid (<see cref="ValidateGrid"/>).
     /// </summary>
     public static Layout CreateDraft(
+        FabIdentifier fab,
         LayoutName name,
         GridDimensions grid,
         IReadOnlyList<Tile> tiles,
         OperatorIdentifier createdBy,
         IClock clock)
     {
+        Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
         Ensure.That(tiles).IsNotNull();
         Ensure.That(clock).IsNotNull();
@@ -85,6 +100,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
         Layout layout = new()
         {
             Id = LayoutIdentifier.New(),
+            Fab = fab,
             Name = name,
             CreatedAt = now,
             CreatedBy = createdBy,

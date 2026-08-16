@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.LayoutComposition.Application.DTOs;
@@ -5,6 +6,7 @@ using SmartSentinelEye.LayoutComposition.Application.Queries;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Api;
@@ -16,7 +18,10 @@ public static partial class LayoutEndpoints
         Guid layoutIdentifier,
         HttpResponse response,
         [FromServices] GetLayoutQueryHandler handler,
-        CancellationToken cancellationToken)
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
     {
         if (layoutIdentifier == Guid.Empty)
         {
@@ -26,8 +31,15 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
         Result<LayoutDto, GetLayoutError> result = await handler
-            .HandleAsync(new GetLayoutQuery(LayoutIdentifier.From(layoutIdentifier)), cancellationToken);
+            .HandleAsync(new GetLayoutQuery(fabs, LayoutIdentifier.From(layoutIdentifier)), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: layout =>
@@ -44,7 +56,10 @@ public static partial class LayoutEndpoints
     private static async Task<IResult> List(
         [FromQuery] string? state,
         [FromServices] ListLayoutsQueryHandler handler,
-        CancellationToken cancellationToken)
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
     {
         LayoutRevisionState? filter = null;
         if (!string.IsNullOrWhiteSpace(state))
@@ -62,8 +77,15 @@ public static partial class LayoutEndpoints
             }
         }
 
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
         Result<ListLayoutsResult, ListLayoutsError> result = await handler
-            .HandleAsync(new ListLayoutsQuery(filter), cancellationToken);
+            .HandleAsync(new ListLayoutsQuery(fabs, filter), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: payload => Results.Ok(new ListLayoutsResponse(payload.Chains, payload.Published)),

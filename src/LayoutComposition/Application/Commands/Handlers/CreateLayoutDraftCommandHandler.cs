@@ -16,7 +16,7 @@ public sealed class CreateLayoutDraftCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (LayoutName? name, GridDimensions grid, IReadOnlyList<Tile> tiles, OperatorIdentifier createdBy) = command;
+        (FabIdentifier fab, LayoutName? name, GridDimensions grid, IReadOnlyList<Tile> tiles, OperatorIdentifier createdBy) = command;
 
         Option<GridViolation> violation = Layout.ValidateGrid(grid, tiles);
         if (violation.HasValue)
@@ -24,14 +24,17 @@ public sealed class CreateLayoutDraftCommandHandler(
             return Failure(CreateLayoutDraftError.FromViolation(violation.Value));
         }
 
+        // Scoped to the fab (FR-019). A global check would answer
+        // LAYOUT_NAME_TAKEN for a layout in another plant, which both blocks a
+        // legitimate name and confirms that the other layout exists.
         Option<Layout> existing = await layouts
-            .GetByNameAsync(name, cancellationToken);
+            .GetByNameAsync(fab, name, cancellationToken);
         if (existing.HasValue)
         {
             return Failure(CreateLayoutDraftFailures.LayoutNameTaken(name.Value));
         }
 
-        Layout layout = Layout.CreateDraft(name, grid, tiles, createdBy, clock);
+        Layout layout = Layout.CreateDraft(fab, name, grid, tiles, createdBy, clock);
         layouts.Add(layout);
         await layouts.SaveAsync(cancellationToken);
 

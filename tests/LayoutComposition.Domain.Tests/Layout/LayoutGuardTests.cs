@@ -23,6 +23,7 @@ public class LayoutGuardTests
     public void CreateDraft_rejects_a_null_name()
     {
         Action act = () => Domain.Layout.Layout.CreateDraft(
+            FabIdentifier.From("munich"),
             name: null!,
             GridDimensions.Cell,
             OneTile(),
@@ -35,6 +36,7 @@ public class LayoutGuardTests
     public void CreateDraft_rejects_a_null_clock()
     {
         Action act = () => Domain.Layout.Layout.CreateDraft(
+            FabIdentifier.From("munich"),
             LayoutName.From("Line-1"),
             GridDimensions.Cell,
             OneTile(),

@@ -11,6 +11,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands;
 /// grid invariants (ADR-0112 §2).
 /// </summary>
 public sealed record CreateLayoutDraftCommand(
+    FabIdentifier Fab,
     LayoutName Name,
     GridDimensions Grid,
     IReadOnlyList<Tile> Tiles,

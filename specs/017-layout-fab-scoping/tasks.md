@@ -39,14 +39,14 @@
 
 ## Phase 2: Foundational (blocking) — the aggregate, the column and the backfill
 
-- [ ] T003 Add `Fab` to `src/LayoutComposition/Domain/Layout/Layout.cs`: required by `CreateDraft`, **no setter and no `MoveToFab`** (FR-002). Non-nullable — unlike spec 016 there is no transitional phase, because the backfill runs in the same migration.
-- [ ] T004 Add `WithFab` to `tests/LayoutComposition.Domain.Tests/Layout/Builders/LayoutBuilder.cs`, defaulting to `munich`.
-- [ ] T005 Assert in `tests/LayoutComposition.Domain.Tests/Layout/LayoutTests.cs` that `Fab` survives every revision transition unchanged, plus a structural guard that no public setter exists. **Check which transitions actually exist first** — publish, archive, branch, edit, revert; spec 015's equivalent asserted against a decommission that was never implemented.
-- [ ] T006 Map the column in `src/LayoutComposition/Infrastructure/Persistence/Configurations/LayoutConfiguration.cs`: `fab` **NOT NULL**, max length 32, value-converted. Replace `ix_layouts_name` with `ix_layouts_fab_name` on `(fab, name)`, and add a plain `ix_layouts_fab`. **Neither unique** — the name rule is application-level today and promoting it is a separate decision ([data-model.md](./data-model.md)).
-- [ ] T007 Add a plain index on `layout_revision_tiles(overlay_id)` in the same configuration. The column exists but has never been queried; the Half B join scans every tile in the product without it.
-- [ ] T008 Generate the migration under `src/LayoutComposition/Infrastructure/Persistence/Migrations/`. **Hand-correct it to three steps**: add nullable, `DO $$` backfill to `'munich'` with `RAISE WARNING` naming the count, then `SET NOT NULL` — mirroring `20260810164633_FabScopeCameras`. **Delete any scaffolded `defaultValue`**: `AddColumn(nullable: false, defaultValue: "")` writes `fab = ''`, which is not a valid `FabIdentifier`, so every layout fails to materialise on the next read. That is exactly what spec 015 caught.
-- [ ] T009 Thread the fab through `CreateLayoutDraftCommand` and its handler in `src/LayoutComposition/Application/Commands/`, taking it from the command rather than any caller.
-- [ ] T010 Make the name-uniqueness check fab-scoped (FR-019): `GetByNameAsync` on `ILayoutRepository` takes the fab, and `CreateLayoutDraftCommandHandler` passes it. **This is a leak, not a tidy-up** — a global check answers `409 LAYOUT_NAME_TAKEN` for a layout the caller cannot see.
+- [x] T003 Add `Fab` to `src/LayoutComposition/Domain/Layout/Layout.cs`: required by `CreateDraft`, **no setter and no `MoveToFab`** (FR-002). Non-nullable — unlike spec 016 there is no transitional phase, because the backfill runs in the same migration.
+- [x] T004 Add `WithFab` to `tests/LayoutComposition.Domain.Tests/Layout/Builders/LayoutBuilder.cs`, defaulting to `munich`.
+- [x] T005 Assert in `tests/LayoutComposition.Domain.Tests/Layout/LayoutTests.cs` that `Fab` survives every revision transition unchanged, plus a structural guard that no public setter exists. **Check which transitions actually exist first** — publish, archive, branch, edit, revert; spec 015's equivalent asserted against a decommission that was never implemented.
+- [x] T006 Map the column in `src/LayoutComposition/Infrastructure/Persistence/Configurations/LayoutConfiguration.cs`: `fab` **NOT NULL**, max length 32, value-converted. Replace `ix_layouts_name` with `ix_layouts_fab_name` on `(fab, name)`, and add a plain `ix_layouts_fab`. **Neither unique** — the name rule is application-level today and promoting it is a separate decision ([data-model.md](./data-model.md)).
+- [x] T007 Add a plain index on `layout_revision_tiles(overlay_id)` in the same configuration. The column exists but has never been queried; the Half B join scans every tile in the product without it.
+- [x] T008 Generate the migration under `src/LayoutComposition/Infrastructure/Persistence/Migrations/`. **Hand-correct it to three steps**: add nullable, `DO $$` backfill to `'munich'` with `RAISE WARNING` naming the count, then `SET NOT NULL` — mirroring `20260810164633_FabScopeCameras`. **Delete any scaffolded `defaultValue`**: `AddColumn(nullable: false, defaultValue: "")` writes `fab = ''`, which is not a valid `FabIdentifier`, so every layout fails to materialise on the next read. That is exactly what spec 015 caught.
+- [x] T009 Thread the fab through `CreateLayoutDraftCommand` and its handler in `src/LayoutComposition/Application/Commands/`, taking it from the command rather than any caller.
+- [x] T010 Make the name-uniqueness check fab-scoped (FR-019): `GetByNameAsync` on `ILayoutRepository` takes the fab, and `CreateLayoutDraftCommandHandler` passes it. **This is a leak, not a tidy-up** — a global check answers `409 LAYOUT_NAME_TAKEN` for a layout the caller cannot see.
 
 **Checkpoint**: A layout has a fab, existing rows are attributed, and the name check no longer spans fabs. Nothing is scoped yet.
 
@@ -56,16 +56,16 @@
 
 **Goal**: The API is closed. **Independent test**: as a Dresden-only operator, list layouts and address a Munich one by identifier.
 
-- [ ] T011 [US1] Add fab resolution to `POST /layouts` in `src/LayoutComposition/Api/LayoutEndpoints.Commands.cs` using `FabResolution.ResolveForWriteAsync` **unchanged**, with error code `LAYOUT_FAB_REQUIRED`. Mirror `CameraEndpoints.ResolveWriteFabAsync`, including its **per-entry** parse of the caller's groups — an unusable group must not fail the whole request.
-- [ ] T012 [US1] Thread the caller's fabs into both queries and handlers in `src/LayoutComposition/Application/Queries/`. The filter is `fab IN (caller's fabs)`.
-- [ ] T013 [US1] Add fab resolution to `GET /layouts` and `GET /layouts/{id}` in `src/LayoutComposition/Api/LayoutEndpoints.Queries.cs` using `FabResolution.ResolveForReadAsync` **unchanged**.
+- [x] T011 [US1] Add fab resolution to `POST /layouts` in `src/LayoutComposition/Api/LayoutEndpoints.Commands.cs` using `FabResolution.ResolveForWriteAsync` **unchanged**, with error code `LAYOUT_FAB_REQUIRED`. Mirror `CameraEndpoints.ResolveWriteFabAsync`, including its **per-entry** parse of the caller's groups — an unusable group must not fail the whole request.
+- [x] T012 [US1] Thread the caller's fabs into both queries and handlers in `src/LayoutComposition/Application/Queries/`. The filter is `fab IN (caller's fabs)`.
+- [x] T013 [US1] Add fab resolution to `GET /layouts` and `GET /layouts/{id}` in `src/LayoutComposition/Api/LayoutEndpoints.Queries.cs` using `FabResolution.ResolveForReadAsync` **unchanged**.
 - [ ] T014 [US1] Return **404** for a layout in a fab the caller lacks, byte-identical to one that never existed (FR-006). No 403 — the caller addressed a layout, so the answer is about the layout.
 - [ ] T015 [US1] Apply the same 404 to **all five remaining writes** in `src/LayoutComposition/Api/LayoutEndpoints.Commands.cs` — publish, archive, branch, edit, revert. **None of them takes `?fabId=`**: the layout already has a fab, and letting the caller name one would allow it to disagree.
 - [ ] T016 [US1] **Resolve the fab before reading any precondition** on those five. Answering "revision not found" for a layout in another fab confirms the layout exists ([contracts/layouts-api.md](./contracts/layouts-api.md)).
-- [ ] T017 [P] [US1] Add `Fab` to `src/LayoutComposition/Application/DTOs/LayoutDto.cs` and its mappers, so a multi-fab operator can tell two plants' layouts apart without a second request.
+- [x] T017 [P] [US1] Add `Fab` to `src/LayoutComposition/Application/DTOs/LayoutDto.cs` and its mappers, so a multi-fab operator can tell two plants' layouts apart without a second request.
 - [ ] T018 [US1] Declare **403** on all eight endpoints in `src/LayoutComposition/Api/LayoutEndpoints.cs`; it became reachable with this feature. Spec 013 shipped this wrong on one endpoint and it took a review to catch.
-- [ ] T019 [P] [US1] Add handler tests under `tests/LayoutComposition.Application.Tests/Queries/` for the scoping and the not-found path.
-- [ ] T020 [P] [US1] Add a case to `tests/LayoutComposition.Application.Tests/Commands/CreateLayoutDraftCommandHandlerTests.cs` asserting the same name is accepted in a second fab and still refused within one (FR-019). Covers SC-007.
+- [x] T019 [P] [US1] Add handler tests under `tests/LayoutComposition.Application.Tests/Queries/` for the scoping and the not-found path.
+- [x] T020 [P] [US1] Add a case to `tests/LayoutComposition.Application.Tests/Commands/CreateLayoutDraftCommandHandlerTests.cs` asserting the same name is accepted in a second fab and still refused within one (FR-019). Covers SC-007.
 - [ ] T021 [US1] Add `tests/Integration.Tests/LayoutComposition/LayoutFabScopingIntegrationTests.cs` with `op-dresden@dresden.test` and `op-multi@smart-sentinel-eye.test`: listing scoped, another fab's layout 404 **compared field by field** with `traceId` removed, 403 for a fab not held, and the full ADR-0114 write table. **Assert dresden, not munich** — everything else defaults to munich and a broken inference would pass. Covers SC-001 and SC-002.
 
 **Checkpoint**: SC-001, SC-002 and SC-007 observed. The API is closed; the hub is not.

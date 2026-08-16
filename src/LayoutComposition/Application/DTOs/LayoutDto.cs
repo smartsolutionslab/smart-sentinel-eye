@@ -16,6 +16,13 @@ namespace SmartSentinelEye.LayoutComposition.Application.DTOs;
 public sealed record LayoutDto(
     Guid LayoutIdentifier,
     int Version,
+    /// <summary>
+    /// The fab this layout belongs to (spec 017). On the wire so a multi-fab
+    /// operator can tell two plants' layouts apart without a second request —
+    /// names are unique only within a fab (FR-019), so a listing can hold two
+    /// rows of the same name with nothing else to distinguish them.
+    /// </summary>
+    string Fab,
     string Name,
     DateTimeOffset CreatedAt,
     Guid CreatedBy,
