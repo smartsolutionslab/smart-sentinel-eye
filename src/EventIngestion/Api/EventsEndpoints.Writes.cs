@@ -7,6 +7,7 @@ using SmartSentinelEye.EventIngestion.Api.Requests;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
+using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Api;
@@ -16,19 +17,37 @@ public static partial class EventsEndpoints
 {
     private const string BearerPrefix = "Bearer ";
 
-    private static IResult IngestManual(
+    private static async Task<IResult> IngestManual(
         [FromBody] IngestManualEventRequest body,
-        [FromQuery] string fabId,
-        [FromServices] IIngestChannel channel)
+        [FromServices] IIngestChannel channel,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
     {
         Ensure.That(body).IsNotNull();
+
+        // Resolved from the caller, never from the request (spec 018 FR-006).
+        // Before this, `fabId` went straight into the envelope unchecked, so an
+        // operator could file an event against any plant — where it drives that
+        // plant's automation rules and changes what its operators see.
+        //
+        // Resolved BEFORE the channel is touched (FR-007): a refusal that had
+        // already enqueued would place a fabricated event in another plant's
+        // stream while reporting that it had been stopped.
+        (FabIdentifier? fab, IResult? fabProblem) =
+            await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
+        if (fab is null)
+        {
+            return fabProblem!;
+        }
 
         EventEnvelope envelope;
         try
         {
             envelope = new EventEnvelope(
                 EventIdentifier.New(),
-                FabIdentifier.From(fabId),
+                fab,
                 Source.Manual,
                 DeviceIdentifier.From(body.DeviceId),
                 Kind.From(body.Kind),
