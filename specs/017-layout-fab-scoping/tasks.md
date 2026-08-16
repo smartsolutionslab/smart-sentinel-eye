@@ -30,8 +30,8 @@
 
 ## Phase 1: Setup
 
-- [ ] T001 [P] Add `src/LayoutComposition/Domain/Layout/FabIdentifier.cs` as a `StringValueObject` mirroring `src/StreamDistribution/Domain/Stream/FabIdentifier.cs` exactly: 2–32 chars, lowercase letters/digits/`-`, starting with a letter. Per-context by ADR-0044 — the **seventh** copy.
-- [ ] T002 [P] Add `tests/LayoutComposition.Domain.Tests/Layout/FabIdentifierTests.cs` covering the grammar, rejections, boundary lengths and equality. **The only thing keeping seven copies in step.** Use plain `null`, not `null!` — SonarAnalyzer S8970 fails the Release build on a null-forgiving operator where NRT is disabled, which caught specs 015 and 016 at the same task.
+- [x] T001 [P] Add `src/LayoutComposition/Domain/Layout/FabIdentifier.cs` as a `StringValueObject` mirroring `src/StreamDistribution/Domain/Stream/FabIdentifier.cs` exactly: 2–32 chars, lowercase letters/digits/`-`, starting with a letter. Per-context by ADR-0044 — the **seventh** copy.
+- [x] T002 [P] Add `tests/LayoutComposition.Domain.Tests/Layout/FabIdentifierTests.cs` covering the grammar, rejections, boundary lengths and equality. **The only thing keeping seven copies in step.** Use plain `null`, not `null!` — SonarAnalyzer S8970 fails the Release build on a null-forgiving operator where NRT is disabled, which caught specs 015 and 016 at the same task.
 
 **Checkpoint**: The context has a fab type. Nothing uses it.
 
