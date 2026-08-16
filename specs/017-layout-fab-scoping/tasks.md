@@ -134,7 +134,7 @@
 - [x] T042 Confirm `ResolvedOverlayTextChanged` (#1396) and `OverlayHighlightChanged` (#1398) still behave exactly as before. `ResolvedOverlayTextChanged` is the one frame on the latency-critical leg (event → overlay ≤ 200 ms).
 - [x] T043 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `LayoutComposition.Domain` clears 90% and `Application` 80%.
 - [x] T044 Walk [quickstart.md](./quickstart.md) end to end and record the observations on the PR. **"Done" is the observations.** Step 4 is the one that cannot be faked: a two-fab kiosk session, asserting on frames that must *not* arrive.
-- [ ] T045 Comment on #1155 that no context is now missing the guard, and on #1397 that all six frames are scoped — **then close #1397**. **Write `Closes #N, closes #M`**: the keyword must precede each number, and it only fires on merge to the default branch. Both traps caught spec 015; repeating the keyword per number is what made spec 016's 29 issues close.
+- [x] T045 Comment on #1155 that no context is now missing the guard, and on #1397 that all six frames are scoped — **then close #1397**. **Write `Closes #N, closes #M`**: the keyword must precede each number, and it only fires on merge to the default branch. Both traps caught spec 015; repeating the keyword per number is what made spec 016's 29 issues close.
 
 ---
 
