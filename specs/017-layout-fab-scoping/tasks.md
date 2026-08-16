@@ -95,7 +95,7 @@
 - [x] T028 [US3] Resolve the fabs in `src/LayoutComposition/Application/EventHandlers/OverlayRevisionPublishedV1Handler.cs` and `OverlayRevisionArchivedV1Handler.cs`. **Not in the broadcaster** — it maps and sends, and a query there would make it the only piece of `Infrastructure/Broadcasting` that reads state.
 - [x] T029 [US3] Send once per resolved fab in `SignalRLayoutLifecycleBroadcaster.cs`. **An empty set must send nothing at all** (FR-011) — not a send to an empty group.
 - [x] T030 [P] [US3] Add handler tests under `tests/LayoutComposition.Application.Tests/EventHandlers/` for: referenced by one fab, by both, by **none**, and by a **draft only**. The last two are FR-011 and FR-013 and are invisible when they work.
-- [ ] T031 [US3] Add `tests/Integration.Tests/LayoutComposition/OverlayFrameFabScopingIntegrationTests.cs` driving a real hub connection per fab. Assert on the **absence** of a frame over a bounded wait, not on "nothing threw". Covers SC-004.
+- [x] T031 [US3] Add `tests/Integration.Tests/LayoutComposition/OverlayFrameFabScopingIntegrationTests.cs` driving a real hub connection per fab. Assert on the **absence** of a frame over a bounded wait, not on "nothing threw". Covers SC-004.
 
 **Checkpoint**: SC-003 and SC-004 observed. #1397 is closed.
 
