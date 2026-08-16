@@ -46,13 +46,13 @@ and resolves existing streams against a fab-scoped camera catalogue.
 
 ## Phase 2: Foundational (blocking) — the aggregate and the derivation together
 
-- [ ] T003 Add nullable `Fab` to `src/StreamDistribution/Domain/Stream/Stream.cs`: required by `Provision`, **no setter of any kind**. FR-002 says a stream's fab and its camera's must not be able to differ; the guarantee is that the aggregate cannot express it. Nullable because existing rows have none yet — see [data-model.md](./data-model.md).
-- [ ] T004 Add `WithFab` to the stream builder in `tests/StreamDistribution.Domain.Tests/`, defaulting to `munich`.
-- [ ] T005 Assert in `tests/StreamDistribution.Domain.Tests/Stream/` that `Fab` survives `ReportDegraded` and every other state transition unchanged, plus a structural guard that no public setter exists. **Check first which transitions actually exist** — spec 015's T005 asserted against a decommission that was never implemented.
-- [ ] T006 Map the column in `src/StreamDistribution/Infrastructure/Persistence/Configurations/StreamConfiguration.cs`: `fab` **nullable**, max length 32, value-converted. Add a plain index on `fab`; **no unique index** — a stream is keyed by its camera, which is already globally unique.
-- [ ] T007 Generate the migration under `src/StreamDistribution/Infrastructure/Persistence/Migrations/`. It adds the column and the index and **nothing else**. Delete any scaffolded `defaultValue`. **There is deliberately no backfill**: cameras are in another database, and this feature refuses to guess ([research.md](./research.md) §5). This is the first fab migration in the product with no `DO $$` block — the absence is the design, not an omission.
-- [ ] T008 Thread the fab through `ProvisionStreamCommand` and its handler in `src/StreamDistribution/Application/Commands/`, taking it from the command rather than any caller.
-- [ ] T009 Read `Metadata.Fab` in `src/StreamDistribution/Application/EventHandlers/CameraRegisteredIntegrationEventHandler.cs` and pass it to the command. **A message carrying no fab provisions nothing and is logged** (FR-004) — a distinct message, not shared with any other drop.
+- [x] T003 Add nullable `Fab` to `src/StreamDistribution/Domain/Stream/Stream.cs`: required by `Provision`, **no setter of any kind**. FR-002 says a stream's fab and its camera's must not be able to differ; the guarantee is that the aggregate cannot express it. Nullable because existing rows have none yet — see [data-model.md](./data-model.md).
+- [x] T004 Add `WithFab` to the stream builder in `tests/StreamDistribution.Domain.Tests/`, defaulting to `munich`.
+- [x] T005 Assert in `tests/StreamDistribution.Domain.Tests/Stream/` that `Fab` survives `ReportDegraded` and every other state transition unchanged, plus a structural guard that no public setter exists. **Check first which transitions actually exist** — spec 015's T005 asserted against a decommission that was never implemented.
+- [x] T006 Map the column in `src/StreamDistribution/Infrastructure/Persistence/Configurations/StreamConfiguration.cs`: `fab` **nullable**, max length 32, value-converted. Add a plain index on `fab`; **no unique index** — a stream is keyed by its camera, which is already globally unique.
+- [x] T007 Generate the migration under `src/StreamDistribution/Infrastructure/Persistence/Migrations/`. It adds the column and the index and **nothing else**. Delete any scaffolded `defaultValue`. **There is deliberately no backfill**: cameras are in another database, and this feature refuses to guess ([research.md](./research.md) §5). This is the first fab migration in the product with no `DO $$` block — the absence is the design, not an omission.
+- [x] T008 Thread the fab through `ProvisionStreamCommand` and its handler in `src/StreamDistribution/Application/Commands/`, taking it from the command rather than any caller.
+- [x] T009 Read `Metadata.Fab` in `src/StreamDistribution/Application/EventHandlers/CameraRegisteredIntegrationEventHandler.cs` and pass it to the command. **A message carrying no fab provisions nothing and is logged** (FR-004) — a distinct message, not shared with any other drop.
 
 **Checkpoint**: New streams carry their camera's fab. `git grep "Placeholder fab" -- src/StreamDistribution/` must return nothing.
 
@@ -64,8 +64,8 @@ and resolves existing streams against a fab-scoped camera catalogue.
 > nothing to anyone, so the derivation must work before the scoping is
 > meaningful.
 
-- [ ] T010 [P] [US2] Add cases to the handler tests under `tests/StreamDistribution.Application.Tests/EventHandlers/` asserting a dresden camera's event provisions a dresden stream. **Assert dresden, not munich** — everything else defaults to munich and a hard-coded fab would pass.
-- [ ] T011 [P] [US2] Add a case asserting an event with no fab provisions **nothing** and logs it (FR-004). Assert the downstream effect — that no stream was added — not merely that nothing threw.
+- [x] T010 [P] [US2] Add cases to the handler tests under `tests/StreamDistribution.Application.Tests/EventHandlers/` asserting a dresden camera's event provisions a dresden stream. **Assert dresden, not munich** — everything else defaults to munich and a hard-coded fab would pass.
+- [x] T011 [P] [US2] Add a case asserting an event with no fab provisions **nothing** and logs it (FR-004). Assert the downstream effect — that no stream was added — not merely that nothing threw.
 - [ ] T012 [US2] Add `tests/Integration.Tests/StreamDistribution/StreamFabDerivationIntegrationTests.cs`: register a camera in each fab over real HTTP, then assert each provisioned stream carries its camera's fab. Covers SC-003.
 
 **Checkpoint**: SC-003 observed. New streams are attributed.

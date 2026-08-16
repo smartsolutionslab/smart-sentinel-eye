@@ -26,6 +26,23 @@ namespace SmartSentinelEye.StreamDistribution.Domain.Stream;
 /// </summary>
 public sealed class Stream : AggregateRoot<StreamIdentifier>
 {
+    /// <summary>
+    /// The fab this stream's camera belongs to (spec 016). Nullable because
+    /// streams provisioned before this feature have none yet and cannot be
+    /// backfilled in SQL — the cameras live in another database — so they
+    /// acquire it at runtime instead. A stream with no fab is visible to
+    /// nobody (FR-009).
+    ///
+    /// <para>
+    /// There is no setter and no <c>MoveToFab</c>: a stream's fab is its
+    /// camera's, and a camera cannot change fab (spec 015 FR-004), so the
+    /// value can never legitimately change once known. FR-002 requires the
+    /// two never to differ, and the guarantee is that the aggregate has no
+    /// way to express it.
+    /// </para>
+    /// </summary>
+    public FabIdentifier? Fab { get; private set; }
+
     public CameraIdentifier Camera { get; private set; }
 
     public MediaMtxPath Path { get; private set; } = null!;
@@ -51,11 +68,13 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
     private Stream() { }
 
     public static Stream Provision(
+        FabIdentifier fab,
         CameraIdentifier camera,
         StreamSourceUrl sourceUrl,
         OperatorIdentifier provisionedBy,
         IClock clock)
     {
+        Ensure.That(fab).IsNotNull();
         Ensure.That(sourceUrl).IsNotNull();
         Ensure.That(clock).IsNotNull();
 
@@ -64,6 +83,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
         Stream stream = new()
         {
             Id = StreamIdentifier.New(),
+            Fab = fab,
             Camera = camera,
             Path = path,
             SourceUrl = sourceUrl,

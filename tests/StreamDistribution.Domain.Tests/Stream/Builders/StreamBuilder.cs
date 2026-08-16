@@ -10,10 +10,17 @@ namespace SmartSentinelEye.StreamDistribution.Domain.Tests.Stream.Builders;
 /// </summary>
 public sealed class StreamBuilder
 {
+    private FabIdentifier _fab = FabIdentifier.From("munich");
     private CameraIdentifier _camera = CameraIdentifier.From(Guid.CreateVersion7());
     private StreamSourceUrl _sourceUrl = StreamSourceUrl.From("rtsp://camera-sim:8554/default");
     private OperatorIdentifier _provisionedBy = OperatorIdentifier.From(Guid.CreateVersion7());
     private IClock _clock = new TestClock(DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture));
+
+    public StreamBuilder WithFab(FabIdentifier fab)
+    {
+        _fab = fab;
+        return this;
+    }
 
     public StreamBuilder ForCamera(CameraIdentifier camera)
     {
@@ -40,7 +47,7 @@ public sealed class StreamBuilder
     }
 
     public Domain.Stream.Stream Build() =>
-        Domain.Stream.Stream.Provision(_camera, _sourceUrl, _provisionedBy, _clock);
+        Domain.Stream.Stream.Provision(_fab, _camera, _sourceUrl, _provisionedBy, _clock);
 
     private sealed class TestClock(DateTimeOffset moment) : IClock
     {

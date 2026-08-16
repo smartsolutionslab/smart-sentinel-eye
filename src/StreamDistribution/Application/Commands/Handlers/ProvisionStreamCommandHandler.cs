@@ -18,7 +18,7 @@ public sealed class ProvisionStreamCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        (CameraIdentifier camera, string? rtspSourceUrl, OperatorIdentifier provisionedBy) = command;
+        (FabIdentifier fab, CameraIdentifier camera, string? rtspSourceUrl, OperatorIdentifier provisionedBy) = command;
 
         if (string.IsNullOrWhiteSpace(rtspSourceUrl))
         {
@@ -45,7 +45,7 @@ public sealed class ProvisionStreamCommandHandler(
             return Success(existing.Value.Id);
         }
 
-        Stream stream = Stream.Provision(camera, sourceUrl, provisionedBy, clock);
+        Stream stream = Stream.Provision(fab, camera, sourceUrl, provisionedBy, clock);
         streams.Add(stream);
 
         try

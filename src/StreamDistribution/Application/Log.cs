@@ -23,6 +23,9 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "Provision attempt failed for camera {Camera}: {Code} {Message}.")]
     public static partial void ProvisionAttemptFailed(this ILogger logger, CameraIdentifier camera, string code, string message);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Camera {Camera} was registered without a fab; no stream provisioned (spec 016 FR-004).")]
+    public static partial void CameraRegisteredWithoutFab(this ILogger logger, CameraIdentifier camera);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Stream {Stream} provisioned for camera {Camera} at path {Path} by {Operator}.")]
     public static partial void StreamProvisioned(this ILogger logger, StreamIdentifier stream, CameraIdentifier camera, MediaMtxPath path, OperatorIdentifier @operator);
 }

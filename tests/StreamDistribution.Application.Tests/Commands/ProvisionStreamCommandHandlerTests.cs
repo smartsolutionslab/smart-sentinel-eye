@@ -17,6 +17,8 @@ public class ProvisionStreamCommandHandlerTests
     private static readonly OperatorIdentifier AnAdmin =
         OperatorIdentifier.From(Guid.CreateVersion7());
 
+    private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+
     [Fact]
     public async Task Provision_for_a_new_camera_creates_the_stream_and_registers_the_path()
     {
@@ -25,7 +27,7 @@ public class ProvisionStreamCommandHandlerTests
         ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
 
         CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        ProvisionStreamCommand command = new(camera, "rtsp://10.0.5.1/h264", AnAdmin);
+        ProvisionStreamCommand command = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
 
         Result<StreamIdentifier, ProvisionStreamError> result =
             await handler.HandleAsync(command, CancellationToken.None);
@@ -47,11 +49,11 @@ public class ProvisionStreamCommandHandlerTests
         ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
 
         CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        ProvisionStreamCommand first = new(camera, "rtsp://10.0.5.1/h264", AnAdmin);
+        ProvisionStreamCommand first = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
         Result<StreamIdentifier, ProvisionStreamError> firstResult =
             await handler.HandleAsync(first, CancellationToken.None);
 
-        ProvisionStreamCommand redelivery = new(camera, "rtsp://10.0.5.1/h264", AnAdmin);
+        ProvisionStreamCommand redelivery = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
         Result<StreamIdentifier, ProvisionStreamError> secondResult =
             await handler.HandleAsync(redelivery, CancellationToken.None);
 
@@ -72,6 +74,7 @@ public class ProvisionStreamCommandHandlerTests
         ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
 
         ProvisionStreamCommand command = new(
+            Munich,
             CameraIdentifier.From(Guid.CreateVersion7()),
             "rtsp://10.0.5.1/h264",
             AnAdmin);
@@ -97,7 +100,7 @@ public class ProvisionStreamCommandHandlerTests
 
         Result<StreamIdentifier, ProvisionStreamError> result = await handler.HandleAsync(
             new ProvisionStreamCommand(
-                CameraIdentifier.From(Guid.CreateVersion7()), source, AnAdmin),
+                Munich, CameraIdentifier.From(Guid.CreateVersion7()), source, AnAdmin),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();

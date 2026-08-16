@@ -49,10 +49,32 @@ public class StreamTests
     public void Provision_requires_a_source_url()
     {
         Should.Throw<ArgumentException>(() => Domain.Stream.Stream.Provision(
+            FabIdentifier.From("munich"),
             CameraIdentifier.From(Guid.CreateVersion7()),
             null,
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new FixedClock(FixedMoment)));
+    }
+
+    [Fact]
+    public void Provision_requires_a_fab()
+    {
+        Should.Throw<ArgumentException>(() => Domain.Stream.Stream.Provision(
+            null,
+            CameraIdentifier.From(Guid.CreateVersion7()),
+            StreamSourceUrl.From("rtsp://camera-sim:8554/station-4"),
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            new FixedClock(FixedMoment)));
+    }
+
+    [Fact]
+    public void Provision_records_the_fab_the_camera_belongs_to()
+    {
+        Domain.Stream.Stream stream = new StreamBuilder()
+            .WithFab(FabIdentifier.From("dresden"))
+            .Build();
+
+        stream.Fab.ShouldBe(FabIdentifier.From("dresden"));
     }
 
     private sealed class FixedClock(DateTimeOffset moment) : IClock
@@ -188,6 +210,54 @@ public class StreamTests
             stream.PendingEvents.Single().ShouldBeOfType<StreamHealthChangedDomainEvent>();
         transition.FromState.ShouldBe(StreamState.Offline);
         transition.ToState.ShouldBe(StreamState.Healthy);
+    }
+
+    /// <summary>
+    /// FR-002: a stream's fab must equal its camera's, and a camera cannot move
+    /// fab. Every transition the aggregate has must therefore leave it alone.
+    /// The three below are all of them — <c>ReportHealthy</c>,
+    /// <c>ReportDegraded</c> and <c>ReportOffline</c>; there is no
+    /// decommission.
+    /// </summary>
+    [Fact]
+    public void The_fab_survives_every_state_transition()
+    {
+        FabIdentifier dresden = FabIdentifier.From("dresden");
+        Domain.Stream.Stream stream = new StreamBuilder().WithFab(dresden).Build();
+
+        stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
+        stream.Fab.ShouldBe(dresden);
+
+        stream.ReportDegraded("source unreachable", new TestClock(FixedMoment.AddSeconds(15)));
+        stream.Fab.ShouldBe(dresden);
+
+        stream.ReportOffline("retry exhausted", new TestClock(FixedMoment.AddMinutes(5)));
+        stream.Fab.ShouldBe(dresden);
+
+        stream.ReportHealthy(TranscodeMode.Software, new TestClock(FixedMoment.AddMinutes(10)));
+        stream.Fab.ShouldBe(dresden);
+    }
+
+    /// <summary>
+    /// The guarantee behind FR-002 is structural, not behavioural: nothing
+    /// outside the aggregate can set the fab, so a stream's fab and its
+    /// camera's cannot be made to differ. A test of behaviour would not catch
+    /// someone adding a setter.
+    /// </summary>
+    [Fact]
+    public void The_fab_cannot_be_set_from_outside_the_aggregate()
+    {
+        typeof(Domain.Stream.Stream)
+            .GetProperty(nameof(Domain.Stream.Stream.Fab))
+            .GetSetMethod(nonPublic: false)
+            .ShouldBeNull();
+
+        // Property accessors are excluded — get_Fab is the reader asserted above.
+        typeof(Domain.Stream.Stream)
+            .GetMethods()
+            .Where(method => !method.IsSpecialName)
+            .Select(method => method.Name)
+            .ShouldNotContain(name => name.Contains("Fab", StringComparison.Ordinal));
     }
 
     private sealed class TestClock(DateTimeOffset moment) : IClock
