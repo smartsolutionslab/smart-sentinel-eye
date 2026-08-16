@@ -31,7 +31,7 @@
 
 ## Phase 1: Setup — reproduce the leak
 
-- [ ] T001 Capture the current behaviour before changing anything, per [quickstart.md](./quickstart.md) step 0: as `op-dresden@dresden.test`, `GET /events?fabId=munich`, `GET /events/{a munich event}`, `POST /events/manual?fabId=munich`, and `GET /events/dead-letters`. **Record what comes back on the PR.** Every later task asserts a refusal, and a refusal is only evidence if the thing was permitted a moment earlier.
+- [x] T001 Capture the current behaviour before changing anything, per [quickstart.md](./quickstart.md) step 0: as `op-dresden@dresden.test`, `GET /events?fabId=munich`, `GET /events/{a munich event}`, `POST /events/manual?fabId=munich`, and `GET /events/dead-letters`. **Record what comes back on the PR.** Every later task asserts a refusal, and a refusal is only evidence if the thing was permitted a moment earlier.
 
 **Checkpoint**: The leak is documented rather than asserted.
 
