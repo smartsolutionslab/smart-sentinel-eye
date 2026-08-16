@@ -5,6 +5,7 @@ using SmartSentinelEye.Shared.Kernel;
 namespace SmartSentinelEye.LayoutComposition.Application.Commands;
 
 public sealed record ArchiveRevisionCommand(
+    IReadOnlyList<FabIdentifier> Fabs,
     LayoutIdentifier Layout,
     LayoutRevisionNumber RevisionNumber,
     OperatorIdentifier ArchivedBy,

@@ -24,24 +24,36 @@ public static partial class LayoutEndpoints
         RouteGroupBuilder group = app.MapGroup("/layouts")
             .WithTags("Layouts");
 
+        // 403 became reachable on every endpoint with spec 017: a caller may
+        // name a fab they do not hold, or hold none at all. Declaring it keeps
+        // the generated OpenAPI from claiming a status that can happen cannot;
+        // spec 013 shipped this wrong on one endpoint and it took a review to
+        // catch.
+        //
+        // 404 stays the answer for a layout in another fab (FR-006) — the
+        // caller addressed a layout, so "forbidden" would confirm it exists.
+        // 403 is only ever about a *fab* the caller named.
         group.MapPost("/", CreateDraft)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("CreateLayoutDraft")
             .Produces<Guid>(StatusCodes.Status201Created)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapGet("/{layoutIdentifier:guid}", GetOne)
             .RequireAuthorization(Scope.Sse.Layouts.Read)
             .WithName("GetLayout")
             .Produces<LayoutDto>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapGet("/", List)
             .RequireAuthorization(Scope.Sse.Layouts.Read)
             .WithName("ListLayouts")
             .Produces<ListLayoutsResponse>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapPost("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}/publish", Publish)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
@@ -50,7 +62,8 @@ public static partial class LayoutEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapPost("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}/archive", Archive)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
@@ -59,7 +72,8 @@ public static partial class LayoutEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapPost("/{layoutIdentifier:guid}/draft", BranchDraft)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
@@ -68,7 +82,8 @@ public static partial class LayoutEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapPatch("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}", EditDraft)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
@@ -77,7 +92,8 @@ public static partial class LayoutEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapPost("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}/revert", Revert)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
@@ -86,7 +102,8 @@ public static partial class LayoutEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         return app;
     }

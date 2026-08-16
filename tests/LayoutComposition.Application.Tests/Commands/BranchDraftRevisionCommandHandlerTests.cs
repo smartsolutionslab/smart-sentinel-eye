@@ -11,6 +11,8 @@ namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
 
 public class BranchDraftRevisionCommandHandlerTests
 {
+    private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
@@ -26,7 +28,7 @@ public class BranchDraftRevisionCommandHandlerTests
         BranchDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
-            new BranchDraftRevisionCommand(layout.Id, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
+            new BranchDraftRevisionCommand([Munich], layout.Id, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -42,7 +44,7 @@ public class BranchDraftRevisionCommandHandlerTests
             layouts, new FakeClock(FixedMoment), NullLogger<BranchDraftRevisionCommandHandler>.Instance);
 
         Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
-            new BranchDraftRevisionCommand(LayoutIdentifier.New(), OperatorIdentifier.From(Guid.CreateVersion7()), 0),
+            new BranchDraftRevisionCommand([Munich], LayoutIdentifier.New(), OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -60,7 +62,7 @@ public class BranchDraftRevisionCommandHandlerTests
         BranchDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
-            new BranchDraftRevisionCommand(draftOnly.Id, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
+            new BranchDraftRevisionCommand([Munich], draftOnly.Id, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();

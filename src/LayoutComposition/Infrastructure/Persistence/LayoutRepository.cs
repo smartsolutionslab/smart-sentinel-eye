@@ -8,9 +8,18 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 public sealed class LayoutRepository(LayoutCompositionDbContext dbContext, IDomainEventDispatcher domainEventDispatcher)
     : ILayoutRepository
 {
-    public async Task<Option<Layout>> GetByIdentifierAsync(LayoutIdentifier layout, CancellationToken cancellationToken)
+    public async Task<Option<Layout>> GetByIdentifierAsync(
+        IReadOnlyList<FabIdentifier> fabs, LayoutIdentifier layout, CancellationToken cancellationToken)
     {
-        Layout? found = await dbContext.Layouts.FirstOrDefaultAsync(candidate => candidate.Id == layout, cancellationToken);
+        Ensure.That(fabs).IsNotNull();
+
+        // The fab filter is part of the lookup (FR-006). A layout in another
+        // fab therefore comes back as None, exactly like an identifier that
+        // matches nothing — and it does so before any caller can read a
+        // precondition off the aggregate.
+        Layout? found = await dbContext.Layouts.FirstOrDefaultAsync(
+            candidate => candidate.Id == layout && fabs.Contains(candidate.Fab),
+            cancellationToken);
         return found is null ? Option<Layout>.None : Option<Layout>.Some(found);
     }
 

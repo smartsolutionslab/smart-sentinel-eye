@@ -11,6 +11,8 @@ namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
 
 public class RevertRevisionCommandHandlerTests
 {
+    private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
@@ -26,7 +28,7 @@ public class RevertRevisionCommandHandlerTests
         RevertRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
-            new RevertRevisionCommand(layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
+            new RevertRevisionCommand([Munich], layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -41,7 +43,7 @@ public class RevertRevisionCommandHandlerTests
             layouts, new FakeClock(FixedMoment), NullLogger<RevertRevisionCommandHandler>.Instance);
 
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
-            new RevertRevisionCommand(
+            new RevertRevisionCommand([Munich], 
                 LayoutIdentifier.New(), LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
@@ -60,7 +62,7 @@ public class RevertRevisionCommandHandlerTests
         RevertRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
-            new RevertRevisionCommand(
+            new RevertRevisionCommand([Munich], 
                 layout.Id, LayoutRevisionNumber.From(99), OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
@@ -79,7 +81,7 @@ public class RevertRevisionCommandHandlerTests
         RevertRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
-            new RevertRevisionCommand(
+            new RevertRevisionCommand([Munich], 
                 layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 

@@ -15,7 +15,7 @@ public sealed class EditDraftRevisionCommandHandler(
         EditDraftRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, GridDimensions grid, IReadOnlyList<Tile> tiles, int expectedVersion) = command;
+        (IReadOnlyList<FabIdentifier> fabs, LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, GridDimensions grid, IReadOnlyList<Tile> tiles, int expectedVersion) = command;
 
         Option<GridViolation> violation = Layout.ValidateGrid(grid, tiles);
         if (violation.HasValue)
@@ -24,7 +24,7 @@ public sealed class EditDraftRevisionCommandHandler(
         }
 
         Option<Layout> found = await layouts
-            .GetByIdentifierAsync(layoutIdentifier, cancellationToken);
+            .GetByIdentifierAsync(fabs, layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(EditDraftRevisionFailures.LayoutNotFound(layoutIdentifier.Value));

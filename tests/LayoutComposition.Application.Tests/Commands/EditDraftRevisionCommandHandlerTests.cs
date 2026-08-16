@@ -11,6 +11,8 @@ namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
 
 public class EditDraftRevisionCommandHandlerTests
 {
+    private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
@@ -31,7 +33,7 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand(
+            new EditDraftRevisionCommand([Munich], 
                 layout.Id, LayoutRevisionNumber.One, GridDimensions.Default, [TileAt(0, 0), TileAt(1, 1)], 0),
             CancellationToken.None);
 
@@ -49,7 +51,7 @@ public class EditDraftRevisionCommandHandlerTests
             layouts, new FakeClock(FixedMoment), NullLogger<EditDraftRevisionCommandHandler>.Instance);
 
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand(
+            new EditDraftRevisionCommand([Munich], 
                 LayoutIdentifier.New(), LayoutRevisionNumber.One, GridDimensions.Cell, [TileAt(0, 0)], 0),
             CancellationToken.None);
 
@@ -68,7 +70,7 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand(
+            new EditDraftRevisionCommand([Munich], 
                 layout.Id, LayoutRevisionNumber.From(42), GridDimensions.Cell, [TileAt(0, 0)], 0),
             CancellationToken.None);
 
@@ -88,7 +90,7 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand(
+            new EditDraftRevisionCommand([Munich], 
                 layout.Id, LayoutRevisionNumber.One, GridDimensions.Cell, [TileAt(0, 0, overlay)], 0),
             CancellationToken.None);
 
@@ -107,7 +109,7 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand(
+            new EditDraftRevisionCommand([Munich], 
                 layout.Id, LayoutRevisionNumber.One, GridDimensions.Cell, Array.Empty<Tile>(), 0),
             CancellationToken.None);
 
@@ -125,7 +127,7 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand(
+            new EditDraftRevisionCommand([Munich], 
                 layout.Id, LayoutRevisionNumber.One, GridDimensions.Default, [TileAt(0, 0), TileAt(0, 0)], 0),
             CancellationToken.None);
 
@@ -144,7 +146,7 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand(
+            new EditDraftRevisionCommand([Munich], 
                 layout.Id, LayoutRevisionNumber.One, GridDimensions.Cell, [TileAt(0, 0)], 0),
             CancellationToken.None);
 
