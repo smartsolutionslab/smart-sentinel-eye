@@ -31,13 +31,18 @@ internal static class LayoutRequests
     ///
     /// <para>
     /// Defaults to munich because the seeded <c>admin</c> these tests use
-    /// holds exactly that fab.
+    /// holds exactly that fab — and for any other fab it has to switch
+    /// principals, because admin registering into dresden is a 403 by the very
+    /// rule spec 015 introduced.
     /// </para>
     /// </summary>
     internal static async Task<Guid> RegisterCameraAsync(
         AspireFixture aspire, string fab = "munich")
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        using HttpClient cameras = fab == "munich"
+            ? await aspire.CreateAdminClientAsync("camera-catalog")
+            : await aspire.CreateAuthenticatedClientAsync(
+                "camera-catalog", "op-multi@smart-sentinel-eye.test", "Operator1234");
 
         HttpResponseMessage created = await cameras.PostAsJsonAsync(
             fab == "munich" ? "/cameras" : $"/cameras?fabId={fab}",
