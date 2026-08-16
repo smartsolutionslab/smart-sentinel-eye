@@ -66,7 +66,7 @@
 - [x] T018 [US1] Declare **403** on all eight endpoints in `src/LayoutComposition/Api/LayoutEndpoints.cs`; it became reachable with this feature. Spec 013 shipped this wrong on one endpoint and it took a review to catch.
 - [x] T019 [P] [US1] Add handler tests under `tests/LayoutComposition.Application.Tests/Queries/` for the scoping and the not-found path.
 - [x] T020 [P] [US1] Add a case to `tests/LayoutComposition.Application.Tests/Commands/CreateLayoutDraftCommandHandlerTests.cs` asserting the same name is accepted in a second fab and still refused within one (FR-019). Covers SC-007.
-- [ ] T021 [US1] Add `tests/Integration.Tests/LayoutComposition/LayoutFabScopingIntegrationTests.cs` with `op-dresden@dresden.test` and `op-multi@smart-sentinel-eye.test`: listing scoped, another fab's layout 404 **compared field by field** with `traceId` removed, 403 for a fab not held, and the full ADR-0114 write table. **Assert dresden, not munich** — everything else defaults to munich and a broken inference would pass. Covers SC-001 and SC-002.
+- [x] T021 [US1] Add `tests/Integration.Tests/LayoutComposition/LayoutFabScopingIntegrationTests.cs` with `op-dresden@dresden.test` and `op-multi@smart-sentinel-eye.test`: listing scoped, another fab's layout 404 **compared field by field** with `traceId` removed, 403 for a fab not held, and the full ADR-0114 write table. **Assert dresden, not munich** — everything else defaults to munich and a broken inference would pass. Covers SC-001 and SC-002.
 
 **Checkpoint**: SC-001, SC-002 and SC-007 observed. The API is closed; the hub is not.
 
