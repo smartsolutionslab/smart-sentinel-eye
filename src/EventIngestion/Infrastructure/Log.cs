@@ -46,6 +46,13 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to capture dead letter for topic '{Topic}': {Message}.")]
     public static partial void DeadLetterCaptureFailed(this ILogger logger, Exception exception, string topic, string message);
 
+    // Spec 018 FR-012. Such a delivery is visible to nobody (FR-011), so this
+    // line is the only trace an operator gets: invisible is acceptable,
+    // invisible and unnoticed is not. The topic and the count, never the
+    // payload.
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Rejected delivery on '{Topic}' names no fab; it is visible to no operator. {Count} such deliveries since start.")]
+    public static partial void UnattributableDeadLetter(this ILogger logger, string topic, long count);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "No per-fab partitions under 'events' yet; skipping rollover. Add a fab via 'CREATE TABLE events_<fabId> PARTITION OF events FOR VALUES IN (...)'.")]
     public static partial void NoFabPartitions(this ILogger logger);
 
