@@ -164,6 +164,46 @@ what parses, so a null can never enter it — and the behaviour is asserted from
 the multi-fab operator's side, who holds every fab there is. Worth knowing
 that the guarantee rests on the resolver rather than on SQL semantics alone.
 
+## What the review found (phase 6 QA)
+
+`/code-review` and `/security-review` were run on the branch. Both landed
+independently on the same finding, and it is the one worth reading:
+
+**FR-014's exemption is narrower than the spec says.**
+`POST /events/webhook/{name}?fabId=` checks the fab against the caller's own
+credentials in `BearerValidationMode.Jwt` only. In `StaticHash` — the enum
+default, and the mode of every integration until it is rotated — the token hash
+is matched and `fabId` is never consulted, because `WebhookIntegration` carries
+no fab to compare it against. A token issued for one plant can therefore file an
+event against another.
+
+Three things follow, and none of them is "fix it here":
+
+1. **It is pre-existing.** FR-014 held this endpoint unchanged and FR-016
+   deferred the registry question; closing it means giving `WebhookIntegration`
+   a fab, which *is* the deferred question. It is now recorded on #1545 with
+   the security framing, and that issue cannot be answered without it.
+2. **This feature made it reachable.** `events` had no partition for any fab
+   but munich, so a cross-fab webhook write previously failed at the insert
+   with `23514`. Adding `events_dresden` — which had to happen, it was a live
+   defect — removed an accidental backstop that was never an authorization
+   control. Said plainly rather than left for someone to discover.
+3. **The claim is corrected in the code.** `ResolveWriteFabAsync`'s doc comment
+   asserted the webhook "already checks the fab against them". It now names the
+   `Jwt`-only scope, so nothing in the codebase reads as though this is covered.
+
+Also filed: **#1546** (the persistence loop drops an envelope it has already
+`202`-accepted when the dispatch throws) and **#1547** (adding a fab needs a
+hand-written partition migration and nothing enforces it — the two compound
+into "accepted, then silently gone"). Both are on this branch's diff and both
+are trade-offs made deliberately in `ed33dc4`; neither is closed here.
+
+Fixed in place: the manual write's `CancellationToken` is last again,
+`GET /events/{id}` declares the 400 it can now return, and the inference test
+reads its event back out of dresden — it asserted only `202`, which the
+inferred branch returns whether it inferred dresden or fell back to the munich
+default, so the regression it exists to catch could not have failed it.
+
 ## Not verified
 
 - The **partition** path for a second fab under load. `events_dresden` was
