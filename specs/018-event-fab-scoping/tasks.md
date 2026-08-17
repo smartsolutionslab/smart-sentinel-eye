@@ -105,12 +105,12 @@
 
 ## Phase 6: Polish
 
-- [ ] T025 Verify the backfill on populated data: the count of `fab IS NULL` rows must equal the count of stored topics that do not have the `fab/a/b/c` shape. If every row is null the guard is too strict; if none is, it is too loose. Covers SC-005.
-- [ ] T026 Confirm ingest is untouched (SC-006): a well-formed broker delivery and a well-formed webhook call both succeed exactly as before. These are the throughput paths and this feature must not have touched them.
-- [ ] T027 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `EventIngestion.Domain` clears 90% and `Application` 80%.
-- [ ] T028 Walk [quickstart.md](./quickstart.md) end to end and record the observations on the PR, **against the T001 baseline**. **"Done" is the observations.** Step 3 is the one that cannot be faked.
-- [ ] T029 File the follow-up issue for the webhook integration registry (FR-016), carrying the question as stated: fab-scoped, or a shared template whose entitlement is proven per delivery?
-- [ ] T030 Comment on #1155 that every applicable context now applies the guard, and **close it** — this is the last one. **Write `Closes #N`** with the keyword before each number; it fires only on merge to the default branch, and GitHub processes it asynchronously, so verify a minute later rather than immediately.
+- [X] T025 Verify the backfill on populated data: the count of `fab IS NULL` rows must equal the count of stored topics that do not have the `fab/a/b/c` shape. If every row is null the guard is too strict; if none is, it is too loose. Covers SC-005.
+- [X] T026 Confirm ingest is untouched (SC-006): a well-formed broker delivery and a well-formed webhook call both succeed exactly as before. These are the throughput paths and this feature must not have touched them.
+- [X] T027 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `EventIngestion.Domain` clears 90% and `Application` 80%.
+- [X] T028 Walk [quickstart.md](./quickstart.md) end to end and record the observations on the PR, **against the T001 baseline**. **"Done" is the observations.** Step 3 is the one that cannot be faked.
+- [X] T029 File the follow-up issue for the webhook integration registry (FR-016), carrying the question as stated: fab-scoped, or a shared template whose entitlement is proven per delivery?
+- [X] T030 Comment on #1155 that every applicable context now applies the guard, and **close it** — this is the last one. **Write `Closes #N`** with the keyword before each number; it fires only on merge to the default branch, and GitHub processes it asynchronously, so verify a minute later rather than immediately.
 
 ---
 
