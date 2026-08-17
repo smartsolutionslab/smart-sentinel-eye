@@ -26,17 +26,40 @@ public class ManualIngestFabScopingIntegrationTests(AspireFixture aspire) : IAsy
 
     public Task DisposeAsync() => Task.CompletedTask;
 
+    /// <summary>
+    /// The inference, checked where it lands rather than by its status code.
+    ///
+    /// <para>
+    /// <b>202 is not the assertion.</b> The inferred branch of
+    /// <c>FabResolution.ResolveForWriteAsync</c> never calls
+    /// <c>EnsureAccessAsync</c> — it has nothing to check, having derived the
+    /// fab from the caller's own single group — so an inference that fell back
+    /// to the <c>munich</c> default would return 202 just the same and this
+    /// case would pass while the regression it exists to catch went through.
+    /// The event has to be read back out of dresden.
+    /// </para>
+    /// </summary>
     [Fact]
     public async Task A_single_fab_operator_has_dresden_inferred_not_the_default()
     {
+        // Run-unique: a fixed literal cannot tell this run's event from one a
+        // previous run left in the same database.
+        string kind = $"Inferred{Guid.NewGuid():N}"[..24];
+
         using HttpClient events = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage accepted = await events.PostAsJsonAsync("/events/manual", Body("InferredKind"));
-
-        // dresden, not munich: everything else in the system defaults to munich,
-        // so an inference falling back to the default passes against a munich
-        // operator and only fails here.
+        HttpResponseMessage accepted = await events.PostAsJsonAsync("/events/manual", Body(kind));
         accepted.StatusCode.ShouldBe(HttpStatusCode.Accepted, await BodyAsync(accepted));
+
+        using HttpClient reader = await ClientFor(MultiFabOperator);
+        (await WaitForCountAsync(reader, "dresden", kind)).ShouldBe(
+            1, "the inferred fab did not land in dresden");
+
+        // And not in munich, which is what everything else in the system
+        // defaults to. Checked without waiting: the event has already been seen
+        // to land, so if it had gone to munich instead it would be there now.
+        (await CountAsync(reader, "munich", kind)).ShouldBe(
+            0, "a dresden operator's event was filed against munich");
     }
 
     [Fact]
@@ -90,6 +113,36 @@ public class ManualIngestFabScopingIntegrationTests(AspireFixture aspire) : IAsy
         JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
         page.GetProperty("items").GetArrayLength().ShouldBe(
             0, "a refused write reached munich's stream anyway");
+    }
+
+    /// <summary>
+    /// The number of events of this kind in the given fab, once the
+    /// asynchronous ingest has had a chance to land. Polls up to 30 s while the
+    /// count is zero and settles for a moment before reporting zero, so "it did
+    /// not arrive" is a conclusion rather than a race.
+    /// </summary>
+    private static async Task<int> WaitForCountAsync(HttpClient reader, string fab, string kind)
+    {
+        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        while (true)
+        {
+            int count = await CountAsync(reader, fab, kind);
+            if (count > 0 || DateTime.UtcNow >= deadline)
+            {
+                return count;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+        }
+    }
+
+    private static async Task<int> CountAsync(HttpClient reader, string fab, string kind)
+    {
+        HttpResponseMessage listed = await reader.GetAsync($"/events?fabId={fab}&kind={kind}");
+        listed.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        return page.GetProperty("items").GetArrayLength();
     }
 
     private Task<HttpClient> ClientFor(string username) =>
