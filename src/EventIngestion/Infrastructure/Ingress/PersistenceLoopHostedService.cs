@@ -29,7 +29,22 @@ public sealed class PersistenceLoopHostedService(
         {
             await foreach (EventEnvelope envelope in channel.ReadAllAsync(stoppingToken))
             {
-                await DispatchAsync(envelope, stoppingToken);
+                // A throwing dispatch used to escape ExecuteAsync, and the
+                // default BackgroundServiceExceptionBehavior is StopHost — so a
+                // single unpersistable envelope took the whole service down and
+                // every later request hung against a dead process. One fab's bad
+                // row must not stop ingestion for the other fabs (24/7, §IV).
+                // Broad by intent: what reaches here is by definition
+                // unanticipated, and the loop is the last thing standing between
+                // one row and total ingest loss.
+                try
+                {
+                    await DispatchAsync(envelope, stoppingToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    logger.IngestDispatchFaulted(envelope.Identifier, envelope.Fab, ex);
+                }
             }
         }
         catch (OperationCanceledException ex) when (stoppingToken.IsCancellationRequested)
