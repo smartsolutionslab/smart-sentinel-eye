@@ -116,13 +116,26 @@ public static partial class EventsEndpoints
     }
 
     private static async Task<IResult> ListDeadLetters(
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        ClaimsPrincipal user,
+        // New in spec 018 (FR-009). Every row here carries the rejected payload
+        // verbatim, and the listing had no fab at all: one plant's raw
+        // production data was readable by any operator of any other.
+        [FromQuery] string? fabId,
         [FromQuery] int? limit,
         [FromServices] ListDeadLettersQueryHandler handler,
         CancellationToken cancellationToken)
     {
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
         Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError> result =
             await handler.HandleAsync(
-                new ListDeadLettersQuery(limit ?? 100), cancellationToken);
+                new ListDeadLettersQuery(fabs, limit ?? 100), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,

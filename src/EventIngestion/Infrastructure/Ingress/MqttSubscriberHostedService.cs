@@ -45,6 +45,10 @@ public sealed class MqttSubscriberHostedService(
     private IManagedMqttClient? client;
     private MqttConnection? connection;
 
+    // Deliveries this process rejected without being able to name their plant
+    // (FR-012). Interlocked because MQTTnet dispatches handlers concurrently.
+    private long unattributableDeadLetters;
+
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         connection = await connectionFactory.CreateAsync(cancellationToken);
@@ -198,16 +202,64 @@ public sealed class MqttSubscriberHostedService(
         return new ParseResult(envelope, null);
     }
 
+    /// <summary>
+    /// The plant the delivery address establishes, or <c>null</c> when it
+    /// establishes none (spec 018 FR-008, FR-010).
+    ///
+    /// <para>
+    /// The two failure modes are not the same and must not be conflated. A
+    /// malformed <em>payload</em> under a well-formed topic — the common case —
+    /// has a plant, and its own operators can see it. Only a malformed
+    /// <em>address</em> leaves the origin unknown. Treating every rejection as
+    /// orphaned would hide the whole list while looking like correct scoping.
+    /// </para>
+    ///
+    /// <para>
+    /// Four segments do not by themselves yield a usable fab: the segment may be
+    /// present and still not be a legal <see cref="FabIdentifier"/>. So this
+    /// attempts the parse and falls back to null rather than assuming.
+    /// </para>
+    /// </summary>
+    private static FabIdentifier? TryParseFab(string topic)
+    {
+        string[] segments = topic.Split('/');
+        if (segments.Length != 4 || segments[0] != "fab")
+        {
+            return null;
+        }
+
+        try
+        {
+            return FabIdentifier.From(segments[1]);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
     private async Task CaptureDeadLetterAsync(string topic, ReadOnlyMemory<byte> body, string error)
     {
         logger.RejectingMqttDelivery(topic, error);
+
+        FabIdentifier? fab = TryParseFab(topic);
+        if (fab is null)
+        {
+            // FR-012. The row is about to become visible to nobody (FR-011),
+            // which is the fail-closed answer but also a real diagnostic gap.
+            // The topic and the running count only — never the payload, which is
+            // production data of unknown origin and the reason the row is
+            // hidden in the first place.
+            logger.UnattributableDeadLetter(topic, Interlocked.Increment(ref unattributableDeadLetters));
+        }
+
         string raw = Encoding.UTF8.GetString(body.Span);
         try
         {
             await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
             IDeadLetterRepository deadLetters =
                 scope.ServiceProvider.GetRequiredService<IDeadLetterRepository>();
-            deadLetters.Add(DeadLetter.Capture(topic, raw, error, clock));
+            deadLetters.Add(DeadLetter.Capture(topic, fab, raw, error, clock));
             await deadLetters.SaveAsync(CancellationToken.None);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

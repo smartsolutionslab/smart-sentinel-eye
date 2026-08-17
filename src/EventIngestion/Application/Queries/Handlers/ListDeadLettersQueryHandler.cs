@@ -17,9 +17,15 @@ public sealed class ListDeadLettersQueryHandler(IDeadLetterQuerySource deadLette
     {
         Ensure.That(query).IsNotNull();
 
-        int limit = query.Limit <= 0 ? DefaultLimit : Math.Min(query.Limit, MaximumLimit);
+        var (fabs, rawLimit) = query;
 
+        int limit = rawLimit <= 0 ? DefaultLimit : Math.Min(rawLimit, MaximumLimit);
+
+        // FR-009 and FR-011 in one term: a delivery from a fab the caller does
+        // not hold drops out, and so does one with no fab at all — an
+        // unattributed row satisfies no IN clause, so it reaches nobody.
         List<DeadLetter> rows = await deadLetters.DeadLetters
+            .Where(deadLetter => fabs.Contains(deadLetter.Fab))
             .OrderByDescending(deadLetter => deadLetter.RejectedAt)
             .Take(limit)
             .ToListAsync(cancellationToken);

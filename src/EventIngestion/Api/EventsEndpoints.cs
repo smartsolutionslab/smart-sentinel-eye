@@ -65,7 +65,12 @@ public static partial class EventsEndpoints
 
         reads.MapGet("/dead-letters", ListDeadLetters)
             .WithName("ListDeadLetters")
-            .Produces<IReadOnlyList<DeadLetterDto>>(StatusCodes.Status200OK);
+            .WithSummary(
+                "List rejected deliveries from the fabs you hold. A delivery whose plant could "
+                + "not be established from its address is returned to nobody (spec 018 FR-011).")
+            .Produces<IReadOnlyList<DeadLetterDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         return app;
     }

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
+using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence.Configurations;
@@ -24,6 +25,16 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
             .HasMaxLength(256)
             .IsRequired();
 
+        // Nullable permanently (spec 018 FR-010): a delivery whose address does
+        // not name a plant has none, and no later migration tightens this.
+        builder.Property(deadLetter => deadLetter.Fab)
+            .HasColumnName("fab")
+            .HasMaxLength(FabIdentifier.MaximumLength)
+            // `fab!` is safe: EF does not invoke a converter for a null value,
+            // so the lambda only ever sees an attributed row.
+            .HasConversion(fab => fab!.Value, value => FabIdentifier.From(value))
+            .IsRequired(false);
+
         builder.Property(deadLetter => deadLetter.RawPayload)
             .HasColumnName("raw_payload")
             .HasColumnType("text")
@@ -44,6 +55,12 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
 
         builder.HasIndex(deadLetter => deadLetter.RejectedAt)
             .HasDatabaseName("ix_dead_letters_rejected_at");
+
+        // Plain, not composite: the listing filters on fab and orders by
+        // rejected_at, and the table is small enough that the two indexes
+        // separately are the honest shape.
+        builder.HasIndex(deadLetter => deadLetter.Fab)
+            .HasDatabaseName("ix_dead_letters_fab");
 
         builder.Ignore(deadLetter => deadLetter.PendingEvents);
     }

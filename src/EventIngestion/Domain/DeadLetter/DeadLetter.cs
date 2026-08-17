@@ -1,3 +1,4 @@
+using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Domain.DeadLetter;
@@ -10,6 +11,20 @@ public sealed class DeadLetter : AggregateRoot<DeadLetterIdentifier>
 {
     public string Topic { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// The plant the delivery came from, where the delivery address establishes
+    /// one (spec 018 FR-008); <c>null</c> where it does not (FR-010).
+    ///
+    /// <para>
+    /// Nullable <b>permanently</b>, unlike spec 016's transitional stream fab: a
+    /// malformed address has no plant and FR-010 forbids inventing one, so there
+    /// is no follow-up NOT NULL migration to file. The null also does the work —
+    /// it satisfies no <c>IN</c>, so such a row reaches nobody (FR-011) without
+    /// the listing needing a special case.
+    /// </para>
+    /// </summary>
+    public FabIdentifier? Fab { get; private set; }
+
     public string RawPayload { get; private set; } = string.Empty;
 
     public string Error { get; private set; } = string.Empty;
@@ -18,7 +33,14 @@ public sealed class DeadLetter : AggregateRoot<DeadLetterIdentifier>
 
     private DeadLetter() { }
 
-    public static DeadLetter Capture(string topic, string rawPayload, string error, IClock clock)
+    /// <summary>
+    /// Captures a rejected delivery. <paramref name="fab"/> is the plant the
+    /// address established, or <c>null</c> when it established none — the
+    /// caller decides, because only the ingress knows which of the two failure
+    /// modes it hit.
+    /// </summary>
+    public static DeadLetter Capture(
+        string topic, FabIdentifier? fab, string rawPayload, string error, IClock clock)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(topic);
         Ensure.That(rawPayload).IsNotNull();
@@ -28,6 +50,7 @@ public sealed class DeadLetter : AggregateRoot<DeadLetterIdentifier>
         {
             Id = DeadLetterIdentifier.New(),
             Topic = topic,
+            Fab = fab,
             RawPayload = rawPayload,
             Error = error,
             RejectedAt = clock.UtcNow,
