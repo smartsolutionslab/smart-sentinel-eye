@@ -70,7 +70,15 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
         (DateTimeOffset Ingested, Guid EventId)? cursor,
         int pageSize)
     {
-        IQueryable<EventAggregate> source = events.Where(eventEntity => eventEntity.Fab == query.Fab);
+        // FR-001. The predicate was already here — what changed is that
+        // query.Fabs now comes from the caller's claims rather than from the
+        // query string, which is the whole of spec 018 on this path.
+        //
+        // The sort key is untouched: the cursor pages on (ingestedAt, eventId),
+        // which is fab-independent, and adding fab to it would invalidate every
+        // cursor already issued.
+        IQueryable<EventAggregate> source =
+            events.Where(eventEntity => query.Fabs.Contains(eventEntity.Fab));
 
         if (query.Source is not null)
         {

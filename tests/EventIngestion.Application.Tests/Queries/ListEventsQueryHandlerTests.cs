@@ -18,7 +18,7 @@ namespace SmartSentinelEye.EventIngestion.Application.Tests.Queries;
 public class ListEventsQueryHandlerTests
 {
     private static ListEventsQuery Query(int pageSize = 100, string? cursor = null) =>
-        new(FabIdentifier.From("munich"),
+        new([FabIdentifier.From("munich")],
             Source: null, Device: null, Kind: null,
             OccurredAfter: null, OccurredBefore: null,
             IngestedAfter: null, IngestedBefore: null,

@@ -54,12 +54,14 @@ public static partial class EventsEndpoints
         reads.MapGet("/", ListEvents)
             .WithName("ListEvents")
             .Produces<EventPageDto>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         reads.MapGet("/{eventId:guid}", GetEvent)
             .WithName("GetEvent")
             .Produces<EventDto>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         reads.MapGet("/dead-letters", ListDeadLetters)
             .WithName("ListDeadLetters")
@@ -104,4 +106,57 @@ public static partial class EventsEndpoints
         }
     }
 
+    /// <summary>
+    /// The fabs a read may span (spec 018 FR-001, FR-003). Omitting a fab
+    /// spans every fab the caller holds; naming one narrows to it; naming one
+    /// they do not hold is refused.
+    ///
+    /// <para>
+    /// This replaces taking the fab off the query string and trusting it. The
+    /// handlers already filtered on a fab — what was missing was any check
+    /// that the caller was entitled to the one they named, which is why the
+    /// context looked fab-scoped from every angle except this one.
+    /// </para>
+    ///
+    /// <para>
+    /// Parsed per entry rather than all-or-nothing. One group under
+    /// <c>/fabs/</c> that is not a usable fab name would otherwise fail the
+    /// whole read, hiding every event in the fabs the caller legitimately
+    /// holds. Mirrors <c>CameraEndpoints</c>, where that was a real defect.
+    /// </para>
+    /// </summary>
+    private static async Task<(IReadOnlyList<FabIdentifier>? Fabs, IResult? Problem)> ResolveReadFabsAsync(
+        ClaimsPrincipal user,
+        string fabId,
+        IFabAuthorizationGuard fabGuard,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<string> resolved =
+            await FabResolution.ResolveForReadAsync(user, fabId, fabGuard, cancellationToken);
+
+        List<FabIdentifier> fabs = [];
+        foreach (string candidate in resolved)
+        {
+            try
+            {
+                fabs.Add(FabIdentifier.From(candidate));
+            }
+            catch (ArgumentException)
+            {
+                // Skipped, not reported: a caller cannot act on a message about
+                // someone else's group configuration, and if nothing is usable
+                // the request still fails below.
+            }
+        }
+
+        if (fabs.Count == 0)
+        {
+            return (null, Results.Problem(
+                title: "EVENT_FAB_REQUIRED",
+                detail: "None of your fab groups is a usable fab name.",
+                statusCode: StatusCodes.Status400BadRequest));
+        }
+
+        return (fabs, null);
+    }
 }

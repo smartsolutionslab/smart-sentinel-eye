@@ -36,7 +36,7 @@ public sealed class ListEventsTranslationTests
     {
         using EventIngestionDbContext context = NewContext();
         ListEventsQuery query = new(
-            Fab: FabIdentifier.From("munich"),
+            Fabs: [FabIdentifier.From("munich")],
             Source: null,
             Device: null,
             Kind: null,
@@ -63,7 +63,7 @@ public sealed class ListEventsTranslationTests
         using EventIngestionDbContext context = NewContext();
         DateTimeOffset anchor = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         ListEventsQuery query = new(
-            Fab: FabIdentifier.From("munich"),
+            Fabs: [FabIdentifier.From("munich")],
             Source: Source.From("plc"),
             Device: DeviceIdentifier.From("press-07"),
             Kind: Kind.From("Alarm"),

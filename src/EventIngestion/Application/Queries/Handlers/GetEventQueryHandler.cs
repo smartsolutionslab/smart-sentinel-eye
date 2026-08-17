@@ -13,10 +13,13 @@ public sealed class GetEventQueryHandler(IEventQuerySource events)
         GetEventQuery query, CancellationToken cancellationToken)
     {
         Ensure.That(query).IsNotNull();
-        (Domain.Event.FabIdentifier? fab, Domain.Event.EventIdentifier identifier) = query;
+        (IReadOnlyList<Domain.Event.FabIdentifier> fabs, Domain.Event.EventIdentifier identifier) = query;
 
+        // FR-004: the fabs are part of the lookup rather than a check
+        // afterwards, so an event outside them and an identifier that matches
+        // nothing leave here identically and produce the same response.
         EventAggregate? found = await events.Events
-            .Where(eventEntity => eventEntity.Fab == fab && eventEntity.Id == identifier)
+            .Where(eventEntity => fabs.Contains(eventEntity.Fab) && eventEntity.Id == identifier)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (found is null)

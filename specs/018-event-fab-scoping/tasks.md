@@ -70,13 +70,13 @@
 
 **Goal**: both event reads are scoped to the caller's fabs. **Independent test**: as a Dresden-only operator, list naming Munich and request a Munich event by identifier.
 
-- [ ] T009 [US1] Widen `Fab` to `Fabs` on `ListEventsQuery` and `GetEventQuery` in `src/EventIngestion/Application/Queries/`.
-- [ ] T010 [US1] Change the two predicates in `src/EventIngestion/Application/Queries/Handlers/` from `== query.Fab` to `fabs.Contains(...)`. **Do not touch the sort key**: the cursor pages on `(ingestedAt, eventId)`, which is fab-independent, and adding fab to it would invalidate every issued cursor.
-- [ ] T011 [US1] Apply `ResolveReadFabsAsync` to `ListEvents` and `GetEvent` in `src/EventIngestion/Api/EventsEndpoints.Reads.cs`, making `fabId` optional and **checked**.
-- [ ] T012 [US1] Return **404** for an event outside the caller's fabs, byte-identical to one that never existed (FR-004). The fab belongs in the lookup, not in a check afterwards — so both cases leave by the same path.
-- [ ] T013 [US1] Declare **403** on both reads in `src/EventIngestion/Api/EventsEndpoints.cs`.
-- [ ] T014 [P] [US1] Add handler tests under `tests/EventIngestion.Application.Tests/Queries/` for the scoping and the not-found path, including a multi-fab caller seeing both plants.
-- [ ] T015 [US1] Add `tests/Integration.Tests/EventIngestion/EventFabScopingIntegrationTests.cs` with `op-dresden@dresden.test` and `op-multi@smart-sentinel-eye.test`: listing scoped, naming an unheld fab 403, another fab's event 404 **compared field by field** with `traceId` and the requested identifier normalised out. Covers SC-001 and SC-002.
+- [X] T009 [US1] Widen `Fab` to `Fabs` on `ListEventsQuery` and `GetEventQuery` in `src/EventIngestion/Application/Queries/`.
+- [X] T010 [US1] Change the two predicates in `src/EventIngestion/Application/Queries/Handlers/` from `== query.Fab` to `fabs.Contains(...)`. **Do not touch the sort key**: the cursor pages on `(ingestedAt, eventId)`, which is fab-independent, and adding fab to it would invalidate every issued cursor.
+- [X] T011 [US1] Apply `ResolveReadFabsAsync` to `ListEvents` and `GetEvent` in `src/EventIngestion/Api/EventsEndpoints.Reads.cs`, making `fabId` optional and **checked**.
+- [X] T012 [US1] Return **404** for an event outside the caller's fabs, byte-identical to one that never existed (FR-004). The fab belongs in the lookup, not in a check afterwards — so both cases leave by the same path.
+- [X] T013 [US1] Declare **403** on both reads in `src/EventIngestion/Api/EventsEndpoints.cs`.
+- [X] T014 [P] [US1] Add handler tests under `tests/EventIngestion.Application.Tests/Queries/` for the scoping and the not-found path, including a multi-fab caller seeing both plants.
+- [X] T015 [US1] Add `tests/Integration.Tests/EventIngestion/EventFabScopingIntegrationTests.cs` with `op-dresden@dresden.test` and `op-multi@smart-sentinel-eye.test`: listing scoped, naming an unheld fab 403, another fab's event 404 **compared field by field** with `traceId` and the requested identifier normalised out. Covers SC-001 and SC-002.
 
 **Checkpoint**: SC-001 and SC-002 observed. The event data is closed.
 

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.EventIngestion.Application.DTOs;
@@ -5,6 +6,7 @@ using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Api;
@@ -13,7 +15,13 @@ namespace SmartSentinelEye.EventIngestion.Api;
 public static partial class EventsEndpoints
 {
     private static async Task<IResult> ListEvents(
-        [FromQuery] string fabId,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        ClaimsPrincipal user,
+        // Optional since spec 018 (FR-003): omitting it spans every fab the
+        // caller holds. It was required, which is why a leak looked like
+        // scoping — the caller had to name a fab and nothing checked they held
+        // it.
+        [FromQuery] string? fabId,
         [FromQuery] string? source,
         [FromQuery] string? deviceId,
         [FromQuery] string? kind,
@@ -26,13 +34,11 @@ public static partial class EventsEndpoints
         [FromServices] ListEventsQueryHandler handler,
         CancellationToken cancellationToken)
     {
-        FabIdentifier fab;
         Source? sourceVo = null;
         DeviceIdentifier? deviceVo = null;
         Kind? kindVo = null;
         try
         {
-            fab = FabIdentifier.From(fabId);
             if (!string.IsNullOrEmpty(source))
             {
                 sourceVo = Source.From(source);
@@ -55,9 +61,16 @@ public static partial class EventsEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
         Result<EventPageDto, ListEventsError> result = await handler.HandleAsync(
             new ListEventsQuery(
-                fab, sourceVo, deviceVo, kindVo,
+                fabs, sourceVo, deviceVo, kindVo,
                 occurredAfter, occurredBefore, ingestedAfter, ingestedBefore,
                 pageSize ?? 100, cursor),
             cancellationToken);
@@ -69,15 +82,15 @@ public static partial class EventsEndpoints
 
     private static async Task<IResult> GetEvent(
         Guid eventId,
-        [FromQuery] string fabId,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        ClaimsPrincipal user,
+        [FromQuery] string? fabId,
         [FromServices] GetEventQueryHandler handler,
         CancellationToken cancellationToken)
     {
-        FabIdentifier fab;
         EventIdentifier identifier;
         try
         {
-            fab = FabIdentifier.From(fabId);
             identifier = EventIdentifier.From(eventId);
         }
         catch (ArgumentException ex)
@@ -87,8 +100,15 @@ public static partial class EventsEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
         Result<EventDto, GetEventError> result = await handler.HandleAsync(
-            new GetEventQuery(fab, identifier), cancellationToken);
+            new GetEventQuery(fabs, identifier), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
