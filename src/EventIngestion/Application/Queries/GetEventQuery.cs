@@ -5,5 +5,10 @@ using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Application.Queries;
 
-public sealed record GetEventQuery(FabIdentifier Fab, EventIdentifier Identifier)
+/// <summary>
+/// <c>Fabs</c> is the fabs the caller holds (spec 018 FR-001). Before this the
+/// query took a single fab straight off the request, so the filter below was a
+/// parameter rather than scoping.
+/// </summary>
+public sealed record GetEventQuery(IReadOnlyList<FabIdentifier> Fabs, EventIdentifier Identifier)
     : IQuery<Result<EventDto, GetEventError>>;
