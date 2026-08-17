@@ -67,8 +67,8 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
 
         // (b) — the common case, through the real ingress: the address is
         // well-formed, the payload is not, and the plant comes off the topic.
-        await PublishAsync("fab/munich/plc/station-4", munichPayload);
-        DeadLetterAggregate munich = await WaitForCapturedAsync(munichPayload);
+        DeadLetterAggregate munich = await WaitForCapturedAsync(
+            "fab/munich/plc/station-4", munichPayload);
         munich.Fab.ShouldBe(
             FabIdentifier.From("munich"),
             "the ingress did not take the plant from a well-formed delivery address");
@@ -117,8 +117,10 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
     // ---- helpers ------------------------------------------------------------
 
     /// <summary>
-    /// The payloads from this run that the given operator can read, in the
-    /// order the listing returned them.
+    /// The distinct payloads from this run that the given operator can read.
+    /// Distinct because a redelivered rejection is captured twice, and the
+    /// question here is which payloads are visible, not how many rows carry
+    /// them.
     /// </summary>
     private async Task<IReadOnlyList<string>> PayloadsVisibleToAsync(string username, string run)
     {
@@ -132,7 +134,8 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
             .. rows.EnumerateArray()
                 .Select(row => row.GetProperty("rawPayload").GetString())
                 .Where(payload => payload is not null && payload.EndsWith(run, StringComparison.Ordinal))
-                .Select(payload => payload!),
+                .Select(payload => payload!)
+                .Distinct(StringComparer.Ordinal),
         ];
     }
 
@@ -144,20 +147,32 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
         await database.SaveChangesAsync();
     }
 
-    private async Task<DeadLetterAggregate> WaitForCapturedAsync(string rawPayload)
+    /// <summary>
+    /// Publishes until the delivery is captured. Republished rather than sent
+    /// once: a message published before the subscriber has connected reaches
+    /// nobody, and this test may well run before it has. A redelivery that
+    /// arrives late is captured twice, which is why the listings below are
+    /// compared as sets.
+    /// </summary>
+    private async Task<DeadLetterAggregate> WaitForCapturedAsync(string topic, string rawPayload)
     {
-        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(60);
         while (DateTime.UtcNow < deadline)
         {
-            await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
-            DeadLetterAggregate? captured = await database.DeadLetters.AsNoTracking()
-                .SingleOrDefaultAsync(deadLetter => deadLetter.RawPayload == rawPayload);
-            if (captured is not null)
-            {
-                return captured;
-            }
+            await PublishAsync(topic, rawPayload);
 
-            await Task.Delay(TimeSpan.FromMilliseconds(500));
+            for (int attempt = 0; attempt < 6; attempt++)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(500));
+
+                await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+                DeadLetterAggregate? captured = await database.DeadLetters.AsNoTracking()
+                    .FirstOrDefaultAsync(deadLetter => deadLetter.RawPayload == rawPayload);
+                if (captured is not null)
+                {
+                    return captured;
+                }
+            }
         }
 
         throw new TimeoutException(
