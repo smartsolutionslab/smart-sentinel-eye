@@ -60,6 +60,7 @@ public static partial class EventsEndpoints
         reads.MapGet("/{eventId:guid}", GetEvent)
             .WithName("GetEvent")
             .Produces<EventDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
@@ -82,8 +83,19 @@ public static partial class EventsEndpoints
     ///
     /// <para>
     /// <c>POST /events/webhook/{name}</c> does <b>not</b> use this and must
-    /// not: its caller is a machine presenting its own credentials, and it
-    /// already checks the fab against them (FR-014).
+    /// not: its caller is a machine presenting its own credentials rather than
+    /// an operator with a session (FR-014).
+    /// </para>
+    ///
+    /// <para>
+    /// That exemption is narrower than it reads, and the narrowing is not this
+    /// feature's to close. Only <c>BearerValidationMode.Jwt</c> checks the fab,
+    /// against the token's own <c>groups</c>. <c>StaticHash</c> — the enum
+    /// default, and the mode of every integration registered before spec 008 —
+    /// authenticates the token and nothing else, and
+    /// <see cref="Domain.WebhookIntegration.WebhookIntegration"/> carries no fab
+    /// to check it against. Whether it should is #1545 (FR-016), and it cannot
+    /// be answered here: there is no fab on the entity to compare.
     /// </para>
     /// </summary>
     private static async Task<(FabIdentifier? Fab, IResult? Problem)> ResolveWriteFabAsync(
