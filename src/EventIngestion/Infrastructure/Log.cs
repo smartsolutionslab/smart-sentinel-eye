@@ -16,6 +16,9 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "Ingest failed for {Identifier} ({Source}/{Device}): {Code}.")]
     public static partial void IngestFailed(this ILogger logger, EventIdentifier identifier, Source source, DeviceIdentifier device, string code);
 
+    [LoggerMessage(Level = LogLevel.Error, Message = "Ingest dispatch faulted for {Identifier} in fab {Fab}; the envelope is dropped and the loop continues.")]
+    public static partial void IngestDispatchFaulted(this ILogger logger, EventIdentifier identifier, FabIdentifier fab, Exception exception);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "MQTT subscriber started; subscribed to topic '{Topic}' at QoS 1.")]
     public static partial void MqttSubscriberStarted(this ILogger logger, string topic);
 
