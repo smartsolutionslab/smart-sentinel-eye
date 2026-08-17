@@ -22,8 +22,8 @@ public static partial class EventsEndpoints
         [FromServices] IIngestChannel channel,
         [FromServices] IFabAuthorizationGuard fabGuard,
         ClaimsPrincipal user,
-        CancellationToken cancellationToken,
-        [FromQuery] string fabId = "")
+        [FromQuery] string? fabId,
+        CancellationToken cancellationToken)
     {
         Ensure.That(body).IsNotNull();
 
@@ -36,7 +36,7 @@ public static partial class EventsEndpoints
         // already enqueued would place a fabricated event in another plant's
         // stream while reporting that it had been stopped.
         (FabIdentifier? fab, IResult? fabProblem) =
-            await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
+            await ResolveWriteFabAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fab is null)
         {
             return fabProblem!;
