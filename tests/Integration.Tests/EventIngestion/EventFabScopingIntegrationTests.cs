@@ -132,7 +132,7 @@ public class EventFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLifet
                 JsonElement items = page.GetProperty("items");
                 if (items.GetArrayLength() > 0)
                 {
-                    return items[0].GetProperty("eventId").GetGuid();
+                    return items[0].GetProperty("eventIdentifier").GetGuid();
                 }
             }
 
