@@ -71,3 +71,7 @@ aspire-dashboard-storage/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Local-only: a BOM-prefixed copy of coverage-check.ps1, because Windows
+# PowerShell 5.1 mis-decodes the script's UTF-8 characters without one.
+scripts/coverage-check.bom.ps1
