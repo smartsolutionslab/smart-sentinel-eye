@@ -37,7 +37,7 @@ reintroduce the defect spec 018 fixed.
 
 ## Phase 1: Setup — reproduce both losses
 
-- [ ] T001 Capture the current behaviour, per [quickstart.md](./quickstart.md) step 0, in **both** forms: (a) pause Postgres, publish ~20 broker events, unpause — record the stored count and the `dispatch faulted` lines; (b) publish a few thousand and `docker kill` event-ingestion mid-drain — record how many arrived versus were sent, **and that nothing at all was logged for them**. **Record both on the PR.** Case (b) is the half the issue does not describe and the half with no evidence of its own.
+- [X] T001 Capture the current behaviour, per [quickstart.md](./quickstart.md) step 0, in **both** forms: (a) pause Postgres, publish ~20 broker events, unpause — record the stored count and the `dispatch faulted` lines; (b) publish a few thousand and `docker kill` event-ingestion mid-drain — record how many arrived versus were sent, **and that nothing at all was logged for them**. **Record both on the PR.** Case (b) is the half the issue does not describe and the half with no evidence of its own.
 
 **Checkpoint**: Both losses documented, with the asymmetry — one complains, one is silent.
 
@@ -45,9 +45,9 @@ reintroduce the defect spec 018 fixed.
 
 ## Phase 2: Foundational (blocking) — the seam and the ceiling
 
-- [ ] T002 Add a completion signal to the envelope carried by `src/EventIngestion/Application/Ingress/IIngestChannel.cs` — the means to report *stored* or *permanently unstorable* per envelope, per [contracts/ingest.md](./contracts/ingest.md). One signal on the existing channel, **not** a second channel type, so a durable buffer could be substituted later without either ingress noticing.
-- [ ] T003 Carry it through `src/EventIngestion/Application/Ingress/BoundedIngestChannel.cs`. Capacity, `FullMode.Wait` and single-reader FIFO are unchanged — only the item is richer.
-- [ ] T004 Set `max_inflight_messages` to a stated finite value in `src/AppHost/mosquitto/mosquitto.conf`, with a comment saying why the default of 20 is not survivable once acknowledgement waits for storage (research §R1). **Not `0`.**
+- [X] T002 Add a completion signal to the envelope carried by `src/EventIngestion/Application/Ingress/IIngestChannel.cs` — the means to report *stored* or *permanently unstorable* per envelope, per [contracts/ingest.md](./contracts/ingest.md). One signal on the existing channel, **not** a second channel type, so a durable buffer could be substituted later without either ingress noticing.
+- [X] T003 Carry it through `src/EventIngestion/Application/Ingress/BoundedIngestChannel.cs`. Capacity, `FullMode.Wait` and single-reader FIFO are unchanged — only the item is richer.
+- [X] T004 Set `max_inflight_messages` to a stated finite value in `src/AppHost/mosquitto/mosquitto.conf`, with a comment saying why the default of 20 is not survivable once acknowledgement waits for storage (research §R1). **Not `0`.**
 - [ ] T005 [P] Add a unit test under `tests/EventIngestion.Infrastructure.Tests/` that the channel preserves per-source FIFO with the completion signal attached — the ordering guarantee (FR-011) is the easiest thing to lose while changing the item type.
 
 **Checkpoint**: The seam exists and the broker can hold a real window. Nothing has changed about when anything is acknowledged.

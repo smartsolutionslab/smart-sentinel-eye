@@ -1,28 +1,33 @@
-using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Application.Ingress;
 
 /// <summary>
-/// Bounded channel buffering envelopes between ingress and the
+/// Bounded channel buffering deliveries between the broker ingress and the
 /// persistence loop (spec 006 FR-021). 5 000 slots per instance.
-/// <c>FullMode = Wait</c> — <see cref="WriteAsync"/> blocks the
-/// caller (this is what makes the MQTT subscriber stop ACKing
-/// when the channel saturates per FR-022); <see cref="TryWrite"/>
-/// returns <c>false</c> so HTTP ingress can short-circuit to 429.
+/// <c>FullMode = Wait</c> — <see cref="WriteAsync"/> blocks the caller, which
+/// is what makes the MQTT subscriber stop taking deliveries when the channel
+/// saturates and lets the broker hold queue depth (FR-022).
+///
+/// <para>
+/// Single reader, so per-source order is preserved end to end: the broker
+/// delivers in order, the channel is FIFO, and one loop drains it. Spec 020
+/// batches that drain but does not add a second reader — the batch is committed
+/// in order, so the guarantee survives.
+/// </para>
 /// </summary>
 public sealed class BoundedIngestChannel : IIngestChannel
 {
     public const int DefaultCapacity = 5_000;
 
-    private readonly Channel<EventEnvelope> channel;
+    private readonly Channel<IngestDelivery> channel;
 
     public BoundedIngestChannel() : this(DefaultCapacity) { }
 
     public BoundedIngestChannel(int capacity)
     {
-        channel = Channel.CreateBounded<EventEnvelope>(new BoundedChannelOptions(capacity)
+        channel = Channel.CreateBounded<IngestDelivery>(new BoundedChannelOptions(capacity)
         {
             FullMode = BoundedChannelFullMode.Wait,
             SingleReader = true,
@@ -32,27 +37,32 @@ public sealed class BoundedIngestChannel : IIngestChannel
 
     public int CurrentDepth => channel.Reader.Count;
 
-    public bool TryWrite(EventEnvelope envelope)
+    public ValueTask WriteAsync(IngestDelivery delivery, CancellationToken cancellationToken)
     {
-        Ensure.That(envelope).IsNotNull();
-        return channel.Writer.TryWrite(envelope);
+        Ensure.That(delivery).IsNotNull();
+        return channel.Writer.WriteAsync(delivery, cancellationToken);
     }
 
-    public ValueTask WriteAsync(EventEnvelope envelope, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<IngestDelivery>> ReadBatchAsync(
+        int maximum, CancellationToken cancellationToken)
     {
-        Ensure.That(envelope).IsNotNull();
-        return channel.Writer.WriteAsync(envelope, cancellationToken);
-    }
+        Ensure.That(maximum).IsGreaterThan(0);
 
-    public async IAsyncEnumerable<EventEnvelope> ReadAllAsync(
-        [EnumeratorCancellation] CancellationToken cancellationToken)
-    {
-        while (await channel.Reader.WaitToReadAsync(cancellationToken))
+        // Waits for the first, then takes whatever else is already queued up to
+        // the limit. Never waits *for* a batch to fill: a lone event at 3 a.m.
+        // must not sit here until a second one arrives, which would spend the
+        // latency budget on an optimisation for a load that is not happening.
+        if (!await channel.Reader.WaitToReadAsync(cancellationToken))
         {
-            while (channel.Reader.TryRead(out EventEnvelope? envelope))
-            {
-                yield return envelope;
-            }
+            return [];
         }
+
+        List<IngestDelivery> batch = [];
+        while (batch.Count < maximum && channel.Reader.TryRead(out IngestDelivery? delivery))
+        {
+            batch.Add(delivery);
+        }
+
+        return batch;
     }
 }
