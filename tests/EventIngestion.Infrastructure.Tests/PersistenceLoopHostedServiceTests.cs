@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
@@ -119,8 +120,16 @@ public class PersistenceLoopHostedServiceTests
 
         public IReadOnlyList<DeadLetter> DeadLetters => deadLetters.Captured;
 
+        /// <summary>
+        /// Short enough to keep the abandon case a fast test. The bound is a
+        /// duration in production too — five minutes — so shortening it here
+        /// exercises the same code rather than a test-only branch.
+        /// </summary>
+        private static readonly TimeSpan RetryWindow = TimeSpan.FromMilliseconds(500);
+
         private readonly ScriptedEventRepository repository = new();
         private readonly RecordingDeadLetterRepository deadLetters = new();
+        private readonly AdvancingClock clock = new();
 
         public async Task RunUntilAsync(Func<bool> condition, TimeSpan? timeout = null)
         {
@@ -139,6 +148,15 @@ public class PersistenceLoopHostedServiceTests
             PersistenceLoopHostedService loop = new(
                 new OneBatchChannel(batch),
                 provider.GetRequiredService<IServiceScopeFactory>(),
+                Options.Create(new IngestRetryOptions
+                {
+                    // Short enough that the abandon case is a fast test, rather
+                    // than one that sits out the five-minute production window.
+                    MaximumRetryWindow = RetryWindow,
+                    InitialBackoff = TimeSpan.FromMilliseconds(10),
+                    MaximumBackoff = TimeSpan.FromMilliseconds(50),
+                }),
+                clock,
                 NullLogger<PersistenceLoopHostedService>.Instance);
 
             using CancellationTokenSource cts = new(timeout ?? TimeSpan.FromSeconds(10));
@@ -249,6 +267,19 @@ public class PersistenceLoopHostedServiceTests
             Abandoned++;
             return Task.CompletedTask;
         }
+    }
+
+    /// <summary>
+    /// Real elapsed time from a fixed start. The retry bound is a duration, so a
+    /// frozen clock would make it unreachable and the abandon test would hang
+    /// rather than fail — which is how a bound that never fires gets shipped.
+    /// </summary>
+    private sealed class AdvancingClock : IClock
+    {
+        private readonly System.Diagnostics.Stopwatch elapsed =
+            System.Diagnostics.Stopwatch.StartNew();
+
+        public DateTimeOffset UtcNow => Now + elapsed.Elapsed;
     }
 
     private sealed class FixedClock : IClock

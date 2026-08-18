@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using SmartSentinelEye.EventIngestion.Application.Commands;
 using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
@@ -34,6 +35,8 @@ namespace SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 public sealed class PersistenceLoopHostedService(
     IIngestChannel channel,
     IServiceScopeFactory scopeFactory,
+    IOptions<IngestRetryOptions> retry,
+    IClock clock,
     ILogger<PersistenceLoopHostedService> logger) : BackgroundService
 {
     /// <summary>
@@ -45,16 +48,12 @@ public sealed class PersistenceLoopHostedService(
     public const int BatchSize = 200;
 
     /// <summary>
-    /// How many times a single delivery may fail before it is recorded and
-    /// released. Bounded because QoS 1 redelivers forever: without a stopping
-    /// rule, one permanently unstorable delivery blocks everything behind it.
+    /// When each delivery was first seen failing, so the bound can be a
+    /// duration. Bounded at all because QoS 1 redelivers forever: without a
+    /// stopping rule, one permanently unstorable delivery blocks everything
+    /// behind it.
     /// </summary>
-    public const int MaximumAttempts = 5;
-
-    private static readonly TimeSpan InitialBackoff = TimeSpan.FromMilliseconds(200);
-    private static readonly TimeSpan MaximumBackoff = TimeSpan.FromSeconds(30);
-
-    private readonly Dictionary<EventIdentifier, int> attempts = [];
+    private readonly Dictionary<EventIdentifier, DateTimeOffset> failingSince = [];
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -97,8 +96,9 @@ public sealed class PersistenceLoopHostedService(
     private async Task StoreBatchAsync(
         IReadOnlyList<IngestDelivery> batch, CancellationToken cancellationToken)
     {
+        IngestRetryOptions options = retry.Value;
         List<IngestDelivery> outstanding = [.. batch];
-        TimeSpan backoff = InitialBackoff;
+        TimeSpan backoff = options.InitialBackoff;
         bool interrupted = false;
 
         while (outstanding.Count > 0 && !cancellationToken.IsCancellationRequested)
@@ -109,12 +109,12 @@ public sealed class PersistenceLoopHostedService(
             {
                 if (await TryStoreAsync(delivery, cancellationToken))
                 {
-                    attempts.Remove(delivery.Envelope.Identifier);
+                    failingSince.Remove(delivery.Envelope.Identifier);
                     await delivery.Completion.StoredAsync(cancellationToken);
                     continue;
                 }
 
-                if (Exhausted(delivery.Envelope.Identifier))
+                if (Exhausted(delivery.Envelope.Identifier, options.MaximumRetryWindow))
                 {
                     // Recorded, then released. In that order — releasing an
                     // unrecorded delivery is the original defect with a bound
@@ -139,9 +139,8 @@ public sealed class PersistenceLoopHostedService(
 
             outstanding = failed;
             await Task.Delay(backoff, cancellationToken);
-            backoff = backoff < MaximumBackoff
-                ? TimeSpan.FromTicks(Math.Min(backoff.Ticks * 2, MaximumBackoff.Ticks))
-                : MaximumBackoff;
+            backoff = TimeSpan.FromTicks(
+                Math.Min(backoff.Ticks * 2, options.MaximumBackoff.Ticks));
         }
 
         if (interrupted)
@@ -162,7 +161,7 @@ public sealed class PersistenceLoopHostedService(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            CountAttempt(delivery.Envelope.Identifier);
+            NoteFailure(delivery.Envelope.Identifier);
             if (IsMissingPartition(ex))
             {
                 logger.NoStorageForFab(delivery.Envelope.Identifier, delivery.Envelope.Fab, ex);
@@ -179,23 +178,23 @@ public sealed class PersistenceLoopHostedService(
     private async Task AbandonAsync(IngestDelivery delivery, CancellationToken cancellationToken)
     {
         EventEnvelope envelope = delivery.Envelope;
+        TimeSpan window = retry.Value.MaximumRetryWindow;
         try
         {
             await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
             IDeadLetterRepository deadLetters =
                 scope.ServiceProvider.GetRequiredService<IDeadLetterRepository>();
-            IClock clock = scope.ServiceProvider.GetRequiredService<IClock>();
 
             deadLetters.Add(Domain.DeadLetter.DeadLetter.Capture(
                 $"event/{envelope.Fab.Value}/{envelope.Source.Value}/{envelope.Device.Value}",
                 envelope.Fab,
                 envelope.Payload.Value,
-                $"not storable after {MaximumAttempts} attempts",
+                $"not storable after {window} of retrying",
                 clock));
             await deadLetters.SaveAsync(cancellationToken);
 
-            attempts.Remove(envelope.Identifier);
-            logger.IngestAbandoned(envelope.Identifier, envelope.Fab, MaximumAttempts);
+            failingSince.Remove(envelope.Identifier);
+            logger.IngestAbandoned(envelope.Identifier, envelope.Fab, window);
             await delivery.Completion.AbandonedAsync(cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -210,16 +209,23 @@ public sealed class PersistenceLoopHostedService(
     }
 
     /// <summary>
-    /// Records one more failed attempt for this event. In memory and reset on
+    /// Notes when this event first started failing. In memory and reset on
     /// restart, deliberately: persisting it would mean a durable write per
     /// failed attempt, on the path that is failing because writes are failing.
-    /// A restart costs a few extra attempts before the bound is reached again.
+    /// A restart costs the delivery a fresh window, which during an outage is
+    /// the right answer anyway.
     /// </summary>
-    private void CountAttempt(EventIdentifier identifier) =>
-        attempts[identifier] = attempts.TryGetValue(identifier, out int seen) ? seen + 1 : 1;
+    private void NoteFailure(EventIdentifier identifier)
+    {
+        if (!failingSince.ContainsKey(identifier))
+        {
+            failingSince[identifier] = clock.UtcNow;
+        }
+    }
 
-    private bool Exhausted(EventIdentifier identifier) =>
-        attempts.TryGetValue(identifier, out int seen) && seen >= MaximumAttempts;
+    private bool Exhausted(EventIdentifier identifier, TimeSpan window) =>
+        failingSince.TryGetValue(identifier, out DateTimeOffset since)
+        && clock.UtcNow - since >= window;
 
     /// <summary>
     /// Whether this is Postgres refusing the row because no partition covers its
