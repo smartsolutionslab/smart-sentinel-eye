@@ -24,6 +24,15 @@ public sealed class InMemoryEventRepository : IEventRepository
         FabIdentifier fab, EventIdentifier identifier, CancellationToken cancellationToken) =>
         Task.FromResult(_events.Any(e => e.Fab == fab && e.Id == identifier));
 
+    public Task<IReadOnlySet<EventIdentifier>> ExistingAsync(
+        IReadOnlyCollection<(FabIdentifier Fab, EventIdentifier Identifier)> candidates,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlySet<EventIdentifier>>(
+            candidates
+                .Where(candidate => _events.Any(e => e.Fab == candidate.Fab && e.Id == candidate.Identifier))
+                .Select(candidate => candidate.Identifier)
+                .ToHashSet());
+
     public void Add(EventAggregate @event) => _events.Add(@event);
 
     public Task SaveAsync(CancellationToken cancellationToken)

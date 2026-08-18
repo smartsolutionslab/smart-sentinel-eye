@@ -21,6 +21,12 @@ internal static partial class Log
         Message = "Idempotent re-delivery of {Identifier} for fab {Fab}; no-op.")]
     public static partial void IdempotentReDelivery(this ILogger logger, EventIdentifier identifier, FabIdentifier fab);
 
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Rejected {Identifier} ({Source}/{Device}) from a batch: {Code}. "
+            + "It is acknowledged rather than retried — the rule that rejects it will reject it again.")]
+    public static partial void BatchEnvelopeRejected(
+        this ILogger logger, EventIdentifier identifier, Source source, DeviceIdentifier device, string code);
+
     [LoggerMessage(Level = LogLevel.Debug,
         Message = "Published FabEventIngestedV1 for {Identifier} ({Source}/{Device}).")]
     public static partial void PublishedIntegrationEvent(

@@ -63,6 +63,7 @@ public static class EventIngestionInfrastructureModule
 
         // Hand-rolled command handler registrations (ADR-0042 + ADR-0057).
         builder.Services.AddScoped<IngestEventCommandHandler>();
+        builder.Services.AddScoped<IngestEventBatchCommandHandler>();
         builder.Services.AddScoped<
             ICommandHandler<IngestEventCommand, Result<EventIdentifier, IngestEventError>>,
             IngestEventCommandHandler>();

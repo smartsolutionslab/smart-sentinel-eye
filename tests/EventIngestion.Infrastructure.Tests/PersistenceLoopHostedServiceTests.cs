@@ -133,6 +133,33 @@ public class PersistenceLoopHostedServiceTests
         poison.Stored.ShouldBe(0);
     }
 
+    /// <summary>
+    /// FR-010. The requirement is not "batching exists somewhere" but that
+    /// ingest is not a round trip per event, and the only way to see that from
+    /// outside is to count the saves. Three deliveries, one save.
+    ///
+    /// <para>
+    /// Worth its own case because the batch path fails <i>open</i>: if the batch
+    /// handler cannot be resolved or throws, the loop quietly stores them one at
+    /// a time and every other test here still passes. That is how a performance
+    /// path gets switched off without anyone noticing.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_batch_is_stored_in_one_save_not_one_per_event()
+    {
+        RecordingCompletion first = new();
+        RecordingCompletion second = new();
+        RecordingCompletion third = new();
+        Harness harness = new(
+            Delivery("a", first), Delivery("b", second), Delivery("c", third));
+
+        await harness.RunUntilAsync(
+            () => first.Stored == 1 && second.Stored == 1 && third.Stored == 1);
+
+        harness.Attempts.ShouldBe(1, "three events cost three round trips");
+    }
+
     private static IngestDelivery Delivery(string marker, IIngestCompletion completion) =>
         new(
             new EventEnvelope(
@@ -189,6 +216,7 @@ public class PersistenceLoopHostedServiceTests
             services.AddSingleton<IClock>(new FixedClock());
             services.AddLogging();
             services.AddScoped<IngestEventCommandHandler>();
+            services.AddScoped<IngestEventBatchCommandHandler>();
 
             await using ServiceProvider provider = services.BuildServiceProvider();
 
@@ -257,7 +285,7 @@ public class PersistenceLoopHostedServiceTests
 
         public string? PoisonPayload { get; set; }
 
-        private EventAggregate? pending;
+        private readonly List<EventAggregate> pending = [];
 
         public Task<Option<EventAggregate>> GetByIdentifierAsync(
             FabIdentifier fab, EventIdentifier identifier, CancellationToken cancellationToken) =>
@@ -267,27 +295,40 @@ public class PersistenceLoopHostedServiceTests
             FabIdentifier fab, EventIdentifier identifier, CancellationToken cancellationToken) =>
             Task.FromResult(stored.Any(e => e.Fab == fab && e.Id == identifier));
 
-        public void Add(EventAggregate @event) => pending = @event;
+        public Task<IReadOnlySet<EventIdentifier>> ExistingAsync(
+            IReadOnlyCollection<(FabIdentifier Fab, EventIdentifier Identifier)> candidates,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlySet<EventIdentifier>>(
+                candidates
+                    .Where(candidate => stored.Any(e => e.Fab == candidate.Fab && e.Id == candidate.Identifier))
+                    .Select(candidate => candidate.Identifier)
+                    .ToHashSet());
 
+        public void Add(EventAggregate @event) => pending.Add(@event);
+
+        /// <summary>
+        /// One save covers everything added since the last one, and any poison
+        /// among them fails all of it — which is what the real repository does
+        /// and what the loop's fallback path exists to survive. Modelling a
+        /// single pending event would let a poisoned delivery be stored simply
+        /// because a healthy one was added after it.
+        /// </summary>
         public Task SaveAsync(CancellationToken cancellationToken)
         {
             Attempts++;
 
             bool poisoned = PoisonPayload is not null
-                && pending is not null
-                && pending.Payload.Value.Contains(PoisonPayload, StringComparison.Ordinal);
+                && pending.Exists(@event =>
+                    @event.Payload.Value.Contains(PoisonPayload, StringComparison.Ordinal));
 
             if (poisoned || Attempts <= FailuresBeforeSuccess)
             {
+                pending.Clear();
                 throw new InvalidOperationException("scripted persistence failure");
             }
 
-            if (pending is not null)
-            {
-                stored.Add(pending);
-                pending = null;
-            }
-
+            stored.AddRange(pending);
+            pending.Clear();
             return Task.CompletedTask;
         }
     }
