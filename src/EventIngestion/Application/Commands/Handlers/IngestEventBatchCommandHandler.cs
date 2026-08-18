@@ -70,9 +70,10 @@ public sealed class IngestEventBatchCommandHandler(
                 continue;
             }
 
-            if (TryBuild(envelope, out EventAggregate @event))
+            Option<EventAggregate> built = Build(envelope);
+            if (built.HasValue)
             {
-                events.Add(@event);
+                events.Add(built.Value);
             }
         }
 
@@ -81,17 +82,17 @@ public sealed class IngestEventBatchCommandHandler(
     }
 
     /// <summary>
-    /// Builds the aggregate, or reports that this envelope can never be built.
+    /// Builds the aggregate, or nothing if this envelope can never be built.
     /// The future-skew rule (spec 006 FR-014) is the only way this fails, and it
     /// fails the same way every time — so the envelope is left out of the insert
     /// here rather than failing the batch and sending the other 199 down the
     /// slow path once per retry, for ever.
     /// </summary>
-    private bool TryBuild(EventEnvelope envelope, out EventAggregate @event)
+    private Option<EventAggregate> Build(EventEnvelope envelope)
     {
         try
         {
-            @event = EventAggregate.Ingest(
+            return Option<EventAggregate>.Some(EventAggregate.Ingest(
                 envelope.Identifier,
                 envelope.Fab,
                 envelope.Source,
@@ -99,8 +100,7 @@ public sealed class IngestEventBatchCommandHandler(
                 envelope.Kind,
                 envelope.OccurredAt,
                 envelope.Payload,
-                clock);
-            return true;
+                clock));
         }
         catch (ArgumentException)
         {
@@ -109,8 +109,7 @@ public sealed class IngestEventBatchCommandHandler(
                 envelope.Source,
                 envelope.Device,
                 IngestEventFailures.OccurredAtTooFarInFuture(envelope.OccurredAt.Value).Code);
-            @event = null;
-            return false;
+            return Option<EventAggregate>.None;
         }
     }
 }
