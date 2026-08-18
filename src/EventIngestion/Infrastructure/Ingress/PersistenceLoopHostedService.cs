@@ -132,6 +132,25 @@ public sealed class PersistenceLoopHostedService(
         TimeSpan window = retry.Value.MaximumRetryWindow;
         int stored = 0;
 
+        // The fast path, and the ordinary one: FR-010 forbids ingest becoming a
+        // round trip per event, and storing them one at a time is precisely
+        // that. One existence query and one insert for the whole batch.
+        if (await TryStoreBatchAsync(attempt, cancellationToken))
+        {
+            foreach (IngestDelivery delivery in attempt)
+            {
+                failingSince.Remove(delivery.Envelope.Identifier);
+                await delivery.Completion.StoredAsync(cancellationToken);
+            }
+
+            NoteProgress(attempt.Count, 0);
+            return;
+        }
+
+        // The batch is all-or-nothing, so a single unstorable row fails it —
+        // which is why the slow path exists and why it is not the default.
+        // Storing them one at a time is what stops one bad row costing the
+        // other 199 (FR-009).
         foreach (IngestDelivery delivery in attempt)
         {
             if (await TryStoreAsync(delivery, cancellationToken))
@@ -190,6 +209,38 @@ public sealed class PersistenceLoopHostedService(
         {
             logger.IngestRecovered(affected);
             affected = 0;
+        }
+    }
+
+    /// <summary>
+    /// Stores the whole batch in one pass, or reports that it could not.
+    ///
+    /// <para>
+    /// A failure is not attributed to any delivery here — the batch is
+    /// all-or-nothing, so the only thing known is that <i>something</i> in it
+    /// could not be stored. Blaming the batch on each of its members would
+    /// start the retry window for 199 innocent events; the slow path that
+    /// follows finds out which one it was.
+    /// </para>
+    /// </summary>
+    private async Task<bool> TryStoreBatchAsync(
+        List<IngestDelivery> attempt, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+            IngestEventBatchCommandHandler handler =
+                scope.ServiceProvider.GetRequiredService<IngestEventBatchCommandHandler>();
+
+            await handler.HandleAsync(
+                new IngestEventBatchCommand([.. attempt.Select(delivery => delivery.Envelope)]),
+                cancellationToken);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.BatchFellBackToSingles(attempt.Count, ex);
+            return false;
         }
     }
 

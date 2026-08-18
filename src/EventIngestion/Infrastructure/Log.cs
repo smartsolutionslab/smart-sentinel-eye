@@ -77,6 +77,12 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "Ingest interrupted: {Count} event(s) could not be stored and are being retried. Nothing has been acknowledged, so nothing is lost yet.")]
     public static partial void IngestInterrupted(this ILogger logger, int count);
 
+    // Debug, not Warning. During an outage every batch fails and this would be
+    // one line per batch per retry; the interruption itself is reported once by
+    // IngestInterrupted, which is where an operator should be looking.
+    [LoggerMessage(Level = LogLevel.Debug, Message = "A batch of {Count} could not be stored together; storing them one at a time to find the row that cannot.")]
+    public static partial void BatchFellBackToSingles(this ILogger logger, int count, Exception exception);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Ingest recovered: the batch of {Count} event(s) is stored.")]
     public static partial void IngestRecovered(this ILogger logger, int count);
 
