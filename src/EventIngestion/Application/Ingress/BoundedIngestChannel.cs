@@ -65,4 +65,17 @@ public sealed class BoundedIngestChannel : IIngestChannel
 
         return batch;
     }
+
+    public IReadOnlyList<IngestDelivery> TakeAvailable(int maximum)
+    {
+        Ensure.That(maximum).AtLeast(0);
+
+        List<IngestDelivery> available = [];
+        while (available.Count < maximum && channel.Reader.TryRead(out IngestDelivery? delivery))
+        {
+            available.Add(delivery);
+        }
+
+        return available;
+    }
 }

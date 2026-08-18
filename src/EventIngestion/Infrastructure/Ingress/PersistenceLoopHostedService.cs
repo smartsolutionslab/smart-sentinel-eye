@@ -20,16 +20,20 @@ namespace SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 ///
 /// <para>
 /// Since spec 020 the loop takes a <b>batch</b>, stores it, and only then
-/// acknowledges exactly the deliveries in that batch. Nothing is acknowledged
-/// before it is stored, so a failure leaves the sender holding its copy and a
-/// crash leaves the whole batch unacknowledged — which is why the in-memory
-/// channel is no longer a place events can be lost.
+/// acknowledges exactly what was stored. Nothing is acknowledged before it is
+/// stored, so a failure leaves the sender holding its copy and a crash leaves
+/// the batch unacknowledged — which is why the in-memory channel is no longer a
+/// place events can be lost.
 /// </para>
 ///
 /// <para>
-/// A batch that cannot be stored is retried with backoff rather than dropped.
-/// The bound below is what stops that becoming the defect spec 018 fixed, where
-/// one unpersistable envelope wedged ingestion for every fab.
+/// A delivery that cannot be stored is <b>carried</b> into the next cycle
+/// rather than dropped or blocked on. That distinction is the whole of FR-009:
+/// retrying must not become the defect spec 018 fixed, where one unpersistable
+/// envelope wedged ingestion for every fab. The loop therefore spends its
+/// backoff on a timer and retries the carried deliveries alongside whatever
+/// arrived meanwhile, instead of sitting on one failure until the retry window
+/// runs out.
 /// </para>
 /// </summary>
 public sealed class PersistenceLoopHostedService(
@@ -40,7 +44,7 @@ public sealed class PersistenceLoopHostedService(
     ILogger<PersistenceLoopHostedService> logger) : BackgroundService
 {
     /// <summary>
-    /// How many deliveries are committed together. Large enough that the
+    /// How many deliveries are in the loop at once. Large enough that the
     /// database round trip is amortised at the rate this path was sized for
     /// (spec 006: 5 000 events/s), small enough to stay far inside the broker's
     /// in-flight window.
@@ -50,26 +54,30 @@ public sealed class PersistenceLoopHostedService(
     /// <summary>
     /// When each delivery was first seen failing, so the bound can be a
     /// duration. Bounded at all because QoS 1 redelivers forever: without a
-    /// stopping rule, one permanently unstorable delivery blocks everything
-    /// behind it.
+    /// stopping rule, one permanently unstorable delivery is retried for ever.
     /// </summary>
     private readonly Dictionary<EventIdentifier, DateTimeOffset> failingSince = [];
+
+    /// <summary>Deliveries still failing; retried on the next cycle.</summary>
+    private readonly List<IngestDelivery> carried = [];
+
+    private TimeSpan backoff;
+    private int affected;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.PersistenceLoopStarted();
+        backoff = retry.Value.InitialBackoff;
+
         try
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                IReadOnlyList<IngestDelivery> batch =
-                    await channel.ReadBatchAsync(BatchSize, stoppingToken);
-                if (batch.Count == 0)
+                List<IngestDelivery> attempt = await NextAttemptAsync(stoppingToken);
+                if (attempt.Count > 0)
                 {
-                    return;
+                    await StoreAsync(attempt, stoppingToken);
                 }
-
-                await StoreBatchAsync(batch, stoppingToken);
             }
         }
         catch (OperationCanceledException ex) when (stoppingToken.IsCancellationRequested)
@@ -81,74 +89,107 @@ public sealed class PersistenceLoopHostedService(
     }
 
     /// <summary>
-    /// Stores a batch, retrying while the failure looks transient, and
-    /// acknowledges only what was stored.
+    /// What to try this cycle: everything still failing, plus room for new
+    /// arrivals.
     ///
     /// <para>
-    /// Deliveries are stored one at a time inside the batch rather than as a
-    /// single transaction. That sounds like it gives up the batching, and does
-    /// not: the win being sought is that acknowledgement is amortised across
-    /// the batch, while isolating each delivery is what stops one bad row
-    /// costing the other 199 (FR-009). A shared transaction would roll all of
-    /// them back for one poisoned envelope.
+    /// With nothing carried the loop simply waits for work. With something
+    /// carried it waits <i>on a timer</i> instead and then takes whatever
+    /// happens to be queued — which is what lets events keep flowing past a
+    /// delivery that is failing rather than queueing behind it (FR-009).
     /// </para>
     /// </summary>
-    private async Task StoreBatchAsync(
-        IReadOnlyList<IngestDelivery> batch, CancellationToken cancellationToken)
+    private async Task<List<IngestDelivery>> NextAttemptAsync(CancellationToken cancellationToken)
     {
-        IngestRetryOptions options = retry.Value;
-        List<IngestDelivery> outstanding = [.. batch];
-        TimeSpan backoff = options.InitialBackoff;
-        bool interrupted = false;
+        List<IngestDelivery> attempt = [.. carried];
+        carried.Clear();
 
-        while (outstanding.Count > 0 && !cancellationToken.IsCancellationRequested)
+        if (attempt.Count == 0)
         {
-            List<IngestDelivery> failed = [];
-
-            foreach (IngestDelivery delivery in outstanding)
-            {
-                if (await TryStoreAsync(delivery, cancellationToken))
-                {
-                    failingSince.Remove(delivery.Envelope.Identifier);
-                    await delivery.Completion.StoredAsync(cancellationToken);
-                    continue;
-                }
-
-                if (Exhausted(delivery.Envelope.Identifier, options.MaximumRetryWindow))
-                {
-                    // Recorded, then released. In that order — releasing an
-                    // unrecorded delivery is the original defect with a bound
-                    // on it.
-                    await AbandonAsync(delivery, cancellationToken);
-                    continue;
-                }
-
-                failed.Add(delivery);
-            }
-
-            if (failed.Count == 0)
-            {
-                break;
-            }
-
-            if (!interrupted)
-            {
-                interrupted = true;
-                logger.IngestInterrupted(failed.Count);
-            }
-
-            outstanding = failed;
-            await Task.Delay(backoff, cancellationToken);
-            backoff = TimeSpan.FromTicks(
-                Math.Min(backoff.Ticks * 2, options.MaximumBackoff.Ticks));
+            attempt.AddRange(await channel.ReadBatchAsync(BatchSize, cancellationToken));
+            return attempt;
         }
 
-        if (interrupted)
+        await Task.Delay(backoff, cancellationToken);
+        attempt.AddRange(channel.TakeAvailable(Math.Max(0, BatchSize - attempt.Count)));
+        return attempt;
+    }
+
+    /// <summary>
+    /// Stores what it can, acknowledges exactly that, and carries the rest.
+    ///
+    /// <para>
+    /// Deliveries are stored one at a time rather than as a single transaction.
+    /// That sounds like it gives up the batching, and does not: the win being
+    /// sought is that acknowledgement is amortised across the batch, while
+    /// isolating each delivery is what stops one bad row costing the other 199.
+    /// A shared transaction would roll all of them back for one poisoned
+    /// envelope.
+    /// </para>
+    /// </summary>
+    private async Task StoreAsync(List<IngestDelivery> attempt, CancellationToken cancellationToken)
+    {
+        TimeSpan window = retry.Value.MaximumRetryWindow;
+        int stored = 0;
+
+        foreach (IngestDelivery delivery in attempt)
         {
-            // FR-006. A recovery nobody can see afterwards is indistinguishable
-            // from a loss, so the count is part of the requirement rather than
-            // a nicety.
-            logger.IngestRecovered(batch.Count);
+            if (await TryStoreAsync(delivery, cancellationToken))
+            {
+                stored++;
+                failingSince.Remove(delivery.Envelope.Identifier);
+                await delivery.Completion.StoredAsync(cancellationToken);
+            }
+            else if (Exhausted(delivery.Envelope.Identifier, window))
+            {
+                // Recorded, then released. In that order — releasing an
+                // unrecorded delivery is the original defect with a bound on it.
+                await AbandonAsync(delivery, window, cancellationToken);
+            }
+            else
+            {
+                carried.Add(delivery);
+            }
+        }
+
+        NoteProgress(stored, attempt.Count - stored);
+    }
+
+    /// <summary>
+    /// FR-006. An interruption and its recovery are both recorded with how many
+    /// events they covered, because a recovery nobody can see afterwards is
+    /// indistinguishable from a loss.
+    ///
+    /// <para>
+    /// The backoff grows only while <b>nothing at all</b> is landing. A cycle
+    /// that stored something is evidence that storage works and the failure is
+    /// specific to particular deliveries, so waiting longer would punish the
+    /// healthy traffic for the sake of one bad row.
+    /// </para>
+    /// </summary>
+    private void NoteProgress(int stored, int failed)
+    {
+        IngestRetryOptions options = retry.Value;
+
+        if (failed > 0 && affected == 0)
+        {
+            affected = failed;
+            logger.IngestInterrupted(failed);
+        }
+
+        if (stored > 0)
+        {
+            backoff = options.InitialBackoff;
+        }
+        else if (failed > 0)
+        {
+            backoff = TimeSpan.FromTicks(Math.Min(backoff.Ticks * 2, options.MaximumBackoff.Ticks));
+        }
+
+        if (carried.Count == 0 && affected > 0)
+        {
+            logger.IngestRecovered(affected);
+            affected = 0;
         }
     }
 
@@ -175,10 +216,10 @@ public sealed class PersistenceLoopHostedService(
         }
     }
 
-    private async Task AbandonAsync(IngestDelivery delivery, CancellationToken cancellationToken)
+    private async Task AbandonAsync(
+        IngestDelivery delivery, TimeSpan window, CancellationToken cancellationToken)
     {
         EventEnvelope envelope = delivery.Envelope;
-        TimeSpan window = retry.Value.MaximumRetryWindow;
         try
         {
             await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
@@ -205,6 +246,7 @@ public sealed class PersistenceLoopHostedService(
             // during an outage is exactly right — the escape is for a bad row
             // against a healthy database, not for an outage.
             logger.IngestAbandonFailed(envelope.Identifier, ex);
+            carried.Add(delivery);
         }
     }
 

@@ -44,5 +44,20 @@ public interface IIngestChannel
     /// </summary>
     Task<IReadOnlyList<IngestDelivery>> ReadBatchAsync(int maximum, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Takes whatever is already queued, up to <paramref name="maximum"/>,
+    /// without waiting for anything to arrive.
+    ///
+    /// <para>
+    /// This exists because a delivery being retried must not stop new arrivals
+    /// being attempted (FR-009). The loop spends its backoff on a timer rather
+    /// than blocked in <see cref="ReadBatchAsync"/>, then picks up whatever
+    /// turned up in the meantime and retries the old and the new together. A
+    /// loop that waited here would let one failing delivery hold every event
+    /// behind it for the whole retry window.
+    /// </para>
+    /// </summary>
+    IReadOnlyList<IngestDelivery> TakeAvailable(int maximum);
+
     int CurrentDepth { get; }
 }
