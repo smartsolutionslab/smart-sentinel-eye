@@ -48,16 +48,25 @@ public class OutageRecoveryIntegrationTests(AspireFixture aspire, ITestOutputHel
         await DropStorageAsync();
         output.WriteLine($"dropped events_{Fab} — writes for this fab now fail");
 
-        await PublishAsync($"fab/{Fab}/plc/dev-1", kind, Published);
-        output.WriteLine($"published {Published} events while storage was away");
+        try
+        {
+            await PublishAsync($"fab/{Fab}/plc/dev-1", kind, Published);
+            output.WriteLine($"published {Published} events while storage was away");
 
-        await Task.Delay(TimeSpan.FromSeconds(8));
-        long duringOutage = await CountAsync(kind);
-        output.WriteLine($"stored during the outage: {duringOutage}");
-        duringOutage.ShouldBe(0, "the outage has to be real for the rest to mean anything");
-
-        await RestoreStorageAsync();
-        output.WriteLine($"restored events_{Fab} — storage is possible again");
+            await Task.Delay(TimeSpan.FromSeconds(8));
+            long duringOutage = await CountAsync(kind);
+            output.WriteLine($"stored during the outage: {duringOutage}");
+            duringOutage.ShouldBe(0, "the outage has to be real for the rest to mean anything");
+        }
+        finally
+        {
+            // Restored even when an assertion above fails. The partition lives
+            // on the fixture's shared database, so leaving it dropped fails
+            // every later hamburg test with an unrelated error - which buries
+            // the one that actually found something.
+            await RestoreStorageAsync();
+            output.WriteLine($"restored events_{Fab} — storage is possible again");
+        }
 
         (long total, long distinct) = await WaitForAsync(kind, Published, TimeSpan.FromSeconds(90));
         output.WriteLine($"after recovery: count={total} distinct={distinct}");

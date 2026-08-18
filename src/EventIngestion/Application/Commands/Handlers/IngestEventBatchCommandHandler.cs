@@ -31,12 +31,19 @@ public sealed class IngestEventBatchCommandHandler(
     ILogger<IngestEventBatchCommandHandler> logger)
 {
     /// <summary>
-    /// Stores what needs storing and returns everything the caller may
-    /// acknowledge — which includes the events that were already there and the
-    /// ones a domain rule refuses, because neither will ever be storable by
-    /// being sent again.
+    /// Stores what needs storing, and says which envelopes a domain rule
+    /// refused.
+    ///
+    /// <para>
+    /// The refusals are reported rather than folded into the success, because
+    /// the caller owes them a dead letter before it releases the sender's copy
+    /// (FR-008). Returning "all of them, acknowledge away" was the first
+    /// version and it discarded a future-skewed event with nothing but a
+    /// warning — the silent loss this feature exists to close, on its own fast
+    /// path.
+    /// </para>
     /// </summary>
-    public async Task<IReadOnlyList<EventEnvelope>> HandleAsync(
+    public async Task<IngestEventBatchResult> HandleAsync(
         IngestEventBatchCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
@@ -44,7 +51,7 @@ public sealed class IngestEventBatchCommandHandler(
         IReadOnlyList<EventEnvelope> envelopes = command.Envelopes;
         if (envelopes.Count == 0)
         {
-            return [];
+            return new IngestEventBatchResult([]);
         }
 
         // FR-002, once for the batch. Redelivery became the ordinary way an
@@ -61,6 +68,7 @@ public sealed class IngestEventBatchCommandHandler(
         // the whole batch — sending 199 healthy events down the slow path for a
         // duplicate the idempotency rule was supposed to absorb.
         HashSet<EventIdentifier> seen = [.. already];
+        List<EventEnvelope> refused = [];
 
         foreach (EventEnvelope envelope in envelopes)
         {
@@ -75,10 +83,14 @@ public sealed class IngestEventBatchCommandHandler(
             {
                 events.Add(built.Value);
             }
+            else
+            {
+                refused.Add(envelope);
+            }
         }
 
         await events.SaveAsync(cancellationToken);
-        return envelopes;
+        return new IngestEventBatchResult(refused);
     }
 
     /// <summary>

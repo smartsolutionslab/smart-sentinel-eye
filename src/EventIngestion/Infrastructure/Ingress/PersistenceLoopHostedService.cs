@@ -14,26 +14,33 @@ using SmartSentinelEye.Shared.Kernel;
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 
 /// <summary>
-/// Drains the bounded ingest channel and dispatches each envelope through
-/// <see cref="IngestEventCommandHandler"/>. Single reader, so per-source FIFO
-/// is preserved: the channel is FIFO and nothing fans out inside the loop.
+/// Drains the bounded ingest channel and stores what it finds. Single reader,
+/// so per-source FIFO is preserved: the channel is FIFO and nothing fans out.
 ///
 /// <para>
-/// Since spec 020 the loop takes a <b>batch</b>, stores it, and only then
-/// acknowledges exactly what was stored. Nothing is acknowledged before it is
-/// stored, so a failure leaves the sender holding its copy and a crash leaves
-/// the batch unacknowledged — which is why the in-memory channel is no longer a
-/// place events can be lost.
+/// Since spec 020 nothing is acknowledged before it is stored, so a failure
+/// leaves the sender holding its copy and a crash leaves the batch
+/// unacknowledged — which is why the in-memory channel is no longer a place
+/// events can be lost.
 /// </para>
 ///
 /// <para>
-/// A delivery that cannot be stored is <b>carried</b> into the next cycle
-/// rather than dropped or blocked on. That distinction is the whole of FR-009:
-/// retrying must not become the defect spec 018 fixed, where one unpersistable
-/// envelope wedged ingestion for every fab. The loop therefore spends its
-/// backoff on a timer and retries the carried deliveries alongside whatever
-/// arrived meanwhile, instead of sitting on one failure until the retry window
-/// runs out.
+/// Every delivery ends in exactly one of three states, and keeping them apart
+/// is most of what this class does. <b>Stored</b> is acknowledged.
+/// <b>Rejected</b> — a domain rule refuses it and always will — is recorded as
+/// a dead letter and then acknowledged, because redelivering it forever helps
+/// nobody and dropping it silently is the defect this feature exists to close.
+/// <b>Failed</b> is transient: it is carried into the next cycle, and only
+/// after the retry window expires does it become Rejected.
+/// </para>
+///
+/// <para>
+/// Arrivals and retries are kept in separate passes on purpose. Arrivals go
+/// through the batch, which is all-or-nothing; retries go one at a time,
+/// because they are the deliveries already known to fail and mixing them into
+/// the batch would fail it every cycle and put every healthy event on the slow
+/// path for the whole retry window (FR-009, FR-010 — one bad row must not cost
+/// the throughput of everything behind it).
 /// </para>
 /// </summary>
 public sealed class PersistenceLoopHostedService(
@@ -44,12 +51,22 @@ public sealed class PersistenceLoopHostedService(
     ILogger<PersistenceLoopHostedService> logger) : BackgroundService
 {
     /// <summary>
-    /// How many deliveries are in the loop at once. Large enough that the
-    /// database round trip is amortised at the rate this path was sized for
-    /// (spec 006: 5 000 events/s), small enough to stay far inside the broker's
-    /// in-flight window.
+    /// How many arrivals are committed together. Large enough that the database
+    /// round trip is amortised at the rate this path was sized for (spec 006:
+    /// 5 000 events/s), small enough to stay far inside the broker's in-flight
+    /// window.
     /// </summary>
     public const int BatchSize = 200;
+
+    /// <summary>
+    /// How many failing deliveries may be held before arrivals stop being
+    /// taken. Real backpressure rather than a limit nobody reaches: past this
+    /// the channel fills, the broker's in-flight window fills, and the plant is
+    /// slowed — which is the answer FR-013 asks for when the system cannot keep
+    /// up. A fifth of the channel, so the channel still has room to absorb the
+    /// burst the retry is failing on.
+    /// </summary>
+    public const int MaximumCarried = 1_000;
 
     /// <summary>
     /// When each delivery was first seen failing, so the bound can be a
@@ -65,6 +82,18 @@ public sealed class PersistenceLoopHostedService(
     private int affected;
     private int recovered;
 
+    private enum Outcome
+    {
+        /// <summary>It is in the database. Acknowledge it.</summary>
+        Stored,
+
+        /// <summary>No rule will ever accept it. Record it, then acknowledge.</summary>
+        Rejected,
+
+        /// <summary>Something transient. Keep it, and keep the sender's copy.</summary>
+        Failed,
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.PersistenceLoopStarted();
@@ -74,10 +103,9 @@ public sealed class PersistenceLoopHostedService(
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                List<IngestDelivery> attempt = await NextAttemptAsync(stoppingToken);
-                if (attempt.Count > 0)
+                if (!await RunCycleAsync(stoppingToken))
                 {
-                    await StoreAsync(attempt, stoppingToken);
+                    return;
                 }
             }
         }
@@ -90,87 +118,269 @@ public sealed class PersistenceLoopHostedService(
     }
 
     /// <summary>
-    /// What to try this cycle: everything still failing, plus room for new
-    /// arrivals.
-    ///
-    /// <para>
-    /// With nothing carried the loop simply waits for work. With something
-    /// carried it waits <i>on a timer</i> instead and then takes whatever
-    /// happens to be queued — which is what lets events keep flowing past a
-    /// delivery that is failing rather than queueing behind it (FR-009).
-    /// </para>
+    /// One pass: retry what is failing, store what has arrived. Returns false
+    /// when the channel is closed and there is nothing left to do — without
+    /// that the loop would spin at full tilt on a completed channel.
     /// </summary>
-    private async Task<List<IngestDelivery>> NextAttemptAsync(CancellationToken cancellationToken)
+    private async Task<bool> RunCycleAsync(CancellationToken cancellationToken)
     {
-        List<IngestDelivery> attempt = [.. carried];
+        List<IngestDelivery> retrying = [.. carried];
         carried.Clear();
 
-        if (attempt.Count == 0)
+        IReadOnlyList<IngestDelivery> arrived;
+        if (retrying.Count == 0)
         {
-            attempt.AddRange(await channel.ReadBatchAsync(BatchSize, cancellationToken));
-            return attempt;
+            arrived = await channel.ReadBatchAsync(BatchSize, cancellationToken);
+            if (arrived.Count == 0)
+            {
+                return false;
+            }
+        }
+        else
+        {
+            // The backoff is spent here rather than blocked in a read, so
+            // arrivals keep flowing past whatever is failing (FR-009).
+            await Task.Delay(backoff, cancellationToken);
+            arrived = retrying.Count < MaximumCarried
+                ? channel.TakeAvailable(BatchSize)
+                : [];
         }
 
-        await Task.Delay(backoff, cancellationToken);
-        attempt.AddRange(channel.TakeAvailable(Math.Max(0, BatchSize - attempt.Count)));
-        return attempt;
+        int stored = 0;
+        if (arrived.Count > 0)
+        {
+            stored += await StoreArrivalsAsync(arrived, cancellationToken);
+        }
+
+        if (retrying.Count > 0)
+        {
+            stored += await RetryAsync(retrying, cancellationToken);
+        }
+
+        NoteProgress(stored, carried.Count);
+        return true;
     }
 
     /// <summary>
-    /// Stores what it can, acknowledges exactly that, and carries the rest.
+    /// Stores newly arrived deliveries, as a batch if it will go and one at a
+    /// time if it will not.
     ///
     /// <para>
-    /// Two paths, and which one runs is the whole trade. The batch is one
-    /// existence query and one insert for the lot, because FR-010 forbids
-    /// ingest becoming a round trip per event. It is all-or-nothing, so one row
-    /// the database refuses fails it — and then the deliveries are stored
-    /// individually, which is slow and is the only way to find out which row it
-    /// was without costing the other 199 (FR-009). Fast path for the ordinary
-    /// case, slow path for the bad one, and correctness lives in the slow one.
+    /// The batch is one existence query and one insert for the lot, because
+    /// FR-010 forbids ingest becoming a round trip per event. It is
+    /// all-or-nothing, so one row the database refuses fails it — and then the
+    /// deliveries are stored individually, which is the only way to find out
+    /// which row it was without costing the other 199.
     /// </para>
     /// </summary>
-    private async Task StoreAsync(List<IngestDelivery> attempt, CancellationToken cancellationToken)
+    private async Task<int> StoreArrivalsAsync(
+        IReadOnlyList<IngestDelivery> arrived, CancellationToken cancellationToken)
+    {
+        Option<IngestEventBatchResult> result = await TryStoreBatchAsync(arrived, cancellationToken);
+        if (!result.HasValue)
+        {
+            return await RetryAsync(arrived, cancellationToken);
+        }
+
+        // A refused envelope is one no rule will ever accept, so it gets the
+        // dead letter it is owed rather than an acknowledgement into silence.
+        HashSet<EventIdentifier> refused =
+            [.. result.Value.Refused.Select(envelope => envelope.Identifier)];
+
+        foreach (IngestDelivery delivery in arrived)
+        {
+            await CompleteAsync(
+                delivery,
+                refused.Contains(delivery.Envelope.Identifier) ? Outcome.Rejected : Outcome.Stored,
+                cancellationToken);
+        }
+
+        return arrived.Count - refused.Count;
+    }
+
+    /// <summary>
+    /// Stores deliveries one at a time and gives each its own ending.
+    /// </summary>
+    private async Task<int> RetryAsync(
+        IReadOnlyList<IngestDelivery> deliveries, CancellationToken cancellationToken)
     {
         TimeSpan window = retry.Value.MaximumRetryWindow;
         int stored = 0;
 
-        if (await TryStoreBatchAsync(attempt, cancellationToken))
+        foreach (IngestDelivery delivery in deliveries)
         {
-            foreach (IngestDelivery delivery in attempt)
+            Outcome outcome = await StoreOneAsync(delivery, cancellationToken);
+            if (outcome == Outcome.Failed && Exhausted(delivery.Envelope.Identifier, window))
             {
-                NoteRecovery(delivery.Envelope.Identifier);
-                await delivery.Completion.StoredAsync(cancellationToken);
+                outcome = Outcome.Rejected;
             }
 
-            NoteProgress(attempt.Count, 0);
+            if (outcome == Outcome.Stored)
+            {
+                stored++;
+            }
+
+            await CompleteAsync(delivery, outcome, cancellationToken);
+        }
+
+        return stored;
+    }
+
+    /// <summary>
+    /// Ends a delivery: acknowledged, recorded then acknowledged, or kept.
+    ///
+    /// <para>
+    /// Every acknowledgement in this class goes through here, and it is guarded.
+    /// Acknowledging an MQTT delivery puts a PUBACK on the wire, which throws
+    /// on a dropped connection — and an exception escaping the loop faults the
+    /// <see cref="BackgroundService"/>, whose default behaviour stops the host.
+    /// That is the defect spec 018 fixed, and a broker blip is exactly the
+    /// scenario this feature is built for.
+    /// </para>
+    /// </summary>
+    private async Task CompleteAsync(
+        IngestDelivery delivery, Outcome outcome, CancellationToken cancellationToken)
+    {
+        EventIdentifier identifier = delivery.Envelope.Identifier;
+
+        if (outcome == Outcome.Failed)
+        {
+            carried.Add(delivery);
             return;
         }
 
-        foreach (IngestDelivery delivery in attempt)
+        if (outcome == Outcome.Rejected && !await RecordRejectionAsync(delivery, cancellationToken))
         {
-            if (await TryStoreAsync(delivery, cancellationToken))
+            // Not recorded, so not released. During an outage this write fails
+            // for the same reason the event write did, and releasing an
+            // unrecorded delivery is the original defect with a bound on it.
+            carried.Add(delivery);
+            return;
+        }
+
+        try
+        {
+            if (outcome == Outcome.Stored)
             {
-                stored++;
-                NoteRecovery(delivery.Envelope.Identifier);
+                NoteRecovery(identifier);
                 await delivery.Completion.StoredAsync(cancellationToken);
-            }
-            else if (Exhausted(delivery.Envelope.Identifier, window))
-            {
-                // Recorded, then released. In that order — releasing an
-                // unrecorded delivery is the original defect with a bound on it.
-                await AbandonAsync(delivery, window, cancellationToken);
             }
             else
             {
-                carried.Add(delivery);
+                await delivery.Completion.AbandonedAsync(cancellationToken);
+                failingSince.Remove(identifier);
             }
         }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The sender was not told. It still holds its copy, so the event is
+            // safe; what is at risk is a duplicate on redelivery, which the
+            // idempotency check absorbs.
+            logger.AcknowledgementFailed(identifier, ex);
+        }
+    }
 
-        // Still failing, not "not stored". A delivery that was abandoned is
-        // neither — it has been recorded and released, and counting it as a
-        // failure would keep the backoff growing and the interruption open
-        // over an event nobody is waiting for any more.
-        NoteProgress(stored, carried.Count);
+    /// <summary>
+    /// Records a delivery nothing will ever store, so it is never merely gone
+    /// (FR-008). Returns whether it is now on the record.
+    /// </summary>
+    private async Task<bool> RecordRejectionAsync(
+        IngestDelivery delivery, CancellationToken cancellationToken)
+    {
+        EventEnvelope envelope = delivery.Envelope;
+        TimeSpan window = retry.Value.MaximumRetryWindow;
+
+        try
+        {
+            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+            IDeadLetterRepository deadLetters =
+                scope.ServiceProvider.GetRequiredService<IDeadLetterRepository>();
+
+            deadLetters.Add(Domain.DeadLetter.DeadLetter.Capture(
+                $"event/{envelope.Fab.Value}/{envelope.Source.Value}/{envelope.Device.Value}",
+                envelope.Fab,
+                envelope.Payload.Value,
+                $"not storable after {window} of retrying",
+                clock));
+            await deadLetters.SaveAsync(cancellationToken);
+
+            logger.IngestAbandoned(envelope.Identifier, envelope.Fab, window);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The honest hole, left open on purpose: when the database is away
+            // this write fails for the same reason as the event write. The
+            // delivery stays unacknowledged and keeps being retried, which
+            // during an outage is exactly right — the escape is for a bad row
+            // against a healthy database, not for an outage.
+            logger.IngestAbandonFailed(envelope.Identifier, ex);
+            return false;
+        }
+    }
+
+    private async Task<Option<IngestEventBatchResult>> TryStoreBatchAsync(
+        IReadOnlyList<IngestDelivery> arrived, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+            IngestEventBatchCommandHandler handler =
+                scope.ServiceProvider.GetRequiredService<IngestEventBatchCommandHandler>();
+
+            return Option<IngestEventBatchResult>.Some(await handler.HandleAsync(
+                new IngestEventBatchCommand([.. arrived.Select(delivery => delivery.Envelope)]),
+                cancellationToken));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.BatchFellBackToSingles(arrived.Count, ex);
+            return Option<IngestEventBatchResult>.None;
+        }
+    }
+
+    private async Task<Outcome> StoreOneAsync(
+        IngestDelivery delivery, CancellationToken cancellationToken)
+    {
+        EventEnvelope envelope = delivery.Envelope;
+        try
+        {
+            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+            IngestEventCommandHandler handler =
+                scope.ServiceProvider.GetRequiredService<IngestEventCommandHandler>();
+
+            Result<EventIdentifier, IngestEventError> result = await handler
+                .HandleAsync(new IngestEventCommand(envelope), cancellationToken);
+
+            if (result.IsSuccess)
+            {
+                return Outcome.Stored;
+            }
+
+            logger.IngestFailed(envelope.Identifier, envelope.Source, envelope.Device, result.Error.Code);
+
+            // Already ingested means it IS stored — the redelivery is the
+            // idempotency rule working. Anything else is a rule that refused
+            // the envelope and will refuse it identically next time, so it is
+            // recorded rather than acknowledged into silence.
+            return result.Error is IngestEventError.EventAlreadyIngested
+                ? Outcome.Stored
+                : Outcome.Rejected;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            NoteFailure(envelope.Identifier);
+            if (IsMissingPartition(ex))
+            {
+                logger.NoStorageForFab(envelope.Identifier, envelope.Fab, ex);
+            }
+            else
+            {
+                logger.IngestDispatchFaulted(envelope.Identifier, envelope.Fab, ex);
+            }
+
+            return Outcome.Failed;
+        }
     }
 
     /// <summary>
@@ -221,105 +431,9 @@ public sealed class PersistenceLoopHostedService(
     }
 
     /// <summary>
-    /// Stores the whole batch in one pass, or reports that it could not.
-    ///
-    /// <para>
-    /// A failure is not attributed to any delivery here — the batch is
-    /// all-or-nothing, so the only thing known is that <i>something</i> in it
-    /// could not be stored. Blaming the batch on each of its members would
-    /// start the retry window for 199 innocent events; the slow path that
-    /// follows finds out which one it was.
-    /// </para>
-    /// </summary>
-    private async Task<bool> TryStoreBatchAsync(
-        List<IngestDelivery> attempt, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-            IngestEventBatchCommandHandler handler =
-                scope.ServiceProvider.GetRequiredService<IngestEventBatchCommandHandler>();
-
-            await handler.HandleAsync(
-                new IngestEventBatchCommand([.. attempt.Select(delivery => delivery.Envelope)]),
-                cancellationToken);
-            return true;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.BatchFellBackToSingles(attempt.Count, ex);
-            return false;
-        }
-    }
-
-    private async Task<bool> TryStoreAsync(IngestDelivery delivery, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await DispatchAsync(delivery.Envelope, cancellationToken);
-            return true;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            NoteFailure(delivery.Envelope.Identifier);
-            if (IsMissingPartition(ex))
-            {
-                logger.NoStorageForFab(delivery.Envelope.Identifier, delivery.Envelope.Fab, ex);
-            }
-            else
-            {
-                logger.IngestDispatchFaulted(delivery.Envelope.Identifier, delivery.Envelope.Fab, ex);
-            }
-
-            return false;
-        }
-    }
-
-    private async Task AbandonAsync(
-        IngestDelivery delivery, TimeSpan window, CancellationToken cancellationToken)
-    {
-        EventEnvelope envelope = delivery.Envelope;
-        try
-        {
-            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-            IDeadLetterRepository deadLetters =
-                scope.ServiceProvider.GetRequiredService<IDeadLetterRepository>();
-
-            deadLetters.Add(Domain.DeadLetter.DeadLetter.Capture(
-                $"event/{envelope.Fab.Value}/{envelope.Source.Value}/{envelope.Device.Value}",
-                envelope.Fab,
-                envelope.Payload.Value,
-                $"not storable after {window} of retrying",
-                clock));
-            await deadLetters.SaveAsync(cancellationToken);
-
-            failingSince.Remove(envelope.Identifier);
-            logger.IngestAbandoned(envelope.Identifier, envelope.Fab, window);
-            await delivery.Completion.AbandonedAsync(cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // The honest hole, and it is left open on purpose: when the database
-            // is away, this write fails for the same reason as the event write.
-            // The delivery stays unacknowledged and keeps being retried, which
-            // during an outage is exactly right — the escape is for a bad row
-            // against a healthy database, not for an outage.
-            logger.IngestAbandonFailed(envelope.Identifier, ex);
-            carried.Add(delivery);
-        }
-    }
-
-    /// <summary>
-    /// Notes when this event first started failing. In memory and reset on
-    /// restart, deliberately: persisting it would mean a durable write per
-    /// failed attempt, on the path that is failing because writes are failing.
-    /// A restart costs the delivery a fresh window, which during an outage is
-    /// the right answer anyway.
-    /// </summary>
-    /// <summary>
     /// This delivery stored. If it had been failing, that is a recovery and is
-    /// counted as one — separately from the interruption's own total, because
-    /// a delivery can also leave the interruption by being abandoned, and
+    /// counted as one — separately from the interruption's own total, because a
+    /// delivery can also leave the interruption by being abandoned, and
     /// reporting those as recovered would be the loss this feature exists to
     /// stop, reported as a success.
     /// </summary>
@@ -331,6 +445,13 @@ public sealed class PersistenceLoopHostedService(
         }
     }
 
+    /// <summary>
+    /// Notes when this event first started failing. In memory and reset on
+    /// restart, deliberately: persisting it would mean a durable write per
+    /// failed attempt, on the path that is failing because writes are failing.
+    /// A restart costs the delivery a fresh window, which during an outage is
+    /// the right answer anyway.
+    /// </summary>
     private void NoteFailure(EventIdentifier identifier)
     {
         if (!failingSince.ContainsKey(identifier))
@@ -362,19 +483,4 @@ public sealed class PersistenceLoopHostedService(
             inner.SqlState == PostgresErrorCodes.CheckViolation,
         _ => false,
     };
-
-    private async Task DispatchAsync(EventEnvelope envelope, CancellationToken cancellationToken)
-    {
-        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-        IngestEventCommandHandler handler =
-            scope.ServiceProvider.GetRequiredService<IngestEventCommandHandler>();
-
-        Result<EventIdentifier, IngestEventError> result = await handler
-            .HandleAsync(new IngestEventCommand(envelope), cancellationToken);
-
-        if (!result.IsSuccess)
-        {
-            logger.IngestFailed(envelope.Identifier, envelope.Source, envelope.Device, result.Error.Code);
-        }
-    }
 }

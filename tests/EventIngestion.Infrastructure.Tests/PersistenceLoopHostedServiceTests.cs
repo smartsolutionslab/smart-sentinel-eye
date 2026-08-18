@@ -160,6 +160,57 @@ public class PersistenceLoopHostedServiceTests
         harness.Attempts.ShouldBe(1, "three events cost three round trips");
     }
 
+    /// <summary>
+    /// FR-008, on the path that had no test. An envelope a domain rule refuses
+    /// — a source whose clock is days ahead — is never storable, so it must be
+    /// <b>recorded</b> and then released. Before this it was acknowledged into
+    /// silence with nothing but a log line, which is the exact loss this
+    /// feature exists to close, happening on its own fast path.
+    /// </summary>
+    [Fact]
+    public async Task An_envelope_no_rule_will_accept_is_recorded_before_it_is_released()
+    {
+        RecordingCompletion completion = new();
+        Harness harness = new(Skewed(completion));
+
+        await harness.RunUntilAsync(() => completion.Abandoned == 1, TimeSpan.FromSeconds(10));
+
+        completion.Abandoned.ShouldBe(1);
+        completion.Stored.ShouldBe(0, "nothing was stored, so nothing may be reported as stored");
+        harness.DeadLetters.ShouldHaveSingleItem();
+    }
+
+    /// <summary>
+    /// The unguarded await that would stop the service. Acknowledging an MQTT
+    /// delivery puts a PUBACK on the wire and throws on a dropped connection;
+    /// an exception escaping the loop faults the BackgroundService, whose
+    /// default behaviour stops the host — spec 018's defect, reached by a
+    /// broker blip, which is precisely the scenario this feature is built for.
+    /// </summary>
+    [Fact]
+    public async Task An_acknowledgement_that_throws_does_not_take_the_loop_down()
+    {
+        RecordingCompletion angry = new() { ThrowOnStored = true };
+        RecordingCompletion next = new();
+        Harness harness = new(Delivery("a", angry), Delivery("b", next));
+
+        await harness.RunUntilAsync(() => next.Stored == 1, TimeSpan.FromSeconds(10));
+
+        next.Stored.ShouldBe(1, "the loop stopped at the first failed acknowledgement");
+    }
+
+    private static IngestDelivery Skewed(IIngestCompletion completion) =>
+        new(
+            new EventEnvelope(
+                EventIdentifier.New(),
+                FabIdentifier.From("munich"),
+                Source.Plc,
+                DeviceIdentifier.From("station-4"),
+                Kind.From("PlcCycleStart"),
+                OccurredAt.From(Now.AddDays(30)),
+                Payload.From("{\"marker\":\"skewed\"}")),
+            completion);
+
     private static IngestDelivery Delivery(string marker, IIngestCompletion completion) =>
         new(
             new EventEnvelope(
@@ -350,9 +401,17 @@ public class PersistenceLoopHostedServiceTests
 
         public int Abandoned { get; private set; }
 
+        /// <summary>Stands in for a broker connection that has dropped.</summary>
+        public bool ThrowOnStored { get; init; }
+
         public Task StoredAsync(CancellationToken cancellationToken)
         {
             Stored++;
+            if (ThrowOnStored)
+            {
+                throw new InvalidOperationException("the delivery is not connected");
+            }
+
             return Task.CompletedTask;
         }
 

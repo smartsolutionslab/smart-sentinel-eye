@@ -140,10 +140,19 @@ public sealed class MqttSubscriberHostedService(
         {
             // A delivery that cannot be parsed will not parse on redelivery
             // either, so it is recorded and released here rather than left to
-            // come back forever. Acknowledged only after the dead letter is
-            // written — the same ordering the rest of this feature is about.
-            await CaptureDeadLetterAsync(topic, body, result.Error ?? "unknown parse failure");
-            await args.AcknowledgeAsync(CancellationToken.None);
+            // come back forever.
+            //
+            // Released only if the record was actually written. The capture
+            // fails for the same reason an event write fails - the database is
+            // away - and acknowledging anyway would discard the payload with
+            // one log line, which is the defect this feature exists to close,
+            // on the one path that has no second chance at it. Unacknowledged,
+            // the broker brings it back and the capture is retried.
+            if (await CaptureDeadLetterAsync(topic, body, result.Error ?? "unknown parse failure"))
+            {
+                await args.AcknowledgeAsync(CancellationToken.None);
+            }
+
             return;
         }
 
@@ -275,7 +284,7 @@ public sealed class MqttSubscriberHostedService(
         }
     }
 
-    private async Task CaptureDeadLetterAsync(string topic, ReadOnlyMemory<byte> body, string error)
+    private async Task<bool> CaptureDeadLetterAsync(string topic, ReadOnlyMemory<byte> body, string error)
     {
         logger.RejectingMqttDelivery(topic, error);
 
@@ -298,12 +307,16 @@ public sealed class MqttSubscriberHostedService(
                 scope.ServiceProvider.GetRequiredService<IDeadLetterRepository>();
             deadLetters.Add(DeadLetter.Capture(topic, fab, raw, error, clock));
             await deadLetters.SaveAsync(CancellationToken.None);
+            return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // Dead-letter capture is best-effort — DB outage must not
-            // bring the subscriber down. Log and move on.
+            // A database outage must not bring the subscriber down, so this is
+            // caught - but it is no longer "best effort and move on". The
+            // caller leaves the delivery unacknowledged, so the broker keeps it
+            // and the capture is retried rather than the payload being lost.
             logger.DeadLetterCaptureFailed(ex, topic, ex.Message);
+            return false;
         }
     }
 
