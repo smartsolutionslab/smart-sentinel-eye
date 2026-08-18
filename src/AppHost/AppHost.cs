@@ -281,6 +281,12 @@ var eventIngestion = builder
     .WithReference(keycloak)
     .WithReference(mosquitto.GetEndpoint("mqtt"))
     .WithEnvironment("Mosquitto__ClientSecret", eventIngestionMqttClientSecret)
+    // Spec 020 FR-005. Five minutes is the shipped default, sized for a plant
+    // whose failover takes minutes. Ninety seconds here so the bounded escape
+    // is something a developer can actually watch happen — at five minutes
+    // nobody ever sees a dead letter written, and an escape nobody has seen
+    // work is an escape nobody knows is broken.
+    .WithEnvironment("EventIngestion__IngestRetry__MaximumRetryWindow", "00:01:30")
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
     .WaitFor(mosquitto);

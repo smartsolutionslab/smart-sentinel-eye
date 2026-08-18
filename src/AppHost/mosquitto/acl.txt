@@ -15,6 +15,20 @@ topic read fab/+/+/+
 # Scenario Simulator (dev-only, ADR-0111 M2). Publishes simulated PLC +
 # inference events across many device topics under one username, so it needs a
 # wildcard write grant per source.
+#
+# One grant per fab in the dev realm rather than `fab/+/...`. The wildcard would
+# also permit publishing under a fab segment that is not a fab at all, which is
+# the unattributable-delivery case spec 018 deliberately kept out of the seed —
+# and it would stop the ACL saying which plants exist. Munich alone was the seed
+# until spec 020: the broker silently refused every publish to another plant,
+# which reads in a test as "the event did not arrive" and is why spec 020's
+# baseline reported a hamburg loss it had never actually caused.
 user scenario-simulator
 topic write fab/munich/plc/#
 topic write fab/munich/inference/#
+topic write fab/dresden/plc/#
+topic write fab/dresden/inference/#
+topic write fab/berlin/plc/#
+topic write fab/berlin/inference/#
+topic write fab/hamburg/plc/#
+topic write fab/hamburg/inference/#
