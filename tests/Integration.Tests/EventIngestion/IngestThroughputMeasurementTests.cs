@@ -36,10 +36,10 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 /// </para>
 ///
 /// <para>
-/// The drain rate is sampled over a window rather than timed to completion. At
-/// anything below the target rate a full drain of the burst takes longer than
-/// anyone will wait, and the sustained rate is the quantity SC-005 is about
-/// anyway.
+/// The drain is timed to completion rather than sampled over a fixed window.
+/// A window was wrong in exactly the case that matters most: when ingest keeps
+/// up, the window opens on an already-empty backlog and reports a rate of zero
+/// for a system that was never behind.
 /// </para>
 ///
 /// <para>
@@ -69,8 +69,8 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
     /// </summary>
     private const int Publishers = 40;
 
-    /// <summary>How long the drain is watched for, once the burst is in.</summary>
-    private static readonly TimeSpan DrainWindow = TimeSpan.FromSeconds(60);
+    /// <summary>How long the drain may keep going after the burst is in.</summary>
+    private static readonly TimeSpan DrainLimit = TimeSpan.FromMinutes(10);
 
     /// <summary>The leg of the end-to-end budget this path spends.</summary>
     private static readonly TimeSpan EventToStateBudget = TimeSpan.FromMilliseconds(200);
@@ -90,16 +90,17 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
             + $"= {offered / publishing.Elapsed.TotalSeconds:F0}/s "
             + $"(target {TargetRatePerSecond}/s for {DurationSeconds}s)");
 
-        long before = await CountAsync(kind);
         Stopwatch draining = Stopwatch.StartNew();
-        await Task.Delay(DrainWindow);
-        long after = await CountAsync(kind);
+        long stored = await WaitForDrainAsync(kind, offered);
         draining.Stop();
+        TimeSpan endToEnd = publishing.Elapsed + draining.Elapsed;
 
         output.WriteLine(
-            $"T022 sustained: {after - before} stored in {draining.Elapsed.TotalSeconds:F1}s "
-            + $"= {(after - before) / draining.Elapsed.TotalSeconds:F0}/s "
-            + $"({after} of {offered} landed so far)");
+            $"T022 sustained: {stored} of {offered} stored by {endToEnd.TotalSeconds:F1}s "
+            + $"= {stored / endToEnd.TotalSeconds:F0}/s end to end"
+            + (stored >= offered && draining.Elapsed < TimeSpan.FromSeconds(2)
+                ? " — everything had landed before publishing stopped, so ingest was not the limit"
+                : string.Empty));
 
         await ReportLatencyAsync(kind);
         await ReportOrderingAsync(kind);
@@ -188,6 +189,29 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
     {
         int index = (int)Math.Clamp(Math.Round(fraction * (sorted.Length - 1)), 0, sorted.Length - 1);
         return sorted[index];
+    }
+
+    /// <summary>
+    /// Waits until everything published has landed, or until the count stops
+    /// moving. Measuring a fixed window instead was wrong in the case that
+    /// matters most: when ingest keeps up, the window opens on an already-empty
+    /// backlog and reports a rate of zero for a system that was never behind.
+    /// </summary>
+    private async Task<long> WaitForDrainAsync(string kind, long expected)
+    {
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + DrainLimit;
+        long stored = await CountAsync(kind);
+        int stalled = 0;
+
+        while (stored < expected && DateTimeOffset.UtcNow < deadline && stalled < 10)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            long now = await CountAsync(kind);
+            stalled = now == stored ? stalled + 1 : 0;
+            stored = now;
+        }
+
+        return stored;
     }
 
     private async Task<long> CountAsync(string kind)

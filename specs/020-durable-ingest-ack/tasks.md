@@ -115,7 +115,7 @@ reintroduce the defect spec 018 fixed.
 
 - [ ] T022 Measure sustained throughput per [quickstart.md](./quickstart.md) step 5 — 5 000 events/s for 30 s — and compare against the same measurement taken **before** this feature. Record both numbers (SC-005). Confirm `max_inflight_messages` is the value T004 set, or the figure means nothing.
 - [ ] T023 Measure arrival-to-visible latency before and after and cite it against the ≤ 200 ms leg of the end-to-end budget (SC-006, constitution §IV). The requirement is the measurement, not the argument that batching is cheap.
-- [ ] T024 Confirm per-source ordering is preserved under sustained load (FR-011, SC-005) — it is guaranteed by the single-reader loop today, and batching is where that quietly stops being true.
+- [X] T024 Confirm per-source ordering is preserved under sustained load (FR-011, SC-005) — it is guaranteed by the single-reader loop today, and batching is where that quietly stops being true.
 - [ ] T025 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm the EventIngestion gates. **Needs PowerShell 7**; under 5.1 the script fails to parse on its own UTF-8 characters — see spec 018's verification note for the BOM workaround.
 - [ ] T026 Walk [quickstart.md](./quickstart.md) end to end and record the observations on the PR **against the T001 baseline**. **"Done" is the observations.** Steps 4 and 5 are the ones that cannot be faked.
 - [ ] T027 Close **#1546** with `Closes #1546` in the PR body, and note in it what this feature does **not** do: the escape cannot record a failure during a total outage, because the dead-letter write fails for the same reason (research §R4).
@@ -168,3 +168,28 @@ late.
 line. No schema change, no new project, no new table — the same shape as spec
 019, and for a related reason: the defect is in *when* the system speaks, not in
 what it stores.
+
+---
+
+## Added during implementation
+
+Three tasks that were not in the plan, recorded here rather than folded
+silently into the ones above.
+
+- [X] T028 Make the retry bound a **duration**, not an attempt count
+  (`IngestRetryOptions`). Five attempts with exponential backoff exhausts in
+  about six seconds; SC-001 asks for sixty. The bound that exists to stop
+  infinite redelivery would have thrown away every event of an ordinary
+  Postgres restart. Found while writing T011 — the test the number was supposed
+  to satisfy.
+- [X] T029 Stop a failing delivery blocking the ones behind it. The loop held
+  its batch and retried to exhaustion before reading the channel again; with a
+  five-minute window that is spec 018's defect wearing a bound. Failures are
+  carried into the next cycle instead
+  (`An_event_arriving_behind_a_failing_one_does_not_wait_for_it`, which fails
+  against the previous design).
+- [X] T030 Batch the write (`IngestEventBatchCommandHandler`). FR-010 forbids a
+  round trip per event and the loop was two — an existence check and an insert,
+  each in its own scope. Measured before adding it: **59 events/s sustained**.
+  The one-at-a-time path stays as the fallback, because the batch is
+  all-or-nothing and isolating the bad row is what FR-009 needs.

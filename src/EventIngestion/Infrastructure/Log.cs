@@ -83,7 +83,7 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Debug, Message = "A batch of {Count} could not be stored together; storing them one at a time to find the row that cannot.")]
     public static partial void BatchFellBackToSingles(this ILogger logger, int count, Exception exception);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Ingest recovered: the batch of {Count} event(s) is stored.")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "Ingest recovered: {Count} event(s) that had been failing are now stored.")]
     public static partial void IngestRecovered(this ILogger logger, int count);
 
     // FR-007/FR-008. The delivery is released after this, so this line is the
