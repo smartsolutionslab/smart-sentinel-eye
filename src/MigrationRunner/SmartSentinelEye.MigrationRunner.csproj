@@ -12,6 +12,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- KeycloakProvisionedFabSource is internal — it is a composition detail
+         rather than API — and it holds the skip-unusable / never-return-empty
+         rules that spec 019 FR-005 and FR-011 turn on. Those are worth testing
+         without making the type public to do it. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>SmartSentinelEye.MigrationRunner.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\CameraCatalog\Infrastructure\SmartSentinelEye.CameraCatalog.Infrastructure.csproj" />
     <ProjectReference Include="..\StreamDistribution\Infrastructure\SmartSentinelEye.StreamDistribution.Infrastructure.csproj" />
     <ProjectReference Include="..\LayoutComposition\Infrastructure\SmartSentinelEye.LayoutComposition.Infrastructure.csproj" />

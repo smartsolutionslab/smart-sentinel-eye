@@ -182,11 +182,63 @@ public sealed class HttpKeycloakAdminClient(
         return new KeycloakClientCredentials(payload.Value);
     }
 
+    /// <summary>
+    /// Sub-groups one level under <paramref name="parentPath"/>, resolved
+    /// through the same <c>group-by-path</c> lookup the service-account join
+    /// already uses.
+    ///
+    /// <para>
+    /// Newer Keycloak versions omit <c>subGroups</c> from the list response and
+    /// require a second call per group, so an empty children array is followed
+    /// up rather than believed. An unreachable realm throws (spec 019 FR-011) —
+    /// it must never be reported as "no groups".
+    /// </para>
+    /// </summary>
+    public async Task<IReadOnlyList<string>> GetSubGroupNamesAsync(
+        string parentPath, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(parentPath);
+
+        string realm = options.Value.Realm;
+        await AuthorizeAsync(cancellationToken);
+
+        HttpResponseMessage response = await httpClient.GetAsync(
+            $"admin/realms/{realm}/group-by-path/{parentPath.TrimStart('/')}", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            logger.FabGroupParentMissing(parentPath, realm);
+            return [];
+        }
+        response.EnsureSuccessStatusCode();
+
+        GroupRow parent = await response.Content
+            .ReadFromJsonAsync<GroupRow>(JsonOptions, cancellationToken)
+            ?? throw new InvalidOperationException(
+                $"Keycloak returned an empty body for group path '{parentPath}'.");
+
+        if (parent.SubGroups is { Length: > 0 })
+        {
+            return [.. parent.SubGroups.Select(child => child.Name)];
+        }
+
+        HttpResponseMessage children = await httpClient.GetAsync(
+            $"admin/realms/{realm}/groups/{parent.Id}/children", cancellationToken);
+        children.EnsureSuccessStatusCode();
+
+        GroupRow[] rows = await children.Content
+            .ReadFromJsonAsync<GroupRow[]>(JsonOptions, cancellationToken) ?? [];
+        return [.. rows.Select(child => child.Name)];
+    }
+
     private sealed record ClientRow(string Id, string ClientId);
+
 
     private sealed record ServiceAccountUser(string Id);
 
-    private sealed record GroupRow(string Id, string Path);
+    // Name and SubGroups are new for spec 019's sub-group read; the
+    // group-by-path lookup above uses Id alone and is unaffected by the extra
+    // members, which simply stay null when Keycloak does not send them.
+    private sealed record GroupRow(string Id, string Name, string Path, GroupRow[]? SubGroups);
 
     private sealed record ClientCredentialPayload(string Type, string Value);
 }

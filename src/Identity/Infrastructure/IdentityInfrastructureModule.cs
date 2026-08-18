@@ -42,23 +42,7 @@ public static class IdentityInfrastructureModule
         builder.Services.AddScoped<IEventBus, WolverineEventBus>();
         builder.Services.AddSingleton(TimeProvider.System);
 
-        // Keycloak admin REST client. The base URL comes from the
-        // Aspire-injected ConnectionStrings:keycloak; the admin
-        // client_id + secret are configuration values.
-        builder.Services.AddOptions<KeycloakAdminOptions>()
-            .Bind(builder.Configuration.GetSection(KeycloakAdminOptions.SectionName))
-            .Configure<IConfiguration>((opts, config) =>
-            {
-                opts.BaseUrl = config.GetConnectionString(KeycloakResourceName)
-                    ?? config[$"services:{KeycloakResourceName}:http:0"]
-                    ?? config[$"services:{KeycloakResourceName}:https:0"]
-                    ?? throw new InvalidOperationException(
-                        "Keycloak base URL not found; expected ConnectionStrings:keycloak or services:keycloak:*.");
-            });
-
-        builder.Services.AddHttpClient<KeycloakAdminTokenProvider>(ConfigureHttpClient);
-        builder.Services.AddHttpClient<HttpKeycloakAdminClient>(ConfigureHttpClient);
-        builder.Services.AddScoped<IKeycloakAdminClient>(sp => sp.GetRequiredService<HttpKeycloakAdminClient>());
+        builder.AddKeycloakAdminClient();
 
         // Domain event handler — fans out DeviceRegisteredV1 /
         // KioskEnrolledV1.
@@ -108,6 +92,44 @@ public static class IdentityInfrastructureModule
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
             postgresConnectionName: IdentityPersistenceModule.DatabaseConnectionName);
+
+        return builder;
+    }
+
+    /// <summary>
+    /// Registers the Keycloak Admin REST client on its own, without the rest of
+    /// Identity's infrastructure. The base URL comes from the Aspire-injected
+    /// <c>ConnectionStrings:keycloak</c>; the client id and secret are
+    /// configuration values, so a host can present a different service account
+    /// than Identity's own.
+    ///
+    /// <para>
+    /// Public because <c>MigrationRunner</c> composes it (spec 019): event
+    /// partitions are provisioned per fab, and the fabs come from the realm's
+    /// group tree. It presents the narrower <c>migration-runner</c> credential,
+    /// which holds <c>query-groups</c> and nothing else. This is a composition
+    /// root reusing Identity's client — not a bounded context reaching into
+    /// another, which <c>BoundaryTests</c> forbids and would catch.
+    /// </para>
+    /// </summary>
+    public static IHostApplicationBuilder AddKeycloakAdminClient(this IHostApplicationBuilder builder)
+    {
+        Ensure.That(builder).IsNotNull();
+
+        builder.Services.AddOptions<KeycloakAdminOptions>()
+            .Bind(builder.Configuration.GetSection(KeycloakAdminOptions.SectionName))
+            .Configure<IConfiguration>((opts, config) =>
+            {
+                opts.BaseUrl = config.GetConnectionString(KeycloakResourceName)
+                    ?? config[$"services:{KeycloakResourceName}:http:0"]
+                    ?? config[$"services:{KeycloakResourceName}:https:0"]
+                    ?? throw new InvalidOperationException(
+                        "Keycloak base URL not found; expected ConnectionStrings:keycloak or services:keycloak:*.");
+            });
+
+        builder.Services.AddHttpClient<KeycloakAdminTokenProvider>(ConfigureHttpClient);
+        builder.Services.AddHttpClient<HttpKeycloakAdminClient>(ConfigureHttpClient);
+        builder.Services.AddScoped<IKeycloakAdminClient>(sp => sp.GetRequiredService<HttpKeycloakAdminClient>());
 
         return builder;
     }

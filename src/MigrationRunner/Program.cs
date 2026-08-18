@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Automation.Infrastructure.Persistence;
 using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
@@ -13,6 +14,7 @@ using SmartSentinelEye.CameraCatalog.Infrastructure;
 using SmartSentinelEye.EventIngestion.Infrastructure;
 using SmartSentinelEye.Identity.Infrastructure;
 using SmartSentinelEye.LayoutComposition.Infrastructure;
+using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.MigrationRunner;
 using SmartSentinelEye.OverlayDesigner.Infrastructure;
 using SmartSentinelEye.ServiceDefaults;
@@ -51,12 +53,31 @@ builder.AddPostgresNoticeLogging<AutomationDbContext>();
 builder.AddPostgresNoticeLogging<IdentityDbContext>();
 builder.AddPostgresNoticeLogging<AuditObservabilityDbContext>();
 
+// Spec 019: event partitions are provisioned per fab, and the fabs come from
+// the realm's group tree. Identity owns Keycloak and EventIngestion may not
+// reference it, so the two meet here — in the composition root, which is
+// allowed to know both — and nowhere else.
+builder.AddKeycloakAdminClient();
+builder.Services.AddScoped<IProvisionedFabSource, KeycloakProvisionedFabSource>();
+
+// Registered last so it runs after every context's EF migrations, including
+// EventIngestion's own: the rollover needs the parent `events` table to exist.
+builder.Services.AddScoped<IMigrator, EventPartitionRolloverMigrator>();
+
 IHost host = builder.Build();
 ILogger<Program> logger = host.Services.GetRequiredService<ILogger<Program>>();
 
 await host.StartAsync();
 
-IEnumerable<IMigrator> migrators = host.Services.GetServices<IMigrator>();
+// Resolved from a scope rather than the root provider. Every migrator was a
+// singleton until spec 019 added one that depends on the Keycloak admin client,
+// which is scoped — and resolving a scoped service from the root throws under
+// the scope validation the Development environment turns on. That throw exits
+// this process non-zero, and because all nine services WaitForCompletion on it,
+// every one of them reports FailedToStart with nothing to say why.
+await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
+
+IEnumerable<IMigrator> migrators = scope.ServiceProvider.GetServices<IMigrator>();
 foreach (IMigrator migrator in migrators)
 {
     logger.RunningMigrations(migrator.ContextName);

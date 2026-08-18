@@ -59,6 +59,17 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Ensured partition {Partition} (FROM {From} TO {To}).")]
     public static partial void EnsuredPartition(this ILogger logger, string partition, string from, string to);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "Ensured event storage {Partition} for fab {Fab}.")]
+    public static partial void EnsuredFabPartition(this ILogger logger, string partition, FabIdentifier fab);
+
+    // Spec 019 FR-008. Says the cause, not just that something failed: no
+    // events_<fab> partition exists, so nothing this fab sends can be stored
+    // until provisioning runs. The envelope is still dropped — what a loop
+    // should do with an envelope it cannot persist is #1546, and answering it
+    // here for one cause would leave the loop with two behaviours to reconcile.
+    [LoggerMessage(Level = LogLevel.Error, Message = "No event storage for fab {Fab}; {Identifier} is dropped. A partition for this fab is missing — provisioning has not run since it was added.")]
+    public static partial void NoStorageForFab(this ILogger logger, EventIdentifier identifier, FabIdentifier fab, Exception exception);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Applying EventIngestion EF Core migrations.")]
     public static partial void ApplyingMigrations(this ILogger logger);
 

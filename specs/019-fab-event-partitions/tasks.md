@@ -40,7 +40,7 @@ losing a plant's history.
 
 ## Phase 1: Setup — reproduce the loss
 
-- [ ] T001 Capture the current behaviour before changing anything, per [quickstart.md](./quickstart.md) step 0: add a `/fabs/berlin` group and an operator in it, `POST /events/manual` as them, then `SELECT count(*) FROM events WHERE fab_id = 'berlin'` and read the persistence-loop log line. **Record all four observations on the PR** — the 202, the empty listing, the zero count, and the log line that does not say why. Every later task asserts this is fixed, and none of them proves anything if the loss was not real first.
+- [X] T001 Capture the current behaviour before changing anything, per [quickstart.md](./quickstart.md) step 0: add a `/fabs/berlin` group and an operator in it, `POST /events/manual` as them, then `SELECT count(*) FROM events WHERE fab_id = 'berlin'` and read the persistence-loop log line. **Record all four observations on the PR** — the 202, the empty listing, the zero count, and the log line that does not say why. Every later task asserts this is fixed, and none of them proves anything if the loss was not real first.
 
 **Checkpoint**: The loss is documented rather than asserted.
 
@@ -48,12 +48,12 @@ losing a plant's history.
 
 ## Phase 2: Foundational (blocking) — the ports, the realm read, the credential
 
-- [ ] T002 [P] Add `IProvisionedFabSource` to `src/EventIngestion/Application/Ingress/`, returning `IReadOnlyList<FabIdentifier>` per [contracts/provisioning.md](./contracts/provisioning.md). Port only — EventIngestion declares it and never implements it.
-- [ ] T003 [P] Add `IFabStorageReadiness` to `src/EventIngestion/Application/Ingress/`, per the same contract.
-- [ ] T004 Add a group-listing read to `src/Identity/Infrastructure/KeycloakAdmin/IKeycloakAdminClient.cs` and `HttpKeycloakAdminClient.cs` — sub-groups of a given path (`/fabs`). Identity's own surface growing by one read; **no other context may call it**.
-- [ ] T005 [P] Add a Keycloak client for the migration job to `src/AppHost/Realms/smart-sentinel-eye-realm.json` holding **`query-groups` and nothing else** (research §R2). Not `identity-admin`, which also holds `manage-users` and `manage-clients`.
-- [ ] T006 Wire it in `src/AppHost/AppHost.cs`: pass the new client's credentials and the Keycloak URL to the `migrations` resource, and add **`.WaitFor(keycloak)`** — it currently waits only for the nine databases (FR-012).
-- [ ] T007 [P] Extend `tests/Architecture.Tests/BoundaryTests.cs` to assert EventIngestion still references no other context **and** that the Keycloak-backed implementation lives in MigrationRunner. `AllowedCrossContext` must stay empty; if this feature ever needs an entry there, the design is wrong.
+- [X] T002 [P] Add `IProvisionedFabSource` to `src/EventIngestion/Application/Ingress/`, returning `IReadOnlyList<FabIdentifier>` per [contracts/provisioning.md](./contracts/provisioning.md). Port only — EventIngestion declares it and never implements it.
+- [X] T003 [P] Add `IFabStorageReadiness` to `src/EventIngestion/Application/Ingress/`, per the same contract.
+- [X] T004 Add a group-listing read to `src/Identity/Infrastructure/KeycloakAdmin/IKeycloakAdminClient.cs` and `HttpKeycloakAdminClient.cs` — sub-groups of a given path (`/fabs`). Identity's own surface growing by one read; **no other context may call it**.
+- [X] T005 [P] Add a Keycloak client for the migration job to `src/AppHost/Realms/smart-sentinel-eye-realm.json` holding **`query-groups` and nothing else** (research §R2). Not `identity-admin`, which also holds `manage-users` and `manage-clients`.
+- [X] T006 Wire it in `src/AppHost/AppHost.cs`: pass the new client's credentials and the Keycloak URL to the `migrations` resource, and add **`.WaitFor(keycloak)`** — it currently waits only for the nine databases (FR-012).
+- [X] T007 [P] Extend `tests/Architecture.Tests/BoundaryTests.cs` to assert EventIngestion still references no other context **and** that the Keycloak-backed implementation lives in MigrationRunner. `AllowedCrossContext` must stay empty; if this feature ever needs an entry there, the design is wrong.
 
 **Checkpoint**: The seams exist and the realm can be read. Nothing is provisioned and nothing is refused.
 
@@ -63,12 +63,12 @@ losing a plant's history.
 
 **Goal**: adding a fab group is sufficient. **Independent test**: create a fab that has never existed, run the migration job, and confirm it can store and return an event.
 
-- [ ] T008 [US1] Add `src/MigrationRunner/KeycloakProvisionedFabSource.cs` implementing `IProvisionedFabSource` over Identity's admin client. **Parse each group name through `FabIdentifier.From` and skip what fails** (FR-005) — one unusable name must not stop a new fab getting its storage. **Throw** when the realm is unreachable or yields nothing usable; never return empty (FR-011).
-- [ ] T009 [US1] Add `src/EventIngestion/Infrastructure/Persistence/FabPartitionProvisioner.cs` issuing `CREATE TABLE IF NOT EXISTS events_<fab> PARTITION OF events FOR VALUES IN ('<fab>') PARTITION BY RANGE (ingested_at)`. The name shape is a **contract with the rollover's discovery**, not a convention ([data-model.md](./data-model.md)).
-- [ ] T010 [US1] Call the provisioner from `src/EventIngestion/Infrastructure/Persistence/EventPartitionRolloverMigrator.cs` **before** `DiscoverFabPartitionsAsync`, so a new fab gets its months in the same pass (FR-004), and **rewrite the S2077 comment** to argue validation rather than provenance (research §R3).
-- [ ] T011 [US1] Register the adapter in `src/MigrationRunner/Program.cs` alongside the existing per-context registrations.
-- [ ] T012 [P] [US1] Add unit tests under `tests/EventIngestion.Application.Tests/` against a fake `IProvisionedFabSource`: an unusable name is skipped and the rest still provisioned; an empty result throws rather than provisioning nothing; a repeat run issues the same idempotent statements.
-- [ ] T013 [US1] Add an integration case under `tests/Integration.Tests/EventIngestion/` driving [quickstart.md](./quickstart.md) step 1: a fab group with no partition gains one **and its current and next month**, a second run changes nothing, and an event for that fab then lands and reads back.
+- [X] T008 [US1] Add `src/MigrationRunner/KeycloakProvisionedFabSource.cs` implementing `IProvisionedFabSource` over Identity's admin client. **Parse each group name through `FabIdentifier.From` and skip what fails** (FR-005) — one unusable name must not stop a new fab getting its storage. **Throw** when the realm is unreachable or yields nothing usable; never return empty (FR-011).
+- [X] T009 [US1] Add `src/EventIngestion/Infrastructure/Persistence/FabPartitionProvisioner.cs` issuing `CREATE TABLE IF NOT EXISTS events_<fab> PARTITION OF events FOR VALUES IN ('<fab>') PARTITION BY RANGE (ingested_at)`. The name shape is a **contract with the rollover's discovery**, not a convention ([data-model.md](./data-model.md)).
+- [X] T010 [US1] Call the provisioner from `src/EventIngestion/Infrastructure/Persistence/EventPartitionRolloverMigrator.cs` **before** `DiscoverFabPartitionsAsync`, so a new fab gets its months in the same pass (FR-004), and **rewrite the S2077 comment** to argue validation rather than provenance (research §R3).
+- [X] T011 [US1] Register the adapter in `src/MigrationRunner/Program.cs` alongside the existing per-context registrations.
+- [X] T012 [P] [US1] Add unit tests under `tests/EventIngestion.Application.Tests/` against a fake `IProvisionedFabSource`: an unusable name is skipped and the rest still provisioned; an empty result throws rather than provisioning nothing; a repeat run issues the same idempotent statements.
+- [X] T013 [US1] Add an integration case under `tests/Integration.Tests/EventIngestion/` driving [quickstart.md](./quickstart.md) step 1: a fab group with no partition gains one **and its current and next month**, a second run changes nothing, and an event for that fab then lands and reads back.
 
 **Checkpoint**: SC-001 and SC-002 observed. Adding a plant is one action.
 
@@ -78,13 +78,13 @@ losing a plant's history.
 
 **Goal**: the silence ends. **Independent test**: present an event for a fab with no partition and confirm it is refused and nothing is enqueued.
 
-- [ ] T014 [US2] Add `src/EventIngestion/Infrastructure/Persistence/CatalogFabStorageReadiness.cs` implementing `IFabStorageReadiness` against the Postgres catalog, cached with a short TTL. **Re-read before answering false**, so a fab provisioned a minute ago is not refused by a stale cache. A database error **throws** — it must never be reported as "not provisioned", which would blame a provisioning gap that does not exist.
-- [ ] T015 [US2] Apply it to `IngestManual` in `src/EventIngestion/Api/EventsEndpoints.Writes.cs`, **after fab resolution and before `channel.TryWrite`** — the ordering is the requirement (FR-007). Refuse with **503 `EVENT_FAB_NOT_PROVISIONED`**.
-- [ ] T016 [US2] Apply the same to `IngestWebhook` in the same file (FR-009), after the integration's own fab is established by the spec 018 amendment — readiness is asked about a fab the caller is entitled to, never one they merely named.
-- [ ] T017 [US2] Declare **503** on both write endpoints in `src/EventIngestion/Api/EventsEndpoints.cs`.
-- [ ] T018 [US2] In `src/EventIngestion/Infrastructure/Ingress/PersistenceLoopHostedService.cs`, distinguish `23514` from an arbitrary dispatch fault and log it naming the fab and the missing partition (FR-008). **The envelope is still dropped** — that is #1546 and is deliberately not fixed here ([contracts/provisioning.md](./contracts/provisioning.md)).
-- [ ] T019 [P] [US2] Add unit tests under `tests/EventIngestion.Application.Tests/` for the readiness contract: cache miss triggers a re-read before refusing; a database failure surfaces as an exception rather than a false.
-- [ ] T020 [US2] Add integration cases under `tests/Integration.Tests/EventIngestion/` per [quickstart.md](./quickstart.md) step 3: **503** for a fab with no partition on both write paths, an untouched fab still **202**, and — the assertion that matters — **zero rows for that fab afterwards**. A 503 that had already enqueued is the same defect with a better error message.
+- [X] T014 [US2] Add `src/EventIngestion/Infrastructure/Persistence/CatalogFabStorageReadiness.cs` implementing `IFabStorageReadiness` against the Postgres catalog, cached with a short TTL. **Re-read before answering false**, so a fab provisioned a minute ago is not refused by a stale cache. A database error **throws** — it must never be reported as "not provisioned", which would blame a provisioning gap that does not exist.
+- [X] T015 [US2] Apply it to `IngestManual` in `src/EventIngestion/Api/EventsEndpoints.Writes.cs`, **after fab resolution and before `channel.TryWrite`** — the ordering is the requirement (FR-007). Refuse with **503 `EVENT_FAB_NOT_PROVISIONED`**.
+- [X] T016 [US2] Apply the same to `IngestWebhook` in the same file (FR-009), after the integration's own fab is established by the spec 018 amendment — readiness is asked about a fab the caller is entitled to, never one they merely named.
+- [X] T017 [US2] Declare **503** on both write endpoints in `src/EventIngestion/Api/EventsEndpoints.cs`.
+- [X] T018 [US2] In `src/EventIngestion/Infrastructure/Ingress/PersistenceLoopHostedService.cs`, distinguish `23514` from an arbitrary dispatch fault and log it naming the fab and the missing partition (FR-008). **The envelope is still dropped** — that is #1546 and is deliberately not fixed here ([contracts/provisioning.md](./contracts/provisioning.md)).
+- [X] T019 [P] [US2] Add unit tests under `tests/EventIngestion.Application.Tests/` for the readiness contract: cache miss triggers a re-read before refusing; a database failure surfaces as an exception rather than a false.
+- [X] T020 [US2] Add integration cases under `tests/Integration.Tests/EventIngestion/` per [quickstart.md](./quickstart.md) step 3: **503** for a fab with no partition on both write paths, an untouched fab still **202**, and — the assertion that matters — **zero rows for that fab afterwards**. A 503 that had already enqueued is the same defect with a better error message.
 
 **Checkpoint**: SC-003 and SC-004 observed. Nothing is accepted that cannot be stored.
 
@@ -96,8 +96,8 @@ losing a plant's history.
 
 **Goal**: provisioning is additive, forever. **Independent test**: remove a fab group, re-run, confirm the events are still there.
 
-- [ ] T021 [US3] Confirm by inspection **and by test** that no code path in `FabPartitionProvisioner` or `EventPartitionRolloverMigrator` issues `DROP`, `DETACH` or `TRUNCATE` against any partition (FR-006). Assert on the statements issued, not on the outcome — an outcome test passes for a fab that simply had nothing to lose.
-- [ ] T022 [US3] Add an integration case under `tests/Integration.Tests/EventIngestion/` per [quickstart.md](./quickstart.md) step 5: seed events for a fab, remove its group from the realm, re-run provisioning, and assert the partition and every event survive.
+- [X] T021 [US3] Confirm by inspection **and by test** that no code path in `FabPartitionProvisioner` or `EventPartitionRolloverMigrator` issues `DROP`, `DETACH` or `TRUNCATE` against any partition (FR-006). Assert on the statements issued, not on the outcome — an outcome test passes for a fab that simply had nothing to lose.
+- [X] T022 [US3] Add an integration case under `tests/Integration.Tests/EventIngestion/` per [quickstart.md](./quickstart.md) step 5: seed events for a fab, remove its group from the realm, re-run provisioning, and assert the partition and every event survive.
 
 **Checkpoint**: SC-006 observed. Decommissioning a plant cannot delete its history.
 
@@ -105,10 +105,10 @@ losing a plant's history.
 
 ## Phase 6: Polish
 
-- [ ] T023 Verify the unreachable-realm behaviour per [quickstart.md](./quickstart.md) step 6: stop Keycloak, run the migration job, and confirm it **fails visibly** and never logs "no fabs found" (FR-011). This is the one that reintroduces the silence if it regresses.
-- [ ] T024 Confirm ingest is untouched (SC-007): a well-formed broker delivery and a well-formed webhook call for a provisioned fab both behave exactly as before. The readiness check must not appear in an ingest measurement.
-- [ ] T025 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `EventIngestion.Domain` clears 90% and `Application` 80%. **Needs PowerShell 7**; under Windows PowerShell 5.1 the script fails to parse on its own UTF-8 characters — see spec 018's verification note for the BOM workaround.
-- [ ] T026 Walk [quickstart.md](./quickstart.md) end to end and record the observations on the PR, **against the T001 baseline**. **"Done" is the observations.** Step 3 is the one that cannot be faked; step 4 records a residue rather than a failure.
+- [X] T023 Verify the unreachable-realm behaviour per [quickstart.md](./quickstart.md) step 6: stop Keycloak, run the migration job, and confirm it **fails visibly** and never logs "no fabs found" (FR-011). This is the one that reintroduces the silence if it regresses.
+- [X] T024 Confirm ingest is untouched (SC-007): a well-formed broker delivery and a well-formed webhook call for a provisioned fab both behave exactly as before. The readiness check must not appear in an ingest measurement.
+- [X] T025 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `EventIngestion.Domain` clears 90% and `Application` 80%. **Needs PowerShell 7**; under Windows PowerShell 5.1 the script fails to parse on its own UTF-8 characters — see spec 018's verification note for the BOM workaround.
+- [X] T026 Walk [quickstart.md](./quickstart.md) end to end and record the observations on the PR, **against the T001 baseline**. **"Done" is the observations.** Step 3 is the one that cannot be faked; step 4 records a residue rather than a failure.
 - [ ] T027 Close **#1547** with `Closes #1547` in the PR body, and comment on **#1546** naming precisely which half of it this feature did and did not address — the cause is now rare and legible, the general drop is untouched.
 
 ---

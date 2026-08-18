@@ -1,6 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <!-- Spec 019: CatalogFabStorageReadiness has an internal constructor taking
+         the catalog read as a delegate. The cache policy — stale positives
+         allowed, negatives always re-read, failures surfaced — is what is worth
+         asserting, and asserting it should not require a database. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>SmartSentinelEye.EventIngestion.Infrastructure.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Domain\SmartSentinelEye.EventIngestion.Domain.csproj" />
     <ProjectReference Include="..\Application\SmartSentinelEye.EventIngestion.Application.csproj" />
     <ProjectReference Include="..\..\Shared.Kernel\SmartSentinelEye.Shared.Kernel.csproj" />

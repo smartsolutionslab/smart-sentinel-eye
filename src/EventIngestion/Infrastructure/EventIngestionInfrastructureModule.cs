@@ -45,6 +45,16 @@ public static class EventIngestionInfrastructureModule
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddScoped<IEventBus, WolverineEventBus>();
 
+        // Spec 019: the write paths ask whether a fab can store anything before
+        // touching the ingest channel. Registered here rather than in the
+        // persistence module because MigrationRunner composes that one too and
+        // has no use for it — and, registered there, it would need an IClock
+        // that only the services register.
+        //
+        // Singleton so the provisioned-fab set is shared: read from the catalog
+        // once per TTL, not once per request.
+        builder.Services.AddSingleton<IFabStorageReadiness, CatalogFabStorageReadiness>();
+
         // Domain event handler — translates EventIngestedDomainEvent
         // into FabEventIngestedV1 on the integration bus.
         builder.Services.AddScoped<
