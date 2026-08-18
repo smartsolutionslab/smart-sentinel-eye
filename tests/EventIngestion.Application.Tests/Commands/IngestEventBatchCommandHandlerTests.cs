@@ -38,11 +38,11 @@ public class IngestEventBatchCommandHandlerTests
     {
         InMemoryEventRepository repository = new();
 
-        IReadOnlyList<EventEnvelope> accepted = await Handler(repository).HandleAsync(
+        IngestEventBatchResult result = await Handler(repository).HandleAsync(
             new IngestEventBatchCommand([BuildEnvelope(), BuildEnvelope(), BuildEnvelope()]),
             CancellationToken.None);
 
-        accepted.Count.ShouldBe(3);
+        result.Refused.ShouldBeEmpty();
         repository.Events.Count.ShouldBe(3);
     }
 
@@ -59,11 +59,11 @@ public class IngestEventBatchCommandHandlerTests
         await Handler(repository).HandleAsync(
             new IngestEventBatchCommand([BuildEnvelope(identifier)]), CancellationToken.None);
 
-        IReadOnlyList<EventEnvelope> accepted = await Handler(repository).HandleAsync(
+        IngestEventBatchResult result = await Handler(repository).HandleAsync(
             new IngestEventBatchCommand([BuildEnvelope(identifier)]), CancellationToken.None);
 
         repository.Events.Count.ShouldBe(1, "the redelivery was stored a second time");
-        accepted.ShouldHaveSingleItem();
+        result.Refused.ShouldBeEmpty();
     }
 
     /// <summary>
@@ -79,20 +79,20 @@ public class IngestEventBatchCommandHandlerTests
         EventIdentifier identifier = EventIdentifier.New();
         InMemoryEventRepository repository = new();
 
-        IReadOnlyList<EventEnvelope> accepted = await Handler(repository).HandleAsync(
+        IngestEventBatchResult result = await Handler(repository).HandleAsync(
             new IngestEventBatchCommand([BuildEnvelope(identifier), BuildEnvelope(identifier)]),
             CancellationToken.None);
 
         repository.Events.Count.ShouldBe(1);
-        accepted.Count.ShouldBe(2, "both deliveries must be acknowledged; the event is stored");
+        result.Refused.ShouldBeEmpty("both deliveries are storable; the event is there");
     }
 
     /// <summary>
     /// A domain rule refuses this envelope and will refuse it identically for
-    /// ever. It must not fail the batch, and it must still be acknowledged —
-    /// the single-event path acknowledges these too, and if the batch path did
-    /// not, the behaviour would depend on how many events happened to arrive
-    /// together.
+    /// ever. It must not fail the batch — and it must be <i>reported</i>, so the
+    /// caller can record it before releasing the sender's copy (FR-008).
+    /// Folding it into the success was the first version, and it discarded the
+    /// envelope with nothing but a warning.
     /// </summary>
     [Fact]
     public async Task An_envelope_no_rule_will_ever_accept_is_left_out_but_does_not_fail_the_batch()
@@ -101,10 +101,10 @@ public class IngestEventBatchCommandHandlerTests
         EventEnvelope healthy = BuildEnvelope();
         EventEnvelope skewed = BuildEnvelope(occurredAt: Now.AddDays(30));
 
-        IReadOnlyList<EventEnvelope> accepted = await Handler(repository).HandleAsync(
+        IngestEventBatchResult result = await Handler(repository).HandleAsync(
             new IngestEventBatchCommand([skewed, healthy]), CancellationToken.None);
 
         repository.Events.ShouldHaveSingleItem().Id.ShouldBe(healthy.Identifier);
-        accepted.Count.ShouldBe(2);
+        result.Refused.ShouldHaveSingleItem().Identifier.ShouldBe(skewed.Identifier);
     }
 }

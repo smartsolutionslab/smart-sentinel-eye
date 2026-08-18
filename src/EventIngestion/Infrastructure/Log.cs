@@ -96,6 +96,13 @@ internal static partial class Log
     // case, since both writes go to the same database. The delivery stays
     // unacknowledged and keeps being retried, so this is a diagnostic rather
     // than a loss.
+    // The sender was not told the outcome. It still holds its copy, so the
+    // event is safe — what is at risk is a duplicate on redelivery, which the
+    // idempotency rule absorbs. Guarded because an unguarded acknowledgement
+    // that throws faults the loop and stops the host: spec 018's defect.
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not acknowledge {Identifier} to its sender; it will be redelivered and deduplicated.")]
+    public static partial void AcknowledgementFailed(this ILogger logger, EventIdentifier identifier, Exception exception);
+
     [LoggerMessage(Level = LogLevel.Error, Message = "Could not record {Identifier} as a dead letter; it stays unacknowledged and will be retried.")]
     public static partial void IngestAbandonFailed(this ILogger logger, EventIdentifier identifier, Exception exception);
 

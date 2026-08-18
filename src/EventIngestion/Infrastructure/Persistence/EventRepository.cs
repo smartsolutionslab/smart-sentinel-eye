@@ -78,9 +78,41 @@ public sealed class EventRepository(
             @event.ClearPendingEvents();
         }
 
-        if (pending.Count > 0)
+        if (pending.Count == 0)
         {
-            await domainEventDispatcher.DispatchAsync(pending, cancellationToken);
+            return;
+        }
+
+        // Every event is offered to the dispatcher even after one of them
+        // throws, and the failures are raised together at the end.
+        //
+        // The rows are already committed at this point — the dispatch is
+        // post-commit, so a throw here leaves an event stored with its
+        // integration event unsent, and nothing retries it. That gap predates
+        // this batch and is closed properly only by enrolling the dispatch in
+        // the write's transaction (ADR-0088's outbox). What must not happen is
+        // batching making it 200 times worse: stopping at the first failure
+        // would strand every event behind it in the same batch, so it does not
+        // stop.
+        List<Exception> failures = [];
+        foreach (IDomainEvent domainEvent in pending)
+        {
+            try
+            {
+                await domainEventDispatcher.DispatchAsync([domainEvent], cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                failures.Add(ex);
+            }
+        }
+
+        if (failures.Count > 0)
+        {
+            throw new AggregateException(
+                $"{failures.Count} of {pending.Count} domain event(s) could not be dispatched; "
+                + "the events are stored.",
+                failures);
         }
     }
 }
