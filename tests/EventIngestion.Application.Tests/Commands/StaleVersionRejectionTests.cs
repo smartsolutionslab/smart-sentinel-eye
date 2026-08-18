@@ -29,6 +29,8 @@ public class StaleVersionRejectionTests
     private static readonly DateTimeOffset Now =
         DateTimeOffset.Parse("2026-05-28T08:14:33Z", CultureInfo.InvariantCulture);
 
+    private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+
     [Fact]
     public async Task Revoke_rejects_a_stale_version_and_leaves_the_integration_live()
     {
@@ -36,7 +38,7 @@ public class StaleVersionRejectionTests
 
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> result =
             await Revoker(integrations).HandleAsync(
-                new RevokeWebhookIntegrationCommand(seeded.Name, Stale), CancellationToken.None);
+                new RevokeWebhookIntegrationCommand([Munich], seeded.Name, Stale), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("WEBHOOK_INTEGRATION_STALE");
@@ -51,7 +53,7 @@ public class StaleVersionRejectionTests
 
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> result =
             await Revoker(integrations).HandleAsync(
-                new RevokeWebhookIntegrationCommand(seeded.Name, Stale), CancellationToken.None);
+                new RevokeWebhookIntegrationCommand([Munich], seeded.Name, Stale), CancellationToken.None);
 
         result.Error.Message.ShouldContain("qa");
         result.Error.Message.ShouldContain(Stale.ToString(CultureInfo.InvariantCulture));
@@ -66,7 +68,7 @@ public class StaleVersionRejectionTests
 
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> result =
             await Revoker(integrations).HandleAsync(
-                new RevokeWebhookIntegrationCommand(seeded.Name, seeded.Version), CancellationToken.None);
+                new RevokeWebhookIntegrationCommand([Munich], seeded.Name, seeded.Version), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         integrations.Integrations.ShouldHaveSingleItem().IsRevoked.ShouldBeTrue();
@@ -85,7 +87,7 @@ public class StaleVersionRejectionTests
 
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> atZero =
             await Revoker(integrations).HandleAsync(
-                new RevokeWebhookIntegrationCommand(seeded.Name, 0), CancellationToken.None);
+                new RevokeWebhookIntegrationCommand([Munich], seeded.Name, 0), CancellationToken.None);
 
         atZero.IsFailure.ShouldBeTrue();
         atZero.Error.Code.ShouldBe("WEBHOOK_INTEGRATION_STALE");
@@ -93,7 +95,7 @@ public class StaleVersionRejectionTests
 
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> atSeven =
             await Revoker(integrations).HandleAsync(
-                new RevokeWebhookIntegrationCommand(seeded.Name, 7), CancellationToken.None);
+                new RevokeWebhookIntegrationCommand([Munich], seeded.Name, 7), CancellationToken.None);
 
         atSeven.IsSuccess.ShouldBeTrue();
     }
@@ -109,7 +111,7 @@ public class StaleVersionRejectionTests
         (InMemoryWebhookIntegrationRepository integrations, WebhookIntegration seeded) = Seeded(version: 3);
 
         await Revoker(integrations).HandleAsync(
-            new RevokeWebhookIntegrationCommand(seeded.Name, 3), CancellationToken.None);
+            new RevokeWebhookIntegrationCommand([Munich], seeded.Name, 3), CancellationToken.None);
 
         integrations.Integrations.ShouldHaveSingleItem().Version.ShouldBe(4);
     }
@@ -129,7 +131,7 @@ public class StaleVersionRejectionTests
 
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> first =
             await Revoker(integrations).HandleAsync(
-                new RevokeWebhookIntegrationCommand(seeded.Name, heldByTheCaller), CancellationToken.None);
+                new RevokeWebhookIntegrationCommand([Munich], seeded.Name, heldByTheCaller), CancellationToken.None);
 
         // The retry re-sends the version it still holds, which the committed
         // revoke has now moved past. That is a genuinely stale request by the
@@ -139,7 +141,7 @@ public class StaleVersionRejectionTests
 
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> retry =
             await Revoker(integrations).HandleAsync(
-                new RevokeWebhookIntegrationCommand(seeded.Name, heldByTheCaller), CancellationToken.None);
+                new RevokeWebhookIntegrationCommand([Munich], seeded.Name, heldByTheCaller), CancellationToken.None);
 
         first.IsSuccess.ShouldBeTrue();
         retry.IsSuccess.ShouldBeTrue();
@@ -159,7 +161,7 @@ public class StaleVersionRejectionTests
     {
         InMemoryWebhookIntegrationRepository integrations = new();
         (WebhookIntegration seeded, _) = WebhookIntegration.Register(
-            WebhookIntegrationName.From("qa"), Kind.From("QaResult"), new FakeClock(Now));
+            WebhookIntegrationName.From("qa"), FabIdentifier.From("munich"), Kind.From("QaResult"), new FakeClock(Now));
         integrations.Seed(seeded, version);
 
         return (integrations, seeded);

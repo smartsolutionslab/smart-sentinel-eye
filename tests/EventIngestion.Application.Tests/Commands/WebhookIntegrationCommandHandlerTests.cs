@@ -14,6 +14,8 @@ public class WebhookIntegrationCommandHandlerTests
     private static readonly DateTimeOffset Now =
         DateTimeOffset.Parse("2026-05-28T08:14:33Z", CultureInfo.InvariantCulture);
 
+    private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+
     [Fact]
     public async Task Register_persists_the_integration_and_returns_the_plain_token_once()
     {
@@ -26,6 +28,7 @@ public class WebhookIntegrationCommandHandlerTests
             await handler.HandleAsync(
                 new RegisterWebhookIntegrationCommand(
                     WebhookIntegrationName.From("qa"),
+                    FabIdentifier.From("munich"),
                     Kind.From("QaResult")),
                 CancellationToken.None);
 
@@ -40,7 +43,7 @@ public class WebhookIntegrationCommandHandlerTests
     {
         InMemoryWebhookIntegrationRepository repo = new();
         (WebhookIntegration seeded, _) = WebhookIntegration.Register(
-            WebhookIntegrationName.From("qa"), Kind.From("QaResult"), new FakeClock(Now));
+            WebhookIntegrationName.From("qa"), FabIdentifier.From("munich"), Kind.From("QaResult"), new FakeClock(Now));
         repo.Add(seeded);
 
         RegisterWebhookIntegrationCommandHandler handler = new(
@@ -51,6 +54,7 @@ public class WebhookIntegrationCommandHandlerTests
             await handler.HandleAsync(
                 new RegisterWebhookIntegrationCommand(
                     WebhookIntegrationName.From("qa"),
+                    FabIdentifier.From("munich"),
                     Kind.From("QaResult")),
                 CancellationToken.None);
 
@@ -63,7 +67,7 @@ public class WebhookIntegrationCommandHandlerTests
     {
         InMemoryWebhookIntegrationRepository repo = new();
         (WebhookIntegration seeded, _) = WebhookIntegration.Register(
-            WebhookIntegrationName.From("qa"), Kind.From("QaResult"), new FakeClock(Now));
+            WebhookIntegrationName.From("qa"), FabIdentifier.From("munich"), Kind.From("QaResult"), new FakeClock(Now));
         repo.Add(seeded);
 
         RevokeWebhookIntegrationCommandHandler handler = new(
@@ -72,12 +76,38 @@ public class WebhookIntegrationCommandHandlerTests
 
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> result =
             await handler.HandleAsync(
-                new RevokeWebhookIntegrationCommand(WebhookIntegrationName.From("qa"), 0),
+                new RevokeWebhookIntegrationCommand([Munich], WebhookIntegrationName.From("qa"), 0),
                 CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBe(seeded.Id);
         repo.Integrations[0].IsRevoked.ShouldBeTrue();
+    }
+
+    /// <summary>
+    /// #1545 — and reported as not-found rather than forbidden, so the answer
+    /// cannot be used to discover another plant's integration names.
+    /// </summary>
+    [Fact]
+    public async Task Revoke_of_an_integration_in_another_fab_returns_WebhookIntegrationNotFound()
+    {
+        InMemoryWebhookIntegrationRepository repo = new();
+        (WebhookIntegration seeded, _) = WebhookIntegration.Register(
+            WebhookIntegrationName.From("qa"), FabIdentifier.From("dresden"), Kind.From("QaResult"), new FakeClock(Now));
+        repo.Add(seeded);
+
+        RevokeWebhookIntegrationCommandHandler handler = new(
+            repo, new FakeClock(Now.AddHours(1)),
+            NullLogger<RevokeWebhookIntegrationCommandHandler>.Instance);
+
+        Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> result =
+            await handler.HandleAsync(
+                new RevokeWebhookIntegrationCommand([Munich], WebhookIntegrationName.From("qa"), 0),
+                CancellationToken.None);
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.ShouldBeOfType<RevokeWebhookIntegrationError.WebhookIntegrationNotFound>();
+        repo.Integrations[0].IsRevoked.ShouldBeFalse("a refused revoke revoked it anyway");
     }
 
     [Fact]
@@ -90,7 +120,7 @@ public class WebhookIntegrationCommandHandlerTests
 
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> result =
             await handler.HandleAsync(
-                new RevokeWebhookIntegrationCommand(WebhookIntegrationName.From("ghost"), 0),
+                new RevokeWebhookIntegrationCommand([Munich], WebhookIntegrationName.From("ghost"), 0),
                 CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();

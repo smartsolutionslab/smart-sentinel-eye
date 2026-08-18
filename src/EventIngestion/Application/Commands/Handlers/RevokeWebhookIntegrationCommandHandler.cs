@@ -17,7 +17,7 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        var (name, expectedVersion) = command;
+        var (fabs, name, expectedVersion) = command;
 
         Option<WebhookIntegration> found = await integrations.GetByNameAsync(name, cancellationToken);
         if (!found.HasValue)
@@ -26,6 +26,16 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
         }
 
         WebhookIntegration integration = found.Value;
+
+        // An integration in a plant the caller does not hold is reported exactly
+        // as one that never existed (#1545) — the same 404, by the same path, so
+        // the answer cannot be used to enumerate another plant's integrations.
+        // Not a 403: the caller addressed an integration, and "forbidden" would
+        // confirm it exists.
+        if (!fabs.Contains(integration.Fab))
+        {
+            return Failure(RevokeWebhookIntegrationFailures.WebhookIntegrationNotFound(name.Value));
+        }
 
         // Answered before the version gate, because a repeat is not a
         // conflict. Revoke is idempotent by design (WebhookIntegration.Revoke

@@ -62,7 +62,7 @@ public static partial class EventsEndpoints
         }
 
         (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
-            await ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
+            await EventIngestionFabResolution.ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabs is null)
         {
             return fabProblem!;
@@ -101,7 +101,7 @@ public static partial class EventsEndpoints
         }
 
         (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
-            await ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
+            await EventIngestionFabResolution.ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabs is null)
         {
             return fabProblem!;
@@ -127,7 +127,7 @@ public static partial class EventsEndpoints
         CancellationToken cancellationToken)
     {
         (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
-            await ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
+            await EventIngestionFabResolution.ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabs is null)
         {
             return fabProblem!;

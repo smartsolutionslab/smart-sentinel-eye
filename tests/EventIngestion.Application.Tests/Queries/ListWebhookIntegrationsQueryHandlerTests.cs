@@ -15,10 +15,13 @@ public class ListWebhookIntegrationsQueryHandlerTests
     private static readonly DateTimeOffset Now =
         DateTimeOffset.Parse("2026-05-28T08:00:00Z", CultureInfo.InvariantCulture);
 
-    private static WebhookIntegration BuildActive(string name)
+    private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+
+    private static WebhookIntegration BuildActive(string name, string fab = "munich")
     {
         (WebhookIntegration integration, _) = WebhookIntegration.Register(
             WebhookIntegrationName.From(name),
+            FabIdentifier.From(fab),
             Kind.From("WebhookResult"),
             new FakeClock(Now));
         return integration;
@@ -33,13 +36,39 @@ public class ListWebhookIntegrationsQueryHandlerTests
 
         Result<IReadOnlyList<WebhookIntegrationDto>, ListWebhookIntegrationsError> result =
             await handler.HandleAsync(
-                new ListWebhookIntegrationsQuery(IncludeRevoked: true),
+                new ListWebhookIntegrationsQuery([Munich], IncludeRevoked: true),
                 CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Count.ShouldBe(2);
         // In-memory ordering by name (the handler sorts after pulling).
         result.Value.Select(d => d.Name).ShouldBe(["alpha", "beta"]);
+    }
+
+    /// <summary>
+    /// #1545. The listing carries the version each integration would be revoked
+    /// with, so leaving it unscoped hands one plant the means to stop another's
+    /// machine ingest, not just the knowledge that it exists.
+    /// </summary>
+    [Fact]
+    public async Task Returns_only_the_integrations_of_the_fabs_the_caller_holds()
+    {
+        WebhookIntegration[] seed =
+        [
+            BuildActive("alpha", "munich"),
+            BuildActive("beta", "dresden"),
+        ];
+        ListWebhookIntegrationsQueryHandler handler = new(
+            new TestWebhookIntegrationQuerySource(seed));
+
+        Result<IReadOnlyList<WebhookIntegrationDto>, ListWebhookIntegrationsError> result =
+            await handler.HandleAsync(
+                new ListWebhookIntegrationsQuery([FabIdentifier.From("dresden")], IncludeRevoked: true),
+                CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Select(dto => dto.Name).ShouldBe(["beta"]);
+        result.Value.ShouldHaveSingleItem().Fab.ShouldBe("dresden");
     }
 
     [Fact]
@@ -60,7 +89,7 @@ public class ListWebhookIntegrationsQueryHandlerTests
 
         Result<IReadOnlyList<WebhookIntegrationDto>, ListWebhookIntegrationsError> result =
             await handler.HandleAsync(
-                new ListWebhookIntegrationsQuery(IncludeRevoked: true), CancellationToken.None);
+                new ListWebhookIntegrationsQuery([Munich], IncludeRevoked: true), CancellationToken.None);
 
         result.Value.ShouldHaveSingleItem().Version.ShouldBe(5);
     }

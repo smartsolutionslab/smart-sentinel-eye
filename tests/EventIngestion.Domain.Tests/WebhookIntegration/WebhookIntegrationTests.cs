@@ -17,6 +17,7 @@ public class WebhookIntegrationTests
         (Domain.WebhookIntegration.WebhookIntegration integration, string token) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
+                FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
                 new FakeClock(Now));
 
@@ -24,6 +25,11 @@ public class WebhookIntegrationTests
         integration.DefaultKind.Value.ShouldBe("QaResult");
         integration.RegisteredAt.ShouldBe(Now);
         integration.IsRevoked.ShouldBeFalse();
+
+        // #1545. Without this the integration has no plant to compare a
+        // delivery's ?fabId= against, which is how a token issued for one plant
+        // could file events into another.
+        integration.Fab.ShouldBe(FabIdentifier.From("munich"));
 
         token.ShouldNotBeEmpty();
         integration.TokenHash.Matches(token).ShouldBeTrue();
@@ -35,6 +41,7 @@ public class WebhookIntegrationTests
         (Domain.WebhookIntegration.WebhookIntegration integration, _) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
+                FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
                 new FakeClock(Now));
 
@@ -48,6 +55,7 @@ public class WebhookIntegrationTests
         (Domain.WebhookIntegration.WebhookIntegration integration, _) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
+                FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
                 new FakeClock(Now));
         integration.ClearPendingEvents();
@@ -66,6 +74,7 @@ public class WebhookIntegrationTests
         (Domain.WebhookIntegration.WebhookIntegration integration, _) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
+                FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
                 new FakeClock(Now));
         integration.Revoke(new FakeClock(Now.AddHours(1)));
@@ -83,6 +92,7 @@ public class WebhookIntegrationTests
         (Domain.WebhookIntegration.WebhookIntegration integration, _) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
+                FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
                 new FakeClock(Now));
 
@@ -97,6 +107,7 @@ public class WebhookIntegrationTests
         (Domain.WebhookIntegration.WebhookIntegration integration, _) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
+                FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
                 new FakeClock(Now));
         integration.ClearPendingEvents();
@@ -116,6 +127,7 @@ public class WebhookIntegrationTests
         (Domain.WebhookIntegration.WebhookIntegration integration, _) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
+                FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
                 new FakeClock(Now));
         integration.MarkAsRotated("webhook-qa", new FakeClock(Now.AddHours(1)));
