@@ -73,8 +73,12 @@ public sealed class EventPartitionRolloverMigrator(
                 // loop reads the catalog. It does not hold for the names the
                 // provisioner above uses, which come from the realm — see
                 // FabPartitionProvisioner, where validation replaces it.
+                // Quoted, because a fab name may be kebab-style: events_munich-north
+                // unquoted is a syntax error, and one such fab would fail the run
+                // for every fab. The catalog stores the unquoted name, so the
+                // quoting belongs here rather than in what discovery returns.
                 string ddl =
-                    $"CREATE TABLE IF NOT EXISTS {monthlyTable} PARTITION OF {fabPartition} " +
+                    $"CREATE TABLE IF NOT EXISTS \"{monthlyTable}\" PARTITION OF \"{fabPartition}\" " +
                     $"FOR VALUES FROM ('{fromBound}') TO ('{toBound}');";
 #pragma warning disable S2077
                 await context.Database.ExecuteSqlRawAsync(ddl, cancellationToken);

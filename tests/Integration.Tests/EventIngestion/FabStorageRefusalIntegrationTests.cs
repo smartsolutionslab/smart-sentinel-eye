@@ -34,12 +34,31 @@ public class FabStorageRefusalIntegrationTests(AspireFixture aspire) : IAsyncLif
     /// </summary>
     public async Task DisposeAsync()
     {
+        DateTime now = DateTime.UtcNow;
+        DateTime nextMonth = now.AddMonths(1);
+
         await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
         await database.Database.ExecuteSqlRawAsync("""
             CREATE TABLE IF NOT EXISTS events_hamburg PARTITION OF events
                 FOR VALUES IN ('hamburg')
                 PARTITION BY RANGE (ingested_at);
             """);
+
+        // The months too, not just the fab partition. A fab partition with
+        // nothing beneath it accepts no row — restoring only the parent would
+        // leave hamburg in the very state this test manufactures, which is a
+        // dirty fixture rather than a restored one.
+        // Interpolated deliberately: these are identifiers and range bounds, and
+        // Postgres parameterises neither. Every value is invariant-formatted off
+        // DateTime.UtcNow — nothing here comes from outside this method.
+        string monthly =
+            $"""
+            CREATE TABLE IF NOT EXISTS "events_hamburg_{now:yyyyMM}" PARTITION OF events_hamburg
+                FOR VALUES FROM ('{now:yyyy-MM}-01') TO ('{nextMonth:yyyy-MM}-01');
+            """;
+#pragma warning disable EF1002
+        await database.Database.ExecuteSqlRawAsync(monthly);
+#pragma warning restore EF1002
     }
 
     [Fact]

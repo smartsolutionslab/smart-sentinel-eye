@@ -221,13 +221,30 @@ public sealed class HttpKeycloakAdminClient(
             return [.. parent.SubGroups.Select(child => child.Name)];
         }
 
-        HttpResponseMessage children = await httpClient.GetAsync(
-            $"admin/realms/{realm}/groups/{parent.Id}/children", cancellationToken);
-        children.EnsureSuccessStatusCode();
+        // Paged explicitly, and read to exhaustion. Keycloak applies a server-side
+        // default page size to this endpoint, so a single unpaged call silently
+        // returns a prefix once there are enough sub-groups — and a fab missing
+        // from that prefix is indistinguishable from a fab that does not exist.
+        // For the caller that means no storage provisioned and no indication why,
+        // which is the silent partial this feature exists to end.
+        const int pageSize = 100;
+        List<string> names = [];
+        bool lastPageReached = false;
+        while (!lastPageReached)
+        {
+            HttpResponseMessage children = await httpClient.GetAsync(
+                $"admin/realms/{realm}/groups/{parent.Id}/children?first={names.Count}&max={pageSize}",
+                cancellationToken);
+            children.EnsureSuccessStatusCode();
 
-        GroupRow[] rows = await children.Content
-            .ReadFromJsonAsync<GroupRow[]>(JsonOptions, cancellationToken) ?? [];
-        return [.. rows.Select(child => child.Name)];
+            GroupRow[] rows = await children.Content
+                .ReadFromJsonAsync<GroupRow[]>(JsonOptions, cancellationToken) ?? [];
+
+            names.AddRange(rows.Select(child => child.Name));
+            lastPageReached = rows.Length < pageSize;
+        }
+
+        return names;
     }
 
     private sealed record ClientRow(string Id, string ClientId);

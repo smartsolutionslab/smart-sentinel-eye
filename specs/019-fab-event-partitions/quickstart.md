@@ -4,6 +4,24 @@
 
 "Done" is the observations, not the walk. Record them on the PR.
 
+## Before anything: reset the Keycloak volume
+
+**A dev stack started before this feature will not boot after it**, and the
+failure names nothing useful. In run mode `keycloak` is a persistent container
+with a data volume, so the realm import is skipped when the realm already
+exists — which means an existing stack has no `migration-runner` client and no
+`berlin` / `hamburg` groups. The migration job then cannot mint its token,
+fails (correctly, per FR-011), and **all nine services report `FailedToStart`**
+because every one of them waits on it.
+
+```sh
+docker rm -f $(docker ps -aq --filter "name=keycloak")
+docker volume ls -q --filter "name=keycloak" | ForEach-Object { docker volume rm $_ }
+```
+
+CI never sees this: the integration fixture runs in E2E mode, where containers
+and volumes are ephemeral and the realm is imported every time.
+
 ## 0. Reproduce the loss first
 
 **Before the change.** Every step below asserts that something now works or is

@@ -63,19 +63,32 @@ public sealed class FabPartitionProvisioner(ILogger<FabPartitionProvisioner> log
     /// <see cref="FabIdentifier"/>, so it has already satisfied
     /// <c>^[a-z][a-z0-9-]{1,31}$</c> — an allow-list containing no quote,
     /// semicolon, whitespace, comment marker, backslash or non-ASCII character,
-    /// bounded to 32 characters. Nothing that could change the meaning of this
-    /// statement can reach it, and a group name that fails the grammar never
+    /// bounded to 32 characters. A group name that fails the grammar never
     /// becomes a <see cref="FabIdentifier"/> at all.
+    /// </para>
+    ///
+    /// <para>
+    /// The identifier is nonetheless <b>quoted</b>, because that grammar is
+    /// kebab-style and admits a character which breaks the statement without
+    /// being an injection: <c>events_munich-north</c> unquoted is
+    /// <c>syntax error at or near "-"</c>, and since nothing here catches, one
+    /// hyphenated fab would fail the whole run and leave every fab without
+    /// storage. Safe to interpolate and valid to execute are two different
+    /// claims; the grammar only ever established the first.
     /// </para>
     /// </summary>
     public static string BuildPartitionDdl(FabIdentifier fab)
     {
         Ensure.That(fab).IsNotNull();
 
-        return $"CREATE TABLE IF NOT EXISTS {PartitionName(fab)} PARTITION OF events "
+        return $"CREATE TABLE IF NOT EXISTS \"{PartitionName(fab)}\" PARTITION OF events "
             + $"FOR VALUES IN ('{fab.Value}') "
             + "PARTITION BY RANGE (ingested_at);";
     }
 
-    private static string PartitionName(FabIdentifier fab) => $"events_{fab.Value}";
+    /// <summary>
+    /// The unquoted name, as it appears in <c>pg_class.relname</c>. Callers
+    /// building SQL must quote it — see <see cref="BuildPartitionDdl"/>.
+    /// </summary>
+    public static string PartitionName(FabIdentifier fab) => $"events_{fab.Value}";
 }

@@ -29,7 +29,9 @@ public sealed class CatalogFabStorageReadiness : IFabStorageReadiness, IDisposab
 
     public CatalogFabStorageReadiness(
         IDbContextFactory<EventIngestionDbContext> contexts, IClock clock)
-        : this(cancellationToken => ReadProvisionedFabsAsync(contexts, cancellationToken), clock)
+        : this(
+            cancellationToken => ReadProvisionedFabsAsync(contexts, clock.UtcNow, cancellationToken),
+            clock)
     {
     }
 
@@ -54,7 +56,22 @@ public sealed class CatalogFabStorageReadiness : IFabStorageReadiness, IDisposab
     private readonly SemaphoreSlim gate = new(1, 1);
 
     private FrozenSet<string> provisioned = new HashSet<string>(StringComparer.Ordinal).ToFrozenSet(StringComparer.Ordinal);
-    private DateTimeOffset refreshedAt = DateTimeOffset.MinValue;
+
+    // Ticks in a long rather than a DateTimeOffset, and written through
+    // Volatile: both are read outside the gate, and a DateTimeOffset is wider
+    // than a word, so a concurrent write can be read torn — yielding a
+    // freshness verdict from a moment that never existed.
+    private long refreshedAtTicks = DateTimeOffset.MinValue.UtcTicks;
+
+    // Counts catalog reads. A waiter may reuse another thread's result only if a
+    // read *started* after the waiter decided it needed one — otherwise it
+    // answers from a snapshot older than its own question.
+    //
+    // A counter rather than a timestamp, deliberately: wall-clock resolution is
+    // coarse (tens of milliseconds on Windows), so two requests inside one tick
+    // would look simultaneous and the second would reuse a read that predates
+    // it. A frozen clock makes that permanent, which is how the test found it.
+    private long readGeneration;
 
     public void Dispose() => gate.Dispose();
 
@@ -67,38 +84,37 @@ public sealed class CatalogFabStorageReadiness : IFabStorageReadiness, IDisposab
             return true;
         }
 
-        await RefreshAsync(cancellationToken);
+        // Sampled before the refresh, so "has anyone read since I asked?" is
+        // answerable without relying on the clock.
+        await RefreshAsync(Volatile.Read(ref readGeneration), cancellationToken);
         return provisioned.Contains(fab.Value);
     }
 
-    private bool IsFresh() => clock.UtcNow - refreshedAt < Ttl;
+    private bool IsFresh() =>
+        clock.UtcNow.UtcTicks - Volatile.Read(ref refreshedAtTicks) < Ttl.Ticks;
 
-    private async Task RefreshAsync(CancellationToken cancellationToken)
+    private async Task RefreshAsync(long generationWhenAsked, CancellationToken cancellationToken)
     {
-        // Captured before the wait, so the check below asks the right question:
-        // "did somebody refresh while I queued?" — not "is the snapshot young?".
-        //
-        // Asking the second was a bug the tests caught: a miss inside the TTL
-        // returned here without reading anything, so a fab provisioned a minute
-        // ago stayed refused for the rest of the window. That is exactly the
-        // stale negative the contract forbids.
-        DateTimeOffset before = refreshedAt;
-
         await gate.WaitAsync(cancellationToken);
         try
         {
-            // A burst of writes for an unprovisioned fab collapses into one
-            // catalog read rather than one per request.
-            if (refreshedAt != before)
+            // A burst of writes for the same unprovisioned fab collapses onto one
+            // catalog read — but only onto a read that started *after* this
+            // caller decided it needed one. Reusing an earlier one would answer
+            // "not provisioned" from a snapshot taken before the question was
+            // asked, which is the stale negative this class exists to avoid.
+            if (Volatile.Read(ref readGeneration) != generationWhenAsked)
             {
                 return;
             }
+
+            Interlocked.Increment(ref readGeneration);
 
             // Not wrapped in a try/catch. A database failure must surface, not
             // become "not provisioned" — that would report a gap that does not
             // exist and send someone to look in the wrong place.
             provisioned = await readProvisionedFabs(cancellationToken);
-            refreshedAt = clock.UtcNow;
+            Volatile.Write(ref refreshedAtTicks, clock.UtcNow.UtcTicks);
         }
         finally
         {
@@ -107,21 +123,41 @@ public sealed class CatalogFabStorageReadiness : IFabStorageReadiness, IDisposab
     }
 
     private static async Task<FrozenSet<string>> ReadProvisionedFabsAsync(
-        IDbContextFactory<EventIngestionDbContext> contexts, CancellationToken cancellationToken)
+        IDbContextFactory<EventIngestionDbContext> contexts,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
     {
+        // Grandchildren, not children. A fab partition with no monthly range
+        // child beneath it accepts nothing — the insert still raises 23514 — so
+        // treating the fab partition alone as "ready" answers 202 and then drops
+        // the envelope, which is precisely the defect this feature closes.
+        //
+        // Reachable whenever the rollover has not run since the current month
+        // began, and reproduced by this feature's own refusal test when it puts
+        // hamburg's partition back.
         const string sql = """
-            SELECT child.relname
-            FROM   pg_inherits
-            JOIN   pg_class parent ON pg_inherits.inhparent = parent.oid
-            JOIN   pg_class child  ON pg_inherits.inhrelid  = child.oid
-            WHERE  parent.relname = 'events'
-              AND  child.relkind = 'p';
+            SELECT fab.relname
+            FROM   pg_inherits AS fab_link
+            JOIN   pg_class    AS events ON fab_link.inhparent = events.oid
+            JOIN   pg_class    AS fab    ON fab_link.inhrelid  = fab.oid
+            JOIN   pg_inherits AS month_link ON month_link.inhparent = fab.oid
+            JOIN   pg_class    AS month ON month_link.inhrelid = month.oid
+            WHERE  events.relname = 'events'
+              AND  fab.relkind = 'p'
+              AND  month.relname = fab.relname || @monthSuffix;
             """;
 
         await using EventIngestionDbContext context =
             await contexts.CreateDbContextAsync(cancellationToken);
         await using DbCommand command = context.Database.GetDbConnection().CreateCommand();
         command.CommandText = sql;
+
+        // A value, not an identifier, so it is parameterised. The suffix is the
+        // naming contract FabPartitionProvisioner and the rollover both keep.
+        DbParameter monthSuffix = command.CreateParameter();
+        monthSuffix.ParameterName = "monthSuffix";
+        monthSuffix.Value = $"_{now:yyyyMM}";
+        command.Parameters.Add(monthSuffix);
 
         await context.Database.OpenConnectionAsync(cancellationToken);
         try
