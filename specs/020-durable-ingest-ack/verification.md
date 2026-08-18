@@ -177,3 +177,18 @@ accordingly.
 **The retry window is in memory.** A restart gives every failing delivery a
 fresh window. Persisting it would mean a durable write per failed attempt, on
 the path that is failing because writes are failing.
+
+## 6. Coverage (ADR-0065)
+
+`scripts/coverage-check.ps1 -Configuration Release`. All twenty gates pass; the
+two this feature moves:
+
+```
+SmartSentinelEye.EventIngestion.Application   83.1%   (gate >= 80%)  PASS
+SmartSentinelEye.EventIngestion.Domain        96.4%   (gate >= 90%)  PASS
+```
+
+Run under Windows PowerShell 5.1 via a BOM-prefixed copy of the script — without
+the byte-order mark 5.1 mis-decodes the script's own UTF-8 characters and fails
+to parse. The copy is gitignored; the fix is pwsh 7, which is not on this
+machine.
