@@ -109,7 +109,7 @@ losing a plant's history.
 - [X] T024 Confirm ingest is untouched (SC-007): a well-formed broker delivery and a well-formed webhook call for a provisioned fab both behave exactly as before. The readiness check must not appear in an ingest measurement.
 - [X] T025 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm `EventIngestion.Domain` clears 90% and `Application` 80%. **Needs PowerShell 7**; under Windows PowerShell 5.1 the script fails to parse on its own UTF-8 characters — see spec 018's verification note for the BOM workaround.
 - [X] T026 Walk [quickstart.md](./quickstart.md) end to end and record the observations on the PR, **against the T001 baseline**. **"Done" is the observations.** Step 3 is the one that cannot be faked; step 4 records a residue rather than a failure.
-- [ ] T027 Close **#1547** with `Closes #1547` in the PR body, and comment on **#1546** naming precisely which half of it this feature did and did not address — the cause is now rare and legible, the general drop is untouched.
+- [X] T027 Close **#1547** with `Closes #1547` in the PR body, and comment on **#1546** naming precisely which half of it this feature did and did not address — the cause is now rare and legible, the general drop is untouched.
 
 ---
 
