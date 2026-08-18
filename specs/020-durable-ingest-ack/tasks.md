@@ -63,7 +63,7 @@ reintroduce the defect spec 018 fixed.
 - [X] T008 [US1] Retry a failed batch with bounded backoff instead of dropping it, keeping the envelopes unacknowledged throughout, so an interruption is survived rather than logged (FR-004, FR-005). The bound is a stated number, not a magic one.
 - [X] T009 [US1] Log the interruption, the recovery, **and the count of events affected** in `src/EventIngestion/Infrastructure/Log.cs` (FR-006). A recovery nobody can see afterwards is indistinguishable from a loss.
 - [X] T010 [P] [US1] Unit tests under `tests/EventIngestion.Infrastructure.Tests/`: a batch that fails is retried and not acknowledged; a batch that succeeds acknowledges exactly its own envelopes; backoff is bounded.
-- [ ] T011 [US1] Integration case under `tests/Integration.Tests/EventIngestion/` driving [quickstart.md](./quickstart.md) step 1: pause Postgres mid-stream, restore, and assert `count(*) == count(DISTINCT event_id) ==` what was published. **Both equalities** — "all arrived" and "none twice" are different claims now that redelivery is routine.
+- [X] T011 [US1] Integration case under `tests/Integration.Tests/EventIngestion/` driving [quickstart.md](./quickstart.md) step 1: pause Postgres mid-stream, restore, and assert `count(*) == count(DISTINCT event_id) ==` what was published. **Both equalities** — "all arrived" and "none twice" are different claims now that redelivery is routine.
 
 **Checkpoint**: SC-001 observed. An outage costs nothing but time.
 
@@ -77,7 +77,7 @@ reintroduce the defect spec 018 fixed.
 - [X] T013 [US1b] The same for `IngestWebhook` in that file (FR-002) — a partner's retry logic can act on 5xx and cannot act on a 202 followed by silence.
 - [X] T014 [US1b] Add the bounded write limiter that keeps **429** meaningful, per [contracts/ingest.md](./contracts/ingest.md), sized to database write capacity rather than to the old 5 000-slot channel. Without it the endpoint silently becomes "queue and time out" (FR-013).
 - [X] T015 [US1b] Declare **201**, **429** and **503** on both write endpoints in `src/EventIngestion/Api/EventsEndpoints.cs`, and remove the 202 that no longer occurs.
-- [ ] T016 [P] [US1b] Integration cases under `tests/Integration.Tests/EventIngestion/` per [quickstart.md](./quickstart.md) step 3: 201 with a `Location` that **actually resolves** — `GET` it, because a 201 pointing at a 404 is the same lie in a better costume — and 5xx with nothing stored while storage is down.
+- [X] T016 [P] [US1b] Integration cases under `tests/Integration.Tests/EventIngestion/` per [quickstart.md](./quickstart.md) step 3: 201 with a `Location` that **actually resolves** — `GET` it, because a 201 pointing at a 404 is the same lie in a better costume — and 5xx with nothing stored while storage is down.
 
 **Checkpoint**: SC-003 observed. No response claims more than the system did.
 
@@ -89,7 +89,7 @@ reintroduce the defect spec 018 fixed.
 
 **Goal**: unacknowledged deliveries come back. **Independent test**: kill mid-burst, restart, count.
 
-- [ ] T017 [US2] Integration case under `tests/Integration.Tests/EventIngestion/` per [quickstart.md](./quickstart.md) step 2: publish a burst, kill the service mid-drain, restart, and assert every published event is stored exactly once. **Nothing is implemented for this story** — it passes because an envelope in the channel is no longer something anyone was promised. If it fails, the acknowledgement is still happening too early somewhere.
+- [X] T017 [US2] Integration case under `tests/Integration.Tests/EventIngestion/` per [quickstart.md](./quickstart.md) step 2: publish a burst, kill the service mid-drain, restart, and assert every published event is stored exactly once. **Nothing is implemented for this story** — it passes because an envelope in the channel is no longer something anyone was promised. If it fails, the acknowledgement is still happening too early somewhere.
 
 **Checkpoint**: SC-002 observed. The in-memory buffer is no longer a hole.
 
@@ -105,7 +105,7 @@ reintroduce the defect spec 018 fixed.
 - [X] T018 [US3] In `src/EventIngestion/Infrastructure/Ingress/PersistenceLoopHostedService.cs`, count attempts per event identifier and, past a stated bound, write the delivery to `dead_letters` with its failure reason and **acknowledge it** so the broker stops (FR-007, FR-008). The counter is in memory and resets on restart — deliberately, per [data-model.md](./data-model.md).
 - [X] T019 [US3] Ensure a failing envelope never blocks the batch behind it (FR-009): isolate the failure to its own envelope rather than failing the whole batch forever. This is the task that decides whether spec 018's defect comes back.
 - [X] T020 [P] [US3] Unit tests under `tests/EventIngestion.Infrastructure.Tests/`: the bound is respected; the dead letter carries the reason; a dead-letter write that itself fails does not lose the loop (the outage case research §R4 admits it cannot cover).
-- [ ] T021 [US3] Integration case per [quickstart.md](./quickstart.md) step 4: drop a fab's partition, publish one delivery for it and a hundred for a healthy fab, and assert the hundred all land at the normal rate while the one ends up in `dead_letters` and stops being redelivered.
+- [X] T021 [US3] Integration case per [quickstart.md](./quickstart.md) step 4: drop a fab's partition, publish one delivery for it and a hundred for a healthy fab, and assert the hundred all land at the normal rate while the one ends up in `dead_letters` and stops being redelivered.
 
 **Checkpoint**: SC-004 observed. The guard holds.
 

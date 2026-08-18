@@ -128,10 +128,15 @@ jobs:
         run: dotnet build tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj -c Release --no-restore
 
       - name: Run integration tests
+        # Measurement cases are excluded (spec 020 T022-T024). A thirty-second
+        # saturating burst on a shared runner measures the runner, and a number
+        # that measures the runner would later be quoted as if it measured this
+        # code. They are run by hand and the figures go on the PR.
         run: |
           dotnet test tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj \
             -c Release \
             --no-build \
+            --filter "Category!=Measurement" \
             --logger "trx;LogFileName=integration.trx"
 
       - name: Upload integration test results
