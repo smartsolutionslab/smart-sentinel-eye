@@ -229,11 +229,68 @@ reads its event back out of dresden — it asserted only `202`, which the
 inferred branch returns whether it inferred dresden or fell back to the munich
 default, so the regression it exists to catch could not have failed it.
 
+## The webhook backfill warning, observed
+
+Added after the merge of #1544. The amendment's backfill guesses `'munich'` for
+every pre-existing integration and announces the count with `RAISE WARNING`, and
+that warning is the *only* signal a wrong guess ever gives — a misattributed
+integration does not go quiet, it starts refusing its own deliveries with 401.
+So whether the warning actually reaches a log is the whole of the mitigation,
+and it had never been seen: spec 017's note says its own `RAISE WARNING` "did
+not fire and its count has not been seen in a log", because every run so far has
+been against a fresh database with nothing to attribute.
+
+Checked properly rather than reasoned about. A scratch Postgres was migrated to
+`DeadLetterFab` — the state a deployment is in today — seeded with three
+integrations including one already rotated to JWT mode, and then the real
+`MigrationRunner` was run against it:
+
+```
+      Applying migration '20260817213441_WebhookIntegrationFab'.
+      ALTER TABLE webhook_integrations ADD fab character varying(32);
+warn: SmartSentinelEye.MigrationRunner.PostgresNoticeLoggingInterceptor[1515944834]
+      PostgreSQL: WebhookIntegrationFab attributed 3 pre-existing webhook
+      integration(s) to fab 'munich'. Any that belongs to another fab will now
+      reject its own deliveries with 401 until its fab is corrected.
+      (SQLSTATE 01000)
+      ALTER TABLE webhook_integrations ALTER COLUMN fab SET NOT NULL;
+      CREATE INDEX ix_webhook_integrations_fab ON webhook_integrations (fab);
+```
+
+Count correct, level `warn`, all three rows attributed, column `NOT NULL`
+afterwards, runner exit 0 across all nine contexts. **`PostgresNoticeLoggingInterceptor`
+(#1394) is confirmed working on a real backfill for the first time** — the
+machinery existed and had been reasoned about, but never watched doing its job.
+
+**What to grep for on deploy**: the logger category
+`PostgresNoticeLoggingInterceptor`, or the word `attributed`. If the count
+exceeds the number of integrations that genuinely belong to Munich, the extras
+need their `fab` corrected **before** they start refusing deliveries.
+
+Two traps worth recording, both mine rather than the code's:
+
+- The scratch database must use **`timescale/timescaledb:2.27.1-pg17`**, the
+  image AppHost pins (ADR-0101). On stock `postgres:17-alpine`,
+  AuditObservability's migration dies with `extension "timescaledb" is not
+  available` and the runner exits non-zero — which looks like a defect in the
+  migration under test and is not one.
+- The run logs five `fail: Microsoft.EntityFrameworkCore.Database.Command[20102]`
+  lines against `SELECT "MigrationId" … FROM "__EFMigrationsHistory"`. That is
+  EF probing a database with no history table yet, once per empty context. They
+  read alarmingly in a deploy log and are benign.
+
 ## Not verified
 
 - The **partition** path for a second fab under load. `events_dresden` was
   added on this branch (`505b226`) because Dresden had no partition at all and
   every prior test named munich; it is exercised by the manual-write tests, not
   by a throughput run.
-- The backfill on a **real** populated database. Nine synthetic rows covering
-  each shape is the closest the fixture allows.
+- The `dead_letters` backfill on a **real** populated database. Nine synthetic
+  rows covering each shape is the closest the fixture allows. (The
+  `webhook_integrations` backfill *has* now been run against a populated table
+  outside the fixture — see above — but that check seeds its own rows too, so
+  neither has met production data.)
+- **Whether `'munich'` is the right guess anywhere but here.** The check above
+  proves the warning is heard, not that the attribution is correct. Nothing in
+  or out of the database can establish which plant a pre-existing integration
+  belonged to; that is exactly why it warns instead of deciding quietly.
