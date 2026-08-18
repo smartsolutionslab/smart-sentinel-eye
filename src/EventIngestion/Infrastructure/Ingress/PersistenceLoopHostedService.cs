@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -42,7 +43,7 @@ public sealed class PersistenceLoopHostedService(
                 {
                     await DispatchAsync(envelope, stoppingToken);
                 }
-                catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.CheckViolation)
+                catch (Exception ex) when (IsMissingPartition(ex))
                 {
                     // Spec 019 FR-008. This is the one cause worth naming: no
                     // partition exists for the fab, so the insert cannot land.
@@ -67,6 +68,27 @@ public sealed class PersistenceLoopHostedService(
             logger.PersistenceLoopStopping(ex);
         }
     }
+
+    /// <summary>
+    /// Whether this is Postgres refusing the row because no partition covers its
+    /// fab (spec 019 FR-008).
+    ///
+    /// <para>
+    /// Unwrapped rather than matched directly: the insert goes through EF, which
+    /// wraps every provider exception in <see cref="DbUpdateException"/>. A
+    /// <c>catch (PostgresException)</c> here never fires — it was written that
+    /// way first, and the envelope fell through to the generic handler and got
+    /// the same "something faulted" line this exists to replace. The bare case
+    /// is kept for any path that reaches Npgsql without EF in between.
+    /// </para>
+    /// </summary>
+    private static bool IsMissingPartition(Exception exception) => exception switch
+    {
+        PostgresException postgres => postgres.SqlState == PostgresErrorCodes.CheckViolation,
+        DbUpdateException { InnerException: PostgresException inner } =>
+            inner.SqlState == PostgresErrorCodes.CheckViolation,
+        _ => false,
+    };
 
     private async Task DispatchAsync(EventEnvelope envelope, CancellationToken cancellationToken)
     {

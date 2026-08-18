@@ -24,6 +24,31 @@ public class FabPartitionProvisionerTests
         ddl.ShouldContain("PARTITION BY RANGE (ingested_at)");
     }
 
+    /// <summary>
+    /// The grammar is kebab-style, and every fab in the realm today happens not
+    /// to use a hyphen — which is why nothing caught this. Unquoted,
+    /// <c>events_munich-north</c> is <c>syntax error at or near "-"</c>, and
+    /// since provisioning does not catch, one such fab would fail the whole run
+    /// and leave every fab without storage.
+    ///
+    /// <para>
+    /// The names are safe to interpolate and were not valid to execute. Those
+    /// are two different claims, and the allow-list only ever established the
+    /// first.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData("munich-north")]
+    [InlineData("fab-2")]
+    [InlineData("a-b-c-d")]
+    public void Quotes_the_identifier_so_a_kebab_style_fab_is_valid_sql(string fab)
+    {
+        string ddl = FabPartitionProvisioner.BuildPartitionDdl(FabIdentifier.From(fab));
+
+        ddl.ShouldContain($"\"events_{fab}\"");
+        ddl.ShouldContain($"FOR VALUES IN ('{fab}')");
+    }
+
     [Fact]
     public void Is_idempotent_so_a_second_run_changes_nothing()
     {

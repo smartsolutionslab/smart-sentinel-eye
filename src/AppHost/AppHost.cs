@@ -23,8 +23,10 @@ var keycloakPassword = builder.AddParameter("KeycloakPassword", "dev-only-keyclo
 // service-account token (spec 008 ADR-0100).
 var identityAdminClientSecret = builder.AddParameter("IdentityAdminClientSecret", "dev-only-identity-admin-secret", secret: true);
 // Spec 019: the migration job reads /fabs to provision an events partition per
-// fab. Its own client, holding query-groups and nothing else — deliberately
-// narrower than identity-admin, which can also create clients and users.
+// fab. Its own client, read-only, holding query-groups + view-users — the
+// working minimum, since group-by-path answers 403 with query-groups alone
+// (verified against Keycloak 26.5). Wider than intended and still far narrower
+// than identity-admin, which can create clients and users.
 var migrationRunnerClientSecret = builder.AddParameter("MigrationRunnerClientSecret", "dev-only-migration-runner-secret", secret: true);
 var rabbitPassword = builder.AddParameter("RabbitMqPassword", "dev-only-rabbit-password", secret: true);
 // Mirrors the dev-only `scenario-simulator` confidential client seeded in

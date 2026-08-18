@@ -107,7 +107,8 @@ public static class IdentityInfrastructureModule
     /// Public because <c>MigrationRunner</c> composes it (spec 019): event
     /// partitions are provisioned per fab, and the fabs come from the realm's
     /// group tree. It presents the narrower <c>migration-runner</c> credential,
-    /// which holds <c>query-groups</c> and nothing else. This is a composition
+    /// which holds <c>query-groups</c> and <c>view-users</c> — read-only, and
+    /// narrower than Identity's own credential. This is a composition
     /// root reusing Identity's client — not a bounded context reaching into
     /// another, which <c>BoundaryTests</c> forbids and would catch.
     /// </para>
