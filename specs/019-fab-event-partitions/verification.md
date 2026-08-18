@@ -175,3 +175,43 @@ it is the only way to get the names.
   positive for up to its TTL after a partition disappears; the refusal test
   waits that window out rather than eliminating it, because eliminating it would
   mean a catalog read per write.
+
+## What the review found (phase 6 QA)
+
+`/code-review` returned eight findings. All eight were real; the HIGH one was
+verified against Postgres before anything was changed. Three had shipped
+behaviour that did not match what the code claimed:
+
+1. **Partition names were interpolated unquoted**, and `FabIdentifier`'s grammar
+   is kebab-style. A group named `munich-north` yields
+   `CREATE TABLE events_munich-north` → `syntax error at or near "-"`. Nothing
+   catches, so **one** hyphenated fab would have failed the whole run and left
+   **every** fab without storage. The safety comment said nothing reaching the
+   statement could change its meaning — true about injection, false about
+   validity. Safe to interpolate and valid to execute are different claims.
+2. **The FR-008 catch was unreachable.** EF wraps provider exceptions in
+   `DbUpdateException`, so `catch (PostgresException)` never matched and the
+   envelope got the generic "something faulted" line the change exists to
+   replace. The distinguishable log was decorative.
+3. **Readiness ignored the monthly child.** A fab partition with no month
+   beneath it accepts nothing, so the check answered "ready", the endpoint
+   answered 202, and the loop dropped the envelope — the defect this feature
+   closes, reproduced by its own test teardown.
+
+The rest: unpaginated `children` (Keycloak truncates by default, and a fab
+missing from the prefix is indistinguishable from one that does not exist); a
+`DateTimeOffset` read outside the lock, which can tear; and two comments
+claiming the migration credential holds "query-groups and nothing else" after
+`view-users` had been added.
+
+**One fix failed its own test, which is why the test exists.** Ordering cache
+refreshes by wall clock collapses two requests inside a single tick, and Windows
+tick resolution makes that ordinary rather than theoretical — the second caller
+could still take a stale negative. Ordering is now a monotonic counter, which
+does not depend on the clock at all.
+
+**Not fixed in code, documented instead**: a dev stack started before this
+feature keeps its Keycloak volume, so the realm import is skipped, the
+`migration-runner` client does not exist, and all nine services fail to start.
+`quickstart.md` now opens with the volume reset. CI never sees it — the fixture
+runs with ephemeral containers.
