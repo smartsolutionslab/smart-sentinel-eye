@@ -92,6 +92,12 @@ public static class EventIngestionInfrastructureModule
         // pass through the channel — and the 429 that used to mean "the channel
         // is full" needs something to bound. This is it.
         builder.Services.AddSingleton<IngestWriteLimiter>();
+
+        // FR-005: how long a failing write keeps being retried before the
+        // delivery is recorded and released. Bound out here rather than in the
+        // loop because the right answer is how long a plant's outages last.
+        builder.Services.AddOptions<IngestRetryOptions>()
+            .Bind(builder.Configuration.GetSection(IngestRetryOptions.SectionName));
         // Resolve the broker + Keycloak from the Aspire-injected endpoints, and
         // fail fast when they are absent. Defaulting these (it used to be
         // localhost:1883) turns a wiring gap into a subscriber that silently

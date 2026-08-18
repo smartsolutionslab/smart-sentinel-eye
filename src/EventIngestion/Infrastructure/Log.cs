@@ -83,8 +83,8 @@ internal static partial class Log
     // FR-007/FR-008. The delivery is released after this, so this line is the
     // last chance anybody has to know it existed — hence Error, and hence the
     // dead letter that is written before it.
-    [LoggerMessage(Level = LogLevel.Error, Message = "Giving up on {Identifier} in fab {Fab} after {Attempts} attempts; recorded as a dead letter and released so it stops being redelivered.")]
-    public static partial void IngestAbandoned(this ILogger logger, EventIdentifier identifier, FabIdentifier fab, int attempts);
+    [LoggerMessage(Level = LogLevel.Error, Message = "Giving up on {Identifier} in fab {Fab} after {Window} of failing writes; recorded as a dead letter and released so it stops being redelivered.")]
+    public static partial void IngestAbandoned(this ILogger logger, EventIdentifier identifier, FabIdentifier fab, TimeSpan window);
 
     // Recording the failure failed too — which during an outage is the ordinary
     // case, since both writes go to the same database. The delivery stays
