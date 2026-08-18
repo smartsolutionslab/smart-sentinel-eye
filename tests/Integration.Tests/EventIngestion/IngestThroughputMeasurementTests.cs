@@ -285,20 +285,39 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
         return sent;
     }
 
+    /// <summary>
+    /// The first call this test makes, and it has timed out twice on a Keycloak
+    /// that is healthy but still warming. Retried rather than left to chance,
+    /// because the cost of losing that coin toss is a ten-minute run that
+    /// produces no number at all.
+    /// </summary>
     private async Task<string> TokenAsync()
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
-        using FormUrlEncodedContent form = new(new Dictionary<string, string>
+        int attempt = 0;
+        while (true)
         {
-            ["grant_type"] = "client_credentials",
-            ["client_id"] = SimulatorClientId,
-            ["client_secret"] = SimulatorClientSecret,
-        });
-        HttpResponseMessage token = await keycloak.PostAsync(
-            "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
-        token.EnsureSuccessStatusCode();
-        return (await token.Content.ReadFromJsonAsync<JsonElement>())
-            .GetProperty("access_token").GetString()!;
+            attempt++;
+            try
+            {
+                using HttpClient keycloak = aspire.CreateKeycloakClient();
+                using FormUrlEncodedContent form = new(new Dictionary<string, string>
+                {
+                    ["grant_type"] = "client_credentials",
+                    ["client_id"] = SimulatorClientId,
+                    ["client_secret"] = SimulatorClientSecret,
+                });
+                HttpResponseMessage token = await keycloak.PostAsync(
+                    "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
+                token.EnsureSuccessStatusCode();
+                return (await token.Content.ReadFromJsonAsync<JsonElement>())
+                    .GetProperty("access_token").GetString()!;
+            }
+            catch (Exception ex) when (attempt < 5)
+            {
+                output.WriteLine($"token attempt {attempt} failed ({ex.GetType().Name}); retrying");
+                await Task.Delay(TimeSpan.FromSeconds(5));
+            }
+        }
     }
 
     private static string Payload(string kind, int sequence) => JsonSerializer.Serialize(new
