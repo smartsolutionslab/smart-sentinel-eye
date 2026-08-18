@@ -110,7 +110,53 @@ the previous design.
 
 ## 5. Throughput, latency and order (SC-005, SC-006)
 
-<!-- FILL: before/after table -->
+`IngestThroughputMeasurementTests`, run twice through the identical harness:
+once on this branch, once in a worktree at `32ef1bb` — the commit this branch
+was cut from. Forty publishing clients, each sending sequentially on its own
+topic so per-source order is a real claim, capped at thirty seconds each.
+
+| | before (`32ef1bb`) | after |
+|---|---|---|
+| offered | 129 040 in 148.9 s = **866/s** | 60 175 in 151.4 s = **398/s** |
+| stored | **11 225** of 129 040 | **60 175** of 60 175 |
+| sustained end to end | **46/s** | **398/s**, and never behind |
+| arrival→visible p50 | **105 665 ms** | **164 ms** |
+| p95 / p99 | 144 836 / 149 400 ms | 6 968 / 10 371 ms |
+| per-source order | 0 inversions / 40 sources | 0 inversions / 40 sources |
+
+Three things in that table need saying rather than leaving to be read.
+
+**The before column stored 11 225 of the 129 040 it accepted.** Not "stored them
+slowly" — the drain *stopped*: ten consecutive one-second samples with the count
+unmoved. Every one of those events had been acknowledged to the broker on
+arrival, so nothing was going to bring them back. That is issue #1546 in one
+line, at scale, and it is the number every other claim here is measured against.
+
+**The offered rate falling from 866/s to 398/s is the feature, not a
+regression.** The old subscriber acknowledged on arrival, so the broker's
+in-flight window never filled and it kept handing over events the system could
+not store. Deferring the acknowledgement fills that window and the publishers
+are slowed — which is FR-013 in as many words: senders capable of being slowed
+are slowed rather than having their events dropped. The rate that matters for
+SC-005 is what actually reaches storage, and that went from **46/s to 398/s**.
+
+**398/s is a floor, not a ceiling.** Everything published had landed before the
+drain window opened, so ingest was never the constraint in the after run — the
+figure is what forty sequentially-acknowledging publishers could offer. The
+harness cannot reach the 5 000/s spec 006 sizes this path for, and that number
+is therefore **not established by this feature either way**. What is established
+is the comparison SC-005 asks for.
+
+**Latency (SC-006).** p50 of 164 ms is inside the ≤ 200 ms "event → overlay
+state" leg of the end-to-end budget (constitution §IV). The tail is not, and it
+is queueing under a deliberately saturating burst rather than per-event cost —
+under the same burst before the change the *median* was 105 seconds. The
+uncontended figure is the one the budget is about, and it is the p50.
+
+**`max_inflight_messages`** is `2000` in `src/AppHost/mosquitto/mosquitto.conf`
+(T004). It matters only now: while the subscriber acknowledged on arrival the
+window never filled and mosquitto's default of 20 was invisible. The before
+column was measured without it, which is what "before" means.
 
 ## What this feature does not do
 
