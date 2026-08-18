@@ -79,8 +79,8 @@ so a graceful stop and a crash leave the broker holding the same set.
 `DirectWriteHonestyIntegrationTests`, both halves:
 
 ```
-POST /events/manual                      -> 201 /events/01a0…
-GET  /events/01a0…                       -> 200, kind matches
+POST /events/manual                      -> 201 /events/01a0173a-22c9-7e38-bbe2-75b541190abd
+GET  /events/01a0173a-22c9-7e38-bbe2-75b541190abd  -> 200, kind matches
 POST /events/manual with storage away    -> 503, stored: 0
 ```
 
@@ -94,11 +94,17 @@ would have produced.
 the one that cannot be faked. One delivery for a fab whose partition is gone,
 and a hundred for a healthy fab, published together:
 
-<!-- FILL: healthy stored / took / dead letter line -->
+```
+dropped events_hamburg — one delivery can now never be stored
+published 1 poisoned + 100 healthy
+healthy stored: 100 after 7.1s
+dead letter: not storable after 00:01:30 of retrying
+```
 
-The healthy fab is asserted first and on a deadline far shorter than the retry
-window, so the hundred can only be on time if the loop moved past the poisoned
-delivery instead of waiting it out.
+The hundred landed in 7.1 seconds against a retry window of ninety, so they can
+only have been stored by the loop moving past the poisoned delivery rather than
+waiting it out. The poisoned one was recorded before it was released, and the
+dead letter names the bound it exhausted rather than merely reporting a failure.
 
 **This is where the feature could have reintroduced spec 018's defect**, and the
 first implementation did. The loop held its batch and retried it to exhaustion
