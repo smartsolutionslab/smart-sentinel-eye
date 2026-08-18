@@ -93,6 +93,46 @@ public class PersistenceLoopHostedServiceTests
         poison.Stored.ShouldBe(0);
     }
 
+    /// <summary>
+    /// FR-009, the version that a single served batch cannot show. The first
+    /// design retried the failing batch to exhaustion before reading the channel
+    /// again, so an event arriving one second after a poisoned one waited out the
+    /// whole retry window — five minutes, in production. That is the defect spec
+    /// 018 fixed, wearing a bound.
+    /// </summary>
+    [Fact]
+    public async Task An_event_arriving_behind_a_failing_one_does_not_wait_for_it()
+    {
+        RecordingCompletion poison = new();
+        RecordingCompletion later = new();
+
+        BoundedIngestChannel channel = new(capacity: 10);
+        await channel.WriteAsync(Delivery("poison", poison), CancellationToken.None);
+
+        Harness harness = new()
+        {
+            PoisonPayload = "poison",
+            ChannelOverride = channel,
+            // Far longer than this test waits, so the healthy event can only be
+            // stored by the loop moving past the failure - not by the failure
+            // being abandoned out of the way.
+            Window = TimeSpan.FromSeconds(30),
+        };
+
+        await harness.RunUntilAsync(
+            () => later.Stored == 1,
+            TimeSpan.FromSeconds(5),
+            onStarted: async () =>
+            {
+                // Arrives while the poisoned delivery is still being retried.
+                await Task.Delay(100, CancellationToken.None);
+                await channel.WriteAsync(Delivery("healthy", later), CancellationToken.None);
+            });
+
+        later.Stored.ShouldBe(1, "a good event waited behind a failing one");
+        poison.Stored.ShouldBe(0);
+    }
+
     private static IngestDelivery Delivery(string marker, IIngestCompletion completion) =>
         new(
             new EventEnvelope(
@@ -116,6 +156,12 @@ public class PersistenceLoopHostedServiceTests
         /// <summary>Marker whose delivery always fails, whatever the others do.</summary>
         public string? PoisonPayload { get; init; }
 
+        /// <summary>Channel to drain, when the test needs to add to it mid-run.</summary>
+        public IIngestChannel? ChannelOverride { get; init; }
+
+        /// <summary>Retry window, when the default would let abandonment do the unblocking.</summary>
+        public TimeSpan? Window { get; init; }
+
         public int Attempts => repository.Attempts;
 
         public IReadOnlyList<DeadLetter> DeadLetters => deadLetters.Captured;
@@ -131,7 +177,8 @@ public class PersistenceLoopHostedServiceTests
         private readonly RecordingDeadLetterRepository deadLetters = new();
         private readonly AdvancingClock clock = new();
 
-        public async Task RunUntilAsync(Func<bool> condition, TimeSpan? timeout = null)
+        public async Task RunUntilAsync(
+            Func<bool> condition, TimeSpan? timeout = null, Func<Task>? onStarted = null)
         {
             repository.FailuresBeforeSuccess = FailuresBeforeSuccess;
             repository.PoisonPayload = PoisonPayload;
@@ -146,13 +193,13 @@ public class PersistenceLoopHostedServiceTests
             await using ServiceProvider provider = services.BuildServiceProvider();
 
             PersistenceLoopHostedService loop = new(
-                new OneBatchChannel(batch),
+                ChannelOverride ?? new OneBatchChannel(batch),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 Options.Create(new IngestRetryOptions
                 {
                     // Short enough that the abandon case is a fast test, rather
                     // than one that sits out the five-minute production window.
-                    MaximumRetryWindow = RetryWindow,
+                    MaximumRetryWindow = Window ?? RetryWindow,
                     InitialBackoff = TimeSpan.FromMilliseconds(10),
                     MaximumBackoff = TimeSpan.FromMilliseconds(50),
                 }),
@@ -162,10 +209,14 @@ public class PersistenceLoopHostedServiceTests
             using CancellationTokenSource cts = new(timeout ?? TimeSpan.FromSeconds(10));
             await loop.StartAsync(cts.Token);
 
+            Task arrivals = onStarted is null ? Task.CompletedTask : onStarted();
+
             while (!condition() && !cts.IsCancellationRequested)
             {
                 await Task.Delay(50, CancellationToken.None);
             }
+
+            await arrivals;
 
             await loop.StopAsync(CancellationToken.None);
         }
@@ -176,6 +227,8 @@ public class PersistenceLoopHostedServiceTests
         private bool served;
 
         public int CurrentDepth => 0;
+
+        public IReadOnlyList<IngestDelivery> TakeAvailable(int maximum) => [];
 
         public ValueTask WriteAsync(IngestDelivery delivery, CancellationToken cancellationToken) =>
             ValueTask.CompletedTask;
