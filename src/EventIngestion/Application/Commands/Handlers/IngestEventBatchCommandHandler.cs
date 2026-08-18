@@ -54,9 +54,17 @@ public sealed class IngestEventBatchCommandHandler(
             [.. envelopes.Select(envelope => (envelope.Fab, envelope.Identifier))],
             cancellationToken);
 
+        // Seeded with what is already stored, then grown as the batch is built,
+        // so the same check answers both "already here" and "already in this
+        // batch". Without the second, a delivery that arrived twice before
+        // either copy was stored would violate the unique constraint and fail
+        // the whole batch — sending 199 healthy events down the slow path for a
+        // duplicate the idempotency rule was supposed to absorb.
+        HashSet<EventIdentifier> seen = [.. already];
+
         foreach (EventEnvelope envelope in envelopes)
         {
-            if (already.Contains(envelope.Identifier))
+            if (!seen.Add(envelope.Identifier))
             {
                 logger.IdempotentReDelivery(envelope.Identifier, envelope.Fab);
                 continue;
