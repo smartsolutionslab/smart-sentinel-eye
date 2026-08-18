@@ -22,6 +22,10 @@ var keycloakPassword = builder.AddParameter("KeycloakPassword", "dev-only-keyclo
 // `Keycloak:AdminClientSecret` to mint the realm-management
 // service-account token (spec 008 ADR-0100).
 var identityAdminClientSecret = builder.AddParameter("IdentityAdminClientSecret", "dev-only-identity-admin-secret", secret: true);
+// Spec 019: the migration job reads /fabs to provision an events partition per
+// fab. Its own client, holding query-groups and nothing else — deliberately
+// narrower than identity-admin, which can also create clients and users.
+var migrationRunnerClientSecret = builder.AddParameter("MigrationRunnerClientSecret", "dev-only-migration-runner-secret", secret: true);
 var rabbitPassword = builder.AddParameter("RabbitMqPassword", "dev-only-rabbit-password", secret: true);
 // Mirrors the dev-only `scenario-simulator` confidential client seeded in
 // Realms/smart-sentinel-eye-realm.json. The Scenario Simulator worker
@@ -193,6 +197,14 @@ var migrations = builder
     .WaitFor(automationDb)
     .WaitFor(identityDb)
     .WaitFor(auditDb)
+    // Spec 019: partitions are provisioned per fab, and the fabs come from the
+    // realm. WaitFor rather than a bare reference — an unreachable realm makes
+    // the run fail (FR-011), so waiting is what keeps the ordinary case from
+    // looking like the failure case.
+    .WithReference(keycloak)
+    .WithEnvironment("Keycloak__AdminClientId", "migration-runner")
+    .WithEnvironment("Keycloak__AdminClientSecret", migrationRunnerClientSecret)
+    .WaitFor(keycloak)
     // Dashboard grouping: nest the one-shot migration runner under postgres (the
     // data tier) — it migrates every per-context database, then exits.
     .WithParentRelationship(postgres);

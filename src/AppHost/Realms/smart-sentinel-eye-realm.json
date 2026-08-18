@@ -23,7 +23,9 @@
       "name": "fabs",
       "subGroups": [
         { "name": "munich", "path": "/fabs/munich" },
-        { "name": "dresden", "path": "/fabs/dresden" }
+        { "name": "dresden", "path": "/fabs/dresden" },
+        { "name": "berlin", "path": "/fabs/berlin" },
+        { "name": "hamburg", "path": "/fabs/hamburg" }
       ]
     }
   ],
@@ -236,6 +238,19 @@
       "defaultClientScopes": ["basic", "profile", "email", "roles"]
     },
     {
+      "clientId": "migration-runner",
+      "name": "Smart Sentinel Eye — Migration Runner (service account)",
+      "description": "Reads /fabs so event partitions are provisioned per fab (spec 019). Read-only; see research.md R2 for why view-users is needed.",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "secret": "dev-only-migration-runner-secret",
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["basic", "profile", "email", "roles"]
+    },
+    {
       "clientId": "stream-distribution-attribution",
       "name": "Smart Sentinel Eye — Stream fab attribution (service account)",
       "description": "ADR-0116. Read-only account StreamDistribution uses at startup to learn the fab of a stream provisioned before spec 016. In every fab group on purpose: a stream's fab is what is unknown, so the lookup cannot be narrowed first.",
@@ -361,6 +376,43 @@
       ],
       "realmRoles": ["user"],
       "groups": ["/fabs/munich", "/fabs/dresden"]
+    },
+    {
+      "username": "op-berlin@berlin.test",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "op-berlin@berlin.test",
+      "firstName": "Berlin",
+      "lastName": "Operator",
+      "credentials": [
+        { "type": "password", "value": "Operator1234", "temporary": false }
+      ],
+      "realmRoles": ["user"],
+      "groups": ["/fabs/berlin"]
+    },
+    {
+      "username": "op-hamburg@hamburg.test",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "op-hamburg@hamburg.test",
+      "firstName": "Hamburg",
+      "lastName": "Operator",
+      "credentials": [
+        { "type": "password", "value": "Operator1234", "temporary": false }
+      ],
+      "realmRoles": ["user"],
+      "groups": ["/fabs/hamburg"]
+    },
+    {
+      "username": "service-account-migration-runner",
+      "enabled": true,
+      "serviceAccountClientId": "migration-runner",
+      "clientRoles": {
+        "realm-management": [
+          "query-groups",
+          "view-users"
+        ]
+      }
     },
     {
       "username": "service-account-identity-admin",

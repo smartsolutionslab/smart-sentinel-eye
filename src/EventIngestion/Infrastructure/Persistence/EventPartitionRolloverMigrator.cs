@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
@@ -23,6 +24,8 @@ namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 /// </summary>
 public sealed class EventPartitionRolloverMigrator(
     IDbContextFactory<EventIngestionDbContext> dbContextFactory,
+    IProvisionedFabSource fabs,
+    FabPartitionProvisioner provisioner,
     ILogger<EventPartitionRolloverMigrator> logger) : IMigrator
 {
     public string ContextName => "EventIngestion.PartitionRollover";
@@ -31,6 +34,15 @@ public sealed class EventPartitionRolloverMigrator(
     {
         await using EventIngestionDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        // Spec 019 FR-002/FR-004, and the order is the requirement. Every fab
+        // that exists gets its partition BEFORE discovery runs, so the rollover
+        // below finds a brand-new fab and gives it this month and next in the
+        // same pass. Provisioning after the rollover would leave a new fab with
+        // a partition and no month beneath it — which stores exactly as little
+        // as no partition at all, and would not fix itself until the next run.
+        await provisioner.ProvisionAsync(
+            context, await fabs.GetFabsAsync(cancellationToken), cancellationToken);
 
         string[] fabPartitions = await DiscoverFabPartitionsAsync(context, cancellationToken);
         if (fabPartitions.Length == 0)
@@ -56,6 +68,11 @@ public sealed class EventPartitionRolloverMigrator(
                 // constant catalog query, so it can only name a table that
                 // already exists; `monthlyTable` derives from it; both bounds
                 // are invariant-formatted dates off DateTime.UtcNow.
+                //
+                // That provenance argument still holds *here*, because this
+                // loop reads the catalog. It does not hold for the names the
+                // provisioner above uses, which come from the realm — see
+                // FabPartitionProvisioner, where validation replaces it.
                 string ddl =
                     $"CREATE TABLE IF NOT EXISTS {monthlyTable} PARTITION OF {fabPartition} " +
                     $"FOR VALUES FROM ('{fromBound}') TO ('{toBound}');";

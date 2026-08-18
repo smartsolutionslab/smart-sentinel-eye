@@ -37,7 +37,11 @@ public static partial class EventsEndpoints
             .Produces<Guid>(StatusCodes.Status202Accepted)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests);
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            // Spec 019: the fab exists and the caller holds it, but it has no
+            // event storage yet. Temporary by construction — the next
+            // provisioning run fixes it.
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         writes.MapPost("/webhook/{integrationName}", IngestWebhook)
             .AllowAnonymous() // auth is the static bearer token, not OIDC
@@ -45,7 +49,8 @@ public static partial class EventsEndpoints
             .Produces<Guid>(StatusCodes.Status202Accepted)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests);
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         RouteGroupBuilder reads = app.MapGroup("/events")
             .RequireAuthorization(Scope.Sse.Events.Read)

@@ -175,6 +175,12 @@
   <Folder Name="/tests/LayoutComposition.Domain.Tests/">
     <Project Path="tests/LayoutComposition.Domain.Tests/SmartSentinelEye.LayoutComposition.Domain.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/MigrationRunner.Tests/">
+    <Project Path="tests/MigrationRunner.Tests/SmartSentinelEye.MigrationRunner.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/EventIngestion.Infrastructure.Tests/">
+    <Project Path="tests/EventIngestion.Infrastructure.Tests/SmartSentinelEye.EventIngestion.Infrastructure.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/LayoutComposition.Application.Tests/">
     <Project Path="tests/LayoutComposition.Application.Tests/SmartSentinelEye.LayoutComposition.Application.Tests.csproj" />
   </Folder>

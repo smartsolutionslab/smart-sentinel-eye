@@ -32,11 +32,17 @@ public static class EventIngestionPersistenceModule
                 .AddInterceptors(new AggregateVersionInterceptor()));
 
         builder.Services.AddSingleton<IMigrator, EventIngestionMigrator>();
-        // Partition rollover runs *after* the EF migrations because
-        // it depends on the parent `events` table existing. The
-        // MigrationRunner runs IMigrator instances in registration
-        // order (ADR-0067), so this AddSingleton ordering matters.
-        builder.Services.AddSingleton<IMigrator, EventPartitionRolloverMigrator>();
+        builder.Services.AddSingleton<FabPartitionProvisioner>();
+
+        // EventPartitionRolloverMigrator is NOT registered here, and that is a
+        // change from spec 006. Since spec 019 it needs an IProvisionedFabSource
+        // — the realm's list of fabs — which only MigrationRunner can supply,
+        // because the realm belongs to Identity and no context may reference
+        // another. Registering it here would leave every Api host holding a
+        // singleton it cannot construct.
+        //
+        // It still runs after the EF migrations: MigrationRunner registers it
+        // last, and runs IMigrator instances in registration order (ADR-0067).
 
         return builder;
     }

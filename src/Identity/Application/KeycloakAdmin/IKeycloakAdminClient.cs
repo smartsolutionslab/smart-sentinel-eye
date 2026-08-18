@@ -44,6 +44,27 @@ public interface IKeycloakAdminClient
     /// on an already-disabled client is a no-op.
     /// </summary>
     Task DisableClientAsync(string clientId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The names of the sub-groups directly under <paramref name="parentPath"/>
+    /// — for <c>/fabs</c>, the fabs that exist (spec 019 FR-001).
+    ///
+    /// <para>
+    /// A read, unlike everything else on this interface, and the only one whose
+    /// caller is outside Identity: <c>MigrationRunner</c> composes it to decide
+    /// which event partitions to provision. It stays here rather than being
+    /// reimplemented there because Keycloak is Identity's to speak to, and a
+    /// second client would be a second thing to get wrong.
+    /// </para>
+    ///
+    /// <para>
+    /// Returns names, not paths — <c>munich</c>, not <c>/fabs/munich</c>.
+    /// Throws when the realm cannot be reached; never returns empty to mean
+    /// "could not tell".
+    /// </para>
+    /// </summary>
+    Task<IReadOnlyList<string>> GetSubGroupNamesAsync(
+        string parentPath, CancellationToken cancellationToken);
 }
 
 /// <summary>

@@ -25,4 +25,11 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "PostgreSQL {Severity}: {Message}")]
     public static partial void PostgresNotice(this ILogger logger, string severity, string message);
+
+    // Spec 019 FR-005. Warning rather than Information: a group under /fabs
+    // that is not a usable fab name gets no event storage, so anyone assigned
+    // to it loses every event they file. Skipping it keeps the other fabs
+    // provisioned; saying nothing would make that loss unattributable.
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Ignoring unusable fab group name(s) under '{ParentPath}': {Names}. No event storage is provisioned for them.")]
+    public static partial void UnusableFabGroupNames(this ILogger logger, string names, string parentPath);
 }

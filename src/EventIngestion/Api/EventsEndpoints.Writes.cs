@@ -21,6 +21,7 @@ public static partial class EventsEndpoints
         [FromBody] IngestManualEventRequest body,
         [FromServices] IIngestChannel channel,
         [FromServices] IFabAuthorizationGuard fabGuard,
+        [FromServices] IFabStorageReadiness storage,
         ClaimsPrincipal user,
         [FromQuery] string? fabId,
         CancellationToken cancellationToken)
@@ -40,6 +41,16 @@ public static partial class EventsEndpoints
         if (fab is null)
         {
             return fabProblem!;
+        }
+
+        // Spec 019 FR-007, and the ordering is the requirement — the same
+        // ordering spec 018 imposed on the fab check, for the same reason. This
+        // endpoint answers 202 the moment the envelope is queued and persists it
+        // later, so a check after the enqueue is not a check: the event would
+        // land, or vanish, while the caller had already been told otherwise.
+        if (!await storage.IsReadyAsync(fab, cancellationToken))
+        {
+            return FabNotProvisioned(fab);
         }
 
         EventEnvelope envelope;
@@ -71,6 +82,7 @@ public static partial class EventsEndpoints
         HttpRequest request,
         [FromServices] IIngestChannel channel,
         [FromServices] IWebhookIntegrationRepository integrations,
+        [FromServices] IFabStorageReadiness storage,
         [FromServices] IClock clock,
         CancellationToken cancellationToken)
     {
@@ -82,6 +94,15 @@ public static partial class EventsEndpoints
         if (integration is null)
         {
             return Results.Unauthorized();
+        }
+
+        // FR-009: the machine path gets the same refusal. Asked after
+        // authentication, so the fab is the integration's own (spec 018's
+        // amendment) rather than one the caller merely named — and asked before
+        // the channel, for the reason above.
+        if (!await storage.IsReadyAsync(integration.Fab, cancellationToken))
+        {
+            return FabNotProvisioned(integration.Fab);
         }
 
         EventEnvelope envelope;
@@ -223,6 +244,21 @@ public static partial class EventsEndpoints
             claim.Value.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries)
                 .Contains(targetGroup, StringComparer.Ordinal));
     }
+
+    /// <summary>
+    /// 503, not 400 and not 403 (spec 019). The request is well-formed and the
+    /// caller is entitled to that fab — nothing about what they did is wrong.
+    /// The system is not ready to store it, and the condition is temporary by
+    /// construction: the next provisioning run fixes it. No <c>Retry-After</c>,
+    /// because how long is genuinely unknown and a made-up number is worse than
+    /// none.
+    /// </summary>
+    private static IResult FabNotProvisioned(FabIdentifier fab) =>
+        Results.Problem(
+            title: "EVENT_FAB_NOT_PROVISIONED",
+            detail: $"Fab '{fab.Value}' has no event storage yet, so this event cannot be stored. "
+                + "It has not been lost — it was never accepted. Retry once provisioning has run.",
+            statusCode: StatusCodes.Status503ServiceUnavailable);
 
     private static IResult EnqueueOrBackpressure(IIngestChannel channel, EventEnvelope envelope) =>
         channel.TryWrite(envelope)

@@ -22,6 +22,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Spec 019: the boundary test asserts the Keycloak-backed fab source lives
+         here rather than inside a bounded context. -->
+    <ProjectReference Include="..\..\src\MigrationRunner\SmartSentinelEye.MigrationRunner.csproj" />
     <ProjectReference Include="..\..\src\CameraCatalog\Domain\SmartSentinelEye.CameraCatalog.Domain.csproj" />
     <ProjectReference Include="..\..\src\CameraCatalog\Application\SmartSentinelEye.CameraCatalog.Application.csproj" />
     <ProjectReference Include="..\..\src\CameraCatalog\Infrastructure\SmartSentinelEye.CameraCatalog.Infrastructure.csproj" />

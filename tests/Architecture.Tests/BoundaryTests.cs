@@ -78,6 +78,44 @@ public class BoundaryTests
     }
 
     /// <summary>
+    /// Spec 019: event partitions are provisioned per fab and the fabs come from
+    /// Keycloak, which belongs to Identity. EventIngestion must not learn that.
+    ///
+    /// <para>
+    /// The seam is <c>IProvisionedFabSource</c>, declared in EventIngestion and
+    /// implemented in <c>MigrationRunner</c> — a composition root rather than a
+    /// bounded context, and the one component allowed to know both halves.
+    /// This test states the property the design rests on: if the implementation
+    /// is ever moved into EventIngestion, the theory above fails, and the fix is
+    /// to move it back rather than to carve an entry into
+    /// <see cref="AllowedCrossContext"/>.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_keycloak_backed_fab_source_lives_outside_every_bounded_context()
+    {
+        Assembly migrationRunner = Assembly.Load("SmartSentinelEye.MigrationRunner");
+
+        Type? adapter = migrationRunner.GetType(
+            "SmartSentinelEye.MigrationRunner.KeycloakProvisionedFabSource");
+
+        adapter.ShouldNotBeNull(
+            "the Keycloak-backed IProvisionedFabSource must live in MigrationRunner: it is the "
+            + "only component that may reference both Identity and EventIngestion.");
+
+        Assembly eventIngestion = Assembly.Load("SmartSentinelEye.EventIngestion.Infrastructure");
+        TestResult result = Types
+            .InAssembly(eventIngestion)
+            .Should()
+            .NotHaveDependencyOn("SmartSentinelEye.Identity")
+            .GetResult();
+
+        result.IsSuccessful.ShouldBeTrue(
+            "EventIngestion.Infrastructure reached into Identity to find the fabs: "
+            + string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>()));
+    }
+
+    /// <summary>
     /// ADR-0106 (#1006): the API gateway is a pure edge proxy — it reaches the
     /// context services over HTTP via Aspire service discovery, never by
     /// project reference. Its assembly must depend on no bounded context.

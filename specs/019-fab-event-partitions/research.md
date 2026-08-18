@@ -55,6 +55,18 @@ credential as narrow as the job, not to avoid having one.
 
 **Cost accepted**: one more client in the realm and one more secret in Helm.
 
+**Corrected during implementation.** `query-groups` alone is not enough:
+`GET /admin/realms/{realm}/group-by-path/fabs` answers **403** with it, verified
+directly against Keycloak 26.5 with the realm imported. The working minimum is
+`query-groups` **+ `view-users`**, which is what the realm now grants. That is
+wider than intended and still far narrower than `identity-admin`, which can
+create clients and users as well.
+
+The first integration run found this the way the feature is designed to be
+found: the migration job failed, no service started, and the whole stack
+refused to come up rather than provisioning nothing and reporting success. An
+inconvenient way to learn it, and the right one.
+
 ## R3 — The DDL trust argument changes, and must be re-argued
 
 `EventPartitionRolloverMigrator` interpolates table names into DDL, because

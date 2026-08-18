@@ -74,6 +74,25 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Sub-groups this fake will report, keyed by parent path. Spec 019 reads
+    /// <c>/fabs</c> through this seam; Identity's own handlers never call it.
+    /// </summary>
+    public Dictionary<string, IReadOnlyList<string>> SubGroups { get; } = new(StringComparer.Ordinal);
+
+    public Task<IReadOnlyList<string>> GetSubGroupNamesAsync(
+        string parentPath, CancellationToken cancellationToken)
+    {
+        CallCount++;
+        if (FailNextCall is not null)
+        {
+            ThrowAndClear();
+        }
+
+        return Task.FromResult(
+            SubGroups.TryGetValue(parentPath, out IReadOnlyList<string>? names) ? names : []);
+    }
+
     private void ThrowAndClear()
     {
         string message = FailNextCall!;

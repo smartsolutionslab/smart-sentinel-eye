@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using SmartSentinelEye.EventIngestion.Application.Commands;
 using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
@@ -40,6 +41,20 @@ public sealed class PersistenceLoopHostedService(
                 try
                 {
                     await DispatchAsync(envelope, stoppingToken);
+                }
+                catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.CheckViolation)
+                {
+                    // Spec 019 FR-008. This is the one cause worth naming: no
+                    // partition exists for the fab, so the insert cannot land.
+                    // It arrives as a generic check violation, and left in the
+                    // catch below it reads as "something went wrong" — which is
+                    // exactly how it went unnoticed from spec 006 to spec 018.
+                    //
+                    // The endpoint refuses this case up front, so reaching here
+                    // means the storage disappeared between that check and this
+                    // insert, or the delivery came over the broker where there
+                    // is nobody to refuse.
+                    logger.NoStorageForFab(envelope.Identifier, envelope.Fab, ex);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
