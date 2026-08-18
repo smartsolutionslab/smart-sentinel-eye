@@ -6,68 +6,220 @@ using Npgsql;
 using SmartSentinelEye.EventIngestion.Application.Commands;
 using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
+using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 
 /// <summary>
-/// Drains the bounded ingest channel and dispatches each envelope
-/// through <see cref="IngestEventCommandHandler"/>. Single-reader
-/// loop so the per-instance throughput is bounded by Postgres write
-/// + Wolverine outbox dispatch (NFR-001 budget). Per-source FIFO is
-/// preserved because the channel is FIFO and we don't fan out
-/// concurrently inside the loop.
+/// Drains the bounded ingest channel and dispatches each envelope through
+/// <see cref="IngestEventCommandHandler"/>. Single reader, so per-source FIFO
+/// is preserved: the channel is FIFO and nothing fans out inside the loop.
+///
+/// <para>
+/// Since spec 020 the loop takes a <b>batch</b>, stores it, and only then
+/// acknowledges exactly the deliveries in that batch. Nothing is acknowledged
+/// before it is stored, so a failure leaves the sender holding its copy and a
+/// crash leaves the whole batch unacknowledged — which is why the in-memory
+/// channel is no longer a place events can be lost.
+/// </para>
+///
+/// <para>
+/// A batch that cannot be stored is retried with backoff rather than dropped.
+/// The bound below is what stops that becoming the defect spec 018 fixed, where
+/// one unpersistable envelope wedged ingestion for every fab.
+/// </para>
 /// </summary>
 public sealed class PersistenceLoopHostedService(
     IIngestChannel channel,
     IServiceScopeFactory scopeFactory,
     ILogger<PersistenceLoopHostedService> logger) : BackgroundService
 {
+    /// <summary>
+    /// How many deliveries are committed together. Large enough that the
+    /// database round trip is amortised at the rate this path was sized for
+    /// (spec 006: 5 000 events/s), small enough to stay far inside the broker's
+    /// in-flight window.
+    /// </summary>
+    public const int BatchSize = 200;
+
+    /// <summary>
+    /// How many times a single delivery may fail before it is recorded and
+    /// released. Bounded because QoS 1 redelivers forever: without a stopping
+    /// rule, one permanently unstorable delivery blocks everything behind it.
+    /// </summary>
+    public const int MaximumAttempts = 5;
+
+    private static readonly TimeSpan InitialBackoff = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan MaximumBackoff = TimeSpan.FromSeconds(30);
+
+    private readonly Dictionary<EventIdentifier, int> attempts = [];
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.PersistenceLoopStarted();
         try
         {
-            await foreach (EventEnvelope envelope in channel.ReadAllAsync(stoppingToken))
+            while (!stoppingToken.IsCancellationRequested)
             {
-                // A throwing dispatch used to escape ExecuteAsync, and the
-                // default BackgroundServiceExceptionBehavior is StopHost — so a
-                // single unpersistable envelope took the whole service down and
-                // every later request hung against a dead process. One fab's bad
-                // row must not stop ingestion for the other fabs (24/7, §IV).
-                // Broad by intent: what reaches here is by definition
-                // unanticipated, and the loop is the last thing standing between
-                // one row and total ingest loss.
-                try
+                IReadOnlyList<IngestDelivery> batch =
+                    await channel.ReadBatchAsync(BatchSize, stoppingToken);
+                if (batch.Count == 0)
                 {
-                    await DispatchAsync(envelope, stoppingToken);
+                    return;
                 }
-                catch (Exception ex) when (IsMissingPartition(ex))
-                {
-                    // Spec 019 FR-008. This is the one cause worth naming: no
-                    // partition exists for the fab, so the insert cannot land.
-                    // It arrives as a generic check violation, and left in the
-                    // catch below it reads as "something went wrong" — which is
-                    // exactly how it went unnoticed from spec 006 to spec 018.
-                    //
-                    // The endpoint refuses this case up front, so reaching here
-                    // means the storage disappeared between that check and this
-                    // insert, or the delivery came over the broker where there
-                    // is nobody to refuse.
-                    logger.NoStorageForFab(envelope.Identifier, envelope.Fab, ex);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    logger.IngestDispatchFaulted(envelope.Identifier, envelope.Fab, ex);
-                }
+
+                await StoreBatchAsync(batch, stoppingToken);
             }
         }
         catch (OperationCanceledException ex) when (stoppingToken.IsCancellationRequested)
         {
+            // Whatever was in flight is unacknowledged, so the broker still has
+            // it. Stopping here costs a redelivery, not an event.
             logger.PersistenceLoopStopping(ex);
         }
     }
+
+    /// <summary>
+    /// Stores a batch, retrying while the failure looks transient, and
+    /// acknowledges only what was stored.
+    ///
+    /// <para>
+    /// Deliveries are stored one at a time inside the batch rather than as a
+    /// single transaction. That sounds like it gives up the batching, and does
+    /// not: the win being sought is that acknowledgement is amortised across
+    /// the batch, while isolating each delivery is what stops one bad row
+    /// costing the other 199 (FR-009). A shared transaction would roll all of
+    /// them back for one poisoned envelope.
+    /// </para>
+    /// </summary>
+    private async Task StoreBatchAsync(
+        IReadOnlyList<IngestDelivery> batch, CancellationToken cancellationToken)
+    {
+        List<IngestDelivery> outstanding = [.. batch];
+        TimeSpan backoff = InitialBackoff;
+        bool interrupted = false;
+
+        while (outstanding.Count > 0 && !cancellationToken.IsCancellationRequested)
+        {
+            List<IngestDelivery> failed = [];
+
+            foreach (IngestDelivery delivery in outstanding)
+            {
+                if (await TryStoreAsync(delivery, cancellationToken))
+                {
+                    attempts.Remove(delivery.Envelope.Identifier);
+                    await delivery.Completion.StoredAsync(cancellationToken);
+                    continue;
+                }
+
+                if (Exhausted(delivery.Envelope.Identifier))
+                {
+                    // Recorded, then released. In that order — releasing an
+                    // unrecorded delivery is the original defect with a bound
+                    // on it.
+                    await AbandonAsync(delivery, cancellationToken);
+                    continue;
+                }
+
+                failed.Add(delivery);
+            }
+
+            if (failed.Count == 0)
+            {
+                break;
+            }
+
+            if (!interrupted)
+            {
+                interrupted = true;
+                logger.IngestInterrupted(failed.Count);
+            }
+
+            outstanding = failed;
+            await Task.Delay(backoff, cancellationToken);
+            backoff = backoff < MaximumBackoff
+                ? TimeSpan.FromTicks(Math.Min(backoff.Ticks * 2, MaximumBackoff.Ticks))
+                : MaximumBackoff;
+        }
+
+        if (interrupted)
+        {
+            // FR-006. A recovery nobody can see afterwards is indistinguishable
+            // from a loss, so the count is part of the requirement rather than
+            // a nicety.
+            logger.IngestRecovered(batch.Count);
+        }
+    }
+
+    private async Task<bool> TryStoreAsync(IngestDelivery delivery, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await DispatchAsync(delivery.Envelope, cancellationToken);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            CountAttempt(delivery.Envelope.Identifier);
+            if (IsMissingPartition(ex))
+            {
+                logger.NoStorageForFab(delivery.Envelope.Identifier, delivery.Envelope.Fab, ex);
+            }
+            else
+            {
+                logger.IngestDispatchFaulted(delivery.Envelope.Identifier, delivery.Envelope.Fab, ex);
+            }
+
+            return false;
+        }
+    }
+
+    private async Task AbandonAsync(IngestDelivery delivery, CancellationToken cancellationToken)
+    {
+        EventEnvelope envelope = delivery.Envelope;
+        try
+        {
+            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+            IDeadLetterRepository deadLetters =
+                scope.ServiceProvider.GetRequiredService<IDeadLetterRepository>();
+            IClock clock = scope.ServiceProvider.GetRequiredService<IClock>();
+
+            deadLetters.Add(Domain.DeadLetter.DeadLetter.Capture(
+                $"event/{envelope.Fab.Value}/{envelope.Source.Value}/{envelope.Device.Value}",
+                envelope.Fab,
+                envelope.Payload.Value,
+                $"not storable after {MaximumAttempts} attempts",
+                clock));
+            await deadLetters.SaveAsync(cancellationToken);
+
+            attempts.Remove(envelope.Identifier);
+            logger.IngestAbandoned(envelope.Identifier, envelope.Fab, MaximumAttempts);
+            await delivery.Completion.AbandonedAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The honest hole, and it is left open on purpose: when the database
+            // is away, this write fails for the same reason as the event write.
+            // The delivery stays unacknowledged and keeps being retried, which
+            // during an outage is exactly right — the escape is for a bad row
+            // against a healthy database, not for an outage.
+            logger.IngestAbandonFailed(envelope.Identifier, ex);
+        }
+    }
+
+    /// <summary>
+    /// Records one more failed attempt for this event. In memory and reset on
+    /// restart, deliberately: persisting it would mean a durable write per
+    /// failed attempt, on the path that is failing because writes are failing.
+    /// A restart costs a few extra attempts before the bound is reached again.
+    /// </summary>
+    private void CountAttempt(EventIdentifier identifier) =>
+        attempts[identifier] = attempts.TryGetValue(identifier, out int seen) ? seen + 1 : 1;
+
+    private bool Exhausted(EventIdentifier identifier) =>
+        attempts.TryGetValue(identifier, out int seen) && seen >= MaximumAttempts;
 
     /// <summary>
     /// Whether this is Postgres refusing the row because no partition covers its
@@ -76,10 +228,9 @@ public sealed class PersistenceLoopHostedService(
     /// <para>
     /// Unwrapped rather than matched directly: the insert goes through EF, which
     /// wraps every provider exception in <see cref="DbUpdateException"/>. A
-    /// <c>catch (PostgresException)</c> here never fires — it was written that
-    /// way first, and the envelope fell through to the generic handler and got
-    /// the same "something faulted" line this exists to replace. The bare case
-    /// is kept for any path that reaches Npgsql without EF in between.
+    /// <c>catch (PostgresException)</c> never fires — it was written that way
+    /// first, and the envelope got the same "something faulted" line this exists
+    /// to replace.
     /// </para>
     /// </summary>
     private static bool IsMissingPartition(Exception exception) => exception switch

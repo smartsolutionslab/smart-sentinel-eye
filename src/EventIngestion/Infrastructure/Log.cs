@@ -70,6 +70,29 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Error, Message = "No event storage for fab {Fab}; {Identifier} is dropped. A partition for this fab is missing — provisioning has not run since it was added.")]
     public static partial void NoStorageForFab(this ILogger logger, EventIdentifier identifier, FabIdentifier fab, Exception exception);
 
+    // Spec 020 FR-006. The pair matters more than either line: an interruption
+    // with no recovery beside it reads as loss, and a recovery nobody can see is
+    // indistinguishable from one that never happened. Both carry the count,
+    // because "some events were held up" is not an answer anybody can act on.
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Ingest interrupted: {Count} event(s) could not be stored and are being retried. Nothing has been acknowledged, so nothing is lost yet.")]
+    public static partial void IngestInterrupted(this ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Ingest recovered: the batch of {Count} event(s) is stored.")]
+    public static partial void IngestRecovered(this ILogger logger, int count);
+
+    // FR-007/FR-008. The delivery is released after this, so this line is the
+    // last chance anybody has to know it existed — hence Error, and hence the
+    // dead letter that is written before it.
+    [LoggerMessage(Level = LogLevel.Error, Message = "Giving up on {Identifier} in fab {Fab} after {Attempts} attempts; recorded as a dead letter and released so it stops being redelivered.")]
+    public static partial void IngestAbandoned(this ILogger logger, EventIdentifier identifier, FabIdentifier fab, int attempts);
+
+    // Recording the failure failed too — which during an outage is the ordinary
+    // case, since both writes go to the same database. The delivery stays
+    // unacknowledged and keeps being retried, so this is a diagnostic rather
+    // than a loss.
+    [LoggerMessage(Level = LogLevel.Error, Message = "Could not record {Identifier} as a dead letter; it stays unacknowledged and will be retried.")]
+    public static partial void IngestAbandonFailed(this ILogger logger, EventIdentifier identifier, Exception exception);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Applying EventIngestion EF Core migrations.")]
     public static partial void ApplyingMigrations(this ILogger logger);
 

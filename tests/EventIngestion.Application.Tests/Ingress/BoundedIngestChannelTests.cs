@@ -9,81 +9,128 @@ public class BoundedIngestChannelTests
     private static readonly DateTimeOffset Now =
         DateTimeOffset.Parse("2026-05-28T08:14:33Z", CultureInfo.InvariantCulture);
 
-    private static EventEnvelope Envelope(string cycleId) =>
+    private static IngestDelivery Delivery(string cycleId, IIngestCompletion? completion = null) =>
         new(
-            EventIdentifier.New(),
-            FabIdentifier.From("munich"),
-            Source.Plc,
-            DeviceIdentifier.From("station-4"),
-            Kind.From("PlcCycleStart"),
-            OccurredAt.From(Now),
-            Payload.From("{\"cycleId\":\"" + cycleId + "\"}"));
+            new EventEnvelope(
+                EventIdentifier.New(),
+                FabIdentifier.From("munich"),
+                Source.Plc,
+                DeviceIdentifier.From("station-4"),
+                Kind.From("PlcCycleStart"),
+                OccurredAt.From(Now),
+                Payload.From("{\"cycleId\":\"" + cycleId + "\"}")),
+            completion ?? NoCompletion.Instance);
 
-    private static async Task<List<EventEnvelope>> DrainAsync(
-        BoundedIngestChannel channel, int expected)
-    {
-        using CancellationTokenSource cts = new(TimeSpan.FromSeconds(2));
-        List<EventEnvelope> drained = [];
-        try
-        {
-            await foreach (EventEnvelope envelope in channel.ReadAllAsync(cts.Token))
-            {
-                drained.Add(envelope);
-                if (drained.Count == expected)
-                {
-                    break;
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // The 2-second safety token tripped before we drained the expected count.
-            // Surfacing the partial drain is enough — the assertion will fail loudly.
-        }
-        return drained;
-    }
-
+    /// <summary>
+    /// Spec 020 T005. Per-source order is guaranteed by the channel being FIFO
+    /// and single-reader, and the item type changing is the easiest way to lose
+    /// it without noticing (FR-011).
+    /// </summary>
     [Fact]
-    public async Task Drains_in_FIFO_order()
+    public async Task Drains_in_FIFO_order_with_a_completion_attached()
     {
         BoundedIngestChannel channel = new(capacity: 10);
-        channel.TryWrite(Envelope("a")).ShouldBeTrue();
-        channel.TryWrite(Envelope("b")).ShouldBeTrue();
-        channel.TryWrite(Envelope("c")).ShouldBeTrue();
+        await channel.WriteAsync(Delivery("a"), CancellationToken.None);
+        await channel.WriteAsync(Delivery("b"), CancellationToken.None);
+        await channel.WriteAsync(Delivery("c"), CancellationToken.None);
 
-        List<EventEnvelope> drained = await DrainAsync(channel, expected: 3);
-        drained.Select(e => e.Payload.Value)
+        IReadOnlyList<IngestDelivery> batch =
+            await channel.ReadBatchAsync(10, CancellationToken.None);
+
+        batch.Select(delivery => delivery.Envelope.Payload.Value)
             .ShouldBe(["{\"cycleId\":\"a\"}", "{\"cycleId\":\"b\"}", "{\"cycleId\":\"c\"}"]);
     }
 
     [Fact]
-    public void TryWrite_returns_false_when_the_channel_is_full()
+    public async Task A_batch_carries_each_delivery_own_completion()
     {
-        BoundedIngestChannel channel = new(capacity: 2);
-        channel.TryWrite(Envelope("1")).ShouldBeTrue();
-        channel.TryWrite(Envelope("2")).ShouldBeTrue();
+        RecordingCompletion first = new();
+        RecordingCompletion second = new();
 
-        // Third write must fail — bounded at 2.
-        channel.TryWrite(Envelope("3")).ShouldBeFalse();
-        channel.CurrentDepth.ShouldBe(2);
+        BoundedIngestChannel channel = new(capacity: 10);
+        await channel.WriteAsync(Delivery("a", first), CancellationToken.None);
+        await channel.WriteAsync(Delivery("b", second), CancellationToken.None);
+
+        IReadOnlyList<IngestDelivery> batch =
+            await channel.ReadBatchAsync(10, CancellationToken.None);
+
+        // Acknowledging the batch must acknowledge each delivery's own sender —
+        // a batch that reported the wrong set would release events that were
+        // never stored, silently.
+        await batch[0].Completion.StoredAsync(CancellationToken.None);
+
+        first.Stored.ShouldBe(1);
+        second.Stored.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Takes_no_more_than_the_batch_size()
+    {
+        BoundedIngestChannel channel = new(capacity: 10);
+        for (int i = 0; i < 7; i++)
+        {
+            await channel.WriteAsync(Delivery($"{i}"), CancellationToken.None);
+        }
+
+        IReadOnlyList<IngestDelivery> batch =
+            await channel.ReadBatchAsync(3, CancellationToken.None);
+
+        batch.Count.ShouldBe(3);
+        channel.CurrentDepth.ShouldBe(4);
+    }
+
+    /// <summary>
+    /// A lone event must not wait for company. Batching exists to amortise the
+    /// write, not to hold the first event hostage until a second arrives —
+    /// which would spend the latency budget on an optimisation for load that is
+    /// not happening.
+    /// </summary>
+    [Fact]
+    public async Task Returns_a_single_delivery_without_waiting_for_a_full_batch()
+    {
+        BoundedIngestChannel channel = new(capacity: 10);
+        await channel.WriteAsync(Delivery("alone"), CancellationToken.None);
+
+        using CancellationTokenSource cts = new(TimeSpan.FromSeconds(2));
+        IReadOnlyList<IngestDelivery> batch = await channel.ReadBatchAsync(200, cts.Token);
+
+        batch.ShouldHaveSingleItem();
     }
 
     [Fact]
     public async Task WriteAsync_blocks_when_full_until_a_slot_frees()
     {
         BoundedIngestChannel channel = new(capacity: 1);
-        channel.TryWrite(Envelope("1")).ShouldBeTrue();
+        await channel.WriteAsync(Delivery("1"), CancellationToken.None);
 
-        // Issue a WriteAsync that has to block because the channel is full.
-        ValueTask pendingWrite = channel.WriteAsync(Envelope("2"), CancellationToken.None);
-        pendingWrite.IsCompleted.ShouldBeFalse();
+        // Blocks because the channel is full. This is the backpressure the
+        // broker feels: the handler stops returning, the in-flight window
+        // fills, and queue depth absorbs the burst (FR-022).
+        ValueTask pending = channel.WriteAsync(Delivery("2"), CancellationToken.None);
+        pending.IsCompleted.ShouldBeFalse();
 
-        // Drain the one existing item to free a slot.
-        List<EventEnvelope> drained = await DrainAsync(channel, expected: 1);
-        drained.ShouldHaveSingleItem();
+        await channel.ReadBatchAsync(1, CancellationToken.None);
 
-        // The blocked WriteAsync must now complete.
-        await pendingWrite;
+        await pending;
         channel.CurrentDepth.ShouldBe(1);
+    }
+
+    private sealed class RecordingCompletion : IIngestCompletion
+    {
+        public int Stored { get; private set; }
+
+        public int Abandoned { get; private set; }
+
+        public Task StoredAsync(CancellationToken cancellationToken)
+        {
+            Stored++;
+            return Task.CompletedTask;
+        }
+
+        public Task AbandonedAsync(CancellationToken cancellationToken)
+        {
+            Abandoned++;
+            return Task.CompletedTask;
+        }
     }
 }

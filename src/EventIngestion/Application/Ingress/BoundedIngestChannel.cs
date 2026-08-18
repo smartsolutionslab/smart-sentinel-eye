@@ -46,7 +46,7 @@ public sealed class BoundedIngestChannel : IIngestChannel
     public async Task<IReadOnlyList<IngestDelivery>> ReadBatchAsync(
         int maximum, CancellationToken cancellationToken)
     {
-        Ensure.That(maximum).IsGreaterThan(0);
+        Ensure.That(maximum).AtLeast(1);
 
         // Waits for the first, then takes whatever else is already queued up to
         // the limit. Never waits *for* a batch to fill: a lone event at 3 a.m.

@@ -1,12 +1,16 @@
+using Microsoft.Extensions.DependencyInjection;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.EventIngestion.Api.Requests;
+using SmartSentinelEye.EventIngestion.Application.Commands;
+using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
+using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -19,7 +23,8 @@ public static partial class EventsEndpoints
 
     private static async Task<IResult> IngestManual(
         [FromBody] IngestManualEventRequest body,
-        [FromServices] IIngestChannel channel,
+        [FromServices] IngestWriteLimiter limiter,
+        [FromServices] IServiceScopeFactory scopeFactory,
         [FromServices] IFabAuthorizationGuard fabGuard,
         [FromServices] IFabStorageReadiness storage,
         ClaimsPrincipal user,
@@ -33,8 +38,8 @@ public static partial class EventsEndpoints
         // operator could file an event against any plant — where it drives that
         // plant's automation rules and changes what its operators see.
         //
-        // Resolved BEFORE the channel is touched (FR-007): a refusal that had
-        // already enqueued would place a fabricated event in another plant's
+        // Resolved BEFORE anything is written (spec 018 FR-007): a refusal that
+        // had already stored would place a fabricated event in another plant's
         // stream while reporting that it had been stopped.
         (FabIdentifier? fab, IResult? fabProblem) =
             await EventIngestionFabResolution.ResolveWriteFabAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
@@ -43,11 +48,10 @@ public static partial class EventsEndpoints
             return fabProblem!;
         }
 
-        // Spec 019 FR-007, and the ordering is the requirement — the same
-        // ordering spec 018 imposed on the fab check, for the same reason. This
-        // endpoint answers 202 the moment the envelope is queued and persists it
-        // later, so a check after the enqueue is not a check: the event would
-        // land, or vanish, while the caller had already been told otherwise.
+        // Spec 019 FR-007. Still checked first: it names the cause precisely
+        // ("this plant has no storage") where the write below could only report
+        // that something failed. Since spec 020 the write is synchronous, so
+        // neither answer can be given after the event was already accepted.
         if (!await storage.IsReadyAsync(fab, cancellationToken))
         {
             return FabNotProvisioned(fab);
@@ -72,7 +76,7 @@ public static partial class EventsEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        return EnqueueOrBackpressure(channel, envelope);
+        return await StoreOrRefuseAsync(limiter, scopeFactory, envelope, cancellationToken);
     }
 
     private static async Task<IResult> IngestWebhook(
@@ -80,7 +84,8 @@ public static partial class EventsEndpoints
         [FromBody] IngestWebhookEventRequest body,
         [FromQuery] string fabId,
         HttpRequest request,
-        [FromServices] IIngestChannel channel,
+        [FromServices] IngestWriteLimiter limiter,
+        [FromServices] IServiceScopeFactory scopeFactory,
         [FromServices] IWebhookIntegrationRepository integrations,
         [FromServices] IFabStorageReadiness storage,
         [FromServices] IClock clock,
@@ -124,7 +129,7 @@ public static partial class EventsEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        return EnqueueOrBackpressure(channel, envelope);
+        return await StoreOrRefuseAsync(limiter, scopeFactory, envelope, cancellationToken);
     }
 
     /// <summary>
@@ -260,11 +265,64 @@ public static partial class EventsEndpoints
                 + "It has not been lost — it was never accepted. Retry once provisioning has run.",
             statusCode: StatusCodes.Status503ServiceUnavailable);
 
-    private static IResult EnqueueOrBackpressure(IIngestChannel channel, EventEnvelope envelope) =>
-        channel.TryWrite(envelope)
-            ? Results.Accepted(value: envelope.Identifier.Value)
-            : Results.Problem(
+    /// <summary>
+    /// Stores the event, then answers (spec 020 FR-001). Replaces the enqueue
+    /// that answered 202 the moment the envelope was buffered.
+    ///
+    /// <para>
+    /// <b>201, not 202.</b> 202 means "accepted for processing, outcome
+    /// unknown", which is exactly the promise this feature removes — and the
+    /// promise that used to be broken silently whenever the write failed
+    /// afterwards. Once the row is committed before the response, 201 with a
+    /// <c>Location</c> is the truthful answer, and the location resolves.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>429 when the limiter is saturated</b>, not when a channel is full.
+    /// These writes no longer use the channel, so without this the endpoint
+    /// would quietly become "queue indefinitely and time out" — a worse answer
+    /// to overload than a fast refusal, arrived at by omission (FR-013).
+    /// </para>
+    /// </summary>
+    private static async Task<IResult> StoreOrRefuseAsync(
+        IngestWriteLimiter limiter,
+        IServiceScopeFactory scopeFactory,
+        EventEnvelope envelope,
+        CancellationToken cancellationToken)
+    {
+        using IngestWriteLease lease = limiter.TryAcquire();
+        if (!lease.Acquired)
+        {
+            return Results.Problem(
                 title: "EVENT_INGEST_BACKPRESSURE",
-                detail: "Event ingestion channel is full; please retry.",
+                detail: "Too many events are being stored at once; please retry.",
                 statusCode: StatusCodes.Status429TooManyRequests);
+        }
+
+        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        IngestEventCommandHandler handler =
+            scope.ServiceProvider.GetRequiredService<IngestEventCommandHandler>();
+
+        try
+        {
+            Result<EventIdentifier, IngestEventError> result =
+                await handler.HandleAsync(new IngestEventCommand(envelope), cancellationToken);
+
+            return result.Match<IResult>(
+                onSuccess: identifier => Results.Created(
+                    $"/events/{identifier.Value}", identifier.Value),
+                onFailure: error => error.ToProblem());
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The caller is told, which is the whole point: a 202 followed by
+            // silence is what this replaces. Nothing has been stored and
+            // nothing has been buffered, so retrying is safe and is the
+            // caller's to decide.
+            return Results.Problem(
+                title: "EVENT_NOT_STORED",
+                detail: "The event could not be stored and has not been accepted. Retry.",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+    }
 }
