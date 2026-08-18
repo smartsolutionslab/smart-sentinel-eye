@@ -125,19 +125,56 @@ public sealed class MqttSubscriberHostedService(
 
     private async Task OnMessageReceived(MqttApplicationMessageReceivedEventArgs args)
     {
+        // Spec 020 FR-001. Returning from this handler used to acknowledge the
+        // delivery, which told the broker we had the event before anything had
+        // been written — so it discarded its copy, and a failed write or a
+        // restart lost an event we had already claimed. The acknowledgement now
+        // waits for the write and travels with the envelope.
+        args.AutoAcknowledge = false;
+
         string topic = args.ApplicationMessage.Topic;
         ReadOnlyMemory<byte> body = args.ApplicationMessage.PayloadSegment;
 
         ParseResult result = TryParseEnvelope(topic, body);
         if (result.Envelope is null)
         {
+            // A delivery that cannot be parsed will not parse on redelivery
+            // either, so it is recorded and released here rather than left to
+            // come back forever. Acknowledged only after the dead letter is
+            // written — the same ordering the rest of this feature is about.
             await CaptureDeadLetterAsync(topic, body, result.Error ?? "unknown parse failure");
+            await args.AcknowledgeAsync(CancellationToken.None);
             return;
         }
 
-        // WriteAsync blocks when the bounded channel is full — the
-        // broker stops receiving ACKs and holds queue depth (FR-022).
-        await channel.WriteAsync(result.Envelope, CancellationToken.None);
+        // WriteAsync blocks when the bounded channel is full — the handler stops
+        // returning, the broker's in-flight window fills, and queue depth
+        // absorbs the burst (FR-022). That backpressure now matters more, not
+        // less: the window is what the acknowledgement is holding open.
+        await channel.WriteAsync(
+            new IngestDelivery(result.Envelope, new MqttDeliveryCompletion(args)),
+            CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Reports a delivery's outcome by acknowledging it to the broker.
+    ///
+    /// <para>
+    /// Both outcomes acknowledge, and that is deliberate. <c>Stored</c> releases
+    /// the sender's copy because we now genuinely have it; <c>Abandoned</c>
+    /// releases it because the delivery has been recorded in
+    /// <c>dead_letters</c> and QoS 1 would otherwise redeliver it forever,
+    /// filling the in-flight window and blocking every event behind it.
+    /// </para>
+    /// </summary>
+    private sealed class MqttDeliveryCompletion(MqttApplicationMessageReceivedEventArgs args)
+        : IIngestCompletion
+    {
+        public Task StoredAsync(CancellationToken cancellationToken) =>
+            args.AcknowledgeAsync(cancellationToken);
+
+        public Task AbandonedAsync(CancellationToken cancellationToken) =>
+            args.AcknowledgeAsync(cancellationToken);
     }
 
     private static ParseResult TryParseEnvelope(string topic, ReadOnlyMemory<byte> body)

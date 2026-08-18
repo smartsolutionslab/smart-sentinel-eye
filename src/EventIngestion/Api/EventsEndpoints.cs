@@ -33,20 +33,24 @@ public static partial class EventsEndpoints
             .WithSummary(
                 "Ingest an event into the resolved fab. Omit fabId when you belong to exactly one; "
                 + "name it when you belong to several (ADR-0114). The fab is never taken from the "
-                + "request unchecked (spec 018 FR-006).")
-            .Produces<Guid>(StatusCodes.Status202Accepted)
+                + "request unchecked (spec 018 FR-006). Stores the event before answering, so a 201 "
+                + "means it is readable at the Location (spec 020 FR-001).")
+            .Produces<Guid>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
+            // Spec 020: 429 still means overload, but the thing being bounded is
+            // now the number of concurrent writes rather than a queue these
+            // endpoints no longer use.
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
-            // Spec 019: the fab exists and the caller holds it, but it has no
-            // event storage yet. Temporary by construction — the next
-            // provisioning run fixes it.
+            // Spec 019: the fab has no event storage yet — temporary by
+            // construction. Spec 020 adds the other cause: the write itself
+            // failed, so nothing was accepted and the caller can retry.
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
         writes.MapPost("/webhook/{integrationName}", IngestWebhook)
             .AllowAnonymous() // auth is the static bearer token, not OIDC
             .WithName("IngestWebhookEvent")
-            .Produces<Guid>(StatusCodes.Status202Accepted)
+            .Produces<Guid>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)

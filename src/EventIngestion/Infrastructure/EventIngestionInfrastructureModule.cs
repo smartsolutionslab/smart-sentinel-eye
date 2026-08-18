@@ -87,6 +87,11 @@ public static class EventIngestionInfrastructureModule
 
         // Bounded channel + ingress.
         builder.Services.AddSingleton<IIngestChannel>(_ => new BoundedIngestChannel());
+
+        // Spec 020: direct submissions store before answering, so they no longer
+        // pass through the channel — and the 429 that used to mean "the channel
+        // is full" needs something to bound. This is it.
+        builder.Services.AddSingleton<IngestWriteLimiter>();
         // Resolve the broker + Keycloak from the Aspire-injected endpoints, and
         // fail fast when they are absent. Defaulting these (it used to be
         // localhost:1883) turns a wiring gap into a subscriber that silently

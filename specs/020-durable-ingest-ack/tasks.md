@@ -48,7 +48,7 @@ reintroduce the defect spec 018 fixed.
 - [X] T002 Add a completion signal to the envelope carried by `src/EventIngestion/Application/Ingress/IIngestChannel.cs` — the means to report *stored* or *permanently unstorable* per envelope, per [contracts/ingest.md](./contracts/ingest.md). One signal on the existing channel, **not** a second channel type, so a durable buffer could be substituted later without either ingress noticing.
 - [X] T003 Carry it through `src/EventIngestion/Application/Ingress/BoundedIngestChannel.cs`. Capacity, `FullMode.Wait` and single-reader FIFO are unchanged — only the item is richer.
 - [X] T004 Set `max_inflight_messages` to a stated finite value in `src/AppHost/mosquitto/mosquitto.conf`, with a comment saying why the default of 20 is not survivable once acknowledgement waits for storage (research §R1). **Not `0`.**
-- [ ] T005 [P] Add a unit test under `tests/EventIngestion.Infrastructure.Tests/` that the channel preserves per-source FIFO with the completion signal attached — the ordering guarantee (FR-011) is the easiest thing to lose while changing the item type.
+- [X] T005 [P] Add a unit test under `tests/EventIngestion.Infrastructure.Tests/` that the channel preserves per-source FIFO with the completion signal attached — the ordering guarantee (FR-011) is the easiest thing to lose while changing the item type.
 
 **Checkpoint**: The seam exists and the broker can hold a real window. Nothing has changed about when anything is acknowledged.
 
@@ -58,10 +58,10 @@ reintroduce the defect spec 018 fixed.
 
 **Goal**: acknowledge after the write, in batches. **Independent test**: pause storage mid-stream, restore it, compare sent against stored.
 
-- [ ] T006 [US1] In `src/EventIngestion/Infrastructure/Ingress/MqttSubscriberHostedService.cs`, set `AutoAcknowledge = false` and pass the delivery's acknowledgement through the channel as the envelope's completion signal. **Do not acknowledge here** — that line is the defect.
-- [ ] T007 [US1] In `src/EventIngestion/Infrastructure/Ingress/PersistenceLoopHostedService.cs`, drain into a **batch**, commit it in one transaction, then acknowledge exactly the envelopes in that batch. A per-message acknowledgement fails FR-010 and a per-batch acknowledgement of the wrong set loses events silently.
-- [ ] T008 [US1] Retry a failed batch with bounded backoff instead of dropping it, keeping the envelopes unacknowledged throughout, so an interruption is survived rather than logged (FR-004, FR-005). The bound is a stated number, not a magic one.
-- [ ] T009 [US1] Log the interruption, the recovery, **and the count of events affected** in `src/EventIngestion/Infrastructure/Log.cs` (FR-006). A recovery nobody can see afterwards is indistinguishable from a loss.
+- [X] T006 [US1] In `src/EventIngestion/Infrastructure/Ingress/MqttSubscriberHostedService.cs`, set `AutoAcknowledge = false` and pass the delivery's acknowledgement through the channel as the envelope's completion signal. **Do not acknowledge here** — that line is the defect.
+- [X] T007 [US1] In `src/EventIngestion/Infrastructure/Ingress/PersistenceLoopHostedService.cs`, drain into a **batch**, commit it in one transaction, then acknowledge exactly the envelopes in that batch. A per-message acknowledgement fails FR-010 and a per-batch acknowledgement of the wrong set loses events silently.
+- [X] T008 [US1] Retry a failed batch with bounded backoff instead of dropping it, keeping the envelopes unacknowledged throughout, so an interruption is survived rather than logged (FR-004, FR-005). The bound is a stated number, not a magic one.
+- [X] T009 [US1] Log the interruption, the recovery, **and the count of events affected** in `src/EventIngestion/Infrastructure/Log.cs` (FR-006). A recovery nobody can see afterwards is indistinguishable from a loss.
 - [ ] T010 [P] [US1] Unit tests under `tests/EventIngestion.Infrastructure.Tests/`: a batch that fails is retried and not acknowledged; a batch that succeeds acknowledges exactly its own envelopes; backoff is bounded.
 - [ ] T011 [US1] Integration case under `tests/Integration.Tests/EventIngestion/` driving [quickstart.md](./quickstart.md) step 1: pause Postgres mid-stream, restore, and assert `count(*) == count(DISTINCT event_id) ==` what was published. **Both equalities** — "all arrived" and "none twice" are different claims now that redelivery is routine.
 
@@ -73,10 +73,10 @@ reintroduce the defect spec 018 fixed.
 
 **Goal**: direct submissions store before answering. **Independent test**: submit while storage is unavailable and see what the caller is told.
 
-- [ ] T012 [US1b] In `src/EventIngestion/Api/EventsEndpoints.Writes.cs`, persist synchronously in `IngestManual` and answer **201 Created** with `Location: /events/{id}`, replacing the enqueue-and-202. Storage unavailable is **503**, and nothing stored.
-- [ ] T013 [US1b] The same for `IngestWebhook` in that file (FR-002) — a partner's retry logic can act on 5xx and cannot act on a 202 followed by silence.
-- [ ] T014 [US1b] Add the bounded write limiter that keeps **429** meaningful, per [contracts/ingest.md](./contracts/ingest.md), sized to database write capacity rather than to the old 5 000-slot channel. Without it the endpoint silently becomes "queue and time out" (FR-013).
-- [ ] T015 [US1b] Declare **201**, **429** and **503** on both write endpoints in `src/EventIngestion/Api/EventsEndpoints.cs`, and remove the 202 that no longer occurs.
+- [X] T012 [US1b] In `src/EventIngestion/Api/EventsEndpoints.Writes.cs`, persist synchronously in `IngestManual` and answer **201 Created** with `Location: /events/{id}`, replacing the enqueue-and-202. Storage unavailable is **503**, and nothing stored.
+- [X] T013 [US1b] The same for `IngestWebhook` in that file (FR-002) — a partner's retry logic can act on 5xx and cannot act on a 202 followed by silence.
+- [X] T014 [US1b] Add the bounded write limiter that keeps **429** meaningful, per [contracts/ingest.md](./contracts/ingest.md), sized to database write capacity rather than to the old 5 000-slot channel. Without it the endpoint silently becomes "queue and time out" (FR-013).
+- [X] T015 [US1b] Declare **201**, **429** and **503** on both write endpoints in `src/EventIngestion/Api/EventsEndpoints.cs`, and remove the 202 that no longer occurs.
 - [ ] T016 [P] [US1b] Integration cases under `tests/Integration.Tests/EventIngestion/` per [quickstart.md](./quickstart.md) step 3: 201 with a `Location` that **actually resolves** — `GET` it, because a 201 pointing at a 404 is the same lie in a better costume — and 5xx with nothing stored while storage is down.
 
 **Checkpoint**: SC-003 observed. No response claims more than the system did.
