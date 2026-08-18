@@ -63,6 +63,7 @@ public sealed class PersistenceLoopHostedService(
 
     private TimeSpan backoff;
     private int affected;
+    private int recovered;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -119,12 +120,13 @@ public sealed class PersistenceLoopHostedService(
     /// Stores what it can, acknowledges exactly that, and carries the rest.
     ///
     /// <para>
-    /// Deliveries are stored one at a time rather than as a single transaction.
-    /// That sounds like it gives up the batching, and does not: the win being
-    /// sought is that acknowledgement is amortised across the batch, while
-    /// isolating each delivery is what stops one bad row costing the other 199.
-    /// A shared transaction would roll all of them back for one poisoned
-    /// envelope.
+    /// Two paths, and which one runs is the whole trade. The batch is one
+    /// existence query and one insert for the lot, because FR-010 forbids
+    /// ingest becoming a round trip per event. It is all-or-nothing, so one row
+    /// the database refuses fails it — and then the deliveries are stored
+    /// individually, which is slow and is the only way to find out which row it
+    /// was without costing the other 199 (FR-009). Fast path for the ordinary
+    /// case, slow path for the bad one, and correctness lives in the slow one.
     /// </para>
     /// </summary>
     private async Task StoreAsync(List<IngestDelivery> attempt, CancellationToken cancellationToken)
@@ -132,14 +134,11 @@ public sealed class PersistenceLoopHostedService(
         TimeSpan window = retry.Value.MaximumRetryWindow;
         int stored = 0;
 
-        // The fast path, and the ordinary one: FR-010 forbids ingest becoming a
-        // round trip per event, and storing them one at a time is precisely
-        // that. One existence query and one insert for the whole batch.
         if (await TryStoreBatchAsync(attempt, cancellationToken))
         {
             foreach (IngestDelivery delivery in attempt)
             {
-                failingSince.Remove(delivery.Envelope.Identifier);
+                NoteRecovery(delivery.Envelope.Identifier);
                 await delivery.Completion.StoredAsync(cancellationToken);
             }
 
@@ -147,16 +146,12 @@ public sealed class PersistenceLoopHostedService(
             return;
         }
 
-        // The batch is all-or-nothing, so a single unstorable row fails it —
-        // which is why the slow path exists and why it is not the default.
-        // Storing them one at a time is what stops one bad row costing the
-        // other 199 (FR-009).
         foreach (IngestDelivery delivery in attempt)
         {
             if (await TryStoreAsync(delivery, cancellationToken))
             {
                 stored++;
-                failingSince.Remove(delivery.Envelope.Identifier);
+                NoteRecovery(delivery.Envelope.Identifier);
                 await delivery.Completion.StoredAsync(cancellationToken);
             }
             else if (Exhausted(delivery.Envelope.Identifier, window))
@@ -171,7 +166,11 @@ public sealed class PersistenceLoopHostedService(
             }
         }
 
-        NoteProgress(stored, attempt.Count - stored);
+        // Still failing, not "not stored". A delivery that was abandoned is
+        // neither — it has been recorded and released, and counting it as a
+        // failure would keep the backoff growing and the interruption open
+        // over an event nobody is waiting for any more.
+        NoteProgress(stored, carried.Count);
     }
 
     /// <summary>
@@ -207,8 +206,17 @@ public sealed class PersistenceLoopHostedService(
 
         if (carried.Count == 0 && affected > 0)
         {
-            logger.IngestRecovered(affected);
+            // What actually came back, not what was affected. An interruption
+            // can also end by the last delivery being abandoned, and calling
+            // that a recovery would report the loss this feature exists to
+            // stop as a success. Abandonment has its own line.
+            if (recovered > 0)
+            {
+                logger.IngestRecovered(recovered);
+            }
+
             affected = 0;
+            recovered = 0;
         }
     }
 
@@ -308,6 +316,21 @@ public sealed class PersistenceLoopHostedService(
     /// A restart costs the delivery a fresh window, which during an outage is
     /// the right answer anyway.
     /// </summary>
+    /// <summary>
+    /// This delivery stored. If it had been failing, that is a recovery and is
+    /// counted as one — separately from the interruption's own total, because
+    /// a delivery can also leave the interruption by being abandoned, and
+    /// reporting those as recovered would be the loss this feature exists to
+    /// stop, reported as a success.
+    /// </summary>
+    private void NoteRecovery(EventIdentifier identifier)
+    {
+        if (failingSince.Remove(identifier))
+        {
+            recovered++;
+        }
+    }
+
     private void NoteFailure(EventIdentifier identifier)
     {
         if (!failingSince.ContainsKey(identifier))
