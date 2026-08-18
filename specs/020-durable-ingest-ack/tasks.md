@@ -62,7 +62,7 @@ reintroduce the defect spec 018 fixed.
 - [X] T007 [US1] In `src/EventIngestion/Infrastructure/Ingress/PersistenceLoopHostedService.cs`, drain into a **batch**, commit it in one transaction, then acknowledge exactly the envelopes in that batch. A per-message acknowledgement fails FR-010 and a per-batch acknowledgement of the wrong set loses events silently.
 - [X] T008 [US1] Retry a failed batch with bounded backoff instead of dropping it, keeping the envelopes unacknowledged throughout, so an interruption is survived rather than logged (FR-004, FR-005). The bound is a stated number, not a magic one.
 - [X] T009 [US1] Log the interruption, the recovery, **and the count of events affected** in `src/EventIngestion/Infrastructure/Log.cs` (FR-006). A recovery nobody can see afterwards is indistinguishable from a loss.
-- [ ] T010 [P] [US1] Unit tests under `tests/EventIngestion.Infrastructure.Tests/`: a batch that fails is retried and not acknowledged; a batch that succeeds acknowledges exactly its own envelopes; backoff is bounded.
+- [X] T010 [P] [US1] Unit tests under `tests/EventIngestion.Infrastructure.Tests/`: a batch that fails is retried and not acknowledged; a batch that succeeds acknowledges exactly its own envelopes; backoff is bounded.
 - [ ] T011 [US1] Integration case under `tests/Integration.Tests/EventIngestion/` driving [quickstart.md](./quickstart.md) step 1: pause Postgres mid-stream, restore, and assert `count(*) == count(DISTINCT event_id) ==` what was published. **Both equalities** — "all arrived" and "none twice" are different claims now that redelivery is routine.
 
 **Checkpoint**: SC-001 observed. An outage costs nothing but time.
@@ -102,9 +102,9 @@ reintroduce the defect spec 018 fixed.
 
 **Goal**: a bounded escape. **Independent test**: one permanently unstorable delivery plus a hundred good ones.
 
-- [ ] T018 [US3] In `src/EventIngestion/Infrastructure/Ingress/PersistenceLoopHostedService.cs`, count attempts per event identifier and, past a stated bound, write the delivery to `dead_letters` with its failure reason and **acknowledge it** so the broker stops (FR-007, FR-008). The counter is in memory and resets on restart — deliberately, per [data-model.md](./data-model.md).
-- [ ] T019 [US3] Ensure a failing envelope never blocks the batch behind it (FR-009): isolate the failure to its own envelope rather than failing the whole batch forever. This is the task that decides whether spec 018's defect comes back.
-- [ ] T020 [P] [US3] Unit tests under `tests/EventIngestion.Infrastructure.Tests/`: the bound is respected; the dead letter carries the reason; a dead-letter write that itself fails does not lose the loop (the outage case research §R4 admits it cannot cover).
+- [X] T018 [US3] In `src/EventIngestion/Infrastructure/Ingress/PersistenceLoopHostedService.cs`, count attempts per event identifier and, past a stated bound, write the delivery to `dead_letters` with its failure reason and **acknowledge it** so the broker stops (FR-007, FR-008). The counter is in memory and resets on restart — deliberately, per [data-model.md](./data-model.md).
+- [X] T019 [US3] Ensure a failing envelope never blocks the batch behind it (FR-009): isolate the failure to its own envelope rather than failing the whole batch forever. This is the task that decides whether spec 018's defect comes back.
+- [X] T020 [P] [US3] Unit tests under `tests/EventIngestion.Infrastructure.Tests/`: the bound is respected; the dead letter carries the reason; a dead-letter write that itself fails does not lose the loop (the outage case research §R4 admits it cannot cover).
 - [ ] T021 [US3] Integration case per [quickstart.md](./quickstart.md) step 4: drop a fab's partition, publish one delivery for it and a hundred for a healthy fab, and assert the hundred all land at the normal rate while the one ends up in `dead_letters` and stops being redelivered.
 
 **Checkpoint**: SC-004 observed. The guard holds.
