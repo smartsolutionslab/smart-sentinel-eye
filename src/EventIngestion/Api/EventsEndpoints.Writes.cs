@@ -36,7 +36,7 @@ public static partial class EventsEndpoints
         // already enqueued would place a fabricated event in another plant's
         // stream while reporting that it had been stopped.
         (FabIdentifier? fab, IResult? fabProblem) =
-            await ResolveWriteFabAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
+            await EventIngestionFabResolution.ResolveWriteFabAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fab is null)
         {
             return fabProblem!;
@@ -109,9 +109,11 @@ public static partial class EventsEndpoints
     /// <summary>
     /// Authenticates a webhook caller and returns the matching integration,
     /// or <c>null</c> if the bearer token is missing/malformed, the
-    /// integration is unknown or revoked, or the token fails validation.
+    /// integration is unknown or revoked, the token fails validation, or the
+    /// delivery names a plant other than the integration's own.
     /// Every failure path collapses to <c>null</c> so the 401 response never
-    /// leaks which integrations exist.
+    /// leaks which integrations exist — including, now, whether one exists in
+    /// another plant.
     /// </summary>
     private static async Task<WebhookIntegration?> AuthenticateWebhookAsync(
         string integrationName,
@@ -145,10 +147,41 @@ public static partial class EventsEndpoints
         }
 
         WebhookIntegration integration = found.Value;
+
+        // The delivery's plant must be the integration's own, in BOTH modes and
+        // before the token is even considered (#1545). Until this, only the JWT
+        // branch looked at the fab — StaticHash, the default and the mode of
+        // every integration until it is rotated, matched the hash and let
+        // `?fabId=` through unchecked, so a token issued for one plant could
+        // file events into another. It is the same manipulation FR-006 closed on
+        // the manual write, and the reason it survived is that there was no fab
+        // on the integration to compare against.
+        if (!IsIntegrationsOwnFab(integration, fabId))
+        {
+            return null;
+        }
+
         bool authorized = integration.ValidationMode == BearerValidationMode.Jwt
             ? await ValidateJwtAsync(request, integration, fabId)
             : integration.TokenHash.Matches(token);
         return authorized ? integration : null;
+    }
+
+    /// <summary>
+    /// Whether the delivery names the integration's own plant. An unparseable
+    /// <c>fabId</c> is not its plant either, so it collapses to the same
+    /// refusal rather than a 400 that would confirm the integration exists.
+    /// </summary>
+    private static bool IsIntegrationsOwnFab(WebhookIntegration integration, string fabId)
+    {
+        try
+        {
+            return integration.Fab == FabIdentifier.From(fabId);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 
     /// <summary>

@@ -13,6 +13,23 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
 {
     public WebhookIntegrationName Name { get; private set; } = null!;
 
+    /// <summary>
+    /// The plant this integration belongs to (spec 018 amendment, #1545). Set
+    /// at registration from the registering operator's own fab and never
+    /// reassigned — an integration's plant is the plant of whoever created it,
+    /// the same rule a stream's fab follows.
+    ///
+    /// <para>
+    /// Spec 018 originally deferred this (FR-016) on the reasoning that the
+    /// per-delivery credential check already proved entitlement. Review found
+    /// that it does so only in <see cref="BearerValidationMode.Jwt"/>: the
+    /// <see cref="BearerValidationMode.StaticHash"/> path matched the token and
+    /// never looked at the fab, so a token issued for one plant could file
+    /// events into another. There was nothing to compare against. This is it.
+    /// </para>
+    /// </summary>
+    public FabIdentifier Fab { get; private set; } = null!;
+
     public Kind DefaultKind { get; private set; } = null!;
 
     public BearerTokenHash TokenHash { get; private set; } = null!;
@@ -47,10 +64,12 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
     /// </summary>
     public static (WebhookIntegration integration, string plainToken) Register(
         WebhookIntegrationName name,
+        FabIdentifier fab,
         Kind defaultKind,
         IClock clock)
     {
         Ensure.That(name).IsNotNull();
+        Ensure.That(fab).IsNotNull();
         Ensure.That(defaultKind).IsNotNull();
         Ensure.That(clock).IsNotNull();
 
@@ -60,6 +79,7 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
         {
             Id = WebhookIntegrationIdentifier.New(),
             Name = name,
+            Fab = fab,
             DefaultKind = defaultKind,
             TokenHash = hash,
             RegisteredAt = now,

@@ -17,8 +17,13 @@ public sealed class RegisterWebhookIntegrationCommandHandler(
         RegisterWebhookIntegrationCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (WebhookIntegrationName? name, Domain.Event.Kind? defaultKind) = command;
+        (WebhookIntegrationName? name, Domain.Event.FabIdentifier? fab, Domain.Event.Kind? defaultKind) = command;
 
+        // Names stay globally unique, not per-fab: the name is the path segment
+        // of POST /events/webhook/{name}, so the ingest lookup has only the name
+        // to go on. The cost is that a name taken in another plant answers 409
+        // rather than 201, which does disclose that it exists — recorded on
+        // #1545 rather than fixed by making the ingest route ambiguous.
         Option<WebhookIntegration> existing = await integrations
             .GetByNameAsync(name, cancellationToken);
         if (existing.HasValue)
@@ -27,7 +32,7 @@ public sealed class RegisterWebhookIntegrationCommandHandler(
         }
 
         (WebhookIntegration integration, string plainToken) =
-            WebhookIntegration.Register(name, defaultKind, clock);
+            WebhookIntegration.Register(name, fab, defaultKind, clock);
 
         integrations.Add(integration);
         await integrations.SaveAsync(cancellationToken);

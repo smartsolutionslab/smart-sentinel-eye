@@ -26,6 +26,14 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
             .HasConversion(name => name.Value, value => WebhookIntegrationName.From(value))
             .IsRequired();
 
+        // NOT NULL, unlike dead_letters.fab: an integration is created by an
+        // operator who always has a fab, so there is no honest null here (#1545).
+        builder.Property(integration => integration.Fab)
+            .HasColumnName("fab")
+            .HasMaxLength(FabIdentifier.MaximumLength)
+            .HasConversion(fab => fab.Value, value => FabIdentifier.From(value))
+            .IsRequired();
+
         builder.Property(integration => integration.DefaultKind)
             .HasColumnName("default_kind")
             .HasMaxLength(Kind.MaximumLength)
@@ -62,9 +70,15 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
             .HasColumnName("version")
             .IsConcurrencyToken();
 
+        // Still globally unique, not (fab, name): the name is the path segment
+        // of POST /events/webhook/{name} and the ingest lookup has only the name
+        // to resolve by. Making it per-fab would make that route ambiguous.
         builder.HasIndex(integration => integration.Name)
             .HasDatabaseName("ux_webhook_integrations_name")
             .IsUnique();
+
+        builder.HasIndex(integration => integration.Fab)
+            .HasDatabaseName("ix_webhook_integrations_fab");
 
         builder.Ignore(integration => integration.PendingEvents);
     }

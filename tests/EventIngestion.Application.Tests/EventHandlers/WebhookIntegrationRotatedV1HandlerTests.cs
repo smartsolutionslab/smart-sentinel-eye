@@ -25,6 +25,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
         InMemoryWebhookIntegrationRepository repo = new();
         (WebhookIntegration integration, _) = WebhookIntegration.Register(
             WebhookIntegrationName.From("qa"),
+            FabIdentifier.From("munich"),
             Kind.From("QaResult"),
             new FakeClock(Now));
         repo.Add(integration);
@@ -62,6 +63,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
         InMemoryWebhookIntegrationRepository repo = new();
         (WebhookIntegration integration, _) = WebhookIntegration.Register(
             WebhookIntegrationName.From("qa"),
+            FabIdentifier.From("munich"),
             Kind.From("QaResult"),
             new FakeClock(Now));
         integration.MarkAsRotated("webhook-qa", new FakeClock(Now.AddMinutes(1)));

@@ -81,15 +81,31 @@ The `limit` parameter is unchanged.
 **Every row here carries `rawPayload`** — the production data verbatim and
 unvalidated. That is why this endpoint is P1 rather than housekeeping.
 
-## `POST /events/webhook/{integrationName}` — exempt, deliberately
+## `POST /events/webhook/{integrationName}` — exempt, then amended
 
-**Unchanged (FR-014).** Its caller is a machine presenting its own credentials,
-not an operator with a session, and the JWT path already refuses a fab the
-caller does not hold:
+**Originally unchanged (FR-014)**, on the grounds that its caller is a machine
+presenting its own credentials, not an operator with a session, and that the JWT
+path already refuses a fab the caller does not hold:
 
 ```csharp
 string targetGroup = "/fabs/" + fabId;
 ```
+
+> **AMENDED 2026-08-18 (#1545).** That check exists only in the JWT branch.
+> `StaticHash` — the default until an integration is rotated — matched the token
+> hash and never looked at `fabId`, so a token issued for one plant could file
+> events into another.
+>
+> | | |
+> |---|---|
+> | `?fabId=` | unchanged: still required, still names the target plant |
+> | New check | the fab **must be the integration's own**, in *both* modes |
+> | Where | `AuthenticateWebhookAsync`, before the envelope is built |
+> | Refusal | **401**, identical to an unknown integration — so it cannot be used to discover that a name is taken in another plant |
+>
+> The check is on the integration's stored fab, not the caller's groups: a
+> machine has no session to resolve, which is the whole reason this endpoint was
+> exempt from the resolver in the first place.
 
 Same exemption shape as spec 016's `POST /streams/authorize`. Recorded here
 rather than left as an unexamined endpoint.
@@ -99,13 +115,35 @@ rather than left as an unexamined endpoint.
 > presumably how the gap survived, and it is the thing most likely to get
 > mis-edited while implementing this feature: only the manual write changes.
 
-## `/webhook-integrations` — out of scope
+## `/webhook-integrations` — out of scope, then in it
 
-`POST /`, `GET /`, `DELETE /{name}` — **unchanged (FR-016).** The
-`WebhookIntegration` aggregate has no fab, and whether it should is a real
-question with two coherent answers: the per-delivery credential check already
-proves entitlement, so an integration may legitimately be a shared template.
-Settling it here would widen a feature whose purpose is closing a live leak.
+Originally **unchanged (FR-016)**, because the `WebhookIntegration` aggregate
+had no fab and whether it should was a question with two coherent answers.
+
+> **AMENDED 2026-08-18 (#1545).** The premise fell with FR-014: the
+> per-delivery check did *not* prove entitlement in `StaticHash` mode, so the
+> aggregate now carries a `FabIdentifier` and the registry is scoped with it.
+> Closing only the delivery side would have left one plant able to read
+> another's integration names — and the version each needs to be revoked with,
+> which stops that plant's machine ingest.
+>
+> | Endpoint | Change |
+> |---|---|
+> | `POST /` | `?fabId=` **new**, optional; resolved as a **write** (a multi-fab admin must choose). The integration is registered into that fab. **403**, **400** `EVENT_FAB_REQUIRED` |
+> | `GET /` | `?fabId=` **new**, optional; scoped to the caller's fabs. **403**, **400** |
+> | `DELETE /{name}` | scoped; another plant's integration is **404**, exactly as one that never existed. **403**, **400** |
+>
+> `WebhookIntegrationDto` gains `fab` — unlike `DeadLetterDto`, which
+> deliberately does not. The difference is that this column is never null and
+> every row a caller sees is already in a fab they hold, so it discloses
+> nothing, and a multi-fab admin otherwise cannot tell two plants' integrations
+> apart.
+>
+> **Names stay globally unique**, not per-fab: the name is the path segment of
+> the ingest route, which has only the name to resolve by. So a name taken in
+> another plant still answers `409` on registration and thereby discloses that
+> it exists — the one residue, left on #1545 rather than closed by making the
+> ingest route ambiguous.
 
 ## Wire
 

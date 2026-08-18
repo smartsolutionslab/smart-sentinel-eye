@@ -200,7 +200,9 @@ topic, and read the list as each operator.
 
 - **FR-014**: The webhook ingress MUST continue to establish the plant from
   the caller's own credentials rather than from an operator's session, and
-  MUST NOT be changed by this feature.
+  MUST NOT be changed by this feature. **Amended — see FR-016.** It established
+  the plant in only one of its two validation modes, so "continue to" described
+  something that was not happening.
 - **FR-015**: The broker ingress MUST be unchanged. The plant is part of the
   delivery address and is already enforced there.
 - **FR-016**: The webhook **integration registry** MUST be unchanged by this
@@ -208,6 +210,34 @@ topic, and read the list as each operator.
   template whose entitlement is proven per delivery, is a real question with
   two coherent answers — and answering it here would widen a feature whose
   purpose is closing a live leak. Tracked separately.
+
+  > **AMENDED 2026-08-18, after phase-6 review (#1545).** FR-014 and FR-016
+  > together rested on a premise that turned out to be false: that the webhook
+  > ingress *does* establish the plant from the caller's own credentials. It
+  > does so only in `BearerValidationMode.Jwt`. In `StaticHash` — the default,
+  > and the mode of every integration until it is rotated — the token hash is
+  > matched and `?fabId=` is never consulted, because the integration carried no
+  > plant to compare against. A token issued for one plant could file events
+  > into another: the same manipulation FR-006 closes on the manual write.
+  >
+  > This feature also *made that reachable*. A cross-fab write previously failed
+  > at the insert because `events` had no partition for any fab but munich;
+  > adding one for dresden was necessary and removed an accidental backstop.
+  >
+  > So the question FR-016 deferred is answered here rather than deferred
+  > again, and the answer is the first reading: **an integration belongs to the
+  > plant that registered it.** It gains a `FabIdentifier`, the ingress refuses
+  > any delivery naming another plant in **both** validation modes, and the
+  > registry's own three endpoints are scoped like every other operator-facing
+  > read and write. Deferring a second time would have meant shipping a feature
+  > whose stated purpose is closing cross-fab writes while knowingly leaving one
+  > open.
+  >
+  > **Still deferred**, because neither is a tenancy hole: integration names stay
+  > globally unique rather than per-fab (the name is the ingest route's path
+  > segment, and per-fab names would make that route ambiguous), so registering a
+  > name taken in another plant still answers `409` and thereby discloses that it
+  > exists. Recorded on #1545.
 
 ### Key Entities
 

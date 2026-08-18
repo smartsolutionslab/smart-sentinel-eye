@@ -177,20 +177,45 @@ is matched and `fabId` is never consulted, because `WebhookIntegration` carries
 no fab to compare it against. A token issued for one plant can therefore file an
 event against another.
 
-Three things follow, and none of them is "fix it here":
+**Closed, after the finding was raised.** The first version of this note said
+the fix belonged to #1545 rather than to this feature. That was overruled
+deliberately: shipping a feature whose stated purpose is closing cross-fab
+writes, while knowingly leaving one open, is not a defensible trade. So #1545 is
+answered here with its first reading — an integration belongs to the plant that
+registered it — and the spec is amended rather than quietly widened (spec.md
+FR-014/FR-016, contracts, data-model).
 
-1. **It is pre-existing.** FR-014 held this endpoint unchanged and FR-016
-   deferred the registry question; closing it means giving `WebhookIntegration`
-   a fab, which *is* the deferred question. It is now recorded on #1545 with
-   the security framing, and that issue cannot be answered without it.
+What that took: a `FabIdentifier` on `WebhookIntegration`, set at registration
+from the registering operator's own fab; a check in `AuthenticateWebhookAsync`
+that refuses a delivery naming any other plant, in **both** validation modes and
+before the envelope is built; and the registry's own three endpoints scoped like
+every other operator-facing surface — because leaving `GET /webhook-integrations`
+open would still hand one plant another's integration names *and the version
+each needs to be revoked with*, and revoking one stops that plant's machine
+ingest silently.
+
+The refusal is **401, identical to an unknown integration**, so it cannot be
+used to discover that a name is taken in another plant. The one residue: names
+stay globally unique, so `POST /webhook-integrations` still answers 409 for a
+name taken elsewhere. Left on #1545 rather than closed by making the ingest
+route ambiguous.
+
+Three things about the original finding are worth keeping:
+
+1. **It was pre-existing**, and it survived because FR-014 and FR-016 each
+   assumed the other covered it: the ingress was exempt because the credential
+   proved entitlement, and the registry was deferred because the per-delivery
+   check already did the work. Neither was true in `StaticHash`. Two deferrals
+   that lean on each other are worth more suspicion than one.
 2. **This feature made it reachable.** `events` had no partition for any fab
    but munich, so a cross-fab webhook write previously failed at the insert
    with `23514`. Adding `events_dresden` — which had to happen, it was a live
    defect — removed an accidental backstop that was never an authorization
    control. Said plainly rather than left for someone to discover.
-3. **The claim is corrected in the code.** `ResolveWriteFabAsync`'s doc comment
-   asserted the webhook "already checks the fab against them". It now names the
-   `Jwt`-only scope, so nothing in the codebase reads as though this is covered.
+3. **The comment that asserted the opposite is gone.** `ResolveWriteFabAsync`
+   claimed the webhook "already checks the fab against them" — the kind of line
+   a later reviewer trusts instead of re-deriving. It was the one defect this
+   feature genuinely introduced, ahead of the gap itself.
 
 Also filed: **#1546** (the persistence loop drops an envelope it has already
 `202`-accepted when the dispatch throws) and **#1547** (adding a fab needs a

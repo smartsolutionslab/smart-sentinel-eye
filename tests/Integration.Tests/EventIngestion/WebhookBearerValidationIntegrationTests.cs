@@ -112,7 +112,12 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
     public async Task Jwt_mode_rejects_a_caller_outside_the_target_fab_group()
     {
         string name = UniqueName("jwt-fab");
-        await SeedJwtIntegrationAsync(name, JwtClientId);
+        // Seeded in berlin so the delivery's fab matches the integration's own
+        // and the request reaches ValidateJwtAsync's group check, which is what
+        // this case is for. Seeding it in munich would now be refused a step
+        // earlier by the integration-fab comparison (#1545) and this test would
+        // pass without ever exercising the check it names.
+        await SeedJwtIntegrationAsync(name, JwtClientId, "berlin");
         string jwt = await aspire.GetAccessTokenForClientAsync(
             JwtClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, JwtScope);
 
@@ -120,6 +125,42 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
         HttpResponseMessage response = await PostWebhookAsync(name, "berlin", jwt);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    /// <summary>
+    /// #1545 — the gap this amendment closes. A <c>StaticHash</c> integration
+    /// presenting its own valid token, naming a plant that is not its own.
+    /// Before the fab existed on the aggregate this was <b>202 Accepted</b>:
+    /// the hash matched, <c>?fabId=</c> was never consulted, and the event was
+    /// filed into the other plant.
+    /// </summary>
+    [Fact]
+    public async Task StaticHash_mode_rejects_a_delivery_naming_another_plants_fab()
+    {
+        string name = UniqueName("hash-fab");
+        string token = await RegisterStaticHashIntegrationAsync(name);
+
+        HttpResponseMessage response = await PostWebhookAsync(name, "dresden", token);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
+    /// <summary>
+    /// And the refusal is the same one an unknown integration gets, so it
+    /// cannot be used to discover that a name is taken in another plant.
+    /// </summary>
+    [Fact]
+    public async Task A_delivery_to_another_plants_integration_looks_like_one_that_does_not_exist()
+    {
+        string name = UniqueName("hash-probe");
+        string token = await RegisterStaticHashIntegrationAsync(name);
+
+        HttpResponseMessage otherFab = await PostWebhookAsync(name, "dresden", token);
+        HttpResponseMessage neverExisted = await PostWebhookAsync(UniqueName("absent"), "dresden", token);
+
+        otherFab.StatusCode.ShouldBe(neverExisted.StatusCode);
+        (await otherFab.Content.ReadAsStringAsync())
+            .ShouldBe(await neverExisted.Content.ReadAsStringAsync());
     }
 
     private async Task<string> RegisterStaticHashIntegrationAsync(string name)
@@ -133,13 +174,16 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
         return body.GetProperty("token").GetString()!;
     }
 
-    private async Task SeedJwtIntegrationAsync(string name, string keycloakClientId)
+    private Task SeedJwtIntegrationAsync(string name, string keycloakClientId) =>
+        SeedJwtIntegrationAsync(name, keycloakClientId, Fab);
+
+    private async Task SeedJwtIntegrationAsync(string name, string keycloakClientId, string fab)
     {
         await using EventIngestionDbContext context = await aspire.CreateEventIngestionDbContextAsync();
 
         SystemClock clock = new();
         (WebhookIntegration integration, _) = WebhookIntegration.Register(
-            WebhookIntegrationName.From(name), Kind.From("WebhookAlarm"), clock);
+            WebhookIntegrationName.From(name), FabIdentifier.From(fab), Kind.From("WebhookAlarm"), clock);
         integration.MarkAsRotated(keycloakClientId, clock);
         integration.ClearPendingEvents();
 

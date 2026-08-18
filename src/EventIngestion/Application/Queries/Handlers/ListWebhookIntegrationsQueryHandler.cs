@@ -14,8 +14,11 @@ public sealed class ListWebhookIntegrationsQueryHandler(IWebhookIntegrationQuery
     {
         Ensure.That(query).IsNotNull();
 
-        IQueryable<WebhookIntegration> source = integrations.WebhookIntegrations;
-        if (!query.IncludeRevoked)
+        var (fabs, includeRevoked) = query;
+
+        IQueryable<WebhookIntegration> source = integrations.WebhookIntegrations
+            .Where(integration => fabs.Contains(integration.Fab));
+        if (!includeRevoked)
         {
             source = source.Where(integration => integration.RevokedAt == null);
         }
@@ -25,7 +28,7 @@ public sealed class ListWebhookIntegrationsQueryHandler(IWebhookIntegrationQuery
 
         IReadOnlyList<WebhookIntegrationDto> dtos = rows
             .Select(integration => new WebhookIntegrationDto(
-                integration.Id.Value, integration.Version, integration.Name.Value, integration.DefaultKind.Value, integration.RegisteredAt, integration.RevokedAt))
+                integration.Id.Value, integration.Version, integration.Name.Value, integration.Fab.Value, integration.DefaultKind.Value, integration.RegisteredAt, integration.RevokedAt))
             .OrderBy(dto => dto.Name, StringComparer.Ordinal)
             .ToArray();
 

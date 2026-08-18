@@ -112,10 +112,40 @@ events.Where(e => fabs.Contains(e.Fab))      // after
 `ListDeadLettersQuery` gains the same term, and `NULL` satisfying no `IN` is
 what implements FR-011.
 
-## What is deliberately not modelled
+## WebhookIntegration
 
-- **`WebhookIntegration` gains nothing** (FR-016). Whether an integration
-  belongs to a plant is a real question, and answering it here would widen a
-  feature whose job is closing a live leak.
+**Added by the 2026-08-18 amendment (#1545)**; see spec.md FR-016 for why the
+original deferral did not survive review.
+
+| Field | Change |
+|---|---|
+| `Fab` | **NEW.** `FabIdentifier`, **NOT NULL**, set at registration from the registering operator's resolved fab. |
+
+**NOT NULL, unlike `DeadLetter.Fab`**, and the contrast is the point. A rejected
+delivery can honestly have no plant — a malformed address establishes none. An
+integration cannot: it is created by an operator, and an operator always has
+one. A null here would be an integration whose deliveries can never be
+authorised, which is a broken row rather than a meaningful state.
+
+The backfill has nothing on the row to derive from, unlike `dead_letters` where
+the topic carried it. So it guesses `'munich'` with a `RAISE WARNING` naming the
+count — the specs 015 and 017 pattern, and the guess is safe in the same sense:
+munich is the only plant any integration could have delivered into before this
+branch added dresden's partition. The warning matters more here, though, because
+a wrongly attributed integration does not merely become invisible — it starts
+refusing its own deliveries.
+
+```sql
+ALTER TABLE webhook_integrations ADD COLUMN fab VARCHAR(32);          -- 1
+UPDATE webhook_integrations SET fab = 'munich' WHERE fab IS NULL;     -- 2, warns
+ALTER TABLE webhook_integrations ALTER COLUMN fab SET NOT NULL;       -- 3
+CREATE INDEX ix_webhook_integrations_fab ON webhook_integrations (fab);
+```
+
+`ux_webhook_integrations_name` stays **global**, not `(fab, name)`: the name is
+the path segment of `POST /events/webhook/{name}`, so the ingest lookup has only
+the name to resolve by.
+
+## What is deliberately not modelled
 - **No new value object.** `FabIdentifier` already exists in this context —
   the only one of the six fab features where it did.
