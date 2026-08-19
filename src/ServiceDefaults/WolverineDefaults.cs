@@ -4,6 +4,7 @@ using JasperFx.CodeGeneration.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
@@ -97,7 +98,8 @@ public static class WolverineDefaults
         });
 
         // Spec 021. Every context that gets Wolverine gets the outbox-backed
-        // publisher with it, bound to the DbContext this call already names.
+        // publisher and commit with it, bound to the DbContext this call already
+        // names.
         //
         // Registered here rather than once per Infrastructure module — nine
         // identical lines in nine files is nine chances to add a tenth context
@@ -105,6 +107,15 @@ public static class WolverineDefaults
         // is told the truth, and the announcement is never made.
         builder.Services.AddScoped<IEventBus, OutboxEventBus<TDbContext>>();
         builder.Services.AddScoped<ITransactionalCommit, OutboxTransactionalCommit<TDbContext>>();
+
+        // FR-008. Trading a silent loss for a silent backlog would not be much
+        // of a trade, so the queue depth is visible from the moment the outbox
+        // starts being used.
+        builder.Services.AddHealthChecks().AddTypeActivatedCheck<OutboxBacklogHealthCheck<TDbContext>>(
+            $"outbox-{moduleQueuePrefix}",
+            failureStatus: HealthStatus.Degraded,
+            tags: ["ready"],
+            args: [outboxSchema]);
 
         return builder;
     }

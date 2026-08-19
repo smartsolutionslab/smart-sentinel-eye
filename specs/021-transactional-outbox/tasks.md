@@ -126,7 +126,7 @@ quietly opt out.
       (FR-007). A repository added later either goes through the outbox or fails
       the build. Removing the unenrolled path is not available — `IMessageBus`
       is legitimately used by Wolverine's own handlers.
-- [ ] T019 [US2] Integration case per [quickstart.md](./quickstart.md) step 4 in
+- [X] T019 [US2] Integration case per [quickstart.md](./quickstart.md) step 4 in
       a **non-ingest** context: broker down, register a camera, pending row
       appears in `wolverine_camera_catalog`, drains on recovery (SC-004).
       Testing one path proves the seam, not the coverage.
@@ -138,12 +138,12 @@ added silently.
 
 ## Phase 5: US3 — the guarantee is written down accurately (P3)
 
-- [ ] T020 [US3] Amend `docs/adr/0088-wolverine-defaults.md`: state which
+- [X] T020 [US3] Amend `docs/adr/0088-wolverine-defaults.md`: state which
       publishes the outbox covers and which it does not, and how a new write
       path joins. Its consequence line — "transactional outbox guarantees no
       message loss on crash mid-handler" — is true and reads as though it covers
       everything, which is why nobody looked for a year (FR-014, SC-007).
-- [ ] T021 [P] [US3] Record the pre-commit-handler constraint where a reviewer of
+- [X] T021 [P] [US3] Record the pre-commit-handler constraint where a reviewer of
       a *new* domain-event handler will meet it: a handler on this path
       publishes and does nothing else. It cannot be checked mechanically, so it
       has to be written where it will be read.
@@ -152,7 +152,7 @@ added silently.
 
 ## Phase 6: Visibility
 
-- [ ] T022 Expose the pending count and the age of the oldest pending message
+- [X] T022 Expose the pending count and the age of the oldest pending message
       per context, where the contexts already expose health (FR-008, SC-006).
       **An outbox quietly growing looks exactly like an empty one** until the
       disk fills.
