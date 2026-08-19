@@ -51,7 +51,7 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
 
         HttpResponseMessage response = await PostWebhookAsync(name, Fab, token);
 
-        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
 
         HttpResponseMessage response = await PostWebhookAsync(name, Fab, jwt);
 
-        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
     }
 
     [Fact]

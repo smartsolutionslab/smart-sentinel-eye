@@ -116,9 +116,9 @@ public class FabStorageRefusalIntegrationTests(AspireFixture aspire) : IAsyncLif
     {
         using HttpClient munich = await ClientFor(MunichOperator);
 
-        HttpResponseMessage accepted = await munich.PostAsJsonAsync("/events/manual", Body("Unaffected"));
+        HttpResponseMessage created = await munich.PostAsJsonAsync("/events/manual", Body("Unaffected"));
 
-        accepted.StatusCode.ShouldBe(HttpStatusCode.Accepted, await accepted.Content.ReadAsStringAsync());
+        created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
     }
 
     // ---- helpers ------------------------------------------------------------

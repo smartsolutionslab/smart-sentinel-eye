@@ -78,7 +78,7 @@ public class FabPartitionProvisioningIntegrationTests(AspireFixture aspire)
             occurredAt = DateTimeOffset.UtcNow,
             payload = new { note = "spec 019 US1" },
         });
-        filed.StatusCode.ShouldBe(HttpStatusCode.Accepted, await filed.Content.ReadAsStringAsync());
+        filed.StatusCode.ShouldBe(HttpStatusCode.Created, await filed.Content.ReadAsStringAsync());
 
         int found = 0;
         DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
