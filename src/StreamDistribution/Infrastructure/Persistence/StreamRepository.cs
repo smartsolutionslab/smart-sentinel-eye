@@ -5,8 +5,10 @@ using SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 
-public sealed class StreamRepository(StreamDistributionDbContext dbContext, IDomainEventDispatcher domainEventDispatcher)
-    : IStreamRepository
+public sealed class StreamRepository(
+    StreamDistributionDbContext dbContext,
+    ITransactionalCommit commit,
+    IDomainEventDispatcher domainEventDispatcher) : IStreamRepository
 {
     public async Task<Option<Domain.Stream.Stream>> GetByIdentifierAsync(StreamIdentifier stream, CancellationToken cancellationToken)
     {
@@ -40,13 +42,22 @@ public sealed class StreamRepository(StreamDistributionDbContext dbContext, IDom
             .Select(entry => entry.Entity)
             .ToArray();
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-
+        // Dispatch first: the announcement is captured into the outbox, and the
+        // commit below writes the rows and the messages in one transaction
+        // (spec 021 FR-001). It used to be the other way round, and the gap
+        // between the two was where an integration event went missing.
+        //
+        // Which means a handler now runs before the write is durable, and one
+        // that throws fails the write rather than leaving the row behind. Every
+        // handler on this path publishes and does nothing else - checked across
+        // all twelve (research.md R2), not assumed.
         foreach (Domain.Stream.Stream? stream in tracked)
         {
             IDomainEvent[] events = stream.PendingEvents.ToArray();
             stream.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }
+
+        await commit.CommitAsync(cancellationToken);
     }
 }
