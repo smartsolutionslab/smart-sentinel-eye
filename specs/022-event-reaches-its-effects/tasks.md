@@ -37,7 +37,7 @@ that seeds one and stops passes for the wrong reason, for ever.
 
 ## Phase 1: Setup
 
-- [ ] T001 Confirm the journey currently works, by hand, before writing anything
+- [X] T001 Confirm the journey currently works, by hand, before writing anything
       that depends on it. Seed and publish a rule, publish a matching event, watch
       the variable change. **If it does not work, stop** — spec 021 claims to have
       fixed this path and a broken one is a defect to raise (spec.md Assumptions),
@@ -47,12 +47,12 @@ that seeds one and stops passes for the wrong reason, for ever.
 
 ## Phase 2: Foundational
 
-- [ ] T002 Add `tests/Integration.Tests/Automation/EventReachesItsEffectsTests.cs`
+- [X] T002 Add `tests/Integration.Tests/Automation/EventReachesItsEffectsTests.cs`
       with the fixture wiring and a rule-seeding helper that **creates and
       publishes** a rule, then asserts it reads back as `Active` before returning
       it (FR-006). The assertion is the point: without it a downstream failure is
       indistinguishable from a rule that was never eligible.
-- [ ] T003 Add the polling helper: wait for an effect to a deadline, and on
+- [X] T003 Add the polling helper: wait for an effect to a deadline, and on
       expiry report whether **anything** changed so "late" and "never" are
       distinguishable (FR-009). No fixed sleeps — slower and less informative.
 
@@ -63,7 +63,7 @@ for. Nothing is asserted yet.
 
 ## Phase 3: US1 — an event changes what the operator sees (P1) 🎯 MVP
 
-- [ ] T004 [US1] The value effect: seed an active `SetVariableValue` rule,
+- [X] T004 [US1] The value effect: seed an active `SetVariableValue` rule,
       publish a matching event **over MQTT** (FR-002 — the real ingress, not a
       shortcut into the middle of the chain), and assert the variable's value
       changed, read back through the SystemVariables API rather than from the
@@ -73,11 +73,11 @@ for. Nothing is asserted yet.
       tests do, publish a matching event, and assert the frame arrives. The two
       effects travel to different contexts by different routes, so covering one
       proves nothing about the other.
-- [ ] T006 [US1] The negative case: publish an event matching no active rule,
+- [X] T006 [US1] The negative case: publish an event matching no active rule,
       assert the variable is unchanged and no frame arrives (FR-003, SC-003).
       Without this, a test asserting a value equals what it already was would
       pass on a completely dead system.
-- [ ] T007 [P] [US1] Redelivery: publish the same event twice, assert the effect
+- [X] T007 [P] [US1] Redelivery: publish the same event twice, assert the effect
       applied once. SystemVariables dedups by event, and redelivery stopped being
       rare with spec 020 — an ordinary case now, not an edge one.
 
@@ -90,11 +90,11 @@ for. Nothing is asserted yet.
 **Not a refinement of US1.** A test of this journey that asserts the wrong thing
 is worse than no test, because it reports the path as covered.
 
-- [ ] T008 [US2] Review the assertions written in Phase 3 against the four
+- [X] T008 [US2] Review the assertions written in Phase 3 against the four
       forbidden ones above, and record in the test's own documentation what it
       would have done against the failure that prompted it (SC-006). A reader
       must be able to tell without running it.
-- [ ] T009 [US2] Make the failure messages name the **effect** that did not
+- [X] T009 [US2] Make the failure messages name the **effect** that did not
       arrive, not the message that was not seen. A failure saying "no
       SystemVariableValueRequestedV1" would send the next person to the wrong
       layer — the messages were fine; nothing consumed them.
@@ -103,7 +103,7 @@ is worse than no test, because it reports the path as covered.
 
 ## Phase 5: US2 — the deliberate break (P1) ⭐ the deliverable
 
-- [ ] T010 [US2] **Break the journey and watch this fail.** In
+- [X] T010 [US2] **Break the journey and watch this fail.** In
       `src/ServiceDefaults/OutboxEventBus.cs`, make the `ambient.Envelope is not
       null` branch unreachable — the exact failure spec 021 shipped — run this
       test, confirm it **fails**, confirm the rest of the suite still passes, and
@@ -117,7 +117,7 @@ this task, nothing is established.
 
 ## Phase 6: US3 — it runs where it will be noticed (P2)
 
-- [ ] T011 [US3] Run the full integration suite three consecutive times with
+- [X] T011 [US3] Run the full integration suite three consecutive times with
       this test included, and confirm it passes each time (SC-004). Flakiness
       across four services is the expected risk.
 - [ ] T012 [US3] If it cannot be made reliable, record the reason **and the
