@@ -75,7 +75,7 @@ public class EventFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLifet
 
         using HttpClient seeder = await ClientFor(MultiFabOperator);
         (await seeder.PostAsJsonAsync("/events/manual?fabId=munich", Body(kind)))
-            .StatusCode.ShouldBe(HttpStatusCode.Accepted);
+            .StatusCode.ShouldBe(HttpStatusCode.Created);
 
         // The ingest channel is asynchronous; wait for it to land, confirmed
         // through the operator who may legitimately see it.
@@ -101,7 +101,7 @@ public class EventFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLifet
 
         using HttpClient seeder = await ClientFor(MultiFabOperator);
         (await seeder.PostAsJsonAsync("/events/manual?fabId=munich", Body(kind)))
-            .StatusCode.ShouldBe(HttpStatusCode.Accepted);
+            .StatusCode.ShouldBe(HttpStatusCode.Created);
         Guid munichEvent = await WaitUntilVisibleAsync(seeder, "munich", kind);
 
         Guid neverExisted = Guid.CreateVersion7();

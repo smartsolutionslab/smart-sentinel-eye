@@ -9,7 +9,7 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 ///
 /// <para>
 /// Before this feature a Dresden operator could <c>POST
-/// /events/manual?fabId=munich</c> and get <b>202 Accepted</b>: the event was
+/// /events/manual?fabId=munich</c> and get <b>201 Created</b>: the event was
 /// filed against Munich, where it drives Munich's automation rules and changes
 /// what Munich's operators see. It is the only path in the product by which
 /// one fab alters another's state, and it is what these cases close.
@@ -30,11 +30,11 @@ public class ManualIngestFabScopingIntegrationTests(AspireFixture aspire) : IAsy
     /// The inference, checked where it lands rather than by its status code.
     ///
     /// <para>
-    /// <b>202 is not the assertion.</b> The inferred branch of
+    /// <b>201 is not the assertion.</b> The inferred branch of
     /// <c>FabResolution.ResolveForWriteAsync</c> never calls
     /// <c>EnsureAccessAsync</c> — it has nothing to check, having derived the
     /// fab from the caller's own single group — so an inference that fell back
-    /// to the <c>munich</c> default would return 202 just the same and this
+    /// to the <c>munich</c> default would return 201 just the same and this
     /// case would pass while the regression it exists to catch went through.
     /// The event has to be read back out of dresden.
     /// </para>
@@ -48,8 +48,8 @@ public class ManualIngestFabScopingIntegrationTests(AspireFixture aspire) : IAsy
 
         using HttpClient events = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage accepted = await events.PostAsJsonAsync("/events/manual", Body(kind));
-        accepted.StatusCode.ShouldBe(HttpStatusCode.Accepted, await BodyAsync(accepted));
+        HttpResponseMessage created = await events.PostAsJsonAsync("/events/manual", Body(kind));
+        created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
 
         using HttpClient reader = await ClientFor(MultiFabOperator);
         (await WaitForCountAsync(reader, "dresden", kind)).ShouldBe(
@@ -79,10 +79,10 @@ public class ManualIngestFabScopingIntegrationTests(AspireFixture aspire) : IAsy
     {
         using HttpClient events = await ClientFor(MultiFabOperator);
 
-        HttpResponseMessage accepted = await events.PostAsJsonAsync(
+        HttpResponseMessage created = await events.PostAsJsonAsync(
             "/events/manual?fabId=dresden", Body("NamedKind"));
 
-        accepted.StatusCode.ShouldBe(HttpStatusCode.Accepted, await BodyAsync(accepted));
+        created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
     }
 
     /// <summary>
