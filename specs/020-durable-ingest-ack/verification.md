@@ -74,6 +74,15 @@ project resource is a local process the fixture would not get back. The
 substitution is sound only because nothing is acknowledged before it is stored,
 so a graceful stop and a crash leave the broker holding the same set.
 
+> **This case does not run in CI**, and that is a real gap rather than a
+> formality. The Aspire restart command fails outright on the CI runner
+> ("Failed to stop resource"), and on its first CI run the failure left the
+> service down — so eleven later EventIngestion tests failed with socket errors
+> and the one real failure was buried. The test now restores the resource in a
+> `finally` whatever happens, and carries `Category=Disruptive` so CI skips it.
+> **SC-002 therefore has no CI coverage**; it is verified locally, by the run
+> above, and by hand.
+
 ## 3. The sender is told the truth (SC-003)
 
 `DirectWriteHonestyIntegrationTests`, both halves:
