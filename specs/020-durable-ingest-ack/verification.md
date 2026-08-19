@@ -178,6 +178,26 @@ accordingly.
 fresh window. Persisting it would mean a durable write per failed attempt, on
 the path that is failing because writes are failing.
 
+## 5a. Which 503 a caller sees first (a change spec 019 did not expect)
+
+Spec 019 refuses a write for a fab with no storage, up front, with
+`EVENT_FAB_NOT_PROVISIONED`. That answer is cached and the cache is allowed to
+serve a stale *positive* — deliberately, because a wrong "yes" cost one logged
+envelope while a wrong "no" would refuse a fab that can store perfectly well.
+
+That trade changes here. The write is synchronous now, so a caller who slips
+past a stale positive is refused **by the write itself**, with `EVENT_NOT_STORED`
+— a 503 that arrives sooner and says less. Before this feature the same caller
+got a 202 and the envelope was dropped inside the loop, which is exactly the
+cost spec 019 was accepting.
+
+Both refusals are 503 and both mean "not stored, retry", so no caller is misled.
+`FabStorageRefusalIntegrationTests` had to change: it polled for *any* 503 and
+then asserted the title, which now catches the earlier, vaguer one. It polls for
+the provisioning refusal specifically, so it still proves what spec 019 FR-007
+asks — that the refusal eventually names its cause — rather than being satisfied
+by whichever 503 happens to arrive first.
+
 ## 6. Coverage (ADR-0065)
 
 `scripts/coverage-check.ps1 -Configuration Release`. All twenty gates pass; the

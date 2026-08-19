@@ -131,11 +131,25 @@ public class FabStorageRefusalIntegrationTests(AspireFixture aspire) : IAsyncLif
     /// warm cache takes up to that TTL to be noticed, and this waits for it
     /// rather than pretending the window does not exist.
     /// </summary>
+    /// <summary>
+    /// Polls until the <em>provisioning</em> refusal appears, not merely until
+    /// some refusal does.
+    ///
+    /// <para>
+    /// Since spec 020 the write is synchronous, so a caller who slips past the
+    /// stale-positive cache is refused by the write itself with
+    /// <c>EVENT_NOT_STORED</c> — a 503 that arrives sooner and says less. That
+    /// is a better answer than the 202 it replaced and it is not the one this
+    /// test is about: FR-007 is that the refusal eventually <b>names its
+    /// cause</b>, so the earlier, vaguer 503 is treated as "not yet".
+    /// </para>
+    /// </summary>
     private static async Task<HttpResponseMessage> PostUntilRefusedAsync(HttpClient client, string kind)
     {
         DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(90);
         HttpResponseMessage response = await client.PostAsJsonAsync("/events/manual", Body(kind));
-        while (response.StatusCode != HttpStatusCode.ServiceUnavailable && DateTime.UtcNow < deadline)
+
+        while (!await NamesTheMissingStorageAsync(response) && DateTime.UtcNow < deadline)
         {
             await Task.Delay(TimeSpan.FromSeconds(5));
             response = await client.PostAsJsonAsync("/events/manual", Body(kind));
@@ -144,11 +158,35 @@ public class FabStorageRefusalIntegrationTests(AspireFixture aspire) : IAsyncLif
         return response;
     }
 
+    /// <summary>
+    /// Reads the body as a string rather than deserialising it. The caller reads
+    /// the same response again — for its own assertion and its failure message —
+    /// and <c>ReadFromJsonAsync</c> consumes the stream, so peeking at the title
+    /// here left the test failing on a closed stream instead of on what it was
+    /// testing.
+    /// </summary>
+    private static async Task<bool> NamesTheMissingStorageAsync(HttpResponseMessage response)
+    {
+        if (response.StatusCode != HttpStatusCode.ServiceUnavailable)
+        {
+            return false;
+        }
+
+        string body = await response.Content.ReadAsStringAsync();
+        return body.Contains("EVENT_FAB_NOT_PROVISIONED", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Same stopping rule as the manual path, for the same reason: a bare 503
+    /// is now also what a failed write answers, so accepting the first one
+    /// would let this stop proving that the machine path names its cause.
+    /// </summary>
     private async Task<HttpResponseMessage> PostWebhookUntilRefusedAsync(string name, string token)
     {
         DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(90);
         HttpResponseMessage response = await SendWebhookAsync(name, token);
-        while (response.StatusCode != HttpStatusCode.ServiceUnavailable && DateTime.UtcNow < deadline)
+
+        while (!await NamesTheMissingStorageAsync(response) && DateTime.UtcNow < deadline)
         {
             await Task.Delay(TimeSpan.FromSeconds(5));
             response = await SendWebhookAsync(name, token);
