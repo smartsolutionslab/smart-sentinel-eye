@@ -118,7 +118,7 @@ reintroduce the defect spec 018 fixed.
 - [X] T024 Confirm per-source ordering is preserved under sustained load (FR-011, SC-005) — it is guaranteed by the single-reader loop today, and batching is where that quietly stops being true.
 - [X] T025 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm the EventIngestion gates. **Needs PowerShell 7**; under 5.1 the script fails to parse on its own UTF-8 characters — see spec 018's verification note for the BOM workaround.
 - [X] T026 Walk [quickstart.md](./quickstart.md) end to end and record the observations on the PR **against the T001 baseline**. **"Done" is the observations.** Steps 4 and 5 are the ones that cannot be faked.
-- [ ] T027 Close **#1546** with `Closes #1546` in the PR body, and note in it what this feature does **not** do: the escape cannot record a failure during a total outage, because the dead-letter write fails for the same reason (research §R4).
+- [X] T027 Close **#1546** with `Closes #1546` in the PR body, and note in it what this feature does **not** do: the escape cannot record a failure during a total outage, because the dead-letter write fails for the same reason (research §R4).
 
 ---
 
