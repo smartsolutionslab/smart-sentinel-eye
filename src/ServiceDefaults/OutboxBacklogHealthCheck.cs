@@ -6,8 +6,8 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 namespace SmartSentinelEye.ServiceDefaults;
 
 /// <summary>
-/// Reports how many announcements are waiting to be delivered, and how long the
-/// oldest has waited (spec 021 FR-008, FR-009).
+/// Reports how many announcements are waiting to be delivered, and whether
+/// delivery is stuck (spec 021 FR-008, FR-009).
 ///
 /// <para>
 /// This exists because the feature it belongs to is invisible when it works.
@@ -29,23 +29,45 @@ public sealed class OutboxBacklogHealthCheck<TDbContext>(TDbContext database, st
     where TDbContext : DbContext
 {
     /// <summary>
-    /// Past this, delivery is not merely behind — something is wrong with it.
-    /// A minute of backlog on a path sized for thousands of events a second is
-    /// already a long time to be talking to nobody.
+    /// Past this many failed attempts on a single announcement, delivery is not
+    /// merely behind — something about that message or its destination is wrong,
+    /// and a human should look before the retries become the only thing the
+    /// sending agent is doing.
     /// </summary>
-    public static readonly TimeSpan ConcerningAge = TimeSpan.FromMinutes(5);
+    public const int ConcerningAttempts = 5;
+
+    /// <summary>
+    /// How many times the most-retried announcement has failed to go out.
+    ///
+    /// <para>
+    /// FR-008 asked for the <i>age</i> of the oldest pending message, and that
+    /// is not obtainable: Wolverine's outgoing table holds
+    /// <c>id, owner_id, destination, deliver_by, body, attempts, message_type</c>
+    /// and records no enqueue time. Discovered by asking the database rather
+    /// than assumed from documentation — the first version of this check read a
+    /// column that does not exist and reported Healthy about it.
+    /// </para>
+    ///
+    /// <para>
+    /// Attempts answer the question the age was a proxy for. "Delivery is stuck"
+    /// shows up as a climbing retry count sooner and less ambiguously than as an
+    /// old row, because a message queued a while ago and delivered first time is
+    /// not a problem at all.
+    /// </para>
+    /// </summary>
+    public const string AttemptsColumn = "attempts";
 
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context, CancellationToken cancellationToken = default)
     {
         try
         {
-            (long pending, TimeSpan oldest) = await ReadBacklogAsync(cancellationToken);
+            (long pending, int attempts) = await ReadBacklogAsync(cancellationToken);
 
             Dictionary<string, object> data = new(StringComparer.Ordinal)
             {
                 ["pending"] = pending,
-                ["oldestSeconds"] = Math.Round(oldest.TotalSeconds, 1),
+                ["maxAttempts"] = attempts,
                 ["schema"] = outboxSchema,
             };
 
@@ -56,46 +78,105 @@ public sealed class OutboxBacklogHealthCheck<TDbContext>(TDbContext database, st
 
             string description = string.Create(
                 CultureInfo.InvariantCulture,
-                $"{pending} announcement(s) waiting; oldest {oldest.TotalSeconds:F0}s.");
+                $"{pending} announcement(s) waiting; most-retried has failed {attempts} time(s).");
 
-            return oldest >= ConcerningAge
+            return attempts >= ConcerningAttempts
                 ? HealthCheckResult.Degraded(description, data: data)
                 : HealthCheckResult.Healthy(description, data);
         }
-        catch (DbException ex)
+        catch (DbException ex) when (IsUnreachable(ex))
         {
             // The database being unreachable is already reported by the
             // connection's own check. Repeating it as an outbox failure would
             // be one cause producing two alarms.
-            return HealthCheckResult.Healthy("Backlog not readable; the database check owns this.", data: new Dictionary<string, object>(StringComparer.Ordinal)
-            {
-                ["error"] = ex.GetType().Name,
-            });
+            return HealthCheckResult.Healthy(
+                "Backlog not readable; the database check owns this.",
+                new Dictionary<string, object>(StringComparer.Ordinal) { ["error"] = ex.GetType().Name });
         }
-    }
-
-    private async Task<(long Pending, TimeSpan Oldest)> ReadBacklogAsync(CancellationToken cancellationToken)
-    {
-        // Wolverine owns this table; nothing in this repository writes it, which
-        // is why reading it is the only way to see a pending announcement at all.
-        await using DbCommand command = database.Database.GetDbConnection().CreateCommand();
-        command.CommandText =
-            $"""
-            SELECT count(*),
-                   COALESCE(EXTRACT(EPOCH FROM (now() - min("execution_time"))), 0)
-            FROM {outboxSchema}.wolverine_outgoing_envelopes
-            """;
-
-        await database.Database.OpenConnectionAsync(cancellationToken);
-        await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
-
-        if (!await reader.ReadAsync(cancellationToken))
+        catch (DbException ex)
         {
-            return (0, TimeSpan.Zero);
+            // Anything else is this check being wrong rather than the database
+            // being away — a renamed column, a missing schema, a query that no
+            // longer parses.
+            //
+            // It used to report Healthy. That is a backlog monitor that lies
+            // about being fine, which is worse than not having one: the first
+            // version read a column that does not exist and would have said
+            // "no announcements are waiting" for ever, about an outbox nobody
+            // was watching. An integration test now asserts the column name and
+            // this reports the truth if it ever drifts again.
+            return HealthCheckResult.Degraded(
+                $"The outbox backlog could not be read: {ex.Message}",
+                data: new Dictionary<string, object>(StringComparer.Ordinal)
+                {
+                    ["error"] = ex.GetType().Name,
+                    ["schema"] = outboxSchema,
+                });
+        }
+    }
+
+    /// <summary>
+    /// Whether this is the database being away rather than the query being
+    /// wrong. Npgsql reports connection failures with no SQLSTATE — a server
+    /// that answered well enough to reject a query has told us something about
+    /// our query, not about its availability.
+    /// </summary>
+    private static bool IsUnreachable(DbException exception) =>
+        string.IsNullOrEmpty(exception.SqlState);
+
+    /// <summary>
+    /// Wolverine owns this table; nothing in this repository writes it, which is
+    /// why reading it is the only way to see a pending announcement at all.
+    ///
+    /// <para>
+    /// Read through EF rather than a hand-rolled command, because the first
+    /// version called <c>OpenConnectionAsync</c> with no matching close. EF
+    /// counts explicit opens, so the connection was held until the scope was
+    /// disposed — once per readiness probe, across nine services, against the
+    /// Postgres that Keycloak and every context share. A health check that adds
+    /// load to what it is checking is not a good trade for two numbers.
+    /// </para>
+    /// </summary>
+    private async Task<(long Pending, int Attempts)> ReadBacklogAsync(CancellationToken cancellationToken)
+    {
+        string table = $"{Identifier(outboxSchema)}.wolverine_outgoing_envelopes";
+
+        // EF1002 is suppressed because a schema name cannot be a parameter —
+        // SQL takes identifiers literally — and it is earned rather than
+        // asserted: Identifier() refuses anything that is not a plain
+        // lower-case identifier, so nothing that reaches here can carry SQL.
+        // The value comes from AddWolverineForContext's caller, a constant per
+        // module, and never from a request.
+#pragma warning disable EF1002
+        long pending = await database.Database
+            .SqlQueryRaw<long>($"SELECT count(*) AS \"Value\" FROM {table}")
+            .SingleAsync(cancellationToken);
+
+        if (pending == 0)
+        {
+            // Nothing waiting means nothing is being retried, so the second
+            // query would always answer zero. Skipped rather than asked,
+            // because this runs on every probe and the common case is empty.
+            return (0, 0);
         }
 
-        long pending = reader.GetInt64(0);
-        double oldestSeconds = reader.IsDBNull(1) ? 0 : Convert.ToDouble(reader.GetValue(1), CultureInfo.InvariantCulture);
-        return (pending, TimeSpan.FromSeconds(oldestSeconds));
+        int attempts = await database.Database
+            .SqlQueryRaw<int>($"SELECT COALESCE(max(\"{AttemptsColumn}\"), 0) AS \"Value\" FROM {table}")
+            .SingleAsync(cancellationToken);
+#pragma warning restore EF1002
+
+        return (pending, attempts);
     }
+
+    /// <summary>
+    /// Refuses anything that is not a plain identifier, so the interpolation
+    /// above cannot carry SQL. A format check rather than an argument guard —
+    /// it is what makes the suppression honest instead of a note saying the
+    /// value is probably fine.
+    /// </summary>
+    private static string Identifier(string value) =>
+        value.All(character => char.IsAsciiLetterLower(character) || character == '_')
+            ? value
+            : throw new ArgumentException(
+                $"'{value}' is not a plain outbox schema identifier.", nameof(value));
 }
