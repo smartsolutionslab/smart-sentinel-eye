@@ -178,7 +178,7 @@ public class StaleVersionRejectionTests
 
     private static RotateWebhookClientCommandHandler Rotator(
         InMemoryRegisteredClientRepository clients, FakeKeycloakAdminClient keycloak, FakeEventBus bus) =>
-        new(clients, keycloak, bus, new FakeClock(Now),
+        new(clients, keycloak, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
             NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
     /// <summary>

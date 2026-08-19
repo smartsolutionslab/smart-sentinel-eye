@@ -41,6 +41,11 @@ public class AuditRetentionHostedServiceTests
         services.AddScoped<IAuditChunkInventory>(_ => chunkInventory);
         services.AddScoped<IAuditChunkArchiver>(_ => archiver);
         services.AddScoped<IEventBus>(_ => bus);
+
+        // Spec 021. The retention sweep publishes without writing through EF, so
+        // it flushes the outbox itself — there is no commit for the announcement
+        // to ride on. Without this the sweep resolves nothing and throws.
+        services.AddScoped<ITransactionalCommit>(_ => new RecordingCommit());
         ServiceProvider provider = services.BuildServiceProvider();
 
         return new AuditRetentionHostedService(
@@ -118,5 +123,15 @@ public class AuditRetentionHostedServiceTests
         await worker.RunOnceAsync(default);
         archiver.ArchivedChunks.Count.ShouldBe(1);
         inventory.Dropped.Count.ShouldBe(1);
+    }
+
+    /// <summary>
+    /// Stands in for the outbox flush. These tests are about which chunks are
+    /// archived and dropped, not about delivery — the flush is exercised against
+    /// a real outbox in the integration suite.
+    /// </summary>
+    private sealed class RecordingCommit : ITransactionalCommit
+    {
+        public Task CommitAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

@@ -27,6 +27,7 @@ public sealed class RotateWebhookClientCommandHandler(
     IRegisteredClientRepository clients,
     IKeycloakAdminClient keycloak,
     IEventBus events,
+    ITransactionalCommit commit,
     IClock clock,
     ILogger<RotateWebhookClientCommandHandler> logger)
     : ICommandHandler<RotateWebhookClientCommand, Result<WebhookClientCredentialsDto, RotateWebhookClientError>>
@@ -145,6 +146,13 @@ public sealed class RotateWebhookClientCommandHandler(
                 integrationName, clientId.Value, clock.UtcNow,
                 Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, fab.Value, rotatedBy.Value)),
             cancellationToken);
+
+        // Spec 021. The publish happens after the save, so the message was
+        // captured into the outbox with nothing left to release it. Reordering
+        // is not available: the announcement carries a client id that only
+        // exists once Keycloak has answered, and the save-then-Keycloak order
+        // above is load-bearing for its own reasons. So the flush is explicit.
+        await commit.CommitAsync(cancellationToken);
 
         logger.RotatedWebhookIntegration(integrationName, clientId);
 

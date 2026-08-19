@@ -69,7 +69,8 @@ public sealed class AuditRetentionHostedService(
         RetentionDependencies deps = new(
             scope.ServiceProvider.GetRequiredService<IAuditChunkInventory>(),
             scope.ServiceProvider.GetRequiredService<IAuditChunkArchiver>(),
-            scope.ServiceProvider.GetRequiredService<IEventBus>());
+            scope.ServiceProvider.GetRequiredService<IEventBus>(),
+            scope.ServiceProvider.GetRequiredService<ITransactionalCommit>());
 
         IReadOnlyList<AuditChunk> chunks = await deps.Inventory.ListChunksOlderThanAsync(boundary, cancellationToken);
         if (chunks.Count == 0)
@@ -105,6 +106,18 @@ public sealed class AuditRetentionHostedService(
                 Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, null, null));
             await deps.Events.PublishAsync(@event, cancellationToken);
 
+            // Spec 021. Publishing captures the message into the outbox; this
+            // releases it. Nothing else here writes through EF, so this commit
+            // saves no rows — it exists because a publish with no accompanying
+            // write has no commit to ride on, and without it the announcement
+            // sits in the outbox for ever.
+            //
+            // The atomicity the rest of the feature buys is vacuous here: there
+            // is no row for the message to share a fate with. What it does buy
+            // is that the send survives a crash, which the previous
+            // straight-to-broker publish did not.
+            await deps.Commit.CommitAsync(cancellationToken);
+
             await deps.Inventory.DropChunkAsync(chunk, cancellationToken);
 
             logger.ArchivedChunk(chunk.ChunkIdentifier, result.RowCount, result.AlreadyArchived, result.MinioObjectKey);
@@ -121,7 +134,8 @@ public sealed class AuditRetentionHostedService(
     private sealed record RetentionDependencies(
         IAuditChunkInventory Inventory,
         IAuditChunkArchiver Archiver,
-        IEventBus Events);
+        IEventBus Events,
+        ITransactionalCommit Commit);
 }
 
 /// <summary>

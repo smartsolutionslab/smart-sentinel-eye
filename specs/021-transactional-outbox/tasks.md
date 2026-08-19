@@ -156,7 +156,7 @@ added silently.
       per context, where the contexts already expose health (FR-008, SC-006).
       **An outbox quietly growing looks exactly like an empty one** until the
       disk fills.
-- [ ] T023 [P] Report repeated delivery failure rather than only retrying it
+- [X] T023 [P] Report repeated delivery failure rather than only retrying it
       (FR-009), and confirm a message that can never be delivered is
       dead-lettered durably and countably (FR-010) rather than retried for ever.
 
@@ -164,7 +164,7 @@ added silently.
 
 ## Phase 7: Polish
 
-- [ ] T024 Integration case per [quickstart.md](./quickstart.md) step 3: kill the
+- [X] T024 Integration case per [quickstart.md](./quickstart.md) step 3: kill the
       service between commit and flush, restart, assert every committed write's
       announcement arrives (SC-002). Note spec 020's finding — the Aspire restart
       command fails on the CI runner, so this likely carries
