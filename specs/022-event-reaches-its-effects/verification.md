@@ -149,8 +149,28 @@ plausibly leaves Docker unable to bring the next stack up.
 
 **The test is therefore not excluded** (FR-007, and T012 warns why: a third
 exclusion, on the one path with no other coverage, would put the system back
-where the break got through). The routine build is the arbiter, and CI has
-booted this fixture cleanly on every run today.
+where the break got through).
+
+**And the routine build settles it.** CI ran these four tests on this branch in
+its `integration tests (Docker)` job:
+
+```
+Passed!  -  Failed: 0,  Passed: 232,  Skipped: 1,  Total: 233,  Duration: 6 m 17 s
+```
+
+232 is the 228 the suite had before this branch plus exactly these four, so they
+ran rather than being filtered out — the job filters only
+`Category!=Measurement&Category!=Disruptive`, neither of which these carry.
+
+So the environment that decides whether a regression gets noticed boots the
+fixture reliably and runs them, which is what FR-007 actually asks. The local instability is a fact about this machine, worth
+recording and not worth excluding a test over.
+
+The same CI run had `e2e (Playwright, full stack)` fail, and it was unrelated: it
+was canceled after 40 minutes on the **Install Playwright Chromium** step,
+before a single test ran, on a branch that touches no frontend or e2e code. Re-run
+unchanged, it passed in 7m36s — a stuck browser download, not a defect. All four
+checks are green.
 
 ## 7. Coverage
 
