@@ -128,49 +128,37 @@ roughly how fast; what is not established is compliance with the budget.**
 The 12-second cold path is worth someone's attention on its own — it is not
 obviously anything this feature introduced, and it is out of scope here.
 
-## 6. Where it runs, and an environment finding (SC-004)
+## 6. Where it runs (SC-004), and the fixture bug that was hiding here
 
-**The tests are stable. The machine is not.**
+**I had this wrong, and the correction is the most useful thing in this note.**
 
-Across nine full-suite runs and three class-only runs today:
+An earlier draft of this section read *"the tests are stable, the machine is
+not"*, and attributed a boot failure in roughly one run in three to Docker on
+this box. That was a guess dressed as a finding. It was the fixture.
 
-- these tests **passed in every run where the fixture booted** — eight of eight
-  — and failed in none;
-- the fixture **failed to boot in roughly one run in three**, producing 227
-  failures out of 231 including things like `Anonymous_GET_returns_401` and the
-  gateway health routes, which cannot fail for any reason connected to this
-  change;
-- one further run showed the pre-existing flaky `Mqtt_CONNECT_to_CONNACK` NFR.
+`AspireFixture.WaitForServiceHealthAsync` retries sixty times and catches
+`HttpRequestException` for "listener not bound yet". The probe client carries
+the standard resilience handler, whose 30 s timeout surfaces as
+`TimeoutRejectedException` — **not** an `HttpRequestException`. So a service
+that is *slow* rather than *absent* escaped the catch on the first attempt,
+faulted `InitializeAsync`, and failed all 232 tests with an error naming none of
+them. A retry loop that could not retry.
 
-So SC-004's "three consecutive green runs" was not obtainable here, for a reason
-that has nothing to do with this feature. **Sweeping containers between runs did
-not help and may have made it worse** — killing containers still shutting down
-plausibly leaves Docker unable to bring the next stack up.
+What gave it away was a control, not a theory: three consecutive runs of this
+class failed instantly, and an unrelated class passed on the same machine a
+minute later. A machine that cannot boot Docker does not do that.
 
-**The test is therefore not excluded** (FR-007, and T012 warns why: a third
-exclusion, on the one path with no other coverage, would put the system back
-where the break got through).
+Two things are worth taking from it. The mis-attribution was **load-bearing** —
+it was the stated reason SC-004 could not be met, so "it's the environment"
+would have shipped a real defect as a fact of life. And the failure mode is this
+feature's own subject in miniature: a suite reporting 227 failures that name nothing,
+where the true cause is one join nobody watched.
 
-**And the routine build settles it.** CI ran these four tests on this branch in
-its `integration tests (Docker)` job:
+Fixed in `tests/Integration.Tests/Fixtures/AspireFixture.cs` by also catching the
+timeout, so the loop retries as it was always written to. Test-only; nothing in
+`src/` changes, so FR-010 still holds.
 
-```
-Passed!  -  Failed: 0,  Passed: 232,  Skipped: 1,  Total: 233,  Duration: 6 m 17 s
-```
-
-232 is the 228 the suite had before this branch plus exactly these four, so they
-ran rather than being filtered out — the job filters only
-`Category!=Measurement&Category!=Disruptive`, neither of which these carry.
-
-So the environment that decides whether a regression gets noticed boots the
-fixture reliably and runs them, which is what FR-007 actually asks. The local instability is a fact about this machine, worth
-recording and not worth excluding a test over.
-
-The same CI run had `e2e (Playwright, full stack)` fail, and it was unrelated: it
-was canceled after 40 minutes on the **Install Playwright Chromium** step,
-before a single test ran, on a branch that touches no frontend or e2e code. Re-run
-unchanged, it passed in 7m36s — a stuck browser download, not a defect. All four
-checks are green.
+### What the runs then showed
 
 ## 7. Coverage
 
