@@ -35,8 +35,13 @@ namespace SmartSentinelEye.Shared.CQRS;
 /// </para>
 ///
 /// <para>
-/// Inside a Wolverine message handler neither applies: those are enrolled
-/// automatically by <c>AutoApplyTransactions</c> (ADR-0088).
+/// Inside a Wolverine message handler neither applies — but only because
+/// <c>OutboxEventBus</c> routes such a publish through the <b>ambient</b>
+/// message context, which <c>AutoApplyTransactions</c> enrols and Wolverine
+/// flushes (ADR-0088). Sending it to the DbContext outbox instead captures it
+/// where nothing flushes it, and it is lost when the scope disposes. That is
+/// not hypothetical: spec 021 shipped it that way and a code review caught it
+/// before merge.
 /// </para>
 /// </summary>
 public interface IEventBus

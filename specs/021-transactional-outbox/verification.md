@@ -92,13 +92,47 @@ Two were:
   has answered, and the save-then-Keycloak order is load-bearing for reasons its
   own comment gives. So it flushes explicitly.
 
-Automation's `FabEventIngestedV1Handler` is a Wolverine message handler and was
-already covered. Checked, not assumed.
+Automation's `FabEventIngestedV1Handler` is a Wolverine message handler, and I
+recorded here that it was "already covered. Checked, not assumed." **That was
+wrong, and the code review caught it** — see §3a.
 
 `IEventBus` now carries this on the interface, with both incidents named,
 because the signature cannot express that publishing captures rather than sends
 — which is why it kept catching people, including me, twice, inside the feature
 written to fix it.
+
+
+## 3a. The regression this feature introduced, and what missed it
+
+The code review found it, and it is the most important entry in this note.
+
+`OutboxEventBus` routed **every** publish into `IDbContextOutbox<T>`. That is
+right for a repository write and wrong inside a Wolverine message handler,
+because `IDbContextOutbox` is a *separate* message context from the ambient one
+that `AutoApplyTransactions` enrols and Wolverine flushes.
+
+`FabEventIngestedV1Handler` is such a handler. It takes no `DbContext` and never
+commits, so its announcements were captured into a context nobody saves and lost
+when the scope disposed. Concretely: a PLC event fires an active rule, and
+neither `SystemVariableValueRequestedV1` nor `OverlayHighlightRequestedV1` is
+ever published. SystemVariables never sets the variable, LayoutComposition never
+highlights the overlay — **the whole event-to-overlay leg goes dark**, with no
+error and no outbox row.
+
+The publish now goes through the ambient context when `IMessageContext.Envelope`
+is non-null, which is Wolverine's own documented discriminator for "inside a
+handler", and into the outbox otherwise.
+
+**What is worth recording is what did not catch it.** 228 integration tests
+passed. All twenty coverage gates passed. CI was green on every job. Nothing
+exercises rule fan-out end to end — a PLC event through to a variable being set
+— so the entire suite was blind to it, and I had written the opposite claim into
+three separate documents (this note, `IEventBus`, and the ADR amendment) while
+being confidently wrong.
+
+`OutboxEventBusTests` now covers both branches, and the first case fails against
+the version that shipped; I checked by restoring it. **An end-to-end rule fan-out
+test still does not exist** and is the gap this episode actually revealed.
 
 ## 4. The backlog is visible, and FR-008 asked for something that does not exist
 
@@ -181,6 +215,12 @@ was fixed, and passed after. That is consistent with the leak but not proof of
 it.
 
 ## What this feature does not do
+
+**No end-to-end test covers rule fan-out.** A PLC event through to a variable
+being set crosses EventIngestion, Automation and SystemVariables, and nothing
+asserts it. That is how §3a shipped past 228 integration tests, twenty coverage
+gates and a green CI — the gap this episode revealed is not the bug, it is that
+the suite could not see it.
 
 **It does not cover a publish with no accompanying write, automatically.** Such
 a publish must flush itself. Two call sites do; a third added later will have to
