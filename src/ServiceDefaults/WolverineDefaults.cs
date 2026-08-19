@@ -104,6 +104,7 @@ public static class WolverineDefaults
         // and forget, and forgetting is silent: the write succeeds, the caller
         // is told the truth, and the announcement is never made.
         builder.Services.AddScoped<IEventBus, OutboxEventBus<TDbContext>>();
+        builder.Services.AddScoped<ITransactionalCommit, OutboxTransactionalCommit<TDbContext>>();
 
         return builder;
     }
