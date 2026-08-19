@@ -128,15 +128,23 @@ jobs:
         run: dotnet build tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj -c Release --no-restore
 
       - name: Run integration tests
-        # Measurement cases are excluded (spec 020 T022-T024). A thirty-second
-        # saturating burst on a shared runner measures the runner, and a number
-        # that measures the runner would later be quoted as if it measured this
-        # code. They are run by hand and the figures go on the PR.
+        # Two categories are excluded, both spec 020, both for the same reason:
+        # they measure or disturb the runner rather than the code.
+        #
+        # Measurement — a thirty-second saturating burst on a shared runner
+        # measures the runner, and that number would later be quoted as if it
+        # measured this code.
+        #
+        # Disruptive — restarting a resource through Aspire fails outright on
+        # the runner ("Failed to stop resource"), and a test that goes red on a
+        # platform limitation rather than a defect teaches people to ignore red
+        # CI. The cost is real: SC-002 has no CI coverage and is verified by
+        # hand instead (specs/020-durable-ingest-ack/verification.md).
         run: |
           dotnet test tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj \
             -c Release \
             --no-build \
-            --filter "Category!=Measurement" \
+            --filter "Category!=Measurement&Category!=Disruptive" \
             --logger "trx;LogFileName=integration.trx"
 
       - name: Upload integration test results

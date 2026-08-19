@@ -34,7 +34,16 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 /// showed is on the PR.
 /// </para>
 /// </summary>
+/// <remarks>
+/// <b>Excluded from CI by its category.</b> It restarts a resource through
+/// Aspire, and on the CI runner that command fails outright — "Failed to stop
+/// resource". A test that goes red on a platform limitation rather than a code
+/// defect teaches people to ignore red CI, which costs more than this test is
+/// worth there. The cost of excluding it is real and stated: SC-002 has no CI
+/// coverage, and is verified locally and by hand instead (verification.md §2).
+/// </remarks>
 [Collection(AspireCollection.Name)]
+[Trait("Category", "Disruptive")]
 public class RestartLosesNothingIntegrationTests(AspireFixture aspire, ITestOutputHelper output)
 {
     private const string SimulatorClientId = "scenario-simulator";
@@ -61,16 +70,38 @@ public class RestartLosesNothingIntegrationTests(AspireFixture aspire, ITestOutp
         distinct.ShouldBe(total, "a redelivered event was stored twice");
     }
 
+    /// <summary>
+    /// Restarts the service, and — whatever happens — leaves it running.
+    ///
+    /// <para>
+    /// This is the most destructive thing any test in the suite does, and the
+    /// first version did it without a net: when the restart failed on CI, the
+    /// service stayed down and <b>every EventIngestion test after it</b> failed
+    /// with a socket error. One test's environment problem read as eleven
+    /// unrelated failures, which is exactly how the real one gets buried.
+    /// </para>
+    /// </summary>
     private async Task RestartAsync(string resourceName)
     {
         ResourceCommandService commands =
             aspire.App.Services.GetRequiredService<ResourceCommandService>();
-        ExecuteCommandResult result = await commands.ExecuteCommandAsync(
-            resourceName, KnownResourceCommands.RestartCommand, CancellationToken.None);
 
-        result.Success.ShouldBeTrue($"could not restart {resourceName}: {result.Message}");
-        await aspire.App.ResourceNotifications.WaitForResourceHealthyAsync(
-            resourceName, CancellationToken.None).WaitAsync(TimeSpan.FromMinutes(2));
+        try
+        {
+            ExecuteCommandResult result = await commands.ExecuteCommandAsync(
+                resourceName, KnownResourceCommands.RestartCommand, CancellationToken.None);
+            result.Success.ShouldBeTrue($"could not restart {resourceName}: {result.Message}");
+        }
+        finally
+        {
+            // Start is idempotent on a running resource, so this is safe after
+            // a restart that worked and is the repair after one that did not.
+            await commands.ExecuteCommandAsync(
+                resourceName, KnownResourceCommands.StartCommand, CancellationToken.None);
+            await aspire.App.ResourceNotifications
+                .WaitForResourceHealthyAsync(resourceName, CancellationToken.None)
+                .WaitAsync(TimeSpan.FromMinutes(2));
+        }
     }
 
     private async Task<(long Total, long Distinct)> WaitForAsync(
