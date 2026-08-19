@@ -1,10 +1,8 @@
-using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
-using MQTTnet;
-using MQTTnet.Client;
-using MQTTnet.Protocol;
+using Microsoft.AspNetCore.SignalR.Client;
 using SmartSentinelEye.Integration.Tests.Fixtures;
+using SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 using Xunit.Abstractions;
 
 namespace SmartSentinelEye.Integration.Tests.Automation;
@@ -33,17 +31,22 @@ namespace SmartSentinelEye.Integration.Tests.Automation;
 /// </para>
 ///
 /// <para>
-/// So the assertion is the <b>changed value</b>, read back the way an operator's
-/// overlay resolves it. It is the only state downstream of every join.
+/// So the assertions are the two <b>effects</b> — the changed value, read back
+/// the way an operator's overlay resolves it, and the highlight frame, taken at
+/// the hub a kiosk connects to. They are the only state downstream of every
+/// join, and they travel to different contexts by different routes, so covering
+/// one proves nothing about the other.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
 public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper output)
 {
-    private const string SimulatorClientId = "scenario-simulator";
-    private const string SimulatorClientSecret = "dev-only-scenario-simulator-secret";
     private const string Fab = "munich";
-    private const string Topic = "fab/munich/plc/station-4";
+
+    /// <summary>How long a highlight stays lit — asserted, so the frame is this rule's.</summary>
+    private const int HighlightMs = 2_500;
+
+    private readonly PlantFloor plant = new(aspire);
 
     /// <summary>
     /// Four services and a broker. Generous, and bounded — FR-009 wants "late"
@@ -71,7 +74,7 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
         string rule = await ActivateRuleAsync(rules, variable);
         output.WriteLine($"activated rule {rule}");
 
-        await PublishEventAsync("PlcCycleStart", cycleTime: 10);
+        await plant.PublishAsync("PlcCycleStart", cycleTime: 10);
         output.WriteLine("published a matching event over the broker");
 
         string? observed = await WaitForValueAsync(variables, variable, expected: "80");
@@ -82,6 +85,55 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
             + "The rule was active and the event was published, so the break is in one of "
             + "the joins between EventIngestion, Automation and SystemVariables — which is "
             + "exactly the failure this test exists to catch.");
+    }
+
+    /// <summary>
+    /// FR-002, SC-001 — the other effect. It leaves Automation on a different
+    /// message, lands in a different context, and arrives over SignalR rather
+    /// than a read API, so the value case proves nothing about it.
+    ///
+    /// <para>
+    /// Taken at the hub because that is where the product's own boundary is: the
+    /// kiosk applying a CSS class is the browser's job and the e2e suite's. The
+    /// overlay identifier need not exist — a highlight is addressed to a fab
+    /// group, not resolved against a layout — so the frame is matched on the
+    /// identifier and the duration the rule named, which is what distinguishes
+    /// it from any other highlight the fixture happens to be carrying.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task An_event_from_the_plant_floor_highlights_the_overlay_a_rule_names()
+    {
+        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+
+        Guid overlay = Guid.CreateVersion7();
+        string rule = await ActivateHighlightRuleAsync(rules, overlay);
+        output.WriteLine($"activated highlight rule {rule} for overlay {overlay}");
+
+        TaskCompletionSource<int> highlighted = new();
+        await using HubConnection kiosk = await ListenForHighlightAsync(overlay, highlighted);
+
+        // Connected before the event, not after: the frame is pushed once and
+        // not replayed, so a listener that joins late hears nothing and reports
+        // a working journey as broken.
+        await plant.PublishAsync("PlcCycleStart", cycleTime: 10);
+        output.WriteLine("published a matching event over the broker");
+
+        DateTimeOffset started = DateTimeOffset.UtcNow;
+        Task finished = await Task.WhenAny(highlighted.Task, Task.Delay(EffectDeadline));
+
+        finished.ShouldBe(
+            highlighted.Task,
+            "the highlight never reached the hub. The rule was active and the event was "
+            + "published, so the break is in one of the joins between EventIngestion, "
+            + "Automation and LayoutComposition — which is exactly the failure this test "
+            + "exists to catch.");
+
+        output.WriteLine(
+            $"overlay {overlay} highlighted after {(DateTimeOffset.UtcNow - started).TotalMilliseconds:F0} ms");
+
+        (await highlighted.Task).ShouldBe(
+            HighlightMs, "the frame arrived carrying a duration no rule in this test asked for");
     }
 
     /// <summary>
@@ -100,7 +152,7 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
         await ActivateRuleAsync(rules, variable, triggerKind: "PlcCycleStart");
 
         // A kind no active rule triggers on.
-        await PublishEventAsync("PlcSomethingElse", cycleTime: 10);
+        await plant.PublishAsync("PlcSomethingElse", cycleTime: 10);
         output.WriteLine("published an event matching no active rule");
 
         await Task.Delay(TimeSpan.FromSeconds(10));
@@ -127,9 +179,9 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
         await DefineVariableAsync(variables, variable, "0");
         await ActivateRuleAsync(rules, variable);
 
-        string payload = EventPayload("PlcCycleStart", cycleTime: 10);
-        await PublishRawAsync(payload);
-        await PublishRawAsync(payload);
+        string payload = PlantFloor.Payload("PlcCycleStart", cycleTime: 10);
+        await plant.PublishRawAsync(payload);
+        await plant.PublishRawAsync(payload);
         output.WriteLine("published the identical event twice");
 
         string? observed = await WaitForValueAsync(variables, variable, expected: "80");
@@ -172,12 +224,12 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     /// downstream failure attributable.
     /// </para>
     /// </summary>
-    private static async Task<string> ActivateRuleAsync(
+    private static Task<string> ActivateRuleAsync(
         HttpClient rules, string variable, string triggerKind = "PlcCycleStart")
     {
         string name = $"reach{Guid.CreateVersion7():N}"[..18];
 
-        HttpResponseMessage created = await rules.PostAsJsonAsync($"/rules?fabId={Fab}", new
+        return ActivateAsync(rules, name, new
         {
             name,
             triggerSource = "plc",
@@ -189,6 +241,34 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
             overlayIdentifier = (Guid?)null,
             durationMs = (int?)null,
         });
+    }
+
+    /// <summary>
+    /// The same lifecycle, the other action. A highlight names an overlay and a
+    /// duration instead of a variable and an expression, and leaves by a
+    /// different route to a different context.
+    /// </summary>
+    private static Task<string> ActivateHighlightRuleAsync(HttpClient rules, Guid overlay)
+    {
+        string name = $"light{Guid.CreateVersion7():N}"[..18];
+
+        return ActivateAsync(rules, name, new
+        {
+            name,
+            triggerSource = "plc",
+            triggerKind = "PlcCycleStart",
+            predicate = "$.payload.cycleTime <= 30",
+            actionType = "HighlightOverlay",
+            variableName = (string?)null,
+            valueExpression = (string?)null,
+            overlayIdentifier = (Guid?)overlay,
+            durationMs = (int?)HighlightMs,
+        });
+    }
+
+    private static async Task<string> ActivateAsync(HttpClient rules, string name, object definition)
+    {
+        HttpResponseMessage created = await rules.PostAsJsonAsync($"/rules?fabId={Fab}", definition);
         created.StatusCode.ShouldBe(
             System.Net.HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
 
@@ -250,6 +330,38 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
         return observed;
     }
 
+    /// <summary>
+    /// Connects to the hub a kiosk connects to, as an operator holding the fab.
+    /// The hub joins each of the caller's fabs to a group on connect, and the
+    /// highlight is addressed to the rule's fab — so a token without it would
+    /// see nothing and read exactly like a broken journey.
+    /// </summary>
+    private async Task<HubConnection> ListenForHighlightAsync(
+        Guid overlay, TaskCompletionSource<int> highlighted)
+    {
+        string token = await aspire.GetAccessTokenAsync(
+            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+
+        HubConnection kiosk = new HubConnectionBuilder()
+            .WithUrl(
+                aspire.HubUri("layout-composition", LayoutLifecycleHub.Path),
+                options => options.AccessTokenProvider = () => Task.FromResult<string?>(token))
+            .Build();
+
+        kiosk.On<JsonElement>(
+            nameof(ILayoutLifecycleClient.OverlayHighlightChanged),
+            frame =>
+            {
+                if (frame.GetProperty("overlay").GetGuid() == overlay)
+                {
+                    highlighted.TrySetResult(frame.GetProperty("durationMs").GetInt32());
+                }
+            });
+
+        await kiosk.StartAsync();
+        return kiosk;
+    }
+
     private static async Task<string?> ReadValueAsync(HttpClient variables, string name)
     {
         HttpResponseMessage fetched = await variables.GetAsync($"/system-variables/{name}");
@@ -262,58 +374,4 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
         return body.TryGetProperty("value", out JsonElement value) ? value.GetString() : null;
     }
 
-    // ---- the plant floor -----------------------------------------------------
-
-    private Task PublishEventAsync(string kind, int cycleTime) =>
-        PublishRawAsync(EventPayload(kind, cycleTime));
-
-    private static string EventPayload(string kind, int cycleTime) => JsonSerializer.Serialize(new
-    {
-        eventId = Guid.CreateVersion7(),
-        kind,
-        occurredAt = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
-        payload = new { cycleTime },
-    });
-
-    /// <summary>
-    /// Over MQTT, as a machine sends it (FR-002). Not an HTTP post into the
-    /// middle of the chain: the ingress is a join like any other, and a shortcut
-    /// past it would leave the first one untested.
-    /// </summary>
-    private async Task PublishRawAsync(string payload)
-    {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
-        using FormUrlEncodedContent form = new(new Dictionary<string, string>
-        {
-            ["grant_type"] = "client_credentials",
-            ["client_id"] = SimulatorClientId,
-            ["client_secret"] = SimulatorClientSecret,
-        });
-        HttpResponseMessage token = await keycloak.PostAsync(
-            "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
-        token.EnsureSuccessStatusCode();
-        string jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
-            .GetProperty("access_token").GetString()!;
-
-        Uri broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
-        using IMqttClient client = new MqttFactory().CreateMqttClient();
-        MqttClientConnectResult connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
-            .WithClientId($"{SimulatorClientId}-{Guid.CreateVersion7():N}")
-            .WithCredentials(SimulatorClientId, jwt)
-            .WithTcpServer(broker.Host, broker.Port)
-            .WithCleanSession(true)
-            .WithTimeout(TimeSpan.FromSeconds(30))
-            .Build());
-        connected.ResultCode.ShouldBe(MqttClientConnectResultCode.Success);
-
-        MqttClientPublishResult published = await client.PublishAsync(
-            new MqttApplicationMessageBuilder()
-                .WithTopic(Topic)
-                .WithPayload(payload)
-                .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
-                .Build());
-        published.IsSuccess.ShouldBeTrue("the broker refused the publish");
-
-        await client.DisconnectAsync();
-    }
 }
