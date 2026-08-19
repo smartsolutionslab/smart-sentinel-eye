@@ -35,7 +35,7 @@ behind. Every repository task repeats this so it is checked rather than skimmed.
 
 ## Phase 1: Setup
 
-- [ ] T001 Record the loss per [quickstart.md](./quickstart.md) step 0, against
+- [X] T001 Record the loss per [quickstart.md](./quickstart.md) step 0, against
       the current build, in a temporary integration case under
       `tests/Integration.Tests/EventIngestion/`. Stop RabbitMQ, write an event,
       and capture three numbers: the event row exists, the outbox table is
@@ -50,13 +50,13 @@ behind. Every repository task repeats this so it is checked rather than skimmed.
 
 **Blocking. Every story depends on the seam.**
 
-- [ ] T002 Add the outbox-backed publisher in
+- [X] T002 Add the outbox-backed publisher in
       `src/ServiceDefaults/OutboxEventBus.cs`, replacing `WolverineEventBus`'s
       immediate `IMessageBus.PublishAsync` with a publish into the
       `IDbContextOutbox` bound to the calling context's `DbContext`.
       `IEventBus` (Shared.CQRS) does **not** change — the Application layer
       stays Wolverine-free (ADR-0057) and no domain-event handler is touched.
-- [ ] T003 Register the outbox-backed `IEventBus` per context, one line in each
+- [X] T003 Register the outbox-backed `IEventBus` per context, one line in each
       of the nine `<Context>InfrastructureModule.cs` files. `IDbContextOutbox<T>`
       is generic in the `DbContext`, so each context binds its own. **[P]** with
       T002 only after T002's shape is settled; before that it has nothing to
@@ -72,27 +72,27 @@ is delivered. That is expected and is why T004 immediately follows.
 **Goal**: close the window on the path where the defect was found, and prove it
 with the test the issue named.
 
-- [ ] T004 [US1] Invert the order in
+- [X] T004 [US1] Invert the order in
       `src/EventIngestion/Infrastructure/Persistence/EventRepository.cs`:
       dispatch **before** the commit, and commit via
       `SaveChangesAndFlushMessagesAsync`. Keep spec 020's failure collection —
       every event is offered to the dispatcher and failures are raised together,
       so one bad handler cannot strand the other 199.
       **⚠ Handlers now run pre-commit. A handler that throws fails the write.**
-- [ ] T005 [US1] Unit case in
+- [X] T005 [US1] Unit case in
       `tests/EventIngestion.Infrastructure.Tests/` asserting the dispatch happens
       before the save, not after — the ordering is the guarantee, and a test that
       only checks "both happened" passes against the defect.
-- [ ] T006 [P] [US1] Unit case asserting a **failed commit publishes nothing**.
+- [X] T006 [P] [US1] Unit case asserting a **failed commit publishes nothing**.
       This is the failure a naive fix introduces: capturing the message early is
       only safe if it is discarded when the write is not committed. A false
       announcement is worse than a lost one.
-- [ ] T007 [US1] Integration case under `tests/Integration.Tests/EventIngestion/`
+- [X] T007 [US1] Integration case under `tests/Integration.Tests/EventIngestion/`
       per [quickstart.md](./quickstart.md) step 1: broker down, write an event,
       assert **a pending outbox row exists**; broker back, assert the row drains
       and the consumers act. The pending row is the whole feature — before it,
       there was nothing to point at.
-- [ ] T008 [US1] Integration case per [quickstart.md](./quickstart.md) step 2:
+- [X] T008 [US1] Integration case per [quickstart.md](./quickstart.md) step 2:
       force a write to fail after its domain event is raised, assert **zero**
       outbox rows (SC-003).
 
@@ -106,22 +106,22 @@ shippable increment on its own.
 **Goal**: the other eight write paths, and a guard so a ninth added later cannot
 quietly opt out.
 
-- [ ] T009 [P] [US2] `src/Automation/Infrastructure/Persistence/RuleRepository.cs` — dispatch before commit, commit via the outbox. **⚠ pre-commit handlers.**
-- [ ] T010 [P] [US2] `src/CameraCatalog/Infrastructure/Persistence/CameraRepository.cs` — same. **⚠ pre-commit handlers.**
-- [ ] T011 [P] [US2] `src/EventIngestion/Infrastructure/Persistence/WebhookIntegrationRepository.cs` — same. **⚠ pre-commit handlers.**
-- [ ] T012 [P] [US2] `src/Identity/Infrastructure/Persistence/RegisteredClientRepository.cs` — same. **⚠ pre-commit handlers.**
-- [ ] T013 [P] [US2] `src/LayoutComposition/Infrastructure/Persistence/LayoutRepository.cs` — same. **⚠ pre-commit handlers.**
-- [ ] T014 [P] [US2] `src/OverlayDesigner/Infrastructure/Persistence/OverlayRepository.cs` — same. **⚠ pre-commit handlers.**
-- [ ] T015 [P] [US2] `src/StreamDistribution/Infrastructure/Persistence/StreamRepository.cs` — same. **⚠ pre-commit handlers.**
-- [ ] T016 [US2] `src/SystemVariables/Infrastructure/Persistence/VariableRepository.cs` — same, and **not [P]**. Its
+- [X] T009 [P] [US2] `src/Automation/Infrastructure/Persistence/RuleRepository.cs` — dispatch before commit, commit via the outbox. **⚠ pre-commit handlers.**
+- [X] T010 [P] [US2] `src/CameraCatalog/Infrastructure/Persistence/CameraRepository.cs` — same. **⚠ pre-commit handlers.**
+- [X] T011 [P] [US2] `src/EventIngestion/Infrastructure/Persistence/WebhookIntegrationRepository.cs` — same. **⚠ pre-commit handlers.**
+- [X] T012 [P] [US2] `src/Identity/Infrastructure/Persistence/RegisteredClientRepository.cs` — same. **⚠ pre-commit handlers.**
+- [X] T013 [P] [US2] `src/LayoutComposition/Infrastructure/Persistence/LayoutRepository.cs` — same. **⚠ pre-commit handlers.**
+- [X] T014 [P] [US2] `src/OverlayDesigner/Infrastructure/Persistence/OverlayRepository.cs` — same. **⚠ pre-commit handlers.**
+- [X] T015 [P] [US2] `src/StreamDistribution/Infrastructure/Persistence/StreamRepository.cs` — same. **⚠ pre-commit handlers.**
+- [X] T016 [US2] `src/SystemVariables/Infrastructure/Persistence/VariableRepository.cs` — same, and **not [P]**. Its
       `VariableValueChangedDomainEventHandler` is the only handler of the twelve
       that reads as well as publishes (research.md R2), so it is the only one
       whose correctness depends on *when* it runs.
-- [ ] T017 [US2] Test that `VariableValueChangedDomainEventHandler` still
+- [X] T017 [US2] Test that `VariableValueChangedDomainEventHandler` still
       resolves the right snapshot when it runs pre-commit — it reads through the
       same `DbContext`, so the change tracker should surface the pending write.
       The one handler where "it should be fine" is not good enough.
-- [ ] T018 [US2] NetArchTest rule in `tests/Architecture.Tests/`: no type under a
+- [X] T018 [US2] NetArchTest rule in `tests/Architecture.Tests/`: no type under a
       `Persistence` namespace calls `DbContext.SaveChangesAsync` directly
       (FR-007). A repository added later either goes through the outbox or fails
       the build. Removing the unenrolled path is not available — `IMessageBus`

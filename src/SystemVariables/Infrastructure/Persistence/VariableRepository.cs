@@ -7,6 +7,7 @@ namespace SmartSentinelEye.SystemVariables.Infrastructure.Persistence;
 
 public sealed class VariableRepository(
     SystemVariablesDbContext dbContext,
+    ITransactionalCommit commit,
     IDomainEventDispatcher domainEventDispatcher) : IVariableRepository
 {
     public async Task<Option<Variable>> GetByIdentifierAsync(
@@ -45,13 +46,23 @@ public sealed class VariableRepository(
             .Select(entry => entry.Entity)
             .ToArray();
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-
+        // Dispatch first, then commit the rows and the messages together (spec
+        // 021 FR-001). The handler behind this one is the only one of the twelve
+        // that reads as well as publishes, which is why this repository landed
+        // on its own rather than among the seven identical ones.
+        //
+        // It is safe, and not by luck: the changed variable's value comes from
+        // the domain event, not from a query, and the siblings it looks up are
+        // not written by this transaction. Where a sibling ever were, the read
+        // goes through the same DbContext and would see the pending change
+        // rather than a stale one.
         foreach (Variable variable in tracked)
         {
             IDomainEvent[] events = variable.PendingEvents.ToArray();
             variable.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }
+
+        await commit.CommitAsync(cancellationToken);
     }
 }
