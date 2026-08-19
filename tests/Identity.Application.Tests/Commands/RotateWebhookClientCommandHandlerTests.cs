@@ -28,7 +28,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeKeycloakAdminClient keycloak = new();
         FakeEventBus bus = new();
         RotateWebhookClientCommandHandler handler = new(
-            repo, keycloak, bus, new FakeClock(Now),
+            repo, keycloak, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
             NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
@@ -52,7 +52,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeKeycloakAdminClient keycloak = new();
         FakeEventBus bus = new();
         RotateWebhookClientCommandHandler handler = new(
-            repo, keycloak, bus, new FakeClock(Now),
+            repo, keycloak, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
             NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> first =
@@ -79,7 +79,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeKeycloakAdminClient keycloak = new();
         FakeEventBus bus = new();
         RotateWebhookClientCommandHandler handler = new(
-            repo, keycloak, bus, new FakeClock(Now),
+            repo, keycloak, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
             NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         // "Has Spaces" yields clientId "webhook-Has Spaces" which
@@ -97,7 +97,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeKeycloakAdminClient keycloak = new() { FailNextCall = "Keycloak 500" };
         FakeEventBus bus = new();
         RotateWebhookClientCommandHandler handler = new(
-            repo, keycloak, bus, new FakeClock(Now),
+            repo, keycloak, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
             NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
