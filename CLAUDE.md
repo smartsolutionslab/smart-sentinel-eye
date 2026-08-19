@@ -77,6 +77,22 @@ user to confirm before continuing.
 | 6 | QA | `/code-review`; `/security-review` if security-sensitive | Findings addressed | All findings resolved or accepted in writing. |
 | 7 | PR | `gh pr create` with template | PR to `develop`, CI green | Reviewer approval + green CI. |
 
+**Phase 3's board gate needs doing by hand.** `/speckit-taskstoissues` creates
+the issues but does not add them to Project #13, so the gate is only met after:
+
+```sh
+gh project item-add 13 --owner smartsolutionslab --url <issue-url>   # per issue
+```
+
+That needs the `project` scope (`gh auth refresh -s project,read:project`), and
+`item-add` prints nothing on success — verify with `gh project item-list 13`.
+
+Specs 018–021 missed this and their task issues are **not** on the board. That
+is a known exception, not a change of convention: the board holds granular
+`[TNNN]` issues from earlier specs, and back-filling ~100 issues for merged work
+would bury the in-flight items the board exists to show. Applied from spec 022
+onward. The two feature-level issues from that period (#1605, #1635) were added
+individually.
 **Skipping a phase:** allowed only for trivial changes (typo, dep
 bump, comment-only). Write `Phase X: skipped — <one line>` in the PR
 body. Documentation-only PRs typically skip 5 and 6.
