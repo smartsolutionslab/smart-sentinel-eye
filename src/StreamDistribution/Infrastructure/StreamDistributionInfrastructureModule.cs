@@ -51,7 +51,6 @@ public static class StreamDistributionInfrastructureModule
             StreamHealthChangedDomainEventHandler>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
-        builder.Services.AddScoped<IEventBus, WolverineEventBus>();
         builder.Services.AddSingleton<IStreamWhepUrlBuilder, MediaMtxWhepUrlBuilder>();
         builder.Services.AddSingleton<IWhepAuthValidator, WhepAuthValidator>();
 

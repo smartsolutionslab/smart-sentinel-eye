@@ -39,7 +39,6 @@ public static class LayoutCompositionInfrastructureModule
         builder.Services.AddScoped<IDomainEventHandler<LayoutRevisionArchivedDomainEvent>, LayoutRevisionArchivedDomainEventHandler>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
-        builder.Services.AddScoped<IEventBus, WolverineEventBus>();
         builder.Services.AddSignalR();
         builder.Services.AddSingleton<ILayoutLifecycleBroadcaster, SignalRLayoutLifecycleBroadcaster>();
 

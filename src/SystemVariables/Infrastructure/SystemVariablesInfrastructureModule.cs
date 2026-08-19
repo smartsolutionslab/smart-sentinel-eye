@@ -45,7 +45,6 @@ public static class SystemVariablesInfrastructureModule
         builder.Services.AddScoped<IVariableQuerySource, VariableQuerySource>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
-        builder.Services.AddScoped<IEventBus, WolverineEventBus>();
 
         // Reverse-index + resolver are process-wide singletons (the
         // index is mutated concurrently; the resolver is stateless).

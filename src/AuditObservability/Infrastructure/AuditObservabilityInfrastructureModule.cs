@@ -36,7 +36,6 @@ public static class AuditObservabilityInfrastructureModule
         builder.Services.AddScoped<IAuditEventQuerySource, AuditEventQuerySource>();
 
         builder.Services.AddSingleton<IClock, SystemClock>();
-        builder.Services.AddScoped<IEventBus, WolverineEventBus>();
         builder.Services.AddSingleton(TimeProvider.System);
 
         builder.Services.AddSingleton(V1ResourceMap.Default);

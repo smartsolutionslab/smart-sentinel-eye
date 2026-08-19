@@ -60,7 +60,6 @@ public static class CameraCatalogInfrastructureModule
             CameraRegisteredDomainEventHandler>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
-        builder.Services.AddScoped<IEventBus, WolverineEventBus>();
 
         builder.AddWolverineForContext<CameraCatalogDbContext>(
             moduleQueuePrefix: ContextName,
