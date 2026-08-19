@@ -183,7 +183,7 @@ added silently.
       observations against the T001 baseline. **"Done" is the observations.**
       Delete T001's reporter once they are on the PR. Steps 2 and 5 are the ones
       that cannot be faked.
-- [ ] T028 Close **#1605** with `Closes #1605` in the PR body, and state what
+- [X] T028 Close **#1605** with `Closes #1605` in the PR body, and state what
       this feature does **not** do: it does not deduplicate, it does not order,
       and it does not cover a publish made without an accompanying write.
 
