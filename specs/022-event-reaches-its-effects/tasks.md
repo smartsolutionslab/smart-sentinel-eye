@@ -142,7 +142,7 @@ this task, nothing is established.
 - [X] T015 Walk [quickstart.md](./quickstart.md) end to end and record the
       observations. **"Done" is the observations**, and step 3 is the one that
       cannot be skipped.
-- [ ] T016 Close **#1635** with `Closes #1635` in the PR body, and state what
+- [X] T016 Close **#1635** with `Closes #1635` in the PR body, and state what
       this does not cover: one event rather than load, the effects that exist
       rather than an exhaustive matrix, and the hub frame rather than a browser.
 - [X] T017 Add every issue created for these tasks to **Project #13**
