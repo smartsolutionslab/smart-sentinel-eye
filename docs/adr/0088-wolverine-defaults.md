@@ -66,6 +66,15 @@ publishes. It is not, and issue #1605 is what that cost.
 Wolverine message handler** — a context reacting to an integration event
 it received. Those are covered, and always were.
 
+That coverage is not free once `IEventBus` is outbox-backed. A handler's
+publish must go through the **ambient** message context, not through
+`IDbContextOutbox`, which is a separate context nobody flushes. Spec 021
+first routed everything to the latter and would have silently killed
+rule fan-out — a PLC event fires a rule and no variable is set, no
+overlay highlighted, with no error and no outbox row. `OutboxEventBus`
+switches on `IMessageContext.Envelope`, which Wolverine documents as
+non-null only while handling a message.
+
 **A write that originates anywhere else was not.** An HTTP endpoint or a
 hosted service calling a repository is not a Wolverine handler, so
 nothing enrolled its publishes: the repository committed its rows and
@@ -95,7 +104,9 @@ for, rather than by building anything:
 repository that commits via `ITransactionalCommit`, it is. If it calls
 `SaveChangesAsync` itself, it is not — and the architecture test will say
 so. If it publishes without an accompanying write, there is no
-transaction to join and this guarantee does not apply to it.
+transaction to join, and the caller must flush the outbox itself. If it
+is a Wolverine message handler, it is covered by the ambient context and
+needs nothing.
 
 ## Consequences
 
