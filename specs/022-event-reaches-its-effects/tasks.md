@@ -145,7 +145,7 @@ this task, nothing is established.
 - [ ] T016 Close **#1635** with `Closes #1635` in the PR body, and state what
       this does not cover: one event rather than load, the effects that exist
       rather than an exhaustive matrix, and the hub frame rather than a browser.
-- [ ] T017 Add every issue created for these tasks to **Project #13**
+- [X] T017 Add every issue created for these tasks to **Project #13**
       (`gh project item-add 13 --owner smartsolutionslab --url <issue-url>`).
       CLAUDE.md's phase-3 gate has always required this and specs 018–021 all
       missed it; 022 is where it starts being done.
