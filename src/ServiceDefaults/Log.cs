@@ -16,7 +16,7 @@ namespace SmartSentinelEye.ServiceDefaults;
 internal static partial class Log
 {
     [LoggerMessage(Level = LogLevel.Debug,
-        Message = "Publishing integration event {EventType} via Wolverine.")]
+        Message = "Published integration event {EventType} through the ambient handler context.")]
     public static partial void PublishingIntegrationEvent(this ILogger logger, string eventType);
 
     // "Captured", not "published", and the distinction is the whole feature:
@@ -26,4 +26,11 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Debug,
         Message = "Captured integration event {EventType} in the outbox; it is released when the write commits.")]
     public static partial void CapturingIntegrationEvent(this ILogger logger, string eventType);
+
+    // Warning, and in every environment. The health endpoint that carries the
+    // same numbers is mapped in Development only, and production is the one
+    // place an outbox grows with nobody watching it (spec 021 FR-009).
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Outbox {Schema} is not draining: {Pending} announcement(s) waiting, most-retried has failed {Attempts} time(s).")]
+    public static partial void OutboxBacklogConcerning(this ILogger logger, string schema, long pending, int attempts);
 }

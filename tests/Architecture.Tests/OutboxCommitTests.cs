@@ -70,12 +70,35 @@ public class OutboxCommitTests
     /// to <see cref="DbContext.SaveChangesAsync(CancellationToken)"/> from a
     /// repository body is an offence — including one buried in a helper, which
     /// is how it would come back.
+    ///
+    /// <para>
+    /// <b>The nested types are the point.</b> Every repository's <c>SaveAsync</c>
+    /// is <c>async</c>, so its body is compiled into a state machine
+    /// (<c>CameraRepository+&lt;SaveAsync&gt;d__7.MoveNext</c>) and the declared
+    /// method holds nothing but <c>AsyncTaskMethodBuilder</c> plumbing. Scanning
+    /// only declared methods — which is what the first version of this rule did —
+    /// therefore catches the one shape nobody writes and misses every
+    /// <c>await dbContext.SaveChangesAsync(ct)</c> in the repository.
+    /// </para>
     /// </summary>
     private static bool CallsSaveChangesDirectly(Type type) =>
-        type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+        BodiesOf(type).Any(body => ReferencesSaveChanges(body, type.Module));
+
+    private static IEnumerable<MethodBody> BodiesOf(Type type)
+    {
+        const BindingFlags Declared =
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance
+            | BindingFlags.Static | BindingFlags.DeclaredOnly;
+
+        IEnumerable<Type> types = [type, .. type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic)];
+
+        return types
+            .SelectMany(candidate => candidate.GetMethods(Declared).Cast<MethodBase>()
+                .Concat(candidate.GetConstructors(Declared)))
             .Select(method => method.GetMethodBody())
             .Where(body => body is not null)
-            .Any(body => ReferencesSaveChanges(body!, type.Module));
+            .Select(body => body!);
+    }
 
     private static bool ReferencesSaveChanges(MethodBody body, Module module)
     {
@@ -104,11 +127,17 @@ public class OutboxCommitTests
                     return true;
                 }
             }
-            catch (ArgumentException)
+            catch (Exception resolution) when (
+                resolution is ArgumentException
+                or FileNotFoundException
+                or BadImageFormatException
+                or MissingMethodException)
             {
                 // Not a method token at this offset — the byte was operand data
                 // rather than an opcode. Scanning IL without decoding it fully
-                // means this happens; it is not a finding.
+                // means this happens, and a bogus token can fail to resolve in
+                // several ways, not only as an ArgumentException. None of them
+                // is a finding.
             }
         }
 
