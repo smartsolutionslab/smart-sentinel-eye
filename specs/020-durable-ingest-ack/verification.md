@@ -212,3 +212,19 @@ Run under Windows PowerShell 5.1 via a BOM-prefixed copy of the script — witho
 the byte-order mark 5.1 mis-decodes the script's own UTF-8 characters and fails
 to parse. The copy is gitignored; the fix is pwsh 7, which is not on this
 machine.
+
+## 7. The suites
+
+After the code review's fixes, on this branch:
+
+```
+Domain           102 passed
+Application       46 passed
+Infrastructure    25 passed
+Architecture      23 passed
+Integration      224 passed, 1 skipped, 0 failed   (measurement cases excluded)
+```
+
+The measurement cases carry `Category=Measurement` and are excluded from CI. A
+saturating burst on a shared runner measures the runner, and a number that
+measures the runner would later be quoted as if it measured this code.
