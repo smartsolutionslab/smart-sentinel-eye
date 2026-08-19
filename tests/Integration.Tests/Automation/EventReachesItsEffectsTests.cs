@@ -63,7 +63,7 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
         using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
         using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
 
-        string variable = $"oee{Guid.CreateVersion7():N}"[..16];
+        string variable = $"oee{Guid.NewGuid():N}"[..16];
         await DefineVariableAsync(variables, variable, "0");
         output.WriteLine($"defined {variable} = 0");
 
@@ -120,10 +120,20 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
         output.WriteLine("published a matching event over the broker");
 
         DateTimeOffset started = DateTimeOffset.UtcNow;
-        Task finished = await Task.WhenAny(highlighted.Task, Task.Delay(EffectDeadline));
+        using CancellationTokenSource budget = new(EffectDeadline);
 
-        finished.ShouldBe(
-            highlighted.Task,
+        int durationMs = 0;
+        bool arrived = true;
+        try
+        {
+            durationMs = await highlighted.Task.WaitAsync(budget.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            arrived = false;
+        }
+
+        arrived.ShouldBeTrue(
             "the highlight never reached the hub. The rule was active and the event was "
             + "published, so the break is in one of the joins between EventIngestion, "
             + "Automation and LayoutComposition — which is exactly the failure this test "
@@ -132,7 +142,7 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
         output.WriteLine(
             $"overlay {overlay} highlighted after {(DateTimeOffset.UtcNow - started).TotalMilliseconds:F0} ms");
 
-        (await highlighted.Task).ShouldBe(
+        durationMs.ShouldBe(
             HighlightMs, "the frame arrived carrying a duration no rule in this test asked for");
     }
 
@@ -140,25 +150,41 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     /// FR-003, SC-003. Without this, a positive assertion that cannot fail is
     /// indistinguishable from a passing one — a test asserting a value equals
     /// what it already was would pass on a completely dead system.
+    ///
+    /// <para>
+    /// <b>Two rules and one event, rather than a rule and a wait.</b> The
+    /// obvious shape — publish something nothing matches, sleep, assert nothing
+    /// changed — cannot fail for the right reason. It reports "unchanged" on a
+    /// dead broker, an unpersisted event, or simply a stack slower than the
+    /// sleep, and this suite measures the first event of a run at 12–14 s. The
+    /// matching rule removes all three: both effects are fanned out from the
+    /// same event in the same pass, so once the matched variable has moved, the
+    /// ignored one has had its chance and did not take it.
+    /// </para>
     /// </summary>
     [Fact]
-    public async Task An_event_no_rule_matches_changes_nothing()
+    public async Task An_event_changes_only_the_variable_whose_rule_matches_it()
     {
         using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
         using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
 
-        string variable = $"idle{Guid.CreateVersion7():N}"[..16];
-        await DefineVariableAsync(variables, variable, "7");
-        await ActivateRuleAsync(rules, variable, triggerKind: "PlcCycleStart");
+        string matched = $"hit{Guid.NewGuid():N}"[..16];
+        string ignored = $"idle{Guid.NewGuid():N}"[..16];
+        await DefineVariableAsync(variables, matched, "0");
+        await DefineVariableAsync(variables, ignored, "7");
 
-        // A kind no active rule triggers on.
-        await plant.PublishAsync("PlcSomethingElse", cycleTime: 10);
-        output.WriteLine("published an event matching no active rule");
+        await ActivateRuleAsync(rules, matched);
+        await ActivateRuleAsync(rules, ignored, triggerKind: "PlcSomethingElse");
 
-        await Task.Delay(TimeSpan.FromSeconds(10));
+        await plant.PublishAsync("PlcCycleStart", cycleTime: 10);
+        output.WriteLine("published one event that matches one of the two active rules");
 
-        string? observed = await ReadValueAsync(variables, variable);
-        output.WriteLine($"{variable} after an unmatched event: {observed}");
+        // The sync point, and the proof the system is alive at all.
+        (await WaitForValueAsync(variables, matched, expected: "80")).ShouldBe(
+            "80", "the matching rule's effect never arrived, so this case establishes nothing");
+
+        string? observed = await ReadValueAsync(variables, ignored);
+        output.WriteLine($"{ignored} after an event its rule does not match: {observed}");
 
         observed.ShouldBe("7", "an event no rule matches changed a variable anyway");
     }
@@ -166,16 +192,27 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     /// <summary>
     /// FR-004's edge case. Redelivery stopped being rare with spec 020 — the
     /// broker now redelivers anything unacknowledged — so the same event
-    /// arriving twice is an ordinary case, and SystemVariables dedups by the
-    /// causing event.
+    /// arriving twice is an ordinary case rather than an exotic one.
+    ///
+    /// <para>
+    /// <b>What this does and does not establish.</b> The duplicate is stopped at
+    /// the first join: <c>IngestEventCommandHandler</c> checks
+    /// <c>ExistsAsync(fab, identifier)</c> and returns <c>EventAlreadyIngested</c>
+    /// <i>before</i> raising <c>FabEventIngestedV1</c>, so it never reaches
+    /// Automation or SystemVariables. This therefore covers ingestion
+    /// idempotency end to end, and says nothing about SystemVariables' own
+    /// dedup-by-causing-event, which would need a duplicate that gets past
+    /// ingestion to exercise. Said here because a test whose name promises more
+    /// than it checks is the failure mode this whole feature exists to fix.
+    /// </para>
     /// </summary>
     [Fact]
-    public async Task The_same_event_twice_applies_its_effect_once()
+    public async Task A_redelivered_event_applies_its_effect_once()
     {
         using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
         using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
 
-        string variable = $"dup{Guid.CreateVersion7():N}"[..16];
+        string variable = $"dup{Guid.NewGuid():N}"[..16];
         await DefineVariableAsync(variables, variable, "0");
         await ActivateRuleAsync(rules, variable);
 
@@ -227,7 +264,7 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     private static Task<string> ActivateRuleAsync(
         HttpClient rules, string variable, string triggerKind = "PlcCycleStart")
     {
-        string name = $"reach{Guid.CreateVersion7():N}"[..18];
+        string name = $"reach{Guid.NewGuid():N}"[..18];
 
         return ActivateAsync(rules, name, new
         {
@@ -250,7 +287,7 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     /// </summary>
     private static Task<string> ActivateHighlightRuleAsync(HttpClient rules, Guid overlay)
     {
-        string name = $"light{Guid.CreateVersion7():N}"[..18];
+        string name = $"light{Guid.NewGuid():N}"[..18];
 
         return ActivateAsync(rules, name, new
         {
