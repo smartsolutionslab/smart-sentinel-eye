@@ -169,17 +169,17 @@ added silently.
       announcement arrives (SC-002). Note spec 020's finding — the Aspire restart
       command fails on the CI runner, so this likely carries
       `Category=Disruptive` and the same honest note about what that costs.
-- [ ] T025 Run spec 020's `IngestThroughputMeasurementTests` before and after,
+- [X] T025 Run spec 020's `IngestThroughputMeasurementTests` before and after,
       identical harness, and record both figures (FR-011, FR-012, SC-005). The
       expectation is neutral-to-better — the change removes a synchronous broker
       hop and adds rows to a transaction already open — but **the expectation is
       not the deliverable, the two numbers are**. Watch the row volume: 200
       events per batch becomes 200 event rows plus 200 outbox rows per commit.
-- [ ] T026 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm
+- [X] T026 Run `scripts/coverage-check.ps1 -Configuration Release` and confirm
       the gates. **Needs PowerShell 7**; under 5.1 the script fails to parse on
       its own UTF-8 characters — see spec 018's verification note for the BOM
       workaround, which is gitignored.
-- [ ] T027 Walk [quickstart.md](./quickstart.md) end to end and record the
+- [X] T027 Walk [quickstart.md](./quickstart.md) end to end and record the
       observations against the T001 baseline. **"Done" is the observations.**
       Delete T001's reporter once they are on the PR. Steps 2 and 5 are the ones
       that cannot be faked.
