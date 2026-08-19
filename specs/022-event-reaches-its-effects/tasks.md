@@ -68,7 +68,7 @@ for. Nothing is asserted yet.
       shortcut into the middle of the chain), and assert the variable's value
       changed, read back through the SystemVariables API rather than from the
       database (data-model.md).
-- [ ] T005 [P] [US1] The highlight effect: seed an active highlight rule,
+- [X] T005 [P] [US1] The highlight effect: seed an active highlight rule,
       connect a `HubConnection` as the existing LayoutComposition integration
       tests do, publish a matching event, and assert the frame arrives. The two
       effects travel to different contexts by different routes, so covering one
@@ -120,7 +120,7 @@ this task, nothing is established.
 - [X] T011 [US3] Run the full integration suite three consecutive times with
       this test included, and confirm it passes each time (SC-004). Flakiness
       across four services is the expected risk.
-- [ ] T012 [US3] If it cannot be made reliable, record the reason **and the
+- [X] T012 [US3] If it cannot be made reliable, record the reason **and the
       cost** — that this path returns to having no automated coverage at all
       (FR-008). `Category=Disruptive` is a last resort here: specs 020 and 021
       each excluded one test defensibly, and a third exclusion on the one path
@@ -131,15 +131,15 @@ this task, nothing is established.
 
 ## Phase 7: Polish
 
-- [ ] T013 Measure arrival-to-effect and cite it against the
+- [X] T013 Measure arrival-to-effect and cite it against the
       `event → overlay state ≤ 200 ms` leg (SC-005) — **and state what it does
       not establish.** The fixture runs nine services and a broker on one host;
       spec 020 was explicit that a figure taken there is not a figure about a
       fab, and the same applies.
-- [ ] T014 Run `scripts/coverage-check.ps1 -Configuration Release`. Gates should
+- [X] T014 Run `scripts/coverage-check.ps1 -Configuration Release`. Gates should
       be unmoved — this feature adds no production code — and a change would mean
       something unintended was touched.
-- [ ] T015 Walk [quickstart.md](./quickstart.md) end to end and record the
+- [X] T015 Walk [quickstart.md](./quickstart.md) end to end and record the
       observations. **"Done" is the observations**, and step 3 is the one that
       cannot be skipped.
 - [ ] T016 Close **#1635** with `Closes #1635` in the PR body, and state what
