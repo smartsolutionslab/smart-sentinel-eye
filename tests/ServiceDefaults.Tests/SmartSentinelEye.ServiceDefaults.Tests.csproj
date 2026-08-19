@@ -11,6 +11,7 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Shouldly" />
+    <PackageReference Include="Moq" />
 
     <!-- A real relational provider so the test model can map owned
          collections to their own tables, as Layout and Overlay do. The

@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 
 namespace SmartSentinelEye.ServiceDefaults;
 
@@ -24,7 +25,10 @@ namespace SmartSentinelEye.ServiceDefaults;
 /// a condition it is currently handling correctly.
 /// </para>
 /// </summary>
-public sealed class OutboxBacklogHealthCheck<TDbContext>(TDbContext database, string outboxSchema)
+public sealed class OutboxBacklogHealthCheck<TDbContext>(
+    TDbContext database,
+    ILogger<OutboxBacklogHealthCheck<TDbContext>> logger,
+    string outboxSchema)
     : IHealthCheck
     where TDbContext : DbContext
 {
@@ -35,6 +39,19 @@ public sealed class OutboxBacklogHealthCheck<TDbContext>(TDbContext database, st
     /// sending agent is doing.
     /// </summary>
     public const int ConcerningAttempts = 5;
+
+    /// <summary>
+    /// Past this many waiting announcements, something is not draining.
+    ///
+    /// <para>
+    /// Generous on purpose: the ingest path commits batches of 200, so a healthy
+    /// system under load is briefly in the hundreds. What this catches is a
+    /// backlog that keeps climbing — in particular one nothing is retrying,
+    /// which the attempts counter cannot see because an unreleased message is
+    /// never attempted.
+    /// </para>
+    /// </summary>
+    public const int ConcerningBacklog = 5_000;
 
     /// <summary>
     /// How many times the most-retried announcement has failed to go out.
@@ -80,9 +97,29 @@ public sealed class OutboxBacklogHealthCheck<TDbContext>(TDbContext database, st
                 CultureInfo.InvariantCulture,
                 $"{pending} announcement(s) waiting; most-retried has failed {attempts} time(s).");
 
-            return attempts >= ConcerningAttempts
-                ? HealthCheckResult.Degraded(description, data: data)
-                : HealthCheckResult.Healthy(description, data);
+            // Both signals, because they catch different failures and this check
+            // exists for the one nobody would think to look for.
+            //
+            // Attempts climb when delivery is failing. But a message that is
+            // captured and never *released* — the "sits in the outbox for ever"
+            // case the IEventBus documentation describes, and the one a publish
+            // outside a write produces — is never attempted at all, so attempts
+            // stays 0 while pending grows without bound. Watching only the retry
+            // counter would report Healthy right up until the disk filled, which
+            // is the silent backlog this feature promised not to trade a silent
+            // loss for.
+            if (attempts < ConcerningAttempts && pending < ConcerningBacklog)
+            {
+                return HealthCheckResult.Healthy(description, data);
+            }
+
+            // Logged as well as reported, because the health endpoint is mapped
+            // in Development only — a deliberate decision with its own security
+            // rationale (see MapDefaultEndpoints) — and production is the only
+            // place an outbox grows unattended. A signal that exists solely on a
+            // surface nobody can reach in production is not a signal (FR-009).
+            logger.OutboxBacklogConcerning(outboxSchema, pending, attempts);
+            return HealthCheckResult.Degraded(description, data: data);
         }
         catch (DbException ex) when (IsUnreachable(ex))
         {

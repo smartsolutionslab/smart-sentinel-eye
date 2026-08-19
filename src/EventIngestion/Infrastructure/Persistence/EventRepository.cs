@@ -120,9 +120,16 @@ public sealed class EventRepository(
 
         if (failures.Count > 0)
         {
+            // "Not committed", not "rolled back". Nothing has been committed here
+            // because the commit below is skipped — but the successful handlers'
+            // messages and the added rows are still sitting in this scope, so a
+            // later commit on the same scope would send them. Every caller today
+            // uses a fresh AsyncServiceScope per attempt, which is what makes
+            // that unreachable; the wording no longer promises a rollback this
+            // method does not perform.
             throw new AggregateException(
                 $"{failures.Count} of {pending.Count} domain event(s) could not be captured; "
-                + "nothing has been committed.",
+                + "this unit of work is not committed and must be discarded with its scope.",
                 failures);
         }
 

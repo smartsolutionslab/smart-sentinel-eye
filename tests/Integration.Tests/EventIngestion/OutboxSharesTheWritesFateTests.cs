@@ -161,16 +161,29 @@ public class OutboxSharesTheWritesFateTests(AspireFixture aspire, ITestOutputHel
         return response;
     }
 
+    /// <summary>
+    /// Recreates the partition and <b>both</b> monthly children, because the drop
+    /// took whatever was there. Restoring only the current month leaves a run
+    /// started near a month boundary — or any later test relying on next month's
+    /// child, which the rollover migrator creates — looking at a fixture state
+    /// nobody set up, and the failure surfaces a long way from here.
+    /// </summary>
     private async Task RestoreStorageAsync()
     {
         DateTime now = DateTime.UtcNow;
+        DateTime next = now.AddMonths(1);
+
         await ExecuteAsync($"""
             CREATE TABLE IF NOT EXISTS events_{Fab} PARTITION OF events
                 FOR VALUES IN ('{Fab}') PARTITION BY RANGE (ingested_at);
             """);
         await ExecuteAsync($"""
             CREATE TABLE IF NOT EXISTS "events_{Fab}_{now:yyyyMM}" PARTITION OF events_{Fab}
-                FOR VALUES FROM ('{now:yyyy-MM}-01') TO ('{now.AddMonths(1):yyyy-MM}-01');
+                FOR VALUES FROM ('{now:yyyy-MM}-01') TO ('{next:yyyy-MM}-01');
+            """);
+        await ExecuteAsync($"""
+            CREATE TABLE IF NOT EXISTS "events_{Fab}_{next:yyyyMM}" PARTITION OF events_{Fab}
+                FOR VALUES FROM ('{next:yyyy-MM}-01') TO ('{next.AddMonths(1):yyyy-MM}-01');
             """);
     }
 
