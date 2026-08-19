@@ -9,6 +9,7 @@ namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 
 public sealed class EventRepository(
     EventIngestionDbContext dbContext,
+    ITransactionalCommit commit,
     IDomainEventDispatcher domainEventDispatcher) : IEventRepository
 {
     public async Task<Option<EventAggregate>> GetByIdentifierAsync(
@@ -58,6 +59,29 @@ public sealed class EventRepository(
         dbContext.Events.Add(@event);
     }
 
+    /// <summary>
+    /// Dispatches first, then commits the rows and the messages together
+    /// (spec 021 FR-001).
+    ///
+    /// <para>
+    /// <b>The order is the guarantee.</b> It used to be the other way round —
+    /// commit, then announce — and the gap between the two was where an
+    /// integration event went missing: the row was already durable, the
+    /// announcement was not, and nothing held a copy of it. Dispatching first
+    /// puts the message in the outbox, and
+    /// the commit writes both in one transaction.
+    /// </para>
+    ///
+    /// <para>
+    /// Which means <b>a domain-event handler now runs before the write is
+    /// durable</b>, and a handler that throws fails the write rather than
+    /// leaving the row behind. That is only acceptable because every handler on
+    /// this path publishes and does nothing else — checked, not assumed
+    /// (research.md R2). A handler added here that writes, calls out, or has
+    /// any other side effect breaks that and must not be added without
+    /// revisiting this.
+    /// </para>
+    /// </summary>
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
         EventAggregate[] tracked = dbContext.ChangeTracker
@@ -65,8 +89,6 @@ public sealed class EventRepository(
             .Where(entry => entry.Entity.PendingEvents.Count > 0)
             .Select(entry => entry.Entity)
             .ToArray();
-
-        await dbContext.SaveChangesAsync(cancellationToken);
 
         // Collected first and dispatched once. Dispatching per aggregate was
         // invisible while the caller saved one event at a time and becomes a
@@ -78,22 +100,11 @@ public sealed class EventRepository(
             @event.ClearPendingEvents();
         }
 
-        if (pending.Count == 0)
-        {
-            return;
-        }
-
         // Every event is offered to the dispatcher even after one of them
-        // throws, and the failures are raised together at the end.
-        //
-        // The rows are already committed at this point — the dispatch is
-        // post-commit, so a throw here leaves an event stored with its
-        // integration event unsent, and nothing retries it. That gap predates
-        // this batch and is closed properly only by enrolling the dispatch in
-        // the write's transaction (ADR-0088's outbox). What must not happen is
-        // batching making it 200 times worse: stopping at the first failure
-        // would strand every event behind it in the same batch, so it does not
-        // stop.
+        // throws, and the failures are raised together at the end. Spec 020
+        // added this so one bad handler could not strand the other 199 in a
+        // batch; it still holds, and it now aborts the write with them rather
+        // than leaving 200 rows announced to nobody.
         List<Exception> failures = [];
         foreach (IDomainEvent domainEvent in pending)
         {
@@ -110,9 +121,11 @@ public sealed class EventRepository(
         if (failures.Count > 0)
         {
             throw new AggregateException(
-                $"{failures.Count} of {pending.Count} domain event(s) could not be dispatched; "
-                + "the events are stored.",
+                $"{failures.Count} of {pending.Count} domain event(s) could not be captured; "
+                + "nothing has been committed.",
                 failures);
         }
+
+        await commit.CommitAsync(cancellationToken);
     }
 }
