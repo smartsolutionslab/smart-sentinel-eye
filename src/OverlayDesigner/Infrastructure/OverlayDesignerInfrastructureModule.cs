@@ -43,7 +43,6 @@ public static class OverlayDesignerInfrastructureModule
         builder.Services.AddScoped<IDomainEventHandler<OverlayRevisionArchivedDomainEvent>, OverlayRevisionArchivedDomainEventHandler>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
-        builder.Services.AddScoped<IEventBus, WolverineEventBus>();
 
         builder.Services.AddScoped<
             ICommandHandler<CreateOverlayDraftCommand, Result<OverlayIdentifier, CreateOverlayDraftError>>,

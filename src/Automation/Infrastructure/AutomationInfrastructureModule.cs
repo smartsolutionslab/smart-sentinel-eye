@@ -37,7 +37,6 @@ public static class AutomationInfrastructureModule
         builder.Services.AddScoped<IRuleRepository, RuleRepository>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
-        builder.Services.AddScoped<IEventBus, WolverineEventBus>();
 
         // Rule cache + evaluator + cold-start seeder.
         builder.Services.AddSingleton<IRuleCache, InMemoryRuleCache>();

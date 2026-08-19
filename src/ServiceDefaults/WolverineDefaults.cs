@@ -3,11 +3,13 @@ using JasperFx;
 using JasperFx.CodeGeneration.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
+using SmartSentinelEye.Shared.CQRS;
 
 namespace SmartSentinelEye.ServiceDefaults;
 
@@ -93,6 +95,15 @@ public static class WolverineDefaults
 
             configureMore?.Invoke(opts);
         });
+
+        // Spec 021. Every context that gets Wolverine gets the outbox-backed
+        // publisher with it, bound to the DbContext this call already names.
+        //
+        // Registered here rather than once per Infrastructure module — nine
+        // identical lines in nine files is nine chances to add a tenth context
+        // and forget, and forgetting is silent: the write succeeds, the caller
+        // is told the truth, and the announcement is never made.
+        builder.Services.AddScoped<IEventBus, OutboxEventBus<TDbContext>>();
 
         return builder;
     }
