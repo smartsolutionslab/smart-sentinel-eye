@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text;
 using Aspire.Hosting;
 using Microsoft.Extensions.Logging;
+using Polly.Timeout;
 
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -443,6 +444,15 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             catch (HttpRequestException)
             {
                 // listener not bound yet
+            }
+            catch (TimeoutRejectedException)
+            {
+                // Slow to start rather than not started. Aspire's client carries
+                // the standard resilience handler, and its timeout surfaces as
+                // this rather than as HttpRequestException — so without this the
+                // first slow probe escapes a loop written to retry sixty times,
+                // faults InitializeAsync, and fails every test in the collection
+                // with an error naming none of them.
             }
 
             await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);

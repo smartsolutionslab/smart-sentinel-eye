@@ -4,9 +4,8 @@ using System.Text.Json;
 using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Protocol;
-using SmartSentinelEye.Integration.Tests.Fixtures;
 
-namespace SmartSentinelEye.Integration.Tests.Automation;
+namespace SmartSentinelEye.Integration.Tests.Fixtures;
 
 /// <summary>
 /// Spec 022. Publishes an event the way a machine does — over the broker,
@@ -17,6 +16,14 @@ namespace SmartSentinelEye.Integration.Tests.Automation;
 /// the middle. The ingress is a join like any other, and every join this
 /// feature exists to cover is one nothing else exercises, so a shortcut past
 /// the first would leave it exactly as untested as the rest were.
+/// </para>
+///
+/// <para>
+/// In Fixtures rather than beside the test that needed it first: five ingestion
+/// tests already carry near-verbatim copies of this publish-and-authenticate
+/// helper, down to the client id and the timeout. Collapsing them onto this is
+/// worth doing and is not this change — a PR that adds a test should not also
+/// rewrite five unrelated ones.
 /// </para>
 /// </summary>
 public sealed class PlantFloor(AspireFixture aspire)
