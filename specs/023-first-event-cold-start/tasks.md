@@ -127,7 +127,7 @@ is the thing it was created to deliver.
       recorded as refuted (FR-003, SC-003).
       **This is the deliverable. Until it exists, nothing else here is
       established.**
-- [ ] T013 [US1] Test the first-publish-per-message-type hypothesis directly:
+- [X] T013 [US1] Test the first-publish-per-message-type hypothesis directly:
       send each of the three message types once at startup and see whether the
       curve collapses. **Record the result either way.** It is the only candidate
       that predicts a staged decay rather than a single step, so refuting it
