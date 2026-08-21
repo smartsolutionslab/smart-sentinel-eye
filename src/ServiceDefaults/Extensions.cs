@@ -7,6 +7,7 @@ using Microsoft.Extensions.ServiceDiscovery;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
+using SmartSentinelEye.ServiceDefaults;
 using Wolverine.Runtime;
 
 namespace Microsoft.Extensions.Hosting;
@@ -64,7 +65,12 @@ public static class Extensions
             {
                 metrics.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddRuntimeInstrumentation();
+                    .AddRuntimeInstrumentation()
+
+                    // Without this the latency instrument records into nothing
+                    // and says nothing about it — the same silence an
+                    // unregistered trace source produces (spec 024, §VII).
+                    .AddMeter(LatencyBudget.MeterName);
             })
             .WithTracing(tracing =>
             {
