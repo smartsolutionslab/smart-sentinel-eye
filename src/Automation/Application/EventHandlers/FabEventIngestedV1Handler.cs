@@ -36,7 +36,7 @@ public sealed class FabEventIngestedV1Handler(
     {
         Ensure.That(message).IsNotNull();
 
-        var (eventIdentifier, fab, source, _, kind, _, _, _, _) = message;
+        var (eventIdentifier, fab, source, _, kind, _, ingestedAt, _, _) = message;
 
         // An event that does not say which fab it came from triggers nothing
         // (spec 013 FR-012). Falling back to evaluating every rule is exactly
@@ -82,7 +82,14 @@ public sealed class FabEventIngestedV1Handler(
                     await events.PublishAsync(
                         new SystemVariableValueRequestedV1(
                             setVariableValue.Name, setVariableValue.Value, requestedAt, eventIdentifier,
-                            Metadata: new EventMetadata(Guid.CreateVersion7(), requestedAt, fab, null)),
+                            // RootIngestedAt, not requestedAt: the leg the
+                            // constitution budgets starts when the plant-floor
+                            // event was accepted, not when this decision was
+                            // made. Forwarding it is the only way the service
+                            // that applies the effect can see both ends
+                            // (spec 025).
+                            Metadata: new EventMetadata(
+                                Guid.CreateVersion7(), requestedAt, fab, null, ingestedAt)),
                         cancellationToken);
                     break;
 
@@ -90,7 +97,9 @@ public sealed class FabEventIngestedV1Handler(
                     await events.PublishAsync(
                         new OverlayHighlightRequestedV1(
                             highlightOverlay.Overlay, highlightOverlay.DurationMs, requestedAt, eventIdentifier,
-                            Metadata: new EventMetadata(Guid.CreateVersion7(), requestedAt, fab, null)),
+                            // Same reasoning as the variable effect above.
+                            Metadata: new EventMetadata(
+                                Guid.CreateVersion7(), requestedAt, fab, null, ingestedAt)),
                         cancellationToken);
                     break;
             }

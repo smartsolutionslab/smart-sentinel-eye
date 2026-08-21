@@ -62,14 +62,14 @@ on it.
 
 ## Phase 2: Foundational — carry the moment *(only if T001 says dropped)*
 
-- [ ] T004 Add the acceptance moment as an **optional** field, without changing
+- [X] T004 Add the acceptance moment as an **optional** field, without changing
       the meaning of any existing one (FR-002). Phase 0 established the shape:
       `EventMetadata` is positional with 15 construction sites and almost no
       readers, and a fifth optional parameter is source- and wire-compatible both
       directions — **not breaking under ADR-0073, no V2 needed**.
-- [ ] T005 Forward it through Automation's fan-out, which currently mints fresh
+- [X] T005 Forward it through Automation's fan-out, which currently mints fresh
       metadata and drops what it received.
-- [ ] T006 [P] Confirm a consumer unaware of the field is unaffected by its
+- [X] T006 [P] Confirm a consumer unaware of the field is unaffected by its
       presence (FR-008) — demonstrated, not reasoned.
 
 ---
