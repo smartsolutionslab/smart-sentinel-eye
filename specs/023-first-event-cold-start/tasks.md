@@ -100,17 +100,17 @@ what everyone should be working on.
 - [X] T007 [US1] Measure the warm path before and after T005 and record both
       (FR-005). Instrumentation is not free, and an observer effect here is a
       finding rather than an inconvenience.
-- [ ] T008 [US1] Capture the traces for the **first three events** after a
+- [X] T008 [US1] Capture the traces for the **first three events** after a
       restart, not just the first. The decay is the clue; one trace cannot show
       it.
 - [ ] T009 [US1] Attribute the elapsed time of the first event to named stages,
       accounting for **≥ 80%** (SC-001), and name the stage holding the largest
       share. **If under 80%, the next task is better instrumentation, not a
       conclusion.**
-- [ ] T010 [US1] Explain the decay across the three events as specific stages
+- [X] T010 [US1] Explain the decay across the three events as specific stages
       getting cheaper (SC-002) — an aggregate falling is a restatement of the
       problem, not an explanation of it.
-- [ ] T011 [US1] Cross-check the span attribution against T003's buckets. If
+- [X] T011 [US1] Cross-check the span attribution against T003's buckets. If
       they disagree, one is wrong; find out which before either is quoted.
 
 **Checkpoint**: SC-001 and SC-002 observable. This is the shippable increment —
@@ -121,7 +121,7 @@ is the thing it was created to deliver.
 
 ## Phase 5: US1 — the candidates get verdicts (P1) ⭐ the deliverable
 
-- [ ] T012 [US1] **Give every candidate cause in #1655 a verdict in writing**,
+- [X] T012 [US1] **Give every candidate cause in #1655 a verdict in writing**,
       including the ones Phase 0 already weakened (the ingest loop's poll, the
       outbox schema build) and the one it strengthened. Refuted candidates are
       recorded as refuted (FR-003, SC-003).
@@ -162,7 +162,7 @@ do not.
 
 ## Phase 7: US3 — what a fab should expect is written down (P3)
 
-- [ ] T018 [US3] Record the findings: the measured figures, the attribution,
+- [X] T018 [US3] Record the findings: the measured figures, the attribution,
       what they establish, and **explicitly what they do not** (FR-009). The
       fixture runs nine services and a broker on one host; spec 020 and spec 022
       both said a figure from there is not a figure about a fab, and it applies
