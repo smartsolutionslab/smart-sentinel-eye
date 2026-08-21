@@ -4,7 +4,8 @@
 
 **Status: the cause is narrowed, not named. The gap is not closed.** What
 follows is the record of what was established and what was refuted, including
-two hypotheses of mine that died by experiment.
+**three hypotheses of mine that died by experiment** — and one correction to
+#1655 itself, which claimed an operational impact the evidence does not support.
 
 ---
 
@@ -103,29 +104,64 @@ types would have added minutes if `RoutingFor` were the expensive operation.
 written for, and keeping it would leave a warm-up in the tree justified by a
 measurement that refuted it.
 
-## 5. What is left, and how strongly
+## 5. What the traces showed — including where I was wrong
 
-By elimination: a **per-type, in-process, first-use cost on the consuming side** —
-the service that receives a message type doing expensive work the first time it
-sees one. `Wolverine.RuntimeCompilation` ships in every service and
-`TypeLoadMode` defaults to `Dynamic`, which makes runtime generation and
-compilation of the handler the obvious candidate.
+The dev certificate was trusted, the dashboard became reachable, and the
+instrumentation from §7 could finally be checked rather than trusted.
 
-**This is elimination, not observation, and is not a conclusion.** The polling
-interval reached the same standing an hour earlier and was wrong. What
-distinguishes this candidate is only that its rivals were each killed by
-evidence.
+**T006 is verified.** Spans cross service boundaries under one trace id. A
+complete journey, warm:
 
-Confirming it needs one of:
+| Span | Service | Duration |
+|---|---|---|
+| `receive` `FabEventIngestedV1` | automation | 7–13 ms |
+| `send` `OverlayHighlightRequestedV1` | automation | 0 ms |
+| `receive` | layout-composition | 0–1 ms |
+| `receive` | audit-observability | 10–13 ms |
+| **whole trace** | | **22–29 ms** |
 
-- **Traces.** Blocked here: the ASP.NET dev certificate is untrusted, so the
-  Aspire dashboard refuses the MCP connection on SSL and `aspire run` blocks on
-  an interactive trust prompt. Trusting it is a machine-level change with a UI
-  prompt.
-- **Pre-generated handler code with static type loading.** Decisive, and also
-  the likely fix — but it needs JasperFx command-line hosting added to nine
-  services, their generated code committed and built in.
+So the journey is now visible end to end, which is what §VII has required all
+along and what nothing in this system could do before.
 
+### The consuming-side hypothesis does not survive
+
+Spec 023's standing candidate was that the consuming service does expensive
+work — most likely generating handler code — the first time it sees a message
+type. That predicts a slow first `receive` after a consumer restarts.
+
+`layout-composition` was restarted twice while the simulator kept publishing.
+Its **first** `receive` of `OverlayHighlightRequestedV1` after restart took
+**0 ms**, inside a 22 ms journey.
+
+**That is the third hypothesis of mine to die by measurement**, and it goes the
+same way as the other two: written down, not quietly replaced.
+
+### What that changes about the problem itself
+
+A **rolling restart of one service does not reproduce the cost.** Every
+measurement that showed 5 s per message type was taken on a fixture where the
+whole stack — services, broker, databases — started fresh together.
+
+That matters more than the mechanism, because **#1655 claimed the opposite**. It
+said the fixture's cold start "means in a fab exactly what it means in the
+fixture: the first event after a deployment or a pod replacement", and on a
+rolling restart that now looks wrong. What reproduces it is everything being
+cold at once, which in production is a full cluster start rather than the
+routine case.
+
+The operational significance is therefore **smaller than the issue asserted**,
+and the issue should be corrected rather than left to be read as it stands.
+
+### What is still unexplained
+
+The per-type cost is real, reproducible and confirmed by intervention on a
+fully-cold stack. It is not polling, not broker provisioning, not sending-side
+route resolution, and now not the consuming side's first receipt either. It
+remains unexplained, and no candidate is currently standing.
+
+The most likely next step is to catch a fully-cold stack with the dashboard
+attached — every trace read here came from a stack that had been warm for
+minutes, because the dev AppHost boots with a simulator already publishing.
 ## 6. Success criteria
 
 | | Status |
@@ -146,10 +182,9 @@ through six features. The name is read off `WolverineTracing.ActivitySource`
 rather than spelled out, because a typo in that string registers nothing, raises
 nothing, and leaves a journey exactly as untraced as before.
 
-**Unverified, and not claimed:** that those spans arrive and cross service
-boundaries. That needs the dashboard, which is blocked as above. Registering a
-source is not the same as seeing a trace, and until someone sees one this is
-instrumentation on trust.
+**Verified** (§5), once the dev certificate was trusted: spans arrive and carry
+one trace id across services. Registering a source is not the same as seeing a
+trace, so it stayed unclaimed until a trace was seen.
 
 **Reverted:** the route priming and the `Shared.Contracts` reference it needed.
 
@@ -157,11 +192,14 @@ instrumentation on trust.
 
 **Nothing about a fab.** Nine services and a broker on one host. Spec 020 and
 spec 022 both said a figure from this fixture is not a figure about a plant, and
-it applies unchanged. If the cost is Roslyn compilation it will be present in
-production; if it is contention for one machine, it may not be.
+it applies unchanged. With no mechanism named, whether it appears in production
+at all is now genuinely open.
 
 **Nothing about restarts under load.** Every measurement here starts from an
 idle stack.
 
-**Nothing about a rolling restart.** One service restarting while the others
-stay warm is the realistic case and was not measured.
+**Now measured, and it is the correction in §5:** one service restarting while
+the others stay warm does **not** reproduce the cost. #1655 asserted it would.
+
+**Nothing about a full cluster start in production.** That is the condition that
+does reproduce it here, and it was only ever reproduced on this fixture.
