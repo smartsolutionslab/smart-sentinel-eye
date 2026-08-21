@@ -7,6 +7,7 @@ using Microsoft.Extensions.ServiceDiscovery;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
+using Wolverine.Runtime;
 
 namespace Microsoft.Extensions.Hosting;
 
@@ -16,7 +17,19 @@ namespace Microsoft.Extensions.Hosting;
 public static class Extensions
 {
     private const string HealthEndpointPath = "/health";
+
     private const string AlivenessEndpointPath = "/alive";
+
+    /// <summary>
+    /// Wolverine's own <c>ActivitySource</c>, taken from Wolverine rather than
+    /// spelled out. The obvious form is <c>AddSource("Wolverine")</c>, and its
+    /// failure mode is the reason this reads the name off the source instead: a
+    /// typo registers nothing, raises nothing, and leaves a journey that looks
+    /// exactly as untraced as it did before — silence that cannot be told from
+    /// working. Reading it off the object makes a rename a build error.
+    /// </summary>
+    private static readonly string WolverineActivitySource =
+        WolverineTracing.ActivitySource.Name;
 
     public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {
@@ -56,6 +69,15 @@ public static class Extensions
             .WithTracing(tracing =>
             {
                 tracing.AddSource(builder.Environment.ApplicationName)
+                    // Without this the event-to-overlay journey is invisible.
+                    // The two sources below cover inbound and outbound HTTP,
+                    // which is the part of this system that is *not* on that
+                    // path: every hop of it — publish, broker transit, handler
+                    // execution — travels by message. Constitution §VII makes a
+                    // dashboard mandatory for a budgeted leg, and the ≤ 200 ms
+                    // event → overlay leg had neither dashboard nor spans
+                    // through six features (spec 023, #1655).
+                    .AddSource(WolverineActivitySource)
                     .AddAspNetCoreInstrumentation(tracing =>
                         // Exclude health check requests from tracing
                         tracing.Filter = context =>
