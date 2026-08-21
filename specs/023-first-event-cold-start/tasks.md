@@ -44,7 +44,7 @@ not a latency one — see the task.
 
 ## Phase 1: Setup
 
-- [ ] T001 Reproduce the curve before trusting it, per
+- [X] T001 Reproduce the curve before trusting it, per
       [quickstart.md](./quickstart.md) §1: run
       `EventReachesItsEffectsTests` from a cold stack and record
       arrival-to-effect for each test **together with its execution order**.
@@ -56,12 +56,12 @@ not a latency one — see the task.
 
 ## Phase 2: Foundational — the free split, before anything changes
 
-- [ ] T002 Add a temporary measurement to
+- [X] T002 Add a temporary measurement to
       `tests/Integration.Tests/Automation/` that marks three times for one
       event on a cold stack: the publish returning, the event becoming readable
       through the EventIngestion read API, and the variable becoming readable
       with its new value. Report the two intervals.
-- [ ] T003 Record which half owns the seconds — ingress-and-store, or
+- [X] T003 Record which half owns the seconds — ingress-and-store, or
       announce-decide-apply. This does **not** satisfy SC-001 and is not meant
       to; it decides where to look before any production change exists to argue
       about, and it survives as the cross-check on the spans in T011.
@@ -73,7 +73,7 @@ changed to achieve it.
 
 ## Phase 3: The question that might not be about latency
 
-- [ ] T004 Restart Automation with a rule already `Active` in the database and
+- [X] T004 Restart Automation with a rule already `Active` in the database and
       send a matching event. **If the rule fires**, something hydrates
       `InMemoryRuleCache` at startup and that cost belongs to this feature. **If
       it does not fire, stop and file it**: rules silently stopping after a
