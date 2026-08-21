@@ -189,7 +189,7 @@ is unaddressed and unmentioned.
 - [X] T028 Walk [quickstart.md](./quickstart.md) and write `verification.md`.
       **"Done" is the observations**, and step 4 is the one that will get
       skipped.
-- [ ] T029 Open the PR with `Closes #1681`, stating what is measured, what is
+- [X] T029 Open the PR with `Closes #1681`, stating what is measured, what is
       not, and that §VII remains unmet.
 - [X] T030 Add every issue created for these tasks to **Project #13**
       (`gh project item-add 13 --owner smartsolutionslab --url <issue-url>`).
