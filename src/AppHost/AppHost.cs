@@ -108,6 +108,9 @@ var mediamtx = builder
     .AddContainer("mediamtx", "bluenviron/mediamtx", "latest-ffmpeg")
     .WithBindMount("Resources/mediamtx.yml", "/mediamtx.yml")
     .WithHttpEndpoint(targetPort: 9997, name: "api")
+    // Spec 024: the SFU measures its own RTP ingest; exposing the endpoint is
+    // what makes camera → SFU readable at all (§VII, ≤ 80 ms).
+    .WithHttpEndpoint(targetPort: 9998, name: "metrics")
     .WithHttpEndpoint(targetPort: 8889, name: "whep")
     .WithEndpoint(targetPort: 8554, name: "rtsp", scheme: "tcp");
 

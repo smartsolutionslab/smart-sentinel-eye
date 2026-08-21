@@ -14,6 +14,16 @@ logDestinations: [stdout]
 api: yes
 apiAddress: :9997
 
+# Spec 024 (#1681). MediaMTX is the only leg of the latency budget the product
+# does not have to instrument itself: it already measures its own RTP ingest and
+# will expose it in Prometheus form. Constitution §VII makes a dashboard
+# mandatory for a budgeted leg, and camera → SFU (≤ 80 ms) had nothing at all.
+#
+# Reading, not behaviour: this opens a second HTTP listener and changes no media
+# path. Verified by watching a camera still stream afterwards (T011).
+metrics: yes
+metricsAddress: :9998
+
 # Webrtc + RTSP listeners
 webrtc: yes
 webrtcAddress: :8889

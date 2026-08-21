@@ -47,7 +47,7 @@ afterthought.
       event-to-overlay leg?" without writing code. Record how far you get.
       **If it can be answered, stop** — the premise has changed and that is the
       finding.
-- [ ] T002 [P] Confirm whether the OTLP exporter is actually attached in the
+- [X] T002 [P] Confirm whether the OTLP exporter is actually attached in the
       integration fixture — is `OTEL_EXPORTER_OTLP_ENDPOINT` set for the
       services? Record the answer. Everything in Phase 5 depends on it, and
       spec 023 shipped a before/after comparison without knowing.
@@ -56,11 +56,11 @@ afterthought.
 
 ## Phase 2: Foundational — one instrument, registered once
 
-- [ ] T003 Add a latency instrument to `src/ServiceDefaults/` recording a
+- [X] T003 Add a latency instrument to `src/ServiceDefaults/` recording a
       **distribution**, not a gauge or a most-recent value. It goes here, beside
       spec 023's trace source, for the same reason: the leg spans four services
       and instrumenting one end of it in one context measures a fragment.
-- [ ] T004 Carry the leg's **budget** with the measurement (FR-003), so a reader
+- [X] T004 Carry the leg's **budget** with the measurement (FR-003), so a reader
       who does not know the constitution can tell a pass from a breach without
       looking anything up.
 
@@ -92,12 +92,12 @@ answerable can be answered for one leg.
 
 ## Phase 4: US1 — the cheap second leg (P1)
 
-- [ ] T009 [US1] Enable MediaMTX's metrics in
+- [X] T009 [US1] Enable MediaMTX's metrics in
       `src/AppHost/Resources/mediamtx.yml`, and expose them if a scrape target
       is needed. Config, not code — the cheapest win in the feature.
-- [ ] T010 [US1] Confirm `camera → SFU` latency is obtainable and readable
+- [X] T010 [US1] Confirm `camera → SFU` latency is obtainable and readable
       against its 80 ms budget.
-- [ ] T011 [US1] Confirm the media path is unaffected — a camera still streams.
+- [X] T011 [US1] Confirm the media path is unaffected — a camera still streams.
       This is the streaming path, and a mistake here is visible to anyone
       watching a camera.
 
@@ -107,7 +107,7 @@ answerable can be answered for one leg.
 
 **T016 before T017. Not negotiable — see the header.**
 
-- [ ] T016 [US1] Using T002's answer, establish that the before/after comparison
+- [X] T016 [US1] Using T002's answer, establish that the before/after comparison
       can mean anything at all. If the exporter is not attached in the fixture,
       say so and measure somewhere it is, or record that the cost is unmeasured
       here and why.
