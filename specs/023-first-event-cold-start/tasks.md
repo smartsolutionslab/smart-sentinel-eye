@@ -188,7 +188,7 @@ do not.
 - [X] T023 Walk [quickstart.md](./quickstart.md) end to end and write
       `verification.md`. **"Done" is the observations**, and step 3 is the one
       that cannot be skipped.
-- [ ] T024 Open the PR with `Closes #1655`, stating what the measurement does
+- [X] T024 Open the PR with `Closes #1655`, stating what the measurement does
       not establish and what remains uncovered.
 - [X] T025 Add every issue created for these tasks to **Project #13**
       (`gh project item-add 13 --owner smartsolutionslab --url <issue-url>`).
