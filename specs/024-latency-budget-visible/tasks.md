@@ -9,6 +9,8 @@ description: "Task list for 024-latency-budget-visible"
 
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md)
 
+**Issues**: #1684–#1713, one per task, all verified on Project #13.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: can run in parallel (different files, no dependency on incomplete work)
@@ -189,7 +191,7 @@ is unaddressed and unmentioned.
       skipped.
 - [ ] T029 Open the PR with `Closes #1681`, stating what is measured, what is
       not, and that §VII remains unmet.
-- [ ] T030 Add every issue created for these tasks to **Project #13**
+- [X] T030 Add every issue created for these tasks to **Project #13**
       (`gh project item-add 13 --owner smartsolutionslab --url <issue-url>`).
       Verify with `item-list` — `item-add` prints nothing on success and the
       board holds hundreds of items, so a short `--limit` finds nothing and looks
