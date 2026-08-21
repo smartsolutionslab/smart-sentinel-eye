@@ -143,17 +143,17 @@ do not.
 
 **Conditional on Phase 5.** Do not start this before T012 has an answer.
 
-- [ ] T014 [US2] Address the cause T012 named — most likely by warming the path
+- [~] T014 [US2] Address the cause T012 named — most likely by warming the path
       during startup rather than lazily on the first real event. Smallest change
       that addresses the measured cause; no speculative warming of paths the
       measurement did not implicate.
-- [ ] T015 [US2] Confirm the first event after a restart now reaches its effect
+- [~] T015 [US2] Confirm the first event after a restart now reaches its effect
       in **under 1 s** (SC-004), measured the same way as T001 so the before and
       after are comparable.
-- [ ] T016 [P] [US2] Confirm steady-state arrival-to-effect is no worse than
+- [~] T016 [P] [US2] Confirm steady-state arrival-to-effect is no worse than
       spec 022's 267–348 ms (SC-005). A first-event win paid for out of the warm
       path is not a win.
-- [ ] T017 [US2] State where the cost landed: the added startup time (FR-007),
+- [~] T017 [US2] State where the cost landed: the added startup time (FR-007),
       and confirmation that the service does not report ready before it can
       serve (FR-006). Moving a cost is a legitimate fix; moving it silently is
       not.
@@ -167,7 +167,7 @@ do not.
       fixture runs nine services and a broker on one host; spec 020 and spec 022
       both said a figure from there is not a figure about a fab, and it applies
       unchanged.
-- [ ] T019 [US3] If the gap could not be closed, record the reason and the
+- [X] T019 [US3] If the gap could not be closed, record the reason and the
       residual risk to the latency budget (FR-010). **A permitted ending** — the
       obligation was that the number stops being unexplained, not that it
       shrinks.
@@ -176,16 +176,16 @@ do not.
 
 ## Phase 8: Polish
 
-- [ ] T020 Run the full integration suite. Nothing excluded, nothing weakened
+- [X] T020 Run the full integration suite. Nothing excluded, nothing weakened
       (FR-008, SC-006).
-- [ ] T021 [P] Run `scripts/coverage-check.ps1 -Configuration Release`.
-- [ ] T022 Raise the observability gap for a decision rather than leaving it
+- [X] T021 [P] Run `scripts/coverage-check.ps1 -Configuration Release`.
+- [X] T022 Raise the observability gap for a decision rather than leaving it
       patched in a corner: §VII says a leg without a dashboard cannot ship, and
       this one shipped across six features with neither dashboard nor spans.
       T005 closes the span half for one journey. **File the rest** — the
       dashboard, and the other legs — and note whether it warrants an ADR
       amendment.
-- [ ] T023 Walk [quickstart.md](./quickstart.md) end to end and write
+- [X] T023 Walk [quickstart.md](./quickstart.md) end to end and write
       `verification.md`. **"Done" is the observations**, and step 3 is the one
       that cannot be skipped.
 - [ ] T024 Open the PR with `Closes #1655`, stating what the measurement does
@@ -242,3 +242,20 @@ something, with nobody ever knowing it had been broken.
 **Why T022 exists.** T005 closes the span half of §VII for one journey. Leaving
 the rest unfiled would mean a constitutional principle was found unmet and
 quietly patched where it was convenient.
+
+---
+
+## Outcome
+
+**T014–T017 are marked `[~]`: not done, and deliberately not done.** They are
+US2, the fix, which the task list made conditional on T012 naming a cause. T012
+gave every candidate a verdict and **none survived** — so there is nothing to
+address, and warming the path anyway would produce a smaller number and no
+knowledge. FR-010 and SC-004's second clause make that a permitted ending; §6 of
+[verification.md](./verification.md) records the reason and the residual risk.
+
+T013 also **corrected the issue that started this** (#1655): a rolling restart
+does not reproduce the cost, which the issue asserted it would.
+
+T022 is filed as **#1681** — no latency-budget leg has a dashboard, which §VII
+forbids shipping without.
