@@ -330,7 +330,7 @@ through one chokepoint — so transport is one file, not seven.
       arguments instead, so the type checker rejects a call site that
       forgets. The header format lives in one place, `ifMatch()` in
       `gateway.ts`.
-- [ ] **T048 [FE]** Exclude `dryRunRule` (`rules.api.ts:91`) from
+- [x] **T048 [FE]** Exclude `dryRunRule` (`rules.api.ts:91`) from
       `If-Match` — a mutation only in RTK's HTTP-verb sense.
 
 ### Conflict handling — current behaviour is actively wrong
@@ -338,7 +338,7 @@ through one chokepoint — so transport is one file, not seven.
 - [x] **T049 [FE]** Status-aware error helper alongside
       `apps/shared/src/api/problemDetail.ts:11`, which is **status-blind**
       and cannot distinguish 409 from 400/500.
-- [ ] **T050 [FE]** Fix the conflict copy in `LayoutEditorDialog.tsx:113`
+- [x] **T050 [FE]** Fix the conflict copy in `LayoutEditorDialog.tsx:113`
       and `OverlayEditorDialog.tsx:61`. Both render **"Could not save …
       Try again."** — on a 409 that instructs the operator to perform the
       exact overwrite this work prevents. The dialogs already stay open
@@ -353,7 +353,7 @@ through one chokepoint — so transport is one file, not seven.
       error, not the mutation's.
 - [x] **T052 [FE]** Conflict UX: reload-and-discard as the honest first
       cut. **Never retry automatically.**
-- [ ] **T053 [P] [FE]** If conflicts are logged via
+- [~] **T053 [P] [FE]** If conflicts are logged via
       `apps/shared/src/observability/resilienceLog.ts:9`, they need a new
       subsystem beyond `'stream' | 'hub' | 'session' | 'crash'`. The
       comment at :4-7 declares the format a breaking-change contract
@@ -383,13 +383,13 @@ rest so the remaining three do not surface the same way.
 
 ### E2E
 
-- [ ] **T054 [FE]** Two-context conflict test modelled on
+- [x] **T054 [FE]** Two-context conflict test modelled on
       `e2e/layouts.spec.ts:28`. `support/sign-in.ts:7` is single-identity
       and nothing in `e2e/` uses `browser.newContext()` — but **two
       contexts sharing the same `operator` user suffice**, since
       concurrency is per-aggregate, not per-user. No second Keycloak user
       needed.
-- [ ] **T055 [P] [FE]** E2E for `setVariableValue`
+- [x] **T055 [P] [FE]** E2E for `setVariableValue`
       (`systemVariables.api.ts:65`) — the cleanest lost-update in the
       system and **currently covered by no e2e test at all**.
 
@@ -397,13 +397,13 @@ rest so the remaining three do not surface the same way.
 
 ## Phase 7: Polish
 
-- [ ] **T056 [P] [POLISH]** Add
+- [x] **T056 [P] [POLISH]** Add
       `.ProducesProblem(StatusCodes.Status409Conflict)` to
       LayoutComposition's endpoints, which currently lack it, wherever a
       409 became reachable.
 - [ ] **T057 [P] [POLISH]** Close #240 and #283; re-evaluate #843 against
       the delivered shape.
-- [ ] **T058 [POLISH]** Coverage gates hold (Domain ≥ 90, Application ≥
+- [x] **T058 [POLISH]** Coverage gates hold (Domain ≥ 90, Application ≥
       80, Shared ≥ 90 — ADR-0065). `ServiceDefaults` gains the
       interceptor; confirm no gate dips.
 - [ ] **T059 [POLISH]** Phase-5 verification note on the PR: the two
@@ -464,3 +464,23 @@ add the operator-facing layer (5–6).
 - #240 and #283 fold into T016 rather than being worked separately.
 - #843 (Automation fab guard) is **not** part of this work — it belongs
   to #1155's tenancy decision.
+
+---
+
+## Audit, 2026-08-22
+
+This list was found stale. Six tasks marked open — T048, T050, T054, T055, T056,
+T058 — were **already done in the code**, and only the checkbox was outstanding.
+They are ticked above with the evidence recorded on the issues that were briefly
+raised for them (#1718, #1719, #1721, #1722, #1723, #1725, all closed).
+
+T053 is marked `[~]`: it is conditional on conflicts being logged through
+`resilienceLog`, which they are not, so it is moot rather than pending.
+
+**Genuinely outstanding: T057 (#1724) and T059 (#1726).**
+
+The likely cause of the drift is visible in this directory: spec 012 has a
+`plan.md` and a `tasks.md` and **no `spec.md` and no `verification.md`**. It was
+never closed out through phase 5, so nothing ever forced a last pass over the
+list — and an unticked box then reads as unfinished work for as long as anyone
+cares to believe it.
