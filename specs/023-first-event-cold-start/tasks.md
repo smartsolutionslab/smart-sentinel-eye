@@ -88,7 +88,7 @@ what everyone should be working on.
 
 ## Phase 4: US1 — someone can say where the seconds go (P1) 🎯 MVP
 
-- [ ] T005 [US1] Register Wolverine's activity source in
+- [X] T005 [US1] Register Wolverine's activity source in
       `src/ServiceDefaults/Extensions.cs` so publishes, transit and handler
       execution appear as spans with context propagated across services.
       Confirm the source name by observing spans rather than by assuming it —
@@ -97,7 +97,7 @@ what everyone should be working on.
       that starts in EventIngestion must contain the Automation and
       SystemVariables work under the same trace id. Without propagation the
       spans are per-service stopwatches and cannot attribute a journey.
-- [ ] T007 [US1] Measure the warm path before and after T005 and record both
+- [X] T007 [US1] Measure the warm path before and after T005 and record both
       (FR-005). Instrumentation is not free, and an observer effect here is a
       finding rather than an inconvenience.
 - [ ] T008 [US1] Capture the traces for the **first three events** after a
