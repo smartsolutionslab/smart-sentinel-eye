@@ -43,7 +43,7 @@ afterthought.
 
 ## Phase 1: Setup — establish the premise before changing anything
 
-- [ ] T001 Try to answer, on the running system, "what is the p99 of the
+- [X] T001 Try to answer, on the running system, "what is the p99 of the
       event-to-overlay leg?" without writing code. Record how far you get.
       **If it can be answered, stop** — the premise has changed and that is the
       finding.
@@ -70,17 +70,17 @@ afterthought.
 
 ## Phase 3: US1 — someone can find out whether a leg is holding (P1) 🎯 MVP
 
-- [ ] T005 [US1] Record the `event → overlay state` leg against the instrument,
+- [~] T005 [US1] Record the `event → overlay state` leg against the instrument,
       spanning **what ADR-0015 says the leg spans** — event accepted through to
       effect applied. Not one handler. Not one hop.
-- [ ] T006 [US1] Verify the recorded span is the leg and not a fragment: compare
+- [X] T006 [US1] Verify the recorded span is the leg and not a fragment: compare
       what the instrument reports against the arrival-to-effect figure spec 022's
       `EventReachesItsEffectsTests` already logs. **If they disagree, one of them
       is measuring something else** — find out which before either is quoted.
-- [ ] T007 [US1] Confirm a percentile can be obtained from the running system
+- [~] T007 [US1] Confirm a percentile can be obtained from the running system
       without writing code (SC-001). A histogram nobody can read is not a
       measurement.
-- [ ] T008 [P] [US1] State what the figure **excludes** — delivery to a kiosk,
+- [X] T008 [P] [US1] State what the figure **excludes** — delivery to a kiosk,
       which is legs 2, 3 and 5 and does not exist (FR-009). A number that
       silently means less than its name is how this programme keeps getting
       caught.
@@ -111,7 +111,7 @@ answerable can be answered for one leg.
       can mean anything at all. If the exporter is not attached in the fixture,
       say so and measure somewhere it is, or record that the cost is unmeasured
       here and why.
-- [ ] T017 [US1] Measure the warm path before and after the instrument, the same
+- [~] T017 [US1] Measure the warm path before and after the instrument, the same
       way both times, and confirm the overhead is under **5% of the measured
       leg's budget** (SC-004, FR-006). State the figure rather than calling
       instrumentation free.
@@ -124,19 +124,19 @@ answerable can be answered for one leg.
 deliverable.** Phase 0 found them; this phase is where they are written down in
 a form someone can act on.
 
-- [ ] T012 [US1] Record **SFU → kiosk decode** as unmeasurable, with the reason:
+- [X] T012 [US1] Record **SFU → kiosk decode** as unmeasurable, with the reason:
       `apps/kiosk-web` contains no `<video>`, no `MediaStream`, no
       `RTCPeerConnection`. The kiosk decodes nothing. Note that live video lives
       in `management-web` via the shared `WhepClient`, so the capability exists
       and is not where the SLO points.
-- [ ] T013 [P] [US1] Record **presentation buffer** as unmeasurable: PTP appears
+- [X] T013 [P] [US1] Record **presentation buffer** as unmeasurable: PTP appears
       in ADR-0014 and in spec 002's *out of scope* section as a "future-add".
       Nothing implements it.
-- [ ] T014 [P] [US1] Record **composite + render** as partially existing:
+- [X] T014 [P] [US1] Record **composite + render** as partially existing:
       overlays render, over nothing. Say what would have to exist first.
-- [ ] T015 [P] [US1] Record **headroom** as arithmetic — the remainder of the
+- [X] T015 [P] [US1] Record **headroom** as arithmetic — the remainder of the
       other five against 800 ms — not a segment that can be timed.
-- [ ] T018 [US1] Make the distinction legible in all four: **"not built" is a
+- [X] T018 [US1] Make the distinction legible in all four: **"not built" is a
       different problem from "built but unmeasured"** (FR-007), and a reader who
       cannot tell them apart will file the wrong follow-up.
 
@@ -147,10 +147,10 @@ is unaddressed and unmentioned.
 
 ## Phase 7: US2 — a leg can be watched without being asked about (P2)
 
-- [ ] T020 [US2] Show at least one leg against its budget on a dashboard, such
+- [~] T020 [US2] Show at least one leg against its budget on a dashboard, such
       that a reader who does not know the constitution can tell a pass from a
       breach (SC-002).
-- [ ] T021 [US2] Make **"no data" distinguishable from "within budget"**
+- [~] T021 [US2] Make **"no data" distinguishable from "within budget"**
       (FR-005). An idle system produces no measurements, and a blank panel
       reading as healthy is the failure this programme has met twice — a green
       thing that never ran, and a 401 that printed like an empty list.
@@ -159,34 +159,34 @@ is unaddressed and unmentioned.
 
 ## Phase 8: US3 — a change can show it did not break the budget (P3)
 
-- [ ] T022 [US3] Write the procedure a PR author follows to produce a figure for
+- [~] T022 [US3] Write the procedure a PR author follows to produce a figure for
       the event-to-overlay leg (§IV, FR-008), such that someone who did not build
       this can follow it (SC-005).
-- [ ] T023 [US3] Attach to that procedure what its output does **not** establish
+- [~] T023 [US3] Attach to that procedure what its output does **not** establish
       — the fixture is not a fab, as specs 020, 022 and 023 each had to say.
 
 ---
 
 ## Phase 9: Decisions and closure
 
-- [ ] T019 **Say where this leaves §VII, plainly.** Two legs measured, four not,
+- [X] T019 **Say where this leaves §VII, plainly.** Two legs measured, four not,
       the principle still unmet. Present the options — amend §VII, accept the gap
       with a recorded reason, or treat the unbuilt legs as blocking — and leave
       the choice to the reviewer. **A feature that closes an issue by explaining
       why it cannot be closed has to say so at the end, not have it discovered at
       review.**
-- [ ] T024 Put the **ADR-0026 decision** in front of the reviewer (FR-011):
+- [X] T024 Put the **ADR-0026 decision** in front of the reviewer (FR-011):
       enact, amend, or split. It is Locked, its comparison phase never started,
       and its sunset clause has nothing to sunset. Do not resolve it by
       implementation.
-- [ ] T025 **File the product finding separately**: the 800 ms path is not
+- [X] T025 **File the product finding separately**: the 800 ms path is not
       assembled end to end — three of six legs are unbuilt. This feature
       discovered it and should not absorb it (#1655's precedent).
-- [ ] T026 Run the full integration suite and `scripts/coverage-check.ps1
+- [X] T026 Run the full integration suite and `scripts/coverage-check.ps1
       -Configuration Release`. Nothing excluded, nothing weakened (SC-008).
-- [ ] T027 Confirm steady-state latency is no worse than before (SC-006,
+- [~] T027 Confirm steady-state latency is no worse than before (SC-006,
       FR-012), measured the same way as T017.
-- [ ] T028 Walk [quickstart.md](./quickstart.md) and write `verification.md`.
+- [X] T028 Walk [quickstart.md](./quickstart.md) and write `verification.md`.
       **"Done" is the observations**, and step 4 is the one that will get
       skipped.
 - [ ] T029 Open the PR with `Closes #1681`, stating what is measured, what is
@@ -243,3 +243,26 @@ look like a passing budget.
 **Why T019 and T024 are tasks rather than judgement calls.** Both are decisions
 above the implementer's pay grade — a constitutional reading and a Locked ADR —
 and both would otherwise be settled silently by whatever the code happened to do.
+
+---
+
+## Outcome
+
+**One leg readable, one instrument built, four legs explained, §VII unmet.**
+
+`[~]` marks tasks that are **not done and correctly not done**:
+
+- **T005, T007, T017, T027** — recording the event-to-overlay leg, and everything
+  downstream of it. Blocked by a finding, not by effort: the leg cannot be
+  measured inside the product without propagating the ingestion timestamp, which
+  is a contract change. Building the available *fragment* instead would have
+  needed a layering violation to obtain and would have published a number that
+  looks like the leg and is not — the exact case T006 exists to catch, caught
+  before the code was written. See [verification.md](./verification.md) §5.
+- **T020, T021** — a dashboard. Nothing displays a measurement against a budget,
+  so SC-002 is not met. Where dashboards live is the ADR-0026 decision T024 puts
+  in front of the reviewer.
+- **T022, T023** — the PR-time procedure, which needs the leg measured first.
+
+Filed rather than absorbed: **#1714**, the 800 ms path is not assembled end to
+end. Three of six legs are unbuilt, which is why four of them cannot be measured.
