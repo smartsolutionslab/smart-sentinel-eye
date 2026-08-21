@@ -119,11 +119,18 @@ public sealed record LatencySegment
     public bool IsWholeLeg { get; }
 
     /// <summary>
-    /// Automation asking for a variable value through to that value being
-    /// applied. **A fragment of `event → overlay state`**, not the leg: it
-    /// starts after ingestion and rule evaluation, and ends before anything
-    /// reaches a screen.
+    /// The whole `event → overlay state` leg as ADR-0015 defines it: a
+    /// plant-floor event being accepted through to its effect being applied.
+    ///
+    /// <para>
+    /// Spec 024 could not record this and defined a fragment instead, which it
+    /// deliberately never fed — a fragment reported against the leg's 200 ms
+    /// budget would have looked like the leg passing. Spec 025 carried the
+    /// acceptance moment downstream, which is what makes the whole leg
+    /// recordable, and the fragment is gone rather than left beside it as a
+    /// second thing someone could pick by mistake.
+    /// </para>
     /// </summary>
-    public static readonly LatencySegment AutomationToVariableApplied =
-        new("automation-to-variable-applied", "event-to-overlay-state", 200, isWholeLeg: false);
+    public static readonly LatencySegment EventToOverlayState =
+        new("event-to-overlay-state", "event-to-overlay-state", 200, isWholeLeg: true);
 }

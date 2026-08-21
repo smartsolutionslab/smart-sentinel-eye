@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Commands;
@@ -25,6 +26,7 @@ namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
 public sealed class SystemVariableValueRequestedV1Handler(
     IVariableValueRequestDedupStore dedup,
     SetVariableValueCommandHandler setHandler,
+    ILatencyBudget latency,
     ILogger<SystemVariableValueRequestedV1Handler> logger)
 {
     /// <summary>
@@ -90,6 +92,12 @@ public sealed class SystemVariableValueRequestedV1Handler(
 
         if (result.IsSuccess)
         {
+            // The far end of the `event → overlay state` leg (ADR-0015,
+            // ≤ 200 ms): the effect is now applied. Recorded only on success,
+            // because a refused effect never arrived and timing it would put a
+            // fast failure into a distribution that is supposed to describe
+            // journeys that completed.
+            latency.RecordEventToOverlayState(metadata.RootIngestedAt);
             return;
         }
 

@@ -76,15 +76,15 @@ on it.
 
 ## Phase 3: US1 — the whole leg is measured (P1) 🎯 MVP
 
-- [ ] T007 [US1] Record acceptance-to-application into `LatencyBudget` as a
+- [X] T007 [US1] Record acceptance-to-application into `LatencyBudget` as a
       distribution, via whichever route T002 chose.
-- [ ] T008 [US1] Add the whole-leg segment to `LatencyBudget` with
+- [X] T008 [US1] Add the whole-leg segment to `LatencyBudget` with
       `is_whole_leg` **true**, and make sure it is true. Spec 024 defined a
       fragment segment and deliberately recorded nothing through it; this is the
       one that supersedes it.
-- [ ] T009 [US1] A missing acceptance moment records **nothing** — not zero
+- [X] T009 [US1] A missing acceptance moment records **nothing** — not zero
       (FR-005). Demonstrate with an event that lacks it (SC-006).
-- [ ] T010 [P] [US1] A negative elapsed time records **nothing** (FR-006). Fabs
+- [X] T010 [P] [US1] A negative elapsed time records **nothing** (FR-006). Fabs
       step clocks with PTP and the end can precede the start.
 - [ ] T011 [US1] Confirm a percentile is obtainable from the running system
       without writing code (SC-001).

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 using SmartSentinelEye.Shared.Kernel;
@@ -14,6 +15,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 /// </summary>
 public sealed class OverlayHighlightRequestedV1Handler(
     ILayoutLifecycleBroadcaster broadcaster,
+    ILatencyBudget latency,
     ILogger<OverlayHighlightRequestedV1Handler> logger)
 {
     public async Task Handle(OverlayHighlightRequestedV1 message, CancellationToken cancellationToken)
@@ -39,6 +41,12 @@ public sealed class OverlayHighlightRequestedV1Handler(
         await broadcaster.OverlayHighlightedAsync(
             new OverlayHighlightedNotification(overlayIdentifier, durationMs, metadata.Fab),
             cancellationToken);
+
+        // The far end of the leg for the highlight effect. A separate arrival
+        // at a separate screen, so it is its own measurement rather than being
+        // averaged with the variable effect of the same event — averaging would
+        // hide a slow arrival behind a fast one (spec 025 assumption).
+        latency.RecordEventToOverlayState(metadata.RootIngestedAt);
 
         logger.BroadcastOverlayHighlightChanged(overlayIdentifier, durationMs, causingEventIdentifier);
     }
