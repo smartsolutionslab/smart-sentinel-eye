@@ -108,6 +108,11 @@ public static class WolverineDefaults
         builder.Services.AddScoped<IEventBus, OutboxEventBus<TDbContext>>();
         builder.Services.AddScoped<ITransactionalCommit, OutboxTransactionalCommit<TDbContext>>();
 
+        // Registered beside them for the same reason: every context that applies
+        // an effect needs to report the leg, and none of them may reference the
+        // meter directly (spec 025).
+        builder.Services.AddSingleton<ILatencyBudget, EventToOverlayLatency>();
+
         // FR-008. Trading a silent loss for a silent backlog would not be much
         // of a trade, so the queue depth is visible from the moment the outbox
         // starts being used.

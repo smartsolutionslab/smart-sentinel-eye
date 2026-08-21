@@ -29,7 +29,7 @@ public class OverlayHighlightRequestedV1HandlerTests
     {
         FakeLayoutLifecycleBroadcaster broadcaster = new();
         OverlayHighlightRequestedV1Handler handler = new(
-            broadcaster, NullLogger<OverlayHighlightRequestedV1Handler>.Instance);
+            broadcaster, new RecordingLatencyBudget(), NullLogger<OverlayHighlightRequestedV1Handler>.Instance);
 
         Guid overlay = Guid.CreateVersion7();
         OverlayHighlightRequestedV1 message = new(overlay, 10_000, Moment, Guid.CreateVersion7(), Metadata: TestMetadata);
@@ -47,7 +47,7 @@ public class OverlayHighlightRequestedV1HandlerTests
     {
         FakeLayoutLifecycleBroadcaster broadcaster = new();
         OverlayHighlightRequestedV1Handler handler = new(
-            broadcaster, NullLogger<OverlayHighlightRequestedV1Handler>.Instance);
+            broadcaster, new RecordingLatencyBudget(), NullLogger<OverlayHighlightRequestedV1Handler>.Instance);
 
         await handler.Handle(
             new OverlayHighlightRequestedV1(
@@ -68,7 +68,7 @@ public class OverlayHighlightRequestedV1HandlerTests
         // not merely leaked metadata (#1397).
         FakeLayoutLifecycleBroadcaster broadcaster = new();
         OverlayHighlightRequestedV1Handler handler = new(
-            broadcaster, NullLogger<OverlayHighlightRequestedV1Handler>.Instance);
+            broadcaster, new RecordingLatencyBudget(), NullLogger<OverlayHighlightRequestedV1Handler>.Instance);
 
         await handler.Handle(
             new OverlayHighlightRequestedV1(
