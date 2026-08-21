@@ -90,6 +90,23 @@ Sub-budgets (any leg breaching its budget triggers an ADR-class review):
 Every PR that touches the event-to-overlay path must cite which leg it
 affects and demonstrate the budget still holds.
 
+**Which legs are built, and which are watched** (ADR-0117). §VII binds
+the implemented ones; a leg not yet built is not yet subject, and this
+table is where that claim lives so it cannot be an unnoticed absence.
+
+| Leg | Implemented | Measured | Dashboard |
+|---|---|---|---|
+| Camera → SFU | yes | yes (SFU metrics) | no |
+| SFU → kiosk decode | **no** | — | — |
+| Presentation buffer (PTP) | **no** | — | — |
+| Event → overlay state | yes | **no** — needs a timestamp propagated | no |
+| Overlay composite + render | **partly** — renders over no video | — | — |
+| Headroom | n/a — arithmetic remainder | n/a | n/a |
+
+The three unbuilt legs are #1714. Keep this table current: a leg left
+recorded as unbuilt after it is built would exempt itself from §VII by
+clerical error.
+
 ### V. Spec-Driven Development (ADR-003)
 
 No implementation without a spec. The workflow is:
@@ -129,8 +146,12 @@ OpenTelemetry (provided by Aspire defaults).
   **Aspire dashboard** (for live ops and dev) and the **Grafana stack**
   (Prometheus + Loki + Tempo + Grafana + Alertmanager) for retention
   and alerting.
-- Latency-budget dashboards (per ADR-015) are mandatory. A leg without
-  a dashboard cannot ship.
+- Latency-budget dashboards (per ADR-015) are mandatory for every
+  **implemented** leg. A leg whose code path exists and has no dashboard
+  cannot ship further work; a leg not yet built is **not yet subject**,
+  and the obligation attaches to whichever spec builds it (ADR-0117).
+  The state of each leg is recorded beside the budget in §IV, so
+  "not yet subject" is a claim someone made rather than an absence.
 - During the comparison phase (walking skeleton → first two features)
   both sinks live. A single sink is committed before v1 GA.
 
@@ -304,4 +325,7 @@ contradicting tribal knowledge.
 
 ---
 
-**Version:** 1.0.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-05-25
+**Version:** 1.1.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-08-21
+
+**Amendment history.** 1.1.0 — §VII's dashboard requirement narrowed to
+implemented legs, with a leg-state table added to §IV (ADR-0117, #1681).
