@@ -93,7 +93,7 @@ what everyone should be working on.
       execution appear as spans with context propagated across services.
       Confirm the source name by observing spans rather than by assuming it —
       Phase 0 could not verify it from the assembly.
-- [ ] T006 [P] [US1] Confirm spans actually cross the service boundary: a trace
+- [X] T006 [P] [US1] Confirm spans actually cross the service boundary: a trace
       that starts in EventIngestion must contain the Automation and
       SystemVariables work under the same trace id. Without propagation the
       spans are per-service stopwatches and cannot attribute a journey.
@@ -103,7 +103,7 @@ what everyone should be working on.
 - [X] T008 [US1] Capture the traces for the **first three events** after a
       restart, not just the first. The decay is the clue; one trace cannot show
       it.
-- [ ] T009 [US1] Attribute the elapsed time of the first event to named stages,
+- [X] T009 [US1] Attribute the elapsed time of the first event to named stages,
       accounting for **≥ 80%** (SC-001), and name the stage holding the largest
       share. **If under 80%, the next task is better instrumentation, not a
       conclusion.**
