@@ -9,6 +9,8 @@ description: "Task list for 025-measure-event-to-overlay"
 
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md)
 
+**Issues**: #1728–#1749, one per task, all 22 verified on Project #13.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: can run in parallel (different files, no dependency on incomplete work)
@@ -135,7 +137,7 @@ plausibly is worse than none.
       rest of the feature was.
 - [ ] T021 Open the PR, stating which route T001 chose and why, what is measured,
       and what remains.
-- [ ] T022 Add every issue created for these tasks to **Project #13**
+- [X] T022 Add every issue created for these tasks to **Project #13**
       (`gh project item-add 13 --owner smartsolutionslab --url <issue-url>`), and
       **verify with `item-list`** — `item-add` prints nothing on success and
       nothing on failure, the board holds 300+ items, and a short `--limit` finds
