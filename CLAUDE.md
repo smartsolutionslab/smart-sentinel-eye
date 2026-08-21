@@ -231,6 +231,14 @@ down as:
 | Composite + render | ≤ 50 ms |
 | Headroom | ≤ 150 ms |
 
+**Three of these legs are not built** (#1714): the kiosk renders no
+video, so decode and composite-and-render have no code path, and PTP is
+still a future-add. §VII's dashboard rule binds **implemented** legs only
+(ADR-0117) — an unbuilt leg is not exempt, it is *not yet subject*, and
+the obligation attaches to whichever spec builds it. The current state of
+each leg is the table in constitution §IV; keep it current, because a leg
+recorded as unbuilt after it is built exempts itself by clerical error.
+
 ## Stack at a glance
 
 | Concern | Choice | ADR |
