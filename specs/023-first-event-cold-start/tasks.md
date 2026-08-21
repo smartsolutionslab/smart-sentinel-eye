@@ -9,6 +9,8 @@ description: "Task list for 023-first-event-cold-start"
 
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md)
 
+**Issues**: #1656–#1680, one per task, all on Project #13.
+
 **Tests**: this feature reuses spec 022's measurement (FR-011). New test code is
 for measuring, not for asserting behaviour that does not exist yet.
 
@@ -188,7 +190,7 @@ do not.
       that cannot be skipped.
 - [ ] T024 Open the PR with `Closes #1655`, stating what the measurement does
       not establish and what remains uncovered.
-- [ ] T025 Add every issue created for these tasks to **Project #13**
+- [X] T025 Add every issue created for these tasks to **Project #13**
       (`gh project item-add 13 --owner smartsolutionslab --url <issue-url>`).
       Verify with `item-list` — `item-add` prints nothing on success, and the
       board has over 250 items so a short `--limit` will not find a new one.
