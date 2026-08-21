@@ -60,6 +60,11 @@ public class FirstPublishPerTypeTests(AspireFixture aspire, ITestOutputHelper ou
         ConcurrentFrames frames = new();
         await using HubConnection kiosk = await ListenAsync(frames);
 
+        // Which queues exist before anything is published decides whether the
+        // per-type cost can be broker provisioning at all: a queue that already
+        // exists cannot be created by the publish that follows it.
+        output.WriteLine("queues before any publish: " + await QueueNamesAsync());
+        output.WriteLine("");
         output.WriteLine("round | kind      | new message type(s)                    | arrival -> effect");
 
         await HighlightRoundAsync(rules, kiosk: frames, "A", "FabEventIngestedV1 + OverlayHighlightRequestedV1");
@@ -110,6 +115,46 @@ public class FirstPublishPerTypeTests(AspireFixture aspire, ITestOutputHelper ou
         TimeSpan? seen = await WaitForAsync(() => Task.FromResult(kiosk.Contains(overlay)), t0);
 
         Report(round, kind, newTypes, seen);
+    }
+
+    /// <summary>
+    /// Asks the broker which queues exist, through the management plugin. The
+    /// discriminator this run turns on: broker provisioning and code generation
+    /// both cost time once per type, but only one of them can be ruled out by a
+    /// queue that already exists before the publish that would have created it.
+    /// </summary>
+    private async Task<string> QueueNamesAsync()
+    {
+        Uri management = aspire.App.GetEndpoint("rabbitmq", "management");
+
+        // Credentials off the connection string rather than guessed: the broker
+        // user is whatever the AppHost parameterised, and a 401 here would look
+        // exactly like "no queues" while meaning "no answer".
+        string connection = await aspire.App.GetConnectionStringAsync("rabbitmq") ?? "";
+        string userInfo = new Uri(connection).UserInfo;
+
+        using HttpClient client = new() { BaseAddress = management };
+        client.DefaultRequestHeaders.Authorization = new("Basic",
+            Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(Uri.UnescapeDataString(userInfo))));
+
+        HttpResponseMessage response = await client.GetAsync("/api/queues");
+        if (!response.IsSuccessStatusCode)
+        {
+            return "(management API said " + (int)response.StatusCode + ")";
+        }
+
+        JsonElement queues = await response.Content.ReadFromJsonAsync<JsonElement>();
+        List<string> names = [];
+        foreach (JsonElement queue in queues.EnumerateArray())
+        {
+            string name = queue.GetProperty("name").GetString() ?? "";
+            if (name.Contains("V1", StringComparison.Ordinal))
+            {
+                names.Add(name[(name.LastIndexOf('.') + 1)..]);
+            }
+        }
+
+        return names.Count == 0 ? "(none carrying a message type)" : string.Join(", ", names.Order());
     }
 
     private void Report(string round, string kind, string newTypes, TimeSpan? elapsed) =>
