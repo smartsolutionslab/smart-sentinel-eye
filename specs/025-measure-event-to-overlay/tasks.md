@@ -41,16 +41,16 @@ for the wrong span cannot detect its own error, and someone will cite it.
 
 ## Phase 1: The question that shapes the feature
 
-- [ ] T001 Send one event and read its trace end to end. Establish what happens
+- [X] T001 Send one event and read its trace end to end. Establish what happens
       to trace context at the outbox hop: **propagated** (the automation
       `receive` has a `parentSpanId` from event-ingestion's `send`), **linked**
       (separate traces joined by a span link), or **dropped** (separate traces,
       no link, `receive` is a root). Spec 024's captures suggest dropped, but
       were taken for another purpose — confirm rather than inherit.
-- [ ] T002 Record the answer and its consequence: **available or linked** → the
+- [X] T002 Record the answer and its consequence: **available or linked** → the
       leg is derivable from spans and T004–T006 are unnecessary; **dropped** →
       the timestamp route stands and T003 files the trace gap as its own issue.
-- [ ] T003 If context is dropped, file it separately. It is a bigger prize than
+- [X] T003 If context is dropped, file it separately. It is a bigger prize than
       this leg: every cross-service "what caused this" question is currently
       unanswerable across the outbox, and spec 023's cold-start investigation had
       to reason from timings for exactly this reason.
