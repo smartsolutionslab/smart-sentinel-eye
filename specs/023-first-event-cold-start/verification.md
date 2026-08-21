@@ -162,18 +162,43 @@ remains unexplained, and no candidate is currently standing.
 The most likely next step is to catch a fully-cold stack with the dashboard
 attached — every trace read here came from a stack that had been warm for
 minutes, because the dev AppHost boots with a simulator already publishing.
-## 6. Success criteria
+## 6. Why this ends without a fix (FR-010)
+
+SC-004 asked for the first event under 1 s. **No fix is delivered, and none
+should be**: the cause is not named, and the one change tried was refuted and
+reverted.
+
+That is FR-010's ending, written into the spec deliberately: the obligation was
+that the number stops being unexplained, not that it shrinks. Warming the path
+anyway would have produced a smaller figure and no knowledge — and the next time
+it regressed, nobody could say whether the warm-up had stopped working or
+something new had appeared.
+
+**Residual risk.** On a full cluster start, the first event of each message type
+takes about 5 s, and the journey crosses three. Against a 200 ms leg that is two
+orders of magnitude, and it is unexplained. What bounds the risk is that a
+rolling restart does not reproduce it (§5), so the exposure is a cold start of
+everything at once rather than routine operation. What does not bound it is any
+understanding of the mechanism.
+
+**Now watchable, which it was not before.** The journey has spans for the first
+time, so the next person to look starts from traces rather than from four
+plausible guesses. The dashboard that would make it *noticed* rather than
+merely visible is #1681.
+
+## 7. Success criteria
 
 | | Status |
 |---|---|
-| SC-001 — ≥ 80% attributed to a **named** stage | **Not met.** Attributed to "first use of a message type, on the consuming side", which is a stage but not a named mechanism. |
+| SC-001 — ≥ 80% attributed to a **named** stage | **Not met.** ~97% of the first event is attributable to "first publish of a message type" (5 s × 3 types against a ~350 ms warm journey), which is a stage. It is not a named *mechanism*, and every candidate for one is refuted. |
 | SC-002 — the decay explained | **Met.** It is not a decay over time; it is one payment per message type, and the journey has three. |
-| SC-003 — every candidate gets a verdict | **Met.** Five ruled out or refuted, one standing by elimination. |
-| SC-004 — first event under 1 s | **Not met.** No fix attempted; the one tried was refuted and reverted. |
+| SC-003 — every candidate gets a verdict | **Met.** Eight candidates, all with verdicts. None standing. |
+| SC-004 — first event under 1 s, **or the reason recorded** | **Met by its second clause** (§6). No fix; the one tried was refuted and reverted. Reason and residual risk recorded. |
 | SC-005 — steady state no worse | Held throughout: 190–369 ms across every configuration measured. |
 | SC-006 — suite passes, nothing weakened | Both new measurements are `Category=Measurement`, which CI already excludes, as spec 020's harness is. |
+| SC-007 — reproducible by someone else | **Met.** Both harnesses run from one `dotnet test` command; §1-§3 give the expected shape. |
 
-## 7. What was changed, and what was not
+## 8. What was changed, and what was not
 
 **Kept:** Wolverine's activity source registered in `ServiceDefaults`, so the
 journey's hops can be traced at all. Constitution §VII makes a dashboard
@@ -187,6 +212,18 @@ one trace id across services. Registering a source is not the same as seeing a
 trace, so it stayed unclaimed until a trace was seen.
 
 **Reverted:** the route priming and the `Shared.Contracts` reference it needed.
+
+**Left behind by mistake, and worth recording.** One of the throwaway reflection
+probes used to read Wolverine's internals — a test that throws by design to
+print what it found — was committed and survived four commits. Every run after
+it was an integration run, so the unit suite it breaks was never executed, and
+it would have reached CI as a hard failure. The coverage gate caught it, on the
+last task of the feature.
+
+A deliberately-failing test shipped unnoticed because nobody ran the suite that
+would have shown it. That is the same shape as the defect this programme has
+been chasing since spec 021, arriving from the opposite direction: not something
+green that never ran, but something red that never ran.
 
 ## What this does not establish
 
