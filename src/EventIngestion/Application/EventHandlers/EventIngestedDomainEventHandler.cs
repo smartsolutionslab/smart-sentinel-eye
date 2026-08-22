@@ -41,20 +41,31 @@ public sealed class EventIngestedDomainEventHandler(
         // origin is less code, produces a joined trace, and reads as correct
         // from the effect end while merging two hundred unrelated journeys
         // (FR-006).
-        using IDisposable journey = journeys.Begin(OriginName);
+        using IJourney journey = journeys.Begin(OriginName);
 
-        await events.PublishAsync(
-            new FabEventIngestedV1(
-                EventIdentifier: identifier.Value,
-                Fab: fab.Value,
-                Source: source.Value,
-                Device: device.Value,
-                Kind: kind.Value,
-                OccurredAt: occurredAt.Value,
-                IngestedAt: ingestedAt.Value,
-                Payload: payload.Value,
-                Metadata: new EventMetadata(identifier.Value, occurredAt.Value, fab.Value, null)),
-            cancellationToken);
+        try
+        {
+            await events.PublishAsync(
+                new FabEventIngestedV1(
+                    EventIdentifier: identifier.Value,
+                    Fab: fab.Value,
+                    Source: source.Value,
+                    Device: device.Value,
+                    Kind: kind.Value,
+                    OccurredAt: occurredAt.Value,
+                    IngestedAt: ingestedAt.Value,
+                    Payload: payload.Value,
+                    Metadata: new EventMetadata(identifier.Value, occurredAt.Value, fab.Value, null)),
+                cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            // Recorded, not handled. A journey that failed to begin otherwise
+            // looks exactly like one that began and caused nothing — same name,
+            // no children, no error — and those are opposite facts.
+            journey.Failed(exception);
+            throw;
+        }
 
         logger.PublishedIntegrationEvent(identifier, source, device);
     }

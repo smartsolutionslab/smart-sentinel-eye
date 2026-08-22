@@ -107,10 +107,43 @@ public sealed class JourneyOriginTests : IDisposable
     {
         using JourneyOrigin origin = new("nobody-is-listening-to-this");
 
-        IDisposable journey = origin.Begin("ingest plant-floor event");
+        IJourney journey = origin.Begin("ingest plant-floor event");
 
         journey.ShouldNotBeNull();
+        Should.NotThrow(() => journey.Failed(new InvalidOperationException("refused")));
         Should.NotThrow(journey.Dispose);
+    }
+
+    /// <summary>
+    /// A journey that failed to begin and one that began and caused nothing look
+    /// identical without this: same name, no children. The status is the only
+    /// thing that tells a broken ingest from an event no rule matched.
+    /// </summary>
+    [Fact]
+    public void A_failed_journey_is_recorded_as_failed()
+    {
+        using JourneyOrigin origin = new(ApplicationName);
+
+        using (IJourney journey = origin.Begin("ingest plant-floor event"))
+        {
+            journey.Failed(new InvalidOperationException("the outbox refused the insert"));
+
+            Activity recorded = Activity.Current.ShouldNotBeNull();
+            recorded.Status.ShouldBe(ActivityStatusCode.Error);
+            recorded.StatusDescription.ShouldBe("the outbox refused the insert");
+        }
+    }
+
+    /// <summary>The ordinary case stays unmarked, or the status means nothing.</summary>
+    [Fact]
+    public void A_journey_that_was_not_failed_carries_no_error()
+    {
+        using JourneyOrigin origin = new(ApplicationName);
+
+        using (origin.Begin("ingest plant-floor event"))
+        {
+            Activity.Current.ShouldNotBeNull().Status.ShouldBe(ActivityStatusCode.Unset);
+        }
     }
 
     /// <summary>

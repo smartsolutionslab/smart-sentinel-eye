@@ -36,9 +36,33 @@ public interface IJourneyOrigin
     /// </para>
     /// </summary>
     /// <returns>
-    /// A handle that ends the origin when disposed. Never <see langword="null"/>,
+    /// A handle that ends the journey when disposed. Never <see langword="null"/>,
     /// so callers need no branch — when nothing is listening the handle is inert
     /// rather than absent.
     /// </returns>
-    IDisposable Begin(string name);
+    IJourney Begin(string name);
+}
+
+/// <summary>
+/// One journey, from the work that caused it until that work ends.
+/// </summary>
+public interface IJourney : IDisposable
+{
+    /// <summary>
+    /// Records that the journey did not begin after all.
+    ///
+    /// <para>
+    /// Without this a journey that failed to start looks exactly like one that
+    /// started and caused nothing: same name, no children, no error. Those are
+    /// opposite facts — one is a broken ingest, the other is an event no rule
+    /// matched — and someone reading the dashboard has to be able to tell them
+    /// apart (spec 026 FR-008).
+    /// </para>
+    ///
+    /// <para>
+    /// Recording only. The caller still decides what to do with the exception,
+    /// and is expected to rethrow.
+    /// </para>
+    /// </summary>
+    void Failed(Exception exception);
 }
