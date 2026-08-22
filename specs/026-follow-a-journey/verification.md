@@ -153,3 +153,49 @@ trace list reads exactly like a feature that does not work.
 && echo PUBLISHED` printed PUBLISHED on `head` succeeding while the exec had
 failed with "executable file not found". Caught immediately, and recorded
 because it is the same shape as everything else this spec has been caught by.
+
+---
+
+## Measurement (T101, T111) — SC-006, FR-009
+
+`dotnet test tests/Integration.Tests --filter "Category=Measurement"`, three runs,
+same machine, same session. **The middle run has the change reverted in place**
+(`git revert -n 724af4c`), which is how the baseline T101 failed to take was
+recovered.
+
+| | run A — change in | run B — **reverted** | run C — change in |
+|---|---|---|---|
+| offered | 365/s | **408/s** | 405/s |
+| sustained end to end | 355/s | **398/s** | 396/s |
+| arrival→visible **p50** | 169 ms | **138 ms** | **137 ms** |
+| p95 | 1 090 ms | 920 ms | 1 339 ms |
+| p99 | 1 471 ms | 1 259 ms | 2 839 ms |
+| out of order | 0 | 0 | 0 |
+| first-event split, round 2 | 893 ms | 478 ms | 427 ms |
+| first-event split, round 3 | 931 ms | 520 ms | 414 ms |
+
+**No regression.** Run C carries the same code as run A and lands on the
+baseline: 405 vs 408/s offered, 396 vs 398/s sustained, p50 **137 vs 138 ms**,
+split rounds 427/414 against 478/520 — slightly *better* on the split.
+
+**Run A was contaminated**, and I would have reported it as a regression. It
+followed two killed fixture boots and a Release build on the same machine; every
+figure in it is worse, consistently, across two independent tests, which is
+exactly what a real regression looks like. What separated them was running the
+experiment a third time instead of reasoning about the first two.
+
+p95/p99 move around between runs (920 → 1 090 → 1 339) and the tail is not a
+stable measure here. **p50 and sustained throughput are**, and both are flat.
+
+Against the historical record: spec 020 recorded 398/s sustained and p50 164 ms
+on this same test. Both hold.
+
+### Why the cost is near zero
+
+One `Activity` per ingested event, started and stopped around a publish that
+already does a database write and a broker send. At the 400/s this harness can
+offer it is unmeasurable; at the 5 000/s spec 006 sizes the path for it remains
+one allocation per event against an outbox insert.
+
+**Not argued — that reasoning is why run A nearly got reported.** The number is
+137 ms against a 138 ms baseline.

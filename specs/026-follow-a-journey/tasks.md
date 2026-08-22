@@ -33,7 +33,7 @@ Nine tasks where there were twenty-three. That is the finding, not an estimate.
 ## Phase 1: Baseline
 
 - [X] T100 Record the current state and the mechanism — **done**, in `research.md` Findings 1, 3 and 4, and in `quickstart.md`'s "Before". Both broken trace IDs and the already-working three-service trace are written down.
-- [~] T101 **Missed as specified, and not recoverable.** No pre-change measurement was taken — implementation followed the research directly. The comparison is therefore against the 267–369 ms recorded by specs 022 and 024, which is what this task named as the reference anyway; what is lost is a same-machine, same-session control. Recorded rather than quietly re-scoped.
+- [X] T101 **Missed as specified, then recovered.** No pre-change measurement was taken — implementation followed the research directly. Recovered by reverting the change in place (`git revert -n 724af4c`), measuring, and restoring: a same-session A/B rather than a comparison against figures from another day. See verification.md.
 
 ---
 
@@ -72,7 +72,7 @@ rather than builds — which is exactly why they are worth writing down.
 
 ## Phase 5: Polish
 
-- [ ] T111 Re-measure (SC-006, FR-009) and compare against T101 — **latency and ingest throughput**. The ingest path is sized for 5 000 events/s and its batching exists to protect the database round trip; an activity per event runs five thousand times a second at design load. Report the number, don't round it away.
+- [X] T111 Re-measure (SC-006, FR-009) and compare against T101 — **latency and ingest throughput**. The ingest path is sized for 5 000 events/s and its batching exists to protect the database round trip; an activity per event runs five thousand times a second at design load. Report the number, don't round it away.
 - [ ] T112 [P] Full suite, nothing excluded or weakened (SC-008). New code lands in `ServiceDefaults` and `Shared.CQRS`, both under the Shared ≥ 90% gate (ADR-0065).
 - [X] T113 [P] Format and analyzers clean on Release — collection expressions and the SonarAnalyzer metric limits (ADR-0084) fail rather than warn.
 - [X] T114 Complete `verification.md`: both manual walks with screenshots, before/after trace IDs, both measurements, **and the batch check stated explicitly** — "two events from one batch, two traces" is the line that says the cheap version was not shipped.
