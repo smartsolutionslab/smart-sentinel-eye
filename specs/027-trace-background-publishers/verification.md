@@ -196,3 +196,32 @@ what was measured is the ingest path, and it is unchanged.
 p95 again wanders — 920 → 1 339 → 838 → 413 across four runs of code that differs
 in one respect. The tail is not a stable measure on this harness; p50 and
 sustained throughput are.
+
+---
+
+## Full suite (T017) — SC-009
+
+**1759 passed, 1 failed, 1 skipped** in Release, nothing excluded or weakened.
+
+The failure is `NFR002_MqttConnectAuthTests` — MQTT CONNECT→CONNACK exceeding a
+15 ms p50 budget. **The same test failed the same way on spec 026's branch and
+passed in CI**, which is where it was adjudicated then and where it will be
+again. It is machine-load bound: this box has been running Aspire stacks and
+Release builds all day. Nothing here touches MQTT connect or JWT auth.
+
+The skip is `CrossFabCameraIntegrationTests.A_name_differing_only_in_case_is_refused_within_one_fab`,
+pre-existing and unrelated (#1434).
+
+---
+
+## What was not finished, and why
+
+| | |
+|---|---|
+| **T014** — does an HTTP publish inherit the request? | **Open.** The camera registrations that would show it happen at boot and had aged out of the dashboard's window. Still the one inference in the survey; nothing here depends on it. |
+| **T015 (half)** — the retention walk | **Not observed.** The sweep runs on a long timer and no archival occurred in the window. The code is in and unit-tested; it has not been seen working. |
+| Poll cadence and retention duration | **No harness exists.** The measurements cover the ingest path, which this feature does not touch. |
+
+**Three things implemented and two of them observed.** Said plainly rather than
+rolled into a summary that reads as complete: the stream-health journey is
+confirmed end to end in the dashboard, the retention journey is not.
