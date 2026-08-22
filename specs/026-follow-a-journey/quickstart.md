@@ -1,28 +1,42 @@
 # Quickstart: follow a journey end to end
 
-**Feature**: `026-follow-a-journey` · 2026-08-22
+**Feature**: `026-follow-a-journey` · 2026-08-22 (rewritten)
 
-This is the walk that decides whether the feature works. It is deliberately
-manual in places, because two of its success criteria (SC-001, SC-007) are about
-**a person reading the dashboard** rather than a test asserting in memory.
+The walk that decides whether the feature works. Deliberately manual in places,
+because SC-001 and SC-007 are about **a person reading the dashboard**, not a
+test asserting in memory.
 
 ---
 
 ## Before
 
-Establish what today looks like, so "it joined up" is a comparison rather than an
-impression.
+Recorded on 2026-08-22, and worth repeating because it is the comparison:
 
 1. Start the stack: `dotnet run --project src/AppHost`.
-2. Open the Aspire dashboard, **Traces**.
-3. Publish one plant-floor event (the `PlantFloor` fixture helper does this, or
-   publish to `fab/munich/+/+` by hand).
-4. Find the publishing trace. **Expect: it contains only `event-ingestion`
-   spans.** The handling work in `automation` is a *separate* root trace whose
-   receive span has no parent.
+2. Open the Aspire dashboard → **Traces**.
+3. Let the scenario simulator run, or publish to `fab/munich/+/+` by hand.
 
-**Write down both trace IDs.** They are the two ends that are currently
-unconnected, and the same two are what you check afterwards.
+**What you should see, today:**
+
+- Every `event-ingestion` trace is a **root `send`** containing only
+  `event-ingestion` spans. No consumer anywhere in it.
+- The `automation` work it causes is a **separate root**, titled `receive`.
+- Two traces. No relationship. *(Observed: message
+  `08df004c-5fa4-6f2b-…` published in `1d701bae…`, received in `b8e1234c…`.)*
+
+**And, importantly, what already works** — the thing the first two versions of
+this spec missed:
+
+```
+automation          receive  FabEventIngestedV1            42 ms
+  ├─ automation     send     OverlayHighlightRequestedV1    0 ms
+  ├─ audit-obs      receive  OverlayHighlightRequestedV1   58 ms   (+0.7 s)
+  └─ layout-comp    receive  OverlayHighlightRequestedV1    1 ms   (+4.3 s)
+```
+
+*(trace `195d91230e630d835afd39ffc1132890`)* One trace, three services, through
+RabbitMQ and through the outbox, across a 4.3-second wait. **Look at this one
+first.** If you don't, the change below looks far bigger than it is.
 
 ---
 
@@ -31,54 +45,60 @@ unconnected, and the same two are what you check afterwards.
 Same walk, same event.
 
 1. Find the trace containing the plant-floor event's arrival.
-2. **The handling work should be reachable from it** — as a child, or via a link,
-   depending on which route step 2/3 of the plan landed on.
-3. Follow it the other way: from an applied effect, get to the originating event
+2. **The automation work should now be inside it**, not in a trace of its own —
+   and so should everything the diagram above already showed.
+3. Follow it the other way: from an applied effect, reach the originating event
    **without** using timestamps to guess.
 
-**Both directions, or it is half a feature** — US1 is the one people ask, but
-US2 falls out of the same relationship and should be checked rather than assumed.
+---
+
+## The four things most likely to be wrong
+
+**One cause for the whole batch.** The failure mode this feature is most likely
+to ship. Ingestion batches up to 200 deliveries, so a batch-level activity gives
+a joined trace that looks right from the effect end — and merges two hundred
+unrelated journeys at the event end. **Check two events from the same batch have
+different traces**, not just that some trace joined up.
+
+**It emits but does not arrive.** Spec 024's precedent: a source registered, no
+spans visible for two days. If the dashboard shows nothing, check
+`dotnet dev-certs https --trust` before concluding the code is wrong.
+
+**It joins in-process but not through the outbox.** Confirm the message was
+written to and read back from `wolverine_outgoing_envelopes`. A publish-and-
+handle in one process proves nothing here.
+
+**A span got longer.** SC-003. Each span should measure its own work; the queue
+wait belongs in the **trace's** elapsed time. The before-trace above already
+shows the right shape — 4305 ms overall, spans of 42/0/58/1 — so this is a
+regression check against a known-good reading, not an open question.
 
 ---
 
-## The three things most likely to be wrong
+## The measurements
 
-**It emits but does not arrive.** Spec 024's precedent: a source was registered
-and nobody could see spans for two days. If the dashboard shows nothing, check
-the dev certificate is trusted (`dotnet dev-certs https --trust`) before
-concluding the code is wrong.
-
-**It joins up in-process but not through the outbox.** The whole feature is about
-the store-and-forward hop. A test that publishes and handles in one process
-proves nothing here — the message must have been **written to and read back from
-`wolverine_outgoing_envelopes`**. Confirm the path taken, don't infer it from a
-green test.
-
-**A duration got longer.** SC-003. Look at the publish span and the handling
-span: each should measure its own work, and neither should have grown to include
-the wait. If a span now spans the queue time, the feature has misrepresented a
-delay as work and has failed regardless of how well the trace reads.
-
----
-
-## The measurement
-
-SC-006 — steady-state arrival-to-effect no worse than 267–369 ms, measured the
-way specs 022 and 024 measured it:
+Two, and the second is new to this version:
 
 ```sh
 dotnet test tests/Integration.Tests --filter "Category=Measurement"
 ```
 
-Compare against `specs/024-latency-budget-visible/verification.md`. **Headers on
-every message are not free**; the point is to know the cost, not to assume it is
-negligible.
+**Latency (SC-006):** arrival-to-effect against the 267–369 ms recorded by specs
+022 and 024. Compare with `specs/024-latency-budget-visible/verification.md`.
+
+**Ingest throughput (FR-009):** the ingest path is sized for 5 000 events/s and
+its batching exists to keep the database round trip amortised. An activity per
+event runs five thousand times a second at that load. **Know the cost; don't
+assume it rounds to nothing.**
 
 ---
 
 ## Recording it
 
-The numbers and the two trace IDs go in `verification.md`, not in a commit
-message. A screenshot of the joined trace is worth more than a sentence saying it
-joined — SC-007 is about someone being able to follow it, and an image is the
-only evidence of that which survives the session.
+Both trace IDs, both measurements, and a screenshot of the joined trace go in
+`verification.md`. SC-007 is about someone being able to follow the journey, and
+an image is the only evidence of that which survives the session.
+
+Record the **batch check** explicitly too — "two events from one batch, two
+traces" is one line, and it is the line that says the cheap version was not
+shipped.
