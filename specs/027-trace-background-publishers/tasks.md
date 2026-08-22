@@ -36,8 +36,8 @@ because `PollOnceAsync` calls the command handler unconditionally.
 
 ## Phase 1: Baseline
 
-- [ ] T001 Record the current state in `specs/027-trace-background-publishers/verification.md`: cause a camera to change health, find the `StreamHealthChangedV1` publish trace and audit-observability's separate receive trace, and record **both IDs**. Do the same for one `AuditChunkArchivedV1`. Assert nothing — this is the comparison, and the only chance to record what a broken journey looked like at these two sites.
-- [ ] T002 [P] Record the steady-state baseline: `dotnet test tests/Integration.Tests --filter "Category=Measurement"`, **twice**, plus health-poll cadence and retention run duration. Two runs because a single run after machine churn reads exactly like a regression (spec 026). This is what T016 compares to.
+- [X] T001 Record the current state in `specs/027-trace-background-publishers/verification.md`: cause a camera to change health, find the `StreamHealthChangedV1` publish trace and audit-observability's separate receive trace, and record **both IDs**. Do the same for one `AuditChunkArchivedV1`. Assert nothing — this is the comparison, and the only chance to record what a broken journey looked like at these two sites.
+- [X] T002 [P] Record the steady-state baseline: `dotnet test tests/Integration.Tests --filter "Category=Measurement"`, **twice**, plus health-poll cadence and retention run duration. Two runs because a single run after machine churn reads exactly like a regression (spec 026). This is what T016 compares to.
 
 **Checkpoint**: the "before" exists in writing, with trace IDs.
 
@@ -49,10 +49,10 @@ because `PollOnceAsync` calls the command handler unconditionally.
 
 **Independent test**: cause a state change, take the downstream record, follow it back without using timestamps.
 
-- [ ] T003 [US1] Inject `IJourneyOrigin` into `src/StreamDistribution/Application/EventHandlers/StreamHealthChangedDomainEventHandler.cs` and begin a journey around the publish, marking failure with `IJourney.Failed(Exception)` on the exception path. Mirror `EventIngestedDomainEventHandler`. **Not in `StreamHealthWatcher.PollOnceAsync`** — say why in a comment, because the loop is the obvious place and is wrong twice (research Finding 1).
-- [ ] T004 [P] [US1] Add a recording journey-origin fake and a bus fake to `tests/StreamDistribution.Application.Tests/Fakes/` — the project has neither. Model them on `tests/EventIngestion.Application.Tests/Fakes/RecordingJourneyOrigin.cs`, which must record *how many journeys were open at the moment of the publish*: a call count cannot tell a journey that caused the publish from one closed before it.
-- [ ] T005 [US1] Test in `tests/StreamDistribution.Application.Tests/EventHandlers/`: the publish happens **inside** the journey, each domain event gets its **own** journey, and the journey does not outlive the event.
-- [ ] T006 [US1] Assert the only-on-change property (FR-006, SC-005) where it actually lives — `src/StreamDistribution/Domain/Stream/Stream.cs` raises `StreamHealthChangedDomainEvent` only when `previous != State`. A poll that observes no change must produce no domain event and therefore no journey. **Assert it rather than trust it**: this is the half of the loop trap that was not anticipated.
+- [X] T003 [US1] Inject `IJourneyOrigin` into `src/StreamDistribution/Application/EventHandlers/StreamHealthChangedDomainEventHandler.cs` and begin a journey around the publish, marking failure with `IJourney.Failed(Exception)` on the exception path. Mirror `EventIngestedDomainEventHandler`. **Not in `StreamHealthWatcher.PollOnceAsync`** — say why in a comment, because the loop is the obvious place and is wrong twice (research Finding 1).
+- [X] T004 [P] [US1] Add a recording journey-origin fake and a bus fake to `tests/StreamDistribution.Application.Tests/Fakes/` — the project has neither. Model them on `tests/EventIngestion.Application.Tests/Fakes/RecordingJourneyOrigin.cs`, which must record *how many journeys were open at the moment of the publish*: a call count cannot tell a journey that caused the publish from one closed before it.
+- [X] T005 [US1] Test in `tests/StreamDistribution.Application.Tests/EventHandlers/`: the publish happens **inside** the journey, each domain event gets its **own** journey, and the journey does not outlive the event.
+- [X] T006 [US1] Assert the only-on-change property (FR-006, SC-005) where it actually lives — `src/StreamDistribution/Domain/Stream/Stream.cs` raises `StreamHealthChangedDomainEvent` only when `previous != State`. A poll that observes no change must produce no domain event and therefore no journey. **Assert it rather than trust it**: this is the half of the loop trap that was not anticipated.
 
 **Checkpoint**: MVP. A camera's journey has a beginning.
 
@@ -66,10 +66,10 @@ because `PollOnceAsync` calls the command handler unconditionally.
 site most likely to be skipped, because it publishes inline and does not look
 like the thing spec 026 fixed.
 
-- [ ] T007 [US2] Inject `IJourneyOrigin` into `src/AuditObservability/Application/Retention/AuditRetentionHostedService.cs` and begin a journey **inside** the chunk loop, in `ArchiveAndDropAsync`, around one chunk's publish. Mark failure on the existing `try`. **Comment the asymmetry with US1** — same rule, opposite placement — because a reader arriving from spec 026 will look for a domain event handler, not find one, and move on.
-- [ ] T008 [P] [US2] Add a recording journey-origin fake to `tests/AuditObservability.Application.Tests/Fakes/`. `FakeBus` already exists there. **This is the third copy of this fake in the repo**; note it in the PR rather than collapsing three test projects in a feature that is about something else.
-- [ ] T009 [US2] Extend `tests/AuditObservability.Application.Tests/Retention/AuditRetentionHostedServiceTests.cs`: the publish happens inside the journey, and **a run archiving several chunks produces several journeys** (FR-003, SC-003).
-- [ ] T010 [US2] Assert a run with nothing to archive produces no journeys (FR-006, SC-005). The service already returns early on an empty chunk list; assert the consequence.
+- [X] T007 [US2] Inject `IJourneyOrigin` into `src/AuditObservability/Application/Retention/AuditRetentionHostedService.cs` and begin a journey **inside** the chunk loop, in `ArchiveAndDropAsync`, around one chunk's publish. Mark failure on the existing `try`. **Comment the asymmetry with US1** — same rule, opposite placement — because a reader arriving from spec 026 will look for a domain event handler, not find one, and move on.
+- [X] T008 [P] [US2] Add a recording journey-origin fake to `tests/AuditObservability.Application.Tests/Fakes/`. `FakeBus` already exists there. **This is the third copy of this fake in the repo**; note it in the PR rather than collapsing three test projects in a feature that is about something else.
+- [X] T009 [US2] Extend `tests/AuditObservability.Application.Tests/Retention/AuditRetentionHostedServiceTests.cs`: the publish happens inside the journey, and **a run archiving several chunks produces several journeys** (FR-003, SC-003).
+- [X] T010 [US2] Assert a run with nothing to archive produces no journeys (FR-006, SC-005). The service already returns early on an empty chunk list; assert the consequence.
 
 ---
 
@@ -78,19 +78,19 @@ like the thing spec 026 fixed.
 **P1, and after US2 despite that**, because it asserts a property of *both* sites
 and cannot complete until both exist. Same sequencing spec 026 used for its US3.
 
-- [ ] T011 [US3] Assert at both sites that a refused publish marks the journey failed and still ends it (FR-004, SC-004). One test per context, beside the tests from T005 and T009.
-- [ ] T012 [US3] Assert the negative: a publish that **succeeds** leaves the journey unmarked. A status that is always set carries no information, and this is the half that makes SC-004 meaningful.
+- [X] T011 [US3] Assert at both sites that a refused publish marks the journey failed and still ends it (FR-004, SC-004). One test per context, beside the tests from T005 and T009.
+- [X] T012 [US3] Assert the negative: a publish that **succeeds** leaves the journey unmarked. A status that is always set carries no information, and this is the half that makes SC-004 meaningful.
 
 ---
 
 ## Phase 5: Polish & Cross-Cutting
 
-- [ ] T013 **Write the survey down** (FR-009, SC-008) as a table in `verification.md`: every `IEventBus.PublishAsync` call site in product code, each classified as having a cause or not needing one. Finding the orphans was the expensive part of this feature; an undocumented survey means the next person repeats the search.
-- [ ] T014 **Close the HTTP inference** (research Finding 3). Nine publishers are classified as fine because a request establishes their cause; message-driven is observed directly, HTTP is observed one layer short. The stack is up for T015 anyway — register a camera through the API and check the `send` span sits under the `POST` span. If it does not, that is a new finding and a new issue, not a change here.
-- [ ] T015 **Follow both journeys by hand** (SC-001, SC-002, SC-007, FR-008): walk `quickstart.md`'s "After" in the dashboard for a camera health change **and** an archived chunk, and record both in `verification.md` with screenshots. Also check the dashboard is **not** full of journeys for cameras that changed nothing — that is what the unanticipated half of the loop trap looks like in the sink.
-- [ ] T016 Re-measure (FR-007, SC-006) and compare against T002 — measurement suite **twice**, plus poll cadence and retention duration. Report the numbers; a single run is not evidence.
+- [X] T013 **Write the survey down** (FR-009, SC-008) as a table in `verification.md`: every `IEventBus.PublishAsync` call site in product code, each classified as having a cause or not needing one. Finding the orphans was the expensive part of this feature; an undocumented survey means the next person repeats the search.
+- [~] T014 **Open, not done.** The camera registrations that would have shown it happen at boot and had aged out of the dashboard's retained window by the time it was looked for. Marked open rather than upgraded to observed. Nothing in this feature depends on the answer. Original: **Close the HTTP inference** (research Finding 3). Nine publishers are classified as fine because a request establishes their cause; message-driven is observed directly, HTTP is observed one layer short. The stack is up for T015 anyway — register a camera through the API and check the `send` span sits under the `POST` span. If it does not, that is a new finding and a new issue, not a change here.
+- [~] T015 **Half done.** The stream-health walk is recorded with the joined trace `0c7f1153`; the retention walk is not, because the sweep runs on a long timer and no archival occurred in the window. Original: **Follow both journeys by hand** (SC-001, SC-002, SC-007, FR-008): walk `quickstart.md`'s "After" in the dashboard for a camera health change **and** an archived chunk, and record both in `verification.md` with screenshots. Also check the dashboard is **not** full of journeys for cameras that changed nothing — that is what the unanticipated half of the loop trap looks like in the sink.
+- [X] T016 Re-measure (FR-007, SC-006) and compare against T002 — measurement suite **twice**, plus poll cadence and retention duration. Report the numbers; a single run is not evidence.
 - [ ] T017 [P] Full suite, nothing excluded or weakened (SC-009). Watch the coverage gates: both contexts' Application layers sit under the ≥ 80% gate (ADR-0065).
-- [ ] T018 [P] Format and analyzers clean on Release — collection expressions and SonarAnalyzer metric limits (ADR-0084) fail rather than warn.
+- [X] T018 [P] Format and analyzers clean on Release — collection expressions and SonarAnalyzer metric limits (ADR-0084) fail rather than warn.
 - [ ] T019 Complete `verification.md`: both walks with screenshots, before/after trace IDs, both measurements, the survey table, the no-change check, and the answer to T014.
 
 **No ADR task.** Using an existing abstraction at two more call sites is not an
