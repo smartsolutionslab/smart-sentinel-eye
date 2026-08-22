@@ -165,3 +165,34 @@ at boot and had aged out of the dashboard's retained window by the time it was
 looked for. Nothing in this feature depends on the answer: if an HTTP publish
 turned out to be an orphan too, that is a new finding and a new issue, not a
 change to these two call sites.
+
+---
+
+## Measurement (T016) — SC-006, FR-007
+
+Two runs, per the lesson recorded from spec 026: a single run after machine churn
+reads exactly like a regression. Compared against spec 026's same-machine
+baseline, taken earlier the same day by reverting that commit in place.
+
+| | 026 baseline | 026 after | **027 run 1** | **027 run 2** |
+|---|---|---|---|---|
+| offered | 408/s | 405/s | **453/s** | **428/s** |
+| sustained end to end | 398/s | 396/s | **442/s** | **418/s** |
+| arrival→visible **p50** | 138 ms | 137 ms | **143 ms** | **128 ms** |
+| p95 | 920 ms | 1 339 ms | 838 ms | 413 ms |
+| first-event split r2 / r3 | 478 / 520 ms | 427 / 414 ms | 332 / 399 ms | 186 / 326 ms |
+
+**No regression, and both runs agree.** Throughput is *higher* than the 026
+baseline in both (442 and 418 against 398), p50 straddles it (143 and 128 against
+138), and the split rounds are faster. Everything is inside the ≤ 200 ms budget
+for this leg.
+
+This feature does not touch the ingest path at all — these figures are a guard
+against an unexpected cost elsewhere, not a measurement of what changed. **The
+poll cadence and the retention run are what this feature actually touches, and
+neither has a harness.** Recorded as a gap rather than implied to be covered:
+what was measured is the ingest path, and it is unchanged.
+
+p95 again wanders — 920 → 1 339 → 838 → 413 across four runs of code that differs
+in one respect. The tail is not a stable measure on this harness; p50 and
+sustained throughput are.
