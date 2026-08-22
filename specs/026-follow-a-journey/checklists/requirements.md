@@ -34,21 +34,29 @@
 **All items pass.** Four judgements a reviewer should push back on if they
 disagree:
 
-**US3 is P1 alongside US1, and that is the whole shape of the feature.** The
-obvious way to make a journey followable is to make the far side a continuation
-of the near side — and across a store-and-forward hop that produces a unit of
-work whose duration is dominated by queue time. A twenty-millisecond journey
-would be reported as eight minutes, in every percentile it appears in. **That is
-worse than today**, because it replaces a missing answer with a confident wrong
-one, and this codebase has been caught five times by things that looked like
-success. So the constraint is a first-class story rather than a caveat.
+**US3 is P1 alongside US1.** Whatever joins the journey up must not make a
+delay look like work, because replacing a missing answer with a confident wrong
+one is worse than today and this codebase has been caught five times by things
+that looked like success. So the constraint is a first-class story rather than a
+caveat.
 
-**The link-not-continuation reading is an assumption, not a decision.** The
-investigation arrived at it and US3 forces it, but the spec says explicitly that
-the plan should test it — including whether the standard mechanism produces
-something anyone can actually follow in the sink this project has. Spec 024
-registered a trace source and could not confirm spans arrived for two days;
-FR-008 and SC-007 exist so that cannot repeat.
+> **Amended 2026-08-22 after Phase 0.** This note originally argued the point by
+> claiming a continuation would report a twenty-millisecond journey as eight
+> minutes "in every percentile it appears in". **That is not how span duration
+> works** — a span measures its own start to its own end, and percentiles are
+> computed over spans. The checklist passed it anyway, which is worth recording:
+> **a quality gate confirmed a claim nobody had checked against the mechanism.**
+> The item below — "requirements are testable" — was and is satisfied; the
+> reasoning around it was not.
+
+**The link-not-continuation reading was an assumption, and Phase 0 reopened
+it.** The spec said the plan should test it, and testing it found the argument
+for it did not hold. Parentage may now be free — Wolverine already carries the
+fields and builds its receive span from them — so the plan tries that before
+writing custom span code. What still has to be checked either way is whether the
+result is followable in the sink this project has: spec 024 registered a trace
+source and could not confirm spans arrived for two days, and FR-008 and SC-007
+exist so that cannot repeat.
 
 **SC-003 is phrased as "no reported duration grows".** Not "durations are
 accurate", which is unfalsifiable, and not "spans are linked", which is the

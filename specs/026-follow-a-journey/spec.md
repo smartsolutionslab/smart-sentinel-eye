@@ -84,12 +84,18 @@ usually starts from the symptom, so US1 comes first.
 Someone reading how long a journey took is not misled by a message having waited
 in a queue.
 
-**Why this priority**: **P1 alongside US1, because the obvious way to satisfy US1
-breaks this.** Making the far side a direct continuation of the near side would
-produce a single unit of work whose duration is dominated by queue time — a
-twenty-millisecond journey reported as eight minutes, in every percentile it
-appears in. That is worse than the current state, because it replaces a missing
-answer with a wrong one.
+**Why this priority**: P1 alongside US1, because whatever joins the journey up
+must not make a delay look like work. A reported duration that includes queue
+time would replace a missing answer with a wrong one, and this codebase has been
+caught five times by things that looked like success.
+
+> **Corrected 2026-08-22 (Phase 0).** This story originally justified itself by
+> claiming that making the far side a continuation of the near side would report
+> "a twenty-millisecond journey as eight minutes, in every percentile". **That is
+> not how span duration works** — a span measures its own start to its own end,
+> parentage does not extend it, and percentiles are computed over spans rather
+> than whole journeys. The requirement below stands and is worth checking; its
+> original reasoning was wrong. See research.md, Finding 2.
 
 **Acceptance Scenarios**:
 
@@ -183,12 +189,13 @@ answer with a wrong one.
 
 ## Assumptions
 
-- **A link, not a continuation.** The causal relationship is recorded as a
-  reference between two separate units of work rather than by making one contain
-  the other. This is the reading the investigation arrived at, and US3 is what
-  forces it — but **it is a reading and the plan should test it**. If the
-  standard mechanism proves unsupported, or produces something nobody can follow
-  in the sink we have, that is a finding rather than a detail.
+- **A link or a continuation — Phase 0 reopened this.** The spec was written
+  assuming a link, on reasoning that turned out to be wrong (see US3's
+  correction). Wolverine already carries `CorrelationId` and `ParentId` on the
+  envelope and builds its receive span from them, so **stamping those through the
+  outbox may join the journey up with no custom span code at all**. The plan
+  tries that first and keeps links in reserve for the arguments that survive:
+  fan-in, sampling, and trace lists dominated by queue time.
 - **Both directions come from one relationship.** Recording that B was caused by
   A should make both "what caused B" and "what did A cause" answerable, so US2
   needs no separate mechanism.
