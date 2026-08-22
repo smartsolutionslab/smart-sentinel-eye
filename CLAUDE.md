@@ -282,7 +282,7 @@ recorded as unbuilt after it is built exempts itself by clerical error.
 | Wolverine defaults | Per-module queue isolation + eager transactions + Postgres outbox | 0088 |
 | Git: commits | Conventional Commits, **no `Co-Authored-By` footer** | 0030, 0086 |
 | Git: merge | **Rebase-only** (no squash, no merge commits) | 0029, 0087 |
-| Observability | OpenTelemetry → Aspire dashboard + Grafana stack (parallel comparison) | 0026 |
+| Observability | OpenTelemetry → **one sink per environment**: Aspire dashboard in dev/CI; production sink deferred until there is a production deployment. The dual-sink comparison ADR-0026 planned never started and is abandoned. | 0026, 0118 |
 | Orchestration | Aspire AppHost (dev) → k3s + Helm (prod) | 0024, 0025 |
 
 **Diverges from Yumney on:** NRT (we: disabled; Yumney: enabled), `Result<T, Error>` shape, Shouldly vs FluentAssertions, Moq vs NSubstitute, sentence-style vs `Method_Scenario_Expected` test naming, initial test layout (minimal vs full per-layer), **Marten** for event-sourced contexts (Yumney: EF Core), narrower Architecture.Tests scope, no story-ref in commits. See ADRs 0056–0063, 0082, 0083, 0085 for the reasoning per divergence.
