@@ -144,23 +144,26 @@ Prometheus, the React app — are declared in the `AppHost` project using
   resource lacks an Aspire integration, wrap it as a custom resource in
   the AppHost rather than configuring it out-of-band.
 
-### VII. Observability Is Non-Negotiable (ADR-026)
+### VII. Observability Is Non-Negotiable (ADR-026, ADR-0117, ADR-0118)
 
 Every service auto-instruments traces, metrics, and logs through
 OpenTelemetry (provided by Aspire defaults).
 
-- A central **OpenTelemetry Collector** fans OTLP to both the
-  **Aspire dashboard** (for live ops and dev) and the **Grafana stack**
-  (Prometheus + Loki + Tempo + Grafana + Alertmanager) for retention
-  and alerting.
+- Telemetry reaches **one sink per environment** (ADR-0118). Development
+  and CI: the Aspire dashboard, fed by the OTLP exporter Aspire injects.
+  Production: deferred until there is a production deployment to attach
+  a sink to, and decided with that work.
 - Latency-budget dashboards (per ADR-015) are mandatory for every
   **implemented** leg. A leg whose code path exists and has no dashboard
   cannot ship further work; a leg not yet built is **not yet subject**,
   and the obligation attaches to whichever spec builds it (ADR-0117).
   The state of each leg is recorded beside the budget in §IV, so
   "not yet subject" is a claim someone made rather than an absence.
-- During the comparison phase (walking skeleton → first two features)
-  both sinks live. A single sink is committed before v1 GA.
+- **There is no dual-sink comparison phase** (ADR-0118). ADR-026 planned
+  one; it never started, and none of the Grafana stack was built. A
+  comparison needs two options and only one exists, so the choice is made
+  by environment instead. Grafana remains the expected production sink,
+  uncommitted until there is something to run it against.
 
 ### VIII. Safe by Default at Trust Boundaries
 
@@ -332,7 +335,11 @@ contradicting tribal knowledge.
 
 ---
 
-**Version:** 1.1.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-08-21
+**Version:** 1.2.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-08-22
 
-**Amendment history.** 1.1.0 — §VII's dashboard requirement narrowed to
-implemented legs, with a leg-state table added to §IV (ADR-0117, #1681).
+**Amendment history.**
+1.2.0 — §VII's sink bullets rewritten: one sink per environment, and the
+dual-sink comparison phase abandoned because it never started (ADR-0118,
+#1707).
+1.1.0 — §VII's dashboard requirement narrowed to implemented legs, with a
+leg-state table added to §IV (ADR-0117, #1681).
