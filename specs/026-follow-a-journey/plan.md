@@ -1,19 +1,21 @@
 # Implementation Plan: A cross-service journey can be followed end to end
 
 **Branch**: `026-follow-a-journey` · **Spec**: [spec.md](./spec.md) ·
-**Date**: 2026-08-22 · **Issue**: #1750
+**Date**: 2026-08-22 (rewritten) · **Issue**: #1750
 
 ## Summary
 
-Make the causal chain survive the outbox, so "what caused this?" becomes
-answerable across services.
+Give an ingested plant-floor event a cause, so the journey it starts has a
+beginning.
 
-Phase 0 changed the plan twice over. It found a **supported extension point**
-that makes the send side a configuration change rather than an invention — and it
-found that **the spec's central argument was wrong**, which reopens a design
-decision the spec had treated as settled.
+**That is the whole change.** Everything downstream of it already works: the
+library propagates the relationship across services and through the outbox
+today, demonstrated over a 4.3-second store-and-forward wait. What it has
+nothing to work with is the one publish that happens outside any activity.
 
-The consequence is a smaller feature than specified, tried in a different order.
+This is the third version of this plan and much the smallest. The first two were
+planned against causes that turned out to be false; see spec.md's closing
+section.
 
 ## Technical Context
 
@@ -21,77 +23,73 @@ The consequence is a smaller feature than specified, tried in a different order.
 with a Postgres outbox · **Telemetry**: OpenTelemetry → the Aspire dashboard
 (ADR-0118) · **Testing**: xUnit + the Aspire fixture
 
-**Constraints**: no reported duration may grow (SC-003); the library's own tables
-are not ours (FR-011); the existing latency measurement must be untouched and
-must not start depending on telemetry (FR-010); the result must be **followable
-by a person in the dashboard**, not merely emitted (FR-008, SC-007).
+**Constraints**: one cause per event, never per batch (FR-006, SC-005); do not
+duplicate propagation that already works (FR-007); no ingest-throughput or
+latency regression, measured (FR-009); the spec-025 measurement stays untouched
+and telemetry-independent (FR-010); followable by a person in the dashboard
+(FR-008, SC-007).
 
 ## Constitution Check
 
 | Principle | Status |
 |---|---|
 | I. On-prem first | Unaffected. |
-| II. DDD with value objects | Unaffected — transport metadata, not domain state. |
-| III. Bounded context isolation | Respected: the change is in `ServiceDefaults`, which every context already uses. |
-| IV. Latency budget | **Guarded, not served.** FR-009 and SC-006 keep this from costing latency; it does not make a leg faster. |
-| V. Spec-driven development | Followed, including correcting the spec when Phase 0 contradicted it. |
+| II. DDD with value objects | Unaffected — diagnostics, not domain state. |
+| III. Bounded context isolation | Respected, and it shapes the design: the Application layer gets an interface, `ServiceDefaults` provides it. Same arrangement as `IEventBus` and `ILatencyBudget`. |
+| IV. Latency budget | **Guarded, not served.** The ingest path runs this 5 000×/s at design load, so FR-009 is a measurement rather than a formality. |
+| V. Spec-driven development | Followed, including stopping mid-implementation to re-spec when Phase 2 falsified the premise. |
 | VI. Aspire is the composition root | Unaffected. |
-| VII. Observability is non-negotiable | Directly served. §VII's dashboards are about latency legs; this is the causality half of the same principle, and the one that made spec 023's investigation fail. |
-| VIII. Safe at trust boundaries | **Worth a check.** Anything stamped onto every outgoing message is visible to anything that reads the broker. Trace identifiers are opaque and carry no business data, and the plan keeps it that way. |
-| IX. Forward-compatible interfaces | Respected — headers are additive and a message without them behaves as today. |
+| VII. Observability is non-negotiable | Directly served — this is the causality half of §VII, and the half that made spec 023's investigation fail. |
+| VIII. Safe at trust boundaries | **Nothing new crosses one.** No header is added and no message changes; the change is confined to one process. This is strictly better than the previous plan. |
+| IX. Forward-compatible interfaces | Respected — an event without a cause behaves as today. |
 
 **No exception requested.**
 
 ## Approach
 
-### 1. Correct the record first
+### 1. Give the ingestion publish an activity — one per event
 
-Done in Phase 0, and listed as a step because it is work rather than tidying:
-the spec's US3 justification claimed parentage would report "a twenty-millisecond
-journey as eight minutes, in every percentile". Span duration does not work that
-way — a span measures its own start to its own end, and percentiles are computed
-over spans. The requirement stands; the reasoning was wrong and is marked as
-corrected in both documents.
+`EventIngestedDomainEventHandler` translates one domain event into one
+integration event. `DomainEventDispatcher` invokes handlers **sequentially, one
+domain event at a time**, so an activity started there is naturally per-event
+and FR-006 falls out of the structure rather than being defended by care.
 
-**Left uncorrected, that argument would have ruled out the cheapest option on
-false grounds.**
+That matters: the tempting place is the batch, where 200 deliveries are stored
+together. A batch-level activity is less code, produces a joined trace, and
+would satisfy US1 by eye while collapsing two hundred unrelated journeys onto
+one parent.
 
-### 2. Try the cheap route before the clever one
+### 2. Put the source where the other cross-cutting telemetry lives
 
-`WolverineOptions.MetadataRules` takes `IEnvelopeRule`, applied to outgoing
-envelopes — the same mechanism Wolverine uses for tenancy and delivery windows.
-`Envelope.Headers` serialises with the message.
+The Application layer must not own an `ActivitySource` — same reasoning that put
+`ILatencyBudget` in `Shared.CQRS` with its implementation in `ServiceDefaults`.
+Mirror that arrangement rather than inventing a second one.
 
-Since `Envelope.CorrelationId` and `ParentId` already exist and
-`WolverineTracing.StartReceiving` already reads the envelope, **stamping the
-context through headers may join the journey up with no custom span code at
-all.** That is the smallest change that could work, and it uses the library as
-designed rather than around it.
+**Probably no OpenTelemetry configuration change at all**: `Extensions.cs`
+already registers `AddSource(builder.Environment.ApplicationName)`, so a source
+named for the application is exported today. Verify that rather than assume it —
+spec 024 assumed a registered source meant visible spans and lost two days.
 
-If it works, this feature is a rule and its tests.
+### 3. Add nothing to the messages
 
-### 3. Only then consider links
+FR-007. The relationship travels on `Envelope.ParentId`, which Wolverine already
+sets from the ambient activity, already persists through the outbox, and already
+reads back on receive. **Measured, not assumed** — see research.md, Findings 3
+and 4.
 
-Three arguments for links survive Phase 0, and all are smaller than the one that
-did not: fan-in (one handler, several causes — which this system does not
-currently do), sampling decisions travelling from a minutes-old context, and
-trace lists sorted by duration becoming dominated by queue time.
+### 4. Prove it end to end, and by eye
 
-**The third is measurable and is the one to check**: if every trace is minutes
-long, the dashboard becomes hard to use and links earn their extra code. That is
-an observation to make after step 2, not a prediction to build on.
+The tests matter more here than in the previous plan, because most of FR-001's
+behaviour is now **inherited rather than built** — which is exactly the kind of
+thing that regresses without anyone noticing. And SC-001/SC-007 are about a
+person reading the dashboard; spec 024's precedent is the reason that is a task
+and not an assumption.
 
-### 4. Verify a person can follow it
+### 5. Measure the ingest path
 
-FR-008 and SC-007 ask for a human reading the dashboard, not a test asserting a
-link exists in memory. Spec 024 registered a trace source and could not confirm
-spans arrived for two days; that is the failure this step exists to avoid.
-
-### 5. Confirm nothing got slower or longer
-
-`SC-003` (no reported duration grows) and `SC-006` (steady state no worse),
-measured the same way as specs 022, 024 and 025. Headers on every message are not
-free, and "not free" is a measurement rather than a shrug.
+FR-009 and SC-006. Starting an activity per event is cheap but not free, and
+this runs 5 000 times a second at design load. Compare against the recorded
+267–369 ms and against the ingest throughput the batching exists to protect.
 
 ## Project Structure
 
@@ -99,52 +97,55 @@ free, and "not free" is a measurement rather than a shrug.
 
 ```
 specs/026-follow-a-journey/
-├── spec.md              ← carries a correction from Phase 0
-├── research.md          ← Phase 0, complete
-├── plan.md              ← this file
+├── spec.md              ← rewritten; keeps what the first version got wrong
+├── research.md          ← Findings 1–4; 3 and 4 are the ones that count
+├── plan.md              ← this file (third version)
 ├── quickstart.md
 ├── tasks.md
-├── verification.md
-└── checklists/requirements.md
+└── verification.md
 ```
 
-No `data-model.md` and no `contracts/`: nothing here is a domain model, and the
-message contracts are untouched — the context rides in envelope headers rather
-than in any `Shared.Contracts` type. That is a deliberate difference from spec
-025, which needed a contract field because a *metric* must be computed in-process
-where telemetry cannot help.
+No `data-model.md` and no `contracts/`: no domain model, and **no contract
+change at all** — a deliberate difference from both spec 025 (which needed a
+contract field, because a metric must be computed in-process where telemetry
+cannot help) and from this plan's own previous version (which was going to add a
+header to every message in the system).
 
 ### Source code
 
 ```
-src/ServiceDefaults/WolverineDefaults.cs   the metadata rule, registered once
-src/ServiceDefaults/                       a rule type, if it needs a name
-tests/Integration.Tests/                   the journey, followed
+src/Shared.CQRS/                    the interface the Application layer sees
+src/ServiceDefaults/                the ActivitySource behind it + registration
+src/EventIngestion/Application/EventHandlers/EventIngestedDomainEventHandler.cs
+tests/ServiceDefaults.Tests/        per-event behaviour, no-cause behaviour
+tests/Integration.Tests/            the journey, followed, through the outbox
 ```
 
-Expected to be small. If it grows past this, step 2 failed and step 3 is running,
-which is worth noticing rather than absorbing.
+Smaller than the previous plan, which was itself billed as small. If it grows
+past this, something is wrong with the diagnosis rather than with the estimate.
 
 ## Complexity Tracking
 
-No constitutional exception. One item for a reviewer:
-
-| Item | Why | Why proportionate |
-|---|---|---|
-| A header on every outgoing message | The outbox has nowhere else to keep the context, and the library's tables are not ours | Additive, opaque, and small; a message without it behaves exactly as today |
+No constitutional exception, and **nothing to declare** — the previous version
+of this table carried "a header on every outgoing message"; that item is gone.
 
 ## Risks
 
-**Taking the link route because the spec said so.** The spec's argument for it
-was wrong, and a plan that inherited it would have built custom span code to
-avoid a problem that does not exist. Step 2 exists to stop that.
+**Doing it per batch.** The single most likely wrong turn: cheaper, looks
+identical in the direction anyone checks first, and destroys US2. FR-006 and
+SC-005 exist for this and the tests must assert it directly.
 
-**Confirming it works without checking a person can use it.** The precedent is
-spec 024, which registered a source and could not verify spans for two days. A
-link or parent that nobody can follow in the dashboard is the same as none.
+**Assuming the span is exported because the source is registered.** Spec 024
+did exactly this and lost two days to an untrusted dev certificate. Look at the
+dashboard.
 
-**Stamping something sensitive.** Trace identifiers are opaque; the rule must not
-grow into carrying business data onto a broker every service can read.
+**Testing it in-process.** A test that publishes and handles without going
+through `wolverine_outgoing_envelopes` proves nothing about the hop, and would
+have passed before this change.
 
-**Assuming this fixes #1655.** It does not. It makes the investigation that
-failed there possible, which is a different claim and the one to make.
+**Costing the ingest path.** 5 000 events/s at design load. Measure it.
+
+**Believing this plan because it is the third.** Three premises have already
+been falsified here, each of which read as settled. The findings behind this one
+are experiments rather than arguments — which is the reason to trust it, and the
+standard the next claim should meet too.
