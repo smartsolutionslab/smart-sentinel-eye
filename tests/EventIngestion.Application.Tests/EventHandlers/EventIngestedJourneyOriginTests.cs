@@ -79,6 +79,24 @@ public class EventIngestedJourneyOriginTests
         journeys.Open.ShouldBe(0);
     }
 
+    /// <summary>
+    /// A journey that failed to begin must not read as one that began and caused
+    /// nothing. Both show a root span with that name and no children; only the
+    /// status tells a broken ingest from an event no rule matched (FR-008).
+    /// </summary>
+    [Fact]
+    public async Task A_failed_publish_marks_the_journey_rather_than_ending_it_quietly()
+    {
+        RecordingJourneyOrigin journeys = new();
+        InvalidOperationException refused = new("the outbox refused the insert");
+
+        await Should.ThrowAsync<InvalidOperationException>(
+            HandlerFor(new ThrowingBus(refused), journeys).Handle(DomainEvent(), CancellationToken.None));
+
+        journeys.Failure.ShouldBeSameAs(refused);
+        journeys.Open.ShouldBe(0, "a failed journey still ends");
+    }
+
     private static EventIngestedDomainEventHandler HandlerFor(IEventBus bus, IJourneyOrigin journeys) =>
         new(bus, journeys, NullLogger<EventIngestedDomainEventHandler>.Instance);
 
@@ -91,6 +109,13 @@ public class EventIngestedJourneyOriginTests
         OccurredAt.From(OccurredAtMoment),
         IngestedAt.From(IngestedAtMoment),
         Payload.From("{\"cycleId\":\"abc\"}"));
+
+    /// <summary>Refuses every publish, the way a rejected outbox insert does.</summary>
+    private sealed class ThrowingBus(Exception refusal) : IEventBus
+    {
+        public Task PublishAsync<TEvent>(TEvent integrationEvent, CancellationToken cancellationToken = default)
+            where TEvent : notnull => Task.FromException(refusal);
+    }
 
     /// <summary>
     /// Notes how many journeys were open at the moment of the publish, which is

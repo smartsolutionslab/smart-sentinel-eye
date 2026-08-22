@@ -26,7 +26,7 @@ public sealed class JourneyOrigin : IJourneyOrigin, IDisposable
     /// — a `using var` over a null is legal C# and silently does nothing, which
     /// would leave the caller unable to tell "not sampled" from "not started".
     /// </summary>
-    private static readonly IDisposable NotListening = new Inert();
+    private static readonly IJourney NotListening = new InertJourney();
 
     private readonly ActivitySource source;
 
@@ -37,19 +37,34 @@ public sealed class JourneyOrigin : IJourneyOrigin, IDisposable
         source = new ActivitySource(applicationName);
     }
 
-    public IDisposable Begin(string name)
+    public IJourney Begin(string name)
     {
         Ensure.That(name).IsNotNullOrWhiteSpace();
 
         // Producer rather than Internal: what follows is a message being sent,
         // and the span this parents is the receiving service's Consumer span.
-        return source.StartActivity(name, ActivityKind.Producer) ?? NotListening;
+        Activity activity = source.StartActivity(name, ActivityKind.Producer);
+
+        return activity is null ? NotListening : new RecordedJourney(activity);
     }
 
     public void Dispose() => source.Dispose();
 
-    private sealed class Inert : IDisposable
+    private sealed class RecordedJourney(Activity activity) : IJourney
     {
+        public void Failed(Exception exception) =>
+            activity.SetStatus(ActivityStatusCode.Error, exception.Message);
+
+        public void Dispose() => activity.Dispose();
+    }
+
+    private sealed class InertJourney : IJourney
+    {
+        public void Failed(Exception exception)
+        {
+            // Nothing was started, so there is nothing to mark.
+        }
+
         public void Dispose()
         {
             // Nothing was started, so there is nothing to stop.

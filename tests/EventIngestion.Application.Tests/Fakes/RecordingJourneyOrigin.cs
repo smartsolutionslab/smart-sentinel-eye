@@ -20,15 +20,19 @@ public sealed class RecordingJourneyOrigin : IJourneyOrigin
 
     public int Open { get; private set; }
 
-    public IDisposable Begin(string name)
+    public Exception? Failure { get; private set; }
+
+    public IJourney Begin(string name)
     {
         begun.Add(name);
         Open++;
         return new Handle(this);
     }
 
-    private sealed class Handle(RecordingJourneyOrigin owner) : IDisposable
+    private sealed class Handle(RecordingJourneyOrigin owner) : IJourney
     {
+        public void Failed(Exception exception) => owner.Failure = exception;
+
         public void Dispose() => owner.Open--;
     }
 }
