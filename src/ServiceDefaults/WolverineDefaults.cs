@@ -113,6 +113,14 @@ public static class WolverineDefaults
         // meter directly (spec 025).
         builder.Services.AddSingleton<ILatencyBudget, EventToOverlayLatency>();
 
+        // And beside those for a third time: a context that publishes from a
+        // background service needs to give what it publishes a cause, and must
+        // not own an ActivitySource to do it (spec 026). Named for the
+        // application because ConfigureOpenTelemetry already exports that
+        // source; a name of its own would be a second thing to keep in step.
+        builder.Services.AddSingleton<IJourneyOrigin>(
+            _ => new JourneyOrigin(builder.Environment.ApplicationName));
+
         // FR-008. Trading a silent loss for a silent backlog would not be much
         // of a trade, so the queue depth is visible from the moment the outbox
         // starts being used.

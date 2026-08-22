@@ -20,7 +20,7 @@ public class EventIngestedDomainEventHandlerTests
     {
         FakeEventBus bus = new();
         EventIngestedDomainEventHandler handler = new(
-            bus, NullLogger<EventIngestedDomainEventHandler>.Instance);
+            bus, new RecordingJourneyOrigin(), NullLogger<EventIngestedDomainEventHandler>.Instance);
 
         EventIdentifier identifier = EventIdentifier.New();
         EventIngestedDomainEvent domainEvent = new(
