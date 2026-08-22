@@ -106,3 +106,106 @@ argument was plausible, internally consistent, and written with confidence by
 someone who had not checked how span duration is defined. It survived a
 checklist. What caught it was looking at the mechanism before building on the
 claim.
+
+---
+
+## Finding 3 (T003) — the outbox does not lose the context
+
+`EnvelopeSerializer.Serialize(Envelope)` → `Deserialize(byte[])` round-trips
+`ParentId`, `CorrelationId` **and** custom `Headers` intact. Measured, not read
+off a schema:
+
+```
+BEFORE ParentId=00-707f5a290bbf0a1fb3fe68fda020c2af-748c3c53a0b086c4-00  Headers=1
+AFTER  ParentId=00-707f5a290bbf0a1fb3fe68fda020c2af-748c3c53a0b086c4-00  Headers=1
+       header custom-key=custom-value
+```
+
+The outgoing table's seven columns are not the whole story: `body` holds the
+**serialised envelope**, not the message payload, and the envelope carries its
+own metadata. The wire format even has a `ReservedHeaderKeys` set governing
+which header keys get promoted back into typed properties on read.
+
+**The spec's stated cause is wrong.** "The outbox table has seven columns and
+none of them can hold that context" reasons from a column list to a conclusion
+the mechanism contradicts.
+
+---
+
+## Finding 4 (T001/T006) — the chain already works, except at one hop
+
+Observed in the running stack, and this is the finding that reshapes the
+feature. Trace `195d91230e630d835afd39ffc1132890`:
+
+```
+automation          receive  FabEventIngestedV1            42 ms
+  ├─ automation     send     OverlayHighlightRequestedV1    0 ms
+  ├─ audit-obs      receive  OverlayHighlightRequestedV1   58 ms   (+0.7 s)
+  └─ layout-comp    receive  OverlayHighlightRequestedV1    1 ms   (+4.3 s)
+```
+
+**One trace. Three services. Through RabbitMQ and through the outbox** — the
+layout-composition receive lands 4.3 seconds after the send, so this is a real
+store-and-forward hop, not an in-process shortcut. Parent-child is intact.
+
+Meanwhile the hop this feature was filed about is broken. Message
+`08df004c-5fa4-6f2b-c85b-763a4fb00000` is published in trace `1d701bae…` by
+`event-ingestion` and received in trace `b8e1234c…` by `automation`. Two
+traces, no relationship.
+
+### Why that one hop and not the others
+
+The parent Wolverine propagates is **the ambient activity at publish time**, not
+the send span. Look at where the downstream receives attach above: their parent
+is `55b373fc021fcd9a`, the automation **receive** span — not either `send` span
+beside them.
+
+- In `automation`, publishing happens inside a message handler, so
+  `Activity.Current` is the receive activity. Downstream joins.
+- In `event-ingestion`, publishing happens from `PersistenceLoopHostedService`
+  — a `BackgroundService` draining a channel. **There is no ambient activity at
+  all**, so there is no parent to carry, and every publish is its own root.
+
+The `send` spans in event-ingestion confirm it: every one is a trace root.
+
+**Nothing is lost in the outbox. There was never anything to lose.** The
+ingestion path is untraced, so the journey has no beginning to point back at.
+
+### What this means for the feature
+
+The requirement stands and is still unmet: from an effect you still cannot find
+the plant-floor event that caused it. But:
+
+- **FR-001 is already satisfied** — the causal relationship does survive the
+  outbox, demonstrated across two services and a 4.3-second wait.
+- **T004/T005's metadata rule is not needed.** There is nothing to stamp;
+  Wolverine already carries and restores what exists. A rule would have added a
+  header on every message in the system to fix something that was not broken.
+- **The fix is to give the ingestion path an activity**, so an ingested event
+  has a cause worth propagating.
+
+### And US3 is confirmed empirically, in the direction research predicted
+
+That joined trace reports `durationMs: 4305` — the trace really did span 4.3
+seconds of queue wait. Its spans report 42, 0, 58 and 1 ms: each measures its
+own work. **Parentage across a delayed hop inflates the trace and not the
+spans**, exactly as Finding 2 argued and exactly opposite to the spec's original
+claim. SC-003 holds for the route we are taking.
+
+---
+
+## Where that leaves the plan
+
+The plan said "try the cheap route first, and see whether Wolverine's own
+tracing joins the journey up". It does — for every hop that has a cause to
+propagate. So the feature is smaller again than the plan's cheap outcome:
+
+1. **No metadata rule.** T004, T005 and T007 have nothing to do.
+2. **One activity in the ingestion path**, so the journey has a root.
+3. **The tests still matter**, and more than before: FR-001 is now a claim about
+   behaviour we inherited rather than built, which makes it exactly the kind of
+   thing that regresses unnoticed.
+
+**Three wrong premises found by looking at the mechanism instead of arguing from
+it** — first the percentile claim, then the seven-column claim, then the outbox
+itself. Each was plausible and each survived a checklist.
