@@ -30,7 +30,8 @@ public class AuditRetentionHostedServiceTests
         IEnumerable<AuditChunk> chunks,
         FakeAuditChunkArchiver archiver,
         FakeBus bus,
-        FakeAuditChunkInventory? inventory = null)
+        FakeAuditChunkInventory? inventory = null,
+        RecordingJourneyOrigin? journeys = null)
     {
         FakeAuditChunkInventory chunkInventory = inventory ?? new FakeAuditChunkInventory(chunks);
 
@@ -53,6 +54,7 @@ public class AuditRetentionHostedServiceTests
             new FakeClock(Now),
             TimeProvider.System,
             Options.Create(new AuditRetentionOptions()),
+            journeys ?? new RecordingJourneyOrigin(),
             NullLogger<AuditRetentionHostedService>.Instance);
     }
 
@@ -123,6 +125,104 @@ public class AuditRetentionHostedServiceTests
         await worker.RunOnceAsync(default);
         archiver.ArchivedChunks.Count.ShouldBe(1);
         inventory.Dropped.Count.ShouldBe(1);
+    }
+
+    /// <summary>
+    /// Spec 027 FR-003 / SC-003. A run archives every chunk past the boundary, so
+    /// one journey per run would merge unrelated chunks onto one origin — which
+    /// still reads as correct from the downstream end and makes "what did this
+    /// archival cause" unanswerable.
+    ///
+    /// <para>
+    /// This is the opposite placement to the stream-health site and the same
+    /// rule: there an iteration is usually no announcement, so the journey lives
+    /// in the domain event handler; here an iteration is exactly one.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Each_chunk_in_a_run_begins_its_own_journey()
+    {
+        RecordingJourneyOrigin journeys = new();
+        FakeAuditChunkArchiver archiver = new();
+        FakeBus bus = new();
+
+        AuditRetentionHostedService worker = Build(
+            chunks: [StaleChunk(), StaleChunk(), StaleChunk()],
+            archiver: archiver,
+            bus: bus,
+            journeys: journeys);
+
+        await worker.RunOnceAsync(default);
+
+        bus.Published.OfType<AuditChunkArchivedV1>().Count().ShouldBe(3);
+        journeys.Begun.Count.ShouldBe(3, "three chunks are three journeys, not one run");
+        journeys.Open.ShouldBe(0, "every journey ends with the chunk that began it");
+    }
+
+    /// <summary>
+    /// FR-006, SC-005. Nothing to archive is not an archival. Without this the
+    /// sink fills with records of work that did not happen — the same failure as
+    /// a journey per camera per poll on the other site.
+    /// </summary>
+    [Fact]
+    public async Task A_run_with_nothing_to_archive_begins_no_journey()
+    {
+        RecordingJourneyOrigin journeys = new();
+        FakeBus bus = new();
+
+        AuditRetentionHostedService worker = Build(
+            chunks: [FreshChunk(daysOld: 1)],
+            archiver: new FakeAuditChunkArchiver(),
+            bus: bus,
+            journeys: journeys);
+
+        await worker.RunOnceAsync(default);
+
+        bus.Published.ShouldBeEmpty();
+        journeys.Begun.ShouldBeEmpty();
+    }
+
+    /// <summary>
+    /// FR-004, SC-004. A journey that failed otherwise looks identical to one
+    /// that succeeded and caused nothing: same name, no children, no error.
+    /// Shipped once in spec 026 and caught in code review.
+    /// </summary>
+    [Fact]
+    public async Task A_failed_archival_marks_its_journey()
+    {
+        RecordingJourneyOrigin journeys = new();
+        InvalidOperationException refused = new("minio down");
+        FakeAuditChunkArchiver archiver = new() { FailNextCall = refused };
+
+        AuditRetentionHostedService worker = Build(
+            chunks: [StaleChunk()],
+            archiver: archiver,
+            bus: new FakeBus(),
+            journeys: journeys);
+
+        await worker.RunOnceAsync(default);
+
+        journeys.Failure.ShouldBeSameAs(refused);
+        journeys.Open.ShouldBe(0, "a failed journey still ends");
+    }
+
+    /// <summary>
+    /// SC-004's other half. A status that is always set carries no information.
+    /// </summary>
+    [Fact]
+    public async Task A_successful_archival_leaves_its_journey_unmarked()
+    {
+        RecordingJourneyOrigin journeys = new();
+
+        AuditRetentionHostedService worker = Build(
+            chunks: [StaleChunk()],
+            archiver: new FakeAuditChunkArchiver(),
+            bus: new FakeBus(),
+            journeys: journeys);
+
+        await worker.RunOnceAsync(default);
+
+        journeys.Failure.ShouldBeNull();
     }
 
     /// <summary>

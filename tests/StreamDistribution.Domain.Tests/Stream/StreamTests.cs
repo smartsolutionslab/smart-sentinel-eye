@@ -148,6 +148,33 @@ public class StreamTests
         stream.PendingEvents.ShouldBeEmpty();
     }
 
+    /// <summary>
+    /// Spec 027 FR-006 / SC-005. The health watcher calls into this aggregate for
+    /// every camera on every poll, and only these guards decide whether anything
+    /// is announced. A repeat offline that raised an event would begin a journey
+    /// for a camera that changed nothing — one per camera per poll, filling the
+    /// sink with records of work that did not happen.
+    ///
+    /// <para>
+    /// The healthy and degraded repeats were already covered; offline was not.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Report_offline_when_already_offline_updates_LastError_but_does_not_raise_an_event()
+    {
+        Domain.Stream.Stream stream = new StreamBuilder().Build();
+        stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
+        stream.ReportDegraded("source unreachable", new TestClock(FixedMoment.AddSeconds(15)));
+        stream.ReportOffline("still unreachable", new TestClock(FixedMoment.AddSeconds(30)));
+        stream.ClearPendingEvents();
+
+        stream.ReportOffline("still unreachable after retry", new TestClock(FixedMoment.AddSeconds(45)));
+
+        stream.State.ShouldBe(StreamState.Offline);
+        stream.LastError.ShouldBe("still unreachable after retry");
+        stream.PendingEvents.ShouldBeEmpty();
+    }
+
     [Fact]
     public void Report_offline_from_degraded_raises_HealthChanged()
     {
