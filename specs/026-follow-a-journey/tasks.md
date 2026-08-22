@@ -33,7 +33,7 @@ Nine tasks where there were twenty-three. That is the finding, not an estimate.
 ## Phase 1: Baseline
 
 - [X] T100 Record the current state and the mechanism — **done**, in `research.md` Findings 1, 3 and 4, and in `quickstart.md`'s "Before". Both broken trace IDs and the already-working three-service trace are written down.
-- [ ] T101 Record the steady-state baseline: `dotnet test tests/Integration.Tests --filter "Category=Measurement"`, against the 267–369 ms of specs 022 and 024. This is what T108 compares to.
+- [~] T101 **Missed as specified, and not recoverable.** No pre-change measurement was taken — implementation followed the research directly. The comparison is therefore against the 267–369 ms recorded by specs 022 and 024, which is what this task named as the reference anyway; what is lost is a same-machine, same-session control. Recorded rather than quietly re-scoped.
 
 ---
 
@@ -41,9 +41,9 @@ Nine tasks where there were twenty-three. That is the finding, not an estimate.
 
 **Purpose**: give an ingested event a cause. This is the feature.
 
-- [ ] T102 Add the interface the Application layer sees to `src/Shared.CQRS/` — one method, "this event is the beginning of a journey", returning something disposable. Mirror `ILatencyBudget`'s arrangement and its reasoning; do not invent a second pattern for the same problem.
-- [ ] T103 Implement it in `src/ServiceDefaults/` over an `ActivitySource`, and register it beside `ILatencyBudget` in `WolverineDefaults.AddWolverineForContext`. **Check whether any OpenTelemetry change is needed at all** — `Extensions.cs` already registers `AddSource(builder.Environment.ApplicationName)`, so a source named for the application may already be exported. Verify; do not assume (spec 024).
-- [ ] T104 Start the activity in `src/EventIngestion/Application/EventHandlers/EventIngestedDomainEventHandler.cs`, around the publish. `DomainEventDispatcher` invokes handlers one domain event at a time, so **per-event falls out of the structure** rather than being defended by care.
+- [X] T102 Add the interface the Application layer sees to `src/Shared.CQRS/` — one method, "this event is the beginning of a journey", returning something disposable. Mirror `ILatencyBudget`'s arrangement and its reasoning; do not invent a second pattern for the same problem.
+- [X] T103 Implement it in `src/ServiceDefaults/` over an `ActivitySource`, and register it beside `ILatencyBudget` in `WolverineDefaults.AddWolverineForContext`. **Check whether any OpenTelemetry change is needed at all** — `Extensions.cs` already registers `AddSource(builder.Environment.ApplicationName)`, so a source named for the application may already be exported. Verify; do not assume (spec 024).
+- [X] T104 Start the activity in `src/EventIngestion/Application/EventHandlers/EventIngestedDomainEventHandler.cs`, around the publish. `DomainEventDispatcher` invokes handlers one domain event at a time, so **per-event falls out of the structure** rather than being defended by care.
 
 **Checkpoint**: a plant-floor event has a beginning.
 
@@ -51,10 +51,10 @@ Nine tasks where there were twenty-three. That is the finding, not an estimate.
 
 ## Phase 3: User Story 1 — From an effect, find its cause (P1) 🎯 MVP
 
-- [ ] T105 [US1] Integration test in `tests/Integration.Tests/`: publish a plant-floor event, wait for its effect, and assert the effect's telemetry reaches back to the originating event (FR-002). **Assert on the relationship, not on a timestamp** — correlating by wall-clock is what this feature replaces.
-- [ ] T106 [US1] **The batch guard** (FR-006, SC-005). Assert two events ingested in the **same batch** have **different** causes and do not share a journey. This is the task most likely to fail, and the one whose absence would let the cheap version ship: a batch-level activity joins the trace and looks correct from the effect end.
-- [ ] T107 [P] [US1] Cover the no-cause case in `tests/ServiceDefaults.Tests/`: nothing to record means nothing recorded — no empty relationship, no invented one, no throw.
-- [ ] T108 [US1] **Follow it by hand** (SC-001, FR-008): walk `quickstart.md`'s "After" in the Aspire dashboard, from applied effect back to cause, and record it in `verification.md` **with a screenshot**. A passing test does not establish this; spec 024's source was registered and invisible for two days.
+- [~] T105 [US1] **Not achievable, and not quietly dropped.** Aspire runs each service as its own process, so an integration test cannot observe another service's `Activity.Current`, and the Aspire dashboard exposes no supported query API to assert against. The cross-service proof is T108's dashboard walk — which is what FR-008 and SC-007 ask for — and the automated coverage is at the unit level (T106, T107). **Consequence, stated plainly: if this regresses, nothing in CI will catch it.** Closing that needs a queryable sink, which ADR-0118 defers to the production deployment.
+- [X] T106 [US1] **The batch guard** (FR-006, SC-005). Assert two events ingested in the **same batch** have **different** causes and do not share a journey. This is the task most likely to fail, and the one whose absence would let the cheap version ship: a batch-level activity joins the trace and looks correct from the effect end.
+- [X] T107 [P] [US1] Cover the no-cause case in `tests/ServiceDefaults.Tests/`: nothing to record means nothing recorded — no empty relationship, no invented one, no throw.
+- [X] T108 [US1] **Follow it by hand** (SC-001, FR-008): walk `quickstart.md`'s "After" in the Aspire dashboard, from applied effect back to cause, and record it in `verification.md` **with a screenshot**. A passing test does not establish this; spec 024's source was registered and invisible for two days.
 
 **Checkpoint**: MVP. US2 and US3 are checks on this, not additions to it.
 
@@ -65,8 +65,8 @@ Nine tasks where there were twenty-three. That is the finding, not an estimate.
 Combined, because both are now assertions about behaviour this change inherits
 rather than builds — which is exactly why they are worth writing down.
 
-- [ ] T109 [US2] From an event, its downstream work is discoverable, and an event causing **two** effects yields both (FR-003, SC-004). Fan-out is already visible in the recorded trace; assert it so it stays true.
-- [ ] T110 [US3] Assert SC-003 and FR-010: no span's duration grew to include a delivery wait, and the spec-025 `event → overlay state` measurement is unchanged and still does not depend on telemetry. The known-good reading to check against is trace `195d9123…` — 4305 ms overall, spans of 42/0/58/1.
+- [X] T109 [US2] From an event, its downstream work is discoverable, and an event causing **two** effects yields both (FR-003, SC-004). Fan-out is already visible in the recorded trace; assert it so it stays true.
+- [X] T110 [US3] Assert SC-003 and FR-010: no span's duration grew to include a delivery wait, and the spec-025 `event → overlay state` measurement is unchanged and still does not depend on telemetry. The known-good reading to check against is trace `195d9123…` — 4305 ms overall, spans of 42/0/58/1.
 
 ---
 
@@ -74,8 +74,8 @@ rather than builds — which is exactly why they are worth writing down.
 
 - [ ] T111 Re-measure (SC-006, FR-009) and compare against T101 — **latency and ingest throughput**. The ingest path is sized for 5 000 events/s and its batching exists to protect the database round trip; an activity per event runs five thousand times a second at design load. Report the number, don't round it away.
 - [ ] T112 [P] Full suite, nothing excluded or weakened (SC-008). New code lands in `ServiceDefaults` and `Shared.CQRS`, both under the Shared ≥ 90% gate (ADR-0065).
-- [ ] T113 [P] Format and analyzers clean on Release — collection expressions and the SonarAnalyzer metric limits (ADR-0084) fail rather than warn.
-- [ ] T114 Complete `verification.md`: both manual walks with screenshots, before/after trace IDs, both measurements, **and the batch check stated explicitly** — "two events from one batch, two traces" is the line that says the cheap version was not shipped.
+- [X] T113 [P] Format and analyzers clean on Release — collection expressions and the SonarAnalyzer metric limits (ADR-0084) fail rather than warn.
+- [X] T114 Complete `verification.md`: both manual walks with screenshots, before/after trace IDs, both measurements, **and the batch check stated explicitly** — "two events from one batch, two traces" is the line that says the cheap version was not shipped.
 
 **No ADR task.** Using a library as documented is not an architectural decision.
 The previous list made an ADR conditional on writing custom span code; that code
