@@ -127,3 +127,41 @@ That is worth remembering the next time a green suite is offered as evidence.
   inference in the survey.
 - **T016** — the measurements, twice.
 - **T013** — the survey table.
+
+---
+
+## The publisher survey (T013) — FR-009, SC-008
+
+Every `IEventBus.PublishAsync` call site in product code, classified by whether
+it has work in progress to inherit a cause from. **This table is the deliverable**
+— finding the orphans was the expensive part, and an undocumented survey means
+the next person repeats the search.
+
+| Publisher | Cause comes from | State |
+|---|---|---|
+| `EventIngestion` — `PersistenceLoopHostedService` → `EventIngestedDomainEventHandler` | *none — background loop* | **fixed, spec 026** |
+| `StreamDistribution` — `StreamHealthWatcher` → `StreamHealthChangedDomainEventHandler` | *none — background loop* | **fixed here** |
+| `AuditObservability` — `AuditRetentionHostedService` (inline) | *none — background loop* | **fixed here** |
+| `Automation` — `FabEventIngestedV1Handler` | the message being handled | needs nothing |
+| `CameraCatalog` — `CameraRegisteredDomainEventHandler` | the HTTP request | needs nothing¹ |
+| `Identity` — `ClientRegisteredDomainEventHandler`, `RotateWebhookClientCommandHandler` | the HTTP request | needs nothing¹ |
+| `LayoutComposition` — revision published / archived handlers | the HTTP request | needs nothing¹ |
+| `OverlayDesigner` — revision published / archived handlers | the HTTP request | needs nothing¹ |
+| `SystemVariables` — value changed / archived handlers | the HTTP request | needs nothing¹ |
+
+**Three background loops, all now fixed. Nine request- or message-driven
+publishers, none needing anything.** After this feature, no publisher of an
+integration event in this system begins as an orphan.
+
+¹ **Still inference, and marked as such.** Message-driven inheritance is observed
+directly (spec 026, trace `195d9123…`: two receives as children of a receive).
+HTTP is observed one layer short — spec 026's trace `ed21f2fc…` shows a `POST`
+Server span with Keycloak Client spans as **children**, so a request does
+establish an ambient activity that later work attaches to. What has not been
+captured is a `send` span specifically sitting under a Server span.
+
+**T014 remains open.** The camera registrations that would have shown it happen
+at boot and had aged out of the dashboard's retained window by the time it was
+looked for. Nothing in this feature depends on the answer: if an HTTP publish
+turned out to be an orphan too, that is a new finding and a new issue, not a
+change to these two call sites.
