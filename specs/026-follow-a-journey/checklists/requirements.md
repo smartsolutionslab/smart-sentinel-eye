@@ -1,7 +1,7 @@
 # Specification Quality Checklist: A cross-service journey can be followed end to end
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-08-22
+**Created**: 2026-08-22 · **Re-run**: 2026-08-22 against the rewritten spec
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -31,46 +31,54 @@
 
 ## Notes
 
-**All items pass.** Four judgements a reviewer should push back on if they
-disagree:
+**All items pass — and they passed for the first version too, which is the most
+useful thing this checklist has to say.**
 
-**US3 is P1 alongside US1.** Whatever joins the journey up must not make a
-delay look like work, because replacing a missing answer with a confident wrong
-one is worse than today and this codebase has been caught five times by things
-that looked like success. So the constraint is a first-class story rather than a
-caveat.
+### What this checklist did not catch, and could not
 
-> **Amended 2026-08-22 after Phase 0.** This note originally argued the point by
-> claiming a continuation would report a twenty-millisecond journey as eight
-> minutes "in every percentile it appears in". **That is not how span duration
-> works** — a span measures its own start to its own end, and percentiles are
-> computed over spans. The checklist passed it anyway, which is worth recording:
-> **a quality gate confirmed a claim nobody had checked against the mechanism.**
-> The item below — "requirements are testable" — was and is satisfied; the
-> reasoning around it was not.
+The first spec asserted three things about mechanisms nobody had run: that
+parentage inflates percentiles, that the outbox cannot store causal context, and
+that the outbox was where the chain broke. All three were false. Every item above
+was legitimately ticked at the time, because **each requirement genuinely was
+testable and unambiguous — it was just aimed at the wrong thing.**
 
-**The link-not-continuation reading was an assumption, and Phase 0 reopened
-it.** The spec said the plan should test it, and testing it found the argument
-for it did not hold. Parentage may now be free — Wolverine already carries the
-fields and builds its receive span from them — so the plan tries that before
-writing custom span code. What still has to be checked either way is whether the
-result is followable in the sink this project has: spec 024 registered a trace
-source and could not confirm spans arrived for two days, and FR-008 and SC-007
-exist so that cannot repeat.
+That is not a defect in the checklist; it is its boundary. "Testable" is a
+property of a sentence. "True" is a property of the world, and nothing on this
+list asks about the world.
 
-**SC-003 is phrased as "no reported duration grows".** Not "durations are
-accurate", which is unfalsifiable, and not "spans are linked", which is the
-mechanism rather than the outcome. If any measured span gets longer because of
-this feature, it has misrepresented a delay as work and failed.
+**The practical consequence, worth carrying to the next spec**: a spec that
+argues from a mechanism should name the experiment that would falsify it, and
+Phase 0 should run that experiment before the plan is written. In this feature
+each falsifying experiment took minutes; the second and third were only run
+because the first had already found something.
 
-**SC-001 and SC-007 both require a person, not a test.** "Someone who did not
-build the system can name the originating event" and "followable by someone
-reading it" are deliberately about a human using the sink. A test asserting a
-link exists in memory would satisfy neither, and would be exactly the kind of
-green result this programme has learned to distrust.
+### Four judgements a reviewer should push back on if they disagree
 
-**No [NEEDS CLARIFICATION] markers were needed.** The one genuinely open
-question — whether linking works and is usable — is written as an assumption the
-plan must test, because a spec that stalls on it would block work that has to
-happen either way: the context still has to reach the far side, whatever
-relationship is then recorded.
+**FR-006 and SC-005 exist because the cheap fix would look like it worked.**
+Ingestion batches up to 200 deliveries. One cause per batch is less code and
+produces a joined trace — which would satisfy US1 by eye and quietly destroy
+US2, since two hundred unrelated events would share a parent. Made a
+first-class requirement rather than a note, because this is precisely the class
+of thing this programme keeps shipping.
+
+**FR-007 forbids duplicating what already works.** The library propagates the
+relationship correctly across services and through the outbox; this feature
+supplies the one input it lacks. Written as a requirement because the first plan
+was about to add a header to every message in the system for no measured benefit.
+
+**US3 is now a regression guard rather than an open risk**, and it stays P1
+anyway. It has been observed to hold on the exact mechanism being used — the
+joined trace reports 4305 ms while its spans report 42, 0, 58 and 1. Keeping it
+costs one assertion; dropping it would mean nothing notices if that stops being
+true.
+
+**SC-001 and SC-007 still require a person, not a test.** A test asserting a
+relationship exists in memory satisfies neither. Spec 024 registered a trace
+source and could not confirm spans arrived for two days.
+
+### On the rewrite itself
+
+The spec keeps a "What the first version got wrong" section rather than being
+silently corrected. A spec that reads as though it were always right teaches
+nothing, and the next person to argue from a schema instead of an experiment
+should be able to see what that cost here.
