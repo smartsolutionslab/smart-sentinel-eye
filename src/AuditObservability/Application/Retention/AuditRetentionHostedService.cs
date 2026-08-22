@@ -26,9 +26,15 @@ public sealed class AuditRetentionHostedService(
     IClock clock,
     TimeProvider timeProvider,
     IOptions<AuditRetentionOptions> options,
+    IJourneyOrigin journeys,
     ILogger<AuditRetentionHostedService> logger)
     : BackgroundService
 {
+    /// <summary>
+    /// What the journey is called wherever someone goes looking for it.
+    /// </summary>
+    private const string OriginName = "archive audit chunk";
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         AuditRetentionOptions opts = options.Value;
@@ -90,6 +96,22 @@ public sealed class AuditRetentionHostedService(
     private async Task ArchiveAndDropAsync(
         RetentionDependencies deps, AuditChunk chunk, CancellationToken cancellationToken)
     {
+        // Spec 027. This sweep publishes from a background loop, where nothing
+        // is in progress, so without a journey the announcement is an orphan and
+        // nothing downstream can be traced back to the run that archived it.
+        //
+        // Inside the loop, which is the OPPOSITE placement to the stream-health
+        // site — and the same rule. One journey per announcement: there an
+        // iteration is usually no announcement, so the journey belongs in the
+        // domain event handler; here an iteration is exactly one, so it belongs
+        // here (FR-003).
+        //
+        // Worth stating because there is no domain event handler on this path.
+        // Anyone arriving from spec 026 looks for one, does not find it, and
+        // moves on — which is how this call site stayed an orphan while the
+        // mechanism to fix it was already registered for this context.
+        using IJourney journey = journeys.Begin(OriginName);
+
         try
         {
             ChunkArchiveResult result = await deps.Archiver.ArchiveChunkAsync(chunk, cancellationToken);
@@ -126,6 +148,7 @@ public sealed class AuditRetentionHostedService(
         {
             // Leave the chunk in place; next sweep retries. NFR-004
             // accepts up to a 5-minute audit lag during outages.
+            journey.Failed(ex);
             logger.ArchiveChunkFailed(ex, chunk.ChunkIdentifier);
         }
     }
