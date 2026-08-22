@@ -86,7 +86,7 @@ on it.
       (FR-005). Demonstrate with an event that lacks it (SC-006).
 - [X] T010 [P] [US1] A negative elapsed time records **nothing** (FR-006). Fabs
       step clocks with PTP and the end can precede the start.
-- [ ] T011 [US1] Confirm a percentile is obtainable from the running system
+- [~] T011 [US1] Confirm a percentile is obtainable from the running system
       without writing code (SC-001).
 
 **Checkpoint**: SC-001 observable. The leg the constitution budgets is measured.
@@ -98,10 +98,10 @@ on it.
 **Not a refinement of Phase 3.** An instrument that reports the wrong span
 plausibly is worse than none.
 
-- [ ] T012 [US2] Compare the instrument's figure against spec 022's
+- [~] T012 [US2] Compare the instrument's figure against spec 022's
       `EventReachesItsEffectsTests`, which already logs arrival-to-effect for the
       same journey from outside.
-- [ ] T013 [US2] Agreement within **20%** (SC-003), or the discrepancy explained
+- [~] T013 [US2] Agreement within **20%** (SC-003), or the discrepancy explained
       in writing **before either number is quoted anywhere**.
 
 **Checkpoint**: the instrument is known to measure the leg, not a fragment of it.
@@ -110,29 +110,29 @@ plausibly is worse than none.
 
 ## Phase 5: US3 — it costs nothing that matters (P2)
 
-- [ ] T014 [US3] Measure the warm path before and after, same method both times.
+- [X] T014 [US3] Measure the warm path before and after, same method both times.
       The exporter is attached in the fixture (spec 024 T002), so unlike spec
       023's first attempt this comparison is not vacuous.
-- [ ] T015 [US3] Confirm the overhead is under **5% of the leg's 200 ms budget**
+- [~] T015 [US3] Confirm the overhead is under **5% of the leg's 200 ms budget**
       (SC-005) and state the figure rather than calling instrumentation free.
-- [ ] T016 [P] [US3] Confirm steady-state arrival-to-effect is no worse than the
+- [X] T016 [P] [US3] Confirm steady-state arrival-to-effect is no worse than the
       267–369 ms recorded by specs 022 and 023 (SC-004, FR-009).
 
 ---
 
 ## Phase 6: Closure
 
-- [ ] T017 **Update the leg's row in constitution §IV**: measured **yes**,
+- [X] T017 **Update the leg's row in constitution §IV**: measured **yes**,
       dashboard **no** (SC-008). ADR-0117 warned that a stale row exempts a leg
       by clerical error — this is the first feature to change a row, and if the
       discipline does not hold now it never will.
-- [ ] T018 Say plainly that §VII is **half**-discharged for this leg. The
+- [X] T018 Say plainly that §VII is **half**-discharged for this leg. The
       dashboard half is #1707's ADR-0026 decision, and building one here would
       settle a Locked ADR by implementation.
-- [ ] T019 Run the full integration suite and
+- [X] T019 Run the full integration suite and
       `scripts/coverage-check.ps1 -Configuration Release`. Nothing excluded,
       nothing weakened (SC-007).
-- [ ] T020 Walk [quickstart.md](./quickstart.md) and write `verification.md`.
+- [X] T020 Walk [quickstart.md](./quickstart.md) and write `verification.md`.
       **"Done" is the observations**, and step 1 is the one that decides what the
       rest of the feature was.
 - [ ] T021 Open the PR, stating which route T001 chose and why, what is measured,

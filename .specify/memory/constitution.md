@@ -99,13 +99,20 @@ table is where that claim lives so it cannot be an unnoticed absence.
 | Camera → SFU | yes | yes (SFU metrics) | no |
 | SFU → kiosk decode | **no** | — | — |
 | Presentation buffer (PTP) | **no** | — | — |
-| Event → overlay state | yes | **no** — needs a timestamp propagated | no |
+| Event → overlay state | yes | **recorded, not yet readable** — see below | no |
 | Overlay composite + render | **partly** — renders over no video | — | — |
 | Headroom | n/a — arithmetic remainder | n/a | n/a |
 
 The three unbuilt legs are #1714. Keep this table current: a leg left
 recorded as unbuilt after it is built would exempt itself from §VII by
 clerical error.
+
+**"Recorded, not yet readable"** (spec 025): the event → overlay leg now
+emits a latency distribution from the service that applies the effect,
+but nothing outside that process can read it — there is no dashboard and
+no metrics readout (#1707). Measured in the sense that the number exists;
+not yet in the sense that anyone can consult it. §VII is **half**
+discharged for this leg, and the column says so rather than rounding up.
 
 ### V. Spec-Driven Development (ADR-003)
 
