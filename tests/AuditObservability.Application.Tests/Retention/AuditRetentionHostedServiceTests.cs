@@ -26,7 +26,14 @@ public class AuditRetentionHostedServiceTests
             OccurredFrom: Now.AddDays(-daysOld - 30),
             OccurredUntil: Now.AddDays(-daysOld));
 
-    private static AuditRetentionHostedService Build(
+    /// <summary>
+    /// Which scoped bus instance each publish went through. The production
+    /// <see cref="IEventBus"/> is scoped and owns the outbox, so two chunks
+    /// publishing through one instance is two chunks sharing an outbox.
+    /// </summary>
+    private readonly List<IEventBus> publishers = [];
+
+    private AuditRetentionHostedService Build(
         IEnumerable<AuditChunk> chunks,
         FakeAuditChunkArchiver archiver,
         IEventBus bus,
@@ -41,7 +48,10 @@ public class AuditRetentionHostedServiceTests
         ServiceCollection services = new();
         services.AddScoped<IAuditChunkInventory>(_ => chunkInventory);
         services.AddScoped<IAuditChunkArchiver>(_ => archiver);
-        services.AddScoped<IEventBus>(_ => bus);
+        // A fresh instance per scope, delegating to the shared recorder, so a
+        // test can tell which scope a publish went through — the fakes are
+        // otherwise singletons and every scope looks alike.
+        services.AddScoped<IEventBus>(_ => new ScopedBus(bus, publishers));
 
         // Spec 021. The retention sweep publishes without writing through EF, so
         // it flushes the outbox itself — there is no commit for the announcement
@@ -190,6 +200,40 @@ public class AuditRetentionHostedServiceTests
     }
 
     /// <summary>
+    /// #1801, third instance of the shape. The sweep publishes and commits once
+    /// per chunk, and both resolve to the same scoped <c>IDbContextOutbox</c> —
+    /// so one scope shared across the loop meant every chunk after the first
+    /// published into an already-flushed message context. The chunk was still
+    /// exported and still dropped; only the announcement was lost.
+    ///
+    /// <para>
+    /// The integration suite proves the loss itself against the real outbox,
+    /// which needs Docker and six minutes. This pins the structure that caused
+    /// it in milliseconds. Asserting the instance rather than a scope count is
+    /// deliberate: creating a scope per chunk and then publishing through a
+    /// hoisted bus would satisfy a count and still be the bug.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Each_chunk_publishes_through_a_scope_of_its_own()
+    {
+        FakeAuditChunkArchiver archiver = new();
+        FakeBus bus = new();
+
+        AuditRetentionHostedService worker = Build(
+            chunks: [StaleChunk(), StaleChunk(), StaleChunk()],
+            archiver: archiver,
+            bus: bus);
+
+        await worker.RunOnceAsync(default);
+
+        bus.Published.OfType<AuditChunkArchivedV1>().Count().ShouldBe(3);
+        publishers.Count.ShouldBe(3, "three chunks, three publishes");
+        publishers.Distinct().Count().ShouldBe(
+            3, "each chunk published through its own scoped bus, and so its own outbox");
+    }
+
+    /// <summary>
     /// FR-006, SC-005. Nothing to archive is not an archival. Without this the
     /// sink fills with records of work that did not happen — the same failure as
     /// a journey per camera per poll on the other site.
@@ -276,6 +320,22 @@ public class AuditRetentionHostedServiceTests
     /// archived and dropped, not about delivery — the flush is exercised against
     /// a real outbox in the integration suite.
     /// </summary>
+    /// <summary>
+    /// One per scope, delegating to the shared recorder so existing assertions
+    /// on <see cref="FakeBus.Published"/> keep working. Its identity is the
+    /// evidence: in production this is the scoped bus that owns the outbox.
+    /// </summary>
+    private sealed class ScopedBus(IEventBus inner, List<IEventBus> publishers) : IEventBus
+    {
+        public Task PublishAsync<TEvent>(TEvent integrationEvent, CancellationToken cancellationToken = default)
+            where TEvent : notnull
+        {
+            publishers.Add(this);
+
+            return inner.PublishAsync(integrationEvent, cancellationToken);
+        }
+    }
+
     private sealed class RecordingCommit : ITransactionalCommit
     {
         public Task CommitAsync(CancellationToken cancellationToken) => Task.CompletedTask;
