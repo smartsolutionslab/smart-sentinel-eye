@@ -64,7 +64,6 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
 
         IDbContextFactory<StreamDistributionDbContext> factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<StreamDistributionDbContext>>();
         IRtspGateway gateway = scope.ServiceProvider.GetRequiredService<IRtspGateway>();
-        ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>> handler = scope.ServiceProvider.GetRequiredService<ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>>>();
 
         await using StreamDistributionDbContext context = await factory.CreateDbContextAsync(cancellationToken);
 
@@ -90,6 +89,20 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
 
             bool declareOffline = ShouldDeclareOffline(cameraGuid, observation, state, now);
             ReportStreamHealthCommand command = new(CameraIdentifier.From(cameraGuid), observation, declareOffline);
+
+            // A scope per camera, not one for the sweep (#1801). The handler's
+            // repository publishes through the scoped outbox and then flushes it;
+            // reusing one scope across the loop meant every camera after the
+            // first published into an already-flushed message context. Those
+            // announcements were dropped with no exception, no outbox row and
+            // nothing in the log — four cameras changing state delivered one
+            // StreamHealthChangedV1.
+            //
+            // PersistenceLoopHostedService has always opened a scope per command
+            // for this reason, which is why event ingestion never showed it.
+            await using AsyncServiceScope perCamera = scopeFactory.CreateAsyncScope();
+            ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>> handler =
+                perCamera.ServiceProvider.GetRequiredService<ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>>>();
 
             await handler.HandleAsync(command, cancellationToken);
         }
