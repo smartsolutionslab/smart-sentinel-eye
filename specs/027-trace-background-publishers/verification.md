@@ -121,8 +121,9 @@ That is worth remembering the next time a green suite is offered as evidence.
 
 ## Not yet done
 
-- **T007's retention site is implemented but not observed.** The retention sweep
-  runs on a long timer and no archival happened in this window.
+- **T007's retention site is implemented but not observed.** ~~The retention
+  sweep runs on a long timer and no archival happened in this window.~~
+  **Observed 2026-08-23** — see "The retention journey" below.
 - **T014** — whether an HTTP publish inherits the request's cause. ~~Still the
   one inference in the survey.~~ **Closed 2026-08-23** — see the footnote under
   the survey: trace `c4f226c1…` shows both `send` spans parented by the
@@ -245,9 +246,71 @@ pre-existing and unrelated (#1434).
 | | |
 |---|---|
 | **T014** — does an HTTP publish inherit the request? | **Closed 2026-08-23.** It does. Trace `c4f226c1…`: both `send` spans carry the `POST /cameras/` Server span as parent. Settled by registering a camera on purpose rather than waiting for a boot-time one to age out — see the footnote under the survey for the trace and its two caveats. |
-| **T015 (half)** — the retention walk | **Not observed.** The sweep runs on a long timer and no archival occurred in the window. The code is in and unit-tested; it has not been seen working. |
+| **T015 (half)** — the retention walk | **Observed 2026-08-23.** Traces `14b1bc25…` and `fa1f5c1f…`, one per chunk, each rooted at an `archive audit chunk` Producer span with the announcement's `send` as its child. See "The retention journey" below. |
 | Poll cadence and retention duration | **No harness exists.** The measurements cover the ingest path, which this feature does not touch. |
 
-**Three things implemented and two of them observed.** Said plainly rather than
-rolled into a summary that reads as complete: the stream-health journey is
-confirmed end to end in the dashboard, the retention journey is not.
+~~**Three things implemented and two of them observed.**~~ **All three observed,
+as of 2026-08-23.** The stream-health journey was confirmed end to end at the
+time of writing; the retention journey is confirmed below.
+
+---
+
+## The retention journey (T007, T015) — observed 2026-08-23
+
+The gap here was never the code, it was the trigger: the sweep runs on a
+**24-hour timer**, so nothing archived while anyone was watching. It also runs
+**once at startup**, which is the lever — seed aged rows, restart
+`audit-observability`, and the sweep happens immediately.
+
+Two rows were inserted 400 and 320 days back. The hypertable's chunk interval is
+one month, so they land in **two different chunks**, both past the 90-day
+boundary — one sweep with two chunks to do.
+
+Trace **`14b1bc25f14d8d315e0f9ff6536ac8a2`**, titled **"archive audit chunk"**:
+
+```
+audit-observability  Producer  archive audit chunk  [d4e159d71e601138]  root  5 729 ms
+  ├─ Client    HEAD → minio  /audit-archive/                        200
+  ├─ Client    HEAD → minio  /audit-archive/                        200
+  ├─ Client    HEAD → minio  …/chunk-84df9fd2….ndjson.gz            404
+  ├─ Client    PUT  → minio  …/chunk-84df9fd2….ndjson.gz            200
+  ├─ Producer  send     AuditChunkArchivedV1        parent d4e159d7…
+  ├─ Consumer  receive  AuditChunkArchivedV1        parent d4e159d7…
+  └─ Internal  IntegrationEventAuditHandler         parent d4e159d7…
+```
+
+**The announcement's `send` is a child of the origin span**, which is what this
+feature was for: from the archive record, the run that caused it is one parent
+up, by relationship rather than by timestamp.
+
+### Per-chunk, not per-sweep — and the fix visible in a trace
+
+The second chunk produced its **own** trace, `fa1f5c1f6b4e55e9cf27a16d702ff1a5`,
+identically shaped (83 ms — the 5.7 s on the first is MinIO connection warm-up,
+not per-chunk cost).
+
+**Two chunks, two journeys, two sends.** That is FR-003 on the real stack, and it
+is also #1801's fix visible end to end: before the scope-per-chunk change the
+second chunk's `send` did not exist at all. The database agrees — `0` chunks left
+past the boundary and `AuditChunkArchivedV1` rows went `2 → 4` across the two
+sweeps run here.
+
+### Both traces are flagged red, and the archive succeeded anyway
+
+`hasError: true` on both. The cause is the **`HEAD … 404`** span: the archiver
+checks whether the object already exists before uploading, and "not there" is the
+ordinary answer on a first archive. The HTTP instrumentation records the 404 as
+`error.type: 404`, so a successful archival **shows up as a failed trace**.
+
+Recorded because it costs an operator real time: the sweep worked — `PUT` returned
+200 and the announcement went out — and the trace still reads as a failure. The
+journey's own status is unset; nothing called `IJourney.Failed`. Not fixed here:
+it is an instrumentation question about a `HEAD` used as an existence probe, not
+an observability-journey one.
+
+### Method note
+
+`scenario-simulator` was stopped first. Its plant-floor events arrive about twice
+a second, and the dashboard tool returns only the newest handful of traces — with
+the simulator running, the retention traces aged out of reach before they could
+be read. Worth knowing before anyone tries to observe a rare event on this stack.
