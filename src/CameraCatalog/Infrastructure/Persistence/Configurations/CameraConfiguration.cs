@@ -7,11 +7,22 @@ namespace SmartSentinelEye.CameraCatalog.Infrastructure.Persistence.Configuratio
 
 /// <summary>
 /// EF Core mapping for the Camera aggregate. Value objects are flattened to
-/// plain columns; case-insensitive uniqueness on Name is enforced via a
-/// computed unique index on LOWER(name) (Postgres-specific).
+/// plain columns; case-insensitive uniqueness on Name is enforced by a unique
+/// index over a stored generated column holding <c>upper(name)</c>
+/// (Postgres-specific).
 /// </summary>
 public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
 {
+    /// <summary>
+    /// Shadow property over the generated <c>name_normalized</c> column. Named
+    /// here rather than spelled at each call site because
+    /// <see cref="CameraRepository"/> has to query it by the same string, and a
+    /// typo there fails as "no rows", not as an error (#1434).
+    /// </summary>
+    public const string NormalizedNameProperty = "NameNormalized";
+
+    private const string CameraFabProperty = nameof(Camera.Fab);
+
     public void Configure(EntityTypeBuilder<Camera> builder)
     {
         Ensure.That(builder).IsNotNull();
@@ -62,21 +73,32 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
             .HasColumnName("version")
             .IsConcurrencyToken();
 
-        // Case-insensitive uniqueness on Name *within a fab* (spec 015 FR-002).
-        // Postgres-specific: a unique btree index.
+        // #1434. The normalised name, computed by Postgres rather than written
+        // by us: a stored generated column cannot drift from `name`, whereas a
+        // column the application maintains is one forgotten assignment away
+        // from the defect this replaces.
         //
-        // The partial filter is NEW behaviour, not a carry-over: the shipped
-        // index had none, so a decommissioned camera held its name forever.
-        // Rules and variables both release theirs, and adopting the filter was
-        // decided at spec 015's Phase 2 gate (research.md §3). It is safe
-        // against existing data by construction — a partial unique index is
-        // strictly weaker than the unfiltered one it replaces.
+        // `upper`, not `lower`, to match CameraName.NormalizedValue — the
+        // domain and the database must agree on what "the same name" means, and
+        // the two normalisations differ for some Unicode (ß, Turkish i).
+        builder.Property<string>(NormalizedNameProperty)
+            .HasColumnName("name_normalized")
+            .HasMaxLength(CameraName.MaximumLength)
+            .HasComputedColumnSql("upper(name)", stored: true);
+
+        // Case-insensitive uniqueness on Name *within a fab* (spec 015 FR-002,
+        // spec 001 marker 2).
         //
-        // The case-insensitivity is spec 001 marker 2 and must survive the
-        // swap; T015 tests it, because it is exactly what a hand-corrected
-        // migration drops silently.
-        builder.HasIndex(camera => new { camera.Fab, camera.Name })
-            .HasDatabaseName("ux_cameras_fab_name_active")
+        // #1434: this index was `(fab, name)` and the comment above it claimed
+        // case-insensitivity it never had — a plain btree on the raw column,
+        // which stores the original casing. `Cam-Entrance` and `cam-entrance`
+        // both registered happily. It indexes the generated column now, so the
+        // claim and the schema finally say the same thing.
+        //
+        // The partial filter carries over from spec 015: a decommissioned
+        // camera releases its name, as rules and variables do.
+        builder.HasIndex(CameraFabProperty, NormalizedNameProperty)
+            .HasDatabaseName("ux_cameras_fab_name_normalized_active")
             .IsUnique()
             .HasMethod("btree")
             .HasFilter("status <> 'Decommissioned'");

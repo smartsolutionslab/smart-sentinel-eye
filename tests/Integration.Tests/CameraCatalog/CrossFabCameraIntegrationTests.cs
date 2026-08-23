@@ -71,32 +71,28 @@ public class CrossFabCameraIntegrationTests(AspireFixture aspire) : IAsyncLifeti
     }
 
     /// <summary>
-    /// Spec 015 T015 — <b>currently failing, and correctly so (#1434).</b>
+    /// Spec 015 T015. Skipped from the day it was written until #1434 was
+    /// fixed: the index was a plain btree on the raw <c>name</c> column despite
+    /// a name and a comment both claiming <c>lower()</c>, and
+    /// <c>ExistsByNameAsync</c> compared that same column, so neither layer
+    /// caught it. <c>CameraName.Equals</c> is case-insensitive but never ran,
+    /// because EF translated the predicate to SQL.
     ///
     /// <para>
-    /// Camera names are not case-insensitively unique. The index named
-    /// <c>ux_cameras_name_lower</c> is a plain btree on <c>name</c> with no
-    /// <c>lower()</c> expression, and <c>ExistsByNameAsync</c> compares the
-    /// stored column — which holds the original casing — so neither layer
-    /// catches it. <c>CameraName.Equals</c> is case-insensitive but never runs,
-    /// because EF translates the predicate to SQL.
+    /// It seeds through a <c>DbContext</c> rather than the API deliberately —
+    /// that bypasses the handler, so what is under test is the <b>database</b>
+    /// constraint, not the application check. Both were wrong; this is the half
+    /// that has to hold when the other is bypassed.
     /// </para>
     ///
     /// <para>
-    /// Skipped rather than deleted or left red: a permanently failing test gets
-    /// ignored and then removed, taking the evidence with it. Skipped rather
-    /// than weakened to match current behaviour, because a test asserting the
-    /// defect would have to be found and reversed later. It states the intended
-    /// behaviour and names the issue that will make it pass.
-    /// </para>
-    ///
-    /// <para>
-    /// Predates spec 015: the old index was equally case-sensitive. This
-    /// feature widened the key and added a status filter, changing nothing
-    /// about case.
+    /// Kept skipped rather than deleted or weakened, which is why the evidence
+    /// survived long enough to fix: a permanently red test gets ignored and
+    /// then removed, and one weakened to match the defect has to be found and
+    /// reversed later.
     /// </para>
     /// </summary>
-    [Fact(Skip = "#1434 — camera names are not case-insensitively unique; neither the index nor ExistsByNameAsync enforces it. Pre-existing, not introduced by spec 015.")]
+    [Fact]
     public async Task A_name_differing_only_in_case_is_refused_within_one_fab()
     {
         string name = UniqueName();
