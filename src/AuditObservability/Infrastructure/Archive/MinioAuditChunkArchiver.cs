@@ -9,6 +9,7 @@ using Minio;
 using Minio.DataModel;
 using Minio.DataModel.Args;
 using Minio.Exceptions;
+using OpenTelemetry;
 using SmartSentinelEye.AuditObservability.Application.Retention;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Shared.Kernel;
@@ -114,6 +115,24 @@ public sealed class MinioAuditChunkArchiver(
     private async Task<string?> TryGetEtagAsync(
         string bucket, string objectKey, CancellationToken cancellationToken)
     {
+        // #1808. StatObjectAsync issues a HEAD, and on a first archive the
+        // answer is legitimately 404 — that is what this probe is asking. The
+        // HTTP instrumentation records the 404 as `error.type` before the SDK
+        // turns it into ObjectNotFoundException, and one error span marks the
+        // whole trace, so every routine archival showed up in the dashboard as
+        // a failed "archive audit chunk" while the upload had in fact
+        // succeeded. Re-archiving an existing chunk — the rare case — was the
+        // only one that traced clean.
+        //
+        // Suppressed rather than enriched: the instrumentation derives span
+        // status from the status code, and reliably un-setting it afterwards
+        // depends on callback ordering this does not want to rely on. The cost
+        // is that the probe itself no longer appears. That is the trade worth
+        // making — an existence check that misses is not something anyone acts
+        // on, and a span that cries failure on the happy path is worse than no
+        // span at all. The PUT and the surrounding journey are untouched.
+        using IDisposable suppressed = SuppressInstrumentationScope.Begin();
+
         try
         {
             ObjectStat stat = await minio.StatObjectAsync(
