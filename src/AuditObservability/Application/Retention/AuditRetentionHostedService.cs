@@ -144,7 +144,17 @@ public sealed class AuditRetentionHostedService(
 
             logger.ArchivedChunk(chunk.ChunkIdentifier, result.RowCount, result.AlreadyArchived, result.MinioObjectKey);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (OperationCanceledException cancelled)
+        {
+            // Marked and rethrown rather than filtered out. Shutdown mid-archive
+            // is still an archive that did not happen, and a journey that ends
+            // unmarked is indistinguishable from one that succeeded and caused
+            // nothing (FR-004). The rethrow is the existing behaviour: this is
+            // not the sweep's to handle.
+            journey.Failed(cancelled);
+            throw;
+        }
+        catch (Exception ex)
         {
             // Leave the chunk in place; next sweep retries. NFR-004
             // accepts up to a 5-minute audit lag during outages.
