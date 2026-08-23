@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
+using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence.Configurations;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -23,9 +24,18 @@ public sealed class CameraRepository(
         Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
 
+        // #1434. `candidate.Name == name` looked case-insensitive because
+        // CameraName.Equals compares NormalizedValue — but EF translates the
+        // predicate to SQL against the stored column, which holds the original
+        // casing, so Equals never ran and the comparison was case-sensitive.
+        // Matching on the generated normalised column is both correct and the
+        // one the unique index covers.
         return await dbContext.Cameras
             .Where(candidate => candidate.Fab == fab)
-            .AnyAsync(candidate => candidate.Name == name, cancellationToken);
+            .AnyAsync(
+                candidate => EF.Property<string>(candidate, CameraConfiguration.NormalizedNameProperty)
+                    == name.NormalizedValue,
+                cancellationToken);
     }
 
     public void Add(Camera camera)

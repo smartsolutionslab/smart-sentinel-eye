@@ -25,6 +25,15 @@ public sealed class InMemoryCameraRepository : ICameraRepository
     // Fab is part of the match, not a filter applied afterwards. Keyed on the
     // name alone this would report another plant's camera as a collision, which
     // is the bug being fixed reproduced inside the double meant to detect it.
+    //
+    // CameraName.Equals compares NormalizedValue, so this is case-insensitive.
+    // It was already, which is exactly what made #1434 invisible for so long:
+    // the double enforced the rule while CameraRepository did not, and every
+    // duplicate-name test here passed against a fake that was right about a
+    // production path that was wrong. The two agree now — production matches on
+    // the generated `name_normalized` column (upper(name)), and NormalizedValue
+    // is ToUpperInvariant. Change one of those and this comment is the reason
+    // to go and change the other.
     public Task<bool> ExistsByNameAsync(
         FabIdentifier fab, CameraName name, CancellationToken cancellationToken) =>
         Task.FromResult(_cameras.Any(candidate =>
