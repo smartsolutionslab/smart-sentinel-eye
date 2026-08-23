@@ -108,14 +108,26 @@ public class StreamHealthChangedJourneyOriginTests
         journeys.Failure.ShouldBeNull();
     }
 
+    /// <summary>
+    /// <c>Camera</c> is asserted against a captured identifier, and it is the
+    /// reason this test exists. `Stream` and `Camera` are both
+    /// identifier-typed and sit next to each other, so mapping
+    /// `Camera: domainEvent.Stream.Value` compiles, passes every other test
+    /// here, and makes audit-observability record the wrong camera for every
+    /// health change. Same transposition class `HandlerDeconstructionTests`
+    /// guards for deconstruction, which does not apply to hand-mapped fields.
+    /// </summary>
     [Fact]
-    public async Task The_announcement_still_carries_every_field()
+    public async Task The_announcement_carries_the_camera_that_changed_and_every_other_field()
     {
         FakeBus bus = new();
+        StreamHealthChangedDomainEvent domainEvent = DomainEvent();
 
-        await HandlerFor(bus, new RecordingJourneyOrigin()).Handle(DomainEvent(), CancellationToken.None);
+        await HandlerFor(bus, new RecordingJourneyOrigin()).Handle(domainEvent, CancellationToken.None);
 
         StreamHealthChangedV1 announced = bus.Published.OfType<StreamHealthChangedV1>().ShouldHaveSingleItem();
+        announced.Camera.ShouldBe(domainEvent.Camera.Value);
+        announced.Camera.ShouldNotBe(domainEvent.Stream.Value, "the stream identifier is the sibling this can be transposed with");
         announced.FromState.ShouldBe(StreamState.Healthy.Value);
         announced.ToState.ShouldBe(StreamState.Degraded.Value);
         announced.ChangedAt.ShouldBe(ChangedAtMoment);

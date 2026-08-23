@@ -29,7 +29,7 @@ public class AuditRetentionHostedServiceTests
     private static AuditRetentionHostedService Build(
         IEnumerable<AuditChunk> chunks,
         FakeAuditChunkArchiver archiver,
-        FakeBus bus,
+        IEventBus bus,
         FakeAuditChunkInventory? inventory = null,
         RecordingJourneyOrigin? journeys = null)
     {
@@ -128,6 +128,36 @@ public class AuditRetentionHostedServiceTests
     }
 
     /// <summary>
+    /// FR-001, and the ordering a call count cannot check. A journey begun
+    /// *around* the publish is what the announcement inherits; one begun and
+    /// closed beforehand leaves it exactly as orphaned as it was, while
+    /// `Begun.Count` reports both as done.
+    ///
+    /// <para>
+    /// This site has no domain event handler and publishes inline, which
+    /// research.md calls the one most likely to be got wrong. Without this the
+    /// journey could be moved before the archive and every other test here
+    /// would stay green.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_publish_happens_inside_the_journey_it_begins()
+    {
+        RecordingJourneyOrigin journeys = new();
+        OpenJourneyRecordingBus bus = new(journeys);
+
+        AuditRetentionHostedService worker = Build(
+            chunks: [StaleChunk()],
+            archiver: new FakeAuditChunkArchiver(),
+            bus: bus,
+            journeys: journeys);
+
+        await worker.RunOnceAsync(default);
+
+        bus.OpenAtPublish.ShouldBe(1, "the publish must be caused by the journey, not merely preceded by one");
+    }
+
+    /// <summary>
     /// Spec 027 FR-003 / SC-003. A run archives every chunk past the boundary, so
     /// one journey per run would merge unrelated chunks onto one origin — which
     /// still reads as correct from the downstream end and makes "what did this
@@ -223,6 +253,22 @@ public class AuditRetentionHostedServiceTests
         await worker.RunOnceAsync(default);
 
         journeys.Failure.ShouldBeNull();
+    }
+
+    /// <summary>
+    /// Notes how many journeys were open at the moment of the publish, which is
+    /// the question `Begun.Count` cannot answer.
+    /// </summary>
+    private sealed class OpenJourneyRecordingBus(RecordingJourneyOrigin journeys) : IEventBus
+    {
+        public int OpenAtPublish { get; private set; }
+
+        public Task PublishAsync<TEvent>(TEvent integrationEvent, CancellationToken cancellationToken = default)
+            where TEvent : notnull
+        {
+            OpenAtPublish = journeys.Open;
+            return Task.CompletedTask;
+        }
     }
 
     /// <summary>
