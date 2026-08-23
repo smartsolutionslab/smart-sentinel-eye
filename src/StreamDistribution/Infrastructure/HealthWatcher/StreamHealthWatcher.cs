@@ -72,6 +72,19 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
             .Select(stream => new ValueTuple<Guid, MediaMtxPath, StreamState>(stream.Camera.Value, stream.Path, stream.State))
             .ToListAsync(cancellationToken);
 
+        await DispatchAsync(streams, gateway, cancellationToken);
+    }
+
+    /// <summary>
+    /// The dispatch half of a sweep, separated from the read so the scoping
+    /// below can be asserted without a database (#1801; ADR-0103 rules out both
+    /// an in-memory provider and Testcontainers).
+    /// </summary>
+    internal async Task DispatchAsync(
+        IReadOnlyList<(Guid Camera, MediaMtxPath Path, StreamState State)> streams,
+        IRtspGateway gateway,
+        CancellationToken cancellationToken)
+    {
         DateTimeOffset now = clock.UtcNow;
 
         foreach ((Guid cameraGuid, MediaMtxPath path, StreamState state) in streams)
