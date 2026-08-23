@@ -123,8 +123,10 @@ That is worth remembering the next time a green suite is offered as evidence.
 
 - **T007's retention site is implemented but not observed.** The retention sweep
   runs on a long timer and no archival happened in this window.
-- **T014** — whether an HTTP publish inherits the request's cause. Still the one
-  inference in the survey.
+- **T014** — whether an HTTP publish inherits the request's cause. ~~Still the
+  one inference in the survey.~~ **Closed 2026-08-23** — see the footnote under
+  the survey: trace `c4f226c1…` shows both `send` spans parented by the
+  `POST /cameras/` Server span.
 - **T016** — the measurements, twice.
 - **T013** — the survey table.
 
@@ -153,18 +155,42 @@ the next person repeats the search.
 publishers, none needing anything.** After this feature, no publisher of an
 integration event in this system begins as an orphan.
 
-¹ **Still inference, and marked as such.** Message-driven inheritance is observed
-directly (spec 026, trace `195d9123…`: two receives as children of a receive).
-HTTP is observed one layer short — spec 026's trace `ed21f2fc…` shows a `POST`
-Server span with Keycloak Client spans as **children**, so a request does
-establish an ambient activity that later work attaches to. What has not been
-captured is a `send` span specifically sitting under a Server span.
+¹ **Observed directly, 2026-08-23 — no longer an inference.** Message-driven
+inheritance was already observed in spec 026 (trace `195d9123…`: two receives as
+children of a receive). HTTP was one layer short: spec 026's trace `ed21f2fc…`
+showed a `POST` Server span with Keycloak Client spans as children, which proves
+a request establishes an ambient activity, but not that a **send** attaches to
+it.
 
-**T014 remains open.** The camera registrations that would have shown it happen
-at boot and had aged out of the dashboard's retained window by the time it was
-looked for. Nothing in this feature depends on the answer: if an HTTP publish
-turned out to be an orphan too, that is a new finding and a new issue, not a
-change to these two call sites.
+**T014 is closed.** Trace **`c4f226c1eadaebdb2315eab9fec22b94`**, titled
+`POST /cameras/`:
+
+```
+camera-catalog       Server    POST /cameras/  [77f837d25e0539f9]  2 286 ms  201
+  ├─ camera-catalog        Producer  send     CameraRegisteredV1   parent 77f837d2…
+  ├─ camera-catalog        Producer  send     CameraRegisteredV1   parent 77f837d2…
+  ├─ audit-observability   Consumer  receive                       parent 77f837d2…
+  └─ stream-distribution   Consumer  receive                       parent 77f837d2…
+       └─ Client  POST → mediamtx  /v3/config/paths/add/cam-01a02fd2…
+```
+
+Both `send` spans carry `parentSpanId` **`77f837d25e0539f9`**, which is the
+Server span itself. **A `send` sitting under a Server span is exactly what was
+missing**, so an HTTP publish does inherit the request's cause and the nine
+request- and message-driven publishers in the table above need nothing.
+
+Rather than wait for a boot-time registration to age out again, a camera was
+registered on purpose (`t014-probe-camera`, `01a02fd2-3e70-7394-97c6-2106eb7540fb`)
+so the trace would be the newest in the window.
+
+**Two caveats, stated rather than tidied away.** The request went **straight to
+`camera-catalog` on :5183, not through the api-gateway** — which does not affect
+the question, since the Server span under test is camera-catalog's own, but it
+is not the full production path. And **two `send` spans appear for one message**
+(same `messaging.message_id` `08df0141-fc75-…`, same `conversation_id`). The
+stream-health trace in this same note shows the same doubling, so it is not
+specific to HTTP. Not chased here; noted because a reader counting sends will
+otherwise think two messages were published.
 
 ---
 
@@ -218,7 +244,7 @@ pre-existing and unrelated (#1434).
 
 | | |
 |---|---|
-| **T014** — does an HTTP publish inherit the request? | **Open.** The camera registrations that would show it happen at boot and had aged out of the dashboard's window. Still the one inference in the survey; nothing here depends on it. |
+| **T014** — does an HTTP publish inherit the request? | **Closed 2026-08-23.** It does. Trace `c4f226c1…`: both `send` spans carry the `POST /cameras/` Server span as parent. Settled by registering a camera on purpose rather than waiting for a boot-time one to age out — see the footnote under the survey for the trace and its two caveats. |
 | **T015 (half)** — the retention walk | **Not observed.** The sweep runs on a long timer and no archival occurred in the window. The code is in and unit-tested; it has not been seen working. |
 | Poll cadence and retention duration | **No harness exists.** The measurements cover the ingest path, which this feature does not touch. |
 
