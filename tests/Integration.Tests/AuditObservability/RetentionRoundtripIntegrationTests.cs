@@ -20,28 +20,52 @@ namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 /// upload + ETag round-trip, and the audit subscriber records that very V1, so
 /// the recorded payload's object key + row count prove the object landed.
 /// </para>
+///
+/// <para>
+/// <b>Two chunks, not one.</b> The sweep opens a single service scope and then
+/// publishes and commits once per chunk on it — the shape that lost three of
+/// four announcements in #1801, where one scope was shared across a loop whose
+/// body flushed the scoped outbox. A single seeded chunk cannot tell a sweep
+/// that announces everything from one that announces only its first, which is
+/// why this test seeds two and asserts both are announced by name.
+/// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
 public class RetentionRoundtripIntegrationTests(AspireFixture aspire)
 {
+    /// <summary>
+    /// The hypertable's chunk interval is one month, so rows this far apart
+    /// land in different chunks and one sweep has two of them to do. Both are
+    /// well past the 90-day boundary.
+    /// </summary>
+    private static readonly int[] SeededAgesInDays = [200, 120];
+
     [Fact]
-    public async Task A_chunk_past_the_retention_boundary_is_archived_dropped_and_announced()
+    public async Task Every_chunk_past_the_retention_boundary_is_archived_dropped_and_announced()
     {
-        // Seed one audit row ~200 days old → lands in a chunk well past the
-        // 90-day retention boundary, so the next sweep archives + drops it.
-        await SeedBackdatedRowAsync(DateTimeOffset.UtcNow.AddDays(-200));
+        DateTimeOffset[] seeded =
+            [.. SeededAgesInDays.Select(age => DateTimeOffset.UtcNow.AddDays(-age))];
 
-        (await CountChunksPastBoundaryAsync()).ShouldBeGreaterThanOrEqualTo(1,
-            "the back-dated insert must create a chunk past the 90-day boundary");
+        foreach (DateTimeOffset occurredAt in seeded)
+        {
+            await SeedBackdatedRowAsync(occurredAt);
+        }
 
-        JsonElement archived = await PollForArchiveAsync();
+        (await CountChunksPastBoundaryAsync()).ShouldBeGreaterThanOrEqualTo(2,
+            "the back-dated inserts must create two chunks past the 90-day boundary, "
+            + "or this test cannot distinguish announcing every chunk from announcing the first");
+
+        IReadOnlyList<JsonElement> archived = await PollForArchivesAsync(seeded);
 
         // AuditChunkArchivedV1 payload (PascalCase — serialised with default
         // options) proves the MinIO upload + the archived row count.
-        archived.GetProperty("RowCount").GetInt32().ShouldBeGreaterThanOrEqualTo(1);
-        archived.GetProperty("MinioObjectKey").GetString().ShouldNotBeNullOrEmpty();
+        foreach (JsonElement announcement in archived)
+        {
+            announcement.GetProperty("RowCount").GetInt32().ShouldBeGreaterThanOrEqualTo(1);
+            announcement.GetProperty("MinioObjectKey").GetString().ShouldNotBeNullOrEmpty();
+        }
 
-        // The aged chunk is gone from the hypertable.
+        // The aged chunks are gone from the hypertable.
         (await CountChunksPastBoundaryAsync()).ShouldBe(0);
     }
 
@@ -80,31 +104,63 @@ public class RetentionRoundtripIntegrationTests(AspireFixture aspire)
         return result[0];
     }
 
-    private async Task<JsonElement> PollForArchiveAsync()
+    /// <summary>
+    /// Waits until every seeded moment has an announcement whose chunk range
+    /// covers it, and the hypertable is clear. Matching by range rather than
+    /// by count is what makes the assertion specific: two announcements for
+    /// the same chunk would satisfy a count and prove nothing.
+    /// </summary>
+    private async Task<IReadOnlyList<JsonElement>> PollForArchivesAsync(
+        DateTimeOffset[] seeded)
     {
+        IReadOnlyList<JsonElement> announcements = [];
+
         for (int attempt = 0; attempt < 60; attempt++)
         {
-            await using AuditObservabilityDbContext context =
-                await aspire.CreateAuditObservabilityDbContextAsync();
+            announcements = await ReadArchiveAnnouncementsAsync();
 
-            List<string> payloads = await context.Database
-                .SqlQuery<string>($"""
-                    SELECT payload::text AS "Value"
-                    FROM audit_events
-                    WHERE event_kind = 'AuditChunkArchivedV1'
-                    LIMIT 1
-                    """)
-                .ToListAsync();
+            List<JsonElement> covering =
+                [.. seeded.Select(moment => announcements.FirstOrDefault(a => Covers(a, moment)))
+                          .Where(a => a.ValueKind is not JsonValueKind.Undefined)];
 
-            if (payloads.Count == 1 && await CountChunksPastBoundaryAsync() == 0)
+            if (covering.Count == seeded.Length && await CountChunksPastBoundaryAsync() == 0)
             {
-                return JsonDocument.Parse(payloads[0]).RootElement;
+                return covering;
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(500));
         }
 
+        // Says which half failed, because this is adjudicated from CI logs.
+        int remaining = await CountChunksPastBoundaryAsync();
         throw new Xunit.Sdk.XunitException(
-            "The aged chunk was not archived + dropped + announced within 30s.");
+            $"Seeded {seeded.Length} aged chunks; {announcements.Count} AuditChunkArchivedV1 "
+            + $"announcement(s) arrived within 30s and {remaining} chunk(s) remain past the "
+            + "boundary. A chunk dropped but never announced is the #1801 shape: one scope "
+            + "shared across a loop whose body flushes the scoped outbox.");
+    }
+
+    private async Task<IReadOnlyList<JsonElement>> ReadArchiveAnnouncementsAsync()
+    {
+        await using AuditObservabilityDbContext context =
+            await aspire.CreateAuditObservabilityDbContextAsync();
+
+        List<string> payloads = await context.Database
+            .SqlQuery<string>($"""
+                SELECT payload::text AS "Value"
+                FROM audit_events
+                WHERE event_kind = 'AuditChunkArchivedV1'
+                """)
+            .ToListAsync();
+
+        return [.. payloads.Select(payload => JsonDocument.Parse(payload).RootElement)];
+    }
+
+    private static bool Covers(JsonElement announcement, DateTimeOffset moment)
+    {
+        DateTimeOffset from = announcement.GetProperty("OccurredFrom").GetDateTimeOffset();
+        DateTimeOffset until = announcement.GetProperty("OccurredUntil").GetDateTimeOffset();
+
+        return moment >= from && moment < until;
     }
 }
