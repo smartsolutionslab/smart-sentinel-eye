@@ -1,6 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <!-- #1801: StreamHealthWatcher.DispatchAsync is internal so the scope it
+         opens per camera can be counted. The loss it guards needs Wolverine's
+         real outbox to reproduce end to end, but the structure that caused it
+         — one scope for the sweep — is assertable here, without a database. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>SmartSentinelEye.StreamDistribution.Infrastructure.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Domain\SmartSentinelEye.StreamDistribution.Domain.csproj" />
     <ProjectReference Include="..\Application\SmartSentinelEye.StreamDistribution.Application.csproj" />
     <ProjectReference Include="..\..\Shared.Kernel\SmartSentinelEye.Shared.Kernel.csproj" />
