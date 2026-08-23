@@ -69,16 +69,16 @@ public sealed class AuditRetentionHostedService(
 
         // The inventory, archiver, and event bus are scoped (they own a
         // DbContext / outbox session); this hosted service is a singleton,
-        // so resolve them inside a per-sweep scope rather than injecting
-        // them into the constructor.
-        using IServiceScope scope = scopeFactory.CreateScope();
-        RetentionDependencies deps = new(
-            scope.ServiceProvider.GetRequiredService<IAuditChunkInventory>(),
-            scope.ServiceProvider.GetRequiredService<IAuditChunkArchiver>(),
-            scope.ServiceProvider.GetRequiredService<IEventBus>(),
-            scope.ServiceProvider.GetRequiredService<ITransactionalCommit>());
+        // so resolve them inside a scope rather than injecting them into
+        // the constructor. The listing is one read and gets one scope.
+        IReadOnlyList<AuditChunk> chunks;
+        using (IServiceScope listing = scopeFactory.CreateScope())
+        {
+            chunks = await listing.ServiceProvider
+                .GetRequiredService<IAuditChunkInventory>()
+                .ListChunksOlderThanAsync(boundary, cancellationToken);
+        }
 
-        IReadOnlyList<AuditChunk> chunks = await deps.Inventory.ListChunksOlderThanAsync(boundary, cancellationToken);
         if (chunks.Count == 0)
         {
             logger.RetentionSweepNoChunks(boundary);
@@ -89,6 +89,23 @@ public sealed class AuditRetentionHostedService(
 
         foreach (AuditChunk chunk in chunks)
         {
+            // A scope per chunk, not one for the sweep (#1801). ArchiveAndDropAsync
+            // publishes through the scoped outbox and then commits it, once per
+            // chunk; sharing one scope across the loop meant every chunk after the
+            // first published into an already-flushed message context. The chunk
+            // was still exported and still dropped — only the announcement was
+            // lost, with no exception, no outbox row and nothing in the log.
+            //
+            // Measured, not inferred: two aged chunks in one sweep produced two
+            // archives, zero chunks left past the boundary, and one
+            // AuditChunkArchivedV1.
+            using IServiceScope perChunk = scopeFactory.CreateScope();
+            RetentionDependencies deps = new(
+                perChunk.ServiceProvider.GetRequiredService<IAuditChunkInventory>(),
+                perChunk.ServiceProvider.GetRequiredService<IAuditChunkArchiver>(),
+                perChunk.ServiceProvider.GetRequiredService<IEventBus>(),
+                perChunk.ServiceProvider.GetRequiredService<ITransactionalCommit>());
+
             await ArchiveAndDropAsync(deps, chunk, cancellationToken);
         }
     }
