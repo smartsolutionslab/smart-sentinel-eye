@@ -14,4 +14,11 @@ public sealed record CameraSummaryDto(
     string Fab,
     string Name,
     string RtspUrl,
-    DateTimeOffset RegisteredAt);
+    DateTimeOffset RegisteredAt,
+    /// <summary>
+    /// Spec 028 FR-007. Present on every row, not only when retired cameras
+    /// were asked for: a client that opts in needs to tell the two apart, and a
+    /// field that appears only sometimes is harder to consume than one that is
+    /// always there.
+    /// </summary>
+    string Status);

@@ -37,6 +37,30 @@ options were a migration adding it, or FR-006 moving to a follow-up.
 **Consequence for the plan**: US2 is *assertion* work, not migration work. It
 needs an integration test, not a schema task.
 
+### Correction, found during implementation
+
+**The decision above is right and its consequence was wrong.** No migration was
+needed — but US2 was not assertion-only work, and the three US2 integration
+tests failed on the first run that reached them.
+
+What this section checked was whether the *schema* would accept the insert. It
+does. What it did not check was whether the insert is ever attempted:
+`RegisterCameraCommandHandler` calls `ICameraRepository.ExistsByNameAsync`
+first, and that predicate matched on `(fab, name_normalized)` with **no status
+filter**. The 409 came from the application, one layer above the index, so
+reading the index could not have revealed it — and "nothing else in the *schema*
+holds the name" was true while the name was still held.
+
+Fixed by adding `status <> 'Decommissioned'` to that predicate, in
+`CameraRepository` and in the in-memory double together. One predicate, no
+migration, no change to this section's decision.
+
+**The transferable lesson**: a uniqueness rule enforced in two places has to be
+checked in both. This is #1434 again — the defect there was also the index and
+the query disagreeing, and this research section cited #1434 as the reason to
+check the index while inheriting the assumption that the index was the whole
+mechanism.
+
 ---
 
 ## 2. Where does the terminal state live on the Stream side?

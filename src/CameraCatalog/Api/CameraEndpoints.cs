@@ -69,7 +69,8 @@ public static class CameraEndpoints
             .WithName("ListCameras")
             .WithSummary(
                 "List cameras in your fabs. Omit fabId to span all of them; name one to narrow. "
-                + "A read does not have to choose (spec 015 FR-005).")
+                + "A read does not have to choose (spec 015 FR-005). Retired cameras are excluded "
+                + "unless includeRetired=true; every row carries its status.")
             .Produces<CameraListPageDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
@@ -159,7 +160,8 @@ public static class CameraEndpoints
         [FromQuery] string? sort = null,
         [FromQuery] string? order = null,
         [FromQuery] int? offset = null,
-        [FromQuery] int? limit = null)
+        [FromQuery] int? limit = null,
+        [FromQuery] bool includeRetired = false)
     {
         (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
@@ -173,7 +175,8 @@ public static class CameraEndpoints
             Sort: sort ?? ListCamerasDefaults.DefaultSort,
             Order: order ?? ListCamerasDefaults.DefaultOrder,
             Offset: offset ?? ListCamerasDefaults.DefaultOffset,
-            Limit: limit ?? ListCamerasDefaults.DefaultLimit);
+            Limit: limit ?? ListCamerasDefaults.DefaultLimit,
+            IncludeRetired: includeRetired);
 
         Result<CameraListPageDto, ListCamerasError> result =
             await handler.HandleAsync(query, cancellationToken);

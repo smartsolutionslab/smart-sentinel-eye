@@ -22,6 +22,11 @@ persists as that literal string. FR-006 is therefore *assertion* work.
 If implementation finds a migration is needed after all, that contradicts
 research §1 — raise it, do not absorb it.
 
+**No migration was needed. FR-006 was not assertion-only work.** The index was
+never the whole mechanism — `ExistsByNameAsync` refused the name a layer above
+it. Raised rather than absorbed: research §1 and Phase 2 both carry the
+correction.
+
 ---
 
 ## Phase 1: User Story 1 — Retire a camera that no longer exists (P1) 🎯 MVP
@@ -55,13 +60,20 @@ the announcement.
 **Goal**: The name comes back, in its own fab and nowhere else.
 
 **Independent test**: Retire, then register the same name in the same fab.
-Requires US1. **No production code** — research §1 says the index already does
-this, and these tests are what prove it.
+Requires US1.
 
-- [ ] T013 [US2] Integration in `tests/Integration.Tests/CameraCatalog/RetireCameraIntegrationTests.cs` — retire `line-3-inlet` in `munich`, register `line-3-inlet` in `munich`, accepted
-- [ ] T014 [P] [US2] Integration — while the camera is **active**, the same registration is still refused 409. Without this, T013 passes against a catalogue with no uniqueness at all
-- [ ] T015 [P] [US2] Integration — the retirement in `munich` does not change what `dresden` may register, in either direction
-- [ ] T016 [US2] Integration — case-insensitivity survives reuse: retire `Line-3-Inlet`, then `line-3-inlet` is accepted in that fab (guards the #1434 index against a regression from this feature)
+**This phase was planned as no production code, and that was wrong.** All three
+reuse tests failed on the first run that reached them: the partial index does
+exclude retired cameras, but `ICameraRepository.ExistsByNameAsync` did not, so
+the 409 came from the application before the insert was attempted. Fixed with a
+status filter on that predicate and on the in-memory double — no migration, so
+research §1's decision stands and only its "assertion work" consequence did
+not. Recorded in research §1 under *Correction, found during implementation*.
+
+- [x] T013 [US2] Integration in `tests/Integration.Tests/CameraCatalog/RetireCameraIntegrationTests.cs` — retire `line-3-inlet` in `munich`, register `line-3-inlet` in `munich`, accepted
+- [x] T014 [P] [US2] Integration — while the camera is **active**, the same registration is still refused 409. Without this, T013 passes against a catalogue with no uniqueness at all
+- [x] T015 [P] [US2] Integration — the retirement in `munich` does not change what `dresden` may register, in either direction
+- [x] T016 [US2] Integration — case-insensitivity survives reuse: retire `Line-3-Inlet`, then `line-3-inlet` is accepted in that fab (guards the #1434 index against a regression from this feature)
 
 ---
 
@@ -72,10 +84,10 @@ this, and these tests are what prove it.
 **Independent test**: Retire a camera, list the fab; absent by default, present
 when asked for.
 
-- [ ] T017 [US3] Exclude retired from the default listing query in `src/CameraCatalog/Application/Queries/` — filter on status, not in the endpoint
-- [ ] T018 [US3] `includeRetired` query parameter on `GET /cameras` in `src/CameraCatalog/Api/CameraEndpoints.cs`, default `false`, per contracts/cameras-api.md
-- [ ] T019 [P] [US3] Query/handler tests — default excludes; `includeRetired=true` includes and each carries its status
-- [ ] T020 [US3] Integration — a retired camera is absent from the default listing and present with `includeRetired=true`
+- [x] T017 [US3] Exclude retired from the default listing query in `src/CameraCatalog/Application/Queries/` — filter on status, not in the endpoint
+- [x] T018 [US3] `includeRetired` query parameter on `GET /cameras` in `src/CameraCatalog/Api/CameraEndpoints.cs`, default `false`, per contracts/cameras-api.md
+- [x] T019 [P] [US3] Query/handler tests — default excludes; `includeRetired=true` includes and each carries its status
+- [x] T020 [US3] Integration — a retired camera is absent from the default listing and present with `includeRetired=true`
 
 ---
 
@@ -158,8 +170,10 @@ everything else in the two contexts is independent.
 **MVP is Phase 1.** A camera reaching its terminal state is the feature; the
 rest is payoff.
 
-**Phase 2 writes no production code.** If any task there needs some, research §1
-was wrong and that is a finding.
+**Phase 2 was expected to write no production code, and it did.** The finding
+this clause was written to catch is the one that happened: see Phase 2's note
+and research §1's correction. One predicate in `CameraRepository`, no
+migration.
 
 **Phases 4 and 5 ship together or not at all.** Phase 4 without Phase 5 leaves
 the health watcher sweeping streams for cameras that no longer exist, which is
