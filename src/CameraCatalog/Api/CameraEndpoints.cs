@@ -66,11 +66,18 @@ public static class CameraEndpoints
         // when the version quoted is stale (ADR-0113, no retry on conflict).
         // 409 is the retired camera — terminal, so a correction describes
         // nothing (FR-005).
-        writes.MapPatch("/{camera:guid}", ChangeAddress)
-            .WithName("ChangeCameraAddress")
+        // The name became editable with spec 033 (ADR-0120), which is safe here
+        // and would not be for a rule or a variable: a camera is addressed by
+        // its identifier, so its name is an attribute and nothing refers to the
+        // old value. 409 now has a second cause — CAMERA_NAME_TAKEN, which is
+        // deliberately not a lost update and never becomes possible by
+        // re-reading (ADR-0119).
+        writes.MapPatch("/{camera:guid}", Patch)
+            .WithName("PatchCamera")
             .WithSummary(
-                "Correct a camera's RTSP address. Requires If-Match with the version from GET /cameras/{camera} "
-                + "or from a listing row. The name is not editable. Required scope: sse.cameras.write")
+                "Correct a camera's RTSP address or its name — exactly one per request, each applied under "
+                + "its own version. Requires If-Match with the version from GET /cameras/{camera} or from a "
+                + "listing row. The fab and identifier are immutable. Required scope: sse.cameras.write")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -184,10 +191,11 @@ public static class CameraEndpoints
             onFailure: error => error.ToProblem());
     }
 
-    private static async Task<IResult> ChangeAddress(
+    private static async Task<IResult> Patch(
         [FromRoute] Guid camera,
-        [FromBody] ChangeCameraAddressRequest request,
-        [FromServices] ChangeCameraAddressCommandHandler handler,
+        [FromBody] PatchCameraRequest request,
+        [FromServices] ChangeCameraAddressCommandHandler addressHandler,
+        [FromServices] RenameCameraCommandHandler renameHandler,
         [FromServices] IFabAuthorizationGuard fabGuard,
         HttpContext httpContext,
         CancellationToken cancellationToken,
@@ -213,6 +221,50 @@ public static class CameraEndpoints
             return precondition;
         }
 
+        bool changingAddress = !string.IsNullOrWhiteSpace(request.RtspUrl);
+        bool changingName = !string.IsNullOrWhiteSpace(request.Name);
+
+        // Exactly one. Each attribute has its own command and its own If-Match
+        // check, so a request carrying both would need the second to see a
+        // version the first had already advanced — see PatchCameraRequest for
+        // why that is not built. Neither is a request that expresses nothing.
+        if (changingAddress == changingName)
+        {
+            return Results.Problem(
+                title: "CAMERA_INVALID_REQUEST",
+                detail: changingAddress
+                    ? "Send either rtspUrl or name, not both: each is applied under its own version."
+                    : "Send either rtspUrl or name.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        CameraIdentifier identifier = CameraIdentifier.From(camera);
+        OperatorIdentifier actor = ResolveOperator(httpContext);
+
+        if (changingName)
+        {
+            CameraName name;
+            try
+            {
+                name = CameraName.From(request.Name);
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.Problem(
+                    title: "CAMERA_INVALID_REQUEST",
+                    detail: ex.Message,
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            Result<CameraIdentifier, RenameCameraError> renamed = await renameHandler.HandleAsync(
+                new RenameCameraCommand(fab, identifier, name, expectedVersion, actor),
+                cancellationToken);
+
+            return renamed.Match<IResult>(
+                onSuccess: _ => Results.NoContent(),
+                onFailure: error => error.ToProblem());
+        }
+
         RtspUrl url;
         try
         {
@@ -227,10 +279,10 @@ public static class CameraEndpoints
         }
 
         ChangeCameraAddressCommand command = new(
-            fab, CameraIdentifier.From(camera), url, expectedVersion, ResolveOperator(httpContext));
+            fab, identifier, url, expectedVersion, actor);
 
         Result<CameraIdentifier, ChangeCameraAddressError> result =
-            await handler.HandleAsync(command, cancellationToken);
+            await addressHandler.HandleAsync(command, cancellationToken);
 
         // 204 rather than 200: the caller asked for the address to be a
         // particular value and it is. The new version travels on the ETag for
