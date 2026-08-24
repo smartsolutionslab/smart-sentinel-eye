@@ -167,6 +167,40 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
             Error: null));
     }
 
+    /// <summary>
+    /// Re-points the stream at a corrected source, because its camera's
+    /// address changed (spec 029 FR-013).
+    ///
+    /// <para>
+    /// The <see cref="Path"/> deliberately does not change. It derives from the
+    /// camera identifier, which is immutable, so a correction moves what the
+    /// path pulls from and nothing a viewer holds — anyone already watching
+    /// keeps watching (FR-014). That is also why this is a re-point rather
+    /// than a tear-down and re-provision.
+    /// </para>
+    ///
+    /// <para>
+    /// Idempotent, and terminal-safe. The announcement rides the outbox and can
+    /// be redelivered, so re-pointing at the URL already held raises nothing;
+    /// and a retired stream refuses, mirroring the health reports, because
+    /// re-pointing hardware that has been retired changes nothing except the
+    /// record.
+    /// </para>
+    /// </summary>
+    public void RepointTo(StreamSourceUrl sourceUrl, IClock clock)
+    {
+        Ensure.That(sourceUrl).IsNotNull();
+        Ensure.That(clock).IsNotNull();
+        EnsureNotRetired(nameof(RepointTo));
+
+        if (SourceUrl == sourceUrl)
+        {
+            return;
+        }
+
+        SourceUrl = sourceUrl;
+    }
+
     public void ReportHealthy(TranscodeMode detectedMode, IClock clock)
     {
         Ensure.That(detectedMode).IsNotNull();

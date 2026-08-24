@@ -34,6 +34,22 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         logger.RegisteredMediaMtxPath(path, rtspSourceUrl);
     }
 
+    public async Task RepointPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken)
+    {
+        Ensure.That(path).IsNotNull();
+        ArgumentException.ThrowIfNullOrWhiteSpace(rtspSourceUrl);
+
+        // PATCH /v3/config/paths/patch/{name} changes the source in place.
+        // add/ would reject an existing path and delete+add would leave a
+        // window with no path at all, which the two-second health sweep would
+        // see and announce.
+        using HttpResponseMessage response = await http
+            .PatchAsJsonAsync($"/v3/config/paths/patch/{path.Value}", new { source = rtspSourceUrl }, cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+        logger.RepointedMediaMtxPath(path, rtspSourceUrl);
+    }
+
     public async Task RemovePathAsync(MediaMtxPath path, CancellationToken cancellationToken)
     {
         Ensure.That(path).IsNotNull();

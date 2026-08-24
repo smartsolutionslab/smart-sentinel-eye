@@ -13,6 +13,21 @@ public interface IRtspGateway
 
     Task RemovePathAsync(MediaMtxPath path, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Points an existing path at a different source, keeping the path itself
+    /// (spec 029 FR-013).
+    ///
+    /// <para>
+    /// Distinct from remove-then-add on purpose. Removing and re-adding leaves
+    /// a window in which the path does not exist, and the health watcher sweeps
+    /// every two seconds — so an address correction would reliably produce a
+    /// spurious Degraded announcement, which since #1801 reaches every
+    /// subscriber and the audit trail. Changing the source in place has no such
+    /// window, and keeps the path name a viewer is watching (FR-014).
+    /// </para>
+    /// </summary>
+    Task RepointPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken);
+
     Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken);
 
     /// <summary>

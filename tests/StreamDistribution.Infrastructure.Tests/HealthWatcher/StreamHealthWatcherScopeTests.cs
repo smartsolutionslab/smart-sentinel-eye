@@ -245,6 +245,9 @@ public class StreamHealthWatcherScopeTests
         public Task RemovePathAsync(MediaMtxPath path, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
+        public Task RepointPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
         public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken)
         {
             Probed.Add(path);
