@@ -30,4 +30,19 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Changed camera {Camera} address to {Url}.")]
     public static partial void ChangedCameraAddress(this ILogger logger, CameraIdentifier camera, RtspUrl url);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Rejected rename for camera {Camera}: not found in the caller's fab.")]
+    public static partial void RejectedCameraRenameNotFound(this ILogger logger, CameraIdentifier camera);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Rejected rename for camera {Camera}: expected version {Expected}, actual {Actual}.")]
+    public static partial void RejectedCameraRenameStaleVersion(this ILogger logger, CameraIdentifier camera, int expected, int actual);
+
+    // The name is logged because it is the operator's own input rather than
+    // another camera's data — and knowing which name collided is the whole
+    // content of the refusal.
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Rejected rename for camera {Camera}: {CameraName} is already taken in this fab.")]
+    public static partial void RejectedCameraRenameNameTaken(this ILogger logger, CameraIdentifier camera, CameraName cameraName);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Renamed camera {Camera} to {CameraName}.")]
+    public static partial void RenamedCamera(this ILogger logger, CameraIdentifier camera, CameraName cameraName);
 }
