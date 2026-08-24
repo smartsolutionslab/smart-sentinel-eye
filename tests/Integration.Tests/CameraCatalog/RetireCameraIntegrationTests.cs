@@ -20,7 +20,7 @@ namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
 [Collection(AspireCollection.Name)]
 public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
-    private const string MunichOperator = "op-munich@munich.test";
+    private const string MunichOperator = "op-3@munich.test";
     private const string DresdenOperator = "op-dresden@dresden.test";
     private const string OperatorPassword = "Operator1234";
 
