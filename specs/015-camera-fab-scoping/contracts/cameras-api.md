@@ -52,6 +52,21 @@ add one — a camera cannot be retired at all today. Listed here in error when
 the contract was drafted. When a retire behaviour lands it takes the same fab
 resolution and the same 404 semantics as edit.
 
+**Landed 2026-08-24 as `POST /cameras/{camera}/retire`** — spec 028, see
+[its contract](../../028-retire-camera/contracts/cameras-api.md). The fab
+resolution and the 404-not-403 semantics are as promised above.
+
+**The key changed, from the name to the identifier.** Spec 028 is what makes a
+name reusable, so a name identifies at most one *active* camera per fab but
+several over time — a URL keyed on it would resolve to a different object
+depending on when it was called, and could not address a camera already
+retired, which that spec requires to succeed. `retire` rather than
+`decommission` in the path: shorter, while the persisted status stays
+`Decommissioned`. The status is the record; the endpoint is the verb.
+
+`GET /cameras` also gained `includeRetired` (default `false`) and a `status` on
+every row, so this spec's listing shape is a subset of what it returns now.
+
 ## Response shapes
 
 | Status | Title | When |

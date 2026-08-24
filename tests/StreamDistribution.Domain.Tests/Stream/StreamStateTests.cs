@@ -9,6 +9,7 @@ public class StreamStateTests
     [InlineData("Healthy")]
     [InlineData("Degraded")]
     [InlineData("Offline")]
+    [InlineData("Retired")]
     public void From_known_value_returns_the_matching_singleton(string value)
     {
         StreamState first = StreamState.From(value);

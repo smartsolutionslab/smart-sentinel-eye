@@ -130,10 +130,48 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
         Fab = fab;
     }
 
+    /// <summary>
+    /// Retires the stream because its camera was retired (spec 028 FR-008).
+    /// Terminal, and the row is kept — retirement records that hardware
+    /// <em>was</em> there.
+    ///
+    /// <para>
+    /// Idempotent for the same reason retiring a camera is: the announcement
+    /// rides the outbox and can be redelivered, and a second call must not
+    /// raise a second time. Any state can be retired — a camera can be pulled
+    /// off the wall while its stream is healthy, degraded, offline or still
+    /// provisioning.
+    /// </para>
+    /// </summary>
+    public void Retire(IClock clock)
+    {
+        Ensure.That(clock).IsNotNull();
+
+        if (State == StreamState.Retired)
+        {
+            return;
+        }
+
+        StreamState previous = State;
+        DateTimeOffset now = clock.UtcNow;
+
+        LastError = null;
+        State = StreamState.Retired;
+
+        Raise(new StreamHealthChangedDomainEvent(
+            Stream: Id,
+            Camera: Camera,
+            FromState: previous,
+            ToState: StreamState.Retired,
+            ChangedAt: now,
+            Error: null));
+    }
+
     public void ReportHealthy(TranscodeMode detectedMode, IClock clock)
     {
         Ensure.That(detectedMode).IsNotNull();
         Ensure.That(clock).IsNotNull();
+        EnsureNotRetired(nameof(ReportHealthy));
 
         StreamState previous = State;
         DateTimeOffset now = clock.UtcNow;
@@ -159,6 +197,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(error);
         Ensure.That(clock).IsNotNull();
+        EnsureNotRetired(nameof(ReportDegraded));
 
         StreamState previous = State;
         DateTimeOffset now = clock.UtcNow;
@@ -182,6 +221,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(error);
         Ensure.That(clock).IsNotNull();
+        EnsureNotRetired(nameof(ReportOffline));
 
         if (State != StreamState.Degraded && State != StreamState.Offline)
         {
@@ -203,6 +243,31 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
                 ToState: StreamState.Offline,
                 ChangedAt: now,
                 Error: error));
+        }
+    }
+
+    /// <summary>
+    /// Retirement is terminal, and this is what makes it so. The watcher and a
+    /// retirement race by construction: a sweep can read a stream, probe
+    /// MediaMTX, and come back to report on it after the retirement committed.
+    /// Before this guard <c>ReportHealthy</c> set <see cref="State"/>
+    /// unconditionally, so that late probe would quietly move a retired stream
+    /// back to Healthy and the watcher would resume announcing about hardware
+    /// that no longer exists.
+    ///
+    /// <para>
+    /// Throws rather than returning quietly: a health report on a retired
+    /// stream is a caller that has not caught up, and the command handler
+    /// translates the failure. Swallowing it would make the resurrection
+    /// unobservable, which is the property that made it worth guarding.
+    /// </para>
+    /// </summary>
+    private void EnsureNotRetired(string behaviour)
+    {
+        if (State == StreamState.Retired)
+        {
+            throw new InvalidOperationException(
+                $"Stream {Id} is retired; {behaviour} cannot change a retired stream's state.");
         }
     }
 }

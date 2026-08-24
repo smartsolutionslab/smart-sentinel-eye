@@ -67,8 +67,17 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
 
         await using StreamDistributionDbContext context = await factory.CreateDbContextAsync(cancellationToken);
 
+        // Retired streams are excluded from the sweep, not merely reported on
+        // (spec 028, research §4). Their MediaMTX path has been removed, so a
+        // probe fails — and since #1801 the watcher announces *every* health
+        // change rather than one per sweep, which would make each retired
+        // camera a permanent source of health announcements and audit rows for
+        // hardware that does not exist. Filtered in the query so the rows are
+        // never loaded; DispatchAsync skips them again, because that is where it
+        // can be asserted without a database (ADR-0103).
         List<(Guid Camera, MediaMtxPath Path, StreamState State)> streams = await context.Streams
             .AsNoTracking()
+            .Where(stream => stream.State != StreamState.Retired)
             .Select(stream => new ValueTuple<Guid, MediaMtxPath, StreamState>(stream.Camera.Value, stream.Path, stream.State))
             .ToListAsync(cancellationToken);
 
@@ -89,6 +98,17 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
 
         foreach ((Guid cameraGuid, MediaMtxPath path, StreamState state) in streams)
         {
+            // Before the probe, so a retired stream costs neither an HTTP call
+            // to a path that no longer exists nor a scope. The listing query
+            // already excludes these; this is the half that a unit test can
+            // reach, and it also closes the race where a stream is retired
+            // between the read and the dispatch.
+            if (state == StreamState.Retired)
+            {
+                degradedSince.Remove(cameraGuid);
+                continue;
+            }
+
             RtspPathHealth observation;
             try
             {

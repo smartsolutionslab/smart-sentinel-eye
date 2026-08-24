@@ -14,6 +14,13 @@ public sealed class FakeRtspGateway : IRtspGateway
     public List<MediaMtxPath> RemoveCalls { get; } = [];
     public Action<MediaMtxPath, string> OnAddPath { get; set; } = (_, _) => { };
 
+    /// <summary>
+    /// Lets a test make path removal fail — the SFU unreachable while a camera
+    /// is retired (spec 028 FR-008a). Invoked before the call is recorded, so a
+    /// throwing hook leaves RemoveCalls empty, as a failed call would.
+    /// </summary>
+    public Action<MediaMtxPath> OnRemovePath { get; set; } = _ => { };
+
     public Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken)
     {
         OnAddPath(path, rtspSourceUrl);
@@ -28,6 +35,7 @@ public sealed class FakeRtspGateway : IRtspGateway
 
     public Task RemovePathAsync(MediaMtxPath path, CancellationToken cancellationToken)
     {
+        OnRemovePath(path);
         RemoveCalls.Add(path);
         _paths.Remove(path);
         return Task.CompletedTask;
