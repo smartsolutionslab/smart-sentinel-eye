@@ -89,12 +89,27 @@ public class ChangeCameraAddressCommandHandlerTests
                 CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        ChangeCameraAddressError.VersionMismatch mismatch =
-            result.Error.ShouldBeOfType<ChangeCameraAddressError.VersionMismatch>();
+        ChangeCameraAddressError.VersionStale stale =
+            result.Error.ShouldBeOfType<ChangeCameraAddressError.VersionStale>();
+
+        // The code string, not only the record type. The string is what a client
+        // keys on to decide what to tell the operator (ADR-0119); renaming the
+        // type while leaving the literal alone would pass a type-only assertion
+        // and still send the wrong word over the wire.
+        stale.Code.ShouldBe("CAMERA_VERSION_STALE");
+        stale.Code.ShouldEndWith("_STALE", Case.Sensitive);
 
         // The actual version is reported so the caller knows what to re-read to.
-        mismatch.Actual.ShouldBe(camera.Version);
-        mismatch.Status.ShouldBe(HttpStatusCode.PreconditionFailed);
+        stale.Actual.ShouldBe(camera.Version);
+
+        // 412 stays. ADR-0119 makes the status irrelevant to the advice rather
+        // than standardising it on the 409 the six older contexts use, because
+        // 412 is what RFC 9110 specifies for a failed If-Match.
+        stale.Status.ShouldBe(HttpStatusCode.PreconditionFailed);
+
+        // The server's own words must not tell the operator to retry either
+        // (FR-004): resubmitting unchanged replays their edit over the winner's.
+        stale.Message.ShouldNotContain("try again", Case.Insensitive);
 
         cameras.Cameras.Single().Url.Value.ShouldBe(OriginalUrl);
     }

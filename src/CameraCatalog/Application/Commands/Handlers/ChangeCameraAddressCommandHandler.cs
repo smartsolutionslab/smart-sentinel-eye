@@ -39,7 +39,7 @@ public sealed class ChangeCameraAddressCommandHandler(
         if (changing.Version != expectedVersion)
         {
             logger.RejectedCameraAddressChangeStaleVersion(camera, expectedVersion, changing.Version);
-            return Failure(ChangeCameraAddressFailures.VersionMismatch(
+            return Failure(ChangeCameraAddressFailures.VersionStale(
                 camera.Value, expectedVersion, changing.Version));
         }
 

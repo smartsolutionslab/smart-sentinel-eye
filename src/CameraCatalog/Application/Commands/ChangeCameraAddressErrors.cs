@@ -40,10 +40,25 @@ public abstract record ChangeCameraAddressError(string Code, string Message, Htt
     /// changed the camera in between. Not retried automatically (ADR-0113):
     /// the caller re-reads, sees what changed, and decides.
     /// </summary>
-    public sealed record VersionMismatch(Guid Camera, int Expected, int Actual)
+    /// <remarks>
+    /// <para>
+    /// The code ends <c>_STALE</c> because that suffix is what identifies a
+    /// lost update across every context (ADR-0119). It is deliberately not the
+    /// status that carries the meaning: <c>409</c> also covers name collisions
+    /// and terminal-state refusals, and <c>412</c> also covers Identity's
+    /// upsert preconditions, so neither identifies one on its own.
+    /// </para>
+    /// <para>
+    /// The status stays <c>412</c>, which RFC 9110 §15.5.13 specifies for a
+    /// failed <c>If-Match</c> and which the six older contexts spell as
+    /// <c>409</c>. ADR-0119 leaves both legal rather than standardising them,
+    /// because the status no longer decides anything a caller acts on.
+    /// </para>
+    /// </remarks>
+    public sealed record VersionStale(Guid Camera, int Expected, int Actual)
         : ChangeCameraAddressError(
-            "CAMERA_VERSION_MISMATCH",
-            $"Camera '{Camera}' is at version {Actual}, not {Expected}. Re-read it and try again.",
+            "CAMERA_VERSION_STALE",
+            $"Camera '{Camera}' is at version {Actual}, not {Expected}. Re-read it before reapplying your change.",
             HttpStatusCode.PreconditionFailed);
 }
 
@@ -61,6 +76,6 @@ public static class ChangeCameraAddressFailures
     public static ChangeCameraAddressError CameraRetired(Guid camera) =>
         new ChangeCameraAddressError.CameraRetired(camera);
 
-    public static ChangeCameraAddressError VersionMismatch(Guid camera, int expected, int actual) =>
-        new ChangeCameraAddressError.VersionMismatch(camera, expected, actual);
+    public static ChangeCameraAddressError VersionStale(Guid camera, int expected, int actual) =>
+        new ChangeCameraAddressError.VersionStale(camera, expected, actual);
 }
