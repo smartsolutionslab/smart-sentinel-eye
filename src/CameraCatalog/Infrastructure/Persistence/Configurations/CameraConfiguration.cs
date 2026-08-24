@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
 using SmartSentinelEye.Shared.Kernel;
@@ -42,10 +43,29 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
             .HasConversion(fab => fab.Value, value => FabIdentifier.From(value))
             .IsRequired();
 
+        // The comparer is not optional here, and its absence is invisible until
+        // something renames a camera by letter case alone (spec 033).
+        //
+        // Without it EF derives a comparer from CameraName, whose Equals
+        // compares NormalizedValue — correct for uniqueness, and wrong for
+        // change detection. `Line-3` and `line-3` compare equal, so EF sees no
+        // change and issues no UPDATE: the aggregate raises its event, the
+        // handler saves, the endpoint answers 204, and the stored name never
+        // moves. Every unit test passes, because the in-memory double has no
+        // change tracker.
         builder.Property(camera => camera.Name)
             .HasColumnName("name")
             .HasMaxLength(CameraName.MaximumLength)
-            .HasConversion(name => name.Value, value => CameraName.From(value))
+            .HasConversion(
+                name => name.Value,
+                value => CameraName.From(value),
+                new ValueComparer<CameraName>(
+                    (left, right) =>
+                        left == null
+                            ? right == null
+                            : right != null && string.Equals(left.Value, right.Value, StringComparison.Ordinal),
+                    name => name == null ? 0 : name.Value.GetHashCode(StringComparison.Ordinal),
+                    name => CameraName.From(name.Value)))
             .IsRequired();
 
         builder.Property(camera => camera.Url)
