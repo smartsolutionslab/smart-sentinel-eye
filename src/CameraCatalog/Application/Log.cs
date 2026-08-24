@@ -22,4 +22,12 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Retired camera {CameraIdentifier} with name {CameraName}.")]
     public static partial void RetiredCamera(this ILogger logger, CameraIdentifier cameraIdentifier, CameraName cameraName);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Rejected address change for camera {Camera}: not found in the caller's fab.")]
+    public static partial void RejectedCameraAddressChangeNotFound(this ILogger logger, CameraIdentifier camera);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Rejected address change for camera {Camera}: expected version {Expected}, actual {Actual}.")]
+    public static partial void RejectedCameraAddressChangeStaleVersion(this ILogger logger, CameraIdentifier camera, int expected, int actual);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Changed camera {Camera} address to {Url}.")]
+    public static partial void ChangedCameraAddress(this ILogger logger, CameraIdentifier camera, RtspUrl url);
 }

@@ -7,6 +7,13 @@ namespace SmartSentinelEye.CameraCatalog.Application.DTOs;
 public sealed record CameraSummaryDto(
     Guid CameraIdentifier,
     /// <summary>
+    /// Optimistic-concurrency version (ADR-0113), on every row rather than
+    /// only on the single-camera read. Mirrors <c>RuleDto</c> and its reason:
+    /// the listing hands each row a version without a per-row fetch, so an
+    /// operator can correct a camera straight from the list.
+    /// </summary>
+    int Version,
+    /// <summary>
     /// The fab this camera belongs to (spec 015 FR-013). On the wire because a
     /// multi-fab operator's listing can hold two rows of the same name with
     /// nothing else to tell them apart — the gap #1303 was for rules.

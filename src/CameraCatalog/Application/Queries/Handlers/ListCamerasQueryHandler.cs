@@ -66,6 +66,7 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
             .Take(limit)
             .Select(camera => new CameraSummaryDto(
                 camera.Id.Value,
+                camera.Version,
                 camera.Fab.Value,
                 camera.Name.Value,
                 camera.Url.Value,

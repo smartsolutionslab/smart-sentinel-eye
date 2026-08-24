@@ -97,4 +97,55 @@ public sealed class Camera : AggregateRoot<CameraIdentifier>
             RetiredAt: clock.UtcNow,
             RetiredBy: retiredBy));
     }
+
+    /// <summary>
+    /// Corrects the RTSP address this camera is reached at (spec 029 FR-003) —
+    /// a subnet renumbering, a replaced NVR, a typo at registration. The
+    /// camera keeps its identifier, its registration record and its audit
+    /// history, which is the whole difference between correcting it and
+    /// retiring it to register a replacement.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Refuses a retired camera (FR-005). Retirement is terminal, and a
+    /// corrected address for hardware that is gone describes nothing. The
+    /// guard is <b>here rather than in the handler</b>: a handler-only check is
+    /// bypassable by the next caller, and spec 028's defect was precisely a
+    /// rule enforced in one layer and not another.
+    /// </para>
+    /// <para>
+    /// Idempotent as <b>no event</b>, not merely as no error. Re-submitting the
+    /// address the camera already has must raise nothing: raising would put a
+    /// second row in the audit trail for a change that did not happen, and
+    /// would tell stream distribution to re-point a path that never moved —
+    /// while the endpoint answered 204 either way and looked correct.
+    /// </para>
+    /// </remarks>
+    public void ChangeAddress(RtspUrl url, OperatorIdentifier changedBy, IClock clock)
+    {
+        Ensure.That(url).IsNotNull();
+        Ensure.That(clock).IsNotNull();
+
+        if (Status == CameraStatus.Decommissioned)
+        {
+            throw new InvalidOperationException(
+                $"Camera {Id} is retired; its address cannot be changed.");
+        }
+
+        if (Url == url)
+        {
+            return;
+        }
+
+        RtspUrl previous = Url;
+        Url = url;
+
+        Raise(new CameraAddressChangedDomainEvent(
+            Camera: Id,
+            Fab: Fab,
+            PreviousUrl: previous,
+            Url: url,
+            ChangedAt: clock.UtcNow,
+            ChangedBy: changedBy));
+    }
 }
