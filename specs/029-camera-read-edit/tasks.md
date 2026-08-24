@@ -50,15 +50,15 @@ the body's `version` agree. Ships alone — it is the first way to ask about one
 camera, and **nothing exposes a version today**, which is why US2 cannot start
 until this is done.
 
-- [ ] T001 [P] [US1] `CameraDto` in `src/CameraCatalog/Application/DTOs/CameraDto.cs` — identifier, version, fab, name, rtspUrl, registeredAt, status per data-model.md
-- [ ] T002 [P] [US1] Add `Version` to `CameraSummaryDto` in `src/CameraCatalog/Application/DTOs/CameraSummaryDto.cs` — mirroring `RuleDto`, so the listing hands every row a version without a per-row fetch
-- [ ] T003 [P] [US1] `GetCameraQuery` + `GetCameraErrors` in `src/CameraCatalog/Application/Queries/` — `CameraNotFound` only; another fab's camera resolves to the *same* error, never a distinct one (FR-006)
-- [ ] T004 [US1] `GetCameraQueryHandler` in `src/CameraCatalog/Application/Queries/Handlers/GetCameraQueryHandler.cs` — loads through `GetWithinFabAsync` so another fab's row is never materialised; **returns retired cameras with their status** (FR-002)
-- [ ] T005 [P] [US1] Handler tests in `tests/CameraCatalog.Application.Tests/Queries/GetCameraQueryHandlerTests.cs` — found in own fab; unknown identifier → `CameraNotFound`; **another fab's camera → the same `CameraNotFound`, not a distinct error**; a retired camera is returned, not hidden
-- [ ] T006 [US1] Project `Version` in `src/CameraCatalog/Application/Queries/Handlers/ListCamerasQueryHandler.cs` — the listing's rows gain it alongside the read-one
-- [ ] T007 [P] [US1] Extend `tests/CameraCatalog.Application.Tests/Queries/ListCamerasQueryHandlerTests.cs` — every listed row carries a version, and it is the aggregate's own rather than a constant
-- [ ] T008 [US1] `GET /cameras/{camera}` in `src/CameraCatalog/Api/CameraEndpoints.cs` — 200 + `ETag` via `ConcurrencyHeaders.ETag`, `sse.cameras.read`, spec 015 fab resolution, per contracts/cameras-api.md
-- [ ] T009 [US1] Integration in `tests/Integration.Tests/CameraCatalog/GetCameraIntegrationTests.cs` — read returns the camera; **`ETag` and the body's `version` agree**; a retired camera comes back with status `Decommissioned`
+- [x] T001 [P] [US1] `CameraDto` in `src/CameraCatalog/Application/DTOs/CameraDto.cs` — identifier, version, fab, name, rtspUrl, registeredAt, status per data-model.md
+- [x] T002 [P] [US1] Add `Version` to `CameraSummaryDto` in `src/CameraCatalog/Application/DTOs/CameraSummaryDto.cs` — mirroring `RuleDto`, so the listing hands every row a version without a per-row fetch
+- [x] T003 [P] [US1] `GetCameraQuery` + `GetCameraErrors` in `src/CameraCatalog/Application/Queries/` — `CameraNotFound` only; another fab's camera resolves to the *same* error, never a distinct one (FR-006)
+- [x] T004 [US1] `GetCameraQueryHandler` in `src/CameraCatalog/Application/Queries/Handlers/GetCameraQueryHandler.cs` — loads through `GetWithinFabAsync` so another fab's row is never materialised; **returns retired cameras with their status** (FR-002)
+- [x] T005 [P] [US1] Handler tests in `tests/CameraCatalog.Application.Tests/Queries/GetCameraQueryHandlerTests.cs` — found in own fab; unknown identifier → `CameraNotFound`; **another fab's camera → the same `CameraNotFound`, not a distinct error**; a retired camera is returned, not hidden
+- [x] T006 [US1] Project `Version` in `src/CameraCatalog/Application/Queries/Handlers/ListCamerasQueryHandler.cs` — the listing's rows gain it alongside the read-one
+- [x] T007 [P] [US1] Extend `tests/CameraCatalog.Application.Tests/Queries/ListCamerasQueryHandlerTests.cs` — every listed row carries a version, and it is the aggregate's own rather than a constant
+- [x] T008 [US1] `GET /cameras/{camera}` in `src/CameraCatalog/Api/CameraEndpoints.cs` — 200 + `ETag` via `ConcurrencyHeaders.ETag`, `sse.cameras.read`, spec 015 fab resolution, per contracts/cameras-api.md
+- [x] T009 [US1] Integration in `tests/Integration.Tests/CameraCatalog/GetCameraIntegrationTests.cs` — read returns the camera; **`ETag` and the body's `version` agree**; a retired camera comes back with status `Decommissioned`
 
 **Checkpoint**: US1 is shippable here.
 
@@ -74,14 +74,14 @@ read it back changed. Requires US1 for the version.
 
 **Ships with Phase 4, not alone** — see that phase.
 
-- [ ] T010 [P] [US2] `CameraAddressChangedDomainEvent` in `src/CameraCatalog/Domain/Camera/Events/CameraAddressChangedDomainEvent.cs` — camera, fab, **previousUrl**, url, changedBy, changedAt per data-model.md
-- [ ] T011 [US2] `Camera.ChangeAddress(RtspUrl, OperatorIdentifier, IClock)` in `src/CameraCatalog/Domain/Camera/Camera.cs` — replaces `Url`, raises T010's event, **refuses a retired camera**, and **raises nothing when the address is unchanged**
-- [ ] T012 [P] [US2] Domain tests in `tests/CameraCatalog.Domain.Tests/Camera/CameraAddressChangeTests.cs` — address replaced and exactly one event raised; **re-submitting the same address raises none**; **a retired camera is refused by the aggregate**; the event carries the previous address, not only the new one
-- [ ] T013 [P] [US2] `ChangeCameraAddressCommand` + `ChangeCameraAddressErrors` in `src/CameraCatalog/Application/Commands/` — `CameraNotFound`, `CameraRetired`, `VersionMismatch`; another fab's camera resolves to `CameraNotFound` (FR-006)
-- [ ] T014 [US2] `ChangeCameraAddressCommandHandler` in `src/CameraCatalog/Application/Commands/Handlers/ChangeCameraAddressCommandHandler.cs` — loads within the caller's fab, compares the expected version, calls `ChangeAddress`, saves. **No retry on conflict** (ADR-0113)
-- [ ] T015 [P] [US2] Handler tests in `tests/CameraCatalog.Application.Tests/Commands/ChangeCameraAddressCommandHandlerTests.cs` — happy path; unknown → `CameraNotFound`; **another fab's → `CameraNotFound`**; stale version → `VersionMismatch`; retired → `CameraRetired`; **same address → success that publishes nothing**
-- [ ] T016 [US2] `PATCH /cameras/{camera}` in `src/CameraCatalog/Api/CameraEndpoints.cs` — 204, `If-Match` via `ConcurrencyHeaders`, `sse.cameras.write`. **Fab resolved before the `If-Match` header is looked at** (FR-007), per contracts/cameras-api.md
-- [ ] T017 [US2] Integration in `tests/Integration.Tests/CameraCatalog/ChangeCameraAddressIntegrationTests.cs` — corrected and readable back; stale `If-Match` → 412; absent `If-Match` → 428; retired camera → 409; a rejected change leaves the stored address untouched (FR-010)
+- [x] T010 [P] [US2] `CameraAddressChangedDomainEvent` in `src/CameraCatalog/Domain/Camera/Events/CameraAddressChangedDomainEvent.cs` — camera, fab, **previousUrl**, url, changedBy, changedAt per data-model.md
+- [x] T011 [US2] `Camera.ChangeAddress(RtspUrl, OperatorIdentifier, IClock)` in `src/CameraCatalog/Domain/Camera/Camera.cs` — replaces `Url`, raises T010's event, **refuses a retired camera**, and **raises nothing when the address is unchanged**
+- [x] T012 [P] [US2] Domain tests in `tests/CameraCatalog.Domain.Tests/Camera/CameraAddressChangeTests.cs` — address replaced and exactly one event raised; **re-submitting the same address raises none**; **a retired camera is refused by the aggregate**; the event carries the previous address, not only the new one
+- [x] T013 [P] [US2] `ChangeCameraAddressCommand` + `ChangeCameraAddressErrors` in `src/CameraCatalog/Application/Commands/` — `CameraNotFound`, `CameraRetired`, `VersionMismatch`; another fab's camera resolves to `CameraNotFound` (FR-006)
+- [x] T014 [US2] `ChangeCameraAddressCommandHandler` in `src/CameraCatalog/Application/Commands/Handlers/ChangeCameraAddressCommandHandler.cs` — loads within the caller's fab, compares the expected version, calls `ChangeAddress`, saves. **No retry on conflict** (ADR-0113)
+- [x] T015 [P] [US2] Handler tests in `tests/CameraCatalog.Application.Tests/Commands/ChangeCameraAddressCommandHandlerTests.cs` — happy path; unknown → `CameraNotFound`; **another fab's → `CameraNotFound`**; stale version → `VersionMismatch`; retired → `CameraRetired`; **same address → success that publishes nothing**
+- [x] T016 [US2] `PATCH /cameras/{camera}` in `src/CameraCatalog/Api/CameraEndpoints.cs` — 204, `If-Match` via `ConcurrencyHeaders`, `sse.cameras.write`. **Fab resolved before the `If-Match` header is looked at** (FR-007), per contracts/cameras-api.md
+- [x] T017 [US2] Integration in `tests/Integration.Tests/CameraCatalog/ChangeCameraAddressIntegrationTests.cs` — corrected and readable back; stale `If-Match` → 412; absent `If-Match` → 428; retired camera → 409; a rejected change leaves the stored address untouched (FR-010)
 
 **Checkpoint**: the catalogue can be corrected — but see Phase 4 before shipping.
 

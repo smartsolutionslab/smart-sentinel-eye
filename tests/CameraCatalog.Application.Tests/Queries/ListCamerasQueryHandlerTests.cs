@@ -150,6 +150,13 @@ public class ListCamerasQueryHandlerTests
         summary.Name.ShouldBe("Line-7");
         summary.RtspUrl.ShouldBe("rtsp://10.0.5.77/h264");
         summary.RegisteredAt.ShouldBe(camera.RegisteredAt);
+
+        // Spec 029 T007. Every listed row carries a version, so an operator can
+        // correct a camera straight from the listing without a read-one
+        // round-trip — RuleDto's reason for putting it on the body too.
+        // Asserted against the aggregate's own value rather than a literal: a
+        // hard-coded 0 would pass against a mapper that ignored the field.
+        summary.Version.ShouldBe(camera.Version);
     }
 
     private static ListCamerasQuery DefaultQuery() =>

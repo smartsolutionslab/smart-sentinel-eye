@@ -61,9 +61,42 @@ public static class CameraEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        // 412 and 428 are declared because both are reachable and neither is a
+        // failure of the request's content: 428 when no If-Match is sent, 412
+        // when the version quoted is stale (ADR-0113, no retry on conflict).
+        // 409 is the retired camera — terminal, so a correction describes
+        // nothing (FR-005).
+        writes.MapPatch("/{camera:guid}", ChangeAddress)
+            .WithName("ChangeCameraAddress")
+            .WithSummary(
+                "Correct a camera's RTSP address. Requires If-Match with the version from GET /cameras/{camera} "
+                + "or from a listing row. The name is not editable. Required scope: sse.cameras.write")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status412PreconditionFailed)
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
         RouteGroupBuilder reads = app.MapGroup("/cameras")
             .WithTags("Cameras")
             .RequireAuthorization(Scope.Sse.Cameras.Read);
+
+        // 404 for another fab's camera, never 403 — the same choice the retire
+        // endpoint makes above, and declared here so the generated OpenAPI says
+        // so. This is the endpoint spec 015 had to withdraw FR-006 for: without
+        // a single-camera read there was nothing to refuse, and the
+        // non-enumeration guarantee had nowhere to live.
+        reads.MapGet("/{camera:guid}", Get)
+            .WithName("GetCamera")
+            .WithSummary(
+                "Read one camera by its identifier. Returns retired cameras too, with their status. "
+                + "The ETag carries the version to quote when changing it. Required scope: sse.cameras.read")
+            .Produces<CameraDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         reads.MapGet("/", List)
             .WithName("ListCameras")
@@ -148,6 +181,97 @@ public static class CameraEndpoints
         // invite a client to treat the response as a read model.
         return result.Match<IResult>(
             onSuccess: _ => Results.NoContent(),
+            onFailure: error => error.ToProblem());
+    }
+
+    private static async Task<IResult> ChangeAddress(
+        [FromRoute] Guid camera,
+        [FromBody] ChangeCameraAddressRequest request,
+        [FromServices] ChangeCameraAddressCommandHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        HttpContext httpContext,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
+    {
+        Ensure.That(request).IsNotNull();
+
+        // Fab first — before If-Match is read, before the body is parsed, and
+        // before the camera is looked up (FR-007). Answering 428 or 400 for
+        // another fab's camera would confirm that camera exists, which is the
+        // enumeration FR-006 exists to prevent. The cheap checks are the
+        // tempting ones to hoist; they must stay below this.
+        (FabIdentifier? fab, IResult? fabProblem) =
+            await ResolveWriteFabAsync(httpContext.User, fabId, fabGuard, cancellationToken);
+        if (fab is null)
+        {
+            return fabProblem!;
+        }
+
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(
+                httpContext.Request, out int expectedVersion, out IResult precondition))
+        {
+            return precondition;
+        }
+
+        RtspUrl url;
+        try
+        {
+            url = RtspUrl.From(request.RtspUrl);
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.Problem(
+                title: "CAMERA_INVALID_REQUEST",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        ChangeCameraAddressCommand command = new(
+            fab, CameraIdentifier.From(camera), url, expectedVersion, ResolveOperator(httpContext));
+
+        Result<CameraIdentifier, ChangeCameraAddressError> result =
+            await handler.HandleAsync(command, cancellationToken);
+
+        // 204 rather than 200: the caller asked for the address to be a
+        // particular value and it is. The new version travels on the ETag for
+        // a caller making a second change without re-reading.
+        return result.Match<IResult>(
+            onSuccess: _ => Results.NoContent(),
+            onFailure: error => error.ToProblem());
+    }
+
+    private static async Task<IResult> Get(
+        [FromRoute] Guid camera,
+        [FromServices] GetCameraQueryHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        System.Security.Claims.ClaimsPrincipal user,
+        HttpResponse response,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
+    {
+        // Fab first, before anything else is evaluated (FR-007). Nothing about
+        // the camera is looked at until the caller's fabs are known, so a
+        // refusal cannot be shaped by whether the camera happens to exist.
+        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+            await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
+        if (fabs is null)
+        {
+            return fabProblem!;
+        }
+
+        GetCameraQuery query = new(fabs, CameraIdentifier.From(camera));
+
+        Result<CameraDto, GetCameraError> result =
+            await handler.HandleAsync(query, cancellationToken);
+
+        return result.Match<IResult>(
+            onSuccess: found =>
+            {
+                // The version the caller must echo back in If-Match (ADR-0113).
+                response.Headers.ETag = ConcurrencyHeaders.ETag(found.Version);
+
+                return Results.Ok(found);
+            },
             onFailure: error => error.ToProblem());
     }
 
