@@ -20,7 +20,7 @@ public sealed class RegisterCameraCommandHandler(
 
         // Scoped to the fab: another plant holding the name is not a collision
         // at all (FR-002).
-        if (await cameras.ExistsByNameAsync(fab, name, cancellationToken))
+        if (await cameras.ExistsByNameAsync(fab, name, Option<CameraIdentifier>.None, cancellationToken))
         {
             logger.RejectedCameraRegistrationNameInUse(name);
             return Failure(RegisterCameraFailures.NameAlreadyTaken(fab.Value, name.Value));

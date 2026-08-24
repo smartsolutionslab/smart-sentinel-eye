@@ -35,7 +35,10 @@ public sealed class CameraRepository(
     }
 
     public async Task<bool> ExistsByNameAsync(
-        FabIdentifier fab, CameraName name, CancellationToken cancellationToken)
+        FabIdentifier fab,
+        CameraName name,
+        Option<CameraIdentifier> excluding,
+        CancellationToken cancellationToken)
     {
         Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
@@ -55,8 +58,21 @@ public sealed class CameraRepository(
         //
         // Research §1 read the index and concluded FR-006 needed no production
         // code. The index was right; this predicate was the other half.
-        return await dbContext.Cameras
-            .Where(candidate => candidate.Fab == fab && candidate.Status != CameraStatus.Decommissioned)
+        IQueryable<Camera> candidates = dbContext.Cameras
+            .Where(candidate => candidate.Fab == fab && candidate.Status != CameraStatus.Decommissioned);
+
+        // Spec 033. A rename excludes the camera being renamed, which would
+        // otherwise match itself: it is active, in this fab, and holds this
+        // normalised name whenever the rename is a no-op or changes only case.
+        // Applied as a filter rather than inside the predicate because
+        // Option<T>.Match does not translate to SQL.
+        if (excluding.HasValue)
+        {
+            CameraIdentifier self = excluding.Value;
+            candidates = candidates.Where(candidate => candidate.Id != self);
+        }
+
+        return await candidates
             .AnyAsync(
                 candidate => EF.Property<string>(candidate, CameraConfiguration.NormalizedNameProperty)
                     == name.NormalizedValue,
