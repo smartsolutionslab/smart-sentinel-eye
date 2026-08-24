@@ -15,6 +15,7 @@ import {
   type DataTableSort,
 } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { RegisterCameraDialog } from './RegisterCameraDialog.js';
 import { StreamHealthBadge } from './StreamHealthBadge.js';
 
@@ -61,7 +62,15 @@ export function CamerasPage() {
 
   const columns = useMemo<DataTableColumn<CameraSummary, CameraSortField>[]>(
     () => [
-      { id: 'name', header: 'Name', cell: (row) => row.name, sortKey: 'name' },
+      {
+        id: 'name',
+        header: 'Name',
+        // The way into one camera (FR-001). A link rather than a row click, so it
+        // can be opened in a new tab and copied — the same reason the nav is
+        // links.
+        cell: (row) => <Link to={`/cameras/${row.cameraIdentifier}`}>{row.name}</Link>,
+        sortKey: 'name',
+      },
       // A multi-fab operator's listing can hold two rows of one name; without
       // this column they are indistinguishable (spec 015 FR-013).
       { id: 'fab', header: 'Fab', cell: (row) => row.fab },

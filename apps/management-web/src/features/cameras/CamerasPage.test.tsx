@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { MemoryRouter } from 'react-router-dom';
 import { store } from '../../app/store.js';
 import type { CameraListPage } from '@smart-sentinel-eye/shared/api/cameras.api';
 
@@ -73,7 +74,11 @@ function populatedPage(): CameraListPage {
 function render_page() {
   return render(
     <Provider store={store}>
-      <CamerasPage />
+      {/* Router context: each row's name is now a link into that camera
+          (spec 030 FR-001), and a Link outside a router throws. */}
+      <MemoryRouter>
+        <CamerasPage />
+      </MemoryRouter>
     </Provider>,
   );
 }

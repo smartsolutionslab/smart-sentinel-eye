@@ -105,12 +105,12 @@ phase shrinks to routing the cameras surface alone and T012–T014 disappear.
 **Independent test**: Open a camera from the list; copy the location into a new
 tab and get the same camera; press back and land on the list.
 
-- [ ] T020 [US1] `CameraDetailPage` in `apps/management-web/src/features/cameras/CameraDetailPage.tsx` — reads `:cameraIdentifier` via `useParams`, calls `useGetCameraQuery`, shows fab, name, address, registration time, status. **The version is held, never displayed** — it is machinery, not information
-- [ ] T021 [US1] Rows link to the detail route in `apps/management-web/src/features/cameras/CamerasPage.tsx` — the list keeps working exactly as it does now (FR-011)
-- [ ] T022 [US1] **A retired camera is visibly marked** in `CameraDetailPage.tsx` (FR-007)
-- [ ] T023 [US1] **Not-found handling that adds nothing** in `CameraDetailPage.tsx` — a 404 renders "no such camera" and **must not** say "you do not have access". The API answers identically for another fab's camera and one that never existed; a helpful branch here undoes that at the last hop (FR-008)
-- [ ] T024 [P] [US1] Component tests in `apps/management-web/src/features/cameras/CameraDetailPage.test.tsx` — renders a camera; renders a retired one as retired; **renders a 404 identically whatever the cause**
-- [ ] T025 [P] [US1] Assert the detail view does **not** issue the list query — SC-002 and FR-003. A page that renders correctly while fetching the catalogue passes every other test here
+- [x] T020 [US1] `CameraDetailPage` in `apps/management-web/src/features/cameras/CameraDetailPage.tsx` — reads `:cameraIdentifier` via `useParams`, calls `useGetCameraQuery`, shows fab, name, address, registration time, status. **The version is held, never displayed** — it is machinery, not information
+- [x] T021 [US1] Rows link to the detail route in `apps/management-web/src/features/cameras/CamerasPage.tsx` — the list keeps working exactly as it does now (FR-011)
+- [x] T022 [US1] **A retired camera is visibly marked** in `CameraDetailPage.tsx` (FR-007)
+- [x] T023 [US1] **Not-found handling that adds nothing** in `CameraDetailPage.tsx` — a 404 renders "no such camera" and **must not** say "you do not have access". The API answers identically for another fab's camera and one that never existed; a helpful branch here undoes that at the last hop (FR-008)
+- [x] T024 [P] [US1] Component tests in `apps/management-web/src/features/cameras/CameraDetailPage.test.tsx` — renders a camera; renders a retired one as retired; **renders a 404 identically whatever the cause**
+- [x] T025 [P] [US1] Assert the detail view does **not** issue the list query — SC-002 and FR-003. A page that renders correctly while fetching the catalogue passes every other test here
 
 **Checkpoint**: US1 is shippable.
 
@@ -122,23 +122,23 @@ tab and get the same camera; press back and land on the list.
 
 **Independent test**: Correct an address and see it change. Requires US1 and Phases 1–2.
 
-- [ ] T026 [US2] `EditCameraAddressDialog` in `apps/management-web/src/features/cameras/EditCameraAddressDialog.tsx` — mirrors `RegisterCameraDialog` (React Hook Form + Zod, ADR-0079). **Address only; no name field** (FR-010, #1850)
-- [ ] T027 [US2] Wire the dialog into `CameraDetailPage.tsx`, passing the version the operator was shown, and **hide the control entirely for a retired camera** (FR-007)
-- [ ] T028 [US2] Refusals rendered in `EditCameraAddressDialog.tsx` using the Phase 2 helpers — stale → *reload to see their version*; retired → *this camera is retired*; and **what the operator typed is kept** so they need not retype it
-- [ ] T029 [P] [US2] Component test — a **stale version** shows a message containing *reload* and **not containing "try again"**. Asserting "an error appeared" passes while the words are wrong, and the wrong words cause the lost update the mechanism exists to prevent
-- [ ] T030 [P] [US2] Component test — a **retired** camera shows a message saying *retired* and **not** *someone else changed this*. `CAMERA_RETIRED` is a 409, so it matches `isConflict` and inherits the wrong words by default
-- [ ] T031 [P] [US2] Component test — **the edit control is absent** for a retired camera. Assert absence, not that submitting fails: discovering the refusal on submit is not FR-007
-- [ ] T032 [P] [US2] Component test — an invalid address is refused **before any request is made** (FR-009), and the displayed address after a refused correction is the stored one (FR-004)
+- [x] T026 [US2] `EditCameraAddressDialog` in `apps/management-web/src/features/cameras/EditCameraAddressDialog.tsx` — mirrors `RegisterCameraDialog` (React Hook Form + Zod, ADR-0079). **Address only; no name field** (FR-010, #1850)
+- [x] T027 [US2] Wire the dialog into `CameraDetailPage.tsx`, passing the version the operator was shown, and **hide the control entirely for a retired camera** (FR-007)
+- [x] T028 [US2] Refusals rendered in `EditCameraAddressDialog.tsx` using the Phase 2 helpers — stale → *reload to see their version*; retired → *this camera is retired*; and **what the operator typed is kept** so they need not retype it
+- [x] T029 [P] [US2] Component test — a **stale version** shows a message containing *reload* and **not containing "try again"**. Asserting "an error appeared" passes while the words are wrong, and the wrong words cause the lost update the mechanism exists to prevent
+- [x] T030 [P] [US2] Component test — a **retired** camera shows a message saying *retired* and **not** *someone else changed this*. `CAMERA_RETIRED` is a 409, so it matches `isConflict` and inherits the wrong words by default
+- [x] T031 [P] [US2] Component test — **the edit control is absent** for a retired camera. Assert absence, not that submitting fails: discovering the refusal on submit is not FR-007
+- [x] T032 [P] [US2] Component test — an invalid address is refused **before any request is made** (FR-009), and the displayed address after a refused correction is the stored one (FR-004)
 
 ---
 
 ## Phase 6: End to end, and polish
 
-- [ ] T033 [US1] e2e in `e2e/camera-detail.spec.ts` — open a camera from the list; **reload the URL directly** and get the same camera; back returns to the list
-- [ ] T034 [US2] e2e in `e2e/camera-detail.spec.ts` — correct an address and see it reflected without a full reload
-- [ ] T035 [US3] e2e in `e2e/camera-detail.spec.ts` — a **retired** camera opens, is marked, and offers no edit control
-- [ ] T036 [US3] e2e in `e2e/camera-detail.spec.ts` — as the **Dresden** operator, open a **Munich** camera by URL and an identifier that never existed; **compare the rendered output**, not merely that both showed something (FR-008 / SC-004)
-- [ ] T037 Full suite — `frontend` lint, typecheck and unit tests; the Playwright suite with nothing excluded
+- [x] T033 [US1] e2e in `e2e/camera-detail.spec.ts` — open a camera from the list; **reload the URL directly** and get the same camera; back returns to the list
+- [x] T034 [US2] e2e in `e2e/camera-detail.spec.ts` — correct an address and see it reflected without a full reload
+- [x] T035 [US3] e2e in `e2e/camera-detail.spec.ts` — a **retired** camera opens, is marked, and offers no edit control
+- [x] T036 [US3] e2e in `e2e/camera-detail.spec.ts` — as the **Dresden** operator, open a **Munich** camera by URL and an identifier that never existed; **compare the rendered output**, not merely that both showed something (FR-008 / SC-004)
+- [x] T037 Full suite — `frontend` lint, typecheck and unit tests; the Playwright suite with nothing excluded
 - [ ] T038 Verification note on the PR following [quickstart.md](./quickstart.md), including the two refusal wordings, the FR-008 comparison, and the crash-panel check
 
 ---
