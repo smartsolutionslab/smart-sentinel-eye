@@ -106,6 +106,67 @@ describe('CameraDetailPage', () => {
   });
 
   /**
+   * Spec 032 T013 / FR-004. The same shape as the assertion above, for the
+   * same reason: a disabled control still tells the operator the action is
+   * conceptually available, and for a terminal state that is untrue.
+   */
+  it('Offers no way to retire a camera that is already retired', () => {
+    getCamera.mockReturnValue({
+      data: { ...camera, status: 'Decommissioned' },
+      isLoading: false,
+      error: undefined,
+    });
+
+    renderAt(camera.cameraIdentifier);
+
+    expect(screen.queryByRole('button', { name: /retire camera/i })).toBeNull();
+  });
+
+  /**
+   * The counterpart, without which the assertion above passes against a page
+   * that renders no controls at all — including on an active camera, where the
+   * whole feature would then be missing and every test still green.
+   */
+  it('Offers to retire an active camera', () => {
+    renderAt(camera.cameraIdentifier);
+
+    expect(screen.getByRole('button', { name: /retire camera/i })).toBeInTheDocument();
+  });
+
+  /**
+   * Spec 032 T014 / FR-012 — asserted as an **absence**, which is why it needs
+   * this explanation to survive review.
+   *
+   * Retirement is idempotent: the endpoint answers `204` whether or not this
+   * operator caused it. So the app cannot distinguish "I retired it" from "it
+   * was already retired", and must not narrate one. Open the same camera in
+   * two tabs and retire in both — both succeed, and a page announcing "Camera
+   * retired" has told one of them something false.
+   *
+   * <p>
+   * The retired notice already on the page is fine and is asserted above: "This
+   * camera **is** retired" describes a state. What is forbidden is reporting an
+   * **event** — a claim about what just happened and who caused it. There is no
+   * toast infrastructure in this app and none is added; the page state is the
+   * feedback.
+   * </p>
+   */
+  it('Never claims this operator retired the camera', () => {
+    getCamera.mockReturnValue({
+      data: { ...camera, status: 'Decommissioned' },
+      isLoading: false,
+      error: undefined,
+    });
+
+    const { container } = renderAt(camera.cameraIdentifier);
+
+    expect(container.textContent).not.toMatch(/camera retired/i);
+    expect(container.textContent).not.toMatch(/you retired/i);
+    expect(container.textContent).not.toMatch(/has been retired/i);
+    expect(container.textContent).not.toMatch(/successfully/i);
+  });
+
+  /**
    * FR-008, and the reason this file asserts sameness rather than a message.
    *
    * The API answers a camera in another fab exactly as it answers one that
@@ -123,6 +184,14 @@ describe('CameraDetailPage', () => {
 
     expect(refusedForUnknown.innerHTML).toBe(crossFab);
     expect(screen.getAllByRole('heading', { name: /no such camera/i }).length).toBeGreaterThan(0);
+
+    // Spec 032 T015. Re-checked because this feature added a control that could
+    // appear for one cause and not the other: "no retire button, because this
+    // isn't yours" and "no retire button, because there is no camera" have to
+    // be the same page. The innerHTML comparison above already covers it, but
+    // only implicitly — and an implicit guarantee is one a later refactor can
+    // drop without any test naming what was lost.
+    expect(screen.queryByRole('button', { name: /retire camera/i })).toBeNull();
   });
 
   it('Says nothing about access, ever', () => {

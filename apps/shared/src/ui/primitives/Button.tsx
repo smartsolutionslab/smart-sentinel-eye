@@ -2,7 +2,7 @@ import { Slot } from '@radix-ui/react-slot';
 import clsx from 'clsx';
 import type { ButtonHTMLAttributes } from 'react';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -22,6 +22,11 @@ export function Button({ variant = 'primary', asChild, className, type, ...rest 
     primary: 'bg-accent-active text-bg-base hover:opacity-90',
     secondary: 'border border-fg-muted text-fg-primary hover:bg-bg-elevated',
     ghost: 'text-fg-primary hover:bg-bg-elevated',
+    // Reuses the fault token rather than adding one: it is already the
+    // product's red, on error banners and the Offline health badge. A
+    // destructive action reading as the same red an operator already knows
+    // means trouble is the point.
+    danger: 'bg-accent-fault text-bg-base hover:opacity-90',
   };
   return (
     <Component

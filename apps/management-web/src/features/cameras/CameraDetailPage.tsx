@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { EditCameraAddressDialog } from './EditCameraAddressDialog.js';
+import { RetireCameraDialog } from './RetireCameraDialog.js';
 
 const RETIRED = 'Decommissioned';
 
@@ -13,6 +14,7 @@ const RETIRED = 'Decommissioned';
 export function CameraDetailPage() {
   const { cameraIdentifier = '' } = useParams();
   const [editing, setEditing] = useState(false);
+  const [retiring, setRetiring] = useState(false);
   const { data: camera, isLoading, error } = useGetCameraQuery({ cameraIdentifier });
 
   if (isLoading) {
@@ -57,6 +59,14 @@ export function CameraDetailPage() {
               refusal has to be visible before the attempt — discovering it on
               submit is the thing the requirement rules out. */}
           {retired ? null : <Button onClick={() => setEditing(true)}>Correct the address</Button>}
+          {/* Spec 032 FR-004, gated the same way and for the same reason. A
+              retired camera cannot be retired again in any sense the operator
+              cares about, and offering the control would imply otherwise. */}
+          {retired ? null : (
+            <Button variant="danger" onClick={() => setRetiring(true)}>
+              Retire camera
+            </Button>
+          )}
           <Link to="/cameras" className="text-sm text-fg-muted hover:text-fg-primary">
             Back to cameras
           </Link>
@@ -69,6 +79,13 @@ export function CameraDetailPage() {
         cameraIdentifier={camera.cameraIdentifier}
         version={camera.version}
         currentUrl={camera.rtspUrl}
+      />
+
+      <RetireCameraDialog
+        open={retiring}
+        onOpenChange={setRetiring}
+        cameraIdentifier={camera.cameraIdentifier}
+        name={camera.name}
       />
 
       {/* FR-007. A retired camera opens and says so — the record outlives the
