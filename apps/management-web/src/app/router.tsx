@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { AuditPage } from '../features/audit/AuditPage.js';
+import { CameraDetailPage } from '../features/cameras/CameraDetailPage.js';
 import { CamerasPage } from '../features/cameras/CamerasPage.js';
 import { LayoutsPage } from '../features/layouts/LayoutsPage.js';
 import { OverlaysPage } from '../features/overlays/OverlaysPage.js';
@@ -41,6 +42,11 @@ export const createAppRouter = () => createBrowserRouter([
       // flash on a cold load and not only a test inconvenience.
       { index: true, element: <CamerasPage />, errorElement: <SurfaceCrash /> },
       { path: 'cameras', element: <CamerasPage />, errorElement: <SurfaceCrash /> },
+      {
+        path: 'cameras/:cameraIdentifier',
+        element: <CameraDetailPage />,
+        errorElement: <SurfaceCrash />,
+      },
       { path: 'layouts', element: <LayoutsPage />, errorElement: <SurfaceCrash /> },
       { path: 'overlays', element: <OverlaysPage />, errorElement: <SurfaceCrash /> },
       { path: 'rules', element: <RulesPage />, errorElement: <SurfaceCrash /> },
