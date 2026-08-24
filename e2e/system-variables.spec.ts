@@ -9,7 +9,7 @@ import { signInAsOperator } from './support/sign-in';
 test('operator opens system variables and the list loads through the gateway', async ({ page }) => {
   await signInAsOperator(page);
 
-  await page.getByRole('button', { name: /^system variables$/i }).click();
+  await page.getByRole('link', { name: /^system variables$/i }).click();
 
   await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
@@ -18,7 +18,7 @@ test('operator opens system variables and the list loads through the gateway', a
 test('operator defines a system variable and it appears in the list', async ({ page }) => {
   await signInAsOperator(page);
 
-  await page.getByRole('button', { name: /^system variables$/i }).click();
+  await page.getByRole('link', { name: /^system variables$/i }).click();
   await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
 
   // POST /system-variables/system-variables (Bearer; sse.management grandfathers
@@ -35,7 +35,7 @@ test('operator defines a system variable and it appears in the list', async ({ p
 test('operator defines a Boolean system variable and it appears in the list', async ({ page }) => {
   await signInAsOperator(page);
 
-  await page.getByRole('button', { name: /^system variables$/i }).click();
+  await page.getByRole('link', { name: /^system variables$/i }).click();
   await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
 
   // Selecting Boolean reveals the conditional truthy/falsy label fields, which the
@@ -62,7 +62,7 @@ test('operator defines a Boolean system variable and it appears in the list', as
 test('operator sets a variable value and the new value is reflected in the list', async ({ page }) => {
   await signInAsOperator(page);
 
-  await page.getByRole('button', { name: /^system variables$/i }).click();
+  await page.getByRole('link', { name: /^system variables$/i }).click();
   await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
 
   const name = `E2E_Set_${Date.now()}`;
@@ -95,7 +95,7 @@ test('operator sets a variable value and the new value is reflected in the list'
 test.describe('system variables — fab scoping', () => {
   test('operator defines a variable and it lands in their own fab without naming it', async ({ page }) => {
     await signInAsOperator(page);
-    await page.getByRole('button', { name: /^system variables$/i }).click();
+    await page.getByRole('link', { name: /^system variables$/i }).click();
     await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: /new variable/i }).click();

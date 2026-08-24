@@ -16,3 +16,19 @@ export const registerCameraSchema = z.object({
 });
 
 export type RegisterCameraInput = z.infer<typeof registerCameraSchema>;
+
+/**
+ * Spec 029 FR-009 — the address is validated before it is sent, so a rejection
+ * the API would certainly make costs no round trip.
+ *
+ * Derived from `registerCameraSchema` rather than restated. The rule for what
+ * counts as a usable RTSP address must not be able to differ between
+ * registering a camera and correcting one; picking the field out keeps a single
+ * definition instead of a second opinion that drifts.
+ *
+ * No `name`: it is not editable (spec 029 FR-012, tracked as #1850), so there is
+ * nothing for a correction to carry.
+ */
+export const changeCameraAddressSchema = registerCameraSchema.pick({ rtspUrl: true });
+
+export type ChangeCameraAddressFormInput = z.infer<typeof changeCameraAddressSchema>;

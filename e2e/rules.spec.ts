@@ -58,7 +58,7 @@ test.describe('rules — fab scoping', () => {
 
 async function openRules(page: Page) {
   await signInAsOperator(page);
-  await page.getByRole('button', { name: /^rules$/i }).click();
+  await page.getByRole('link', { name: /^rules$/i }).click();
   await expect(page.getByRole('heading', { name: 'Rules', exact: true })).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
 }

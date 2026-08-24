@@ -10,7 +10,7 @@ import { signInAsOperator } from './support/sign-in';
 test('operator opens layouts and the list loads through the gateway', async ({ page }) => {
   await signInAsOperator(page);
 
-  await page.getByRole('button', { name: /^layouts$/i }).click();
+  await page.getByRole('link', { name: /^layouts$/i }).click();
 
   // The Layouts surface renders and the authenticated GET
   // /layout-composition/layouts succeeded: no error alert.
@@ -43,7 +43,7 @@ test('operator authors a 2×2 wall referencing a camera and overlay and it appea
 
   // (2) Create an overlay draft, then publish it: the layout dialog only lists
   // *published* overlays (useListOverlaysQuery('Published')).
-  await page.getByRole('button', { name: /^overlays$/i }).click();
+  await page.getByRole('link', { name: /^overlays$/i }).click();
   await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
   await page.getByRole('button', { name: /new overlay/i }).click();
   await page.locator('#overlay-name').fill(overlayName);
@@ -56,7 +56,7 @@ test('operator authors a 2×2 wall referencing a camera and overlay and it appea
   await expect(overlayCard.getByText(/Published/)).toBeVisible();
 
   // (3) Open Layouts and create a draft referencing the camera and overlay.
-  await page.getByRole('button', { name: /^layouts$/i }).click();
+  await page.getByRole('link', { name: /^layouts$/i }).click();
   await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: /new layout/i }).click();
@@ -108,7 +108,7 @@ test('a second operator publishing the same revision is refused, not silently ap
     await pageOne.getByRole('button', { name: /^register$/i }).click();
     await expect(pageOne.getByRole('cell', { name: cameraName })).toBeVisible();
 
-    await pageOne.getByRole('button', { name: /^layouts$/i }).click();
+    await pageOne.getByRole('link', { name: /^layouts$/i }).click();
     await pageOne.getByRole('button', { name: /new layout/i }).click();
     await pageOne.locator('#layout-name').fill(layoutName);
     await pageOne.locator('#tile-0-camera').selectOption({ label: cameraName });
@@ -120,7 +120,7 @@ test('a second operator publishing the same revision is refused, not silently ap
     // publish below would hand it the current version and prove nothing.
     const pageTwo = await second.newPage();
     await signInAsOperator(pageTwo);
-    await pageTwo.getByRole('button', { name: /^layouts$/i }).click();
+    await pageTwo.getByRole('link', { name: /^layouts$/i }).click();
     const rowTwo = pageTwo.getByRole('listitem').filter({ hasText: layoutName });
     await expect(rowTwo.getByRole('button', { name: /^publish$/i })).toBeVisible();
 
