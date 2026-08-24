@@ -14,7 +14,9 @@
 
 An operator opens a single camera in the management app — to check which address it pulls from, when it was registered, or whether it is still in service. Today the app cannot ask that question. It fetches the entire catalogue for the operator's fabs and picks the row out client-side, because a single-camera read does not exist.
 
-**Why this priority**: It is the whole of the issue's first half, it is the cheapest of the three stories, and every other story here needs it. At the 250-camera target (constitution §Scale) answering a one-row question costs a full-catalogue page today, and that cost falls on the most common interaction in the app.
+**Why this priority**: Because **US2 cannot exist without it**. Correcting a camera requires the operator to quote the version they read (FR-004), and no camera endpoint exposes a version today — so the read is a prerequisite of the edit, not a convenience alongside it. It is also what makes FR-006 expressible at all: the non-enumeration guarantee spec 015 had to withdraw needs a single-camera read to have something to refuse.
+
+It is *not* prioritised because it removes a client-side over-fetch. Phase 0 research checked that claim and it is false — the management app has no single-camera view at all, so there is no over-fetch to remove. The saving becomes available when a single-camera view is built; it is not banked by this feature. See [research.md](./research.md) §1.
 
 **Independent Test**: Register a camera, then ask for that one camera and get its details back. Ships alone and is immediately useful — the app can stop over-fetching before anything becomes editable.
 
@@ -41,6 +43,8 @@ A camera's address changes or was wrong from the start — a subnet renumbering,
 3. **Given** a camera in the operator's fab, **When** the operator submits a change without quoting any version, **Then** the change is refused — a blind write is not an accident this system absorbs (ADR-0113).
 4. **Given** a retired camera, **When** the operator submits any change, **Then** the change is refused: retirement is terminal (spec 028 FR-001).
 5. **Given** a change that would leave the camera with an unusable address, **When** it is submitted, **Then** it is refused and the stored address is unchanged.
+6. **Given** a camera whose stream is being served, **When** its address is corrected, **Then** the stream is re-pointed at the new address and what is served stops coming from the old one (FR-013).
+7. **Given** stream distribution is unreachable, **When** the address is corrected, **Then** the correction still succeeds — the catalogue records what is true whether or not the rest of the system has caught up (FR-013a).
 
 ---
 
@@ -85,6 +89,9 @@ Two fabs share one deployment. An operator in Dresden must not be able to learn 
 - **FR-010**: A rejected change MUST leave the camera exactly as it was. No partial application.
 - **FR-011**: Changing a camera MUST be recorded in the audit trail, naming the operator, as registering and retiring are (spec 028 FR-010).
 - **FR-012**: A camera's **name** MUST NOT be changeable by this feature. The change operation carries no name, so the refusal is that there is nothing to express rather than a validation that could be relaxed by accident. Tracked as #1850, which has to settle whether names are mutable *anywhere* in this product before Camera gets an exception.
+- **FR-013**: When a camera's address changes, the change MUST be announced to other bounded contexts, and the stream serving that camera MUST be re-pointed at the new address. What the system streams and what the catalogue records MUST NOT be allowed to disagree. *(Added at the Phase 2 gate from research §2 — see Assumptions.)*
+- **FR-013a**: Re-pointing the stream MUST NOT be required for the address change itself to succeed. The catalogue is corrected whether or not stream distribution has caught up; the two are connected by an announcement, not by a shared transaction. This mirrors spec 028 FR-008a, and for the same reason: an unreachable SFU must not be able to block an operator from recording what is true.
+- **FR-014**: Re-pointing MUST NOT change the identity of the stream a viewer is watching. A camera's identifier is immutable (FR-009) and the stream is addressed by it, so a correction changes the source a stream pulls from and nothing a viewer holds.
 
 ### Key Entities
 
@@ -95,12 +102,14 @@ Two fabs share one deployment. An operator in Dresden must not be able to learn 
 
 ### Measurable Outcomes
 
-- **SC-001**: An operator viewing one camera causes exactly one camera's data to be transferred, independent of how many cameras their fabs contain — at the 250-camera target, replacing a 250-row transfer with a 1-row one.
-- **SC-002**: The management app no longer fetches the catalogue to answer a single-camera question; no code path remains that filters a full listing client-side to find one camera.
+- **SC-001**: A request for one camera transfers one camera's data, independent of how many cameras the caller's fabs contain — the response for a fab of 250 cameras is the same size as for a fab of one.
+- **SC-002**: A client can answer a single-camera question without retrieving the catalogue: everything needed to display one camera, and everything needed to change it, comes back from asking about that camera alone.
 - **SC-003**: 100% of single-camera requests for another fab's cameras are refused, and the refusals are **byte-identical** to those for identifiers that never existed — asserted by field-by-field comparison, not by status code. *(Reinstates spec 015's withdrawn SC-003.)*
 - **SC-004**: A camera whose address was recorded wrongly can be corrected without retiring it, without re-registering it, and without losing its identifier, its registration record, or its audit history.
 - **SC-005**: Two operators changing the same camera concurrently result in exactly one stored change; the loser is told its version was stale, and no change is silently discarded.
 - **SC-006**: Every stored change is attributable to an operator in the audit trail, with no gaps.
+- **SC-007**: After an address is corrected, what the system streams for that camera comes from the new address and never again from the old one — verified against the streaming layer itself rather than against the catalogue that requested the change.
+- **SC-008**: A viewer watching a camera when its address is corrected keeps watching that camera; no client-held reference to the stream is invalidated by a correction.
 
 ## Assumptions
 
@@ -116,6 +125,12 @@ Two fabs share one deployment. An operator in Dresden must not be able to learn 
   A misnamed camera is not stranded meanwhile: it can be retired and re-registered under the right name, which spec 028 made cheap and which now releases the wrong name for reuse. That workaround did not exist when #1435 was written, which is part of why the issue treated naming as urgent.
 
   Filed as **#1850** so the gap is tracked rather than implied — the same treatment #1435 itself got when spec 015 withdrew these endpoints. Writing it up turned up something that strengthens the exclusion: **no aggregate in this product supports renaming.** `Camera` has `Register`/`Retire`, `Rule` has `Create`/`Publish`/`Archive`, `Variable` has `Define`/`SetValue`/`Archive`. Names are immutable everywhere, and every context answers "this is named wrong" with create-new-and-archive-old. Adding a rename here would be the product's first, so it sets a convention rather than following one — which is an ADR-shaped decision, not something to settle inside a feature that is about correcting addresses.
+
+- **US1's justification and SC-001/SC-002 were corrected at the Phase 2 gate.** As first drafted they claimed this feature removes a client-side over-fetch. Research §1 checked and it does not: the management app renders the whole listing into a table and passes row data down as props, so it never asks a single-camera question and never filters one out of a listing. SC-002 asserted that a code path exists to delete, which made it a criterion that could not fail; SC-001 measured a saving that is not available. Both now describe properties of the endpoint, which are true and testable on the API alone, and US1 is justified by what actually drives it — US2 needs the version, and FR-006 needs something to refuse. The over-fetch saving becomes real when a single-camera view is built, and is not claimed here.
+
+- **The stream follows the address (FR-013, FR-013a, FR-014).** Added at the Phase 2 gate, and it is the one change to this spec that came from research rather than from drafting. The original spec required an operator to be able to correct an address and said nothing about the consequence: `CameraRegisteredV1` hands the address to stream distribution, which configures the SFU to pull from it, and the stream's stored source is written once at provisioning with no behaviour that changes it. A corrected address would therefore have left the SFU streaming from the old one indefinitely — the catalogue reporting one address while the system served another, which looks like success until somebody watches the wrong feed.
+
+  Adopted on the user's decision, unlike the two decisions above. Cheaper than it appears: FR-011 already needed an announcement to reach the audit trail, so what this adds is the consumer, not the event.
 
 - **No bulk change.** One camera per request. A fab-wide sweep has a different blast radius and is a different feature.
 - **Retire (#1433) and the case-insensitivity defect (#1434) are out of scope.** Both are delivered — #1433 by spec 028, #1434 before it.
