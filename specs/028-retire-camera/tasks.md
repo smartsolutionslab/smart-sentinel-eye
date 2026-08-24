@@ -98,14 +98,14 @@ settled by the assistant's recommendation rather than a user decision. **If that
 is overturned, this entire phase drops out** and Phases 1–3 and 5 stand — except
 that Phase 5 becomes unnecessary too, because nothing would retire the stream.
 
-- [ ] T021 [P] Terminal value on `StreamState` in `src/StreamDistribution/Domain/Stream/StreamState.cs`
-- [ ] T022 `Stream.Retire(IClock)` in `src/StreamDistribution/Domain/Stream/Stream.cs` — idempotent, **and `ReportHealthy`/`ReportDegraded`/`ReportOffline` must refuse a retired stream**
-- [ ] T023 [P] Domain tests in `tests/StreamDistribution.Domain.Tests/Stream/StreamRetirementTests.cs` — retire from Provisioning, Healthy, Degraded and Offline; **a health report after retirement is refused from each**
-- [ ] T024 `RetireStreamCommand` + handler in `src/StreamDistribution/Application/Commands/` — retires the aggregate and calls `IRtspGateway.RemovePathAsync`; the row is **kept**
-- [ ] T025 [P] Handler tests in `tests/StreamDistribution.Application.Tests/` — path removed; aggregate terminal; **a gateway failure does not lose the retirement** (the row must still be terminal)
-- [ ] T026 `CameraRetiredIntegrationEventHandler` in `src/StreamDistribution/Application/EventHandlers/CameraRetiredIntegrationEventHandler.cs` — mirrors `CameraRegisteredIntegrationEventHandler`
-- [ ] T027 Integration in `tests/Integration.Tests/StreamDistribution/` — retiring a camera removes its MediaMTX path, leaves the stream terminal, and **leaves the row present**
-- [ ] T028 [P] Integration — retirement succeeds while the SFU is unreachable (FR-008a): the camera is retired even when teardown cannot complete
+- [x] T021 [P] Terminal value on `StreamState` in `src/StreamDistribution/Domain/Stream/StreamState.cs`
+- [x] T022 `Stream.Retire(IClock)` in `src/StreamDistribution/Domain/Stream/Stream.cs` — idempotent, **and `ReportHealthy`/`ReportDegraded`/`ReportOffline` must refuse a retired stream**
+- [x] T023 [P] Domain tests in `tests/StreamDistribution.Domain.Tests/Stream/StreamRetirementTests.cs` — retire from Provisioning, Healthy, Degraded and Offline; **a health report after retirement is refused from each**
+- [x] T024 `RetireStreamCommand` + handler in `src/StreamDistribution/Application/Commands/` — retires the aggregate and calls `IRtspGateway.RemovePathAsync`; the row is **kept**
+- [x] T025 [P] Handler tests in `tests/StreamDistribution.Application.Tests/` — path removed; aggregate terminal; **a gateway failure does not lose the retirement** (the row must still be terminal)
+- [x] T026 `CameraRetiredIntegrationEventHandler` in `src/StreamDistribution/Application/EventHandlers/CameraRetiredIntegrationEventHandler.cs` — mirrors `CameraRegisteredIntegrationEventHandler`
+- [x] T027 Integration in `tests/Integration.Tests/StreamDistribution/` — retiring a camera removes its MediaMTX path, leaves the stream terminal, and **leaves the row present**
+- [x] T028 [P] Integration — retirement succeeds while the SFU is unreachable (FR-008a): the camera is retired even when teardown cannot complete
 
 ---
 
@@ -119,17 +119,17 @@ hardware that does not exist.
 
 Shipping Phase 4 without this makes the system noisier than before the feature.
 
-- [ ] T029 Exclude retired streams from the sweep in `src/StreamDistribution/Infrastructure/HealthWatcher/StreamHealthWatcher.cs` — filter in the listing query
-- [ ] T030 [P] Test in `tests/StreamDistribution.Infrastructure.Tests/HealthWatcher/` — a retired stream is never probed and opens no scope, using the counting scope factory already there from #1804
-- [ ] T031 Integration — after retiring, **no further `StreamHealthChangedV1` for that camera**, asserted over a window rather than once
+- [x] T029 Exclude retired streams from the sweep in `src/StreamDistribution/Infrastructure/HealthWatcher/StreamHealthWatcher.cs` — filter in the listing query
+- [x] T030 [P] Test in `tests/StreamDistribution.Infrastructure.Tests/HealthWatcher/` — a retired stream is never probed and opens no scope, using the counting scope factory already there from #1804
+- [x] T031 Integration — after retiring, **no further `StreamHealthChangedV1` for that camera**, asserted over a window rather than once
 
 ---
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T032 [P] Confirm the retirement is audited (FR-010) — `audit_events` holds one `CameraRetiredV1` per retirement, with the operator
-- [ ] T033 [P] Reinstate the withdrawn entry in `specs/015-camera-fab-scoping/contracts/cameras-api.md` — point it at this feature and note the key changed from name to identifier
-- [ ] T034 Full suite, nothing excluded or weakened; Release build with analyzers clean
+- [x] T032 [P] Confirm the retirement is audited (FR-010) — `audit_events` holds one `CameraRetiredV1` per retirement, with the operator
+- [x] T033 [P] Reinstate the withdrawn entry in `specs/015-camera-fab-scoping/contracts/cameras-api.md` — point it at this feature and note the key changed from name to identifier
+- [x] T034 Full suite, nothing excluded or weakened; Release build with analyzers clean
 - [ ] T035 Verification note on the PR following [quickstart.md](./quickstart.md), including the trace across both contexts and the "no further health announcements" check
 
 ---

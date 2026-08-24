@@ -50,6 +50,16 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
         announced.ShouldBe(1,
             "two retirements in the audit trail means the aggregate raised twice while the endpoint stayed 204");
+
+        // T032 / FR-010. Counting rows says the retirement was recorded; it does
+        // not say *who* retired it. The audit row's actor and the payload's
+        // RetiredBy must be the same operator — if the metadata lost the actor
+        // the row would fall back to the system actor and the trail would record
+        // that the system retired a camera nobody asked it to.
+        (Guid Actor, Guid RetiredBy) attribution = await RetirementAttributionAsync(camera);
+
+        attribution.RetiredBy.ShouldNotBe(Guid.Empty);
+        attribution.Actor.ShouldBe(attribution.RetiredBy);
     }
 
     /// <summary>
@@ -313,5 +323,29 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             .ToListAsync();
 
         return rows[0];
+    }
+
+    /// <summary>
+    /// The operator on the audit row, read two ways: the envelope's actor column
+    /// and the serialised payload's own field. They come from the same
+    /// <c>EventMetadata</c>, so a mismatch means the envelope dropped the actor.
+    /// </summary>
+    private async Task<(Guid Actor, Guid RetiredBy)> RetirementAttributionAsync(Guid camera)
+    {
+        await using AuditObservabilityDbContext context =
+            await aspire.CreateAuditObservabilityDbContextAsync();
+
+        List<string> rows = await context.Database
+            .SqlQuery<string>($"""
+                SELECT actor_identifier::text || ',' || (payload->>'RetiredBy') AS "Value"
+                FROM audit_events
+                WHERE event_kind = 'CameraRetiredV1'
+                  AND payload->>'Camera' = {camera.ToString()}
+                """)
+            .ToListAsync();
+
+        string[] parts = rows.ShouldHaveSingleItem().Split(',');
+
+        return (Guid.Parse(parts[0]), Guid.Parse(parts[1]));
     }
 }
