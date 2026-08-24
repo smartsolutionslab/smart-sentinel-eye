@@ -158,7 +158,8 @@ public class ListCamerasQueryHandlerTests
             Sort: ListCamerasDefaults.DefaultSort,
             Order: ListCamerasDefaults.DefaultOrder,
             Offset: ListCamerasDefaults.DefaultOffset,
-            Limit: ListCamerasDefaults.DefaultLimit);
+            Limit: ListCamerasDefaults.DefaultLimit,
+            IncludeRetired: false);
 
     private static ListCamerasQueryHandler NewHandler(params Camera[] cameras) =>
         new(new InMemoryCameraQuerySource(cameras.ToList()));
@@ -221,4 +222,57 @@ public class ListCamerasQueryHandlerTests
         result.Value.Count.ShouldBe(1);
     }
 
+
+    // ---- spec 028 T019: retired cameras stay out of the way (FR-007) ----
+
+    [Fact]
+    public async Task The_default_listing_omits_retired_cameras()
+    {
+        Camera staying = RegisterCameraAt("2026-05-24T10:00:00Z", "Cam-Staying");
+        // A distinct instant, not cosmetic: on a tie the sort falls through to
+        // ThenBy(Fab), and FabIdentifier is not IComparable, so LINQ-to-objects
+        // throws where Postgres would just ORDER BY fab.
+        Camera going = RegisterCameraAt("2026-05-23T10:00:00Z", "Cam-Going");
+        going.Retire(AnAdmin, new FixedClock(DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture)));
+
+        ListCamerasQueryHandler handler = NewHandler(staying, going);
+
+        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+            DefaultQuery(),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Items.ShouldHaveSingleItem().Name.ShouldBe("Cam-Staying");
+
+        // The count, not only the page: a total that still counted the retired
+        // camera would page a client past the end of its own list.
+        result.Value.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Asking_for_retired_cameras_includes_them_and_each_row_says_which_it_is()
+    {
+        Camera staying = RegisterCameraAt("2026-05-24T10:00:00Z", "Cam-Staying");
+        Camera going = RegisterCameraAt("2026-05-23T10:00:00Z", "Cam-Going");
+        going.Retire(AnAdmin, new FixedClock(DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture)));
+
+        ListCamerasQueryHandler handler = NewHandler(staying, going);
+
+        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+            DefaultQuery() with { IncludeRetired = true },
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Count.ShouldBe(2);
+
+        // Included is only half of it — an opted-in client has to be able to
+        // tell the two apart, which is what the status on each row is for.
+        result.Value.Items
+            .ToDictionary(row => row.Name, row => row.Status)
+            .ShouldBe(new Dictionary<string, string>
+            {
+                ["Cam-Staying"] = "Registered",
+                ["Cam-Going"] = "Decommissioned",
+            });
+    }
 }

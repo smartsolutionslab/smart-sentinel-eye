@@ -3,9 +3,10 @@ using SmartSentinelEye.Shared.Kernel.Primitives;
 namespace SmartSentinelEye.CameraCatalog.Domain.Camera;
 
 /// <summary>
-/// Lifecycle status of a camera. Only Registered is reachable in spec 001;
-/// Decommissioned is reserved for a follow-up spec so the EF mapping does
-/// not need to migrate when we add it.
+/// Lifecycle status of a camera. Both values are reachable as of spec 028:
+/// Decommissioned was reserved by spec 001 so the EF mapping would not need a
+/// migration when a camera could finally reach it, and Camera.Retire is what
+/// reaches it. Terminal — nothing leaves Decommissioned.
 /// </summary>
 public sealed record CameraStatus(string Value) : IValueObject<string>
 {

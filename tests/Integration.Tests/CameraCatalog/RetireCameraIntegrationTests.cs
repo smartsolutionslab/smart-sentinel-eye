@@ -24,6 +24,10 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     private const string DresdenOperator = "op-dresden@dresden.test";
     private const string OperatorPassword = "Operator1234";
 
+    // Fixed rather than unique: every test resets the catalogue, and the
+    // reuse stories read better naming the same camera the spec names.
+    private const string ReusedName = "line-3-inlet";
+
     public Task InitializeAsync() => aspire.ResetCameraCatalogAsync();
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -82,6 +86,141 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         (await NamesAsync(owner)).Length.ShouldBeGreaterThan(0);
     }
 
+    /// <summary>
+    /// T013 — US2. The point of retirement, from the operator's side: the name
+    /// of hardware that no longer exists becomes available again.
+    ///
+    /// <para>
+    /// Research §1 says no production code is needed for this — the partial
+    /// unique index already carries <c>WHERE status &lt;&gt; 'Decommissioned'</c>.
+    /// This test is what turns that reading of the schema into a checked claim.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_retired_cameras_name_is_free_again_in_its_own_fab()
+    {
+        using HttpClient cameras = await ClientFor(MunichOperator);
+        Guid original = await RegisterAsync(cameras, ReusedName);
+
+        (await cameras.PostAsync($"/cameras/{original}/retire", null))
+            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        HttpResponseMessage reused = await AttemptRegisterAsync(cameras, ReusedName);
+
+        reused.StatusCode.ShouldBe(HttpStatusCode.Created,
+            "the partial unique index excludes Decommissioned rows, so the name should be free");
+
+        // A different camera, not the old one revived. Retirement is terminal,
+        // so reuse of the name must not be reuse of the aggregate.
+        Guid replacement = await reused.Content.ReadFromJsonAsync<Guid>();
+        replacement.ShouldNotBe(original);
+    }
+
+    /// <summary>
+    /// T014 — the control for T013. Without it, T013 passes just as well
+    /// against a catalogue that enforces no uniqueness at all: "the name was
+    /// accepted after retirement" only means something if the same name is
+    /// refused before it.
+    /// </summary>
+    [Fact]
+    public async Task An_active_cameras_name_is_still_refused()
+    {
+        using HttpClient cameras = await ClientFor(MunichOperator);
+        await RegisterAsync(cameras, ReusedName);
+
+        HttpResponseMessage duplicate = await AttemptRegisterAsync(cameras, ReusedName);
+
+        duplicate.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+
+        JsonElement problem = await duplicate.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("CAMERA_NAME_TAKEN");
+    }
+
+    /// <summary>
+    /// T015 — a retirement in one fab changes nothing about what another may
+    /// register, in <em>either</em> direction: it does not release the other
+    /// fab's identical name, and the other fab's active camera does not keep
+    /// the name from being reused here.
+    /// </summary>
+    [Fact]
+    public async Task A_retirement_in_one_fab_changes_nothing_in_another()
+    {
+        using HttpClient munich = await ClientFor(MunichOperator);
+        using HttpClient dresden = await ClientFor(DresdenOperator);
+
+        Guid inMunich = await RegisterAsync(munich, ReusedName);
+
+        // The same name in both fabs at once — uniqueness is per fab (spec 015).
+        await RegisterAsync(dresden, ReusedName);
+
+        (await munich.PostAsync($"/cameras/{inMunich}/retire", null))
+            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        // Direction one: Munich's retirement did not free Dresden's name.
+        (await AttemptRegisterAsync(dresden, ReusedName))
+            .StatusCode.ShouldBe(HttpStatusCode.Conflict,
+                "retiring a camera in Munich must not release a name held in Dresden");
+
+        // Direction two: Dresden's active camera does not hold Munich's name.
+        (await AttemptRegisterAsync(munich, ReusedName))
+            .StatusCode.ShouldBe(HttpStatusCode.Created,
+                "an active camera in Dresden must not keep Munich from reusing its own retired name");
+    }
+
+    /// <summary>
+    /// T016 — reuse and case-insensitive uniqueness have to hold at the same
+    /// time. The index that makes reuse work is the same one #1434 made
+    /// case-insensitive, and this feature is the first thing to change its
+    /// predicate's reach; a regression that dropped normalisation would still
+    /// pass T013.
+    /// </summary>
+    [Fact]
+    public async Task Case_insensitivity_survives_reuse()
+    {
+        using HttpClient cameras = await ClientFor(MunichOperator);
+        Guid original = await RegisterAsync(cameras, "Line-3-Inlet");
+
+        // #1434: while it is active, a differently-cased name is the same name.
+        (await AttemptRegisterAsync(cameras, "line-3-inlet"))
+            .StatusCode.ShouldBe(HttpStatusCode.Conflict);
+
+        (await cameras.PostAsync($"/cameras/{original}/retire", null))
+            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (await AttemptRegisterAsync(cameras, "line-3-inlet"))
+            .StatusCode.ShouldBe(HttpStatusCode.Created,
+                "retirement releases the normalised name, not merely the exact spelling");
+    }
+
+    /// <summary>
+    /// T020 — US3 over real HTTP. The unit test in
+    /// <c>ListCamerasQueryHandlerTests</c> proves the filter; this proves it
+    /// survives EF translation, which the in-memory query source cannot: the
+    /// status filter compares a value-object property that is mapped through a
+    /// converter, and LINQ-to-objects would happily evaluate a predicate
+    /// Postgres cannot.
+    /// </summary>
+    [Fact]
+    public async Task A_retired_camera_leaves_the_default_listing_and_comes_back_when_asked_for()
+    {
+        using HttpClient cameras = await ClientFor(MunichOperator);
+        await RegisterAsync(cameras, "cam-staying");
+        Guid going = await RegisterAsync(cameras, "cam-going");
+
+        (await cameras.PostAsync($"/cameras/{going}/retire", null))
+            .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (await NamesAsync(cameras)).ShouldBe(["cam-staying"]);
+
+        (string Name, string Status)[] withRetired = await RowsAsync(cameras, includeRetired: true);
+
+        withRetired.OrderBy(row => row.Name, StringComparer.Ordinal).ShouldBe(
+        [
+            ("cam-going", "Decommissioned"),
+            ("cam-staying", "Registered"),
+        ]);
+    }
+
     private async Task<HttpClient> ClientFor(string username) =>
         await aspire.CreateAuthenticatedClientAsync("camera-catalog", username, OperatorPassword);
 
@@ -89,25 +228,47 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
     private static async Task<Guid> RegisterAsync(HttpClient cameras, string name)
     {
-        HttpResponseMessage created = await cameras.PostAsJsonAsync("/cameras", new
-        {
-            name,
-            rtspUrl = $"rtsp://10.0.5.{Random.Shared.Next(2, 250)}/h264",
-        });
+        HttpResponseMessage created = await AttemptRegisterAsync(cameras, name);
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
 
         return await created.Content.ReadFromJsonAsync<Guid>();
     }
 
-    private static async Task<string[]> NamesAsync(HttpClient cameras)
+    /// <summary>
+    /// Registers without asserting the outcome — the US2 tests are about which
+    /// registrations are refused, so the refusal is the assertion, not a
+    /// failure of the helper.
+    /// </summary>
+    private static Task<HttpResponseMessage> AttemptRegisterAsync(HttpClient cameras, string name) =>
+        cameras.PostAsJsonAsync("/cameras", new
+        {
+            name,
+            rtspUrl = $"rtsp://10.0.5.{Random.Shared.Next(2, 250)}/h264",
+        });
+
+    private static async Task<string[]> NamesAsync(HttpClient cameras, bool includeRetired = false) =>
+        [.. (await RowsAsync(cameras, includeRetired)).Select(row => row.Name)];
+
+    /// <summary>
+    /// Rows rather than a name-keyed map: once retired cameras are included, a
+    /// name can legitimately appear twice — once for the retired camera and
+    /// once for its replacement — so keying by name would throw on exactly the
+    /// listing this feature makes possible.
+    /// </summary>
+    private static async Task<(string Name, string Status)[]> RowsAsync(
+        HttpClient cameras,
+        bool includeRetired = false)
     {
-        HttpResponseMessage listed = await cameras.GetAsync("/cameras?limit=200");
+        HttpResponseMessage listed =
+            await cameras.GetAsync($"/cameras?limit=200&includeRetired={includeRetired}");
         listed.EnsureSuccessStatusCode();
         JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return [.. page.GetProperty("items").EnumerateArray()
-            .Select(row => row.GetProperty("name").GetString()!)];
+            .Select(row => (
+                Name: row.GetProperty("name").GetString()!,
+                Status: row.GetProperty("status").GetString()!))];
     }
 
     /// <summary>

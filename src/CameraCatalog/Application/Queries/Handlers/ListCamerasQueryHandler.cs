@@ -17,7 +17,7 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
         CancellationToken cancellationToken)
     {
         Ensure.That(query).IsNotNull();
-        (IReadOnlyList<FabIdentifier>? fabs, string? sort, string? order, int offset, int limit) = query;
+        (IReadOnlyList<FabIdentifier>? fabs, string? sort, string? order, int offset, int limit, bool includeRetired) = query;
 
         if (!AllowedSortFields.Contains(sort, StringComparer.Ordinal))
         {
@@ -44,6 +44,19 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
         // FR-005: only cameras in fabs the caller holds, and filtered before
         // the count so the total reflects what they can actually page through.
         IQueryable<Camera> visible = cameras.Cameras.Where(camera => fabs.Contains(camera.Fab));
+
+        // FR-007, and filtered here rather than at the endpoint so the count
+        // and the page agree: a total that included retired cameras while the
+        // rows excluded them would page past the end of the list.
+        //
+        // Spelled as the partial unique index spells it
+        // (`status <> 'Decommissioned'`) so the query and the constraint that
+        // makes name reuse work cannot drift apart.
+        if (!includeRetired)
+        {
+            visible = visible.Where(camera => camera.Status != CameraStatus.Decommissioned);
+        }
+
         IQueryable<Camera> source = SortBy(visible, sort, descending);
 
         int total = await source.CountAsync(cancellationToken);
@@ -56,7 +69,8 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
                 camera.Fab.Value,
                 camera.Name.Value,
                 camera.Url.Value,
-                camera.RegisteredAt))
+                camera.RegisteredAt,
+                camera.Status.Value))
             .ToListAsync(cancellationToken);
 
         return Success(

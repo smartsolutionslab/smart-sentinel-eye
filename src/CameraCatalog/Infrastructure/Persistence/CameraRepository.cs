@@ -46,8 +46,17 @@ public sealed class CameraRepository(
         // casing, so Equals never ran and the comparison was case-sensitive.
         // Matching on the generated normalised column is both correct and the
         // one the unique index covers.
+        // Spec 028 FR-006. Retired cameras are excluded because this check
+        // exists to pre-empt the unique index, and the index has never counted
+        // them — its filter is `status <> 'Decommissioned'`. Without this the
+        // two disagree: the insert the index would accept is refused before it
+        // is ever attempted, and a name could never be reused however long the
+        // hardware had been gone.
+        //
+        // Research §1 read the index and concluded FR-006 needed no production
+        // code. The index was right; this predicate was the other half.
         return await dbContext.Cameras
-            .Where(candidate => candidate.Fab == fab)
+            .Where(candidate => candidate.Fab == fab && candidate.Status != CameraStatus.Decommissioned)
             .AnyAsync(
                 candidate => EF.Property<string>(candidate, CameraConfiguration.NormalizedNameProperty)
                     == name.NormalizedValue,

@@ -48,10 +48,17 @@ public sealed class InMemoryCameraRepository : ICameraRepository
     // the generated `name_normalized` column (upper(name)), and NormalizedValue
     // is ToUpperInvariant. Change one of those and this comment is the reason
     // to go and change the other.
+    // Retired cameras excluded, mirroring the partial unique index and the real
+    // repository's predicate (spec 028 FR-006). This is the same trap as #1434
+    // in the other direction: leave it out here and the double reports a
+    // collision production would not, so every name-reuse test would fail
+    // against correct code.
     public Task<bool> ExistsByNameAsync(
         FabIdentifier fab, CameraName name, CancellationToken cancellationToken) =>
         Task.FromResult(_cameras.Any(candidate =>
-            candidate.Fab.Equals(fab) && candidate.Name.Equals(name)));
+            candidate.Fab.Equals(fab)
+            && candidate.Name.Equals(name)
+            && candidate.Status != CameraStatus.Decommissioned));
 
     public void Add(Camera camera) => _pendingAdds.Add(camera);
 

@@ -182,4 +182,46 @@ public class RegisterCameraCommandHandlerTests
         result.Error.Message.ShouldContain("dresden");
         result.Error.Message.ShouldContain("Line-1-North");
     }
+
+    // ---- spec 028 FR-006: a retired camera does not hold its name ----
+
+    /// <summary>
+    /// The gap research §1 missed. The partial unique index has always excluded
+    /// Decommissioned rows, so the schema would accept the insert — but the
+    /// handler asks <c>ExistsByNameAsync</c> first, and that predicate counted
+    /// retired cameras. The refusal came from the application, not the
+    /// database, which is why reading the index said nothing about it.
+    /// </summary>
+    [Fact]
+    public async Task A_retired_cameras_name_does_not_block_a_new_registration()
+    {
+        InMemoryCameraRepository cameras = new();
+        RegisterCameraCommandHandler handler = NewHandler(cameras);
+
+        RegisterCameraCommand original = new(
+            Fab: FabIdentifier.From("munich"),
+            Name: CameraName.From("Line-3-Inlet"),
+            Url: RtspUrl.From("rtsp://10.0.5.31/h264"),
+            RegisteredBy: AnAdmin);
+
+        Result<CameraIdentifier, RegisterCameraError> registered =
+            await handler.HandleAsync(original, CancellationToken.None);
+        registered.IsSuccess.ShouldBeTrue();
+
+        // Refused while it is still active — the control, so the acceptance
+        // below is not simply "uniqueness is not enforced".
+        (await handler.HandleAsync(original, CancellationToken.None))
+            .IsFailure.ShouldBeTrue();
+
+        cameras.Cameras
+            .Single(camera => camera.Id.Equals(registered.Value))
+            .Retire(AnAdmin, new FixedClock(FixedMoment));
+
+        // Differently cased on purpose: the name is released as normalised, so
+        // reuse must not depend on matching the retired camera's spelling.
+        RegisterCameraCommand replacement = original with { Name = CameraName.From("line-3-inlet") };
+
+        (await handler.HandleAsync(replacement, CancellationToken.None))
+            .IsSuccess.ShouldBeTrue();
+    }
 }
