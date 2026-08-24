@@ -65,4 +65,36 @@ public sealed class Camera : AggregateRoot<CameraIdentifier>
 
         return camera;
     }
+
+    /// <summary>
+    /// Records that this camera's hardware is gone (spec 028, #1433).
+    /// Terminal: there is no behaviour out of <see cref="CameraStatus.Decommissioned"/>.
+    /// Replacement hardware is registered afresh and may take this camera's
+    /// name, because retiring releases it within the fab.
+    /// </summary>
+    /// <remarks>
+    /// Idempotent as <b>no event</b>, not merely as no error. A second call
+    /// returning quietly while raising again would announce two retirements —
+    /// every consumer would see the camera retired twice, and the audit trail
+    /// would record it — while the endpoint still answered 204 and looked
+    /// correct (FR-005).
+    /// </remarks>
+    public void Retire(OperatorIdentifier retiredBy, IClock clock)
+    {
+        Ensure.That(clock).IsNotNull();
+
+        if (Status == CameraStatus.Decommissioned)
+        {
+            return;
+        }
+
+        Status = CameraStatus.Decommissioned;
+
+        Raise(new CameraRetiredDomainEvent(
+            Camera: Id,
+            Fab: Fab,
+            Name: Name,
+            RetiredAt: clock.UtcNow,
+            RetiredBy: retiredBy));
+    }
 }

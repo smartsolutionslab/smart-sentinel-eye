@@ -18,6 +18,22 @@ public sealed class CameraRepository(
         return found is null ? Option<Camera>.None : Option<Camera>.Some(found);
     }
 
+    public async Task<Option<Camera>> GetWithinFabAsync(
+        FabIdentifier fab, CameraIdentifier camera, CancellationToken cancellationToken)
+    {
+        Ensure.That(fab).IsNotNull();
+
+        // The fab is part of the predicate, not a check afterwards: another
+        // plant's camera is never materialised, so it cannot be leaked by a
+        // caller that forgets to compare (spec 028 FR-004).
+        Camera? found = await dbContext.Cameras
+            .FirstOrDefaultAsync(
+                candidate => candidate.Id == camera && candidate.Fab == fab,
+                cancellationToken);
+
+        return found is null ? Option<Camera>.None : Option<Camera>.Some(found);
+    }
+
     public async Task<bool> ExistsByNameAsync(
         FabIdentifier fab, CameraName name, CancellationToken cancellationToken)
     {
