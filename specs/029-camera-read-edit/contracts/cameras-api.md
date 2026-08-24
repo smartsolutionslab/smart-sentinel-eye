@@ -87,9 +87,20 @@ with nothing. Only `rtspUrl` is editable — renaming is out of scope (FR-012,
 | **403** | `RESOURCE_FAB_NOT_AUTHORIZED` | Caller named a fab they do not hold. |
 | **404** | `CAMERA_NOT_FOUND` | No such camera in the caller's fabs — including another fab's. |
 | **409** | `CAMERA_RETIRED` | The camera is retired. Terminal (FR-005). |
-| **412** | `PRECONDITION_FAILED` | `If-Match` quoted a version that is no longer current. |
+| **412** | `CAMERA_VERSION_STALE` | `If-Match` quoted a version that is no longer current. |
 | **428** | `IF_MATCH_REQUIRED` | No `If-Match`. Not a fallback to no concurrency control (ADR-0113). |
 | **400** | `IF_MATCH_MALFORMED` | `If-Match` present but not a single strong tag. |
+
+> **Corrected 2026-08-24 (spec 031).** This table listed the 412 as carrying
+> `PRECONDITION_FAILED` — a code that existed nowhere in `src/`. The
+> implementation answered `CAMERA_VERSION_MISMATCH`, and a client written
+> against this contract would have keyed on a string that never arrives.
+>
+> Nothing broke, because nothing reads this document mechanically — which is
+> exactly how it drifted. Spec 031 then renamed the code to
+> `CAMERA_VERSION_STALE`, so the row above is now the value the implementation
+> actually returns. The status is unchanged; ADR-0119 records why it stays 412
+> while six other contexts spell the same meaning as 409.
 
 ### Ordering is part of the contract
 

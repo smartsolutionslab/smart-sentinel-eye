@@ -62,6 +62,15 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
 
         replayed.StatusCode.ShouldBe(HttpStatusCode.PreconditionFailed);
 
+        // The code, over the wire. Spec 031 made the code authoritative and the
+        // status irrelevant (ADR-0119), so a test asserting only the status now
+        // asserts the part that no longer decides anything. The client reads
+        // ProblemDetails.title, which is where ApiErrorResults.ToProblem puts
+        // the code — if that mapping broke, the handler unit test would still
+        // pass and every operator would still be told the wrong thing.
+        JsonElement problem = JsonDocument.Parse(await replayed.Content.ReadAsStringAsync()).RootElement;
+        problem.GetProperty("title").GetString().ShouldBe("CAMERA_VERSION_STALE");
+
         // FR-010: a rejected change leaves the camera exactly as it was.
         (await ReadAsync(cameras, camera)).GetProperty("rtspUrl").GetString().ShouldBe(CorrectedUrl);
     }
