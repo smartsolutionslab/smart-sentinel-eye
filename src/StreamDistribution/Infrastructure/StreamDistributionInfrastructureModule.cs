@@ -64,12 +64,16 @@ public static class StreamDistributionInfrastructureModule
         builder.Services.AddScoped<
             ICommandHandler<AuthorizeWhepCommand, Result<MediaMtxPath, AuthorizeWhepError>>,
             AuthorizeWhepCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<RetireStreamCommand, Result<Option<StreamIdentifier>, RetireStreamError>>,
+            RetireStreamCommandHandler>();
         // Query handlers are resolved as concrete classes by the API
         // endpoints; no IQueryHandler<,> dispatcher registration needed
         // because they're not invoked through Wolverine.
         builder.Services.AddScoped<GetStreamQueryHandler>();
         builder.Services.AddScoped<ListStreamsQueryHandler>();
         builder.Services.AddScoped<CameraRegisteredIntegrationEventHandler>();
+        builder.Services.AddScoped<CameraRetiredIntegrationEventHandler>();
         builder.Services.AddScoped<StreamHealthChangedDomainEventHandler>();
         builder.Services.AddScoped<StreamProvisionedDomainEventHandler>();
 

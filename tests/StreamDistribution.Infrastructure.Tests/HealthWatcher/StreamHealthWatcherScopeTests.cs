@@ -91,6 +91,50 @@ public class StreamHealthWatcherScopeTests
         sweep.Handled.Select(handled => handled.Camera).ShouldBe(new[] { first, last });
     }
 
+    /// <summary>
+    /// Spec 028 T030 (research §4). A retired stream is skipped before the
+    /// probe, so it costs neither an HTTP call to a path that no longer exists
+    /// nor a scope.
+    ///
+    /// <para>
+    /// The listing query excludes these rows too, and this is the half a unit
+    /// test can reach — ADR-0103 rules out both an in-memory provider and
+    /// Testcontainers, so the query filter is only assertable through the Aspire
+    /// integration test. It also closes the race the query cannot: a stream
+    /// retired between the read and the dispatch.
+    /// </para>
+    ///
+    /// <para>
+    /// Why it matters more than a wasted request: since #1801 the watcher
+    /// announces <em>every</em> health change rather than one per sweep, so a
+    /// retired stream that kept being probed would fail its probe forever and
+    /// become a permanent source of health announcements and audit rows for
+    /// hardware that does not exist — leaving the system noisier after this
+    /// feature than before it.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_retired_stream_is_never_probed_and_opens_no_scope()
+    {
+        Guid live = Camera(1);
+        Guid retired = Camera(2);
+        Guid alsoLive = Camera(3);
+
+        Sweep sweep = await DispatchAsync(
+            [StreamIn(live, StreamState.Healthy),
+             StreamIn(retired, StreamState.Retired),
+             StreamIn(alsoLive, StreamState.Degraded)],
+            _ => Unready);
+
+        sweep.Probed.ShouldNotContain(MediaMtxPath.For(CameraIdentifier.From(retired)));
+        sweep.Scopes.Count.ShouldBe(2, "the retired stream never reached the handler");
+
+        // alsoLive, not merely live: skipping must continue the sweep, not end
+        // it — a `break` would satisfy an assertion made about the first camera
+        // alone.
+        sweep.Handled.Select(handled => handled.Camera).ShouldBe([live, alsoLive]);
+    }
+
     private static async Task<Sweep> DispatchAsync(
         IReadOnlyList<(Guid Camera, MediaMtxPath Path, StreamState State)> streams,
         Func<MediaMtxPath, RtspPathHealth> health)
@@ -105,10 +149,11 @@ public class StreamHealthWatcherScopeTests
 
         CountingScopeFactory scopes = new(provider.GetRequiredService<IServiceScopeFactory>());
         StreamHealthWatcher watcher = new(scopes, new FixedClock(), NullLogger<StreamHealthWatcher>.Instance);
+        StubGateway gateway = new(health);
 
-        await watcher.DispatchAsync(streams, new StubGateway(health), CancellationToken.None);
+        await watcher.DispatchAsync(streams, gateway, CancellationToken.None);
 
-        return new Sweep(scopes.Scopes, recorder.Handled);
+        return new Sweep(scopes.Scopes, recorder.Handled, gateway.Probed);
     }
 
     private static Guid Camera(int ordinal) =>
@@ -117,9 +162,13 @@ public class StreamHealthWatcherScopeTests
     private static (Guid Camera, MediaMtxPath Path, StreamState State) Stream(Guid camera) =>
         (camera, MediaMtxPath.For(CameraIdentifier.From(camera)), StreamState.Healthy);
 
+    private static (Guid Camera, MediaMtxPath Path, StreamState State) StreamIn(Guid camera, StreamState state) =>
+        (camera, MediaMtxPath.For(CameraIdentifier.From(camera)), state);
+
     private sealed record Sweep(
         IReadOnlyList<TrackedScope> Scopes,
-        IReadOnlyList<(object Handler, Guid Camera)> Handled);
+        IReadOnlyList<(object Handler, Guid Camera)> Handled,
+        IReadOnlyList<MediaMtxPath> Probed);
 
     private sealed class Recorder
     {
@@ -188,14 +237,20 @@ public class StreamHealthWatcherScopeTests
 
     private sealed class StubGateway(Func<MediaMtxPath, RtspPathHealth> health) : IRtspGateway
     {
+        public List<MediaMtxPath> Probed { get; } = [];
+
         public Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
         public Task RemovePathAsync(MediaMtxPath path, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
-        public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken) =>
-            Task.FromResult(health(path));
+        public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken)
+        {
+            Probed.Add(path);
+
+            return Task.FromResult(health(path));
+        }
 
         public Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<MediaMtxPath>>([]);
