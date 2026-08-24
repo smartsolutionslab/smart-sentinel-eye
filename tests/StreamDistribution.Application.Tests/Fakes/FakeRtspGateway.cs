@@ -21,6 +21,11 @@ public sealed class FakeRtspGateway : IRtspGateway
     /// </summary>
     public Action<MediaMtxPath> OnRemovePath { get; set; } = _ => { };
 
+    public List<(MediaMtxPath Path, string Source)> RepointCalls { get; } = [];
+
+    /// <summary>Lets a test make the SFU unreachable during a re-point (spec 029 FR-013a).</summary>
+    public Action<MediaMtxPath, string> OnRepointPath { get; set; } = (_, _) => { };
+
     public Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken)
     {
         OnAddPath(path, rtspSourceUrl);
@@ -38,6 +43,28 @@ public sealed class FakeRtspGateway : IRtspGateway
         OnRemovePath(path);
         RemoveCalls.Add(path);
         _paths.Remove(path);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Changes an existing path's source in place, as MediaMTX's patch
+    /// endpoint does. Records the call so a test can assert the SFU was told
+    /// the new address, not merely that the aggregate holds it.
+    /// </summary>
+    public Task RepointPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken)
+    {
+        OnRepointPath(path, rtspSourceUrl);
+        RepointCalls.Add((path, rtspSourceUrl));
+
+        if (_paths.ContainsKey(path))
+        {
+            _paths[path] = new RtspPathHealth(
+                IsReady: true,
+                LastError: null,
+                LastFrameAt: null,
+                DetectedMode: TranscodeMode.Passthrough);
+        }
+
         return Task.CompletedTask;
     }
 

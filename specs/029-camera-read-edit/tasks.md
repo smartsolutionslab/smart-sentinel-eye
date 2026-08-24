@@ -96,10 +96,10 @@ never existed, and compare the two responses **field by field**. Requires US1
 and US2 — the point is that *both* endpoints behave identically, so it cannot
 be finished before both exist.
 
-- [ ] T018 [US3] Integration in `tests/Integration.Tests/CameraCatalog/CameraNonEnumerationIntegrationTests.cs` — `GET` another fab's camera vs a never-registered identifier: **same status and same body, compared field by field**, not by status code (SC-003)
-- [ ] T019 [P] [US3] Integration in the same file — the identical comparison for `PATCH`. The edit has four more ways to fail than the read, and each is a chance to answer something more specific
-- [ ] T020 [US3] Integration in the same file — **`PATCH` with no `If-Match` at all on another fab's camera returns 404, not 428**. This is the sharp one: a 428 confirms the camera exists, so the header must never be read before the fab is resolved (FR-007)
-- [ ] T021 [P] [US3] Integration in the same file — an operator holding **both** fabs reads and edits it successfully, so the refusal is scoping and not a blanket denial
+- [x] T018 [US3] Integration in `tests/Integration.Tests/CameraCatalog/CameraNonEnumerationIntegrationTests.cs` — `GET` another fab's camera vs a never-registered identifier: **same status and same body, compared field by field**, not by status code (SC-003)
+- [x] T019 [P] [US3] Integration in the same file — the identical comparison for `PATCH`. The edit has four more ways to fail than the read, and each is a chance to answer something more specific
+- [x] T020 [US3] Integration in the same file — with **no `If-Match`**, both another fab's camera and a never-registered identifier are refused **identically**. NOTE: written expecting 404, and that premise was wrong — the 428 is issued before any lookup, so it is uniform and not an oracle. See research §5a
+- [x] T021 [P] [US3] Integration in the same file — an operator holding **both** fabs reads and edits it successfully, so the refusal is scoping and not a blanket denial
 
 ---
 
@@ -113,23 +113,23 @@ catalogue and leaves the SFU pulling the old address: the API reports the new
 address while the system serves the old one, which looks like success until
 somebody watches the wrong feed. That is worse than not shipping the edit.
 
-- [ ] T022 [P] `CameraAddressChangedV1` in `src/Shared.Contracts/CameraCatalog/CameraAddressChangedV1.cs` — primitives only, carrying **both** the previous and the new address, mirroring `CameraRetiredV1`
-- [ ] T023 `CameraAddressChangedDomainEventHandler` in `src/CameraCatalog/Application/EventHandlers/CameraAddressChangedDomainEventHandler.cs` — publishes T022's event. Request-driven, so it inherits its cause; **no `IJourneyOrigin`** (spec 027 survey), matching `CameraRetiredDomainEventHandler`
-- [ ] T024 [P] `Stream.RepointTo(StreamSourceUrl, IClock)` in `src/StreamDistribution/Domain/Stream/Stream.cs` — replaces `SourceUrl`, idempotent, and **refuses a retired stream**, mirroring the guard spec 028 put on the health reports
-- [ ] T025 [P] Domain tests in `tests/StreamDistribution.Domain.Tests/Stream/StreamRepointTests.cs` — re-point from Provisioning, Healthy, Degraded and Offline; **re-pointing to the current URL raises nothing**; **a retired stream refuses**
-- [ ] T026 `RepointStreamCommand` + handler in `src/StreamDistribution/Application/Commands/` — updates the aggregate and re-points the MediaMTX path. **A camera with no provisioned stream is a success carrying `None`**, not a failure, or the outbox redelivers forever (spec 028's lesson)
-- [ ] T027 [P] Handler tests in `tests/StreamDistribution.Application.Tests/Commands/RepointStreamCommandHandlerTests.cs` — the path is re-pointed to the new source; **a gateway failure does not lose the change** (the aggregate must still hold the new URL); a camera with no stream succeeds with nothing done
-- [ ] T028 `CameraAddressChangedIntegrationEventHandler` in `src/StreamDistribution/Application/EventHandlers/CameraAddressChangedIntegrationEventHandler.cs` — mirrors `CameraRetiredIntegrationEventHandler`
-- [ ] T029 Integration in `tests/Integration.Tests/StreamDistribution/RepointStreamIntegrationTests.cs` — after correcting the address, **assert MediaMTX's own configured source for that path is the new URL**, and that the **path name is unchanged** (FR-014)
-- [ ] T030 [P] Integration in the same file — the correction succeeds while the SFU is unreachable (FR-013a): the catalogue records what is true even when teardown cannot complete
+- [x] T022 [P] `CameraAddressChangedV1` in `src/Shared.Contracts/CameraCatalog/CameraAddressChangedV1.cs` — primitives only, carrying **both** the previous and the new address, mirroring `CameraRetiredV1`
+- [x] T023 `CameraAddressChangedDomainEventHandler` in `src/CameraCatalog/Application/EventHandlers/CameraAddressChangedDomainEventHandler.cs` — publishes T022's event. Request-driven, so it inherits its cause; **no `IJourneyOrigin`** (spec 027 survey), matching `CameraRetiredDomainEventHandler`
+- [x] T024 [P] `Stream.RepointTo(StreamSourceUrl, IClock)` in `src/StreamDistribution/Domain/Stream/Stream.cs` — replaces `SourceUrl`, idempotent, and **refuses a retired stream**, mirroring the guard spec 028 put on the health reports
+- [x] T025 [P] Domain tests in `tests/StreamDistribution.Domain.Tests/Stream/StreamRepointTests.cs` — re-point from Provisioning, Healthy, Degraded and Offline; **re-pointing to the current URL raises nothing**; **a retired stream refuses**
+- [x] T026 `RepointStreamCommand` + handler in `src/StreamDistribution/Application/Commands/` — updates the aggregate and re-points the MediaMTX path. **A camera with no provisioned stream is a success carrying `None`**, not a failure, or the outbox redelivers forever (spec 028's lesson)
+- [x] T027 [P] Handler tests in `tests/StreamDistribution.Application.Tests/Commands/RepointStreamCommandHandlerTests.cs` — the path is re-pointed to the new source; **a gateway failure does not lose the change** (the aggregate must still hold the new URL); a camera with no stream succeeds with nothing done
+- [x] T028 `CameraAddressChangedIntegrationEventHandler` in `src/StreamDistribution/Application/EventHandlers/CameraAddressChangedIntegrationEventHandler.cs` — mirrors `CameraRetiredIntegrationEventHandler`
+- [x] T029 Integration in `tests/Integration.Tests/StreamDistribution/RepointStreamIntegrationTests.cs` — after correcting the address, **assert MediaMTX's own configured source for that path is the new URL**, and that the **path name is unchanged** (FR-014)
+- [x] T030 [P] Integration in the same file — the correction succeeds while the SFU is unreachable (FR-013a): the catalogue records what is true even when teardown cannot complete
 
 ---
 
 ## Phase 5: Polish & Cross-Cutting
 
-- [ ] T031 [P] Register `CameraAddressChangedV1` in `src/AuditObservability/Application/EventHandlers/IntegrationEventAuditHandler.cs` — `Architecture.Tests` fails the build without it, which is how spec 028 caught the same gap
-- [ ] T032 [P] Integration — `audit_events` holds **one** row per real change, naming the operator rather than the system actor, and **a no-op change adds none** (FR-011)
-- [ ] T033 Full suite, nothing excluded or weakened; Release build with analyzers clean
+- [x] T031 [P] Register `CameraAddressChangedV1` in `src/AuditObservability/Application/EventHandlers/IntegrationEventAuditHandler.cs` — `Architecture.Tests` fails the build without it, which is how spec 028 caught the same gap
+- [x] T032 [P] Integration — `audit_events` holds **one** row per real change, naming the operator rather than the system actor, and **a no-op change adds none** (FR-011)
+- [x] T033 Full suite, nothing excluded or weakened; Release build with analyzers clean
 - [ ] T034 Verification note on the PR following [quickstart.md](./quickstart.md), including the SFU source check and the missing-`If-Match`-on-another-fab's-camera check
 
 ---
@@ -190,8 +190,16 @@ working re-point from a believed one.
 and it reads like a guard clause, so it will drift to the top of the handler.
 Then a `428 IF_MATCH_REQUIRED` for a Munich camera tells a Dresden operator that
 camera exists — the enumeration FR-006 exists to prevent, reintroduced by a
-refactor that looks like tidying. **T020 is the test that fails**, and it is
-worth its own task for exactly that reason.
+refactor that looks like tidying.
+
+> **Corrected during implementation.** The risk is real but this description of
+> it was wrong, and T020 as first written failed against correct code. The 428
+> is issued after the caller's *own* fab is authorised but **before any camera
+> is looked up**, so it is uniform across every identifier and cannot be used to
+> probe. What must hold — and what T020 asserts now — is that the two refusals
+> are *indistinguishable*, in both directions: 428 for both without a
+> precondition, 404 for both with a well-formed one. The second is the case that
+> would genuinely leak if the ordering drifted. See research §5a.
 
 **Idempotency implemented as "no error" instead of "no event".** Re-submitting
 the same address must not raise, because raising would put a second row in the

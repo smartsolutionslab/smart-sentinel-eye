@@ -35,6 +35,7 @@ public sealed class IntegrationEventAuditHandler(AuditingMessageHandler auditing
 {
     public Task Handle(CameraRegisteredV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
     public Task Handle(CameraRetiredV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
+    public Task Handle(CameraAddressChangedV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
     public Task Handle(FabEventIngestedV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
     public Task Handle(DeviceRegisteredV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);
     public Task Handle(KioskEnrolledV1 message, CancellationToken cancellationToken) => AuditAsync(message, cancellationToken);

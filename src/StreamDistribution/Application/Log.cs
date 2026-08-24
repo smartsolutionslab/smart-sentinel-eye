@@ -23,6 +23,21 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "Provision attempt failed for camera {Camera}: {Code} {Message}.")]
     public static partial void ProvisionAttemptFailed(this ILogger logger, CameraIdentifier camera, string code, string message);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "Camera {Camera} address changed but has no provisioned stream; nothing to re-point.")]
+    public static partial void NoStreamToRepoint(this ILogger logger, CameraIdentifier camera);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Camera {Camera} address changed but its stream is retired; not re-pointed.")]
+    public static partial void SkippedRepointOfRetiredStream(this ILogger logger, CameraIdentifier camera);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX path re-point failed for camera {Camera}; the stream already holds the new address.")]
+    public static partial void PathRepointFailed(this ILogger logger, Exception exception, CameraIdentifier camera);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Re-pointed stream {Stream} for camera {Camera} at path {Path}.")]
+    public static partial void RepointedStream(this ILogger logger, StreamIdentifier stream, CameraIdentifier camera, MediaMtxPath path);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Re-point attempt failed for camera {Camera}: {Code} {Message}.")]
+    public static partial void RepointAttemptFailed(this ILogger logger, CameraIdentifier camera, string code, string message);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Retire attempt failed for camera {Camera}: {Code} {Message}.")]
     public static partial void RetireAttemptFailed(this ILogger logger, CameraIdentifier camera, string code, string message);
 

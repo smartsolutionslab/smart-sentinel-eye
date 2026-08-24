@@ -61,6 +61,9 @@ public static class CameraCatalogInfrastructureModule
         builder.Services.AddScoped<
             IDomainEventHandler<Domain.Camera.Events.CameraRetiredDomainEvent>,
             CameraRetiredDomainEventHandler>();
+        builder.Services.AddScoped<
+            IDomainEventHandler<Domain.Camera.Events.CameraAddressChangedDomainEvent>,
+            CameraAddressChangedDomainEventHandler>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
 

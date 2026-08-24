@@ -201,6 +201,40 @@ camera exists. Fab first, always.
 
 ---
 
+## 5a. Correction, found during implementation: the 428 was never an oracle
+
+**tasks.md T020 and the contract both overstated the risk, and the test written
+from them failed against correct code.**
+
+The claim was that `PATCH` with no `If-Match` on another fab's camera must
+answer **404**, because a `428 IF_MATCH_REQUIRED` would confirm that camera
+exists. That is true only if the 428 is issued *after* the camera is looked up.
+It is not. The endpoint validates the header immediately after resolving the
+caller's own fab and **before any lookup**, so every identifier gets the same
+428 — one that exists in Munich, one that never existed anywhere. Uniform, and
+therefore not an oracle.
+
+Forcing a 404 would mean loading the camera before validating the precondition:
+more work for a malformed request, and a divergence from Automation,
+EventIngestion and Identity, which all validate the header at exactly this
+point.
+
+**What the test asserts now** is the property FR-006 actually states —
+indistinguishability — rather than a particular status code, in both
+directions: without a precondition both answer 428 identically, and with a
+well-formed one both answer 404 identically, the latter being the case that
+*would* leak if the ordering ever drifted.
+
+**A second correction, smaller.** SC-003's "field by field" cannot be taken
+literally across two requests, because the problem `detail` echoes the
+identifier the caller asked about and the two requests necessarily name
+different cameras. That is the caller's own input reflected back. The
+comparison normalises identifiers and trace fields and compares everything else
+exactly, so it still fails on an extra field, a different title or status, or a
+detail that mentions the fab — the things that would be a leak.
+
+---
+
 ## 6. Does the audit trail need a new integration event?
 
 **Decision: yes if question 2 is adopted — and then the architecture test enforces the rest.**

@@ -67,6 +67,9 @@ public static class StreamDistributionInfrastructureModule
         builder.Services.AddScoped<
             ICommandHandler<RetireStreamCommand, Result<Option<StreamIdentifier>, RetireStreamError>>,
             RetireStreamCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<RepointStreamCommand, Result<Option<StreamIdentifier>, RepointStreamError>>,
+            RepointStreamCommandHandler>();
         // Query handlers are resolved as concrete classes by the API
         // endpoints; no IQueryHandler<,> dispatcher registration needed
         // because they're not invoked through Wolverine.
@@ -74,6 +77,7 @@ public static class StreamDistributionInfrastructureModule
         builder.Services.AddScoped<ListStreamsQueryHandler>();
         builder.Services.AddScoped<CameraRegisteredIntegrationEventHandler>();
         builder.Services.AddScoped<CameraRetiredIntegrationEventHandler>();
+        builder.Services.AddScoped<CameraAddressChangedIntegrationEventHandler>();
         builder.Services.AddScoped<StreamHealthChangedDomainEventHandler>();
         builder.Services.AddScoped<StreamProvisionedDomainEventHandler>();
 
