@@ -69,16 +69,18 @@ describe('EditCameraAddressDialog', () => {
    * writer's. That is the lost update the version mechanism exists to prevent,
    * so the forbidden phrase is asserted as forbidden.
    *
-   * It fails by default twice over: `isStaleConflict` was 409-only and this
-   * refusal is a 412, and the server's own detail ends "Re-read it and try
-   * again."
+   * The server no longer phrases it that way — spec 031 changed the detail to
+   * "Re-read it before reapplying your change." — but the fixture still sends
+   * the old wording deliberately. The dialog must supply its own words for a
+   * refusal it recognises rather than passing the server's through, and a
+   * fixture that agrees with the server cannot tell the two apart.
    */
   it('Tells the operator to reload on a stale version, and never to try again', () => {
     mutationState.current = {
       isLoading: false,
       error: refusal(
         412,
-        'CAMERA_VERSION_MISMATCH',
+        'CAMERA_VERSION_STALE',
         "Camera '1111' is at version 9, not 7. Re-read it and try again.",
       ),
       reset: vi.fn(),
@@ -137,7 +139,7 @@ describe('EditCameraAddressDialog', () => {
   it('Keeps what the operator typed when the correction is refused', () => {
     mutationState.current = {
       isLoading: false,
-      error: refusal(412, 'CAMERA_VERSION_MISMATCH', 'stale'),
+      error: refusal(412, 'CAMERA_VERSION_STALE', 'stale'),
       reset: vi.fn(),
     };
 
