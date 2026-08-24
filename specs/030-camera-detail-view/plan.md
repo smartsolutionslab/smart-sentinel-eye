@@ -22,6 +22,13 @@ other writer's change. And `isConflict` returns true for the second, so a
 **retired** camera would be described as *"someone else changed this, reload"*.
 Both refusals map to the wrong words. See [research.md](./research.md) §5.
 
+> **The first half of that finding is fixed.** Spec 031 renamed the code to
+> `CAMERA_VERSION_STALE` and made the suffix authoritative (ADR-0119), so
+> `isStaleConflict` recognises it and the status no longer enters into it. The
+> paragraph above describes the state spec 030 was planned against, not the
+> current one. `CAMERA_RETIRED` is unchanged and is still handled by
+> `isTerminalRefusal`, which spec 030 added.
+
 ## Technical Context
 
 **Language/Version**: TypeScript, React 19, Vite

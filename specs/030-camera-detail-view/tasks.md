@@ -63,6 +63,18 @@ layouts, overlays and system variables, so it must be **additive**.
 > `CAMERA_VERSION_MISMATCH` does not end in `_STALE`. So this phase does the
 > frontend-only fix that works today. **Do not read it as the settled
 > convention**; #1857 supersedes it.
+>
+> **Resolved 2026-08-24 by spec 031** (`specs/031-stale-version-convention/`,
+> ADR-0119). It did supersede this. The code was renamed to
+> `CAMERA_VERSION_STALE`, `isStaleConflict` now keys on the suffix alone, and
+> the provisional helper described in T006 **no longer exists in the source**.
+> An architecture test enforces the convention, and it found a second violator
+> this spec never knew about — `AGGREGATE_VERSION_CONFLICT` in ServiceDefaults,
+> which applied to every mutating endpoint in every context.
+>
+> The tasks below are left as they were written. They record what spec 030 did
+> and why, correctly, at the time — but **do not implement T006 from this text**
+> if you are reading it as instructions.
 
 - [x] T006 Recognise the 412 stale case in `apps/shared/src/api/problemDetail.ts` — `isStaleConflict` must be true for status **412** with `CAMERA_VERSION_MISMATCH`, **and unchanged** for 409 + `*_STALE`. Comment it as provisional per #1857
 - [x] T007 [P] `isTerminalRefusal` (or equivalent) in `apps/shared/src/api/problemDetail.ts` — true for `CAMERA_RETIRED`, so a terminal refusal stops inheriting the lost-update wording. **Keyed on the code, not the status**: `CAMERA_RETIRED` is a 409 and so matches `isConflict`
