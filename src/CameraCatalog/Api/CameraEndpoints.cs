@@ -45,6 +45,22 @@ public static class CameraEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
+        // 404 rather than 403 for another fab's camera (spec 028 FR-004), and
+        // it is declared here so the generated OpenAPI says so: a 403 would
+        // confirm the camera exists, letting an operator enumerate another
+        // plant's cameras one request at a time. 409 is absent because
+        // retiring is idempotent — an already-retired camera is 204, not a
+        // conflict.
+        writes.MapPost("/{camera:guid}/retire", Retire)
+            .WithName("RetireCamera")
+            .WithSummary(
+                "Retire a camera. Terminal, and idempotent — retiring one already retired succeeds. "
+                + "Its name becomes available again within its own fab. Required scope: sse.cameras.write")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         RouteGroupBuilder reads = app.MapGroup("/cameras")
             .WithTags("Cameras")
             .RequireAuthorization(Scope.Sse.Cameras.Read);
@@ -103,6 +119,34 @@ public static class CameraEndpoints
             onSuccess: identifier => Results.Created(
                 $"/cameras/{identifier.Value}",
                 identifier.Value),
+            onFailure: error => error.ToProblem());
+    }
+
+    private static async Task<IResult> Retire(
+        [FromRoute] Guid camera,
+        [FromServices] RetireCameraCommandHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        HttpContext httpContext,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
+    {
+        (FabIdentifier? fab, IResult? fabProblem) =
+            await ResolveWriteFabAsync(httpContext.User, fabId, fabGuard, cancellationToken);
+        if (fab is null)
+        {
+            return fabProblem!;
+        }
+
+        RetireCameraCommand command = new(fab, CameraIdentifier.From(camera), ResolveOperator(httpContext));
+
+        Result<CameraIdentifier, RetireCameraError> result =
+            await handler.HandleAsync(command, cancellationToken);
+
+        // 204 rather than 200: nothing useful comes back. The caller asked for
+        // the camera to be retired and it is — returning the aggregate would
+        // invite a client to treat the response as a read model.
+        return result.Match<IResult>(
+            onSuccess: _ => Results.NoContent(),
             onFailure: error => error.ToProblem());
     }
 

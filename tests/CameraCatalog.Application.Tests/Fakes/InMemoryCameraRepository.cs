@@ -22,6 +22,20 @@ public sealed class InMemoryCameraRepository : ICameraRepository
         return Task.FromResult(found is null ? Option<Camera>.None : Option<Camera>.Some(found));
     }
 
+    // Fab in the predicate, mirroring the real repository: a camera in another
+    // plant is None, not "found then refused". A double that returned it and
+    // trusted the caller to compare would let a handler forgetting the check
+    // pass every test here while leaking another fab's RTSP address in
+    // production (spec 028 FR-004).
+    public Task<Option<Camera>> GetWithinFabAsync(
+        FabIdentifier fab, CameraIdentifier camera, CancellationToken cancellationToken)
+    {
+        Camera found = _cameras.FirstOrDefault(
+            candidate => candidate.Id.Equals(camera) && candidate.Fab.Equals(fab));
+
+        return Task.FromResult(found is null ? Option<Camera>.None : Option<Camera>.Some(found));
+    }
+
     // Fab is part of the match, not a filter applied afterwards. Keyed on the
     // name alone this would report another plant's camera as a collision, which
     // is the bug being fixed reproduced inside the double meant to detect it.

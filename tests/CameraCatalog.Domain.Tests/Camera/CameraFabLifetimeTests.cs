@@ -9,19 +9,16 @@ namespace SmartSentinelEye.CameraCatalog.Domain.Tests.Camera;
 /// Spec 015 T005 — a camera's fab is fixed at registration.
 ///
 /// <para>
-/// Narrower than T005 asked for, and deliberately so. The task says to assert
-/// the fab survives registration → decommission, but <b>the aggregate has no
-/// decommission behaviour</b>: `CameraStatus` carries a `Decommissioned` value
-/// and nothing in the context ever transitions to it. There is no state change
-/// to survive, so a test claiming otherwise would be asserting against a
-/// transition that cannot happen — the shape of the skipped spec #1292 sat on
-/// for two releases.
+/// Written narrower than T005 asked for, because at the time <b>the aggregate
+/// had no decommission behaviour</b>: `CameraStatus` carried a `Decommissioned`
+/// value and nothing in the context ever transitioned to it (#1433). There was
+/// no state change to survive, so a test claiming otherwise would have asserted
+/// against a transition that could not happen.
 /// </para>
 ///
 /// <para>
-/// What is asserted instead: the fab is what registration was given, and it
-/// cannot be reassigned from outside the aggregate. When a decommission
-/// behaviour lands, the survival case belongs here.
+/// Spec 028 added `Retire`, so the survival case now exists and has landed
+/// here, as the original note said it should.
 /// </para>
 /// </summary>
 public class CameraFabLifetimeTests
@@ -45,6 +42,24 @@ public class CameraFabLifetimeTests
         munich.Fab.Value.ShouldBe("munich");
         dresden.Fab.Value.ShouldBe("dresden");
         munich.Fab.ShouldNotBe(dresden.Fab);
+    }
+
+    /// <summary>
+    /// The case spec 015 T005 originally asked for and could not have: a
+    /// camera's fab survives registration → retirement. It was impossible
+    /// while nothing could reach <c>Decommissioned</c> (#1433); spec 028's
+    /// <c>Retire</c> is what makes it assertable, so it lands here as the note
+    /// above said it should.
+    /// </summary>
+    [Fact]
+    public void A_retired_camera_keeps_the_fab_it_was_registered_in()
+    {
+        Domain.Camera.Camera camera = new CameraBuilder().WithFab("dresden").Build();
+
+        camera.Retire(OperatorIdentifier.From(Guid.CreateVersion7()), new FixedClock());
+
+        camera.Status.ShouldBe(CameraStatus.Decommissioned);
+        camera.Fab.Value.ShouldBe("dresden");
     }
 
     [Fact]
