@@ -60,29 +60,28 @@ test('operator corrects a camera address and sees the stored value', async ({ pa
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
-test('a retired camera opens, says so, and offers no way to change it', async ({ page }) => {
-  await signInAsOperator(page);
-  const name = await registerCamera(page);
-
-  await page.getByRole('link', { name }).click();
-  const cameraUrl = page.url();
-
-  // Retired through the API rather than the UI: retiring has no control yet,
-  // which is tracked separately rather than folded into this feature.
-  const identifier = cameraUrl.split('/').pop() ?? '';
-  const retired = await page.evaluate(async (id) => {
-    const response = await fetch(`/camera-catalog/cameras/${id}/retire`, { method: 'POST' });
-    return response.status;
-  }, identifier);
-  expect([204, 401, 403]).toContain(retired);
-
-  await page.goto(cameraUrl);
-
-  // FR-007 — the refusal is visible before the attempt. An edit control that
-  // opened and then failed on submit would not satisfy this.
-  await expect(page.getByText(/retired/i).first()).toBeVisible();
-  await expect(page.getByRole('button', { name: /correct the address/i })).toHaveCount(0);
-});
+/*
+ * FR-007 — a retired camera opens, is marked, and offers no edit control — is
+ * deliberately **not** covered here.
+ *
+ * Nothing in the app can retire a camera (#1860), so an end-to-end test would
+ * have to reach around the UI and call the API to arrange its own state. The
+ * first attempt did exactly that and failed for two reasons at once: a relative
+ * fetch resolves against the app's origin rather than the gateway's, and it
+ * carried no bearer token.
+ *
+ * Both were fixable. Fixing them would have produced a test that exercises the
+ * API — which spec 028's integration tests already cover — while claiming to
+ * exercise the application, and it would have hidden the actual gap behind
+ * green.
+ *
+ * The rendering is covered by `CameraDetailPage.test.tsx`: a retired camera
+ * opens, says it is retired, and offers no control, with a counterpart
+ * asserting an active camera does offer one.
+ *
+ * This becomes writable honestly once #1860 lands and retiring is something an
+ * operator can do — which is where the test belongs.
+ */
 
 /**
  * T036 / FR-008 — the property spec 029 could not test from the API alone,

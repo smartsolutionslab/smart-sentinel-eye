@@ -136,7 +136,7 @@ tab and get the same camera; press back and land on the list.
 
 - [x] T033 [US1] e2e in `e2e/camera-detail.spec.ts` — open a camera from the list; **reload the URL directly** and get the same camera; back returns to the list
 - [x] T034 [US2] e2e in `e2e/camera-detail.spec.ts` — correct an address and see it reflected without a full reload
-- [x] T035 [US3] e2e in `e2e/camera-detail.spec.ts` — a **retired** camera opens, is marked, and offers no edit control
+- [x] T035 [US3] Retired-camera rendering covered by `CameraDetailPage.test.tsx` rather than e2e. An end-to-end test cannot arrange the state honestly while nothing in the app can retire a camera (#1860) — the first attempt reached around the UI to the API and failed on both origin and auth. It lands with #1860
 - [x] T036 [US3] e2e in `e2e/camera-detail.spec.ts` — as the **Dresden** operator, open a **Munich** camera by URL and an identifier that never existed; **compare the rendered output**, not merely that both showed something (FR-008 / SC-004)
 - [x] T037 Full suite — `frontend` lint, typecheck and unit tests; the Playwright suite with nothing excluded
 - [ ] T038 Verification note on the PR following [quickstart.md](./quickstart.md), including the two refusal wordings, the FR-008 comparison, and the crash-panel check
