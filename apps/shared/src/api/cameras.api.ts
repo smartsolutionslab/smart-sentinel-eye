@@ -70,6 +70,19 @@ export interface ChangeCameraAddressInput {
   fabId?: string;
 }
 
+export interface RetireCameraInput {
+  cameraIdentifier: string;
+  fabId?: string;
+  /**
+   * No `version`, deliberately. Retirement is idempotent rather than
+   * version-checked (spec 028): the endpoint answers `204` whether or not the
+   * camera was already retired, and declares no `409`, `412` or `428`. Sending
+   * a precondition would invent a failure mode the server does not have — and
+   * the detail page holds a version for the address correction, which is what
+   * makes threading it in here the easy mistake.
+   */
+}
+
 export interface CameraListPage {
   items: CameraSummary[];
   count: number;
@@ -123,6 +136,26 @@ export const camerasApi = createApi({
         { type: 'Camera' as const, id: 'LIST' },
       ],
     }),
+    retireCamera: build.mutation<void, RetireCameraInput>({
+      // No headers at all: no If-Match, and no body. Contrast
+      // changeCameraAddress directly above, which must carry one.
+      query: ({ cameraIdentifier, fabId }) => ({
+        url: `/${cameraIdentifier}/retire`,
+        method: 'POST',
+        ...(fabId !== undefined && fabId !== '' ? { params: { fabId } } : {}),
+      }),
+      // The same two as changeCameraAddress, and they do more work here than
+      // the count suggests. Invalidation *refetches* for a mounted subscriber
+      // rather than evicting, so the camera tag refreshes the detail page into
+      // its retired state without a reload (FR-009) and the record stays
+      // readable at its own address (FR-011) — the endpoint still serves
+      // retired cameras. The LIST tag drops it from the listing, which excludes
+      // retired cameras by default (FR-010).
+      invalidatesTags: (_result, _error, { cameraIdentifier }) => [
+        { type: 'Camera' as const, id: cameraIdentifier },
+        { type: 'Camera' as const, id: 'LIST' },
+      ],
+    }),
     listCameras: build.query<CameraListPage, ListCamerasParams | void>({
       query: (params) => ({
         url: '',
@@ -148,4 +181,5 @@ export const {
   useListCamerasQuery,
   useGetCameraQuery,
   useChangeCameraAddressMutation,
+  useRetireCameraMutation,
 } = camerasApi;

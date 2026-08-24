@@ -60,28 +60,67 @@ test('operator corrects a camera address and sees the stored value', async ({ pa
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
-/*
- * FR-007 — a retired camera opens, is marked, and offers no edit control — is
- * deliberately **not** covered here.
+/**
+ * Spec 032 T016 / SC-005 — the test that used to be a comment here.
  *
- * Nothing in the app can retire a camera (#1860), so an end-to-end test would
- * have to reach around the UI and call the API to arrange its own state. The
- * first attempt did exactly that and failed for two reasons at once: a relative
- * fetch resolves against the app's origin rather than the gateway's, and it
- * carried no bearer token.
+ * Spec 030 left this uncovered on purpose. Nothing in the app could retire a
+ * camera (#1860), so the test would have had to reach around the UI and call
+ * the API to arrange its own state; the first attempt did exactly that and
+ * failed twice over — a relative fetch resolves against the app's origin, not
+ * the gateway's, and it carried no bearer token. Both were fixable, and fixing
+ * them would have produced a test exercising the API while claiming to exercise
+ * the application, hiding this very gap behind green.
  *
- * Both were fixable. Fixing them would have produced a test that exercises the
- * API — which spec 028's integration tests already cover — while claiming to
- * exercise the application, and it would have hidden the actual gap behind
- * green.
+ * Spec 032 made retiring something an operator can do, so the test does it the
+ * way an operator would. **No `fetch` appears below.** If arranging state ever
+ * seems to need one, that is the signal spec 030 acted on.
  *
- * The rendering is covered by `CameraDetailPage.test.tsx`: a retired camera
- * opens, says it is retired, and offers no control, with a counterpart
- * asserting an active camera does offer one.
- *
- * This becomes writable honestly once #1860 lands and retiring is something an
- * operator can do — which is where the test belongs.
+ * Three things in one run, because they are one claim: the camera is retired,
+ * it leaves the default listing, and its record survives at its own address.
  */
+test('operator retires a camera, and it leaves the listing but keeps its record', async ({ page }) => {
+  await signInAsOperator(page);
+  const name = await registerCamera(page);
+
+  await page.getByRole('link', { name }).click();
+  const location = page.url();
+
+  await page.getByRole('button', { name: /retire camera/i }).click();
+
+  // FR-005/006/007 — the three consequences, read before confirming. An
+  // operator who is not told these is being asked to approve something they
+  // cannot see: the stream loss and the name reuse happen elsewhere.
+  const confirmation = page.getByRole('alertdialog');
+  await expect(confirmation).toContainText(name);
+  await expect(confirmation).toContainText(/permanent/i);
+  await expect(confirmation).toContainText(/live stream will stop/i);
+  await expect(confirmation).toContainText(/available again/i);
+
+  await confirmation.getByRole('button', { name: /retire camera/i }).click();
+
+  // FR-009 — the page reflects it without a reload, and FR-004: the control is
+  // gone rather than disabled.
+  await expect(page.getByRole('status')).toContainText(/retired/i);
+  await expect(page.getByRole('button', { name: /retire camera/i })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /correct the address/i })).toHaveCount(0);
+
+  // FR-012 — nothing claims this operator caused it. Retiring is idempotent and
+  // answers 204 either way, so a page announcing "Camera retired" would be
+  // telling a second tab something false.
+  await expect(page.locator('main')).not.toContainText(/camera retired/i);
+  await expect(page.locator('main')).not.toContainText(/successfully/i);
+
+  // FR-010 — gone from the default listing.
+  await page.getByRole('link', { name: /back to cameras/i }).click();
+  await expect(page.getByRole('heading', { name: 'Cameras', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name })).toHaveCount(0);
+
+  // FR-011 — and yet still there, at its own address. Retirement takes a camera
+  // out of the listing, not out of existence: the audit trail refers to it.
+  await page.goto(location);
+  await expect(page.getByRole('heading', { name })).toBeVisible();
+  await expect(page.getByRole('status')).toContainText(/retired/i);
+});
 
 /**
  * T036 / FR-008 — the property spec 029 could not test from the API alone,
