@@ -64,57 +64,23 @@ export function problemCode(error: unknown): string | null {
 }
 
 /**
- * True only for the lost-update conflict (ADR-0113 Layer 1).
+ * True only for the lost-update conflict — the caller acted on a version that
+ * has since moved (ADR-0113).
  *
- * `isConflict` is status-only, and 409 is not exclusively a stale version:
- * the create paths return `LAYOUT_NAME_TAKEN` / `OVERLAY_NAME_TAKEN` with the
- * same status. Offering "reload to see their version" for a name collision
- * sends the operator somewhere useless, so anything that changes the *advice*
- * has to key on the code rather than the status.
+ * Keyed on the **code**, and on nothing else. Per ADR-0119 a code ending
+ * `_STALE` is what identifies a lost update across every context; the status is
+ * deliberately not consulted, because both statuses in play are overloaded.
+ * 409 also carries name collisions (`LAYOUT_NAME_TAKEN`) and terminal-state
+ * refusals (`CAMERA_RETIRED`); 412 also carries Identity's upsert
+ * preconditions (`WEBHOOK_CLIENT_ALREADY_EXISTS`). Neither status answers this
+ * question, so neither is asked.
+ *
+ * Getting it wrong is not cosmetic. Offering "try again" to someone whose
+ * version moved makes them resubmit unchanged, replaying their edit over the
+ * other writer's — the exact lost update the mechanism exists to prevent.
  */
 export function isStaleConflict(error: unknown): boolean {
-  return (
-    (isConflict(error) && (problemCode(error)?.endsWith('_STALE') ?? false)) ||
-    isPreconditionFailedStale(error)
-  );
-}
-
-/**
- * The second spelling of a lost update, added by spec 029.
- *
- * CameraCatalog answers a failed `If-Match` with **412** and
- * `CAMERA_VERSION_MISMATCH`, where the six older aggregates answer **409** with
- * a `*_STALE` code. Neither is wrong on its own — RFC 9110 §15.5.13 specifies
- * 412 for exactly this, so the camera is the more correct one — but it means
- * the status alone identifies a stale version in neither direction, and 412 is
- * itself already used for something else (Identity's upsert preconditions,
- * `WEBHOOK_CLIENT_ALREADY_EXISTS` / `WEBHOOK_CLIENT_NOT_FOUND`).
- *
- * **Provisional, pending #1857.** That issue argues the right resolution is to
- * key on the code alone and rename `CAMERA_VERSION_MISMATCH` to
- * `CAMERA_VERSION_STALE`, so all seven share one convention. The rename is a
- * backend change and out of scope for spec 030; code-only keying *without* it
- * would still miss the camera, because `CAMERA_VERSION_MISMATCH` does not end
- * in `_STALE`. So this is the narrow fix that works today.
- *
- * **Do not read this as the settled convention.**
- */
-function isPreconditionFailedStale(error: unknown): boolean {
-  if (
-    typeof error !== 'object' ||
-    error === null ||
-    !('status' in error) ||
-    (error as { status: unknown }).status !== 412
-  ) {
-    return false;
-  }
-
-  // Keyed on the code, not on 412 alone: Identity answers 412 for an upsert
-  // precondition that was wrong about existence, which is not a lost update and
-  // must not be offered "reload to see their version".
-  const code = problemCode(error);
-
-  return code === 'CAMERA_VERSION_MISMATCH' || (code?.endsWith('_STALE') ?? false);
+  return problemCode(error)?.endsWith('_STALE') ?? false;
 }
 
 /**

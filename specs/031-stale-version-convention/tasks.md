@@ -34,9 +34,9 @@ inferred later from a diff.
 
 **Goal**: The convention exists as a decision, with the trade it refuses.
 
-- [ ] T001 [US3] `docs/adr/0119-stale-version-vocabulary.md` — a new ADR **amending ADR-0113**, in the same header style ADR-0113 uses to amend ADR-0043. Must state that the **code** is authoritative and the status is not, and why: both statuses are overloaded in both directions, `409` also carrying name collisions and a terminal refusal, `412` also carrying Identity's existence preconditions
-- [ ] T002 [US3] In the same ADR, record **the trade refused**: the outlier's `412` is the *more* correct status per RFC 9110 §15.5.13, so standardising on the sixteen would make the newest endpoint less correct. An ADR that records only what was done, without what was rejected and why, gets reversed by the next person who rediscovers the correctness argument
-- [ ] T003 [P] [US3] In the same ADR, record the **cost asymmetry** that decided it — 16 declaration sites across six contexts versus 1 — and that this rename is cheapest now because the code has never had a consumer outside this repository
+- [x] T001 [US3] `docs/adr/0119-stale-version-vocabulary.md` — a new ADR **amending ADR-0113**, in the same header style ADR-0113 uses to amend ADR-0043. Must state that the **code** is authoritative and the status is not, and why: both statuses are overloaded in both directions, `409` also carrying name collisions and a terminal refusal, `412` also carrying Identity's existence preconditions
+- [x] T002 [US3] In the same ADR, record **the trade refused**: the outlier's `412` is the *more* correct status per RFC 9110 §15.5.13, so standardising on the sixteen would make the newest endpoint less correct. An ADR that records only what was done, without what was rejected and why, gets reversed by the next person who rediscovers the correctness argument
+- [x] T003 [P] [US3] In the same ADR, record the **cost asymmetry** that decided it — 16 declaration sites across six contexts versus 1 — and that this rename is cheapest now because the code has never had a consumer outside this repository
 
 **Checkpoint**: someone can follow the convention without reading any code.
 
@@ -46,10 +46,10 @@ inferred later from a diff.
 
 **Goal**: One spelling of a stale refusal, on the wire.
 
-- [ ] T004 [US1] Rename the code to `CAMERA_VERSION_STALE` in `src/CameraCatalog/Application/Commands/ChangeCameraAddressErrors.cs` — the literal, the record (`VersionMismatch` → `VersionStale`) and the failure factory. **The status stays `412`**: it is the more correct reading and is being made irrelevant to the advice, not standardised
-- [ ] T005 [US1] Update the factory call in `src/CameraCatalog/Application/Commands/Handlers/ChangeCameraAddressCommandHandler.cs`
-- [ ] T006 [P] [US1] Update the type reference in `tests/CameraCatalog.Application.Tests/Commands/ChangeCameraAddressCommandHandlerTests.cs`, and assert the **code string** rather than only the record type — the string is what a client keys on and the type rename would otherwise pass silently
-- [ ] T007 [P] [US1] Correct `specs/029-camera-read-edit/contracts/cameras-api.md` — it documents the 412 as carrying `PRECONDITION_FAILED`, **a code that exists nowhere in `src/`** (research §4). Set it to the value the implementation returns, and note the correction rather than silently overwriting it
+- [x] T004 [US1] Rename the code to `CAMERA_VERSION_STALE` in `src/CameraCatalog/Application/Commands/ChangeCameraAddressErrors.cs` — the literal, the record (`VersionMismatch` → `VersionStale`) and the failure factory. **The status stays `412`**: it is the more correct reading and is being made irrelevant to the advice, not standardised
+- [x] T005 [US1] Update the factory call in `src/CameraCatalog/Application/Commands/Handlers/ChangeCameraAddressCommandHandler.cs`
+- [x] T006 [P] [US1] Update the type reference in `tests/CameraCatalog.Application.Tests/Commands/ChangeCameraAddressCommandHandlerTests.cs`, and assert the **code string** rather than only the record type — the string is what a client keys on and the type rename would otherwise pass silently
+- [x] T007 [P] [US1] Correct `specs/029-camera-read-edit/contracts/cameras-api.md` — it documents the 412 as carrying `PRECONDITION_FAILED`, **a code that exists nowhere in `src/`** (research §4). Set it to the value the implementation returns, and note the correction rather than silently overwriting it
 
 **Checkpoint**: the wire is consistent; the frontend's provisional branch is now dead code that still passes.
 
@@ -59,9 +59,9 @@ inferred later from a diff.
 
 **Goal**: An eighth context cannot miss it quietly.
 
-- [ ] T008 [US3] `tests/Architecture.Tests/StaleCodeConventionTests.cs` — scans `src/**/*.cs` for `ApiError` code literals and fails when one names a version conflict without ending `_STALE`. Reads **source**, not assemblies: `ApiError` takes its code as a constructor argument, so the value exists only on an instance, and `HandlerDeconstructionTests` already reads source for a comparable reason
-- [ ] T009 [US3] The failure message must name the offending code **and** the convention it missed, so someone hitting it in CI can fix it without finding this spec
-- [ ] T010 [US3] **Prove the test fires.** Temporarily add a plausible wrong code — `WIDGET_VERSION_MISMATCH` — to any errors file, watch the suite go red, then remove it. A check that only looks for the exact string being removed passes forever and catches nothing; the test for the test is that it fails for a code a *future* context would invent
+- [x] T008 [US3] `tests/Architecture.Tests/StaleCodeConventionTests.cs` — scans `src/**/*.cs` for `ApiError` code literals and fails when one names a version conflict without ending `_STALE`. Reads **source**, not assemblies: `ApiError` takes its code as a constructor argument, so the value exists only on an instance, and `HandlerDeconstructionTests` already reads source for a comparable reason
+- [x] T009 [US3] The failure message must name the offending code **and** the convention it missed, so someone hitting it in CI can fix it without finding this spec
+- [x] T010 [US3] **Prove the test fires.** Temporarily add a plausible wrong code — `WIDGET_VERSION_MISMATCH` — to any errors file, watch the suite go red, then remove it. A check that only looks for the exact string being removed passes forever and catches nothing; the test for the test is that it fails for a code a *future* context would invent
 
 ---
 
@@ -71,10 +71,10 @@ inferred later from a diff.
 
 **Needs #1859 merged.** That PR added the provisional branch this deletes.
 
-- [ ] T011 [US1] Simplify `isStaleConflict` in `apps/shared/src/api/problemDetail.ts` to `problemCode(error)?.endsWith('_STALE')` — **delete** the status test and the separate 412 branch rather than extending them. That is the doctrine the file's own comment already states
-- [ ] T012 [US1] Remove the `Provisional, pending #1857` note and the helper it documents (FR-008). A deferred decision that leaves a permanent comment is the failure this feature exists to correct, in miniature
-- [ ] T013 [P] [US1] Update `apps/shared/src/api/problemDetail.test.ts` — every one of the seven contexts' codes is recognised as stale, `LAYOUT_NAME_TAKEN` still is not, and Identity's **412** existence preconditions (`WEBHOOK_CLIENT_ALREADY_EXISTS`, `WEBHOOK_CLIENT_NOT_FOUND`) still are not. That last case is the one the old status branch could have swept in
-- [ ] T014 [P] [US2] Assert `isTerminalRefusal` still separates `CAMERA_RETIRED` from a lost update, and that the two produce different advice — both are `409`, which is why status alone cannot tell them apart
+- [x] T011 [US1] Simplify `isStaleConflict` in `apps/shared/src/api/problemDetail.ts` to `problemCode(error)?.endsWith('_STALE')` — **delete** the status test and the separate 412 branch rather than extending them. That is the doctrine the file's own comment already states
+- [x] T012 [US1] Remove the `Provisional, pending #1857` note and the helper it documents (FR-008). A deferred decision that leaves a permanent comment is the failure this feature exists to correct, in miniature
+- [x] T013 [P] [US1] Update `apps/shared/src/api/problemDetail.test.ts` — every one of the seven contexts' codes is recognised as stale, `LAYOUT_NAME_TAKEN` still is not, and Identity's **412** existence preconditions (`WEBHOOK_CLIENT_ALREADY_EXISTS`, `WEBHOOK_CLIENT_NOT_FOUND`) still are not. That last case is the one the old status branch could have swept in
+- [x] T014 [P] [US2] Assert `isTerminalRefusal` still separates `CAMERA_RETIRED` from a lost update, and that the two produce different advice — both are `409`, which is why status alone cannot tell them apart
 
 ---
 
@@ -82,9 +82,9 @@ inferred later from a diff.
 
 **Goal**: FR-006 — the six contexts that were already right are untouched.
 
-- [ ] T015 Run the suites for the six correct contexts — Automation, LayoutComposition, OverlayDesigner, SystemVariables, EventIngestion, Identity — plus `management-web`. **They must pass with no edits to any of their test files.** `git diff` over those paths must be empty; a suite adjusted until it passes proves nothing
-- [ ] T016 [P] Confirm no `*_STALE` code or status changed in the sixteen sites: `grep -rn '_STALE"' --include=*.cs src` before and after must be identical
-- [ ] T017 Full suite — backend Release build with analyzers, and `pnpm typecheck && pnpm lint && pnpm test`
+- [x] T015 Run the suites for the six correct contexts — Automation, LayoutComposition, OverlayDesigner, SystemVariables, EventIngestion, Identity — plus `management-web`. **They must pass with no edits to any of their test files.** `git diff` over those paths must be empty; a suite adjusted until it passes proves nothing
+- [x] T016 [P] Confirm no `*_STALE` code or status changed in the sixteen sites: `grep -rn '_STALE"' --include=*.cs src` before and after must be identical
+- [x] T017 Full suite — backend Release build with analyzers, and `pnpm typecheck && pnpm lint && pnpm test`
 - [ ] T018 Verification note on the PR following [quickstart.md](./quickstart.md), including the deliberately-broken architecture test from T010 and the empty `git diff` from T015
 
 ---

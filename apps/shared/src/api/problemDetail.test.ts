@@ -9,9 +9,14 @@ import {
 } from './problemDetail.js';
 
 /**
- * Spec 030 T008. The first tests this helper has had, written because spec 029
- * introduced a second spelling of "your version is stale" and the helper only
- * understood the first.
+ * Spec 030 T008, rewritten by spec 031 T013.
+ *
+ * Spec 030 taught this helper a second spelling of "your version is stale",
+ * because CameraCatalog answered 412 with a code that did not end `_STALE` and
+ * nothing recognised it. Spec 031 removed the second spelling instead: the code
+ * was renamed, ADR-0119 made the suffix authoritative, and an architecture test
+ * now enforces it. So these tests changed shape — they no longer assert a
+ * status/code pair, they assert the code and nothing else.
  *
  * The cases that matter are the ones where the wrong answer still produces a
  * message: an operator told to "try again" on a stale version resubmits, and
@@ -24,8 +29,15 @@ const refusal = (status: number, title: string, detail?: string) => ({
 });
 
 describe('isStaleConflict', () => {
-  it('recognises the six aggregates that answer 409 with a _STALE code', () => {
+  /**
+   * All eight lost-update codes in the product, kept in step with
+   * `StaleCodeConventionTests.Every_lost_update_refusal_in_the_product_is_accounted_for`.
+   * If that test's list grows, this one grows with it.
+   */
+  it('recognises every lost-update code the product can answer with', () => {
     for (const code of [
+      'AGGREGATE_VERSION_STALE',
+      'CAMERA_VERSION_STALE',
       'LAYOUT_REVISION_STALE',
       'OVERLAY_REVISION_STALE',
       'RULE_STALE',
@@ -37,14 +49,33 @@ describe('isStaleConflict', () => {
     }
   });
 
-  // Spec 029's spelling: 412 is what RFC 9110 specifies for a failed If-Match,
-  // so the camera is the more correct one and the six above are the deviation.
-  it('recognises the camera, which answers 412', () => {
-    expect(isStaleConflict(refusal(412, 'CAMERA_VERSION_MISMATCH'))).toBe(true);
+  /**
+   * The point of ADR-0119, stated as an assertion rather than left implicit in
+   * the list above. The camera answers 412 and the other six answer 409, and
+   * this helper must not care: were it still consulting the status, one of these
+   * two lines would fail.
+   */
+  it('does not consult the status — the same code is stale at either one', () => {
+    expect(isStaleConflict(refusal(412, 'CAMERA_VERSION_STALE'))).toBe(true);
+    expect(isStaleConflict(refusal(409, 'CAMERA_VERSION_STALE'))).toBe(true);
+
+    expect(isStaleConflict(refusal(409, 'LAYOUT_REVISION_STALE'))).toBe(true);
+    expect(isStaleConflict(refusal(412, 'LAYOUT_REVISION_STALE'))).toBe(true);
   });
 
-  // The reason this helper was always two-part: 409 is not exclusively a stale
-  // version, and offering "reload to see their version" for a name collision
+  /**
+   * `AGGREGATE_VERSION_STALE` is the shared Layer-2 handler in ServiceDefaults —
+   * the true database race, registered once and reaching every mutating endpoint
+   * in every context. It was `AGGREGATE_VERSION_CONFLICT` until spec 031, which
+   * meant this helper said false for it and the operator was told to try again
+   * *product-wide*, not merely on cameras.
+   */
+  it('recognises the shared database race that no context declares itself', () => {
+    expect(isStaleConflict(refusal(409, 'AGGREGATE_VERSION_STALE'))).toBe(true);
+  });
+
+  // 409 is not exclusively a stale version, which is why the status was never
+  // sufficient: offering "reload to see their version" for a name collision
   // sends the operator somewhere useless.
   it('is not fooled by other 409s', () => {
     expect(isStaleConflict(refusal(409, 'LAYOUT_NAME_TAKEN'))).toBe(false);
@@ -52,10 +83,10 @@ describe('isStaleConflict', () => {
   });
 
   /**
-   * The guard for the new half. 412 is *also* already overloaded: Identity
+   * And 412 is overloaded in the same way, in the other direction: Identity
    * answers it for an upsert precondition that was wrong about existence, which
-   * is not a lost update. Widening on status alone would have swept these in
-   * and told the operator to reload something that does not exist.
+   * is not a lost update. Keying on 412 would have swept these in and told the
+   * operator to reload something that does not exist.
    */
   it('is not fooled by 412s that are not about a version', () => {
     expect(isStaleConflict(refusal(412, 'WEBHOOK_CLIENT_ALREADY_EXISTS'))).toBe(false);
@@ -64,6 +95,12 @@ describe('isStaleConflict', () => {
 
   it('is false for a retired camera, which is a 409 but not a lost update', () => {
     expect(isStaleConflict(refusal(409, 'CAMERA_RETIRED'))).toBe(false);
+  });
+
+  it('is false when there is no error and when the error carries no code', () => {
+    expect(isStaleConflict(null)).toBe(false);
+    expect(isStaleConflict(undefined)).toBe(false);
+    expect(isStaleConflict({ status: 409 })).toBe(false);
   });
 });
 
@@ -77,6 +114,10 @@ describe('isTerminalRefusal', () => {
    * `isConflict` is true for it and it would inherit CONFLICT_FALLBACK —
    * "someone else changed this, reload to see their version" — about a camera
    * nobody changed and that reloading will not help.
+   *
+   * Still asserted after spec 031 simplified `isStaleConflict` to the suffix
+   * alone: the simplification must not have quietly widened the predicate into
+   * the terminal refusal's territory.
    */
   it('is distinguishable from a lost update even though both are 409', () => {
     const retired = refusal(409, 'CAMERA_RETIRED');
@@ -93,7 +134,7 @@ describe('isTerminalRefusal', () => {
   });
 
   it('is false for a stale version and for a plain not-found', () => {
-    expect(isTerminalRefusal(refusal(412, 'CAMERA_VERSION_MISMATCH'))).toBe(false);
+    expect(isTerminalRefusal(refusal(412, 'CAMERA_VERSION_STALE'))).toBe(false);
     expect(isTerminalRefusal(refusal(404, 'CAMERA_NOT_FOUND'))).toBe(false);
   });
 });
