@@ -33,8 +33,32 @@ public interface ICameraRepository
     /// because a name is unique only within one (spec 015) — without it the
     /// question is ambiguous the moment two plants use the same name, which is
     /// precisely what this feature allows.
+    ///
+    /// <para>
+    /// <paramref name="excluding"/> names a camera that does not count as
+    /// holding the name — itself. Registration passes
+    /// <see cref="Option{T}.None"/>, because the camera does not exist yet. A
+    /// <b>rename</b> must pass the camera being renamed, or it finds itself:
+    /// that camera is active, in that fab, and holds that very normalised name
+    /// whenever the rename is a no-op or changes only letter case. It would be
+    /// refused against its own name (spec 033 FR-010).
+    /// </para>
+    ///
+    /// <para>
+    /// One method with an exclusion rather than two methods, deliberately. This
+    /// predicate carries the whole uniqueness rule — per fab, case-insensitive,
+    /// retired cameras excluded — and it has already been enforced
+    /// inconsistently once: spec 028 found it missing the
+    /// <c>status &lt;&gt; 'Decommissioned'</c> filter that
+    /// <c>ux_cameras_fab_name_normalized_active</c> has always had. A second
+    /// method would be a second place for that to drift.
+    /// </para>
     /// </summary>
-    Task<bool> ExistsByNameAsync(FabIdentifier fab, CameraName name, CancellationToken cancellationToken);
+    Task<bool> ExistsByNameAsync(
+        FabIdentifier fab,
+        CameraName name,
+        Option<CameraIdentifier> excluding,
+        CancellationToken cancellationToken);
 
     void Add(Camera camera);
 

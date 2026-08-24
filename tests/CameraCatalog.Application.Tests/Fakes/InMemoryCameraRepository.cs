@@ -53,12 +53,21 @@ public sealed class InMemoryCameraRepository : ICameraRepository
     // in the other direction: leave it out here and the double reports a
     // collision production would not, so every name-reuse test would fail
     // against correct code.
+    // `excluding` is the camera that does not count as holding the name —
+    // itself, during a rename (spec 033). Without it a rename finds the camera
+    // it is renaming and refuses against its own name, and the case-only rename
+    // `Line-4-Inlet` -> `line-4-inlet` is refused too, because both normalise
+    // the same while being a real change to what is displayed.
     public Task<bool> ExistsByNameAsync(
-        FabIdentifier fab, CameraName name, CancellationToken cancellationToken) =>
+        FabIdentifier fab,
+        CameraName name,
+        Option<CameraIdentifier> excluding,
+        CancellationToken cancellationToken) =>
         Task.FromResult(_cameras.Any(candidate =>
             candidate.Fab.Equals(fab)
             && candidate.Name.Equals(name)
-            && candidate.Status != CameraStatus.Decommissioned));
+            && candidate.Status != CameraStatus.Decommissioned
+            && !excluding.Match(some => candidate.Id.Equals(some), () => false)));
 
     public void Add(Camera camera) => _pendingAdds.Add(camera);
 
