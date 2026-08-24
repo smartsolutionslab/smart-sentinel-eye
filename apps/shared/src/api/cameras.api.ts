@@ -1,5 +1,5 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import { gatewayBaseQuery } from './gateway.js';
+import { gatewayBaseQuery, ifMatch } from './gateway.js';
 import type { RegisterCameraInput } from './cameras.schema.js';
 
 export type RegisterCameraResponse = string;
@@ -19,6 +19,12 @@ export interface ListCamerasParams {
 export interface CameraSummary {
   cameraIdentifier: string;
   /**
+   * Optimistic-concurrency version (ADR-0113). On every row, not only on the
+   * single-camera read, so a correction can be made straight from the listing
+   * without a read-one round-trip — the reason spec 029 put it here.
+   */
+  version: number;
+  /**
    * The fab this camera belongs to (spec 015). A camera never arrives here
    * unless the caller is assigned to its fab, so this is always one of theirs.
    * On the wire because a multi-fab operator's listing can hold two rows of the
@@ -28,6 +34,40 @@ export interface CameraSummary {
   name: string;
   rtspUrl: string;
   registeredAt: string;
+  /** `Registered` or `Decommissioned` (spec 029 FR-007). */
+  status: string;
+}
+
+/**
+ * One camera, as `GET /cameras/{camera}` returns it (spec 029 FR-001).
+ *
+ * Structurally the same as {@link CameraSummary} today. Kept as its own type
+ * rather than aliased: the two answer different questions, and a listing row is
+ * free to diverge from a detail view without silently changing what a detail
+ * page believes it has.
+ */
+export interface CameraDetail {
+  cameraIdentifier: string;
+  /** Echoed back via `If-Match` to correct the address (ADR-0113). */
+  version: number;
+  fab: string;
+  name: string;
+  rtspUrl: string;
+  registeredAt: string;
+  /**
+   * `Registered` or `Decommissioned`. A retired camera is returned rather than
+   * reported missing (spec 029 FR-002) — retirement takes a camera out of the
+   * default listing, not out of existence.
+   */
+  status: string;
+}
+
+export interface ChangeCameraAddressInput {
+  cameraIdentifier: string;
+  rtspUrl: string;
+  /** The version the operator was shown. Required — a blind write is refused 428. */
+  version: number;
+  fabId?: string;
 }
 
 export interface CameraListPage {
@@ -54,6 +94,35 @@ export const camerasApi = createApi({
       }),
       invalidatesTags: ['Camera'],
     }),
+    getCamera: build.query<CameraDetail, { cameraIdentifier: string; fabId?: string }>({
+      query: ({ cameraIdentifier, fabId }) => ({
+        url: `/${cameraIdentifier}`,
+        method: 'GET',
+        ...(fabId !== undefined && fabId !== '' ? { params: { fabId } } : {}),
+      }),
+      providesTags: (_result, _error, { cameraIdentifier }) => [
+        { type: 'Camera' as const, id: cameraIdentifier },
+      ],
+    }),
+    changeCameraAddress: build.mutation<void, ChangeCameraAddressInput>({
+      // The version travels as an If-Match header, not in the body, and is
+      // threaded explicitly through the arguments rather than pulled from a
+      // cache — gateway.ts records why: a miss would degrade to a request with
+      // no version, which the server refuses 428 rather than silently accepting.
+      query: ({ cameraIdentifier, rtspUrl, version, fabId }) => ({
+        url: `/${cameraIdentifier}`,
+        method: 'PATCH',
+        headers: ifMatch(version),
+        ...(fabId !== undefined && fabId !== '' ? { params: { fabId } } : {}),
+        body: { rtspUrl },
+      }),
+      // Both: the camera itself, and the listing whose row now shows a stale
+      // address and a stale version.
+      invalidatesTags: (_result, _error, { cameraIdentifier }) => [
+        { type: 'Camera' as const, id: cameraIdentifier },
+        { type: 'Camera' as const, id: 'LIST' },
+      ],
+    }),
     listCameras: build.query<CameraListPage, ListCamerasParams | void>({
       query: (params) => ({
         url: '',
@@ -74,4 +143,9 @@ export const camerasApi = createApi({
   }),
 });
 
-export const { useRegisterCameraMutation, useListCamerasQuery } = camerasApi;
+export const {
+  useRegisterCameraMutation,
+  useListCamerasQuery,
+  useGetCameraQuery,
+  useChangeCameraAddressMutation,
+} = camerasApi;

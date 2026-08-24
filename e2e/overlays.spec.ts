@@ -9,7 +9,7 @@ import { signInAsOperator } from './support/sign-in';
 test('operator opens overlays and the list loads through the gateway', async ({ page }) => {
   await signInAsOperator(page);
 
-  await page.getByRole('button', { name: /^overlays$/i }).click();
+  await page.getByRole('link', { name: /^overlays$/i }).click();
 
   await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
@@ -18,7 +18,7 @@ test('operator opens overlays and the list loads through the gateway', async ({ 
 test('operator creates an overlay draft and it appears in the list', async ({ page }) => {
   await signInAsOperator(page);
 
-  await page.getByRole('button', { name: /^overlays$/i }).click();
+  await page.getByRole('link', { name: /^overlays$/i }).click();
   await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
 
   // POST /overlay-designer/overlays (Bearer; sse.management grandfathers

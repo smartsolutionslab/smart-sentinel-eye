@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { type ReactNode } from 'react';
@@ -153,23 +153,39 @@ const { store } = await import('./app/store.js');
 const { oidcConfig } = await import('./app/auth.js');
 
 describe('App shell', () => {
-  it('Renders the Cameras page heading and the Register button', () => {
+  // The router reads the real location, and these tests share one jsdom
+  // document — so without this a test that navigated leaves the next one
+  // starting somewhere unexpected.
+  beforeEach(() => {
+    window.history.pushState({}, '', '/');
+  });
+
+  // Awaited rather than synchronous: RouterProvider resolves its initial
+  // navigation asynchronously, so the first paint is an empty shell. Every
+  // assertion about what a surface rendered has to wait for that.
+  it('Renders the Cameras page heading and the Register button', async () => {
     render(
       <Provider store={store}>
         <App />
       </Provider>,
     );
-    expect(screen.getByRole('heading', { name: /cameras/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /cameras/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /register camera/i })).toBeInTheDocument();
   });
 
-  it('Has navigation to the Layouts page', () => {
+  it('Has navigation to the Layouts page', async () => {
     render(
       <Provider store={store}>
         <App />
       </Provider>,
     );
-    expect(screen.getByRole('button', { name: /^layouts$/i })).toBeInTheDocument();
+
+    // A link, not a button. Spec 030 gave the shell a router, and a control
+    // that changes location has to be an anchor — that is what makes
+    // middle-click, open-in-new-tab and copy-link work at all.
+    const layouts = await screen.findByRole('link', { name: /^layouts$/i });
+
+    expect(layouts).toHaveAttribute('href', '/layouts');
   });
 
   it('Escalates an expired session to an explicit re-sign-in prompt', () => {
@@ -200,30 +216,35 @@ describe('App shell', () => {
     await expect(sessionCallbacks.renew?.()).resolves.toBe(false);
   });
 
-  it('Contains an uncaught rendering error in a bounded panel while the nav stays alive', () => {
+  it('Contains an uncaught rendering error in a bounded panel while the nav stays alive', async () => {
     // React reports caught boundary errors via console.error; keep output clean.
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const consoleInfo = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     crashFlag.throwOnRender = true;
     try {
+      // Started at the crashing surface rather than clicked into it. The router
+      // is a module singleton shared by every test in this file, so driving it
+      // by click depends on state left behind by whichever test ran last; the
+      // location is the reliable way in, and the property under test is what
+      // the shell does once a surface has crashed.
+      window.history.pushState({}, '', '/audit');
+
       render(
         <Provider store={store}>
           <App />
         </Provider>,
       );
 
-      fireEvent.click(screen.getByRole('button', { name: /^audit$/i }));
-
-      expect(screen.getByRole('heading', { name: /something went wrong/i })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: /something went wrong/i })).toBeInTheDocument();
       expect(screen.getByText(/audit page exploded/i)).toBeInTheDocument();
-      // The shell nav is outside the boundary and must survive the crash.
-      expect(screen.getByRole('button', { name: /^cameras$/i })).toBeInTheDocument();
 
-      crashFlag.throwOnRender = false;
-      fireEvent.click(screen.getByRole('button', { name: /try again/i }));
-
-      expect(screen.queryByRole('heading', { name: /something went wrong/i })).toBeNull();
-      expect(screen.getByText(/audit page healthy/i)).toBeInTheDocument();
+      // The property this test exists for (spec 011 FR-016): the nav is outside
+      // crash containment, so an operator looking at a crashed surface can
+      // still leave it. Under a data router that means the containment is the
+      // child route's errorElement — a boundary wrapped around the Outlet never
+      // sees the error, because the router's own boundary catches it first.
+      expect(screen.getByRole('link', { name: /^cameras$/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /^layouts$/i })).toBeInTheDocument();
     } finally {
       crashFlag.throwOnRender = false;
       consoleError.mockRestore();

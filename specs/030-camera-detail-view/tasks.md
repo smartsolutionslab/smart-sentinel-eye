@@ -39,11 +39,11 @@ files of churn and leaves only the cameras surface routed.
 **Goal**: The two endpoints spec 029 shipped become callable, and the listing
 type stops lying about what the wire returns.
 
-- [ ] T001 [P] `getCamera` query in `apps/shared/src/api/cameras.api.ts` — `GET /{cameraIdentifier}`, providing `{ type: 'Camera', id }` so a correction can invalidate exactly this camera
-- [ ] T002 [P] `CameraDetail` type in `apps/shared/src/api/cameras.api.ts` — identifier, version, fab, name, rtspUrl, registeredAt, status, per data-model.md
-- [ ] T003 Add `version` and `status` to `CameraSummary` in `apps/shared/src/api/cameras.api.ts` — spec 029 returns both on **every listing row** and the interface was never updated; it is a plain interface with no runtime validation, so nothing broke, it is simply out of date with the wire
-- [ ] T004 `changeCameraAddress` mutation in `apps/shared/src/api/cameras.api.ts` — `PATCH /{cameraIdentifier}`, headers from the **existing** `ifMatch(version)` helper in `apps/shared/src/api/gateway.ts`, invalidating that camera's tag **and** `LIST`
-- [ ] T005 [P] `changeCameraAddressSchema` in `apps/shared/src/api/cameras.schema.ts` — reuses `registerCameraSchema`'s RTSP rules so FR-009 rejects client-side exactly what the API would reject, rather than a second opinion about what a valid address is
+- [x] T001 [P] `getCamera` query in `apps/shared/src/api/cameras.api.ts` — `GET /{cameraIdentifier}`, providing `{ type: 'Camera', id }` so a correction can invalidate exactly this camera
+- [x] T002 [P] `CameraDetail` type in `apps/shared/src/api/cameras.api.ts` — identifier, version, fab, name, rtspUrl, registeredAt, status, per data-model.md
+- [x] T003 Add `version` and `status` to `CameraSummary` in `apps/shared/src/api/cameras.api.ts` — spec 029 returns both on **every listing row** and the interface was never updated; it is a plain interface with no runtime validation, so nothing broke, it is simply out of date with the wire
+- [x] T004 `changeCameraAddress` mutation in `apps/shared/src/api/cameras.api.ts` — `PATCH /{cameraIdentifier}`, headers from the **existing** `ifMatch(version)` helper in `apps/shared/src/api/gateway.ts`, invalidating that camera's tag **and** `LIST`
+- [x] T005 [P] `changeCameraAddressSchema` in `apps/shared/src/api/cameras.schema.ts` — reuses `registerCameraSchema`'s RTSP rules so FR-009 rejects client-side exactly what the API would reject, rather than a second opinion about what a valid address is
 
 **Checkpoint**: the endpoints are reachable from the app; nothing renders yet.
 
@@ -64,10 +64,10 @@ layouts, overlays and system variables, so it must be **additive**.
 > frontend-only fix that works today. **Do not read it as the settled
 > convention**; #1857 supersedes it.
 
-- [ ] T006 Recognise the 412 stale case in `apps/shared/src/api/problemDetail.ts` — `isStaleConflict` must be true for status **412** with `CAMERA_VERSION_MISMATCH`, **and unchanged** for 409 + `*_STALE`. Comment it as provisional per #1857
-- [ ] T007 [P] `isTerminalRefusal` (or equivalent) in `apps/shared/src/api/problemDetail.ts` — true for `CAMERA_RETIRED`, so a terminal refusal stops inheriting the lost-update wording. **Keyed on the code, not the status**: `CAMERA_RETIRED` is a 409 and so matches `isConflict`
-- [ ] T008 [P] Unit tests in `apps/shared/src/api/problemDetail.test.ts` — 412 + `CAMERA_VERSION_MISMATCH` is stale; 409 + `CAMERA_RETIRED` is **not** stale and **is** terminal; **409 + `LAYOUT_REVISION_STALE` still behaves exactly as before**, and `LAYOUT_NAME_TAKEN` is still neither
-- [ ] T009 Confirm the existing consumers are untouched — run the layouts, overlays and system-variables suites; **their tests must pass without edits**. An edit needed there means the change was not additive
+- [x] T006 Recognise the 412 stale case in `apps/shared/src/api/problemDetail.ts` — `isStaleConflict` must be true for status **412** with `CAMERA_VERSION_MISMATCH`, **and unchanged** for 409 + `*_STALE`. Comment it as provisional per #1857
+- [x] T007 [P] `isTerminalRefusal` (or equivalent) in `apps/shared/src/api/problemDetail.ts` — true for `CAMERA_RETIRED`, so a terminal refusal stops inheriting the lost-update wording. **Keyed on the code, not the status**: `CAMERA_RETIRED` is a 409 and so matches `isConflict`
+- [x] T008 [P] Unit tests in `apps/shared/src/api/problemDetail.test.ts` — 412 + `CAMERA_VERSION_MISMATCH` is stale; 409 + `CAMERA_RETIRED` is **not** stale and **is** terminal; **409 + `LAYOUT_REVISION_STALE` still behaves exactly as before**, and `LAYOUT_NAME_TAKEN` is still neither
+- [x] T009 Confirm the existing consumers are untouched — run the layouts, overlays and system-variables suites; **their tests must pass without edits**. An edit needed there means the change was not additive
 
 **Checkpoint**: the words are right, and nothing that used the helper moved.
 
@@ -80,16 +80,16 @@ layouts, overlays and system variables, so it must be **additive**.
 **The droppable unit.** If the Phase 2 gate overturns the shell conversion, this
 phase shrinks to routing the cameras surface alone and T012–T014 disappear.
 
-- [ ] T010 `apps/management-web/src/app/router.tsx` — `createBrowserRouter`, mirroring `apps/kiosk-web/src/app/router.tsx`. Routes for the six surfaces, `/cameras/:cameraIdentifier`, and **`/oidc/callback`** — `react-oidc-context` intercepts it before the router sees it, but the route must exist; kiosk-web records the same requirement
-- [ ] T011 Convert `Shell` to `RouterProvider` in `apps/management-web/src/App.tsx` — the `AuthGate` still wraps the router, not the other way round, so sign-in and session expiry behave as they do now
-- [ ] T012 Nav buttons become links in `apps/management-web/src/App.tsx` — **links, not buttons calling `useNavigate`**. The button form keeps every existing selector green and loses middle-click, open-in-new-tab and copy-link, which is most of what FR-002 is for
-- [ ] T013 **Re-key the `ErrorBoundary` on the location** in `apps/management-web/src/App.tsx` — it is keyed on `view` today so a crashed page is replaced fresh and the nav survives (**spec 011 FR-016**, not this feature's requirement). Its own task because **nothing in spec 030 would fail if this regressed**
-- [ ] T014 [P] Update `apps/management-web/src/App.test.tsx` — it asserts the shell's `useState` toggle, which no longer exists
-- [ ] T015 [P] Update the nav selector in `e2e/audit.spec.ts` — `getByRole('button', …)` → link
-- [ ] T016 [P] Update the nav selector in `e2e/layouts.spec.ts`
-- [ ] T017 [P] Update the nav selector in `e2e/overlays.spec.ts`
-- [ ] T018 [P] Update the nav selector in `e2e/rules.spec.ts`
-- [ ] T019 [P] Update the nav selector in `e2e/system-variables.spec.ts`
+- [x] T010 `apps/management-web/src/app/router.tsx` — `createBrowserRouter`, mirroring `apps/kiosk-web/src/app/router.tsx`. Routes for the six surfaces, `/cameras/:cameraIdentifier`, and **`/oidc/callback`** — `react-oidc-context` intercepts it before the router sees it, but the route must exist; kiosk-web records the same requirement
+- [x] T011 Convert `Shell` to `RouterProvider` in `apps/management-web/src/App.tsx` — the `AuthGate` still wraps the router, not the other way round, so sign-in and session expiry behave as they do now
+- [x] T012 Nav buttons become links in `apps/management-web/src/App.tsx` — **links, not buttons calling `useNavigate`**. The button form keeps every existing selector green and loses middle-click, open-in-new-tab and copy-link, which is most of what FR-002 is for
+- [x] T013 **Re-key the `ErrorBoundary` on the location** in `apps/management-web/src/App.tsx` — it is keyed on `view` today so a crashed page is replaced fresh and the nav survives (**spec 011 FR-016**, not this feature's requirement). Its own task because **nothing in spec 030 would fail if this regressed**
+- [x] T014 [P] Update `apps/management-web/src/App.test.tsx` — it asserts the shell's `useState` toggle, which no longer exists
+- [x] T015 [P] Update the nav selector in `e2e/audit.spec.ts` — `getByRole('button', …)` → link
+- [x] T016 [P] Update the nav selector in `e2e/layouts.spec.ts`
+- [x] T017 [P] Update the nav selector in `e2e/overlays.spec.ts`
+- [x] T018 [P] Update the nav selector in `e2e/rules.spec.ts`
+- [x] T019 [P] Update the nav selector in `e2e/system-variables.spec.ts`
 
 > `e2e/cameras.spec.ts` is **not** in this list — cameras is the default surface,
 > so it never clicks a nav button to reach it.

@@ -1,17 +1,9 @@
 import { useState, type ReactNode } from 'react';
 import { AuthProvider, useAuth } from 'react-oidc-context';
+import { RouterProvider } from 'react-router-dom';
 import { setAccessTokenProvider, setOnSessionExpired, setSessionRenewer } from '@smart-sentinel-eye/shared/api/gateway';
-import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
-import { ErrorBoundary } from '@smart-sentinel-eye/shared/ui/composites/ErrorBoundary';
 import { oidcConfig } from './app/auth.js';
-import { CamerasPage } from './features/cameras/CamerasPage.js';
-import { LayoutsPage } from './features/layouts/LayoutsPage.js';
-import { OverlaysPage } from './features/overlays/OverlaysPage.js';
-import { RulesPage } from './features/rules/RulesPage';
-import { SystemVariablesPage } from './features/systemVariables/SystemVariablesPage.js';
-import { AuditPage } from './features/audit/AuditPage.js';
-
-type View = 'cameras' | 'layouts' | 'overlays' | 'rules' | 'system-variables' | 'audit';
+import { createAppRouter } from './app/router.js';
 
 export function App() {
   return (
@@ -91,73 +83,32 @@ function AuthGate() {
     );
   }
 
-  return <Shell />;
+  return <RoutedApp />;
 }
 
-// Placeholder shell for the management app. A real router lands when more
-// than three surfaces exist; for spec 004 we toggle between cameras,
-// layouts, and overlays so the nav remains visible everywhere.
-function Shell() {
-  const [view, setView] = useState<View>('cameras');
+/**
+ * Builds the router, and does it here rather than in {@link AuthGate}.
+ *
+ * <p>
+ * A data router reads the location once, when it is created. `oidcConfig`'s
+ * `onSigninCallback` restores the stashed `returnTo` with a raw
+ * `history.replaceState` while the sign-in is still resolving — so a router
+ * created before that point would have already read `/?code=…` and would never
+ * see where the operator was actually going.
+ * </p>
+ *
+ * <p>
+ * Mounting only once authenticated puts the router's creation after that
+ * replace. It did not matter before this feature, because the `useState` shell
+ * ignored the path entirely and `returnTo` only ever changed the address bar.
+ * </p>
+ */
+function RoutedApp() {
+  // Held rather than rebuilt: a router recreated on each render would reset
+  // navigation to wherever the location currently points.
+  const [router] = useState(createAppRouter);
 
-  return (
-    <main className="min-h-screen bg-bg-base text-fg-primary">
-      <nav className="flex items-center gap-3 border-b border-fg-muted/30 px-6 py-3">
-        <NavButton active={view === 'cameras'} onClick={() => setView('cameras')}>
-          Cameras
-        </NavButton>
-        <NavButton active={view === 'layouts'} onClick={() => setView('layouts')}>
-          Layouts
-        </NavButton>
-        <NavButton active={view === 'overlays'} onClick={() => setView('overlays')}>
-          Overlays
-        </NavButton>
-        <NavButton active={view === 'rules'} onClick={() => setView('rules')}>
-          Rules
-        </NavButton>
-        <NavButton active={view === 'system-variables'} onClick={() => setView('system-variables')}>
-          System variables
-        </NavButton>
-        <NavButton active={view === 'audit'} onClick={() => setView('audit')}>
-          Audit
-        </NavButton>
-      </nav>
-      <ErrorBoundary
-        // Keyed on the view so navigating away from a crashed page renders
-        // the next page fresh instead of a stale error panel. The nav above
-        // stays outside the boundary and survives any page crash (FR-016).
-        key={view}
-        onError={(error) => logResilienceEvent('crash', 'render-error', { message: describeError(error) })}
-        fallback={(error, reset) => <CrashPanel message={describeError(error)} onRetry={reset} />}
-      >
-        {view === 'cameras' && <CamerasPage />}
-        {view === 'layouts' && <LayoutsPage />}
-        {view === 'overlays' && <OverlaysPage />}
-        {view === 'rules' && <RulesPage />}
-        {view === 'system-variables' && <SystemVariablesPage />}
-        {view === 'audit' && <AuditPage />}
-      </ErrorBoundary>
-    </main>
-  );
-}
-
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function CrashPanel({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <section
-      role="alert"
-      className="mx-auto mt-16 flex max-w-lg flex-col items-center gap-4 rounded-lg border border-fg-muted/30 p-8 text-center"
-    >
-      <h1 className="text-2xl font-semibold">Something went wrong</h1>
-      <p className="text-fg-muted">{message}</p>
-      <button type="button" className="rounded-md bg-accent-active px-6 py-3 text-bg-base" onClick={onRetry}>
-        Try again
-      </button>
-    </section>
-  );
+  return <RouterProvider router={router} />;
 }
 
 function Centered({ children }: { children: ReactNode }) {
@@ -168,18 +119,3 @@ function Centered({ children }: { children: ReactNode }) {
   );
 }
 
-function NavButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        active
-          ? 'rounded-md bg-accent-active/10 px-3 py-1 text-sm font-medium text-accent-active'
-          : 'rounded-md px-3 py-1 text-sm text-fg-muted hover:text-fg-primary'
-      }
-    >
-      {children}
-    </button>
-  );
-}
