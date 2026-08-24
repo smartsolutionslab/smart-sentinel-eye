@@ -24,6 +24,29 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
     private const string OperatorPassword = "Operator1234";
     private const string CorrectedUrl = "rtsp://10.0.5.44/h264";
 
+    /// <summary>
+    /// The address every camera in this class is registered with, and it must
+    /// never equal <see cref="CorrectedUrl"/>.
+    ///
+    /// <para>
+    /// It used to be <c>rtsp://10.0.5.{Random.Shared.Next(2, 250)}/h264</c>,
+    /// which draws 44 about once in 248 runs — and 44 is
+    /// <see cref="CorrectedUrl"/>. On those runs the first correction submitted
+    /// an address the camera already had, which spec 029 makes an idempotent
+    /// no-op: it succeeds, raises no event, and <b>does not advance the
+    /// version</b>. The version the stale-version test then replayed was still
+    /// current, so the server answered <c>204</c> instead of <c>412</c> and the
+    /// test failed for a reason that had nothing to do with concurrency.
+    /// </para>
+    ///
+    /// <para>
+    /// A constant is the fix because the randomness bought nothing: names are
+    /// already unique per registration, and no test here reads the address
+    /// expecting variety.
+    /// </para>
+    /// </summary>
+    private const string OriginalUrl = "rtsp://10.0.7.12/h264";
+
     public Task InitializeAsync() => aspire.ResetCameraCatalogAsync();
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -56,6 +79,17 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
 
         (await PatchAsync(cameras, camera, CorrectedUrl, version))
             .StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        // The premise, asserted rather than assumed: the correction above has
+        // to have *moved* the version, or the "stale" version replayed below is
+        // still current and this test proves nothing while appearing to.
+        //
+        // Not hypothetical. The registration address used to be random and could
+        // land on CorrectedUrl, making that first correction an idempotent
+        // no-op that leaves the version where it was — a roughly 1-in-248
+        // failure that reported itself as "expected 412, got 204" and sent the
+        // reader hunting through the concurrency code.
+        (await VersionOfAsync(cameras, camera)).ShouldNotBe(version);
 
         // The same version again — now stale.
         HttpResponseMessage replayed = await PatchAsync(cameras, camera, "rtsp://10.0.5.99/h264", version);
@@ -168,7 +202,7 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
         HttpResponseMessage created = await cameras.PostAsJsonAsync("/cameras", new
         {
             name,
-            rtspUrl = $"rtsp://10.0.5.{Random.Shared.Next(2, 250)}/h264",
+            rtspUrl = OriginalUrl,
         });
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
