@@ -33,18 +33,18 @@ is announced, and a second retire changes nothing. Ships alone — the catalogue
 starts telling the truth about which hardware exists even if nothing consumes
 the announcement.
 
-- [ ] T001 [P] [US1] `CameraRetiredDomainEvent` in `src/CameraCatalog/Domain/Camera/Events/CameraRetiredDomainEvent.cs` — camera, fab, name, retiredBy, retiredAt per data-model.md
-- [ ] T002 [P] [US1] `CameraRetiredV1` in `src/Shared.Contracts/CameraCatalog/CameraRetiredV1.cs` — primitives only, mirroring `CameraRegisteredV1`
-- [ ] T003 [US1] `Camera.Retire(OperatorIdentifier, IClock)` in `src/CameraCatalog/Domain/Camera/Camera.cs` — sets `CameraStatus.Decommissioned`, raises T001's event, returns without raising when already retired
-- [ ] T004 [P] [US1] Domain tests in `tests/CameraCatalog.Domain.Tests/Camera/CameraRetirementTests.cs` — transitions to Decommissioned; raises exactly one event; **a second Retire raises none**; no behaviour leaves the terminal state
-- [ ] T005 [P] [US1] `RetireCameraCommand` + `RetireCameraErrors` in `src/CameraCatalog/Application/Commands/` — `CameraNotFound` only; another fab's camera resolves to the same error (FR-004)
-- [ ] T006 [US1] `RetireCameraCommandHandler` in `src/CameraCatalog/Application/Commands/Handlers/RetireCameraCommandHandler.cs` — loads within the caller's fab, calls `Retire`, saves
-- [ ] T007 [P] [US1] Handler tests in `tests/CameraCatalog.Application.Tests/Commands/RetireCameraCommandHandlerTests.cs` — happy path; unknown camera → `CameraNotFound`; **another fab's camera → `CameraNotFound`, not a distinct error**; retiring twice publishes one event
-- [ ] T008 [US1] Repository read-within-fab in `src/CameraCatalog/Infrastructure/Persistence/CameraRepository.cs` — find by identifier scoped to fab, so cross-fab is indistinguishable from missing
-- [ ] T009 [US1] `CameraRetiredDomainEventHandler` in `src/CameraCatalog/Application/EventHandlers/CameraRetiredDomainEventHandler.cs` — publishes `CameraRetiredV1`. Message-driven, so it inherits its cause; **no `IJourneyOrigin` here** (spec 027 survey)
-- [ ] T010 [US1] `POST /cameras/{camera}/retire` in `src/CameraCatalog/Api/CameraEndpoints.cs` — 204, `sse.cameras.write`, spec 015 fab resolution, per contracts/cameras-api.md
-- [ ] T011 [US1] Integration in `tests/Integration.Tests/CameraCatalog/RetireCameraIntegrationTests.cs` — retire via API returns 204; retiring again returns 204; **`audit_events` holds exactly one retirement**
-- [ ] T012 [US1] Integration in the same file — another fab's camera returns **404**, byte-identical to an unregistered identifier
+- [x] T001 [P] [US1] `CameraRetiredDomainEvent` in `src/CameraCatalog/Domain/Camera/Events/CameraRetiredDomainEvent.cs` — camera, fab, name, retiredBy, retiredAt per data-model.md
+- [x] T002 [P] [US1] `CameraRetiredV1` in `src/Shared.Contracts/CameraCatalog/CameraRetiredV1.cs` — primitives only, mirroring `CameraRegisteredV1`
+- [x] T003 [US1] `Camera.Retire(OperatorIdentifier, IClock)` in `src/CameraCatalog/Domain/Camera/Camera.cs` — sets `CameraStatus.Decommissioned`, raises T001's event, returns without raising when already retired
+- [x] T004 [P] [US1] Domain tests in `tests/CameraCatalog.Domain.Tests/Camera/CameraRetirementTests.cs` — transitions to Decommissioned; raises exactly one event; **a second Retire raises none**; no behaviour leaves the terminal state
+- [x] T005 [P] [US1] `RetireCameraCommand` + `RetireCameraErrors` in `src/CameraCatalog/Application/Commands/` — `CameraNotFound` only; another fab's camera resolves to the same error (FR-004)
+- [x] T006 [US1] `RetireCameraCommandHandler` in `src/CameraCatalog/Application/Commands/Handlers/RetireCameraCommandHandler.cs` — loads within the caller's fab, calls `Retire`, saves
+- [x] T007 [P] [US1] Handler tests in `tests/CameraCatalog.Application.Tests/Commands/RetireCameraCommandHandlerTests.cs` — happy path; unknown camera → `CameraNotFound`; **another fab's camera → `CameraNotFound`, not a distinct error**; retiring twice publishes one event
+- [x] T008 [US1] Repository read-within-fab in `src/CameraCatalog/Infrastructure/Persistence/CameraRepository.cs` — find by identifier scoped to fab, so cross-fab is indistinguishable from missing
+- [x] T009 [US1] `CameraRetiredDomainEventHandler` in `src/CameraCatalog/Application/EventHandlers/CameraRetiredDomainEventHandler.cs` — publishes `CameraRetiredV1`. Message-driven, so it inherits its cause; **no `IJourneyOrigin` here** (spec 027 survey)
+- [x] T010 [US1] `POST /cameras/{camera}/retire` in `src/CameraCatalog/Api/CameraEndpoints.cs` — 204, `sse.cameras.write`, spec 015 fab resolution, per contracts/cameras-api.md
+- [x] T011 [US1] Integration in `tests/Integration.Tests/CameraCatalog/RetireCameraIntegrationTests.cs` — retire via API returns 204; retiring again returns 204; **`audit_events` holds exactly one retirement**
+- [x] T012 [US1] Integration in the same file — another fab's camera returns **404**, byte-identical to an unregistered identifier
 
 **Checkpoint**: US1 is shippable here.
 
