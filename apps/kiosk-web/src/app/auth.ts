@@ -13,19 +13,28 @@ if (import.meta.env.PROD && (import.meta.env.VITE_KEYCLOAK_URL ?? '') === '') {
 }
 
 /**
- * OIDC config for kiosk-web. Same Keycloak realm as management-web,
- * separate public client (``smart-sentinel-eye-kiosk``) added to the
- * realm-export JSON in PR A. Per Phase-1 Q&A, kiosk-web reuses the
- * admin sign-in flow; unattended-kiosk credentials are deferred.
+ * OIDC config for kiosk-web. Same Keycloak realm as management-web, its own
+ * public client — ``kiosk-web``, whose default client scopes are exactly
+ * ``KeycloakScopeBundles.Kiosk``, the set Identity grants every kiosk device it
+ * enrols. A browser kiosk is not a second notion of what a kiosk may do.
+ *
+ * Spec 041: this used to sign in as a retired client that carried no
+ * ``sse-groups`` scope and therefore no fab claim, so every fab-scoped read was
+ * refused and the kiosk could never list a wall. That client also carried
+ * ``sse.management`` — write-everything authority on a screen bolted to a
+ * factory wall, using none of it.
  */
 export const oidcConfig: AuthProviderProps = {
   authority: `${KEYCLOAK_BASE_URL}/realms/smart-sentinel-eye`,
-  client_id: 'smart-sentinel-eye-kiosk',
+  client_id: 'kiosk-web',
   redirect_uri:
     typeof window !== 'undefined' ? `${window.location.origin}/oidc/callback` : 'http://localhost:5174/oidc/callback',
-  // The realm does not expose a requestable `profile` scope; `sse.management`
-  // is a default client scope and grandfathers the granular sse.* policies.
-  scope: 'openid sse.management',
+  // `openid` alone: the six sse.* scopes and `sse-groups` are DEFAULT client
+  // scopes, so Keycloak applies them whether or not they are asked for — and
+  // `sse-groups` sets `include.in.token.scope: false`, so it could not be
+  // requested anyway. Naming any scope this client does not hold fails the
+  // whole sign-in with `invalid_scope`, no token at all.
+  scope: 'openid',
   // Spec 011 FR-013: a completed sign-in ends any expiry flow — drop the loop
   // guard and land back on the layout the kiosk was showing (deep-link
   // restoration through the OIDC state round-trip).

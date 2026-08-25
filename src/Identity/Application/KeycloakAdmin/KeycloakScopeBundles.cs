@@ -9,9 +9,16 @@ namespace SmartSentinelEye.Identity.Application.KeycloakAdmin;
 /// <para>
 /// The scope strings are hard-coded here rather than pulled
 /// from <c>ServiceDefaults.Authorization.Scope</c> so that
-/// Application stays ASP.NET-free per ADR-0051. The
-/// <c>ScopeBundleTests</c> assertion (spec 008 PR F) verifies
-/// these strings match the catalogue.
+/// Application stays ASP.NET-free per ADR-0051.
+/// </para>
+///
+/// <para>
+/// <c>KioskScopeParityTests</c> (spec 041) asserts <see cref="Kiosk"/>
+/// against the realm's <c>kiosk-web</c> client as a set, in both
+/// directions — there is one notion of what a kiosk may do, and the
+/// browser kiosk is not a second one. Until then nothing checked, and
+/// this comment claimed a <c>ScopeBundleTests</c> that had never been
+/// written.
 /// </para>
 /// </summary>
 public static class KeycloakScopeBundles

@@ -28,11 +28,21 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       testIgnore: /kiosk-.*\.spec\.ts/,
     },
+    // Spec 041 — the kiosk cannot show a wall until a layout is published, and
+    // an e2e stack seeds none. Its own project so the kiosk specs do not depend
+    // on another spec having happened to publish one first. `.setup.ts` is
+    // outside Playwright's default testMatch, so no other project picks it up.
+    {
+      name: 'seed',
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173' },
+      testMatch: /.*\.setup\.ts/,
+    },
     // Kiosk app (:5174) — spec 011: kiosk-* specs only.
     {
       name: 'kiosk',
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5174' },
       testMatch: /kiosk-.*\.spec\.ts/,
+      dependencies: ['seed'],
     },
   ],
 });

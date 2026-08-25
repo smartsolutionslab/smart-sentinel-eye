@@ -66,11 +66,11 @@ it yet.
 proved by the suite, only by Phase 5. That is why they are first: doing them last
 would mean discovering in Phase 5 that the switch shipped broken.
 
-- [ ] T001 [US1] Add an `oidc-sub-mapper` protocol mapper to the `kiosk-web` client in `src/AppHost/Realms/smart-sentinel-eye-realm.json` — **blocker A**. The realm supplies its own `clientScopes` array, which *replaces* Keycloak's built-ins rather than adding to them (research R2), so `basic` does not exist and `kiosk-web` holds no scope that emits `sub`. Mirror the mapper already on the `sse.management` client scope (`name: "sub-claim"`, `protocol: "openid-connect"`, `protocolMapper: "oidc-sub-mapper"`). **`sub` is an identity claim, not a permission** — this widens nothing the kiosk may do, so US2 is untouched. Do **not** put it on the shared `sse-groups` scope: that is held by `management-web`, `scenario-simulator` and `stream-distribution-attribution` too.
-- [ ] T002 [US1] Change `RequiredScope` in `src/StreamDistribution/Application/Commands/Handlers/AuthorizeWhepCommandHandler.cs` from `"sse.management"` to `Scope.Sse.Streams.Read`'s value, and accept `sse.management` through `RequireScopeExtensions.LegacyManagementBundle` — **blocker B**. This is the only gate in the product that does not follow the granular-or-grandfathered rule, and as written **no kiosk persona can pass it**, browser or enrolled device. Application must stay ASP.NET-free (ADR-0051), so if referencing `ServiceDefaults` from here is not already possible, keep the two strings local with a comment naming `RequireScopeExtensions` as the rule being mirrored — **do not invent a different rule**. This narrows what is *demanded*; it widens nothing the kiosk *holds*.
-- [ ] T003 [US1] Correct the failure message in `src/StreamDistribution/Application/Commands/AuthorizeWhepErrors.cs` — it says *"Bearer token does not grant the sse.management scope."* and becomes wrong the moment T002 lands. Name the scope actually required.
-- [ ] T004 [US1] Extend `tests/StreamDistribution.Application.Tests/Commands/AuthorizeWhepCommandHandlerTests.cs` with four cases: a **kiosk-persona** token (exactly `KeycloakScopeBundles.Kiosk`, no `sse.management`) is **admitted**; a **management** token (`sse.management`, no `sse.streams.read`) is **still admitted** — this is management-web's actual token shape and what a naively-narrowed gate would break; a token with **neither** is refused; a token the validator could not attribute (`Option.None`) is **still** refused. The existing `Authorize_with_a_token_missing_sse_management_returns_Forbidden` has its premise replaced — rename it rather than leaving a test whose name asserts the old rule.
-- [ ] T005 [US1] Prove T001 by **minting a token, not by reading the JSON**: import `src/AppHost/Realms/smart-sentinel-eye-realm.json` into a throwaway `quay.io/keycloak/keycloak:26.5` container, mint a token for `kiosk-web` and confirm the **access token** (not just the ID token) now carries `sub` alongside `groups`. Record the payload. This is the same measurement that found the blocker; believing the edit worked is what put it there.
+- [X] T001 [US1] Add an `oidc-sub-mapper` protocol mapper to the `kiosk-web` client in `src/AppHost/Realms/smart-sentinel-eye-realm.json` — **blocker A**. The realm supplies its own `clientScopes` array, which *replaces* Keycloak's built-ins rather than adding to them (research R2), so `basic` does not exist and `kiosk-web` holds no scope that emits `sub`. Mirror the mapper already on the `sse.management` client scope (`name: "sub-claim"`, `protocol: "openid-connect"`, `protocolMapper: "oidc-sub-mapper"`). **`sub` is an identity claim, not a permission** — this widens nothing the kiosk may do, so US2 is untouched. Do **not** put it on the shared `sse-groups` scope: that is held by `management-web`, `scenario-simulator` and `stream-distribution-attribution` too.
+- [X] T002 [US1] Change `RequiredScope` in `src/StreamDistribution/Application/Commands/Handlers/AuthorizeWhepCommandHandler.cs` from `"sse.management"` to `Scope.Sse.Streams.Read`'s value, and accept `sse.management` through `RequireScopeExtensions.LegacyManagementBundle` — **blocker B**. This is the only gate in the product that does not follow the granular-or-grandfathered rule, and as written **no kiosk persona can pass it**, browser or enrolled device. Application must stay ASP.NET-free (ADR-0051), so if referencing `ServiceDefaults` from here is not already possible, keep the two strings local with a comment naming `RequireScopeExtensions` as the rule being mirrored — **do not invent a different rule**. This narrows what is *demanded*; it widens nothing the kiosk *holds*.
+- [X] T003 [US1] Correct the failure message in `src/StreamDistribution/Application/Commands/AuthorizeWhepErrors.cs` — it says *"Bearer token does not grant the sse.management scope."* and becomes wrong the moment T002 lands. Name the scope actually required.
+- [X] T004 [US1] Extend `tests/StreamDistribution.Application.Tests/Commands/AuthorizeWhepCommandHandlerTests.cs` with four cases: a **kiosk-persona** token (exactly `KeycloakScopeBundles.Kiosk`, no `sse.management`) is **admitted**; a **management** token (`sse.management`, no `sse.streams.read`) is **still admitted** — this is management-web's actual token shape and what a naively-narrowed gate would break; a token with **neither** is refused; a token the validator could not attribute (`Option.None`) is **still** refused. The existing `Authorize_with_a_token_missing_sse_management_returns_Forbidden` has its premise replaced — rename it rather than leaving a test whose name asserts the old rule.
+- [X] T005 [US1] Prove T001 by **minting a token, not by reading the JSON**: import `src/AppHost/Realms/smart-sentinel-eye-realm.json` into a throwaway `quay.io/keycloak/keycloak:26.5` container, mint a token for `kiosk-web` and confirm the **access token** (not just the ID token) now carries `sub` alongside `groups`. Record the payload. This is the same measurement that found the blocker; believing the edit worked is what put it there.
 
 **Checkpoint**: the intended identity can do a kiosk's job. Nothing uses it.
 
@@ -81,11 +81,11 @@ would mean discovering in Phase 5 that the switch shipped broken.
 **Goal**: The app signs in as the client built for it, and the one it used is
 gone.
 
-- [ ] T006 [US1] In `apps/kiosk-web/src/app/auth.ts`, set `client_id: 'kiosk-web'` **and** `scope: 'openid'` — **in this one task, never separately**. Keycloak validates requested scopes against the client's default+optional sets, so asking `kiosk-web` for `sse.management` returns `invalid_scope` and **no token at all** (research R1): a half-switch fails sign-in outright, which is worse than today's failure. Rewrite the doc comment — it currently names the legacy client and *explains* the `sse.management` choice, so both sentences become false. Leave `redirect_uri`, `onSigninCallback` and the production-guard throw exactly as they are.
-- [ ] T007 [US4] Delete the `smart-sentinel-eye-kiosk` client object from `src/AppHost/Realms/smart-sentinel-eye-realm.json`. Nothing else in the realm refers to it — no group, no client scope, no service-account role (research R10) — so removing the object is the whole change. **Same file as T001, so not parallel with it.** Spec 009 called it *replaced*; this makes that a fact rather than an annotation.
-- [ ] T008 [P] [US4] Correct `.claude/agents/frontend-engineer.md`, which tells a frontend agent the kiosk client is `smart-sentinel-eye-kiosk` with `scope openid sse.management`. A document that hands the next reader the wrong client is how this defect reproduces itself.
-- [ ] T009 [P] [US4] Correct the doc comment in `apps/kiosk-web/src/features/revocation/useLayoutLifecycle.ts` that says *"The hub requires `sse.management` scope"*. `LayoutLifecycleHub` is `[Authorize(Policy = Scope.Sse.Layouts.Read)]`. While there, record what research R6 found: the hub joins one SignalR group **per fab in the `groups` claim**, so a kiosk holding no fab joined none and **has never received a resolved-text or highlight push**.
-- [ ] T010 [P] [US4] Sweep the repository for `smart-sentinel-eye-kiosk` and confirm **zero** references outside historical records (**SC-005**). `specs/003-layout-composition/` and `specs/011-frontend-247-resilience/` are historical and stay untouched — FR-008 says *outside historical records*. Record the surviving list in the PR so "zero" is a count someone checked, not a claim.
+- [X] T006 [US1] In `apps/kiosk-web/src/app/auth.ts`, set `client_id: 'kiosk-web'` **and** `scope: 'openid'` — **in this one task, never separately**. Keycloak validates requested scopes against the client's default+optional sets, so asking `kiosk-web` for `sse.management` returns `invalid_scope` and **no token at all** (research R1): a half-switch fails sign-in outright, which is worse than today's failure. Rewrite the doc comment — it currently names the legacy client and *explains* the `sse.management` choice, so both sentences become false. Leave `redirect_uri`, `onSigninCallback` and the production-guard throw exactly as they are.
+- [X] T007 [US4] Delete the `smart-sentinel-eye-kiosk` client object from `src/AppHost/Realms/smart-sentinel-eye-realm.json`. Nothing else in the realm refers to it — no group, no client scope, no service-account role (research R10) — so removing the object is the whole change. **Same file as T001, so not parallel with it.** Spec 009 called it *replaced*; this makes that a fact rather than an annotation.
+- [X] T008 [P] [US4] Correct `.claude/agents/frontend-engineer.md`, which tells a frontend agent the kiosk client is `smart-sentinel-eye-kiosk` with `scope openid sse.management`. A document that hands the next reader the wrong client is how this defect reproduces itself.
+- [X] T009 [P] [US4] Correct the doc comment in `apps/kiosk-web/src/features/revocation/useLayoutLifecycle.ts` that says *"The hub requires `sse.management` scope"*. `LayoutLifecycleHub` is `[Authorize(Policy = Scope.Sse.Layouts.Read)]`. While there, record what research R6 found: the hub joins one SignalR group **per fab in the `groups` claim**, so a kiosk holding no fab joined none and **has never received a resolved-text or highlight push**.
+- [X] T010 [P] [US4] Sweep the repository for `smart-sentinel-eye-kiosk` and confirm **zero** references outside historical records (**SC-005**). `specs/003-layout-composition/` and `specs/011-frontend-247-resilience/` are historical and stay untouched — FR-008 says *outside historical records*. Record the surviving list in the PR so "zero" is a count someone checked, not a claim.
 
 **Checkpoint**: US1 and US4 are behaviourally complete. Nothing yet proves it.
 
@@ -100,13 +100,13 @@ This defect survived since the kiosk existed because
 three passing outcomes. Fixing the kiosk and leaving that assertion would fix
 the instance and keep the mechanism — and the mechanism produces the next one.
 
-- [ ] T011 [US3] Create `e2e/support/seed-published-layout.setup.ts` — a Playwright **setup** file that drives management-web at `http://localhost:5173` with the existing `signInAsOperator` from `e2e/support/sign-in.ts`, registers a camera and authors + publishes a **1×1** layout. CI boots with an empty catalogue (`camera-sim` and `scenario-simulator` are excluded from e2e mode), and the kiosk cannot reach a wall without a published one. Mirror the steps `e2e/layouts.spec.ts` already uses. **Check whether a tile requires an overlay** before assuming it does not; if it does, publish one too. Do **not** rely on `layouts.spec.ts` having run — depending on another spec's side effect is the implicit coupling that produces the next silent pass.
-- [ ] T012 [US3] Add a `seed` project to `playwright.config.ts` with `testMatch: /.*\.setup\.ts/` and `baseURL: 'http://localhost:5173'`, and give the existing `kiosk` project `dependencies: ['seed']`. Playwright's default `testMatch` only picks up `*.spec.ts` / `*.test.ts`, so a `.setup.ts` file is invisible to the `chromium` and `kiosk` projects — **no `testIgnore` churn**. Leave `chromium`'s `testIgnore: /kiosk-.*\.spec\.ts/` alone.
-- [ ] T013 [US3] Create `e2e/support/kiosk-session.ts` holding two helpers: `signInToKiosk(page)`, which drives the Keycloak form as the seeded `operator` and asserts **the picker with at least one layout on it** — never the three-way regex; and `readKioskAccessToken(page)`, which reads the app's own `sessionStorage` entry (`oidc.user:<authority>:kiosk-web`) and returns the decoded access-token payload. Assert **the wall the kiosk can reach**, not the absence of an error: an empty picker raises no error either, and an empty picker is exactly what a fab-less token produces.
-- [ ] T014 [US3] Rewrite `e2e/kiosk-live-updates.spec.ts` to import `signInToKiosk` from `e2e/support/kiosk-session.ts`, deleting the local copy whose regex accepts `could not load layouts` as a pass (**FR-007**). The degraded-badge assertions are unchanged — this test's subject is the retry ladder, and FR-011 says the kiosk's behaviour does not change.
-- [ ] T015 [US1] Create `e2e/kiosk-shows-a-wall.spec.ts` — named `kiosk-*` so the `kiosk` project's `testMatch` picks it up. Sign in, open the seeded layout, assert `data-testid="layout-grid"` is visible and **at least one** `data-testid="layout-tile"` renders (**SC-001**). Tiles render whether or not video arrives, so state in the file that this proves the kiosk **reaches** a wall and proves **nothing** about a picture — that is Phase 5's job.
-- [ ] T016 [US2] Create `e2e/kiosk-identity.spec.ts` asserting the token itself via `readKioskAccessToken`: `groups` contains `/fabs/munich` (**FR-001**, US1 sc.3); `scope` does **not** contain `sse.management` (**FR-003**, **SC-002**); and the `sse.*` entries in `scope` **equal**, as a set, the six in `KeycloakScopeBundles.Kiosk` (**FR-004**, **SC-003**). **The absence is the point.** A check that only confirms the kiosk works passes just as happily with the blunt scope restored — that is exactly how the weakness comes back, and behaviour cannot see it.
-- [ ] T017 [US1] Run the kiosk and shared vitest suites and confirm **the existing test files are unmodified** — `git diff` over `apps/kiosk-web/**/*.test.*` and `apps/shared/**/*.test.*` shows nothing (**FR-011**, **SC-007**). Spec 040 did the same. A behavioural claim backed by edited tests is not a claim.
+- [X] T011 [US3] Create `e2e/support/seed-published-layout.setup.ts` — a Playwright **setup** file that drives management-web at `http://localhost:5173` with the existing `signInAsOperator` from `e2e/support/sign-in.ts`, registers a camera and authors + publishes a **1×1** layout. CI boots with an empty catalogue (`camera-sim` and `scenario-simulator` are excluded from e2e mode), and the kiosk cannot reach a wall without a published one. Mirror the steps `e2e/layouts.spec.ts` already uses. **Check whether a tile requires an overlay** before assuming it does not; if it does, publish one too. Do **not** rely on `layouts.spec.ts` having run — depending on another spec's side effect is the implicit coupling that produces the next silent pass.
+- [X] T012 [US3] Add a `seed` project to `playwright.config.ts` with `testMatch: /.*\.setup\.ts/` and `baseURL: 'http://localhost:5173'`, and give the existing `kiosk` project `dependencies: ['seed']`. Playwright's default `testMatch` only picks up `*.spec.ts` / `*.test.ts`, so a `.setup.ts` file is invisible to the `chromium` and `kiosk` projects — **no `testIgnore` churn**. Leave `chromium`'s `testIgnore: /kiosk-.*\.spec\.ts/` alone.
+- [X] T013 [US3] Create `e2e/support/kiosk-session.ts` holding two helpers: `signInToKiosk(page)`, which drives the Keycloak form as the seeded `operator` and asserts **the picker with at least one layout on it** — never the three-way regex; and `readKioskAccessToken(page)`, which reads the app's own `sessionStorage` entry (`oidc.user:<authority>:kiosk-web`) and returns the decoded access-token payload. Assert **the wall the kiosk can reach**, not the absence of an error: an empty picker raises no error either, and an empty picker is exactly what a fab-less token produces.
+- [X] T014 [US3] Rewrite `e2e/kiosk-live-updates.spec.ts` to import `signInToKiosk` from `e2e/support/kiosk-session.ts`, deleting the local copy whose regex accepts `could not load layouts` as a pass (**FR-007**). The degraded-badge assertions are unchanged — this test's subject is the retry ladder, and FR-011 says the kiosk's behaviour does not change.
+- [X] T015 [US1] Create `e2e/kiosk-shows-a-wall.spec.ts` — named `kiosk-*` so the `kiosk` project's `testMatch` picks it up. Sign in, open the seeded layout, assert `data-testid="layout-grid"` is visible and **at least one** `data-testid="layout-tile"` renders (**SC-001**). Tiles render whether or not video arrives, so state in the file that this proves the kiosk **reaches** a wall and proves **nothing** about a picture — that is Phase 5's job.
+- [X] T016 [US2] Create `e2e/kiosk-identity.spec.ts` asserting the token itself via `readKioskAccessToken`: `groups` contains `/fabs/munich` (**FR-001**, US1 sc.3); `scope` does **not** contain `sse.management` (**FR-003**, **SC-002**); and the `sse.*` entries in `scope` **equal**, as a set, the six in `KeycloakScopeBundles.Kiosk` (**FR-004**, **SC-003**). **The absence is the point.** A check that only confirms the kiosk works passes just as happily with the blunt scope restored — that is exactly how the weakness comes back, and behaviour cannot see it.
+- [X] T017 [US1] Run the kiosk and shared vitest suites and confirm **the existing test files are unmodified** — `git diff` over `apps/kiosk-web/**/*.test.*` and `apps/shared/**/*.test.*` shows nothing (**FR-011**, **SC-007**). Spec 040 did the same. A behavioural claim backed by edited tests is not a claim.
 
 **Checkpoint**: US3 is complete except for proving the check can fail (T026).
 
@@ -117,9 +117,9 @@ the instance and keep the mechanism — and the mechanism produces the next one.
 **Goal**: The realm's kiosk client and the enrolled-device bundle agree by
 construction rather than by two people having written the same list.
 
-- [ ] T018 [US2] Create `tests/Architecture.Tests/KioskScopeParityTests.cs` comparing the `sse.*` entries of the realm's `kiosk-web` `defaultClientScopes` against `KeycloakScopeBundles.Kiosk` as **sets, in both directions** (**FR-009**, **SC-003**). Read both **live**: `Architecture.Tests` already project-references `Identity.Application`, and `LatencyLegRecordTests.ReadConstitution` shows the repo-root walk (upward until `SmartSentinelEye.slnx`). `System.Text.Json` is in the BCL — no new package. Exclude `sse-groups`, which is a claim carrier and not a permission, and say so in the test. A spot check would not notice a scope added to one side, which is the whole failure mode.
-- [ ] T019 [P] [US2] Correct the doc comment in `src/Identity/Application/KeycloakAdmin/KeycloakScopeBundles.cs`, which states *"The `ScopeBundleTests` assertion (spec 008 PR F) verifies these strings match the catalogue."* **There is no such file anywhere in the repository** — a doc comment asserting a guard nobody wrote, found the same way as spec 040's, by looking instead of believing. Name `KioskScopeParityTests` and say what it actually checks.
-- [ ] T020 [US2] Prove T018 can fail: add a scope to the realm's `kiosk-web`, watch it go red; revert; add one to `KeycloakScopeBundles.Kiosk`, watch it go red; revert. **Both directions**, because a one-directional assertion is half a guard. Record the two failing outputs.
+- [X] T018 [US2] Create `tests/Architecture.Tests/KioskScopeParityTests.cs` comparing the `sse.*` entries of the realm's `kiosk-web` `defaultClientScopes` against `KeycloakScopeBundles.Kiosk` as **sets, in both directions** (**FR-009**, **SC-003**). Read both **live**: `Architecture.Tests` already project-references `Identity.Application`, and `LatencyLegRecordTests.ReadConstitution` shows the repo-root walk (upward until `SmartSentinelEye.slnx`). `System.Text.Json` is in the BCL — no new package. Exclude `sse-groups`, which is a claim carrier and not a permission, and say so in the test. A spot check would not notice a scope added to one side, which is the whole failure mode.
+- [X] T019 [P] [US2] Correct the doc comment in `src/Identity/Application/KeycloakAdmin/KeycloakScopeBundles.cs`, which states *"The `ScopeBundleTests` assertion (spec 008 PR F) verifies these strings match the catalogue."* **There is no such file anywhere in the repository** — a doc comment asserting a guard nobody wrote, found the same way as spec 040's, by looking instead of believing. Name `KioskScopeParityTests` and say what it actually checks.
+- [X] T020 [US2] Prove T018 can fail: add a scope to the realm's `kiosk-web`, watch it go red; revert; add one to `KeycloakScopeBundles.Kiosk`, watch it go red; revert. **Both directions**, because a one-directional assertion is half a guard. Record the two failing outputs.
 
 **Checkpoint**: US2 is complete and guarded.
 
@@ -140,6 +140,94 @@ will be green whether or not video works. Follow [quickstart.md](./quickstart.md
 - [ ] T026 [US3] **Prove the check can fail (SC-004) by causing it.** Point `apps/kiosk-web/src/app/auth.ts` back at `smart-sentinel-eye-kiosk` with `scope: 'openid sse.management'`, restore that client in the realm, recreate Keycloak, and run `pnpm test:e2e --project=kiosk`. It must go **red**, and the failing output goes in the verification note. If it stays green, the assertion still cannot tell working from broken and **nothing has been fixed**. Revert both edits and re-run to green.
 - [ ] T027 File a follow-up issue for **blocker B**, because it is bigger than this feature: `KeycloakScopeBundles.Kiosk` carries no `sse.management`, so **no enrolled physical kiosk device has ever been able to watch video**, and constitution §VIII says kiosks hold view-only scopes. Reference it in the PR **without a `#`**. Raise, do not absorb.
 - [ ] T028 Write the verification note on the PR stating **which claims rest on Phase 5 and which do not**, and naming any step above that was not performed. The automated suite proves the kiosk reaches a wall and proves nothing about a picture; a PR that implies otherwise repeats the error this feature exists to correct.
+
+---
+
+## Corrections to this task list
+
+Recorded here rather than made quietly, because this feature exists to stop a
+document saying something the code does not support.
+
+**T010 had to go one step further than it was written.** The sweep found the
+retired client's name surviving in live code — in the *replacement* doc comment
+written for T006, which explained the defect by naming the client it removed.
+FR-008 says nothing outside historical records may refer to it, and a source
+comment is not a historical record. Reworded to "a retired client"; the name now
+survives only in this feature's own documents and in specs 003, 011 and 040,
+which are the record.
+
+**T018 grew from two assertions to six**, and three of the extra ones cover
+things [plan.md](./plan.md)'s own "What must fail" table listed as *uncovered*:
+
+- `The_kiosk_client_carries_a_subject_mapper` — **the only automated protection
+  for blocker A.** The plan said flatly that removing the mapper stops video and
+  "nothing automated catches it". Something does now. It is worth more than the
+  parity pair: CI produces no video, so without this the mapper could be deleted
+  and every check would stay green while every tile went dark.
+- `The_retired_kiosk_client_stays_retired` — SC-005, which was otherwise only a
+  manual grep (T010) performed once.
+- `The_kiosk_client_carries_the_fab_claim` — the defect itself, structurally.
+  Without `sse-groups` the whole feature silently undoes.
+
+**T002 kept its two scope strings local, as the task allowed.**
+`StreamDistribution.Application` does not reference `ServiceDefaults`, and adding
+one to reach a constant would put ASP.NET on the Application layer (ADR-0051).
+The comment names `RequireScopeExtensions` as the rule being mirrored, so the
+next reader can see it is a copy rather than a second opinion.
+
+**One file was touched that no task named**:
+`src/StreamDistribution/Application/Auth/WhepAuthSubject.cs`, whose doc comment
+said `Scopes` exists *"so callers can check for `sse.management`"*. T002 made
+that false. Leaving a stale comment beside the code that just stopped doing what
+it describes would have created exactly the kind of document this feature spent
+Phase 0 finding.
+
+**A trap for anyone repeating T020.** Restoring the probe edit with `Copy-Item`
+from a backup preserves the *original* file's timestamp, so MSBuild judged the
+assembly up to date and `dotnet test` silently re-ran the previous build — the
+parity test still failed after the revert, for a reason that had nothing to do
+with the revert. Touch the file before re-running.
+
+---
+
+## Phase 5 status: **not started**
+
+Stated plainly rather than left implied.
+
+**Everything an automated check can prove is proved.** Release build clean with
+analyzers; `Architecture.Tests` **48** (6 new), `StreamDistribution.Application.Tests`
+**49** (2 new), `Identity.Application.Tests` **44**; frontend typecheck and lint
+clean, **39 test files / 314 tests** passing with **every existing test file
+unmodified** (T017). Both parity directions were proved by breaking them (T020).
+
+**The realm change was measured, not assumed** (T005). A throwaway Keycloak 26.5
+imported the edited realm and minted a `kiosk-web` token for the seeded
+`operator`. Its **access** token payload:
+
+```json
+{ "azp": "kiosk-web", "sub": "346a0e35-4841-4c4c-9a57-2a190821da03",
+  "scope": "openid sse.streams.read sse.overlays.read sse.layouts.read sse.events.write sse.variables.read sse.cameras.read",
+  "groups": ["/fabs/munich"] }
+```
+
+`sub` present, the fab present, the six scopes and no `sse.management`. The same
+container answered `Client not found` for the retired client.
+
+**What is NOT verified — T021 through T028:**
+
+- **No tile has been watched.** Neither blocker has been observed fixed at the
+  only place either is visible. The realm mints the right claims and the gate
+  admits the right scopes; whether a picture appears on a kiosk is unread.
+- **The five new e2e specs have never run.** They need a live `aspire run` stack;
+  only `playwright test --list` was executed, which proves they parse and that
+  the `seed` project and the `kiosk` dependency resolve — nothing about whether
+  they pass, and nothing about whether they can fail.
+- **SC-004 is undemonstrated.** The reshaped assertion has not been made to go
+  red, so the claim that it can tell a working kiosk from a broken one is
+  currently reasoning, not evidence — which is the exact standard this feature
+  was written to reject.
+- Management-web's video has not been re-observed after the gate change (T024).
+- The follow-up issue for blocker B is not yet filed (T027).
 
 ---
 
