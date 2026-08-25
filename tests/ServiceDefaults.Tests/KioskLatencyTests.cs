@@ -1,4 +1,5 @@
 using System.Diagnostics.Metrics;
+using System.Globalization;
 using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.ServiceDefaults.Tests;
@@ -25,7 +26,7 @@ public class KioskLatencyTests
     [Fact]
     public void A_real_overlay_draw_is_recorded()
     {
-        List<Measurement> recorded = Listen();
+        List<Measurement> recorded = Listen("kiosk-overlay-draw");
 
         LatencyBudget.Record(LatencySegment.KioskOverlayDraw, TimeSpan.FromMilliseconds(18));
 
@@ -40,7 +41,7 @@ public class KioskLatencyTests
     [Fact]
     public void A_suspended_page_sized_duration_is_not_recorded()
     {
-        List<Measurement> recorded = Listen();
+        List<Measurement> recorded = Listen("kiosk-overlay-draw");
 
         LatencyBudget.Record(LatencySegment.KioskOverlayDraw, TimeSpan.FromMinutes(5));
 
@@ -55,7 +56,7 @@ public class KioskLatencyTests
     [Fact]
     public void A_negative_duration_records_nothing_rather_than_zero()
     {
-        List<Measurement> recorded = Listen();
+        List<Measurement> recorded = Listen("kiosk-receive-to-decoded");
 
         LatencyBudget.Record(LatencySegment.KioskReceiveToDecoded, TimeSpan.FromMilliseconds(-4));
 
@@ -70,7 +71,7 @@ public class KioskLatencyTests
     [Fact]
     public void The_two_kiosk_legs_are_separable()
     {
-        List<Measurement> recorded = Listen();
+        List<Measurement> recorded = Listen("kiosk-overlay-draw", "kiosk-receive-to-decoded");
 
         LatencyBudget.Record(LatencySegment.KioskOverlayDraw, TimeSpan.FromMilliseconds(20));
         LatencyBudget.Record(LatencySegment.KioskReceiveToDecoded, TimeSpan.FromMilliseconds(40));
@@ -104,7 +105,7 @@ public class KioskLatencyTests
     [Fact]
     public void The_decode_measurement_does_not_claim_its_leg()
     {
-        List<Measurement> recorded = Listen();
+        List<Measurement> recorded = Listen("kiosk-receive-to-decoded");
 
         LatencyBudget.Record(LatencySegment.KioskReceiveToDecoded, TimeSpan.FromMilliseconds(9));
 
@@ -126,7 +127,7 @@ public class KioskLatencyTests
     [Fact]
     public void The_overlay_measurement_does_claim_its_leg()
     {
-        List<Measurement> recorded = Listen();
+        List<Measurement> recorded = Listen("kiosk-overlay-draw");
 
         LatencyBudget.Record(LatencySegment.KioskOverlayDraw, TimeSpan.FromMilliseconds(12));
 
@@ -142,9 +143,10 @@ public class KioskLatencyTests
     /// the leg, its budget and the whole-leg flag are the point here, not just
     /// the number.
     /// </summary>
-    private static List<Measurement> Listen()
+    private static List<Measurement> Listen(params string[] segments)
     {
         List<Measurement> values = [];
+        HashSet<string> wanted = new(segments, StringComparer.Ordinal);
         MeterListener listener = new()
         {
             InstrumentPublished = (instrument, active) =>
@@ -168,12 +170,19 @@ public class KioskLatencyTests
                 {
                     case "segment": segment = tag.Value?.ToString() ?? string.Empty; break;
                     case "leg": leg = tag.Value?.ToString() ?? string.Empty; break;
-                    case "leg.budget_ms": budget = Convert.ToDouble(tag.Value); break;
-                    case "segment.is_whole_leg": whole = Convert.ToBoolean(tag.Value); break;
+                    case "leg.budget_ms": budget = Convert.ToDouble(tag.Value, CultureInfo.InvariantCulture); break;
+                    case "segment.is_whole_leg": whole = Convert.ToBoolean(tag.Value, CultureInfo.InvariantCulture); break;
                     default: break;
                 }
             }
-            values.Add(new Measurement(measurement, segment, leg, budget, whole));
+            // Only this test's own segments. The meter is process-wide and xUnit
+            // runs classes in parallel, so an unfiltered listener also collects
+            // whatever EventToOverlayLatencyTests is emitting next door -- which
+            // made three assertions here fail intermittently before this filter.
+            if (wanted.Contains(segment))
+            {
+                values.Add(new Measurement(measurement, segment, leg, budget, whole));
+            }
         });
         listener.Start();
 

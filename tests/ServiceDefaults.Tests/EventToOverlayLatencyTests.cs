@@ -58,6 +58,17 @@ public class EventToOverlayLatencyTests
     /// Subscribes to the meter the implementation writes to. Asserting on the
     /// instrument rather than on a mock, because the thing under test is that a
     /// measurement reaches the meter — or does not.
+    ///
+    /// <para>
+    /// <b>Filtered to this leg's own segment</b> (spec 040). The meter is
+    /// process-wide and xUnit runs test classes in parallel, so an unfiltered
+    /// listener also collects whatever another class is emitting at the same
+    /// moment. That was harmless while this was the meter's only caller and
+    /// stopped being so the moment a second leg started recording — these
+    /// assertions then failed roughly one run in six, on measurements that were
+    /// never theirs. Filtering makes each test independent of what else is
+    /// emitting, which is the invariant it always relied on.
+    /// </para>
     /// </summary>
     private static List<double> Listen()
     {
@@ -73,7 +84,18 @@ public class EventToOverlayLatencyTests
             },
         };
 
-        listener.SetMeasurementEventCallback<double>((_, measurement, _, _) => values.Add(measurement));
+        listener.SetMeasurementEventCallback<double>((_, measurement, tags, _) =>
+        {
+            foreach (KeyValuePair<string, object?> tag in tags)
+            {
+                if (tag.Key == "segment"
+                    && string.Equals(tag.Value?.ToString(), LatencySegment.EventToOverlayState.Name, StringComparison.Ordinal))
+                {
+                    values.Add(measurement);
+                    return;
+                }
+            }
+        });
         listener.Start();
 
         return values;
