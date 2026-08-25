@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 <#
 .SYNOPSIS
     Runs unit tests with code coverage and enforces ADR-0065 thresholds.

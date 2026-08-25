@@ -47,7 +47,9 @@ every connected kiosk within 1 s via SignalR.
 
 ## Quickstart — register your first camera
 
-Prerequisites: .NET 10 SDK, Docker Desktop running, Node 20+, pnpm.
+Prerequisites: .NET 10 SDK, Docker Desktop running, Node 20+, pnpm, and
+**PowerShell 7** (`pwsh`) — the scripts under `scripts/` declare it and refuse
+to run under Windows PowerShell 5.1, which ships by default on Windows.
 
 ```pwsh
 # 1. Restore + build
