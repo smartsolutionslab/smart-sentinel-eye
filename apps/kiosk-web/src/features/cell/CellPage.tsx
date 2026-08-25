@@ -3,6 +3,7 @@ import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { overlaysApi, useGetOverlayQuery } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { systemVariablesApi, useGetOverlaySnapshotQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
+import { measureOverlayDraw } from '@smart-sentinel-eye/shared/observability/kioskLatency';
 import clsx from 'clsx';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useDispatch } from 'react-redux';
@@ -248,6 +249,21 @@ function Tile({ tile, getToken, unavailable, highlighted }: TileProps) {
           fontSizePx: publishedOverlay.fontSizePx,
         }
       : undefined;
+
+  // Spec 040: the overlay-draw leg (ADR-0015, ≤ 50 ms — a whole leg). Timed
+  // from the overlay's rendered state changing to the browser having painted
+  // it. Observation only: nothing here alters what is drawn or when.
+  //
+  // Keyed on the text and the highlight because those are what change on a
+  // hub push; re-running on every render would time renders that changed
+  // nothing and flatten the distribution with zeros.
+  const overlayText = renderOverlay?.text;
+  useEffect(() => {
+    if (overlayText === undefined) {
+      return;
+    }
+    measureOverlayDraw(tile.cameraIdentifier, getToken);
+  }, [overlayText, highlighted, tile.cameraIdentifier, getToken]);
 
   return (
     <div

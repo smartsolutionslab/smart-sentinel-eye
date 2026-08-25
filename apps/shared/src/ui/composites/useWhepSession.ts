@@ -18,6 +18,18 @@ export interface WhepSessionResult {
   videoRef: RefObject<HTMLVideoElement | null>;
   status: CameraViewerStatus;
   errorMessage: string | null;
+  /**
+   * The session's receiver statistics, or null when there is no connection
+   * (spec 040).
+   *
+   * <p>
+   * One leg of the latency budget can be observed nowhere else — `inbound-rtp`
+   * is where the kiosk's decode timing lives. <b>Read-only:</b> it hands back a
+   * report from a connection this hook already owns, and nothing about the
+   * session, its retries or its teardown changes (FR-011).
+   * </p>
+   */
+  stats: () => Promise<RTCStatsReport> | null;
 }
 
 const RETRY_BASE_MS = 1_000;
@@ -40,6 +52,9 @@ function jitteredRetryDelay(attempt: number): number {
 export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
   const { cameraIdentifier, whepUrl, streamState, streamError, getToken } = options;
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Spec 040: the live client, so a caller can read receiver statistics.
+  // Read-only access to an object this hook already owns.
+  const clientRef = useRef<WhepClient | null>(null);
   const [status, setStatus] = useState<CameraViewerStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
@@ -117,11 +132,15 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
       }
     };
 
+    // Spec 040: held so the caller can read receiver statistics. Read-only —
+    // nothing about the session lifecycle changes (FR-011).
+    clientRef.current = null;
     const client = new WhepClient({
       whepUrl,
       getToken: () => getTokenRef.current(),
       onConnectionStateChange,
     });
+    clientRef.current = client;
     transitionTo('connecting');
     client.connect(videoEl, controller.signal).catch((cause: unknown) => {
       if (disposed || controller.signal.aborted) return;
@@ -134,6 +153,7 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
       if (graceTimer !== null) clearTimeout(graceTimer);
       controller.abort();
       client.close();
+      clientRef.current = null;
     };
   }, [whepUrl, offlineMessage, retryNonce, transitionTo]);
 
@@ -151,5 +171,5 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
     }
   }, [streamState, streamError, transitionTo]);
 
-  return { videoRef, status, errorMessage };
+  return { videoRef, status, errorMessage, stats: () => clientRef.current?.stats() ?? null };
 }
