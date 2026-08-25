@@ -40,6 +40,13 @@ public static class LatencyBudget
     /// </summary>
     public const string MeterName = "SmartSentinelEye.Latency";
 
+    /// <summary>
+    /// Above this, a measurement is describing something other than a journey
+    /// — a suspended tab, a stopped debugger, a clock that moved. Three hundred
+    /// times the largest leg budget, so it can only ever catch the absurd.
+    /// </summary>
+    private static readonly TimeSpan AbsurdlyLong = TimeSpan.FromSeconds(60);
+
     private static readonly Meter Meter = new(MeterName);
 
     private static readonly Histogram<double> Elapsed = Meter.CreateHistogram<double>(
@@ -60,6 +67,17 @@ public static class LatencyBudget
         // that span two machines compare two clocks, fabs step theirs with PTP,
         // and a stepped clock can put the end before the start (FR-010).
         if (elapsed < TimeSpan.Zero)
+        {
+            return;
+        }
+
+        // Absurdly long is not a slow journey either (spec 040). Browsers
+        // throttle backgrounded tabs, so a kiosk whose page was hidden for a
+        // minute reports a figure describing the throttling rather than the
+        // leg. Not a budget check — the slowest leg here is budgeted at 200 ms,
+        // so a ceiling three hundred times that only catches measurements that
+        // cannot be describing a journey at all.
+        if (elapsed > AbsurdlyLong)
         {
             return;
         }
@@ -133,4 +151,49 @@ public sealed record LatencySegment
     /// </summary>
     public static readonly LatencySegment EventToOverlayState =
         new("event-to-overlay-state", "event-to-overlay-state", 200, isWholeLeg: true);
+
+    /// <summary>
+    /// The whole `overlay composite + render` leg (spec 040, ADR-0015 ≤ 50 ms):
+    /// an overlay's state changing through to the browser having painted it.
+    ///
+    /// <para>
+    /// A whole leg, unusually. The kiosk can observe both ends — it sets the
+    /// state and it paints the result — so nothing is missing and the budget
+    /// applies directly.
+    /// </para>
+    /// </summary>
+    public static readonly LatencySegment KioskOverlayDraw =
+        new("kiosk-overlay-draw", "overlay-composite-render", 50, isWholeLeg: true);
+
+    /// <summary>
+    /// A <b>fragment</b> of the `SFU → kiosk decode` leg (spec 040, ADR-0015
+    /// ≤ 120 ms): the first packet of a frame arriving through to that frame
+    /// being decoded.
+    ///
+    /// <para>
+    /// <b>Not the leg, and <see cref="IsWholeLeg"/> says so.</b> The budget
+    /// spans <em>SFU sends → kiosk has decoded</em>, and a browser cannot see
+    /// the sending end without a clock shared with the SFU. Establishing one
+    /// <em>is</em> the presentation-buffer leg, which is not built — so the
+    /// statistic that would close this gap depends on the leg whose absence
+    /// created the gap.
+    /// </para>
+    ///
+    /// <para>
+    /// The available alternatives are worse rather than better.
+    /// <c>jitterBufferDelay</c> measures how long frames wait to be played out
+    /// — that is the presentation buffer, a <em>different</em> leg, and
+    /// recording it here would attribute one leg's time to another.
+    /// <c>totalDecodeTime</c> alone is codec work at single-digit milliseconds
+    /// and would report magnificently against 120 ms while meaning nothing.
+    /// </para>
+    ///
+    /// <para>
+    /// So this records the honest fragment and flags it. Constitution §IV
+    /// records the leg as measured <em>in part</em> rather than rounding up
+    /// (ADR-0122).
+    /// </para>
+    /// </summary>
+    public static readonly LatencySegment KioskReceiveToDecoded =
+        new("kiosk-receive-to-decoded", "sfu-to-kiosk-decode", 120, isWholeLeg: false);
 }
