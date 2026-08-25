@@ -183,6 +183,89 @@ public class LayoutLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifet
         tile.GetProperty("cameraIdentifier").GetGuid().ShouldBe(camera);
     }
 
+    /// <summary>
+    /// Spec 037 T024 (ADR-0121) — recovery over real SQL, end to end.
+    ///
+    /// <para>
+    /// Required rather than optional. The recovered draft is built by cloning
+    /// the archived revision's <b>EF-owned entities</b> — the grid and each tile
+    /// — under a new owner, in the same change-tracker that just loaded them.
+    /// <c>Revision.NewDraft</c>'s own comment explains that this cloning exists
+    /// because sharing the instances makes EF see one owned entity under two
+    /// owners and throw on save, and it was written for the published-source
+    /// case. A hand-written fake repository models that away by construction and
+    /// so cannot answer whether it holds here.
+    /// </para>
+    ///
+    /// <para>
+    /// Asserts <b>branch, edit and publish</b>, not just the branch. A draft
+    /// nobody can publish leaves the layout exactly as unusable as before while
+    /// satisfying every assertion about a draft appearing.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task An_archived_layout_can_be_branched_edited_and_published_again()
+    {
+        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire);
+        Guid replacement = await LayoutRequests.RegisterCameraAsync(aspire);
+
+        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+            "/layouts", SingleTileBody($"Recov-{Guid.NewGuid():N}".Substring(0, 16), camera));
+        created.StatusCode.ShouldBe(HttpStatusCode.Created);
+        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+
+        (await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/publish"))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/archive"))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // Stranded before spec 037: no Published revision to branch from and no
+        // Draft to publish, so the chain matched none of the six behaviours.
+        HttpResponseMessage branched = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "draft");
+        branched.StatusCode.ShouldBe(HttpStatusCode.Created);
+        int recovered = await branched.Content.ReadFromJsonAsync<int>();
+        recovered.ShouldBe(2);
+
+        // FR-002: the payload came back with it, which is the whole point.
+        HttpResponseMessage afterBranch = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        JsonElement branchedRevision = (await afterBranch.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("revisions")
+            .EnumerateArray()
+            .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == recovered);
+        branchedRevision.GetProperty("state").GetString().ShouldBe("Draft");
+        branchedRevision.GetProperty("tiles").EnumerateArray().Single()
+            .GetProperty("cameraIdentifier").GetGuid().ShouldBe(camera);
+
+        (await LayoutRequests.PatchAsync(
+            layouts,
+            layoutIdentifier,
+            $"revisions/{recovered}",
+            new
+            {
+                grid = new { rows = 1, cols = 1 },
+                tiles = new[] { new { cameraIdentifier = replacement, overlayIdentifier = (Guid?)null, row = 0, col = 0 } },
+            })).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        (await LayoutRequests.PostAsync(layouts, layoutIdentifier, $"revisions/{recovered}/publish"))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // FR-003: same chain, same identifier, the archived revision still there.
+        HttpResponseMessage finished = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        JsonElement payload = await finished.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("layoutIdentifier").GetGuid().ShouldBe(layoutIdentifier);
+        JsonElement revisions = payload.GetProperty("revisions");
+        revisions.GetArrayLength().ShouldBe(2);
+        revisions.EnumerateArray()
+            .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == 1)
+            .GetProperty("state").GetString().ShouldBe("Archived");
+        JsonElement live = revisions.EnumerateArray()
+            .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == recovered);
+        live.GetProperty("state").GetString().ShouldBe("Published");
+        live.GetProperty("tiles").EnumerateArray().Single()
+            .GetProperty("cameraIdentifier").GetGuid().ShouldBe(replacement);
+    }
+
     private static object SingleTileBody(string name, Guid camera) => new
     {
         name,
