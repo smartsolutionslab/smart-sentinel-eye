@@ -235,12 +235,23 @@ document saying something the code does not support.
   received**. So the premise of both measurements holds: there is a decoded frame
   to time and an overlay to draw onto it.
 
-**Not done — T026, T027:**
+**Attempted, and BLOCKED — T026, T027:**
 
-- No kiosk was opened in a browser, so **neither number has been read**. That
-  needs an OIDC login, a published two-tile layout and a person at the screen.
-- The guards were therefore not provoked by hand either: no camera stopped, no
-  tab backgrounded, no reconnection observed.
+The procedure was driven end to end against the run-mode stack. Sign-in works;
+the wall does not render, so **neither number has been read**.
+
+**A kiosk cannot list layouts at all**, and the cause is not this feature:
+its OIDC client (`smart-sentinel-eye-kiosk`) omits `sse-groups`, so its token
+carries no fab claim and spec 017 refuses every fab-scoped read. Same user, same
+gateway, same moment: management-web gets `200` on
+`/layout-composition/layouts`, the kiosk gets `403` on the same route.
+
+**Filed as issue 1884**, with the realm evidence and the reason nothing caught
+it — `kiosk-live-updates.spec.ts` accepts *"could not load layouts"* as one of
+three passing outcomes, so a kiosk that can never load a wall looks exactly like
+a working one.
+
+The guards were therefore not provoked by hand either.
 
 **What this means for the claims.** Everything the automated suite covers — the
 guards, the separability, the fragment's naming, the endpoint's validation, the
