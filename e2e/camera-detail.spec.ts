@@ -131,6 +131,51 @@ test('operator retires a camera, and it leaves the listing but keeps its record'
  * compared is the rendered page for both causes — not merely that each showed
  * something.
  */
+/**
+ * Spec 035 T016 / SC-005 — the endpoint spec 033 built and nothing called.
+ *
+ * Registers and renames entirely through the app. **No `fetch` appears in this
+ * file**, and that is deliberate: spec 030 *removed* a test that reached around
+ * the UI to arrange its own state, because repairing it would have produced a
+ * test exercising the API while claiming to exercise the application. Spec 032's
+ * retire test above was written after that lesson, and this follows it.
+ */
+test('operator renames a camera and the new name follows it into the listing', async ({ page }) => {
+  await signInAsOperator(page);
+  const original = await registerCamera(page);
+
+  await page.getByRole('link', { name: original }).click();
+  await expect(page.getByRole('heading', { name: original })).toBeVisible();
+
+  await page.getByRole('button', { name: /^rename$/i }).click();
+
+  // Pre-filled with what the camera is called now — a correction is an edit,
+  // not a retype (FR-003).
+  const field = page.locator('#rename-camera-name');
+  await expect(field).toHaveValue(original);
+
+  const corrected = `${original} corrected`;
+  await field.fill(corrected);
+  await page.getByRole('button', { name: /^save$/i }).click();
+
+  // FR-012: the page reflects it without a reload, and no refusal appears.
+  await expect(page.getByRole('heading', { name: corrected })).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+
+  const location = page.url();
+
+  // And the listing, whose row carried the old name until the same invalidation
+  // refreshed it.
+  await page.getByRole('link', { name: /back to cameras/i }).click();
+  await expect(page.getByRole('link', { name: corrected })).toBeVisible();
+  await expect(page.getByRole('link', { name: original, exact: true })).toHaveCount(0);
+
+  // Same camera throughout — the identifier never moved, which is the whole
+  // difference between correcting a name and registering a replacement.
+  await page.goto(location);
+  await expect(page.getByRole('heading', { name: corrected })).toBeVisible();
+});
+
 test('a camera the operator may not see reads exactly as one that does not exist', async ({ page }) => {
   await signInAsOperator(page);
 

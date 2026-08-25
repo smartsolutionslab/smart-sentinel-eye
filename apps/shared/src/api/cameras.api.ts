@@ -70,6 +70,24 @@ export interface ChangeCameraAddressInput {
   fabId?: string;
 }
 
+export interface RenameCameraInput {
+  cameraIdentifier: string;
+  /**
+   * The corrected name, **exactly as the operator typed it**.
+   *
+   * Not case-normalised, ever. `Line-4-Inlet` and `line-4-inlet` normalise
+   * identically — which is right for uniqueness and wrong for deciding whether
+   * anything changed. Spec 033 found that trap in the repository predicate, the
+   * aggregate's idempotency guard and EF's change tracker; lower-casing here
+   * would make this the fourth, and the symptom is a rename that reports
+   * success and changes nothing.
+   */
+  name: string;
+  /** The version the operator was shown. Required — a blind write is refused 428. */
+  version: number;
+  fabId?: string;
+}
+
 export interface RetireCameraInput {
   cameraIdentifier: string;
   fabId?: string;
@@ -136,6 +154,25 @@ export const camerasApi = createApi({
         { type: 'Camera' as const, id: 'LIST' },
       ],
     }),
+    renameCamera: build.mutation<void, RenameCameraInput>({
+      // Same endpoint as changeCameraAddress, and exactly one of the two fields
+      // per request: each is applied under its own If-Match version, so a
+      // combined request's second half would quote a version its own first half
+      // had just advanced (spec 033's PatchCameraRequest records this).
+      query: ({ cameraIdentifier, name, version, fabId }) => ({
+        url: `/${cameraIdentifier}`,
+        method: 'PATCH',
+        headers: ifMatch(version),
+        ...(fabId !== undefined && fabId !== '' ? { params: { fabId } } : {}),
+        body: { name },
+      }),
+      // Both: the camera itself, whose heading now shows the old name, and the
+      // listing whose row does too.
+      invalidatesTags: (_result, _error, { cameraIdentifier }) => [
+        { type: 'Camera' as const, id: cameraIdentifier },
+        { type: 'Camera' as const, id: 'LIST' },
+      ],
+    }),
     retireCamera: build.mutation<void, RetireCameraInput>({
       // No headers at all: no If-Match, and no body. Contrast
       // changeCameraAddress directly above, which must carry one.
@@ -181,5 +218,6 @@ export const {
   useListCamerasQuery,
   useGetCameraQuery,
   useChangeCameraAddressMutation,
+  useRenameCameraMutation,
   useRetireCameraMutation,
 } = camerasApi;
