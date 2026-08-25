@@ -111,7 +111,24 @@ nothing a caller can see. Each shape's required answer is in
   - The **gate in both directions**: a fully-archived chain offers Edit, and a chain with a Published revision under an **abandoned archived draft** is not treated as recoverable. That second shape is issue 1879's; this asserts only that the gate does not misclassify it
 - [ ] T026 **The two deliberate breaks, then full verification.** An assertion that has never failed is a claim, not a check.
   - **(a)** Soften the layout confirmation in `apps/management-web/src/features/layouts/LayoutsPage.tsx` to exactly `This cannot be undone.`, run the page's tests, record which assertions go red and how many, revert. Spec 036 T018's discipline.
-  - **(b) The important one, and unique to this feature.** Widen `NewestWhenFullyArchivedOrNull()` in `src/LayoutComposition/Domain/Layout/Layout.cs` and `src/OverlayDesigner/Domain/Overlay/Overlay.cs` to return the newest revision unconditionally. Record the four SC-005 tests going red — **in the domain *and* in the application layer, in *both* twins**. Revert. This is the evidence the narrowing is load-bearing rather than decorative, and it is the single most likely regression this feature can suffer later.
+  - **(b) The important one, and unique to this feature.** Widen `NewestWhenFullyArchivedOrNull()` in `src/LayoutComposition/Domain/Layout/Layout.cs` and `src/OverlayDesigner/Domain/Overlay/Overlay.cs` to return the newest revision unconditionally. Record which of the four SC-005 tests go red. Revert. This is the evidence the narrowing is load-bearing rather than decorative, and it is the single most likely regression this feature can suffer later.
+
+    > **Ran, and it corrected this task.** The task predicted all four would fail,
+    > *"in the domain **and** in the application layer, in **both** twins"*. Only
+    > **two** do — the domain test in each twin (LayoutComposition 128/129,
+    > OverlayDesigner 64/65). Both application suites stayed fully green (76/76
+    > and 41/41).
+    >
+    > The reason is the layering this whole feature is about: the handler's own
+    > `openDraft is not null` check refuses a draft-only chain *before* the
+    > domain is reached, so how wide the domain helper is never comes up there.
+    > The two layers are independent guards rather than one guard tested twice.
+    >
+    > Which cuts both ways, and the second way is worth saying: a domain widening
+    > **would not be visible through the API**, because the handler catches it
+    > first. It would sit there as a latent divergence between what the aggregate
+    > permits and what its only caller allows — caught by exactly two tests, not
+    > four. That is the real reason those two matter.
   - Then `dotnet build -c Release` with analyzers clean, the affected test projects, `pwsh scripts/coverage-check.ps1`, `pnpm typecheck && pnpm lint && pnpm test`, and the Playwright suite. Verification note on the PR per [quickstart.md](./quickstart.md), covering **both twins** for every behavioural claim (SC-007)
 
 ---
