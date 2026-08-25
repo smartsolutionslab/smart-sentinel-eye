@@ -159,6 +159,72 @@ public class ListCamerasQueryHandlerTests
         summary.Version.ShouldBe(camera.Version);
     }
 
+    // ---- spec 039 (issue 1849): the tie-break, exercised at last ----
+
+    /// <summary>
+    /// The test that could not be written. Two cameras registered at the same
+    /// instant tie on the primary sort key, so the sort falls through to
+    /// <c>ThenBy(camera => camera.Fab)</c> — which threw
+    /// <c>At least one object must implement IComparable</c> until
+    /// <c>FabIdentifier</c> became orderable.
+    ///
+    /// <para>
+    /// <b>Asserts the resulting order, not that nothing threw.</b> A
+    /// <c>CompareTo</c> returning <c>0</c> for every pair also stops the throw,
+    /// while leaving exactly the defect the tie-break exists to prevent: two rows
+    /// with no defined relative order, and a page boundary that can show one of
+    /// them twice and the other never.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Cameras_registered_at_the_same_instant_are_ordered_by_fab()
+    {
+        Camera later = RegisterInFabAt("munich", "2026-05-24T10:00:00Z", "Cam-Same");
+        Camera earlier = RegisterInFabAt("aachen", "2026-05-24T10:00:00Z", "Cam-Same-Too");
+        ListCamerasQueryHandler handler = NewHandler(later, earlier);
+
+        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+            TwoFabQuery() with { Sort = "registeredAt" },
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Items.Select(item => item.Fab).ShouldBe(["aachen", "munich"]);
+    }
+
+    /// <summary>
+    /// The other tie-breaking path. Separate expressions in <c>SortBy</c>, so one
+    /// test exercises one of them — and a fix applied to the first would leave
+    /// this one throwing.
+    /// </summary>
+    [Fact]
+    public async Task Cameras_sharing_a_name_are_ordered_by_fab()
+    {
+        Camera later = RegisterInFabAt("munich", "2026-05-24T10:00:00Z", "Cam-Shared");
+        Camera earlier = RegisterInFabAt("aachen", "2026-05-23T10:00:00Z", "Cam-Shared");
+        ListCamerasQueryHandler handler = NewHandler(later, earlier);
+
+        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+            TwoFabQuery() with { Sort = "name" },
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Items.Select(item => item.Fab).ShouldBe(["aachen", "munich"]);
+    }
+
+    private static ListCamerasQuery TwoFabQuery() =>
+        DefaultQuery() with
+        {
+            Fabs = [FabIdentifier.From("aachen"), FabIdentifier.From("munich")],
+        };
+
+    private static Camera RegisterInFabAt(string fab, string registeredAtIso, string name) =>
+        Camera.Register(
+            FabIdentifier.From(fab),
+            CameraName.From(name),
+            RtspUrl.From("rtsp://10.0.5.10/h264"),
+            AnAdmin,
+            new FixedClock(DateTimeOffset.Parse(registeredAtIso, CultureInfo.InvariantCulture)));
+
     private static ListCamerasQuery DefaultQuery() =>
         new(
             Fabs: [FabIdentifier.From("munich")],
@@ -236,9 +302,6 @@ public class ListCamerasQueryHandlerTests
     public async Task The_default_listing_omits_retired_cameras()
     {
         Camera staying = RegisterCameraAt("2026-05-24T10:00:00Z", "Cam-Staying");
-        // A distinct instant, not cosmetic: on a tie the sort falls through to
-        // ThenBy(Fab), and FabIdentifier is not IComparable, so LINQ-to-objects
-        // throws where Postgres would just ORDER BY fab.
         Camera going = RegisterCameraAt("2026-05-23T10:00:00Z", "Cam-Going");
         going.Retire(AnAdmin, new FixedClock(DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture)));
 
