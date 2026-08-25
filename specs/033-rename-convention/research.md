@@ -134,6 +134,25 @@ overload list, and forgetting to means the event is simply never audited, with
 nothing failing. Whether that should be a generic handler is not this feature's
 question.
 
+> **Wrong, and corrected 2026-08-25.** The last clause is false: forgetting the
+> line does **not** fail silently. `BoundaryTests.Every_integration_event_has_an_audit_handler`
+> has checked exactly this since spec 009 — it reflects over the concrete
+> `IIntegrationEvent` types, collects the `Handle` overload parameter types, and
+> fails naming any that are missing. Verified by deleting the
+> `Handle(CameraRenamedV1 …)` line and watching it go red.
+>
+> The research above found `V1ResourceMap_covers_every_IIntegrationEvent`,
+> observed correctly that it checks *resource mapping* rather than
+> *subscription*, and concluded the subscription half was unguarded. **The
+> subscription check is the very next method in the same file.** Inferring that
+> something is unchecked from having looked at one adjacent test is how this
+> went wrong.
+>
+> What survives is the smaller, true observation: adding an event still means
+> editing another context's file. That is an ergonomic wrinkle, not a risk, and
+> arguing it as a risk was the error. Issue 1870 was filed on the false half and
+> is closed as invalid.
+
 **FR-013 needs no work.** `CameraRegisteredV1` and `CameraRetiredV1` carry the
 name as a record of what it was at that moment. A rename appends; it does not
 revisit them. No other context persists a camera's name, so nothing goes stale.
