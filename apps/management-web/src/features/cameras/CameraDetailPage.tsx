@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { EditCameraAddressDialog } from './EditCameraAddressDialog.js';
+import { RenameCameraDialog } from './RenameCameraDialog.js';
 import { RetireCameraDialog } from './RetireCameraDialog.js';
 
 const RETIRED = 'Decommissioned';
@@ -15,6 +16,7 @@ export function CameraDetailPage() {
   const { cameraIdentifier = '' } = useParams();
   const [editing, setEditing] = useState(false);
   const [retiring, setRetiring] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const { data: camera, isLoading, error } = useGetCameraQuery({ cameraIdentifier });
 
   if (isLoading) {
@@ -55,6 +57,15 @@ export function CameraDetailPage() {
           ) : null}
         </div>
         <div className="flex items-center gap-4">
+          {/* Spec 035 FR-009, gated like the two beside it. Ordered first
+              because it corrects the thing the heading shows; the destructive
+              control stays last, before the link. A fourth control here wants a
+              menu rather than a fourth button. */}
+          {retired ? null : (
+            <Button variant="secondary" onClick={() => setRenaming(true)}>
+              Rename
+            </Button>
+          )}
           {/* FR-007: absent for a retired camera, not present-and-failing. The
               refusal has to be visible before the attempt — discovering it on
               submit is the thing the requirement rules out. */}
@@ -79,6 +90,14 @@ export function CameraDetailPage() {
         cameraIdentifier={camera.cameraIdentifier}
         version={camera.version}
         currentUrl={camera.rtspUrl}
+      />
+
+      <RenameCameraDialog
+        open={renaming}
+        onOpenChange={setRenaming}
+        cameraIdentifier={camera.cameraIdentifier}
+        version={camera.version}
+        currentName={camera.name}
       />
 
       <RetireCameraDialog

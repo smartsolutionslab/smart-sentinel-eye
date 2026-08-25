@@ -134,6 +134,30 @@ describe('CameraDetailPage', () => {
   });
 
   /**
+   * Spec 035 T014 / FR-009. A third control, gated the same way and asserted
+   * the same way — absent, not disabled. A disabled control says the action is
+   * conceptually available, and for a terminal state that is untrue.
+   */
+  it('Offers no way to rename a camera that is already retired', () => {
+    getCamera.mockReturnValue({
+      data: { ...camera, status: 'Decommissioned' },
+      isLoading: false,
+      error: undefined,
+    });
+
+    renderAt(camera.cameraIdentifier);
+
+    expect(screen.queryByRole('button', { name: /^rename$/i })).toBeNull();
+  });
+
+  /** The counterpart, so the absence above cannot pass vacuously. */
+  it('Offers to rename an active camera', () => {
+    renderAt(camera.cameraIdentifier);
+
+    expect(screen.getByRole('button', { name: /^rename$/i })).toBeInTheDocument();
+  });
+
+  /**
    * Spec 032 T014 / FR-012 — asserted as an **absence**, which is why it needs
    * this explanation to survive review.
    *
@@ -192,6 +216,12 @@ describe('CameraDetailPage', () => {
     // only implicitly — and an implicit guarantee is one a later refactor can
     // drop without any test naming what was lost.
     expect(screen.queryByRole('button', { name: /retire camera/i })).toBeNull();
+
+    // Spec 035 T015. The third control, named for the same reason. Each feature
+    // that adds one adds a way for the two causes to look different, so each
+    // names its own rather than trusting the comparison above to have covered
+    // something nobody wrote down.
+    expect(screen.queryByRole('button', { name: /^rename$/i })).toBeNull();
   });
 
   it('Says nothing about access, ever', () => {
