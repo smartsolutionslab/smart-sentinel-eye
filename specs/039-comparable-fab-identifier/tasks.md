@@ -60,14 +60,14 @@ identifier's grammar admits one spelling, so a normalisation step here would be 
 rule with no input that exercises it. The code must carry that reason, or the
 difference from `CameraName` reads as an oversight.
 
-- [ ] T001 [P] [US1] `src/CameraCatalog/Domain/Camera/FabIdentifier.cs` — the one context with a live caller
-- [ ] T002 [P] [US1] `src/Identity/Domain/RegisteredClient/FabIdentifier.cs`
-- [ ] T003 [P] [US1] `src/EventIngestion/Domain/Event/FabIdentifier.cs`
-- [ ] T004 [P] [US1] `src/Automation/Domain/Rule/FabIdentifier.cs`
-- [ ] T005 [P] [US1] `src/SystemVariables/Domain/Variable/FabIdentifier.cs`
-- [ ] T006 [P] [US1] `src/LayoutComposition/Domain/Layout/FabIdentifier.cs`
-- [ ] T007 [P] [US1] `src/StreamDistribution/Domain/Stream/FabIdentifier.cs`
-- [ ] T008 [P] [US1] `src/AuditObservability/Domain/AuditEvent/FabIdentifier.cs` — **the drifted copy**. Add the comparison exactly as the other seven, and leave its `Ensure.That(value)` alone
+- [x] T001 [P] [US1] `src/CameraCatalog/Domain/Camera/FabIdentifier.cs` — the one context with a live caller
+- [x] T002 [P] [US1] `src/Identity/Domain/RegisteredClient/FabIdentifier.cs`
+- [x] T003 [P] [US1] `src/EventIngestion/Domain/Event/FabIdentifier.cs`
+- [x] T004 [P] [US1] `src/Automation/Domain/Rule/FabIdentifier.cs`
+- [x] T005 [P] [US1] `src/SystemVariables/Domain/Variable/FabIdentifier.cs`
+- [x] T006 [P] [US1] `src/LayoutComposition/Domain/Layout/FabIdentifier.cs`
+- [x] T007 [P] [US1] `src/StreamDistribution/Domain/Stream/FabIdentifier.cs`
+- [x] T008 [P] [US1] `src/AuditObservability/Domain/AuditEvent/FabIdentifier.cs` — **the drifted copy**. Add the comparison exactly as the other seven, and leave its `Ensure.That(value)` alone
 
 **Checkpoint**: eight files changed, nothing else under `src/`.
 
@@ -90,14 +90,14 @@ a wrong implementation:
 3. **comparing against `null` returns a positive number** — the case implementers
    forget, that no ordinary sort reaches.
 
-- [ ] T009 [P] [US1] Extend `tests/CameraCatalog.Domain.Tests/Camera/FabIdentifierTests.cs`
-- [ ] T010 [P] [US1] Extend `tests/Identity.Domain.Tests/RegisteredClient/FabIdentifierTests.cs` — **the tightest gate**: 91.7% before this change
-- [ ] T011 [P] [US1] Extend `tests/EventIngestion.Domain.Tests/Event/FabIdentifierTests.cs`
-- [ ] T012 [P] [US1] Extend `tests/Automation.Domain.Tests/Rule/FabIdentifierTests.cs`
-- [ ] T013 [P] [US1] Extend `tests/SystemVariables.Domain.Tests/Variable/FabIdentifierTests.cs`
-- [ ] T014 [P] [US1] Extend `tests/LayoutComposition.Domain.Tests/Layout/FabIdentifierTests.cs`
-- [ ] T015 [P] [US1] Extend `tests/StreamDistribution.Domain.Tests/Stream/FabIdentifierTests.cs`
-- [ ] T016 [P] [US1] **Create** `tests/AuditObservability.Domain.Tests/AuditEvent/FabIdentifierTests.cs`. **This file does not exist.** The only context without one, and the same one whose value object has drifted — two independent signs it was added apart from the others. Mirror a sibling's structure rather than inventing one
+- [x] T009 [P] [US1] Extend `tests/CameraCatalog.Domain.Tests/Camera/FabIdentifierTests.cs`
+- [x] T010 [P] [US1] Extend `tests/Identity.Domain.Tests/RegisteredClient/FabIdentifierTests.cs` — **the tightest gate**: 91.7% before this change
+- [x] T011 [P] [US1] Extend `tests/EventIngestion.Domain.Tests/Event/FabIdentifierTests.cs`
+- [x] T012 [P] [US1] Extend `tests/Automation.Domain.Tests/Rule/FabIdentifierTests.cs`
+- [x] T013 [P] [US1] Extend `tests/SystemVariables.Domain.Tests/Variable/FabIdentifierTests.cs`
+- [x] T014 [P] [US1] Extend `tests/LayoutComposition.Domain.Tests/Layout/FabIdentifierTests.cs`
+- [x] T015 [P] [US1] Extend `tests/StreamDistribution.Domain.Tests/Stream/FabIdentifierTests.cs`
+- [x] T016 [P] [US1] **Create** `tests/AuditObservability.Domain.Tests/AuditEvent/FabIdentifierTests.cs`. **This file does not exist.** The only context without one, and the same one whose value object has drifted — two independent signs it was added apart from the others. Mirror a sibling's structure rather than inventing one
 
 **Checkpoint**: eight comparisons covered; eight gates still green.
 
@@ -108,11 +108,11 @@ a wrong implementation:
 **Goal**: A ninth context cannot forget, and neither can an edit to one of the
 eight.
 
-- [ ] T017 [US2] Create `tests/Architecture.Tests/FabOrderingConventionTests.cs`, reading source via the repository-root walk `tests/Architecture.Tests/StaleCodeConventionTests.cs` already uses — up from `AppContext.BaseDirectory` to `SmartSentinelEye.slnx`, then `src/**/*.cs` excluding `obj/` and `bin/`. **Reads source rather than reflecting** even though all eight Domain projects are referenced: a ninth context added *without* a reference is invisible to reflection, and the test exists for the ninth context
-- [ ] T018 [US2] Assert the **record declaration** names `IComparable<FabIdentifier>`, in `tests/Architecture.Tests/FabOrderingConventionTests.cs`. Match the declaration line, **not the bare word** — otherwise a mention in a doc comment satisfies the guard
-- [ ] T019 [US2] Assert each file names `StringComparison.Ordinal`, in `tests/Architecture.Tests/FabOrderingConventionTests.cs`. **This is the structural replacement for a behavioural assertion that could not be written**: the spec asked for a pair whose ordinal and culture-sensitive orderings disagree, and under this grammar no such pair exists on this platform (research §5). Do not "improve" it back into a behavioural test — and note it is *stronger*, holding for every input rather than one. It is also why this test reads source: a `StringComparison` argument has no assembly-level artefact
-- [ ] T020 [US2] Assert the scan **found at least one file**, in `tests/Architecture.Tests/FabOrderingConventionTests.cs`. A source scan that silently matches nothing passes forever, which is the standard failure mode of this kind of test
-- [ ] T021 [US2] Make every failure **name the offending file and say what breaks**, in `tests/Architecture.Tests/FabOrderingConventionTests.cs` (**FR-008**). The runtime failure this prevents — `At least one object must implement IComparable`, from inside LINQ — names neither the sort field nor the query, which is why it cost half an hour. A guard that fails with a bare assertion hands the next reader the same problem in a new place
+- [x] T017 [US2] Create `tests/Architecture.Tests/FabOrderingConventionTests.cs`, reading source via the repository-root walk `tests/Architecture.Tests/StaleCodeConventionTests.cs` already uses — up from `AppContext.BaseDirectory` to `SmartSentinelEye.slnx`, then `src/**/*.cs` excluding `obj/` and `bin/`. **Reads source rather than reflecting** even though all eight Domain projects are referenced: a ninth context added *without* a reference is invisible to reflection, and the test exists for the ninth context
+- [x] T018 [US2] Assert the **record declaration** names `IComparable<FabIdentifier>`, in `tests/Architecture.Tests/FabOrderingConventionTests.cs`. Match the declaration line, **not the bare word** — otherwise a mention in a doc comment satisfies the guard
+- [x] T019 [US2] Assert each file names `StringComparison.Ordinal`, in `tests/Architecture.Tests/FabOrderingConventionTests.cs`. **This is the structural replacement for a behavioural assertion that could not be written**: the spec asked for a pair whose ordinal and culture-sensitive orderings disagree, and under this grammar no such pair exists on this platform (research §5). Do not "improve" it back into a behavioural test — and note it is *stronger*, holding for every input rather than one. It is also why this test reads source: a `StringComparison` argument has no assembly-level artefact
+- [x] T020 [US2] Assert the scan **found at least one file**, in `tests/Architecture.Tests/FabOrderingConventionTests.cs`. A source scan that silently matches nothing passes forever, which is the standard failure mode of this kind of test
+- [x] T021 [US2] Make every failure **name the offending file and say what breaks**, in `tests/Architecture.Tests/FabOrderingConventionTests.cs` (**FR-008**). The runtime failure this prevents — `At least one object must implement IComparable`, from inside LINQ — names neither the sort field nor the query, which is why it cost half an hour. A guard that fails with a bare assertion hands the next reader the same problem in a new place
 
 **Checkpoint**: the convention is enforced, not merely followed.
 
@@ -122,8 +122,8 @@ eight.
 
 **Goal**: The test that could not be written, written.
 
-- [ ] T022 [US1] Add the tying test to `tests/CameraCatalog.Application.Tests/Queries/ListCamerasQueryHandlerTests.cs`: two cameras that **tie on the primary sort key** and differ by fab, asserted to come back **in fab order**, on **both** tie-breaking sort paths (`name` and `registeredAt` — separate expressions, so one test exercises one of them). **Assert the order, not the absence of an exception**: a `CompareTo` returning `0` for everything also stops the throw, while leaving exactly the paging defect the tie-break exists to prevent
-- [ ] T023 [US3] Delete the workaround comment at `tests/CameraCatalog.Application.Tests/Queries/ListCamerasQueryHandlerTests.cs` lines 239-241 — *"A distinct instant, not cosmetic…"* inside `The_default_listing_omits_retired_cameras` — and confirm that test still passes. **The trap it warns about is gone, and a warning that outlives its hazard costs a reader time and teaches them something false.** There is exactly **one** such comment; the issue said two
+- [x] T022 [US1] Add the tying test to `tests/CameraCatalog.Application.Tests/Queries/ListCamerasQueryHandlerTests.cs`: two cameras that **tie on the primary sort key** and differ by fab, asserted to come back **in fab order**, on **both** tie-breaking sort paths (`name` and `registeredAt` — separate expressions, so one test exercises one of them). **Assert the order, not the absence of an exception**: a `CompareTo` returning `0` for everything also stops the throw, while leaving exactly the paging defect the tie-break exists to prevent
+- [x] T023 [US3] Delete the workaround comment at `tests/CameraCatalog.Application.Tests/Queries/ListCamerasQueryHandlerTests.cs` lines 239-241 — *"A distinct instant, not cosmetic…"* inside `The_default_listing_omits_retired_cameras` — and confirm that test still passes. **The trap it warns about is gone, and a warning that outlives its hazard costs a reader time and teaches them something false.** There is exactly **one** such comment; the issue said two
 
 **Checkpoint**: SC-001 met — the tying test passes with no workaround.
 
@@ -131,7 +131,7 @@ eight.
 
 ## Phase 5: Evidence
 
-- [ ] T024 **Three deliberate breaks, then full verification.** An assertion that has never failed is a claim, not a check.
+- [x] T024 **Three deliberate breaks, then full verification.** An assertion that has never failed is a claim, not a check.
   - **(a) The interface.** Remove `IComparable<FabIdentifier>` from one copy, run `tests/Architecture.Tests`, record **which file the failure names** and what it says, revert. This checks T021's message as well as T018's assertion.
   - **(b) The ordinality — the one that matters most.** Change one copy's `StringComparison.Ordinal` to `StringComparison.InvariantCulture`, run the guard, record the failure, revert. This is the assertion that *replaced* one the spec asked for and Phase 0 found unwritable, so it carries more weight than usual: if it does not fire, ordinality is unguarded.
   - **(c) The order, not the throw.** Make one `CompareTo` return `0` unconditionally, run `tests/CameraCatalog.Application.Tests`, and record that **T022 fails** — it would still not throw, which is precisely the wrong fix this guards against. Revert.
