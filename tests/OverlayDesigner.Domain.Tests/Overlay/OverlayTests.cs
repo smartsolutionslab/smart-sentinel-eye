@@ -186,4 +186,89 @@ public class OverlayTests
             OverlayRevisionNumber.From(99), by, new OverlayBuilder.TestClock(FixedMoment));
         act.ShouldThrow<InvalidOperationException>();
     }
+
+    /// <summary>
+    /// Spec 037 FR-001/FR-002 (ADR-0121). Asserts the PAYLOAD, not that a draft
+    /// appeared. A fallback that branched an empty draft would satisfy any
+    /// assertion about a draft existing while recovering nothing — and the label
+    /// is the entire reason recovery beats recreating the overlay by hand, which
+    /// already works because a stranded chain releases its name.
+    ///
+    /// <para>
+    /// The geometry is asserted alongside the text: a copy that carried the
+    /// words but reset the position or the font size would put the label
+    /// somewhere the operator never chose, on a kiosk, without warning.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void BranchDraft_on_a_fully_archived_chain_recovers_the_label()
+    {
+        Label label = Label.From("Rolling Mill A", 0.25m, 0.8m, 0.4m, 0.1m, 64);
+        Domain.Overlay.Overlay overlay = new OverlayBuilder().WithLabel(label).Build();
+        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        IClock clock = new OverlayBuilder.TestClock(FixedMoment);
+
+        overlay.Publish(OverlayRevisionNumber.One, by, clock);
+        overlay.ArchiveRevision(OverlayRevisionNumber.One, by, clock);
+        overlay.ClearPendingEvents();
+
+        Revision recovered = overlay.BranchDraft(by, clock);
+
+        recovered.Number.Value.ShouldBe(2);
+        recovered.State.ShouldBe(OverlayRevisionState.Draft);
+        recovered.Label.Text.ShouldBe("Rolling Mill A");
+        recovered.Label.NormalizedX.ShouldBe(0.25m);
+        recovered.Label.NormalizedY.ShouldBe(0.8m);
+        recovered.Label.FontSizePx.ShouldBe(64);
+    }
+
+    /// <summary>
+    /// Spec 037 FR-004. Branching alone is not recovery — a draft nobody can
+    /// publish leaves the overlay exactly as unusable as before while passing
+    /// every assertion in the test above.
+    /// </summary>
+    [Fact]
+    public void A_recovered_draft_can_be_edited_and_published()
+    {
+        Label replacement = Label.From("Rolling Mill B", 0.5m, 0.05m, 0.3m, 0.08m, 48);
+        Domain.Overlay.Overlay overlay = new OverlayBuilder().Build();
+        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        IClock clock = new OverlayBuilder.TestClock(FixedMoment);
+        overlay.Publish(OverlayRevisionNumber.One, by, clock);
+        overlay.ArchiveRevision(OverlayRevisionNumber.One, by, clock);
+
+        Revision recovered = overlay.BranchDraft(by, clock);
+        overlay.EditDraft(recovered.Number, replacement, clock);
+        overlay.Publish(recovered.Number, by, clock);
+
+        recovered.State.ShouldBe(OverlayRevisionState.Published);
+        recovered.Label.Text.ShouldBe("Rolling Mill B");
+    }
+
+    /// <summary>
+    /// Spec 037 FR-008. Asserts WHICH revision was copied, not that the branch
+    /// succeeded — the two are indistinguishable on success alone, and this is
+    /// the case a widened "newest revision, whatever its state" fallback breaks
+    /// in the opposite direction: it would copy the abandoned draft instead of
+    /// the live published overlay.
+    /// </summary>
+    [Fact]
+    public void BranchDraft_prefers_the_Published_revision_over_an_archived_newer_one()
+    {
+        Label live = Label.From("Live", 0.5m, 0.05m, 0.3m, 0.08m, 48);
+        Label abandoned = Label.From("Abandoned", 0.1m, 0.1m, 0.2m, 0.05m, 32);
+        Domain.Overlay.Overlay overlay = new OverlayBuilder().WithLabel(live).Build();
+        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        IClock clock = new OverlayBuilder.TestClock(FixedMoment);
+        overlay.Publish(OverlayRevisionNumber.One, by, clock);
+
+        Revision draftTwo = overlay.BranchDraft(by, clock);
+        overlay.EditDraft(draftTwo.Number, abandoned, clock);
+        overlay.ArchiveRevision(draftTwo.Number, by, clock);
+
+        Revision draftThree = overlay.BranchDraft(by, clock);
+
+        draftThree.Number.Value.ShouldBe(3);
+        draftThree.Label.Text.ShouldBe("Live");
+    }
 }

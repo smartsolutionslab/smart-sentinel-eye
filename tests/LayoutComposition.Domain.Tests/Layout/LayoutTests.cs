@@ -358,6 +358,99 @@ public class LayoutTests
     }
 
     /// <summary>
+    /// Spec 037 FR-001/FR-002 (ADR-0121). Asserts the PAYLOAD, not that a draft
+    /// appeared. A fallback that branched an empty draft would satisfy any
+    /// assertion about a draft existing while recovering nothing — and the
+    /// payload is the entire reason recovery beats recreating the layout by
+    /// hand, which already works because a stranded chain releases its name.
+    ///
+    /// <para>
+    /// The overlay binding is asserted deliberately: it is the part of a tile
+    /// most easily dropped by a copy, and the part an operator is least likely
+    /// to notice missing until a kiosk shows a wall with no labels.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void BranchDraft_on_a_fully_archived_chain_recovers_the_grid_and_every_tile()
+    {
+        CameraIdentifier left = CameraIdentifier.From(Guid.CreateVersion7());
+        CameraIdentifier right = CameraIdentifier.From(Guid.CreateVersion7());
+        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
+        Tile bound = new(left, Option<OverlayIdentifier>.Some(overlay), GridPosition.From(0, 0));
+        Domain.Layout.Layout layout = new LayoutBuilder()
+            .WithGrid(GridDimensions.From(1, 2))
+            .WithTiles([bound, TileAt(right, 0, 1)])
+            .Build();
+        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        IClock clock = new LayoutBuilder.TestClock(FixedMoment);
+
+        layout.Publish(LayoutRevisionNumber.One, by, clock);
+        layout.ArchiveRevision(LayoutRevisionNumber.One, by, clock);
+        layout.ClearPendingEvents();
+
+        Revision recovered = layout.BranchDraft(by, clock);
+
+        recovered.Number.Value.ShouldBe(2);
+        recovered.State.ShouldBe(LayoutRevisionState.Draft);
+        recovered.Grid.Rows.ShouldBe(1);
+        recovered.Grid.Cols.ShouldBe(2);
+        recovered.Tiles.Count.ShouldBe(2);
+        recovered.Tiles.ShouldContain(tile =>
+            tile.Camera == left && tile.Overlay.HasValue && tile.Overlay.Value == overlay);
+        recovered.Tiles.ShouldContain(tile => tile.Camera == right);
+    }
+
+    /// <summary>
+    /// Spec 037 FR-004. Branching alone is not recovery — a draft nobody can
+    /// publish leaves the layout exactly as unusable as before while passing
+    /// every assertion in the test above.
+    /// </summary>
+    [Fact]
+    public void A_recovered_draft_can_be_edited_and_published()
+    {
+        CameraIdentifier replacement = CameraIdentifier.From(Guid.CreateVersion7());
+        Domain.Layout.Layout layout = new LayoutBuilder().Build();
+        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        IClock clock = new LayoutBuilder.TestClock(FixedMoment);
+        layout.Publish(LayoutRevisionNumber.One, by, clock);
+        layout.ArchiveRevision(LayoutRevisionNumber.One, by, clock);
+
+        Revision recovered = layout.BranchDraft(by, clock);
+        layout.EditDraft(recovered.Number, GridDimensions.Cell, [TileAt(replacement, 0, 0)], clock);
+        layout.Publish(recovered.Number, by, clock);
+
+        recovered.State.ShouldBe(LayoutRevisionState.Published);
+        recovered.Tiles.ShouldHaveSingleItem().Camera.ShouldBe(replacement);
+    }
+
+    /// <summary>
+    /// Spec 037 FR-008. Asserts WHICH revision was copied, not that the branch
+    /// succeeded — the two are indistinguishable on success alone, and this is
+    /// the case a widened "newest revision, whatever its state" fallback breaks
+    /// in the opposite direction: it would copy the abandoned draft instead of
+    /// the live published wall.
+    /// </summary>
+    [Fact]
+    public void BranchDraft_prefers_the_Published_revision_over_an_archived_newer_one()
+    {
+        CameraIdentifier live = CameraIdentifier.From(Guid.CreateVersion7());
+        CameraIdentifier abandoned = CameraIdentifier.From(Guid.CreateVersion7());
+        Domain.Layout.Layout layout = new LayoutBuilder().ForCamera(live).Build();
+        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        IClock clock = new LayoutBuilder.TestClock(FixedMoment);
+        layout.Publish(LayoutRevisionNumber.One, by, clock);
+
+        Revision draftTwo = layout.BranchDraft(by, clock);
+        layout.EditDraft(draftTwo.Number, GridDimensions.Cell, [TileAt(abandoned, 0, 0)], clock);
+        layout.ArchiveRevision(draftTwo.Number, by, clock);
+
+        Revision draftThree = layout.BranchDraft(by, clock);
+
+        draftThree.Number.Value.ShouldBe(3);
+        draftThree.Tiles.ShouldHaveSingleItem().Camera.ShouldBe(live);
+    }
+
+    /// <summary>
     /// The FR-002 guarantee is structural, not behavioural: nothing outside
     /// the aggregate can assign the fab, so it cannot be made to change. A
     /// behavioural test would not catch someone adding a setter, and unlike
