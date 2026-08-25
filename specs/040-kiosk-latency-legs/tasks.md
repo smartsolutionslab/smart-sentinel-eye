@@ -58,12 +58,12 @@ Every correction states what is true **and why the error happened** (**FR-004**)
 a search scoped to `apps/kiosk-web` when the capability lives in `apps/shared`.
 The mechanism generalises; the correction does not.
 
-- [ ] T001 [US1] Correct the leg table in `.specify/memory/constitution.md` §IV per [contracts/the-corrected-record.md](./contracts/the-corrected-record.md): `SFU → kiosk decode` becomes **implemented: yes, measured: in part**; `Overlay composite + render` becomes **implemented: yes, measured: yes**. **The load-bearing edit** — the other three documents describe; this one is what §VII is conditional on
-- [ ] T002 [US1] Add the prose beneath that table in `.specify/memory/constitution.md` §IV defining **"in part"** the way "recorded, not yet readable" is already defined, and recording the correction's cause. **Keep the warning sentence.** It was correct, and it can now cite an instance
-- [ ] T003 [P] [US1] Correct the latency section of `CLAUDE.md`: **one** unbuilt leg (PTP), not three. Keep the instruction to keep §IV current and keep the constitution as the authority — this file summarises and must not compete with it
-- [ ] T004 [P] [US1] Add a **dated correction in place** to `specs/024-latency-budget-visible/verification.md` §6. Do not rewrite the finding: it is a record of what was believed then, and deleting it removes the only trace of how the claim propagated. State what is true, what the search missed, and that three other documents took it from here
-- [ ] T005 [P] [US1] Correct issue 1714 **by comment**, not by editing the body — same reason as T004. State the true count, the two legs' real state, that PTP remains and stays filed, and what this spec does about the obligation the correction creates
-- [ ] T006 [US1] Write `docs/adr/0122-browser-measurements-enter-through-a-service.md`. ADR-0118 decided one sink per environment and never contemplated an emitter that is not a service, because until now there was not one. It decides that a browser measurement reaches observability by being **reported to a service that records it**, preserving the single sink rather than working around it — and records the §4 refusal: a leg may be recorded **in part** under a name that says so, rather than approximated under a name that claims the whole budget
+- [x] T001 [US1] Correct the leg table in `.specify/memory/constitution.md` §IV per [contracts/the-corrected-record.md](./contracts/the-corrected-record.md): `SFU → kiosk decode` becomes **implemented: yes, measured: in part**; `Overlay composite + render` becomes **implemented: yes, measured: yes**. **The load-bearing edit** — the other three documents describe; this one is what §VII is conditional on
+- [x] T002 [US1] Add the prose beneath that table in `.specify/memory/constitution.md` §IV defining **"in part"** the way "recorded, not yet readable" is already defined, and recording the correction's cause. **Keep the warning sentence.** It was correct, and it can now cite an instance
+- [x] T003 [P] [US1] Correct the latency section of `CLAUDE.md`: **one** unbuilt leg (PTP), not three. Keep the instruction to keep §IV current and keep the constitution as the authority — this file summarises and must not compete with it
+- [x] T004 [P] [US1] Add a **dated correction in place** to `specs/024-latency-budget-visible/verification.md` §6. Do not rewrite the finding: it is a record of what was believed then, and deleting it removes the only trace of how the claim propagated. State what is true, what the search missed, and that three other documents took it from here
+- [x] T005 [P] [US1] Correct issue 1714 **by comment**, not by editing the body — same reason as T004. State the true count, the two legs' real state, that PTP remains and stays filed, and what this spec does about the obligation the correction creates
+- [x] T006 [US1] Write `docs/adr/0122-browser-measurements-enter-through-a-service.md`. ADR-0118 decided one sink per environment and never contemplated an emitter that is not a service, because until now there was not one. It decides that a browser measurement reaches observability by being **reported to a service that records it**, preserving the single sink rather than working around it — and records the §4 refusal: a leg may be recorded **in part** under a name that says so, rather than approximated under a name that claims the whole budget
 
 **Checkpoint**: two legs are now subject to §VII, and nothing discharges them yet.
 
@@ -73,10 +73,10 @@ The mechanism generalises; the correction does not.
 
 **Goal**: Somewhere trustworthy for a number to land.
 
-- [ ] T007 [US2] Add the two kiosk legs to `src/Shared.CQRS/ILatencyBudget.cs`, alongside `RecordEventToOverlayState`. Two methods, not one — **FR-007**: a single combined figure satisfies any assertion that a number exists while measuring neither budget. Document the decode one as a **fragment** in its own XML comment, so a reader of the interface cannot mistake it for the leg
-- [ ] T008 [US2] Implement both in `src/ServiceDefaults/LatencyBudget.cs` over the meter it already owns. Instrument names from [contracts/the-two-measurements.md](./contracts/the-two-measurements.md): `kiosk.overlay_draw` and `kiosk.receive_to_decoded`. **No budget is attached to the second**
-- [ ] T009 [US3] Enforce both guards in `src/ServiceDefaults/LatencyBudget.cs`, in the implementation and not at call sites — the reason is already written in `ILatencyBudget`'s doc comment and applies unchanged: a leg with no recorded start must record **nothing, never a zero**, and a negative elapsed time is a stepped clock rather than a fast journey. Add the third case a browser introduces: an elapsed time large enough to describe a **suspended page** rather than a journey
-- [ ] T010 [US2] Add the receiving endpoint to `src/StreamDistribution/Api/StreamEndpoints.cs` — the context the kiosk already calls about what it is displaying (`/authorize` for WHEP). It accepts `{ measurement, camera, elapsedMilliseconds }` and records through `ILatencyBudget`. **A browser-reported number is untrusted input** (§VIII): validate at the boundary, and let the guards in T009 be the enforcement point rather than trusting the sender
+- [x] T007 [US2] Add the two kiosk legs to `src/Shared.CQRS/ILatencyBudget.cs`, alongside `RecordEventToOverlayState`. Two methods, not one — **FR-007**: a single combined figure satisfies any assertion that a number exists while measuring neither budget. Document the decode one as a **fragment** in its own XML comment, so a reader of the interface cannot mistake it for the leg
+- [x] T008 [US2] Implement both in `src/ServiceDefaults/LatencyBudget.cs` over the meter it already owns. Instrument names from [contracts/the-two-measurements.md](./contracts/the-two-measurements.md): `kiosk.overlay_draw` and `kiosk.receive_to_decoded`. **No budget is attached to the second**
+- [x] T009 [US3] Enforce both guards in `src/ServiceDefaults/LatencyBudget.cs`, in the implementation and not at call sites — the reason is already written in `ILatencyBudget`'s doc comment and applies unchanged: a leg with no recorded start must record **nothing, never a zero**, and a negative elapsed time is a stepped clock rather than a fast journey. Add the third case a browser introduces: an elapsed time large enough to describe a **suspended page** rather than a journey
+- [x] T010 [US2] Add the receiving endpoint to `src/StreamDistribution/Api/StreamEndpoints.cs` — the context the kiosk already calls about what it is displaying (`/authorize` for WHEP). It accepts `{ measurement, camera, elapsedMilliseconds }` and records through `ILatencyBudget`. **A browser-reported number is untrusted input** (§VIII): validate at the boundary, and let the guards in T009 be the enforcement point rather than trusting the sender
 
 **Checkpoint**: a number posted by anything lands correctly, or is correctly refused.
 
@@ -86,13 +86,13 @@ The mechanism generalises; the correction does not.
 
 **Goal**: Two figures, from a kiosk that behaves exactly as it did.
 
-- [ ] T011 [US2] Create `apps/shared/src/observability/kioskLatency.ts`: compute both elapsed times and post them. **Post the number, never the start** — a slow post then makes the report late, never the measurement large. Follow `resilienceLog.ts`'s shape; it is the only browser-observability idiom here and a second one in the same folder would be worse than none
-- [ ] T012 [US2] Measure **overlay draw** in `apps/kiosk-web/src/features/cell/CellPage.tsx`: `performance.now()` when the overlay's state changes, then two chained animation frames to reach after-paint. The first runs after React commits and before paint; the second after that paint. **`performance.now()`, never `Date.now()`** — the file already carries the reason
-- [ ] T013 [US2] Measure **receive-to-decoded** in `apps/shared/src/ui/composites/CameraViewer.tsx` from `RTCPeerConnection.getStats()`, `inbound-rtp`: `(totalProcessingDelay + totalDecodeTime) / framesDecoded`, sampled as a delta between reads. **Observe only** — do not touch `WhepClient` or `useWhepSession`, and do not alter the connection's behaviour (**FR-011**)
-- [ ] T014 [US2] Carry the **tile's camera** as a dimension on both figures, in `apps/shared/src/observability/kioskLatency.ts`. Per-tile, not per-wall: a wall average hides one frozen camera among three good ones, which is exactly the failure an operator reports and an average does not show
-- [ ] T015 [US3] Apply both guards **browser-side too**, in `apps/shared/src/observability/kioskLatency.ts` — a figure that fails one should not be sent at all. This does not replace T009: the browser is untrusted and the service is where the guards are *enforced*
-- [ ] T016 [US4] Emit a structured `console.info` line per measurement from `apps/shared/src/observability/kioskLatency.ts`, matching `resilienceLog.ts`'s `[resilience]` prefix contract. **Alongside the post, not instead** — a console line is exactly the *recorded, not readable* state the constitution calls half discharged. It is here because it costs nothing and it is what makes Phase 5 practical
-- [ ] T017 [US2] Verify **FR-012**: the observer is not a meaningful share of a 50 ms budget. Two callbacks and a subtraction on a path that already re-renders. This task is *check and record the reasoning*, not *optimise*
+- [x] T011 [US2] Create `apps/shared/src/observability/kioskLatency.ts`: compute both elapsed times and post them. **Post the number, never the start** — a slow post then makes the report late, never the measurement large. Follow `resilienceLog.ts`'s shape; it is the only browser-observability idiom here and a second one in the same folder would be worse than none
+- [x] T012 [US2] Measure **overlay draw** in `apps/kiosk-web/src/features/cell/CellPage.tsx`: `performance.now()` when the overlay's state changes, then two chained animation frames to reach after-paint. The first runs after React commits and before paint; the second after that paint. **`performance.now()`, never `Date.now()`** — the file already carries the reason
+- [x] T013 [US2] Measure **receive-to-decoded** in `apps/shared/src/ui/composites/CameraViewer.tsx` from `RTCPeerConnection.getStats()`, `inbound-rtp`: `(totalProcessingDelay + totalDecodeTime) / framesDecoded`, sampled as a delta between reads. **Observe only** — do not touch `WhepClient` or `useWhepSession`, and do not alter the connection's behaviour (**FR-011**)
+- [x] T014 [US2] Carry the **tile's camera** as a dimension on both figures, in `apps/shared/src/observability/kioskLatency.ts`. Per-tile, not per-wall: a wall average hides one frozen camera among three good ones, which is exactly the failure an operator reports and an average does not show
+- [x] T015 [US3] Apply both guards **browser-side too**, in `apps/shared/src/observability/kioskLatency.ts` — a figure that fails one should not be sent at all. This does not replace T009: the browser is untrusted and the service is where the guards are *enforced*
+- [x] T016 [US4] Emit a structured `console.info` line per measurement from `apps/shared/src/observability/kioskLatency.ts`, matching `resilienceLog.ts`'s `[resilience]` prefix contract. **Alongside the post, not instead** — a console line is exactly the *recorded, not readable* state the constitution calls half discharged. It is here because it costs nothing and it is what makes Phase 5 practical
+- [x] T017 [US2] Verify **FR-012**: the observer is not a meaningful share of a 50 ms budget. Two callbacks and a subtraction on a path that already re-renders. This task is *check and record the reasoning*, not *optimise*
 
 **Checkpoint**: both numbers exist in a running kiosk.
 
@@ -105,14 +105,14 @@ Saying so is not modesty: a green suite asserting a leg it never exercised is th
 same class of claim as a document saying a leg is unbuilt when it runs on every
 kiosk, which is the thing this feature exists to fix.
 
-- [ ] T018 [P] [US1] Assert `.specify/memory/constitution.md` §IV says **implemented** for both legs, in a new `tests/Architecture.Tests/LatencyLegRecordTests.cs`. **The assertion is on the document**, because the failure was a document saying something false and nothing noticing
-- [ ] T019 [US1] Assert §IV distinguishes **four** states across six legs — watched, in part, recorded-not-readable, unbuilt — in `tests/Architecture.Tests/LatencyLegRecordTests.cs`. **SC-007.** Rounding any one up repeats the failure, and a test that only checks "no leg says unbuilt" would pass against a table that rounded three of them up
-- [ ] T020 [P] [US3] Assert the guards in `tests/ServiceDefaults.Tests/LatencyBudgetTests.cs`: an unknown start records **nothing** — asserted as an **absence**, never as a recording of zero; a negative elapsed time records nothing; a suspended-page-sized elapsed time records nothing
-- [ ] T021 [P] [US2] Assert the two figures are **separable** in `tests/ServiceDefaults.Tests/LatencyBudgetTests.cs`: recording one does not move the other. One combined number satisfies any assertion that a number exists while measuring neither budget
-- [ ] T022 [US2] Assert the decode instrument's **name** does not claim the leg and that **no budget is attached** to it, in `tests/ServiceDefaults.Tests/LatencyBudgetTests.cs`. This is the assertion that stops a fragment being reported as a leg passing — the single most likely way this feature ships something false
-- [ ] T023 [P] [US3] Assert the endpoint validates and refuses in `tests/Integration.Tests/StreamDistribution/KioskLatencyIntegrationTests.cs`: a well-formed report records; a malformed or out-of-range one is refused rather than recorded
-- [ ] T024 [P] [US2] Assert the browser side in `apps/shared/src/observability/kioskLatency.test.ts`: both figures computed separately, both guards applied before sending, the camera carried, the console line emitted. **No real stream involved** — these are the guards, not the numbers
-- [ ] T025 [US4] Assert the kiosk **behaves exactly as before** (**FR-011**): `apps/kiosk-web` and `apps/shared` suites pass, and the `CellPage`, `CameraViewer` and `WhepClient` tests are **untouched**. Show the untouched ones as an empty `git diff` — if any needed editing, the observer changed behaviour and that is a finding
+- [x] T018 [P] [US1] Assert `.specify/memory/constitution.md` §IV says **implemented** for both legs, in a new `tests/Architecture.Tests/LatencyLegRecordTests.cs`. **The assertion is on the document**, because the failure was a document saying something false and nothing noticing
+- [x] T019 [US1] Assert §IV distinguishes **four** states across six legs — watched, in part, recorded-not-readable, unbuilt — in `tests/Architecture.Tests/LatencyLegRecordTests.cs`. **SC-007.** Rounding any one up repeats the failure, and a test that only checks "no leg says unbuilt" would pass against a table that rounded three of them up
+- [x] T020 [P] [US3] Assert the guards in `tests/ServiceDefaults.Tests/LatencyBudgetTests.cs`: an unknown start records **nothing** — asserted as an **absence**, never as a recording of zero; a negative elapsed time records nothing; a suspended-page-sized elapsed time records nothing
+- [x] T021 [P] [US2] Assert the two figures are **separable** in `tests/ServiceDefaults.Tests/LatencyBudgetTests.cs`: recording one does not move the other. One combined number satisfies any assertion that a number exists while measuring neither budget
+- [x] T022 [US2] Assert the decode instrument's **name** does not claim the leg and that **no budget is attached** to it, in `tests/ServiceDefaults.Tests/LatencyBudgetTests.cs`. This is the assertion that stops a fragment being reported as a leg passing — the single most likely way this feature ships something false
+- [x] T023 [P] [US3] Assert the endpoint validates and refuses in `tests/Integration.Tests/StreamDistribution/KioskLatencyIntegrationTests.cs`: a well-formed report records; a malformed or out-of-range one is refused rather than recorded
+- [x] T024 [P] [US2] Assert the browser side in `apps/shared/src/observability/kioskLatency.test.ts`: both figures computed separately, both guards applied before sending, the camera carried, the console line emitted. **No real stream involved** — these are the guards, not the numbers
+- [x] T025 [US4] Assert the kiosk **behaves exactly as before** (**FR-011**): `apps/kiosk-web` and `apps/shared` suites pass, and the `CellPage`, `CameraViewer` and `WhepClient` tests are **untouched**. Show the untouched ones as an empty `git diff` — if any needed editing, the observer changed behaviour and that is a finding
 
 **Checkpoint**: everything a machine can check, checked — and labelled as that.
 
@@ -217,3 +217,33 @@ be seen, and it is not something to do hurriedly at the end.
    by T018/T019 asserting the constitution's own text — but nothing asserts
    `CLAUDE.md` or spec 024's note, so those two rest on the contract and on
    review.
+
+---
+
+## Phase 5 status: **not complete**
+
+Recorded here rather than left implied, because this feature exists to stop a
+document saying something the code does not support.
+
+**Done, against the run-mode stack** (`dotnet run --project src/AppHost`):
+
+- The stack boots with `camera-sim` and `mediamtx`, and the ICE mux is published
+  to the host (`0.0.0.0:8189` udp+tcp) — the arrangement that lets a browser
+  receive media at all.
+- **Real video is flowing through the SFU.** MediaMTX's path list shows
+  `cam-01a02481-…` at `ready: true`, `1280×720 H264 Baseline`, **20.7 MB
+  received**. So the premise of both measurements holds: there is a decoded frame
+  to time and an overlay to draw onto it.
+
+**Not done — T026, T027:**
+
+- No kiosk was opened in a browser, so **neither number has been read**. That
+  needs an OIDC login, a published two-tile layout and a person at the screen.
+- The guards were therefore not provoked by hand either: no camera stopped, no
+  tab backgrounded, no reconnection observed.
+
+**What this means for the claims.** Everything the automated suite covers — the
+guards, the separability, the fragment's naming, the endpoint's validation, the
+corrected record — is proven. **The two figures themselves are not**, and no
+green tick in this PR should be read as saying they are. That distinction is the
+whole subject of the feature.
