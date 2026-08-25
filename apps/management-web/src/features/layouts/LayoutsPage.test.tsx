@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
@@ -230,5 +230,121 @@ describe('LayoutsPage', () => {
     });
     // The editor opens pre-loaded: its "Edit layout" dialog title appears.
     expect(await screen.findByText(/edit layout/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * Spec 036 — the confirmations. Layouts carry the sharpest wording in the
+ * feature, and the only conditional.
+ */
+describe('LayoutsPage — archive confirmation', () => {
+  function publishedChain() {
+    return chain({
+      revisions: [
+        {
+          revisionIdentifier: '33333333-3333-3333-3333-333333333333',
+          revisionNumber: 4,
+          state: 'Published',
+          gridRows: 1,
+          gridCols: 1,
+          tiles: [{ cameraIdentifier: 'a', overlayIdentifier: null, row: 0, col: 0 }],
+          createdAt: '2026-05-26T10:00:00Z',
+          createdBy: '22222222-2222-2222-2222-222222222222',
+          publishedAt: '2026-05-27T10:00:00Z',
+          archivedAt: null,
+        },
+      ],
+    });
+  }
+
+  async function openConfirmation(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: /^archive$/i }));
+    return screen.getByRole('alertdialog');
+  }
+
+  /**
+   * T012 / FR-002, asserted as a **call count**. A confirmation that closes
+   * cleanly and archives anyway passes any assertion about the dialog closing.
+   */
+  it('Archives nothing when the confirmation is dismissed', async () => {
+    const user = userEvent.setup();
+    listLayoutsMock.mockReturnValue({ data: response([publishedChain()]), isLoading: false, isFetching: false, refetch: vi.fn() });
+    renderPage();
+
+    const confirmation = await openConfirmation(user);
+    await user.click(within(confirmation).getByRole('button', { name: /cancel/i }));
+
+    expect(archiveMock).not.toHaveBeenCalled();
+  });
+
+  it('Archives once confirmed, sending the revision it named', async () => {
+    const user = userEvent.setup();
+    listLayoutsMock.mockReturnValue({ data: response([publishedChain()]), isLoading: false, isFetching: false, refetch: vi.fn() });
+    renderPage();
+
+    const confirmation = await openConfirmation(user);
+    expect(archiveMock).not.toHaveBeenCalled();
+
+    await user.click(within(confirmation).getByRole('button', { name: /^archive$/i }));
+
+    expect(archiveMock).toHaveBeenCalledWith({
+      layoutIdentifier: '11111111-1111-1111-1111-111111111111',
+      revisionNumber: 4,
+      version: 0,
+    });
+  });
+
+  /** T013 / FR-003 — the name and the revision, and never the identifier. */
+  it('Names the layout and revision, and shows no identifier', async () => {
+    const user = userEvent.setup();
+    listLayoutsMock.mockReturnValue({ data: response([publishedChain()]), isLoading: false, isFetching: false, refetch: vi.fn() });
+    renderPage();
+
+    const confirmation = await openConfirmation(user);
+
+    expect(confirmation).toHaveTextContent('Line-1');
+    expect(confirmation).toHaveTextContent('4');
+    expect(confirmation).not.toHaveTextContent('11111111-1111-1111-1111-111111111111');
+    expect(confirmation).not.toHaveTextContent(/are you sure/i);
+  });
+
+  /**
+   * T014 / FR-007 — the sentence most likely to be softened away.
+   *
+   * "This cannot be undone" is true of all four archive confirmations and
+   * understates this one: the layout does not merely stay archived, it becomes
+   * permanently unusable. Asserting the generic phrase would pass against the
+   * softened wording, so the specific claim is what is asserted.
+   */
+  it('Says the layout can never be edited or published again', async () => {
+    const user = userEvent.setup();
+    listLayoutsMock.mockReturnValue({ data: response([publishedChain()]), isLoading: false, isFetching: false, refetch: vi.fn() });
+    renderPage();
+
+    const confirmation = await openConfirmation(user);
+
+    expect(confirmation).toHaveTextContent(/never be edited or published again/i);
+  });
+
+  /**
+   * T015 / FR-008 — **both directions in one test**, deliberately.
+   *
+   * Asserting only the published case passes against a confirmation that always
+   * warns, and an overstated warning is one operators learn to click through —
+   * which costs more than the warning buys. Archiving a draft strands nothing
+   * and no kiosk is showing a draft.
+   */
+  it('Warns about kiosks for a published revision and not for a draft', async () => {
+    const user = userEvent.setup();
+
+    listLayoutsMock.mockReturnValue({ data: response([publishedChain()]), isLoading: false, isFetching: false, refetch: vi.fn() });
+    const published = renderPage();
+    expect(await openConfirmation(user)).toHaveTextContent(/kiosks/i);
+    published.unmount();
+
+    // The default fixture's newest revision is a Draft.
+    listLayoutsMock.mockReturnValue({ data: response([chain()]), isLoading: false, isFetching: false, refetch: vi.fn() });
+    renderPage();
+    expect(await openConfirmation(user)).not.toHaveTextContent(/kiosks/i);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
@@ -8,6 +8,11 @@ import type { Variable } from '@smart-sentinel-eye/shared/api/systemVariables.ap
 // A single-fab operator is never asked which fab (ADR-0114), so the default
 // keeps the existing cases reading as they did; the multi-fab case overrides it.
 const assignedGroups = { current: ['/fabs/munich'] as string[] };
+
+// Spec 036: hoisted so the archive confirmation's assertions can read it. It
+// was an inline anonymous mock, which satisfied the hook and could not be
+// asserted on.
+const archiveMock = vi.hoisted(() => vi.fn(async () => ({ data: 'noop' })));
 
 vi.mock('react-oidc-context', () => ({
   useAuth: () => ({ user: { profile: { groups: assignedGroups.current } } }),
@@ -25,7 +30,7 @@ vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOrigi
     useListVariablesQuery: (...args: unknown[]) => listMock(...args),
     useSetVariableValueMutation: () => [setValueMock, setValueState],
     useDefineVariableMutation: () => [defineMock, { isLoading: false, error: undefined, reset: vi.fn() }],
-    useArchiveVariableMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false }],
+    useArchiveVariableMutation: () => [archiveMock, { isLoading: false }],
   };
 });
 
@@ -236,4 +241,68 @@ describe('SystemVariablesPage', () => {
     });
   });
 
+});
+
+/** Spec 036 — the confirmation. */
+describe('SystemVariablesPage — archive confirmation', () => {
+  function showing() {
+    listMock.mockReturnValue({
+      data: [variable()],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+  }
+
+  async function openConfirmation(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: /^archive$/i }));
+    return screen.getByRole('alertdialog');
+  }
+
+  beforeEach(() => {
+    archiveMock.mockClear();
+  });
+
+  /** T012 / FR-002 — asserted as a call count, not as the dialog closing. */
+  it('Archives nothing when the confirmation is dismissed', async () => {
+    const user = userEvent.setup();
+    showing();
+    renderPage();
+
+    const confirmation = await openConfirmation(user);
+    await user.click(within(confirmation).getByRole('button', { name: /cancel/i }));
+
+    expect(archiveMock).not.toHaveBeenCalled();
+  });
+
+  it('Archives once confirmed', async () => {
+    const user = userEvent.setup();
+    showing();
+    renderPage();
+
+    const confirmation = await openConfirmation(user);
+    expect(archiveMock).not.toHaveBeenCalled();
+
+    await user.click(within(confirmation).getByRole('button', { name: /^archive$/i }));
+
+    expect(archiveMock).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * T013 / FR-006. Both halves matter and neither is visible from the page:
+   * the value disappearing is immediate, and the refusal is what anything
+   * trying to set it will hit from then on.
+   */
+  it('Names the variable and says its value is cleared and can never be replaced', async () => {
+    const user = userEvent.setup();
+    showing();
+    renderPage();
+
+    const confirmation = await openConfirmation(user);
+
+    expect(confirmation).toHaveTextContent('oeeLine1');
+    expect(confirmation).toHaveTextContent(/cleared/i);
+    expect(confirmation).toHaveTextContent(/never be given another/i);
+    expect(confirmation).not.toHaveTextContent(/are you sure/i);
+  });
 });
