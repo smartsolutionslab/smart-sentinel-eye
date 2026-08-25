@@ -56,19 +56,25 @@ export function LayoutsPage() {
   const chains = data?.chains ?? [];
   const visible = filter === 'All' ? chains : chains.filter((c) => containsRevisionIn(c, filter));
 
-  // Edit-after-publish (US4): branch a new draft off the Published baseline,
-  // then open the designer pre-loaded with that baseline's grid + tiles. The
-  // branch copies the baseline verbatim, so the new draft's revision number is
-  // the published revision's + 1 (the returned number).
-  const onEdit = async (chain: Layout, published: LayoutRevision) => {
+  // Edit-after-publish (US4): branch a new draft off the baseline, then open the
+  // designer pre-loaded with that baseline's grid + tiles. The branch copies the
+  // baseline verbatim, so the new draft's revision number is the baseline's + 1
+  // (the returned number).
+  //
+  // Spec 037: `baseline` is the chain's newest revision, which is the Published
+  // one on the ordinary path and the newest Archived one when recovering a
+  // stranded chain (ADR-0121). The server picks the same revision by the same
+  // rule; this only decides what the designer opens with. The parameter was
+  // called `published` before, which was never quite what the call site passed.
+  const onEdit = async (chain: Layout, baseline: LayoutRevision) => {
     const result = await branchDraft({ layoutIdentifier: chain.layoutIdentifier, version: chain.version });
     if ('error' in result) return;
     setEditTarget({
       layoutIdentifier: chain.layoutIdentifier,
       revisionNumber: result.data,
       name: chain.name,
-      grid: { rows: published.gridRows, cols: published.gridCols },
-      tiles: published.tiles,
+      grid: { rows: baseline.gridRows, cols: baseline.gridCols },
+      tiles: baseline.tiles,
     });
   };
 
@@ -167,29 +173,36 @@ export function LayoutsPage() {
                     Publish
                   </Button>
                 )}
+                {/*
+                  Spec 037: a fully-archived chain is recoverable (ADR-0121), and
+                  the edit action is how. Not `newest.state === 'Archived'` —
+                  a chain can hold a Published revision under an abandoned newer
+                  draft, and that one is not stranded (issue 1879 covers the
+                  separate problem that it is offered nothing at all).
+                */}
+                {(newest.state === 'Published' || isFullyArchived(chain)) && (
+                  <Button
+                    variant="secondary"
+                    disabled={disabled}
+                    onClick={() => void onEdit(chain, newest)}
+                  >
+                    Edit (new draft)
+                  </Button>
+                )}
                 {newest.state === 'Published' && (
-                  <>
-                    <Button
-                      variant="secondary"
-                      disabled={disabled}
-                      onClick={() => void onEdit(chain, newest)}
-                    >
-                      Edit (new draft)
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      disabled={disabled}
-                      onClick={() =>
-                        void revertRevision({
-                          layoutIdentifier: chain.layoutIdentifier,
-                          revisionNumber: newest.revisionNumber,
-                          version: chain.version,
-                        })
-                      }
-                    >
-                      Revert
-                    </Button>
-                  </>
+                  <Button
+                    variant="secondary"
+                    disabled={disabled}
+                    onClick={() =>
+                      void revertRevision({
+                        layoutIdentifier: chain.layoutIdentifier,
+                        revisionNumber: newest.revisionNumber,
+                        version: chain.version,
+                      })
+                    }
+                  >
+                    Revert
+                  </Button>
                 )}
                 {newest.state !== 'Archived' && (
                   <Button
@@ -215,18 +228,19 @@ export function LayoutsPage() {
       </ul>
 
       {/*
-        Spec 036 FR-007, and the sharpest sentence in this feature.
+        Spec 037 FR-011/FR-012 replaces spec 036's sentence here.
 
-        "This cannot be undone" is true of all four archive confirmations and
-        understates this one. A layout does not merely stay archived: archiving
-        its published revision leaves no published revision to branch or revert
-        from and no draft to edit or publish, so the layout can never be edited
-        or published again. Do not soften it. Issue 1877 tracks whether that
-        should remain true.
+        It used to say the layout could never be edited or published again,
+        which was true and is not any more: ADR-0121 makes a fully-archived
+        chain recoverable by editing it, tiles and all.
 
-        The kiosk sentence is conditional (FR-008). Archiving a draft strands
-        nothing and disturbs no kiosk, and a warning that fires either way is
-        one operators learn to click through.
+        Do not collapse this into "This cannot be undone" — that is now false in
+        the other direction, and a warning that overstates is one operators learn
+        to click through. What is still true, and still worth asking about, is
+        that the wall goes out of service and kiosks are sent away at once.
+
+        The kiosk sentence stays conditional (spec 036 FR-008). Archiving a draft
+        disturbs no kiosk.
       */}
       <ArchiveConfirmation
         subject={
@@ -247,7 +261,8 @@ export function LayoutsPage() {
         }}
       >
         <p>
-          This cannot be undone, and <strong>this layout can never be edited or published again</strong>.
+          This takes the layout out of service. You can bring it back later by editing it, and{' '}
+          <strong>the tiles are kept</strong>.
         </p>
         {archiveFor?.published === true && (
           <p>Kiosks showing this layout will be sent away from it immediately.</p>
@@ -272,6 +287,14 @@ function newestRevision(chain: Layout) {
 
 function containsRevisionIn(chain: Layout, state: LayoutRevisionState): boolean {
   return chain.revisions.some((r) => r.state === state);
+}
+
+// Spec 037 (ADR-0121). Stranded: no Published revision and no Draft one — which,
+// since every revision is one of the three, is the same set as "every revision
+// archived". Tests the chain, not its newest row: a chain can hold a Published
+// revision under an abandoned newer draft and is not stranded at all.
+function isFullyArchived(chain: Layout): boolean {
+  return chain.revisions.every((r) => r.state === 'Archived');
 }
 
 // Row summary (T023): the tile count + grid shape replaces the old single

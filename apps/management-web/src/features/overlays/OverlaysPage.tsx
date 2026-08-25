@@ -118,29 +118,36 @@ export function OverlaysPage() {
                     Publish
                   </Button>
                 )}
+                {/*
+                  Spec 037: a fully-archived chain is recoverable (ADR-0121), and
+                  the edit action is how. Not `newest.state === 'Archived'` —
+                  a chain can hold a Published revision under an abandoned newer
+                  draft, and that one is not stranded (issue 1879 covers the
+                  separate problem that it is offered nothing at all).
+                */}
+                {(newest.state === 'Published' || isFullyArchived(chain)) && (
+                  <Button
+                    variant="secondary"
+                    disabled={disabled}
+                    onClick={() => void branchDraft({ overlayIdentifier: chain.overlayIdentifier, version: chain.version })}
+                  >
+                    Edit (new draft)
+                  </Button>
+                )}
                 {newest.state === 'Published' && (
-                  <>
-                    <Button
-                      variant="secondary"
-                      disabled={disabled}
-                      onClick={() => void branchDraft({ overlayIdentifier: chain.overlayIdentifier, version: chain.version })}
-                    >
-                      Edit (new draft)
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      disabled={disabled}
-                      onClick={() =>
-                        void revertRevision({
-                          overlayIdentifier: chain.overlayIdentifier,
-                          revisionNumber: newest.revisionNumber,
-                          version: chain.version,
-                        })
-                      }
-                    >
-                      Revert
-                    </Button>
-                  </>
+                  <Button
+                    variant="secondary"
+                    disabled={disabled}
+                    onClick={() =>
+                      void revertRevision({
+                        overlayIdentifier: chain.overlayIdentifier,
+                        revisionNumber: newest.revisionNumber,
+                        version: chain.version,
+                      })
+                    }
+                  >
+                    Revert
+                  </Button>
                 )}
                 {newest.state !== 'Archived' && (
                   <Button
@@ -166,15 +173,19 @@ export function OverlaysPage() {
       </ul>
 
       {/*
-        Spec 036 FR-007, same prohibition as LayoutsPage. "This cannot be
-        undone" understates it: Overlay exposes the same six behaviours with
-        the same guards, so archiving its published revision leaves nothing to
-        branch, revert, edit or publish from. Do not soften it.
+        Spec 037 FR-011/FR-012 replaces spec 036's sentence here, same as
+        LayoutsPage and for the same reason: ADR-0121 makes a fully-archived
+        chain recoverable by editing it, so "can never be edited or published
+        again" stopped being true.
+
+        Do not collapse this into "This cannot be undone" — now false in the
+        other direction. What is still true is that the overlay goes out of
+        service and kiosks stop showing it.
 
         The kiosk consequence differs in kind from a layout's and the wording
         follows it — an archived overlay is marked unavailable in the cells
-        using it, rather than navigating the kiosk away. Conditional on
-        Published (FR-008).
+        using it, rather than navigating the kiosk away. Still conditional on
+        Published (spec 036 FR-008).
       */}
       <ArchiveConfirmation
         subject={
@@ -195,8 +206,8 @@ export function OverlaysPage() {
         }}
       >
         <p>
-          This cannot be undone, and{' '}
-          <strong>this overlay can never be edited or published again</strong>.
+          This takes the overlay out of service. You can bring it back later by editing it, and{' '}
+          <strong>the label is kept</strong>.
         </p>
         {archiveFor?.published === true && (
           <p>Kiosks using this overlay will stop showing it.</p>
@@ -214,4 +225,12 @@ function newestRevision(chain: Overlay) {
 
 function containsRevisionIn(chain: Overlay, state: OverlayRevisionState): boolean {
   return chain.revisions.some((r) => r.state === state);
+}
+
+// Spec 037 (ADR-0121). Stranded: no Published revision and no Draft one — which,
+// since every revision is one of the three, is the same set as "every revision
+// archived". Tests the chain, not its newest row: a chain can hold a Published
+// revision under an abandoned newer draft and is not stranded at all.
+function isFullyArchived(chain: Overlay): boolean {
+  return chain.revisions.every((r) => r.state === 'Archived');
 }
