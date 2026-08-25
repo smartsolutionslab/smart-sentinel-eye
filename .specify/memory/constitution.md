@@ -97,15 +97,37 @@ table is where that claim lives so it cannot be an unnoticed absence.
 | Leg | Implemented | Measured | Dashboard |
 |---|---|---|---|
 | Camera → SFU | yes | yes (SFU metrics) | no |
-| SFU → kiosk decode | **no** | — | — |
+| SFU → kiosk decode | yes | **in part** — receive-to-decoded only; see below | no |
 | Presentation buffer (PTP) | **no** | — | — |
 | Event → overlay state | yes | **recorded, not yet readable** — see below | no |
-| Overlay composite + render | **partly** — renders over no video | — | — |
+| Overlay composite + render | yes | yes | no |
 | Headroom | n/a — arithmetic remainder | n/a | n/a |
 
-The three unbuilt legs are #1714. Keep this table current: a leg left
-recorded as unbuilt after it is built would exempt itself from §VII by
-clerical error.
+**One** unbuilt leg remains — the presentation buffer — and it is #1714.
+Keep this table current: a leg left recorded as unbuilt after it is built
+would exempt itself from §VII by clerical error.
+
+**That sentence describes something that happened** (spec 040). Two legs
+above stood at "no" and "partly" while their code ran on every kiosk, and
+so carried no §VII obligation for as long as the record was wrong. The
+kiosk's `CellPage` renders `CameraViewer` — a **shared** composite that
+owns the `<video>` element, drives the peer connection, and draws the
+overlay onto the live frame. The claim came from a search scoped to
+`apps/kiosk-web`, where the capability is not; it lives in `apps/shared`.
+Four documents agreed with each other and none had been checked against
+the code. The warning stays because it was right, and it can now point at
+an instance.
+
+**"In part"** (spec 040), defined as deliberately as "recorded, not yet
+readable" below it: the decode budget spans *SFU sends → kiosk has
+decoded*, and a browser cannot see the sending end without a clock shared
+with the SFU. Establishing one **is** the presentation-buffer leg, which
+is not built. So what is recorded is `receive_to_decoded` — first packet
+of a frame received through to that frame decoded — under a name that
+does not claim the leg, and with **no budget attached**, because the
+recorded fragment is the cheaper half and reporting it against 120 ms
+would look like the budget passing. The leg is measured in part; the
+column says so rather than rounding up.
 
 **"Recorded, not yet readable"** (spec 025): the event → overlay leg now
 emits a latency distribution from the service that applies the effect,

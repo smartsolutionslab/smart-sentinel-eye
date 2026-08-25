@@ -231,13 +231,21 @@ down as:
 | Composite + render | ≤ 50 ms |
 | Headroom | ≤ 150 ms |
 
-**Three of these legs are not built** (#1714): the kiosk renders no
-video, so decode and composite-and-render have no code path, and PTP is
-still a future-add. §VII's dashboard rule binds **implemented** legs only
-(ADR-0117) — an unbuilt leg is not exempt, it is *not yet subject*, and
-the obligation attaches to whichever spec builds it. The current state of
-each leg is the table in constitution §IV; keep it current, because a leg
-recorded as unbuilt after it is built exempts itself by clerical error.
+**One of these legs is not built** (#1714): the presentation buffer, PTP
+being still a future-add. Decode and composite-and-render **are** built —
+the kiosk's `CellPage` renders `CameraViewer`, a shared composite that
+owns the `<video>`, drives the peer connection and draws the overlay onto
+the live frame. Both stood recorded as unbuilt until spec 040, on the
+strength of a search scoped to `apps/kiosk-web` when the capability lives
+in `apps/shared`.
+
+§VII's dashboard rule binds **implemented** legs only (ADR-0117) — an
+unbuilt leg is not exempt, it is *not yet subject*, and the obligation
+attaches to whichever spec builds it. **The authority is the table in
+constitution §IV**, which distinguishes four states across the six legs;
+this summary must not compete with it. Keep it current, because a leg
+recorded as unbuilt after it is built exempts itself by clerical error —
+which is not hypothetical, and §IV now says so.
 
 ## Stack at a glance
 

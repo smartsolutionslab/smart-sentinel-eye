@@ -97,6 +97,34 @@ yet feed it.
 
 ## 6. The four legs that get an explanation (T012–T015, T018)
 
+> ### ⚠ Correction, 2026-08-25 (spec 040)
+>
+> **Two rows of the table below are wrong, and the error propagated.** The
+> kiosk **does** decode video and **does** composite overlays onto it:
+> `CellPage` renders `<CameraViewer …>`, a **shared** composite in
+> `apps/shared` that owns the `<video>` element, drives an
+> `RTCPeerConnection` with `addTransceiver('video', {direction:'recvonly'})`,
+> and draws the overlay on the live frame.
+>
+> **What the search missed.** It looked in `apps/kiosk-web` and found no
+> `<video>`, no `MediaStream`, no `RTCPeerConnection` — all true of that
+> directory, and none of it true of what the kiosk *renders*. The capability
+> is one directory over, in the composite the kiosk imports.
+>
+> **Where it went.** From here into constitution §IV's leg table,
+> `CLAUDE.md`'s latency section, and issue 1714 itself. Four documents
+> agreed with each other; none had been checked against the code. Because
+> §VII's obligation is conditional on §IV's table, both legs carried no
+> observability obligation for as long as the record was wrong — the exact
+> clerical error §IV warns about.
+>
+> **Left in place deliberately.** This note records what was found at the
+> time and how a wrong finding travels; deleting it would remove the only
+> trace of the second thing. The corrected state lives in constitution §IV.
+>
+> Only the **presentation buffer** row below is still accurate as written.
+
+
 **"Not built" is a different problem from "built but unmeasured"**, and a reader
 who cannot tell them apart will file the wrong follow-up.
 
