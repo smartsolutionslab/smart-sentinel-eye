@@ -95,4 +95,39 @@ public class FabIdentifierTests
     {
         FabIdentifier.From("munich").ShouldNotBe(FabIdentifier.From("dresden"));
     }
+
+    // ---- spec 039: the ordering (issue 1849) ----
+
+    [Fact]
+    public void Orders_two_fabs_ordinally()
+    {
+        FabIdentifier earlier = FabIdentifier.From("aachen");
+        FabIdentifier later = FabIdentifier.From("munich");
+
+        earlier.CompareTo(later).ShouldBeLessThan(0);
+        later.CompareTo(earlier).ShouldBeGreaterThan(0);
+        (earlier < later).ShouldBeTrue();
+        (later >= earlier).ShouldBeTrue();
+    }
+
+    /// <summary>
+    /// Without this, an implementation that always returns a positive number
+    /// passes every ordering assertion above.
+    /// </summary>
+    [Fact]
+    public void Two_equal_fabs_compare_equal()
+    {
+        FabIdentifier.From("munich").CompareTo(FabIdentifier.From("munich")).ShouldBe(0);
+        (FabIdentifier.From("munich") <= FabIdentifier.From("munich")).ShouldBeTrue();
+    }
+
+    /// <summary>
+    /// The case implementers forget, and that no ordinary sort reaches — a
+    /// present value sorts after an absent one, matching CameraName.
+    /// </summary>
+    [Fact]
+    public void A_fab_sorts_after_nothing()
+    {
+        FabIdentifier.From("munich").CompareTo(null).ShouldBeGreaterThan(0);
+    }
 }
