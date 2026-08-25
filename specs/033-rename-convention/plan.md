@@ -157,9 +157,13 @@ true then, and a rename appends rather than revisiting.
   (research §3). A rename losing the race between check and commit yields a 500.
   The window is small and the invariant still holds, so this feature does not
   close it.
-- **Publishing an integration event is never a one-context change** (research
+- ~~**Publishing an integration event is never a one-context change** (research
   §4). Every new event needs a line in `AuditObservability`'s overload list, and
-  omitting it means the event is silently never audited.
+  omitting it means the event is silently never audited.~~
+  **Retracted 2026-08-25.** The "silently" is false —
+  `BoundaryTests.Every_integration_event_has_an_audit_handler` has caught a
+  missing overload since spec 009, verified by deleting one and watching it fail.
+  Research §4 records how the mistake was made. Issue 1870 closed as invalid.
 - **The spec's inventory of five aggregates was short** (research §5).
   `{integrationName}` and `{clientId}` are also non-identifier addresses. Handled
   by ruling generally rather than by extending the list — but worth knowing that
