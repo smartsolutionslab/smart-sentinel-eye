@@ -139,31 +139,6 @@
       ]
     },
     {
-      "clientId": "smart-sentinel-eye-kiosk",
-      "name": "Smart Sentinel Eye Kiosk App",
-      "enabled": true,
-      "publicClient": true,
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false,
-      "redirectUris": [
-        "http://localhost:5174/oidc/callback",
-        "http://localhost:5174/*",
-        "http://localhost:*"
-      ],
-      "webOrigins": ["+"],
-      "protocol": "openid-connect",
-      "attributes": {
-        "pkce.code.challenge.method": "S256"
-      },
-      "defaultClientScopes": [
-        "basic",
-        "profile",
-        "email",
-        "roles",
-        "sse.management"
-      ]
-    },
-    {
       "clientId": "management-web",
       "name": "Smart Sentinel Eye — Management Web (spec 008 v2)",
       "description": "Replaces smart-sentinel-eye-web in spec 009.",
@@ -200,7 +175,7 @@
     {
       "clientId": "kiosk-web",
       "name": "Smart Sentinel Eye — Kiosk Web (spec 008 v2)",
-      "description": "Replaces smart-sentinel-eye-kiosk in spec 009.",
+      "description": "The kiosk app signs in here (spec 041). Scopes are exactly KeycloakScopeBundles.Kiosk. Carries its own sub mapper: this realm defines its own clientScopes, so the built-in basic scope does not exist and no scope here emits sub.",
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": true,
@@ -214,6 +189,18 @@
       "attributes": {
         "pkce.code.challenge.method": "S256"
       },
+      "protocolMappers": [
+        {
+          "name": "sub-claim",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "introspection.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ],
       "defaultClientScopes": [
         "basic", "profile", "email", "roles", "sse-groups",
         "sse.cameras.read",

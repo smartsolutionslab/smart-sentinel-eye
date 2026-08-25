@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { signInToKiosk } from './support/kiosk-session';
 
 // Spec 011 US2 (FR-006/007) — the kiosk shows the discreet degraded badge
 // while the layout hub is unreachable and clears it once the unbounded retry
@@ -6,23 +7,9 @@ import { test, expect, type Page } from '@playwright/test';
 // /hubs/** request (negotiate + transport), which the app must treat exactly
 // like a network outage.
 //
-// e2e/support/sign-in.ts drives the management shell (it asserts the Cameras
-// heading), so the kiosk repeats the same seeded-operator Keycloak form flow
-// here and asserts arrival on the picker instead.
-async function signInToKiosk(page: Page): Promise<void> {
-  await page.goto('/');
-
-  await page.getByRole('button', { name: /sign in/i }).click();
-
-  await page.locator('#username').fill('operator');
-  await page.locator('#password').fill('Operator1234');
-  await page.locator('#kc-login').click();
-
-  // Back in the kiosk, authenticated — the picker renders (list or empty state).
-  await expect(
-    page.getByText(/pick a layout|no layouts published yet|could not load layouts/i).first(),
-  ).toBeVisible();
-}
+// Spec 041: the sign-in helper moved to e2e/support/kiosk-session.ts. The local
+// copy accepted "could not load layouts" as a passing outcome, so this file
+// went green for years against a kiosk that could never show a wall.
 
 test('kiosk shows the degraded badge while the hub is unreachable and clears it after recovery', async ({
   page,

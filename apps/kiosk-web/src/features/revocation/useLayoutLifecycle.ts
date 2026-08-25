@@ -34,8 +34,13 @@ export interface UseLayoutLifecycleOptions {
   onReconnected?: () => void;
   /**
    * Disable while the user isn't signed in yet. The hub requires
-   * ``sse.management`` scope and the access-token factory will throw
-   * if called before auth lands.
+   * ``sse.layouts.read`` (or the grandfathered ``sse.management``) and the
+   * access-token factory will throw if called before auth lands.
+   *
+   * The hub also joins one group per fab in the token's ``groups`` claim, and
+   * resolved-text and highlight pushes are addressed to those groups — so a
+   * connection holding no fab joins nothing and receives none of them. Until
+   * spec 041 the kiosk held no fab, which means this path had never run.
    */
   enabled?: boolean;
 }
