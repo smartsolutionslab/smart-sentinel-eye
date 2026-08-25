@@ -72,6 +72,13 @@ public static class AuthenticationDefaults
         builder.Services.AddExceptionHandler<FabAuthorizationExceptionHandler>();
         builder.Services.AddExceptionHandler<UnattributableOperatorExceptionHandler>();
         builder.Services.AddExceptionHandler<ConcurrencyConflictExceptionHandler>();
+        // After the concurrency handler, and the reason is worth more than the
+        // rule: DbUpdateConcurrencyException derives from DbUpdateException, so
+        // a handler matching the base type ahead of it would swallow every lost
+        // update and report it as a name collision. UniqueConstraintExceptionHandler
+        // matches the SQLSTATE instead, so it cannot — this ordering is the
+        // second defence, kept because a later edit might widen that match.
+        builder.Services.AddExceptionHandler<UniqueConstraintExceptionHandler>();
         builder.Services.AddProblemDetails();
         builder.Services.AddAuthorizationBuilder()
             .AddScopePolicies(Scope.All)
