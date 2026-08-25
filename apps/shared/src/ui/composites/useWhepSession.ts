@@ -171,5 +171,12 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
     }
   }, [streamState, streamError, transitionTo]);
 
-  return { videoRef, status, errorMessage, stats: () => clientRef.current?.stats() ?? null };
+  // Stable across renders, deliberately. Callers put this in effect dependency
+  // arrays, and a fresh identity each render tears their effect down and rebuilds
+  // it — which silently killed the decode sampler: its 5 s interval was cleared
+  // before it could fire twice, and its "previous sample" was reset every time,
+  // so it reported nothing at all against real video (issue 1889).
+  const stats = useCallback(() => clientRef.current?.stats() ?? null, []);
+
+  return { videoRef, status, errorMessage, stats };
 }

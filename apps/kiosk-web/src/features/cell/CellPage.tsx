@@ -5,7 +5,7 @@ import { systemVariablesApi, useGetOverlaySnapshotQuery } from '@smart-sentinel-
 import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 import { measureOverlayDraw } from '@smart-sentinel-eye/shared/observability/kioskLatency';
 import clsx from 'clsx';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '../../app/store.js';
 import { useAuth } from 'react-oidc-context';
@@ -34,6 +34,16 @@ export function CellPage() {
   const navigate = useNavigate();
   const auth = useAuth();
   const dispatch = useDispatch<AppDispatch>();
+
+  // Stable identity, holding the newest token behind a ref. Every tile puts this
+  // into effect dependency arrays, so a fresh function each render rebuilds those
+  // effects: the overlay-draw measurement then times renders that changed nothing,
+  // and the decode sampler's interval is cleared before it can take a second
+  // sample (issues 1888, 1889). `useWhepSession` already guards its own use of
+  // this prop the same way, and says why.
+  const accessTokenRef = useRef(auth.user?.access_token);
+  accessTokenRef.current = auth.user?.access_token;
+  const getToken = useCallback(() => Promise.resolve(accessTokenRef.current ?? null), []);
   const { data, isLoading, error, refetch } = useGetLayoutQuery(layoutIdentifier, {
     skip: layoutIdentifier === '',
   });
@@ -185,7 +195,7 @@ export function CellPage() {
             <Tile
               key={cell.key}
               tile={cell.tile}
-              getToken={() => Promise.resolve(auth.user?.access_token ?? null)}
+              getToken={getToken}
               unavailable={cell.tile.overlayIdentifier !== null && unavailableOverlays.has(cell.tile.overlayIdentifier)}
               highlighted={cell.tile.overlayIdentifier !== null && highlightedOverlays.has(cell.tile.overlayIdentifier)}
             />
