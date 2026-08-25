@@ -11,6 +11,7 @@ import {
 import { isConflict, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useState } from 'react';
+import { ArchiveConfirmation } from '../ArchiveConfirmation';
 import { LayoutEditorDialog, type LayoutEditTarget } from './LayoutEditorDialog.js';
 
 const STATE_FILTERS: ReadonlyArray<LayoutRevisionState | 'All'> = [
@@ -24,6 +25,16 @@ export function LayoutsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<LayoutEditTarget>();
   const [filter, setFilter] = useState<LayoutRevisionState | 'All'>('All');
+  // Spec 036. Carries the revision's state as well as its number, because the
+  // kiosk warning is conditional on it (FR-008) — a draft strands nothing and
+  // disturbs no kiosk.
+  const [archiveFor, setArchiveFor] = useState<{
+    layoutIdentifier: string;
+    name: string;
+    revisionNumber: number;
+    version: number;
+    published: boolean;
+  } | null>(null);
 
   const { data, isLoading, isFetching, error, refetch } = useListLayoutsQuery(undefined);
   const [publishRevision, publishState] = usePublishRevisionMutation();
@@ -185,10 +196,12 @@ export function LayoutsPage() {
                     variant="secondary"
                     disabled={disabled}
                     onClick={() =>
-                      void archiveRevision({
+                      setArchiveFor({
                         layoutIdentifier: chain.layoutIdentifier,
+                        name: chain.name,
                         revisionNumber: newest.revisionNumber,
                         version: chain.version,
+                        published: newest.state === 'Published',
                       })
                     }
                   >
@@ -200,6 +213,46 @@ export function LayoutsPage() {
           );
         })}
       </ul>
+
+      {/*
+        Spec 036 FR-007, and the sharpest sentence in this feature.
+
+        "This cannot be undone" is true of all four archive confirmations and
+        understates this one. A layout does not merely stay archived: archiving
+        its published revision leaves no published revision to branch or revert
+        from and no draft to edit or publish, so the layout can never be edited
+        or published again. Do not soften it. Issue 1877 tracks whether that
+        should remain true.
+
+        The kiosk sentence is conditional (FR-008). Archiving a draft strands
+        nothing and disturbs no kiosk, and a warning that fires either way is
+        one operators learn to click through.
+      */}
+      <ArchiveConfirmation
+        subject={
+          archiveFor === null ? null : `revision ${archiveFor.revisionNumber} of ${archiveFor.name}`
+        }
+        onCancel={() => setArchiveFor(null)}
+        pending={archiving}
+        onConfirm={() => {
+          if (archiveFor === null) {
+            return;
+          }
+          void archiveRevision({
+            layoutIdentifier: archiveFor.layoutIdentifier,
+            revisionNumber: archiveFor.revisionNumber,
+            version: archiveFor.version,
+          });
+          setArchiveFor(null);
+        }}
+      >
+        <p>
+          This cannot be undone, and <strong>this layout can never be edited or published again</strong>.
+        </p>
+        {archiveFor?.published === true && (
+          <p>Kiosks showing this layout will be sent away from it immediately.</p>
+        )}
+      </ArchiveConfirmation>
 
       <LayoutEditorDialog open={createOpen} onOpenChange={setCreateOpen} />
       <LayoutEditorDialog

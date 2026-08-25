@@ -9,6 +9,7 @@ import {
 } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useState } from 'react';
+import { ArchiveConfirmation } from '../ArchiveConfirmation';
 import { OverlayEditorDialog } from './OverlayEditorDialog.js';
 
 const STATE_FILTERS: ReadonlyArray<OverlayRevisionState | 'All'> = [
@@ -21,6 +22,16 @@ const STATE_FILTERS: ReadonlyArray<OverlayRevisionState | 'All'> = [
 export function OverlaysPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filter, setFilter] = useState<OverlayRevisionState | 'All'>('All');
+  // Spec 036. Carries the revision's state, because the kiosk warning is
+  // conditional on it (FR-008) — a draft strands nothing and no kiosk is
+  // showing one.
+  const [archiveFor, setArchiveFor] = useState<{
+    overlayIdentifier: string;
+    name: string;
+    revisionNumber: number;
+    version: number;
+    published: boolean;
+  } | null>(null);
 
   const { data, isLoading, isFetching, error, refetch } = useListOverlaysQuery(undefined);
   const [publishRevision, { isLoading: publishing }] = usePublishOverlayRevisionMutation();
@@ -136,10 +147,12 @@ export function OverlaysPage() {
                     variant="secondary"
                     disabled={disabled}
                     onClick={() =>
-                      void archiveRevision({
+                      setArchiveFor({
                         overlayIdentifier: chain.overlayIdentifier,
+                        name: chain.name,
                         revisionNumber: newest.revisionNumber,
                         version: chain.version,
+                        published: newest.state === 'Published',
                       })
                     }
                   >
@@ -151,6 +164,44 @@ export function OverlaysPage() {
           );
         })}
       </ul>
+
+      {/*
+        Spec 036 FR-007, same prohibition as LayoutsPage. "This cannot be
+        undone" understates it: Overlay exposes the same six behaviours with
+        the same guards, so archiving its published revision leaves nothing to
+        branch, revert, edit or publish from. Do not soften it.
+
+        The kiosk consequence differs in kind from a layout's and the wording
+        follows it — an archived overlay is marked unavailable in the cells
+        using it, rather than navigating the kiosk away. Conditional on
+        Published (FR-008).
+      */}
+      <ArchiveConfirmation
+        subject={
+          archiveFor === null ? null : `revision ${archiveFor.revisionNumber} of ${archiveFor.name}`
+        }
+        onCancel={() => setArchiveFor(null)}
+        pending={archiving}
+        onConfirm={() => {
+          if (archiveFor === null) {
+            return;
+          }
+          void archiveRevision({
+            overlayIdentifier: archiveFor.overlayIdentifier,
+            revisionNumber: archiveFor.revisionNumber,
+            version: archiveFor.version,
+          });
+          setArchiveFor(null);
+        }}
+      >
+        <p>
+          This cannot be undone, and{' '}
+          <strong>this overlay can never be edited or published again</strong>.
+        </p>
+        {archiveFor?.published === true && (
+          <p>Kiosks using this overlay will stop showing it.</p>
+        )}
+      </ArchiveConfirmation>
 
       <OverlayEditorDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </section>
