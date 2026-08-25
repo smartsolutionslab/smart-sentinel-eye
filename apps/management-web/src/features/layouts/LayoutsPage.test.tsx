@@ -336,25 +336,28 @@ describe('LayoutsPage — archive confirmation', () => {
   });
 
   /**
-   * T015 / FR-008 — **both directions in one test**, deliberately.
+   * Spec 038 T024 — **rewritten**, and its premise replaced rather than its
+   * wording.
    *
-   * Asserting only the published case passes against a confirmation that always
-   * warns, and an overstated warning is one operators learn to click through —
-   * which costs more than the warning buys. Archiving a draft strands nothing
-   * and no kiosk is showing a draft.
+   * <p>
+   * This was spec 036's T015: one dialog whose kiosk sentence was conditional on
+   * the revision being published. Spec 038 removes the condition — Archive is
+   * offered only when a live revision exists and targets it, so the sentence is
+   * always true here. The case the condition existed for is now a *different*
+   * dialog, asserted below.
+   * </p>
+   *
+   * <p>
+   * **No fixture varies a draft state.** A test that still varied one would keep
+   * passing while the now-constant flag lingered in the page.
+   * </p>
    */
-  it('Warns about kiosks for a published revision and not for a draft', async () => {
+  it('Always warns about kiosks, because archive only ever targets the live revision', async () => {
     const user = userEvent.setup();
-
     listLayoutsMock.mockReturnValue({ data: response([publishedChain()]), isLoading: false, isFetching: false, refetch: vi.fn() });
-    const published = renderPage();
-    expect(await openConfirmation(user)).toHaveTextContent(/kiosks/i);
-    published.unmount();
-
-    // The default fixture's newest revision is a Draft.
-    listLayoutsMock.mockReturnValue({ data: response([chain()]), isLoading: false, isFetching: false, refetch: vi.fn() });
     renderPage();
-    expect(await openConfirmation(user)).not.toHaveTextContent(/kiosks/i);
+
+    expect(await openConfirmation(user)).toHaveTextContent(/kiosks/i);
   });
 
   describe('LayoutsPage — recovering an archived layout', () => {
@@ -409,26 +412,50 @@ describe('LayoutsPage — archive confirmation', () => {
     });
 
     /**
-     * The other direction, and the reason the gate tests the **chain** rather
-     * than `newest.state`.
+     * Spec 038 T022 — **rewritten, not deleted**, and the claim is stronger than
+     * the one it replaces.
      *
-     * A chain can hold a Published revision under an abandoned newer draft. Its
-     * newest revision is Archived, but it is not stranded at all — it is live on
-     * kiosks. Gating on `newest.state === 'Archived'` would offer it a recovery
-     * it does not need and branch it from the abandoned draft rather than the
-     * published wall.
+     * <p>
+     * Spec 037 asserted this shape offered <b>no</b> edit button. It now offers
+     * one: the chain has a live revision under a discarded draft, and issue 1879
+     * was filed because the row offered nothing at all while the layout was on
+     * kiosks. That comment was written expecting this change.
+     * </p>
      *
-     * That shape has a separate problem — it is offered no row actions
-     * whatsoever, filed as issue 1879 and deliberately not fixed here. This
-     * asserts only that the new gate does not misclassify it as recoverable.
+     * <p>
+     * What the old test existed to prevent was branching from the <b>abandoned
+     * draft</b> instead of the published wall. Asserting the button's absence was
+     * only a proxy for that while the button did not exist. The direct form is
+     * available now: assert the editor opens with the <b>published</b> revision's
+     * grid and tiles. Asserting the branch mutation fired would prove nothing —
+     * branching from the abandoned draft fires it too.
+     * </p>
      */
-    it('Does not treat a published revision under an abandoned draft as recoverable', () => {
+    it('Edits a published revision under a discarded draft from the PUBLISHED one', async () => {
+      const user = userEvent.setup();
       listLayoutsMock.mockReturnValue({
         data: response([
           chain({
             revisions: [
-              revision({ revisionNumber: 1, state: 'Published', publishedAt: '2026-05-27T10:00:00Z', archivedAt: null }),
-              revision({ revisionNumber: 2, revisionIdentifier: 'aa' }),
+              revision({
+                revisionNumber: 1,
+                state: 'Published',
+                publishedAt: '2026-05-27T10:00:00Z',
+                archivedAt: null,
+                gridRows: 1,
+                gridCols: 2,
+                tiles: [
+                  { cameraIdentifier: 'live-left', overlayIdentifier: null, row: 0, col: 0 },
+                  { cameraIdentifier: 'live-right', overlayIdentifier: null, row: 0, col: 1 },
+                ],
+              }),
+              revision({
+                revisionNumber: 2,
+                revisionIdentifier: 'aa',
+                gridRows: 1,
+                gridCols: 1,
+                tiles: [{ cameraIdentifier: 'discarded', overlayIdentifier: null, row: 0, col: 0 }],
+              }),
             ],
           }),
         ]),
@@ -436,10 +463,238 @@ describe('LayoutsPage — archive confirmation', () => {
         isFetching: false,
         refetch: vi.fn(),
       });
-
       renderPage();
 
-      expect(screen.queryByRole('button', { name: /edit \(new draft\)/i })).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /edit \(new draft\)/i }));
+
+      // The designer opens pre-loaded from the branch source. Two camera pickers
+      // means the 1×2 published grid; one would mean the discarded draft's 1×1.
+      const editor = await screen.findByRole('dialog');
+      expect(within(editor).getAllByLabelText(/camera/i)).toHaveLength(2);
     });
+  });
+
+  /**
+   * Spec 038 T020 / SC-001 — **every reachable shape offers at least one action,
+   * asserted shape by shape.**
+   *
+   * <p>
+   * Not as a loop over a fixture list. The defect being fixed is precisely a
+   * shape nobody enumerated, and an aggregate assertion repeats that method.
+   * There are eight, and three of them (`{A,D}`, `{D,D}`, `{P,D,D}`) were found
+   * only by deriving them from the operations rather than reading the code.
+   * </p>
+   */
+  describe('LayoutsPage — every chain shape offers something', () => {
+    function rev(revisionNumber: number, state: 'Draft' | 'Published' | 'Archived') {
+      return {
+        revisionIdentifier: `r${revisionNumber}`,
+        revisionNumber,
+        state,
+        gridRows: 1,
+        gridCols: 1,
+        tiles: [{ cameraIdentifier: 'a', overlayIdentifier: null, row: 0, col: 0 }],
+        createdAt: '2026-05-26T10:00:00Z',
+        createdBy: '22222222-2222-2222-2222-222222222222',
+        publishedAt: state === 'Published' ? '2026-05-27T10:00:00Z' : null,
+        archivedAt: state === 'Archived' ? '2026-05-28T10:00:00Z' : null,
+      };
+    }
+
+    function showing(revisions: ReturnType<typeof rev>[]) {
+      listLayoutsMock.mockReturnValue({
+        data: response([chain({ revisions })]),
+        isLoading: false,
+        isFetching: false,
+        refetch: vi.fn(),
+      });
+    }
+
+    const shapes: ReadonlyArray<[string, ReturnType<typeof rev>[], string[]]> = [
+      ['{D}', [rev(1, 'Draft')], ['Publish', 'Discard draft']],
+      ['{P}', [rev(1, 'Published')], ['Edit (new draft)', 'Revert', 'Archive']],
+      ['{A}', [rev(1, 'Archived')], ['Edit (new draft)']],
+      [
+        '{P,D}',
+        [rev(1, 'Published'), rev(2, 'Draft')],
+        ['Publish', 'Discard draft', 'Edit (new draft)', 'Revert', 'Archive'],
+      ],
+      // The shape issue 1879 filed: this row used to offer nothing at all.
+      ['{P,A}', [rev(1, 'Published'), rev(2, 'Archived')], ['Edit (new draft)', 'Revert', 'Archive']],
+      ['{A,D}', [rev(1, 'Archived'), rev(2, 'Draft')], ['Publish', 'Discard draft']],
+      // Two open drafts: branch off a published revision, then revert it.
+      ['{D,D}', [rev(1, 'Draft'), rev(2, 'Draft')], ['Publish', 'Discard draft']],
+      [
+        '{P,D,D}',
+        [rev(1, 'Draft'), rev(2, 'Draft'), rev(3, 'Published')],
+        ['Publish', 'Discard draft', 'Edit (new draft)', 'Revert', 'Archive'],
+      ],
+    ];
+
+    for (const [name, revisions, expected] of shapes) {
+      it(`${name} offers ${expected.join(', ')}`, () => {
+        showing(revisions);
+        renderPage();
+
+        const offered = screen
+          .getAllByRole('button')
+          .map((button) => button.textContent ?? '')
+          .filter((label) => expected.includes(label) || ACTION_LABELS.includes(label));
+
+        expect(offered.sort()).toEqual([...expected].sort());
+      });
+    }
+  });
+});
+
+/** Every action a row can offer, so a shape test can assert the exact set. */
+const ACTION_LABELS = ['Publish', 'Discard draft', 'Edit (new draft)', 'Revert', 'Archive'];
+
+/**
+ * Spec 038 T021 / T024 — the two destructive actions on **one** chain.
+ *
+ * <p>
+ * A chain with a live revision and an open draft is where the old row was
+ * wrong: <b>Archive</b> archived the draft while its confirmation said the
+ * layout was going out of service.
+ * </p>
+ */
+describe('LayoutsPage — archive and discard on one chain', () => {
+  function liveWithDraft() {
+    return chain({
+      revisions: [
+        {
+          revisionIdentifier: 'r1',
+          revisionNumber: 4,
+          state: 'Published' as const,
+          gridRows: 1,
+          gridCols: 1,
+          tiles: [{ cameraIdentifier: 'a', overlayIdentifier: null, row: 0, col: 0 }],
+          createdAt: '2026-05-26T10:00:00Z',
+          createdBy: '22222222-2222-2222-2222-222222222222',
+          publishedAt: '2026-05-27T10:00:00Z',
+          archivedAt: null,
+        },
+        {
+          revisionIdentifier: 'r2',
+          revisionNumber: 5,
+          state: 'Draft' as const,
+          gridRows: 1,
+          gridCols: 1,
+          tiles: [{ cameraIdentifier: 'b', overlayIdentifier: null, row: 0, col: 0 }],
+          createdAt: '2026-05-28T10:00:00Z',
+          createdBy: '22222222-2222-2222-2222-222222222222',
+          publishedAt: null,
+          archivedAt: null,
+        },
+      ],
+    });
+  }
+
+  beforeEach(() => {
+    archiveMock.mockClear();
+    listLayoutsMock.mockReturnValue({
+      data: response([liveWithDraft()]),
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    });
+  });
+
+  async function confirm(user: ReturnType<typeof userEvent.setup>, label: RegExp, button: RegExp) {
+    await user.click(screen.getByRole('button', { name: label }));
+    const dialog = screen.getByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: button }));
+  }
+
+  /**
+   * **The targets, on the same chain.** Both calls succeed whichever revision
+   * they name — which is exactly why the old defect went unnoticed — so
+   * asserting that the request fired asserts nothing. Asserted on separate
+   * chains, a swap would pass twice.
+   */
+  it('Archives the LIVE revision and discards the DRAFT, not the other way round', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await confirm(user, /^archive$/i, /^archive$/i);
+    expect(archiveMock).toHaveBeenCalledWith({
+      layoutIdentifier: '11111111-1111-1111-1111-111111111111',
+      revisionNumber: 4,
+      version: 0,
+    });
+
+    archiveMock.mockClear();
+
+    await confirm(user, /discard draft/i, /^discard$/i);
+    expect(archiveMock).toHaveBeenCalledWith({
+      layoutIdentifier: '11111111-1111-1111-1111-111111111111',
+      revisionNumber: 5,
+      version: 0,
+    });
+  });
+
+  /**
+   * The falsehood this feature exists to remove, asserted as an **absence**.
+   * A dialog that says both the true and the false sentence passes any
+   * assertion about the true one — and copying the archive body across is the
+   * fast way to build this dialog.
+   *
+   * <p>
+   * The forbidden claims are that the layout goes <b>out of service</b>, that
+   * kiosks are <b>sent away</b> or <b>stop showing</b> it, and that it can be
+   * <b>brought back</b>. Not the word "kiosk": saying kiosks are <i>unaffected</i>
+   * is true, and it is the most reassuring thing this dialog can say. An earlier
+   * draft of this test banned the word and contradicted the contract it was
+   * written from.
+   * </p>
+   */
+  it('Claims no consequence that does not apply when discarding a draft', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /discard draft/i }));
+    const dialog = screen.getByRole('alertdialog');
+
+    expect(dialog).toHaveTextContent(/cannot be recovered/i);
+    expect(dialog).toHaveTextContent(/stays exactly as it is/i);
+    expect(dialog).toHaveTextContent(/kiosks are unaffected/i);
+    expect(dialog).not.toHaveTextContent(/out of service/i);
+    expect(dialog).not.toHaveTextContent(/sent away/i);
+    expect(dialog).not.toHaveTextContent(/stop showing/i);
+    expect(dialog).not.toHaveTextContent(/bring it back/i);
+  });
+
+  it('Names a different revision in each confirmation', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /^archive$/i }));
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('revision 4');
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: /cancel/i }));
+
+    await user.click(screen.getByRole('button', { name: /discard draft/i }));
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('draft revision 5');
+  });
+
+  it('Discards nothing when the discard confirmation is dismissed', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /discard draft/i }));
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: /cancel/i }));
+
+    expect(archiveMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Spec 038 FR-009 / T023. Asserts the revision **number**, not the word
+   * `Published` — that appears either way, so it would pass against a row still
+   * reporting its newest revision.
+   */
+  it('Names the live revision in the badge, and says a draft is open', () => {
+    renderPage();
+
+    expect(screen.getByText('v4 · Published · draft v5')).toBeInTheDocument();
   });
 });
