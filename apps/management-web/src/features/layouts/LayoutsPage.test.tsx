@@ -309,21 +309,30 @@ describe('LayoutsPage — archive confirmation', () => {
   });
 
   /**
-   * T014 / FR-007 — the sentence most likely to be softened away.
+   * Spec 037 T025 / FR-011, FR-012 — **rewritten**, not deleted.
    *
-   * "This cannot be undone" is true of all four archive confirmations and
-   * understates this one: the layout does not merely stay archived, it becomes
-   * permanently unusable. Asserting the generic phrase would pass against the
-   * softened wording, so the specific claim is what is asserted.
+   * This was spec 036's T014, asserting the layout could never be edited or
+   * published again. ADR-0121 made that false, so the claim changed and the test
+   * changed with it. Deleting it instead would have removed the only check on
+   * this wording at the exact moment the wording changed.
+   *
+   * It asserts the **absence** of both false sentences as well as the presence
+   * of the true one. A test that merely stopped asserting the old sentence would
+   * pass against a page that still said it — and "cannot be undone" is where
+   * this wording lands under any hurried edit, false now in the other direction.
    */
-  it('Says the layout can never be edited or published again', async () => {
+  it('Says the layout can be brought back and keeps its tiles', async () => {
     const user = userEvent.setup();
     listLayoutsMock.mockReturnValue({ data: response([publishedChain()]), isLoading: false, isFetching: false, refetch: vi.fn() });
     renderPage();
 
     const confirmation = await openConfirmation(user);
 
-    expect(confirmation).toHaveTextContent(/never be edited or published again/i);
+    expect(confirmation).toHaveTextContent(/bring it back/i);
+    expect(confirmation).toHaveTextContent(/tiles are kept/i);
+    expect(confirmation).toHaveTextContent(/out of service/i);
+    expect(confirmation).not.toHaveTextContent(/never be edited or published again/i);
+    expect(confirmation).not.toHaveTextContent(/cannot be undone/i);
   });
 
   /**
@@ -346,5 +355,91 @@ describe('LayoutsPage — archive confirmation', () => {
     listLayoutsMock.mockReturnValue({ data: response([chain()]), isLoading: false, isFetching: false, refetch: vi.fn() });
     renderPage();
     expect(await openConfirmation(user)).not.toHaveTextContent(/kiosks/i);
+  });
+
+  describe('LayoutsPage — recovering an archived layout', () => {
+    function revision(overrides: Partial<Layout['revisions'][number]>) {
+      return {
+        revisionIdentifier: '33333333-3333-3333-3333-333333333333',
+        revisionNumber: 1,
+        state: 'Archived' as const,
+        gridRows: 1,
+        gridCols: 1,
+        tiles: [{ cameraIdentifier: 'a', overlayIdentifier: null, row: 0, col: 0 }],
+        createdAt: '2026-05-26T10:00:00Z',
+        createdBy: '22222222-2222-2222-2222-222222222222',
+        publishedAt: null,
+        archivedAt: '2026-05-28T10:00:00Z',
+        ...overrides,
+      };
+    }
+
+    /**
+     * Spec 037 FR-013. The row used to offer nothing at all here.
+     */
+    it('Offers the edit action on a chain whose every revision is archived', () => {
+      listLayoutsMock.mockReturnValue({
+        data: response([chain({ revisions: [revision({ revisionNumber: 1 })] })]),
+        isLoading: false,
+        isFetching: false,
+        refetch: vi.fn(),
+      });
+
+      renderPage();
+
+      expect(screen.getByRole('button', { name: /edit \(new draft\)/i })).toBeInTheDocument();
+    });
+
+    it('Branches a draft when the archived chain is edited', async () => {
+      const user = userEvent.setup();
+      listLayoutsMock.mockReturnValue({
+        data: response([chain({ revisions: [revision({ revisionNumber: 1 })] })]),
+        isLoading: false,
+        isFetching: false,
+        refetch: vi.fn(),
+      });
+      renderPage();
+
+      await user.click(screen.getByRole('button', { name: /edit \(new draft\)/i }));
+
+      expect(branchMock).toHaveBeenCalledWith({
+        layoutIdentifier: '11111111-1111-1111-1111-111111111111',
+        version: 0,
+      });
+    });
+
+    /**
+     * The other direction, and the reason the gate tests the **chain** rather
+     * than `newest.state`.
+     *
+     * A chain can hold a Published revision under an abandoned newer draft. Its
+     * newest revision is Archived, but it is not stranded at all — it is live on
+     * kiosks. Gating on `newest.state === 'Archived'` would offer it a recovery
+     * it does not need and branch it from the abandoned draft rather than the
+     * published wall.
+     *
+     * That shape has a separate problem — it is offered no row actions
+     * whatsoever, filed as issue 1879 and deliberately not fixed here. This
+     * asserts only that the new gate does not misclassify it as recoverable.
+     */
+    it('Does not treat a published revision under an abandoned draft as recoverable', () => {
+      listLayoutsMock.mockReturnValue({
+        data: response([
+          chain({
+            revisions: [
+              revision({ revisionNumber: 1, state: 'Published', publishedAt: '2026-05-27T10:00:00Z', archivedAt: null }),
+              revision({ revisionNumber: 2, revisionIdentifier: 'aa' }),
+            ],
+          }),
+        ]),
+        isLoading: false,
+        isFetching: false,
+        refetch: vi.fn(),
+      });
+
+      renderPage();
+
+      expect(screen.queryByRole('button', { name: /edit \(new draft\)/i })).not.toBeInTheDocument();
+    });
   });
 });
