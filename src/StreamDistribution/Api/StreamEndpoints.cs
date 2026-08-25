@@ -63,7 +63,103 @@ public static class StreamEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
+        // Spec 040 (ADR-0122). Two legs of the budget happen in the browser and
+        // nowhere else, so their numbers have to get here somehow. The kiosk
+        // reports a measurement; this records it through the meter every other
+        // leg already uses. The browser does not export telemetry — ADR-0118's
+        // single sink stays single.
+        //
+        // Hosted here because this is the context the kiosk already calls about
+        // what it is displaying. Nothing enters a domain model: a latency figure
+        // is telemetry, not domain state.
+        group.MapPost("/kiosk-latency", RecordKioskLatency)
+            .RequireAuthorization(Scope.Sse.Streams.Read)
+            .WithName("RecordKioskLatency")
+            .WithSummary(
+                "Record a latency measurement taken in a kiosk browser. The caller sends the "
+                + "elapsed time it already computed, never a start (ADR-0122).")
+            .Produces(StatusCodes.Status202Accepted)
+            .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+
         return app;
+    }
+
+    /// <summary>
+    /// A latency measurement reported by a kiosk (spec 040).
+    /// </summary>
+    /// <param name="Measurement">
+    /// Which figure this is — <c>overlay_draw</c> or <c>receive_to_decoded</c>.
+    /// Two, never one: a single combined number would satisfy any check that a
+    /// number exists while measuring neither budget.
+    /// </param>
+    /// <param name="Camera">The tile's camera, so one bad tile is visible.</param>
+    /// <param name="ElapsedMilliseconds">
+    /// The elapsed time the browser already computed. Deliberately not a start:
+    /// a slow or retried post then makes the report late, never the measurement
+    /// large.
+    /// </param>
+    public sealed record KioskLatencyReport(string Measurement, Guid Camera, double ElapsedMilliseconds);
+
+    /// <summary>
+    /// Records a kiosk's measurement, or refuses it.
+    ///
+    /// <para>
+    /// <b>This is untrusted input</b> (constitution §VIII): it arrives from a
+    /// client the server does not control. The kiosk applies the same guards
+    /// before sending, but this is where they are <em>enforced</em>.
+    /// </para>
+    ///
+    /// <para>
+    /// Accepted rather than OK: nothing is read back, and the caller must not
+    /// wait on a measurement to keep rendering.
+    /// </para>
+    /// </summary>
+    private static IResult RecordKioskLatency([FromBody] KioskLatencyReport report)
+    {
+        Ensure.That(report).IsNotNull();
+
+        LatencySegment? segment = report.Measurement switch
+        {
+            "overlay_draw" => LatencySegment.KioskOverlayDraw,
+            "receive_to_decoded" => LatencySegment.KioskReceiveToDecoded,
+            _ => null,
+        };
+
+        if (segment is null)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(report.Measurement)] =
+                    ["must be 'overlay_draw' or 'receive_to_decoded'"],
+            });
+        }
+
+        if (report.Camera == Guid.Empty)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(report.Camera)] = ["must name the tile's camera"],
+            });
+        }
+
+        // Not-a-number and infinity have to go before the TimeSpan conversion,
+        // which throws on them. A malformed report is refused, never recorded.
+        if (double.IsNaN(report.ElapsedMilliseconds) || double.IsInfinity(report.ElapsedMilliseconds))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(report.ElapsedMilliseconds)] = ["must be a finite number of milliseconds"],
+            });
+        }
+
+        // Negative and absurd are dropped by LatencyBudget.Record rather than
+        // refused here, and that is deliberate: the reasons live with the
+        // recording so a second caller cannot forget them. A dropped
+        // measurement is not a client error — the kiosk did nothing wrong by
+        // observing a clock that stepped.
+        LatencyBudget.Record(segment, TimeSpan.FromMilliseconds(report.ElapsedMilliseconds));
+        return Results.Accepted();
     }
 
     private static async Task<IResult> GetOne(
