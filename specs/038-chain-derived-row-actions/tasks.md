@@ -96,14 +96,47 @@ point is that they must not sound alike.
 
 - [ ] T020 [US1] **Every shape offers at least one action, asserted SHAPE BY SHAPE**, in `apps/management-web/src/features/layouts/LayoutsPage.test.tsx` and `.../overlays/OverlaysPage.test.tsx`. All eight, each its own assertion. **Not in aggregate** — the defect being fixed is precisely a shape nobody enumerated, and a single "every shape has a button" loop over a fixture list repeats that method
 - [ ] T021 [US1] **Archive and Discard target different revisions, asserted ON THE SAME CHAIN**, in `apps/management-web/src/features/layouts/LayoutsPage.test.tsx` and `.../overlays/OverlaysPage.test.tsx`. A `{P,D}` chain: Archive sends the **live** revision's number, Discard sends the **draft's**. Both mutations succeed either way, so *"the request fired"* asserts nothing. **On the same chain deliberately** — asserted separately, a swap passes twice
+> **Corrected during implementation: it was FOUR tests, not two.** The two
+> named below plus *"Warns about kiosks for a published revision and not for a
+> draft"* on **each** page. Those two open the archive confirmation on a
+> draft-only chain — where Archive is no longer offered at all, because there is
+> nothing live to archive. Their premise is the thing this feature replaces: one
+> dialog with a conditional kiosk sentence becomes two dialogs, one of which
+> always warns and one of which never does. They are rewritten into the
+> always-warns half, and the never-warns half is T024's discard assertion.
+>
+> The count in this task was asserted rather than verified, which is the same
+> habit the feature exists to correct. It is recorded here rather than quietly
+> fixed.
+
 - [ ] T022 [US1] **Rewrite the two tests that cannot pass**, in `apps/management-web/src/features/layouts/LayoutsPage.test.tsx` and `.../overlays/OverlaysPage.test.tsx`. Both are spec 037's *"Does not treat a published revision under an abandoned draft as recoverable"*, asserting that shape offers **no** edit button. It now does. Both carry a comment saying issue 1879 covers it, so the change was foreseen. **Rewrite them; do not delete them.** What they exist to prevent is branching from the *abandoned draft* instead of the published wall — asserting a button's absence was only a proxy for that while the button did not exist. The rewrite asserts the **stronger** form: editing a `{P,A}` chain opens the editor from the **published** revision's grid and tiles. Assert the payload the editor receives, not that the branch mutation fired — branching from the abandoned draft fires it too
 - [ ] T023 [US3] **The row's text**, in `apps/management-web/src/features/layouts/LayoutsPage.test.tsx` and `.../overlays/OverlaysPage.test.tsx`: the badge names the **live** revision's number on a `{P,A}` chain. Assert the **number**, not the word *Published* — *Published* appears either way. Then confirm `e2e/layouts.spec.ts:56` and `:130` still match: both assert `/Published/` on a row that is shape `{P}` at that moment, whose badge is unchanged. **Confirm it; do not assume it**
 - [ ] T024 [US2] **The confirmations**, in `apps/management-web/src/features/layouts/LayoutsPage.test.tsx` and `.../overlays/OverlaysPage.test.tsx`:
-  - The **discard** dialog does **not** contain *out of service*, does **not** mention kiosks, and does **not** offer to bring anything back. Assert the **absence** of each — a dialog that says both passes any assertion about the new sentence, and the copied-across archive body is exactly how that happens.
+  - The **discard** dialog does **not** contain *out of service*, does **not** say kiosks are *sent away* or *stop showing* it, and does **not** offer to bring anything back. Assert the **absence** of each — a dialog that says both passes any assertion about the new sentence, and the copied-across archive body is exactly how that happens.
+
+    > **Corrected during implementation.** This task first said the discard dialog
+    > must not *mention kiosks*, which contradicts
+    > [contracts/row-confirmations.md](./contracts/row-confirmations.md) — whose
+    > body for this dialog reads *"kiosks are unaffected"*. That sentence is true
+    > and is the most reassuring thing the dialog can say; the contract's
+    > prohibition is on kiosks being **sent away**, not on the word. The contract
+    > is the more careful document and wins. Banning the word would have forced
+    > the useful sentence out to satisfy a test.
   - The **archive** dialog **does** mention kiosks, with **no fixture varying a draft state**. It is unconditional now, and a test that still varies a fixture would pass while the flag lingered.
   - Both name their revision number and the two **differ**.
   - Dismissing either calls its mutation **zero** times (spec 036 FR-002, now for two dialogs rather than one)
 - [ ] T025 **The deliberate break, then full verification.** Swap the Archive and Discard targets in `apps/management-web/src/features/layouts/LayoutsPage.tsx` and `.../overlays/OverlaysPage.tsx` so each sends the other's revision number. Run the tests, record **which** assertions go red and **how many**, then revert. Both requests still succeed under the swap, so **if fewer than both pages' target assertions fail, the targets are not really being checked**. Same discipline as spec 031 T010, 033 T006, 034 T012, 035 T012, 036 T018 and 037 T026(b) — an assertion that has never failed is a claim, not a check
+
+  > **Ran.** **14** tests went red, **7 per page**, including both pages'
+  > *"Archives the LIVE revision and discards the DRAFT, not the other way
+  > round"* — which is the bar this task set. Reverted; 21 files and 191 tests
+  > green.
+  >
+  > The other five per page failed for a second reason worth noting: on a chain
+  > with a live revision and **no** draft, the swapped Archive reaches for a
+  > draft that does not exist. So the swap is not only caught, it is caught on
+  > more shapes than the one it was aimed at — which is what having eight shapes
+  > under test buys.
 - [ ] T026 **No service change, proved.** `git diff origin/develop -- src/` must be **empty** (**FR-013**, **SC-006**). Show it rather than asserting it. Anything under `src/` changing is a **finding to raise, not a fix to keep** — the service already accepts every action on every shape, and needing to touch it would mean the diagnosis was wrong. Then `pnpm typecheck && pnpm lint && pnpm test` with counts, and the Playwright run with its count. Verification note on the PR per [quickstart.md](./quickstart.md), covering **both rows** for every behavioural claim (SC-007)
 
 ---
