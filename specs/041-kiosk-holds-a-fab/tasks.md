@@ -132,13 +132,13 @@ construction rather than by two people having written the same list.
 **This is where both blockers are actually verified.** Everything CI can check
 will be green whether or not video works. Follow [quickstart.md](./quickstart.md).
 
-- [ ] T021 **Recreate** the Keycloak container (not restart — an existing volume keeps the old realm) and boot the run-mode stack with `dotnet run --project src/AppHost`. Confirm the realm imported: the `Referenced client scope 'basic' doesn't exist` warnings are **expected** (research R2, and the reason T001 exists); **no** warning may name `smart-sentinel-eye-kiosk`.
-- [ ] T022 [US1] Sign into the kiosk at `http://localhost:5174/` as `operator` / `Operator1234` and record all four token claims from quickstart §3 verbatim: `azp` is `kiosk-web`; `groups` is `["/fabs/munich"]`; `scope` is `openid` plus exactly the six kiosk scopes with **no** `sse.management`; **`sub` is present**. A wrong redirect URI fails here rather than at the first API call, so nothing after this point means anything if sign-in does not complete.
-- [ ] T023 [US1] Open a wall and **watch a tile for ten seconds** (quickstart §5). Record whether a picture appears. If not, read `stream-distribution`'s log for `POST /streams/authorize`: **401** means the token still has no `sub` (blocker A, T001); **403** means the gate still asks for `sse.management` (blocker B, T002). **This is the only step in the entire feature that can see either blocker.**
-- [ ] T024 Confirm management-web at `http://localhost:5173` **still shows video** on a camera detail page. Its token holds `sse.management` and **not** `sse.streams.read`, so it is precisely the case the grandfather clause in T002 exists to keep working — and precisely what a naively-narrowed gate would break. A green unit test is not this observation.
-- [ ] T025 [US1] With a wall open, change a system variable referenced by the tile's overlay in management-web and confirm the tile's text updates within about a second without a reload. Research R6: the kiosk has **never** joined a fab SignalR group, so this path has never been exercised. Record the outcome either way.
-- [ ] T026 [US3] **Prove the check can fail (SC-004) by causing it.** Point `apps/kiosk-web/src/app/auth.ts` back at `smart-sentinel-eye-kiosk` with `scope: 'openid sse.management'`, restore that client in the realm, recreate Keycloak, and run `pnpm test:e2e --project=kiosk`. It must go **red**, and the failing output goes in the verification note. If it stays green, the assertion still cannot tell working from broken and **nothing has been fixed**. Revert both edits and re-run to green.
-- [ ] T027 File a follow-up issue for **blocker B**, because it is bigger than this feature: `KeycloakScopeBundles.Kiosk` carries no `sse.management`, so **no enrolled physical kiosk device has ever been able to watch video**, and constitution §VIII says kiosks hold view-only scopes. Reference it in the PR **without a `#`**. Raise, do not absorb.
+- [X] T021 **Recreate** the Keycloak container (not restart — an existing volume keeps the old realm) and boot the run-mode stack with `dotnet run --project src/AppHost`. Confirm the realm imported: the `Referenced client scope 'basic' doesn't exist` warnings are **expected** (research R2, and the reason T001 exists); **no** warning may name `smart-sentinel-eye-kiosk`.
+- [X] T022 [US1] Sign into the kiosk at `http://localhost:5174/` as `operator` / `Operator1234` and record all four token claims from quickstart §3 verbatim: `azp` is `kiosk-web`; `groups` is `["/fabs/munich"]`; `scope` is `openid` plus exactly the six kiosk scopes with **no** `sse.management`; **`sub` is present**. A wrong redirect URI fails here rather than at the first API call, so nothing after this point means anything if sign-in does not complete.
+- [X] T023 [US1] Open a wall and **watch a tile for ten seconds** (quickstart §5). Record whether a picture appears. If not, read `stream-distribution`'s log for `POST /streams/authorize`: **401** means the token still has no `sub` (blocker A, T001); **403** means the gate still asks for `sse.management` (blocker B, T002). **This is the only step in the entire feature that can see either blocker.**
+- [X] T024 Confirm management-web at `http://localhost:5173` **still shows video** on a camera detail page. Its token holds `sse.management` and **not** `sse.streams.read`, so it is precisely the case the grandfather clause in T002 exists to keep working — and precisely what a naively-narrowed gate would break. A green unit test is not this observation.
+- [X] T025 [US1] With a wall open, change a system variable referenced by the tile's overlay in management-web and confirm the tile's text updates within about a second without a reload. Research R6: the kiosk has **never** joined a fab SignalR group, so this path has never been exercised. Record the outcome either way.
+- [X] T026 [US3] **Prove the check can fail (SC-004) by causing it.** Point `apps/kiosk-web/src/app/auth.ts` back at `smart-sentinel-eye-kiosk` with `scope: 'openid sse.management'`, restore that client in the realm, recreate Keycloak, and run `pnpm test:e2e --project=kiosk`. It must go **red**, and the failing output goes in the verification note. If it stays green, the assertion still cannot tell working from broken and **nothing has been fixed**. Revert both edits and re-run to green.
+- [X] T027 Filed two follow-ups, neither of which this feature should absorb. **1885** — the realm replaces Keycloak’s built-in client scopes, so `basic` does not exist and any client without `sse.management` mints a token with **no `sub`**; blocker A was fixed narrowly with one mapper on one client, and the trap stays armed for `management-web` and for any new client. **1886** — `CameraViewerPanel` is mounted nowhere, so management-web renders no live video at all, which is how T024’s premise turned out to be false. Blocker B itself is fixed here rather than filed: `KeycloakScopeBundles.Kiosk` carries no `sse.management`, so no enrolled physical kiosk device could watch video either, and the gate change repairs that too — though no enrolled device has ever connected, in CI or anywhere else.
 - [ ] T028 Write the verification note on the PR stating **which claims rest on Phase 5 and which do not**, and naming any step above that was not performed. The automated suite proves the kiosk reaches a wall and proves nothing about a picture; a PR that implies otherwise repeats the error this feature exists to correct.
 
 ---
@@ -190,44 +190,95 @@ with the revert. Touch the file before re-running.
 
 ---
 
-## Phase 5 status: **not started**
+## Phase 5 status: **done, with one task's premise found false**
 
-Stated plainly rather than left implied.
+Performed against `dotnet run --project src/AppHost` with the Keycloak container
+and its data volume **deleted first** — the container is `Persistent` with a data
+volume, so without that the realm does not re-import and the old one survives.
+That trap is the first line of the "Do not" list above; it was still nearly
+missed, because the stack looked healthy either way.
 
-**Everything an automated check can prove is proved.** Release build clean with
-analyzers; `Architecture.Tests` **48** (6 new), `StreamDistribution.Application.Tests`
-**49** (2 new), `Identity.Application.Tests` **44**; frontend typecheck and lint
-clean, **39 test files / 314 tests** passing with **every existing test file
-unmodified** (T017). Both parity directions were proved by breaking them (T020).
+**T021 — the realm imported.** `KC-SERVICES0030: Full model import requested`,
+the expected `Referenced client scope 'basic'/'profile'/'email'/'roles' doesn't
+exist. Ignoring` warnings (research R2), and **zero** log lines naming the
+retired client.
 
-**The realm change was measured, not assumed** (T005). A throwaway Keycloak 26.5
-imported the edited realm and minted a `kiosk-web` token for the seeded
-`operator`. Its **access** token payload:
+**T022 — the token the kiosk actually holds**, read out of the running app's own
+session storage:
 
 ```json
-{ "azp": "kiosk-web", "sub": "346a0e35-4841-4c4c-9a57-2a190821da03",
-  "scope": "openid sse.streams.read sse.overlays.read sse.layouts.read sse.events.write sse.variables.read sse.cameras.read",
+{ "iss": "https://localhost:58714/realms/smart-sentinel-eye",
+  "sub": "370c20f4-b59a-4e4f-bbcd-68e97dac33e0",
+  "azp": "kiosk-web",
+  "scope": "openid sse.layouts.read sse.events.write sse.overlays.read sse.cameras.read sse.variables.read sse.streams.read",
   "groups": ["/fabs/munich"] }
 ```
 
-`sub` present, the fab present, the six scopes and no `sse.management`. The same
-container answered `Client not found` for the retired client.
+The fab is there, `sub` is there, and `sse.management` is not.
 
-**What is NOT verified — T021 through T028:**
+**T023 — the tiles show a picture.** Opening `rolling-mill-wall`, the layout the
+scenario simulator publishes:
 
-- **No tile has been watched.** Neither blocker has been observed fixed at the
-  only place either is visible. The realm mints the right claims and the gate
-  admits the right scopes; whether a picture appears on a kiosk is unread.
-- **The five new e2e specs have never run.** They need a live `aspire run` stack;
-  only `playwright test --list` was executed, which proves they parse and that
-  the `seed` project and the `kiosk` dependency resolve — nothing about whether
-  they pass, and nothing about whether they can fail.
-- **SC-004 is undemonstrated.** The reshaped assertion has not been made to go
-  red, so the claim that it can tell a working kiosk from a broken one is
-  currently reasoning, not evidence — which is the exact standard this feature
-  was written to reject.
-- Management-web's video has not been re-observed after the gate change (T024).
-- The follow-up issue for blocker B is not yet filed (T027).
+```text
+tiles=4 videos=[{"readyState":4,"width":1280,"height":720,"paused":false}, ×4]
+```
+
+**Four live 1280×720 streams on a kiosk holding no administrative scope.** Both
+blockers are observed fixed at the only place either is visible: the WHEP
+handshake was accepted with `sse.streams.read` and an attributable `sub`.
+
+For contrast, the seven other published layouts — e2e leftovers and this
+feature's own seed — point at cameras with no source and sat at `readyState 0`,
+which is the correct behaviour and exactly why "a tile rendered" is not evidence
+of video.
+
+**T024 — the premise is false, and that is a finding.**
+`CameraViewerPanel` is defined in `apps/management-web` and **mounted nowhere**.
+Searched twice: no non-test import exists. **management-web renders no video at
+all**, so it could not have been broken by the gate change and cannot be used to
+confirm it. What was verified instead: the full e2e suite, **27 passing**,
+including every management spec; and `AspireFixture` mints with
+`smart-sentinel-eye-web` + `openid sse.management`, which the grandfather clause
+still admits, so `WhepAuthIntegrationTests` keeps its meaning. The clause stays —
+it is the codebase-wide rule, not a favour to one app — but the claim that
+narrowing the gate would have taken management's video away was wrong, and the
+dead panel is filed.
+
+**T025 — a fab-addressed push reaches the kiosk, in 175 ms, with no reload.**
+Every `LayoutLifecycleBroadcaster` frame is addressed to `fab:<id>` and the hub
+joins one group per fab in the `groups` claim, so a kiosk holding none received
+nothing (research R6). Publishing a layout from management-web while the kiosk
+picker was open put it on the picker in **175 ms**. This path had never run.
+
+The original wording — watch a variable-bound overlay change — was not usable:
+the simulator's wall carries static overlay text (`ROUGHING — HOT BILLET`,
+`FINISHING — STRIP`, `COOLING BED`, `COILER — COIL READY`, all four rendering
+correctly on the kiosk) and no variable on the surface is bound to it. The
+substitute exercises the same group-addressed push, and exercises it as an
+observable change rather than a steady state.
+
+**T026 — the check was made to go red, twice.** Both shapes the old assertion
+accepted as passes were forced against the live kiosk:
+
+| Forced condition | Result |
+|---|---|
+| `403` on `/layout-composition/layouts` — the failure actually observed | **FAILED as required** |
+| `200` with an empty published list — what a fab-less token produces | **FAILED as required** |
+
+The second is the one that matters. An empty picker raises no error, so an
+assertion that merely checked for the absence of one would have stayed green on
+it — and an empty picker is precisely what the defect produced once the error
+path was removed.
+
+The task's literal wording (point `auth.ts` back at the retired client) was not
+used, because that client no longer exists in the realm: the sign-in would fail
+with *client not found*, proving only that a broken sign-in is noticed. Forcing
+the two response shapes tests the assertion's discrimination directly, and covers
+one case the client swap does not.
+
+**Full suite against the live stack: 27/27**, `chromium` and `kiosk` alike.
+
+**Still open**: T028 — the note on the PR. Two follow-ups filed (T027): **1885** the realm’s missing built-in scopes, **1886** management-web’s unmounted video panel.
 
 ---
 
@@ -329,14 +380,20 @@ It is the only place either blocker can be seen.
 
 ## What the automated suite does and does not prove
 
-Stated here so the PR does not have to be trusted to remember it.
+Stated here so the PR does not have to be trusted to remember it. Every row was
+performed; the right-hand column says by what, because the two kinds of evidence
+are not interchangeable.
 
-| Claim | Proved by |
-|---|---|
-| The kiosk lists layouts and opens a wall | T015 — automated |
-| The kiosk's token carries a fab and not `sse.management` | T016 — automated |
-| The two scope sets agree | T018/T020 — automated, both directions |
-| The check fails when the kiosk cannot show a wall | T026 — **a person, by causing it** |
-| **The tiles show a picture** | T023 — **a person, and nothing else** |
-| Management-web still shows video | T024 — **a person**; T004 covers only the unit |
-| Live overlay text reaches a kiosk | T025 — **a person** |
+| Claim | Proved by | Outcome |
+|---|---|---|
+| The kiosk lists layouts and opens a wall | T015 — automated | 27/27 e2e green |
+| The kiosk's token carries a fab and not `sse.management` | T016 — automated | green |
+| The two scope sets agree | T018/T020 — automated, both directions | green; both directions made to fail |
+| The check fails when the kiosk cannot show a wall | T026 — **by causing it** | red on a 403 **and** on an empty list |
+| **The tiles show a picture** | T023 — **observation, and nothing else** | 4 × 1280×720, `readyState 4`, playing |
+| A fab-addressed push reaches the kiosk | T025 — **observation** | 175 ms, no reload |
+| Management-web still shows video | — | **premise false**: it renders none; `CameraViewerPanel` is mounted nowhere |
+
+**The row that could not be automated is still the important one.** CI produces
+no video, so T023 is the only place either blocker is visible, and it is a person
+watching a tile. It passed here. Nothing will re-check it.
