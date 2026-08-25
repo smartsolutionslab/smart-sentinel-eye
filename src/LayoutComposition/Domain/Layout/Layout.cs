@@ -114,13 +114,21 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     /// Branches a new Draft revision off the chain's current Published
     /// revision (spec 003 US4). Pre-fills the grid + tiles from the prior
     /// revision so the editor can mutate from a known-good baseline.
+    ///
+    /// <para>
+    /// Spec 037 (ADR-0121): a chain with no Published and no Draft revision
+    /// branches from its newest Archived revision instead. Archiving takes a
+    /// layout out of service, not out of reach — without this the chain kept
+    /// its identifier and could never be edited or published again.
+    /// A Published revision still wins whenever one exists.
+    /// </para>
     /// </summary>
     public Revision BranchDraft(OperatorIdentifier by, IClock clock)
     {
         Ensure.That(clock).IsNotNull();
-        Revision baseRevision = CurrentPublishedOrNull()
+        Revision baseRevision = CurrentPublishedOrNull() ?? NewestWhenFullyArchivedOrNull()
             ?? throw new InvalidOperationException(
-                "BranchDraft requires a currently-Published revision to copy from.");
+                $"Layout {Id} has a Draft revision already; BranchDraft needs a Published revision or a fully-archived chain.");
 
         LayoutRevisionNumber next = MaxRevisionNumber().Next();
         Revision draft = Revision.Branch(
@@ -206,6 +214,23 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
 
     private Revision? CurrentPublishedOrNull() =>
         revisions.SingleOrDefault(revision => revision.State == LayoutRevisionState.Published);
+
+    /// <summary>
+    /// The newest revision, but only when **every** revision is Archived
+    /// (spec 037 FR-001). Null otherwise.
+    ///
+    /// <para>
+    /// The condition lives here rather than at the call site on purpose. Widened
+    /// to "the newest revision, whatever its state", a chain holding only a Draft
+    /// would branch from that draft and end up with two competing drafts — worse
+    /// than the stranding this fixes. Written this way, widening it means
+    /// deleting a method that says what it is for.
+    /// </para>
+    /// </summary>
+    private Revision? NewestWhenFullyArchivedOrNull() =>
+        revisions.All(revision => revision.State == LayoutRevisionState.Archived)
+            ? revisions.MaxBy(revision => revision.Number.Value)
+            : null;
 
     private LayoutRevisionNumber MaxRevisionNumber() =>
         LayoutRevisionNumber.From(revisions.Max(revision => revision.Number.Value));
