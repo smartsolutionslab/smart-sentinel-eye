@@ -70,6 +70,31 @@ export class WhepClient {
   }
 
   /**
+   * The receiver statistics for this session, or null before there is a
+   * connection (spec 040).
+   *
+   * <p>
+   * <b>Read-only, and deliberately the only thing added here.</b> Two legs of
+   * the latency budget can be observed nowhere but in the browser, and
+   * `inbound-rtp` is where one of them lives — but nothing about reading it
+   * changes what this client does. The session, the transceivers, the
+   * reconnection and the teardown are untouched (spec 040 FR-011).
+   * </p>
+   */
+  stats(): Promise<RTCStatsReport> | null {
+    // `getStats` is checked rather than assumed. A peer connection may not
+    // offer it — an older engine, or a test double standing in for one — and
+    // an observer that throws where it is unsupported would break the very
+    // thing it observes. Null means "no measurement", which every caller
+    // already handles, rather than an exception nobody asked for.
+    const pc = this.pc;
+    if (pc === null || typeof pc.getStats !== 'function') {
+      return null;
+    }
+    return pc.getStats();
+  }
+
+  /**
    * Releases the WHEP session (fire-and-forget DELETE against the captured
    * `Location`) and then unconditionally tears the peer connection down
    * locally. Never throws and never awaits; safe to call repeatedly and

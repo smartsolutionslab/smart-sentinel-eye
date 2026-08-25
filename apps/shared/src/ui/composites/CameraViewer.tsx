@@ -1,10 +1,21 @@
 import clsx from 'clsx';
 import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';
 import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
+import { useEffect } from 'react';
+import {
+  decodeElapsedBetween,
+  decodeSampleFrom,
+  reportKioskLatency,
+  type DecodeSample,
+} from '../../observability/kioskLatency.js';
 import { useWhepSession } from './useWhepSession.js';
 import type { CameraViewerStatus } from './useWhepSession.js';
 
 export type { CameraViewerStatus } from './useWhepSession.js';
+
+// Spec 040: often enough to see an excursion, rare enough that the observer is
+// nowhere near the budget it observes (FR-012).
+const DECODE_SAMPLE_INTERVAL_MS = 5_000;
 
 /**
  * Optional label drawn over the live video. Coordinates are normalized
@@ -38,13 +49,53 @@ export function CameraViewer({ cameraIdentifier, getToken, overlay, className }:
   const { data: stream, error: queryError } = useGetStreamQuery(cameraIdentifier, {
     pollingInterval: 5000,
   });
-  const { videoRef, status, errorMessage } = useWhepSession({
+  const { videoRef, status, errorMessage, stats } = useWhepSession({
     cameraIdentifier,
     whepUrl: stream?.whepUrl,
     streamState: stream?.state,
     streamError: stream?.error ?? null,
     getToken,
   });
+
+  // Spec 040: the receive-to-decoded fragment of the SFU → kiosk decode leg.
+  //
+  // A FRAGMENT, not the leg — the budget spans SFU-sends → kiosk-decoded, and a
+  // browser cannot see the sending end without a clock shared with the SFU.
+  // Establishing one is the presentation-buffer leg, which is not built. The
+  // server-side segment carries isWholeLeg: false so no dashboard reads this as
+  // the leg passing (ADR-0122).
+  //
+  // Deltas between reads, never the cumulative ratio: these are monotonic
+  // counters over the session's life, so a raw ratio reports the session average
+  // and flattens exactly the excursion a budget is about.
+  useEffect(() => {
+    if (status !== 'live') {
+      return;
+    }
+
+    let previous: DecodeSample | null = null;
+    const timer = window.setInterval(() => {
+      void (async () => {
+        const report = await stats();
+        if (report === null) return;
+
+        const current = decodeSampleFrom(report as unknown as Map<string, unknown>);
+        if (current === null) return;
+
+        if (previous !== null) {
+          const elapsed = decodeElapsedBetween(previous, current);
+          // Null rather than zero when no frames arrived: a zero would read as
+          // a perfect score for a journey nobody timed.
+          if (elapsed !== null) {
+            reportKioskLatency('receive_to_decoded', cameraIdentifier, elapsed, getToken);
+          }
+        }
+        previous = current;
+      })();
+    }, DECODE_SAMPLE_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, [status, stats, cameraIdentifier, getToken]);
 
   return (
     <div className={clsx('relative aspect-video w-full overflow-hidden rounded-md bg-black', className)}>
