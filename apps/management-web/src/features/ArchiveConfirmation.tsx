@@ -13,6 +13,20 @@ export interface ArchiveConfirmationProps {
   children: ReactNode;
   /** True while the archive request is in flight. */
   pending?: boolean;
+  /**
+   * The operator's word for what is happening, used for both the title and the
+   * confirm button. Defaults to `Archive` (spec 038 FR-005).
+   *
+   * <p>
+   * Not a misnomer creeping into a component called <c>ArchiveConfirmation</c>:
+   * <b>both</b> actions archive a revision server-side. Taking a layout out of
+   * service and discarding its draft are the same operation on different
+   * revisions, and they must not sound alike — one word doing both jobs is what
+   * let a row tell an operator their live wall was going out of service when it
+   * was discarding a draft.
+   * </p>
+   */
+  verb?: string;
   onConfirm: () => void;
 }
 
@@ -46,6 +60,7 @@ export function ArchiveConfirmation({
   onCancel,
   children,
   pending = false,
+  verb = 'Archive',
   onConfirm,
 }: ArchiveConfirmationProps) {
   return (
@@ -60,8 +75,8 @@ export function ArchiveConfirmation({
           onCancel();
         }
       }}
-      title={`Archive ${subject ?? ''}?`}
-      confirmLabel="Archive"
+      title={`${verb} ${subject ?? ''}?`}
+      confirmLabel={verb}
       // Passed straight through rather than shadowed by a local flag: the
       // primitive already refuses the second click, and re-implementing that
       // here would give four callers a second guard to get wrong.

@@ -12,6 +12,7 @@ import { isConflict, problemDetail } from '@smart-sentinel-eye/shared/api/proble
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useState } from 'react';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
+import { chainView } from '../chainView.js';
 import { LayoutEditorDialog, type LayoutEditTarget } from './LayoutEditorDialog.js';
 
 const STATE_FILTERS: ReadonlyArray<LayoutRevisionState | 'All'> = [
@@ -25,15 +26,27 @@ export function LayoutsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<LayoutEditTarget>();
   const [filter, setFilter] = useState<LayoutRevisionState | 'All'>('All');
-  // Spec 036. Carries the revision's state as well as its number, because the
-  // kiosk warning is conditional on it (FR-008) — a draft strands nothing and
-  // disturbs no kiosk.
+  // Spec 036, narrowed by spec 038. The `published` flag is gone: Archive is
+  // offered only when a live revision exists and targets that revision, so the
+  // flag was true every time this opened. A flag that is always true is worse
+  // than no flag — it reads as a live condition and invites a caller to pass
+  // false. The case it used to cover is now a different confirmation entirely.
   const [archiveFor, setArchiveFor] = useState<{
     layoutIdentifier: string;
     name: string;
     revisionNumber: number;
     version: number;
-    published: boolean;
+  } | null>(null);
+  // Spec 038 FR-005. Its own state, because it is its own action on its own
+  // revision. `liveRevision` is undefined when nothing is published, which
+  // decides whether the confirmation can honestly reassure the operator that
+  // the layout stays as it is.
+  const [discardFor, setDiscardFor] = useState<{
+    layoutIdentifier: string;
+    name: string;
+    revisionNumber: number;
+    version: number;
+    liveRevision: number | undefined;
   } | null>(null);
 
   const { data, isLoading, isFetching, error, refetch } = useListLayoutsQuery(undefined);
@@ -140,7 +153,12 @@ export function LayoutsPage() {
 
       <ul className="flex flex-col gap-2">
         {visible.map((chain) => {
-          const newest = newestRevision(chain);
+          // Spec 038: read the CHAIN, not its newest revision. A chain is not
+          // its newest revision, and deciding from `newest` left a live wall
+          // under a discarded draft offering nothing at all, and an Archive
+          // button that archived a draft while promising the wall was going
+          // out of service.
+          const { live, draft, newest, summarised, fullyArchived } = chainView(chain.revisions);
           const disabled = publishing || archiving || branching || reverting;
           return (
             <li
@@ -149,23 +167,23 @@ export function LayoutsPage() {
             >
               <header className="flex items-center justify-between">
                 <h2 className="text-lg font-medium">{chain.name}</h2>
-                <span className="text-xs text-fg-muted">
-                  v{newest.revisionNumber} · {newest.state}
-                </span>
+                <span className="text-xs text-fg-muted">{badge(live, draft, summarised)}</span>
               </header>
               <p className="mt-1 text-xs text-fg-muted font-mono">
                 {chain.layoutIdentifier}
               </p>
-              <p className="mt-1 text-xs text-fg-muted">{tileSummary(newest)}</p>
+              {summarised !== undefined && (
+                <p className="mt-1 text-xs text-fg-muted">{tileSummary(summarised)}</p>
+              )}
               <div className="mt-3 flex gap-2">
-                {newest.state === 'Draft' && (
+                {draft !== undefined && (
                   <Button
                     variant="secondary"
                     disabled={disabled}
                     onClick={() =>
                       void publishRevision({
                         layoutIdentifier: chain.layoutIdentifier,
-                        revisionNumber: newest.revisionNumber,
+                        revisionNumber: draft.revisionNumber,
                         version: chain.version,
                       })
                     }
@@ -173,30 +191,51 @@ export function LayoutsPage() {
                     Publish
                   </Button>
                 )}
-                {/*
-                  Spec 037: a fully-archived chain is recoverable (ADR-0121), and
-                  the edit action is how. Not `newest.state === 'Archived'` —
-                  a chain can hold a Published revision under an abandoned newer
-                  draft, and that one is not stranded (issue 1879 covers the
-                  separate problem that it is offered nothing at all).
-                */}
-                {(newest.state === 'Published' || isFullyArchived(chain)) && (
+                {draft !== undefined && (
                   <Button
                     variant="secondary"
                     disabled={disabled}
-                    onClick={() => void onEdit(chain, newest)}
+                    onClick={() =>
+                      setDiscardFor({
+                        layoutIdentifier: chain.layoutIdentifier,
+                        name: chain.name,
+                        revisionNumber: draft.revisionNumber,
+                        version: chain.version,
+                        liveRevision: live?.revisionNumber,
+                      })
+                    }
+                  >
+                    Discard draft
+                  </Button>
+                )}
+                {/*
+                  Offered while a draft is open as well (spec 038 FR-003). That
+                  is also the app's route to a chain with two open drafts —
+                  recorded as observed rather than fixed, because suppressing it
+                  reverses a stated requirement.
+                */}
+                {(live !== undefined || fullyArchived) && (
+                  <Button
+                    variant="secondary"
+                    disabled={disabled}
+                    onClick={() => {
+                      const baseline = live ?? newest;
+                      if (baseline !== undefined) {
+                        void onEdit(chain, baseline);
+                      }
+                    }}
                   >
                     Edit (new draft)
                   </Button>
                 )}
-                {newest.state === 'Published' && (
+                {live !== undefined && (
                   <Button
                     variant="secondary"
                     disabled={disabled}
                     onClick={() =>
                       void revertRevision({
                         layoutIdentifier: chain.layoutIdentifier,
-                        revisionNumber: newest.revisionNumber,
+                        revisionNumber: live.revisionNumber,
                         version: chain.version,
                       })
                     }
@@ -204,7 +243,13 @@ export function LayoutsPage() {
                     Revert
                   </Button>
                 )}
-                {newest.state !== 'Archived' && (
+                {/*
+                  Archive targets the LIVE revision. It used to target `newest`,
+                  so on a chain with an open draft it archived the draft while
+                  the confirmation said the layout was going out of service.
+                  Both requests succeed, which is why that went unnoticed.
+                */}
+                {live !== undefined && (
                   <Button
                     variant="secondary"
                     disabled={disabled}
@@ -212,9 +257,8 @@ export function LayoutsPage() {
                       setArchiveFor({
                         layoutIdentifier: chain.layoutIdentifier,
                         name: chain.name,
-                        revisionNumber: newest.revisionNumber,
+                        revisionNumber: live.revisionNumber,
                         version: chain.version,
-                        published: newest.state === 'Published',
                       })
                     }
                   >
@@ -264,8 +308,48 @@ export function LayoutsPage() {
           This takes the layout out of service. You can bring it back later by editing it, and{' '}
           <strong>the tiles are kept</strong>.
         </p>
-        {archiveFor?.published === true && (
-          <p>Kiosks showing this layout will be sent away from it immediately.</p>
+        <p>Kiosks showing this layout will be sent away from it immediately.</p>
+      </ArchiveConfirmation>
+
+      {/*
+        Spec 038 FR-005/FR-006. A DIFFERENT confirmation, not the same one with
+        softer words — the two must not sound alike, because one word doing both
+        jobs is what let this row tell an operator their live wall was going out
+        of service when it was discarding a draft.
+
+        It must not say "out of service", must not mention kiosks, and must not
+        offer to bring anything back: none of those happen. A discarded draft is
+        gone, and editing afterwards branches a NEW draft from the live revision.
+      */}
+      <ArchiveConfirmation
+        verb="Discard"
+        subject={
+          discardFor === null
+            ? null
+            : `draft revision ${discardFor.revisionNumber} of ${discardFor.name}`
+        }
+        onCancel={() => setDiscardFor(null)}
+        pending={archiving}
+        onConfirm={() => {
+          if (discardFor === null) {
+            return;
+          }
+          void archiveRevision({
+            layoutIdentifier: discardFor.layoutIdentifier,
+            revisionNumber: discardFor.revisionNumber,
+            version: discardFor.version,
+          });
+          setDiscardFor(null);
+        }}
+      >
+        <p>
+          This throws away the draft. <strong>The work in it cannot be recovered.</strong>
+        </p>
+        {discardFor?.liveRevision !== undefined && (
+          <p>
+            {discardFor.name} stays exactly as it is — revision {discardFor.liveRevision} is still
+            published and kiosks are unaffected.
+          </p>
         )}
       </ArchiveConfirmation>
 
@@ -281,20 +365,28 @@ export function LayoutsPage() {
   );
 }
 
-function newestRevision(chain: Layout) {
-  return chain.revisions.reduce((acc, r) => (r.revisionNumber > acc.revisionNumber ? r : acc));
-}
-
 function containsRevisionIn(chain: Layout, state: LayoutRevisionState): boolean {
   return chain.revisions.some((r) => r.state === state);
 }
 
-// Spec 037 (ADR-0121). Stranded: no Published revision and no Draft one — which,
-// since every revision is one of the three, is the same set as "every revision
-// archived". Tests the chain, not its newest row: a chain can hold a Published
-// revision under an abandoned newer draft and is not stranded at all.
-function isFullyArchived(chain: Layout): boolean {
-  return chain.revisions.every((r) => r.state === 'Archived');
+// Spec 038 FR-009. Names the LIVE revision, because that is the one on kiosks,
+// and says when a draft is open without hiding either. The row used to report
+// its newest revision, so a live wall under a discarded draft read as "Archived"
+// while it was playing on the floor.
+//
+// `Published` appears exactly when a live revision exists, which is what keeps
+// the two e2e assertions that read this text matching.
+function badge(
+  live: LayoutRevision | undefined,
+  draft: LayoutRevision | undefined,
+  summarised: LayoutRevision | undefined,
+): string {
+  if (live !== undefined) {
+    return draft === undefined
+      ? `v${live.revisionNumber} · Published`
+      : `v${live.revisionNumber} · Published · draft v${draft.revisionNumber}`;
+  }
+  return summarised === undefined ? '' : `v${summarised.revisionNumber} · ${summarised.state}`;
 }
 
 // Row summary (T023): the tile count + grid shape replaces the old single
