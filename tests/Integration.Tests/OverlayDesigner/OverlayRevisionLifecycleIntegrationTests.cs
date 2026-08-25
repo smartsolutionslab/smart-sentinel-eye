@@ -105,4 +105,83 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
         revision.GetProperty("state").GetString().ShouldBe("Draft");
         revision.GetProperty("publishedAt").ValueKind.ShouldBe(JsonValueKind.Null);
     }
+
+    /// <summary>
+    /// Spec 037 T024 (ADR-0121) — recovery over real SQL, end to end. The twin
+    /// of the LayoutComposition test, and required for the same reason.
+    ///
+    /// <para>
+    /// The recovered draft clones the archived revision's <b>EF-owned</b> Label
+    /// under a new owner in the same change-tracker. <c>Revision.Branch</c>'s own
+    /// comment explains that sharing the CLR instance makes EF try to re-key the
+    /// owned entity onto a new principal and throw — written for the
+    /// published-source case. A hand-written fake models that away by
+    /// construction and cannot answer whether it holds here.
+    /// </para>
+    ///
+    /// <para>
+    /// Asserts <b>branch, edit and publish</b>, not just the branch. A draft
+    /// nobody can publish leaves the overlay exactly as unusable as before.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task An_archived_overlay_can_be_branched_edited_and_published_again()
+    {
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+
+        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+            "/overlays",
+            new
+            {
+                name = $"Recov-{Guid.NewGuid():N}".Substring(0, 16),
+                label = SampleLabelBody("Rolling Mill A", 64),
+            });
+        created.EnsureSuccessStatusCode();
+        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+
+        (await OverlayRequests.PostAsync(overlays, overlayIdentifier, "revisions/1/publish"))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await OverlayRequests.PostAsync(overlays, overlayIdentifier, "revisions/1/archive"))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // Stranded before spec 037: no Published revision to branch from and no
+        // Draft to publish.
+        HttpResponseMessage branched = await OverlayRequests.PostAsync(overlays, overlayIdentifier, "draft");
+        branched.StatusCode.ShouldBe(HttpStatusCode.Created);
+        int recovered = await branched.Content.ReadFromJsonAsync<int>();
+        recovered.ShouldBe(2);
+
+        // FR-002: the label came back with it, geometry included.
+        HttpResponseMessage afterBranch = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        JsonElement branchedRevision = (await afterBranch.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("revisions")
+            .EnumerateArray()
+            .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == recovered);
+        branchedRevision.GetProperty("state").GetString().ShouldBe("Draft");
+        branchedRevision.GetProperty("text").GetString().ShouldBe("Rolling Mill A");
+        branchedRevision.GetProperty("fontSizePx").GetInt32().ShouldBe(64);
+
+        (await OverlayRequests.PatchAsync(
+            overlays,
+            overlayIdentifier,
+            $"revisions/{recovered}",
+            new { label = SampleLabelBody("Rolling Mill B", 32) })).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        (await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/{recovered}/publish"))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // FR-003: same chain, same identifier, the archived revision still there.
+        HttpResponseMessage finished = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        JsonElement payload = await finished.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("overlayIdentifier").GetGuid().ShouldBe(overlayIdentifier);
+        JsonElement revisions = payload.GetProperty("revisions");
+        revisions.GetArrayLength().ShouldBe(2);
+        revisions.EnumerateArray()
+            .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == 1)
+            .GetProperty("state").GetString().ShouldBe("Archived");
+        JsonElement live = revisions.EnumerateArray()
+            .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == recovered);
+        live.GetProperty("state").GetString().ShouldBe("Published");
+        live.GetProperty("text").GetString().ShouldBe("Rolling Mill B");
+    }
 }
