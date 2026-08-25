@@ -8,6 +8,7 @@ import {
 import { isConflict, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useState } from 'react';
+import { ArchiveConfirmation } from '../ArchiveConfirmation';
 import { SystemVariableDialog } from './SystemVariableDialog.js';
 
 const STATE_FILTERS: ReadonlyArray<VariableState | 'All'> = ['All', 'Defined', 'Archived'];
@@ -19,6 +20,9 @@ export function SystemVariablesPage() {
   // (spec 014), and a name-keyed buffer would show one row's typing in the
   // other and submit it against the wrong fab.
   const [pendingEdit, setPendingEdit] = useState<Record<string, string>>({});
+  // Spec 036. Nullable subject, not a boolean: this page already holds a dialog
+  // and per-row edit state, and the subject carries what the wording needs.
+  const [archiveFor, setArchiveFor] = useState<{ name: string; version: number; fab: string } | null>(null);
 
   const { data, isLoading, isFetching, error, refetch } = useListVariablesQuery(undefined);
   const [setVariableValue, setValueState] = useSetVariableValueMutation();
@@ -154,10 +158,10 @@ export function SystemVariablesPage() {
                     variant="secondary"
                     disabled={inProgress || archiving}
                     onClick={() =>
-                      void archiveVariable({
+                      setArchiveFor({
                         name: variable.name,
                         version: variable.version,
-                        fabId: variable.fab,
+                        fab: variable.fab,
                       })
                     }
                   >
@@ -169,6 +173,34 @@ export function SystemVariablesPage() {
           );
         })}
       </ul>
+
+      {/* Spec 036 FR-006. Both halves are invisible from this page and neither
+          is guessable: archiving clears the variable's current value, and
+          nothing can give it another afterwards. Verified from
+          Variable.Archive setting Value to Unset and SetValue refusing once
+          archived. */}
+      <ArchiveConfirmation
+        subject={archiveFor === null ? null : `variable ${archiveFor.name}`}
+        onCancel={() => setArchiveFor(null)}
+        pending={archiving}
+        onConfirm={() => {
+          if (archiveFor === null) {
+            return;
+          }
+          void archiveVariable({
+            name: archiveFor.name,
+            version: archiveFor.version,
+            fabId: archiveFor.fab,
+          });
+          setArchiveFor(null);
+        }}
+      >
+        <p>This cannot be undone.</p>
+        <p>
+          The variable&rsquo;s current value is cleared, and it can never be given another. Anything
+          that sets it will be refused from now on.
+        </p>
+      </ArchiveConfirmation>
 
       <SystemVariableDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </section>
