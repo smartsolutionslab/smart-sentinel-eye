@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
@@ -114,11 +114,66 @@ describe('RulesPage', () => {
     expect(publishMock).toHaveBeenCalledWith({ name: 'high-oee', version: 0, fabId: 'munich' });
   });
 
-  it('Archives a rule from its row action, naming the rule’s fab', async () => {
+  /**
+   * Spec 036 T017 — the one existing test this feature could not leave alone.
+   *
+   * <p>
+   * It used to click Archive and assert the request. Archiving now asks first,
+   * so the click alone sends nothing. The confirmation step is <b>added</b> and
+   * the original assertion is <b>kept</b>: deleting it would have been the
+   * quickest way to green and would have removed the only check that archiving
+   * still sends the right request — at exactly the moment the path to it
+   * changed.
+   * </p>
+   *
+   * <p>
+   * Kept, it now proves two things instead of one: that the confirmation is
+   * required, and that confirming sends precisely what it sent before.
+   * </p>
+   */
+  it('Archives a rule once confirmed, naming the rule’s fab', async () => {
     const user = userEvent.setup();
     renderPage();
+
     await user.click(screen.getByRole('button', { name: 'Archive' }));
+
+    // The click asks; it does not archive.
+    expect(archiveMock).not.toHaveBeenCalled();
+
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
+
     expect(archiveMock).toHaveBeenCalledWith({ name: 'high-oee', version: 0, fabId: 'munich' });
+  });
+
+  /**
+   * FR-002, asserted as a **call count**. A confirmation that closes cleanly
+   * and archives anyway passes any assertion about the dialog closing.
+   */
+  it('Archives nothing when the confirmation is dismissed', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Archive' }));
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: /cancel/i }));
+
+    expect(archiveMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * FR-003. Names the rule, and says what an archived rule costs — that a
+   * replacement means cloning, which is the part an operator cannot infer.
+   */
+  it('Names the rule and says a replacement means cloning it', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Archive' }));
+
+    const confirmation = screen.getByRole('alertdialog');
+    expect(confirmation).toHaveTextContent('high-oee');
+    expect(confirmation).toHaveTextContent(/cannot be published again/i);
+    expect(confirmation).toHaveTextContent(/cloning/i);
+    expect(confirmation).not.toHaveTextContent(/are you sure/i);
   });
 
   it('Shows each rule’s fab, so two rows sharing a name can be told apart', () => {
