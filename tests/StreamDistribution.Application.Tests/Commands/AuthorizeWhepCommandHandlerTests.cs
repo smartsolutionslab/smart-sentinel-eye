@@ -17,8 +17,31 @@ public class AuthorizeWhepCommandHandlerTests
     private static readonly OperatorIdentifier AnAdmin =
         OperatorIdentifier.From(Guid.CreateVersion7());
 
+    /// <summary>
+    /// The scopes an enrolled kiosk device holds — <c>KeycloakScopeBundles.Kiosk</c>,
+    /// and what the browser kiosk's client grants from spec 041. Written out
+    /// rather than referenced: Application tests do not reach into another
+    /// bounded context, and <c>KioskScopeParityTests</c> is what keeps the two
+    /// lists agreed.
+    /// </summary>
+    private static readonly string[] AKioskPersona =
+    [
+        "openid",
+        "sse.cameras.read",
+        "sse.streams.read",
+        "sse.layouts.read",
+        "sse.overlays.read",
+        "sse.variables.read",
+        "sse.events.write",
+    ];
+
+    /// <summary>
+    /// management-web's actual token shape: the grandfathered bundle and
+    /// <b>no</b> <c>sse.streams.read</c>. It is the case the fallback exists to
+    /// keep working, and exactly what a naively-narrowed gate would break.
+    /// </summary>
     [Fact]
-    public async Task Authorize_with_a_valid_admin_token_returns_success()
+    public async Task Authorize_with_a_grandfathered_management_token_returns_success()
     {
         FakeWhepAuthValidator validator = new()
         {
@@ -29,6 +52,28 @@ public class AuthorizeWhepCommandHandlerTests
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
             new AuthorizeWhepCommand(MediaMtxPath.For(SomeCamera()), "Bearer.xyz"),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+    }
+
+    /// <summary>
+    /// <b>Spec 041.</b> Before this, the gate asked for the management bundle
+    /// alone, so <em>no</em> kiosk could open a stream — not the browser kiosk,
+    /// and not an enrolled device, whose bundle has never carried it. A kiosk
+    /// that cannot watch video cannot do the only thing a kiosk is for.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_with_a_kiosk_token_returns_success()
+    {
+        FakeWhepAuthValidator validator = new()
+        {
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
+        };
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+
+        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+            new AuthorizeWhepCommand(MediaMtxPath.For(SomeCamera()), "Bearer.kiosk"),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -47,6 +92,12 @@ public class AuthorizeWhepCommandHandlerTests
         result.Error.ShouldBeOfType<AuthorizeWhepError.Unauthorized>();
     }
 
+    /// <summary>
+    /// A token the validator could not attribute arrives here as
+    /// <see cref="Option{T}.None"/> — including one carrying no <c>sub</c>,
+    /// which is what a client with no sub mapper mints (spec 041). Still
+    /// refused: an unattributable viewer stays refused.
+    /// </summary>
     [Fact]
     public async Task Authorize_with_an_invalid_token_returns_Unauthorized()
     {
@@ -62,7 +113,7 @@ public class AuthorizeWhepCommandHandlerTests
     }
 
     [Fact]
-    public async Task Authorize_with_a_token_missing_sse_management_returns_Forbidden()
+    public async Task Authorize_with_a_token_granting_neither_the_read_scope_nor_the_bundle_returns_Forbidden()
     {
         FakeWhepAuthValidator validator = new()
         {
