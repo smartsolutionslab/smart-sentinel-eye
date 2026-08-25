@@ -19,7 +19,7 @@ public abstract record AuthorizeWhepError(string Code, string Message, HttpStatu
     public sealed record Forbidden()
         : AuthorizeWhepError(
             "WHEP_FORBIDDEN",
-            "Bearer token does not grant the sse.management scope.",
+            "Bearer token does not grant the sse.streams.read scope.",
             HttpStatusCode.Forbidden);
 
     public sealed record StreamUnavailable()
