@@ -10,6 +10,7 @@ import {
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { DataTable, type DataTableColumn } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
 import { RuleDialog } from './RuleDialog';
+import { ArchiveConfirmation } from '../ArchiveConfirmation';
 import { DryRunPanel } from './DryRunPanel';
 
 const STATE_FILTERS: ReadonlyArray<{ label: string; value: RuleState | undefined }> = [
@@ -25,12 +26,16 @@ export function RulesPage() {
   // Holds the fab as well as the name: a dry run is fab-scoped, and the row
   // is the only place the fab is known without asking again.
   const [dryRunFor, setDryRunFor] = useState<{ name: string; fab: string } | null>(null);
+  // Spec 036. Nullable subject rather than a boolean, matching dryRunFor above:
+  // this page already holds two other open-states, and a subject carries the
+  // name and version the confirmation and the request both need.
+  const [archiveFor, setArchiveFor] = useState<{ name: string; version: number; fab: string } | null>(null);
 
   const { data: rules, isLoading, isError, refetch } = useListRulesQuery(
     stateFilter === undefined ? undefined : { state: stateFilter },
   );
   const [publishRule] = usePublishRuleMutation();
-  const [archiveRule] = useArchiveRuleMutation();
+  const [archiveRule, { isLoading: archiving }] = useArchiveRuleMutation();
 
   const columns: DataTableColumn<Rule>[] = [
     { id: 'name', header: 'Name', cell: (rule) => <span className="font-medium">{rule.name}</span> },
@@ -85,7 +90,7 @@ export function RulesPage() {
             <Button
               type="button"
               variant="ghost"
-              onClick={() => void archiveRule({ name: rule.name, version: rule.version, fabId: rule.fab })}
+              onClick={() => setArchiveFor({ name: rule.name, version: rule.version, fab: rule.fab })}
             >
               Archive
             </Button>
@@ -145,6 +150,31 @@ export function RulesPage() {
       )}
 
       {dryRunFor !== null && <DryRunPanel ruleName={dryRunFor.name} fabId={dryRunFor.fab} />}
+
+      {/* Spec 036 FR-005. Says what an operator loses, not merely that it is
+          permanent: an archived rule cannot be published again, and the only
+          way to a replacement is cloning — which produces a new rule with its
+          own history, not this one restored. Taken from Rule's own
+          documentation. Deliberately silent on whether evaluation stops: that
+          was not checked, so it is not claimed. */}
+      <ArchiveConfirmation
+        subject={archiveFor === null ? null : `rule ${archiveFor.name}`}
+        onCancel={() => setArchiveFor(null)}
+        pending={archiving}
+        onConfirm={() => {
+          if (archiveFor === null) {
+            return;
+          }
+          void archiveRule({ name: archiveFor.name, version: archiveFor.version, fabId: archiveFor.fab });
+          setArchiveFor(null);
+        }}
+      >
+        <p>This cannot be undone.</p>
+        <p>
+          The rule cannot be published again. Authoring a replacement means cloning it, which creates
+          a new rule with its own history.
+        </p>
+      </ArchiveConfirmation>
 
       <RuleDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </section>
