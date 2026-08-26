@@ -18,6 +18,21 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Scenario '{Scenario}' seeded.")]
     public static partial void ScenarioSeeded(this ILogger logger, string scenario);
 
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Asset '{Scenario}'/'{Asset}' could not be seeded: {Error}. Its tile will be missing; the rest of the run continues.")]
+    public static partial void AssetSeedFailed(this ILogger logger, string scenario, string asset, string error);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Wall seeding failed: {Error}. Walls may be stale or missing; the worker stays up.")]
+    public static partial void WallSeedFailed(this ILogger logger, string error);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Seeding finished INCOMPLETE: {FailedCount} step(s) failed. The stack is running but the simulated plants are only partly set up.")]
+    public static partial void SeedingIncomplete(this ILogger logger, int failedCount);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Active scenario '{Scenario}' not found in configuration; nothing to seed.")]
     public static partial void ScenarioNotFound(this ILogger logger, string scenario);
 
