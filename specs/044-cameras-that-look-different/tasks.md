@@ -274,3 +274,33 @@ next pass.
 
 **Still outstanding**: the rest of T023. `mill-coiler`'s milder reservation is
 unresolved, and quickstart §5's two deliberate failures have not been run.
+
+---
+
+## T023 — what remains, and why it is still open
+
+**T023 is NOT complete.** One of its five checks was performed; the rest were
+not. It stays unticked, because the whole reason this task exists is that no
+automated check substitutes for it — and a task marked done on partial evidence
+is worse than one honestly left open.
+
+| Check | State |
+|---|---|
+| Paper wall: four different tiles, each nameable without the layout | **Partly done.** `paper-refiners` was rejected and replaced; the replacement has not been judged on the wall. |
+| Rolling-mill wall: same two questions | **Not done.** `mill-coiler` carries an unresolved reservation — dark, with yellow railings as its only landmark. |
+| Electronics wall: same two questions | **Not done.** Never opened. |
+| No tile from one plant could pass for another plant's | **Not done.** |
+| The animated wall still highlights on threshold (FR-011) | **Not done.** |
+| Two hand-registered cameras look different from each other (FR-004) | **Not done.** |
+| Quickstart §5: a missing clip fails at seed time, naming asset and clip | **Not done.** |
+| Quickstart §5: a changed clip takes effect on restart | **Incidentally confirmed.** The `Replaced camera-sim path …` lines fired against real stale paths across two boots. Not the deliberate exercise §5 asks for, but the same code path. |
+
+**To resume**: `dotnet run --project src/AppHost`, roughly three minutes to a
+seeded stack, then `http://localhost:5173` as `operator` / `Operator1234`. Adding
+`ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true` makes the Aspire dashboard
+reachable without hunting for the browser token in buffered stdout.
+
+**The question that matters** is not "are the tiles different" — every automated
+check already proves that. It is **"can you name which asset a tile is without
+consulting the layout"**. Four different clips of the same machine satisfy SC-001
+and still fail SC-002, and that gap is the entire reason a person is required.
