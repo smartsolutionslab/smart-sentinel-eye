@@ -1,7 +1,6 @@
 @import '@smart-sentinel-eye/shared/ui/tokens/colors.css';
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@config '../../tailwind.config.ts';
 
 /*
  * Per-tile overlay highlight (spec 010 US3, ADR-0112 §5). Applied to a
