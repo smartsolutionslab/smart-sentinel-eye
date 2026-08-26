@@ -46,7 +46,7 @@ mill-roughing|https://upload.wikimedia.org/wikipedia/commons/b/b9/Proizvodnja_vr
 mill-finishing|https://upload.wikimedia.org/wikipedia/commons/b/b9/Proizvodnja_vro%C4%8De_valjane_debele_plo%C4%8Devine_v_Acroni_SIJ_Jesenice.ogv|150
 mill-cooling|https://upload.wikimedia.org/wikipedia/commons/b/b9/Proizvodnja_vro%C4%8De_valjane_debele_plo%C4%8Devine_v_Acroni_SIJ_Jesenice.ogv|360
 mill-coiler|https://upload.wikimedia.org/wikipedia/commons/b/b9/Proizvodnja_vro%C4%8De_valjane_debele_plo%C4%8Devine_v_Acroni_SIJ_Jesenice.ogv|440
-paper-refiners|https://upload.wikimedia.org/wikipedia/commons/5/50/The_Gori%C4%8Dane_company_-_Refiners.webm|6
+paper-pressure-screener|https://upload.wikimedia.org/wikipedia/commons/c/c5/The_Gori%C4%8Dane_company_-_pressure_screener.webm|6
 paper-press-group|https://upload.wikimedia.org/wikipedia/commons/1/12/The_Gori%C4%8Dane_company_-_press_group.webm|8
 paper-after-drying|https://upload.wikimedia.org/wikipedia/commons/7/7b/The_Gori%C4%8Dane_company_-_After-drying_group.webm|10
 paper-packaging|https://upload.wikimedia.org/wikipedia/commons/3/39/Packaging_-_manual_and_machine.webm|6

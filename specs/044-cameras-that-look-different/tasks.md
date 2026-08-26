@@ -220,7 +220,7 @@ The criterion was legibility at tile size, not subject matter.
 | `paper-packaging` | Pallets, blue conveyor, forklift, people. **Best of all twelve.** |
 | `paper-after-drying` | Operators at a control desk, coloured lamps, constant motion. Strong. |
 | `paper-press-group` | Yellow and purple machinery, unmistakable palette. Good. |
-| `paper-refiners` | Pale grey pulp. Near-static, low contrast, **reads as a blur at tile size**. |
+| `paper-pressure-screener` | Teal ABB motors, red stand, yellow post, slow pan. **Replaced `paper-refiners` at T023.** |
 
 **Electronics** — Gigaset, CC BY 3.0:
 
@@ -241,3 +241,36 @@ distinct *enough* for SC-002 — naming the asset from the tile alone — is a
 judgement only T023 can settle, on a real wall. If it fails there, the three
 Goričane alternates above are the replacements and the change is one line in
 `paper-mill.json` plus one clip.
+
+---
+
+## T023 result (partial) — one tile rejected and replaced
+
+**`paper-refiners` was rejected on the wall as too washed out to identify.** That
+is SC-002 failing exactly where the reservation said it might: the clip is
+genuinely distinct from its three siblings, so SC-001 and every automated check
+passed it, and only a person looking at a tile could say it was not distinct
+*enough*.
+
+Replaced with **`paper-pressure-screener`** — teal ABB motors, a red stand and a
+yellow post, with a slow pan. Chosen over the other two alternates by the same
+frame-extraction method:
+
+| Alternate | Verdict |
+|---|---|
+| `pressure-screener` | **Chosen.** Strongest colour and clearest subject at tile size. |
+| `vacuum-pumps` | Good — blue pump housings, clear pan. Rejected only because its blue competes with the packaging tile's blue conveyor. |
+| `broke-chest` | Rejected. Dark grey vat, low contrast — the same failure as the clip being replaced. |
+
+The asset was **renamed**, not just re-clipped: `refiners` → `pressure-screener`,
+with its path, overlay label, highlight and sensors following. Leaving the label
+`REFINERS — STOCK PREP` over footage of a pressure screener would have created
+precisely the mismatch SC-002 tests for.
+
+**Known leftover**: the old `Refiners` camera stays in the dev catalogue as an
+orphan, and its camera-sim path now names a deleted clip. Harmless — FR-007 only
+validates scenario assets — but it wants retiring from the camera list on the
+next pass.
+
+**Still outstanding**: the rest of T023. `mill-coiler`'s milder reservation is
+unresolved, and quickstart §5's two deliberate failures have not been run.
