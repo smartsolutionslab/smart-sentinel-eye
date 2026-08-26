@@ -1,184 +1,193 @@
-# Feature Specification: The configuration stops discarding what it says
+# Feature Specification: One client scope supplies `sub`, and the realm stops listing scopes that do not exist
 
 **Feature Branch**: `042-client-identity-claim`
 
-**Created**: 2026-08-26 *(rewritten the same day — see Assumptions)*
+**Created**: 2026-08-26 *(rewritten twice the same day — see Assumptions)*
 
 **Status**: Draft
 
 **Issue**: 1885 *(written without a `#` deliberately — this repo's automation
 closes a merely-mentioned issue on merge)*
 
-**Input**: Every identity in the development directory lists four permissions
-that do not exist. The sign-in service discards them and says so, thirty-two
-times on every start. One identity depends on what was discarded, and cannot say
-who is using it.
+**Input**: Every client in `src/AppHost/Realms/smart-sentinel-eye-realm.json`
+lists four client scopes that do not exist in the realm. Keycloak discards them
+on import. One client depends on what was discarded and mints access tokens with
+no `sub` claim.
 
 ---
 
 ## Why this exists
 
-On every start, the sign-in service reads the directory, throws away four
-entries from **each of the eight identities**, and reports each one. Thirty-two
-notices. The configuration file goes on listing them, so anyone reading it — a
-person or an agent — sees four things applied that are not.
+The realm file supplies its own `clientScopes` array. Keycloak treats that as
+**replacing** the built-in set rather than adding to it, so `basic`, `profile`,
+`email` and `roles` do not exist in this realm. All eight clients list all four
+anyway. On every import Keycloak logs, once per name per client:
 
-**That silence has now hidden two defects in two weeks.**
+```text
+WARN [org.keycloak.models.utils.RepresentationToModel] Referenced client scope 'basic' doesn't exist. Ignoring
+```
 
-The first cost a screen that had never worked: the wall display could not list
-anything, because its identity was missing a piece that would have arrived with
-one of the discarded four. Finding it took a day.
+**Thirty-two warnings per boot, and the file goes on listing them.** Anyone
+reading it — person or agent — sees four scopes applied that are not.
 
-The second is already in place and nobody has hit it yet. The **replacement
-identity for the operator console** — created for that purpose, described in the
-directory as replacing the one in use, still unused — **cannot say who is using
-it**. The system refuses to record a change it cannot attribute, deliberately, in
-seventeen places. Adopting that identity would refuse every operator change on a
-screen whose entire job is making changes.
+That silence has hidden two defects in two weeks.
 
-### Everything else is fine, for a reason nobody wrote down
+**The first** was spec 041: `kiosk-web` could not list layouts, because it lacked
+`sse-groups` and so had no fab claim. Diagnosing it also turned up a second
+missing piece — no `sub` — which would have left every tile dark, and which was
+patched with a client-level `oidc-sub-mapper` on that one client.
 
-The other identities do say who is using them. Two because of things that happen
-to be true: one inherits the piece from a broad administrative permission it
-holds, the other carries a hand-added copy from last week's narrow fix. The rest
-— the background workers — get it from the *way* they sign in rather than from
-any configuration at all.
+**The second is still in place.** `management-web` — the spec-008-v2 replacement
+for `smart-sentinel-eye-web`, described in the realm as replacing it, still
+unused — mints an access token with **no `sub`**.
+`ClaimsPrincipalExtensions.ToOperatorIdentifier` throws
+`UnattributableOperatorException` on such a token, mapped to a 401, rather than
+fabricate an operator and corrupt the audit trail. **Seventeen endpoints** call
+it, across LayoutComposition, OverlayDesigner, Automation, SystemVariables and
+Identity. Pointing management-web at that client would 401 every one of them.
 
-**None of that is by design, and none of it is written down.** A background
-worker that ever acts on a person's behalf would lose it silently, and the two
-that work by accident would lose it the moment either accident was tidied away.
+### The other six clients are fine, for a reason nothing records
+
+| Client | Flow | `sub` | Comes from |
+|---|---|---|---|
+| `smart-sentinel-eye-web` | authorization code | yes | `sse.management`'s `sub-claim` mapper |
+| `kiosk-web` | authorization code | yes | its own client mapper (spec 041) |
+| **`management-web`** | authorization code | **no** | — |
+| `identity-admin` | client credentials | yes | the grant |
+| `migration-runner` | client credentials | yes | the grant |
+| `stream-distribution-attribution` | client credentials | yes | the grant |
+| `scenario-simulator` | client credentials | yes | the grant |
+| `event-ingestion` | client credentials | yes | the grant |
+
+For `client_credentials`, Keycloak sets `sub` from the client's service-account
+user, so a mapper is irrelevant. Only user-backed flows need one. **Nothing in
+the repository says this**, which is why the file appears to say otherwise.
+
+So one fact — who holds this token — arrives three unrelated ways, two of them
+accidental. `smart-sentinel-eye-web` is identifiable *only because* it holds
+`sse.management`; narrow that permission and its writes silently stop being
+attributable. Narrowing exactly that kind of permission is what spec 041 did to
+the WHEP gate.
 
 ### Nothing checks any of it
 
-The failure is invisible three times over: the notice at start-up goes unread,
-signing in succeeds regardless, and the fault appears only at the first change.
-No check exists that an identity can name its holder, and none that the
-permissions an identity claims are real.
+No test asserts that a client can be attributed, or that the scopes a client
+names exist. The failure is invisible three times over: the import warning goes
+unread, sign-in succeeds (the **ID** token carries `sub` regardless — only the
+access token lacks it), and the fault appears at the first write.
 
 ---
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 — The configuration describes what actually happens (Priority: P1)
+### User Story 1 — The realm file describes the realm (Priority: P1)
 
-Reading the configuration tells you what the system does. Nothing in it is
-thrown away on the way in.
+Every scope a client names exists. Keycloak discards nothing on import.
 
-**Why this priority**: It is the mechanism. Two defects have hidden behind these
-notices; fixing the identity that is currently broken while leaving the four
-fictional entries on each of the eight would repair one instance and preserve the
-thing that produces them.
+**Why this priority**: it is the mechanism. Fixing `management-web` while leaving
+thirty-two fictional entries repairs one instance and preserves what produced it.
 
-**Independent Test**: Start the system, read the log. Nothing is discarded.
+**Independent Test**: import the realm; count the warnings.
 
 **Acceptance Scenarios**:
 
-1. **Given** the system starts,
-   **When** the directory is loaded,
-   **Then** **nothing** is reported as named-but-missing — down from thirty-two.
-2. **Given** the configuration,
-   **When** any identity's permissions are read,
-   **Then** every one of them exists.
+1. **Given** the realm is imported,
+   **When** the Keycloak log is read,
+   **Then** **zero** lines report a referenced scope that does not exist — down
+   from thirty-two.
+2. **Given** the realm file,
+   **When** any client's `defaultClientScopes` is read,
+   **Then** every entry names a scope defined in the realm's `clientScopes`.
 
 ---
 
-### User Story 2 — An identity a person uses can say who they are (Priority: P1)
+### User Story 2 — Every client mints a token carrying `sub` (Priority: P1)
 
-Every identity a person signs in with carries the piece that names its holder,
-and does so because it was configured to, not because of something else.
+Each client issues access tokens with a `sub` claim, and does so because a scope
+supplies it rather than as a side effect of something else.
 
-**Why this priority**: It is the live defect, and the one waiting to be walked
-into.
+**Why this priority**: it is the live defect, and the one waiting to be adopted.
 
-**Independent Test**: Sign in with each identity a person can use; each names its
-holder.
+**Independent Test**: mint a token per client; each carries `sub`.
 
 **Acceptance Scenarios**:
 
-1. **Given** every identity a person can sign in with,
-   **When** each issues a credential,
-   **Then** **each one** names its holder — checked one at a time, not sampled.
-2. **Given** the replacement identity for the operator console,
-   **When** a change is made with it,
-   **Then** the change is recorded against the person who made it, rather than
-   refused. *(Adopting that identity is not part of this feature; being able to
-   is.)*
-3. **Given** an identity that names its holder only because of a broad
-   permission it happens to hold,
-   **When** that permission is removed,
-   **Then** it still names its holder.
+1. **Given** each of the eight clients,
+   **When** each mints an **access** token,
+   **Then** **each** carries `sub` — checked per client, not sampled.
+2. **Given** `management-web`,
+   **When** an operator makes a write through it,
+   **Then** `ToOperatorIdentifier` resolves and the write succeeds rather than
+   401s. *(Pointing management-web at it is not in scope; being able to is.)*
+3. **Given** `smart-sentinel-eye-web`,
+   **When** `sse.management` is removed from it,
+   **Then** it still mints `sub`.
 
 ---
 
-### User Story 3 — The next one cannot hide (Priority: P1)
+### User Story 3 — Neither failure can recur silently (Priority: P1)
 
-Adding an identity that cannot name its holder, or one that claims a permission
-that does not exist, fails a check.
+A client added without the identity scope, or naming a scope that does not exist,
+fails a test.
 
-**Why this priority**: Equal to the others. Both failures are silent today, and
-the only reason either was found was someone chasing an unrelated symptom.
+**Why this priority**: equal. Both failures are silent today, and both were found
+only while chasing an unrelated symptom.
 
-**Independent Test**: Break each, watch the check go red.
+**Independent Test**: break each; watch it go red.
 
 **Acceptance Scenarios**:
 
-1. **Given** the directory as it should be,
-   **When** the check runs,
-   **Then** it passes.
-2. **Given** an identity added without the means to name its holder,
-   **When** the check runs,
-   **Then** it **fails** — demonstrated by causing it, not by assuming it.
-3. **Given** an identity claiming a permission the directory does not define,
-   **When** the check runs,
-   **Then** it **fails**, rather than being discarded at start-up as today.
+1. **Given** the realm as it should be,
+   **When** the checks run,
+   **Then** they pass.
+2. **Given** a client without the identity scope,
+   **When** the checks run,
+   **Then** they **fail** — demonstrated by causing it.
+3. **Given** a client naming a scope the realm does not define,
+   **When** the checks run,
+   **Then** they **fail**, rather than the entry being discarded at import.
 
 ---
 
-### User Story 4 — One notion of naming, not three (Priority: P2)
+### User Story 4 — One scope supplies `sub` (Priority: P2)
 
-There is a single place that makes an identity able to name its holder, and
-every identity that needs it uses that.
+A single client scope carries the `oidc-sub-mapper`. No permission scope and no
+client carries one.
 
-**Why this priority**: P2 because the system works either way today. But three
-different mechanisms currently supply one fact — a permission that happens to
-carry it, a hand-added copy, and a side effect of how a background worker signs
-in. Three sources of one fact is how they drift apart, and two of the three are
-accidents.
+**Why this priority**: P2 — the system works either way today. But three
+mechanisms currently supply one claim, two of them accidental, and a permission
+scope that also decides identifiability is the coupling that produced this.
 
-**Independent Test**: One shared definition; no identity carries a private copy.
+**Independent Test**: exactly one scope carries the mapper.
 
 **Acceptance Scenarios**:
 
-1. **Given** the change is complete,
-   **When** the configuration is read,
-   **Then** one shared definition provides the naming piece, and no identity
-   carries its own duplicate.
-2. **Given** the identity that inherits it from a broad administrative
-   permission,
-   **When** the configuration is read,
-   **Then** that permission is no longer what supplies it.
+1. **Given** the realm file,
+   **When** it is read,
+   **Then** one client scope carries an `oidc-sub-mapper`, no `sse.*` permission
+   scope carries one, and no client carries its own `protocolMappers`.
 
 ---
 
 ### Edge Cases
 
-- **Background workers, which act for no person.** They name their holder
-  because of *how* they sign in, not because of configuration — so they are
-  unaffected either way. They are included in the shared definition anyway, and
-  the reason is recorded: relying on that side effect means every future identity
-  needs a judgement about which kind it is, and an error in that judgement is
-  invisible until the first change.
-- **The identity carrying a hand-added copy.** Folded in, or it becomes a
-  second source of one fact.
-- **The identity that inherits it from a broad permission.** It must keep
-  naming its holder for a reason that survives that permission being narrowed —
-  which is a live prospect, since narrowing exactly that kind of permission is
-  what the previous feature did.
-- **An identity that signs in perfectly and then cannot do anything.** Today's
-  symptom for the broken one, and why it is hard to spot: signing in proves
-  nothing about whether a change can be attributed.
-- **A permission name with a typo.** Currently discarded with a notice nobody
-  reads. Should fail.
+- **Service-account clients.** They get `sub` from the `client_credentials`
+  grant, so they neither need the scope nor are harmed by it. They are given it
+  anyway: otherwise every future client requires a judgement about which kind it
+  is, and an error in that judgement is invisible until the first write.
+- **Clients created at runtime.** `EnrollKioskCommandHandler` and
+  `RegisterDeviceCommandHandler` create clients through the Keycloak Admin API
+  with `KeycloakScopeBundles.Kiosk` / `.Device`. They are not in the realm file,
+  so nothing here reaches them — and they do not need it, being service accounts.
+  No test can cover them from the file.
+- **`kiosk-web`'s client-level mapper**, added by spec 041. Folded in, or it is a
+  second source of one claim.
+- **`smart-sentinel-eye-web` losing `sse.management`.** Plausible: narrowing
+  blanket permissions is active work. It must keep minting `sub` afterwards.
+- **A typo in a scope name.** Currently discarded with a warning. Must fail.
+- **A client that signs in cleanly and then 401s on every write.** Today's
+  symptom for `management-web`, and why it is hard to spot: the ID token carries
+  `sub` regardless.
 
 ---
 
@@ -186,35 +195,41 @@ accidents.
 
 ### Functional Requirements
 
-- **FR-001**: No identity may claim a permission the directory does not define.
-- **FR-002**: Loading the directory MUST report nothing as named-but-missing.
-- **FR-003**: Every identity a person can sign in with MUST name its holder.
-- **FR-004**: A change made through any such identity MUST be recorded against
-  the person who made it.
-- **FR-005**: The means of naming a holder MUST be defined **once** and shared.
-- **FR-006**: No identity may carry a private copy of that means, and no
-  *permission* may supply it as a side effect.
-- **FR-007**: Something MUST detect an identity that cannot name its holder, and
-  fail.
-- **FR-008**: Something MUST detect an identity claiming a permission that does
-  not exist, and fail rather than discard it.
-- **FR-009**: Nothing beyond the holder's identifier may be added. Nothing in the
-  product reads anything else about who the holder is.
-- **FR-010**: Nothing about what any identity is *permitted to do* may change.
-- **FR-011**: The record MUST state why identities that act for no person are
-  unaffected. It is a property of how they sign in, it is currently undocumented,
-  and it looks like luck.
+- **FR-001**: No client's `defaultClientScopes` may name a scope absent from the
+  realm's `clientScopes`.
+- **FR-002**: Importing the realm MUST produce zero `doesn't exist. Ignoring`
+  warnings.
+- **FR-003**: Every client in the realm MUST mint access tokens carrying `sub`.
+- **FR-004**: A write through any user-facing client MUST resolve to the acting
+  operator rather than 401.
+- **FR-005**: Exactly **one** client scope MUST carry an `oidc-sub-mapper`, and
+  every client MUST hold it.
+- **FR-006**: No `sse.*` permission scope and no client may carry an
+  `oidc-sub-mapper` of its own.
+- **FR-007**: A test MUST fail when a client lacks the identity scope.
+- **FR-008**: A test MUST fail when a client names a scope the realm does not
+  define.
+- **FR-009**: No claim beyond `sub` may be added. Nothing in `src/` reads
+  `preferred_username`, `email`, `realm_access` or `resource_access`.
+- **FR-010**: No client's effective permission set may change. The `scope` claim
+  each client mints MUST be identical before and after.
+- **FR-011**: The record MUST state why `client_credentials` clients are
+  unaffected — Keycloak sets `sub` from the service-account user, this is written
+  down nowhere, and without it the six working clients look like luck.
 
 ### Key Entities
 
-- **Identity**: what a person or a background worker signs in as.
-- **Naming piece**: the part of a credential that says who holds it. Supplied
-  today by three unrelated mechanisms, two of them accidental.
-- **Permission list**: what an identity may do. Currently begins, on every
-  identity, with four entries that do not exist.
-- **Attribution**: recording a change against the person who made it. Refused
-  outright when the holder cannot be named — deliberately, so the record is never
-  wrong.
+- **Client**: a Keycloak client. Eight in the realm file; more created at runtime
+  by Identity.
+- **Client scope**: a named bundle. `sse.<noun>.<verb>` grants a permission and
+  appears in the `scope` claim; `sse-groups` carries a claim and sets
+  `include.in.token.scope: false`. The realm follows this split without stating
+  it.
+- **`sub` claim**: the subject of an access token. Read by
+  `ToOperatorIdentifier` (17 endpoints) and by `WhepAuthValidator`, both of which
+  fail closed without it.
+- **`sse.management`**: the grandfathered blanket permission. Currently also the
+  only realm scope carrying identity mappers.
 
 ---
 
@@ -222,51 +237,52 @@ accidents.
 
 ### Measurable Outcomes
 
-- **SC-001**: **Zero** entries discarded on start-up, down from thirty-two.
-- **SC-002**: **Every** identity a person can sign in with names its holder —
-  counted one at a time, not sampled.
-- **SC-003**: An identity that cannot name its holder **fails** a check —
+- **SC-001**: **Zero** `doesn't exist. Ignoring` warnings on import, down from
+  thirty-two.
+- **SC-002**: **All eight** clients mint an access token carrying `sub` —
+  measured per client, not sampled.
+- **SC-003**: A client without the identity scope **fails** a test —
   demonstrated by causing it.
-- **SC-004**: An identity claiming a permission that does not exist **fails** a
-  check — demonstrated by causing it.
-- **SC-005**: A change is attributed to the person who made it, observed end to
-  end rather than inferred from configuration.
-- **SC-006**: **One** shared definition supplies the naming piece; **zero**
-  private copies; **zero** permissions supplying it as a side effect.
-- **SC-007**: What every identity is permitted to do is unchanged.
+- **SC-004**: A client naming an undefined scope **fails** a test —
+  demonstrated by causing it.
+- **SC-005**: An operator's write through a minted token succeeds and is recorded
+  against that operator, observed end to end.
+- **SC-006**: **One** client scope carries an `oidc-sub-mapper`; **zero**
+  permission scopes and **zero** clients carry one.
+- **SC-007**: Every client's `scope` claim is byte-identical to before.
 
 ---
 
 ## Assumptions
 
-- **This spec was rewritten after its first draft was measured and found
-  wrong.** The draft claimed six of eight identities could not name their holder.
-  That was read off the configuration file rather than from credentials, and it
-  was wrong: **one** cannot. Background workers name their holder through the way
-  they sign in, which no file records. The error is kept here rather than tidied
-  away, because it is the same mistake the configuration itself makes — asserting
-  from a file what only a measurement can settle — and it was made while writing
-  a specification about that.
-- **Only the holder's identifier is needed.** Nothing in the product reads a
-  display name, an address, or a role. Restoring the other discarded groups would
-  be building for needs that do not exist.
-- **The refusal behaviour is correct and stays.** Refusing to record an
-  unattributable change is deliberate. This removes the reason it fires; it does
-  not soften it.
-- **No production deployment exists**, so changing every identity coordinates
-  with nothing. The directory is rebuilt from this configuration on a developer's
-  machine.
-- **Last week's narrow fix was right to be narrow.** It made one screen work
-  without touching seven other identities. This is the general version, done on
-  purpose.
+- **This spec has been rewritten twice.** The first draft claimed six of eight
+  clients could not mint `sub`. That was read off the realm file — which clients
+  carry an `oidc-sub-mapper` — rather than from tokens, and it was wrong: one
+  cannot. `client_credentials` supplies `sub` without any mapper. The error is
+  recorded rather than deleted, because asserting from a configuration file what
+  only a token settles is the exact failure this feature addresses. The second
+  rewrite replaced deliberately non-technical vocabulary with the actual names;
+  see the checklist.
+- **Only `sub` is needed.** `preferred_username` appears once in `src/`, as
+  `WhepAuthValidator`'s `NameClaimType`, whose resulting `Name` nothing reads.
+  Recreating `profile`, `email` or `roles` would be speculative generality
+  (ADR-0036).
+- **`ToOperatorIdentifier`'s fail-closed behaviour is correct and unchanged.**
+  This removes the reason it fires.
+- **No production deployment exists**, so changing every client coordinates with
+  nothing. The realm is re-imported from this file on a developer's machine.
+- **Spec 041's client-level mapper was right to be narrow.** It fixed one screen
+  without touching seven other clients. This is the general version.
 
 ---
 
 ## Out of Scope
 
-- **Pointing the operator console at its replacement identity.** A separate
-  decision and a separate change. This makes it possible; it does not do it.
-- **What any identity is permitted to do.** Naming is not permission.
-- **The operator console's missing video surface**, filed separately.
-- **The overlay-timing measurement**, filed separately.
-- **Any production rollout.** There is no production deployment.
+- **Pointing management-web at the `management-web` client.** A separate
+  decision and an app change. This makes it possible.
+- **Any change to what a client may do.** Identity is not permission.
+- **`KeycloakScopeBundles`** and the runtime client-creation paths — those
+  clients already carry `sub`.
+- **Issue 1886** (management-web renders no video) and **issue 1891** (the
+  overlay-draw metric), both filed separately.
+- **Any production rollout.**
