@@ -12,8 +12,28 @@ public sealed class ScenarioOptions
 {
     public const string SectionName = "ScenarioSimulator";
 
-    /// <summary>Key of the scenario to play (e.g. <c>rolling-mill</c>).</summary>
-    public string Active { get; set; } = "rolling-mill";
+    /// <summary>
+    /// Keys of the scenarios to seed, in order (e.g. <c>rolling-mill</c>,
+    /// <c>paper-mill</c>, <c>electronics</c>). Every one of them gets its cameras,
+    /// overlays, rules and wall.
+    /// <para>
+    /// <b>Only the first one animates.</b> The billet timeline and its MQTT sensor
+    /// emission are per-plant and stateful, so running three at once is a
+    /// different feature — see <see cref="Animated"/>.
+    /// </para>
+    /// </summary>
+    public List<string> Active { get; set; } = ["rolling-mill"];
+
+    /// <summary>
+    /// The scenario whose timeline runs. The first of <see cref="Active"/>, or
+    /// empty when none is configured.
+    /// <para>
+    /// Named rather than inlined at the call site so that "one plant animates" is
+    /// a property of the configuration with a reason attached, not an incidental
+    /// <c>.First()</c> somebody later reads as a bug and helpfully generalises.
+    /// </para>
+    /// </summary>
+    public string Animated => Active.Count == 0 ? string.Empty : Active[0];
 
     /// <summary>All known scenarios, keyed by scenario key.</summary>
     public Dictionary<string, ScenarioDefinition> Scenarios { get; set; } = [];
@@ -93,6 +113,18 @@ public sealed class CameraDefinition
     /// catalog and the camera-sim path provisioned on <c>CameraRegisteredV1</c>.
     /// </summary>
     public string Path { get; set; } = string.Empty;
+
+    /// <summary>
+    /// File name of the clip this camera plays, e.g. <c>paper-press-group.mp4</c>,
+    /// resolved against camera-sim's <c>/media</c> mount. A bare file name, not a
+    /// path: where the clips are mounted is the AppHost's business, and a scenario
+    /// file that knew container paths would break when the mount moved.
+    /// <para>
+    /// Defaults to the original shared clip, so a scenario that names none behaves
+    /// exactly as every camera did before this was a field.
+    /// </para>
+    /// </summary>
+    public string Clip { get; set; } = "sim-loop.mp4";
 
     /// <summary>True to loop the clip forever (the only mode in M1).</summary>
     public bool Loop { get; set; } = true;

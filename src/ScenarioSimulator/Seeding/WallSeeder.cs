@@ -29,22 +29,39 @@ public sealed class WallSeeder(
     IOptions<ScenarioOptions> scenarioOptions,
     ILogger<WallSeeder> logger)
 {
+    /// <summary>
+    /// Tries to create the wall of every active scenario. Each is independent: a
+    /// plant whose cameras have not all arrived yet simply waits for the next
+    /// event, and does not hold up the ones that are ready.
+    /// </summary>
     public async Task TryCreateAsync(CancellationToken cancellationToken)
     {
         ScenarioOptions scenarios = scenarioOptions.Value;
-        if (!scenarios.Scenarios.TryGetValue(scenarios.Active, out ScenarioDefinition scenario) || scenario.Wall is null)
-        {
-            return;
-        }
 
+        foreach (string key in scenarios.Active)
+        {
+            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition scenario) || scenario.Wall is null)
+            {
+                continue;
+            }
+
+            await TryCreateOneAsync(key, scenario, cancellationToken);
+        }
+    }
+
+    private async Task TryCreateOneAsync(
+        string key,
+        ScenarioDefinition scenario,
+        CancellationToken cancellationToken)
+    {
         int expected = scenario.Assets.Count(asset => asset.Overlay is not null && asset.Tile is not null);
-        if (!correlation.IsWallComplete(expected, out int ready))
+        if (!correlation.IsWallComplete(key, expected, out int ready))
         {
             logger.WallNotYetComplete(ready, expected);
             return;
         }
 
-        if (!correlation.TryClaimWallCreation())
+        if (!correlation.TryClaimWallCreation(key))
         {
             return;
         }
@@ -55,13 +72,13 @@ public sealed class WallSeeder(
                 scenario.Wall.Name,
                 scenario.Wall.Rows,
                 scenario.Wall.Cols,
-                correlation.CompleteTiles(),
+                correlation.CompleteTiles(key),
                 cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Release so a later CameraRegisteredV1 retries the wall creation.
-            correlation.ReleaseWallClaim();
+            correlation.ReleaseWallClaim(key);
             logger.AssetMissingField(scenario.Wall.Name, $"wall ({ex.Message})");
         }
     }

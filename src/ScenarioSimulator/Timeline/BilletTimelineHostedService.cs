@@ -26,7 +26,17 @@ public sealed class BilletTimelineHostedService(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         ScenarioOptions options = scenarioOptions.Value;
-        if (!options.Scenarios.TryGetValue(options.Active, out ScenarioDefinition scenario)
+
+        // The animated scenario only — the first of Active. This timeline walks a
+        // billet through one plant's stations and publishes its sensor samples,
+        // so it is per-plant and stateful, and three at once is a different
+        // feature. The other plants stay fully seeded and watchable, with static
+        // overlays.
+        //
+        // Deliberate, not an oversight: quickstart §3 tells the verifier to
+        // expect exactly one wall animating, so two static walls are not
+        // diagnosed as a bug.
+        if (!options.Scenarios.TryGetValue(options.Animated, out ScenarioDefinition scenario)
             || scenario.Timeline is null
             || scenario.Assets.Count == 0)
         {

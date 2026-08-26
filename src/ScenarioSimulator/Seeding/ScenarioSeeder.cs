@@ -30,39 +30,55 @@ public sealed class ScenarioSeeder(
     {
         ScenarioOptions scenarios = scenarioOptions.Value;
 
-        if (!scenarios.Scenarios.TryGetValue(scenarios.Active, out ScenarioDefinition scenario))
+        // Every active scenario gets its cameras, overlays and rules. One missing
+        // key skips only itself, so a typo in the list costs one plant and not
+        // the run.
+        foreach (string key in scenarios.Active)
         {
-            logger.ScenarioNotFound(scenarios.Active);
-            return;
-        }
-
-        logger.SeedingScenario(scenario.Name, scenario.Assets.Count);
-
-        foreach (AssetDefinition asset in scenario.Assets)
-        {
-            await SeedOverlayAndRuleAsync(asset, stoppingToken);
-
-            // Record the id whether the camera was created or already existed:
-            // it is what correlates the camera to its wall tile, and
-            // CameraRegisteredV1 only supplies it for a genuinely new one. Null
-            // means the read-back could not determine it (logged there); the
-            // wall simply stays incomplete rather than the seed failing.
-            Guid? camera = await catalog.RegisterCameraAsync(asset.Name, asset.Camera.Path, stoppingToken);
-            if (camera.HasValue)
+            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition scenario))
             {
-                correlation.RecordCamera(asset.Camera.Path, camera.Value);
+                logger.ScenarioNotFound(key);
+                continue;
             }
+
+            logger.SeedingScenario(scenario.Name, scenario.Assets.Count);
+
+            foreach (AssetDefinition asset in scenario.Assets)
+            {
+                await SeedOverlayAndRuleAsync(key, asset, stoppingToken);
+
+                // Record the id whether the camera was created or already existed:
+                // it is what correlates the camera to its wall tile, and
+                // CameraRegisteredV1 only supplies it for a genuinely new one. Null
+                // means the read-back could not determine it (logged there); the
+                // wall simply stays incomplete rather than the seed failing.
+                Guid? camera = await catalog.RegisterCameraAsync(asset.Name, asset.Camera.Path, stoppingToken);
+                if (camera.HasValue)
+                {
+                    correlation.RecordCamera(asset.Camera.Path, camera.Value);
+                }
+            }
+
+            logger.ScenarioSeeded(scenario.Name);
         }
 
         // The event handler covers live registrations; this covers the restart
-        // where every camera already exists, so no event fires and the wall
-        // would otherwise never be rebuilt. Both are idempotent.
+        // where every camera already exists, so no event fires and the walls
+        // would otherwise never be rebuilt. Both are idempotent. Once, after all
+        // scenarios: it tries every wall and skips the incomplete ones.
         await wall.TryCreateAsync(stoppingToken);
-
-        logger.ScenarioSeeded(scenario.Name);
     }
 
-    private async Task SeedOverlayAndRuleAsync(AssetDefinition asset, CancellationToken cancellationToken)
+    /// <summary>
+    /// Seeds one asset's overlay and highlight rule. Every name it creates is
+    /// prefixed with <paramref name="scenario"/> — the literal used to be
+    /// "rolling-mill" because there was only ever one plant, and three plants
+    /// sharing an overlay name would each overwrite the last.
+    /// </summary>
+    private async Task SeedOverlayAndRuleAsync(
+        string scenario,
+        AssetDefinition asset,
+        CancellationToken cancellationToken)
     {
         if (asset.Overlay is null || asset.Tile is null)
         {
@@ -78,8 +94,8 @@ public sealed class ScenarioSeeder(
             (decimal)asset.Overlay.Height,
             (int)asset.Overlay.FontSize);
 
-        Guid overlay = await overlays.EnsureOverlayAsync($"rolling-mill-{asset.Key}", label, cancellationToken);
-        correlation.RecordOverlay(assetKey, overlay, asset.Tile.Row, asset.Tile.Col);
+        Guid overlay = await overlays.EnsureOverlayAsync($"{scenario}-{asset.Key}", label, cancellationToken);
+        correlation.RecordOverlay(scenario, assetKey, overlay, asset.Tile.Row, asset.Tile.Col);
 
         if (asset.Highlight is null)
         {
@@ -92,7 +108,7 @@ public sealed class ScenarioSeeder(
             ?? "plc";
 
         await rules.EnsureRuleAsync(
-            $"rolling-mill-{asset.Key}-highlight",
+            $"{scenario}-{asset.Key}-highlight",
             triggerSource,
             asset.Highlight.TriggerKind,
             assetKey,
