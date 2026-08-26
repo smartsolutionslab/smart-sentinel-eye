@@ -21,8 +21,16 @@ public sealed class ScenarioOptions
     /// emission are per-plant and stateful, so running three at once is a
     /// different feature — see <see cref="Animated"/>.
     /// </para>
+    /// <para>
+    /// <b>Empty by default, deliberately.</b> The configuration binder <i>appends</i>
+    /// to an existing list rather than replacing it, so a default of
+    /// <c>["rolling-mill"]</c> plus three configured keys bound to four entries with
+    /// rolling-mill seeded twice. Harmless, because seeding is idempotent — which
+    /// is exactly why it would not have been noticed. <c>appsettings.json</c> is
+    /// the single place the list is stated.
+    /// </para>
     /// </summary>
-    public List<string> Active { get; set; } = ["rolling-mill"];
+    public List<string> Active { get; set; } = [];
 
     /// <summary>
     /// The scenario whose timeline runs. The first of <see cref="Active"/>, or
@@ -34,6 +42,12 @@ public sealed class ScenarioOptions
     /// </para>
     /// </summary>
     public string Animated => Active.Count == 0 ? string.Empty : Active[0];
+
+    /// <summary>
+    /// Host-side directory holding the clips (FR-007). Set by AppHost, which owns
+    /// the bind mount; empty disables the existence check.
+    /// </summary>
+    public string ClipsDirectory { get; set; } = string.Empty;
 
     /// <summary>All known scenarios, keyed by scenario key.</summary>
     public Dictionary<string, ScenarioDefinition> Scenarios { get; set; } = [];

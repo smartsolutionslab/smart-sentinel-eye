@@ -17,7 +17,7 @@
           {
             "Key": "station-4-roughing",
             "Name": "Station 4 — Roughing Stand",
-            "Camera": { "Path": "station-4-roughing", "Loop": true },
+            "Camera": { "Path": "station-4-roughing", "Clip": "mill-roughing.mp4", "Loop": true },
             "Tile": { "Row": 0, "Col": 0 },
             "Overlay": {
               "Label": "ROUGHING — HOT BILLET",
@@ -56,7 +56,7 @@
           {
             "Key": "station-7-finishing",
             "Name": "Station 7 — Finishing Stand",
-            "Camera": { "Path": "station-7-finishing", "Loop": true },
+            "Camera": { "Path": "station-7-finishing", "Clip": "mill-finishing.mp4", "Loop": true },
             "Tile": { "Row": 0, "Col": 1 },
             "Overlay": {
               "Label": "FINISHING — STRIP",
@@ -86,7 +86,7 @@
           {
             "Key": "cooling-bed",
             "Name": "Cooling Bed",
-            "Camera": { "Path": "cooling-bed", "Loop": true },
+            "Camera": { "Path": "cooling-bed", "Clip": "mill-cooling.mp4", "Loop": true },
             "Tile": { "Row": 1, "Col": 0 },
             "Overlay": {
               "Label": "COOLING BED",
@@ -116,7 +116,7 @@
           {
             "Key": "coiler",
             "Name": "Coiler",
-            "Camera": { "Path": "coiler", "Loop": true },
+            "Camera": { "Path": "coiler", "Clip": "mill-coiler.mp4", "Loop": true },
             "Tile": { "Row": 1, "Col": 1 },
             "Overlay": {
               "Label": "COILER — COIL READY",

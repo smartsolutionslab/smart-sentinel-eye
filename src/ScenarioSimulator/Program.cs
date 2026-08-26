@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.Extensions.Options;
 using JasperFx.CodeGeneration.Model;
 using SmartSentinelEye.ScenarioSimulator;
 using SmartSentinelEye.ScenarioSimulator.CameraCatalog;
@@ -58,6 +59,14 @@ builder.Services.AddHttpClient<CameraSimProvisioner>((sp, client) =>
 // table, and the billet timeline that publishes correlated sensor MQTT.
 builder.AddScenarioSeeding();
 builder.AddBilletTimeline();
+
+// FR-007: lets the reconciler refuse a clip that is not there, naming it, rather
+// than provisioning a path that never becomes ready. The worker cannot see
+// camera-sim's bind mount, so AppHost passes the host-side directory; when it is
+// unset (a bare `dotnet run` of the worker) the check disables itself rather
+// than refusing every clip.
+builder.Services.AddSingleton(serviceProvider =>
+    new ClipLibrary(serviceProvider.GetRequiredService<IOptions<ScenarioOptions>>().Value.ClipsDirectory));
 
 builder.Services.AddHostedService<ScenarioSeeder>();
 

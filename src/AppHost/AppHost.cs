@@ -478,6 +478,10 @@ if (isRunMode && !isE2ETests)
         .WithReference(rabbitmq)
         .WithReference(keycloak)
         .WithEnvironment("ScenarioSimulator__Runtime__ClientSecret", scenarioSimulatorClientSecret)
+        // FR-007. The worker validates that an asset's clip exists before
+        // provisioning a path for it, and it cannot see camera-sim's bind mount —
+        // so the side that owns the mount tells it where the clips are.
+        .WithEnvironment("ScenarioSimulator__ClipsDirectory", Path.GetFullPath("Resources/clips"))
         .WaitFor(cameraCatalog)
         .WaitFor(cameraSim)
         .WaitFor(overlayDesigner)

@@ -35,8 +35,17 @@ FILTER="${1:-}"
 # excerpt of a motionless pipe satisfies every automated check in spec 044 and
 # still leaves an operator unable to tell one tile from another, which is the
 # failure this feature exists to prevent.
+#
+# The four mill-* clips come from ONE 477 s source at four offsets. That is not a
+# shortcut: a rolling mill filmed at four points in its own process is four
+# different stations, which is exactly what the wall is claiming to show. One
+# source also means one licence and one attribution to keep correct.
 CLIPS=$(cat <<'TABLE'
 sim-loop|https://upload.wikimedia.org/wikipedia/commons/b/b9/Proizvodnja_vro%C4%8De_valjane_debele_plo%C4%8Devine_v_Acroni_SIJ_Jesenice.ogv|250
+mill-roughing|https://upload.wikimedia.org/wikipedia/commons/b/b9/Proizvodnja_vro%C4%8De_valjane_debele_plo%C4%8Devine_v_Acroni_SIJ_Jesenice.ogv|60
+mill-finishing|https://upload.wikimedia.org/wikipedia/commons/b/b9/Proizvodnja_vro%C4%8De_valjane_debele_plo%C4%8Devine_v_Acroni_SIJ_Jesenice.ogv|150
+mill-cooling|https://upload.wikimedia.org/wikipedia/commons/b/b9/Proizvodnja_vro%C4%8De_valjane_debele_plo%C4%8Devine_v_Acroni_SIJ_Jesenice.ogv|360
+mill-coiler|https://upload.wikimedia.org/wikipedia/commons/b/b9/Proizvodnja_vro%C4%8De_valjane_debele_plo%C4%8Devine_v_Acroni_SIJ_Jesenice.ogv|440
 paper-refiners|https://upload.wikimedia.org/wikipedia/commons/5/50/The_Gori%C4%8Dane_company_-_Refiners.webm|6
 paper-press-group|https://upload.wikimedia.org/wikipedia/commons/1/12/The_Gori%C4%8Dane_company_-_press_group.webm|8
 paper-after-drying|https://upload.wikimedia.org/wikipedia/commons/7/7b/The_Gori%C4%8Dane_company_-_After-drying_group.webm|10
@@ -66,17 +75,31 @@ while IFS='|' read -r NAME URL START; do
 
   echo "==> $NAME (from ${START}s)"
   SRC="$WORK/${NAME}.src"
-  curl -fsSL --max-time 900 -o "$SRC" "$URL"
+
+  # Wikimedia's policy requires a descriptive User-Agent and rate-limits without
+  # one: a full regeneration got HTTP 429 partway through and left the directory
+  # half at one quality and half at another. --retry rides out a transient limit;
+  # the sleep keeps a 13-clip run from provoking it again.
+  curl -fsSL --max-time 900 \
+    -A "smart-sentinel-eye-dev/1.0 (scenario simulator clip generation; ADR-0111)" \
+    --retry 3 --retry-delay 20 --retry-all-errors \
+    -o "$SRC" "$URL"
+  sleep 2
 
   # MSYS_NO_PATHCONV stops Git Bash on Windows rewriting the container paths
   # (`/work`, `/out`) into `C:/Program Files/Git/...`; harmless elsewhere.
   # Everything is normalised to 1280x720/25fps H.264 baseline so camera-sim can
   # stream-copy it: sources vary between 1920x1080 and 1280x720.
+  #
+  # -crf 28 rather than x264's default 23. These are simulation tiles on a dev
+  # wall, not footage anyone inspects, and the default put the directory at 67 MB
+  # against the ~40 MB the plan committed to. Quality at tile size is
+  # indistinguishable; the repo carries half the weight, permanently.
   MSYS_NO_PATHCONV=1 docker run --rm -v "${WORK_DIR}:/work" -v "${OUT_DIR}:/out" \
     --entrypoint ffmpeg bluenviron/mediamtx:latest-ffmpeg \
     -ss "${START}" -i "/work/${NAME}.src" -t "${SEGMENT_LEN}" \
     -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:-1:-1,setsar=1,fps=25" \
-    -c:v libx264 -profile:v baseline -level:v 3.1 -pix_fmt yuv420p -g 25 -an \
+    -c:v libx264 -profile:v baseline -level:v 3.1 -pix_fmt yuv420p -g 25 -an -crf 28 \
     -movflags +faststart -y "/out/${NAME}.mp4"
 
   rm -f "$SRC"
