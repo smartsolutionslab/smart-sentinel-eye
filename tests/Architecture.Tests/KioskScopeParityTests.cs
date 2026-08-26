@@ -85,30 +85,33 @@ public class KioskScopeParityTests
     }
 
     /// <summary>
-    /// <b>The only automated protection for the WHEP path.</b> This realm
-    /// supplies its own <c>clientScopes</c> array, which replaces Keycloak's
-    /// built-in <c>basic</c> scope rather than adding to it, so no scope here
-    /// emits <c>sub</c> and the client must carry its own mapper.
+    /// <b>The kiosk's subject claim is guarded, elsewhere.</b> Spec 041 asserted
+    /// here that <c>kiosk-web</c> carried its own <c>oidc-sub-mapper</c>, because
+    /// at the time it was the only client that did and losing it would have
+    /// stopped video on every kiosk with nothing going red — CI produces no
+    /// video.
     ///
     /// <para>
-    /// <c>WhepAuthValidator</c> refuses a token it cannot attribute, so removing
-    /// this mapper stops video on every kiosk — and CI produces no video, so
-    /// nothing else would go red. The tiles would simply stay dark.
+    /// Spec 042 moved the mapper to the shared <c>sse-identity</c> scope and
+    /// removed the private copy, so that assertion's premise is gone. The
+    /// guarantee is not: <c>RealmIdentityTests.Every_client_holds_the_identity_scope</c>
+    /// makes it per client rather than for this one, and
+    /// <c>TokenAttributionIntegrationTests</c> mints a token to check the mapper
+    /// actually fires — which reading the file never could.
+    /// </para>
+    ///
+    /// <para>
+    /// Recorded rather than deleted silently: a guard that disappears in someone
+    /// else's feature looks like a guard that was dropped.
     /// </para>
     /// </summary>
     [Fact]
-    public void The_kiosk_client_carries_a_subject_mapper()
+    public void The_kiosk_client_keeps_no_private_subject_mapper()
     {
-        JsonElement client = KioskClient(Realm());
-
-        client.TryGetProperty("protocolMappers", out JsonElement mappers).ShouldBeTrue(
-            customMessage: $"{KioskClientId} needs its own sub mapper; this realm has no basic scope.");
-
-        mappers.EnumerateArray()
-            .Select(mapper => mapper.GetProperty("protocolMapper").GetString())
-            .ShouldContain("oidc-sub-mapper",
-                customMessage: "without sub the WHEP handshake is refused and every tile stays dark, "
-                + "and no automated check can see it (spec 041, blocker A).");
+        KioskClient(Realm()).TryGetProperty("protocolMappers", out _).ShouldBeFalse(
+            customMessage: $"{KioskClientId} should take its subject from the shared sse-identity "
+            + "scope like every other client. A private copy of one fact is how the two drift "
+            + "(spec 042 FR-006).");
     }
 
     /// <summary>
