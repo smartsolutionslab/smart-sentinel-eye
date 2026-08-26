@@ -105,10 +105,10 @@ catches which.
 
 **Goal**: One credential per identity, against the real thing.
 
-- [ ] T012 Import the final realm into a throwaway container and mint a credential for **each of the eight** identities — password grant for the three user-facing ones (enable direct access grants **on a scratch copy only**, and say so), `client_credentials` for the five background workers. Record all eight **access**-token payloads verbatim. Not the ID token: it carries the subject regardless, which is why this hid for so long. **Verbatim, not summarised** — summarising is how this feature's first draft got its own central number wrong.
-- [ ] T013 From the same eight payloads, assert per identity: the subject is present; `groups` is present wherever it was before; **the `scope` claim is byte-identical to before the change** (SC-007 — the blast radius is every client at once); and `sse-identity` does **not** appear in `scope`, because it grants nothing.
-- [ ] T014 **The one step that needs the real stack.** Delete the Keycloak container **and its data volume**, boot with `dotnet run --project src/AppHost`, confirm `KC-SERVICES0030: Full model import requested` and zero discarded entries, then sign into the operator console and change something. Confirm it succeeds and appears in the audit trail against the operator who made it (SC-005).
-- [ ] T015 Write the verification note on the PR: the `0` that replaced `32`, all eight payloads, the absence of `preferred_username`, both check failures from T010, **and the T011 result showing which check did not fire**. Name any step not performed. A feature about a file that claimed more than it delivered does not get to do the same.
+- [X] T012 Import the final realm into a throwaway container and mint a credential for **each of the eight** identities — password grant for the three user-facing ones (enable direct access grants **on a scratch copy only**, and say so), `client_credentials` for the five background workers. Record all eight **access**-token payloads verbatim. Not the ID token: it carries the subject regardless, which is why this hid for so long. **Verbatim, not summarised** — summarising is how this feature's first draft got its own central number wrong.
+- [X] T013 From the same eight payloads, assert per identity: the subject is present; `groups` is present wherever it was before; **the `scope` claim is byte-identical to before the change** (SC-007 — the blast radius is every client at once); and `sse-identity` does **not** appear in `scope`, because it grants nothing.
+- [X] T014 **The one step that needs the real stack.** Delete the Keycloak container **and its data volume**, boot with `dotnet run --project src/AppHost`, confirm `KC-SERVICES0030: Full model import requested` and zero discarded entries, then sign into the operator console and change something. Confirm it succeeds and appears in the audit trail against the operator who made it (SC-005).
+- [X] T015 Write the verification note on the PR: the `0` that replaced `32`, all eight payloads, the absence of `preferred_username`, both check failures from T010, **and the T011 result showing which check did not fire**. Name any step not performed. A feature about a file that claimed more than it delivered does not get to do the same.
 
 ---
 
@@ -166,36 +166,78 @@ covers the other half of this trap.
 
 ---
 
-## Phase 5 status: **not started**
+## Phase 5 status: **complete**
 
-**Everything an automated check can prove is proved.**
+Two throwaway Keycloak 26.5 containers were booted side by side — the realm at
+`cec226a~1` on one port, the realm as committed on another — and a credential was
+minted for **every one of the eight clients in each**. Not sampled, and not read
+off the file: that is how this feature's own first draft got its central number
+wrong.
 
-- Release build clean with analyzers, 0 warnings.
-- `Architecture.Tests` **53** (5 new; one spec 041 assertion retargeted).
-- `Integration.Tests` — `TokenAttributionIntegrationTests` **3/3**, run against
-  Docker rather than deferred to CI.
-- **T007**: the realm imports with **0** `doesn't exist. Ignoring` warnings, down
-  from 32, and no other import warning.
-- **T005**: `smart-sentinel-eye-web` mints `sub`, and `preferred_username` is
-  **absent** — the one behavioural change, confirmed deliberately.
-- **T010**: both directions made to fail, each naming the offending client.
-- **T011**: the convention check stayed green on a mapper that does not fire,
-  while the token lost `sub`.
+**T012 / T013 — per client, before and after:**
 
-**What is NOT verified — T012 through T015:**
+| Client | `sub` before | `sub` after | `scope` claim | `sse-identity` in `scope` |
+|---|---|---|---|---|
+| `smart-sentinel-eye-web` | yes | yes | **identical** | no |
+| **`management-web`** | **no** | **yes** | **identical** | no |
+| `kiosk-web` | yes | yes | **identical** | no |
+| `identity-admin` | yes | yes | **identical** | no |
+| `migration-runner` | yes | yes | **identical** | no |
+| `stream-distribution-attribution` | yes | yes | **identical** | no |
+| `scenario-simulator` | yes | yes | **identical** | no |
+| `event-ingestion` | yes | yes | **identical** | no |
 
-- **Only three of the eight clients have been minted against the final realm**
-  (`smart-sentinel-eye-web` in T005, `management-web` in T011's probe, plus the
-  fixture's own). The other five are covered by the Phase 0 measurement of the
-  *candidate* realm, which was equivalent but not identical — T012 exists to
-  close that gap, and this feature's own first draft is the argument for not
-  waving it through.
-- **`scope` claims have not been compared per client before and after** (SC-007).
-  Phase 0 checked three.
-- **No attributed write has been observed on the real stack** with the Keycloak
-  volume deleted, and no audit-trail entry has been read (SC-005). The
-  integration test proves the write is not refused; it does not read the trail.
+**SC-002** met — eight of eight, and the one that could not be attributed now
+can. **SC-007** met — every `scope` claim is the same set it was, so no client
+gained or lost a permission even though all eight changed at once. `sse-identity`
+appears in none of them, because it grants nothing.
 
+`groups` is unchanged on all three user-facing clients (`["/fabs/munich"]`), so
+fab scoping did not regress.
+
+**The one behavioural change, both sides:**
+
+```text
+before   preferred_username: "operator"
+after    preferred_username: ABSENT
+```
+
+**T007 / SC-001, measured on both containers on the same machine:**
+
+```text
+before: 32 "doesn't exist. Ignoring"
+after:   0
+```
+
+**T014 — the real stack.** Keycloak container and its data volume deleted first,
+then `dotnet run --project src/AppHost`. The import ran fresh
+(`KC-SERVICES0030: Full model import requested`) with **zero** discarded entries
+and no other warning.
+
+Signed into management-web as `operator`; the access token carried
+`sub: 7a50eb81-df69-472c-9f7f-96272a7253a3`. Registered a camera — the write
+**succeeded**, which is the assertion, because an unattributable token 401s
+rather than attributing wrongly.
+
+**And the trail records it against that operator** (SC-005):
+
+```text
+When                    Event                Resource          Actor                                   Fab
+8/26/2026, 8:05:52 AM   CameraRegisteredV1   camera / 01a03cac…  7a50eb81-df69-472c-9f7f-96272a7253a3   munich
+8/26/2026, 8:05:46 AM   StreamHealthChangedV1 stream / 01a03cac… system                                 —
+```
+
+The actor is the token's `sub`, verbatim. The `system` rows beside it are the
+background path, which is what the column looks like when nobody is acting.
+
+That closes the chain end to end: `sse-identity` → the `sub` claim →
+`ToOperatorIdentifier` → the domain event → the audit trail's actor. Nothing
+asserted any of it before this feature.
+
+**Not done, and not needed**: no test covers clients created at runtime through
+the Admin API. They are not in the realm file, and research R3 measured them as
+already carrying `sub` from the `client_credentials` grant. The contract records
+that as a row nothing catches.
 ---
 
 ## Dependencies
