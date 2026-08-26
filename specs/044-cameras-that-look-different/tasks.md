@@ -211,7 +211,7 @@ The criterion was legibility at tile size, not subject matter.
 | `mill-roughing` | 60 s | Wide, bright mill floor with DANIELI machinery. Strong. |
 | `mill-finishing` | 150 s | Glowing plate under bright light. Strong. Moved off 250 s, which was byte-identical to `sim-loop`. |
 | `mill-cooling` | 360 s | Glowing slab on a table, dark surround. Good. |
-| `mill-coiler` | 440 s | Dark; yellow railings carry it. **Weakest of the four.** |
+| `mill-coiler` | 320 s | White-hot slab against a hazard-striped wall. **Replaced the 440 s excerpt at T023, which was too dark.** |
 
 **Paper mill** — Goričane, CC BY 3.0:
 
@@ -286,8 +286,8 @@ is worse than one honestly left open.
 
 | Check | State |
 |---|---|
-| Paper wall: four different tiles, each nameable without the layout | **Partly done.** `paper-refiners` was rejected and replaced; the replacement has not been judged on the wall. |
-| Rolling-mill wall: same two questions | **Not done.** `mill-coiler` carries an unresolved reservation — dark, with yellow railings as its only landmark. |
+| Paper wall: four different tiles, each nameable without the layout | **Done.** `paper-refiners` was rejected and replaced; `paper-pressure-screener` reads fine. |
+| Rolling-mill wall: same two questions | **Partly done.** `mill-coiler` was rejected as too dark and moved from 440 s to 320 s; the replacement has not been judged on the wall. |
 | Electronics wall: same two questions | **Not done.** Never opened. |
 | No tile from one plant could pass for another plant's | **Not done.** |
 | The animated wall still highlights on threshold (FR-011) | **Not done.** |

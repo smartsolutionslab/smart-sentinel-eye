@@ -1,6 +1,6 @@
 mill-coiler.mp4 — dev-only Scenario Simulator camera feed (ADR-0111, spec 044).
 
-It is a 20-second excerpt taken 440 s into:
+It is a 20-second excerpt taken 320 s into:
 
   Title:   Proizvodnja vroče valjane debele pločevine v Acroni SIJ Jesenice
   Author:  MZaplotnik
@@ -14,6 +14,11 @@ carries the stricter terms, so do not assume the directory is uniform.
 
 The four mill-* clips are four offsets into this one 477 s source: a rolling
 mill filmed at four points in its own process is four different stations.
+
+Moved from 440 s to 320 s: T023 rejected the 440 s excerpt as too dark to
+identify at tile size. 320 s is a white-hot slab against a hazard-striped wall --
+the brightest stretch of the source, and not confusable with mill-cooling at
+360 s, which is dark with a yellow gantry.
 
 Regenerate with scripts/generate-sim-clips.sh. Used only by the dev-only
 camera-sim, which the AppHost gates off in CI/E2E/prod.
