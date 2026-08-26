@@ -74,6 +74,9 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Wall layout '{Name}' already exists and needs no publishing; skipping (idempotent).")]
     public static partial void WallAlreadyExists(this ILogger logger, string name);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "Wall layout '{Name}' ({Layout}) had different tiles; re-tiled and published revision {Revision}.")]
+    public static partial void WallRetiled(this ILogger logger, string name, Guid layout, int revision);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Wall layout '{Name}' ({Layout}) was left in Draft; published it.")]
     public static partial void WallDraftPublished(this ILogger logger, string name, Guid layout);
 
