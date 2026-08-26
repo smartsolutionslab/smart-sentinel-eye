@@ -8,16 +8,16 @@ public class AssetCorrelationTableTests
     public void Wall_is_incomplete_until_every_asset_has_both_overlay_and_camera()
     {
         AssetCorrelationTable table = new();
-        table.RecordOverlay("a", Guid.NewGuid(), 0, 0);
-        table.RecordOverlay("b", Guid.NewGuid(), 0, 1);
+        table.RecordOverlay("mill", "a", Guid.NewGuid(), 0, 0);
+        table.RecordOverlay("mill", "b", Guid.NewGuid(), 0, 1);
         table.RecordCamera("a", Guid.NewGuid());
 
-        table.IsWallComplete(2, out int ready).ShouldBeFalse();
+        table.IsWallComplete("mill", 2, out int ready).ShouldBeFalse();
         ready.ShouldBe(1);
 
         table.RecordCamera("b", Guid.NewGuid());
 
-        table.IsWallComplete(2, out ready).ShouldBeTrue();
+        table.IsWallComplete("mill", 2, out ready).ShouldBeTrue();
         ready.ShouldBe(2);
     }
 
@@ -26,11 +26,11 @@ public class AssetCorrelationTableTests
     {
         AssetCorrelationTable table = new();
 
-        table.TryClaimWallCreation().ShouldBeTrue();
-        table.TryClaimWallCreation().ShouldBeFalse();
+        table.TryClaimWallCreation("mill").ShouldBeTrue();
+        table.TryClaimWallCreation("mill").ShouldBeFalse();
 
-        table.ReleaseWallClaim();
-        table.TryClaimWallCreation().ShouldBeTrue();
+        table.ReleaseWallClaim("mill");
+        table.TryClaimWallCreation("mill").ShouldBeTrue();
     }
 
     [Fact]
@@ -43,16 +43,16 @@ public class AssetCorrelationTableTests
         Guid coiler = Guid.NewGuid();
 
         // Recorded out of grid order.
-        table.RecordOverlay("coiler", Guid.NewGuid(), 1, 1);
+        table.RecordOverlay("mill", "coiler", Guid.NewGuid(), 1, 1);
         table.RecordCamera("coiler", coiler);
-        table.RecordOverlay("roughing", Guid.NewGuid(), 0, 0);
+        table.RecordOverlay("mill", "roughing", Guid.NewGuid(), 0, 0);
         table.RecordCamera("roughing", roughing);
-        table.RecordOverlay("cooling", Guid.NewGuid(), 1, 0);
+        table.RecordOverlay("mill", "cooling", Guid.NewGuid(), 1, 0);
         table.RecordCamera("cooling", cooling);
-        table.RecordOverlay("finishing", Guid.NewGuid(), 0, 1);
+        table.RecordOverlay("mill", "finishing", Guid.NewGuid(), 0, 1);
         table.RecordCamera("finishing", finishing);
 
-        IReadOnlyList<CorrelatedTile> tiles = table.CompleteTiles();
+        IReadOnlyList<CorrelatedTile> tiles = table.CompleteTiles("mill");
 
         tiles.Select(tile => (tile.Row, tile.Col)).ShouldBe(new[] { (0, 0), (0, 1), (1, 0), (1, 1) });
         tiles[0].Camera.ShouldBe(roughing);
@@ -63,10 +63,36 @@ public class AssetCorrelationTableTests
     public void Assets_missing_a_camera_or_overlay_are_excluded_from_the_tiles()
     {
         AssetCorrelationTable table = new();
-        table.RecordOverlay("complete", Guid.NewGuid(), 0, 0);
+        table.RecordOverlay("mill", "complete", Guid.NewGuid(), 0, 0);
         table.RecordCamera("complete", Guid.NewGuid());
-        table.RecordOverlay("overlay-only", Guid.NewGuid(), 0, 1);
+        table.RecordOverlay("mill", "overlay-only", Guid.NewGuid(), 0, 1);
 
-        table.CompleteTiles().Count.ShouldBe(1);
+        table.CompleteTiles("mill").Count.ShouldBe(1);
+    }
+
+    /// <summary>
+    /// Spec 044. Before scenarios were scoped, one flat row set meant a second
+    /// plant's cameras composed into the first plant's wall, and whichever
+    /// scenario finished first claimed wall creation for all of them.
+    /// </summary>
+    [Fact]
+    public void One_plants_assets_never_compose_into_another_plants_wall()
+    {
+        AssetCorrelationTable table = new();
+
+        table.RecordOverlay("mill", "roughing", Guid.NewGuid(), 0, 0);
+        table.RecordCamera("roughing", Guid.NewGuid());
+        table.RecordOverlay("paper", "refiners", Guid.NewGuid(), 0, 0);
+        table.RecordCamera("refiners", Guid.NewGuid());
+
+        table.CompleteTiles("mill").Count.ShouldBe(1);
+        table.CompleteTiles("paper").Count.ShouldBe(1);
+
+        // A one-asset mill is complete even though two assets are recorded.
+        table.IsWallComplete("mill", 1, out _).ShouldBeTrue();
+
+        // And claiming one plant's wall leaves the other's available.
+        table.TryClaimWallCreation("mill").ShouldBeTrue();
+        table.TryClaimWallCreation("paper").ShouldBeTrue();
     }
 }
