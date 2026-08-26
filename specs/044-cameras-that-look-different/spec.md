@@ -49,15 +49,22 @@ feature built. Four tiles, four distinguishable pictures.
 2. **Given** a tile is showing, **When** the engineer looks at it alone, **Then**
    they can tell which named asset it is without consulting the layout.
 3. **Given** a camera with no scenario asset (a hand-registered or test camera),
-   **When** it is opened, **Then** it shows something identifiably itself and
-   identifiably a simulation.
+   **When** it is opened, **Then** it shows a stream that names which camera it
+   is.
 
 ---
 
 ### User Story 2 — There is more than one plant (Priority: P2)
 
-A second scenario exists, with its own assets, overlays, sensors and wall, and
-looks like a different place from the rolling mill.
+A second scenario exists — a **packaging / palletising line** — with its own
+assets, overlays, sensors and wall, and it looks like a different place from the
+rolling mill.
+
+Packaging rather than a second steel process on purpose: conveyors, robots and
+wrapping look nothing like hot billet, and its sensors are counts, rates and jams
+rather than temperature and force. A scenario that reused the mill's sensor kinds
+would prove the file format takes a second entry, not that the simulator supports
+a second *kind* of plant.
 
 **Why this priority**: One scenario cannot show that scenarios are a capability.
 Until there are two, every mechanism is indistinguishable from a hard-coded
@@ -75,14 +82,21 @@ plant twice.
 
 ---
 
-### User Story 3 — A bulk camera is honestly a simulation (Priority: P3)
+### User Story 3 — A bulk camera is identifiably itself (Priority: P3)
 
 A camera that belongs to no scenario still shows something, and that something
-does not pretend to be footage of a real machine.
+identifies which camera it is: the shared clip with its name burnt in and a
+per-camera colour shift.
 
-**Why this priority**: There are ~106 such cameras today (issue 1895) and there
-will be more. They should be legible, not misleading — a bulk camera that looked
-like real plant footage would be worse than one that obviously does not.
+**Why this priority**: it is the cheapest way to make any camera answerable by
+looking, and it needs no new footage. The tinted-clip form was chosen over an
+obviously-synthetic test pattern, which means a screenshot of a bulk camera looks
+like plant footage when it is not — worth knowing before one ends up in a slide.
+
+The population is also much smaller than when this was first written: the e2e
+suite now retires the cameras it registers (issue 1895), which took the dev
+catalogue from 110 rows to 7. Bulk cameras are hand-registered ones and the
+handful a run creates, not a hundred of accumulated residue.
 
 **Independent Test**: Register a camera by hand and open it.
 
@@ -103,9 +117,10 @@ like real plant footage would be worse than one that obviously does not.
 - What happens on a worker restart, when the path already exists with the *old*
   command? Today's provisioner treats "already exists" as success and returns,
   so a changed clip would silently not take effect.
-- What happens at 250 cameras if each stream is re-encoded rather than copied?
-  CPU on a dev box is a real constraint; the current `-c copy` exists for that
-  reason.
+- What happens to CPU when `-c copy` stops applying? Burning a label into each
+  stream forces a re-encode, and `-c copy` exists precisely to avoid that. At the
+  ~20 cameras FR-010 sets this is affordable; the number is what makes it so, and
+  it is the assumption to revisit if the target ever moves.
 - What happens to the four cameras that exist today, whose paths are already
   provisioned against the shared clip?
 
@@ -117,9 +132,10 @@ like real plant footage would be worse than one that obviously does not.
 - **FR-002**: A scenario asset MUST determine what its camera shows.
 - **FR-003**: A camera's stream MUST carry enough identity to name the camera by
   looking at it.
-- **FR-004**: A camera belonging to no scenario MUST still stream, and MUST be
-  visibly a simulation.
-- **FR-005**: A second scenario MUST exist, describing a different plant.
+- **FR-004**: A camera belonging to no scenario MUST still stream, showing the
+  shared clip with its own name burnt in and a per-camera colour shift.
+- **FR-005**: A second scenario MUST exist, describing a packaging / palletising
+  line — a different kind of plant, not a second steel process.
 - **FR-006**: A scenario MUST be addable without changing simulator code.
 - **FR-007**: An asset naming a missing clip MUST fail where it is seeded, with
   the asset and clip named. It MUST NOT provision a path that never becomes
@@ -128,10 +144,11 @@ like real plant footage would be worse than one that obviously does not.
   effect, or MUST say it did not.
 - **FR-009**: Real clips MUST each carry an attribution/licence entry, following
   `sim-loop.ATTRIBUTION.txt`.
-- **FR-010**: The dev stack's CPU cost MUST NOT scale with a per-stream re-encode
-  at the 250-camera target. [NEEDS CLARIFICATION: is 250 a real dev-box target
-  for this feature, or is the dev target smaller — say 20 — with 250 reserved
-  for a load-realism feature that is explicitly out of scope here?]
+- **FR-010**: The dev stack MUST carry **~20** simulated cameras — the two
+  scenarios' assets and a few spares — with every one of them streaming at once.
+  250 is **not** this feature's target: it belongs to the load-realism feature
+  ruled out below. A re-encode per stream is therefore affordable, and burning a
+  label into each is a design option rather than a cost to engineer around.
 - **FR-011**: Everything the simulator already does — sensors, overlays,
   highlights, walls, the MQTT timeline — MUST behave as before.
 
@@ -173,6 +190,8 @@ like real plant footage would be worse than one that obviously does not.
   own feature.
 - **Repo size is a real constraint.** The existing clip is 5.5 MB; "a small set"
   of real clips means single digits, not one per camera.
+- **~20 cameras is the dev target** (FR-010), which is what makes a per-stream
+  re-encode affordable. Every cost argument in this spec rests on that number.
 - Existing scenario mechanics (sensor behaviours, MQTT timeline, wall seeding)
   are reused unchanged.
 
@@ -185,13 +204,42 @@ like real plant footage would be worse than one that obviously does not.
   cap that hides the working ones (issue 1894). Both are neighbours of this
   problem and neither is this feature.
 
-## Open questions for `/speckit-clarify`
+## Clarified
 
-1. **FR-010's target.** How many simulated cameras must a dev box carry?
-2. **How many real clips, and of what?** Single digits, and who sources them.
-3. **What does a bulk camera show** — the shared clip labelled and tinted, or an
-   obviously synthetic source?
-4. **Which second plant?** The choice decides the assets, sensors and overlays.
+- **Dev-box target: ~20 cameras**, scenario assets and a few spares. 250 belongs
+  to load realism, which is out of scope. FR-010.
+- **Second plant: a packaging / palletising line.** Chosen for contrast — its
+  look and its sensor kinds both differ from the mill's. FR-005.
+- **Bulk cameras: the shared clip, labelled and tinted per camera.** FR-004.
+
+## Still open — and it blocks Phase 2
+
+**How many real clips, of what, and who sources them?**
+
+This is the one question the spec cannot answer for itself: **I cannot source
+video.** Someone has to supply the files, and each needs an attribution/licence
+entry (FR-009).
+
+It matters most for the packaging line. The rolling mill has footage; a
+packaging scenario dressed in rolling-mill footage would be a second plant in
+name only, which defeats US2.
+
+Three ways forward, and the plan should not start until one is chosen:
+
+1. **Supply clips** — one per packaging asset, or one shared packaging clip
+   tinted per asset. Best result; needs sourcing and licence checks; each clip is
+   ~5 MB against a repo that currently holds one.
+2. **Derive from the existing clip** — crop, zoom, tint and label regions of the
+   mill footage per asset. Ships with no new binaries and no licence question,
+   but the packaging line would still *look* like a rolling mill, so US2 is only
+   half met and the spec should say so rather than quietly settle.
+3. **Synthetic for packaging only** — generated scenes for the new plant, real
+   footage for the mill. Honest, visually distinct, and unblocked; least
+   convincing in a demo.
+
+**If no answer arrives, 2 is the default** — it is the only option that can be
+built today — and the spec would then be amended to state that US2 is partially
+met, rather than claiming a variety it did not deliver.
 
 ## Verification note
 
