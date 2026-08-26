@@ -100,7 +100,7 @@ which.
 
 **Goal**: Somebody watches the page.
 
-- [ ] T012 Follow [quickstart.md](./quickstart.md) against `dotnet run --project src/AppHost`: open a camera the simulator feeds and record **which of the four viewer states** you saw, with the picture if you got one; confirm rename, address correction and retirement still work; retire it and confirm no viewer **and** an explained absence; navigate away and confirm the stream is released; then cause both check failures from quickstart §6 and record which check did **not** fire. No realm change is involved, so the Keycloak volume can stay. Name any step not performed.
+- [x] T012 Follow [quickstart.md](./quickstart.md) against `dotnet run --project src/AppHost`: open a camera the simulator feeds and record **which of the four viewer states** you saw, with the picture if you got one; confirm rename, address correction and retirement still work; retire it and confirm no viewer **and** an explained absence; navigate away and confirm the stream is released; then cause both check failures from quickstart §6 and record which check did **not** fire. No realm change is involved, so the Keycloak volume can stay. Name any step not performed.
 
 ---
 
@@ -195,3 +195,57 @@ the third feature running where that is true.
 
 The last row is the honest one. Break `CameraViewer` itself and everything above
 stays green.
+
+---
+
+## Phase 5 result (T012)
+
+Performed against `dotnet run --project src/AppHost` on 2026-08-26, after
+rebasing onto `develop`. The Keycloak volume was deleted and the realm
+re-imported; the Postgres volume was kept.
+
+**The viewer state was `Live` — moving video.** Not inferred from the absence of
+an error: the `<video>` element reported `readyState: 4`, `1280×720`, and
+`currentTime` advancing 11.264 → 14.307 across three seconds while unpaused.
+Frames were decoding, not merely a media element existing. A screenshot of the
+Coiler's page shows the rolling mill.
+
+| Step | Result |
+|---|---|
+| §2 viewer state | **Live**, moving video. `readyState 4`, 1280×720, `currentTime` advancing |
+| §2 placement | Beneath the header, above the `<dl>`, width-bounded — as T002 specifies |
+| §3 other controls | Rename opens pre-filled and cancels; Correct the address and Retire both present |
+| §4 retired | **0** `<video>` elements, and the notice reads *"…it can no longer be changed, and its live stream has stopped — there is no picture to show."* |
+| §5 stream released | MediaMTX readers on the Coiler's path: **0 → 1 → 0** across open and leave |
+| §6 both mutations | Confirmed — see below |
+
+**§6, both rows, and they differ as the plan predicted.** Removing the viewer
+turns the page test **and** the e2e red (the e2e polled `locator('video')` 33
+times to zero). Restoring the deleted placeholder getter turns the page test red
+and leaves **the e2e green in 3.9 s** — a `<video>` element mounts whether or
+not any credential exists. That is the check that did not fire, and it is the
+exact shape of the bug this feature fixes.
+
+**Two things this run does not claim.**
+
+The observation was driven through Playwright against the live stack rather than
+by a person at a browser, and the evidence is a decoded-frame probe plus a
+screenshot. That is stronger than a verbal report on the specific question of
+whether frames arrive, and weaker on anything nobody thought to assert.
+
+The usual "CI produces no video" caveat does **not** apply to this run: the
+stack was booted with `dotnet run`, so `camera-sim` and `scenario-simulator`
+were live — they are gated on `isRunMode && !isE2ETests`, not on Playwright.
+This is why a frame was capturable here and is not in CI.
+
+**Two findings, raised rather than absorbed** (neither is this feature's):
+
+- **1894** — the camera list caps at 50 rows and the catalogue holds 110, so the
+  only four cameras with a real stream are unreachable from the UI. Every camera
+  openable from the list was offline, which reads as this feature being broken.
+- **1895** — ~106 of those 110 are e2e residue pointing at addresses nothing
+  serves, and each run adds more.
+
+A third, from code review: **1893** — mounting `CameraViewer` here enlists the
+management console as a kiosk latency reporter, mixing desktop decode timings
+into the kiosk decode-leg series.
