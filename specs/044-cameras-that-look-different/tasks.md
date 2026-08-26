@@ -43,10 +43,10 @@ a person. This is the second feature running to carry that row.
 **Goal**: the mechanism. After this phase two assets can differ, even though no
 new clip exists yet.
 
-- [ ] T001 In `src/ScenarioSimulator/Scenario/ScenarioOptions.cs`, add `Clip` to `CameraDefinition` — a bare file name, defaulting to `sim-loop.mp4` so an unedited `rolling-mill.json` behaves exactly as today (FR-011).
-- [ ] T002 In `src/ScenarioSimulator/CameraSim/CameraSimProvisioner.cs`, replace the hard-coded `RunOnDemandCommand` constant with a builder taking the clip. Keep `-c copy` for an unlabelled clip: it is why FFmpeg does no work per stream.
-- [ ] T003 [P] In `tests/…/ScenarioSimulator.Tests/`, assert the provisioned command contains the asset's clip and not `sim-loop.mp4` when a clip is named. **This is the test that fails if someone restores the constant** — the only automated guard on US1's mechanism.
-- [ ] T004 [P] Assert no two assets within one scenario share a clip. Cheap, and it catches the copy-paste that produces a wall of identical tiles.
+- [x] T001 In `src/ScenarioSimulator/Scenario/ScenarioOptions.cs`, add `Clip` to `CameraDefinition` — a bare file name, defaulting to `sim-loop.mp4` so an unedited `rolling-mill.json` behaves exactly as today (FR-011).
+- [x] T002 In `src/ScenarioSimulator/CameraSim/CameraSimProvisioner.cs`, replace the hard-coded `RunOnDemandCommand` constant with a builder taking the clip. Keep `-c copy` for an unlabelled clip: it is why FFmpeg does no work per stream.
+- [x] T003 [P] In `tests/…/ScenarioSimulator.Tests/`, assert the provisioned command contains the asset's clip and not `sim-loop.mp4` when a clip is named. **This is the test that fails if someone restores the constant** — the only automated guard on US1's mechanism.
+- [x] T004 [P] Assert no two assets within one scenario share a clip. Cheap, and it catches the copy-paste that produces a wall of identical tiles.
 
 **Checkpoint**: `rolling-mill` still behaves as it does today, and a clip can be named.
 
@@ -57,11 +57,11 @@ new clip exists yet.
 **Goal**: three walls exist and can be compared. Sequential — all four touch the
 same seeding path.
 
-- [ ] T005 [US2] In `ScenarioOptions.cs`, `Active` becomes a list. Keep binding a single string as a one-element list if that is free; `appsettings.json` currently says `"Active": "rolling-mill"` and `ScenarioSimulator__Active` is set nowhere, so nothing external breaks.
-- [ ] T006 [US2] In `CameraSim/CameraSimReconciler.cs`, provision every active scenario's assets rather than `Scenarios[Active]`. It currently logs `ScenarioNotFound` and returns — keep that per scenario, so one bad key does not silently drop the other two.
-- [ ] T007 [US2] In the seeding pass, seed cameras, overlays, rules and walls for every active scenario. Idempotency already works — the log shows `already registered; skipping (idempotent)` on 409 — so a re-run must stay quiet.
-- [ ] T008 [US2] Run the billet timeline for the **first** active scenario only, and say why in a comment. Three concurrent timelines is a different feature (plan §2); an unexplained single-plant animation reads as a bug.
-- [ ] T009 [P] [US2] Test: three scenarios configured → three walls seeded, one timeline started. Asserting the *count* of started timelines is what stops T008 being quietly "fixed" later.
+- [x] T005 [US2] In `ScenarioOptions.cs`, `Active` becomes a list. Keep binding a single string as a one-element list if that is free; `appsettings.json` currently says `"Active": "rolling-mill"` and `ScenarioSimulator__Active` is set nowhere, so nothing external breaks.
+- [x] T006 [US2] In `CameraSim/CameraSimReconciler.cs`, provision every active scenario's assets rather than `Scenarios[Active]`. It currently logs `ScenarioNotFound` and returns — keep that per scenario, so one bad key does not silently drop the other two.
+- [x] T007 [US2] In the seeding pass, seed cameras, overlays, rules and walls for every active scenario. Idempotency already works — the log shows `already registered; skipping (idempotent)` on 409 — so a re-run must stay quiet.
+- [x] T008 [US2] Run the billet timeline for the **first** active scenario only, and say why in a comment. Three concurrent timelines is a different feature (plan §2); an unexplained single-plant animation reads as a bug.
+- [x] T009 [P] [US2] Test: three scenarios configured → three walls seeded, one timeline started. Asserting the *count* of started timelines is what stops T008 being quietly "fixed" later.
 
 **Checkpoint**: three walls, three sets of cameras. One animates.
 
@@ -71,12 +71,12 @@ same seeding path.
 
 **Goal**: eight clips in the repo, each licensed and attributed.
 
-- [ ] T010 Generalise `scripts/generate-sim-loop.sh` into `scripts/generate-sim-clips.sh`: a table of `(source URL, offset, output name)`, same mechanics (curl from Commons, 20 s excerpt at 1280×720 H.264 through the `bluenviron/mediamtx:latest-ffmpeg` image, because the host has no FFmpeg). Keep the old script working or delete it outright — do not leave two that disagree.
-- [ ] T011 [US2] **Watch the seven Goričane clips and pick four.** Listed in [spec.md](./spec.md) §Clips. The criterion is not subject but *legibility at tile size*: a 20 s excerpt that is a static shot of a pipe is useless. Record which four and why, and which you rejected.
-- [ ] T012 [US2] **Watch the nine Gigaset clips and pick four**, same criterion. These are 1280×720 against Goričane's 1920×1080, which matches the existing `sim-loop.mp4` exactly, so no rescale is needed.
-- [ ] T013 Generate the eight clips and commit them under `src/AppHost/Resources/clips/`. **~40 MB, and git keeps it** — if that is judged too much, share clips between assets *before* this commit, not after.
-- [ ] T014 One `*.ATTRIBUTION.txt` per clip, following `sim-loop.ATTRIBUTION.txt`'s shape: title, author, source URL, licence with its URL, and the note that the excerpt is a derivative under the same licence. All eight are CC BY 3.0 — **attribution only, no share-alike**, unlike the existing clip.
-- [ ] T015 [P] Fix `src/AppHost/Resources/README.md`. It describes `sim-loop.mp4` as "a `testsrc2` moving pattern … plus a blue box that scrolls" — it is not, and has not been since the clip became a rolling-mill excerpt. `sim-loop.ATTRIBUTION.txt` and `generate-sim-loop.sh` both already say so; only the README is wrong. Found while planning this feature.
+- [x] T010 Generalise `scripts/generate-sim-loop.sh` into `scripts/generate-sim-clips.sh`: a table of `(source URL, offset, output name)`, same mechanics (curl from Commons, 20 s excerpt at 1280×720 H.264 through the `bluenviron/mediamtx:latest-ffmpeg` image, because the host has no FFmpeg). Keep the old script working or delete it outright — do not leave two that disagree.
+- [x] T011 [US2] **Watch the seven Goričane clips and pick four.** Listed in [spec.md](./spec.md) §Clips. The criterion is not subject but *legibility at tile size*: a 20 s excerpt that is a static shot of a pipe is useless. Record which four and why, and which you rejected.
+- [x] T012 [US2] **Watch the nine Gigaset clips and pick four**, same criterion. These are 1280×720 against Goričane's 1920×1080, which matches the existing `sim-loop.mp4` exactly, so no rescale is needed.
+- [x] T013 Generate the eight clips and commit them under `src/AppHost/Resources/clips/`. **~40 MB, and git keeps it** — if that is judged too much, share clips between assets *before* this commit, not after.
+- [x] T014 One `*.ATTRIBUTION.txt` per clip, following `sim-loop.ATTRIBUTION.txt`'s shape: title, author, source URL, licence with its URL, and the note that the excerpt is a derivative under the same licence. All eight are CC BY 3.0 — **attribution only, no share-alike**, unlike the existing clip.
+- [x] T015 [P] Fix `src/AppHost/Resources/README.md`. It describes `sim-loop.mp4` as "a `testsrc2` moving pattern … plus a blue box that scrolls" — it is not, and has not been since the clip became a rolling-mill excerpt. `sim-loop.ATTRIBUTION.txt` and `generate-sim-loop.sh` both already say so; only the README is wrong. Found while planning this feature.
 
 **Checkpoint**: eight attributed clips on disk.
 
@@ -86,9 +86,9 @@ same seeding path.
 
 **Goal**: two plants that are plants, not two copies of the mill's shape.
 
-- [ ] T016 [P] [US2] `src/ScenarioSimulator/Scenarios/paper-mill.json` — four assets, each naming its clip, with overlays, a 2×2 wall, and **sensors that suit a paper mill** (consistency, basis weight, moisture, line speed). Reusing the mill's Temperature/RollingForce would prove the file takes another entry, not that the simulator supports another kind of plant.
-- [ ] T017 [P] [US2] `src/ScenarioSimulator/Scenarios/electronics.json` — same shape, sensors that count and rate (placement rate, reject count, cycle time, conveyor throughput). This is the plant furthest from hot steel and carries the contrast US2 is for.
-- [ ] T018 [US2] Register both in the active list, and confirm all three seed together from a cold database.
+- [x] T016 [P] [US2] `src/ScenarioSimulator/Scenarios/paper-mill.json` — four assets, each naming its clip, with overlays, a 2×2 wall, and **sensors that suit a paper mill** (consistency, basis weight, moisture, line speed). Reusing the mill's Temperature/RollingForce would prove the file takes another entry, not that the simulator supports another kind of plant.
+- [x] T017 [P] [US2] `src/ScenarioSimulator/Scenarios/electronics.json` — same shape, sensors that count and rate (placement rate, reject count, cycle time, conveyor throughput). This is the plant furthest from hot steel and carries the contrast US2 is for.
+- [x] T018 [US2] Register both in the active list, and confirm all three seed together from a cold database.
 
 **Checkpoint**: US2 complete.
 
@@ -96,10 +96,10 @@ same seeding path.
 
 ## Phase 5: Bulk cameras, and the two failures
 
-- [ ] T019 [US3] In `EventHandlers/CameraRegisteredSimHandler.cs`, a camera resolving to no scenario asset provisions the shared clip with `drawtext` (its name) and `hue` (shift derived from its identifier). This branch **loses `-c copy`** — note that in the code, since it is where FR-010's ~20 stops being an abstraction.
-- [ ] T020 [US1] **FR-007**: validate an asset's clip exists before provisioning; fail naming the asset *and* the clip. Today a missing clip provisions a path that never becomes ready, which looks exactly like a broken camera — the failure has to happen where the cause is.
-- [ ] T021 [US1] **FR-008**: a changed clip must take effect. `ProvisionLoopPathAsync` treats a 400 containing `already exists` as success and returns — right for an unchanged path, wrong for a changed one. Use `/v3/config/paths/replace/<path>`, or compare and re-add. **Its failure mode is silence**: no error, the old picture, and an hour looking in the wrong place.
-- [ ] T022 [P] Tests for T020 and T021: a missing clip throws naming both; a changed clip issues a replace rather than a swallowed add.
+- [x] T019 [US3] In `EventHandlers/CameraRegisteredSimHandler.cs`, a camera resolving to no scenario asset provisions the shared clip with `drawtext` (its name) and `hue` (shift derived from its identifier). This branch **loses `-c copy`** — note that in the code, since it is where FR-010's ~20 stops being an abstraction.
+- [x] T020 [US1] **FR-007**: validate an asset's clip exists before provisioning; fail naming the asset *and* the clip. Today a missing clip provisions a path that never becomes ready, which looks exactly like a broken camera — the failure has to happen where the cause is.
+- [x] T021 [US1] **FR-008**: a changed clip must take effect. `ProvisionLoopPathAsync` treats a 400 containing `already exists` as success and returns — right for an unchanged path, wrong for a changed one. Use `/v3/config/paths/replace/<path>`, or compare and re-add. **Its failure mode is silence**: no error, the old picture, and an hour looking in the wrong place.
+- [x] T022 [P] Tests for T020 and T021: a missing clip throws naming both; a changed clip issues a replace rather than a swallowed add.
 
 **Checkpoint**: the silent failures are gone.
 
@@ -196,3 +196,48 @@ an hour, and it is the hour that decides whether this feature worked.
 
 The last row is the honest one. Point all eight assets at the same file and every
 row above it stays green.
+
+---
+
+## T011 / T012 result — which clips, and why
+
+Chosen by extracting three frames from each generated clip and looking at them.
+The criterion was legibility at tile size, not subject matter.
+
+**Rolling mill** — four offsets into the one 477 s Acroni source (CC BY-SA 3.0):
+
+| Clip | Offset | Verdict |
+|---|---|---|
+| `mill-roughing` | 60 s | Wide, bright mill floor with DANIELI machinery. Strong. |
+| `mill-finishing` | 150 s | Glowing plate under bright light. Strong. Moved off 250 s, which was byte-identical to `sim-loop`. |
+| `mill-cooling` | 360 s | Glowing slab on a table, dark surround. Good. |
+| `mill-coiler` | 440 s | Dark; yellow railings carry it. **Weakest of the four.** |
+
+**Paper mill** — Goričane, CC BY 3.0:
+
+| Clip | Verdict |
+|---|---|
+| `paper-packaging` | Pallets, blue conveyor, forklift, people. **Best of all twelve.** |
+| `paper-after-drying` | Operators at a control desk, coloured lamps, constant motion. Strong. |
+| `paper-press-group` | Yellow and purple machinery, unmistakable palette. Good. |
+| `paper-refiners` | Pale grey pulp. Near-static, low contrast, **reads as a blur at tile size**. |
+
+**Electronics** — Gigaset, CC BY 3.0:
+
+| Clip | Verdict |
+|---|---|
+| `electronics-inspection` | Cobot arms, blue LEDs, a human hand. Strong, and the furthest thing from hot steel in the set. |
+| `electronics-moulding` | ENGEL machine, safety pictograms, green trim. Good. |
+| `electronics-smd-line` | Seen through glass, greenish. Adequate. 16.5 s — its source is short. |
+| `electronics-conveyor` | Overhead conveyor with a mirrored dome. Near-static, but the dome identifies it instantly. |
+
+**Rejected**, unwatched, available if a tile is judged unusable: Goričane *Broke
+chest*, *pressure screener*, *vacuum pumps*; Gigaset *In Mould Decoration I/II*,
+*Mainboard and Microphone*, *Screwing the backs*, *Attaching the Label*.
+
+**`paper-refiners` is kept on a reservation.** It is genuinely distinct from its
+three siblings, so SC-001 holds and the automated checks pass. Whether it is
+distinct *enough* for SC-002 — naming the asset from the tile alone — is a
+judgement only T023 can settle, on a real wall. If it fails there, the three
+Goričane alternates above are the replacements and the change is one line in
+`paper-mill.json` plus one clip.
