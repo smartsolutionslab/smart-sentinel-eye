@@ -25,9 +25,14 @@ vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => 
 });
 
 const ACCESS_TOKEN = 'operator-access-token';
+const RENEWED_TOKEN = 'operator-access-token-after-silent-renew';
+
+// Mutable so a test can move the token the way a silent renew does, and see
+// whether the getter follows it without changing identity.
+const currentToken = { value: ACCESS_TOKEN };
 
 vi.mock('react-oidc-context', () => ({
-  useAuth: () => ({ user: { access_token: ACCESS_TOKEN } }),
+  useAuth: () => ({ user: { access_token: currentToken.value } }),
 }));
 
 // Every render of the viewer, in order, with the props it was handed. An array
@@ -80,6 +85,7 @@ describe('CameraDetailPage', () => {
   beforeEach(() => {
     listCameras.mockClear();
     viewerRenders.length = 0;
+    currentToken.value = ACCESS_TOKEN;
     getCamera.mockReturnValue({ data: camera, isLoading: false, error: undefined });
   });
 
@@ -208,12 +214,18 @@ describe('CameraDetailPage', () => {
    * to `null`. A viewer holding a credential nobody issued fails exactly like no
    * viewer at all, and passes any check that asks only whether something rendered.
    *
-   * The second half guards the spec-042 bug: a `getToken` rebuilt on every render
-   * tears down and rebuilds the peer connection underneath the viewer, and
-   * nothing visible fails. Opening a dialog is a real re-render of this page, so
-   * the identity is compared across one rather than trusted to a comment.
+   * The second half guards issue 1889: a `getToken` rebuilt on every render
+   * clears `CameraViewer`'s decode sampler before it takes a second sample, so
+   * the leg reports none. Nothing visible fails.
+   *
+   * The token is moved the way a silent renew moves it, because a re-render
+   * alone is too weak a test. Opening a dialog only changes local state, so
+   * `useCallback(…, [auth.user?.access_token])` would hold its identity across
+   * one and pass — while restarting the sampler on every renew in production.
+   * Changing the token separates empty deps from that, and asserts the ref
+   * still carries the new value: stability must not cost freshness.
    */
-  it('Hands the viewer the operator token, from a getter that survives a re-render', async () => {
+  it('Hands the viewer the operator token, from a getter that survives a silent renew', async () => {
     const user = userEvent.setup();
     renderAt(camera.cameraIdentifier);
 
@@ -221,10 +233,17 @@ describe('CameraDetailPage', () => {
     expect(first).toBeDefined();
     await expect(first!.getToken()).resolves.toBe(ACCESS_TOKEN);
 
+    // A plain re-render first — the weaker half, which catches an inline arrow.
     await user.click(screen.getByRole('button', { name: /^rename$/i }));
-
     expect(viewerRenders.length).toBeGreaterThan(1);
     expect(viewerRenders.at(-1)!.getToken).toBe(first!.getToken);
+
+    // Then the renew. Same function, new token.
+    currentToken.value = RENEWED_TOKEN;
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }));
+
+    expect(viewerRenders.at(-1)!.getToken).toBe(first!.getToken);
+    await expect(first!.getToken()).resolves.toBe(RENEWED_TOKEN);
   });
 
   /**
