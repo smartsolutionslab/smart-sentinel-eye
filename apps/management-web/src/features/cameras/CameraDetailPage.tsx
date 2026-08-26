@@ -1,5 +1,7 @@
 import { useGetCameraQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
-import { useState, type ReactNode } from 'react';
+import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useAuth } from 'react-oidc-context';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { EditCameraAddressDialog } from './EditCameraAddressDialog.js';
@@ -14,6 +16,16 @@ const RETIRED = 'Decommissioned';
  */
 export function CameraDetailPage() {
   const { cameraIdentifier = '' } = useParams();
+  const auth = useAuth();
+  // Stable identity, holding the newest token behind a ref. `getToken` reaches
+  // effect dependency arrays inside `useWhepSession`, so a fresh function each
+  // render tears down and rebuilds the peer connection under the viewer — the
+  // bug spec 042 fixed in the kiosk's CellPage. Nothing visible fails when this
+  // is destabilised, which is why the page test asserts the identity rather
+  // than trusting this comment.
+  const accessTokenRef = useRef(auth.user?.access_token);
+  accessTokenRef.current = auth.user?.access_token;
+  const getToken = useCallback(() => Promise.resolve(accessTokenRef.current ?? null), []);
   const [editing, setEditing] = useState(false);
   const [retiring, setRetiring] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -84,6 +96,21 @@ export function CameraDetailPage() {
         </div>
       </header>
 
+      {/* FR-001/FR-002: the picture is part of the page, not something opened
+          and dismissed. CameraViewer already carries `relative aspect-video
+          w-full`, so the page supplies a maximum width and nothing else — an
+          aspect or height constraint here would fight it.
+
+          FR-004: absent for a retired camera, gated like every other control
+          above. Retirement stops the stream deliberately, so a viewer reporting
+          "Stream is offline" would describe an intended outcome as a fault; the
+          notice below says so in words instead. */}
+      {retired ? null : (
+        <div className="mb-6 max-w-3xl">
+          <CameraViewer cameraIdentifier={camera.cameraIdentifier} getToken={getToken} />
+        </div>
+      )}
+
       <EditCameraAddressDialog
         open={editing}
         onOpenChange={setEditing}
@@ -113,7 +140,8 @@ export function CameraDetailPage() {
           is stated here rather than discovered later. */}
       {retired ? (
         <p role="status" className="mb-6 rounded-md border border-fg-muted/30 px-3 py-2 text-sm text-fg-muted">
-          This camera is retired. Its record is kept, but it can no longer be changed.
+          This camera is retired. Its record is kept, but it can no longer be changed, and its
+          live stream has stopped — there is no picture to show.
         </p>
       ) : null}
 

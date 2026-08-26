@@ -195,3 +195,38 @@ test('a camera the operator may not see reads exactly as one that does not exist
   // likely to be added later as a kindness.
   expect(first).not.toMatch(/access|permission|not yours|another fab/i);
 });
+
+/**
+ * Spec 043 T011 / FR-001 — the camera's page reaches the viewer, against the
+ * live stack.
+ *
+ * **What this does NOT prove: that a picture appears.** `camera-sim` and
+ * `scenario-simulator` sit inside `if (isRunMode && !isE2ETests)`, so a
+ * Playwright run produces no video at all — the `<video>` element is mounted
+ * whether or not a frame ever arrives, and `CameraViewer` will be sitting in
+ * Connecting… or Stream is offline the whole time. A `<video>` is a viewer,
+ * not a picture.
+ *
+ * It is still worth having, and for a specific reason: it is the only check
+ * that fails if the page stops mounting the viewer *in the real app*. The unit
+ * test stubs the composite, so it cannot tell a working import from a broken
+ * one. Between them: the unit test proves the wiring, this proves the mount.
+ * A person proves the picture (quickstart §5).
+ */
+test('an opened camera has a viewer, and a retired one explains why it does not', async ({ page }) => {
+  await signInAsOperator(page);
+  const name = await registerCamera(page);
+
+  await page.getByRole('link', { name }).click();
+  await expect(page.getByRole('heading', { name })).toBeVisible();
+
+  await expect(page.locator('video')).toHaveCount(1);
+
+  // FR-004. The absence is deliberate and explained — an unexplained one lets
+  // an operator conclude the video is broken, which is the whole ambiguity.
+  await page.getByRole('button', { name: /retire camera/i }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: /retire camera/i }).click();
+
+  await expect(page.locator('video')).toHaveCount(0);
+  await expect(page.getByRole('status')).toContainText(/stream/i);
+});

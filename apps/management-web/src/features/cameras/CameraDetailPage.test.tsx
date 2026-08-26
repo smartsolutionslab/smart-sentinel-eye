@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
@@ -22,6 +23,33 @@ vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => 
     },
   };
 });
+
+const ACCESS_TOKEN = 'operator-access-token';
+
+vi.mock('react-oidc-context', () => ({
+  useAuth: () => ({ user: { access_token: ACCESS_TOKEN } }),
+}));
+
+// Every render of the viewer, in order, with the props it was handed. An array
+// rather than a single capture because T009 compares `getToken` across two
+// renders — a stability check needs both, and keeping only the latest would
+// pass against a getter rebuilt on every render.
+const viewerRenders = vi.hoisted(() => [] as { cameraIdentifier: string; getToken: () => Promise<string | null> }[]);
+
+// CameraViewer mounts a WhepClient that talks to RTCPeerConnection, and jsdom
+// has no such global — so the composite is stubbed rather than simulated. This
+// is the same reason CameraViewerPanel.test.tsx stubbed it, carried across when
+// that file was deleted.
+//
+// It is also the honest limit of this file: nothing below proves a picture
+// appears. What it proves is that the page *reaches* the viewer and hands it a
+// credential the operator actually holds.
+vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
+  CameraViewer: (props: { cameraIdentifier: string; getToken: () => Promise<string | null> }) => {
+    viewerRenders.push(props);
+    return <div data-testid="camera-viewer">viewer:{props.cameraIdentifier}</div>;
+  },
+}));
 
 const { CameraDetailPage } = await import('./CameraDetailPage.js');
 const { store } = await import('../../app/store.js');
@@ -51,6 +79,7 @@ function renderAt(identifier: string) {
 describe('CameraDetailPage', () => {
   beforeEach(() => {
     listCameras.mockClear();
+    viewerRenders.length = 0;
     getCamera.mockReturnValue({ data: camera, isLoading: false, error: undefined });
   });
 
@@ -155,6 +184,69 @@ describe('CameraDetailPage', () => {
     renderAt(camera.cameraIdentifier);
 
     expect(screen.getByRole('button', { name: /^rename$/i })).toBeInTheDocument();
+  });
+
+  /**
+   * FR-001 / FR-006 — asserted **from the page**, which is the whole point.
+   *
+   * `CameraViewerPanel` had three green tests describing a viewer no operator
+   * could reach, because they rendered the component directly. That state was
+   * indistinguishable from a working one for four specs. Rendering the composite
+   * in isolation does not count as reaching it; opening the camera's page does.
+   */
+  it('Shows the camera it was asked for, live', () => {
+    renderAt(camera.cameraIdentifier);
+
+    expect(screen.getByTestId('camera-viewer').textContent).toContain(camera.cameraIdentifier);
+  });
+
+  /**
+   * FR-003 / FR-007, and the assertion the previous code failed.
+   *
+   * The deleted placeholder read `sessionStorage.getItem('keycloak:access_token')`
+   * — a key nothing in the product writes — so it rendered perfectly and resolved
+   * to `null`. A viewer holding a credential nobody issued fails exactly like no
+   * viewer at all, and passes any check that asks only whether something rendered.
+   *
+   * The second half guards the spec-042 bug: a `getToken` rebuilt on every render
+   * tears down and rebuilds the peer connection underneath the viewer, and
+   * nothing visible fails. Opening a dialog is a real re-render of this page, so
+   * the identity is compared across one rather than trusted to a comment.
+   */
+  it('Hands the viewer the operator token, from a getter that survives a re-render', async () => {
+    const user = userEvent.setup();
+    renderAt(camera.cameraIdentifier);
+
+    const first = viewerRenders.at(0);
+    expect(first).toBeDefined();
+    await expect(first!.getToken()).resolves.toBe(ACCESS_TOKEN);
+
+    await user.click(screen.getByRole('button', { name: /^rename$/i }));
+
+    expect(viewerRenders.length).toBeGreaterThan(1);
+    expect(viewerRenders.at(-1)!.getToken).toBe(first!.getToken);
+  });
+
+  /**
+   * FR-004, both halves in one test because one without the other is the
+   * ambiguity the requirement removes.
+   *
+   * Retirement stops the stream deliberately. A page that simply omitted the
+   * viewer would leave a reader free to conclude the video is broken — and a
+   * viewer left mounted would report "Stream is offline", describing an intended
+   * outcome as a fault.
+   */
+  it('Shows a retired camera no viewer, and says the stream is why', () => {
+    getCamera.mockReturnValue({
+      data: { ...camera, status: 'Decommissioned' },
+      isLoading: false,
+      error: undefined,
+    });
+
+    renderAt(camera.cameraIdentifier);
+
+    expect(screen.queryByTestId('camera-viewer')).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent(/stream/i);
   });
 
   /**
