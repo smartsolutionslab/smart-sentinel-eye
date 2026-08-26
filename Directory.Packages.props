@@ -22,16 +22,16 @@
     <PackageVersion Include="Moq" Version="4.20.72" />
 
     <!-- Aspire integration testing (Integration.Tests fixture, ADR-0068 — pre-wired so the package resolves) -->
-    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.5.3" />
 
     <!-- Aspire NodeJs integration: AppHost registers management-web and kiosk-web npm apps (ADR-0074) -->
     <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
 
     <!-- Aspire infrastructure resources (ADR-0007 + ADR-0009 + ADR-0010). Version-aligned with
          Yumney's working .NET 10 stack. Keycloak hosting is preview-only at the moment. -->
-    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.4.6" />
-    <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="13.4.6" />
-    <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.3.5-preview.1.26270.6" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.5.3-preview.1.26425.3" />
 
     <!-- Aspire client integration for ASP.NET Core services that consume Postgres -->
     <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.5.2" />
@@ -73,8 +73,8 @@
          resource + typed client wrapper, both via the Aspire
          Community Toolkit. Transitively pulls in the official
          `Minio` .NET SDK. -->
-    <PackageVersion Include="CommunityToolkit.Aspire.Hosting.Minio" Version="13.4.0" />
-    <PackageVersion Include="CommunityToolkit.Aspire.Minio.Client" Version="13.4.0" />
+    <PackageVersion Include="CommunityToolkit.Aspire.Hosting.Minio" Version="13.5.0" />
+    <PackageVersion Include="CommunityToolkit.Aspire.Minio.Client" Version="13.5.0" />
 
     <!-- ASP.NET Core / Hosting / Resilience / Service Discovery -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
