@@ -140,6 +140,110 @@ public class LayoutCompositionClientTests
         await Should.ThrowAsync<HttpRequestException>(() => SeedAsync(layouts));
     }
 
+    /// <summary>
+    /// Spec 044 T023. A wall that already exists was skipped by name, so editing
+    /// a scenario's assets did nothing: the wall kept composing the camera the
+    /// scenario no longer mentions, with "already exists; skipping (idempotent)"
+    /// in the log reading like success. Same shape as the FR-008 bug one level
+    /// up — idempotent by name is the wrong identity once contents can change.
+    /// </summary>
+    [Fact]
+    public async Task A_published_wall_whose_tiles_changed_is_re_tiled_and_republished()
+    {
+        StubHandler layouts = new(request => request switch
+        {
+            { Method: "POST", Path: "/layouts" } => Respond(HttpStatusCode.Conflict),
+            { Method: "GET" } => RespondJson(PublishedChain(version: 7, camera: OtherCamera)),
+            { Method: "POST", Path: var path } when path.EndsWith("/draft", StringComparison.Ordinal) =>
+                RespondJson("2"),
+            _ => Respond(HttpStatusCode.OK),
+        });
+
+        await SeedAsync(layouts, KnownCamera);
+
+        layouts.Calls
+            .Select(call => $"{call.Method} {call.PathAndQuery}")
+            .ShouldBe([
+                "POST /layouts",
+                "GET /layouts",
+                $"POST /layouts/{StrandedWall}/draft",
+                "GET /layouts",
+                $"PATCH /layouts/{StrandedWall}/revisions/2",
+                "GET /layouts",
+                $"POST /layouts/{StrandedWall}/revisions/2/publish",
+            ]);
+    }
+
+    /// <summary>
+    /// The counterpart, without which the test above passes against a client
+    /// that re-tiles on every boot — which would republish three walls every
+    /// restart and bury any real change in churn.
+    /// </summary>
+    [Fact]
+    public async Task A_published_wall_whose_tiles_still_match_is_left_alone()
+    {
+        StubHandler layouts = new(request => request switch
+        {
+            { Method: "POST", Path: "/layouts" } => Respond(HttpStatusCode.Conflict),
+            { Method: "GET" } => RespondJson(PublishedChain(version: 7, camera: KnownCamera)),
+            _ => Respond(HttpStatusCode.OK),
+        });
+
+        await SeedAsync(layouts, KnownCamera);
+
+        layouts.Calls
+            .Select(call => $"{call.Method} {call.PathAndQuery}")
+            .ShouldBe(["POST /layouts", "GET /layouts"]);
+    }
+
+    /// <summary>
+    /// Each step bumps the aggregate version, so the precondition has to come
+    /// from a fresh read rather than arithmetic on the last one.
+    /// </summary>
+    [Fact]
+    public async Task Each_re_tiling_step_sends_the_version_it_just_read()
+    {
+        int version = 7;
+        StubHandler layouts = new(request => request switch
+        {
+            { Method: "POST", Path: "/layouts" } => Respond(HttpStatusCode.Conflict),
+            { Method: "GET" } => RespondJson(PublishedChain(version++, OtherCamera)),
+            { Method: "POST", Path: var path } when path.EndsWith("/draft", StringComparison.Ordinal) =>
+                RespondJson("2"),
+            _ => Respond(HttpStatusCode.OK),
+        });
+
+        await SeedAsync(layouts, KnownCamera);
+
+        layouts.Calls.Single(call => call.PathAndQuery.EndsWith("/draft", StringComparison.Ordinal))
+            .IfMatch.ShouldBe("\"7\"");
+        layouts.Calls.Single(call => call.Method == "PATCH").IfMatch.ShouldBe("\"8\"");
+        layouts.Calls.Single(call => call.PathAndQuery.EndsWith("/publish", StringComparison.Ordinal))
+            .IfMatch.ShouldBe("\"9\"");
+    }
+
+    private const string KnownCamera = "0197f2d1-0000-7000-8000-0000000000c1";
+
+    private const string OtherCamera = "0197f2d1-0000-7000-8000-0000000000c2";
+
+    private const string KnownOverlay = "0197f2d1-0000-7000-8000-0000000000a1";
+
+    private static string PublishedChain(int version, string camera) =>
+        $$"""
+        {"chains":[{
+            "layoutIdentifier":"{{StrandedWall}}",
+            "version":{{version}},
+            "name":"rolling-mill",
+            "revisions":[{
+                "revisionNumber":1,
+                "state":"Published",
+                "gridRows":2,
+                "gridCols":2,
+                "tiles":[{"cameraIdentifier":"{{camera}}","overlayIdentifier":"{{KnownOverlay}}","row":0,"col":0}]
+            }]
+        }]}
+        """;
+
     private const string StrandedWall = "0197f2d1-0000-7000-8000-00000000beef";
 
     private const string FreshWall = "0197f2d1-0000-7000-8000-00000000cafe";
@@ -154,7 +258,13 @@ public class LayoutCompositionClientTests
         }]}
         """;
 
-    private static Task SeedAsync(StubHandler layouts)
+    private static Task SeedAsync(StubHandler layouts) => SeedAsync(layouts, camera: null);
+
+    /// <summary>
+    /// <paramref name="camera"/> null keeps the original behaviour — a random
+    /// tile, for the tests that never read one back.
+    /// </summary>
+    private static Task SeedAsync(StubHandler layouts, string? camera)
     {
         HttpClient tokens = new(new StubHandler(_ =>
             RespondJson("""{"access_token":"stub-token","expires_in":300,"token_type":"Bearer"}""")));
@@ -175,7 +285,9 @@ public class LayoutCompositionClientTests
 
         List<CorrelatedTile> tiles =
         [
-            new(Guid.CreateVersion7(), Guid.CreateVersion7(), 0, 0),
+            camera is null
+                ? new CorrelatedTile(Guid.CreateVersion7(), Guid.CreateVersion7(), 0, 0)
+                : new CorrelatedTile(Guid.Parse(camera), Guid.Parse(KnownOverlay), 0, 0),
         ];
 
         return new LayoutCompositionClient(http, provider, NullLogger<LayoutCompositionClient>.Instance)

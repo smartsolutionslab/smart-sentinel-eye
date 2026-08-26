@@ -61,7 +61,7 @@ public sealed class LayoutCompositionClient(
         // first revision ever got published.
         if (created.StatusCode == HttpStatusCode.Conflict)
         {
-            await RecoverAsync(name, token, cancellationToken);
+            await RecoverAsync(name, rows, cols, tileBodies, token, cancellationToken);
             return;
         }
 
@@ -72,7 +72,13 @@ public sealed class LayoutCompositionClient(
         logger.WallSeeded(name, rows, cols, layout);
     }
 
-    private async Task RecoverAsync(string name, string token, CancellationToken cancellationToken)
+    private async Task RecoverAsync(
+        string name,
+        int rows,
+        int cols,
+        IReadOnlyList<TileBody> tiles,
+        string token,
+        CancellationToken cancellationToken)
     {
         LayoutListItem existing = await ReadBackAsync(name, token, cancellationToken);
 
@@ -85,20 +91,94 @@ public sealed class LayoutCompositionClient(
             return;
         }
 
-        if (!existing.HasDraftFirstRevision())
+        if (existing.HasDraftFirstRevision())
+        {
+            await PublishAsync(existing.LayoutIdentifier, existing.Version, token, cancellationToken);
+            logger.WallDraftPublished(name, existing.LayoutIdentifier);
+            return;
+        }
+
+        // The wall exists and is published — but with which tiles? Skipping here
+        // is what "already exists; skipping (idempotent)" used to do, and it made
+        // a scenario edit silently do nothing: rename an asset, restart, and the
+        // wall kept composing the camera that no longer exists. Same shape as the
+        // FR-008 bug one level up — idempotent *by name* is the wrong identity
+        // once the contents can change.
+        LayoutRevisionItem published = existing.LatestPublished();
+
+        // No published revision and no draft first revision: an archived or
+        // otherwise unexpected chain. Leave it and say so — re-tiling something
+        // whose shape is not understood is worse than not touching it.
+        if (published is null || published.Tiles is null)
         {
             logger.WallAlreadyExists(name);
             return;
         }
 
-        await PublishAsync(existing.LayoutIdentifier, existing.Version, token, cancellationToken);
-        logger.WallDraftPublished(name, existing.LayoutIdentifier);
+        if (published.Matches(rows, cols, tiles))
+        {
+            logger.WallAlreadyExists(name);
+            return;
+        }
+
+        await RetileAsync(name, existing, rows, cols, tiles, token, cancellationToken);
     }
 
-    private async Task PublishAsync(
-        Guid layout, int expectedVersion, string token, CancellationToken cancellationToken)
+    /// <summary>
+    /// Branches a draft off the published wall, replaces its grid and tiles, and
+    /// publishes it — the three-step path the API exposes for changing a layout
+    /// that already has a published revision.
+    /// </summary>
+    /// <remarks>
+    /// Each step bumps the aggregate version, and each carries <c>If-Match</c>
+    /// (ADR-0113), so the version is re-read between steps rather than guessed.
+    /// Guessing "it must be v+1" is the kind of arithmetic that works until a
+    /// concurrent write makes it wrong, and the failure would be a 412 nobody
+    /// expects at seed time.
+    /// </remarks>
+    private async Task RetileAsync(
+        string name,
+        LayoutListItem existing,
+        int rows,
+        int cols,
+        IReadOnlyList<TileBody> tiles,
+        string token,
+        CancellationToken cancellationToken)
     {
-        using HttpRequestMessage publish = new(HttpMethod.Post, $"/layouts/{layout}/revisions/{FirstRevision}/publish");
+        Guid layout = existing.LayoutIdentifier;
+
+        using HttpRequestMessage branch = new(HttpMethod.Post, $"/layouts/{layout}/draft");
+        branch.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        branch.Headers.TryAddWithoutValidation("If-Match", ConcurrencyHeaders.ETag(existing.Version));
+        using HttpResponseMessage branched = await http.SendAsync(branch, cancellationToken);
+        branched.EnsureSuccessStatusCode();
+
+        int revision = await branched.Content.ReadFromJsonAsync<int>(cancellationToken);
+
+        LayoutListItem afterBranch = await ReadBackAsync(name, token, cancellationToken);
+        using HttpRequestMessage edit = new(HttpMethod.Patch, $"/layouts/{layout}/revisions/{revision}")
+        {
+            Content = JsonContent.Create(new EditDraftBody(new GridBody(rows, cols), tiles)),
+        };
+        edit.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        edit.Headers.TryAddWithoutValidation("If-Match", ConcurrencyHeaders.ETag(afterBranch.Version));
+        using HttpResponseMessage edited = await http.SendAsync(edit, cancellationToken);
+        edited.EnsureSuccessStatusCode();
+
+        LayoutListItem afterEdit = await ReadBackAsync(name, token, cancellationToken);
+        await PublishAsync(layout, afterEdit.Version, revision, token, cancellationToken);
+
+        logger.WallRetiled(name, layout, revision);
+    }
+
+    private Task PublishAsync(
+        Guid layout, int expectedVersion, string token, CancellationToken cancellationToken) =>
+        PublishAsync(layout, expectedVersion, FirstRevision, token, cancellationToken);
+
+    private async Task PublishAsync(
+        Guid layout, int expectedVersion, int revision, string token, CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage publish = new(HttpMethod.Post, $"/layouts/{layout}/revisions/{revision}/publish");
         publish.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         publish.Headers.TryAddWithoutValidation(
             "If-Match", ConcurrencyHeaders.ETag(expectedVersion));
@@ -131,6 +211,10 @@ public sealed class LayoutCompositionClient(
 
     private const string DraftState = "Draft";
 
+    private const string PublishedState = "Published";
+
+    private sealed record EditDraftBody(GridBody Grid, IReadOnlyList<TileBody> Tiles);
+
     private sealed record CreateLayoutBody(string Name, GridBody Grid, IReadOnlyList<TileBody> Tiles);
 
     private sealed record GridBody(int Rows, int Cols);
@@ -155,7 +239,37 @@ public sealed class LayoutCompositionClient(
             Revisions.Any(revision =>
                 revision.RevisionNumber == FirstRevision
                 && string.Equals(revision.State, DraftState, StringComparison.Ordinal));
+
+        /// <summary>The newest Published revision, or null when there is none.</summary>
+        public LayoutRevisionItem LatestPublished() =>
+            Revisions
+                .Where(revision => string.Equals(revision.State, PublishedState, StringComparison.Ordinal))
+                .OrderByDescending(revision => revision.RevisionNumber)
+                .FirstOrDefault();
     }
 
-    private sealed record LayoutRevisionItem(int RevisionNumber, string State);
+    private sealed record LayoutRevisionItem(
+        int RevisionNumber,
+        string State,
+        int GridRows,
+        int GridCols,
+        IReadOnlyList<TileBody> Tiles)
+    {
+        /// <summary>
+        /// Whether this revision already shows exactly <paramref name="desired"/>.
+        /// Compared as an ordered set of (camera, overlay, row, col) — the seeder
+        /// emits tiles row-major, so order is stable and a positional compare is
+        /// enough without sorting both sides.
+        /// </summary>
+        public bool Matches(int rows, int cols, IReadOnlyList<TileBody> desired)
+        {
+            if (GridRows != rows || GridCols != cols)
+            {
+                return false;
+            }
+
+            IReadOnlyList<TileBody> actual = Tiles ?? [];
+            return actual.Count == desired.Count && actual.SequenceEqual(desired);
+        }
+    }
 }
