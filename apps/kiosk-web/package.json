@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@eslint/js": "9.18.0",
+    "@tailwindcss/postcss": "4.3.3",
     "@testing-library/jest-dom": "6.6.3",
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.6",
@@ -32,14 +33,13 @@
     "@typescript-eslint/eslint-plugin": "8.68.0",
     "@typescript-eslint/parser": "8.68.0",
     "@vitejs/plugin-react": "6.1.0",
-    "autoprefixer": "10.5.4",
     "eslint": "9.18.0",
     "eslint-config-prettier": "9.1.0",
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "5.1.0",
     "jsdom": "26.0.0",
     "postcss": "8.5.26",
-    "tailwindcss": "3.4.17",
+    "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
     "vite": "8.2.2",
     "vitest": "4.1.11"
