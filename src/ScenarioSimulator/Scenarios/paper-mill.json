@@ -15,12 +15,12 @@
         },
         "Assets": [
           {
-            "Key": "refiners",
-            "Name": "Refiners",
-            "Camera": { "Path": "paper-refiners", "Clip": "paper-refiners.mp4", "Loop": true },
+            "Key": "pressure-screener",
+            "Name": "Pressure Screener",
+            "Camera": { "Path": "paper-pressure-screener", "Clip": "paper-pressure-screener.mp4", "Loop": true },
             "Tile": { "Row": 0, "Col": 0 },
             "Overlay": {
-              "Label": "REFINERS — STOCK PREP",
+              "Label": "PRESSURE SCREENER — DIFF. PRESSURE",
               "X": 0.1,
               "Y": 0.05,
               "Width": 0.8,
@@ -28,19 +28,19 @@
               "FontSize": 28
             },
             "Highlight": {
-              "TriggerKind": "Freeness",
-              "Comparison": "lte",
-              "Threshold": 320,
+              "TriggerKind": "DifferentialPressure",
+              "Comparison": "gte",
+              "Threshold": 1.4,
               "DurationMs": 4000
             },
             "Sensors": [
               {
-                "Kind": "Freeness",
-                "Unit": "mlCSF",
-                "Behaviour": "decay",
+                "Kind": "DifferentialPressure",
+                "Unit": "bar",
+                "Behaviour": "ramp",
                 "Source": "plc",
-                "Start": 480,
-                "Floor": 280
+                "Min": 0.6,
+                "Max": 1.7
               },
               {
                 "Kind": "Consistency",
