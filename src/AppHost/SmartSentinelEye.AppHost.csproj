@@ -1,4 +1,4 @@
-<Project Sdk="Aspire.AppHost.Sdk/13.3.5">
+<Project Sdk="Aspire.AppHost.Sdk/13.5.3">
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.NodeJs" />
@@ -29,6 +29,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UserSecretsId>b82c8f51-95b9-4b1a-832a-a8744b2112a9</UserSecretsId>
+
+    <!-- Aspire 13.5 reports ASPIRE010 whenever AspireUseCliBundle is left at
+         its default of false. That opt-in is a preview feature: it sources DCP
+         and the dashboard from the installed Aspire CLI bundle instead of
+         NuGet, so `dotnet build` would start depending on an `aspire` on PATH
+         (or a dnx fallback), and CI installs neither. We deliberately keep the
+         NuGet-restored orchestration dependencies, which is the case the SDK
+         docs say to suppress for. Revisit when the opt-in leaves preview and
+         becomes the SDK default. -->
+    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
   </PropertyGroup>
 
 </Project>
