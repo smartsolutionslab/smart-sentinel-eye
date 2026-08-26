@@ -28,7 +28,9 @@ generate it first.
 
 ### Licensing
 
-**Every clip has a matching `<name>.ATTRIBUTION.txt` beside it, and must.** The
+**Every clip has a matching `<name>.ATTRIBUTION.txt` beside it, and must.**
+So does `DejaVuSans.ttf`, which is here because the MediaMTX image ships no
+fonts at all — without it `drawtext` fails and a labelled camera never streams. The
 eight spec-044 clips come from Wikimedia Commons' *Sounds of Changes* project
 under **CC BY 3.0** (attribution only). `sim-loop.mp4` is older and is
 **CC BY-SA 3.0** — share-alike — so it is the one with the stricter terms.
