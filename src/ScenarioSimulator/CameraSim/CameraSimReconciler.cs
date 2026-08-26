@@ -30,31 +30,39 @@ public sealed class CameraSimReconciler(
     {
         ScenarioOptions scenarios = scenarioOptions.Value;
 
-        if (!scenarios.Scenarios.TryGetValue(scenarios.Active, out ScenarioDefinition scenario))
-        {
-            logger.ScenarioNotFound(scenarios.Active);
-            return;
-        }
-
         int reconciled = 0;
+        int total = 0;
 
-        foreach (string path in scenario.Assets.Select(asset => asset.Camera.Path))
+        // Every active scenario, and a missing key skips only its own — one bad
+        // entry in the list must not take the other plants down with it.
+        foreach (string key in scenarios.Active)
         {
-            try
+            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition scenario))
             {
-                await provisioner.ProvisionLoopPathAsync(path, cancellationToken);
-                reconciled++;
+                logger.ScenarioNotFound(key);
+                continue;
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+
+            total += scenario.Assets.Count;
+
+            foreach (CameraDefinition sim in scenario.Assets.Select(asset => asset.Camera))
             {
-                // Best-effort: a camera-sim outage must not block the host from
-                // starting. The remaining assets still reconcile, and the next
-                // restart retries this one.
-                logger.CameraSimReconcileFailed(path, ex.Message);
+                try
+                {
+                    await provisioner.ProvisionLoopPathAsync(sim.Path, sim.Clip, cancellationToken);
+                    reconciled++;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Best-effort: a camera-sim outage must not block the host from
+                    // starting. The remaining assets still reconcile, and the next
+                    // restart retries this one.
+                    logger.CameraSimReconcileFailed(sim.Path, ex.Message);
+                }
             }
         }
 
-        logger.CameraSimReconciled(reconciled, scenario.Assets.Count);
+        logger.CameraSimReconciled(reconciled, total);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

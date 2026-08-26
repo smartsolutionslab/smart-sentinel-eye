@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator.CameraSim;
+using SmartSentinelEye.ScenarioSimulator.Scenario;
 using SmartSentinelEye.ScenarioSimulator.Seeding;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
 using SmartSentinelEye.Shared.Kernel;
@@ -26,13 +28,14 @@ public sealed class CameraRegisteredSimHandler(
     CameraSimProvisioner provisioner,
     AssetCorrelationTable correlation,
     WallSeeder wall,
+    IOptions<ScenarioOptions> scenarioOptions,
     ILogger<CameraRegisteredSimHandler> logger)
 {
     public async Task Handle(CameraRegisteredV1 message, CancellationToken cancellationToken = default)
     {
         Ensure.That(message).IsNotNull();
 
-        var (camera, _, url, _, _, _) = message;
+        var (camera, name, url, _, _, _) = message;
 
         if (!RtspPath.TryExtract(url, out string path))
         {
@@ -52,6 +55,40 @@ public sealed class CameraRegisteredSimHandler(
 
         await wall.TryCreateAsync(cancellationToken);
 
-        await provisioner.ProvisionLoopPathAsync(path, cancellationToken);
+        // A scenario asset plays its own clip; anything else — hand-registered, or
+        // whatever a test run left behind — gets the shared clip with its name
+        // drawn on it, so it is still answerable by looking (FR-004).
+        if (TryFindAssetClip(path, out string clip))
+        {
+            await provisioner.ProvisionLoopPathAsync(path, clip, cancellationToken);
+            return;
+        }
+
+        await provisioner.ProvisionLabelledPathAsync(path, name, camera, cancellationToken);
+    }
+
+    private bool TryFindAssetClip(string path, out string clip)
+    {
+        ScenarioOptions scenarios = scenarioOptions.Value;
+
+        foreach (string key in scenarios.Active)
+        {
+            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition scenario))
+            {
+                continue;
+            }
+
+            AssetDefinition asset = scenario.Assets
+                .FirstOrDefault(candidate => string.Equals(candidate.Camera.Path, path, StringComparison.Ordinal));
+
+            if (asset is not null)
+            {
+                clip = asset.Camera.Clip;
+                return true;
+            }
+        }
+
+        clip = string.Empty;
+        return false;
     }
 }

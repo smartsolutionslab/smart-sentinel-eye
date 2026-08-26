@@ -30,11 +30,14 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "Could not read back camera '{Name}' ({Reason}); it will not be correlated to a wall tile.")]
     public static partial void CameraReadBackFailed(this ILogger logger, string name, string reason);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Provisioned camera-sim loop path '{Path}'.")]
-    public static partial void CameraSimPathProvisioned(this ILogger logger, string path);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Provisioned camera-sim loop path '{Path}' playing '{Clip}'.")]
+    public static partial void CameraSimPathProvisioned(this ILogger logger, string path, string clip);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "camera-sim path '{Path}' already exists; skipping (idempotent).")]
-    public static partial void CameraSimPathAlreadyExists(this ILogger logger, string path);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Replaced camera-sim path '{Path}'; it now plays '{Clip}'.")]
+    public static partial void CameraSimPathReplaced(this ILogger logger, string path, string clip);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Asset '{Asset}' names clip '{Clip}', which is not in the clips directory. Add it (scripts/generate-sim-clips.sh) or correct the scenario file.")]
+    public static partial void ClipMissing(this ILogger logger, string asset, string clip);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Reconciled camera-sim loop paths for {ReconciledCount} of {AssetCount} asset(s).")]
     public static partial void CameraSimReconciled(this ILogger logger, int reconciledCount, int assetCount);
