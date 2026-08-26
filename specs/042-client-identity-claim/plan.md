@@ -1,113 +1,185 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: The configuration stops discarding what it says
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+**Branch**: `042-client-identity-claim` | **Date**: 2026-08-26 | **Spec**: [spec.md](./spec.md)
 
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-**Note**: This template is filled in by the `/speckit-plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
+**Input**: Feature specification from `specs/042-client-identity-claim/spec.md`
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+Add one shared realm client scope that supplies the holder's subject; take that
+responsibility away from a permission and from a client's private copy; delete
+the four scope names on every client that resolve to nothing; and add checks so
+neither failure can recur silently.
+
+**Phase 0 corrected the spec's central claim before any of this was designed.**
+The draft said six of eight identities could not name their holder; measured one
+token at a time, **one** cannot. Background workers get the subject from the way
+they sign in — a property of the grant, not of any file — so a mapper was never
+relevant to them. The spec was rewritten around the mechanism instead of the
+count, and the error is kept in its Assumptions.
+
+What remains is smaller than the draft implied and still worth doing:
+
+- **Thirty-two entries are discarded on every start**, and the file goes on
+  listing them. That silence has hidden two defects in two weeks.
+- **One identity cannot be attributed** — the unused replacement for the operator
+  console, which would refuse all seventeen kinds of attributed change the moment
+  anyone adopted it.
+- **Three unrelated mechanisms supply one fact**, two of them accidents.
+- **Nothing checks any of it.**
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
+**Language/Version**: JSON (Keycloak realm import); C# / .NET 10 (Architecture.Tests, Integration.Tests)
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]
+**Primary Dependencies**: Keycloak 26.5 per fab (ADR-0007/0008), imported by Aspire at start-up
 
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
+**Storage**: none — no schema, no migration, no domain state
 
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
+**Testing**: xUnit + Shouldly (ADR-0052); convention checks in `tests/Architecture.Tests`; one new end-to-end assertion through the Aspire fixture (ADR-0103)
 
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]
+**Target Platform**: the development stack. There is no production deployment.
 
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+**Project Type**: configuration, plus the checks that keep it honest
 
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]
+**Performance Goals**: unchanged. Nothing on the latency path is touched.
 
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
+**Constraints**: the realm imports only into an empty database, so verifying a change needs the Keycloak container **and its data volume** removed — a restart keeps the old realm and the stack looks healthy either way; client `description` over 255 characters kills the import
 
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]
-
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Scale/Scope**: one scope added, two mappers removed, one client mapper removed, thirty-two list entries removed across eight clients, two convention assertions, one integration test
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+| Principle | Assessment |
+|---|---|
+| **VIII. Safe by Default at Trust Boundaries** — authorization mediated, kiosks view-only | **Strengthened.** Today one client can be attributed *only because* it holds administrative authority; narrowing that permission would silently make its actions unattributable. This separates being identifiable from being privileged, which is what §VIII assumes and the realm does not currently implement. No permission changes (FR-010, SC-007). |
+| **Audit** — *"All admin and config writes appear in the audit log"* (Security NFR) | **This is the principle at stake.** A write that cannot be attributed is refused rather than logged wrongly, so today the NFR is upheld by refusing to work. R9 found that **nothing asserts an attributed write end to end**; this adds the first. |
+| **IV. The Latency Budget Is Sacred** | Not on the path. No leg changes, no measurement added or removed. |
+| **VII. Observability Is Non-Negotiable** | No new leg, no new sink. Untouched. |
+| **III. Bounded Context Isolation** | No cross-context reference added. The convention test reads a configuration file and `Identity.Application`'s public constants, both of which `Architecture.Tests` already references. |
+| **II. DDD with Value Objects** | No domain type added or changed. A scope is configuration. |
+| **V. Spec-Driven Development** | Spec → plan → tasks → implement → verify → QA → PR, gates observed. The spec was rewritten mid-Phase-0 rather than planned around a claim that had failed. |
+| **IX. No speculative generality** (Karpathy, ADR-0036) | Directly applied: the discarded scopes are **removed**, not recreated. Three of the four carry claims nothing reads, and rebuilding them would be inventing needs. |
+
+**No violation to justify.** No new dependency, no new abstraction, one new
+configuration object replacing three ad-hoc ones.
+
+**Post-design re-check**: unchanged. The design deletes more than it adds — two
+mappers, one client mapper and thirty-two list entries out; one scope and three
+assertions in.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit-plan command output)
-├── research.md          # Phase 0 output (/speckit-plan command)
-├── data-model.md        # Phase 1 output (/speckit-plan command)
-├── quickstart.md        # Phase 1 output (/speckit-plan command)
-├── contracts/           # Phase 1 output (/speckit-plan command)
-└── tasks.md             # Phase 2 output (/speckit-tasks command - NOT created by /speckit-plan)
+specs/042-client-identity-claim/
+├── plan.md                       # this file
+├── spec.md                       # rewritten mid-Phase-0; see its Assumptions
+├── research.md                   # R1..R9, including the correction
+├── quickstart.md                 # the per-identity verification
+├── checklists/requirements.md
+├── contracts/
+│   └── what-a-credential-carries.md
+└── tasks.md                      # /speckit-tasks — not created here
 ```
+
+**No `data-model.md`.** Nothing persists; a scope and a claim are configuration.
+Specs 040 and 041 skipped it for the same reason. Writing an empty one would
+assert a model that does not exist — this feature's own subject.
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
+src/AppHost/Realms/smart-sentinel-eye-realm.json
+    + sse-identity client scope (one oidc-sub-mapper, include.in.token.scope false)
+    - sse.management's sub-claim and preferred-username-claim mappers
+    - kiosk-web's client-level sub mapper (spec 041's narrow fix)
+    ± all eight defaultClientScopes: sse-identity in, four inert names out
 
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+tests/Architecture.Tests/
+    RealmIdentityTests.cs          # NEW — every client can name itself;
+                                   #       every scope named actually exists
+tests/Integration.Tests/
+    <context>/…AttributionIntegrationTests.cs
+                                   # NEW — a minted token makes an attributed
+                                   #       write, and it lands attributed
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+## Approach
 
-## Complexity Tracking
+Four increments. The order is chosen so that nothing depends on an unverified
+claim.
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
+### 1. The shared definition
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+Add `sse-identity`, carrying one subject mapper and no permission, with
+`include.in.token.scope: false` so it never appears among what a caller may do.
+The hyphen is not decoration: `sse-groups` already carries a claim and grants
+nothing, while `sse.*` grants. The realm has followed that rule without stating
+it, and the only scope carrying identity claims was a permission.
+
+Assign it to all eight clients.
+
+### 2. Take the responsibility off the things that hold it by accident
+
+Remove both mappers from `sse.management`, and the private mapper from
+`kiosk-web`. After this, no permission decides whether its holder can be named,
+and no client carries its own copy.
+
+**One behaviour changes**: `preferred_username` leaves
+`smart-sentinel-eye-web`'s token. Nothing reads it (verified), and FR-009 says
+nothing beyond the identifier.
+
+### 3. Stop the file saying what it does not do
+
+Delete `basic`, `profile`, `email` and `roles` from all eight lists. They resolve
+to nothing today; the change is to what the file claims, not to what the system
+does.
+
+### 4. Make both failures loud
+
+A convention check that every client holds the identity scope and that every
+scope any client names exists. Then the one thing a file cannot show: an
+integration test that **mints a token, makes an attributed write, and finds it
+attributed**. R9 found nothing does this today — every existing test fabricates
+its operator — which is exactly how a client that cannot be attributed went
+unnoticed.
+
+## What must fail
+
+| Break this | Expected |
+|---|---|
+| Remove `sse-identity` from a client | the convention check fails |
+| Give a client a scope the realm does not define | the convention check fails — today it is discarded with a warning |
+| Remove the subject mapper from `sse-identity` | the **integration** test fails; the convention check does **not** — it reads names, not behaviour |
+| Import the realm | zero discarded entries, down from thirty-two |
+
+The third row is the honest one: the cheap check and the expensive one catch
+different things, and neither alone is enough.
+
+## Risks
+
+**Every identity in the realm changes at once.** If the shared scope were wrong,
+everything would fail together — which is why R4 measured a token per identity
+against the candidate realm before this plan was written, rather than after.
+
+**A realm edit is invisible without deleting the volume.** The container is
+persistent with a data volume; restarting keeps the old realm and the stack looks
+healthy. Verification that skips this step verifies the previous realm.
+
+**`preferred_username` disappears.** Verified unread, but it is the one thing here
+that changes what a token contains rather than where it comes from, and a reviewer
+should see it named rather than discover it.
+
+## Out of scope
+
+- **Pointing the operator console at its replacement identity.** This makes it
+  possible; it does not do it.
+- **Adding the scope to the runtime-created client bundles.** R3 measured those
+  clients as already carrying the subject; the scope would be inert for them.
+- **Restoring `profile`, `email` or `roles` in any form.**
+- **Anything either app does**, and the two findings filed separately alongside
+  this one.
