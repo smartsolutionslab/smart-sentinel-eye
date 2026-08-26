@@ -127,8 +127,11 @@ public sealed class CameraSimProvisionerTests
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            Paths.Add(request.RequestUri.AbsolutePath);
-            LastBody = await request.Content.ReadAsStringAsync(cancellationToken);
+            Uri uri = request.RequestUri ?? throw new InvalidOperationException("provisioner sent no URI");
+            HttpContent content = request.Content ?? throw new InvalidOperationException("provisioner sent no body");
+
+            Paths.Add(uri.AbsolutePath);
+            LastBody = await content.ReadAsStringAsync(cancellationToken);
 
             if (Paths.Count == 1 && FirstResponse is { } first)
             {
