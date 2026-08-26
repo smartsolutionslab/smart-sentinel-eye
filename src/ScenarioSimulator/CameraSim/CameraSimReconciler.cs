@@ -23,6 +23,7 @@ namespace SmartSentinelEye.ScenarioSimulator.CameraSim;
 /// </summary>
 public sealed class CameraSimReconciler(
     CameraSimProvisioner provisioner,
+    ClipLibrary clips,
     IOptions<ScenarioOptions> scenarioOptions,
     ILogger<CameraSimReconciler> logger) : IHostedService
 {
@@ -47,6 +48,17 @@ public sealed class CameraSimReconciler(
 
             foreach (CameraDefinition sim in scenario.Assets.Select(asset => asset.Camera))
             {
+                // FR-007. An asset naming a clip that is not there provisions a
+                // path that never becomes ready, which on the wall is
+                // indistinguishable from a broken camera — so the failure is
+                // raised where the cause is, naming both. Skipped rather than
+                // thrown: one bad asset should cost its own tile, not the run.
+                if (!clips.Exists(sim.Clip))
+                {
+                    logger.ClipMissing(sim.Path, sim.Clip);
+                    continue;
+                }
+
                 try
                 {
                     await provisioner.ProvisionLoopPathAsync(sim.Path, sim.Clip, cancellationToken);

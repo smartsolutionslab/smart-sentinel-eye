@@ -1,0 +1,151 @@
+{
+  "ScenarioSimulator": {
+    "Scenarios": {
+      "electronics": {
+        "Name": "Electronics Line (Gigaset)",
+        "Timeline": {
+          "DwellMs": 5000,
+          "TickMs": 500,
+          "LoopGapMs": 2000
+        },
+        "Wall": {
+          "Name": "electronics-wall",
+          "Rows": 2,
+          "Cols": 2
+        },
+        "Assets": [
+          {
+            "Key": "moulding",
+            "Name": "Injection Moulding",
+            "Camera": { "Path": "electronics-moulding", "Clip": "electronics-moulding.mp4", "Loop": true },
+            "Tile": { "Row": 0, "Col": 0 },
+            "Overlay": {
+              "Label": "MOULDING — CYCLE TIME",
+              "X": 0.1,
+              "Y": 0.05,
+              "Width": 0.8,
+              "Height": 0.18,
+              "FontSize": 28
+            },
+            "Highlight": {
+              "TriggerKind": "CycleTime",
+              "Comparison": "gte",
+              "Threshold": 42,
+              "DurationMs": 4000
+            },
+            "Sensors": [
+              {
+                "Kind": "CycleTime",
+                "Unit": "s",
+                "Behaviour": "ramp",
+                "Source": "plc",
+                "Min": 28,
+                "Max": 47
+              }
+            ]
+          },
+          {
+            "Key": "smd-line",
+            "Name": "SMD Placement Line",
+            "Camera": { "Path": "electronics-smd-line", "Clip": "electronics-smd-line.mp4", "Loop": true },
+            "Tile": { "Row": 0, "Col": 1 },
+            "Overlay": {
+              "Label": "SMD — PLACEMENT RATE",
+              "X": 0.1,
+              "Y": 0.05,
+              "Width": 0.8,
+              "Height": 0.18,
+              "FontSize": 28
+            },
+            "Highlight": {
+              "TriggerKind": "PlacementRate",
+              "Comparison": "lte",
+              "Threshold": 14000,
+              "DurationMs": 4000
+            },
+            "Sensors": [
+              {
+                "Kind": "PlacementRate",
+                "Unit": "cph",
+                "Behaviour": "decay",
+                "Source": "plc",
+                "Start": 22000,
+                "Floor": 11500
+              }
+            ]
+          },
+          {
+            "Key": "conveyor",
+            "Name": "Pneumatic Conveyor",
+            "Camera": { "Path": "electronics-conveyor", "Clip": "electronics-conveyor.mp4", "Loop": true },
+            "Tile": { "Row": 1, "Col": 0 },
+            "Overlay": {
+              "Label": "CONVEYOR — THROUGHPUT",
+              "X": 0.1,
+              "Y": 0.05,
+              "Width": 0.8,
+              "Height": 0.18,
+              "FontSize": 28
+            },
+            "Highlight": {
+              "TriggerKind": "JamCount",
+              "Comparison": "gte",
+              "Threshold": 2,
+              "DurationMs": 5000
+            },
+            "Sensors": [
+              {
+                "Kind": "JamCount",
+                "Unit": "count",
+                "Behaviour": "step",
+                "Source": "plc",
+                "Before": 0,
+                "After": 3,
+                "StepAtFraction": 0.7
+              },
+              {
+                "Kind": "Throughput",
+                "Unit": "units/min",
+                "Behaviour": "steady",
+                "Source": "plc",
+                "Mean": 74,
+                "Jitter": 5
+              }
+            ]
+          },
+          {
+            "Key": "inspection",
+            "Name": "Quality Inspection",
+            "Camera": { "Path": "electronics-inspection", "Clip": "electronics-inspection.mp4", "Loop": true },
+            "Tile": { "Row": 1, "Col": 1 },
+            "Overlay": {
+              "Label": "INSPECTION — REJECTS",
+              "X": 0.1,
+              "Y": 0.05,
+              "Width": 0.8,
+              "Height": 0.18,
+              "FontSize": 28
+            },
+            "Highlight": {
+              "TriggerKind": "RejectCount",
+              "Comparison": "gte",
+              "Threshold": 5,
+              "DurationMs": 4000
+            },
+            "Sensors": [
+              {
+                "Kind": "RejectCount",
+                "Unit": "count",
+                "Behaviour": "burst",
+                "Source": "plc",
+                "Peak": 8,
+                "Mean": 2,
+                "Jitter": 1
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

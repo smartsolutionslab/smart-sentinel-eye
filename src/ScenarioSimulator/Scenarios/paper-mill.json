@@ -1,0 +1,159 @@
+{
+  "ScenarioSimulator": {
+    "Scenarios": {
+      "paper-mill": {
+        "Name": "Paper Mill (Goričane)",
+        "Timeline": {
+          "DwellMs": 7000,
+          "TickMs": 500,
+          "LoopGapMs": 3000
+        },
+        "Wall": {
+          "Name": "paper-mill-wall",
+          "Rows": 2,
+          "Cols": 2
+        },
+        "Assets": [
+          {
+            "Key": "refiners",
+            "Name": "Refiners",
+            "Camera": { "Path": "paper-refiners", "Clip": "paper-refiners.mp4", "Loop": true },
+            "Tile": { "Row": 0, "Col": 0 },
+            "Overlay": {
+              "Label": "REFINERS — STOCK PREP",
+              "X": 0.1,
+              "Y": 0.05,
+              "Width": 0.8,
+              "Height": 0.18,
+              "FontSize": 28
+            },
+            "Highlight": {
+              "TriggerKind": "Freeness",
+              "Comparison": "lte",
+              "Threshold": 320,
+              "DurationMs": 4000
+            },
+            "Sensors": [
+              {
+                "Kind": "Freeness",
+                "Unit": "mlCSF",
+                "Behaviour": "decay",
+                "Source": "plc",
+                "Start": 480,
+                "Floor": 280
+              },
+              {
+                "Kind": "Consistency",
+                "Unit": "pct",
+                "Behaviour": "steady",
+                "Source": "plc",
+                "Mean": 4.1,
+                "Jitter": 0.2
+              }
+            ]
+          },
+          {
+            "Key": "press-group",
+            "Name": "Press Group",
+            "Camera": { "Path": "paper-press-group", "Clip": "paper-press-group.mp4", "Loop": true },
+            "Tile": { "Row": 0, "Col": 1 },
+            "Overlay": {
+              "Label": "PRESS GROUP — NIP LOAD",
+              "X": 0.1,
+              "Y": 0.05,
+              "Width": 0.8,
+              "Height": 0.18,
+              "FontSize": 28
+            },
+            "Highlight": {
+              "TriggerKind": "NipLoad",
+              "Comparison": "gte",
+              "Threshold": 90,
+              "DurationMs": 4000
+            },
+            "Sensors": [
+              {
+                "Kind": "NipLoad",
+                "Unit": "kN/m",
+                "Behaviour": "burst",
+                "Source": "plc",
+                "Peak": 110,
+                "Mean": 72,
+                "Jitter": 6
+              }
+            ]
+          },
+          {
+            "Key": "after-drying",
+            "Name": "After-drying Group",
+            "Camera": { "Path": "paper-after-drying", "Clip": "paper-after-drying.mp4", "Loop": true },
+            "Tile": { "Row": 1, "Col": 0 },
+            "Overlay": {
+              "Label": "AFTER-DRYING — MOISTURE",
+              "X": 0.1,
+              "Y": 0.05,
+              "Width": 0.8,
+              "Height": 0.18,
+              "FontSize": 28
+            },
+            "Highlight": {
+              "TriggerKind": "Moisture",
+              "Comparison": "gte",
+              "Threshold": 7.5,
+              "DurationMs": 4000
+            },
+            "Sensors": [
+              {
+                "Kind": "Moisture",
+                "Unit": "pct",
+                "Behaviour": "ramp",
+                "Source": "plc",
+                "Min": 4.2,
+                "Max": 8.6
+              },
+              {
+                "Kind": "WebSpeed",
+                "Unit": "m/min",
+                "Behaviour": "steady",
+                "Source": "plc",
+                "Mean": 640,
+                "Jitter": 18
+              }
+            ]
+          },
+          {
+            "Key": "packaging",
+            "Name": "Packaging & Palletising",
+            "Camera": { "Path": "paper-packaging", "Clip": "paper-packaging.mp4", "Loop": true },
+            "Tile": { "Row": 1, "Col": 1 },
+            "Overlay": {
+              "Label": "PACKAGING — PALLET READY",
+              "X": 0.1,
+              "Y": 0.05,
+              "Width": 0.8,
+              "Height": 0.18,
+              "FontSize": 28
+            },
+            "Highlight": {
+              "TriggerKind": "PalletCount",
+              "Comparison": "gte",
+              "Threshold": 12,
+              "DurationMs": 4000
+            },
+            "Sensors": [
+              {
+                "Kind": "PalletCount",
+                "Unit": "count",
+                "Behaviour": "step",
+                "Source": "plc",
+                "Before": 3,
+                "After": 14,
+                "StepAtFraction": 0.6
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

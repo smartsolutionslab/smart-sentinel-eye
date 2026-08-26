@@ -1,0 +1,19 @@
+mill-roughing.mp4 — dev-only Scenario Simulator camera feed (ADR-0111, spec 044).
+
+It is a 20-second excerpt taken 60 s into:
+
+  Title:   Proizvodnja vroče valjane debele pločevine v Acroni SIJ Jesenice
+  Author:  MZaplotnik
+  Source:  https://commons.wikimedia.org/wiki/File:Proizvodnja_vro%C4%8De_valjane_debele_plo%C4%8Devine_v_Acroni_SIJ_Jesenice.ogv
+  License: Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0)
+           https://creativecommons.org/licenses/by-sa/3.0/
+
+As a derivative work, this excerpt is likewise licensed under CC BY-SA 3.0.
+**Share-alike**, unlike the CC BY 3.0 clips beside it — the rolling-mill source
+carries the stricter terms, so do not assume the directory is uniform.
+
+The four mill-* clips are four offsets into this one 477 s source: a rolling
+mill filmed at four points in its own process is four different stations.
+
+Regenerate with scripts/generate-sim-clips.sh. Used only by the dev-only
+camera-sim, which the AppHost gates off in CI/E2E/prod.
