@@ -56,8 +56,8 @@ once.
 
 **Goal**: One place decides whether an identity can name its holder.
 
-- [ ] T001 [US2] Add an `sse-identity` client scope to `src/AppHost/Realms/smart-sentinel-eye-realm.json`, carrying exactly one protocol mapper — `name: "sub-claim"`, `protocolMapper: "oidc-sub-mapper"`, `config: { "introspection.token.claim": "true", "access.token.claim": "true" }` — with `attributes: { "include.in.token.scope": "false", "display.on.consent.screen": "false" }`. **Mirror `sse-groups`' shape exactly**, and put it next to it: the hyphen is the convention this realm already follows without stating it — `sse-<noun>` carries a claim and grants nothing, `sse.<noun>.<verb>` grants. `include.in.token.scope: false` matters: a scope that grants nothing must not appear among what a caller may do. Describe it in one line as carrying no permission.
-- [ ] T002 [US2] Add `"sse-identity"` to the `defaultClientScopes` of **all eight** clients in the same file. Per client, not "the ones that need it" — the two that work today do so by accident, and the judgement of which need it is what has to stop being made.
+- [X] T001 [US2] Add an `sse-identity` client scope to `src/AppHost/Realms/smart-sentinel-eye-realm.json`, carrying exactly one protocol mapper — `name: "sub-claim"`, `protocolMapper: "oidc-sub-mapper"`, `config: { "introspection.token.claim": "true", "access.token.claim": "true" }` — with `attributes: { "include.in.token.scope": "false", "display.on.consent.screen": "false" }`. **Mirror `sse-groups`' shape exactly**, and put it next to it: the hyphen is the convention this realm already follows without stating it — `sse-<noun>` carries a claim and grants nothing, `sse.<noun>.<verb>` grants. `include.in.token.scope: false` matters: a scope that grants nothing must not appear among what a caller may do. Describe it in one line as carrying no permission.
+- [X] T002 [US2] Add `"sse-identity"` to the `defaultClientScopes` of **all eight** clients in the same file. Per client, not "the ones that need it" — the two that work today do so by accident, and the judgement of which need it is what has to stop being made.
 
 **Checkpoint**: one definition exists and every identity in the file holds it.
 
@@ -68,9 +68,9 @@ once.
 **Goal**: No permission decides whether its holder can be named, and no client
 keeps a private copy.
 
-- [ ] T003 [US4] Remove **both** `sub-claim` and `preferred-username-claim` from the `sse.management` client scope in `src/AppHost/Realms/smart-sentinel-eye-realm.json` — the whole `protocolMappers` array. It is a **permission**, and a permission that also decides whether you can be identified is the conflation this feature exists to remove. It is load-bearing today: `smart-sentinel-eye-web` names its holder *only* because it holds administrative authority, so narrowing that permission would silently make its actions unattributable — and narrowing exactly that kind of permission is what the previous feature did to the kiosk.
-- [ ] T004 [US4] Remove the client-level `protocolMappers` block from the `kiosk-web` client in the same file — the narrow fix spec 041 added. The shared scope supplies it now. SC-006: one definition, zero private copies.
-- [ ] T005 [US4] **Confirm the one behavioural change deliberately.** `preferred_username` disappears from `smart-sentinel-eye-web`'s token. Mint a token against a throwaway container and record its absence, rather than letting a reviewer find it. Nothing reads it — the only mention in `src/` is `WhepAuthValidator` setting `NameClaimType = "preferred_username"`, whose resulting `Name` no code touches — and that was verified before the mapper was removed, not after.
+- [X] T003 [US4] Remove **both** `sub-claim` and `preferred-username-claim` from the `sse.management` client scope in `src/AppHost/Realms/smart-sentinel-eye-realm.json` — the whole `protocolMappers` array. It is a **permission**, and a permission that also decides whether you can be identified is the conflation this feature exists to remove. It is load-bearing today: `smart-sentinel-eye-web` names its holder *only* because it holds administrative authority, so narrowing that permission would silently make its actions unattributable — and narrowing exactly that kind of permission is what the previous feature did to the kiosk.
+- [X] T004 [US4] Remove the client-level `protocolMappers` block from the `kiosk-web` client in the same file — the narrow fix spec 041 added. The shared scope supplies it now. SC-006: one definition, zero private copies.
+- [X] T005 [US4] **Confirm the one behavioural change deliberately.** `preferred_username` disappears from `smart-sentinel-eye-web`'s token. Mint a token against a throwaway container and record its absence, rather than letting a reviewer find it. Nothing reads it — the only mention in `src/` is `WhepAuthValidator` setting `NameClaimType = "preferred_username"`, whose resulting `Name` no code touches — and that was verified before the mapper was removed, not after.
 
 **Checkpoint**: three mechanisms have become one.
 
@@ -80,8 +80,8 @@ keeps a private copy.
 
 **Goal**: Reading the configuration tells you what the system does.
 
-- [ ] T006 [US1] Delete `"basic"`, `"profile"`, `"email"` and `"roles"` from the `defaultClientScopes` of all eight clients in `src/AppHost/Realms/smart-sentinel-eye-realm.json` — thirty-two entries. They resolve to nothing today, so this changes what the file **claims**, not what the system does. Verified safe: nothing in `src/` reads a role or email claim (no `realm_access`, `resource_access`, `ClaimTypes.Role` or `ClaimTypes.Email`); authorization is entirely scope-based through `RequireScopeExtensions`.
-- [ ] T007 [US1] **Measure SC-001.** Import the edited realm into a throwaway `quay.io/keycloak/keycloak:26.5` container and count `docker logs … | grep -c "doesn't exist. Ignoring"`. **Expected `0`, down from 32.** Also confirm no other `RepresentationToModel` warning and no import error appeared — a clean import is the claim, not just a smaller number.
+- [X] T006 [US1] Delete `"basic"`, `"profile"`, `"email"` and `"roles"` from the `defaultClientScopes` of all eight clients in `src/AppHost/Realms/smart-sentinel-eye-realm.json` — thirty-two entries. They resolve to nothing today, so this changes what the file **claims**, not what the system does. Verified safe: nothing in `src/` reads a role or email claim (no `realm_access`, `resource_access`, `ClaimTypes.Role` or `ClaimTypes.Email`); authorization is entirely scope-based through `RequireScopeExtensions`.
+- [X] T007 [US1] **Measure SC-001.** Import the edited realm into a throwaway `quay.io/keycloak/keycloak:26.5` container and count `docker logs … | grep -c "doesn't exist. Ignoring"`. **Expected `0`, down from 32.** Also confirm no other `RepresentationToModel` warning and no import error appeared — a clean import is the claim, not just a smaller number.
 
 **Checkpoint**: the file and the system agree. US1 is complete.
 
@@ -92,10 +92,10 @@ keeps a private copy.
 **Goal**: Neither failure can recur silently — and it is clear which check
 catches which.
 
-- [ ] T008 [US3] Create `tests/Architecture.Tests/RealmIdentityTests.cs` with four assertions, following `KioskScopeParityTests`' idiom (repo-root walk to `SmartSentinelEye.slnx`, `System.Text.Json`, one parsed document held in a static field): **(a)** every client's `defaultClientScopes` contains `sse-identity` — enumerated per client, naming the offender; **(b)** every scope any client names exists in the realm's own `clientScopes`, as a set relationship, so a typo **fails** instead of being discarded at start-up with a warning nobody reads; **(c)** no scope whose name starts `sse.` carries a `protocolMappers` array — permissions do not decide identity; **(d)** no client carries a `protocolMappers` array of its own (SC-006).
-- [ ] T009 [US3] Create `tests/Integration.Tests/Identity/TokenAttributionIntegrationTests.cs`: mint a token through `AspireFixture.CreateAuthenticatedClientAsync`, perform one attributed write over HTTP (an overlay create or a system-variable define — both call `ToOperatorIdentifier`), and assert it **succeeds**. A credential that cannot be attributed produces a **401**, not a wrong value, so success is the assertion. **Nothing does this today** (research R9): every existing test fabricates its operator with `OperatorIdentifier.From(Guid.CreateVersion7())` and hands it to a handler directly, which is exactly how an unattributable client sat unnoticed. Decode the token's subject and, if the response or a read-back exposes the actor, assert it matches; if none does, say so in the test rather than implying more.
-- [ ] T010 [US3] **Prove T008 can fail, both ways.** Remove `sse-identity` from one client → assertion (a) red; revert. Give a client a scope name that does not exist → assertion (b) red; revert. Record both outputs. The second is the one that matters: that failure is *currently* a start-up warning nobody reads.
-- [ ] T011 [US3] **Prove the two checks are not interchangeable.** Delete the mapper from the `sse-identity` scope, leaving the scope itself in place, and run both: `RealmIdentityTests` must stay **green** and `TokenAttributionIntegrationTests` must go **red**. Record it. The cheap check reads names; only a minted token shows behaviour — and a feature that claimed one covers the other would be repeating the error this whole run has been correcting.
+- [X] T008 [US3] Create `tests/Architecture.Tests/RealmIdentityTests.cs` with four assertions, following `KioskScopeParityTests`' idiom (repo-root walk to `SmartSentinelEye.slnx`, `System.Text.Json`, one parsed document held in a static field): **(a)** every client's `defaultClientScopes` contains `sse-identity` — enumerated per client, naming the offender; **(b)** every scope any client names exists in the realm's own `clientScopes`, as a set relationship, so a typo **fails** instead of being discarded at start-up with a warning nobody reads; **(c)** no scope whose name starts `sse.` carries a `protocolMappers` array — permissions do not decide identity; **(d)** no client carries a `protocolMappers` array of its own (SC-006).
+- [X] T009 [US3] Create `tests/Integration.Tests/Identity/TokenAttributionIntegrationTests.cs`: mint a token through `AspireFixture.CreateAuthenticatedClientAsync`, perform one attributed write over HTTP (an overlay create or a system-variable define — both call `ToOperatorIdentifier`), and assert it **succeeds**. A credential that cannot be attributed produces a **401**, not a wrong value, so success is the assertion. **Nothing does this today** (research R9): every existing test fabricates its operator with `OperatorIdentifier.From(Guid.CreateVersion7())` and hands it to a handler directly, which is exactly how an unattributable client sat unnoticed. Decode the token's subject and, if the response or a read-back exposes the actor, assert it matches; if none does, say so in the test rather than implying more.
+- [X] T010 [US3] **Prove T008 can fail, both ways.** Remove `sse-identity` from one client → assertion (a) red; revert. Give a client a scope name that does not exist → assertion (b) red; revert. Record both outputs. The second is the one that matters: that failure is *currently* a start-up warning nobody reads.
+- [X] T011 [US3] **Prove the two checks are not interchangeable.** Delete the mapper from the `sse-identity` scope, leaving the scope itself in place, and run both: `RealmIdentityTests` must stay **green** and `TokenAttributionIntegrationTests` must go **red**. Record it. The cheap check reads names; only a minted token shows behaviour — and a feature that claimed one covers the other would be repeating the error this whole run has been correcting.
 
 **Checkpoint**: US3 complete, with the limits of each check demonstrated rather than asserted.
 
@@ -109,6 +109,92 @@ catches which.
 - [ ] T013 From the same eight payloads, assert per identity: the subject is present; `groups` is present wherever it was before; **the `scope` claim is byte-identical to before the change** (SC-007 — the blast radius is every client at once); and `sse-identity` does **not** appear in `scope`, because it grants nothing.
 - [ ] T014 **The one step that needs the real stack.** Delete the Keycloak container **and its data volume**, boot with `dotnet run --project src/AppHost`, confirm `KC-SERVICES0030: Full model import requested` and zero discarded entries, then sign into the operator console and change something. Confirm it succeeds and appears in the audit trail against the operator who made it (SC-005).
 - [ ] T015 Write the verification note on the PR: the `0` that replaced `32`, all eight payloads, the absence of `preferred_username`, both check failures from T010, **and the T011 result showing which check did not fire**. Name any step not performed. A feature about a file that claimed more than it delivered does not get to do the same.
+
+---
+
+## Corrections to this task list
+
+Recorded rather than made quietly, because this feature is about a file that
+claimed more than it delivered.
+
+**T004 broke a spec 041 assertion, and that was the point.**
+`KioskScopeParityTests.The_kiosk_client_carries_a_subject_mapper` asserted that
+`kiosk-web` carried its own `oidc-sub-mapper` — correct when it was the only
+client that did, and described there as *"the only automated protection for the
+WHEP path"*. T004 removes that mapper, so the assertion's premise is gone. It was
+**retargeted, not deleted**: it now asserts the client keeps **no** private
+mapper, and its doc comment says where the guarantee went — per client in
+`RealmIdentityTests`, and behaviourally in `TokenAttributionIntegrationTests`. A
+guard that vanishes inside someone else's feature reads as a guard that was
+dropped.
+
+**T008 grew from four assertions to five.** The extra one —
+`The_identity_scope_grants_nothing_and_says_so` — checks that `sse-identity` sets
+`include.in.token.scope: false` and does carry an `oidc-sub-mapper`. Without it,
+deleting the mapper outright would have passed every check, which would have made
+the convention test weaker than the contract claims.
+
+**T011's method had to be sharper than the task said**, and the fifth assertion
+is why. The task said to delete the mapper and watch the convention test stay
+green — it does not; assertion (e) catches that. The claim in
+[contracts/what-a-credential-carries.md](./contracts/what-a-credential-carries.md)
+is subtler: *a mapper that exists and does not fire*. So the break used was
+`"access.token.claim": "false"` — present, correctly named, correctly typed, and
+inert.
+
+**Result**: `RealmIdentityTests` **5/5 green**, realm import **0 warnings**, and
+the minted token:
+
+```json
+{ "azp": "management-web", "scope": "openid sse.identity.kiosks.write …",
+  "groups": ["/fabs/munich"] }          ← no "sub"
+```
+
+**T011 used a throwaway Keycloak rather than a second fixture boot.** The task
+said the integration test must go red. It reads `sub` off a minted token, and the
+token minted from that realm has none — so red follows from the measurement
+rather than being assumed. A second full Aspire boot would have cost ~9 minutes
+to re-derive the same fact. Recorded because it is a substitution, not the
+literal instruction.
+
+**A working-practice slip, recorded because it cost real work.** Mid-T010 the
+probe edit was reverted with `git checkout --` while Phases 1–3 were still
+**uncommitted**, which discarded all of them. They were reapplied and committed
+before any further probing. The task list's own advice to use `git checkout --`
+is right only *after* the work is committed; the memory about restored timestamps
+covers the other half of this trap.
+
+---
+
+## Phase 5 status: **not started**
+
+**Everything an automated check can prove is proved.**
+
+- Release build clean with analyzers, 0 warnings.
+- `Architecture.Tests` **53** (5 new; one spec 041 assertion retargeted).
+- `Integration.Tests` — `TokenAttributionIntegrationTests` **3/3**, run against
+  Docker rather than deferred to CI.
+- **T007**: the realm imports with **0** `doesn't exist. Ignoring` warnings, down
+  from 32, and no other import warning.
+- **T005**: `smart-sentinel-eye-web` mints `sub`, and `preferred_username` is
+  **absent** — the one behavioural change, confirmed deliberately.
+- **T010**: both directions made to fail, each naming the offending client.
+- **T011**: the convention check stayed green on a mapper that does not fire,
+  while the token lost `sub`.
+
+**What is NOT verified — T012 through T015:**
+
+- **Only three of the eight clients have been minted against the final realm**
+  (`smart-sentinel-eye-web` in T005, `management-web` in T011's probe, plus the
+  fixture's own). The other five are covered by the Phase 0 measurement of the
+  *candidate* realm, which was equivalent but not identical — T012 exists to
+  close that gap, and this feature's own first draft is the argument for not
+  waving it through.
+- **`scope` claims have not been compared per client before and after** (SC-007).
+  Phase 0 checked three.
+- **No attributed write has been observed on the real stack** with the Keycloak
+  volume deleted, and no audit-trail entry has been read (SC-005). The
+  integration test proves the write is not refused; it does not read the trail.
 
 ---
 
