@@ -102,7 +102,7 @@ public sealed class ScenarioFileTests
     /// </summary>
     private static string ClipsDirectory()
     {
-        DirectoryInfo directory = new(AppContext.BaseDirectory);
+        DirectoryInfo? directory = new(AppContext.BaseDirectory);
 
         while (directory is not null && !Directory.Exists(Path.Combine(directory.FullName, "src", "AppHost")))
         {
