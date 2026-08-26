@@ -1,4 +1,4 @@
-{
+﻿{
   "realm": "smart-sentinel-eye",
   "enabled": true,
   "sslRequired": "none",
@@ -32,39 +32,12 @@
   "clientScopes": [
     {
       "name": "sse.management",
-      "description": "Legacy bundle (spec 001-007). Grandfathered until per-endpoint sse.*.write migration in spec 008 PR F.",
+      "description": "Legacy bundle (spec 001-007). Grandfathered until per-endpoint sse.*.write migration in spec 008 PR F. Grants permission only: identity claims moved to sse-identity in spec 042, so narrowing this cannot make a caller unattributable.",
       "protocol": "openid-connect",
       "attributes": {
         "include.in.token.scope": "true",
         "display.on.consent.screen": "true"
-      },
-      "protocolMappers": [
-        {
-          "name": "sub-claim",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-sub-mapper",
-          "consentRequired": false,
-          "config": {
-            "introspection.token.claim": "true",
-            "access.token.claim": "true"
-          }
-        },
-        {
-          "name": "preferred-username-claim",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-usermodel-attribute-mapper",
-          "consentRequired": false,
-          "config": {
-            "introspection.token.claim": "true",
-            "userinfo.token.claim": "true",
-            "user.attribute": "username",
-            "id.token.claim": "true",
-            "access.token.claim": "true",
-            "claim.name": "preferred_username",
-            "jsonType.label": "String"
-          }
-        }
-      ]
+      }
     },
     { "name": "sse.cameras.read", "description": "Read camera catalogue.", "protocol": "openid-connect", "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" } },
     { "name": "sse.cameras.write", "description": "Mutate camera catalogue.", "protocol": "openid-connect", "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" } },
@@ -108,10 +81,27 @@
           }
         }
       ]
+    },
+    {
+      "name": "sse-identity",
+      "description": "Emits the authenticated subject into the 'sub' JWT claim. Carries no permission: this realm defines its own clientScopes, so Keycloak's built-in basic scope does not exist and nothing else emits sub for an authorization-code flow (spec 042).",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "false", "display.on.consent.screen": "false" },
+      "protocolMappers": [
+        {
+          "name": "sub-claim",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "introspection.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
-  "clients": [
-    {
+  "clients": [    {
       "clientId": "smart-sentinel-eye-web",
       "name": "Smart Sentinel Eye Web App",
       "enabled": true,
@@ -129,10 +119,7 @@
         "pkce.code.challenge.method": "S256"
       },
       "defaultClientScopes": [
-        "basic",
-        "profile",
-        "email",
-        "roles",
+        "sse-identity",
         "sse-groups",
         "sse.management",
         "sse.audit.read"
@@ -140,7 +127,7 @@
     },
     {
       "clientId": "management-web",
-      "name": "Smart Sentinel Eye — Management Web (spec 008 v2)",
+      "name": "Smart Sentinel Eye â€” Management Web (spec 008 v2)",
       "description": "Replaces smart-sentinel-eye-web in spec 009.",
       "enabled": true,
       "publicClient": true,
@@ -156,14 +143,22 @@
         "pkce.code.challenge.method": "S256"
       },
       "defaultClientScopes": [
-        "basic", "profile", "email", "roles", "sse-groups",
-        "sse.cameras.read", "sse.cameras.write",
-        "sse.streams.read", "sse.streams.write",
-        "sse.layouts.read", "sse.layouts.write",
-        "sse.overlays.read", "sse.overlays.write",
-        "sse.variables.read", "sse.variables.write",
-        "sse.rules.read", "sse.rules.write",
-        "sse.events.read", "sse.events.write",
+        "sse-identity",
+        "sse-groups",
+        "sse.cameras.read",
+        "sse.cameras.write",
+        "sse.streams.read",
+        "sse.streams.write",
+        "sse.layouts.read",
+        "sse.layouts.write",
+        "sse.overlays.read",
+        "sse.overlays.write",
+        "sse.variables.read",
+        "sse.variables.write",
+        "sse.rules.read",
+        "sse.rules.write",
+        "sse.events.read",
+        "sse.events.write",
         "sse.webhooks.write",
         "sse.identity.devices.write",
         "sse.identity.kiosks.write",
@@ -174,8 +169,8 @@
     },
     {
       "clientId": "kiosk-web",
-      "name": "Smart Sentinel Eye — Kiosk Web (spec 008 v2)",
-      "description": "The kiosk app signs in here (spec 041). Scopes are exactly KeycloakScopeBundles.Kiosk. Carries its own sub mapper: this realm defines its own clientScopes, so the built-in basic scope does not exist and no scope here emits sub.",
+      "name": "Smart Sentinel Eye â€” Kiosk Web (spec 008 v2)",
+      "description": "The kiosk app signs in here (spec 041). Scopes are exactly KeycloakScopeBundles.Kiosk. sub comes from sse-identity like every other client (spec 042).",
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": true,
@@ -189,20 +184,9 @@
       "attributes": {
         "pkce.code.challenge.method": "S256"
       },
-      "protocolMappers": [
-        {
-          "name": "sub-claim",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-sub-mapper",
-          "consentRequired": false,
-          "config": {
-            "introspection.token.claim": "true",
-            "access.token.claim": "true"
-          }
-        }
-      ],
       "defaultClientScopes": [
-        "basic", "profile", "email", "roles", "sse-groups",
+        "sse-identity",
+        "sse-groups",
         "sse.cameras.read",
         "sse.streams.read",
         "sse.layouts.read",
@@ -213,7 +197,7 @@
     },
     {
       "clientId": "identity-admin",
-      "name": "Smart Sentinel Eye — Identity Admin (service account)",
+      "name": "Smart Sentinel Eye â€” Identity Admin (service account)",
       "description": "Used by the Identity API to create/rotate Keycloak clients via the Admin REST API.",
       "enabled": true,
       "publicClient": false,
@@ -222,11 +206,13 @@
       "directAccessGrantsEnabled": false,
       "secret": "dev-only-identity-admin-secret",
       "protocol": "openid-connect",
-      "defaultClientScopes": ["basic", "profile", "email", "roles"]
+      "defaultClientScopes": [
+        "sse-identity"
+      ]
     },
     {
       "clientId": "migration-runner",
-      "name": "Smart Sentinel Eye — Migration Runner (service account)",
+      "name": "Smart Sentinel Eye â€” Migration Runner (service account)",
       "description": "Reads /fabs so event partitions are provisioned per fab (spec 019). Read-only; see research.md R2 for why view-users is needed.",
       "enabled": true,
       "publicClient": false,
@@ -235,11 +221,13 @@
       "directAccessGrantsEnabled": false,
       "secret": "dev-only-migration-runner-secret",
       "protocol": "openid-connect",
-      "defaultClientScopes": ["basic", "profile", "email", "roles"]
+      "defaultClientScopes": [
+        "sse-identity"
+      ]
     },
     {
       "clientId": "stream-distribution-attribution",
-      "name": "Smart Sentinel Eye — Stream fab attribution (service account)",
+      "name": "Smart Sentinel Eye â€” Stream fab attribution (service account)",
       "description": "ADR-0116. Read-only account StreamDistribution uses at startup to learn the fab of a stream provisioned before spec 016. In every fab group on purpose: a stream's fab is what is unknown, so the lookup cannot be narrowed first.",
       "enabled": true,
       "publicClient": false,
@@ -248,11 +236,15 @@
       "directAccessGrantsEnabled": false,
       "secret": "dev-only-stream-distribution-secret",
       "protocol": "openid-connect",
-      "defaultClientScopes": ["basic", "profile", "email", "roles", "sse-groups", "sse.cameras.read"]
+      "defaultClientScopes": [
+        "sse-identity",
+        "sse-groups",
+        "sse.cameras.read"
+      ]
     },
     {
       "clientId": "scenario-simulator",
-      "name": "Smart Sentinel Eye — Scenario Simulator (dev-only service account)",
+      "name": "Smart Sentinel Eye â€” Scenario Simulator (dev-only service account)",
       "description": "Dev-only (ADR-0111). Service account the Scenario Simulator worker uses to seed the camera catalog via client_credentials. Never deployed.",
       "enabled": true,
       "publicClient": false,
@@ -261,11 +253,22 @@
       "directAccessGrantsEnabled": false,
       "secret": "dev-only-scenario-simulator-secret",
       "protocol": "openid-connect",
-      "defaultClientScopes": ["basic", "profile", "email", "roles", "sse-groups", "sse.cameras.write", "sse.cameras.read", "sse.overlays.write", "sse.rules.write", "sse.rules.read", "sse.layouts.write", "sse.layouts.read", "sse.overlays.read"]
+      "defaultClientScopes": [
+        "sse-identity",
+        "sse-groups",
+        "sse.cameras.write",
+        "sse.cameras.read",
+        "sse.overlays.write",
+        "sse.rules.write",
+        "sse.rules.read",
+        "sse.layouts.write",
+        "sse.layouts.read",
+        "sse.overlays.read"
+      ]
     },
     {
       "clientId": "event-ingestion",
-      "name": "Smart Sentinel Eye — Event Ingestion MQTT subscriber (service account)",
+      "name": "Smart Sentinel Eye â€” Event Ingestion MQTT subscriber (service account)",
       "description": "Service account the EventIngestion MQTT subscriber presents as its broker password (ADR-0100). The go-auth plugin enforces azp == MQTT username, so this clientId must match the 'event-ingestion' row in mosquitto/acl.txt that grants 'topic read fab/+/+/+'.",
       "enabled": true,
       "publicClient": false,
@@ -274,7 +277,9 @@
       "directAccessGrantsEnabled": false,
       "secret": "dev-only-event-ingestion-secret",
       "protocol": "openid-connect",
-      "defaultClientScopes": ["basic", "profile", "email", "roles"]
+      "defaultClientScopes": [
+        "sse-identity"
+      ]
     }
   ],
   "users": [
