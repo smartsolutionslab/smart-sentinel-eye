@@ -54,31 +54,44 @@ feature built. Four tiles, four distinguishable pictures.
 
 ---
 
-### User Story 2 — There is more than one plant (Priority: P2)
+### User Story 2 — There are three plants (Priority: P2)
 
-A second scenario exists — a **packaging / palletising line** — with its own
-assets, overlays, sensors and wall, and it looks like a different place from the
-rolling mill.
+Two further scenarios exist alongside the rolling mill, each with its own assets,
+overlays, sensors and wall:
 
-Packaging rather than a second steel process on purpose: conveyors, robots and
-wrapping look nothing like hot billet, and its sensors are counts, rates and jams
-rather than temperature and force. A scenario that reused the mill's sensor kinds
-would prove the file format takes a second entry, not that the simulator supports
-a second *kind* of plant.
+- **A paper mill** — Goričane, Slovenia. Refiners, broke chest, pressure
+  screener, press group, vacuum pumps, after-drying, and a packaging/palletising
+  station.
+- **An electronics line** — Gigaset, Germany. Injection moulding, in-mould
+  decoration, SMD placement, a pneumatic conveyor, mainboard assembly, quality
+  inspection, and labelling.
+
+**Three rather than two, and that is the point.** With two, a reader cannot tell
+a general capability from a special case bolted on beside the original — which is
+exactly how one hard-coded clip came to serve every camera. The third is what
+makes "a scenario is data" a claim the codebase can support rather than assert.
+
+The two are chosen for contrast in different directions. The electronics line is
+the farthest from hot steel — clean-room assembly, conveyors, robots, labelling,
+with sensors that count and rate rather than measure temperature and force. The
+paper mill sits between the two, and carries the packaging/palletising station
+that prompted this feature.
 
 **Why this priority**: One scenario cannot show that scenarios are a capability.
-Until there are two, every mechanism is indistinguishable from a hard-coded
-rolling mill — which is exactly how the single shared clip got there.
+Everything about the current simulator is indistinguishable from a hard-coded
+rolling mill.
 
-**Independent Test**: Seed both scenarios; open each wall. Two plants, not one
-plant twice.
+**Independent Test**: Seed all three; open each wall. Three plants, not one plant
+three times.
 
 **Acceptance Scenarios**:
 
-1. **Given** both scenarios are seeded, **When** an engineer lists cameras,
+1. **Given** all three scenarios are seeded, **When** an engineer lists cameras,
    **Then** each scenario's assets are present and named for their own plant.
-2. **Given** the second scenario's wall, **When** it is opened, **Then** its
-   tiles, overlays and sensor behaviour describe that plant, not the mill's.
+2. **Given** any one scenario's wall, **When** it is opened, **Then** its tiles,
+   overlays and sensor behaviour describe that plant and no other.
+3. **Given** the three walls side by side, **When** an engineer looks at them,
+   **Then** no tile from one plant could be mistaken for a tile from another.
 
 ---
 
@@ -134,8 +147,8 @@ handful a run creates, not a hundred of accumulated residue.
   looking at it.
 - **FR-004**: A camera belonging to no scenario MUST still stream, showing the
   shared clip with its own name burnt in and a per-camera colour shift.
-- **FR-005**: A second scenario MUST exist, describing a packaging / palletising
-  line — a different kind of plant, not a second steel process.
+- **FR-005**: Two further scenarios MUST exist — a paper mill and an electronics
+  line — each a different kind of plant, not a second steel process.
 - **FR-006**: A scenario MUST be addable without changing simulator code.
 - **FR-007**: An asset naming a missing clip MUST fail where it is seeded, with
   the asset and clip named. It MUST NOT provision a path that never becomes
@@ -144,7 +157,7 @@ handful a run creates, not a hundred of accumulated residue.
   effect, or MUST say it did not.
 - **FR-009**: Real clips MUST each carry an attribution/licence entry, following
   `sim-loop.ATTRIBUTION.txt`.
-- **FR-010**: The dev stack MUST carry **~20** simulated cameras — the two
+- **FR-010**: The dev stack MUST carry **~20** simulated cameras — the three
   scenarios' assets and a few spares — with every one of them streaming at once.
   250 is **not** this feature's target: it belongs to the load-realism feature
   ruled out below. A re-encode per stream is therefore affordable, and burning a
@@ -166,18 +179,19 @@ handful a run creates, not a hundred of accumulated residue.
 
 ### Measurable Outcomes
 
-- **SC-001**: On the rolling-mill wall, **zero** pairs of tiles show identical
+- **SC-001**: On any scenario wall, **zero** pairs of tiles show identical
   footage.
 - **SC-002**: A person shown a single tile can name which asset it is, without
   the layout, on the **first** attempt.
-- **SC-003**: **Two** scenarios are seedable, and adding a third needs no
-  simulator code change.
+- **SC-003**: **Three** scenarios are seedable, and adding a fourth needs no
+  simulator code change. Three rather than two because two cannot distinguish a
+  capability from a special case.
 - **SC-004**: **Zero** cameras in the catalogue stream nothing because their
   clip was missing — a missing clip is refused at seed time instead.
 - **SC-005**: Every real clip in the repo has an attribution entry. **Zero**
   unattributed binaries.
-- **SC-006**: Everything in the current scenario — sensors, overlays, highlights,
-  wall — behaves as it does today.
+- **SC-006**: Everything in the rolling-mill scenario — sensors, overlays,
+  highlights, wall — behaves as it does today.
 
 ## Assumptions
 
@@ -188,8 +202,10 @@ handful a run creates, not a hundred of accumulated residue.
   than oversight. Varied resolution/bitrate at 250 concurrent streams, and
   cameras that drop out or degrade to exercise the health sweep, are each their
   own feature.
-- **Repo size is a real constraint.** The existing clip is 5.5 MB; "a small set"
-  of real clips means single digits, not one per camera.
+- **Repo size is a real constraint.** A 20 s 720p excerpt costs ~5.5 MB, so
+  eight new clips across two scenarios is ~40 MB against a repo that holds one
+  today. Clips are shared between assets where a scenario has more assets than
+  distinct footage.
 - **~20 cameras is the dev target** (FR-010), which is what makes a per-stream
   re-encode affordable. Every cost argument in this spec rests on that number.
 - Existing scenario mechanics (sensor behaviours, MQTT timeline, wall seeding)
@@ -208,38 +224,50 @@ handful a run creates, not a hundred of accumulated residue.
 
 - **Dev-box target: ~20 cameras**, scenario assets and a few spares. 250 belongs
   to load realism, which is out of scope. FR-010.
-- **Second plant: a packaging / palletising line.** Chosen for contrast — its
-  look and its sensor kinds both differ from the mill's. FR-005.
+- **Two further plants, not one: a paper mill and an electronics line.** Three
+  scenarios in total. The packaging/palletising station that prompted this is the
+  paper mill's last stage; the electronics line supplies the contrast with hot
+  steel. FR-005.
 - **Bulk cameras: the shared clip, labelled and tinted per camera.** FR-004.
+- **Real clips, not derived or synthetic**, sourced from Wikimedia Commons under
+  CC BY 3.0. See below — this was the open question and it is now answered.
 
-## Still open — and it blocks Phase 2
+## Clips — sourced, and no longer blocking
 
-**How many real clips, of what, and who sources them?**
+Real footage, per the decision to supply clips rather than derive or synthesise.
+Sixteen candidates were found on Wikimedia Commons, all from the **"Sounds of
+Changes"** project and all **CC BY 3.0** — attribution only, no share-alike, so
+*more* permissive than the `sim-loop.mp4` already in the repo (CC BY-SA 3.0).
 
-This is the one question the spec cannot answer for itself: **I cannot source
-video.** Someone has to supply the files, and each needs an attribution/licence
-entry (FR-009).
+**Paper mill — Goričane, Slovenia.** Seven clips, all 1920×1080, 24–45 s:
+refiners, broke chest, pressure screener, press group, vacuum pumps, after-drying
+group, and *Packaging - manual and machine* (packing onto a pallet for dispatch).
 
-It matters most for the packaging line. The rolling mill has footage; a
-packaging scenario dressed in rolling-mill footage would be a second plant in
-name only, which defeats US2.
+**Electronics — Gigaset, Germany.** Nine clips, all 1280×720, 13–66 s: injection
+moulding, in-mould decoration I and II, SMD production line, pneumatic conveyor
+belt, mainboard and microphone, screwing the backs, quality inspection, attaching
+the label.
 
-Three ways forward, and the plan should not start until one is chosen:
+Each is one real plant filmed at several named stations, which is why they suit a
+scenario: they mirror how `rolling-mill.json` is already built (`Station 4 —
+Roughing Stand`, `Coiler`, …) rather than being unrelated stock clips pretending
+to be a line. **Which four per scenario is a plan-phase choice**, not a spec one.
 
-1. **Supply clips** — one per packaging asset, or one shared packaging clip
-   tinted per asset. Best result; needs sourcing and licence checks; each clip is
-   ~5 MB against a repo that currently holds one.
-2. **Derive from the existing clip** — crop, zoom, tint and label regions of the
-   mill footage per asset. Ships with no new binaries and no licence question,
-   but the packaging line would still *look* like a rolling mill, so US2 is only
-   half met and the spec should say so rather than quietly settle.
-3. **Synthetic for packaging only** — generated scenes for the new plant, real
-   footage for the mill. Honest, visually distinct, and unblocked; least
-   convincing in a demo.
+**The mechanics are already in the repo.** `scripts/generate-sim-loop.sh` does
+this job for the existing clip: downloads from Commons, excerpts 20 s at
+1280×720 through the MediaMTX `latest-ffmpeg` image (the host has no ffmpeg), and
+the result is committed. Generalising it to a table of (source, offset, asset) is
+the change.
 
-**If no answer arrives, 2 is the default** — it is the only option that can be
-built today — and the spec would then be amended to state that US2 is partially
-met, rather than claiming a variety it did not deliver.
+One caution for whoever writes the attribution files: **Commons' `extmetadata`
+API reports the packaging clip as CC-BY 4.0 while its file page says CC BY 3.0.**
+The page is authoritative. Read the page, not the API.
+
+### Sources
+
+- [File:Packaging - manual and machine.webm](https://commons.wikimedia.org/wiki/File:Packaging_-_manual_and_machine.webm)
+- [Category:Palletizers](https://commons.wikimedia.org/wiki/Category:Palletizers) — checked, contains no video
+- [Category:Videos of robots](https://commons.wikimedia.org/wiki/Category:Videos_of_robots)
 
 ## Verification note
 
