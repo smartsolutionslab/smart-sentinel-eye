@@ -17,12 +17,18 @@ const RETIRED = 'Decommissioned';
 export function CameraDetailPage() {
   const { cameraIdentifier = '' } = useParams();
   const auth = useAuth();
-  // Stable identity, holding the newest token behind a ref. `getToken` reaches
-  // effect dependency arrays inside `useWhepSession`, so a fresh function each
-  // render tears down and rebuilds the peer connection under the viewer — the
-  // bug spec 042 fixed in the kiosk's CellPage. Nothing visible fails when this
-  // is destabilised, which is why the page test asserts the identity rather
-  // than trusting this comment.
+  // Stable identity, holding the newest token behind a ref. `CameraViewer` puts
+  // this into the dependency array of its decode sampler, so a fresh function
+  // each render clears that interval before it can take a second sample and the
+  // leg reports zero of them (issue 1889). `useWhepSession` guards its own use
+  // of the prop behind a ref and says why, so the peer connection survives an
+  // unstable getter — the sampler is what does not.
+  //
+  // Empty deps, not [auth.user?.access_token]: the ref already carries the
+  // newest token, so keying on its value would restart the sampler on every
+  // silent renew for no gain. Nothing visible fails either way, which is why
+  // the page test asserts the identity across a token change rather than
+  // trusting this comment.
   const accessTokenRef = useRef(auth.user?.access_token);
   accessTokenRef.current = auth.user?.access_token;
   const getToken = useCallback(() => Promise.resolve(accessTokenRef.current ?? null), []);
