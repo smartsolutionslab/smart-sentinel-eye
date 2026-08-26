@@ -35,10 +35,28 @@ public sealed class CameraSimProvisioner(HttpClient http, ILogger<CameraSimProvi
     /// target at ~20 cameras. Point 250 at this and the dev box is where you find
     /// out; the number is the assumption, not the encoder settings.
     /// </remarks>
+    /// <summary>
+    /// The font `drawtext` renders with, inside camera-sim's <c>/media</c> mount.
+    /// </summary>
+    /// <remarks>
+    /// <b>Named explicitly because the image has none.</b> `bluenviron/mediamtx`
+    /// ships no fonts at all — no <c>/usr/share/fonts</c>, no <c>.ttf</c>
+    /// anywhere — so a bare <c>drawtext</c> fails with "Cannot find a valid font
+    /// for the family Sans", the ffmpeg process never starts, and the path never
+    /// becomes ready. The camera then shows nothing, which on a wall is
+    /// indistinguishable from a broken camera.
+    /// <para>
+    /// The unit tests could not catch that: they assert the shape of the command
+    /// string and never run ffmpeg. It was found by executing the command against
+    /// the real image.
+    /// </para>
+    /// </remarks>
+    private const string FontFile = "/media/DejaVuSans.ttf";
+
     private static string LabelledCommand(string clip, string label, int hueDegrees) =>
         $"ffmpeg -stream_loop -1 -re -i /media/{clip} " +
-        $"-vf \"hue=h={hueDegrees},drawtext=text='{Sanitize(label)}':x=24:y=24:fontsize=36:" +
-        "fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=10\" " +
+        $"-vf \"hue=h={hueDegrees},drawtext=fontfile={FontFile}:text='{Sanitize(label)}':" +
+        "x=24:y=24:fontsize=36:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=10\" " +
         "-c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p " +
         "-f rtsp rtsp://localhost:8554/$MTX_PATH";
 

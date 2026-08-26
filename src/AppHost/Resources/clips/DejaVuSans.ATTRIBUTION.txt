@@ -1,0 +1,25 @@
+DejaVuSans.ttf — the font `drawtext` renders bulk-camera labels with
+(ADR-0111, spec 044 FR-004). Dev-only.
+
+  Name:    DejaVu Sans
+  Source:  https://dejavu-fonts.github.io/
+  License: DejaVu Fonts License (a permissive, Bitstream Vera-derived licence)
+           https://dejavu-fonts.github.io/License.html
+
+Free to use, modify and redistribute, including bundled with software, with the
+condition that the fonts and derivatives may not be sold on their own.
+
+**Why it is here at all.** `bluenviron/mediamtx:latest-ffmpeg` — the image
+camera-sim runs — ships no fonts whatsoever: no /usr/share/fonts, no .ttf or
+.otf anywhere, though `fc-list` exists to report nothing. A bare `drawtext`
+fails with "Cannot find a valid font for the family Sans", so the ffmpeg process
+never starts and the path never becomes ready. On a wall that is
+indistinguishable from a broken camera.
+
+It lives in the clips directory because that directory is what the AppHost
+bind-mounts at /media, which is the only path camera-sim can see.
+
+Reproduce with:
+
+  docker run --rm -v "<clips>:/out" --entrypoint sh alpine:3.20 -c \
+    "apk add --no-cache font-dejavu && cp /usr/share/fonts/dejavu/DejaVuSans.ttf /out/"

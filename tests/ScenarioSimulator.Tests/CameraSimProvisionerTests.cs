@@ -79,6 +79,14 @@ public sealed class CameraSimProvisionerTests
         first.ShouldContain("Line 7 Spare");
         first.ShouldNotBe(handler.LastBody);
 
+        // The font, named explicitly. `bluenviron/mediamtx` ships none, so a bare
+        // drawtext fails with "Cannot find a valid font for the family Sans", the
+        // ffmpeg process never starts and the path never goes ready — which on a
+        // wall looks exactly like a broken camera. That shipped, because a test
+        // asserting the command *string* cannot notice a command that will not
+        // run; it was found by executing this against the real image.
+        first.ShouldContain("fontfile=/media/DejaVuSans.ttf");
+
         // It cannot stream-copy: the pixels change. Asserted so the cost is a
         // decision someone made rather than a surprise on a dev box.
         first.ShouldContain("libx264");
