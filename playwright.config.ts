@@ -44,5 +44,22 @@ export default defineConfig({
       testMatch: /kiosk-.*\.spec\.ts/,
       dependencies: ['seed'],
     },
+    // Issue 1895 — retires the cameras this run registered, so a long-lived dev
+    // database does not fill with rows pointing at addresses nothing serves.
+    //
+    // `dependencies` rather than a project-level `teardown`, and the ordering is
+    // the reason: the seed camera is bound to the published layout the kiosk
+    // opens, so cleaning it while `kiosk` is still running would pull a wall out
+    // from under a test. Depending on both projects makes "after everything that
+    // registers a camera" explicit instead of implied.
+    //
+    // A `--project=chromium` run therefore does NOT clean up. That is the
+    // trade for not deleting the kiosk's layout mid-run; a full run does.
+    {
+      name: 'cleanup',
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173' },
+      testMatch: /.*\.teardown\.ts/,
+      dependencies: ['chromium', 'kiosk'],
+    },
   ],
 });
