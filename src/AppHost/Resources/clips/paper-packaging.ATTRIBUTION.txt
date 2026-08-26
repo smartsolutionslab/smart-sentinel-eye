@@ -1,0 +1,16 @@
+paper-packaging.mp4 — dev-only Scenario Simulator camera feed (ADR-0111, spec 044).
+
+It is a 20-second excerpt of:
+
+  Title:   Packaging - manual and machine
+  Author:  Video: Barbara Rezar Grilc, Sound: Dušan Oblak, Photo: Irena Marušič
+  Project: Sounds of Changes
+  Source:  https://commons.wikimedia.org/wiki/File:Packaging_-_manual_and_machine.webm
+  License: Creative Commons Attribution 3.0 Unported (CC BY 3.0)
+           https://creativecommons.org/licenses/by/3.0/
+
+As a derivative work, this excerpt is likewise licensed under CC BY 3.0.
+Attribution only — unlike sim-loop.mp4 (CC BY-SA 3.0), no share-alike applies.
+
+Regenerate with scripts/generate-sim-clips.sh. Used only by the dev-only
+camera-sim, which the AppHost gates off in CI/E2E/prod.

@@ -458,7 +458,11 @@ if (isRunMode && !isE2ETests)
     var cameraSim = builder
         .AddContainer("camera-sim", "bluenviron/mediamtx", "latest-ffmpeg")
         .WithBindMount("Resources/camera-sim.yml", "/mediamtx.yml")
-        .WithBindMount("Resources/sim-loop.mp4", "/media/sim-loop.mp4")
+        // The whole clips directory, not one file: an asset names its own clip
+        // (spec 044) and mounting them individually would mean editing AppHost
+        // every time a scenario gains a station. sim-loop.mp4 lives in here too
+        // and stays the default for any camera with no scenario asset.
+        .WithBindMount("Resources/clips", "/media")
         .WithHttpEndpoint(targetPort: 9997, name: "api")
         .WithEndpoint(targetPort: 8554, name: "rtsp", scheme: "tcp")
         .WithLifetime(ContainerLifetime.Persistent);
