@@ -71,4 +71,28 @@ public class AspireFixtureReportSelectionTests
 
         AspireFixture.SelectResourcesToReport(states).ShouldBe(["identity"]);
     }
+
+    [Fact]
+    public void An_exited_resource_reports_its_exit_code()
+    {
+        // `Finished` alone cannot distinguish a clean shutdown from a death.
+        // The exit code is the fact that decides it, and its absence is why
+        // #1918's one occurrence could not be diagnosed afterwards.
+        Dictionary<string, string> states = new(StringComparer.Ordinal)
+        {
+            ["automation"] = "Finished",
+            ["camera-catalog"] = "Running",
+        };
+        Dictionary<string, int?> exitCodes = new(StringComparer.Ordinal)
+        {
+            ["automation"] = 139,
+            ["camera-catalog"] = null,
+        };
+
+        string report = AspireFixture.FormatResourceStates(states, exitCodes);
+
+        report.ShouldContain("automation: Finished (exit code 139)");
+        report.ShouldContain("camera-catalog: Running");
+        report.ShouldNotContain("camera-catalog: Running (exit");
+    }
 }
