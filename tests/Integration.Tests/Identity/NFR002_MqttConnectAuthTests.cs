@@ -4,6 +4,7 @@ using System.Text.Json;
 using MQTTnet;
 using MQTTnet.Client;
 using SmartSentinelEye.Integration.Tests.Fixtures;
+using Xunit.Abstractions;
 
 namespace SmartSentinelEye.Integration.Tests.Identity;
 
@@ -38,7 +39,7 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
-public class NFR002_MqttConnectAuthTests(AspireFixture aspire) : IAsyncLifetime
+public class NFR002_MqttConnectAuthTests(AspireFixture aspire, ITestOutputHelper output) : IAsyncLifetime
 {
     private const int WarmupIterations = 10;
     private const int MeasureIterations = 100;
@@ -62,8 +63,25 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire) : IAsyncLifetime
 
     public Task DisposeAsync() => Task.CompletedTask;
 
+    /// <summary>
+    /// The transport-aware budgets below were calibrated against CI's runner —
+    /// Linux with native Docker. A developer machine reaches the broker through
+    /// a different and slower path (Docker Desktop's VM hop on Windows and
+    /// macOS), so the same numbers describe the local container networking
+    /// rather than this code, and the test was permanently red off-CI (#1905).
+    /// </summary>
+    /// <remarks>
+    /// Off-CI the measurement still runs and still reports — 100 authenticated
+    /// CONNECTs against the real broker and the custom go-auth plugin is real
+    /// coverage, and a failure to connect at all still fails the test. Only the
+    /// two thresholds are withheld, because neither is portable: the observed
+    /// local p99 exceeds even the gross-regression ceiling.
+    /// </remarks>
+    private static bool BudgetsApplyHere =>
+        Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
+
     [Fact]
-    public async Task Mqtt_CONNECT_to_CONNACK_p99_stays_under_the_five_millisecond_budget()
+    public async Task Mqtt_CONNECT_to_CONNACK_median_stays_within_the_transport_budget()
     {
         string adminToken = await aspire.GetAccessTokenAsync(
             AspireFixture.AdminUsername, AspireFixture.AdminPassword);
@@ -92,6 +110,15 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire) : IAsyncLifetime
         double p50 = elapsedMs[MeasureIterations / 2];
         double p99 = elapsedMs[(int)Math.Ceiling(MeasureIterations * 0.99) - 1];
         double max = elapsedMs[^1];
+
+        output.WriteLine(
+            $"CONNECT→CONNACK over {MeasureIterations} connections: p50 = {p50:F2} ms, p99 = {p99:F2} ms, max = {max:F2} ms "
+            + $"(budgets {(BudgetsApplyHere ? "enforced" : "reported only — off-CI transport, see #1905")})");
+
+        if (!BudgetsApplyHere)
+        {
+            return;
+        }
 
         // Gate on the median (the typical connect cost); guard the p99 tail
         // only against gross regressions — see the class remarks for why the
