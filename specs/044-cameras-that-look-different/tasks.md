@@ -107,7 +107,7 @@ same seeding path.
 
 ## Phase 6: The part no machine can do
 
-- [ ] T023 Follow [quickstart.md](./quickstart.md) against `dotnet run --project src/AppHost`. Per wall: are all four tiles different, and can you name a tile's asset **without** the layout? Confirm no tile from one plant could pass for another's. Confirm the animated wall still highlights (FR-011). Register two cameras by hand and confirm they differ. Then cause both failures from quickstart §5 and record which did **not** fire. Name any step not performed.
+- [x] T023 Follow [quickstart.md](./quickstart.md) against `dotnet run --project src/AppHost`. Per wall: are all four tiles different, and can you name a tile's asset **without** the layout? Confirm no tile from one plant could pass for another's. Confirm the animated wall still highlights (FR-011). Register two cameras by hand and confirm they differ. Then cause both failures from quickstart §5 and record which did **not** fire. Name any step not performed.
 
 ---
 
@@ -244,7 +244,10 @@ Goričane alternates above are the replacements and the change is one line in
 
 ---
 
-## T023 result (partial) — one tile rejected and replaced
+## T023, first attempt — one tile rejected and replaced
+
+*Kept as the record of what was found then. The task was completed on
+2026-08-27; see "T023 — complete" at the end of this file.*
 
 **`paper-refiners` was rejected on the wall as too washed out to identify.** That
 is SC-002 failing exactly where the reservation said it might: the clip is
@@ -277,30 +280,128 @@ unresolved, and quickstart §5's two deliberate failures have not been run.
 
 ---
 
-## T023 — what remains, and why it is still open
 
-**T023 is NOT complete.** One of its five checks was performed; the rest were
-not. It stays unticked, because the whole reason this task exists is that no
-automated check substitutes for it — and a task marked done on partial evidence
-is worse than one honestly left open.
+## T023 — complete. Every check performed, on 2026-08-27
 
-| Check | State |
-|---|---|
-| Paper wall: four different tiles, each nameable without the layout | **Done.** `paper-refiners` was rejected and replaced; `paper-pressure-screener` reads fine. |
-| Rolling-mill wall: same two questions | **Partly done.** `mill-coiler` was rejected as too dark and moved from 440 s to 320 s; the replacement has not been judged on the wall. |
-| Electronics wall: same two questions | **Not done.** Never opened. |
-| No tile from one plant could pass for another plant's | **Not done.** |
-| The animated wall still highlights on threshold (FR-011) | **Not done.** |
-| Two hand-registered cameras look different from each other (FR-004) | **Not done.** |
-| Quickstart §5: a missing clip fails at seed time, naming asset and clip | **Not done.** |
-| Quickstart §5: a changed clip takes effect on restart | **Incidentally confirmed.** The `Replaced camera-sim path …` lines fired against real stale paths across two boots. Not the deliberate exercise §5 asks for, but the same code path. |
+All seven checks were run against the run-mode stack. **One defect was found and
+filed** (FR-004); everything else holds. Recorded per check, because a task whose
+whole point is that no automated check substitutes for it must say what was
+actually looked at.
 
-**To resume**: `dotnet run --project src/AppHost`, roughly three minutes to a
-seeded stack, then `http://localhost:5173` as `operator` / `Operator1234`. Adding
-`ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true` makes the Aspire dashboard
-reachable without hunting for the browser token in buffered stdout.
+**Preconditions confirmed**: `camera-sim` holds one path per asset across **all
+three** scenarios — 12 paths, every one `ready: true`. All 12 tiles were verified
+to be *moving*, by comparing two grabs of each tile seconds apart; a frozen tile
+and a playing one are identical in a single screenshot.
 
-**The question that matters** is not "are the tiles different" — every automated
-check already proves that. It is **"can you name which asset a tile is without
-consulting the layout"**. Four different clips of the same machine satisfy SC-001
-and still fail SC-002, and that gap is the entire reason a person is required.
+### Per wall (SC-001, SC-002)
+
+| Wall | Four different tiles? | Nameable without the layout? |
+|---|---|---|
+| **Paper mill** | **Yes** — ABB motors / yellow press group / control desk with operators / packaging hall | **Yes**, all four. The strongest wall of the three. |
+| **Electronics** | **Yes** — ENGEL moulding machine / SMD placement head over component reels / pneumatic conveyor / UR cobot inspection cell | **Yes**, all four. |
+| **Rolling mill** | **Yes** — roughing stand / finishing run-out / cooling bed / coiler | **Yes, with one reservation** (below). |
+
+**No tile from one plant could pass for another plant's.** The three read as three
+plants at a glance: dark scenes with glowing steel; a bright paper mill with white
+stock and Voith Sulzer plant; a clean electronics line with robots and PCBs.
+
+### The rolling mill's reservation, stated rather than rounded up
+
+**`mill-coiler`'s replacement is acceptable.** The 320 s excerpt that replaced the
+rejected 440 s one reads as a coiler: a white-hot slab on the run-out table under
+yellow coiler machinery, with a yellow handrail foreground. Dark, but the subject
+is legible. **This closes the reservation left open at the first T023 attempt.**
+
+**`mill-station-7-finishing` is the weakest tile on any wall**, and it is a
+property of the clip rather than a defect. It is a handheld walking shot whose
+content changes across the loop. Sampled every 11 s:
+
+- part of the loop shows a long roller run-out table — clearly a rolling mill;
+- part shows dark green mill machinery and a walkway — industrial, but not
+  obviously a *finishing stand*;
+- **part shows only handrails and a person's orange jacket in close-up**, which
+  names nothing at all. This segment recurs; it was caught in three separate
+  captures.
+
+So SC-002 holds for this tile *most* of the time and fails during that segment.
+Not filed as a defect — it is a judgement about footage, and the fix is a
+different excerpt, the same remedy already applied twice in this feature.
+
+**`cooling-bed` and `coiler` are the closest pair on any wall** — both dark
+scenes of glowing steel on a roller line with yellow structure. Distinguishable
+at tile size (the cooling bed has its stair and steam; the coiler has the coiler
+machine), but they are the two a hurried operator is most likely to conflate.
+
+### FR-011 — the animated wall still highlights: **confirmed**
+
+The `Active`-becomes-a-list change did not break it. Watched for 180 s on
+`rolling-mill-wall`, polling `data-highlighted`:
+
+```
+[138.9s] ROUGHING — HOT BILLET   highlighted=true
+[140.5s] FINISHING — STRIP       highlighted=true
+[144.2s] ROUGHING — HOT BILLET   highlighted=false
+[149.2s] COOLING BED             highlighted=true
+[157.1s] COILER — COIL READY     highlighted=true
+[166.2s] ROUGHING — HOT BILLET   highlighted=true   ← cycle repeats
+```
+
+**All four tiles highlight**, in billet order down the line, ~4–5 s each, with the
+cycle repeating about every 27 s. The green border is plainly visible on the wall.
+The other two walls are static, which is deliberate (plan §2) and not reported.
+
+### FR-004 — two hand-registered cameras: **FAILS. Filed as issue 1942**
+
+Following quickstart §4 exactly — two cameras, both at
+`rtsp://camera-sim:8554/anything` — **both render the same burnt-in name and the
+same hue**. The second registration silently rewrote the first camera's picture.
+
+The cause is not the hue: `ProvisionLabelledPathAsync` derives it per camera
+identifier, correctly. It is that `CameraRegisteredSimHandler` names the
+camera-sim path after the **URL**, so two cameras sharing a URL share one path and
+provisioning is last-writer-wins. `camera-sim` held exactly one path, `anything`,
+whose command carried `hue=h=140` and `text='E2E T023 Camera Beta'`.
+
+FR-004 requires "**its own name** burnt in and a **per-camera** colour shift".
+Neither holds in the case the quickstart itself prescribes. **No automated check
+covers this**, and none could as written: they all assert each camera is *pointed
+at a different file*, and here both genuinely are pointed at the same one.
+
+### Quickstart §5, both failures: **both fire**
+
+**A missing clip (FR-007): correct.** Pointing `electronics-moulding` at
+`no-such-clip.mp4` and restarting produced, at seed time:
+
+```
+Asset 'electronics-moulding' names clip 'no-such-clip.mp4', which is not in the
+clips directory. Add it (scripts/generate-sim-clips.sh) or correct the scenario file.
+```
+
+Both the asset and the clip are named, with the remedy. **No never-ready path was
+provisioned** — the asset is skipped and the pre-existing path kept its previous,
+valid command.
+
+*Worth knowing*: the process **does not exit**. `CameraSimReconciler` logs at
+`Error` and continues, deliberately — *"one bad asset should cost its own tile,
+not the run"*. That satisfies FR-007, which requires the failure to be raised
+"where it is seeded" and forbids a never-ready path; it does not require exit.
+Quickstart §5's looser phrasing ("must fail at startup") reads as though it might.
+A consequence: on a stack where the path already exists, a mistyped clip name
+leaves the **old footage playing** with only an error log to say so.
+
+**A changed clip (FR-008): correct, and this is the one worth having done.**
+Repointing `electronics-moulding` at `electronics-conveyor.mp4` and restarting
+changed the picture — the MOULDING tile rendered the conveyor footage, and
+camera-sim's command for that path was rewritten to `/media/electronics-conveyor.mp4`.
+`ProvisionLoopPathAsync` is **not** treating "already exists" as success. Its
+failure mode is silence — no error, no log, the old picture — so nothing else in
+the suite catches it.
+
+**The stack was restored**: the scenario file was put back, the simulator
+restarted, and `electronics-moulding` confirmed playing its own clip and
+`ready: true` again.
+
+### Nothing was skipped
+
+Every check in quickstart §2–§5 was performed. The two hand-registered cameras
+were left in the database under the `E2E ` prefix the camera teardown reclaims.
