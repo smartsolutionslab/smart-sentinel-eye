@@ -31,9 +31,12 @@ export function RulesPage() {
   // name and version the confirmation and the request both need.
   const [archiveFor, setArchiveFor] = useState<{ name: string; version: number; fab: string } | null>(null);
 
-  const { data: rules, isLoading, isError, refetch } = useListRulesQuery(
-    stateFilter === undefined ? undefined : { state: stateFilter },
-  );
+  const {
+    data: rules,
+    isLoading,
+    isError,
+    refetch,
+  } = useListRulesQuery(stateFilter === undefined ? undefined : { state: stateFilter });
   const [publishRule] = usePublishRuleMutation();
   const [archiveRule, { isLoading: archiving }] = useArchiveRuleMutation();
 
@@ -98,9 +101,7 @@ export function RulesPage() {
           <Button
             type="button"
             variant="ghost"
-            onClick={() =>
-              setDryRunFor(dryRunFor?.name === rule.name ? null : { name: rule.name, fab: rule.fab })
-            }
+            onClick={() => setDryRunFor(dryRunFor?.name === rule.name ? null : { name: rule.name, fab: rule.fab })}
           >
             {dryRunFor?.name === rule.name ? 'Hide dry run' : 'Dry run'}
           </Button>
@@ -171,8 +172,8 @@ export function RulesPage() {
       >
         <p>This cannot be undone.</p>
         <p>
-          The rule cannot be published again. Authoring a replacement means cloning it, which creates
-          a new rule with its own history.
+          The rule cannot be published again. Authoring a replacement means cloning it, which creates a new rule with
+          its own history.
         </p>
       </ArchiveConfirmation>
 
@@ -189,10 +190,6 @@ function describeAction(rule: Rule): string {
 
 function StateBadge({ state }: { state: RuleState }) {
   const tone =
-    state === 'Active'
-      ? 'text-accent-active'
-      : state === 'Archived'
-        ? 'text-fg-muted'
-        : 'text-accent-warning';
+    state === 'Active' ? 'text-accent-active' : state === 'Archived' ? 'text-fg-muted' : 'text-accent-warning';
   return <span className={`text-xs font-medium ${tone}`}>{state}</span>;
 }

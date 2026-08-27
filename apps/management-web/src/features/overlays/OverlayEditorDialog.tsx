@@ -1,8 +1,5 @@
 import { useCreateOverlayDraftMutation } from '@smart-sentinel-eye/shared/api/overlays.api';
-import {
-  createOverlayDraftSchema,
-  type CreateOverlayDraftInput,
-} from '@smart-sentinel-eye/shared/api/overlays.schema';
+import { createOverlayDraftSchema, type CreateOverlayDraftInput } from '@smart-sentinel-eye/shared/api/overlays.schema';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
@@ -90,9 +87,7 @@ export function OverlayEditorDialog({ open, onOpenChange }: OverlayEditorDialogP
         <Controller
           control={control}
           name="label"
-          render={({ field }) => (
-            <OverlayEditor value={field.value} onChange={field.onChange} />
-          )}
+          render={({ field }) => <OverlayEditor value={field.value} onChange={field.onChange} />}
         />
         {errors.label?.text?.message !== undefined && (
           <p role="alert" className="text-sm text-accent-fault">

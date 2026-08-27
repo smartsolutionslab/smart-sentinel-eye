@@ -16,11 +16,7 @@ const GUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a
 // zero-indexed (row, col).
 const tileSchema = z.object({
   cameraIdentifier: z.string().regex(GUID, 'cameraIdentifier must be a Guid'),
-  overlayIdentifier: z
-    .string()
-    .regex(GUID, 'overlayIdentifier must be a Guid')
-    .nullable()
-    .optional(),
+  overlayIdentifier: z.string().regex(GUID, 'overlayIdentifier must be a Guid').nullable().optional(),
   row: z.number().int().min(0),
   col: z.number().int().min(0),
 });
@@ -43,7 +39,11 @@ const refineGrid = (
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['grid'], message: `A grid may not exceed ${MAX_CELLS} cells` });
   }
   if (tiles.length > MAX_TILES) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['tiles'], message: `A grid may contain at most ${MAX_TILES} tiles` });
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['tiles'],
+      message: `A grid may contain at most ${MAX_TILES} tiles`,
+    });
   }
 
   const seen = new Set<string>();
@@ -53,7 +53,11 @@ const refineGrid = (
     }
     const key = `${tile.row},${tile.col}`;
     if (seen.has(key)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['tiles', index], message: 'Two tiles occupy the same position' });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['tiles', index],
+        message: 'Two tiles occupy the same position',
+      });
     }
     seen.add(key);
   });

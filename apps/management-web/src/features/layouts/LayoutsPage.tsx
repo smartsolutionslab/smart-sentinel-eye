@@ -15,12 +15,7 @@ import { ArchiveConfirmation } from '../ArchiveConfirmation';
 import { chainView } from '../chainView.js';
 import { LayoutEditorDialog, type LayoutEditTarget } from './LayoutEditorDialog.js';
 
-const STATE_FILTERS: ReadonlyArray<LayoutRevisionState | 'All'> = [
-  'All',
-  'Draft',
-  'Published',
-  'Archived',
-];
+const STATE_FILTERS: ReadonlyArray<LayoutRevisionState | 'All'> = ['All', 'Draft', 'Published', 'Archived'];
 
 export function LayoutsPage() {
   const [createOpen, setCreateOpen] = useState(false);
@@ -63,8 +58,7 @@ export function LayoutsPage() {
   // Every one of these used to discard its failure, so a rejected publish or
   // archive looked identical to a successful one. With optimistic concurrency
   // live (ADR-0113) a rejection is routine, not exceptional.
-  const mutationError =
-    publishState.error ?? archiveState.error ?? branchState.error ?? revertState.error;
+  const mutationError = publishState.error ?? archiveState.error ?? branchState.error ?? revertState.error;
 
   const chains = data?.chains ?? [];
   const visible = filter === 'All' ? chains : chains.filter((c) => containsRevisionIn(c, filter));
@@ -143,13 +137,9 @@ export function LayoutsPage() {
         </div>
       )}
 
-      {(isLoading || isFetching) && (
-        <p className="text-sm text-fg-muted">Loading…</p>
-      )}
+      {(isLoading || isFetching) && <p className="text-sm text-fg-muted">Loading…</p>}
 
-      {!isLoading && visible.length === 0 && (
-        <p className="text-sm text-fg-muted">No layouts to show.</p>
-      )}
+      {!isLoading && visible.length === 0 && <p className="text-sm text-fg-muted">No layouts to show.</p>}
 
       <ul className="flex flex-col gap-2">
         {visible.map((chain) => {
@@ -161,20 +151,13 @@ export function LayoutsPage() {
           const { live, draft, newest, summarised, fullyArchived } = chainView(chain.revisions);
           const disabled = publishing || archiving || branching || reverting;
           return (
-            <li
-              key={chain.layoutIdentifier}
-              className="rounded-md border border-fg-muted/30 bg-bg-elevated px-4 py-3"
-            >
+            <li key={chain.layoutIdentifier} className="rounded-md border border-fg-muted/30 bg-bg-elevated px-4 py-3">
               <header className="flex items-center justify-between">
                 <h2 className="text-lg font-medium">{chain.name}</h2>
                 <span className="text-xs text-fg-muted">{badge(live, draft, summarised)}</span>
               </header>
-              <p className="mt-1 text-xs text-fg-muted font-mono">
-                {chain.layoutIdentifier}
-              </p>
-              {summarised !== undefined && (
-                <p className="mt-1 text-xs text-fg-muted">{tileSummary(summarised)}</p>
-              )}
+              <p className="mt-1 text-xs text-fg-muted font-mono">{chain.layoutIdentifier}</p>
+              {summarised !== undefined && <p className="mt-1 text-xs text-fg-muted">{tileSummary(summarised)}</p>}
               <div className="mt-3 flex gap-2">
                 {draft !== undefined && (
                   <Button
@@ -287,9 +270,7 @@ export function LayoutsPage() {
         disturbs no kiosk.
       */}
       <ArchiveConfirmation
-        subject={
-          archiveFor === null ? null : `revision ${archiveFor.revisionNumber} of ${archiveFor.name}`
-        }
+        subject={archiveFor === null ? null : `revision ${archiveFor.revisionNumber} of ${archiveFor.name}`}
         onCancel={() => setArchiveFor(null)}
         pending={archiving}
         onConfirm={() => {
@@ -323,11 +304,7 @@ export function LayoutsPage() {
       */}
       <ArchiveConfirmation
         verb="Discard"
-        subject={
-          discardFor === null
-            ? null
-            : `draft revision ${discardFor.revisionNumber} of ${discardFor.name}`
-        }
+        subject={discardFor === null ? null : `draft revision ${discardFor.revisionNumber} of ${discardFor.name}`}
         onCancel={() => setDiscardFor(null)}
         pending={archiving}
         onConfirm={() => {
@@ -347,8 +324,8 @@ export function LayoutsPage() {
         </p>
         {discardFor?.liveRevision !== undefined && (
           <p>
-            {discardFor.name} stays exactly as it is — revision {discardFor.liveRevision} is still
-            published and kiosks are unaffected.
+            {discardFor.name} stays exactly as it is — revision {discardFor.liveRevision} is still published and kiosks
+            are unaffected.
           </p>
         )}
       </ArchiveConfirmation>

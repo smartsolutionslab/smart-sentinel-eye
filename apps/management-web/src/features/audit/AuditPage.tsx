@@ -1,13 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import {
-  useSearchAuditQuery,
-  type AuditRow,
-  type SearchAuditInput,
-} from '@smart-sentinel-eye/shared/api/audit.api';
-import {
-  DataTable,
-  type DataTableColumn,
-} from '@smart-sentinel-eye/shared/ui/composites/DataTable';
+import { useSearchAuditQuery, type AuditRow, type SearchAuditInput } from '@smart-sentinel-eye/shared/api/audit.api';
+import { DataTable, type DataTableColumn } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
@@ -78,10 +71,8 @@ export function AuditPage() {
     setSelected(null);
   };
 
-  const setField =
-    (field: keyof FilterDraft) =>
-    (event: { target: { value: string } }) =>
-      setDraft((current) => ({ ...current, [field]: event.target.value }));
+  const setField = (field: keyof FilterDraft) => (event: { target: { value: string } }) =>
+    setDraft((current) => ({ ...current, [field]: event.target.value }));
 
   const columns = useMemo<DataTableColumn<AuditRow>[]>(
     () => [
@@ -90,10 +81,7 @@ export function AuditPage() {
       {
         id: 'resource',
         header: 'Resource',
-        cell: (row) =>
-          row.resourceKind === null
-            ? '—'
-            : `${row.resourceKind} / ${row.resourceIdentifier ?? ''}`,
+        cell: (row) => (row.resourceKind === null ? '—' : `${row.resourceKind} / ${row.resourceIdentifier ?? ''}`),
       },
       { id: 'actor', header: 'Actor', cell: actorLabel },
       { id: 'fab', header: 'Fab', cell: (row) => row.fab ?? '—' },
@@ -121,13 +109,28 @@ export function AuditPage() {
           <Input id="audit-fab" placeholder="e.g. munich" value={draft.fabId} onChange={setField('fabId')} />
         </FormField>
         <FormField label="Event kind" htmlFor="audit-kind">
-          <Input id="audit-kind" placeholder="e.g. CameraRegisteredV1" value={draft.eventKind} onChange={setField('eventKind')} />
+          <Input
+            id="audit-kind"
+            placeholder="e.g. CameraRegisteredV1"
+            value={draft.eventKind}
+            onChange={setField('eventKind')}
+          />
         </FormField>
         <FormField label="Resource kind" htmlFor="audit-resource">
-          <Input id="audit-resource" placeholder="e.g. camera" value={draft.resourceKind} onChange={setField('resourceKind')} />
+          <Input
+            id="audit-resource"
+            placeholder="e.g. camera"
+            value={draft.resourceKind}
+            onChange={setField('resourceKind')}
+          />
         </FormField>
         <FormField label="Actor" htmlFor="audit-actor">
-          <Input id="audit-actor" placeholder="username" value={draft.actorUsername} onChange={setField('actorUsername')} />
+          <Input
+            id="audit-actor"
+            placeholder="username"
+            value={draft.actorUsername}
+            onChange={setField('actorUsername')}
+          />
         </FormField>
         <FormField label="Since" htmlFor="audit-since">
           <Input id="audit-since" type="datetime-local" value={draft.since} onChange={setField('since')} />
@@ -144,7 +147,10 @@ export function AuditPage() {
       </form>
 
       {error !== undefined && (
-        <div role="alert" className="mb-4 rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault">
+        <div
+          role="alert"
+          className="mb-4 rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
+        >
           Could not load the audit trail.{' '}
           <button type="button" className="underline" onClick={() => void refetch()}>
             Retry

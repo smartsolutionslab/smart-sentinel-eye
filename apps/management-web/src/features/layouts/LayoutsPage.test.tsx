@@ -3,10 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
-import type {
-  Layout,
-  ListLayoutsResponse,
-} from '@smart-sentinel-eye/shared/api/layouts.api';
+import type { Layout, ListLayoutsResponse } from '@smart-sentinel-eye/shared/api/layouts.api';
 
 const listLayoutsMock = vi.fn();
 const publishMock = vi.fn(async () => ({ data: 1 }));
@@ -268,7 +265,12 @@ describe('LayoutsPage — archive confirmation', () => {
    */
   it('Archives nothing when the confirmation is dismissed', async () => {
     const user = userEvent.setup();
-    listLayoutsMock.mockReturnValue({ data: response([publishedChain()]), isLoading: false, isFetching: false, refetch: vi.fn() });
+    listLayoutsMock.mockReturnValue({
+      data: response([publishedChain()]),
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    });
     renderPage();
 
     const confirmation = await openConfirmation(user);
@@ -279,7 +281,12 @@ describe('LayoutsPage — archive confirmation', () => {
 
   it('Archives once confirmed, sending the revision it named', async () => {
     const user = userEvent.setup();
-    listLayoutsMock.mockReturnValue({ data: response([publishedChain()]), isLoading: false, isFetching: false, refetch: vi.fn() });
+    listLayoutsMock.mockReturnValue({
+      data: response([publishedChain()]),
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    });
     renderPage();
 
     const confirmation = await openConfirmation(user);
@@ -297,7 +304,12 @@ describe('LayoutsPage — archive confirmation', () => {
   /** T013 / FR-003 — the name and the revision, and never the identifier. */
   it('Names the layout and revision, and shows no identifier', async () => {
     const user = userEvent.setup();
-    listLayoutsMock.mockReturnValue({ data: response([publishedChain()]), isLoading: false, isFetching: false, refetch: vi.fn() });
+    listLayoutsMock.mockReturnValue({
+      data: response([publishedChain()]),
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    });
     renderPage();
 
     const confirmation = await openConfirmation(user);
@@ -323,7 +335,12 @@ describe('LayoutsPage — archive confirmation', () => {
    */
   it('Says the layout can be brought back and keeps its tiles', async () => {
     const user = userEvent.setup();
-    listLayoutsMock.mockReturnValue({ data: response([publishedChain()]), isLoading: false, isFetching: false, refetch: vi.fn() });
+    listLayoutsMock.mockReturnValue({
+      data: response([publishedChain()]),
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    });
     renderPage();
 
     const confirmation = await openConfirmation(user);
@@ -354,7 +371,12 @@ describe('LayoutsPage — archive confirmation', () => {
    */
   it('Always warns about kiosks, because archive only ever targets the live revision', async () => {
     const user = userEvent.setup();
-    listLayoutsMock.mockReturnValue({ data: response([publishedChain()]), isLoading: false, isFetching: false, refetch: vi.fn() });
+    listLayoutsMock.mockReturnValue({
+      data: response([publishedChain()]),
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    });
     renderPage();
 
     expect(await openConfirmation(user)).toHaveTextContent(/kiosks/i);

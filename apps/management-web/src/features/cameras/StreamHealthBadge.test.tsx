@@ -42,9 +42,7 @@ describe('StreamHealthBadge', () => {
 
   it('Surfaces the error string in the tooltip content for a degraded stream', async () => {
     const { container } = render(
-      <StreamHealthBadge
-        stream={streamWith({ state: 'Degraded', error: 'source unreachable' })}
-      />,
+      <StreamHealthBadge stream={streamWith({ state: 'Degraded', error: 'source unreachable' })} />,
     );
 
     const trigger = screen.getByText('Degraded');

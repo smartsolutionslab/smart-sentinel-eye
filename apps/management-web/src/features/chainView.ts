@@ -71,9 +71,7 @@ export interface ChainView<TRevision extends ChainRevision> {
   fullyArchived: boolean;
 }
 
-export function chainView<TRevision extends ChainRevision>(
-  revisions: readonly TRevision[],
-): ChainView<TRevision> {
+export function chainView<TRevision extends ChainRevision>(revisions: readonly TRevision[]): ChainView<TRevision> {
   const live = revisions.find((revision) => revision.state === 'Published');
   const draft = newestOf(revisions.filter((revision) => revision.state === 'Draft'));
   const newest = newestOf(revisions);
@@ -87,9 +85,7 @@ export function chainView<TRevision extends ChainRevision>(
   };
 }
 
-function newestOf<TRevision extends ChainRevision>(
-  revisions: readonly TRevision[],
-): TRevision | undefined {
+function newestOf<TRevision extends ChainRevision>(revisions: readonly TRevision[]): TRevision | undefined {
   return revisions.reduce<TRevision | undefined>(
     (highest, revision) =>
       highest === undefined || revision.revisionNumber > highest.revisionNumber ? revision : highest,

@@ -1,8 +1,5 @@
 import { useRenameCameraMutation } from '@smart-sentinel-eye/shared/api/cameras.api';
-import {
-  renameCameraSchema,
-  type RenameCameraFormInput,
-} from '@smart-sentinel-eye/shared/api/cameras.schema';
+import { renameCameraSchema, type RenameCameraFormInput } from '@smart-sentinel-eye/shared/api/cameras.schema';
 import {
   CONFLICT_FALLBACK,
   TERMINAL_REFUSAL_FALLBACK,

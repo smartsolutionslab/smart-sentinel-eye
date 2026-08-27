@@ -4,10 +4,7 @@ import {
   type CameraSortOrder,
   type CameraSummary,
 } from '@smart-sentinel-eye/shared/api/cameras.api';
-import {
-  useListStreamsQuery,
-  type StreamHealth,
-} from '@smart-sentinel-eye/shared/api/streams.api';
+import { useListStreamsQuery, type StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import {
   DataTable,
@@ -42,10 +39,7 @@ export function CamerasPage() {
   const showingFrom = totalCount === 0 ? 0 : offset + 1;
   const showingTo = Math.min(offset + items.length, totalCount);
 
-  const visibleCameraIds = useMemo(
-    () => items.map((row) => row.cameraIdentifier),
-    [items],
-  );
+  const visibleCameraIds = useMemo(() => items.map((row) => row.cameraIdentifier), [items]);
 
   const { data: streams } = useListStreamsQuery(visibleCameraIds, {
     pollingInterval: STREAM_POLL_MS,
@@ -130,11 +124,7 @@ export function CamerasPage() {
       />
 
       <footer className="mt-3 flex items-center justify-between text-sm text-fg-muted">
-        <span>
-          {totalCount === 0
-            ? 'No cameras'
-            : `Showing ${showingFrom}–${showingTo} of ${totalCount}`}
-        </span>
+        <span>{totalCount === 0 ? 'No cameras' : `Showing ${showingFrom}–${showingTo} of ${totalCount}`}</span>
         <div className="flex gap-2">
           <Button
             variant="secondary"

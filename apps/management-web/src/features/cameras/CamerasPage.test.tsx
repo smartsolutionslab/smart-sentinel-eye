@@ -15,7 +15,6 @@ vi.mock('react-oidc-context', () => ({
   useAuth: () => ({ user: { profile: { groups: assignedGroups.current } } }),
 }));
 
-
 const listCamerasMock = vi.fn();
 const registerCameraMock = vi.fn(async () => ({ data: 'noop' }));
 

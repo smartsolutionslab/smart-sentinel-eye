@@ -110,10 +110,7 @@ async function send(
  * already carries that reasoning for its highlight timers.
  * </p>
  */
-export function measureOverlayDraw(
-  camera: string,
-  getToken: () => Promise<string | null>,
-): void {
+export function measureOverlayDraw(camera: string, getToken: () => Promise<string | null>): void {
   const startedAt = performance.now();
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
@@ -155,11 +152,7 @@ export function decodeSampleFrom(report: Map<string, unknown>): DecodeSample | n
     const framesDecoded = stat['framesDecoded'];
     const processingDelay = stat['totalProcessingDelay'];
     const decodeTime = stat['totalDecodeTime'];
-    if (
-      typeof framesDecoded !== 'number' ||
-      typeof processingDelay !== 'number' ||
-      typeof decodeTime !== 'number'
-    ) {
+    if (typeof framesDecoded !== 'number' || typeof processingDelay !== 'number' || typeof decodeTime !== 'number') {
       return null;
     }
 
@@ -182,10 +175,7 @@ export function decodeSampleFrom(report: Map<string, unknown>): DecodeSample | n
  * a journey nobody timed.
  * </p>
  */
-export function decodeElapsedBetween(
-  previous: DecodeSample,
-  current: DecodeSample,
-): number | null {
+export function decodeElapsedBetween(previous: DecodeSample, current: DecodeSample): number | null {
   const frames = current.framesDecoded - previous.framesDecoded;
   if (frames <= 0) return null;
 

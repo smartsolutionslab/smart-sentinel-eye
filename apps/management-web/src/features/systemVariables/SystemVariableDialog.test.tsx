@@ -62,9 +62,7 @@ describe('SystemVariableDialog', () => {
     await user.type(screen.getByLabelText(/name/i), '1bad');
     await user.click(screen.getByRole('button', { name: /define/i }));
 
-    expect(
-      await screen.findByText(/must start with a letter/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/must start with a letter/i)).toBeInTheDocument();
     expect(defineMock).not.toHaveBeenCalled();
   });
 

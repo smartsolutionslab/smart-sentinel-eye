@@ -49,10 +49,12 @@ describe('OverlayEditorDialog', () => {
     await user.click(screen.getByRole('button', { name: /save as draft/i }));
 
     expect(createDraftMock).toHaveBeenCalledTimes(1);
-    const payload = (createDraftMock.mock.calls[0] as unknown as ReadonlyArray<{
-      name: string;
-      label: { text: string; fontSizePx: number };
-    }>)[0]!;
+    const payload = (
+      createDraftMock.mock.calls[0] as unknown as ReadonlyArray<{
+        name: string;
+        label: { text: string; fontSizePx: number };
+      }>
+    )[0]!;
     expect(payload.name).toBe('Line-1 Title');
     expect(payload.label.text).toBe('Overlay text');
     expect(payload.label.fontSizePx).toBe(32);

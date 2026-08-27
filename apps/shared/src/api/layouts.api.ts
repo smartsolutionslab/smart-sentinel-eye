@@ -88,9 +88,7 @@ export const layoutsApi = createApi({
     }),
     getLayout: build.query<Layout, string>({
       query: (layoutIdentifier) => `/${layoutIdentifier}`,
-      providesTags: (_result, _error, layoutIdentifier) => [
-        { type: 'Layout', id: layoutIdentifier },
-      ],
+      providesTags: (_result, _error, layoutIdentifier) => [{ type: 'Layout', id: layoutIdentifier }],
     }),
     listLayouts: build.query<ListLayoutsResponse, LayoutRevisionState | undefined>({
       query: (state) => ({
@@ -133,10 +131,7 @@ export const layoutsApi = createApi({
         { type: 'LayoutList', id: 'ALL' },
       ],
     }),
-    editDraftRevision: build.mutation<
-      number,
-      RevisionRouteInput & EditDraftRevisionInput
-    >({
+    editDraftRevision: build.mutation<number, RevisionRouteInput & EditDraftRevisionInput>({
       query: ({ layoutIdentifier, revisionNumber, version, grid, tiles }) => ({
         url: `/${layoutIdentifier}/revisions/${revisionNumber}`,
         method: 'PATCH',

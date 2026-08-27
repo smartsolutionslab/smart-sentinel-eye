@@ -54,11 +54,7 @@ export const GRID_PRESETS: ReadonlyArray<GridPreset> = (() => {
 })();
 
 /** Build a dense `rows×cols` cell grid, carrying over any existing cell. */
-export function buildCells(
-  rows: number,
-  cols: number,
-  existing: ReadonlyArray<DesignerCell> = [],
-): DesignerCell[] {
+export function buildCells(rows: number, cols: number, existing: ReadonlyArray<DesignerCell> = []): DesignerCell[] {
   const byPosition = new Map<string, DesignerCell>();
   for (const cell of existing) {
     byPosition.set(`${cell.row},${cell.col}`, cell);
@@ -67,20 +63,14 @@ export function buildCells(
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
       const carried = byPosition.get(`${row},${col}`);
-      cells.push(
-        carried ?? { cameraIdentifier: '', overlayIdentifier: '', row, col },
-      );
+      cells.push(carried ?? { cameraIdentifier: '', overlayIdentifier: '', row, col });
     }
   }
   return cells;
 }
 
 /** Map persisted tiles (sparse) onto a dense cell grid for the edit flow. */
-export function cellsFromTiles(
-  rows: number,
-  cols: number,
-  tiles: ReadonlyArray<LayoutTile>,
-): DesignerCell[] {
+export function cellsFromTiles(rows: number, cols: number, tiles: ReadonlyArray<LayoutTile>): DesignerCell[] {
   const existing = tiles.map((tile) => ({
     cameraIdentifier: tile.cameraIdentifier,
     overlayIdentifier: tile.overlayIdentifier ?? '',
@@ -91,15 +81,12 @@ export function cellsFromTiles(
 }
 
 /** Filter the dense cells into the sparse `tiles` wire shape (drops empties). */
-export function tilesFromCells(
-  cells: ReadonlyArray<DesignerCell>,
-): LayoutTileInput[] {
+export function tilesFromCells(cells: ReadonlyArray<DesignerCell>): LayoutTileInput[] {
   return cells
     .filter((cell) => cell.cameraIdentifier !== '')
     .map((cell) => ({
       cameraIdentifier: cell.cameraIdentifier,
-      overlayIdentifier:
-        cell.overlayIdentifier === '' ? null : cell.overlayIdentifier,
+      overlayIdentifier: cell.overlayIdentifier === '' ? null : cell.overlayIdentifier,
       row: cell.row,
       col: cell.col,
     }));
@@ -133,18 +120,13 @@ function populatedCellIndices(cells: ReadonlyArray<DesignerCell>): number[] {
  * a `tiles[i]` issue lands on its grid cell, a `grid`/`tiles` issue surfaces
  * grid-level.
  */
-export function createGridDesignerResolver(
-  mode: GridDesignerMode,
-): Resolver<GridDesignerValue> {
+export function createGridDesignerResolver(mode: GridDesignerMode): Resolver<GridDesignerValue> {
   return async (values) => {
     const cells = values.cells;
     const tiles = tilesFromCells(cells);
     const candidate =
-      mode === 'create'
-        ? { name: values.name, grid: values.grid, tiles }
-        : { grid: values.grid, tiles };
-    const schema =
-      mode === 'create' ? createLayoutDraftSchema : editDraftRevisionSchema;
+      mode === 'create' ? { name: values.name, grid: values.grid, tiles } : { grid: values.grid, tiles };
+    const schema = mode === 'create' ? createLayoutDraftSchema : editDraftRevisionSchema;
 
     const parsed = schema.safeParse(candidate);
     if (parsed.success) {
@@ -194,9 +176,6 @@ export function createGridDesignerResolver(
 }
 
 // Keep the first message for a field so the most specific issue wins.
-function setOnce(
-  existing: FieldError | undefined,
-  message: string,
-): FieldError {
+function setOnce(existing: FieldError | undefined, message: string): FieldError {
   return existing ?? { type: 'manual', message };
 }

@@ -3,10 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
-import type {
-  ListOverlaysResponse,
-  Overlay,
-} from '@smart-sentinel-eye/shared/api/overlays.api';
+import type { ListOverlaysResponse, Overlay } from '@smart-sentinel-eye/shared/api/overlays.api';
 
 const listOverlaysMock = vi.fn();
 const publishMock = vi.fn(async () => ({ data: 1 }));

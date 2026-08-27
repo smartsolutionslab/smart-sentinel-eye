@@ -21,18 +21,13 @@ export const streamsApi = createApi({
   endpoints: (build) => ({
     getStream: build.query<StreamHealth, string>({
       query: (cameraIdentifier) => `/${cameraIdentifier}`,
-      providesTags: (_result, _error, cameraIdentifier) => [
-        { type: 'Stream' as const, id: cameraIdentifier },
-      ],
+      providesTags: (_result, _error, cameraIdentifier) => [{ type: 'Stream' as const, id: cameraIdentifier }],
     }),
     listStreams: build.query<StreamHealth[], string[]>({
       query: (cameraIdentifiers) => ({
         url: '',
         method: 'GET',
-        params:
-          cameraIdentifiers.length === 0
-            ? undefined
-            : { cameraIdentifiers: cameraIdentifiers.join(',') },
+        params: cameraIdentifiers.length === 0 ? undefined : { cameraIdentifiers: cameraIdentifiers.join(',') },
       }),
       providesTags: (result) =>
         result

@@ -82,9 +82,7 @@ describe('AuditPage', () => {
     await user.type(screen.getByLabelText('Event kind'), 'CameraRegisteredV1');
     await user.click(screen.getByRole('button', { name: 'Search' }));
 
-    expect(searchMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({ eventKind: 'CameraRegisteredV1' }),
-    );
+    expect(searchMock).toHaveBeenLastCalledWith(expect.objectContaining({ eventKind: 'CameraRegisteredV1' }));
   });
 
   it('Expands a row to show its JSON payload', async () => {

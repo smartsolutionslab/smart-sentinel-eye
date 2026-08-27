@@ -120,7 +120,10 @@ export const rulesApi = createApi({
         method: 'POST',
         headers: ifMatch(version),
       }),
-      invalidatesTags: (_r, _e, { name }) => [{ type: 'Rule', id: name }, { type: 'RuleList', id: 'ALL' }],
+      invalidatesTags: (_r, _e, { name }) => [
+        { type: 'Rule', id: name },
+        { type: 'RuleList', id: 'ALL' },
+      ],
     }),
     archiveRule: build.mutation<string, RuleRouteInput>({
       query: ({ name, version, fabId }) => ({
@@ -128,7 +131,10 @@ export const rulesApi = createApi({
         method: 'POST',
         headers: ifMatch(version),
       }),
-      invalidatesTags: (_r, _e, { name }) => [{ type: 'Rule', id: name }, { type: 'RuleList', id: 'ALL' }],
+      invalidatesTags: (_r, _e, { name }) => [
+        { type: 'Rule', id: name },
+        { type: 'RuleList', id: 'ALL' },
+      ],
     }),
     // A POST that is a read: it carries a sample-event body but persists
     // nothing, so it is a mutation only in RTK's HTTP-verb sense and

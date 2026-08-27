@@ -240,7 +240,6 @@ describe('SystemVariablesPage', () => {
       fabId: 'munich',
     });
   });
-
 });
 
 /** Spec 036 — the confirmation. */

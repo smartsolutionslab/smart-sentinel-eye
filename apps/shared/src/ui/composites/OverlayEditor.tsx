@@ -66,8 +66,7 @@ export function OverlayEditor({
           position: 'relative',
           width: canvasWidthPx,
           height: canvasHeightPx,
-          background:
-            'repeating-linear-gradient(45deg, #1f2937, #1f2937 12px, #111827 12px, #111827 24px)',
+          background: 'repeating-linear-gradient(45deg, #1f2937, #1f2937 12px, #111827 12px, #111827 24px)',
           overflow: 'hidden',
           borderRadius: 8,
         }}
@@ -76,16 +75,9 @@ export function OverlayEditor({
           size={{ width: pixelWidth, height: pixelHeight }}
           position={{ x: pixelX, y: pixelY }}
           bounds="parent"
-          onDragStop={(_e, data) =>
-            emitGeometry(data.x, data.y, pixelWidth, pixelHeight)
-          }
+          onDragStop={(_e, data) => emitGeometry(data.x, data.y, pixelWidth, pixelHeight)}
           onResizeStop={(_e, _dir, ref, _delta, position) =>
-            emitGeometry(
-              position.x,
-              position.y,
-              ref.offsetWidth,
-              ref.offsetHeight,
-            )
+            emitGeometry(position.x, position.y, ref.offsetWidth, ref.offsetHeight)
           }
           style={{
             display: 'flex',
@@ -124,9 +116,7 @@ export function OverlayEditor({
             min={8}
             max={256}
             value={value.fontSizePx}
-            onChange={(e) =>
-              onChange({ ...value, fontSizePx: Number(e.target.value) })
-            }
+            onChange={(e) => onChange({ ...value, fontSizePx: Number(e.target.value) })}
           />
         </label>
       </div>

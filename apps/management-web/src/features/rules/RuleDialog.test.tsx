@@ -124,9 +124,7 @@ describe('RuleDialog', () => {
 
     // No fabId at all, rather than the operator's one fab guessed at here: the
     // server infers it, and that is the behaviour ADR-0114 records.
-    expect(createMock).toHaveBeenCalledWith(
-      expect.not.objectContaining({ fabId: expect.anything() }),
-    );
+    expect(createMock).toHaveBeenCalledWith(expect.not.objectContaining({ fabId: expect.anything() }));
   });
 
   it('Asks a multi-fab operator to choose, offering only their own fabs', () => {
@@ -135,9 +133,11 @@ describe('RuleDialog', () => {
 
     const select = screen.getByLabelText(/^fab$/i);
     expect(select).toBeInTheDocument();
-    expect(
-      [...select.querySelectorAll('option')].map((option) => option.getAttribute('value')),
-    ).toEqual(['', 'dresden', 'munich']);
+    expect([...select.querySelectorAll('option')].map((option) => option.getAttribute('value'))).toEqual([
+      '',
+      'dresden',
+      'munich',
+    ]);
   });
 
   it('Refuses to submit a multi-fab rule with no fab chosen', async () => {
@@ -168,9 +168,9 @@ describe('RuleDialog', () => {
     assignedGroups.current = ['/fabs/munich', '/departments/maintenance', '/fabs/dresden'];
     renderDialog();
 
-    expect(
-      [...screen.getByLabelText(/^fab$/i).querySelectorAll('option')].map((o) => o.getAttribute('value')),
-    ).toEqual(['', 'dresden', 'munich']);
+    expect([...screen.getByLabelText(/^fab$/i).querySelectorAll('option')].map((o) => o.getAttribute('value'))).toEqual(
+      ['', 'dresden', 'munich'],
+    );
   });
 });
 

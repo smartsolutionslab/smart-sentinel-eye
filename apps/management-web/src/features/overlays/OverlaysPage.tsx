@@ -14,12 +14,7 @@ import { ArchiveConfirmation } from '../ArchiveConfirmation';
 import { chainView } from '../chainView.js';
 import { OverlayEditorDialog } from './OverlayEditorDialog.js';
 
-const STATE_FILTERS: ReadonlyArray<OverlayRevisionState | 'All'> = [
-  'All',
-  'Draft',
-  'Published',
-  'Archived',
-];
+const STATE_FILTERS: ReadonlyArray<OverlayRevisionState | 'All'> = ['All', 'Draft', 'Published', 'Archived'];
 
 export function OverlaysPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -53,8 +48,7 @@ export function OverlaysPage() {
   const [revertRevision, { isLoading: reverting }] = useRevertOverlayRevisionMutation();
 
   const chains = data?.chains ?? [];
-  const visible =
-    filter === 'All' ? chains : chains.filter((c) => containsRevisionIn(c, filter));
+  const visible = filter === 'All' ? chains : chains.filter((c) => containsRevisionIn(c, filter));
 
   return (
     <section className="p-6">
@@ -94,9 +88,7 @@ export function OverlaysPage() {
 
       {(isLoading || isFetching) && <p className="text-sm text-fg-muted">Loading…</p>}
 
-      {!isLoading && visible.length === 0 && (
-        <p className="text-sm text-fg-muted">No overlays to show.</p>
-      )}
+      {!isLoading && visible.length === 0 && <p className="text-sm text-fg-muted">No overlays to show.</p>}
 
       <ul className="flex flex-col gap-2">
         {visible.map((chain) => {
@@ -110,18 +102,13 @@ export function OverlaysPage() {
           const { live, draft, summarised, fullyArchived } = chainView(chain.revisions);
           const disabled = publishing || archiving || branching || reverting;
           return (
-            <li
-              key={chain.overlayIdentifier}
-              className="rounded-md border border-fg-muted/30 bg-bg-elevated px-4 py-3"
-            >
+            <li key={chain.overlayIdentifier} className="rounded-md border border-fg-muted/30 bg-bg-elevated px-4 py-3">
               <header className="flex items-center justify-between">
                 <h2 className="text-lg font-medium">{chain.name}</h2>
                 <span className="text-xs text-fg-muted">{badge(live, draft, summarised)}</span>
               </header>
               <p className="mt-1 text-xs text-fg-muted font-mono">{chain.overlayIdentifier}</p>
-              {summarised !== undefined && (
-                <p className="mt-1 text-sm text-fg-muted truncate">{summarised.text}</p>
-              )}
+              {summarised !== undefined && <p className="mt-1 text-sm text-fg-muted truncate">{summarised.text}</p>}
               <div className="mt-3 flex gap-2">
                 {draft !== undefined && (
                   <Button
@@ -165,7 +152,9 @@ export function OverlaysPage() {
                   <Button
                     variant="secondary"
                     disabled={disabled}
-                    onClick={() => void branchDraft({ overlayIdentifier: chain.overlayIdentifier, version: chain.version })}
+                    onClick={() =>
+                      void branchDraft({ overlayIdentifier: chain.overlayIdentifier, version: chain.version })
+                    }
                   >
                     Edit (new draft)
                   </Button>
@@ -229,9 +218,7 @@ export function OverlaysPage() {
         Published (spec 036 FR-008).
       */}
       <ArchiveConfirmation
-        subject={
-          archiveFor === null ? null : `revision ${archiveFor.revisionNumber} of ${archiveFor.name}`
-        }
+        subject={archiveFor === null ? null : `revision ${archiveFor.revisionNumber} of ${archiveFor.name}`}
         onCancel={() => setArchiveFor(null)}
         pending={archiving}
         onConfirm={() => {
@@ -265,11 +252,7 @@ export function OverlaysPage() {
       */}
       <ArchiveConfirmation
         verb="Discard"
-        subject={
-          discardFor === null
-            ? null
-            : `draft revision ${discardFor.revisionNumber} of ${discardFor.name}`
-        }
+        subject={discardFor === null ? null : `draft revision ${discardFor.revisionNumber} of ${discardFor.name}`}
         onCancel={() => setDiscardFor(null)}
         pending={archiving}
         onConfirm={() => {
@@ -289,8 +272,8 @@ export function OverlaysPage() {
         </p>
         {discardFor?.liveRevision !== undefined && (
           <p>
-            {discardFor.name} stays exactly as it is — revision {discardFor.liveRevision} is still
-            published and kiosks are unaffected.
+            {discardFor.name} stays exactly as it is — revision {discardFor.liveRevision} is still published and kiosks
+            are unaffected.
           </p>
         )}
       </ArchiveConfirmation>

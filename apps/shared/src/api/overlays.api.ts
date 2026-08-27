@@ -71,9 +71,7 @@ export const overlaysApi = createApi({
     }),
     getOverlay: build.query<Overlay, string>({
       query: (overlayIdentifier) => `/${overlayIdentifier}`,
-      providesTags: (_result, _error, overlayIdentifier) => [
-        { type: 'Overlay', id: overlayIdentifier },
-      ],
+      providesTags: (_result, _error, overlayIdentifier) => [{ type: 'Overlay', id: overlayIdentifier }],
     }),
     listOverlays: build.query<ListOverlaysResponse, OverlayRevisionState | undefined>({
       query: (state) => ({
@@ -116,10 +114,7 @@ export const overlaysApi = createApi({
         { type: 'OverlayList', id: 'ALL' },
       ],
     }),
-    editDraftOverlayRevision: build.mutation<
-      number,
-      OverlayRevisionRouteInput & { label: OverlayLabel }
-    >({
+    editDraftOverlayRevision: build.mutation<number, OverlayRevisionRouteInput & { label: OverlayLabel }>({
       query: ({ overlayIdentifier, revisionNumber, version, label }) => ({
         url: `/${overlayIdentifier}/revisions/${revisionNumber}`,
         method: 'PATCH',

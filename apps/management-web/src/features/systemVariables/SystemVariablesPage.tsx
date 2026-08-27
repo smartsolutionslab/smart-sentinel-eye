@@ -114,9 +114,7 @@ export function SystemVariablesPage() {
 
       {(isLoading || isFetching) && <p className="text-sm text-fg-muted">Loading…</p>}
 
-      {!isLoading && visible.length === 0 && (
-        <p className="text-sm text-fg-muted">No system variables to show.</p>
-      )}
+      {!isLoading && visible.length === 0 && <p className="text-sm text-fg-muted">No system variables to show.</p>}
 
       <ul className="flex flex-col gap-2">
         {visible.map((variable) => {
@@ -197,8 +195,8 @@ export function SystemVariablesPage() {
       >
         <p>This cannot be undone.</p>
         <p>
-          The variable&rsquo;s current value is cleared, and it can never be given another. Anything
-          that sets it will be refused from now on.
+          The variable&rsquo;s current value is cleared, and it can never be given another. Anything that sets it will
+          be refused from now on.
         </p>
       </ArchiveConfirmation>
 

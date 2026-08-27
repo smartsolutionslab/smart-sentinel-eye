@@ -29,29 +29,30 @@ import { ShellLayout, SurfaceCrash } from './ShellLayout.js';
  * {@link ShellLayout} arranges.
  * </p>
  */
-export const createAppRouter = () => createBrowserRouter([
-  {
-    path: '/',
-    element: <ShellLayout />,
-    children: [
-      // Cameras was the shell's default view, so the bare origin keeps showing
-      // it and an existing bookmark still arrives somewhere familiar.
-      //
-      // Rendered directly rather than redirected to `/cameras`. A `<Navigate>`
-      // costs an extra render cycle before anything appears, which is a real
-      // flash on a cold load and not only a test inconvenience.
-      { index: true, element: <CamerasPage />, errorElement: <SurfaceCrash /> },
-      { path: 'cameras', element: <CamerasPage />, errorElement: <SurfaceCrash /> },
-      {
-        path: 'cameras/:cameraIdentifier',
-        element: <CameraDetailPage />,
-        errorElement: <SurfaceCrash />,
-      },
-      { path: 'layouts', element: <LayoutsPage />, errorElement: <SurfaceCrash /> },
-      { path: 'overlays', element: <OverlaysPage />, errorElement: <SurfaceCrash /> },
-      { path: 'rules', element: <RulesPage />, errorElement: <SurfaceCrash /> },
-      { path: 'system-variables', element: <SystemVariablesPage />, errorElement: <SurfaceCrash /> },
-      { path: 'audit', element: <AuditPage />, errorElement: <SurfaceCrash /> },
-    ],
-  },
-]);
+export const createAppRouter = () =>
+  createBrowserRouter([
+    {
+      path: '/',
+      element: <ShellLayout />,
+      children: [
+        // Cameras was the shell's default view, so the bare origin keeps showing
+        // it and an existing bookmark still arrives somewhere familiar.
+        //
+        // Rendered directly rather than redirected to `/cameras`. A `<Navigate>`
+        // costs an extra render cycle before anything appears, which is a real
+        // flash on a cold load and not only a test inconvenience.
+        { index: true, element: <CamerasPage />, errorElement: <SurfaceCrash /> },
+        { path: 'cameras', element: <CamerasPage />, errorElement: <SurfaceCrash /> },
+        {
+          path: 'cameras/:cameraIdentifier',
+          element: <CameraDetailPage />,
+          errorElement: <SurfaceCrash />,
+        },
+        { path: 'layouts', element: <LayoutsPage />, errorElement: <SurfaceCrash /> },
+        { path: 'overlays', element: <OverlaysPage />, errorElement: <SurfaceCrash /> },
+        { path: 'rules', element: <RulesPage />, errorElement: <SurfaceCrash /> },
+        { path: 'system-variables', element: <SystemVariablesPage />, errorElement: <SurfaceCrash /> },
+        { path: 'audit', element: <AuditPage />, errorElement: <SurfaceCrash /> },
+      ],
+    },
+  ]);

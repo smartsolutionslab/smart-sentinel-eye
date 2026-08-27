@@ -1,10 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-  decodeElapsedBetween,
-  decodeSampleFrom,
-  reportKioskLatency,
-  type DecodeSample,
-} from './kioskLatency.js';
+import { decodeElapsedBetween, decodeSampleFrom, reportKioskLatency, type DecodeSample } from './kioskLatency.js';
 
 /**
  * Spec 040. The guards and the shape of a report.
@@ -22,7 +17,10 @@ const token = () => Promise.resolve('a-token');
 
 describe('reportKioskLatency — the guards', () => {
   beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 202 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 202 })),
+    );
     vi.spyOn(console, 'info').mockImplementation(() => {});
   });
 
@@ -69,7 +67,12 @@ describe('reportKioskLatency — the guards', () => {
    * video.
    */
   it('Never throws when reporting fails', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('gateway down'); }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('gateway down');
+      }),
+    );
 
     expect(() => reportKioskLatency('overlay_draw', 'cam-1', 18, token)).not.toThrow();
     await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
@@ -119,10 +122,7 @@ describe('the decode fragment', () => {
    * flattens exactly the excursion a budget is about.
    */
   it('Measures the interval, not the session', () => {
-    const elapsed = decodeElapsedBetween(
-      sample(100, 2, 0.5),
-      sample(110, 2.3, 0.55),
-    );
+    const elapsed = decodeElapsedBetween(sample(100, 2, 0.5), sample(110, 2.3, 0.55));
 
     // 0.35s of work over 10 frames = 35 ms per frame.
     expect(elapsed).toBeCloseTo(35, 1);

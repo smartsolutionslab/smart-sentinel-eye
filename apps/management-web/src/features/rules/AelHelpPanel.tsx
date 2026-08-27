@@ -37,8 +37,8 @@ export function AelHelpPanel() {
 
       <div className="mt-3 space-y-4">
         <p className="text-xs text-fg-muted">
-          A predicate must evaluate to a boolean — anything else counts as no match. A value
-          expression may return any type; it is converted to a string when the variable is written.
+          A predicate must evaluate to a boolean — anything else counts as no match. A value expression may return any
+          type; it is converted to a string when the variable is written.
         </p>
 
         <Section title="Fields" rows={FIELDS.map((f) => [f.path, f.meaning])} />

@@ -59,13 +59,13 @@ export function RetireCameraDialog({ open, onOpenChange, cameraIdentifier, name 
       onConfirm={confirm}
     >
       <p>
-        Retiring <strong className="text-fg-primary">{name}</strong> is permanent. It cannot be
-        undone, from here or anywhere else.
+        Retiring <strong className="text-fg-primary">{name}</strong> is permanent. It cannot be undone, from here or
+        anywhere else.
       </p>
       <p>Its live stream will stop, and anyone watching it will lose the feed.</p>
       <p>
-        The name <strong className="text-fg-primary">{name}</strong> will become available again, so
-        a replacement camera can be registered under it.
+        The name <strong className="text-fg-primary">{name}</strong> will become available again, so a replacement
+        camera can be registered under it.
       </p>
       <p>The record itself is kept, and stays readable at this address.</p>
 

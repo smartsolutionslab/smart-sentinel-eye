@@ -7,11 +7,7 @@ import {
 } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { skipToken } from '@reduxjs/toolkit/query/react';
 import { useListOverlaysQuery } from '@smart-sentinel-eye/shared/api/overlays.api';
-import {
-  CONFLICT_FALLBACK,
-  isStaleConflict,
-  problemDetail,
-} from '@smart-sentinel-eye/shared/api/problemDetail';
+import { CONFLICT_FALLBACK, isStaleConflict, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
@@ -65,9 +61,7 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   // Reading it back rather than inferring "+1" keeps the client from doing
   // arithmetic on server state -- and still fails correctly if another
   // operator moves the chain while the dialog is open.
-  const { data: currentChain, refetch: refetchChain } = useGetLayoutQuery(
-    editTarget?.layoutIdentifier ?? skipToken,
-  );
+  const { data: currentChain, refetch: refetchChain } = useGetLayoutQuery(editTarget?.layoutIdentifier ?? skipToken);
   const { isLoading, error, reset: resetMutationState } = isEdit ? editState : createState;
 
   // Drop any prior backend error when the dialog closes so a stale banner
