@@ -30,6 +30,10 @@ export function CameraDetailPage() {
   // the page test asserts the identity across a token change rather than
   // trusting this comment.
   const accessTokenRef = useRef(auth.user?.access_token);
+  // Deliberate, for the reason above; the page test asserts the identity holds
+  // across a token change, so the behaviour is pinned by a test rather than
+  // merely claimed in a comment.
+  // eslint-disable-next-line react-hooks/refs -- see above
   accessTokenRef.current = auth.user?.access_token;
   const getToken = useCallback(() => Promise.resolve(accessTokenRef.current ?? null), []);
   const [editing, setEditing] = useState(false);

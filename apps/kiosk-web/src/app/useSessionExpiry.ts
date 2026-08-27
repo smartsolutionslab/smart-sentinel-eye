@@ -58,6 +58,9 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
       .then((user) => user !== null)
       .catch(() => false),
   );
+  // Registered during render on purpose, for the reason given above: moving
+  // this into an effect races the first query's 401 renewal path.
+  // eslint-disable-next-line react-hooks/refs -- see above
   setOnSessionExpired(beginReauthentication);
 
   useEffect(() => {
@@ -79,6 +82,11 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
   // its own instead of falling back to the manual sign-in screen (FR-013).
   useEffect(() => {
     if (!auth.isAuthenticated && !auth.isLoading && auth.activeNavigator === undefined && hasBeenAuthenticated()) {
+      // Reacts to an external system settling — the OIDC library finishing its
+      // load and reporting no session — which is what effects are for. There is
+      // nothing to derive during render: the trigger is the transition into
+      // that state, not the state itself.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
       beginReauthentication();
     }
   }, [auth.isAuthenticated, auth.isLoading, auth.activeNavigator, beginReauthentication]);

@@ -57,6 +57,11 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
 
   // The action tag decides which half of the form is live — the same
   // discriminant the wire shape and the domain use.
+  // react-hook-form's watch() is opaque to React Compiler, so it reports
+  // "Compilation Skipped" rather than a defect. Nothing is incorrect at
+  // runtime; the component forgoes an optimisation from a compiler this repo
+  // does not enable. Working around it would mean working around ADR-0079.
+  // eslint-disable-next-line react-hooks/incompatible-library -- see above
   const actionType = watch('actionType');
 
   const onSubmit = handleSubmit(async (values) => {
