@@ -124,7 +124,7 @@ kiosk, which is the thing this feature exists to fix.
 
 - [x] T026 Follow [quickstart.md](./quickstart.md) against the **run-mode** stack (`dotnet run --project src/AppHost`, not the e2e profile): publish a **two-tile** layout, open the kiosk, confirm both tiles show moving video with overlays drawn on them, and **read both numbers from the Aspire dashboard**. Record the values, per tile. Not "the metric is emitted" — the number, and where it was read
 - [x] T027 Provoke the guards by hand, per [quickstart.md](./quickstart.md): stop a camera's clip and confirm **no** figure is recorded for the gap; background the tab for ten seconds and confirm no figure spans it; reconnect and confirm the recovery is timed as a new journey. Record what was done and that nothing was recorded
-- [ ] T028 Write the verification note on the PR. It must state **which claims rest on Phase 5 and cannot be checked by CI**, name the four corrected documents, name the four leg states in §IV, give both figures with the values read, and confirm the decode figure carries no budget. **Say plainly that CI cannot produce video and that the automated suite proves the guards and the plumbing only** — the alternative is a green tick standing in for something nobody saw
+- [x] T028 Write the verification note on the PR. It must state **which claims rest on Phase 5 and cannot be checked by CI**, name the four corrected documents, name the four leg states in §IV, give both figures with the values read, and confirm the decode figure carries no budget. **Say plainly that CI cannot produce video and that the automated suite proves the guards and the plumbing only** — the alternative is a green tick standing in for something nobody saw
 
 ---
 
@@ -220,11 +220,13 @@ be seen, and it is not something to do hurriedly at the end.
 
 ---
 
-## Phase 5 status: **observations complete — T028 outstanding**
+## Phase 5 status: **complete**
 
-T026 and T027 are done: both figures read per tile, all three guards provoked.
-**T028 — the verification note on the PR — is not written**, so Phase 5 is not
-closed.
+T026, T027 and T028 are done. The note is
+[verification.md](./verification.md) rather than a PR comment, because spec 040's
+own PR (#1883) was closed without merging while its work landed on `develop` — so
+a note left there would be recorded and not readable, which is the state §IV has
+a column for.
 
 Recorded here rather than left implied, because this feature exists to stop a
 document saying something the code does not support.
