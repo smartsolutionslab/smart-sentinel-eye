@@ -198,34 +198,52 @@ was modified; the decode statistics are read from a connection those already own
 
 ## 8. Two things this verification turned up, and did not settle
 
-**§IV's Dashboard column reads `no` for both kiosk legs, and that is correct.**
+**§IV's Dashboard column reads `no` for both kiosk legs, and whether that is
+correct is genuinely undecided — two ADRs a day apart say different things.**
 
-> **⚠ Corrected 2026-08-27.** This section first said the column might be *stale*,
-> because T026 read both figures off the Aspire dashboard, and that deciding
-> between "stale column" and "dashboard means more than the sink" needed an ADR.
-> **It needed no decision — it was already decided**, and the original text is
-> kept rather than deleted because it is the same class of error this feature
-> exists to correct: a claim made without checking it against the documents.
+> **⚠ This section has been wrong twice, and both corrections are kept.**
+> It first asked whether the column was stale and said the question needed a
+> decision. It was then "corrected" to say ADR-0117 had already settled it —
+> asserted **without reading ADR-0118**, which is the ADR that speaks directly to
+> what satisfies §VII. Both versions stay visible: this is the exact failure this
+> feature exists to correct, committed twice on the same question, and deleting
+> the evidence would make the third version look like insight.
 
-**ADR-0117 clause 1** settles it: a leg whose code path exists must have a
-measurement *"and a dashboard **showing it against its ADR-015 budget**"*.
-Against its budget is the criterion. The Aspire metrics explorer displays a raw
-histogram; nothing there compares `kiosk-overlay-draw` to its 50 ms allowance.
-Reading a figure off it — exactly what T026 did — does not discharge §VII.
+**ADR-0117** (2026-08-21), amending §VII's dashboard bullet:
 
-Spec 024's verification says the same about the leg it had just made readable:
-*"No dashboard exists. The SFU publishes metrics and the instrument records them;
-**nothing displays either against a budget**."*
+> A leg whose code path exists MUST have a latency measurement **and a dashboard
+> showing it against its ADR-015 budget** before further work ships on that leg.
 
-So the column is accurate for every leg, and **§VII's obligation is live and
-unmet for four implemented legs**. That is a recorded debt, not clerical drift.
-Tracked as issue 1940. What closes it is a per-leg dashboard showing the
-measurement against its budget — not a wording change.
+**ADR-0118** (2026-08-22, one day later), amending §VII's *third* bullet:
 
-**What this feature did and did not do for those two legs.** It made them
-*measured*, which was the expensive half and is what §IV now records. It did not
-make them *displayed against a budget*, so the two kiosk legs join the other two
-implemented legs in owing a dashboard.
+> **Development and CI: the Aspire dashboard.** … It is sufficient for a human
+> answering "what happened", and **it is what §VII's dashboard requirement is
+> satisfied by in development**.
+
+Those cannot both be applied literally. The Aspire metrics explorer displays a
+raw histogram and cannot show a value against a threshold, so under ADR-0117
+nothing in development discharges the obligation; under ADR-0118 the sink itself
+does. ADR-0118 is the later document and names ADR-0117 only under **Relates
+to** — it does not supersede it, and it amends a different bullet.
+
+ADR-0118's own clause 4 leans back the other way: *"§VII's 'measured' must
+eventually mean 'someone can consult it', and today it does not. This ADR records
+that gap rather than closing it."*
+
+**The honest state.** The two kiosk legs are **measured**, and their figures
+**are** consultable in the development sink — T026 read them, per tile, with
+values. Whether that discharges §VII, or whether "against its ADR-015 budget"
+still binds and nothing in development can satisfy it, is a constitutional
+reading that no document settles.
+
+Spec 024 reached the same impasse and handled it the right way:
+
+> The choice is a constitutional reading rather than an implementation decision.
+> … **No exception is requested. The situation is reported for judgement.**
+
+Reported for judgement here too, and tracked as issue 1940. **A verification note
+is not the place to decide it** — which is what this section said in the first
+place, before I talked myself out of it.
 
 **The decode fragment sits next to a budget it must not be compared against** —
 see §5. Recorded as a live risk.
