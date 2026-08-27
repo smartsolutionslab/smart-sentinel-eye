@@ -239,17 +239,49 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         return states;
     }
 
+    /// <summary>
+    /// Which resources are worth dumping logs for after a startup timeout.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// `Finished` used to count as healthy for everything, which hid exactly
+    /// the failure it needed to explain: a long-running service that exits
+    /// during startup lands in `Finished`, not `Failed`. When `automation`
+    /// did that (#1918) the report dumped eleven idle rebuilders and nothing
+    /// for the one resource the exception named.
+    /// </para>
+    /// <para>
+    /// So `Finished` is success only for the one-shot resources it is success
+    /// for, and `NotStarted` rebuilders — dev-time helpers that never run on
+    /// their own — are dropped rather than reported as failures with no logs.
+    /// </para>
+    /// </remarks>
+    internal static string[] SelectResourcesToReport(Dictionary<string, string> states) =>
+        states
+            .Where(kv => !IsHealthy(kv.Key, kv.Value))
+            .Select(kv => kv.Key)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+    private static bool IsHealthy(string name, string state) =>
+        state is "Running"
+        || (state is "Finished" && IsOneShot(name))
+        || (state is "NotStarted" && name.EndsWith("-rebuilder", StringComparison.Ordinal));
+
+    // Resources that run once and stop; finishing is how they succeed.
+    private static bool IsOneShot(string name) =>
+        name is "migrations" || name.StartsWith("migrations-", StringComparison.Ordinal);
+
     private static string FormatResourceStates(Dictionary<string, string> states) =>
         states.Count == 0
             ? "  (app not built)"
             : string.Join('\n', states.OrderBy(kv => kv.Key).Select(kv => $"  {kv.Key}: {kv.Value}"));
 
     /// <summary>
-    /// On a startup timeout, dump recent stdout for every resource that
-    /// hasn't reached Running/Finished. The CI Linux boot failures
-    /// (#423) don't repro on Windows dev boxes, so a crashed service's
-    /// own log is the only window into *why* — the fixture otherwise
-    /// tails camera-catalog alone.
+    /// On a startup timeout, dump recent stdout for every resource that did
+    /// not end up healthy. The CI Linux boot failures (#423) don't repro on
+    /// Windows dev boxes, so a crashed service's own log is the only window
+    /// into *why* — the fixture otherwise tails camera-catalog alone.
     /// </summary>
     private async Task<string> CaptureFailedResourceLogsAsync(Dictionary<string, string> states)
     {
@@ -258,11 +290,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             return "(app not built)";
         }
 
-        string[] failed = states
-            .Where(kv => kv.Value is not ("Running" or "Finished"))
-            .Select(kv => kv.Key)
-            .OrderBy(name => name, StringComparer.Ordinal)
-            .ToArray();
+        string[] failed = SelectResourcesToReport(states);
 
         if (failed.Length == 0)
         {
