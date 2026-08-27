@@ -12,7 +12,7 @@ export function LiveUpdatesBadge({ degraded }: { degraded: boolean }) {
     <div
       role="status"
       data-testid="live-updates-degraded"
-      className="fixed bottom-3 right-3 z-20 rounded-md border border-accent-warn/40 bg-accent-warn/15 px-3 py-1 text-xs text-accent-warn"
+      className="fixed bottom-3 right-3 z-20 rounded-md border border-accent-warning/40 bg-accent-warning/15 px-3 py-1 text-xs text-accent-warning"
     >
       Live updates degraded
     </div>

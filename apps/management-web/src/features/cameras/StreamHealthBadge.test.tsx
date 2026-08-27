@@ -18,7 +18,7 @@ function streamWith(overrides: Partial<StreamHealth> = {}): StreamHealth {
 describe('StreamHealthBadge', () => {
   it.each([
     ['Healthy', 'bg-accent-active/20'],
-    ['Degraded', 'bg-accent-warn/20'],
+    ['Degraded', 'bg-accent-warning/20'],
     ['Offline', 'bg-accent-fault/20'],
     ['Provisioning', 'bg-fg-muted/20'],
   ] as ReadonlyArray<readonly [StreamState, string]>)(

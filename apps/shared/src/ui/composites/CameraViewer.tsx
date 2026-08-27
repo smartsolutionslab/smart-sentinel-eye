@@ -124,7 +124,7 @@ function ViewerOverlay({
     status === 'error' || status === 'offline'
       ? 'text-accent-fault'
       : status === 'reconnecting'
-        ? 'text-accent-warn'
+        ? 'text-accent-warning'
         : 'text-fg-muted';
 
   const hint = message ?? (queryError !== undefined ? 'Could not reach the streaming service.' : null);

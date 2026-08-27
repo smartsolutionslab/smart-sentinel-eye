@@ -70,7 +70,7 @@ export function DryRunPanel({ ruleName, fabId }: { ruleName: string; fabId: stri
 
       {data !== undefined && (
         <div data-testid="dry-run-result" className="rounded-md bg-fg-muted/10 p-2 text-xs">
-          <p className={data.matched ? 'font-medium text-accent-ok' : 'font-medium text-fg-muted'}>
+          <p className={data.matched ? 'font-medium text-accent-active' : 'font-medium text-fg-muted'}>
             {data.matched ? 'Matched' : 'Did not match'}
           </p>
           {data.matched && data.evaluatedValue !== null && (
