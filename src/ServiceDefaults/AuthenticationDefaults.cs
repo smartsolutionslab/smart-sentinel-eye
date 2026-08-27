@@ -100,4 +100,17 @@ public static class AuthenticationDefaults
     }
 
     public const string ManagementScope = "sse.management";
+
+    /// <summary>
+    /// The realm client a browser kiosk authenticates as, carried in the token's
+    /// <c>azp</c> claim.
+    /// </summary>
+    /// <remarks>
+    /// Hard-coded rather than configured, and pinned by
+    /// <c>KioskScopeParityTests</c> against the realm JSON — the same
+    /// answer it already gives for the kiosk's scopes.
+    /// A constant that cannot silently drift is cheaper here than plumbing an
+    /// option through a context that needs nothing else from configuration.
+    /// </remarks>
+    public const string KioskClientId = "kiosk-web";
 }

@@ -115,9 +115,26 @@ public static class StreamEndpoints
     /// wait on a measurement to keep rendering.
     /// </para>
     /// </summary>
-    private static IResult RecordKioskLatency([FromBody] KioskLatencyReport report)
+    private static IResult RecordKioskLatency([FromBody] KioskLatencyReport report, HttpContext httpContext)
     {
         Ensure.That(report).IsNotNull();
+
+        // Accepted and dropped, not refused: the caller did nothing wrong. Spec
+        // 043 mounted the shared CameraViewer on the management camera page, so
+        // an operator's desktop now reports here too — different hardware, a
+        // different network, usually one stream instead of a wall. These
+        // segments are named for the kiosk and §IV reads them as the kiosk
+        // decode leg, so a desktop figure in them is mislabelled at the name,
+        // not merely untagged (#1893).
+        //
+        // Dropped rather than recorded under a second segment because nothing
+        // consumes desktop figures today, and inventing a series for a reader
+        // who does not exist is the speculative generality the guidelines rule
+        // out. When someone wants them, the discriminator is already here.
+        if (!httpContext.User.IsBrowserKiosk())
+        {
+            return Results.Accepted();
+        }
 
         LatencySegment? segment = report.Measurement switch
         {
