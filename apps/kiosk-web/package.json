@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@smart-sentinel-eye/shared": "workspace:*",
-    "@microsoft/signalr": "8.0.7",
+    "@microsoft/signalr": "10.0.11",
     "@reduxjs/toolkit": "2.12.0",
     "clsx": "2.1.1",
     "react": "19.2.8",
