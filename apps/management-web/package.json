@@ -39,7 +39,7 @@
     "eslint-config-prettier": "9.1.0",
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "5.1.0",
-    "jsdom": "26.0.0",
+    "jsdom": "30.0.1",
     "postcss": "8.5.26",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
