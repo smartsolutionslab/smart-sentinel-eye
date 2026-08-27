@@ -32,7 +32,14 @@ export function RegisterCameraDialog({ open, onOpenChange }: RegisterCameraDialo
   // in the store, not in the unmounted form).
   useEffect(() => {
     if (!open) {
+      // The obvious rewrite is wrong here. Moving these into the Dialog's
+      // onOpenChange handler would catch only Radix-initiated closes (Esc,
+      // overlay click): Cancel and the submit-success path call the *parent's*
+      // onOpenChange and close by flipping the `open` prop, which that handler
+      // never sees. Watching `open` catches every close path. The cost is one
+      // extra render of an already-closed dialog.
       resetMutationState();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
       setFabId('');
       setFabError(null);
     }

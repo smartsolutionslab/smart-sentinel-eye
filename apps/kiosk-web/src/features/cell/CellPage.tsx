@@ -42,6 +42,10 @@ export function CellPage() {
   // sample (issues 1888, 1889). `useWhepSession` already guards its own use of
   // this prop the same way, and says why.
   const accessTokenRef = useRef(auth.user?.access_token);
+  // Deliberate, for the reason above: keying the effects on the token value
+  // restarts them on every silent renew, which is precisely what broke the
+  // overlay-draw and decode-leg measurements (issues 1888, 1889).
+  // eslint-disable-next-line react-hooks/refs -- see above
   accessTokenRef.current = auth.user?.access_token;
   const getToken = useCallback(() => Promise.resolve(accessTokenRef.current ?? null), []);
   const { data, isLoading, error, refetch } = useGetLayoutQuery(layoutIdentifier, {
@@ -86,6 +90,10 @@ export function CellPage() {
       // No rendered tile binds this overlay — nothing to light (US3 sc.4).
       return;
     }
+    // startHighlight is defined during render but never called during it: its
+    // only caller is the onOverlayHighlightChanged hub callback below. The rule
+    // cannot see that, so it reads performance.now() as render-phase work.
+    // eslint-disable-next-line react-hooks/purity -- see above
     const expireAt = performance.now() + durationMs;
     const expiries = highlightExpiryRef.current;
     expiries.set(overlay, Math.max(expiries.get(overlay) ?? 0, expireAt));

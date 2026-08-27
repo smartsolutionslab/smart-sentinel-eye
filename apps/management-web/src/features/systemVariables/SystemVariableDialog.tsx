@@ -50,6 +50,9 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
     defaultValues: DEFAULT_INPUT,
   });
 
+  // As in RuleDialog: react-hook-form's watch() is opaque to React Compiler,
+  // which reports "Compilation Skipped", not a defect. ADR-0079 chose it.
+  // eslint-disable-next-line react-hooks/incompatible-library -- see above
   const selectedType = watch('type');
 
   const onSubmit = handleSubmit(async (input) => {

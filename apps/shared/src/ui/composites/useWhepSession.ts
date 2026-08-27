@@ -90,6 +90,13 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
     const videoEl = videoRef.current;
     if (!whepUrl || !videoEl) return undefined;
     if (offlineMessage !== null) {
+      // `status` is one state machine driven from two directions: derived props
+      // (this branch) and the async connection lifecycle below, which
+      // transitions from promise callbacks the rule cannot see. Deriving the
+      // offline case during render would leave the machine with two owners and
+      // a ref mirror to keep in step. Restructuring it is a change to a §IV-path
+      // hook and wants its own spec plus a latency check, not a lint fix.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
       transitionTo('offline', offlineMessage);
       return undefined;
     }
