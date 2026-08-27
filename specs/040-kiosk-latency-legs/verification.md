@@ -198,15 +198,34 @@ was modified; the decode statistics are read from a connection those already own
 
 ## 8. Two things this verification turned up, and did not settle
 
-**§IV's Dashboard column still reads `no` for both kiosk legs.** §VII makes
-latency-budget dashboards *mandatory for every implemented leg* and says a leg
-whose code path exists without one "cannot ship further work". T026 demonstrates
-both figures are readable on the Aspire dashboard — the dev/CI sink §VII itself
-names — per tile, with values. So either that column is now stale for these two
-legs, or "dashboard" means more than "readable in the sink". **A verification
-note is not the place to decide which**, and changing §IV needs an ADR. Flagged
-here rather than absorbed, because a stale column is precisely the clerical error
-this feature exists to fix.
+**§IV's Dashboard column reads `no` for both kiosk legs, and that is correct.**
+
+> **⚠ Corrected 2026-08-27.** This section first said the column might be *stale*,
+> because T026 read both figures off the Aspire dashboard, and that deciding
+> between "stale column" and "dashboard means more than the sink" needed an ADR.
+> **It needed no decision — it was already decided**, and the original text is
+> kept rather than deleted because it is the same class of error this feature
+> exists to correct: a claim made without checking it against the documents.
+
+**ADR-0117 clause 1** settles it: a leg whose code path exists must have a
+measurement *"and a dashboard **showing it against its ADR-015 budget**"*.
+Against its budget is the criterion. The Aspire metrics explorer displays a raw
+histogram; nothing there compares `kiosk-overlay-draw` to its 50 ms allowance.
+Reading a figure off it — exactly what T026 did — does not discharge §VII.
+
+Spec 024's verification says the same about the leg it had just made readable:
+*"No dashboard exists. The SFU publishes metrics and the instrument records them;
+**nothing displays either against a budget**."*
+
+So the column is accurate for every leg, and **§VII's obligation is live and
+unmet for four implemented legs**. That is a recorded debt, not clerical drift.
+Tracked as issue 1940. What closes it is a per-leg dashboard showing the
+measurement against its budget — not a wording change.
+
+**What this feature did and did not do for those two legs.** It made them
+*measured*, which was the expensive half and is what §IV now records. It did not
+make them *displayed against a budget*, so the two kiosk legs join the other two
+implemented legs in owing a dashboard.
 
 **The decode fragment sits next to a budget it must not be compared against** —
 see §5. Recorded as a live risk.
