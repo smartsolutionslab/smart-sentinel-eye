@@ -123,7 +123,7 @@ kiosk, which is the thing this feature exists to fix.
 **Required.** Not a suggestion, not a nice-to-have.
 
 - [x] T026 Follow [quickstart.md](./quickstart.md) against the **run-mode** stack (`dotnet run --project src/AppHost`, not the e2e profile): publish a **two-tile** layout, open the kiosk, confirm both tiles show moving video with overlays drawn on them, and **read both numbers from the Aspire dashboard**. Record the values, per tile. Not "the metric is emitted" — the number, and where it was read
-- [ ] T027 Provoke the guards by hand, per [quickstart.md](./quickstart.md): stop a camera's clip and confirm **no** figure is recorded for the gap; background the tab for ten seconds and confirm no figure spans it; reconnect and confirm the recovery is timed as a new journey. Record what was done and that nothing was recorded
+- [x] T027 Provoke the guards by hand, per [quickstart.md](./quickstart.md): stop a camera's clip and confirm **no** figure is recorded for the gap; background the tab for ten seconds and confirm no figure spans it; reconnect and confirm the recovery is timed as a new journey. Record what was done and that nothing was recorded
 - [ ] T028 Write the verification note on the PR. It must state **which claims rest on Phase 5 and cannot be checked by CI**, name the four corrected documents, name the four leg states in §IV, give both figures with the values read, and confirm the decode figure carries no budget. **Say plainly that CI cannot produce video and that the automated suite proves the guards and the plumbing only** — the alternative is a green tick standing in for something nobody saw
 
 ---
@@ -220,7 +220,11 @@ be seen, and it is not something to do hurriedly at the end.
 
 ---
 
-## Phase 5 status: **not complete**
+## Phase 5 status: **observations complete — T028 outstanding**
+
+T026 and T027 are done: both figures read per tile, all three guards provoked.
+**T028 — the verification note on the PR — is not written**, so Phase 5 is not
+closed.
 
 Recorded here rather than left implied, because this feature exists to stop a
 document saying something the code does not support.
@@ -317,12 +321,73 @@ overlays carry static labels, so each tile draws once and then has nothing to
 redraw. Any distribution for this leg needs an overlay whose text actually
 changes — which is what a `{{token}}`-bound overlay gives.
 
-**T027 remains unticked** — see the note on #1931. FR-008 (no figure for a
-stopped clip, not a zero) and the hidden-tab guard were both verified; the
-"reconnect is timed as a new journey" half could not be observed, because the
-stream did not return to an already-open kiosk within the window.
+---
+
+### T027 — **done**. All three guards provoked, on the same wall
+
+Run on **2026-08-27**, same two-tile wall, 62 figures over 3m 24s.
+
+**The clip was stopped at the SFU**, by pointing one camera's MediaMTX path at a
+dead address (`PATCH /v3/config/paths/patch/cam-…`) and putting it back
+afterwards. Two earlier approaches did not work and are recorded so nobody
+repeats them:
+
+- **`context.setOffline(true)` does not stop WebRTC media.** Figures kept
+  arriving straight through the "outage" and the tiles never left `live`, so no
+  reconnect was provoked at all — while a naive "did figures resume?" check
+  passed, because they had never stopped.
+- **Restarting `camera-sim` did not bring the stream back** to an already-open
+  kiosk within 88 s (the earlier attempt, noted on #1931). Patching one path
+  leaves the rest of the stack untouched and recovers reliably.
+
+**One tile was stopped and the other left running as a control.** Without one, a
+gap in the figures is equally well explained by the whole stack stalling, and the
+guard would be credited for someone else's silence.
+
+| | Stopped tile (…0e0e) | Control tile (…1215) |
+|---|---|---|
+| Figures in the 45 s gap | **0** | **9** |
+
+**FR-008 — no figure for the gap, not a zero: holds.** Zero figures for the
+stopped camera across the gap, while the control kept reporting throughout, so
+the silence is that camera's and not the stack's. **Zeros recorded across the
+whole run: 0.**
+
+**FR-009 — no figure spans a backgrounded tab: holds.** The tab was hidden for
+10.1 s by bringing another page to the front. No figure ≥ 9 s was recorded; the
+largest figure in the entire run was **58.9 ms**. Stated honestly, this
+provocation is mild: Chromium does not meaningfully throttle a 5 s interval over
+a 10 s hide, so the sampler kept its normal cadence and there was no long delta
+for the guard to reject. The guard's ceiling (60 s) and the per-frame division
+are what would catch a genuinely throttled tab; a run that stresses them needs a
+hide of minutes, not seconds. The earlier 10,017 ms observation on #1931 found
+the same thing.
+
+**Reconnect — timed as a new journey: holds.** The clip was restored at 158.1 s
+and the stopped tile's first figure arrived at **173.8 s — 15.7 s later**, which
+matches the jittered retry ladder capped at 15 s in `useWhepSession`. That delay
+is the evidence that the session was **torn down and re-established**, rather
+than a still-live session that merely had no frames. The figures that followed:
+
+```
+  173.8s  receive_to_decoded  16.4 ms   ← first after recovery
+  178.8s  receive_to_decoded  22.3 ms
+  183.8s  receive_to_decoded  18.6 ms
+  188.8s  receive_to_decoded  21.4 ms
+  193.8s  receive_to_decoded  20.1 ms
+```
+
+**16.4 ms, not 60 seconds.** Nothing bridges the outage. Two mechanisms produce
+that, and both are in the code rather than in luck: the sampler effect in
+`CameraViewer` is keyed on `status === 'live'` and holds `previous` *inside* the
+effect, so a drop clears the interval and discards the baseline; and
+`decodeElapsedBetween` returns `null` when the counters go backwards, which is
+what a restarted session's counters do. A figure spanning the interruption could
+not have been computed from either side.
 
 **What this means for the claims.** The automated suite proves the guards, the
 separability, the fragment's naming, the endpoint's validation and the corrected
-record. **Both figures have now also been seen**, per tile, on the dashboard —
-which was the one thing a green suite could not stand in for.
+record. **Both figures have now also been seen**, per tile, on the dashboard, and
+**all three guards have been provoked** rather than only unit-tested — which was
+the one thing a green suite could not stand in for.
+
