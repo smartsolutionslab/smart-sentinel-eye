@@ -80,7 +80,7 @@ public sealed class CameraSimProvisioner(HttpClient http, ILogger<CameraSimProvi
     /// labelled with <paramref name="label"/> and hue-shifted by its identifier so
     /// two of them are never the same picture (FR-004).
     /// </summary>
-    public Task ProvisionLabelledPathAsync(
+    public async Task ProvisionLabelledPathAsync(
         string path,
         string label,
         Guid camera,
@@ -92,7 +92,17 @@ public sealed class CameraSimProvisioner(HttpClient http, ILogger<CameraSimProvi
         // spread is what matters, not the value — 360 buckets off the identifier.
         int hue = (int)((uint)camera.GetHashCode() % 360);
 
-        return ProvisionAsync(path, DefaultClip, LabelledCommand(DefaultClip, label, hue), cancellationToken);
+        await ProvisionAsync(path, DefaultClip, LabelledCommand(DefaultClip, label, hue), cancellationToken);
+
+        // Which camera's label the path now carries, because ProvisionAsync can
+        // only say it plays `sim-loop.mp4` — true of every labelled path, and so
+        // no help at all when two cameras share one.
+        //
+        // The guarantee is per simulator path, not per camera row: two cameras
+        // registered at the same URL are one source, and the later registration
+        // wins the label and the hue. That is the line to look for when a
+        // camera's picture changes without anyone touching that camera.
+        logger.CameraSimPathLabelled(path, label, camera);
     }
 
     private async Task ProvisionAsync(

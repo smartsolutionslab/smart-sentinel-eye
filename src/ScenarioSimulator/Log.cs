@@ -51,6 +51,13 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Replaced camera-sim path '{Path}'; it now plays '{Clip}'.")]
     public static partial void CameraSimPathReplaced(this ILogger logger, string path, string clip);
 
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "camera-sim path '{Path}' now carries the label '{Label}' for camera {Camera}. "
+            + "The label and hue belong to the path: two cameras registered at the same simulator URL "
+            + "share it, and the later one wins.")]
+    public static partial void CameraSimPathLabelled(this ILogger logger, string path, string label, Guid camera);
+
     [LoggerMessage(Level = LogLevel.Error, Message = "Asset '{Asset}' names clip '{Clip}', which is not in the clips directory. Add it (scripts/generate-sim-clips.sh) or correct the scenario file.")]
     public static partial void ClipMissing(this ILogger logger, string asset, string clip);
 
