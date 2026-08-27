@@ -147,6 +147,11 @@ handful a run creates, not a hundred of accumulated residue.
   looking at it.
 - **FR-004**: A camera belonging to no scenario MUST still stream, showing the
   shared clip with its own name burnt in and a per-camera colour shift.
+  *Clarified 2026-08-27 (T023): the guarantee is **per simulator path**. Two
+  cameras registered at the same simulator URL are one source — the SFU pulls
+  each `cam-<identifier>` from the address the operator entered — so they show
+  one picture, and the later registration wins the label and hue. Verified: two
+  cameras on distinct paths get distinct labels and hues.*
 - **FR-005**: Two further scenarios MUST exist — a paper mill and an electronics
   line — each a different kind of plant, not a second steel process.
 - **FR-006**: A scenario MUST be addable without changing simulator code.
