@@ -158,7 +158,7 @@ public static class StreamEndpoints
         // recording so a second caller cannot forget them. A dropped
         // measurement is not a client error — the kiosk did nothing wrong by
         // observing a clock that stepped.
-        LatencyBudget.Record(segment, TimeSpan.FromMilliseconds(report.ElapsedMilliseconds));
+        LatencyBudget.Record(segment, TimeSpan.FromMilliseconds(report.ElapsedMilliseconds), report.Camera);
         return Results.Accepted();
     }
 

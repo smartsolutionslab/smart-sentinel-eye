@@ -136,7 +136,56 @@ public class KioskLatencyTests
         only.LegBudget.ShouldBe(50);
     }
 
-    private sealed record Measurement(double Value, string Segment, string Leg, double LegBudget, bool IsWholeLeg);
+    /// <summary>
+    /// #1931. A wall reports one histogram per segment unless the figure says
+    /// which tile it came from, and one frozen camera among four disappears
+    /// into that average.
+    /// </summary>
+    [Fact]
+    public void A_kiosk_figure_carries_the_camera_it_was_observed_on()
+    {
+        List<Measurement> recorded = Listen("kiosk-overlay-draw");
+        Guid camera = Guid.CreateVersion7();
+
+        LatencyBudget.Record(LatencySegment.KioskOverlayDraw, TimeSpan.FromMilliseconds(12), camera);
+
+        recorded.ShouldHaveSingleItem().Camera.ShouldBe(camera.ToString());
+    }
+
+    /// <summary>
+    /// Asserted as an absence: the legs that are not per-tile must not carry an
+    /// empty camera dimension, which reads as a real value in a query.
+    /// </summary>
+    [Fact]
+    public void A_figure_with_no_camera_carries_no_camera_tag()
+    {
+        List<Measurement> recorded = Listen("kiosk-overlay-draw");
+
+        LatencyBudget.Record(LatencySegment.KioskOverlayDraw, TimeSpan.FromMilliseconds(12));
+
+        recorded.ShouldHaveSingleItem().Camera.ShouldBeEmpty();
+    }
+
+    /// <summary>
+    /// Two tiles, two cameras: the whole point of the dimension is telling them
+    /// apart, which a test recording one camera cannot show.
+    /// </summary>
+    [Fact]
+    public void Two_tiles_are_distinguishable_in_the_same_segment()
+    {
+        List<Measurement> recorded = Listen("kiosk-receive-to-decoded");
+        Guid first = Guid.CreateVersion7();
+        Guid second = Guid.CreateVersion7();
+
+        LatencyBudget.Record(LatencySegment.KioskReceiveToDecoded, TimeSpan.FromMilliseconds(30), first);
+        LatencyBudget.Record(LatencySegment.KioskReceiveToDecoded, TimeSpan.FromMilliseconds(900), second);
+
+        recorded.Count.ShouldBe(2);
+        recorded.Single(m => m.Camera == first.ToString()).Value.ShouldBe(30);
+        recorded.Single(m => m.Camera == second.ToString()).Value.ShouldBe(900);
+    }
+
+    private sealed record Measurement(double Value, string Segment, string Leg, double LegBudget, bool IsWholeLeg, string Camera);
 
     /// <summary>
     /// Subscribes to the meter the implementation writes to, keeping the tags —
@@ -164,6 +213,7 @@ public class KioskLatencyTests
             string leg = string.Empty;
             double budget = 0;
             bool whole = false;
+            string camera = string.Empty;
             foreach (KeyValuePair<string, object?> tag in tags)
             {
                 switch (tag.Key)
@@ -172,6 +222,7 @@ public class KioskLatencyTests
                     case "leg": leg = tag.Value?.ToString() ?? string.Empty; break;
                     case "leg.budget_ms": budget = Convert.ToDouble(tag.Value, CultureInfo.InvariantCulture); break;
                     case "segment.is_whole_leg": whole = Convert.ToBoolean(tag.Value, CultureInfo.InvariantCulture); break;
+                    case "camera": camera = tag.Value?.ToString() ?? string.Empty; break;
                     default: break;
                 }
             }
@@ -181,7 +232,7 @@ public class KioskLatencyTests
             // made three assertions here fail intermittently before this filter.
             if (wanted.Contains(segment))
             {
-                values.Add(new Measurement(measurement, segment, leg, budget, whole));
+                values.Add(new Measurement(measurement, segment, leg, budget, whole, camera));
             }
         });
         listener.Start();
