@@ -232,12 +232,20 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             await foreach (ResourceEvent evt in _app.ResourceNotifications.WatchAsync(snapshot.Token))
             {
                 states[evt.Resource.Name] = evt.Snapshot.State?.Text ?? "(unknown)";
+                _exitCodes[evt.Resource.Name] = evt.Snapshot.ExitCode;
             }
         }
         catch (OperationCanceledException) { /* expected */ }
 
         return states;
     }
+
+    // `Finished` alone does not say whether a service shut down cleanly or
+    // died: both land there. The exit code is what separates them, and not
+    // having it is why the one occurrence of #1918 could not be diagnosed
+    // after the fact. Captured alongside the state so the next report answers
+    // the question instead of raising it.
+    private readonly Dictionary<string, int?> _exitCodes = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Which resources are worth dumping logs for after a startup timeout.
@@ -272,10 +280,25 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     private static bool IsOneShot(string name) =>
         name is "migrations" || name.StartsWith("migrations-", StringComparison.Ordinal);
 
-    private static string FormatResourceStates(Dictionary<string, string> states) =>
+    private string FormatResourceStates(Dictionary<string, string> states) =>
+        FormatResourceStates(states, _exitCodes);
+
+    /// <summary>
+    /// One line per resource. A resource that exited carries its exit code,
+    /// because `Finished` alone does not distinguish a clean shutdown from a
+    /// death — which is exactly what #1918's single occurrence could not answer.
+    /// </summary>
+    internal static string FormatResourceStates(
+        Dictionary<string, string> states,
+        Dictionary<string, int?> exitCodes) =>
         states.Count == 0
             ? "  (app not built)"
-            : string.Join('\n', states.OrderBy(kv => kv.Key).Select(kv => $"  {kv.Key}: {kv.Value}"));
+            : string.Join(
+                '\n',
+                states.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv =>
+                    exitCodes.TryGetValue(kv.Key, out int? exit) && exit is not null
+                        ? $"  {kv.Key}: {kv.Value} (exit code {exit})"
+                        : $"  {kv.Key}: {kv.Value}"));
 
     /// <summary>
     /// On a startup timeout, dump recent stdout for every resource that did
