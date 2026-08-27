@@ -122,7 +122,7 @@ kiosk, which is the thing this feature exists to fix.
 
 **Required.** Not a suggestion, not a nice-to-have.
 
-- [ ] T026 Follow [quickstart.md](./quickstart.md) against the **run-mode** stack (`dotnet run --project src/AppHost`, not the e2e profile): publish a **two-tile** layout, open the kiosk, confirm both tiles show moving video with overlays drawn on them, and **read both numbers from the Aspire dashboard**. Record the values, per tile. Not "the metric is emitted" — the number, and where it was read
+- [x] T026 Follow [quickstart.md](./quickstart.md) against the **run-mode** stack (`dotnet run --project src/AppHost`, not the e2e profile): publish a **two-tile** layout, open the kiosk, confirm both tiles show moving video with overlays drawn on them, and **read both numbers from the Aspire dashboard**. Record the values, per tile. Not "the metric is emitted" — the number, and where it was read
 - [ ] T027 Provoke the guards by hand, per [quickstart.md](./quickstart.md): stop a camera's clip and confirm **no** figure is recorded for the gap; background the tab for ten seconds and confirm no figure spans it; reconnect and confirm the recovery is timed as a new journey. Record what was done and that nothing was recorded
 - [ ] T028 Write the verification note on the PR. It must state **which claims rest on Phase 5 and cannot be checked by CI**, name the four corrected documents, name the four leg states in §IV, give both figures with the values read, and confirm the decode figure carries no budget. **Say plainly that CI cannot produce video and that the automated suite proves the guards and the plumbing only** — the alternative is a green tick standing in for something nobody saw
 
@@ -235,26 +235,94 @@ document saying something the code does not support.
   received**. So the premise of both measurements holds: there is a decoded frame
   to time and an overlay to draw onto it.
 
-**Attempted, and BLOCKED — T026, T027:**
+**Was blocked, now unblocked.** The first attempt could not read either number:
+a kiosk could not list layouts at all, because its OIDC client
+(`smart-sentinel-eye-kiosk`) omitted `sse-groups`, so its token carried no fab
+claim and spec 017 refused every fab-scoped read — management-web got `200` on
+`/layout-composition/layouts` while the kiosk got `403` on the same route, same
+user, same gateway, same moment. Filed and fixed as **#1884**. Nothing caught it
+because `kiosk-live-updates.spec.ts` accepted *"could not load layouts"* as one
+of three passing outcomes, so a kiosk that could never load a wall looked
+exactly like a working one.
 
-The procedure was driven end to end against the run-mode stack. Sign-in works;
-the wall does not render, so **neither number has been read**.
+A second blocker followed: the figures were recorded without a `camera` tag, so
+a wall reported one blended histogram and "per tile" was unanswerable. Fixed as
+**#1931**.
 
-**A kiosk cannot list layouts at all**, and the cause is not this feature:
-its OIDC client (`smart-sentinel-eye-kiosk`) omits `sse-groups`, so its token
-carries no fab claim and spec 017 refuses every fab-scoped read. Same user, same
-gateway, same moment: management-web gets `200` on
-`/layout-composition/layouts`, the kiosk gets `403` on the same route.
+---
 
-**Filed as issue 1884**, with the realm evidence and the reason nothing caught
-it — `kiosk-live-updates.spec.ts` accepts *"could not load layouts"* as one of
-three passing outcomes, so a kiosk that can never load a wall looks exactly like
-a working one.
+### T026 — **done**. Both figures, per tile, read off the Aspire dashboard
 
-The guards were therefore not provoked by hand either.
+Read on **2026-08-27**, against the run-mode stack, from the dashboard's
+Metrics page: resource **`stream-distribution`**, meter
+**`SmartSentinelEye.Latency`**, instrument **`sse.latency.segment.duration`**,
+**Table** view, window **Last 5 minutes**.
 
-**What this means for the claims.** Everything the automated suite covers — the
-guards, the separability, the fragment's naming, the endpoint's validation, the
-corrected record — is proven. **The two figures themselves are not**, and no
-green tick in this PR should be read as saying they are. That distinction is the
-whole subject of the feature.
+**The wall.** A published **two-tile** layout — two tiles, because the dashboard
+collapses a dimension's surplus values behind a "+N" control, and with four
+cameras two of the four `camera` values cannot be selected at all. Tiles bind
+`Injection Moulding` + overlay `electronics-moulding`, and `SMD Placement Line`
++ overlay `electronics-smd-line`.
+
+**Both tiles show moving video with an overlay drawn on them** — checked by eye,
+not inferred: the tiles render `MOULDING — CYCLE TIME` and `SMD — PLACEMENT
+RATE` over live frames, and two grabs of each tile five seconds apart differ, so
+the video is moving rather than a held frame.
+
+Figures are per one-minute bucket, in milliseconds, filtered to one `segment`
+and one `camera` at a time. The filter was re-read *after* each reading and the
+reading kept only if it still held — 4 of 4 held, and all four differ.
+
+**Tile 1 — `01a03dc3-0e0e-7eca-91bf-092622c78970` (Injection Moulding)**
+
+| Segment | P50 | P90 | P99 | Buckets |
+|---|---|---|---|---|
+| `kiosk-receive-to-decoded` | 25–100 (mostly 25–50) | 25–100 | 25–100 | 10 |
+| `kiosk-overlay-draw` | 250 | 250 | 250 | 1 |
+
+**Tile 2 — `01a03dc3-1215-7297-8ea0-861c5d606c04` (SMD Placement Line)**
+
+| Segment | P50 | P90 | P99 | Buckets |
+|---|---|---|---|---|
+| `kiosk-receive-to-decoded` | 25–75 | 25–100 | 25–100 | 5 |
+| `kiosk-overlay-draw` | 250 | 250 | 250 | 1 |
+
+**The dashboard's numbers are bucket boundaries, not measurements.** Its
+histogram buckets are coarse (25/50/75/100/250/500/…), so a `kiosk-overlay-draw`
+of 250 ms means *"in the bucket ending at 250"*. The browser's own figures for
+the same two samples were **139.4 ms** and **100.5 ms**. Cited so the 250 is not
+later read as a measured quarter-second. Same run, exact values:
+
+| Camera | `receive_to_decoded` | `overlay_draw` |
+|---|---|---|
+| …0e0e | n=36, p50 **30.9**, p95 91.1, max 92.1 | n=1, **139.4** |
+| …1215 | n=36, p50 **22.5**, p95 66.6, max 89.4 | n=1, **100.5** |
+
+**Reading the two legs.**
+
+- **Decode** carries `leg.budget_ms=120` and sits far inside it. It is the
+  cheaper *fragment* of that leg, not the leg — the point T022 and §IV exist to
+  keep straight — so "inside budget" here is not a claim the leg is met.
+- **Overlay draw** carries `leg.budget_ms=50` and both samples exceed it, at
+  100–139 ms. Per **ADR-0123** that is read as cadence first: this leg includes
+  the wait for the frame that carries the change, so the figure has a floor of
+  roughly 1.5–2 frame intervals. 100–139 ms implies **~15–20 Hz**, well under
+  the ≥30 Hz that ADR-0123 states the budget requires. The measurement is of a
+  developer machine decoding two streams under Playwright, so this is a
+  statement about the capture, not about the compositing code.
+
+**One sample per tile is not a distribution**, and the reason is worth writing
+down: `overlay_draw` fires on overlay *change* (#1888), and these scenario
+overlays carry static labels, so each tile draws once and then has nothing to
+redraw. Any distribution for this leg needs an overlay whose text actually
+changes — which is what a `{{token}}`-bound overlay gives.
+
+**T027 remains unticked** — see the note on #1931. FR-008 (no figure for a
+stopped clip, not a zero) and the hidden-tab guard were both verified; the
+"reconnect is timed as a new journey" half could not be observed, because the
+stream did not return to an already-open kiosk within the window.
+
+**What this means for the claims.** The automated suite proves the guards, the
+separability, the fragment's naming, the endpoint's validation and the corrected
+record. **Both figures have now also been seen**, per tile, on the dashboard —
+which was the one thing a green suite could not stand in for.
