@@ -142,3 +142,33 @@ guard.
 **The provisional note outlives the provisional code.** T012. Deleting the
 branch and leaving the comment saying "pending #1857" would reproduce, exactly,
 the failure this feature was filed to correct.
+
+---
+
+## T018 — note written, task **not** ticked
+
+[verification.md](./verification.md) is written and covers the whole checklist.
+**T018 stays open**, because two of quickstart.md's steps could not be performed:
+the `curl` in §1 and the by-hand UI provocation in §2 both need a running stack,
+and the stack will not start on this machine — Docker's daemon is wedged
+(`docker info` hangs), most likely a consequence of the system disk having filled
+to zero earlier.
+
+**Both things T018 names explicitly were done by hand**, and they are the two a
+green suite cannot fake:
+
+- **The deliberately-broken architecture test (T010).** `WIDGET_VERSION_MISMATCH`
+  was added to a real errors file; `StaleCodeConventionTests` failed naming the
+  file and the code; the probe was removed and the suite went green. The check
+  fires for a code a future context would plausibly invent, not merely for the
+  string this feature removed.
+- **The empty diff (T015).** Checked against history rather than the working
+  tree, which is trivially clean on merged work: since spec 031 began, exactly one
+  commit has touched the six contexts' test files, and it belongs to spec 037.
+  299 of their tests pass unmodified, plus 191 in `management-web`.
+
+**To finish**: with Docker healthy, run quickstart §1's PATCH-with-a-stale-version
+and confirm `412` + `CAMERA_VERSION_STALE`, and publish a rule from a stale
+version in the UI to see the words. Both assertions are already covered by
+`ChangeCameraAddressIntegrationTests` running green in CI — but covered by a test
+is not the same as seen, which is what this phase exists to distinguish.
