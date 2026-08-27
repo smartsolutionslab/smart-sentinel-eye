@@ -1,5 +1,6 @@
 using System.Text.Json;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
+using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.Architecture.Tests;
 
@@ -126,6 +127,22 @@ public class KioskScopeParityTests
             .Select(client => client.GetProperty("clientId").GetString())
             .ShouldNotContain("smart-sentinel-eye-kiosk",
                 customMessage: "spec 009 called it replaced and spec 041 made that a fact.");
+    }
+
+    /// <summary>
+    /// #1893. `StreamDistribution` decides whether a latency report came from a
+    /// kiosk by comparing the token's <c>azp</c> against
+    /// <see cref="AuthenticationDefaults.KioskClientId"/>. That constant is a
+    /// second copy of a fact the realm owns, and a silent drift between them
+    /// would not fail anything — it would quietly start dropping every kiosk
+    /// figure, leaving the leg looking merely quiet rather than broken.
+    /// </summary>
+    [Fact]
+    public void The_kiosk_client_id_the_services_compare_against_is_the_realms()
+    {
+        AuthenticationDefaults.KioskClientId.ShouldBe(
+            KioskClient(Realm()).GetProperty("clientId").GetString(),
+            customMessage: "a service deciding what a kiosk is must mean the client the realm defines.");
     }
 
     private static IReadOnlyCollection<string> KioskClientPermissions() =>

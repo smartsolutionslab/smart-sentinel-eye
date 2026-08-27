@@ -28,4 +28,35 @@ public static class ClaimsPrincipalExtensions
         string raw = user.FindFirst("sub")?.Value ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return Guid.TryParse(raw, out Guid value) && value != Guid.Empty ? OperatorIdentifier.From(value) : throw new UnattributableOperatorException();
     }
+
+    /// <summary>
+    /// Whether this principal is a browser kiosk, read from the token's
+    /// <c>azp</c> claim.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The kiosk latency segments are named for the kiosk —
+    /// <c>kiosk-receive-to-decoded</c> — and constitution §IV reads them as the
+    /// kiosk decode leg. Spec 043 mounted the shared <c>CameraViewer</c> on the
+    /// management camera page, which turned an operator's desktop into a
+    /// reporter for those same segments, mixing two populations into one series
+    /// nobody could separate (#1893).
+    /// </para>
+    /// <para>
+    /// Decided from the validated token rather than from a field the browser
+    /// sends, because the server is the enforcement point for every other guard
+    /// on that endpoint, and because it needs no change to a composite ADR-0122
+    /// deliberately kept generic. Fails closed: a token with no <c>azp</c> is
+    /// not a kiosk.
+    /// </para>
+    /// </remarks>
+    public static bool IsBrowserKiosk(this ClaimsPrincipal user)
+    {
+        Ensure.That(user).IsNotNull();
+
+        return string.Equals(
+            user.FindFirst("azp")?.Value,
+            AuthenticationDefaults.KioskClientId,
+            StringComparison.Ordinal);
+    }
 }
