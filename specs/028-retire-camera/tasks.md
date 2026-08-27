@@ -130,7 +130,7 @@ Shipping Phase 4 without this makes the system noisier than before the feature.
 - [x] T032 [P] Confirm the retirement is audited (FR-010) — `audit_events` holds one `CameraRetiredV1` per retirement, with the operator
 - [x] T033 [P] Reinstate the withdrawn entry in `specs/015-camera-fab-scoping/contracts/cameras-api.md` — point it at this feature and note the key changed from name to identifier
 - [x] T034 Full suite, nothing excluded or weakened; Release build with analyzers clean
-- [ ] T035 Verification note on the PR following [quickstart.md](./quickstart.md), including the trace across both contexts and the "no further health announcements" check
+- [x] T035 Verification note on the PR following [quickstart.md](./quickstart.md), including the trace across both contexts and the "no further health announcements" check
 
 ---
 
