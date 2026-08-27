@@ -2,11 +2,7 @@ import type { CameraSummary } from '@smart-sentinel-eye/shared/api/cameras.api';
 import type { PublishedOverlay } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { useFieldArray, type UseFormReturn } from 'react-hook-form';
-import {
-  buildCells,
-  GRID_PRESETS,
-  type GridDesignerValue,
-} from './gridDesignerModel.js';
+import { buildCells, GRID_PRESETS, type GridDesignerValue } from './gridDesignerModel.js';
 
 export interface GridDesignerProps {
   form: UseFormReturn<GridDesignerValue>;
@@ -16,8 +12,7 @@ export interface GridDesignerProps {
   overlaysLoading: boolean;
 }
 
-const SELECT_CLASS =
-  'w-full rounded-md border border-fg-muted/40 bg-bg-base px-3 py-2 text-fg-primary';
+const SELECT_CLASS = 'w-full rounded-md border border-fg-muted/40 bg-bg-base px-3 py-2 text-fg-primary';
 
 /**
  * The wall designer (spec 010, FR-010): a grid-size preset picker plus a dense
@@ -26,13 +21,7 @@ const SELECT_CLASS =
  * frozen multi-tile Zod schema via the form's resolver, surfacing inline
  * per-cell and grid-level errors (ADR-0079).
  */
-export function GridDesigner({
-  form,
-  cameras,
-  overlays,
-  camerasLoading,
-  overlaysLoading,
-}: GridDesignerProps) {
+export function GridDesigner({ form, cameras, overlays, camerasLoading, overlaysLoading }: GridDesignerProps) {
   const {
     register,
     setValue,
@@ -87,36 +76,24 @@ export function GridDesigner({
         )}
       </fieldset>
 
-      <div
-        className="grid gap-3"
-        style={{ gridTemplateColumns: `repeat(${grid.cols}, minmax(0, 1fr))` }}
-      >
+      <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${grid.cols}, minmax(0, 1fr))` }}>
         {fields.map((cell, index) => {
           const cameraError = errors.cells?.[index]?.cameraIdentifier?.message;
           const overlayError = errors.cells?.[index]?.overlayIdentifier?.message;
           const position = `${cell.row + 1},${cell.col + 1}`;
           return (
-            <div
-              key={cell.id}
-              className="flex flex-col gap-2 rounded-md border border-fg-muted/30 bg-bg-base p-3"
-            >
+            <div key={cell.id} className="flex flex-col gap-2 rounded-md border border-fg-muted/30 bg-bg-base p-3">
               <span className="text-xs font-medium text-fg-muted">Tile {position}</span>
               {/* row/col are not editable inputs — `useFieldArray` carries them
                   in the cell object so they survive submit without a registered
                   field (a hidden number input would deserialize to NaN). */}
-              <FormField
-                label="Camera"
-                htmlFor={`tile-${index}-camera`}
-                error={cameraError}
-              >
+              <FormField label="Camera" htmlFor={`tile-${index}-camera`} error={cameraError}>
                 <select
                   id={`tile-${index}-camera`}
                   className={SELECT_CLASS}
                   {...register(`cells.${index}.cameraIdentifier`)}
                 >
-                  <option value="">
-                    {camerasLoading ? 'Loading cameras…' : '(empty cell)'}
-                  </option>
+                  <option value="">{camerasLoading ? 'Loading cameras…' : '(empty cell)'}</option>
                   {cameras.map((camera) => (
                     <option key={camera.cameraIdentifier} value={camera.cameraIdentifier}>
                       {camera.name}
@@ -124,11 +101,7 @@ export function GridDesigner({
                   ))}
                 </select>
               </FormField>
-              <FormField
-                label="Overlay"
-                htmlFor={`tile-${index}-overlay`}
-                error={overlayError}
-              >
+              <FormField label="Overlay" htmlFor={`tile-${index}-overlay`} error={overlayError}>
                 <select
                   id={`tile-${index}-overlay`}
                   className={SELECT_CLASS}

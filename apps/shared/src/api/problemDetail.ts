@@ -35,10 +35,7 @@ export function problemDetail(error: unknown, fallback: string): string | null {
  */
 export function isConflict(error: unknown): boolean {
   return (
-    typeof error === 'object' &&
-    error !== null &&
-    'status' in error &&
-    (error as { status: unknown }).status === 409
+    typeof error === 'object' && error !== null && 'status' in error && (error as { status: unknown }).status === 409
   );
 }
 

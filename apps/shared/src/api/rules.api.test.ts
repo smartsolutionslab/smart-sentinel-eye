@@ -64,9 +64,7 @@ describe('If-Match is sent only by rule mutations that persist (spec 012 T048)',
     const fetchMock = vi.fn((_request: Request) => Promise.resolve(okResponse('high-oee')));
     vi.stubGlobal('fetch', fetchMock);
 
-    await createStore().dispatch(
-      rulesApi.endpoints.publishRule.initiate({ name: 'high-oee', version: 4 }),
-    );
+    await createStore().dispatch(rulesApi.endpoints.publishRule.initiate({ name: 'high-oee', version: 4 }));
 
     expect(ifMatchOf(fetchMock.mock.calls[0]?.[0])).toBe('"4"');
   });
@@ -75,9 +73,7 @@ describe('If-Match is sent only by rule mutations that persist (spec 012 T048)',
     const fetchMock = vi.fn((_request: Request) => Promise.resolve(okResponse('high-oee')));
     vi.stubGlobal('fetch', fetchMock);
 
-    await createStore().dispatch(
-      rulesApi.endpoints.archiveRule.initiate({ name: 'high-oee', version: 4 }),
-    );
+    await createStore().dispatch(rulesApi.endpoints.archiveRule.initiate({ name: 'high-oee', version: 4 }));
 
     expect(ifMatchOf(fetchMock.mock.calls[0]?.[0])).toBe('"4"');
   });

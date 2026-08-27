@@ -1,8 +1,5 @@
 import { useDefineVariableMutation } from '@smart-sentinel-eye/shared/api/systemVariables.api';
-import {
-  defineVariableSchema,
-  type DefineVariableInput,
-} from '@smart-sentinel-eye/shared/api/systemVariables.schema';
+import { defineVariableSchema, type DefineVariableInput } from '@smart-sentinel-eye/shared/api/systemVariables.schema';
 import { problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
@@ -119,11 +116,7 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
           </select>
         </FormField>
         <FormField label="Initial value" htmlFor="variable-initial-value" error={errors.initialValue?.message}>
-          <Input
-            id="variable-initial-value"
-            placeholder="(unset)"
-            {...register('initialValue')}
-          />
+          <Input id="variable-initial-value" placeholder="(unset)" {...register('initialValue')} />
         </FormField>
         {selectedType === 'Boolean' && (
           <>

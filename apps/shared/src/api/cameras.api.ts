@@ -131,9 +131,7 @@ export const camerasApi = createApi({
         method: 'GET',
         ...(fabId !== undefined && fabId !== '' ? { params: { fabId } } : {}),
       }),
-      providesTags: (_result, _error, { cameraIdentifier }) => [
-        { type: 'Camera' as const, id: cameraIdentifier },
-      ],
+      providesTags: (_result, _error, { cameraIdentifier }) => [{ type: 'Camera' as const, id: cameraIdentifier }],
     }),
     changeCameraAddress: build.mutation<void, ChangeCameraAddressInput>({
       // The version travels as an If-Match header, not in the body, and is

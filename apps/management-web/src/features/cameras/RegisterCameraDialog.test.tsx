@@ -18,10 +18,7 @@ vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => 
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/cameras.api')>();
   return {
     ...actual,
-    useRegisterCameraMutation: () => [
-      registerMock,
-      { isLoading: false, error: undefined, reset: vi.fn() },
-    ],
+    useRegisterCameraMutation: () => [registerMock, { isLoading: false, error: undefined, reset: vi.fn() }],
   };
 });
 

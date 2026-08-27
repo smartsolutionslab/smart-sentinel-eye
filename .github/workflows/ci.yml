@@ -88,6 +88,14 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # The repo has declared a Prettier convention since it had a frontend —
+      # .prettierrc.json, .prettierignore, and eslint-config-prettier in all
+      # three packages so ESLint defers formatting to it. Nothing ran it, so 47
+      # files had drifted out of it unnoticed (#1910). Enforced here rather than
+      # left to the next person to rediscover.
+      - name: Format check
+        run: pnpm format:check
+
       - name: Lint
         run: pnpm -r --filter "./apps/**" lint
 

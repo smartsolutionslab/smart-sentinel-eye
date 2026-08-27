@@ -17,14 +17,8 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/layouts.api')>();
   return {
     ...actual,
-    useCreateLayoutDraftMutation: () => [
-      createDraftMock,
-      { isLoading: false, error: editError, reset: vi.fn() },
-    ],
-    useEditDraftRevisionMutation: () => [
-      editDraftMock,
-      { isLoading: false, error: editError, reset: vi.fn() },
-    ],
+    useCreateLayoutDraftMutation: () => [createDraftMock, { isLoading: false, error: editError, reset: vi.fn() }],
+    useEditDraftRevisionMutation: () => [editDraftMock, { isLoading: false, error: editError, reset: vi.fn() }],
     // The dialog reads the chain back to learn its current version; the page
     // branched a draft just before opening, so the version it held is stale.
     useGetLayoutQuery: () => ({

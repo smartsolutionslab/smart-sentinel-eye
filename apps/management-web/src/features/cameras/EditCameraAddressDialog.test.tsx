@@ -78,11 +78,7 @@ describe('EditCameraAddressDialog', () => {
   it('Tells the operator to reload on a stale version, and never to try again', () => {
     mutationState.current = {
       isLoading: false,
-      error: refusal(
-        412,
-        'CAMERA_VERSION_STALE',
-        "Camera '1111' is at version 9, not 7. Re-read it and try again.",
-      ),
+      error: refusal(412, 'CAMERA_VERSION_STALE', "Camera '1111' is at version 9, not 7. Re-read it and try again."),
       reset: vi.fn(),
     };
 

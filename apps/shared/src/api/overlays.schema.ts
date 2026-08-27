@@ -4,11 +4,7 @@ import { z } from 'zod';
 // non-empty trim ≤ 256, normalized [0,1] with positive width/height,
 // font size 8-256.
 export const overlayLabelSchema = z.object({
-  text: z
-    .string()
-    .trim()
-    .min(1, 'Text is required')
-    .max(256, 'Text must be 256 characters or fewer'),
+  text: z.string().trim().min(1, 'Text is required').max(256, 'Text must be 256 characters or fewer'),
   normalizedX: z.number().min(0).max(1),
   normalizedY: z.number().min(0).max(1),
   normalizedWidth: z.number().gt(0).max(1),

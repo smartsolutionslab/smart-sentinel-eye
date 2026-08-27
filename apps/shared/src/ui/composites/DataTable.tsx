@@ -48,12 +48,7 @@ export function DataTable<TRow, TSortKey extends string = string>({
         <thead className="bg-bg-elevated text-fg-muted">
           <tr>
             {columns.map((column) => (
-              <HeaderCell
-                key={column.id}
-                column={column}
-                sort={sort}
-                onSortChange={onSortChange}
-              />
+              <HeaderCell key={column.id} column={column} sort={sort} onSortChange={onSortChange} />
             ))}
           </tr>
         </thead>
@@ -93,19 +88,11 @@ interface HeaderCellProps<TRow, TSortKey extends string> {
   onSortChange?: (next: DataTableSort<TSortKey>) => void;
 }
 
-function HeaderCell<TRow, TSortKey extends string>({
-  column,
-  sort,
-  onSortChange,
-}: HeaderCellProps<TRow, TSortKey>) {
+function HeaderCell<TRow, TSortKey extends string>({ column, sort, onSortChange }: HeaderCellProps<TRow, TSortKey>) {
   const sortable = column.sortKey !== undefined && onSortChange !== undefined;
   const isActive = sortable && sort?.field === column.sortKey;
   const ariaSort: 'ascending' | 'descending' | 'none' =
-    isActive && sort !== undefined
-      ? sort.direction === 'asc'
-        ? 'ascending'
-        : 'descending'
-      : 'none';
+    isActive && sort !== undefined ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none';
 
   if (!sortable) {
     return (

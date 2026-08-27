@@ -15,13 +15,7 @@ export interface TooltipProps {
  * Tooltip.Provider is included so callers don't need to remember to wrap
  * each instance; nesting providers is harmless.
  */
-export function Tooltip({
-  trigger,
-  content,
-  side = 'top',
-  delayMs = 200,
-  contentClassName,
-}: TooltipProps) {
+export function Tooltip({ trigger, content, side = 'top', delayMs = 200, contentClassName }: TooltipProps) {
   return (
     <RadixTooltip.Provider delayDuration={delayMs}>
       <RadixTooltip.Root>

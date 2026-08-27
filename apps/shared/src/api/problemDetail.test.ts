@@ -141,9 +141,7 @@ describe('isTerminalRefusal', () => {
 
 describe('problemDetail and problemCode', () => {
   it('returns the server detail when there is one', () => {
-    expect(problemDetail(refusal(404, 'CAMERA_NOT_FOUND', 'No such camera.'), 'fallback')).toBe(
-      'No such camera.',
-    );
+    expect(problemDetail(refusal(404, 'CAMERA_NOT_FOUND', 'No such camera.'), 'fallback')).toBe('No such camera.');
   });
 
   it('falls back when the refusal carries no detail', () => {

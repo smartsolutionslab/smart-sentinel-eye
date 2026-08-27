@@ -25,13 +25,7 @@ const CURRENT_NAME = 'Line-3-Inlet';
 function renderDialog(currentName = CURRENT_NAME) {
   render(
     <Provider store={store}>
-      <RenameCameraDialog
-        open
-        onOpenChange={vi.fn()}
-        cameraIdentifier={CAMERA}
-        version={7}
-        currentName={currentName}
-      />
+      <RenameCameraDialog open onOpenChange={vi.fn()} cameraIdentifier={CAMERA} version={7} currentName={currentName} />
     </Provider>,
   );
 }

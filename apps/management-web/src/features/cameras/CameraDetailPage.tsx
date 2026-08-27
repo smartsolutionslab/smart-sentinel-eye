@@ -69,9 +69,7 @@ export function CameraDetailPage() {
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold">{camera.name}</h1>
           {retired ? (
-            <span className="rounded-md bg-fg-muted/15 px-2 py-1 text-xs font-medium text-fg-muted">
-              Retired
-            </span>
+            <span className="rounded-md bg-fg-muted/15 px-2 py-1 text-xs font-medium text-fg-muted">Retired</span>
           ) : null}
         </div>
         <div className="flex items-center gap-4">
@@ -146,8 +144,8 @@ export function CameraDetailPage() {
           is stated here rather than discovered later. */}
       {retired ? (
         <p role="status" className="mb-6 rounded-md border border-fg-muted/30 px-3 py-2 text-sm text-fg-muted">
-          This camera is retired. Its record is kept, but it can no longer be changed, and its
-          live stream has stopped — there is no picture to show.
+          This camera is retired. Its record is kept, but it can no longer be changed, and its live stream has stopped —
+          there is no picture to show.
         </p>
       ) : null}
 
