@@ -190,9 +190,9 @@ function describeAction(rule: Rule): string {
 function StateBadge({ state }: { state: RuleState }) {
   const tone =
     state === 'Active'
-      ? 'text-accent-ok'
+      ? 'text-accent-active'
       : state === 'Archived'
         ? 'text-fg-muted'
-        : 'text-accent-warn';
+        : 'text-accent-warning';
   return <span className={`text-xs font-medium ${tone}`}>{state}</span>;
 }

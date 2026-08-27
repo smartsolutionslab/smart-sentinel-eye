@@ -287,7 +287,7 @@ function Tile({ tile, getToken, unavailable, highlighted }: TileProps) {
       {overlayUnavailable && (
         <div
           role="status"
-          className="absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-md bg-accent-warn/30 px-4 py-1 text-sm text-accent-warn"
+          className="absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-md bg-accent-warning/30 px-4 py-1 text-sm text-accent-warning"
         >
           Overlay unavailable
         </div>

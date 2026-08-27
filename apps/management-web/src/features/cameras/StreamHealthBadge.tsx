@@ -8,7 +8,7 @@ export interface StreamHealthBadgeProps {
 
 const TONES: Record<StreamState | 'unknown', string> = {
   Healthy: 'bg-accent-active/20 text-accent-active border-accent-active/40',
-  Degraded: 'bg-accent-warn/20 text-accent-warn border-accent-warn/40',
+  Degraded: 'bg-accent-warning/20 text-accent-warning border-accent-warning/40',
   Offline: 'bg-accent-fault/20 text-accent-fault border-accent-fault/40',
   Provisioning: 'bg-fg-muted/20 text-fg-muted border-fg-muted/40',
   unknown: 'bg-fg-muted/10 text-fg-muted border-fg-muted/30',
