@@ -350,22 +350,41 @@ The `Active`-becomes-a-list change did not break it. Watched for 180 s on
 cycle repeating about every 27 s. The green border is plainly visible on the wall.
 The other two walls are static, which is deliberate (plan §2) and not reported.
 
-### FR-004 — two hand-registered cameras: **FAILS. Filed as issue 1942**
+### FR-004 — two hand-registered cameras: **holds per simulator path.** Issue 1942
 
 Following quickstart §4 exactly — two cameras, both at
 `rtsp://camera-sim:8554/anything` — **both render the same burnt-in name and the
-same hue**. The second registration silently rewrote the first camera's picture.
+same hue**, and the second registration silently rewrote the first camera's
+picture. `camera-sim` held exactly one path, `anything`, whose command carried
+`hue=h=140` and `text='E2E T023 Camera Beta'`.
 
-The cause is not the hue: `ProvisionLabelledPathAsync` derives it per camera
-identifier, correctly. It is that `CameraRegisteredSimHandler` names the
-camera-sim path after the **URL**, so two cameras sharing a URL share one path and
-provisioning is last-writer-wins. `camera-sim` held exactly one path, `anything`,
-whose command carried `hue=h=140` and `text='E2E T023 Camera Beta'`.
+**The provisioner is not at fault, and the first diagnosis of this was wrong.**
+Repeating the check with two cameras on **different** paths gives each its own
+label and hue:
 
-FR-004 requires "**its own name** burnt in and a **per-camera** colour shift".
-Neither holds in the case the quickstart itself prescribes. **No automated check
-covers this**, and none could as written: they all assert each camera is *pointed
-at a different file*, and here both genuinely are pointed at the same one.
+| Camera | URL | `hue` | `text` |
+|---|---|---|---|
+| Distinct One | `…:8554/t023-one` | 215 | `E2E T023 Distinct One` |
+| Distinct Two | `…:8554/t023-two` | 86 | `E2E T023 Distinct Two` |
+
+So `ProvisionLabelledPathAsync` labels and tints per camera exactly as FR-004
+asks. Two cameras sharing a URL are **one source** by construction: the SFU pulls
+each `cam-<identifier>` from the address the operator entered, so the same address
+is the same video. Making them differ would mean rewriting that address, which is
+a different design and probably the wrong one.
+
+The defect was therefore in the **documents**, and both are corrected here:
+quickstart §4 now registers the second camera at a different path and says why,
+and FR-004 carries a dated clarification that the guarantee is per simulator path.
+
+**One thing stays worth considering, and 1942 keeps it open**: a second
+registration on an occupied path rewrites an existing camera's label and hue.
+That is **not** unlogged — `ProvisionAsync` takes its replace branch and logs
+`Replaced camera-sim path '{Path}'; it now plays '{Clip}'` at Information. But
+the message names the *path and clip*, not the camera whose picture changed, and
+nothing surfaces it to the operator who registered the second camera. So the
+mutation is traceable in the simulator's log and invisible everywhere a person
+would look.
 
 ### Quickstart §5, both failures: **both fire**
 

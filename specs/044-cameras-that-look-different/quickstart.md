@@ -67,8 +67,17 @@ Register a camera by hand (any name, `rtsp://camera-sim:8554/anything`) and open
 it.
 
 **Expected**: it streams, with its own name burnt into the picture and a colour
-shift distinct from its neighbours. Register a second and open both — they must
-not look the same.
+shift distinct from its neighbours. Register a second **at a different path** —
+say `rtsp://camera-sim:8554/anything-else` — and open both; they must not look
+the same.
+
+**The second URL must differ, and that is not a detail** (corrected 2026-08-27
+at T023). The SFU pulls each `cam-<identifier>` from the address the operator
+entered, so two cameras registered at the *same* simulator path are one source
+and must show one picture. This step originally said to register the second at
+the same URL, which is the one case the guarantee cannot cover: what actually
+happens is that the second registration silently rewrites the first camera's
+label and hue. The per-camera guarantee holds **per simulator path**.
 
 **Note what this costs**: a labelled stream is re-encoded rather than copied.
 If the dev box's fans are audible here, that is the FR-010 assumption showing,
