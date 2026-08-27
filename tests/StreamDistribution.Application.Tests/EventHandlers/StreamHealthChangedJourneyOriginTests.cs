@@ -134,12 +134,38 @@ public class StreamHealthChangedJourneyOriginTests
         announced.Error.ShouldBe("probe timed out");
     }
 
+    /// <summary>
+    /// The announcement carries its fab out to the integration event.
+    ///
+    /// <para>
+    /// This handler is the only place the fab can be attached: it publishes from
+    /// a background loop, so there is no ambient fab and nothing downstream can
+    /// recover it. Without this the event reached audit with
+    /// <c>Metadata.Fab</c> null, so a fab-scoped audit query returned no
+    /// stream-health row at all — and spec 028's check that a retired camera
+    /// goes quiet returned zero whether or not the watcher was announcing.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_published_announcement_carries_the_fab()
+    {
+        FakeBus bus = new();
+
+        await HandlerFor(bus, new RecordingJourneyOrigin()).Handle(DomainEvent(), CancellationToken.None);
+
+        bus.Published
+            .OfType<StreamHealthChangedV1>()
+            .ShouldHaveSingleItem()
+            .Metadata.Fab.ShouldBe("munich");
+    }
+
     private static StreamHealthChangedDomainEventHandler HandlerFor(IEventBus bus, IJourneyOrigin journeys) =>
         new(bus, journeys);
 
     private static StreamHealthChangedDomainEvent DomainEvent() => new(
         Stream: StreamIdentifier.From(Guid.CreateVersion7()),
         Camera: CameraIdentifier.From(Guid.CreateVersion7()),
+        Fab: FabIdentifier.From("munich"),
         FromState: StreamState.Healthy,
         ToState: StreamState.Degraded,
         ChangedAt: ChangedAtMoment,

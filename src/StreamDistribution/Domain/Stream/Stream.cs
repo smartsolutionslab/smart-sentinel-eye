@@ -161,6 +161,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
         Raise(new StreamHealthChangedDomainEvent(
             Stream: Id,
             Camera: Camera,
+            Fab: Fab,
             FromState: previous,
             ToState: StreamState.Retired,
             ChangedAt: now,
@@ -220,6 +221,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
             Raise(new StreamHealthChangedDomainEvent(
                 Stream: Id,
                 Camera: Camera,
+                Fab: Fab,
                 FromState: previous,
                 ToState: StreamState.Healthy,
                 ChangedAt: now,
@@ -244,6 +246,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
             Raise(new StreamHealthChangedDomainEvent(
                 Stream: Id,
                 Camera: Camera,
+                Fab: Fab,
                 FromState: previous,
                 ToState: StreamState.Degraded,
                 ChangedAt: now,
@@ -273,6 +276,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
             Raise(new StreamHealthChangedDomainEvent(
                 Stream: Id,
                 Camera: Camera,
+                Fab: Fab,
                 FromState: previous,
                 ToState: StreamState.Offline,
                 ChangedAt: now,

@@ -266,6 +266,50 @@ public class StreamTests
     }
 
     /// <summary>
+    /// Every health announcement carries the fab, on every transition.
+    ///
+    /// <para>
+    /// The watcher publishes from a background loop, so there is no ambient fab
+    /// for the application layer to fall back on — if the domain event does not
+    /// carry it, the integration event reaches audit with none. That is what
+    /// happened: a fab-scoped audit query returned no stream-health row at all,
+    /// which made spec 028's "a retired camera goes quiet" check return zero
+    /// whether or not the watcher was announcing. An absence that cannot fail.
+    /// </para>
+    ///
+    /// <para>
+    /// Asserted on all four transitions rather than one, because each is a
+    /// separate <c>Raise</c> call and three of them could keep passing while the
+    /// fourth dropped the fab.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Every_health_announcement_carries_the_fab()
+    {
+        FabIdentifier dresden = FabIdentifier.From("dresden");
+        Domain.Stream.Stream stream = new StreamBuilder().WithFab(dresden).Build();
+
+        stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
+        stream.ReportDegraded("source unreachable", new TestClock(FixedMoment.AddSeconds(15)));
+        stream.ReportOffline("retry exhausted", new TestClock(FixedMoment.AddMinutes(5)));
+        stream.Retire(new TestClock(FixedMoment.AddMinutes(10)));
+
+        StreamHealthChangedDomainEvent[] raised = stream.PendingEvents
+            .OfType<StreamHealthChangedDomainEvent>()
+            .ToArray();
+
+        raised.Length.ShouldBe(4, "healthy, degraded, offline and retired are four separate raises");
+        raised.ShouldAllBe(@event => @event.Fab == dresden);
+    }
+
+    // The null case — a stream provisioned before spec 016 announcing with no
+    // fab — is deliberately not asserted here. `Provision` refuses a null fab,
+    // so such a stream exists only when EF materialises a legacy row, and a
+    // builder that manufactured one would let this file assert about a state
+    // the aggregate cannot reach. The pass-through is `Fab: Fab`; there is no
+    // branch to get wrong.
+
+    /// <summary>
     /// Part of the FR-002 guarantee is structural rather than behavioural: no
     /// setter exists, so nothing outside the aggregate can assign the fab. A
     /// behavioural test would not catch someone adding one.
