@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -59,7 +60,27 @@ public static class LatencyBudget
     /// tell a pass from a breach without knowing the constitution (FR-003), and
     /// carry <c>segment.is_whole_leg</c> so nobody reads a fragment as the leg.
     /// </summary>
-    public static void Record(LatencySegment segment, TimeSpan elapsed)
+    public static void Record(LatencySegment segment, TimeSpan elapsed) =>
+        Record(segment, elapsed, camera: null);
+
+    /// <summary>
+    /// Records one traversal, attributed to the camera it was observed on.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Optional because most legs have no camera to name — Camera → SFU and
+    /// Event → overlay state are not per-tile — and a required parameter would
+    /// make every other caller invent one.
+    /// </para>
+    /// <para>
+    /// The kiosk legs do have one, and without it a wall reports a single
+    /// blended histogram per segment: one frozen tile among four disappears
+    /// into the average, which is most of the reason to measure per tile
+    /// (#1931). The endpoint already refuses a report that does not name its
+    /// camera; this is where that name stops being discarded.
+    /// </para>
+    /// </remarks>
+    public static void Record(LatencySegment segment, TimeSpan elapsed, Guid? camera)
     {
         Ensure.That(segment).IsNotNull();
 
@@ -82,12 +103,22 @@ public static class LatencyBudget
             return;
         }
 
-        Elapsed.Record(
-            elapsed.TotalMilliseconds,
-            new KeyValuePair<string, object>("segment", segment.Name),
-            new KeyValuePair<string, object>("leg", segment.Leg),
-            new KeyValuePair<string, object>("leg.budget_ms", segment.LegBudgetMilliseconds),
-            new KeyValuePair<string, object>("segment.is_whole_leg", segment.IsWholeLeg));
+        TagList tags =
+        [
+            new("segment", segment.Name),
+            new("leg", segment.Leg),
+            new("leg.budget_ms", segment.LegBudgetMilliseconds),
+            new("segment.is_whole_leg", segment.IsWholeLeg),
+        ];
+
+        // Added only when there is one, so the legs without a camera do not
+        // carry an empty dimension that reads as a real value.
+        if (camera is not null)
+        {
+            tags.Add("camera", camera.Value.ToString());
+        }
+
+        Elapsed.Record(elapsed.TotalMilliseconds, tags);
     }
 }
 
