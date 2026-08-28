@@ -136,19 +136,27 @@ public static class StreamEndpoints
             return Results.Accepted();
         }
 
+        // Spec 045: `wall_skew` is routed away from LatencyBudget deliberately.
+        // A skew is the spread between two tiles, not a duration any frame
+        // spent travelling, so it goes to its own instrument. Recording it as a
+        // latency segment would compile, pass, and file a spread under a name
+        // that means a journey (ADR-0128).
+        bool isWallSkew = report.Measurement == "wall_skew";
+
         LatencySegment? segment = report.Measurement switch
         {
             "overlay_draw" => LatencySegment.KioskOverlayDraw,
             "receive_to_decoded" => LatencySegment.KioskReceiveToDecoded,
+            "presentation_buffer" => LatencySegment.PresentationBuffer,
             _ => null,
         };
 
-        if (segment is null)
+        if (segment is null && !isWallSkew)
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
                 [nameof(report.Measurement)] =
-                    ["must be 'overlay_draw' or 'receive_to_decoded'"],
+                    ["must be 'overlay_draw', 'receive_to_decoded', 'presentation_buffer' or 'wall_skew'"],
             });
         }
 
@@ -175,7 +183,13 @@ public static class StreamEndpoints
         // recording so a second caller cannot forget them. A dropped
         // measurement is not a client error — the kiosk did nothing wrong by
         // observing a clock that stepped.
-        LatencyBudget.Record(segment, TimeSpan.FromMilliseconds(report.ElapsedMilliseconds), report.Camera);
+        if (isWallSkew)
+        {
+            WallSkew.Record(TimeSpan.FromMilliseconds(report.ElapsedMilliseconds), report.Camera);
+            return Results.Accepted();
+        }
+
+        LatencyBudget.Record(segment!, TimeSpan.FromMilliseconds(report.ElapsedMilliseconds), report.Camera);
         return Results.Accepted();
     }
 

@@ -70,7 +70,10 @@ public static class Extensions
                     // Without this the latency instrument records into nothing
                     // and says nothing about it — the same silence an
                     // unregistered trace source produces (spec 024, §VII).
-                    .AddMeter(LatencyBudget.MeterName);
+                    .AddMeter(LatencyBudget.MeterName)
+                    // Spec 045: a wall's skew is a spread, not a duration, so it
+                    // rides its own meter rather than the latency segments.
+                    .AddMeter(WallSkew.MeterName);
             })
             .WithTracing(tracing =>
             {

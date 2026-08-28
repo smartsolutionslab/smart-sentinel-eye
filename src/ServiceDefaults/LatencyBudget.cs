@@ -227,4 +227,34 @@ public sealed record LatencySegment
     /// </summary>
     public static readonly LatencySegment KioskReceiveToDecoded =
         new("kiosk-receive-to-decoded", "sfu-to-kiosk-decode", 120, isWholeLeg: false);
+
+    /// <summary>
+    /// The whole `presentation buffer` leg (spec 045, ADR-0015 ≤ 200 ms): the
+    /// delay a kiosk deliberately adds to a tile so the wall shows one instant.
+    ///
+    /// <para>
+    /// <b>A whole leg, and unusually so.</b> The kiosk both <em>causes</em> this
+    /// delay and <em>observes</em> it, so nothing is missing from the figure and
+    /// the budget applies directly — unlike
+    /// <see cref="KioskReceiveToDecoded"/>, whose far end is on another machine.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Note what this resolves.</b>
+    /// <see cref="KioskReceiveToDecoded"/> says <c>jitterBufferDelay</c> is
+    /// "the presentation buffer, a <em>different</em> leg, and recording it
+    /// here would attribute one leg's time to another". This is that leg, and
+    /// this is where that time belongs.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>The achieved figure, never the setpoint.</b> A kiosk asks for a
+    /// playout target it cannot read back, so what was requested and what
+    /// happened are two different numbers. Only the second is a measurement
+    /// (spec 045 FR-007); recording the first would report a perfect score
+    /// every time.
+    /// </para>
+    /// </summary>
+    public static readonly LatencySegment PresentationBuffer =
+        new("kiosk-presentation-buffer", "presentation-buffer", 200, isWholeLeg: true);
 }
