@@ -53,6 +53,9 @@ public static class SystemVariablesInfrastructureModule
 
         // Domain event handlers (in-process, fan out to V1 + broadcaster).
         builder.Services.AddScoped<
+            IDomainEventHandler<VariableDefinedDomainEvent>,
+            VariableDefinedDomainEventHandler>();
+        builder.Services.AddScoped<
             IDomainEventHandler<VariableValueChangedDomainEvent>,
             VariableValueChangedDomainEventHandler>();
         builder.Services.AddScoped<

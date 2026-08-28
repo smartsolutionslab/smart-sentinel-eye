@@ -95,7 +95,7 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
             CreatedAt = now,
             CreatedBy = definedBy,
         };
-        variable.Raise(new VariableDefinedDomainEvent(variable.Id, name, type, now, definedBy));
+        variable.Raise(new VariableDefinedDomainEvent(variable.Id, fab, name, type, now, definedBy));
         return variable;
     }
 
