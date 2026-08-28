@@ -401,12 +401,12 @@ rest so the remaining three do not surface the same way.
       `.ProducesProblem(StatusCodes.Status409Conflict)` to
       LayoutComposition's endpoints, which currently lack it, wherever a
       409 became reachable.
-- [ ] **T057 [P] [POLISH]** Close #240 and #283; re-evaluate #843 against
+- [x] **T057 [P] [POLISH]** Close #240 and #283; re-evaluate #843 against
       the delivered shape.
 - [x] **T058 [POLISH]** Coverage gates hold (Domain ≥ 90, Application ≥
       80, Shared ≥ 90 — ADR-0065). `ServiceDefaults` gains the
       interceptor; confirm no gate dips.
-- [ ] **T059 [POLISH]** Phase-5 verification note on the PR: the two
+- [x] **T059 [POLISH]** Phase-5 verification note on the PR: the two
       integration tests from T011 and T020 cited by name, plus the e2e
       run. "Done" is those observations, not a green compile.
 
@@ -484,3 +484,32 @@ The likely cause of the drift is visible in this directory: spec 012 has a
 never closed out through phase 5, so nothing ever forced a last pass over the
 list — and an unticked box then reads as unfinished work for as long as anyone
 cares to believe it.
+
+---
+
+## T057 and T059 — both closed, 2026-08-28
+
+**T057.** #240 and #283 were already closed, both satisfied by T016's
+`LayoutRevisionStale` case across the five error unions. **#843 is now closed
+too**: the 2026-08-01 assessment held it open on its missing fab guard, and that
+guard has since landed — `IFabAuthorizationGuard` in `src/Automation/Api/RulesEndpoints.cs`
+(lines 104, 128, 158) refusing with `RULE_FAB_REQUIRED`, alongside the
+`Sse.Rules.Read`/`Write` scopes that were already there.
+
+**The attribution is the point of the re-evaluation.** That guard came from
+**spec 013**, in `8957a6c feat(rules): scope every rule endpoint to the caller's
+fabs` — not from spec 012. The earlier note was right that spec 012 touched
+Automation's concurrency surface and its endpoint metadata but not its
+authorization, so nothing here changed the assessment either way. #1155, the
+escalation, is closed.
+
+**T059.** [verification.md](./verification.md). All three observations made:
+`AggregateVersionConflictIntegrationTests` (3 tests) and
+`LayoutETagIntegrationTests` (5 tests) — 8 passed on the Aspire fixture — plus the
+e2e run, 8 passed, including `layouts.spec.ts:90 › a second operator publishing
+the same revision is refused, not silently applied`.
+
+The one worth naming twice is `Without_the_interceptor_both_writers_commit_and_one_update_is_lost`:
+a negative control asserting the *broken* outcome, which is what stops this whole
+suite passing on a build where the interceptor does nothing. That is what T059's
+"not a green compile" clause exists to force.
