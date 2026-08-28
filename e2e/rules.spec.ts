@@ -71,3 +71,57 @@ async function fillRuleForm(page: Page, name: string) {
   await page.locator('#rule-variable').fill('oeeLine1');
   await page.locator('#rule-value-expression').fill('100 - $.payload.cycleTime * 2');
 }
+
+// #1952. Both of the page's mutations discarded their result, so a refused
+// publish told the operator nothing — and worse than nothing: the list still
+// refetched, the row flipped to Published (by the *other* operator), and the
+// refusal read as success.
+//
+// The twin of the layouts race in layouts.spec.ts, and deliberately shaped the
+// same way: two contexts share the seeded `operator`, because concurrency is
+// per-aggregate rather than per-user. An assertion on the *absence* of a
+// conflict would have passed on the broken build, so this asserts the conflict
+// is surfaced.
+test('a second operator publishing the same rule is refused, not silently applied', async ({ browser }) => {
+  const name = `e2e-race-rule-${Date.now()}`;
+
+  const first = await browser.newContext();
+  const second = await browser.newContext();
+
+  try {
+    const pageOne = await first.newPage();
+    await openRules(pageOne);
+
+    await pageOne.getByRole('button', { name: /new rule/i }).click();
+    await fillRuleForm(pageOne, name);
+    await pageOne.getByRole('button', { name: /^create draft$/i }).click();
+
+    const rowOne = pageOne.getByRole('row').filter({ hasText: name });
+    await expect(rowOne).toBeVisible();
+
+    // The second context loads the list *now*, so it holds the same version the
+    // first one does. Loading it after the publish below would hand it the
+    // current version and prove nothing.
+    const pageTwo = await second.newPage();
+    await openRules(pageTwo);
+    const rowTwo = pageTwo.getByRole('row').filter({ hasText: name });
+    await expect(rowTwo.getByRole('button', { name: /^publish$/i })).toBeVisible();
+
+    // First writer wins.
+    await rowOne.getByRole('button', { name: /^publish$/i }).click();
+    await expect(rowOne.getByText('Active')).toBeVisible();
+
+    // Second writer is acting on the version it read before that publish.
+    await rowTwo.getByRole('button', { name: /^publish$/i }).click();
+
+    // The refusal is surfaced, and the advice is to reload rather than retry —
+    // retrying is what replays the stale intent over the first writer.
+    const alert = pageTwo.getByRole('alert');
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText(/changed|reload|re-read/i);
+    await expect(alert).not.toContainText(/try again/i);
+  } finally {
+    await first.close();
+    await second.close();
+  }
+});
