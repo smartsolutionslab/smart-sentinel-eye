@@ -74,11 +74,30 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
     /// </para>
     ///
     /// <para>
-    /// Spot checks against a run-mode stack put the same event kind at 13–33 ms,
-    /// but at roughly one write per second — so that is not a comparison at load,
-    /// and it does not establish that the gap is only an artefact of the fixture.
-    /// NFR-001 asks for 50 ms at a sustained 100 ev/s, and nothing here has
-    /// measured that. Recorded as unverified rather than met or missed.
+    /// <b>Run mode under load has since been measured (2026-08-28), and the gap
+    /// is not a fixture artefact.</b> Driving the same generator against the
+    /// run-mode stack at sustained rates, each rate run twice: 24 ev/s → p50
+    /// 31 ms / p99 142 ms; 48 ev/s → p50 37 ms / p99 258–280 ms; 68 ev/s → p50
+    /// 52 ms / p99 342 ms; 86–95 ev/s → p50 3 066–4 936 ms / p99 6 350–6 730 ms;
+    /// 158 ev/s → p50 9 870 ms / p99 14 221 ms. The 50 ms p99 is missed at every
+    /// rate measured, near-idle included.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>The delay is on the consume side, not the flush cadence.</b> Sampled
+    /// through a 158 ev/s burst the publisher's
+    /// <c>wolverine_outgoing_envelopes</c> held 0 rows at every sample while the
+    /// audit queue on RabbitMQ backed up to 468 then 643. The consumer's ceiling
+    /// is ~100 rows/s for that queue — exactly the rate NFR-001 names, with no
+    /// headroom, which is why latency is stable to ~68 ev/s and collapses by ~86.
+    /// Per message the audit side does a durable-inbox write plus the audit row's
+    /// own <c>SaveAsync</c>, one transaction per row, on a single listener.
+    /// </para>
+    ///
+    /// <para>
+    /// Whether 50 ms at 100 ev/s is achievable, and whether the requirement or
+    /// the pipeline moves, is open in 1956. Both candidate levers change what
+    /// ADR-0088 fixed, so neither is taken here.
     /// </para>
     /// </summary>
     [Trait("Category", "Measurement")]
