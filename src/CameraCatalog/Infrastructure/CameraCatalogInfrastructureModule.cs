@@ -34,9 +34,7 @@ public static class CameraCatalogInfrastructureModule
     {
         Ensure.That(builder).IsNotNull();
 
-        string connectionString = builder.Configuration.GetConnectionString(DatabaseConnectionName)
-            ?? throw new InvalidOperationException(
-                $"Connection string '{DatabaseConnectionName}' is required.");
+        string connectionString = builder.GetBoundedPostgresConnectionString(DatabaseConnectionName);
 
         builder.Services.AddDbContextFactory<CameraCatalogDbContext>(options =>
             options.UseNpgsql(connectionString)

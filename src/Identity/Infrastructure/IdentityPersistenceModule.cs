@@ -17,9 +17,7 @@ public static class IdentityPersistenceModule
     {
         Ensure.That(builder).IsNotNull();
 
-        string connectionString = builder.Configuration.GetConnectionString(DatabaseConnectionName)
-            ?? throw new InvalidOperationException(
-                $"Connection string '{DatabaseConnectionName}' is required.");
+        string connectionString = builder.GetBoundedPostgresConnectionString(DatabaseConnectionName);
 
         builder.Services.AddDbContextFactory<IdentityDbContext>(options =>
             options.UseNpgsql(connectionString)

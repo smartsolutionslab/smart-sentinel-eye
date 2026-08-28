@@ -17,8 +17,7 @@ public static class AuditObservabilityPersistenceModule
     {
         Ensure.That(builder).IsNotNull();
 
-        string connectionString = builder.Configuration.GetConnectionString(DatabaseConnectionName)
-            ?? throw new InvalidOperationException($"Connection string '{DatabaseConnectionName}' is required.");
+        string connectionString = builder.GetBoundedPostgresConnectionString(DatabaseConnectionName);
 
         // Register the factory only (singleton factory + singleton options).
         // The background retention worker needs IDbContextFactory; repositories,
