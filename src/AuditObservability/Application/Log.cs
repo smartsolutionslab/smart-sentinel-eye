@@ -10,6 +10,9 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Debug, Message = "Audited {EventKind} {EventIdentifier} (resource: {ResourceKind}/{ResourceIdentifier}).")]
     public static partial void Audited(this ILogger logger, string eventKind, EventIdentifier eventIdentifier, string resourceKind, string resourceIdentifier);
 
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Audited a batch of {Count} {EventKind} in one transaction.")]
+    public static partial void AuditedBatch(this ILogger logger, string eventKind, int count);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Audit retention worker started with window {Window} and tick interval {Interval}.")]
     public static partial void RetentionWorkerStarted(this ILogger logger, TimeSpan window, TimeSpan interval);
 

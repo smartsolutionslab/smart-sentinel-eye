@@ -265,14 +265,22 @@ public class BoundaryTests
         Assembly application = Assembly.Load("SmartSentinelEye.AuditObservability.Application");
         Type handlerType = application.GetType(
             "SmartSentinelEye.AuditObservability.Application.EventHandlers.IntegrationEventAuditHandler")!;
+        // An event kind is covered by a singular Handle(T) or by a batch
+        // Handle(T[]) — ADR-0127 batches one kind and Wolverine ignores a batch
+        // definition whenever a singular handler also exists, so the two are
+        // alternatives rather than a pair. Unwrapping the element type keeps the
+        // rule "every V1 reaches the audit handler somehow" while staying blind
+        // to which shape does it.
         HashSet<Type> handled = [.. handlerType.GetMethods()
             .Where(m => m.Name == "Handle")
-            .Select(m => m.GetParameters()[0].ParameterType)];
+            .Select(m => m.GetParameters()[0].ParameterType)
+            .Select(t => t.IsArray ? t.GetElementType()! : t)];
 
         IReadOnlyList<Type> unhandled = [.. concreteV1s.Where(t => !handled.Contains(t))];
 
         unhandled.ShouldBeEmpty(
-            $"IntegrationEventAuditHandler is missing a Handle overload for: {string.Join(", ", unhandled.Select(t => t.FullName))}.");
+            $"IntegrationEventAuditHandler is missing a Handle overload for: {string.Join(", ", unhandled.Select(t => t.FullName))}. "
+            + "A singular Handle(T) or a batch Handle(T[]) both count.");
     }
 
     /// <summary>

@@ -94,6 +94,16 @@ public static class WolverineDefaults
                     routing.QueueNameForListener(eventType =>
                         $"{moduleQueuePrefix}.{eventType.FullName}");
 
+                    // Arrays are never integration events here, but they ARE how
+                    // Wolverine names a batch: BatchMessagesOf<T> assembles a
+                    // T[] and hands it to a handler. Left in, this convention
+                    // claims that T[] too and gives it a RabbitMQ queue, so an
+                    // assembled batch is published back to the broker and read
+                    // again instead of executing locally — a round trip per
+                    // batch, added by a convention that was only ever meant to
+                    // name listeners (ADR-0127).
+                    routing.ExcludeTypes(messageType => messageType.IsArray);
+
                     // ONE ConfigureListeners call, deliberately. A second call
                     // replaces the first rather than composing with it, so
                     // splitting these into two silently reverted the listener

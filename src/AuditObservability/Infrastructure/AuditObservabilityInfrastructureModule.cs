@@ -8,6 +8,7 @@ using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.AuditObservability.Infrastructure.Archive;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.Shared.Contracts.SystemVariables;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.AuditObservability.Infrastructure;
@@ -56,6 +57,35 @@ public static class AuditObservabilityInfrastructureModule
     /// </summary>
     public const int AuditListenerCount = 4;
 
+    /// <summary>
+    /// Rows committed in one transaction when a batch fills (ADR-0127).
+    /// Wolverine's default is 100 and there is no evidence for a different one.
+    /// </summary>
+    public const int AuditBatchSize = 100;
+
+    /// <summary>
+    /// How long a partly-filled batch waits for stragglers before it commits
+    /// anyway — and therefore latency this adds outright to any event that
+    /// arrives into an empty batch.
+    ///
+    /// <para>
+    /// Wolverine's default is <b>250 ms</b>, which is five times NFR-001's whole
+    /// p99 budget and would be self-defeating here. Ten milliseconds is chosen
+    /// against the arithmetic rather than by feel: batching <c>N</c> messages at
+    /// rate <c>R</c> needs a window of <c>N/R</c>, so at the 100 ev/s NFR-001
+    /// names, a 10 ms window collects about one message and a window long enough
+    /// to collect ten would cost 100 ms.
+    /// </para>
+    ///
+    /// <para>
+    /// Which is to say this is expected to help under <b>backlog</b>, where
+    /// batches fill by size rather than by time, and to cost a little at the
+    /// steady state. Whether that trade is worth taking is the measurement
+    /// ADR-0127 records, not something this constant asserts.
+    /// </para>
+    /// </summary>
+    public static readonly TimeSpan AuditBatchTriggerTime = TimeSpan.FromMilliseconds(10);
+
     public static IHostApplicationBuilder AddAuditObservabilityInfrastructure(this IHostApplicationBuilder builder)
     {
         Ensure.That(builder).IsNotNull();
@@ -90,7 +120,13 @@ public static class AuditObservabilityInfrastructureModule
             outboxSchema: OutboxSchema,
             postgresConnectionName: AuditObservabilityPersistenceModule.DatabaseConnectionName,
             listenerCount: AuditListenerCount,
-            useNativeAcks: true);
+            useNativeAcks: true,
+            configureMore: opts => opts.BatchMessagesOf<SystemVariableValueChangedV1>(batching =>
+            {
+                batching.BatchSize = AuditBatchSize;
+                batching.TriggerTime = AuditBatchTriggerTime;
+                batching.ExecuteOnDedicatedLocalQueue();
+            }));
 
         return builder;
     }
