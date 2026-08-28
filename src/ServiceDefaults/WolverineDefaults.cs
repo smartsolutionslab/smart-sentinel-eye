@@ -10,6 +10,7 @@ using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.Shared.CQRS;
 
 namespace SmartSentinelEye.ServiceDefaults;
@@ -50,9 +51,11 @@ public static class WolverineDefaults
         ArgumentException.ThrowIfNullOrWhiteSpace(postgresConnectionName);
         ArgumentOutOfRangeException.ThrowIfLessThan(listenerCount, 1);
 
-        string postgresConnection =
-            builder.Configuration.GetConnectionString(postgresConnectionName)
-            ?? throw new InvalidOperationException($"Connection string '{postgresConnectionName}' is required for the Wolverine outbox.");
+        // The message store is the service's *second* Postgres pool, not a share
+        // of the DbContext's — same connection string, separate
+        // NpgsqlDataSource. It is half the platform's connection demand and is
+        // budgeted as such (ADR-0125).
+        string postgresConnection = builder.GetBoundedPostgresConnectionString(postgresConnectionName);
 
         string rabbitConnection =
             builder.Configuration.GetConnectionString(rabbitConnectionName)

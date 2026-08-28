@@ -60,14 +60,22 @@ var postgres = builder
     .WithImage("timescale/timescaledb")
     .WithImageTag("2.27.1-pg17")
     // Postgres defaults to 100, which nine contexts sharing one container had
-    // already almost spent: measured at ~80 idle connections before any load,
-    // leaving ~20 for every service's pool to grow into at once. That is not a
-    // theoretical margin — driving audit ingest at 100 ev/s took the cluster
-    // past the limit and system-variables started refusing writes with
-    // "53300: sorry, too many clients already", which reads as a bug in
+    // already almost spent: measured at 97 idle connections before any load.
+    // That is not a theoretical margin — driving audit ingest at 100 ev/s took
+    // the cluster past the limit and system-variables started refusing writes
+    // with "53300: sorry, too many clients already", which reads as a bug in
     // whichever service happens to ask next rather than as a shared budget
-    // running out (ADR-0124).
-    .WithArgs("-c", "max_connections=400");
+    // running out (ADR-0124, ADR-0125).
+    //
+    // 500 is PostgresConnectionBudget.ServerMaxConnections. It is written out
+    // rather than referenced because an Aspire project reference exposes no
+    // assembly to the AppHost, and dragging ServiceDefaults in for one integer
+    // costs more than it saves. The two are held together by
+    // PostgresConnectionBudgetTests, which asks the *running* server what it
+    // allows and fails if it is under the budget — a stronger check than
+    // sharing a constant, because it verifies what was deployed rather than
+    // what was written.
+    .WithArgs("-c", "max_connections=500");
 
 if (isRunMode && !isE2ETests)
 {

@@ -30,6 +30,12 @@
          WolverineFx.EntityFrameworkCore. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
 
+    <!-- NpgsqlConnectionStringBuilder for the pool cap (ADR-0125). Explicit for
+         the same reason as EF Core above: it arrives transitively via
+         WolverineFx.Postgresql, and a transitive reference is one dependency
+         change away from disappearing. -->
+    <PackageReference Include="Npgsql" />
+
     <!-- Wolverine defaults (ADR-0042 + ADR-0057 + ADR-0088). -->
     <PackageReference Include="WolverineFx" />
     <PackageReference Include="WolverineFx.EntityFrameworkCore" />
