@@ -378,8 +378,27 @@ corrected in place.
 budget. Across both levers the gap has gone from ~130× to under 2× at best and
 ~4.7× at worst.
 
-**Still open on 1956.** Whether the rest closes via a batch handler
-(`MessageBatchSize`, the obvious next lever and deliberately not reached for
-because it makes each message wait for its batch), via production topology —
-audit gets its own pod and database node, which none of this measured — or by
-moving NFR-001.
+**The third lever was built and measured, and is not adopted (ADR-0127).**
+Batching audit writes into one transaction per batch, matched A/B on the same
+box in the same session:
+
+| sustained ~100 ev/s | p50 | p99 |
+|---|---|---|
+| without batching | 23.1–29.5 ms | 95.1–128.1 ms |
+| with batching | 36.5–44.4 ms | 100.3–162.5 ms |
+
+Worse on both. p50 rises ~13 ms, which is the 10 ms trigger window arriving as
+predicted: batching *N* messages at rate *R* needs a window of *N/R*, so at
+100 ev/s a window short enough to respect a 50 ms budget collects about one
+message. Flat out — where batches finally fill by size — it is a large win
+(192 transactions for 1 280 rows against 1 280; p50 708 ms against 2 319 ms),
+but ADR-0124 and ADR-0126 already moved the collapse point past 100 ev/s, so
+there is no backlog left for it to help with.
+
+Kept on `perf/1956-batch-audit-writes` rather than merged, so it is a revert
+away if sustained load ever climbs past the current ceiling.
+
+**Still open on 1956.** Production topology — audit gets its own pod and
+database node, which none of this measured — or moving NFR-001 to what the
+pipeline demonstrably does. Both remaining options are decisions rather than
+code.

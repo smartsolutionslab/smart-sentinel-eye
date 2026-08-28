@@ -124,9 +124,18 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
     ///
     /// <para>
     /// The budget therefore stays at 50 ms and this test stays excluded — the
-    /// best p99 observed is 85 ms. Whether the rest closes via a batch handler,
-    /// via production topology — audit gets its own pod and database node, which
-    /// none of this measured — or by moving NFR-001, is open in 1956.
+    /// best p99 observed is 85 ms.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>The third lever, batching audit writes, was built, measured and not
+    /// adopted (ADR-0127).</b> At a sustained 100 ev/s it made both percentiles
+    /// worse — p50 36–44 ms against 23–30 ms — because a batch window short
+    /// enough to respect a 50 ms budget collects roughly one message at that
+    /// rate. It is a large win under backlog, which ADR-0124 and ADR-0126 had
+    /// already removed. So what is open in 1956 is no longer code: production
+    /// topology, where audit gets its own pod and database node and none of
+    /// this measured that, or moving NFR-001 to what the pipeline does.
     /// </para>
     /// </summary>
     [Trait("Category", "Measurement")]
