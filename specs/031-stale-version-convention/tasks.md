@@ -85,7 +85,7 @@ inferred later from a diff.
 - [x] T015 Run the suites for the six correct contexts — Automation, LayoutComposition, OverlayDesigner, SystemVariables, EventIngestion, Identity — plus `management-web`. **They must pass with no edits to any of their test files.** `git diff` over those paths must be empty; a suite adjusted until it passes proves nothing
 - [x] T016 [P] Confirm no `*_STALE` code or status changed in the sixteen sites: `grep -rn '_STALE"' --include=*.cs src` before and after must be identical
 - [x] T017 Full suite — backend Release build with analyzers, and `pnpm typecheck && pnpm lint && pnpm test`
-- [ ] T018 Verification note on the PR following [quickstart.md](./quickstart.md), including the deliberately-broken architecture test from T010 and the empty `git diff` from T015
+- [x] T018 Verification note on the PR following [quickstart.md](./quickstart.md), including the deliberately-broken architecture test from T010 and the empty `git diff` from T015
 
 ---
 
@@ -145,30 +145,40 @@ the failure this feature was filed to correct.
 
 ---
 
-## T018 — note written, task **not** ticked
+## T018 — complete, and it found a defect on the way
 
-[verification.md](./verification.md) is written and covers the whole checklist.
-**T018 stays open**, because two of quickstart.md's steps could not be performed:
-the `curl` in §1 and the by-hand UI provocation in §2 both need a running stack,
-and the stack will not start on this machine — Docker's daemon is wedged
-(`docker info` hangs), most likely a consequence of the system disk having filled
-to zero earlier.
+[verification.md](./verification.md) covers the whole checklist, and **every item
+was observed rather than inferred**. T018 was briefly left open when Docker's
+daemon was wedged; Docker recovered the same day and the two live steps were
+performed.
 
-**Both things T018 names explicitly were done by hand**, and they are the two a
-green suite cannot fake:
+**The two checks T018 names explicitly**, both by hand, both the kind a green
+suite cannot fake:
 
 - **The deliberately-broken architecture test (T010).** `WIDGET_VERSION_MISMATCH`
-  was added to a real errors file; `StaleCodeConventionTests` failed naming the
-  file and the code; the probe was removed and the suite went green. The check
-  fires for a code a future context would plausibly invent, not merely for the
-  string this feature removed.
-- **The empty diff (T015).** Checked against history rather than the working
-  tree, which is trivially clean on merged work: since spec 031 began, exactly one
+  added to a real errors file; `StaleCodeConventionTests` failed naming the file
+  and the code; removed, and the suite went green. It fires for a code a future
+  context would plausibly invent, not merely for the string this feature removed.
+- **The empty diff (T015)**, checked against history rather than the working tree,
+  which is trivially clean on merged work. Since spec 031 began, exactly one
   commit has touched the six contexts' test files, and it belongs to spec 037.
   299 of their tests pass unmodified, plus 191 in `management-web`.
 
-**To finish**: with Docker healthy, run quickstart §1's PATCH-with-a-stale-version
-and confirm `412` + `CAMERA_VERSION_STALE`, and publish a rule from a stale
-version in the UI to see the words. Both assertions are already covered by
-`ChangeCameraAddressIntegrationTests` running green in CI — but covered by a test
-is not the same as seen, which is what this phase exists to distinguish.
+**And the wire**: a camera corrected once at version 0, then again with the same
+stale version, answers **412** with title **`CAMERA_VERSION_STALE`** and detail
+"Re-read it before reapplying your change" — the code this feature introduced,
+the status deliberately unchanged, and no "try again".
+
+**What the last step turned up.** Quickstart §2's by-hand provocation — publish a
+rule from a stale version and read what the app says — found that the app says
+**nothing**. Automation's server refuses correctly with `RULE_STALE` (409) and
+re-read wording; `RulesPage` discards both its mutation results, so the operator
+sees no alert at all, and for publish the row refetches to Published by the other
+writer, so the refusal reads as success. `LayoutsPage` already carries the fix and
+says so in a comment; rules never got it.
+
+Filed as **1952** (no hash — a mention would close it on merge). **Not a spec 031
+regression**: Automation is one of the six contexts left deliberately alone, and
+its server side is correct. The defect is in a client page that never surfaced the
+refusal, and it surfaced now only because a person followed the quickstart and
+looked at the screen.

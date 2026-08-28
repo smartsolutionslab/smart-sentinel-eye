@@ -2,12 +2,16 @@
 
 **Feature**: `031-stale-version-convention` · observed **2026-08-28**
 
-**Status: nine of the ten checklist items verified here. One could not be
-performed locally** — the two live-UI/curl steps — because Docker is wedged on
-this machine, and that is stated rather than glossed. What those steps assert is
-covered by integration tests that ran green in CI within the hour; the difference
-between "a test asserts it" and "I saw it" is the whole point of a Phase-5 note,
-so it is spelled out per item below.
+**Status: every checklist item verified, all of it observed rather than inferred.**
+
+The note was first written on 2026-08-28 with the two live steps deferred, because
+Docker's daemon was wedged on this machine. Docker recovered the same day and both
+were performed; §2 and §4 carry the results and a marker where the deferral stood.
+
+**The by-hand provocation in §2 found a defect** — not in this feature, but in the
+rules page it walks through: Automation's server refuses a stale publish correctly
+and the app tells the operator nothing at all. Filed as issue 1952, and §2 sets
+out why it is not a spec 031 regression.
 
 The two things T018 names explicitly — **the deliberately-broken architecture
 test** and **the empty diff over the six untouched contexts** — were both done by
@@ -73,11 +77,50 @@ And they pass unmodified:
 | `Automation.Application.Tests` | 108 passed |
 | `management-web` (vitest) | **191 passed**, 20 files |
 
-**Not done locally**: provoking one by hand through the UI — publishing a rule
-from a stale version and reading the words. That needs a running stack. What it
-would confirm is asserted in code and by the 191 frontend tests: `CONFLICT_FALLBACK`
-still reads *"Someone else changed this while you were working. **Reload to see
-their version**, then reapply your change."*
+**Done by hand, and it found something.** Quickstart §2 says to provoke one:
+*"publish a rule from a stale version and read what the app says — must still say
+reload to see their version, exactly as it did before."*
+
+Two operators, both holding version 0 of the same rule; the first publishes and
+wins; the second publishes from its now-stale version.
+
+**Automation's server is correct:**
+
+```
+POST 409 :: {"title":"RULE_STALE","status":409,
+  "detail":"Rule 'e2e-t018-…' has changed since version 0 (now 1).
+            Re-read it and reapply the change."}
+```
+
+A `_STALE` code, and re-read wording. Exactly what ADR-0119 asks of it.
+
+**The operator is told nothing.**
+
+| | |
+|---|---|
+| Elements with `role="alert"` on the page | **0** |
+| Page text mentions reload / changed / re-read | **false** |
+| Page text mentions "try again" | **false** |
+
+`RulesPage.tsx` discards both mutation results — `const [publishRule] = usePublishRuleMutation()`
+and `const [archiveRule, { isLoading: archiving }] = useArchiveRuleMutation()`, each
+invoked as `void …(…)`. Its only `role="alert"` belongs to the *list* query and
+reads "Could not load rules."
+
+Worse for publish specifically: the failed mutation still invalidates the list, so
+the row refetches and flips to **Published** — by the other operator. The refusal
+reads as success.
+
+`LayoutsPage.tsx` already does this correctly, and its comment records that this
+was a known class of bug: *"Every one of these used to discard its failure, so a
+rejected publish or …"*, feeding a `mutationError` into a second `role="alert"`.
+Rules never got that migration.
+
+**This is not a spec 031 regression**, and the distinction matters for FR-006:
+Automation is one of the six contexts spec 031 deliberately left alone, and its
+server side is correct. What is wrong is a client page that never surfaced the
+refusal in the first place. It surfaced now only because this quickstart step
+assumes the app says something. Filed as issue 1952.
 
 ---
 
@@ -101,35 +144,39 @@ Read in `apps/shared/src/api/problemDetail.ts`:
 
 ---
 
-## 4. The stale refusal on the wire (FR-001, data-model)
+## 4. The stale refusal on the wire (FR-001, data-model) — **seen live**
 
-**Not performed locally.** Quickstart §1's `curl` needs a running stack, and the
-stack will not start on this machine — Docker's daemon is wedged (`docker info`
-hangs; the AppHost reports *"Container runtime 'docker' was found but appears to
-be unhealthy"*), most likely a consequence of the system disk having filled to
-zero bytes earlier in the day. Recorded rather than worked around.
+> **Completed 2026-08-28.** This section first recorded both live steps as *not
+> performed*, because Docker's daemon was wedged. Docker recovered; both were
+> then done against a run-mode stack, and the results replace the deferral.
 
-**What covers it**, and it covers exactly the two assertions §1 makes —
-`ChangeCameraAddressIntegrationTests`, over real HTTP through the real
-ProblemDetails mapping:
+Quickstart §1, exactly as written. A camera read at version `0`, corrected once
+with `If-Match: "0"` (→ **204**), then corrected again with the same, now stale
+version:
 
-```csharp
-replayed.StatusCode.ShouldBe(HttpStatusCode.PreconditionFailed);   // still 412
-problem.GetProperty("title").GetString().ShouldBe("CAMERA_VERSION_STALE");
+```
+HTTP 412
+{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.13",
+ "title":"CAMERA_VERSION_STALE",
+ "status":412,
+ "detail":"Camera '01a046b7-…' is at version 1, not 0.
+           Re-read it before reapplying your change."}
 ```
 
-Its own comment states the reason it asserts the title rather than the status:
-*"a test asserting only the status now asserts the part that no longer decides
-anything… if that mapping broke, the handler unit test would still pass and every
-operator would still be told the wrong thing."*
+Three things at once, all as the quickstart demands:
 
-That suite runs in CI's **integration tests (Docker)** job, green on every PR
-merged today, most recently #1950. So the behaviour is proven by a test that
-exercises the wire — but **nobody watched it happen today**, and this note does
-not claim otherwise.
+- **`CAMERA_VERSION_STALE`**, not `CAMERA_VERSION_MISMATCH` — the string this
+  feature removed does not appear on the wire.
+- **412**, deliberately unchanged. Not 409, so nobody standardised the statuses
+  instead of the codes — which the quickstart names as "the spec's central
+  decision reversed".
+- The detail says **"Re-read it before reapplying your change"**, not "try again".
+
+`ChangeCameraAddressIntegrationTests` asserts both the status and the title over
+real HTTP and runs in CI, so this was already covered. It has now also been
+watched.
 
 ---
-
 ## 5. No provisional note remains (FR-008)
 
 ```
@@ -162,19 +209,23 @@ being reversed by someone who rediscovers the correctness argument:
 
 | | | |
 |---|---|---|
-| The camera's stale refusal carries `CAMERA_VERSION_STALE` | FR-001 | Integration test, CI-green — not seen live |
-| Its status is still 412 | data-model | Integration test, CI-green — not seen live |
+| The camera's stale refusal carries `CAMERA_VERSION_STALE` | FR-001 | **Seen live** — §4 |
+| Its status is still 412 | data-model | **Seen live** — §4, and it is 412, not 409 |
 | A client recognises a stale refusal without reading the status | FR-002 | **Verified** in `problemDetail.ts` |
 | A terminal refusal is distinguishable from a lost update | FR-003 | **Verified** |
-| No lost-update message anywhere says retry | FR-004 / SC-002 | **Verified** |
+| No lost-update message anywhere says retry | FR-004 / SC-002 | **Verified** — and the rules page says nothing at all (issue 1952) |
 | An unrecognised refusal still shows the server's message | FR-005 | **Verified** — `problemCode` falls through to the server detail |
 | The six correct contexts' tests pass **unmodified** | FR-006 / SC-004 | **Verified by hand** — 299 tests, and no spec-031 commit touched them |
 | A plausible wrong code fails the build | SC-001 | **Verified by hand** — the probe fired and was removed |
 | The convention is recorded as an ADR, with the refused trade | FR-007 / SC-005 | **Verified** — ADR-0119 |
 | No "provisional" note remains in shared code | FR-008 | **Verified** |
 
-**What rests on a person and was done:** the deliberately-broken architecture
-test, and the history check that the six untouched contexts really were untouched.
-**What rests on a person and was not done:** the two steps needing a live stack,
-blocked by Docker and covered by CI-green integration tests. Neither gap is
-hidden behind a green tick.
+**Everything resting on a person was done**: the deliberately-broken
+architecture test, the history check that the six untouched contexts really were
+untouched, the stale PATCH on the wire, and the two-operator rule publish.
+
+The last of those is the one that earned its keep. Every automated check in this
+feature passes, and the rules page still leaves an operator with no idea their
+publish was refused — which no test in the repo was asking about, because the
+question only arises when a person follows the quickstart and looks at the
+screen.
