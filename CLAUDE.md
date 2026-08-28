@@ -24,9 +24,17 @@ branch is cut from `develop` and merges back to `develop`. **Never open
 a PR against `main`.** `main` only ever receives merges from
 `release/x.y.z` and `hotfix/<short>` branches.
 
-When you run `gh pr create`, pass `--base develop` explicitly until the
-repo's local default tracking is fixed. The harness's git-status header
-may say "Main branch" but trust this file over the header.
+**Still pass `--base develop` explicitly to `gh pr create`** — but as
+insurance now, not as a workaround. The tracking that made it a
+workaround is fixed (2026-08-28): GitHub's default branch is `develop`,
+`origin/HEAD` points at `refs/remotes/origin/develop`, local `develop`
+tracks `origin/develop`, and no branch sets `gh-merge-base`. So `gh pr
+create` resolves the base to `develop` on its own.
+
+It stays mandatory because the cost is asymmetric: one flag against a PR
+opened on `main`, which ADR-0028 forbids outright and which the harness
+actively invites — its git-status header says "Main branch (you will
+usually use this for PRs)". **Trust this file over the header.**
 
 `develop`'s protection rules require **linear history** with
 **rebase-merge only** (no squash, no merge commits) — ADR-0087.
