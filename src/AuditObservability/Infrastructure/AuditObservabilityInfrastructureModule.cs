@@ -26,6 +26,39 @@ public static class AuditObservabilityInfrastructureModule
     public const string ContextName = "audit-observability";
     public const string OutboxSchema = "wolverine_audit";
 
+    /// <summary>
+    /// Parallel listeners per audit queue (ADR-0124, spec 009 NFR-001).
+    ///
+    /// <para>
+    /// One listener drained a queue at ~100 rows/s, which is exactly the rate
+    /// NFR-001 demands and therefore no rate at all: measured against a run-mode
+    /// stack, latency held to ~68 ev/s and collapsed to a p50 of seconds by ~86.
+    /// The ceiling was one handler's turnaround, not the process's capacity — the
+    /// publishers' outboxes stayed empty throughout, so the backlog was only ever
+    /// in front of this consumer.
+    /// </para>
+    ///
+    /// <para>
+    /// Audit rows are order-independent and the write is idempotent on
+    /// <c>event_identifier</c>, so parallel delivery changes no outcome — see
+    /// ADR-0124 for why that is a property of this context and not a licence to
+    /// widen the default.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Four is an upper bound found by hitting it, not a guess.</b> Eight was
+    /// measured and is worse than useless on the shared stack: the dev/CI
+    /// Postgres runs at <c>max_connections = 100</c> for all nine contexts, and
+    /// eight listeners took <c>audit-db</c> alone to 22 connections and the
+    /// cluster past its limit. What failed was not audit — it was
+    /// <b>system-variables</b>, refusing writes with <c>53300: sorry, too many
+    /// clients already</c>. Raising this without re-checking that budget breaks a
+    /// bystander, which is the kind of failure nobody attributes to a listener
+    /// count.
+    /// </para>
+    /// </summary>
+    public const int AuditListenerCount = 4;
+
     public static IHostApplicationBuilder AddAuditObservabilityInfrastructure(this IHostApplicationBuilder builder)
     {
         Ensure.That(builder).IsNotNull();
@@ -58,7 +91,8 @@ public static class AuditObservabilityInfrastructureModule
         builder.AddWolverineForContext<AuditObservabilityDbContext>(
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
-            postgresConnectionName: AuditObservabilityPersistenceModule.DatabaseConnectionName);
+            postgresConnectionName: AuditObservabilityPersistenceModule.DatabaseConnectionName,
+            listenerCount: AuditListenerCount);
 
         return builder;
     }

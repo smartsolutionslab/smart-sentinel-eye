@@ -41,12 +41,14 @@ public static class WolverineDefaults
         string outboxSchema,
         string postgresConnectionName,
         string rabbitConnectionName = "rabbitmq",
+        int listenerCount = 1,
         Action<WolverineOptions> configureMore = null)
         where TDbContext : DbContext
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(moduleQueuePrefix);
         ArgumentException.ThrowIfNullOrWhiteSpace(outboxSchema);
         ArgumentException.ThrowIfNullOrWhiteSpace(postgresConnectionName);
+        ArgumentOutOfRangeException.ThrowIfLessThan(listenerCount, 1);
 
         string postgresConnection =
             builder.Configuration.GetConnectionString(postgresConnectionName)
@@ -87,6 +89,16 @@ public static class WolverineDefaults
                 {
                     routing.QueueNameForListener(eventType =>
                         $"{moduleQueuePrefix}.{eventType.FullName}");
+
+                    // One listener per queue was Wolverine's default rather than
+                    // a decision, and it is a throughput ceiling: a queue drains
+                    // at one handler's rate no matter how much the process has
+                    // left. Contexts that need more say so; the rest keep the
+                    // default (ADR-0124).
+                    if (listenerCount > 1)
+                    {
+                        routing.ConfigureListeners((listener, _) => listener.ListenerCount(listenerCount));
+                    }
                 });
 
             if (applicationAssembly != null)
