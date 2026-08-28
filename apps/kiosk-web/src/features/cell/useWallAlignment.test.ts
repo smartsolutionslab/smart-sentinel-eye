@@ -95,6 +95,42 @@ describe('useWallAlignment', () => {
     expect(result.current.skewMilliseconds).toBeNull();
   });
 
+  /**
+   * US2. The skew reaches observability, attributed to the tile that *defines*
+   * the spread — one sample per cycle, naming the laggiest held tile, so a wall
+   * of four does not weight the histogram by its size and the actionable tile
+   * is named (#1931).
+   */
+  it('Reports the induced skew, naming the tile that set it', async () => {
+    const posted: unknown[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: RequestInit) => {
+        posted.push(JSON.parse(String(init.body)));
+        return new Response(null, { status: 202 });
+      }),
+    );
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+
+    const { result } = renderHook(() => useWallAlignment(3, () => Promise.resolve('a-token')));
+
+    act(() => {
+      result.current.reportLag('a', 20);
+      result.current.reportLag('b', 30);
+      result.current.reportLag('laggiest', 120);
+    });
+    cycle();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    const skew = posted.find((body) => (body as { measurement: string }).measurement === 'wall_skew');
+    expect(skew).toEqual({ measurement: 'wall_skew', camera: 'laggiest', elapsedMilliseconds: 100 });
+
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
   /** A tile that stops reporting has gone; it must not keep setting the target. */
   it('Drops a tile that has stopped reporting rather than let it hold the wall', () => {
     const { result } = renderHook(() => useWallAlignment(3));

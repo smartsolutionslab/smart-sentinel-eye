@@ -6,6 +6,7 @@ import {
   type AlignmentState,
   type TileLag,
 } from '@smart-sentinel-eye/shared/observability/wallAlignment';
+import { reportKioskLatency } from '@smart-sentinel-eye/shared/observability/kioskLatency';
 
 /**
  * The per-wall playout control loop (spec 045 US1, ADR-0128).
@@ -58,14 +59,26 @@ export interface WallAlignment {
  * @param tileCount how many tiles the wall is rendering. Below two the loop
  * never runs and no target is ever produced (FR-004) — a single-tile wall must
  * not pay a millisecond for a feature about walls.
+ * @param getToken resolves the kiosk's bearer token, so the wall's skew can be
+ * reported through the service like every other browser measurement
+ * (ADR-0122). Omitted in tests that only exercise the arithmetic.
  */
-export function useWallAlignment(tileCount: number): WallAlignment {
+export function useWallAlignment(tileCount: number, getToken?: () => Promise<string | null>): WallAlignment {
   // Lags live in a ref, not in state: they arrive every couple of seconds per
   // tile, and re-rendering a wall of live video on each one would cost far
   // more than the leg being managed. The loop below reads them on its own
   // schedule and publishes only the decision.
   const lagsRef = useRef<Map<string, { lagMilliseconds: number; at: number }>>(new Map());
   const stateRef = useRef<AlignmentState>(initialAlignmentState);
+
+  // Behind a ref for the reason the whole of this feature keeps running into:
+  // callers pass an inline closure, so naming it in the effect's deps would
+  // rebuild the interval on every render and the controller would never
+  // complete a cycle (issue 1889).
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  });
 
   const [target, setTarget] = useState<number | null>(null);
   const [released, setReleased] = useState<ReadonlySet<string>>(() => new Set());
@@ -103,7 +116,24 @@ export function useWallAlignment(tileCount: number): WallAlignment {
 
       setReleased((current) => (sameMembers(current, state.released) ? current : new Set(state.released)));
       setTarget(next?.targetMilliseconds ?? null);
-      setSkew(skewAcross(lags.filter((lag) => !state.released.includes(lag.camera))));
+
+      // Skew across the tiles the wall actually claims to hold. A released
+      // tile is excluded deliberately: the wall has stopped claiming it is in
+      // step, so including it would report a spread the wall is not asserting
+      // — and the badge, not this figure, is what says a tile fell out.
+      const held = lags.filter((lag) => !state.released.includes(lag.camera));
+      const skew = skewAcross(held);
+      setSkew(skew);
+
+      // Attributed to the tile that *defines* the spread — the laggiest held
+      // one. One sample per cycle rather than one per tile: a wall reporting
+      // one blended figure hides the tile that is out (#1931), and naming the
+      // tile that set the number is what makes it actionable, while reporting
+      // it N times would just weight the histogram by wall size.
+      if (skew !== null && getTokenRef.current !== undefined) {
+        const laggiest = held.reduce((worst, lag) => (lag.lagMilliseconds > worst.lagMilliseconds ? lag : worst));
+        reportKioskLatency('wall_skew', laggiest.camera, skew, getTokenRef.current);
+      }
     }, SETTLE_INTERVAL_MS);
 
     return () => window.clearInterval(timer);

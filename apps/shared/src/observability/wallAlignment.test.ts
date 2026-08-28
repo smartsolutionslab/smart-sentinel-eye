@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  bufferDelayBetween,
   lagBetween,
   lagSampleFrom,
   skewAcross,
@@ -138,6 +139,43 @@ describe('lagBetween', () => {
     expect(cumulative).toBeLessThan(20);
     // The point: the average would report a healthy wall during a breach.
     expect(delta! - cumulative).toBeGreaterThan(150);
+  });
+});
+
+describe('bufferDelayBetween', () => {
+  /**
+   * **The two figures must not be the same number**, and this is the test that
+   * fails if someone reports `lagBetween` as the presentation-buffer leg.
+   *
+   * <p>
+   * Processing delay is already the decode leg (`receive_to_decoded`), so
+   * charging the 200 ms presentation budget for it would attribute one leg's
+   * time to another — the confusion `KioskReceiveToDecoded` refuses from the
+   * other direction.
+   * </p>
+   */
+  it('Reports the buffer wait alone, excluding the decode leg time', () => {
+    const previous = sample();
+    const current = sample({
+      jitterBufferDelaySeconds: 1 + 0.5, // 500 ms over 50 frames = 10 ms/frame
+      jitterBufferEmittedCount: 150,
+      processingDelaySeconds: 0.5 + 0.1, // 100 ms over 50 frames = 2 ms/frame
+      framesDecoded: 150,
+    });
+
+    expect(bufferDelayBetween(previous, current)).toBeCloseTo(10, 6);
+    // The control signal is the whole of what makes a tile late; the leg is not.
+    expect(lagBetween(previous, current)).toBeCloseTo(12, 6);
+  });
+
+  it('Reports nothing when no frames were emitted', () => {
+    expect(bufferDelayBetween(sample(), sample())).toBeNull();
+  });
+
+  it('Reports nothing when the counters reset on reconnect', () => {
+    const previous = sample({ jitterBufferDelaySeconds: 5, jitterBufferEmittedCount: 500 });
+    const current = sample({ jitterBufferDelaySeconds: 1, jitterBufferEmittedCount: 600 });
+    expect(bufferDelayBetween(previous, current)).toBeNull();
   });
 });
 
