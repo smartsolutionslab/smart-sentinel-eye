@@ -171,6 +171,17 @@ is the same reason the listener count is capped at 4.
   crash-safety for throughput on an audit trail, where losing in-flight
   messages is the one failure the trail cannot report. Still available if
   parallel listeners prove insufficient.
+
+  > **Corrected by [ADR-0126](./0126-audit-listeners-settle-at-the-broker.md),
+  > 2026-08-28.** The sentence above is wrong about the trade, and the
+  > correction is left visible rather than edited away because the
+  > reasoning is the instructive part. It conflated two Wolverine
+  > options: `BufferedInMemory()` does settle immediately and would lose
+  > in-flight messages, but `ProcessInParallelWithNativeAcks()` holds
+  > each delivery unacknowledged on the broker until the handler
+  > finishes. A hard kill mid-burst put all 640 in-flight events back on
+  > the queue and every one was audited on restart — no loss. This lever
+  > was subsequently taken.
 - **Batch the audit inserts** via a Wolverine batch handler. Bigger
   change to the handler and the repository, and it makes each message's
   latency depend on the batch filling — the wrong shape for a p99 budget.

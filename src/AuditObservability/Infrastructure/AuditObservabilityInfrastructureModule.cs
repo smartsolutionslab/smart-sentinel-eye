@@ -1,5 +1,3 @@
-using CommunityToolkit.Aspire.Minio.Client;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.AuditObservability.Application.EventHandlers;
@@ -10,7 +8,6 @@ using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.AuditObservability.Infrastructure.Archive;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
-using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.AuditObservability.Infrastructure;
@@ -92,7 +89,8 @@ public static class AuditObservabilityInfrastructureModule
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
             postgresConnectionName: AuditObservabilityPersistenceModule.DatabaseConnectionName,
-            listenerCount: AuditListenerCount);
+            listenerCount: AuditListenerCount,
+            useNativeAcks: true);
 
         return builder;
     }
