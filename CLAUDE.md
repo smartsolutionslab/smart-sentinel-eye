@@ -261,26 +261,34 @@ down as:
 | Composite + render | ≤ 50 ms |
 | Headroom | ≤ 150 ms |
 
-**One of these legs is not built** (#1714): the presentation buffer.
-**It is no longer a PTP problem** — ADR-0128 found that ADR-014 could not
-be built as written (nothing we own is in the media path; no browser
-exposes a PTP time API) and replaced it for the intra-wall case with
-receiver playout alignment against the SFU's RTCP clock, which needs no
-PTP. Inter-display sync still does, and remains unbuilt and out of scope.
-Decode and composite-and-render **are** built —
-the kiosk's `CellPage` renders `CameraViewer`, a shared composite that
-owns the `<video>`, drives the peer connection and draws the overlay onto
-the live frame. Both stood recorded as unbuilt until spec 040, on the
-strength of a search scoped to `apps/kiosk-web` when the capability lives
-in `apps/shared`.
+**Every leg here is now built** (spec 045). The presentation buffer was
+the last, and it turned out not to be a PTP problem: ADR-0128 found
+ADR-014 could not be built as written (nothing we own is in the media
+path; no browser exposes a PTP time API) and replaced it for the
+intra-wall case with receiver playout alignment against the SFU's RTCP
+clock. **Inter-display sync still needs PTP, and remains unbuilt and out
+of scope** — it is not one of these six rows.
+
+**Built is not the same as holding.** No one has yet watched a wall align
+or re-measured the whole path with alignment active, so #1714 stays open
+and §IV records this leg as *recorded, not yet observed* rather than
+measured. Alignment is bought with latency out of this very budget —
+measured at roughly double the absolute lag — so a wall that is aligned
+but late has traded one breach for another.
+
+Decode and composite-and-render were built long before that, and stood
+recorded as unbuilt until spec 040 on the strength of a search scoped to
+`apps/kiosk-web` when the capability lives in `apps/shared`.
 
 §VII's dashboard rule binds **implemented** legs only (ADR-0117) — an
 unbuilt leg is not exempt, it is *not yet subject*, and the obligation
-attaches to whichever spec builds it. **The authority is the table in
-constitution §IV**, which distinguishes four states across the six legs;
-this summary must not compete with it. Keep it current, because a leg
-recorded as unbuilt after it is built exempts itself by clerical error —
-which is not hypothetical, and §IV now says so.
+attaches to whichever spec builds it. With nothing unbuilt, **every leg
+is now subject**. **The authority is the table in constitution §IV**,
+which distinguishes five states across the six legs; this summary must
+not compete with it. Keep it current: a leg recorded as unbuilt after it
+is built exempts itself by clerical error — not hypothetical, and §IV
+says so — and a leg recorded as measured before anyone read its figure
+claims a discharge nobody earned.
 
 ## Stack at a glance
 

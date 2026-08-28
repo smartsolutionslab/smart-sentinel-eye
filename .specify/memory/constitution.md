@@ -98,14 +98,36 @@ table is where that claim lives so it cannot be an unnoticed absence.
 |---|---|---|---|
 | Camera → SFU | yes | yes (SFU metrics) | no |
 | SFU → kiosk decode | yes | **in part** — receive-to-decoded only; see below | no |
-| Presentation buffer (playout alignment) | **no** | — | — |
+| Presentation buffer (playout alignment) | yes | **recorded, not yet observed** — see below | no |
 | Event → overlay state | yes | **recorded, not yet readable** — see below | no |
 | Overlay composite + render | yes | yes | no |
 | Headroom | n/a — arithmetic remainder | n/a | n/a |
 
-**One** unbuilt leg remains — the presentation buffer — and it is #1714.
+**No leg is unbuilt any more** (spec 045). The presentation buffer was the
+last, and #1714's premise — *"three of six legs are unbuilt"* — is now
+spent: two were never unbuilt (spec 040 found the record wrong), and this
+one has been built.
+
+**That is not the same as the 800 ms path holding end to end.** Every leg
+existing is a precondition for measuring the whole path, not a
+measurement of it. #1714 stays open until someone has watched a wall and
+re-measured the path with alignment active, and **inter-display
+synchronisation remains unbuilt and out of scope** (ADR-0128) — it is not
+a row here, and its absence is not covered by this paragraph.
+
+**It also spends the last §VII exemption, and that is now urgent rather
+than theoretical.** ADR-0117 exempts a leg by its being *not yet
+subject*; no leg is unbuilt, so **every leg is now subject** — and the
+Dashboard column reads `no` for all five. Whether that column is
+satisfied by a figure being readable in the sink, or demands a
+purpose-built view, is **#1940, and it is not settled here**. Spec 045
+does not resolve it and must not be read as having done so; it has
+removed the last row that did not depend on the answer.
+
 Keep this table current: a leg left recorded as unbuilt after it is built
-would exempt itself from §VII by clerical error.
+would exempt itself from §VII by clerical error. **The reverse now costs
+as much**: a leg recorded as measured before anyone has read its figure
+claims a discharge nobody earned.
 
 **That sentence describes something that happened** (spec 040). Two legs
 above stood at "no" and "partly" while their code ran on every kiosk, and
@@ -121,13 +143,41 @@ an instance.
 **"In part"** (spec 040), defined as deliberately as "recorded, not yet
 readable" below it: the decode budget spans *SFU sends → kiosk has
 decoded*, and a browser cannot see the sending end without a clock shared
-with the SFU. Establishing one **is** the presentation-buffer leg, which
-is not built. So what is recorded is `receive_to_decoded` — first packet
+with the SFU. So what is recorded is `receive_to_decoded` — first packet
 of a frame received through to that frame decoded — under a name that
 does not claim the leg, and with **no budget attached**, because the
 recorded fragment is the cheaper half and reporting it against 120 ms
 would look like the budget passing. The leg is measured in part; the
 column says so rather than rounding up.
+
+**Its stated reason has changed, and the verdict has not** (spec 045,
+FR-011). That paragraph used to end *"establishing one is the
+presentation-buffer leg, which is not built"* — and that leg is now
+built. A shared clock **does** exist: every tile of a wall is served by
+one SFU, whose RTCP sender reports carry one clock (ADR-0128).
+
+**It still does not close this leg.** Chromium exposes no per-frame
+send-to-arrival mapping, so `SFU sends → decoded` can only be
+*estimated* — round-trip time halved, plus buffer, plus decode — and an
+estimate is not a measurement. Raising the column on that basis would be
+the rounding up this table forbids everywhere else. So the entry stays
+**in part**, now for a reason about what a browser exposes rather than
+about a leg that did not exist.
+
+**"Recorded, not yet observed"** (spec 045): the presentation-buffer leg
+emits `kiosk-presentation-buffer` per tile, as a whole leg against its
+200 ms budget — the kiosk both causes the delay and observes it, so
+nothing is missing from the figure. Its skew rides a **separate**
+instrument, because a spread between two tiles is not a duration any
+frame spent travelling.
+
+**Distinct from "not yet readable" below it, and weaker.** That entry
+means the number cannot be reached from outside its process. This one
+can be — it reaches the sink by the same path as the other kiosk legs —
+but **no person has yet read it off a running wall**. The code is tested;
+the wall is not. It becomes *yes* when spec 045's T026 is walked and a
+figure is recorded, and not before: a leg marked measured on the strength
+of a passing unit test is a §VII discharge nobody earned.
 
 **"Recorded, not yet readable"** (spec 025): the event → overlay leg now
 emits a latency distribution from the service that applies the effect,
@@ -363,9 +413,18 @@ contradicting tribal knowledge.
 
 ---
 
-**Version:** 1.3.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-08-28
+**Version:** 1.4.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-08-28
 
 **Amendment history.**
+1.4.0 — §IV's leg table: the presentation buffer moves from unbuilt to
+implemented and **recorded, not yet observed**, a fourth state defined
+beside the existing three — the figure reaches the sink but no person has
+read it off a running wall, and it becomes *yes* only when spec 045's
+T026 is walked. No leg is unbuilt any more, which is not the same as the
+800 ms path holding end to end. The decode leg stays **in part**: its
+stated reason (that no shared clock existed) is now wrong, but Chromium
+exposes no per-frame send-to-arrival mapping, so the leg can only be
+estimated and an estimate is not a measurement (spec 045, #1714).
 1.3.0 — the presentation-buffer leg is renamed from *(PTP)* to *(playout
 alignment)* in §III and both §IV tables, and §Frontend's "PTP-aware time
 APIs required" is replaced with the WebRTC capabilities a kiosk actually

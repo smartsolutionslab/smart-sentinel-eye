@@ -21,7 +21,10 @@ import { gatewayApiUrl } from '../api/gateway.js';
  * <b>Sends the number, never the start.</b> A slow or retried post then makes
  * the report late; it can never make the measurement large. Subtracting
  * server-side would put the network inside the figure and would need a clock
- * shared between browser and server — which is the PTP leg, and it is not built.
+ * shared between browser and server. That clock now exists — one SFU serves
+ * every tile and its RTCP sender reports carry it (ADR-0128) — but Chromium
+ * exposes no per-frame send-to-arrival mapping, so subtracting server-side
+ * would still be an estimate rather than a measurement.
  * </p>
  */
 /**
@@ -148,8 +151,9 @@ export interface DecodeSample {
  * <p>
  * <b>A fragment of the `SFU → kiosk decode` leg, not the leg.</b> That budget
  * spans <em>SFU sends → kiosk has decoded</em>, and a browser cannot see the
- * sending end without a clock shared with the SFU — establishing one <em>is</em>
- * the presentation-buffer leg, which is not built. The server-side segment
+ * sending end. A clock shared with the SFU now exists (ADR-0128), but Chromium
+ * exposes no per-frame send-to-arrival mapping, so the far end can only be
+ * estimated — and an estimate is not a measurement. The server-side segment
  * carries <c>isWholeLeg: false</c> so no dashboard reads this as the leg passing.
  * </p>
  *

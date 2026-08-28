@@ -101,10 +101,10 @@ export function CameraViewer({
   // Spec 040: the receive-to-decoded fragment of the SFU → kiosk decode leg.
   //
   // A FRAGMENT, not the leg — the budget spans SFU-sends → kiosk-decoded, and a
-  // browser cannot see the sending end without a clock shared with the SFU.
-  // Establishing one is the presentation-buffer leg, which is not built. The
-  // server-side segment carries isWholeLeg: false so no dashboard reads this as
-  // the leg passing (ADR-0122).
+  // browser cannot see the sending end. A clock shared with the SFU now exists
+  // (ADR-0128), but Chromium exposes no per-frame send-to-arrival mapping, so
+  // the far end can only be estimated. The server-side segment carries
+  // isWholeLeg: false so no dashboard reads this as the leg passing (ADR-0122).
   //
   // Deltas between reads, never the cumulative ratio: these are monotonic
   // counters over the session's life, so a raw ratio reports the session average

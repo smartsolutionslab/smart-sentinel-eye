@@ -204,10 +204,17 @@ public sealed record LatencySegment
     /// <para>
     /// <b>Not the leg, and <see cref="IsWholeLeg"/> says so.</b> The budget
     /// spans <em>SFU sends → kiosk has decoded</em>, and a browser cannot see
-    /// the sending end without a clock shared with the SFU. Establishing one
-    /// <em>is</em> the presentation-buffer leg, which is not built — so the
-    /// statistic that would close this gap depends on the leg whose absence
-    /// created the gap.
+    /// the sending end.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>This used to say the shared clock did not exist.</b> It does now:
+    /// one SFU serves every tile of a wall and its RTCP sender reports carry
+    /// one clock (ADR-0128, spec 045). The leg still does not close, for a
+    /// different reason — Chromium exposes no per-frame send-to-arrival
+    /// mapping, so the far end can only be <em>estimated</em>
+    /// (<c>RTT/2 + buffer + decode</c>), and raising this to a whole leg on an
+    /// estimate would be the rounding up §IV forbids.
     /// </para>
     ///
     /// <para>
