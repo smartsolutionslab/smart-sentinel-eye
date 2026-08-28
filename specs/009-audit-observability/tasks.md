@@ -279,7 +279,46 @@ one: `FabEventIngestedV1` carries the *device's* timestamp, so it measures the
 whole MQTT chain — p50 30 ms / p99 63 ms on a dev stack, against p50 10 ms /
 p99 24 ms for events stamped at publish. The same budget, the wrong leg.
 
-**What is not yet known.** Run-mode spot checks put the same event kind at
-13–33 ms, but at roughly one write per second. Nobody has measured run mode
-*under load*, so whether this gap is a fixture artefact or a real capacity limit
-is open — and that is the first thing 1956 asks for.
+**Run mode under load, measured 2026-08-28.** This was the open question — run-mode
+spot checks put the same event kind at 13–33 ms, but at roughly one write per
+second, which is not a comparison at load. It has now been taken, driving the
+same generator against the run-mode stack at several sustained rates (each rate
+run twice; the pairs agree):
+
+| achieved | p50 | p99 | max |
+|---|---|---|---|
+| 0.6 ev/s | 15 ms | — | 901 ms |
+| 24 ev/s | 31 ms | 142 ms | 203 ms |
+| 48–49 ev/s | 37 ms | 258–280 ms | 332 ms |
+| 68 ev/s | 52 ms | 342 ms | 393 ms |
+| 86–95 ev/s | 3 066–4 936 ms | 6 350–6 730 ms | 6 774 ms |
+| 158 ev/s | 9 870 ms | 14 221 ms | 14 288 ms |
+
+**The gap is not a fixture artefact.** Run mode misses NFR-001 too, and at the
+rate the NFR names it misses by two orders of magnitude. It also misses at every
+rate measured, near-idle included: p99 141 ms at 24 ev/s is already ~3× the
+budget, and the only regime where 50 ms holds is one where essentially nothing is
+happening.
+
+**Where the seconds go: the consumer, not the outbox.** Sampled through a
+158 ev/s burst, `wolverine_system_variables.wolverine_outgoing_envelopes` held
+**0 rows at every sample** — messages leave the publisher immediately — while the
+audit queue on RabbitMQ backed up to 468 then 643. So the flush cadence is not
+the mechanism, and the "ceiling just above 5 s looks like a polling interval"
+guess in 1956 is **wrong**: the run-mode latency histogram is a smooth queueing
+tail, not a spike at multiples of five seconds.
+
+The consumer's ceiling is **~100 rows/s for that queue** (peak seconds observed:
+102, 101, 98). NFR-001 asks for 100 ev/s sustained, so the requirement sits
+exactly on the measured ceiling with no headroom — which is why latency is stable
+to ~68 ev/s and collapses by ~86. Per message the audit side does a durable-inbox
+write (`wolverine_audit.wolverine_incoming_envelopes`, which had accumulated
+5 343 rows) plus the audit row's own `SaveAsync` — one transaction per row — on a
+single listener at prefetch 100.
+
+**Still open, and deliberately not decided here.** Whether 50 ms at 100 ev/s is
+achievable, and whether the requirement or the pipeline moves. Both candidate
+levers — parallel listeners on the audit queues, or dropping the durable inbox
+where the audit row's own `event_identifier` conflict already gives idempotency —
+change what ADR-0088 fixed, so they need an ADR rather than a commit. 1956 holds
+the decision.
