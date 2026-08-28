@@ -79,28 +79,50 @@ user to confirm before continuing.
 |---|---|---|---|---|
 | 1 | Specify | `/speckit-specify` (+ `/speckit-clarify`) | `specs/NNN-x/spec.md` | Spec reviewed; no `[NEEDS CLARIFICATION]` left. |
 | 2 | Plan | `/speckit-plan` | `specs/NNN-x/plan.md` | Plan aligns with constitution + ADRs. |
-| 3 | Tasks | `/speckit-tasks` + `/speckit-taskstoissues` | `tasks.md` + GitHub issues | Tasks atomic; on Project #13. |
+| 3 | Tasks | `/speckit-tasks` | `tasks.md` | Tasks atomic; the feature's issue on Project #13. |
 | 4 | Implement | `/speckit-implement` | Code + tests; format & analyzers clean | Tests green; commits follow ADR-0030. |
 | 5 | Verify | `/verify` or explicit run/test | Verification note on the PR | Behaviour observed end-to-end. Latency cited if on SLO path. |
 | 6 | QA | `/code-review`; `/security-review` if security-sensitive | Findings addressed | All findings resolved or accepted in writing. |
 | 7 | PR | `gh pr create` with template | PR to `develop`, CI green | Reviewer approval + green CI. |
 
-**Phase 3's board gate needs doing by hand.** `/speckit-taskstoissues` creates
-the issues but does not add them to Project #13, so the gate is only met after:
+**Phase 3 stopped creating per-task issues after spec 028, and this file
+said otherwise for sixteen specs.** The row above now records what the repo
+does; what follows is the evidence, so the correction is not itself taken on
+trust.
+
+`[TNNN]` issues run to **#1845** (spec 028, 2026-08-24) and stop. Specs 029–044
+created **none** — they carry a **feature-level** issue instead, and their
+`tasks.md` is the artifact the work is tracked against. Project #13 is active
+(≈450 items) and receives those feature and finding issues, not task issues.
+
+So the gate is: **the feature's issue is on Project #13**, added by hand —
+`/speckit-tasks` adds nothing to the board.
 
 ```sh
-gh project item-add 13 --owner smartsolutionslab --url <issue-url>   # per issue
+gh project item-add 13 --owner smartsolutionslab --url <issue-url>
 ```
 
-That needs the `project` scope (`gh auth refresh -s project,read:project`), and
-`item-add` prints nothing on success — verify with `gh project item-list 13`.
+That needs the `project` scope (`gh auth refresh -s project,read:project`).
+`item-add` prints nothing on success, and **`item-list` defaults to 30 items** —
+verify with `--limit 2000` or a query for a filled board will look empty.
 
-Specs 018–021 missed this and their task issues are **not** on the board. That
-is a known exception, not a change of convention: the board holds granular
-`[TNNN]` issues from earlier specs, and back-filling ~100 issues for merged work
-would bury the in-flight items the board exists to show. Applied from spec 022
-onward. The two feature-level issues from that period (#1605, #1635) were added
-individually.
+`/speckit-taskstoissues` still exists and still works. Reach for it only when a
+feature genuinely wants an issue per task; it is no longer the default, and
+running it unthinkingly adds tens of items to a board that is used for tracking
+in-flight work at feature granularity.
+
+**The earlier exception this note used to describe still stands**: specs 018–021
+missed the then-current gate and their task issues are not on the board.
+Back-filling ~100 issues for merged work would bury the in-flight items the
+board exists to show. The two feature-level issues from that period (#1605,
+#1635) were added individually.
+
+**Why this drifted, and why it is worth saying:** a documented gate that
+sixteen specs quietly ignored is one the next spec either misses or follows by
+surprise. It is the same defect as §IV recording a leg as unbuilt after it was
+built — a record nobody checked against what was actually happening. Found while
+running spec 045's Phase 3 (2026-08-28).
+
 **Skipping a phase:** allowed only for trivial changes (typo, dep
 bump, comment-only). Write `Phase X: skipped — <one line>` in the PR
 body. Documentation-only PRs typically skip 5 and 6.
