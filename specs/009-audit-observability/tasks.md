@@ -355,9 +355,17 @@ generator:
 | durable inbox (ADR-0124) | 29–63 ms | 283–333 ms |
 | native acks (ADR-0126) | 26–35 ms | **85–236 ms** |
 
-No overlap on p99. The inbox is the clearest evidence it is live: across 2 000
-events `wolverine_audit.wolverine_incoming_envelopes` **shrank** from 3 685 to
-3 155 rows instead of gaining 2 000.
+No overlap on p99. That it is live was established by reading the endpoint mode
+off the running service — a temporary startup diagnostic logged every audit queue
+as `Mode=NativeAck ListenerCount=4`.
+
+**One claim was made and withdrawn, and the withdrawal is the useful part.** The
+first write-up said the change stops Postgres being written per message, on the
+strength of the inbox table *shrinking* during a run. That inference was unsound:
+the durability agent sweeps old rows, so a net decrease is consistent with writes
+continuing — and they do. Attributed by message type, the table gains **one row
+per event** (`status=Handled`, `attempts=0`, with a `keep_until` stamp). So the
+latency improvement is real and the mechanism behind it is not established.
 
 **Not a durability trade, and that was tested rather than argued.** The audit
 service was killed outright (`taskkill /F`) five seconds into a 640-event burst:
