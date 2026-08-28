@@ -5,6 +5,8 @@ import {
   skewAcross,
   wallTargetFrom,
   PRESENTATION_BUFFER_BUDGET_MS,
+  settleAlignment,
+  initialAlignmentState,
   type LagSample,
 } from './wallAlignment.js';
 
@@ -201,6 +203,132 @@ describe('wallTargetFrom', () => {
     ]);
 
     expect(target).toBeNull();
+  });
+});
+
+describe('settleAlignment — hysteresis at the cap', () => {
+  const steady = { camera: 'steady', lagMilliseconds: 30 };
+
+  const alsoSteady = { camera: 'also-steady', lagMilliseconds: 45 };
+
+  /**
+   * One bad sample must not evict a tile: marking takes consecutive cycles.
+   *
+   * <p>
+   * Three tiles, not two, and deliberately: with two, excluding the breaching
+   * tile leaves one, and a wall of one has nothing to align — the assertion
+   * would be about wall size rather than about hysteresis.
+   * </p>
+   */
+  it('Does not mark a tile on its first breach, but does not let it set the target either', () => {
+    const { state, target } = settleAlignment(initialAlignmentState, [
+      steady,
+      alsoSteady,
+      { camera: 'spiky', lagMilliseconds: 260 },
+    ]);
+
+    expect(state.released).toEqual([]);
+    expect(target?.released).toEqual([]);
+    // Unmarked, but still over the cap, so it takes no part in the target.
+    expect(target?.held).toEqual(['steady', 'also-steady']);
+    expect(target?.targetMilliseconds).toBe(45);
+  });
+
+  it('Releases a tile that breaches on consecutive cycles', () => {
+    const lags = [steady, { camera: 'also-steady', lagMilliseconds: 45 }, { camera: 'slow', lagMilliseconds: 260 }];
+    const first = settleAlignment(initialAlignmentState, lags);
+    const second = settleAlignment(first.state, lags);
+
+    expect(second.state.released).toEqual(['slow']);
+    expect(second.target?.released).toEqual(['slow']);
+    expect(second.target?.held).toEqual(['steady', 'also-steady']);
+    expect(second.target?.targetMilliseconds).toBe(45);
+  });
+
+  /**
+   * A released tile must stay marked even when releasing it leaves nothing to
+   * align. Two tiles, one released, one left — no target, but the operator
+   * still has to be told which tile fell out (FR-012).
+   */
+  it('Still marks a released tile when the wall has nothing left to align', () => {
+    const lags = [steady, { camera: 'slow', lagMilliseconds: 260 }];
+    const first = settleAlignment(initialAlignmentState, lags);
+    const second = settleAlignment(first.state, lags);
+
+    expect(second.target).toBeNull();
+    expect(second.state.released).toEqual(['slow']);
+  });
+
+  it('Forgets a breach that does not repeat', () => {
+    const blip = settleAlignment(initialAlignmentState, [steady, { camera: 'blip', lagMilliseconds: 260 }]);
+    const recovered = settleAlignment(blip.state, [steady, { camera: 'blip', lagMilliseconds: 40 }]);
+    const breachesAgain = settleAlignment(recovered.state, [steady, { camera: 'blip', lagMilliseconds: 260 }]);
+
+    expect(recovered.state.breaches).toEqual({});
+    // The counter restarted, so this breach is a first one and does not release.
+    expect(breachesAgain.state.released).toEqual([]);
+  });
+
+  /**
+   * **The oscillation test.** A tile hovering either side of the cap must not
+   * flip its mark from cycle to cycle — an operator would watch a badge blink,
+   * and nothing else in the suite catches it.
+   *
+   * <p>
+   * It settles **held**, and that is the correct answer rather than a lenient
+   * one: alternating 195/205 never accumulates two <em>consecutive</em>
+   * breaches, so the tile is never marked. The wall is still protected —
+   * on a 205 cycle the tile is over the cap and so takes no part in the target,
+   * which stays at the steady tile's 30 ms. The budget is enforced by the cap
+   * every cycle; hysteresis governs only what the operator is told.
+   * </p>
+   */
+  it('Does not flip a tile hovering at the cap, and never lets it set the target', () => {
+    // Induced deliberately: 195 and 205 straddle the 200 ms cap.
+    const hovering = [195, 205, 195, 205, 195, 205];
+    let state = initialAlignmentState;
+    const marked: boolean[] = [];
+    const targets: (number | undefined)[] = [];
+
+    for (const lagMilliseconds of hovering) {
+      const cycle = settleAlignment(state, [steady, alsoSteady, { camera: 'edge', lagMilliseconds }]);
+      state = cycle.state;
+      marked.push(state.released.includes('edge'));
+      targets.push(cycle.target?.targetMilliseconds);
+    }
+
+    // The mark never changes — that is the property under test.
+    expect(new Set(marked).size).toBe(1);
+    expect(marked).toEqual([false, false, false, false, false, false]);
+    // And the wall is never dragged past the budget on the 205 cycles: the
+    // edge tile sets the target only while it is inside the cap.
+    expect(targets).toEqual([195, 45, 195, 45, 195, 45]);
+  });
+
+  it('Takes a released tile back only once it clears the cap by the margin', () => {
+    const lags = [steady, { camera: 'slow', lagMilliseconds: 260 }];
+    let state = settleAlignment(initialAlignmentState, lags).state;
+    state = settleAlignment(state, lags).state;
+    expect(state.released).toEqual(['slow']);
+
+    // Inside the cap, but not by the margin — still out.
+    const nearly = settleAlignment(state, [steady, { camera: 'slow', lagMilliseconds: 190 }]);
+    expect(nearly.state.released).toEqual(['slow']);
+
+    // Clear of the margin — back in, and now it can set the target.
+    const back = settleAlignment(nearly.state, [steady, { camera: 'slow', lagMilliseconds: 175 }]);
+    expect(back.state.released).toEqual([]);
+    expect(back.target?.held).toEqual(['steady', 'slow']);
+    expect(back.target?.targetMilliseconds).toBe(175);
+  });
+
+  it('Sets no target for a single-tile wall however many cycles pass', () => {
+    let state = initialAlignmentState;
+    for (let cycle = 0; cycle < 5; cycle += 1) {
+      const result = settleAlignment(state, [{ camera: 'only', lagMilliseconds: 40 }]);
+      state = result.state;
+      expect(result.target).toBeNull();
+    }
   });
 });
 

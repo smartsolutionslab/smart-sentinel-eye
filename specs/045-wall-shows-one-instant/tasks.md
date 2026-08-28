@@ -78,13 +78,13 @@ blind. Pure arithmetic — no browser, no React.
 
 **Goal**: a wall coordinates. Shippable on its own.
 
-- [ ] T007 [US1] In `apps/shared/src/streaming/WhepClient.ts`, expose the video `RTCRtpReceiver`. **Read-only access to an object this client already owns** — copy the framing and the caution of the existing `stats()` accessor, including its "checked rather than assumed" guard. Session lifecycle untouched.
-- [ ] T008 [US1] In `apps/shared/src/ui/composites/useWhepSession.ts`, pass a `setPlayoutTarget(ms)` through, stable across renders via `useCallback` with no deps. **A fresh identity each render tears down callers' effects** — that is exactly how the decode sampler was silently killed (issue 1889), and the existing comment on `stats` says so.
-- [ ] T009 [US1] In `apps/shared/src/ui/composites/CameraViewer.tsx`, accept an optional playout target and apply it to the receiver. Optional so `management-web` passes nothing and behaves exactly as today.
-- [ ] T010 [US1] In `wallAlignment.ts`, add the decision: `target = min(max(lag over tiles), 200 ms)`, returning held and released sets per [data-model.md](./data-model.md) §3. **Fewer than two tiles returns no target at all** — not a target of zero (FR-004).
-- [ ] T011 [US1] Add **hysteresis** to T010: a tile crosses to released only after N consecutive cycles above the cap, and returns to held only below `cap − margin`. Without it a tile sitting at 200 ms flips every cycle and the operator watches a badge blink.
-- [ ] T012 [US1] Create `apps/kiosk-web/src/features/cell/useWallAlignment.ts` — the control loop: sample every tile on an interval, compute the target, apply it. **Every failure path is a no-op**: unreadable stats, a receiver that rejects a target, an arithmetic `null`. Video continues (FR-013). Mount it in `CellPage.tsx`.
-- [ ] T013 [US1] `apps/kiosk-web/src/features/cell/useWallAlignment.test.ts` — **induce the skew, then assert convergence**. Fabricate tiles with lags 20/30/**120** ms; assert every held tile is driven to 120 ms and the spread closes to ≤ 33 ms. **A test that asserts a small spread without first creating a large one passes with the controller deleted** (research R6) — that is the failure mode this whole feature is most likely to ship with.
+- [x] T007 [US1] In `apps/shared/src/streaming/WhepClient.ts`, expose the video `RTCRtpReceiver`. **Read-only access to an object this client already owns** — copy the framing and the caution of the existing `stats()` accessor, including its "checked rather than assumed" guard. Session lifecycle untouched.
+- [x] T008 [US1] In `apps/shared/src/ui/composites/useWhepSession.ts`, pass a `setPlayoutTarget(ms)` through, stable across renders via `useCallback` with no deps. **A fresh identity each render tears down callers' effects** — that is exactly how the decode sampler was silently killed (issue 1889), and the existing comment on `stats` says so.
+- [x] T009 [US1] In `apps/shared/src/ui/composites/CameraViewer.tsx`, accept an optional playout target and apply it to the receiver. Optional so `management-web` passes nothing and behaves exactly as today.
+- [x] T010 [US1] In `wallAlignment.ts`, add the decision: `target = min(max(lag over tiles), 200 ms)`, returning held and released sets per [data-model.md](./data-model.md) §3. **Fewer than two tiles returns no target at all** — not a target of zero (FR-004).
+- [x] T011 [US1] Add **hysteresis** to T010: a tile crosses to released only after N consecutive cycles above the cap, and returns to held only below `cap − margin`. Without it a tile sitting at 200 ms flips every cycle and the operator watches a badge blink.
+- [x] T012 [US1] Create `apps/kiosk-web/src/features/cell/useWallAlignment.ts` — the control loop: sample every tile on an interval, compute the target, apply it. **Every failure path is a no-op**: unreadable stats, a receiver that rejects a target, an arithmetic `null`. Video continues (FR-013). Mount it in `CellPage.tsx`.
+- [x] T013 [US1] `apps/kiosk-web/src/features/cell/useWallAlignment.test.ts` — **induce the skew, then assert convergence**. Fabricate tiles with lags 20/30/**120** ms; assert every held tile is driven to 120 ms and the spread closes to ≤ 33 ms. **A test that asserts a small spread without first creating a large one passes with the controller deleted** (research R6) — that is the failure mode this whole feature is most likely to ship with.
 
 **Checkpoint**: **US1 shippable.** An induced spread converges; a wall coordinates.
 
@@ -109,9 +109,9 @@ blind. Pure arithmetic — no browser, no React.
 
 ## Phase 5: Say when it cannot hold (US3)
 
-- [ ] T022 [US3] Create `apps/kiosk-web/src/features/cell/TileAlignmentBadge.tsx` — a released tile is visibly marked, and the condition is logged for an engineer (FR-012). **A released tile keeps playing** (FR-012b): the wall gives up the claim, never the picture.
-- [ ] T023 [P] [US3] Test the boundary: a tile oscillating around the 200 ms cap settles held or released and **stays** there. Drive it to 195 ms and 205 ms across several cycles and assert the state does not flip — this is T011's hysteresis, and nothing else catches its absence.
-- [ ] T024 [P] [US3] Test FR-013 explicitly: make the stats read throw and the receiver reject a target, and assert **every tile still has a live video element**. An observer that can break what it observes is worse than no observer (spec 040's rule).
+- [x] T022 [US3] Create `apps/kiosk-web/src/features/cell/TileAlignmentBadge.tsx` — a released tile is visibly marked, and the condition is logged for an engineer (FR-012). **A released tile keeps playing** (FR-012b): the wall gives up the claim, never the picture.
+- [x] T023 [P] [US3] Test the boundary: a tile oscillating around the 200 ms cap settles held or released and **stays** there. Drive it to 195 ms and 205 ms across several cycles and assert the state does not flip — this is T011's hysteresis, and nothing else catches its absence.
+- [x] T024 [P] [US3] Test FR-013 explicitly: make the stats read throw and the receiver reject a target, and assert **every tile still has a live video element**. An observer that can break what it observes is worse than no observer (spec 040's rule).
 
 **Checkpoint**: **US3 shippable.**
 
@@ -119,7 +119,7 @@ blind. Pure arithmetic — no browser, no React.
 
 ## Phase 6: The single-tile guarantee
 
-- [ ] T025 [P] Test that a **1×1 wall sets no target at all** — assert `jitterBufferTarget` was **never written**, not merely that latency is unchanged (FR-004). Asserting on latency is too weak: a controller that sets a target equal to the tile's own lag changes nothing measurable and is still wrong.
+- [x] T025 [P] Test that a **1×1 wall sets no target at all** — assert `jitterBufferTarget` was **never written**, not merely that latency is unchanged (FR-004). Asserting on latency is too weak: a controller that sets a target equal to the tile's own lag changes nothing measurable and is still wrong.
 
 ---
 

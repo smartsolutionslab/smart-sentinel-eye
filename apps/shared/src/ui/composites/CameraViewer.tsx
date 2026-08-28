@@ -1,13 +1,14 @@
 import clsx from 'clsx';
 import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';
 import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   decodeElapsedBetween,
   decodeSampleFrom,
   reportKioskLatency,
   type DecodeSample,
 } from '../../observability/kioskLatency.js';
+import { lagBetween, lagSampleFrom, type LagSample } from '../../observability/wallAlignment.js';
 import { useWhepSession } from './useWhepSession.js';
 import type { CameraViewerStatus } from './useWhepSession.js';
 
@@ -31,12 +32,45 @@ export interface CameraViewerOverlay {
   fontSizePx: number;
 }
 
+// Spec 045: faster than the decode sampler, because alignment is a control
+// loop rather than an observation — a wall that takes half a minute to
+// converge has not converged. Still far enough apart that the controller is
+// nowhere near the 200 ms leg it manages.
+const LAG_SAMPLE_INTERVAL_MS = 2_000;
+
 export interface CameraViewerProps {
   cameraIdentifier: string;
   /** Resolves the bearer token for the current operator (Keycloak access token). */
   getToken: () => Promise<string | null>;
   /** Optional overlay rendered on top of the live frame (spec 004 US2). */
   overlay?: CameraViewerOverlay;
+  /**
+   * How far behind live this tile should hold frames, in milliseconds — the
+   * wall's decision, applied here (spec 045, ADR-0128).
+   *
+   * <p>
+   * <b>Optional, and absent means untouched.</b> `management-web` shows one
+   * camera at a time with nothing to align it against, so it passes nothing and
+   * the browser's own buffering is left exactly as it is.
+   * </p>
+   */
+  playoutTargetMilliseconds?: number | null;
+  /**
+   * Reports this tile's measured lag so a wall can align against it
+   * (spec 045 FR-007).
+   *
+   * <p>
+   * <b>The achieved figure, never the setpoint.</b> `jitterBufferTarget` is
+   * write-only, so what was asked for and what happened are different numbers,
+   * and only this one is a measurement.
+   * </p>
+   *
+   * <p>
+   * Absent means no sampling happens at all — the interval below never starts.
+   * A single-camera page pays nothing for a feature about walls (FR-004).
+   * </p>
+   */
+  onLagMeasured?: (cameraIdentifier: string, lagMilliseconds: number) => void;
   className?: string;
 }
 
@@ -45,11 +79,18 @@ export interface CameraViewerProps {
  * cameraIdentifier and renders the live stream. Designed to be embedded
  * unchanged by spec 003 (Layout Composition) — no layout concerns leak in.
  */
-export function CameraViewer({ cameraIdentifier, getToken, overlay, className }: CameraViewerProps) {
+export function CameraViewer({
+  cameraIdentifier,
+  getToken,
+  overlay,
+  playoutTargetMilliseconds,
+  onLagMeasured,
+  className,
+}: CameraViewerProps) {
   const { data: stream, error: queryError } = useGetStreamQuery(cameraIdentifier, {
     pollingInterval: 5000,
   });
-  const { videoRef, status, errorMessage, stats } = useWhepSession({
+  const { videoRef, status, errorMessage, stats, setPlayoutTarget } = useWhepSession({
     cameraIdentifier,
     whepUrl: stream?.whepUrl,
     streamState: stream?.state,
@@ -96,6 +137,65 @@ export function CameraViewer({ cameraIdentifier, getToken, overlay, className }:
 
     return () => window.clearInterval(timer);
   }, [status, stats, cameraIdentifier, getToken]);
+
+  // Spec 045: this tile's lag, so the wall can align against it.
+  //
+  // Held behind a ref rather than named in the dependency array: callers pass
+  // an inline closure, so a fresh identity each render would rebuild this
+  // effect, clear the interval before it took a second sample, and reset the
+  // previous sample every time. There would then be no delta ever, no lag ever
+  // reported, and a wall that silently never aligns — the failure that already
+  // happened once to the decode sampler (issue 1889).
+  const onLagMeasuredRef = useRef(onLagMeasured);
+  useEffect(() => {
+    onLagMeasuredRef.current = onLagMeasured;
+  });
+
+  // Nothing is sampled when nobody asked for it. management-web mounts this
+  // composite and passes no callback, so a single-camera page starts no
+  // interval at all (FR-004).
+  const sampleLag = onLagMeasured !== undefined;
+  useEffect(() => {
+    if (status !== 'live' || !sampleLag) {
+      return;
+    }
+
+    let previous: LagSample | null = null;
+    const timer = window.setInterval(() => {
+      void (async () => {
+        const report = await stats();
+        if (report === null) return;
+
+        const current = lagSampleFrom(report as unknown as Map<string, unknown>);
+        if (current === null) return;
+
+        if (previous !== null) {
+          const lag = lagBetween(previous, current);
+          // Null rather than zero: no frames since the last sample, or a
+          // session that restarted and reset its counters.
+          if (lag !== null) {
+            onLagMeasuredRef.current?.(cameraIdentifier, lag);
+          }
+        }
+        previous = current;
+      })();
+    }, LAG_SAMPLE_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, [status, stats, cameraIdentifier, sampleLag]);
+
+  // Apply the wall's decision. Undefined and null both mean "leave this tile
+  // alone", which is what a single-camera page and an unconverged wall both
+  // want — and neither is the same as a target of zero.
+  useEffect(() => {
+    if (status !== 'live' || playoutTargetMilliseconds === undefined || playoutTargetMilliseconds === null) {
+      return;
+    }
+    // The return value is deliberately ignored: an engine that will not accept
+    // a target leaves the tile unaligned, and a tile that cannot be aligned
+    // must carry on showing video (FR-013).
+    setPlayoutTarget(playoutTargetMilliseconds);
+  }, [status, playoutTargetMilliseconds, setPlayoutTarget]);
 
   return (
     <div className={clsx('relative aspect-video w-full overflow-hidden rounded-md bg-black', className)}>

@@ -190,6 +190,95 @@ export function wallTargetFrom(lags: readonly TileLag[]): WallTarget | null {
   return { targetMilliseconds, held, released };
 }
 
+/**
+ * How far below the cap a released tile must come before it is held again, and
+ * how many consecutive cycles a tile must sit past the cap before it is
+ * released.
+ *
+ * <p>
+ * <b>Neither is decoration.</b> Without them a tile sitting on 200 ms flips
+ * between held and released every cycle, and an operator watches a badge blink
+ * — the boundary case spec 045's edge cases name. The margin gives the return
+ * journey a different threshold from the outward one; the cycle count stops a
+ * single noisy sample from evicting a healthy tile.
+ * </p>
+ */
+export const RELEASE_HYSTERESIS_MARGIN_MS = 20;
+export const RELEASE_CONSECUTIVE_CYCLES = 2;
+
+/** What the controller remembers between cycles. Carried, never global. */
+export interface AlignmentState {
+  released: readonly string[];
+  /** Consecutive cycles each held tile has been observed past the cap. */
+  breaches: Readonly<Record<string, number>>;
+}
+
+export const initialAlignmentState: AlignmentState = { released: [], breaches: {} };
+
+/**
+ * Advances one control cycle: classifies tiles with hysteresis, then computes
+ * the target for those still held.
+ *
+ * <p>
+ * Pure — the previous state comes in and the next state goes out, so the whole
+ * control loop is testable without a browser, a timer or a video stream.
+ * </p>
+ */
+export function settleAlignment(
+  previous: AlignmentState,
+  lags: readonly TileLag[],
+): { state: AlignmentState; target: WallTarget | null } {
+  const wasReleased = new Set(previous.released);
+  const released: string[] = [];
+  const breaches: Record<string, number> = {};
+
+  for (const lag of lags) {
+    if (wasReleased.has(lag.camera)) {
+      // Coming back requires clearing the cap by the margin, not merely
+      // touching it — otherwise a tile hovering at the cap oscillates.
+      if (lag.lagMilliseconds > PRESENTATION_BUFFER_BUDGET_MS - RELEASE_HYSTERESIS_MARGIN_MS) {
+        released.push(lag.camera);
+      }
+      continue;
+    }
+
+    if (lag.lagMilliseconds > PRESENTATION_BUFFER_BUDGET_MS) {
+      const consecutive = (previous.breaches[lag.camera] ?? 0) + 1;
+      if (consecutive >= RELEASE_CONSECUTIVE_CYCLES) {
+        released.push(lag.camera);
+      } else {
+        breaches[lag.camera] = consecutive;
+      }
+    }
+  }
+
+  // Two different questions, and conflating them is what makes a badge blink.
+  //
+  // **What is marked** is `released` above — hysteresis-settled, so a single
+  // bad sample does not evict a tile and a tile hovering at the cap does not
+  // flip. That is what an operator sees (FR-012).
+  //
+  // **What is actuated** is `held` below — the cap decides it outright, every
+  // cycle, with no hysteresis at all. A tile past 200 ms cannot be given a
+  // target below its own lag whatever its history, so it simply does not
+  // participate in the target this cycle even while it is still unmarked.
+  const releasedNow = new Set(released);
+  const held = lags.filter(
+    (lag) => !releasedNow.has(lag.camera) && lag.lagMilliseconds <= PRESENTATION_BUFFER_BUDGET_MS,
+  );
+
+  const bare = wallTargetFrom(held);
+
+  return {
+    state: { released, breaches },
+    // `released` comes from the settled state, not from `wallTargetFrom`'s
+    // per-cycle view — and it survives a null target. A two-tile wall that
+    // releases one has nothing left to align, but the released tile must still
+    // be marked, so the state carries it rather than the target.
+    target: bare === null ? null : { ...bare, released },
+  };
+}
+
 /** The spread between the most- and least-lagged of the given tiles, or null below two. */
 export function skewAcross(lags: readonly TileLag[]): number | null {
   if (lags.length < 2) return null;

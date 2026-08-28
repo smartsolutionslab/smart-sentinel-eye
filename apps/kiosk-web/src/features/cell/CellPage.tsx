@@ -12,6 +12,8 @@ import { useAuth } from 'react-oidc-context';
 import { useNavigate, useParams } from 'react-router-dom';
 import { LiveUpdatesBadge } from '../revocation/LiveUpdatesBadge.js';
 import { useLayoutLifecycle } from '../revocation/useLayoutLifecycle.js';
+import { TileAlignmentBadge } from './TileAlignmentBadge.js';
+import { useWallAlignment } from './useWallAlignment.js';
 
 /**
  * Kiosk wall view (spec 010 US2 + US3). Renders the Published revision's
@@ -54,6 +56,11 @@ export function CellPage() {
 
   const published = data?.revisions.find((revision) => revision.state === 'Published');
   const tiles = published?.tiles ?? [];
+
+  // Spec 045: the wall's playout control loop. Only this page sees every tile,
+  // which is why the decision lives here and the actuation lives in the tile.
+  // Below two tiles it does nothing and sets nothing (FR-004).
+  const alignment = useWallAlignment(tiles.length);
 
   // Cross-tile event state. The hub is a single subscription on this page;
   // overlay-scoped events are routed by `overlayIdentifier` to whichever
@@ -206,6 +213,9 @@ export function CellPage() {
               getToken={getToken}
               unavailable={cell.tile.overlayIdentifier !== null && unavailableOverlays.has(cell.tile.overlayIdentifier)}
               highlighted={cell.tile.overlayIdentifier !== null && highlightedOverlays.has(cell.tile.overlayIdentifier)}
+              playoutTargetMilliseconds={alignment.targetFor(cell.tile.cameraIdentifier)}
+              onLagMeasured={alignment.reportLag}
+              outOfAlignment={alignment.released.has(cell.tile.cameraIdentifier)}
             />
           ),
         )}
@@ -222,6 +232,12 @@ interface TileProps {
   unavailable: boolean;
   /** A matching `OverlayHighlightChanged` frame is currently active. */
   highlighted: boolean;
+  /** How far behind live to hold this tile, or null to leave it alone (spec 045). */
+  playoutTargetMilliseconds: number | null;
+  /** Reports this tile's measured lag to the wall's controller (spec 045). */
+  onLagMeasured: (cameraIdentifier: string, lagMilliseconds: number) => void;
+  /** This tile could not be held inside the leg's budget (spec 045 FR-012). */
+  outOfAlignment: boolean;
 }
 
 /**
@@ -231,7 +247,15 @@ interface TileProps {
  * label text comes from the SystemVariables snapshot, falling back to the
  * raw label when the snapshot is unavailable.
  */
-function Tile({ tile, getToken, unavailable, highlighted }: TileProps) {
+function Tile({
+  tile,
+  getToken,
+  unavailable,
+  highlighted,
+  playoutTargetMilliseconds,
+  onLagMeasured,
+  outOfAlignment,
+}: TileProps) {
   const overlayIdentifier = tile.overlayIdentifier;
   const { data: overlay } = useGetOverlayQuery(overlayIdentifier ?? '', {
     skip: overlayIdentifier === null,
@@ -300,7 +324,14 @@ function Tile({ tile, getToken, unavailable, highlighted }: TileProps) {
           Overlay unavailable
         </div>
       )}
-      <CameraViewer cameraIdentifier={tile.cameraIdentifier} getToken={getToken} overlay={renderOverlay} />
+      {outOfAlignment && <TileAlignmentBadge camera={tile.cameraIdentifier} />}
+      <CameraViewer
+        cameraIdentifier={tile.cameraIdentifier}
+        getToken={getToken}
+        overlay={renderOverlay}
+        playoutTargetMilliseconds={playoutTargetMilliseconds}
+        onLagMeasured={onLagMeasured}
+      />
     </div>
   );
 }

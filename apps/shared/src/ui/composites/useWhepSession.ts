@@ -30,6 +30,22 @@ export interface WhepSessionResult {
    * </p>
    */
   stats: () => Promise<RTCStatsReport> | null;
+  /**
+   * Sets this tile's playout target in milliseconds, returning whether it was
+   * applied (spec 045, ADR-0128).
+   *
+   * <p>
+   * The actuator a wall uses to bring its tiles to a common instant. Like
+   * {@link stats}, it reaches an object this hook already owns and changes
+   * nothing about the session lifecycle.
+   * </p>
+   *
+   * <p>
+   * Only a wall calls this. `management-web` shows one camera at a time, has
+   * nothing to align it with, and passes no target.
+   * </p>
+   */
+  setPlayoutTarget: (milliseconds: number) => boolean;
 }
 
 const RETRY_BASE_MS = 1_000;
@@ -185,5 +201,16 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
   // so it reported nothing at all against real video (issue 1889).
   const stats = useCallback(() => clientRef.current?.stats() ?? null, []);
 
-  return { videoRef, status, errorMessage, stats };
+  // Stable for the same reason as `stats` above, and it is the same trap: a
+  // fresh identity each render rebuilds the caller's effect, and the wall
+  // controller's sampling interval would be cleared before it could take a
+  // second sample — which is exactly what silently killed the decode sampler
+  // (issue 1889). A controller that never samples twice reports nothing and
+  // aligns nothing, while looking entirely healthy.
+  const setPlayoutTarget = useCallback(
+    (milliseconds: number) => clientRef.current?.setPlayoutTarget(milliseconds) ?? false,
+    [],
+  );
+
+  return { videoRef, status, errorMessage, stats, setPlayoutTarget };
 }
