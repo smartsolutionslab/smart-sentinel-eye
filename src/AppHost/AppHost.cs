@@ -58,7 +58,16 @@ var streamDistributionAttributionClientSecret = builder.AddParameter("StreamDist
 var postgres = builder
     .AddPostgres("postgres", userName: postgresUser, password: postgresPassword)
     .WithImage("timescale/timescaledb")
-    .WithImageTag("2.27.1-pg17");
+    .WithImageTag("2.27.1-pg17")
+    // Postgres defaults to 100, which nine contexts sharing one container had
+    // already almost spent: measured at ~80 idle connections before any load,
+    // leaving ~20 for every service's pool to grow into at once. That is not a
+    // theoretical margin — driving audit ingest at 100 ev/s took the cluster
+    // past the limit and system-variables started refusing writes with
+    // "53300: sorry, too many clients already", which reads as a bug in
+    // whichever service happens to ask next rather than as a shared budget
+    // running out (ADR-0124).
+    .WithArgs("-c", "max_connections=400");
 
 if (isRunMode && !isE2ETests)
 {

@@ -316,9 +316,36 @@ write (`wolverine_audit.wolverine_incoming_envelopes`, which had accumulated
 5 343 rows) plus the audit row's own `SaveAsync` — one transaction per row — on a
 single listener at prefetch 100.
 
-**Still open, and deliberately not decided here.** Whether 50 ms at 100 ev/s is
-achievable, and whether the requirement or the pipeline moves. Both candidate
-levers — parallel listeners on the audit queues, or dropping the durable inbox
-where the audit row's own `event_identifier` conflict already gives idempotency —
-change what ADR-0088 fixed, so they need an ADR rather than a commit. 1956 holds
-the decision.
+**Parallel listeners taken (ADR-0124), and NFR-001 is still not met.** The audit
+queues now run four listeners each. Re-measured the same way:
+
+| achieved | p50 (1 listener) | p50 (4) | p99 (1 listener) | p99 (4) |
+|---|---|---|---|---|
+| ~30 ev/s | 31 ms | 10 ms | 142 ms | 58 ms |
+| ~50–58 ev/s | 37 ms | 15 ms | 258–280 ms | 62 ms |
+| ~85–115 ev/s | 3 066–4 936 ms | 34–66 ms typical | 6 350–6 730 ms | 214–420 ms typical |
+
+Peak drain 100 → 270 rows/s; the knee moved from ~75 ev/s to past 110. Two of six
+runs at ~100 ev/s spiked to p99 2 119 / 3 786 ms — that rate sits close enough to
+the new knee that the outcome depends on what else the box is doing, and the
+scatter is reported rather than averaged away.
+
+**So T072 stays unticked and the test stays out of CI.** p99 ≤ 50 ms is not held
+even at 30 ev/s (58 ms), and at 100 ev/s the typical p99 is 214–420 ms. The gap
+is now ~5× where it was ~130×, which is a different conversation but not a
+finished one.
+
+Two things came out of the re-measurement that are not about listeners:
+
+- **The shared Postgres was at 97 of its 100 connections before any load.** The
+  first re-measurement looked like the change had barely helped (p50 6 458 ms)
+  because the cluster ran out of connections under load — and the service that
+  failed was **system-variables**, not audit. `AppHost` now starts Postgres with
+  `max_connections=400`.
+- **Eight listeners is worse than four**, for the same reason: `audit-db` alone
+  took 22 connections and pushed the cluster past its limit.
+
+**Still open on 1956.** Whether the remaining gap closes via the other lever
+(dropping the durable inbox, where the audit row's own `event_identifier`
+conflict already gives idempotency), via production topology — audit gets its own
+pod and database node, which this measurement did not — or by moving NFR-001.

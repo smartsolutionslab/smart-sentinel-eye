@@ -95,9 +95,20 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
     /// </para>
     ///
     /// <para>
-    /// Whether 50 ms at 100 ev/s is achievable, and whether the requirement or
-    /// the pipeline moves, is open in 1956. Both candidate levers change what
-    /// ADR-0088 fixed, so neither is taken here.
+    /// <b>Parallel listeners were then taken (ADR-0124) and NFR-001 is still not
+    /// met.</b> Four listeners per audit queue moved peak drain from ~100 to
+    /// ~270 rows/s and the knee from ~75 ev/s to past 110: at ~30 ev/s p99 58 ms,
+    /// at ~50–58 ev/s p99 62 ms, at ~85–115 ev/s p99 214–420 ms typical (two of
+    /// six runs at ~100 ev/s spiked to 2 119 / 3 786 ms). So 100 ev/s is
+    /// survivable and draining rather than collapsing to six or seven seconds,
+    /// and the gap to the budget is ~5× where it was ~130×.
+    /// </para>
+    ///
+    /// <para>
+    /// The budget therefore stays at 50 ms and this test stays excluded. Whether
+    /// the rest closes via the other lever, via production topology — audit gets
+    /// its own pod and database node, which none of this measured — or by moving
+    /// NFR-001, is open in 1956.
     /// </para>
     /// </summary>
     [Trait("Category", "Measurement")]
