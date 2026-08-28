@@ -23,6 +23,20 @@ it.** `AuditEventRepository.SaveAsync` writes
 own documentation says it exists so that "Wolverine at-least-once
 redeliveries are absorbed silently". Two mechanisms, one job.
 
+> **What this ADR does *not* claim, because an earlier draft did and was
+> wrong.** Switching mode does **not** stop Postgres being written per
+> message. Measured after the change, with every audit endpoint verified
+> as `Mode=NativeAck`, the incoming-envelopes table still gains **one row
+> per event** — `status=Handled`, `attempts=0`, with a `keep_until`
+> retention stamp. Those are dedup tombstones, not the two-phase
+> Incoming→Handled work the durable inbox does.
+>
+> The first draft asserted the inbox was bypassed, on the strength of the
+> table *shrinking* during a run. That inference was unsound: the
+> durability agent sweeps old rows, so a net decrease is consistent with
+> writes continuing. The claim is withdrawn; the latency numbers below
+> stand, but the mechanism behind them is not established here.
+
 ## Decision
 
 Audit listeners use Wolverine's `ProcessInParallelWithNativeAcks()`,
@@ -82,9 +96,18 @@ roughly unchanged and tighter.
 2× at its best and ~4.7× at its worst, which is a different conversation
 from where issue 1956 started but not a closed one.
 
-The inbox itself is the cleanest evidence the change is live: across
-2 000 events the table **shrank** from 3 685 to 3 155 rows as old entries
-aged out, instead of gaining 2 000.
+**The evidence the change is live** is the endpoint mode read from the
+running service, not an inference from row counts: a temporary startup
+diagnostic logged every audit queue as `Mode=NativeAck ListenerCount=4`,
+which is what settled it after the row-count reading proved unsound.
+
+**The mechanism is not established.** The listeners are demonstrably in
+`NativeAck`, and p99 demonstrably improved, but Postgres is still written
+once per message (the `Handled` tombstone above), so "the inbox write was
+removed" cannot be the explanation. The plausible reading is that the
+tombstone is written off the handler's critical path where the durable
+inbox's Incoming→Handled pair is not — plausible is all it is, and
+nothing here tested it.
 
 ### One trap, found by breaking it
 
@@ -92,15 +115,29 @@ aged out, instead of gaining 2 000.
 composing with it. Adding this as a second `ConfigureListeners` call
 silently reverted `ListenerCount` to Wolverine's default — the queue
 reported `"consumers":1` while the code plainly asked for four, and
-nothing failed. Both settings now live in one call, and
-`AuditListenersBypassTheInboxTests` guards the outcome.
+nothing failed. Both settings now live in one call.
+
+### Nothing guards this, and that is stated rather than papered over
+
+A first attempt at a guard asserted the inbox gains no rows per event.
+It failed in CI, correctly — the assertion was false, and finding out why
+is what produced the correction above. It has been removed rather than
+loosened into something that passes without meaning anything.
+
+What would actually guard the change is the endpoint's mode, and that is
+not observable from a test process: it lives in the audit service's
+Wolverine runtime. A permanent startup log of endpoint modes would make
+it visible without making it assertable. Left undone deliberately —
+recorded here so the gap is a known one rather than an assumed guard.
 
 ## Consequences
 
-- **Positive:** roughly a third of the per-message database work removed,
-  with p99 cut by more than half and no durability given up.
-- **Positive:** the audit inbox stops accumulating rows that a durability
-  agent then has to sweep.
+- **Positive:** p99 at 100 ev/s roughly halved, with no durability given
+  up.
+- **Neutral, and contrary to this ADR's first draft:** the incoming
+  envelopes table still gains one `Handled` tombstone per message. The
+  work removed is whatever the durable inbox does *beyond* that, which
+  this ADR does not quantify.
 - **Negative:** deduplication now rests entirely on one unique index. If
   that index or the `ON CONFLICT` clause is ever changed, duplicate audit
   rows become possible and nothing else will catch it — the repository's

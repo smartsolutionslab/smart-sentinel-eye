@@ -105,13 +105,21 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
     /// </para>
     ///
     /// <para>
-    /// <b>The second lever followed (ADR-0126): the audit listeners settle at
-    /// the broker instead of writing each message to the Postgres inbox
-    /// first.</b> Six runs at 99–113 ev/s gave p50 26–35 ms and p99 85–236 ms,
-    /// against 29–63 ms / 283–333 ms for the same rates on the durable inbox —
-    /// no overlap on p99. Not a durability trade: killing the audit service
-    /// outright mid-burst put all 640 in-flight events back on the queue and
-    /// every one was audited on restart.
+    /// <b>The second lever followed (ADR-0126): the audit listeners settle each
+    /// delivery at the broker (<c>Mode=NativeAck</c>) rather than through the
+    /// durable inbox.</b> Six runs at 99–113 ev/s gave p50 26–35 ms and p99
+    /// 85–236 ms, against 29–63 ms / 283–333 ms for the same rates before — no
+    /// overlap on p99. Not a durability trade: killing the audit service outright
+    /// mid-burst put all 640 in-flight events back on the queue and every one was
+    /// audited on restart.
+    /// </para>
+    ///
+    /// <para>
+    /// It does <b>not</b> stop Postgres being written per message, which an
+    /// earlier version of this note claimed. The incoming-envelopes table still
+    /// gains one <c>Handled</c> tombstone per event; what the mode removes is
+    /// whatever the durable inbox does beyond that, and ADR-0126 does not
+    /// quantify it.
     /// </para>
     ///
     /// <para>
