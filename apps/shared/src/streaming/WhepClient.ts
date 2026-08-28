@@ -129,6 +129,55 @@ export class WhepClient {
     return response;
   }
 
+  /**
+   * Sets this session's playout target in milliseconds — how far behind live
+   * the receiver holds frames before presenting them (spec 045, ADR-0128).
+   *
+   * <p>
+   * <b>The actuator for wall alignment.</b> Tiles of a wall settle at whatever
+   * depth their own jitter buffers chose; raising the target on the leading
+   * tiles is how they are brought to a common instant.
+   * </p>
+   *
+   * <p>
+   * <b>Write-only, and that matters.</b> `jitterBufferTarget` is not reported
+   * back by `getStats`, so the setpoint and what actually happened are two
+   * different numbers. Never report this value as a measurement — read the
+   * achieved figure from the statistics instead (spec 045 FR-007).
+   * </p>
+   *
+   * <p>
+   * Like `stats()`, this reaches an object the client already owns and changes
+   * nothing about the session: the transceivers, the reconnection and the
+   * teardown are untouched. Support is checked rather than assumed — an older
+   * engine or a test double may not offer the property, and a controller that
+   * threw where it is unsupported would break the wall it is aligning
+   * (FR-013). Returns whether the target was applied.
+   * </p>
+   */
+  setPlayoutTarget(milliseconds: number): boolean {
+    const pc = this.pc;
+    if (pc === null || typeof pc.getReceivers !== 'function') {
+      return false;
+    }
+
+    let applied = false;
+    for (const receiver of pc.getReceivers()) {
+      if (receiver.track?.kind !== 'video') continue;
+      if (!('jitterBufferTarget' in receiver)) continue;
+      try {
+        (receiver as RTCRtpReceiver & { jitterBufferTarget: number | null }).jitterBufferTarget = milliseconds;
+        applied = true;
+      } catch {
+        // Swallowed deliberately: an engine may refuse a value or drop the
+        // property, and a tile that cannot be aligned must carry on showing
+        // video rather than surface an alignment fault to an operator watching
+        // a fab (FR-013).
+      }
+    }
+    return applied;
+  }
+
   private releaseSession(): void {
     if (this.sessionUrl === null) return;
     const sessionUrl = this.sessionUrl;
