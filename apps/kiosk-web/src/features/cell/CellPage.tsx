@@ -60,7 +60,7 @@ export function CellPage() {
   // Spec 045: the wall's playout control loop. Only this page sees every tile,
   // which is why the decision lives here and the actuation lives in the tile.
   // Below two tiles it does nothing and sets nothing (FR-004).
-  const alignment = useWallAlignment(tiles.length);
+  const alignment = useWallAlignment(tiles.length, getToken);
 
   // Cross-tile event state. The hub is a single subscription on this page;
   // overlay-scoped events are routed by `overlayIdentifier` to whichever

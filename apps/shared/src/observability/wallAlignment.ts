@@ -125,6 +125,36 @@ export function lagBetween(previous: LagSample, current: LagSample): number | nu
   return (bufferSeconds / emitted) * 1000 + (processingSeconds / decoded) * 1000;
 }
 
+/**
+ * The per-frame time frames spent **waiting in the buffer**, in milliseconds,
+ * or null when there is nothing to report.
+ *
+ * <p>
+ * <b>This is the presentation-buffer leg, and it is not {@link lagBetween}.</b>
+ * `lagBetween` adds processing delay because the controller has to equalise the
+ * whole of what makes a tile late. But processing delay is <em>already</em> the
+ * decode leg — `decodeElapsedBetween` records it as `receive_to_decoded` — so
+ * reporting the combined figure against the 200 ms presentation budget would
+ * charge one leg for another leg's time.
+ * </p>
+ *
+ * <p>
+ * That is precisely the confusion <c>KioskReceiveToDecoded</c> warns about from
+ * the other direction: it refuses to record `jitterBufferDelay` because that is
+ * "the presentation buffer, a <em>different</em> leg". Two legs, two figures,
+ * and the split lives here so neither can quietly absorb the other.
+ * </p>
+ */
+export function bufferDelayBetween(previous: LagSample, current: LagSample): number | null {
+  const emitted = current.jitterBufferEmittedCount - previous.jitterBufferEmittedCount;
+  if (emitted <= 0) return null;
+
+  const bufferSeconds = current.jitterBufferDelaySeconds - previous.jitterBufferDelaySeconds;
+  if (bufferSeconds < 0) return null;
+
+  return (bufferSeconds / emitted) * 1000;
+}
+
 /** A tile's measured lag, as the controller sees it. */
 export interface TileLag {
   camera: string;

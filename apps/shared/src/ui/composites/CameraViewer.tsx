@@ -8,7 +8,7 @@ import {
   reportKioskLatency,
   type DecodeSample,
 } from '../../observability/kioskLatency.js';
-import { lagBetween, lagSampleFrom, type LagSample } from '../../observability/wallAlignment.js';
+import { bufferDelayBetween, lagBetween, lagSampleFrom, type LagSample } from '../../observability/wallAlignment.js';
 import { useWhepSession } from './useWhepSession.js';
 import type { CameraViewerStatus } from './useWhepSession.js';
 
@@ -170,11 +170,29 @@ export function CameraViewer({
         if (current === null) return;
 
         if (previous !== null) {
+          // Two figures from one pair of samples, and deliberately not the
+          // same number.
+          //
+          // The controller needs the whole of what makes this tile late, so it
+          // gets buffer + processing.
           const lag = lagBetween(previous, current);
           // Null rather than zero: no frames since the last sample, or a
           // session that restarted and reset its counters.
           if (lag !== null) {
             onLagMeasuredRef.current?.(cameraIdentifier, lag);
+          }
+
+          // The leg gets the buffer alone. Processing delay is already the
+          // decode leg (reported above as `receive_to_decoded`), so reporting
+          // the combined figure against the 200 ms presentation budget would
+          // charge this leg for another's time.
+          //
+          // The ACHIEVED wait, never the target we asked for: jitterBufferTarget
+          // is write-only in getStats, so the setpoint would report a perfect
+          // score for something nobody measured (FR-007).
+          const buffered = bufferDelayBetween(previous, current);
+          if (buffered !== null) {
+            reportKioskLatency('presentation_buffer', cameraIdentifier, buffered, getToken);
           }
         }
         previous = current;
@@ -182,7 +200,7 @@ export function CameraViewer({
     }, LAG_SAMPLE_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
-  }, [status, stats, cameraIdentifier, sampleLag]);
+  }, [status, stats, cameraIdentifier, sampleLag, getToken]);
 
   // Apply the wall's decision. Undefined and null both mean "leave this tile
   // alone", which is what a single-camera page and an unconverged wall both
