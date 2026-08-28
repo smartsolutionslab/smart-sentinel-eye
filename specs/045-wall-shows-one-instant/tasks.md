@@ -100,8 +100,8 @@ blind. Pure arithmetic — no browser, no React.
 - [x] T017 [P] [US2] `tests/ServiceDefaults.Tests/KioskLatencyTests.cs` — `presentation_buffer` records with `isWholeLeg: true` against its 200 ms budget; skew records to its own instrument and **not** to the segment histogram.
 - [ ] T018 [P] [US2] `tests/Integration.Tests/StreamDistribution/` — the endpoint accepts both new names; an unknown name is still refused and the message names all four; a **non-kiosk** principal sending either is accepted and dropped (`IsBrowserKiosk()`, #1893).
 - [x] T019 [P] [US2] Test that `management-web` never sends these: it mounts `CameraViewer` but never `useWallAlignment`, so it has no wall and no controller. **The server's `IsBrowserKiosk()` gate is the backstop, not the design** — if this test needs the gate to pass, the client is wrong.
-- [ ] T020 [US2] Update constitution §IV's leg table: this leg's Implemented / Measured / Dashboard columns become true (FR-010). Requires T001's ADR — §IV cannot change without one.
-- [ ] T021 [US2] Revisit the **decode** leg's *"in part"* in the same change (FR-011). **Restated rather than raised is the expected and acceptable outcome**: RTCP gives a sender clock and RTT a round trip, but Chromium exposes no per-frame send-to-arrival mapping, so `RTT/2 + buffer + decode` is an **estimate**. Rounding an estimate up to *measured whole* is exactly what §IV's wording forbids — record the reason and leave it.
+- [x] T020 [US2] Update constitution §IV's leg table: this leg's Implemented / Measured / Dashboard columns become true (FR-010). Requires T001's ADR — §IV cannot change without one.
+- [x] T021 [US2] Revisit the **decode** leg's *"in part"* in the same change (FR-011). **Restated rather than raised is the expected and acceptable outcome**: RTCP gives a sender clock and RTT a round trip, but Chromium exposes no per-frame send-to-arrival mapping, so `RTT/2 + buffer + decode` is an **estimate**. Rounding an estimate up to *measured whole* is exactly what §IV's wording forbids — record the reason and leave it.
 
 **Checkpoint**: **US2 shippable.** Both figures readable in the sink, per tile.
 
