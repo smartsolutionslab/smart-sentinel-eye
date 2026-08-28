@@ -25,6 +25,7 @@
     "./realtime/hubUrl": "./src/realtime/hubUrl.ts",
     "./observability/resilienceLog": "./src/observability/resilienceLog.ts",
     "./observability/kioskLatency": "./src/observability/kioskLatency.ts",
+    "./observability/wallAlignment": "./src/observability/wallAlignment.ts",
     "./streaming": "./src/streaming/index.ts",
     "./streaming/WhepClient": "./src/streaming/WhepClient.ts",
     "./ui": "./src/ui/index.ts",
