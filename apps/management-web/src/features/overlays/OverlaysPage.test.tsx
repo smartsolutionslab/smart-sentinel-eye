@@ -14,15 +14,28 @@ const createDraftMock = vi.fn(async () => ({ data: 'noop' }));
 // overlay actually branches.
 const branchMock = vi.fn(async () => ({ data: 2 }));
 
+// The mutation *state* the page reads back. Mutable module state, because a
+// vi.mock factory is hoisted above every test; the tests that care set these
+// in-place and beforeEach clears them.
+let publishState: { isLoading: boolean; error?: unknown } = { isLoading: false };
+let archiveState: { isLoading: boolean; error?: unknown } = { isLoading: false };
+let branchState: { isLoading: boolean; error?: unknown } = { isLoading: false };
+let revertState: { isLoading: boolean; error?: unknown } = { isLoading: false };
+
+/** An RTK Query error in the shape the gateway's RFC-7807 body arrives in. */
+function refusal(status: number, title: string, detail?: string) {
+  return { status, data: { title, status, ...(detail === undefined ? {} : { detail }) } };
+}
+
 vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/overlays.api')>();
   return {
     ...actual,
     useListOverlaysQuery: (...args: unknown[]) => listOverlaysMock(...args),
-    usePublishOverlayRevisionMutation: () => [publishMock, { isLoading: false }],
-    useArchiveOverlayRevisionMutation: () => [archiveMock, { isLoading: false }],
-    useBranchDraftOverlayRevisionMutation: () => [branchMock, { isLoading: false }],
-    useRevertOverlayRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), { isLoading: false }],
+    usePublishOverlayRevisionMutation: () => [publishMock, publishState],
+    useArchiveOverlayRevisionMutation: () => [archiveMock, archiveState],
+    useBranchDraftOverlayRevisionMutation: () => [branchMock, branchState],
+    useRevertOverlayRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), revertState],
     useCreateOverlayDraftMutation: () => [createDraftMock, { isLoading: false, error: undefined, reset: vi.fn() }],
   };
 });
@@ -74,6 +87,10 @@ describe('OverlaysPage', () => {
     listOverlaysMock.mockReset();
     publishMock.mockClear();
     archiveMock.mockClear();
+    publishState = { isLoading: false };
+    archiveState = { isLoading: false };
+    branchState = { isLoading: false };
+    revertState = { isLoading: false };
   });
 
   it('Shows an empty-state message when no overlays exist', () => {
@@ -546,5 +563,103 @@ describe('OverlaysPage — archive and discard on one chain', () => {
     renderPage();
 
     expect(screen.getByText('v4 · Published · draft v5')).toBeInTheDocument();
+  });
+});
+
+/**
+ * #1952, found on RulesPage and identical here. All four mutations discarded
+ * their result, so a refused publish, archive, branch or revert looked exactly
+ * like a successful one. With optimistic concurrency live (ADR-0113) a refusal
+ * is routine, not exceptional.
+ *
+ * Asserted on the rendered alert, not on the mutation state: capturing the
+ * error and not rendering it is exactly as silent as before.
+ */
+describe('OverlaysPage — a refused mutation is surfaced', () => {
+  beforeEach(() => {
+    publishMock.mockClear();
+    archiveMock.mockClear();
+    branchMock.mockClear();
+    publishState = { isLoading: false };
+    archiveState = { isLoading: false };
+    branchState = { isLoading: false };
+    revertState = { isLoading: false };
+    listOverlaysMock.mockReset();
+    listOverlaysMock.mockReturnValue({
+      data: response([chain()]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+  });
+
+  it('Shows the server’s reason when a publish is refused as stale', () => {
+    publishState = {
+      isLoading: false,
+      error: refusal(
+        409,
+        'OVERLAY_REVISION_STALE',
+        'Overlay has changed since version 0 (now 1). Re-read it and reapply the change.',
+      ),
+    };
+    renderPage();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/has changed since version 0/i);
+  });
+
+  it('Surfaces a refusal from any of the four mutations, not only publish', () => {
+    archiveState = { isLoading: false, error: refusal(409, 'OVERLAY_REVISION_STALE', 'archive refused') };
+    const { unmount } = renderPage();
+    expect(screen.getByRole('alert')).toHaveTextContent('archive refused');
+    unmount();
+
+    archiveState = { isLoading: false };
+    branchState = { isLoading: false, error: refusal(409, 'OVERLAY_REVISION_STALE', 'branch refused') };
+    renderPage();
+    expect(screen.getByRole('alert')).toHaveTextContent('branch refused');
+  });
+
+  /**
+   * A 409 without a detail is the case the wording matters most for: with
+   * nothing from the server the page has to say it itself, and "try again" is
+   * the one thing it must not say — resubmitting unchanged replays the stale
+   * intent over whoever wrote in between (ADR-0113).
+   */
+  it('Tells a stale operator to reload rather than to try again', async () => {
+    const refetch = vi.fn();
+    listOverlaysMock.mockReturnValue({
+      data: response([chain()]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch,
+    });
+    revertState = { isLoading: false, error: refusal(409, 'OVERLAY_REVISION_STALE') };
+
+    const user = userEvent.setup();
+    renderPage();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(/reload/i);
+    expect(alert).not.toHaveTextContent(/try again/i);
+
+    await user.click(screen.getByRole('button', { name: /reload/i }));
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it('Offers no reload for a refusal that is not a conflict', () => {
+    publishState = { isLoading: false, error: refusal(400, 'OVERLAY_INVALID', 'The label is empty.') };
+    renderPage();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(/label is empty/i);
+    expect(alert).not.toHaveTextContent(/someone else/i);
+    expect(screen.queryByRole('button', { name: /reload/i })).not.toBeInTheDocument();
+  });
+
+  it('Shows no alert while every mutation is clean', () => {
+    renderPage();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

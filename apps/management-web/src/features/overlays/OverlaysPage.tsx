@@ -8,6 +8,12 @@ import {
   type OverlayRevision,
   type OverlayRevisionState,
 } from '@smart-sentinel-eye/shared/api/overlays.api';
+import {
+  CONFLICT_FALLBACK,
+  isConflict,
+  isStaleConflict,
+  problemDetail,
+} from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useState } from 'react';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
@@ -42,10 +48,20 @@ export function OverlaysPage() {
   } | null>(null);
 
   const { data, isLoading, isFetching, error, refetch } = useListOverlaysQuery(undefined);
-  const [publishRevision, { isLoading: publishing }] = usePublishOverlayRevisionMutation();
-  const [archiveRevision, { isLoading: archiving }] = useArchiveOverlayRevisionMutation();
-  const [branchDraft, { isLoading: branching }] = useBranchDraftOverlayRevisionMutation();
-  const [revertRevision, { isLoading: reverting }] = useRevertOverlayRevisionMutation();
+  const [publishRevision, publishState] = usePublishOverlayRevisionMutation();
+  const [archiveRevision, archiveState] = useArchiveOverlayRevisionMutation();
+  const [branchDraft, branchState] = useBranchDraftOverlayRevisionMutation();
+  const [revertRevision, revertState] = useRevertOverlayRevisionMutation();
+
+  const { isLoading: publishing } = publishState;
+  const { isLoading: archiving } = archiveState;
+  const { isLoading: branching } = branchState;
+  const { isLoading: reverting } = revertState;
+
+  // The twin of LayoutsPage's banner, and missing here for the same reason it
+  // was missing there: every one of these discarded its failure, so a refused
+  // publish or archive looked identical to a successful one.
+  const mutationError = publishState.error ?? archiveState.error ?? branchState.error ?? revertState.error;
 
   const chains = data?.chains ?? [];
   const visible = filter === 'All' ? chains : chains.filter((c) => containsRevisionIn(c, filter));
@@ -83,6 +99,25 @@ export function OverlaysPage() {
           <button type="button" className="underline" onClick={() => void refetch()}>
             Retry
           </button>
+        </div>
+      )}
+
+      {mutationError !== undefined && (
+        <div
+          role="alert"
+          className="mb-4 rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
+        >
+          {problemDetail(
+            mutationError,
+            isStaleConflict(mutationError) ? CONFLICT_FALLBACK : 'Could not apply that change.',
+          )}{' '}
+          {isConflict(mutationError) && (
+            // Reload, never retry: retrying replays the same stale intent over
+            // whoever wrote in between.
+            <button type="button" className="underline" onClick={() => void refetch()}>
+              Reload
+            </button>
+          )}
         </div>
       )}
 

@@ -8,6 +8,17 @@ const publishMock = vi.fn(async () => ({ data: 'ok' }));
 const archiveMock = vi.fn(async () => ({ data: 'ok' }));
 const listMock = vi.fn();
 
+// The mutation *state* the page reads back, not just the trigger. Held in
+// mutable module state because a vi.mock factory is hoisted above every test:
+// the tests that care set these in-place, and beforeEach clears them.
+let publishState: { isLoading: boolean; error?: unknown } = { isLoading: false };
+let archiveState: { isLoading: boolean; error?: unknown } = { isLoading: false };
+
+/** An RTK Query error in the shape the gateway's RFC-7807 body arrives in. */
+function refusal(status: number, title: string, detail?: string) {
+  return { status, data: { title, status, ...(detail === undefined ? {} : { detail }) } };
+}
+
 function rule(overrides: Record<string, unknown> = {}) {
   return {
     ruleIdentifier: '019f-aaaa',
@@ -44,8 +55,8 @@ vi.mock('@smart-sentinel-eye/shared/api/rules.api', async (importOriginal) => {
   return {
     ...actual,
     useListRulesQuery: (...args: unknown[]) => listMock(...args),
-    usePublishRuleMutation: () => [publishMock, { isLoading: false }],
-    useArchiveRuleMutation: () => [archiveMock, { isLoading: false }],
+    usePublishRuleMutation: () => [publishMock, publishState],
+    useArchiveRuleMutation: () => [archiveMock, archiveState],
     useCreateRuleMutation: () => [vi.fn(), { isLoading: false, error: undefined, reset: vi.fn() }],
     useDryRunRuleMutation: () => [vi.fn(), { isLoading: false, error: undefined, reset: vi.fn() }],
   };
@@ -65,6 +76,8 @@ describe('RulesPage', () => {
   beforeEach(() => {
     publishMock.mockClear();
     archiveMock.mockClear();
+    publishState = { isLoading: false };
+    archiveState = { isLoading: false };
     listMock.mockReset();
     listMock.mockReturnValue({ data: [rule()], isLoading: false, isError: false, refetch: vi.fn() });
   });
@@ -237,5 +250,91 @@ describe('RulesPage', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
+  });
+});
+
+/**
+ * #1952. Both mutations used to discard their result, so a refused publish or
+ * archive told the operator nothing — and on publish it was worse than nothing:
+ * the list refetched, the row flipped to Published (by the *other* operator),
+ * and the refusal read as success.
+ *
+ * These assert on the rendered alert rather than on the mutation state, because
+ * capturing the error and not rendering it is exactly as silent as before.
+ */
+describe('RulesPage — a refused mutation is surfaced', () => {
+  beforeEach(() => {
+    publishMock.mockClear();
+    archiveMock.mockClear();
+    publishState = { isLoading: false };
+    archiveState = { isLoading: false };
+    listMock.mockReset();
+    listMock.mockReturnValue({ data: [rule()], isLoading: false, isError: false, refetch: vi.fn() });
+  });
+
+  it('Shows the server’s reason when a publish is refused as stale', () => {
+    publishState = {
+      isLoading: false,
+      error: refusal(
+        409,
+        'RULE_STALE',
+        "Rule 'high-oee' has changed since version 0 (now 1). Re-read it and reapply the change.",
+      ),
+    };
+    renderPage();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/has changed since version 0/i);
+  });
+
+  it('Shows the server’s reason when an archive is refused', () => {
+    archiveState = {
+      isLoading: false,
+      error: refusal(409, 'RULE_STALE', 'Rule has changed. Re-read it and reapply the change.'),
+    };
+    renderPage();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/re-read it/i);
+  });
+
+  /**
+   * A 409 without a detail is the case the wording matters most for: with
+   * nothing from the server the page has to say it itself, and "try again" is
+   * the one thing it must not say — resubmitting unchanged replays the stale
+   * intent over whoever wrote in between (ADR-0113).
+   */
+  it('Tells a stale operator to reload rather than to try again', async () => {
+    const refetch = vi.fn();
+    listMock.mockReturnValue({ data: [rule()], isLoading: false, isError: false, refetch });
+    publishState = { isLoading: false, error: refusal(409, 'RULE_STALE') };
+
+    const user = userEvent.setup();
+    renderPage();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(/reload/i);
+    expect(alert).not.toHaveTextContent(/try again/i);
+
+    await user.click(screen.getByRole('button', { name: /reload/i }));
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  /**
+   * A 400 is the operator's own mistake, not someone else's write. Offering
+   * Reload there is advice that does nothing, and the lost-update wording would
+   * blame a writer who does not exist.
+   */
+  it('Offers no reload for a refusal that is not a conflict', () => {
+    publishState = { isLoading: false, error: refusal(400, 'RULE_INVALID', 'The predicate does not parse.') };
+    renderPage();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(/does not parse/i);
+    expect(alert).not.toHaveTextContent(/someone else/i);
+    expect(screen.queryByRole('button', { name: /reload/i })).not.toBeInTheDocument();
+  });
+
+  it('Shows no alert while both mutations are clean', () => {
+    renderPage();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

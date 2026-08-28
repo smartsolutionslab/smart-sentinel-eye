@@ -7,6 +7,12 @@ import {
   type Rule,
   type RuleState,
 } from '@smart-sentinel-eye/shared/api/rules.api';
+import {
+  CONFLICT_FALLBACK,
+  isConflict,
+  isStaleConflict,
+  problemDetail,
+} from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { DataTable, type DataTableColumn } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
 import { RuleDialog } from './RuleDialog';
@@ -37,8 +43,16 @@ export function RulesPage() {
     isError,
     refetch,
   } = useListRulesQuery(stateFilter === undefined ? undefined : { state: stateFilter });
-  const [publishRule] = usePublishRuleMutation();
-  const [archiveRule, { isLoading: archiving }] = useArchiveRuleMutation();
+  const [publishRule, publishState] = usePublishRuleMutation();
+  const [archiveRule, archiveState] = useArchiveRuleMutation();
+
+  const { isLoading: archiving } = archiveState;
+
+  // Both of these used to discard their failure. With optimistic concurrency
+  // live (ADR-0113) a refusal is routine, and a discarded one is worse than
+  // silence on publish: the list still refetches, the row flips to Published —
+  // by the *other* operator — and the refusal reads as success.
+  const mutationError = publishState.error ?? archiveState.error;
 
   const columns: DataTableColumn<Rule>[] = [
     { id: 'name', header: 'Name', cell: (rule) => <span className="font-medium">{rule.name}</span> },
@@ -131,6 +145,25 @@ export function RulesPage() {
           </Button>
         ))}
       </div>
+
+      {mutationError !== undefined && (
+        <div
+          role="alert"
+          className="rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
+        >
+          {problemDetail(
+            mutationError,
+            isStaleConflict(mutationError) ? CONFLICT_FALLBACK : 'Could not apply that change.',
+          )}{' '}
+          {isConflict(mutationError) && (
+            // Reload, never retry: retrying replays the same stale intent over
+            // whoever wrote in between.
+            <button type="button" className="underline" onClick={() => void refetch()}>
+              Reload
+            </button>
+          )}
+        </div>
+      )}
 
       {isError ? (
         <div role="alert" className="space-y-2 rounded-md border border-accent-fault/40 p-3 text-sm">
