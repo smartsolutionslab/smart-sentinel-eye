@@ -9,6 +9,7 @@ namespace SmartSentinelEye.SystemVariables.Domain.Variable.Events;
 /// </summary>
 public sealed record VariableDefinedDomainEvent(
     VariableIdentifier Variable,
+    FabIdentifier Fab,
     VariableName Name,
     VariableType Type,
     DateTimeOffset DefinedAt,
