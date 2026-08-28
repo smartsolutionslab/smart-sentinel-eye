@@ -105,10 +105,20 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
     /// </para>
     ///
     /// <para>
-    /// The budget therefore stays at 50 ms and this test stays excluded. Whether
-    /// the rest closes via the other lever, via production topology — audit gets
-    /// its own pod and database node, which none of this measured — or by moving
-    /// NFR-001, is open in 1956.
+    /// <b>The second lever followed (ADR-0126): the audit listeners settle at
+    /// the broker instead of writing each message to the Postgres inbox
+    /// first.</b> Six runs at 99–113 ev/s gave p50 26–35 ms and p99 85–236 ms,
+    /// against 29–63 ms / 283–333 ms for the same rates on the durable inbox —
+    /// no overlap on p99. Not a durability trade: killing the audit service
+    /// outright mid-burst put all 640 in-flight events back on the queue and
+    /// every one was audited on restart.
+    /// </para>
+    ///
+    /// <para>
+    /// The budget therefore stays at 50 ms and this test stays excluded — the
+    /// best p99 observed is 85 ms. Whether the rest closes via a batch handler,
+    /// via production topology — audit gets its own pod and database node, which
+    /// none of this measured — or by moving NFR-001, is open in 1956.
     /// </para>
     /// </summary>
     [Trait("Category", "Measurement")]

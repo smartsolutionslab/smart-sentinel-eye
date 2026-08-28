@@ -43,6 +43,7 @@ public static class WolverineDefaults
         string postgresConnectionName,
         string rabbitConnectionName = "rabbitmq",
         int listenerCount = 1,
+        bool useNativeAcks = false,
         Action<WolverineOptions> configureMore = null)
         where TDbContext : DbContext
     {
@@ -93,15 +94,39 @@ public static class WolverineDefaults
                     routing.QueueNameForListener(eventType =>
                         $"{moduleQueuePrefix}.{eventType.FullName}");
 
-                    // One listener per queue was Wolverine's default rather than
-                    // a decision, and it is a throughput ceiling: a queue drains
-                    // at one handler's rate no matter how much the process has
-                    // left. Contexts that need more say so; the rest keep the
-                    // default (ADR-0124).
-                    if (listenerCount > 1)
+                    // ONE ConfigureListeners call, deliberately. A second call
+                    // replaces the first rather than composing with it, so
+                    // splitting these into two silently reverted the listener
+                    // count to Wolverine's default of 1 — observed as
+                    // `"consumers":1` on the queue while the code plainly asked
+                    // for four.
+                    routing.ConfigureListeners((listener, _) =>
                     {
-                        routing.ConfigureListeners((listener, _) => listener.ListenerCount(listenerCount));
-                    }
+                        // One listener per queue was Wolverine's default rather
+                        // than a decision, and it is a throughput ceiling: a
+                        // queue drains at one handler's rate no matter how much
+                        // the process has left. Contexts that need more say so;
+                        // the rest keep the default (ADR-0124).
+                        if (listenerCount > 1)
+                        {
+                            listener.ListenerCount(listenerCount);
+                        }
+
+                        // Settle each delivery at the broker when the handler
+                        // finishes, instead of writing it to the Postgres inbox
+                        // first (ADR-0126).
+                        //
+                        // Not a durability trade: the delivery stays
+                        // unacknowledged on RabbitMQ for the whole handler, so a
+                        // crash mid-flight is redelivered — the broker holds
+                        // what the inbox was holding. What is given up is the
+                        // inbox's dedup, which only a context whose write is
+                        // already idempotent can afford to lose.
+                        if (useNativeAcks)
+                        {
+                            listener.ProcessInParallelWithNativeAcks();
+                        }
+                    });
                 });
 
             if (applicationAssembly != null)

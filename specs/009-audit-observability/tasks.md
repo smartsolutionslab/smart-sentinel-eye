@@ -345,7 +345,33 @@ Two things came out of the re-measurement that are not about listeners:
 - **Eight listeners is worse than four**, for the same reason: `audit-db` alone
   took 22 connections and pushed the cluster past its limit.
 
-**Still open on 1956.** Whether the remaining gap closes via the other lever
-(dropping the durable inbox, where the audit row's own `event_identifier`
-conflict already gives idempotency), via production topology — audit gets its own
-pod and database node, which this measurement did not — or by moving NFR-001.
+**The second lever taken too (ADR-0126), and NFR-001 is still not met.** The
+audit listeners now settle each delivery at the broker instead of writing it to
+the Postgres inbox first. Six runs against three baseline runs, same stack, same
+generator:
+
+| | p50 | p99 |
+|---|---|---|
+| durable inbox (ADR-0124) | 29–63 ms | 283–333 ms |
+| native acks (ADR-0126) | 26–35 ms | **85–236 ms** |
+
+No overlap on p99. The inbox is the clearest evidence it is live: across 2 000
+events `wolverine_audit.wolverine_incoming_envelopes` **shrank** from 3 685 to
+3 155 rows instead of gaining 2 000.
+
+**Not a durability trade, and that was tested rather than argued.** The audit
+service was killed outright (`taskkill /F`) five seconds into a 640-event burst:
+0 rows audited before restart, **640 `messages_ready`** sitting on RabbitMQ with
+the service down, **640 audited** after it came back. Nothing lost. ADR-0124's
+claim that this lever trades crash-safety for throughput was wrong and is
+corrected in place.
+
+**So T072 still stays unticked.** Best p99 observed is 85 ms against the 50 ms
+budget. Across both levers the gap has gone from ~130× to under 2× at best and
+~4.7× at worst.
+
+**Still open on 1956.** Whether the rest closes via a batch handler
+(`MessageBatchSize`, the obvious next lever and deliberately not reached for
+because it makes each message wait for its batch), via production topology —
+audit gets its own pod and database node, which none of this measured — or by
+moving NFR-001.
