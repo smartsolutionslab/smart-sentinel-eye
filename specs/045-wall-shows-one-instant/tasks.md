@@ -65,10 +65,10 @@ phase.
 **Goal**: the observable before the actuator, so the controller is never flying
 blind. Pure arithmetic — no browser, no React.
 
-- [ ] T003 Create `apps/shared/src/observability/wallAlignment.ts` with a `LagSample` reader over an `RTCStatsReport` (`inbound-rtp`, video): `jitterBufferDelay`, `jitterBufferEmittedCount`, `totalProcessingDelay`, `framesDecoded`. Mirror `decodeSampleFrom`'s shape in `kioskLatency.ts`, including returning `null` on a malformed report.
-- [ ] T004 In the same file, add the per-frame delta: `Δ jitterBufferDelay / Δ jitterBufferEmittedCount + Δ totalProcessingDelay / Δ framesDecoded`, in ms. **`null`, never `0`**, when no frames were emitted or a counter went backwards — `kioskLatency.ts` already carries the reasoning (*"a zero would read as a perfect score for a journey nobody timed"*) and it is unchanged here. **Divide by `jitterBufferEmittedCount`, not `framesDecoded`** — they are different counters and the wrong one skews the figure silently.
-- [ ] T005 [P] `apps/shared/src/observability/wallAlignment.test.ts` — the delta against fabricated reports: a normal pair, no frames emitted (→ `null`), a counter that went backwards (→ `null`), and a missing-field report (→ `null`). No browser needed.
-- [ ] T006 [P] Test that a **cumulative** ratio and a **delta** disagree on a session containing one excursion. This is the test that fails if someone "simplifies" T004 back to a lifetime average, which is the whole reason the delta exists.
+- [x] T003 Create `apps/shared/src/observability/wallAlignment.ts` with a `LagSample` reader over an `RTCStatsReport` (`inbound-rtp`, video): `jitterBufferDelay`, `jitterBufferEmittedCount`, `totalProcessingDelay`, `framesDecoded`. Mirror `decodeSampleFrom`'s shape in `kioskLatency.ts`, including returning `null` on a malformed report.
+- [x] T004 In the same file, add the per-frame delta: `Δ jitterBufferDelay / Δ jitterBufferEmittedCount + Δ totalProcessingDelay / Δ framesDecoded`, in ms. **`null`, never `0`**, when no frames were emitted or a counter went backwards — `kioskLatency.ts` already carries the reasoning (*"a zero would read as a perfect score for a journey nobody timed"*) and it is unchanged here. **Divide by `jitterBufferEmittedCount`, not `framesDecoded`** — they are different counters and the wrong one skews the figure silently.
+- [x] T005 [P] `apps/shared/src/observability/wallAlignment.test.ts` — the delta against fabricated reports: a normal pair, no frames emitted (→ `null`), a counter that went backwards (→ `null`), and a missing-field report (→ `null`). No browser needed.
+- [x] T006 [P] Test that a **cumulative** ratio and a **delta** disagree on a session containing one excursion. This is the test that fails if someone "simplifies" T004 back to a lifetime average, which is the whole reason the delta exists.
 
 **Checkpoint**: each tile's lag is computable and tested.
 
