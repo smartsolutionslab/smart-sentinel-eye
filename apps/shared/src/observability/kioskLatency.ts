@@ -24,7 +24,22 @@ import { gatewayApiUrl } from '../api/gateway.js';
  * shared between browser and server — which is the PTP leg, and it is not built.
  * </p>
  */
-export type KioskMeasurement = 'overlay_draw' | 'receive_to_decoded';
+/**
+ * <p>
+ * <b>A closed set, shared with the server, and changed on both sides at once.</b>
+ * `RecordKioskLatency` maps this value through a `switch` and returns a 400 for
+ * anything it does not know — while {@link reportKioskLatency} swallows failures
+ * by design. So a name added here before the server knows it produces a kiosk
+ * that reports nothing and looks entirely healthy (spec 045 T014).
+ * </p>
+ *
+ * <p>
+ * `wall_skew` is carried on this path but is <b>not</b> a latency segment: a
+ * spread between two tiles is not a duration any frame spent travelling, and
+ * the server routes it to its own instrument (ADR-0128).
+ * </p>
+ */
+export type KioskMeasurement = 'overlay_draw' | 'receive_to_decoded' | 'presentation_buffer' | 'wall_skew';
 
 /**
  * Above this, a figure is describing something other than a journey — a

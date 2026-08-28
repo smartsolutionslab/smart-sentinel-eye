@@ -185,6 +185,87 @@ public class KioskLatencyTests
         recorded.Single(m => m.Camera == second.ToString()).Value.ShouldBe(900);
     }
 
+    /// <summary>
+    /// Spec 045. The presentation-buffer leg is a whole leg, and the kiosk both
+    /// causes the delay and observes it — so unlike the decode fragment,
+    /// nothing is missing and the 200 ms budget applies directly.
+    /// </summary>
+    [Fact]
+    public void A_presentation_buffer_measurement_is_recorded_as_a_whole_leg()
+    {
+        List<Measurement> recorded = Listen("kiosk-presentation-buffer");
+
+        LatencyBudget.Record(LatencySegment.PresentationBuffer, TimeSpan.FromMilliseconds(120), camera: null);
+
+        Measurement only = recorded.ShouldHaveSingleItem();
+        only.Value.ShouldBe(120, tolerance: 0.5);
+        only.Leg.ShouldBe("presentation-buffer");
+        only.LegBudget.ShouldBe(200);
+        only.IsWholeLeg.ShouldBeTrue("the kiosk causes this delay and observes it, so nothing is missing");
+    }
+
+    /// <summary>
+    /// The distinction that matters most in spec 045, asserted rather than
+    /// merely written down: a wall's skew is a spread between two tiles, not a
+    /// duration any frame spent travelling.
+    ///
+    /// <para>
+    /// Recording it as a <see cref="LatencySegment"/> would compile, would pass
+    /// every other test, and would file a spread under a name meaning a
+    /// journey. This test fails if someone does it.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_wall_skew_never_lands_in_the_latency_segment_histogram()
+    {
+        List<Measurement> segments = Listen(
+            "kiosk-presentation-buffer",
+            "kiosk-overlay-draw",
+            "kiosk-receive-to-decoded");
+        List<double> skews = ListenToSkew();
+
+        WallSkew.Record(TimeSpan.FromMilliseconds(27), camera: null);
+
+        segments.ShouldBeEmpty("a spread is not a journey and does not belong to any leg");
+        skews.ShouldHaveSingleItem().ShouldBe(27, tolerance: 0.5);
+    }
+
+    /// <summary>
+    /// A max-minus-min cannot be negative, so a negative one means the caller
+    /// computed it wrongly. Dropped rather than recorded, so a broken caller
+    /// shows as missing data rather than an impossibly well-aligned wall.
+    /// </summary>
+    [Fact]
+    public void An_impossible_skew_is_not_recorded()
+    {
+        List<double> skews = ListenToSkew();
+
+        WallSkew.Record(TimeSpan.FromMilliseconds(-5), camera: null);
+        WallSkew.Record(TimeSpan.FromMinutes(5), camera: null);
+
+        skews.ShouldBeEmpty("a negative spread is a caller bug, and five minutes is a throttled tab");
+    }
+
+    private static List<double> ListenToSkew()
+    {
+        List<double> values = [];
+        MeterListener listener = new()
+        {
+            InstrumentPublished = (instrument, active) =>
+            {
+                if (instrument.Meter.Name == WallSkew.MeterName)
+                {
+                    active.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+
+        listener.SetMeasurementEventCallback<double>((_, measurement, _, _) => values.Add(measurement));
+        listener.Start();
+
+        return values;
+    }
+
     private sealed record Measurement(double Value, string Segment, string Leg, double LegBudget, bool IsWholeLeg, string Camera);
 
     /// <summary>
