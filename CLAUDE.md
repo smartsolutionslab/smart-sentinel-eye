@@ -256,13 +256,18 @@ down as:
 |---|---|
 | Camera → SFU | ≤ 80 ms |
 | SFU → kiosk decode | ≤ 120 ms |
-| Presentation buffer (PTP) | ≤ 200 ms |
+| Presentation buffer (playout alignment) | ≤ 200 ms |
 | Event → overlay state | ≤ 200 ms |
 | Composite + render | ≤ 50 ms |
 | Headroom | ≤ 150 ms |
 
-**One of these legs is not built** (#1714): the presentation buffer, PTP
-being still a future-add. Decode and composite-and-render **are** built —
+**One of these legs is not built** (#1714): the presentation buffer.
+**It is no longer a PTP problem** — ADR-0128 found that ADR-014 could not
+be built as written (nothing we own is in the media path; no browser
+exposes a PTP time API) and replaced it for the intra-wall case with
+receiver playout alignment against the SFU's RTCP clock, which needs no
+PTP. Inter-display sync still does, and remains unbuilt and out of scope.
+Decode and composite-and-render **are** built —
 the kiosk's `CellPage` renders `CameraViewer`, a shared composite that
 owns the `<video>`, drives the peer connection and draws the overlay onto
 the live frame. Both stood recorded as unbuilt until spec 040, on the
@@ -308,7 +313,7 @@ which is not hypothetical, and §IV now says so.
 | Sagas | Wolverine state machines + compensating actions | 0072 |
 | Identity | Keycloak (OIDC) per fab | 0007, 0008 |
 | Streaming | WebRTC SFU; passthrough + GPU transcode fallback | 0011, 0012 |
-| Time | PTP (IEEE 1588) per fab | 0014, 0021 |
+| Time | PTP (IEEE 1588) per fab — for fab-wide correlation and inter-display sync, **not** for the presentation-buffer leg | 0014, 0021, **0128** |
 | Logging | `ILogger<T>` + OpenTelemetry OTLP (MEL-native, **no Serilog**); `[LoggerMessage]` source-gen; structured fields | 0050 |
 | DI | Per-context `Add<Context>{Infrastructure,Api}` extension methods | 0051 |
 | Migrations | Dedicated `MigrationRunner` worker | 0067 |

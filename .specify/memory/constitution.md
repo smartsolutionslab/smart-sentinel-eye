@@ -47,7 +47,7 @@ Nine bounded contexts:
 
 1. **Camera Catalog** — registration, configuration, capabilities, health.
 2. **Stream Distribution** — SFU pool, shard coordinator, WebRTC fan-out,
-   PTP-synced presentation timestamps.
+   playout alignment against the SFU's clock (ADR-0128).
 3. **Layout & Composition** — display devices, layout templates,
    multi-monitor video walls, live composition state.
 4. **System Variables** — typed variables, defaults, value-change history.
@@ -82,7 +82,7 @@ Sub-budgets (any leg breaching its budget triggers an ADR-class review):
 |---|---|
 | Camera → SFU (RTP ingest) | ≤ 80 ms |
 | SFU → kiosk (decode) | ≤ 120 ms |
-| Presentation buffer (PTP-coordinated playout) | ≤ 200 ms |
+| Presentation buffer (playout alignment) | ≤ 200 ms |
 | Event → overlay state (RabbitMQ + projection) | ≤ 200 ms |
 | Overlay composite + render | ≤ 50 ms |
 | Headroom | ≤ 150 ms |
@@ -98,7 +98,7 @@ table is where that claim lives so it cannot be an unnoticed absence.
 |---|---|---|---|
 | Camera → SFU | yes | yes (SFU metrics) | no |
 | SFU → kiosk decode | yes | **in part** — receive-to-decoded only; see below | no |
-| Presentation buffer (PTP) | **no** | — | — |
+| Presentation buffer (playout alignment) | **no** | — | — |
 | Event → overlay state | yes | **recorded, not yet readable** — see below | no |
 | Overlay composite + render | yes | yes | no |
 | Headroom | n/a — arithmetic remainder | n/a | n/a |
@@ -227,7 +227,10 @@ interface in v1 so v2 can land without breaking changes.
   cam→SFU map. Failover ≤ 5 s (ADR-012).
 - **Camera protocols:** RTSP + ONVIF Profile S/T on day one (ADR-005).
 - **Time sync:** PTP (IEEE 1588) grandmaster per fab (ADR-014). NTP is
-  fallback only and triggers `time_uncertain` flags.
+  fallback only and triggers `time_uncertain` flags. **This stands**, for
+  fab-wide correlation and for inter-display sync — ADR-0128 amended
+  ADR-014 only in that the *presentation-buffer leg* does not depend on
+  PTP, not that PTP is dropped.
 
 ### Backend
 
@@ -246,8 +249,11 @@ interface in v1 so v2 can land without breaking changes.
 
 - **React** + **TypeScript**, **Vite** dev server, registered as an
   Aspire JS resource. Browser-only — no native client. Target browsers:
-  evergreen Chromium-based (Chrome, Edge); WebRTC and PTP-aware time
-  APIs required.
+  evergreen Chromium-based (Chrome, Edge). Required: WebRTC with
+  `RTCRtpReceiver.jitterBufferTarget`, and `getStats` reporting
+  `inbound-rtp` jitter-buffer and processing counters (ADR-0128).
+  **Not** PTP-aware time APIs — no browser exposes any, and that
+  requirement stood here unsatisfiable from ratification until 2026-08-28.
 
 ### Operations
 
@@ -357,9 +363,16 @@ contradicting tribal knowledge.
 
 ---
 
-**Version:** 1.2.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-08-22
+**Version:** 1.3.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-08-28
 
 **Amendment history.**
+1.3.0 — the presentation-buffer leg is renamed from *(PTP)* to *(playout
+alignment)* in §III and both §IV tables, and §Frontend's "PTP-aware time
+APIs required" is replaced with the WebRTC capabilities a kiosk actually
+needs — no browser exposes a PTP time API, so that requirement had been
+unsatisfiable since ratification. PTP itself is unchanged for fab-wide
+time and inter-display sync (ADR-0128, #1714). **The leg's Implemented
+column is deliberately untouched: renaming a leg is not building it.**
 1.2.0 — §VII's sink bullets rewritten: one sink per environment, and the
 dual-sink comparison phase abandoned because it never started (ADR-0118,
 #1707).
