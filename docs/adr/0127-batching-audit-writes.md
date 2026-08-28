@@ -1,6 +1,7 @@
 # ADR-0127: Batching audit writes
 
-**Status:** Proposed — the latency measurement that decides it is outstanding
+**Status:** Rejected for NFR-001 — measured, and it makes the target
+metric worse. See "What it actually cost".
 **Date:** 2026-08-28
 **Follows:** [ADR-0124](./0124-parallel-listeners-where-order-does-not-matter.md),
 [ADR-0126](./0126-audit-listeners-settle-at-the-broker.md)
@@ -91,35 +92,77 @@ arithmetic above, observed rather than predicted: a 10 ms window at that
 rate collects one to seven messages, mostly one to three. Nowhere near
 the 100 the batch size permits, because the rate never fills it.
 
-## What is not yet known
+## What it actually cost
 
-**Whether it helps or hurts p99.** 2.6× fewer transactions is real, and
-so is up to 10 ms of added window. Which dominates at ~100 ev/s, and
-what happens under burst where batches fill by size, is the measurement
-this ADR is waiting on. Against ADR-0126's baseline of p50 26–35 ms /
-p99 85–236 ms.
+Measured as a matched A/B — same box, same session, same protocol, three
+runs each with a discarded warm-up and a drain between:
 
-Until that exists this ADR is **Proposed**, and the prediction — a
-modest cost at steady state, a real gain under backlog — is a
-prediction. Reasoning about this pipeline has been wrong twice already:
-ADR-0124 mischaracterised the durable-inbox trade, and ADR-0126's first
-draft claimed an inbox write had been removed when it had not.
+**Sustained ~100 ev/s, which is the rate NFR-001 names:**
+
+| | p50 | p99 |
+|---|---|---|
+| without batching | **23.1–29.5 ms** | **95.1–128.1 ms** |
+| with batching | 36.5–44.4 ms | 100.3–162.5 ms |
+
+**Worse on both.** p50 rises by ~13 ms — the 10 ms window plus change,
+which is the arithmetic at the top of this ADR arriving exactly as
+written. p99 does not improve to pay for it.
+
+**Flat-out burst:**
+
+| | achieved | p50 | p99 | transactions for 1 280 rows |
+|---|---|---|---|---|
+| without batching | 232 ev/s | 2 319 ms | 2 846 ms | **1 280** (one row each) |
+| with batching | 190 ev/s | **708 ms** | **2 243 ms** | **192** (max 16 rows) |
+
+Under backlog it is a large win — 6.7× fewer transactions and p50 3.3×
+better — because batches finally fill by size rather than by clock. The
+two runs pushed different rates (190 vs 232 ev/s), so the latency halves
+of that row are not a controlled comparison; the transaction counts are.
+
+## Decision, revised by the measurement
+
+**Not adopted.** NFR-001 is a latency requirement at a sustained rate,
+and at that rate this makes latency worse. The lever is real but it is
+aimed at a different problem: it buys burst absorption, and ADR-0124 and
+ADR-0126 already moved the collapse point well past 100 ev/s, so there is
+no backlog left for it to help with.
+
+Keeping it would trade a measured regression at the operating point for a
+gain in a regime the system is no longer in. The code is preserved on
+`perf/1956-batch-audit-writes` and this ADR records what it does, so
+adopting it later is a revert away — the right shape if sustained load
+ever climbs past what ADR-0124's ceiling absorbs.
+
+**The prediction held, and that is worth one line given the record.**
+Reasoning about this pipeline was wrong twice before: ADR-0124
+mischaracterised the durable-inbox trade, and ADR-0126's first draft
+claimed an inbox write had been removed when it had not. This time the
+arithmetic written before the code — *N/R*, ~10 ms of window, no fill at
+100 ev/s — is what the numbers say. Which is an argument for doing the
+arithmetic, not for trusting the next prediction.
 
 ## Consequences
 
-- **Positive:** 2.6× fewer transactions at the measured rate, more under
-  load, and the ceiling rises where ADR-0124 and ADR-0126 raised it.
-- **Negative:** up to `TriggerTime` of latency added to any event
-  arriving into an empty batch — paid at every rate, and paid most
-  visibly when traffic is sparse and there is nothing to batch it with.
-- **Negative:** one event kind now flows differently from the other
-  nineteen. `A_batch_commits_every_row_in_one_transaction` guards the
-  commit boundary and the batched row is asserted identical to the
-  singular one, but the asymmetry is real and is the price of deciding
-  per kind on evidence.
-- **Negative:** `ExcludeTypes(IsArray)` applies to every context, not
-  just audit. It is a no-op for the other eight today and would stop
-  working silently if one ever routed an array message deliberately.
+**Of not adopting:**
+
+- The per-message transaction stays. That cost is real and unaddressed;
+  what this ADR establishes is that *batching* cannot remove it without
+  charging more in window latency than it saves.
+- Burst absorption stays where ADR-0124 and ADR-0126 left it. Should
+  sustained load ever approach that ceiling, this is the measured lever
+  to reach for, and the branch is the implementation.
+
+**What adopting would have cost, recorded because it is the reason:**
+
+- Up to `TriggerTime` of latency on any event arriving into an empty
+  batch — paid at every rate, and paid most visibly when traffic is
+  sparse and there is nothing to batch it with.
+- One event kind flowing differently from the other nineteen, with a
+  singular overload that must stay absent or the batch silently stops.
+- `ExcludeTypes(IsArray)` reaching every context rather than just audit
+  — a no-op for the other eight today, and one that would stop working
+  silently if a context ever routed an array message deliberately.
 
 ## Alternatives Considered
 
