@@ -145,10 +145,31 @@ unit tests that assert on skew induce it first for the same reason.
 - **Representative kiosk hardware.** Everything ran on one workstation hosting
   the whole stack plus Playwright. Issue 1941 is the standing form of this
   caveat for the render leg; it applies to every number here.
-- **The 800 ms path end to end** (FR-006, SC-003) was **not** re-measured with
-  alignment active. Quickstart §7 asks for it and it was not done. Alignment is
-  bought with latency out of that same budget, so this is the most load-bearing
-  gap in this note.
+- **The 800 ms path end to end** (FR-006, SC-003) was **not** re-measured as a
+  whole. What was measured is this leg's own contribution, which is the part
+  alignment could erode:
+
+  | | reading |
+  |---|---|
+  | Presentation buffer, aligned steady state | **10–26 ms** of a 200 ms budget |
+  | Max tile lag, before the controller acts | 36.1 ms (run 1), 36.7 ms (run 2) |
+  | Max tile lag, aligned | **27.7 ms**, **31.5 ms** |
+
+  **Alignment cost nothing here — it slightly reduced the worst tile.** Research
+  R4's warning (aligning roughly doubled lag on an isolated probe) did not
+  reproduce on a real wall, because the tiles were already close together.
+
+  **Why the whole-path number is still missing, and it is not this feature's
+  doing.** The legs cannot be summed from instruments today: `event → overlay
+  state` is *"recorded, not yet readable"* — nothing outside the recording
+  process can read it (#1707). That predates spec 045.
+
+  **A black-box measurement is obtainable and is the concrete next step**:
+  `smart-sentinel-eye-web` has `directAccessGrantsEnabled`, so an operator token
+  can be minted directly against Keycloak's proxied endpoint, a variable set
+  through the gateway, and the kiosk tile watched for the resulting text. That
+  yields *event accepted → operator can see it* without decomposing legs. It was
+  scoped but not built; the gap is bounded rather than open-ended.
 - **Quickstart §2 (the hysteresis boundary), §3 (reconnect) and §5 (breaking the
   controller on purpose) were not walked** against live video. They are covered
   by unit tests only.
