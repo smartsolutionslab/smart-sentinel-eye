@@ -94,7 +94,7 @@ describe('CameraViewer when alignment fails', () => {
    * tile's playout to live and undo any alignment it had.
    */
   it('Writes no target at all when the wall has not decided one', async () => {
-    const { container } = render(
+    render(
       <CameraViewer
         cameraIdentifier="cam-42"
         getToken={() => Promise.resolve('token')}

@@ -155,11 +155,26 @@ export function bufferDelayBetween(previous: LagSample, current: LagSample): num
   return (bufferSeconds / emitted) * 1000;
 }
 
-/** A tile's measured lag, as the controller sees it. */
+/**
+ * A tile's measured lag, as the controller sees it — **both figures, because
+ * the two are used for different things**.
+ *
+ * <p>
+ * `lagMilliseconds` is what makes the tile late, so it is what has to be
+ * equalised. `bufferMilliseconds` is the part this leg actually spends, so it
+ * is what the 200 ms budget bounds. Their difference is decode-side processing,
+ * which belongs to another leg and which the controller can neither shorten nor
+ * be charged for.
+ * </p>
+ */
 export interface TileLag {
   camera: string;
   lagMilliseconds: number;
+  bufferMilliseconds: number;
 }
+
+/** Decode-side time: the part of a tile's lag the buffer is not responsible for. */
+const processingOf = (lag: TileLag): number => Math.max(0, lag.lagMilliseconds - lag.bufferMilliseconds);
 
 /** What the wall should do this cycle. */
 export interface WallTarget {
@@ -175,18 +190,35 @@ export interface WallTarget {
  * Computes the target a wall should hold, and which tiles cannot be held to it.
  *
  * <p>
- * <b>Aligning means waiting for the slowest, so the target is the worst lag</b> —
- * capped at the leg's 200 ms budget. The cap is the whole safety argument: a
- * controller without one buys perfect alignment at any price, and this leg
- * spends from the same 800 ms budget it belongs to. Aligning two tiles was
- * measured to roughly double absolute lag (~30 ms → ~59 ms, spec 045 research
- * R4), so "at any price" is not hypothetical.
+ * <b>Aligning means waiting for the slowest, so the target is the worst lag.</b>
+ * The cap is the whole safety argument: a controller without one buys perfect
+ * alignment at any price, and this leg spends from the same 800 ms budget it
+ * belongs to. Aligning two tiles was measured to roughly double absolute lag
+ * (~30 ms → ~59 ms, spec 045 research R4), so "at any price" is not
+ * hypothetical.
  * </p>
  *
  * <p>
- * A tile lagging beyond the cap is <b>released</b>, not held: holding it would
- * drag every other tile past the budget. A released tile keeps playing — the
- * wall gives up the claim about it, never the picture (FR-012b).
+ * <b>But the cap bounds the buffer, not the lag</b> — and getting that wrong is
+ * a defect this code already had. Holding tile <em>i</em> at target <em>T</em>
+ * makes its buffer <em>T − processing_i</em>, and only that buffer is this
+ * leg's spend; the processing is the decode leg's. Testing the combined lag
+ * against 200 ms charges this leg for another's time, which is exactly the
+ * conflation {@link bufferDelayBetween} exists to prevent on the reporting side.
+ * </p>
+ *
+ * <p>
+ * <b>T026 found it on a real wall.</b> Both tiles measured ~257 ms of lag with
+ * only ~131 ms of buffer, so the old test released <em>every</em> tile, marked
+ * them all out of alignment, and never aligned anything — while each tile was
+ * comfortably inside the budget it was being judged against.
+ * </p>
+ *
+ * <p>
+ * So a tile is released when it cannot be held without some held tile buffering
+ * past the budget, and the laggiest goes first because it is the one forcing
+ * the target up. A released tile keeps playing — the wall gives up the claim
+ * about it, never the picture (FR-012b).
  * </p>
  *
  * <p>
@@ -196,28 +228,50 @@ export interface WallTarget {
  * </p>
  */
 export function wallTargetFrom(lags: readonly TileLag[]): WallTarget | null {
-  if (lags.length < 2) return null;
+  return classifyWall(lags).target;
+}
 
-  const held: string[] = [];
+/**
+ * The same decision, but reporting **which tiles were dropped even when no
+ * target could be formed**.
+ *
+ * <p>
+ * <b>The distinction matters to an operator.</b> A two-tile wall with one bad
+ * tile yields no target — there is nothing left to align — but only one tile
+ * fell out, and badging both would blame a healthy tile for its neighbour. An
+ * earlier version did exactly that, and a test caught it.
+ * </p>
+ */
+export function classifyWall(lags: readonly TileLag[]): { target: WallTarget | null; released: readonly string[] } {
+  if (lags.length < 2) return { target: null, released: [] };
+
+  // Laggiest first: it is the tile that sets the target, so it is the tile to
+  // drop when the target cannot be met.
+  const byLag = [...lags].sort((a, b) => b.lagMilliseconds - a.lagMilliseconds);
   const released: string[] = [];
-  for (const { camera, lagMilliseconds } of lags) {
-    if (lagMilliseconds > PRESENTATION_BUFFER_BUDGET_MS) {
-      released.push(camera);
-    } else {
-      held.push(camera);
+
+  for (let dropped = 0; dropped <= byLag.length - 2; dropped += 1) {
+    const candidates = byLag.slice(dropped);
+    const target = candidates[0]!.lagMilliseconds;
+
+    // Feasible when every candidate can reach the target without its own buffer
+    // exceeding the budget. buffer_i = target − processing_i.
+    const feasible = candidates.every((lag) => target - processingOf(lag) <= PRESENTATION_BUFFER_BUDGET_MS);
+
+    if (feasible) {
+      return {
+        target: { targetMilliseconds: target, held: candidates.map((lag) => lag.camera), released },
+        released,
+      };
     }
+
+    released.push(candidates[0]!.camera);
   }
 
-  // Every tile is beyond the cap: there is no target any of them could share
-  // without breaching the budget, so the wall makes no claim this cycle rather
-  // than inventing one it cannot honour.
-  if (held.length === 0) return null;
-
-  const targetMilliseconds = Math.max(
-    ...lags.filter((lag) => held.includes(lag.camera)).map((lag) => lag.lagMilliseconds),
-  );
-
-  return { targetMilliseconds, held, released };
+  // Dropping down to a single tile leaves nothing to align, so the wall makes
+  // no claim this cycle rather than inventing one it cannot honour — but the
+  // tiles actually dropped are still named.
+  return { target: null, released };
 }
 
 /**
@@ -241,9 +295,11 @@ export interface AlignmentState {
   released: readonly string[];
   /** Consecutive cycles each held tile has been observed past the cap. */
   breaches: Readonly<Record<string, number>>;
+  /** Consecutive cycles each marked tile has looked holdable again. */
+  recoveries: Readonly<Record<string, number>>;
 }
 
-export const initialAlignmentState: AlignmentState = { released: [], breaches: {} };
+export const initialAlignmentState: AlignmentState = { released: [], breaches: {}, recoveries: {} };
 
 /**
  * Advances one control cycle: classifies tiles with hysteresis, then computes
@@ -258,54 +314,68 @@ export function settleAlignment(
   previous: AlignmentState,
   lags: readonly TileLag[],
 ): { state: AlignmentState; target: WallTarget | null } {
-  const wasReleased = new Set(previous.released);
+  const wasMarked = new Set(previous.released);
+
+  // One criterion, applied once. This used to re-test `lag > budget` here as
+  // well, which was both a duplicate and the wrong comparison — the cap bounds
+  // the buffer, not the lag (see wallTargetFrom). Feasibility is decided in one
+  // place now, so the badge and the actuation cannot disagree.
+  const candidates = lags.filter((lag) => !wasMarked.has(lag.camera));
+  const bare = classifyWall(candidates);
+  const couldNotHold = new Set(bare.released);
+
   const released: string[] = [];
   const breaches: Record<string, number> = {};
+  const recoveries: Record<string, number> = {};
 
-  for (const lag of lags) {
-    if (wasReleased.has(lag.camera)) {
-      // Coming back requires clearing the cap by the margin, not merely
-      // touching it — otherwise a tile hovering at the cap oscillates.
-      if (lag.lagMilliseconds > PRESENTATION_BUFFER_BUDGET_MS - RELEASE_HYSTERESIS_MARGIN_MS) {
-        released.push(lag.camera);
-      }
-      continue;
-    }
+  // Unmarked tiles: a single infeasible cycle is not enough to mark one, so a
+  // noisy sample cannot evict a healthy tile from the wall's claim.
+  for (const lag of candidates) {
+    if (!couldNotHold.has(lag.camera)) continue;
 
-    if (lag.lagMilliseconds > PRESENTATION_BUFFER_BUDGET_MS) {
-      const consecutive = (previous.breaches[lag.camera] ?? 0) + 1;
-      if (consecutive >= RELEASE_CONSECUTIVE_CYCLES) {
-        released.push(lag.camera);
-      } else {
-        breaches[lag.camera] = consecutive;
-      }
+    const consecutive = (previous.breaches[lag.camera] ?? 0) + 1;
+    if (consecutive >= RELEASE_CONSECUTIVE_CYCLES) {
+      released.push(lag.camera);
+    } else {
+      breaches[lag.camera] = consecutive;
     }
   }
 
-  // Two different questions, and conflating them is what makes a badge blink.
-  //
-  // **What is marked** is `released` above — hysteresis-settled, so a single
-  // bad sample does not evict a tile and a tile hovering at the cap does not
-  // flip. That is what an operator sees (FR-012).
-  //
-  // **What is actuated** is `held` below — the cap decides it outright, every
-  // cycle, with no hysteresis at all. A tile past 200 ms cannot be given a
-  // target below its own lag whatever its history, so it simply does not
-  // participate in the target this cycle even while it is still unmarked.
-  const releasedNow = new Set(released);
-  const held = lags.filter(
-    (lag) => !releasedNow.has(lag.camera) && lag.lagMilliseconds <= PRESENTATION_BUFFER_BUDGET_MS,
-  );
+  // Marked tiles: retried by asking whether the wall could hold them again, and
+  // required to answer yes for several consecutive cycles before the badge
+  // clears. Without that a tile sitting on the boundary flips every cycle and
+  // an operator watches it blink.
+  for (const camera of wasMarked) {
+    const lag = lags.find((candidate) => candidate.camera === camera);
+    if (lag === undefined) continue; // the tile is gone; nothing to mark
 
-  const bare = wallTargetFrom(held);
+    const trial = wallTargetFrom([...candidates.filter((c) => !couldNotHold.has(c.camera)), lag]);
+    const wouldHold = trial !== null && trial.held.includes(camera);
+
+    if (!wouldHold) {
+      released.push(camera);
+      continue;
+    }
+
+    const consecutive = (previous.recoveries[camera] ?? 0) + 1;
+    if (consecutive < RELEASE_CONSECUTIVE_CYCLES) {
+      recoveries[camera] = consecutive;
+      released.push(camera);
+    }
+  }
+
+  // The final target excludes everything now marked, so a tile that crossed
+  // into the badge this cycle does not also set the target it failed to reach.
+  const markedNow = new Set(released);
+  const settled = wallTargetFrom(lags.filter((lag) => !markedNow.has(lag.camera)));
 
   return {
-    state: { released, breaches },
+    state: { released, breaches, recoveries },
     // `released` comes from the settled state, not from `wallTargetFrom`'s
     // per-cycle view — and it survives a null target. A two-tile wall that
     // releases one has nothing left to align, but the released tile must still
     // be marked, so the state carries it rather than the target.
-    target: bare === null ? null : { ...bare, released },
+    target: settled === null ? null : { ...settled, released },
   };
 }
 
