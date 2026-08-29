@@ -13,6 +13,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { LiveUpdatesBadge } from '../revocation/LiveUpdatesBadge.js';
 import { useLayoutLifecycle } from '../revocation/useLayoutLifecycle.js';
 import { TileAlignmentBadge } from './TileAlignmentBadge.js';
+import { useLabelDelay } from './useLabelDelay.js';
 import { useWallAlignment } from './useWallAlignment.js';
 
 /**
@@ -214,6 +215,7 @@ export function CellPage() {
               unavailable={cell.tile.overlayIdentifier !== null && unavailableOverlays.has(cell.tile.overlayIdentifier)}
               highlighted={cell.tile.overlayIdentifier !== null && highlightedOverlays.has(cell.tile.overlayIdentifier)}
               playoutTargetMilliseconds={alignment.targetFor(cell.key)}
+              frameAgeMilliseconds={alignment.frameAgeFor(cell.key)}
               onLagMeasured={(camera, lag, buffer) => alignment.reportLag(cell.key, camera, lag, buffer)}
               outOfAlignment={alignment.released.has(cell.key)}
             />
@@ -238,6 +240,11 @@ interface TileProps {
   onLagMeasured: (cameraIdentifier: string, lagMilliseconds: number, bufferMilliseconds: number) => void;
   /** This tile could not be held inside the leg's budget (spec 045 FR-012). */
   outOfAlignment: boolean;
+  /**
+   * How old this tile's picture is, so its label can be held back to match
+   * (spec 046, ADR-0129). Null when unreadable — the label then shows at once.
+   */
+  frameAgeMilliseconds: number | null;
 }
 
 /**
@@ -255,6 +262,7 @@ function Tile({
   playoutTargetMilliseconds,
   onLagMeasured,
   outOfAlignment,
+  frameAgeMilliseconds,
 }: TileProps) {
   const overlayIdentifier = tile.overlayIdentifier;
   const { data: overlay } = useGetOverlayQuery(overlayIdentifier ?? '', {
@@ -279,7 +287,14 @@ function Tile({
   // Prefer the SystemVariables-resolved text over the raw label so any
   // `{{name}}` placeholders show their live values; fall back to the raw
   // label if SystemVariables is unreachable.
-  const resolvedText = snapshot?.resolvedText ?? publishedOverlay?.text;
+  const liveText = snapshot?.resolvedText ?? publishedOverlay?.text;
+
+  // Held back so the label describes the same moment as the picture beneath it
+  // (ADR-0129). **Not frame accuracy** — it makes the label as old as the
+  // picture and pairs nothing with a frame. A tile with no readable age, or one
+  // past the cap, gets its label immediately.
+  const resolvedText = useLabelDelay(liveText, frameAgeMilliseconds);
+
   const renderOverlay =
     !overlayUnavailable && publishedOverlay !== undefined && resolvedText !== undefined
       ? {

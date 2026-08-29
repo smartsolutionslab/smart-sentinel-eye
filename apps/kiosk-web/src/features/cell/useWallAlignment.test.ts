@@ -271,4 +271,47 @@ describe('useWallAlignment', () => {
     expect(result.current.skewMilliseconds).toBeNull();
     expect(result.current.released.size).toBe(0);
   });
+
+  /**
+   * Spec 046 SC-004. The link between an induced buffer and the delay a label
+   * is held for: `frameAgeFor` is the figure `useLabelDelay` consumes, and
+   * both halves were tested while the join between them was not.
+   *
+   * <p>
+   * <b>Induced, twice, and asserted on the change.</b> Reporting one lag and
+   * asserting a plausible number passes with the wiring crossed to another
+   * tile, or frozen at whatever arrived first.
+   * </p>
+   */
+  it('Reports each tile its own frame age, and follows an induced buffer', () => {
+    const { result } = renderHook(() => useWallAlignment(2));
+
+    act(() => {
+      result.current.reportLag('a', 'cam-a', 40, 12);
+      result.current.reportLag('b', 'cam-b', 140, 30);
+    });
+
+    expect(result.current.frameAgeFor('a')).toBe(40);
+    expect(result.current.frameAgeFor('b')).toBe(140);
+
+    // Buffer induced on 'a' alone: its age follows, and 'b' is left alone.
+    act(() => {
+      result.current.reportLag('a', 'cam-a', 190, 12);
+    });
+
+    expect(result.current.frameAgeFor('a')).toBe(190);
+    expect(result.current.frameAgeFor('b')).toBe(140);
+  });
+
+  /**
+   * A tile that has never reported gets null, not zero. A zero age reads as a
+   * perfectly fresh picture and would hold no label at all — the failure
+   * looking exactly like the success.
+   */
+  it('Reports no frame age for a tile that has never measured one', () => {
+    const { result } = renderHook(() => useWallAlignment(2));
+
+    expect(result.current.frameAgeFor('a')).toBeNull();
+    expect(result.current.frameAgeFor('a')).not.toBe(0);
+  });
 });

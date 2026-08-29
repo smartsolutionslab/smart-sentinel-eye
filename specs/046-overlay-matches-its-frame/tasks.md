@@ -50,7 +50,7 @@ are unrelated without PTP hardware that does not exist.
 
 ## Phase 1: The record (US1, Part 1) — ships alone
 
-- [x] T001 Write `docs/adr/0129-labels-are-aged-not-frame-matched.md`, amending ADR-0021. It must state: that ADR-0021 cannot be built as written; **all three blockers** from [research.md](./research.md), including the one that survives fixing the others (a camera's clock and the event source's clock are unrelated without PTP); that **age-matching is adopted and is not frame accuracy**; and that ADR-0128's media-path rejection is **preserved, not revisited**.
+  - [x] T001 Write `docs/adr/0129-labels-are-aged-not-frame-matched.md`, amending ADR-0021. It must state: that ADR-0021 cannot be built as written; **all three blockers** from [research.md](./research.md), including the one that survives fixing the others (a camera's clock and the event source's clock are unrelated without PTP); that **age-matching is adopted and is not frame accuracy**; and that ADR-0128's media-path rejection is **preserved, not revisited**.
 - [x] T002 [US1] Correct §IV's **"frame-synced"** wording and ADR-0015's leg description. §IV cannot change without T001's ADR (governance).
 - [x] T003 [US1] Record, in one place a reader will find, **what the relationship actually is** — a label describes the moment its value changed; the picture beneath it is `buffer + processing` old — **and the direction playout buffering moves it** (FR-004). Without this the next feature to add buffer will not know it widened the gap, which is how this feature came to exist.
 - [x] T004 [P] [US1] Extend `tests/Architecture.Tests/` with a guard on the corrected wording, following `FoundingDecisionRecordTests`' **consistency-check** shape rather than a text pin: it must fail if the record and the behaviour disagree, and **must not fail when the record is legitimately updated**.
@@ -72,10 +72,10 @@ longer claims something it does not do.
 
 ## Phase 3: Hold the label (US2, Part 2)
 
-- [ ] T008 [US2] Create `apps/kiosk-web/src/features/cell/useLabelDelay.ts`. Schedule on **monotonic time** (`performance.now()`), never epoch time — fab clocks are PTP-stepped and `CellPage` already carries that reasoning for its highlight timers.
-- [ ] T009 [US2] Preserve ordering and drop nothing (FR-012). The existing monotonic **version guard** on overlay text is the model; two updates inside one delay window must arrive in order, and neither may vanish.
-- [ ] T010 [US2] Wire it in `CellPage`: each tile gets **its own** delay, sourced from `useWallAlignment`'s per-tile figure. A tile with no overlay is untouched (FR-013).
-- [ ] T011 [US2] Every failure path shows the label **immediately** — unreadable age, arithmetic `null`, a thrown timer (FR-011, FR-014). Video and overlays both keep working.
+- [x] T008 [US2] Create `apps/kiosk-web/src/features/cell/useLabelDelay.ts`. Schedule on **monotonic time** (`performance.now()`), never epoch time — fab clocks are PTP-stepped and `CellPage` already carries that reasoning for its highlight timers.
+- [x] T009 [US2] Preserve ordering and drop nothing (FR-012). The existing monotonic **version guard** on overlay text is the model; two updates inside one delay window must arrive in order, and neither may vanish.
+- [x] T010 [US2] Wire it in `CellPage`: each tile gets **its own** delay, sourced from `useWallAlignment`'s per-tile figure. A tile with no overlay is untouched (FR-013).
+- [x] T011 [US2] Every failure path shows the label **immediately** — unreadable age, arithmetic `null`, a thrown timer (FR-011, FR-014). Video and overlays both keep working.
 
 **Checkpoint**: **US2 shippable.**
 
@@ -90,8 +90,8 @@ longer claims something it does not do.
 
 ## Phase 5: Tests that could fail
 
-- [ ] T014 [P] Test that **inducing buffer changes the label delay** (SC-004). **Induced, never observed passively**: a small difference between label delay and frame age proves nothing if neither was moved — spec 045's central lesson, and its review still found five vacuous tests after that lesson was written down.
-- [ ] T015 [P] Test that a tile with **no overlay schedules no timer** (SC-006) — asserted as the absence of a scheduled timer, not as unchanged latency.
+- [x] T014 [P] Test that **inducing buffer changes the label delay** (SC-004). **Induced, never observed passively**: a small difference between label delay and frame age proves nothing if neither was moved — spec 045's central lesson, and its review still found five vacuous tests after that lesson was written down.
+- [x] T015 [P] Test that a tile with **no overlay schedules no timer** (SC-006) — asserted as the absence of a scheduled timer, not as unchanged latency.
 
 ---
 
