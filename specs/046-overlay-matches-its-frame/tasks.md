@@ -63,8 +63,8 @@ longer claims something it does not do.
 
 ## Phase 2: The delay, as arithmetic (Part 2)
 
-- [ ] T006 Create `apps/shared/src/observability/labelDelay.ts` — pure: given a tile's frame age, the delay to apply, bounded per FR-009. **`null`, never `0`**, when the age is unreadable: a zero reads as a perfect score for something nobody measured, which is this codebase's standing rule.
-- [ ] T007 [P] `labelDelay.test.ts` — the bound, the unreadable case, and that a **zero-age tile gets no delay rather than a zero delay**. Those are different, and only one of them is honest.
+- [x] T006 Create `apps/shared/src/observability/labelDelay.ts` — pure: given a tile's frame age, the delay to apply, bounded per FR-009. **`null`, never `0`**, when the age is unreadable: a zero reads as a perfect score for something nobody measured, which is this codebase's standing rule.
+- [x] T007 [P] `labelDelay.test.ts` — the bound, the unreadable case, and that a **zero-age tile gets no delay rather than a zero delay**. Those are different, and only one of them is honest.
 
 **Checkpoint**: the arithmetic is testable without a browser.
 
@@ -97,7 +97,7 @@ longer claims something it does not do.
 
 ## Phase 6: Verify
 
-- [ ] T016 Run the full backend and frontend suites the way CI does, **not a subset** — spec 045 shipped a green subset and CI caught an architecture test never run locally. Then walk a real wall: induce buffer on a tile, confirm its label delay follows, confirm the end-to-end budget still holds with the delay counted in, and **record that nobody can see this** — ~30 ms is below the threshold at which an eye distinguishes a label from the frame under it, so there is no human confirmation step and the note must say so rather than imply one happened.
+- [x] T016 Run the full backend and frontend suites the way CI does, **not a subset** — spec 045 shipped a green subset and CI caught an architecture test never run locally. Then walk a real wall: induce buffer on a tile, confirm its label delay follows, confirm the end-to-end budget still holds with the delay counted in, and **record that nobody can see this** — ~30 ms is below the threshold at which an eye distinguishes a label from the frame under it, so there is no human confirmation step and the note must say so rather than imply one happened.
 
 ---
 
