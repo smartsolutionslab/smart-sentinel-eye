@@ -421,3 +421,53 @@ it). The two missing interfaces → correct, issues.
 problems in **fourteen** decisions plus three §IX rows — and confirms thirteen
 decisions substantially hold. Both halves matter: the record is worse than the
 spot-check suggested, and it is not worthless.
+
+---
+
+## Dispositions (T007, T008, T009)
+
+**Every non-holding claim lands in exactly one place** — an ADR that makes the
+divergence legitimate, or an issue that proposes correcting it. **Nothing is left
+as prose.** A note that does neither is how the situation being audited arose.
+
+*Issue numbers are written without a `#` — this repo's automation closes a
+merely-mentioned issue on merge, and every one of these must stay open.*
+
+### Correct — issues raised
+
+| # | Covers | Decisions |
+|---|---|---|
+| 1970 | §IX's two mandated v1 strategy interfaces are absent | 020, 023, §IX rows 1–2 |
+| 1971 | Three of six declared variable types do not exist | 017 |
+| 1972 | The hybrid event-registration model is entirely unbuilt | 018 |
+| 1973 | ONVIF decided "on day one" is absent, as is the adapter seam | 005, §IX row 3 |
+| 1974 | SFU sharding and coordinator unbuilt; single SFU unmarked as a SPOF | 012 |
+| 1975 | Camera Catalog has no staged-config workflow | 022 |
+
+**Tracked against existing work rather than duplicated**: decision 025's
+ungenerated Helm charts are recorded as a comment on issue 1015, which is the
+same deployment gap seen from the other end. Filing a near-duplicate would have
+split the work.
+
+### Legitimise — for the ADR (T009)
+
+Each of these is a case where **the system is defensible and the decision is
+stale**. Recording them is not endorsing them.
+
+| Claim | Why legitimise rather than correct |
+|---|---|
+| **019 — AEL, not CEL** | A complete, working expression language exists. Nothing is missing; the decided *name* is wrong. If anyone believes CEL was the right choice, that is an issue against a working system — not a verdict this audit gets to make. |
+| **009 + §IX + three constitution claims — Prometheus** | **ADR-0118 already decided this.** It abandoned the Grafana/Prometheus stack and chose the Aspire dashboard as the single sink. Nothing needs building; the record simply never followed an accepted ADR. |
+| **008 — kiosk uses the authorization-code flow** | The kiosk authenticates safely as a public client with a view-only scope. The decision describes a device-bound `client_credentials` design that was not taken, and no defect follows from not taking it. |
+| **023 — authorization by scopes and fab groups** | Authorization works and is enforced at every endpoint. Only the *four named roles* and the decision point diverge — and the decision point is issue 1970, so what remains here is the role model. |
+| **027 — two web apps, not one `apps/web/`** | Split deliberately by ADR-0074. The layout decision predates it and was never updated. |
+| **017 — `integer` and `decimal` merged into `Number`** | Recorded in both places on purpose: legitimising the *merge* is plausible, while the two **absent** types are issue 1971. The ADR should say which half it is legitimising. |
+
+### Neither — and why that is not evasion
+
+| Claim | Treatment |
+|---|---|
+| **011 — GPU transcode** | *"Only when forced"* has never been forced. An unrealised conditional intention, not a divergence. No issue: there is nothing to correct until an incompatible camera exists. |
+| **009 — Marten** | *"Only where a context's invariants justify it"* is honestly satisfied by "not yet justified anywhere". Recorded as unrealised. **But CLAUDE.md states it more strongly than the decision does**, and that overclaim *is* corrected (T013). |
+| **014, 021** | Already amended by specs 045 and 046. Recorded as amended rather than re-audited, so there is one record of each and not two. |
+| **All 14 "unverifiable here" claims** | Deployment, hardware and v2-intent statements. **Refusing to guess is the verdict**, and it needs no follow-up — but the ADR must say the audit deliberately stopped rather than ran out. |

@@ -77,9 +77,9 @@ the ones that get dropped when the work gets repetitive:
 
 ## Phase 3: Sort the divergences (US1)
 
-- [ ] T007 For every non-holding claim, assign a disposition — **legitimise** (an ADR amends the decision to match a system that is right) or **correct** (an issue proposes changing a system that has not caught up). **Where it is not obvious, write the issue**: an unnecessary issue gets closed, while an ADR that legitimises a mistake makes it policy.
-- [ ] T008 [P] Raise the **correct** issues. Expected: `IRuleEngine` and `IAuthorizationDecisionPoint`, which §IX mandates *"in v1"* and which do not exist — a live constitutional gap rather than stale prose. Add each to Project #13.
-- [ ] T009 [P] Record the **legitimise** candidates for the ADR. Expected: AEL instead of CEL. **Recording it is not endorsing it** — if anyone thinks CEL was right, that is an issue, not a verdict.
+- [x] T007 For every non-holding claim, assign a disposition — **legitimise** (an ADR amends the decision to match a system that is right) or **correct** (an issue proposes changing a system that has not caught up). **Where it is not obvious, write the issue**: an unnecessary issue gets closed, while an ADR that legitimises a mistake makes it policy.
+- [x] T008 [P] Raise the **correct** issues. Expected: `IRuleEngine` and `IAuthorizationDecisionPoint`, which §IX mandates *"in v1"* and which do not exist — a live constitutional gap rather than stale prose. Add each to Project #13.
+- [x] T009 [P] Record the **legitimise** candidates for the ADR. Expected: AEL instead of CEL. **Recording it is not endorsing it** — if anyone thinks CEL was right, that is an issue, not a verdict.
 
 **Checkpoint**: nothing is left as prose alone.
 
