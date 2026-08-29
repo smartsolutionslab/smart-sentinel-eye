@@ -206,8 +206,12 @@ live in `docs/adr/`.
 ### VI. .NET Aspire Is the Composition Root (ADR-024)
 
 All runtime resources — services, Postgres, RabbitMQ, Keycloak, MinIO,
-Prometheus, the React app — are declared in the `AppHost` project using
-`Aspire.Hosting.*` integrations.
+Mosquitto, MediaMTX, the React apps — are declared in the `AppHost` project
+using `Aspire.Hosting.*` integrations.
+
+**Prometheus was listed here and is not declared** (ADR-0130). ADR-0118
+abandoned the Grafana/Prometheus stack and chose the Aspire dashboard as
+the single sink; this list never followed.
 
 - **Dev:** `aspire run` starts the full stack.
 - **Prod:** `aspire publish --target k8s` generates Helm charts deployed
@@ -256,12 +260,20 @@ OpenTelemetry (provided by Aspire defaults).
 For features explicitly scoped for evolution, define a strategy
 interface in v1 so v2 can land without breaking changes.
 
-| Feature | v1 implementation | v2 candidate |
-|---|---|---|
-| Rule engine | Declarative + CEL (ADR-020) | Visual workflow (n8n / Node-RED) |
-| Authorization | Fixed RBAC (ADR-023) | ABAC via OPA / Cedar |
-| Camera adapter | RTSP + ONVIF (ADR-005) | Vendor SDKs (Axis VAPIX, Hikvision, …) |
-| Observability sink | Both Aspire + Grafana | Single chosen sink |
+| Feature | v1 implementation | Strategy interface | v2 candidate |
+|---|---|---|---|
+| Rule engine | Declarative + **AEL** (ADR-020, ADR-0130) | **`IRuleEngine` — absent** (issue 1970) | Visual workflow (n8n / Node-RED) |
+| Authorization | **Scopes + fab groups** (ADR-023, ADR-0130) | **`IAuthorizationDecisionPoint` — absent** (issue 1970) | ABAC via OPA / Cedar |
+| Camera adapter | **RTSP only** — ONVIF absent (ADR-005, ADR-0130) | **Absent** (issue 1973) | Vendor SDKs (Axis VAPIX, Hikvision, …) |
+| Observability sink | **Aspire dashboard** (ADR-0118) | n/a — one sink by decision | Production sink, deferred |
+
+**Three of these four rows were stale, and the audit that found them is
+ADR-0130.** The section's purpose is that v2 lands without breaking
+changes — and **two of the interfaces it mandates "in v1" do not exist**,
+while a third depends on an adapter seam that does not either. A column
+for the interface has been added, because listing only the v1 and v2
+implementations let the obligation this section exists to impose go
+unrecorded for as long as nobody looked.
 
 ---
 
@@ -285,12 +297,13 @@ interface in v1 so v2 can land without breaking changes.
 ### Backend
 
 - **.NET 10**, ASP.NET Core, **.NET Aspire** (ADR-024).
-- **PostgreSQL** as default persistence (ADR-009). **Marten** for
-  event-sourced contexts. **TimescaleDB** (PostgreSQL extension)
-  is permitted in time-series-shaped contexts; current use is
-  AuditObservability per ADR-0101. **Prometheus** for metrics.
-  **MinIO** for object storage (future snapshots, eventual
-  recording).
+- **PostgreSQL** as default persistence (ADR-009). **TimescaleDB**
+  (PostgreSQL extension) is permitted in time-series-shaped contexts;
+  current use is AuditObservability per ADR-0101. **MinIO** for object
+  storage (future snapshots, eventual recording).
+  **Marten** remains permitted for event-sourced contexts and **is not
+  used anywhere** — no context has yet justified it (ADR-0130).
+  **Metrics go to the sink ADR-0118 chose**, not to Prometheus.
 - **RabbitMQ** for both internal and external messaging (ADR-010).
 - **Keycloak** for identity (ADR-007), federated to customer SSO when
   required.
@@ -343,8 +356,11 @@ interface in v1 so v2 can land without breaking changes.
 
 - Audit log: **365 days** hot in Postgres, then archived to MinIO.
 - Event log (ingested): **90 days** hot in Postgres, then archived.
-- Metrics: **30 days** in Prometheus; long-term in Thanos/Mimir or
-  cloud (v2).
+- Metrics: retention is **whatever the chosen sink provides** (ADR-0118);
+  in dev and CI that is the Aspire dashboard's in-memory window, which is
+  not a retention policy. **The former "30 days in Prometheus, long-term
+  in Thanos/Mimir" described a stack that was never built** (ADR-0130), and
+  a real policy is owed once there is a production sink.
 - Variable-change history: **180 days** in Postgres.
 
 ---
@@ -413,9 +429,19 @@ contradicting tribal knowledge.
 
 ---
 
-**Version:** 1.4.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-08-28
+**Version:** 1.5.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-08-29
 
 **Amendment history.**
+1.5.0 — the founding decisions audited against the code (ADR-0130,
+issue 1969). §IX gains a **strategy interface** column and three of its
+four rows are corrected: the rule engine runs AEL not CEL, authorization
+is by scopes and fab groups not four named roles, the camera adapter has
+RTSP but no ONVIF, and the observability row still described the
+dual-sink stack ADR-0118 abandoned. **Two interfaces §IX mandates "in
+v1" do not exist** (issue 1970). §VI's resource list named Prometheus,
+which the AppHost does not declare; §Stack claimed Prometheus for
+metrics and overstated Marten; §Retention promised 30 days in Prometheus
+with Thanos or Mimir, none of which exist. Of 99 audited claims, 46 hold.
 1.4.0 — §IV's leg table: the presentation buffer moves from unbuilt to
 implemented and **recorded, not yet observed**, a fourth state defined
 beside the existing three — the figure reaches the sink but no person has

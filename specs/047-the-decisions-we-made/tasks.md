@@ -87,10 +87,10 @@ the ones that get dropped when the work gets repetitive:
 
 ## Phase 4: Correct the record (US1, US2)
 
-- [ ] T010 Write `docs/adr/0130-the-founding-decisions-audited.md`: what was audited, the method, the verdicts that changed the record, and the dispositions. It **cites** `audit.md` rather than restating it — the ADR is for decisions, the audit is the evidence, and summarising the evidence into the ADR loses what makes it checkable.
-- [ ] T011 [US2] Annotate ADR-0000's rows with their status, **keeping the original decision text legible** — the pattern rows 026 and 014 already use (`**Amended by ADR-NNNN.** … Originally: …`). The record of what was decided must not be overwritten by what happened.
-- [ ] T012 [US2] Correct constitution **§IX**, including the observability row ADR-0118 already settled. Bump the version and add an amendment-history entry.
-- [ ] T013 [P] [US2] Fix CLAUDE.md where it states a decision more strongly than ADR-0000 does — the stack table's Marten entry is the known case. A summary that overclaims relative to its source is the same defect at one remove.
+- [x] T010 Write `docs/adr/0130-the-founding-decisions-audited.md`: what was audited, the method, the verdicts that changed the record, and the dispositions. It **cites** `audit.md` rather than restating it — the ADR is for decisions, the audit is the evidence, and summarising the evidence into the ADR loses what makes it checkable.
+- [x] T011 [US2] Annotate ADR-0000's rows with their status, **keeping the original decision text legible** — the pattern rows 026 and 014 already use (`**Amended by ADR-NNNN.** … Originally: …`). The record of what was decided must not be overwritten by what happened.
+- [x] T012 [US2] Correct constitution **§IX**, including the observability row ADR-0118 already settled. Bump the version and add an amendment-history entry.
+- [x] T013 [P] [US2] Fix CLAUDE.md where it states a decision more strongly than ADR-0000 does — the stack table's Marten entry is the known case. A summary that overclaims relative to its source is the same defect at one remove.
 
 **Checkpoint**: US2 satisfied — unbuilt reads as unbuilt, and no principle contradicts an accepted ADR.
 
