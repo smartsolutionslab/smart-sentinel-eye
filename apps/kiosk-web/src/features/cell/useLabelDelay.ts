@@ -22,8 +22,14 @@ import { isWorthDelaying, labelDelayFor } from '@smart-sentinel-eye/shared/obser
  *
  * @param text the label to show, or undefined when the tile carries no overlay
  * @param frameAgeMilliseconds how old this tile's picture is, or null if unknown
+ * @param onHeld called with the hold that was actually achieved, once, when the
+ *   label is released. Never called when nothing was held.
  */
-export function useLabelDelay(text: string | undefined, frameAgeMilliseconds: number | null): string | undefined {
+export function useLabelDelay(
+  text: string | undefined,
+  frameAgeMilliseconds: number | null,
+  onHeld?: (achievedMilliseconds: number) => void,
+): string | undefined {
   const delay = labelDelayFor(frameAgeMilliseconds);
 
   // A tile with no label is untouched (FR-013): nothing is held and no timer is
@@ -39,8 +45,10 @@ export function useLabelDelay(text: string | undefined, frameAgeMilliseconds: nu
   // on each sample would let a label be held indefinitely and never arrive —
   // the mechanism silently eating the value it exists to align.
   const delayRef = useRef(delay);
+  const reportRef = useRef(onHeld);
   useEffect(() => {
     delayRef.current = delay;
+    reportRef.current = onHeld;
   });
 
   useEffect(() => {
@@ -49,7 +57,19 @@ export function useLabelDelay(text: string | undefined, frameAgeMilliseconds: nu
       return undefined;
     }
 
-    const timer = window.setTimeout(() => setHeld(text), scheduled);
+    // `performance.now()`, never `Date.now()`: fab clocks are PTP-stepped and an
+    // epoch comparison can measure the step instead of the hold. CellPage
+    // already carries that reasoning for its highlight timers.
+    const startedAt = performance.now();
+
+    const timer = window.setTimeout(() => {
+      setHeld(text);
+      // **The achieved hold, not the one that was asked for** (FR-015). A timer
+      // fires late under load, and reporting `scheduled` would make the metric
+      // agree with itself no matter what the browser actually did — a dashboard
+      // that cannot show the mechanism failing.
+      reportRef.current?.(performance.now() - startedAt);
+    }, scheduled);
 
     // A later label always wins, and this cleanup is the whole of why (FR-012):
     // React runs it before re-running the effect, so the superseded timer is

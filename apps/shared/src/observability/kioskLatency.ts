@@ -37,12 +37,16 @@ import { gatewayApiUrl } from '../api/gateway.js';
  * </p>
  *
  * <p>
- * `wall_skew` is carried on this path but is <b>not</b> a latency segment: a
- * spread between two tiles is not a duration any frame spent travelling, and
- * the server routes it to its own instrument (ADR-0128).
+ * Two of these are carried on this path but are <b>not</b> latency segments,
+ * for two different reasons, and the server routes both to their own
+ * instrument. `wall_skew` is not a duration at all: a spread between two tiles
+ * is not something any frame spent travelling (ADR-0128). `label_delay` is a
+ * duration, but one the kiosk chose to add rather than one a frame spent
+ * travelling (ADR-0129).
  * </p>
  */
-export type KioskMeasurement = 'overlay_draw' | 'receive_to_decoded' | 'presentation_buffer' | 'wall_skew';
+export type KioskMeasurement =
+  'overlay_draw' | 'receive_to_decoded' | 'presentation_buffer' | 'wall_skew' | 'label_delay';
 
 /**
  * Above this, a figure is describing something other than a journey — a

@@ -3,7 +3,7 @@ import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { overlaysApi, useGetOverlayQuery } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { systemVariablesApi, useGetOverlaySnapshotQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
-import { measureOverlayDraw } from '@smart-sentinel-eye/shared/observability/kioskLatency';
+import { measureOverlayDraw, reportKioskLatency } from '@smart-sentinel-eye/shared/observability/kioskLatency';
 import clsx from 'clsx';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useDispatch } from 'react-redux';
@@ -293,7 +293,15 @@ function Tile({
   // (ADR-0129). **Not frame accuracy** — it makes the label as old as the
   // picture and pairs nothing with a frame. A tile with no readable age, or one
   // past the cap, gets its label immediately.
-  const resolvedText = useLabelDelay(liveText, frameAgeMilliseconds);
+  // Reported per tile so one badly-buffered camera is visible, and reported
+  // as what was achieved rather than what was asked for (FR-015).
+  const reportHeld = useCallback(
+    (achievedMilliseconds: number) =>
+      reportKioskLatency('label_delay', tile.cameraIdentifier, achievedMilliseconds, getToken),
+    [tile.cameraIdentifier, getToken],
+  );
+
+  const resolvedText = useLabelDelay(liveText, frameAgeMilliseconds, reportHeld);
 
   const renderOverlay =
     !overlayUnavailable && publishedOverlay !== undefined && resolvedText !== undefined

@@ -246,6 +246,87 @@ public class KioskLatencyTests
         skews.ShouldBeEmpty("a negative spread is a caller bug, and five minutes is a throttled tab");
     }
 
+    /// <summary>
+    /// Spec 046. A label delay is a duration, unlike a skew — which makes
+    /// filing it as a segment far more tempting than filing a spread was.
+    ///
+    /// <para>
+    /// It still does not belong there. Every segment answers <em>how long did
+    /// this take</em>; this answers <em>how long did we decide to hold</em>,
+    /// and mixing an intended figure into observed ones lets a leg's p99 rise
+    /// because the mechanism worked. This test fails if someone files it as a
+    /// leg or a fragment of one.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_label_delay_never_lands_in_the_latency_segment_histogram()
+    {
+        List<Measurement> segments = Listen(
+            "kiosk-presentation-buffer",
+            "kiosk-overlay-draw",
+            "kiosk-receive-to-decoded");
+        List<double> holds = ListenToLabelDelay();
+
+        LabelDelay.Record(TimeSpan.FromMilliseconds(37), camera: null);
+
+        segments.ShouldBeEmpty("a hold is not a journey and does not belong to any leg");
+        holds.ShouldHaveSingleItem().ShouldBe(37, tolerance: 0.5);
+    }
+
+    /// <summary>
+    /// A skew and a hold are different quantities on the same reporting path,
+    /// and one landing in the other's instrument would be invisible: both are
+    /// milliseconds, both come from a kiosk, and neither has a leg to check
+    /// against.
+    /// </summary>
+    [Fact]
+    public void A_hold_and_a_skew_are_not_the_same_instrument()
+    {
+        List<double> skews = ListenToSkew();
+        List<double> holds = ListenToLabelDelay();
+
+        WallSkew.Record(TimeSpan.FromMilliseconds(27), camera: null);
+        LabelDelay.Record(TimeSpan.FromMilliseconds(37), camera: null);
+
+        skews.ShouldHaveSingleItem().ShouldBe(27, tolerance: 0.5);
+        holds.ShouldHaveSingleItem().ShouldBe(37, tolerance: 0.5);
+    }
+
+    /// <summary>
+    /// A negative hold is a caller bug and a five-minute one is a throttled
+    /// tab. Dropped rather than recorded, so either shows as missing data
+    /// rather than an impossibly prompt kiosk.
+    /// </summary>
+    [Fact]
+    public void An_impossible_hold_is_not_recorded()
+    {
+        List<double> holds = ListenToLabelDelay();
+
+        LabelDelay.Record(TimeSpan.FromMilliseconds(-5), camera: null);
+        LabelDelay.Record(TimeSpan.FromMinutes(5), camera: null);
+
+        holds.ShouldBeEmpty("a negative hold is a caller bug, and five minutes is a throttled tab");
+    }
+
+    private static List<double> ListenToLabelDelay()
+    {
+        List<double> values = [];
+        MeterListener listener = new()
+        {
+            InstrumentPublished = (instrument, active) =>
+            {
+                if (instrument.Meter.Name == LabelDelay.MeterName)
+                {
+                    active.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+
+        listener.SetMeasurementEventCallback<double>((_, measurement, _, _) => values.Add(measurement));
+        listener.Start();
+
+        return values;
+    }
     private static List<double> ListenToSkew()
     {
         List<double> values = [];

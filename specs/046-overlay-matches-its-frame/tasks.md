@@ -83,8 +83,8 @@ longer claims something it does not do.
 
 ## Phase 4: Measure what was applied (Part 2)
 
-- [ ] T012 **One task, one commit, both sides.** Add the measurement name to the closed set in `src/StreamDistribution/Api/StreamEndpoints.cs` **and** send it from `apps/shared/src/observability/kioskLatency.ts`. Update the validation message to name every accepted value. **Report the achieved delay, not the intended one** (FR-015).
-- [ ] T013 [P] Decide **and record** whether this is a `LatencySegment` or its own instrument. It *is* a duration, so a segment is defensible — **but it is not one of ADR-0015's six legs**, and spec 045's `WallSkew` exists precisely because filing a quantity under a name that means something else is how this codebase gets caught. Whichever is chosen, write the reason next to it.
+- [x] T012 **One task, one commit, both sides.** Add the measurement name to the closed set in `src/StreamDistribution/Api/StreamEndpoints.cs` **and** send it from `apps/shared/src/observability/kioskLatency.ts`. Update the validation message to name every accepted value. **Report the achieved delay, not the intended one** (FR-015).
+- [x] T013 [P] Decide **and record** whether this is a `LatencySegment` or its own instrument. It *is* a duration, so a segment is defensible — **but it is not one of ADR-0015's six legs**, and spec 045's `WallSkew` exists precisely because filing a quantity under a name that means something else is how this codebase gets caught. Whichever is chosen, write the reason next to it.
 
 ---
 

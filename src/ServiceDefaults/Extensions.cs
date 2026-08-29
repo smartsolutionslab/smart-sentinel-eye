@@ -73,7 +73,10 @@ public static class Extensions
                     .AddMeter(LatencyBudget.MeterName)
                     // Spec 045: a wall's skew is a spread, not a duration, so it
                     // rides its own meter rather than the latency segments.
-                    .AddMeter(WallSkew.MeterName);
+                    .AddMeter(WallSkew.MeterName)
+                    // Spec 046: a label delay is a duration, but one the kiosk
+                    // chose to add rather than one a frame spent travelling.
+                    .AddMeter(LabelDelay.MeterName);
             })
             .WithTracing(tracing =>
             {
