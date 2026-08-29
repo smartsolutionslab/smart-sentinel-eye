@@ -195,7 +195,58 @@ Two fixture defects, neither in scope here, both raised rather than absorbed:
 
 ---
 
-## 6. What is not verified
+## 6. Code review — three findings, all real, all fixed
+
+### The one that matters
+
+**The hold was blanking tiles on the ordinary path.** `shown` was written only
+by the timer, so it still held whatever it was seeded with at mount whenever a
+hold *began* without an intervening text change. On a cold load that is the
+normal sequence: the tile mounts before its overlay query resolves, the label
+arrives while no lag has been sampled yet, and the tile's first measurement a
+couple of seconds later starts a hold on the `undefined` from mount. **The label
+disappeared and did not come back** until the text next changed.
+
+The same defect in steady state reverted a label to its predecessor once a
+briefly-unreadable age returned — a superseded value shown as live. That is the
+precise failure the file's own comments say must not happen, and a mechanism
+built to stop an operator reading a stale value was producing one.
+
+**A hold released early left its timer running** and reported the full scheduled
+delay for a label already shown, so a tile whose statistics flicker inflated the
+histogram on every overlay update — against FR-015, which the same file insists
+on.
+
+**A comment had lost its subject.** `// Spec 046:  is routed away…` — the name
+`label_delay` was eaten by shell backtick substitution when the line was
+written. The error was visible at the time, the file was checked, and the
+conclusion drawn was that nothing had been corrupted. That conclusion was wrong.
+
+### Why none of this was caught here
+
+**Every test in §2 seeded a defined text at mount**, which happens to seed
+`shown` correctly, so all sixteen mutations could pass with the defect present.
+The mutation battery tested the transitions it had thought of; it could not test
+a starting state it never constructed. That is the limit of the technique and it
+is worth stating next to the confidence §2 otherwise earns.
+
+**The live walk would have caught it immediately** — a tile whose label vanishes
+two seconds after load is visible to anyone watching, unlike the ~24 ms this
+feature actually adjusts. It did not, because the walk never reached a wall with
+both video and a label (§5). The one verification that could not be completed is
+the one that would have found the defect the automated suite missed.
+
+### Disposition
+
+Fixed in `ae7ef81`, with three regression tests and the mutation battery re-run
+against the changed control flow: six mutations, each killed. `shown` is now
+kept in step with `text` on every non-holding render using React's documented
+pattern for adjusting state when a prop changes, and a hold in flight is settled
+from either end — the timer that completes it, or the render that releases it.
+
+---
+
+## 7. What is not verified
 
 - **The last link of the live walk** — a label changing while a readable frame
   age is in hand (§5). The inputs were observed; the hold itself was not.
