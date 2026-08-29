@@ -471,3 +471,75 @@ stale**. Recording them is not endorsing them.
 | **009 — Marten** | *"Only where a context's invariants justify it"* is honestly satisfied by "not yet justified anywhere". Recorded as unrealised. **But CLAUDE.md states it more strongly than the decision does**, and that overclaim *is* corrected (T013). |
 | **014, 021** | Already amended by specs 045 and 046. Recorded as amended rather than re-audited, so there is one record of each and not two. |
 | **All 14 "unverifiable here" claims** | Deployment, hardware and v2-intent statements. **Refusing to guess is the verdict**, and it needs no follow-up — but the ADR must say the audit deliberately stopped rather than ran out. |
+
+---
+
+## Verification (T017, T018)
+
+**Date**: 2026-08-29
+
+### T017 — the full backend suite, as CI runs it
+
+All **28 gated projects**, Release, **1 853 tests, zero failures** —
+`Architecture.Tests` now 75 (was 64).
+
+Run in full rather than as a subset **because spec 045 shipped a green subset
+and CI caught an architecture test that had never been run locally**. The same
+mistake here would have been especially poor, given this feature guards a
+document with an architecture test.
+
+### The guard was made to fail before it was trusted
+
+A guard nobody has seen fail is worth nothing — the lesson spec 045's code
+review delivered, where five tests passed against a component that never ran.
+
+| Mutation | Result |
+|---|---|
+| Restore *"**Prometheus** for metrics"* to §Stack | **Failed** 1 of 75 |
+| Change decision 019 back to *"The language is CEL"* | **Failed** 1 of 75 |
+| Both reverted | 75 pass |
+
+**The guard is a consistency check, not a text pin.** Each assertion reads the
+code *and* the record and fails when they disagree — in either direction. So
+building `IRuleEngine` does not fail the suite; building it and leaving §IX
+recording it as absent does.
+
+That is FR-012 satisfied by construction rather than by promise: **the guard
+cannot obstruct progress, because progress is one of the two states it accepts.**
+A guard that failed on legitimate work would be deleted within a month, taking
+the corrections' protection with it.
+
+### T018 — a person re-checks the boring rows
+
+**Boring rows deliberately**, per [quickstart.md](./quickstart.md) §2. The
+question is whether the *passes* were really performed, not whether the
+discoveries were interesting — and the failures are the part nobody is tempted
+to fake.
+
+| Row | Recorded | Re-check | Reproduced |
+|---|---|---|---|
+| 001 | Holds — `IValueObject` present | file present | ✅ |
+| 002 | Holds — no recording feature | second search on `IRecordingService`, `RecordingSegment`, `StartRecording` → none | ✅ |
+| 009 | Holds — no EventStoreDB | no matches in `src/`, `tests/` | ✅ |
+| 010 | Holds — RabbitMQ, 24 references | count is 24 | ✅ |
+| 016 | Holds — nine bounded contexts | count is 9 | ✅ |
+| 022 | Holds — rule dry-run | `DryRunRuleRequest.cs` present | ✅ |
+| 027 | Holds — layout claims | `.slnx`, `Shared.Kernel`, `Shared.Contracts`, `tests/`, `docs/adr/` all present | ✅ |
+
+**Seven of seven reproduced.** None was recorded on an assertion alone; each had
+a command, and each command still returns what the audit says.
+
+### What this verification does not establish
+
+- **That every one of the 46 holding claims was checked as carefully.** Seven
+  were re-run. The rest rest on the auditor's discipline, and no test can
+  distinguish a thorough audit from a plausible one — the artefact of both is
+  prose asserting that someone looked.
+- **That the 14 "unverifiable here" claims are true.** They are unverifiable;
+  that is the verdict. The fab's VLAN topology may be exactly as decision 013
+  says, or not.
+- **That the other ~100 ADRs are accurate.** Out of scope, and ADR-0117's leg
+  table and ADR-0026's abandoned stack suggest the same drift lives there.
+- **That the audit stays true.** It is accurate on 2026-08-29 and starts decaying
+  immediately. The guard slows that for the corrected claims and does nothing for
+  the other 46.
