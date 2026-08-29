@@ -74,7 +74,21 @@ Nine bounded contexts:
 
 ### IV. The Latency Budget Is Sacred (ADR-015)
 
-End-to-end SLO: **event arrival → overlay rendered, frame-synced ≤ 800 ms**.
+End-to-end SLO: **event arrival → overlay rendered ≤ 800 ms**.
+
+**The overlay is not frame-synced, and no longer claims to be** (ADR-0129).
+A label is layered over the video rather than composited into a frame, so it
+cannot be paired with the frame whose instant it describes — that needs a clock
+shared between the camera and the event source, which is PTP hardware this
+system does not have. **A label is instead *aged* to match its picture**: held
+back by its own tile's measured frame age, so both describe about the same
+moment.
+
+**Which way buffering moves it.** The picture is `buffer + processing` old, so
+**anything that adds playout buffer makes the picture older** — spec 045's wall
+alignment does exactly that, and widened this gap before it was noticed. Aged
+labels move *with* the buffer, so the pairing survives. **Any future change that
+adds buffer should read this paragraph before assuming it is free.**
 
 Sub-budgets (any leg breaching its budget triggers an ADR-class review):
 
@@ -449,9 +463,16 @@ contradicting tribal knowledge.
 
 ---
 
-**Version:** 1.5.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-08-29
+**Version:** 1.6.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-08-29
 
 **Amendment history.**
+1.6.0 — §IV withdraws the SLO's **frame-synced** claim (ADR-0129,
+issue 1967). The overlay is a label layered over the video, not paired with
+the frame whose instant it describes — which needs a clock shared between
+camera and event source, i.e. PTP hardware this system does not have. A
+label is **aged** to match its picture instead. §IV now also records **which
+way playout buffering moves the gap**, because spec 045 widened it by adding
+buffer and only a code reading noticed.
 1.5.0 — the founding decisions audited against the code (ADR-0130,
 issue 1969). §IX gains a **strategy interface** column and three of its
 four rows are corrected: the rule engine runs AEL not CEL, authorization

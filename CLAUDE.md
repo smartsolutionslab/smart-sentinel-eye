@@ -253,7 +253,9 @@ deploy/helm/            One hand-written Mosquitto chart. The Aspire k8s
 
 ## Latency budget (do not erode)
 
-`event arrival → overlay rendered, frame-synced ≤ 800 ms`, broken
+`event arrival → overlay rendered ≤ 800 ms` — **not frame-synced**
+(ADR-0129); a label is aged to match its picture rather than paired with
+a frame. Broken
 down as:
 
 | Leg | Budget |

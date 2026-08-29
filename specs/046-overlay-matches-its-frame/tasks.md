@@ -50,11 +50,11 @@ are unrelated without PTP hardware that does not exist.
 
 ## Phase 1: The record (US1, Part 1) — ships alone
 
-- [ ] T001 Write `docs/adr/0129-labels-are-aged-not-frame-matched.md`, amending ADR-0021. It must state: that ADR-0021 cannot be built as written; **all three blockers** from [research.md](./research.md), including the one that survives fixing the others (a camera's clock and the event source's clock are unrelated without PTP); that **age-matching is adopted and is not frame accuracy**; and that ADR-0128's media-path rejection is **preserved, not revisited**.
-- [ ] T002 [US1] Correct §IV's **"frame-synced"** wording and ADR-0015's leg description. §IV cannot change without T001's ADR (governance).
-- [ ] T003 [US1] Record, in one place a reader will find, **what the relationship actually is** — a label describes the moment its value changed; the picture beneath it is `buffer + processing` old — **and the direction playout buffering moves it** (FR-004). Without this the next feature to add buffer will not know it widened the gap, which is how this feature came to exist.
-- [ ] T004 [P] [US1] Extend `tests/Architecture.Tests/` with a guard on the corrected wording, following `FoundingDecisionRecordTests`' **consistency-check** shape rather than a text pin: it must fail if the record and the behaviour disagree, and **must not fail when the record is legitimately updated**.
-- [ ] T005 [P] [US1] Test that the guard permits a legitimate rewording. Spec 047's review found a guard that made partial progress unrepresentable; this is the check that catches that class.
+- [x] T001 Write `docs/adr/0129-labels-are-aged-not-frame-matched.md`, amending ADR-0021. It must state: that ADR-0021 cannot be built as written; **all three blockers** from [research.md](./research.md), including the one that survives fixing the others (a camera's clock and the event source's clock are unrelated without PTP); that **age-matching is adopted and is not frame accuracy**; and that ADR-0128's media-path rejection is **preserved, not revisited**.
+- [x] T002 [US1] Correct §IV's **"frame-synced"** wording and ADR-0015's leg description. §IV cannot change without T001's ADR (governance).
+- [x] T003 [US1] Record, in one place a reader will find, **what the relationship actually is** — a label describes the moment its value changed; the picture beneath it is `buffer + processing` old — **and the direction playout buffering moves it** (FR-004). Without this the next feature to add buffer will not know it widened the gap, which is how this feature came to exist.
+- [x] T004 [P] [US1] Extend `tests/Architecture.Tests/` with a guard on the corrected wording, following `FoundingDecisionRecordTests`' **consistency-check** shape rather than a text pin: it must fail if the record and the behaviour disagree, and **must not fail when the record is legitimately updated**.
+- [x] T005 [P] [US1] Test that the guard permits a legitimate rewording. Spec 047's review found a guard that made partial progress unrepresentable; this is the check that catches that class.
 
 **Checkpoint**: **Part 1 complete and independently shippable.** The system no
 longer claims something it does not do.
