@@ -53,9 +53,9 @@ Nine bounded contexts:
 4. **System Variables** — typed variables, defaults, value-change history.
 5. **Event Ingestion** — event-type registry, REST + AMQP ingress,
    schema validation, hybrid strict/discovery model per source.
-6. **Overlay Designer** — overlay primitives, CEL-bound expressions,
+6. **Overlay Designer** — overlay primitives, AEL-bound expressions,
    draft → preview → publish lifecycle.
-7. **Automation** — declarative rules + CEL conditions; commands only,
+7. **Automation** — declarative rules + AEL conditions; commands only,
    never direct mutations of other contexts.
 8. **Identity & Authorization** — Keycloak federation, kiosk enrolment,
    RBAC enforcement through `IAuthorizationDecisionPoint`.
@@ -243,17 +243,30 @@ OpenTelemetry (provided by Aspire defaults).
 
 ### VIII. Safe by Default at Trust Boundaries
 
-- **External events** are validated against a registered schema before
-  reaching rules or overlays (ADR-018). Unknown types are quarantined,
-  not silently dropped.
-- **Kiosks** authenticate with device-bound credentials and view-only
-  scopes. PTZ and layout changes require an operator token bound to
-  the kiosk (ADR-008).
-- **Cameras** live on an isolated OT VLAN; StreamKeeper is the only
-  bridge (ADR-013).
-- **Authorization** is mediated by `IAuthorizationDecisionPoint`. v1 is
-  fixed-RBAC mapped to Keycloak realm roles (ADR-023); v2 can plug in a
-  policy engine without refactoring call sites.
+- **External events.** Rejected deliveries are **dead-lettered**, captured
+  with payload and error, audit-only and never fanned out. But there is
+  **no event-type registry, no per-source strict/discovery mode and no
+  promotion path**, so an *unknown* type is ingested like any other rather
+  than quarantined for review. The intended guarantee stands as a
+  requirement (ADR-018, ADR-0130, issue 1972), **not as a description of
+  today**.
+- **Kiosks.** Device-bound credentials **exist** — `POST /kiosks/enroll`
+  mints a per-kiosk confidential client with a service account and a
+  single-reveal secret. **The kiosk app does not use them**: it signs in
+  as the shared public client through the authorization-code flow, with
+  view-only scopes (ADR-008, ADR-0130, issue 1976). Kiosk-bound operator
+  elevation is not built, and PTZ is not built, so that constraint has
+  nothing to bind.
+- **Cameras** are reached only by the SFU; no other service opens a
+  connection to one, and that much is enforced in code. **The OT VLAN
+  split and the dual-NIC bridge are deployment properties this repository
+  cannot verify**, and *StreamKeeper* does not exist as a component
+  (ADR-013, ADR-0130).
+- **Authorization** is enforced by scope checks at every endpoint, plus
+  fab-group membership. **`IAuthorizationDecisionPoint` does not exist**,
+  so v2 cannot plug in a policy engine without touching call sites — the
+  §IX obligation this bullet assumed is unmet (ADR-023, ADR-0130, issue
+  1970).
 
 ### IX. Forward-Compatible Strategy Interfaces
 
@@ -287,7 +300,8 @@ unrecorded for as long as nobody looked.
   forced. Sizing: ~1 NVENC-class GPU per 50–100 transcodes (ADR-011).
 - **Scaling:** Horizontal shard-by-camera. Coordinator owns the
   cam→SFU map. Failover ≤ 5 s (ADR-012).
-- **Camera protocols:** RTSP + ONVIF Profile S/T on day one (ADR-005).
+- **Camera protocols:** RTSP. **ONVIF Profile S/T was decided "on day
+  one" and is absent** (ADR-005, ADR-0130, issue 1973).
 - **Time sync:** PTP (IEEE 1588) grandmaster per fab (ADR-014). NTP is
   fallback only and triggers `time_uncertain` flags. **This stands**, for
   fab-wide correlation and for inter-display sync — ADR-0128 amended
@@ -300,7 +314,9 @@ unrecorded for as long as nobody looked.
 - **PostgreSQL** as default persistence (ADR-009). **TimescaleDB**
   (PostgreSQL extension) is permitted in time-series-shaped contexts;
   current use is AuditObservability per ADR-0101. **MinIO** for object
-  storage (future snapshots, eventual recording).
+  storage — **in use today**: audit chunks are archived to it by
+  `MinioAuditChunkArchiver` (ADR-0101, ADR-0130). Snapshots and recording
+  remain future uses.
   **Marten** remains permitted for event-sourced contexts and **is not
   used anywhere** — no context has yet justified it (ADR-0130).
   **Metrics go to the sink ADR-0118 chose**, not to Prometheus.
@@ -341,8 +357,12 @@ unrecorded for as long as nobody looked.
 
 - 24/7 operation. Rolling updates are zero-downtime.
 - StreamKeeper failover ≤ 5 s.
-- A wall of 20 kiosks rebooting must come up unattended (kiosks use
-  device-bound `client_credentials`).
+- A wall of 20 kiosks rebooting must come up unattended. **Not achievable
+  today** — the kiosk app signs in through the interactive
+  authorization-code flow, so each screen needs a person after a reboot.
+  The device-bound `client_credentials` this target assumes **do exist**
+  (`POST /kiosks/enroll`); the app simply does not use them, which makes
+  the gap smaller than it looks (ADR-0130, issue 1976).
 
 ### Security
 
@@ -441,7 +461,7 @@ dual-sink stack ADR-0118 abandoned. **Two interfaces §IX mandates "in
 v1" do not exist** (issue 1970). §VI's resource list named Prometheus,
 which the AppHost does not declare; §Stack claimed Prometheus for
 metrics and overstated Marten; §Retention promised 30 days in Prometheus
-with Thanos or Mimir, none of which exist. Of 99 audited claims, 46 hold.
+with Thanos or Mimir, none of which exist. Of 89 audited claims, 52 hold.
 1.4.0 — §IV's leg table: the presentation buffer moves from unbuilt to
 implemented and **recorded, not yet observed**, a fourth state defined
 beside the existing three — the figure reaches the sink but no person has

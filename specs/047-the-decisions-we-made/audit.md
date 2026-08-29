@@ -133,13 +133,22 @@ Marked superseded in the row itself. Not audited; 015 is audited in its place.
 | Claim | Verdict | Evidence |
 |---|---|---|
 | Kiosk uses `client_credentials` | **Diverges** | `smart-sentinel-eye-realm.json`, client `kiosk-web`: `"publicClient": true`, `"standardFlowEnabled": true`, `"directAccessGrantsEnabled": false`, **no service account**. It uses the authorization-code flow |
-| Device-bound credential | **Not built** | name: no device-code or device-binding config in the realm. job: the kiosk signs in interactively — spec 045's contract test had to drive a browser session precisely because no token can be minted for it out of band |
+| Device-bound credential | **Built, and unused by the app** *(corrected — see below)* | `EnrollKioskCommandHandler.cs` creates a per-kiosk **confidential** client (`ServiceAccountsEnabled: true`, `PublicClient: false`, `StandardFlowEnabled: false`) and `POST /kiosks/enroll` returns a single-reveal secret. **But `apps/kiosk-web` signs in as the shared public `kiosk-web` client via auth-code and never uses an enrolled credential** (issue 1976) |
 | View-only scope | **Holds** | Kiosk token carries read scopes only; asserted in `e2e/kiosk-identity.spec.ts` |
 | Operators use auth-code flow and bind to a kiosk | **Partly** — auth-code holds; **binding not built** | `smart-sentinel-eye-web` uses the code flow; no kiosk-binding mechanism exists |
 | No PTZ without an operator token | **Unverifiable here** | PTZ is not built at all, so the constraint has nothing to bind |
 
-**Disposition**: legitimise — ADR. The system's choice is defensible; the row
-describes a design that was not taken.
+**Disposition**: correct — issue 1976. The row describes a design that **was**
+taken, in the Identity context, and that the kiosk app does not use.
+
+> **This verdict was wrong when first recorded, and the error is instructive.**
+> The original check read the realm's `kiosk-web` browser client, saw
+> `publicClient: true` with no service account, and concluded the device-bound
+> credential did not exist. **The second search this audit's own method requires
+> — for the *job*, under any other name — was not run.** The enrolment handler
+> was one grep away. Found in code review; recorded here rather than quietly
+> amended, because an audit that hides its own misses is worth less than one
+> that shows them.
 
 ### 009 — persistence and infrastructure → **Mixed, and one systemic finding**
 
@@ -148,7 +157,7 @@ describes a design that was not taken.
 | PostgreSQL as the default | **Holds** | `timescale/timescaledb` container; every context persists to Postgres |
 | Marten where invariants justify it | **Not built** *(unrealised intention)* | name: `grep -ril "marten" --include=*.csproj` → no package reference; the only source hit is a comment in `Camera.cs`. job: no event sourcing anywhere. **"Not yet justified anywhere" is a fair reading** — recorded as unrealised, not false |
 | **Prometheus for metrics** | **Not built — and contradicted by an accepted ADR** | name: only occurrence in `src/` is a *comment* in `mediamtx.yml` about MediaMTX's own exposition format. job: no Prometheus container in `AppHost.cs`, no exporter package. **ADR-0118 abandoned the Grafana/Prometheus stack and chose the Aspire dashboard as the single sink** |
-| MinIO as the future object store | **Holds** | Declared in `AppHost.cs`; "future" is accurate — nothing stores objects yet |
+| MinIO as the future object store | **Diverges** *(corrected)* | Declared in `AppHost.cs` — and **"future" is wrong**: `MinioAuditChunkArchiver.cs` calls `PutObjectAsync`, driven by `AuditRetentionHostedService`. Objects are archived today (ADR-0101). Missed on the first pass by reading the decision rather than looking for a writer |
 | No EventStoreDB | **Holds** | `grep -ril "eventstore" src/ tests/ --include=*.cs --include=*.csproj` → no matches |
 
 **The Prometheus claim is not confined to this row.** The constitution repeats it
@@ -255,14 +264,16 @@ trip over: an overlay expecting a datetime variable cannot have one.
 |---|---|---|
 | Per-source `strict` flag | **Not built** | name: `grep -rn "strict" src/EventIngestion` → one hit, an unrelated comment about a grammar allow-list. job: no per-source validation mode on `IProvisionedFabSource` |
 | Per-source `discovery` flag | **Not built** | name: no matches. job: no branch treating unknown event types differently |
-| Quarantine of unknown events | **Not built** | name: `grep -ril "quarantine" src/ apps/` → no matches. job: `grep -ril "unregistered\|unknownEvent\|inspector\|promote"` → no matches |
+| Quarantine of unknown events | **Partly — under another name** *(corrected)* | `src/EventIngestion/Domain/DeadLetter/DeadLetter.cs` captures rejected deliveries with topic, payload and error, documented *"Audit-only — no fan-out"*, listable via `ListDeadLettersQuery`. **This is quarantine for what *fails*; decision 018 is about what is *unknown*.** The first pass searched `quarantine`, `unregistered`, `unknownEvent`, `inspector` and `promote` — but not *dead letter*, the canonical alternative name |
 | Inspector UI for promotion | **Not built** | No such page in `apps/management-web` |
 | An event-type registry to promote into | **Not built** | `grep -ril "EventTypeRegistry\|RegisteredEventType" src/` → no matches |
 | Validated events feed rules/overlays | **Holds** | Ingested events drive Automation rules and overlay variables |
-| Quarantined events are audit-only | **n/a** | Nothing is quarantined |
+| Quarantined events are audit-only | **Holds** *(corrected)* | Dead letters are explicitly audit-only, with no fan-out |
 
-**The whole registration model is absent**, not merely its UI. Both searches ran
-and both failed. **Disposition**: correct — issue.
+**The registration model is absent**, though not the whole of quarantine. There
+is no registry to be unknown *relative to*, no per-source mode, and no promotion
+path — an unrecognised type is ingested like any other. **Disposition**: correct
+— issue 1972, whose premise was corrected once dead-lettering was found.
 
 ---
 
@@ -304,7 +315,7 @@ it over CEL. If anyone thinks CEL was right, that is an issue.)*
 | CEL conditions | **Diverges** | AEL — see 019 |
 | Cooldowns, priority/conflict policy | **Holds** | Present in the rule aggregate |
 | Builder UI | **Holds** | `apps/management-web` rules pages |
-| **`IRuleEngine` as a strategy interface** | **Not built** | name: `grep -ril "IRuleEngine" src/ tests/` → no matches. job: `grep -ril "RuleEngine\|IRuleStrategy\|EngineTag"` → no matches. **§IX mandates this "in v1"** |
+| **`IRuleEngine` as a strategy interface** | **Not built** | name: `grep -ril "IRuleEngine" src/` → no matches *(scoped to `src/`: this feature's own guard test names the symbol, so the original `tests/` scope no longer reproduces)*. job: `grep -ril "RuleEngine\|IRuleStrategy\|EngineTag"` → no matches. **§IX mandates this "in v1"** |
 | Rule definitions engine-tagged | **Not built** | No engine tag on a rule |
 | Execution issues commands via RabbitMQ, never direct DB writes | **Holds** | Rule actions publish; `Architecture.Tests` enforces the boundary |
 
@@ -340,7 +351,7 @@ behaviour is **not re-audited here**, to avoid two records of one thing.
 | Per-context scope bundles | **Holds** | `sse.management`, and per-endpoint `sse.*.write` scopes |
 | Roles mapped to Keycloak realm roles | **Partly** | Two are; the other two do not exist |
 | Customer-specific variants via groups | **Holds** *(differently)* | Groups exist and carry **fab** membership, not role variants |
-| **`IAuthorizationDecisionPoint`** | **Not built** | name: `grep -ril "IAuthorizationDecisionPoint\|DecisionPoint" src/ tests/` → no matches. job: authorization is enforced by scope checks at endpoints. **§IX mandates this "in v1"** |
+| **`IAuthorizationDecisionPoint`** | **Not built** | name: `grep -ril "IAuthorizationDecisionPoint" src/` → no matches *(scoped to `src/`: this feature’s own guard test names the symbol, so the original `tests/` scope no longer reproduces)*. job: authorization is enforced by scope checks at endpoints. **§IX mandates this "in v1"** |
 
 **Authorization works — by scopes and fab groups, not by the four named roles.**
 **Disposition**: both. Legitimise the scope-based model by ADR; raise an issue
@@ -405,22 +416,57 @@ it). The two missing interfaces → correct, issues.
 
 ---
 
-## Final tally
+## Final tally — recounted
 
-| Range | Holds | Diverges | Not built | Unverifiable |
-|---|---|---|---|---|
-| 001–009 | 12 | 3 | 8 | 8 |
-| 010–018 | 13 | 3 | 9 | 2 |
-| 019–027 | 20 | 4 | 6 | 4 |
-| §IX | 1 | 3 | 3 | 0 |
-| **Total** | **46** | **13** | **26** | **14** |
+> **The first published tally was wrong.** It read *"99 claims, 46 hold"*, and
+> neither number reconciled with the tables above. Found in code review, recounted
+> mechanically from the tables themselves rather than re-estimated.
 
-**99 claims across 27 decisions and 4 §IX rows. Forty-six hold.**
+**89 claims** in the decision tables, plus **§IX's 4 rows**, audited separately
+because they are checked against accepted ADRs as well as code.
 
-**The reconnaissance said "at least nine of twenty-seven".** The audit finds
-problems in **fourteen** decisions plus three §IX rows — and confirms thirteen
-decisions substantially hold. Both halves matter: the record is worse than the
-spot-check suggested, and it is not worthless.
+| Verdict | Count |
+|---|---|
+| Holds | 52 |
+| Not built | 14 |
+| Unverifiable here | 12 |
+| Diverges | 7 |
+| Partly | 3 |
+| n/a (superseded or amended elsewhere) | 1 |
+| **Total** | **89** |
+
+**A fifth label appears, and it is a shorthand rather than a fifth verdict.**
+*Partly* marks a claim whose sub-parts genuinely differ and which was not worth
+splitting further — decision 022's four contexts, for instance, where three hold
+and one does not. Recording it honestly beats forcing it into one of the four,
+but it is the seam where the taxonomy stopped being clean, and a later audit
+should split rather than inherit it.
+
+**§IX**: one row holds, three do not — two describing interfaces that do not
+exist, one contradicted by an accepted ADR (ADR-0118).
+
+**Fifty-two of eighty-nine hold.** The reconnaissance guessed *"at least nine of
+twenty-seven"* decisions were wrong; the audit finds problems in **fourteen**
+decisions plus three §IX rows, and confirms the majority of claims are accurate.
+Both halves matter: the record is worse than the spot-check suggested, and it is
+not worthless.
+
+### Three verdicts were wrong on the first pass
+
+Found in code review, corrected above, and left visible rather than quietly
+amended — an audit that hides its own misses is worth less than one that shows
+them.
+
+| Claim | First verdict | Corrected | How it was missed |
+|---|---|---|---|
+| 008 — device-bound credential | Not built | **Built, unused by the app** | Read the realm's browser client; never searched the code for the enrolment handler |
+| 009 — MinIO "future" object store | Holds | **Diverges** — objects are archived today | Read the decision; never looked for a writer |
+| 018 — quarantine of unknown events | Not built | **Partly, as dead-lettering** | Searched five synonyms, but not *dead letter* — the canonical one |
+
+**All three are the same failure**: the second search this audit's own method
+requires — for the *job*, under any other name — was not run. The rule was
+written down and then not followed, which is worth more as a recorded example
+than as an embarrassment quietly fixed.
 
 ---
 
@@ -531,7 +577,7 @@ a command, and each command still returns what the audit says.
 
 ### What this verification does not establish
 
-- **That every one of the 46 holding claims was checked as carefully.** Seven
+- **That every one of the 52 holding claims was checked as carefully.** Seven
   were re-run. The rest rest on the auditor's discipline, and no test can
   distinguish a thorough audit from a plausible one — the artefact of both is
   prose asserting that someone looked.

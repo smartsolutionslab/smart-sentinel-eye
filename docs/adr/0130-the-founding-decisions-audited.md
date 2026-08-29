@@ -32,17 +32,19 @@ rule**. The same mechanism applies to §IX, which mandates strategy interfaces
 
 ### What the audit found
 
-**99 claims across 27 decisions and §IX's 4 rows.** Full evidence, per claim,
-in `specs/047-the-decisions-we-made/audit.md`.
+**89 claims across 27 decisions, plus §IX's 4 rows.** Full evidence, per
+claim, in `specs/047-the-decisions-we-made/audit.md`.
 
 | Verdict | Count |
 |---|---|
-| Holds | 46 |
-| Diverges | 13 |
-| Not built | 26 |
-| Unverifiable here | 14 |
+| Holds | 52 |
+| Not built | 14 |
+| Unverifiable here | 12 |
+| Diverges | 7 |
+| Partly | 3 |
+| n/a | 1 |
 
-**Forty-six hold.** This is a correction, not a demolition — and a result that
+**Fifty-two hold.** This is a correction, not a demolition — and a result that
 condemned everything would itself have been suspect.
 
 ### The method, because the verdicts depend on it
@@ -80,8 +82,11 @@ decision was stale:
   as the single sink. Nothing needs building; **the record simply never followed
   an accepted ADR** — in four places (row 009, §Stack, §AppHost's resource list,
   and §Retention's 30-day/Thanos/Mimir policy).
-- **008 — the kiosk uses the authorization-code flow**, as a public client with a
-  view-only scope, not a device-bound `client_credentials` credential.
+- **008 — the kiosk *app* uses the authorization-code flow**, as a public client
+  with a view-only scope. **The device-bound `client_credentials` design is
+  built** — `EnrollKioskCommandHandler` mints a per-kiosk confidential client —
+  **and the app does not use it** (issue 1976). *This entry was wrong in the
+  first draft and is corrected here; see the audit's note on how.*
 - **023 — authorization is by scopes and fab groups**, not the four named roles
   (`admin`, `operator`, `viewer`, `kiosk`). The realm defines two: `user` and
   `admin`. Authorization is enforced at every endpoint and works.
