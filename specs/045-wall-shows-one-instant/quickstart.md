@@ -49,29 +49,46 @@ receiver.jitterBufferTarget = 400;
 
 Then watch, over the next few control cycles:
 
-- **Expected**: the wall notices, and either pulls the other tiles toward it
-  (if it is inside the 200 ms cap) or **releases and marks** the outlier
-  (if it is not). At 400 ms it is outside the cap, so it must be released.
-- **Failure to look for**: the wall holds to the outlier anyway and every tile
-  becomes ~400 ms late. That is FR-006's breach — alignment bought past the
-  budget — and it is invisible without measuring.
+Then watch over the next few control cycles.
 
-Repeat with a value **inside** the cap (say 120 ms). Now the wall should *hold*
-to it: the other tiles slow to match, and the spread closes.
+**Two outcomes are both correct, and which one you get depends on the tile's
+own decode processing** — the cap bounds the *buffer* a tile is asked to hold
+(`target − processing`), not its total lag. So:
+
+- **The wall pulls the outlier back**, because a 400 ms setpoint is simply
+  overwritten by the wall's own next setpoint. Observed on one run.
+- **Or the wall releases and marks it**, because holding it would push another
+  tile's buffer past 200 ms. Observed on the other run, with the neighbour
+  holding steady at 25.4 ms.
+- **Failure to look for**: the wall follows the outlier and *every* tile becomes
+  ~400 ms late. That is FR-006's breach — alignment bought past the budget — and
+  it is invisible without measuring.
+- **The other failure, which is subtler**: every tile stays aligned with the
+  others but the whole wall **climbs** run after run. That is the runaway T026
+  found — two tiles induced at 120 ms reached ~654 ms. If the numbers rise every
+  time you re-measure, the setpoint is being confused with the target.
+
+Repeat with a value **inside** the cap (say 120 ms). The wall should absorb it:
+spread closes to a couple of milliseconds and **absolute lag stays put**
+(~25–35 ms observed), rather than settling at 120.
 
 **Record the numbers, not the impression.** Spread before, spread after, and the
-absolute lag of every tile in both cases. R4 measured absolute lag roughly
-doubling when alignment engaged — confirm what it costs here.
+absolute lag of every tile in both cases. R4's isolated probe suggested aligning
+roughly doubles absolute lag; on a real wall it did **not** — the worst tile came
+out slightly faster. Confirm which happens here.
 
 ---
 
 ## 2. The boundary, where it will oscillate if it is going to
 
-Set a tile to sit **just either side of the 200 ms cap** — try 195 ms and
-205 ms.
+Drive a tile to alternate either side of **feasibility** — not of a fixed
+200 ms, since the cap applies to `target − processing` rather than to the lag.
+In practice: alternate a large and a modest `jitterBufferTarget` on one tile,
+a few seconds apart, and watch its badge.
 
 - **Expected**: it settles as held or released and **stays** there. Hysteresis
-  holds it.
+  is keyed on the feasibility decision and needs several consecutive cycles in
+  either direction, so a tile straddling the line does not flip.
 - **Failure to look for**: the badge blinks. A tile flipping between held and
   released every cycle is the edge case the spec names, and it is only visible
   by watching for several seconds.
