@@ -26,6 +26,7 @@
     "./observability/resilienceLog": "./src/observability/resilienceLog.ts",
     "./observability/kioskLatency": "./src/observability/kioskLatency.ts",
     "./observability/wallAlignment": "./src/observability/wallAlignment.ts",
+    "./observability/labelDelay": "./src/observability/labelDelay.ts",
     "./streaming": "./src/streaming/index.ts",
     "./streaming/WhepClient": "./src/streaming/WhepClient.ts",
     "./ui": "./src/ui/index.ts",

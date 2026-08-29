@@ -52,6 +52,18 @@ export interface WallAlignment {
    * </p>
    */
   targetFor: (tileKey: string) => number | null;
+  /**
+   * How old this tile's picture is, in milliseconds, or null when it cannot be
+   * read (spec 046).
+   *
+   * <p>
+   * Buffer plus decode processing — the same delta the controller equalises.
+   * Exposed so a label can be held back by it, which is <b>not</b> frame
+   * accuracy: it makes the label as old as the picture, and pairs nothing with
+   * a frame (ADR-0129).
+   * </p>
+   */
+  frameAgeFor: (tileKey: string) => number | null;
   /** Tiles that could not be held inside the leg's budget (FR-012). */
   released: ReadonlySet<string>;
   /** The spread across held tiles, or null when there is nothing to compare. */
@@ -225,9 +237,15 @@ export function useWallAlignment(tileCount: number, getToken?: () => Promise<str
     [aligning, held, target],
   );
 
+  // The tile's own measured lateness, straight from the sample the controller
+  // already keeps. Stale samples age out of `lagsRef` on the settle cycle, so a
+  // departed tile stops reporting an age rather than reporting an old one.
+  const frameAgeFor = useCallback((tileKey: string) => lagsRef.current.get(tileKey)?.lagMilliseconds ?? null, []);
+
   return {
     reportLag,
     targetFor,
+    frameAgeFor,
     // Derived, not stored: a wall below two tiles makes no claim, so it shows
     // no badges and reports no spread — without an effect writing state.
     released: aligning ? released : NO_TILES,
