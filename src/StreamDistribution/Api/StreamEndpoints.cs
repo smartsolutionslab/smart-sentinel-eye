@@ -90,12 +90,15 @@ public static class StreamEndpoints
     /// </summary>
     /// <param name="Measurement">
     /// Which figure this is — <c>overlay_draw</c>, <c>receive_to_decoded</c>,
-    /// <c>presentation_buffer</c> or <c>wall_skew</c> (spec 045).
+    /// <c>presentation_buffer</c>, <c>wall_skew</c> (spec 045) or
+    /// <c>label_delay</c> (spec 046).
     /// Separate figures, never one combined number: a single value would
     /// satisfy any check that a number exists while measuring no budget at all.
-    /// <c>wall_skew</c> is carried here but is <b>not</b> a latency segment —
-    /// a spread between two tiles is not a duration any frame spent
-    /// travelling, and it is routed to its own instrument.
+    /// Two of these are carried here but are <b>not</b> latency segments, for
+    /// two different reasons, and both are routed to their own instrument.
+    /// <c>wall_skew</c> is not a duration at all — it is a spread between two
+    /// tiles, and no frame ever took it. <c>label_delay</c> is a duration, but
+    /// one the kiosk chose to add rather than one a frame spent travelling.
     /// </param>
     /// <param name="Camera">The tile's camera, so one bad tile is visible.</param>
     /// <param name="ElapsedMilliseconds">
@@ -147,6 +150,13 @@ public static class StreamEndpoints
         // that means a journey (ADR-0128).
         bool isWallSkew = report.Measurement == "wall_skew";
 
+        // Spec 046:  is routed away for a different reason. It is a
+        // duration, so a segment would have been the tempting filing — but it
+        // is a wait the kiosk added, not a leg or a fragment of one, and mixing
+        // an intended figure into observed ones lets a p99 rise because the
+        // mechanism worked (ADR-0129).
+        bool isLabelDelay = report.Measurement == "label_delay";
+
         LatencySegment? segment = report.Measurement switch
         {
             "overlay_draw" => LatencySegment.KioskOverlayDraw,
@@ -155,12 +165,15 @@ public static class StreamEndpoints
             _ => null,
         };
 
-        if (segment is null && !isWallSkew)
+        if (segment is null && !isWallSkew && !isLabelDelay)
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
                 [nameof(report.Measurement)] =
-                    ["must be 'overlay_draw', 'receive_to_decoded', 'presentation_buffer' or 'wall_skew'"],
+                    [
+                        "must be 'overlay_draw', 'receive_to_decoded', 'presentation_buffer', "
+                        + "'wall_skew' or 'label_delay'",
+                    ],
             });
         }
 
@@ -190,6 +203,12 @@ public static class StreamEndpoints
         if (isWallSkew)
         {
             WallSkew.Record(TimeSpan.FromMilliseconds(report.ElapsedMilliseconds), report.Camera);
+            return Results.Accepted();
+        }
+
+        if (isLabelDelay)
+        {
+            LabelDelay.Record(TimeSpan.FromMilliseconds(report.ElapsedMilliseconds), report.Camera);
             return Results.Accepted();
         }
 

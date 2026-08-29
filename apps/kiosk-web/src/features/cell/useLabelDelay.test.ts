@@ -215,4 +215,61 @@ describe('useLabelDelay', () => {
     });
     expect(result.current).toBe('second');
   });
+
+  /**
+   * **FR-015.** The hold that was achieved, never the one that was asked for.
+   * A timer fires late under load; reporting the intended figure would make
+   * the metric agree with itself no matter what the browser did, which is a
+   * dashboard that cannot show its own mechanism failing.
+   *
+   * <p>
+   * Induced by advancing past the due time before letting the timer run, so a
+   * report of exactly 150 fails. Passive observation on an idle box gives the
+   * intended figure either way and proves nothing.
+   * </p>
+   */
+  it('Reports the hold it achieved rather than the one it intended', () => {
+    const reported: number[] = [];
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+
+    const { rerender } = renderHook(
+      ({ text, age }: { text: string | undefined; age: number | null }) =>
+        useLabelDelay(text, age, (achieved) => reported.push(achieved)),
+      { initialProps: { text: 'first' as string | undefined, age: 150 as number | null } },
+    );
+
+    rerender({ text: 'second', age: 150 });
+    expect(reported, 'nothing reported while still held').toHaveLength(0);
+
+    // The timer was due at 150 but the tab was busy until 190.
+    now = 190;
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+
+    expect(reported).toEqual([190]);
+  });
+
+  /**
+   * Nothing held, nothing reported. A zero-length sample would read as a
+   * perfect hold for a label nobody delayed — the same trap the latency
+   * client names in its own guard.
+   */
+  it('Reports nothing for a tile whose label was never held', () => {
+    const reported: number[] = [];
+
+    const { rerender } = renderHook(
+      ({ text, age }: { text: string | undefined; age: number | null }) =>
+        useLabelDelay(text, age, (achieved) => reported.push(achieved)),
+      { initialProps: { text: 'first' as string | undefined, age: null as number | null } },
+    );
+
+    rerender({ text: 'second', age: null });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(reported).toHaveLength(0);
+  });
 });
