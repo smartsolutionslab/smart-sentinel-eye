@@ -4,7 +4,7 @@
 **Date:** 2026-08-28
 **Amends:** ADR-014 (video-wall sync), constitution §III's Stream Distribution
 description, §IV's leg names, and §Frontend's browser requirements
-**Relates to:** ADR-015, ADR-0021, ADR-0117, ADR-0122, ADR-0123, spec 045, #1714
+**Relates to:** ADR-015, ADR-0021, ADR-0117, ADR-0122, ADR-0123, spec 045, issue 1714
 
 ## Context
 
