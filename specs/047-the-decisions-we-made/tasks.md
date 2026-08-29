@@ -46,8 +46,8 @@ with evidence, exactly like rows that fail.
 
 ## Phase 1: The record to write into
 
-- [ ] T001 Create `specs/047-the-decisions-we-made/audit.md` with the table shape from [data-model.md](./data-model.md): decision, claim, verdict, evidence, disposition. One row **per claim**. Include the four verdicts and the rule for each at the top, so an auditor does not have to hold them in their head.
-- [ ] T002 Seed it with the three worked examples from [research.md](./research.md) — 005, 012, 013 — as the reference for what a good entry looks like. **They are the calibration**: same component, three different verdicts, and each shows the two-search rule producing a different answer.
+- [x] T001 Create `specs/047-the-decisions-we-made/audit.md` with the table shape from [data-model.md](./data-model.md): decision, claim, verdict, evidence, disposition. One row **per claim**. Include the four verdicts and the rule for each at the top, so an auditor does not have to hold them in their head.
+- [x] T002 Seed it with the three worked examples from [research.md](./research.md) — 005, 012, 013 — as the reference for what a good entry looks like. **They are the calibration**: same component, three different verdicts, and each shows the two-search rule producing a different answer.
 
 **Checkpoint**: there is somewhere to write, and an example of the standard.
 
@@ -65,7 +65,7 @@ the ones that get dropped when the work gets repetitive:
 - use **unverifiable here** for deployment, hardware or topology claims rather
   than guessing — 013 is the pattern.
 
-- [ ] T003 [US1] Audit decisions **001–009** into `audit.md`. Known ground: 005 diverges partly (RTSP holds, ONVIF absent, vendor adapters absent) and 008's kiosk auth claim is contradicted by the realm — the client is public and uses the authorization-code flow, not `client_credentials`. 009's Marten claim reads as an unrealised intention rather than a falsehood; say which and why.
+- [x] T003 [US1] Audit decisions **001–009** into `audit.md`. Known ground: 005 diverges partly (RTSP holds, ONVIF absent, vendor adapters absent) and 008's kiosk auth claim is contradicted by the realm — the client is public and uses the authorization-code flow, not `client_credentials`. 009's Marten claim reads as an unrealised intention rather than a falsehood; say which and why.
 - [ ] T004 [US1] Audit decisions **010–018** into `audit.md`. Known ground: 012 is not built (no shard, no coordinator, no ownership map — the only `failover` in the AppHost is an unrelated comment); 013 is unverifiable here; 016 **holds** and its count is recorded. 011's GPU transcode is an unrealised intention.
 - [ ] T005 [US1] Audit decisions **019–027** into `audit.md`. Known ground: 019 diverges — the language is AEL (`AelLexer`, `AelParser`, `AelInterpreter`), not CEL; 020 and 023 name interfaces that are absent; 025's Helm claim is partial (`deploy/helm` holds one chart, for Mosquitto). **014 and 021 are already amended** by specs 045 and 046 — record them as such rather than re-auditing.
 - [ ] T006 [US1] Audit constitution **§IX**'s four rows into `audit.md`. **Check each against accepted ADRs as well as code** — its observability row still says *"Both Aspire + Grafana"*, which ADR-0118 abandoned. Nothing in the code changed; an ADR did, and a code-only check misses it entirely. The rule-engine row also carries the CEL error from 019.
