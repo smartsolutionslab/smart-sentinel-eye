@@ -164,7 +164,11 @@ The observable before the actuator, so the controller is never flying blind.
   `setPlayoutTarget` through. Mirrors how spec 040 exposed `stats()` — the
   smallest possible seam, session lifecycle untouched.
 - `useWallAlignment` — the control loop: sample every tile, compute
-  `target = min(max(lag), 200 ms)`, apply. A tile needing more than the cap is
+  `target = min(max(lag), 200 ms)`, apply. **This rule was wrong and T026
+  replaced it** — the cap bounds the *buffer*, not the lag, and the setpoint is a
+  buffer depth rather than the target. The plan is left as planned; the rule that
+  shipped is in [data-model.md](./data-model.md) §3 and why in
+  [verification.md](./verification.md) §2. A tile needing more than the cap is
   **released and marked**, never held (FR-012a); a released tile keeps playing
   (FR-012b).
 - **Single-tile short circuit**: with fewer than two tiles the hook does nothing
