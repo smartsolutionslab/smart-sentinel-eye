@@ -41,9 +41,9 @@ describe('useWallAlignment', () => {
     const { result } = renderHook(() => useWallAlignment(3));
 
     act(() => {
-      result.current.reportLag('a', 20, 10);
-      result.current.reportLag('b', 30, 15);
-      result.current.reportLag('c', 120, 60);
+      result.current.reportLag('a', 'cam-a', 20, 10);
+      result.current.reportLag('b', 'cam-b', 30, 15);
+      result.current.reportLag('c', 'cam-c', 120, 60);
     });
     // Induced spread, stated so the assertion below cannot be mistaken for a
     // wall that happened to be aligned.
@@ -79,9 +79,9 @@ describe('useWallAlignment', () => {
     const { result } = renderHook(() => useWallAlignment(3));
 
     act(() => {
-      result.current.reportLag('a', 20, 10);
-      result.current.reportLag('b', 30, 15);
-      result.current.reportLag('slow', 400, 200);
+      result.current.reportLag('a', 'cam-a', 20, 10);
+      result.current.reportLag('b', 'cam-b', 30, 15);
+      result.current.reportLag('slow', 'cam-slow', 400, 200);
     });
     // Two cycles: hysteresis requires consecutive breaches before marking.
     cycle(2);
@@ -102,7 +102,7 @@ describe('useWallAlignment', () => {
     const { result } = renderHook(() => useWallAlignment(1));
 
     act(() => {
-      result.current.reportLag('only', 40, 20);
+      result.current.reportLag('only', 'cam-only', 40, 20);
     });
     cycle(3);
 
@@ -135,9 +135,9 @@ describe('useWallAlignment', () => {
     const { result } = renderHook(() => useWallAlignment(3, () => Promise.resolve('a-token')));
 
     act(() => {
-      result.current.reportLag('a', 20, 10);
-      result.current.reportLag('b', 30, 15);
-      result.current.reportLag('laggiest', 120, 60);
+      result.current.reportLag('a', 'cam-a', 20, 10);
+      result.current.reportLag('b', 'cam-b', 30, 15);
+      result.current.reportLag('laggiest', 'cam-laggiest', 120, 60);
     });
     cycle();
     await act(async () => {
@@ -145,7 +145,8 @@ describe('useWallAlignment', () => {
     });
 
     const skew = posted.find((body) => (body as { measurement: string }).measurement === 'wall_skew');
-    expect(skew).toEqual({ measurement: 'wall_skew', camera: 'laggiest', elapsedMilliseconds: 100 });
+    // The endpoint wants the camera, not the tile key — the tile key is internal.
+    expect(skew).toEqual({ measurement: 'wall_skew', camera: 'cam-laggiest', elapsedMilliseconds: 100 });
 
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -156,9 +157,9 @@ describe('useWallAlignment', () => {
     const { result } = renderHook(() => useWallAlignment(3));
 
     act(() => {
-      result.current.reportLag('a', 20, 10);
-      result.current.reportLag('b', 30, 15);
-      result.current.reportLag('departing', 150, 70);
+      result.current.reportLag('a', 'cam-a', 20, 10);
+      result.current.reportLag('b', 'cam-b', 30, 15);
+      result.current.reportLag('departing', 'cam-departing', 150, 70);
     });
     cycle();
     expect(result.current.targetFor('a')).toBe(140); // 150 − 10 processing
@@ -166,13 +167,94 @@ describe('useWallAlignment', () => {
     // Only the survivors keep reporting; the third ages out.
     for (let n = 0; n < 10; n += 1) {
       act(() => {
-        result.current.reportLag('a', 20, 10);
-        result.current.reportLag('b', 30, 15);
+        result.current.reportLag('a', 'cam-a', 20, 10);
+        result.current.reportLag('b', 'cam-b', 30, 15);
       });
       cycle();
     }
 
     expect(result.current.targetFor('a')).toBe(20); // 30 − 10 processing
+  });
+
+  /**
+   * **Code review finding.** `targetFor` used to gate on `released`, but a tile
+   * the wall cannot hold is not badged until it has breached on consecutive
+   * cycles — so on the first cycle it sat in neither set and was handed a
+   * target it could not reach, collapsing the buffer of the very tile the wall
+   * had just declined to carry.
+   */
+  it('Gives no target to a tile it cannot hold, even before that tile is badged', () => {
+    const { result } = renderHook(() => useWallAlignment(3));
+
+    act(() => {
+      result.current.reportLag('a', 'cam-a', 20, 10);
+      result.current.reportLag('b', 'cam-b', 30, 15);
+      result.current.reportLag('slow', 'cam-slow', 400, 200);
+    });
+    // ONE cycle: not enough to badge, but enough to decide it cannot be held.
+    cycle();
+
+    expect(result.current.released.has('slow'), 'not badged yet').toBe(false);
+    expect(result.current.targetFor('slow'), 'and still given nothing').toBeNull();
+    expect(result.current.targetFor('a')).toBe(20);
+  });
+
+  /**
+   * **Code review finding.** The target is the max *measured* lag and
+   * `jitterBufferTarget` is a playout floor, so a held tile reads at or above
+   * its setpoint. Feeding that back unfiltered makes the wall climb on noise
+   * alone — the slow form of the runaway T026 caught fast.
+   */
+  it('Does not ratchet upward on per-cycle noise', () => {
+    const { result } = renderHook(() => useWallAlignment(2));
+
+    act(() => {
+      result.current.reportLag('a', 'cam-a', 100, 60);
+      result.current.reportLag('b', 'cam-b', 100, 60);
+    });
+    cycle();
+    const first = result.current.targetFor('a');
+
+    // Twenty cycles of small positive noise, as a playout floor produces.
+    // Lag and buffer move together so each tile's *processing* stays at 40 ms —
+    // otherwise the setpoint legitimately tracks the processing change and the
+    // assertion would be measuring the wrong thing.
+    for (let n = 1; n <= 20; n += 1) {
+      act(() => {
+        result.current.reportLag('a', 'cam-a', 100 + (n % 3), 60 + (n % 3));
+        result.current.reportLag('b', 'cam-b', 100 + ((n + 1) % 3), 60 + ((n + 1) % 3));
+      });
+      cycle();
+    }
+
+    // With processing fixed, the setpoint moves only if the target moved.
+    expect(result.current.targetFor('a')).toBe(first);
+  });
+
+  /**
+   * **Code review finding.** Shrinking below two tiles tore down the interval
+   * but kept `target` and `released`, so the surviving tile was pinned to a
+   * target computed from departed cameras and a badge could never clear.
+   */
+  it('Stops claiming anything when the wall shrinks to one tile', () => {
+    const { result, rerender } = renderHook(({ tiles }) => useWallAlignment(tiles), {
+      initialProps: { tiles: 3 },
+    });
+
+    act(() => {
+      result.current.reportLag('a', 'cam-a', 20, 10);
+      result.current.reportLag('b', 'cam-b', 30, 15);
+      result.current.reportLag('slow', 'cam-slow', 400, 200);
+    });
+    cycle(2);
+    expect(result.current.released.has('slow')).toBe(true);
+    expect(result.current.targetFor('a')).not.toBeNull();
+
+    rerender({ tiles: 1 });
+
+    expect(result.current.targetFor('a'), 'no target from departed tiles').toBeNull();
+    expect(result.current.released.size, 'and no badge left behind').toBe(0);
+    expect(result.current.skewMilliseconds).toBeNull();
   });
 
   /**

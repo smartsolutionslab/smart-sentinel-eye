@@ -132,7 +132,7 @@ export function CameraViewer({
           }
         }
         previous = current;
-      })();
+      })().catch(() => undefined);
     }, DECODE_SAMPLE_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
@@ -201,7 +201,7 @@ export function CameraViewer({
           }
         }
         previous = current;
-      })();
+      })().catch(() => undefined);
     }, LAG_SAMPLE_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
@@ -214,10 +214,16 @@ export function CameraViewer({
     if (status !== 'live' || playoutTargetMilliseconds === undefined || playoutTargetMilliseconds === null) {
       return;
     }
-    // The return value is deliberately ignored: an engine that will not accept
-    // a target leaves the tile unaligned, and a tile that cannot be aligned
-    // must carry on showing video (FR-013).
-    setPlayoutTarget(playoutTargetMilliseconds);
+    // Wrapped, not merely ignored. `setPlayoutTarget` guards the assignment
+    // itself, but the call can still throw before it gets there — an engine
+    // without `getReceivers`, a torn-down connection — and an exception here
+    // would take the render effect with it. A tile that cannot be aligned must
+    // carry on showing video (FR-013).
+    try {
+      setPlayoutTarget(playoutTargetMilliseconds);
+    } catch {
+      // Swallowed for the reason above.
+    }
   }, [status, playoutTargetMilliseconds, setPlayoutTarget]);
 
   return (

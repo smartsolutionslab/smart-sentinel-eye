@@ -89,9 +89,13 @@ public static class StreamEndpoints
     /// A latency measurement reported by a kiosk (spec 040).
     /// </summary>
     /// <param name="Measurement">
-    /// Which figure this is — <c>overlay_draw</c> or <c>receive_to_decoded</c>.
-    /// Two, never one: a single combined number would satisfy any check that a
-    /// number exists while measuring neither budget.
+    /// Which figure this is — <c>overlay_draw</c>, <c>receive_to_decoded</c>,
+    /// <c>presentation_buffer</c> or <c>wall_skew</c> (spec 045).
+    /// Separate figures, never one combined number: a single value would
+    /// satisfy any check that a number exists while measuring no budget at all.
+    /// <c>wall_skew</c> is carried here but is <b>not</b> a latency segment —
+    /// a spread between two tiles is not a duration any frame spent
+    /// travelling, and it is routed to its own instrument.
     /// </param>
     /// <param name="Camera">The tile's camera, so one bad tile is visible.</param>
     /// <param name="ElapsedMilliseconds">

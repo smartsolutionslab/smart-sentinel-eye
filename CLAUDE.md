@@ -284,7 +284,7 @@ recorded as unbuilt until spec 040 on the strength of a search scoped to
 unbuilt leg is not exempt, it is *not yet subject*, and the obligation
 attaches to whichever spec builds it. With nothing unbuilt, **every leg
 is now subject**. **The authority is the table in constitution §IV**,
-which distinguishes five states across the six legs; this summary must
+which distinguishes four states across the six legs; this summary must
 not compete with it. Keep it current: a leg recorded as unbuilt after it
 is built exempts itself by clerical error — not hypothetical, and §IV
 says so — and a leg recorded as measured before anyone read its figure

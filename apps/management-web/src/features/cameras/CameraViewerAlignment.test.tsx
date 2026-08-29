@@ -32,7 +32,16 @@ const stats = vi.fn(async () => new Map());
 
 vi.mock('@smart-sentinel-eye/shared/streaming/WhepClient', () => ({
   WhepClient: class {
-    connect = vi.fn().mockResolvedValue(undefined);
+    // **Must report `connected`.** Every sampler in CameraViewer guards on
+    // `status !== 'live'`, so a double that never fires this callback makes the
+    // whole suite vacuous — `stats` is never called, `reads` is 0, and the
+    // read-count assertion below passes against a component that did nothing.
+    // That is exactly how this file was first written.
+    constructor(private readonly options: { onConnectionStateChange?: (state: string) => void }) {}
+
+    connect = vi.fn(async () => {
+      this.options.onConnectionStateChange?.('connected');
+    });
     close = vi.fn();
     stats = stats;
     setPlayoutTarget = setPlayoutTarget;
@@ -95,6 +104,10 @@ describe('CameraViewer on a page with no wall', () => {
     // faster alignment sampler on top of it: at a 2 s cadence over 30 s that
     // would be an order of magnitude more reads than the 5 s decode interval.
     const reads = stats.mock.calls.length - before;
-    expect(reads).toBeLessThanOrEqual(6);
+    // Asserted from BOTH sides. The upper bound alone is satisfied by a tile
+    // that never sampled at all, which is how this test used to pass while the
+    // session sat in `connecting` forever.
+    expect(reads, 'the decode sampler must still be running').toBeGreaterThan(0);
+    expect(reads, 'the alignment sampler must not be running here').toBeLessThanOrEqual(6);
   });
 });
