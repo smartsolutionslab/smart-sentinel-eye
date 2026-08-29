@@ -198,8 +198,10 @@ that scoping still looks right. But the leg this feature built is the thing that
 makes the unsettled claim *cost* something measurable, so it should be raised
 rather than absorbed.
 
-**Not filed as an issue** — that is an outward-facing action and was not
-authorised. It is recorded here so it is not lost.
+**Filed as issue 1967** *(written without a `#` deliberately — this repo's
+automation closes a merely-mentioned issue on merge)*, and added to Project #13.
+Raised rather than absorbed, on the precedent of 1714, which spec 024 filed
+rather than growing into the streaming half of the kiosk.
 - **Quickstart §2 (the hysteresis boundary), §3 (reconnect) and §5 (breaking the
   controller on purpose) were not walked** against live video. They are covered
   by unit tests only.
