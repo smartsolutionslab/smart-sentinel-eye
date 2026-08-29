@@ -235,7 +235,7 @@ interface TileProps {
   /** How far behind live to hold this tile, or null to leave it alone (spec 045). */
   playoutTargetMilliseconds: number | null;
   /** Reports this tile's measured lag to the wall's controller (spec 045). */
-  onLagMeasured: (cameraIdentifier: string, lagMilliseconds: number) => void;
+  onLagMeasured: (cameraIdentifier: string, lagMilliseconds: number, bufferMilliseconds: number) => void;
   /** This tile could not be held inside the leg's budget (spec 045 FR-012). */
   outOfAlignment: boolean;
 }

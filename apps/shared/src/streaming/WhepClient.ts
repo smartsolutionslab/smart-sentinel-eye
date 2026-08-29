@@ -166,7 +166,10 @@ export class WhepClient {
       if (receiver.track?.kind !== 'video') continue;
       if (!('jitterBufferTarget' in receiver)) continue;
       try {
-        (receiver as RTCRtpReceiver & { jitterBufferTarget: number | null }).jitterBufferTarget = milliseconds;
+        // Cast through `unknown`: `jitterBufferTarget` is a WebRTC extension
+        // and is absent from the standard receiver type, so there is nothing
+        // to intersect with.
+        (receiver as unknown as { jitterBufferTarget: number | null }).jitterBufferTarget = milliseconds;
         applied = true;
       } catch {
         // Swallowed deliberately: an engine may refuse a value or drop the

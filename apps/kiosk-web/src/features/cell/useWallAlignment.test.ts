@@ -41,18 +41,33 @@ describe('useWallAlignment', () => {
     const { result } = renderHook(() => useWallAlignment(3));
 
     act(() => {
-      result.current.reportLag('a', 20);
-      result.current.reportLag('b', 30);
-      result.current.reportLag('c', 120);
+      result.current.reportLag('a', 20, 10);
+      result.current.reportLag('b', 30, 15);
+      result.current.reportLag('c', 120, 60);
     });
     // Induced spread, stated so the assertion below cannot be mistaken for a
     // wall that happened to be aligned.
     cycle();
     expect(result.current.skewMilliseconds).toBe(100);
 
-    expect(result.current.targetFor('a')).toBe(120);
-    expect(result.current.targetFor('b')).toBe(120);
-    expect(result.current.targetFor('c')).toBe(120);
+    // **A buffer depth, not the target.** Each tile is asked for
+    // `target − its own processing`, so that every tile lands on the same total
+    // lag. Handing the target straight through makes the wall climb by one
+    // processing time per cycle — T026 watched two tiles induced at 120 ms
+    // reach ~654 ms, perfectly aligned with each other and half a second behind
+    // the world.
+    expect(result.current.targetFor('a')).toBe(110); // 120 − 10 processing
+    expect(result.current.targetFor('b')).toBe(105); // 120 − 15
+    expect(result.current.targetFor('c')).toBe(60); // 120 − 60
+
+    // The invariant that makes 120 a fixed point rather than a ramp.
+    for (const [camera, processing] of [
+      ['a', 10],
+      ['b', 15],
+      ['c', 60],
+    ] as const) {
+      expect(result.current.targetFor(camera)! + processing).toBe(120);
+    }
   });
 
   /**
@@ -64,17 +79,18 @@ describe('useWallAlignment', () => {
     const { result } = renderHook(() => useWallAlignment(3));
 
     act(() => {
-      result.current.reportLag('a', 20);
-      result.current.reportLag('b', 30);
-      result.current.reportLag('slow', 400);
+      result.current.reportLag('a', 20, 10);
+      result.current.reportLag('b', 30, 15);
+      result.current.reportLag('slow', 400, 200);
     });
     // Two cycles: hysteresis requires consecutive breaches before marking.
     cycle(2);
 
     expect(result.current.released.has('slow')).toBe(true);
     expect(result.current.targetFor('slow')).toBeNull();
-    expect(result.current.targetFor('a')).toBe(30);
-    expect(result.current.targetFor('b')).toBe(30);
+    // Buffer depths: 30 − 10 and 30 − 15 of processing.
+    expect(result.current.targetFor('a')).toBe(20);
+    expect(result.current.targetFor('b')).toBe(15);
   });
 
   /**
@@ -86,7 +102,7 @@ describe('useWallAlignment', () => {
     const { result } = renderHook(() => useWallAlignment(1));
 
     act(() => {
-      result.current.reportLag('only', 40);
+      result.current.reportLag('only', 40, 20);
     });
     cycle(3);
 
@@ -105,9 +121,13 @@ describe('useWallAlignment', () => {
     const posted: unknown[] = [];
     vi.stubGlobal(
       'fetch',
-      vi.fn(async (_url: string, init: RequestInit) => {
+      // Typed structurally rather than with the DOM's `RequestInit`/`Response`,
+      // which this package's lint config does not carry as globals. The
+      // reporter awaits the call and ignores the result, so a plain object is
+      // a faithful stand-in.
+      vi.fn(async (_url: string, init: { body?: unknown }) => {
         posted.push(JSON.parse(String(init.body)));
-        return new Response(null, { status: 202 });
+        return { ok: true, status: 202 };
       }),
     );
     vi.spyOn(console, 'info').mockImplementation(() => {});
@@ -115,9 +135,9 @@ describe('useWallAlignment', () => {
     const { result } = renderHook(() => useWallAlignment(3, () => Promise.resolve('a-token')));
 
     act(() => {
-      result.current.reportLag('a', 20);
-      result.current.reportLag('b', 30);
-      result.current.reportLag('laggiest', 120);
+      result.current.reportLag('a', 20, 10);
+      result.current.reportLag('b', 30, 15);
+      result.current.reportLag('laggiest', 120, 60);
     });
     cycle();
     await act(async () => {
@@ -136,23 +156,23 @@ describe('useWallAlignment', () => {
     const { result } = renderHook(() => useWallAlignment(3));
 
     act(() => {
-      result.current.reportLag('a', 20);
-      result.current.reportLag('b', 30);
-      result.current.reportLag('departing', 150);
+      result.current.reportLag('a', 20, 10);
+      result.current.reportLag('b', 30, 15);
+      result.current.reportLag('departing', 150, 70);
     });
     cycle();
-    expect(result.current.targetFor('a')).toBe(150);
+    expect(result.current.targetFor('a')).toBe(140); // 150 − 10 processing
 
     // Only the survivors keep reporting; the third ages out.
     for (let n = 0; n < 10; n += 1) {
       act(() => {
-        result.current.reportLag('a', 20);
-        result.current.reportLag('b', 30);
+        result.current.reportLag('a', 20, 10);
+        result.current.reportLag('b', 30, 15);
       });
       cycle();
     }
 
-    expect(result.current.targetFor('a')).toBe(30);
+    expect(result.current.targetFor('a')).toBe(20); // 30 − 10 processing
   });
 
   /**

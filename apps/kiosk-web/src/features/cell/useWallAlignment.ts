@@ -39,7 +39,7 @@ const LAG_STALE_AFTER_MS = 15_000;
 
 export interface WallAlignment {
   /** Records a tile's measured lag. Passed to every `CameraViewer` on the wall. */
-  reportLag: (cameraIdentifier: string, lagMilliseconds: number) => void;
+  reportLag: (cameraIdentifier: string, lagMilliseconds: number, bufferMilliseconds: number) => void;
   /**
    * The target this tile should hold, or null to leave it alone.
    *
@@ -68,7 +68,7 @@ export function useWallAlignment(tileCount: number, getToken?: () => Promise<str
   // tile, and re-rendering a wall of live video on each one would cost far
   // more than the leg being managed. The loop below reads them on its own
   // schedule and publishes only the decision.
-  const lagsRef = useRef<Map<string, { lagMilliseconds: number; at: number }>>(new Map());
+  const lagsRef = useRef<Map<string, { lagMilliseconds: number; bufferMilliseconds: number; at: number }>>(new Map());
   const stateRef = useRef<AlignmentState>(initialAlignmentState);
 
   // Behind a ref for the reason the whole of this feature keeps running into:
@@ -84,10 +84,10 @@ export function useWallAlignment(tileCount: number, getToken?: () => Promise<str
   const [released, setReleased] = useState<ReadonlySet<string>>(() => new Set());
   const [skewMilliseconds, setSkew] = useState<number | null>(null);
 
-  const reportLag = useCallback((cameraIdentifier: string, lagMilliseconds: number) => {
+  const reportLag = useCallback((cameraIdentifier: string, lagMilliseconds: number, bufferMilliseconds: number) => {
     // performance.now(), never Date.now(): fab clocks are PTP-stepped, and an
     // epoch comparison could age every tile out at once when the clock moves.
-    lagsRef.current.set(cameraIdentifier, { lagMilliseconds, at: performance.now() });
+    lagsRef.current.set(cameraIdentifier, { lagMilliseconds, bufferMilliseconds, at: performance.now() });
   }, []);
 
   const aligning = tileCount >= 2;
@@ -108,7 +108,11 @@ export function useWallAlignment(tileCount: number, getToken?: () => Promise<str
           lagsRef.current.delete(camera);
           continue;
         }
-        lags.push({ camera, lagMilliseconds: sample.lagMilliseconds });
+        lags.push({
+          camera,
+          lagMilliseconds: sample.lagMilliseconds,
+          bufferMilliseconds: sample.bufferMilliseconds,
+        });
       }
 
       const { state, target: next } = settleAlignment(stateRef.current, lags);
@@ -139,8 +143,26 @@ export function useWallAlignment(tileCount: number, getToken?: () => Promise<str
     return () => window.clearInterval(timer);
   }, [aligning]);
 
+  // The setpoint is a BUFFER depth, and the target is a TOTAL lag. Handing a
+  // tile the target directly is a runaway: setting its buffer to T makes its
+  // lag T + processing, so next cycle the target is T + processing, and the
+  // wall climbs by one processing time every cycle for as long as it runs.
+  //
+  // T026 watched it happen — two tiles induced at 120 ms were at ~654 ms forty
+  // seconds later, still beautifully aligned with each other and half a second
+  // behind the world. Subtracting the tile's own processing makes T a fixed
+  // point instead: buffer_i = T − p_i, so lag_i = T, and the next cycle asks
+  // for the same thing.
   const targetFor = useCallback(
-    (cameraIdentifier: string) => (released.has(cameraIdentifier) ? null : target),
+    (cameraIdentifier: string) => {
+      if (released.has(cameraIdentifier) || target === null) return null;
+
+      const sample = lagsRef.current.get(cameraIdentifier);
+      if (sample === undefined) return null;
+
+      const processing = Math.max(0, sample.lagMilliseconds - sample.bufferMilliseconds);
+      return Math.max(0, target - processing);
+    },
     [released, target],
   );
 

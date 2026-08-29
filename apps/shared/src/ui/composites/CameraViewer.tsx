@@ -70,7 +70,7 @@ export interface CameraViewerProps {
    * A single-camera page pays nothing for a feature about walls (FR-004).
    * </p>
    */
-  onLagMeasured?: (cameraIdentifier: string, lagMilliseconds: number) => void;
+  onLagMeasured?: (cameraIdentifier: string, lagMilliseconds: number, bufferMilliseconds: number) => void;
   className?: string;
 }
 
@@ -176,10 +176,16 @@ export function CameraViewer({
           // The controller needs the whole of what makes this tile late, so it
           // gets buffer + processing.
           const lag = lagBetween(previous, current);
+          const buffered = bufferDelayBetween(previous, current);
           // Null rather than zero: no frames since the last sample, or a
           // session that restarted and reset its counters.
-          if (lag !== null) {
-            onLagMeasuredRef.current?.(cameraIdentifier, lag);
+          //
+          // Both figures go to the wall, because it needs both: the lag is
+          // what has to be equalised, and the buffer is the part this leg's
+          // budget bounds. Sending only the lag is what made the controller
+          // release every tile on a real wall (T026).
+          if (lag !== null && buffered !== null) {
+            onLagMeasuredRef.current?.(cameraIdentifier, lag, buffered);
           }
 
           // The leg gets the buffer alone. Processing delay is already the
@@ -190,7 +196,6 @@ export function CameraViewer({
           // The ACHIEVED wait, never the target we asked for: jitterBufferTarget
           // is write-only in getStats, so the setpoint would report a perfect
           // score for something nobody measured (FR-007).
-          const buffered = bufferDelayBetween(previous, current);
           if (buffered !== null) {
             reportKioskLatency('presentation_buffer', cameraIdentifier, buffered, getToken);
           }
