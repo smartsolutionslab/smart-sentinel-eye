@@ -68,12 +68,31 @@ vi.mock('react-router-dom', async (importOriginal) => {
   };
 });
 
+/**
+ * The viewer's props are captured so a test can drive the one thing jsdom
+ * cannot produce: a measured frame age. Without a lag report every tile's age
+ * is null, the label hold never engages, and a test of the hold passes with the
+ * wiring cut — the vacuous-test trap spec 045's review found five of.
+ */
+let reportLag: ((camera: string, lag: number, buffer: number) => void) | undefined;
+
 vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
-  CameraViewer: ({ cameraIdentifier, overlay }: { cameraIdentifier: string; overlay?: { text: string } }) => (
-    <div data-testid="camera-viewer" data-overlay-text={overlay?.text ?? ''}>
-      {cameraIdentifier}
-    </div>
-  ),
+  CameraViewer: ({
+    cameraIdentifier,
+    overlay,
+    onLagMeasured,
+  }: {
+    cameraIdentifier: string;
+    overlay?: { text: string };
+    onLagMeasured?: (camera: string, lag: number, buffer: number) => void;
+  }) => {
+    if (onLagMeasured) reportLag = onLagMeasured;
+    return (
+      <div data-testid="camera-viewer" data-overlay-text={overlay?.text ?? ''}>
+        {cameraIdentifier}
+      </div>
+    );
+  },
 }));
 
 const { CellPage } = await import('./CellPage.js');
@@ -151,6 +170,35 @@ function renderPage() {
   );
 }
 
+/** An overlay whose published revision carries `text`. */
+function publishedOverlay(text: string) {
+  return {
+    data: {
+      overlayIdentifier: 'ovl-x',
+      name: 'Bound label',
+      createdAt: '2026-05-27T10:00:00Z',
+      createdBy: '00000000-0000-0000-0000-000000000001',
+      revisions: [
+        {
+          revisionIdentifier: 'or1',
+          revisionNumber: 1,
+          state: 'Published',
+          text,
+          normalizedX: 0.5,
+          normalizedY: 0.05,
+          normalizedWidth: 0.3,
+          normalizedHeight: 0.08,
+          fontSizePx: 48,
+          createdAt: '2026-05-27T10:00:00Z',
+          createdBy: '00000000-0000-0000-0000-000000000001',
+          publishedAt: '2026-05-27T10:00:00Z',
+          archivedAt: null,
+        },
+      ],
+    },
+  };
+}
+
 describe('CellPage', () => {
   beforeEach(() => {
     getLayoutMock.mockReset();
@@ -158,6 +206,7 @@ describe('CellPage', () => {
     getOverlayMock.mockReturnValue({ data: undefined });
     navigateMock.mockReset();
     capturedCallbacks = undefined;
+    reportLag = undefined;
   });
 
   it('Renders a single CameraViewer for an N=1 layout (identical to the pre-feature cell)', () => {
@@ -478,6 +527,93 @@ describe('CellPage', () => {
       view.unmount();
 
       expect(vi.getTimerCount()).toBe(0);
+    });
+  });
+
+  /**
+   * Spec 046 US2 — the wiring, which nothing else covers.
+   *
+   * <p>
+   * `useLabelDelay` is tested on its own and `frameAgeFor` is tested on its
+   * own. What neither proves is that this page joins them for the right tile:
+   * a hook wired to the wrong key, or not wired at all, leaves every other
+   * test green. The live walk covered it once with real video; this covers it
+   * on every run.
+   * </p>
+   */
+  describe('Holding a label back to the age of its own picture', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    /**
+     * Forces the render on which the changed label is read.
+     *
+     * <p>
+     * A highlight rather than a controller cycle: with no lag reported the
+     * controller settles to no change and re-renders nothing, so a test built
+     * on its cycle would show the same label whether or not the hold works.
+     * </p>
+     */
+    function rerenderTiles() {
+      act(() => {
+        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', durationMs: 1_000 });
+      });
+    }
+
+    function renderBoundTile() {
+      mockLayout(
+        publishedRevision(1, 1, [tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-x', row: 0, col: 0 })]),
+      );
+      getOverlayMock.mockReturnValue(publishedOverlay('first'));
+      renderPage();
+      return () => screen.getByTestId('camera-viewer').getAttribute('data-overlay-text');
+    }
+
+    /**
+     * **Induced, not observed.** With no lag report the tile has no age, no
+     * hold engages, and an assertion that the label eventually appears passes
+     * with the wiring cut — which is the whole failure mode this covers.
+     */
+    it("Withholds an updated label for as long as the tile's picture is old", () => {
+      const label = renderBoundTile();
+      expect(label()).toBe('first');
+
+      // The tile reports a 120 ms-old picture.
+      act(() => {
+        reportLag?.('cam-a', 120, 40);
+      });
+
+      // The label changes on the next render the controller drives. The hold
+      // is scheduled at that instant, so it is due beyond this window.
+      getOverlayMock.mockReturnValue(publishedOverlay('second'));
+      rerenderTiles();
+
+      expect(label(), 'held while the picture it describes is still arriving').toBe('first');
+
+      act(() => {
+        vi.advanceTimersByTime(120);
+      });
+      expect(label()).toBe('second');
+    });
+
+    /**
+     * FR-011. The same render path and the same label change — only the
+     * measurement is missing, and that is the whole difference. A tile with
+     * no age has nothing to match, so its label is shown at once.
+     */
+    it('Shows an updated label at once when the tile has reported no lag', () => {
+      const label = renderBoundTile();
+      expect(label()).toBe('first');
+
+      getOverlayMock.mockReturnValue(publishedOverlay('second'));
+      rerenderTiles();
+
+      expect(label()).toBe('second');
     });
   });
 });
