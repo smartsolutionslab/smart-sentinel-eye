@@ -164,12 +164,42 @@ unit tests that assert on skew induce it first for the same reason.
   state` is *"recorded, not yet readable"* — nothing outside the recording
   process can read it (#1707). That predates spec 045.
 
-  **A black-box measurement is obtainable and is the concrete next step**:
-  `smart-sentinel-eye-web` has `directAccessGrantsEnabled`, so an operator token
-  can be minted directly against Keycloak's proxied endpoint, a variable set
-  through the gateway, and the kiosk tile watched for the resulting text. That
-  yields *event accepted → operator can see it* without decomposing legs. It was
-  scoped but not built; the gap is bounded rather than open-ended.
+  **A black-box measurement is obtainable**: `smart-sentinel-eye-web` has
+  `directAccessGrantsEnabled`, so an operator token can be minted against
+  Keycloak's proxied endpoint (verified — a token was minted and the gateway
+  answered), a variable set, and the kiosk tile watched for the resulting text.
+  It was scoped but not built; the gap is bounded rather than open-ended.
+
+  **It would confirm a null, and reading the code says why.** The overlay is an
+  absolutely-positioned DOM `<span>` layered over the `<video>` — not composited
+  into the frame. So its text updates as soon as its state changes, and **no
+  amount of playout buffering can delay it**. The data half of the path and the
+  video half are parallel, not additive.
+
+## 5a. A finding that outlasts this feature
+
+**The overlay and the frame it annotates are not frame-synced, and this leg
+widens the gap.**
+
+The SLO's wording is *"event arrival → overlay rendered, **frame-synced**"*.
+Today the overlay renders immediately while the frame underneath it is
+`buffer + processing` old — measured here at **~25–37 ms**, of which alignment
+contributes 10–26 ms. So an operator reads a label describing *now* over a
+picture from slightly before, and **aligning a wall makes that mismatch larger,
+not smaller**, because alignment works by adding buffer.
+
+The effect is small at these figures. The direction is not in doubt.
+
+This is ADR-0021's territory — *"the overlay engine renders at the frame whose
+presentation timestamp matches `used_ts`"* — which ADR-0128 explicitly recorded
+as **left unsettled**, because there are no presentation timestamps. Spec 045
+was scoped to exclude it (Out of Scope: "Overlay alignment to `used_ts`"), and
+that scoping still looks right. But the leg this feature built is the thing that
+makes the unsettled claim *cost* something measurable, so it should be raised
+rather than absorbed.
+
+**Not filed as an issue** — that is an outward-facing action and was not
+authorised. It is recorded here so it is not lost.
 - **Quickstart §2 (the hysteresis boundary), §3 (reconnect) and §5 (breaking the
   controller on purpose) were not walked** against live video. They are covered
   by unit tests only.
