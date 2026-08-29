@@ -98,9 +98,9 @@ the ones that get dropped when the work gets repetitive:
 
 ## Phase 5: Guard it (US3)
 
-- [ ] T014 [US3] Create `tests/Architecture.Tests/FoundingDecisionRecordTests.cs`, following `LatencyLegRecordTests` — the file that **caught spec 045 changing §IV**, and the only reason that change was noticed. Guard the claims that were **corrected**, not all 27 rows.
-- [ ] T015 [P] [US3] Each assertion carries a message saying **what is wrong and why it matters**, not that a string is missing. `LatencyLegRecordTests` is the model: its messages explain that a wrong row exempts code from a constitutional rule.
-- [ ] T016 [US3] Test that a **legitimate** update still passes — a row edited because the system genuinely changed must not fail. A guard that blocks real updates gets deleted within a month and takes the useful part with it. **This is the test that stops the guard being the next thing to rot.**
+- [x] T014 [US3] Create `tests/Architecture.Tests/FoundingDecisionRecordTests.cs`, following `LatencyLegRecordTests` — the file that **caught spec 045 changing §IV**, and the only reason that change was noticed. Guard the claims that were **corrected**, not all 27 rows.
+- [x] T015 [P] [US3] Each assertion carries a message saying **what is wrong and why it matters**, not that a string is missing. `LatencyLegRecordTests` is the model: its messages explain that a wrong row exempts code from a constitutional rule.
+- [x] T016 [US3] Test that a **legitimate** update still passes — a row edited because the system genuinely changed must not fail. A guard that blocks real updates gets deleted within a month and takes the useful part with it. **This is the test that stops the guard being the next thing to rot.**
 
 **Checkpoint**: corrections cannot drift back, and progress is not obstructed.
 
@@ -108,8 +108,8 @@ the ones that get dropped when the work gets repetitive:
 
 ## Phase 6: Verify
 
-- [ ] T017 Re-run the full backend test suite the way CI does, not a subset. *(Spec 045 shipped a green subset and CI caught an architecture test it had never run.)*
-- [ ] T018 **A person re-checks a sample of the audit**, per [quickstart.md](./quickstart.md) §2. **Pick boring rows deliberately** — the ones marked *holds* — because the question is whether the passes were really done, not whether the discoveries were interesting. For each: do the recorded commands still return what the audit says; does every *not built* carry a second search; does every *diverges* name what the system does instead. **Record which rows were re-checked, and any that did not reproduce.**
+- [x] T017 Re-run the full backend test suite the way CI does, not a subset. *(Spec 045 shipped a green subset and CI caught an architecture test it had never run.)*
+- [x] T018 **A person re-checks a sample of the audit**, per [quickstart.md](./quickstart.md) §2. **Pick boring rows deliberately** — the ones marked *holds* — because the question is whether the passes were really done, not whether the discoveries were interesting. For each: do the recorded commands still return what the audit says; does every *not built* carry a second search; does every *diverges* name what the system does instead. **Record which rows were re-checked, and any that did not reproduce.**
 
 ---
 
