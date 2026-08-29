@@ -6,6 +6,8 @@
 
 **Status**: Draft
 
+**Issue**: 1969 *(written without a `#` deliberately — this repo's automation closes a merely-mentioned issue on merge)*
+
 **Input**: Three features in a row discovered that a founding decision did not
 describe the system. Each found it only when trying to build on it.
 
