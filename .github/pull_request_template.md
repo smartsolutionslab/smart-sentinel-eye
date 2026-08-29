@@ -28,7 +28,7 @@
   Budget legs:
     1. Camera → SFU                          ≤ 80 ms
     2. SFU → kiosk decode                    ≤ 120 ms
-    3. Presentation buffer (PTP)             ≤ 200 ms
+    3. Presentation buffer (playout alignment) ≤ 200 ms
     4. Event → overlay state                 ≤ 200 ms
     5. Composite + render                    ≤ 50 ms
     6. Headroom                              ≤ 150 ms
