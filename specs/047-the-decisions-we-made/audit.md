@@ -273,3 +273,151 @@ and both failed. **Disposition**: correct — issue.
 | 001–009 | 12 | 3 | 8 | 8 |
 | 010–018 | 13 | 3 | 9 | 2 |
 
+
+---
+
+## Decisions 019–027 (T005)
+
+### 019 — overlay expression language → **Diverges**
+
+> *Overlay expression language = **CEL (Common Expression Language)** via a .NET
+> implementation. … The same language is reused inside automation rule `where`
+> clauses.*
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| The language is CEL | **Diverges** | name: `grep -rl "Cel\b\|CelExpression" src/ --include=*.cs` → no matches. job: **the language exists and is hand-written** — `src/Automation/Application/Ael/` holds `AelLexer.cs`, `AelParser.cs`, `AelInterpreter.cs`, `AelExpression.cs`, `AelToken.cs` |
+| Via a .NET CEL implementation | **Not built** | No CEL package referenced anywhere |
+| Pure, typed, sandboxed, deterministic, no I/O | **Holds** | AEL is an expression interpreter with no I/O surface |
+| Reused inside automation rule `where` clauses | **Holds** | The same AEL interpreter serves both |
+
+**The job is done; the name is wrong.** This is the cleanest *diverges* in the
+audit: a working language under a different name from the one decided.
+**Disposition**: legitimise — ADR. *(Recording that AEL exists is not endorsing
+it over CEL. If anyone thinks CEL was right, that is an issue.)*
+
+### 020 — automation engine → **Holds (partly), interface not built**
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| Declarative rules with trigger + action schema | **Holds** | `src/Automation/Domain/Rule/` |
+| CEL conditions | **Diverges** | AEL — see 019 |
+| Cooldowns, priority/conflict policy | **Holds** | Present in the rule aggregate |
+| Builder UI | **Holds** | `apps/management-web` rules pages |
+| **`IRuleEngine` as a strategy interface** | **Not built** | name: `grep -ril "IRuleEngine" src/ tests/` → no matches. job: `grep -ril "RuleEngine\|IRuleStrategy\|EngineTag"` → no matches. **§IX mandates this "in v1"** |
+| Rule definitions engine-tagged | **Not built** | No engine tag on a rule |
+| Execution issues commands via RabbitMQ, never direct DB writes | **Holds** | Rule actions publish; `Architecture.Tests` enforces the boundary |
+
+**Disposition**: correct — issue. A §IX-mandated v1 interface is absent.
+
+### 021 — event time reference → **Amended (spec 046, in progress)**
+
+The `used_ts` / `time_basis` half is a separate claim from the frame-matching
+half. Spec 046 is amending the frame-matching clause; the ingestion-time
+behaviour is **not re-audited here**, to avoid two records of one thing.
+
+### 022 — draft → preview → publish → **Holds (partly)**
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| Applies to Overlays | **Holds** | Revision states in `OverlayDesigner` |
+| Applies to Layouts, with assignment guard + render-error fallback | **Holds** | `LayoutComposition` revisions; the kiosk falls back on an archived overlay |
+| Applies to Automation rules, with dry-run | **Holds** | `DryRunRuleRequest.cs`, `RulesEndpoints.cs` |
+| Applies to Camera Catalog — staged config applied together | **Not built** | name: `grep -ril "staged\|pendingConfig\|applyTogether" src/CameraCatalog` → no matches. job: camera edits apply immediately, one field at a time |
+| All other contexts edit live with an audit log | **Holds** | Audit events recorded per mutation |
+
+**Disposition**: correct — issue, for the Camera Catalog clause only.
+
+### 023 — authorization → **Diverges**
+
+> *fixed RBAC for v1 with **4 roles (admin, operator, viewer, kiosk)** and
+> per-context scope bundles … All authz checks go through
+> `IAuthorizationDecisionPoint`.*
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| Four realm roles: admin, operator, viewer, kiosk | **Diverges** | The realm defines **two**: `{"name": "user"}` and `{"name": "admin"}`. There is no `operator`, `viewer` or `kiosk` **role** — `operator` exists only as a *username* |
+| Per-context scope bundles | **Holds** | `sse.management`, and per-endpoint `sse.*.write` scopes |
+| Roles mapped to Keycloak realm roles | **Partly** | Two are; the other two do not exist |
+| Customer-specific variants via groups | **Holds** *(differently)* | Groups exist and carry **fab** membership, not role variants |
+| **`IAuthorizationDecisionPoint`** | **Not built** | name: `grep -ril "IAuthorizationDecisionPoint\|DecisionPoint" src/ tests/` → no matches. job: authorization is enforced by scope checks at endpoints. **§IX mandates this "in v1"** |
+
+**Authorization works — by scopes and fab groups, not by the four named roles.**
+**Disposition**: both. Legitimise the scope-based model by ADR; raise an issue
+for the missing decision point.
+
+### 024 — Aspire → **Holds**
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| Aspire as orchestration/composition layer | **Holds** | `src/AppHost/AppHost.cs` declares every resource |
+| Aspire dashboard for dev telemetry | **Holds** | The sink named by ADR-0118 |
+| Production via `aspire publish` → Helm | **Not built** | See 025 |
+| Aspire integrations preferred over ad-hoc config | **Holds** | Consistent throughout `AppHost.cs` |
+
+### 025 — production orchestration → **Not built (partly)**
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| Helm charts generated by Aspire's Kubernetes publisher | **Not built** | name: `grep -ril "PublishAsKubernetes\|AddKubernetes" src/AppHost` → only transitive `Aspire.Hosting.dll` binaries, no source. job: `deploy/helm/` contains **one** chart, for Mosquitto, hand-written |
+| Per-fab 3-node k3s control plane, GPU-labelled workers | **Unverifiable here** | Deployment topology |
+| Pilot also on k3s | **Unverifiable here** | Deployment |
+| v2 Argo CD / Flux | **Unverifiable here** | v2 intent |
+
+**Disposition**: correct — issue. Related to the open gateway-edge-wiring work.
+
+### 026 — observability → **Amended (ADR-0118)**
+
+Already corrected in the row. **But its consequences were not propagated** — see
+009's Prometheus finding, and §IX below.
+
+### 027 — repository layout → **Holds**
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| Single monorepo, single solution | **Holds** | `SmartSentinelEye.slnx` |
+| `src/` one project per context, Domain/Application/Infrastructure/Api | **Holds** | Nine contexts in that shape |
+| `AppHost`, `ServiceDefaults`, `Shared.Kernel`, `Shared.Contracts` | **Holds** | All present |
+| `apps/web/` React | **Diverges** *(harmlessly)* | Two apps at `apps/kiosk-web` and `apps/management-web`, not one `apps/web/` — split by ADR-0074 |
+| `tests/`, `deploy/helm/`, `specs/`, `docs/adr/` | **Holds** | All present |
+| Cross-context boundaries enforced by NetArchTest | **Holds** | `tests/Architecture.Tests/BoundaryTests.cs` |
+
+---
+
+## Constitution §IX (T006)
+
+**Checked against accepted ADRs as well as code**, because that is how its
+observability row went stale: no code changed, an ADR did.
+
+| §IX row | Says | Verdict | Evidence |
+|---|---|---|---|
+| Rule engine | *Declarative + CEL (ADR-020)* → v2 visual workflow | **Diverges + not built** | The language is AEL, not CEL (019); and the **strategy interface §IX exists to mandate is absent** (020) |
+| Authorization | *Fixed RBAC (ADR-023)* → v2 ABAC via OPA/Cedar | **Diverges + not built** | Two roles, not four; `IAuthorizationDecisionPoint` absent (023) |
+| Camera adapter | *RTSP + ONVIF (ADR-005)* → v2 vendor SDKs | **Partly** | RTSP holds; **ONVIF is absent**, and the adapter seam the v2 column depends on does not exist |
+| Observability sink | *Both Aspire + Grafana* → single chosen sink | **Contradicted by an accepted ADR** | **ADR-0118 abandoned the comparison** and chose the Aspire dashboard. §VII was updated by that ADR; §IX was not |
+
+**§IX's purpose is defeated in three of four rows.** The section exists so v2 can
+land without breaking changes — and two of the interfaces it mandates *"in v1"*
+do not exist, while a third depends on an adapter seam that does not either.
+
+**Disposition**: the observability row → legitimise (ADR-0118 already decided
+it). The two missing interfaces → correct, issues.
+
+---
+
+## Final tally
+
+| Range | Holds | Diverges | Not built | Unverifiable |
+|---|---|---|---|---|
+| 001–009 | 12 | 3 | 8 | 8 |
+| 010–018 | 13 | 3 | 9 | 2 |
+| 019–027 | 20 | 4 | 6 | 4 |
+| §IX | 1 | 3 | 3 | 0 |
+| **Total** | **46** | **13** | **26** | **14** |
+
+**99 claims across 27 decisions and 4 §IX rows. Forty-six hold.**
+
+**The reconnaissance said "at least nine of twenty-seven".** The audit finds
+problems in **fourteen** decisions plus three §IX rows — and confirms thirteen
+decisions substantially hold. Both halves matter: the record is worse than the
+spot-check suggested, and it is not worthless.
