@@ -162,7 +162,7 @@ unit tests that assert on skew induce it first for the same reason.
   **Why the whole-path number is still missing, and it is not this feature's
   doing.** The legs cannot be summed from instruments today: `event → overlay
   state` is *"recorded, not yet readable"* — nothing outside the recording
-  process can read it (#1707). That predates spec 045.
+  process can read it (issue 1707). That predates spec 045.
 
   **A black-box measurement is obtainable**: `smart-sentinel-eye-web` has
   `directAccessGrantsEnabled`, so an operator token can be minted against
@@ -210,7 +210,7 @@ rather than growing into the streaming half of the kiosk.
 
 ## 6. Consequences
 
-- **#1714 stays open.** Every leg is built, which is not the same as the path
+- **Issue 1714 stays open.** Every leg is built, which is not the same as the path
   holding end to end — and §5 lists what is still unmeasured.
 - **§IV keeps "recorded, not yet observed"** until someone reads the figure in
   the sink.
