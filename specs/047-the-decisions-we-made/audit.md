@@ -174,3 +174,102 @@ simply never followed. Same shape as §IX's observability row.
 **Rows recorded as holding are recorded with evidence**, deliberately — an audit
 listing only its discoveries cannot be distinguished from one that stopped when
 it got bored.
+
+---
+
+## Decisions 010–018 (T004)
+
+*012 and 013 are audited in the calibration section above.*
+
+### 010 — messaging → **Holds**
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| RabbitMQ for internal service-to-service messaging | **Holds** | 24 references in `AppHost.cs`; Wolverine transports per ADR-0042 |
+| RabbitMQ for external system ingress | **Holds** | `EventIngestion` consumes from RabbitMQ; MQTT ingress bridges into it |
+| REST API for external publishers, translating to publishes | **Holds** | `EventIngestion` HTTP ingress endpoints |
+| Plan for Streams plugin if replay is required | **Holds** *(as written)* | The claim is conditional intent, not a present-tense assertion. No streams plugin exists, and none is claimed |
+
+### 011 — transcoding → **Holds (partly) / not built**
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| Passthrough when the profile is WebRTC-compatible | **Holds** | `-c copy` in `CameraSimProvisioner`; MediaMTX republishes H.264 without re-encoding |
+| GPU transcode (NVENC / Quick Sync) when forced | **Not built** *(unrealised intention)* | name: `grep -ril "nvenc\|quicksync\|qsv" src/` → no matches. job: no GPU pipeline, no fallback branch. **"Only when forced" has never been forced** — recorded as unrealised, not false |
+| ~1 NVENC-class GPU per 50–100 transcodes | **Unverifiable here** | A sizing budget for hardware that does not exist |
+
+### 012, 013 — see calibration above
+
+### 014 — video-wall sync → **Amended (ADR-0128, spec 045)**
+
+Already corrected. Recorded as amended rather than re-audited.
+
+### 015 — the latency SLO → **Holds (partly), one claim corrected elsewhere**
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| End-to-end SLO ≤ 800 ms | **Holds** | Constitution §IV states it; the six sub-budgets are recorded there |
+| The six sub-budgets (80/120/200/200/50/150 ms) | **Holds** | §IV's table matches this row exactly |
+| WebRTC still the streaming protocol | **Holds** | WHEP over `RTCPeerConnection`; MediaMTX as SFU |
+| **"frame-synced"** | **Diverges** | The overlay is a DOM label layered over the video, not paired with a frame. **Spec 046 is correcting this separately** — recorded here, not duplicated |
+
+### 016 — the nine bounded contexts → **Holds**
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| Nine contexts, as named | **Holds** | Exactly nine context projects: `AuditObservability`, `Automation`, `CameraCatalog`, `EventIngestion`, `Identity`, `LayoutComposition`, `OverlayDesigner`, `StreamDistribution`, `SystemVariables` — the row's list, one for one |
+| Camera Catalog ≠ Stream Distribution | **Holds** | Separate projects, separate lifecycles; `Architecture.Tests` forbids a project reference between them |
+| Variables + Events + Overlays are three separate contexts coupled by RabbitMQ | **Holds** | Three projects; cross-context traffic only via `Shared.Contracts` |
+| Browser overlay engine reads from a per-kiosk WebSocket gateway | **Holds** | The layout hub; ADR-0076 |
+
+**Recorded in full despite holding**, because this is the row that calibrates the
+result: the reconnaissance found real problems *and* rows that are simply right.
+
+### 017 — system variable types → **Diverges**
+
+> *v1 = `text`, `boolean`, `integer`, `decimal`, `datetime`, `json` (opaque).*
+
+**Six types are declared. Three exist.**
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| `text` | **Holds** *(renamed)* | `VariableType.String` |
+| `boolean` | **Holds** | `VariableType.Boolean` |
+| `integer` and `decimal` as distinct types | **Diverges** | Both collapsed into a single `VariableType.Number`. `From()` accepts exactly `String \| Number \| Boolean` and throws otherwise |
+| `datetime` | **Not built** | name: no `DateTime` member in `VariableType.cs`. job: `From()` throws on anything outside the three — there is no path by which a datetime variable can exist |
+| `json` (opaque), parsed client-side | **Not built** | Same evidence. No JSON variable type, so nothing forwards or parses one |
+| Each variable declares exactly one type | **Holds** | One `VariableType` per variable |
+| Promoting `json` to `json + schema` reserved for later | **n/a** | Reserved future work for a type that does not exist |
+
+**Disposition**: correct — issue. Two named v1 types are absent, and `integer`/
+`decimal` were merged without a record. This is a divergence a consumer could
+trip over: an overlay expecting a datetime variable cannot have one.
+
+### 018 — external event ingestion → **Not built**
+
+> *hybrid registration model. Each source has a `strict` flag … or `discovery`
+> flag (accepts unknown, quarantines them in an inspector UI for promotion to
+> the registry).*
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| Per-source `strict` flag | **Not built** | name: `grep -rn "strict" src/EventIngestion` → one hit, an unrelated comment about a grammar allow-list. job: no per-source validation mode on `IProvisionedFabSource` |
+| Per-source `discovery` flag | **Not built** | name: no matches. job: no branch treating unknown event types differently |
+| Quarantine of unknown events | **Not built** | name: `grep -ril "quarantine" src/ apps/` → no matches. job: `grep -ril "unregistered\|unknownEvent\|inspector\|promote"` → no matches |
+| Inspector UI for promotion | **Not built** | No such page in `apps/management-web` |
+| An event-type registry to promote into | **Not built** | `grep -ril "EventTypeRegistry\|RegisteredEventType" src/` → no matches |
+| Validated events feed rules/overlays | **Holds** | Ingested events drive Automation rules and overlay variables |
+| Quarantined events are audit-only | **n/a** | Nothing is quarantined |
+
+**The whole registration model is absent**, not merely its UI. Both searches ran
+and both failed. **Disposition**: correct — issue.
+
+---
+
+## Running tally (through 018)
+
+| Range | Holds | Diverges | Not built | Unverifiable |
+|---|---|---|---|---|
+| 001–009 | 12 | 3 | 8 | 8 |
+| 010–018 | 13 | 3 | 9 | 2 |
+
