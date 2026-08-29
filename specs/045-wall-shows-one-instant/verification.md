@@ -75,9 +75,55 @@ throughout, and stayed green — they used fixtures where buffer and processing
 were not distinguished, because the code that produced them did not distinguish
 either.
 
+### 2c. And the code review found four more, plus five vacuous tests
+
+Recorded here because they change what §3a measures. In brief: `targetFor`
+gated on the badged set rather than the held set, so a tile the wall had just
+declined to carry was still handed a target; the target ratcheted on noise,
+because a playout floor makes a held tile read at or above its setpoint; the
+state was not cleared when a wall shrank below two tiles, pinning the survivor;
+and a marked tile could not recover once every tile was marked.
+
+**Worse, the FR-013 tests that were supposed to catch this class of thing were
+themselves vacuous** — the mocked client never reported `connected`, so every
+sampler returned at its status guard and the throwing doubles were never
+reached. They would have passed with the sampler and the actuator deleted. Making
+them real exposed two further FR-013 breaches in production code.
+
+The full list is in the review; the fixes are in commit `484c416`.
+
 ---
 
-## 3. What the walk demonstrated after the fixes
+## 3. What the walk demonstrated
+
+### 3a. After the code-review fixes — the figures that stand
+
+**These supersede §3b.** The code review changed the control law again (see §2c),
+so the earlier numbers describe a controller that no longer exists and are kept
+only as the record of how the defects were found.
+
+| Step | reading |
+|---|---|
+| Baseline spread | **9.1 ms** (lags 38.5 / 29.4) |
+| Induced 120 ms → spread | **3.8 ms** (lags 86.5 / 90.3) |
+| **After 60 s quiet → spread** | **2.5 ms** (lags 53.1 / 50.6) |
+| Induced 500 ms | **released and badged**; neighbour held at 42 ms |
+| Presentation buffer reported | 10.3 ms (held) to 475 ms (the induced tile) |
+
+**The quiet run is the one that matters.** It is the ratchet check the review
+demanded and the earlier walk never made: after a minute with nothing induced,
+maximum tile lag went **down**, 86.5 → 53.1 ms, rather than climbing. A
+ratcheting loop would have gone the other way, slowly, and every spread
+measurement would still have looked excellent while it did.
+
+**Recovery is stepwise, and that is the deadband working as designed.** The wall
+came back 35 ms in one move — roughly one deadband — rather than gliding to
+baseline, because the target only moves on a change larger than the 33 ms bound
+it promises. Full recovery to the 29–38 ms baseline takes more cycles than this
+walk allowed, and that is a documented cost of not chasing noise rather than a
+fault.
+
+### 3b. Before the review fixes — superseded, kept for the record
 
 Two runs, because the first measurement after machine churn looks exactly like a
 regression.
@@ -149,15 +195,24 @@ unit tests that assert on skew induce it first for the same reason.
   whole. What was measured is this leg's own contribution, which is the part
   alignment could erode:
 
+  Post-fix figures (§3a):
+
   | | reading |
   |---|---|
-  | Presentation buffer, aligned steady state | **10–26 ms** of a 200 ms budget |
-  | Max tile lag, before the controller acts | 36.1 ms (run 1), 36.7 ms (run 2) |
-  | Max tile lag, aligned | **27.7 ms**, **31.5 ms** |
+  | Presentation buffer, held tile | **10.3 ms** of a 200 ms budget |
+  | Max tile lag, before the controller acts | 38.5 ms |
+  | Max tile lag, quiet, after an induced excursion | 53.1 ms and **falling** |
 
-  **Alignment cost nothing here — it slightly reduced the worst tile.** Research
-  R4's warning (aligning roughly doubled lag on an isolated probe) did not
-  reproduce on a real wall, because the tiles were already close together.
+  **Alignment is cheap here, and it does not accumulate.** Research R4's warning
+  (aligning roughly doubled lag on an isolated probe) did not reproduce on a
+  real wall, because the tiles were already close together — and the quiet run
+  shows the wall coming back down rather than creeping up, which is the property
+  that actually protects the budget over hours rather than seconds.
+
+  **The residual 53.1 ms is honest, not a pass by rounding.** It is above the
+  38.5 ms baseline because the wall was still stepping back from a deliberately
+  induced 120 ms excursion when the walk ended. Whether it returns fully to
+  baseline over a longer quiet period is **not measured**.
 
   **Why the whole-path number is still missing, and it is not this feature's
   doing.** The legs cannot be summed from instruments today: `event → overlay
