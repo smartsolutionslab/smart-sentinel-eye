@@ -150,7 +150,7 @@ public static class StreamEndpoints
         // that means a journey (ADR-0128).
         bool isWallSkew = report.Measurement == "wall_skew";
 
-        // Spec 046:  is routed away for a different reason. It is a
+        // Spec 046: `label_delay` is routed away for a different reason. It is a
         // duration, so a segment would have been the tempting filing — but it
         // is a wait the kiosk added, not a leg or a fragment of one, and mixing
         // an intended figure into observed ones lets a p99 rise because the

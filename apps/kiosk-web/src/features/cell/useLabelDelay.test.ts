@@ -272,4 +272,88 @@ describe('useLabelDelay', () => {
 
     expect(reported).toHaveLength(0);
   });
+
+  /**
+   * **The cold-load path, and it is the normal one.** A tile mounts before its
+   * overlay query resolves, so the first label arrives while the tile has not
+   * yet reported a lag. The age becomes readable a moment later — the wall
+   * controller settles every couple of seconds — and nothing about the label
+   * changed in between.
+   *
+   * <p>
+   * Found in review. The label vanished and stayed vanished: held state was
+   * only ever written by the timer, so it was still holding the `undefined`
+   * it was seeded with at mount, and the hook returned that the instant a
+   * readable age made it start holding. The mechanism built to stop an
+   * operator reading a stale value was blanking the tile instead.
+   * </p>
+   */
+  it('Keeps showing a label that arrived before the tile could measure itself', () => {
+    const { result, rerender } = renderHook(
+      ({ text, age }: { text: string | undefined; age: number | null }) => useLabelDelay(text, age),
+      { initialProps: { text: undefined as string | undefined, age: null as number | null } },
+    );
+
+    // The overlay resolves; no lag sample yet, so it shows at once.
+    rerender({ text: 'first', age: null });
+    expect(result.current).toBe('first');
+
+    // The tile's first lag report lands. Nothing about the label changed.
+    rerender({ text: 'first', age: 120 });
+    expect(result.current, 'the label must not vanish when an age becomes readable').toBe('first');
+  });
+
+  /**
+   * The same defect in steady state: a label that changed while the age was
+   * briefly unreadable was shown, then reverted to its predecessor as soon as
+   * the age came back — a superseded value displayed as live, which is the
+   * exact failure this hook exists to prevent.
+   */
+  it('Does not revert to a superseded label when the age becomes readable again', () => {
+    const { result, rerender } = renderHook(
+      ({ text, age }: { text: string | undefined; age: number | null }) => useLabelDelay(text, age),
+      { initialProps: { text: 'first' as string | undefined, age: 120 as number | null } },
+    );
+
+    // Stats go unreadable, and the label changes in that window.
+    rerender({ text: 'second', age: null });
+    expect(result.current).toBe('second');
+
+    // Stats return.
+    rerender({ text: 'second', age: 120 });
+    expect(result.current, 'a shown label must not be taken back').toBe('second');
+  });
+
+  /**
+   * **FR-015 again, on the path that skips the timer.** A hold released early —
+   * the tile stopped reporting an age, or its age jumped past the cap, both of
+   * which a live jittering measurement does — must report what it actually
+   * held, not the figure it set out to hold. Otherwise a tile whose statistics
+   * flicker inflates the histogram on every overlay update.
+   */
+  it('Reports the partial hold it achieved when the hold is released early', () => {
+    const reported: number[] = [];
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+
+    const { rerender } = renderHook(
+      ({ text, age }: { text: string | undefined; age: number | null }) =>
+        useLabelDelay(text, age, (achieved) => reported.push(achieved)),
+      { initialProps: { text: 'first' as string | undefined, age: 150 as number | null } },
+    );
+
+    rerender({ text: 'second', age: 150 });
+
+    // Released at 100 ms of a planned 150 because the age went unreadable.
+    now = 100;
+    rerender({ text: 'second', age: null });
+
+    expect(reported, 'the hold that happened, not the one that was planned').toEqual([100]);
+
+    // And the abandoned timer must not fire a second report.
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(reported).toEqual([100]);
+  });
 });
