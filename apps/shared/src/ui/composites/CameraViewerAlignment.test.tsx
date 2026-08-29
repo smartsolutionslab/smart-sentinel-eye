@@ -28,10 +28,18 @@ const setPlayoutTargetThrows = vi.fn(() => {
 
 vi.mock('@smart-sentinel-eye/shared/streaming/WhepClient', () => ({
   WhepClient: class {
+    // **The double must report `connected`, or this whole suite is vacuous.**
+    // Every effect in CameraViewer guards on `status !== 'live'`, and `status`
+    // is driven only by this callback — never by `connect()` resolving. An
+    // earlier version of this file omitted it, so the sampler and the actuator
+    // were never reached and all three tests passed with both deleted. Which is
+    // the exact failure the tests exist to prevent, committed into the tests
+    // themselves.
+    constructor(private readonly options: { onConnectionStateChange?: (state: string) => void }) {}
+
     async connect(videoEl: HTMLVideoElement) {
-      // A real session attaches a stream; the point of this suite is that the
-      // element survives everything the controller does around it.
       videoEl.dataset['connected'] = 'true';
+      this.options.onConnectionStateChange?.('connected');
     }
     close() {}
     stats = statsThrows;
@@ -68,6 +76,9 @@ describe('CameraViewer when alignment fails', () => {
     });
 
     // The sampler ran and failed repeatedly; the picture is still there.
+    // Asserted BEFORE the survival check: if the throwing double was never
+    // reached, "the video survived" is true of a component that did nothing.
+    expect(statsThrows, 'the lag sampler must actually have run').toHaveBeenCalled();
     expect(container.querySelector('video')).not.toBeNull();
   });
 
@@ -84,7 +95,10 @@ describe('CameraViewer when alignment fails', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(20_000);
     });
-
+    expect(setPlayoutTargetThrows, 'the actuator must actually have run').toHaveBeenCalled();
+    // Asserted BEFORE the survival check: if the throwing double was never
+    // reached, "the video survived" is true of a component that did nothing.
+    expect(statsThrows, 'the lag sampler must actually have run').toHaveBeenCalled();
     expect(container.querySelector('video')).not.toBeNull();
   });
 

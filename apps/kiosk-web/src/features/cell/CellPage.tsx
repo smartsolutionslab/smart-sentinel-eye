@@ -213,9 +213,9 @@ export function CellPage() {
               getToken={getToken}
               unavailable={cell.tile.overlayIdentifier !== null && unavailableOverlays.has(cell.tile.overlayIdentifier)}
               highlighted={cell.tile.overlayIdentifier !== null && highlightedOverlays.has(cell.tile.overlayIdentifier)}
-              playoutTargetMilliseconds={alignment.targetFor(cell.tile.cameraIdentifier)}
-              onLagMeasured={alignment.reportLag}
-              outOfAlignment={alignment.released.has(cell.tile.cameraIdentifier)}
+              playoutTargetMilliseconds={alignment.targetFor(cell.key)}
+              onLagMeasured={(camera, lag, buffer) => alignment.reportLag(cell.key, camera, lag, buffer)}
+              outOfAlignment={alignment.released.has(cell.key)}
             />
           ),
         )}

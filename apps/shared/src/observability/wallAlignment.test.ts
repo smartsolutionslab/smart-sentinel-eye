@@ -345,6 +345,32 @@ describe('settleAlignment — hysteresis on the feasibility decision', () => {
     expect(secondGood.target?.held).toContain('slow');
   });
 
+  /**
+   * **Code review finding.** A marked tile used to be retried only against
+   * *unmarked* tiles, so once every tile was marked none could ever come back —
+   * the wall kept its badges for the life of the page even though the tiles
+   * could align with each other perfectly well. Reachable whenever the last
+   * healthy tile goes offline and ages out.
+   */
+  it('Lets marked tiles recover against each other when no unmarked tile is left', () => {
+    // Both tiles are infeasible against the steady one and get marked.
+    const bad = [steady, tile('x', 260, 250), tile('y', 265, 255)];
+    let state = settleAlignment(initialAlignmentState, bad).state;
+    state = settleAlignment(state, bad).state;
+    expect(state.released).toEqual(['x', 'y']);
+
+    // The steady tile goes away. x and y are now mutually holdable: their
+    // processing is 10 ms each, so a 265 ms target asks 255 ms of buffer —
+    // still over the cap — but bring them inside it and they must recover.
+    const recovered = [tile('x', 60, 30), tile('y', 65, 35)];
+    const first = settleAlignment(state, recovered);
+    expect(first.state.released, 'one good cycle is not enough').toEqual(['x', 'y']);
+
+    const second = settleAlignment(first.state, recovered);
+    expect(second.state.released, 'but two is, with no survivor to pair against').toEqual([]);
+    expect(second.target?.held).toEqual(['y', 'x']);
+  });
+
   it('Sets no target for a single-tile wall however many cycles pass', () => {
     let state = initialAlignmentState;
     for (let cycle = 0; cycle < 5; cycle += 1) {

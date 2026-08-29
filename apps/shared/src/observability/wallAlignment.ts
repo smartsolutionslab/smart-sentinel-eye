@@ -275,19 +275,26 @@ export function classifyWall(lags: readonly TileLag[]): { target: WallTarget | n
 }
 
 /**
- * How far below the cap a released tile must come before it is held again, and
- * how many consecutive cycles a tile must sit past the cap before it is
- * released.
+ * How many consecutive cycles a tile must be infeasible before it is badged,
+ * and how many it must look holdable again before the badge clears.
  *
  * <p>
- * <b>Neither is decoration.</b> Without them a tile sitting on 200 ms flips
- * between held and released every cycle, and an operator watches a badge blink
- * — the boundary case spec 045's edge cases name. The margin gives the return
- * journey a different threshold from the outward one; the cycle count stops a
- * single noisy sample from evicting a healthy tile.
+ * <b>Not decoration.</b> Without it a tile on the boundary flips every cycle
+ * and an operator watches a badge blink — the boundary case spec 045's edge
+ * cases name. The count stops a single noisy sample from evicting a healthy
+ * tile, and requiring the same run of cycles on the way back stops it
+ * returning on one lucky one.
+ * </p>
+ *
+ * <p>
+ * <b>There was a millisecond margin here too, and it is gone.</b> It was
+ * exported and documented as giving the return journey a different threshold —
+ * and referenced nowhere, because the rewrite that moved hysteresis onto the
+ * feasibility decision left both directions running the identical test. A
+ * constant that documents behaviour the code does not have is worse than no
+ * constant: a reader trusts it. Found in code review.
  * </p>
  */
-export const RELEASE_HYSTERESIS_MARGIN_MS = 20;
 export const RELEASE_CONSECUTIVE_CYCLES = 2;
 
 /** What the controller remembers between cycles. Carried, never global. */
@@ -345,11 +352,24 @@ export function settleAlignment(
   // required to answer yes for several consecutive cycles before the badge
   // clears. Without that a tile sitting on the boundary flips every cycle and
   // an operator watches it blink.
+  //
+  // **The trial includes the other marked tiles, not just the unmarked ones.**
+  // Retrying a marked tile only against survivors deadlocks: when every tile is
+  // marked there is no survivor to pair with, `wallTargetFrom` returns null for
+  // all of them, and the whole wall keeps its badges for the life of the page
+  // even though the tiles could align with each other perfectly well. Reachable
+  // whenever the last unmarked tile goes offline and ages out. Found in code
+  // review.
+  const stillHeld = candidates.filter((c) => !couldNotHold.has(c.camera));
+  const markedWithLags = [...wasMarked]
+    .map((camera) => lags.find((candidate) => candidate.camera === camera))
+    .filter((lag): lag is TileLag => lag !== undefined);
+
   for (const camera of wasMarked) {
     const lag = lags.find((candidate) => candidate.camera === camera);
     if (lag === undefined) continue; // the tile is gone; nothing to mark
 
-    const trial = wallTargetFrom([...candidates.filter((c) => !couldNotHold.has(c.camera)), lag]);
+    const trial = wallTargetFrom([...stillHeld, ...markedWithLags]);
     const wouldHold = trial !== null && trial.held.includes(camera);
 
     if (!wouldHold) {
