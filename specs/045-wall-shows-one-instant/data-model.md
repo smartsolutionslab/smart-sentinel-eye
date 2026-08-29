@@ -47,6 +47,13 @@ would read as a perfect score for a journey nobody timed.*
 excursion a budget is about (research R3). A wall that fell out of alignment for
 ten seconds an hour ago must not look aligned now.
 
+**Two figures come out of one pair of samples, and they are not the same
+number.** `lagBetween` adds processing because the controller must equalise the
+whole of what makes a tile late; `bufferDelayBetween` returns the buffer wait
+alone, because that is what the 200 ms budget bounds and what gets reported as
+the leg. `TileLag` therefore carries **both** — an earlier version carried only
+the lag, and that is how the cap came to be applied to the wrong quantity (§3).
+
 ---
 
 ## 3. `WallTarget` — the decision, and its two outcomes
@@ -55,30 +62,55 @@ What the controller computes for a wall, once per cycle.
 
 | Field | Meaning |
 |---|---|
-| `targetMilliseconds` | The lag every held tile is pushed to |
-| `heldTiles` | Tiles that can reach the target |
-| `releasedTiles` | Tiles that cannot, without breaching the cap |
+| `targetMilliseconds` | The **total lag** every held tile is brought to |
+| `held` | Tiles that can reach the target inside the budget |
+| `released` | Tiles that cannot, and are marked instead |
 
-**Rule**: `target = min(max(lag over tiles), 200 ms)`.
+> **This section was rewritten after T026.** The rule below is not the one
+> planned; the planned one was wrong in two ways that only a real wall exposed,
+> and both corrections are recorded here rather than in the code alone. See
+> [verification.md](./verification.md) §2.
 
-Aligning means waiting for the slowest, so the target is the **worst** lag — and
-the 200 ms cap is the leg's budget (FR-005). A tile whose lag exceeds the cap is
-**released**, not held: holding it would drag every other tile past the budget,
-which is FR-006's breach and the silent regression US3 exists to catch.
+**Rule**: `target = max(lag)` over the largest feasible subset, where feasible
+means **every held tile's buffer stays inside 200 ms**:
+
+```
+buffer_i = target − processing_i        must be ≤ 200 ms for every held tile
+processing_i = lag_i − buffer_i         the decode leg's share, which we cannot move
+```
+
+**The cap bounds the buffer, not the lag** — and the planned rule
+(`min(max(lag), 200 ms)`) tested the lag. Processing delay belongs to the decode
+leg, so testing the combined figure charges this leg for another's time. On a
+real wall both tiles measured ~257 ms of lag while buffering only ~131 ms, so
+that rule released the entire wall and aligned nothing.
+
+Tiles are dropped **laggiest first**, because the laggiest is the tile setting a
+target the others cannot reach. Dropping to a single tile leaves nothing to
+align, so the wall makes no claim — **but still names the tiles it dropped**, so
+a two-tile wall with one bad tile does not badge the healthy one.
 
 **A released tile keeps playing** (FR-012b). The wall gives up the *claim* about
 that tile, never the picture.
 
-**State transition, with hysteresis:**
+**The setpoint is a buffer depth, not the target.** Each held tile is asked for
+`target − processing_i`. Handing it the target directly is a runaway: setting
+buffer to `T` makes lag `T + processing`, so the next cycle's target is
+`T + processing`, and the wall climbs every cycle. T026 watched two tiles
+induced at 120 ms reach **~654 ms** — perfectly aligned with each other and half
+a second behind the world.
+
+**State transition, with hysteresis on the feasibility decision:**
 
 ```
-held  ──lag > 200 ms for N consecutive cycles──▶  released
-released ──lag ≤ 200 ms − margin for N cycles──▶  held
+held     ──infeasible for N consecutive cycles──▶  released (badged)
+released ──holdable again for N consecutive cycles──▶  held
 ```
 
-The margin and the consecutive-cycle requirement are not decoration. A tile
-sitting exactly at the cap would otherwise flip every cycle, and the operator
-would watch a badge blink — the boundary case the spec's edge cases name.
+Hysteresis governs **what is marked**; the cap governs **what is actuated**,
+every cycle, with no hysteresis at all. Conflating them is what makes a badge
+blink: an infeasible tile takes no part in the target immediately, but is only
+badged once it has stayed infeasible.
 
 **Fewer than two tiles → no target at all.** Not a target of zero: the
 controller does not run, sets nothing, and the tile keeps whatever the browser
