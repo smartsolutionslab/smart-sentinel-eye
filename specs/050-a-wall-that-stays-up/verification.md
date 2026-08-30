@@ -56,6 +56,10 @@ this was refusable once.
   withdrawal test meaningful. The target names twenty.
 - **A real power cycle.** A fresh browser context carrying only disk state.
 - **That any grant is ever cleaned up.** Nothing does it, and nothing tests it.
+- **Anything about production.** The accounts live in the realm the composition
+  root imports; `deploy/` provisions no realm. There is no production deployment
+  to verify against (ADR-0130), and whoever builds one has to carry these
+  accounts or a real fab still drops out while dev and CI look solved.
 
 **One environment interaction worth passing on:** shortening the ceiling
 **breaks the e2e seeds**, which drive a long operator session that expires
