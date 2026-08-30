@@ -59,13 +59,19 @@ application untouched.**
 | | Before | After |
 |---|---|---|
 | A screen drops to a prompt | twice a day, and after any outage > 30 min | no |
-| What a stolen screen yields | a grant lasting ≤ 30 min | **a grant with no expiry** |
+| What a stolen screen yields | up to **10 hours** of use, not 30 minutes | **a grant with no expiry** |
 | Who can mint such a grant | nobody | wall-display accounts only |
 | What the grant permits | view one fab **plus `sse.events.write`** | **unchanged — and that is the problem** |
 | Withdrawing one screen | n/a | stops that screen only |
 | Operator authority | — | **unchanged** |
 
 **Rows two and three are the trade.** A stolen kiosk is worth more than it was.
+
+> **The "before" column was flattering, which made the trade look larger than
+> it is.** Thirty minutes is the *idle* timeout — it ends a grant nobody uses. A
+> thief using one keeps it alive against the ten-hour session ceiling, so the
+> honest before is up to ten hours of continuous access, not half an hour. The
+> step being bought is ten hours → unbounded, not thirty minutes → unbounded.
 
 > **"View-only" was wrong.** The kiosk client already carried `sse.events.write`
 > before this feature, and the never-expiring grant carries it too — so a stolen
@@ -85,9 +91,14 @@ than stated — a stolen powered-off screen is the unused case and expires in 30
 days — and the availability guarantee is **weaker** than stated, because a screen
 switched off for more than 30 days needs a person.
 
-Neither of those figures is set by the realm file; both are provider defaults,
-unstated and unguarded, so a future edit could change them with every test still
-green. Rotation is still not built.
+**No figure in this ADR is set by the repository.** `ssoSessionIdleTimeout`,
+`ssoSessionMaxLifespan`, `offlineSessionIdleTimeout` and
+`offlineSessionMaxLifespanEnabled` are all **absent from the realm file** —
+checked, not assumed; `accessTokenLifespan` is the only session figure it sets.
+So the thirty minutes and ten hours in the Context above are *also* provider
+defaults. **The problem this feature exists to solve is a default nobody chose**,
+and a provider upgrade can change the problem, the cost, and the availability
+guarantee together, with every test still green. Rotation is still not built.
 
 **What the audit trail says:** the wall-display account, not *screen 7*. Better
 than naming an operator, and still not per-device identity (issue 1987).
@@ -127,7 +138,7 @@ neither.
 
 ## What review found, before this shipped
 
-Four things, and the first two would have broken the stack:
+Five things, and the first two would have broken the stack:
 
 1. **The realm file did not import at all.** A JSON comment in the users array;
    the provider rejects unknown fields outright. Nothing would have started.
@@ -136,10 +147,54 @@ Four things, and the first two would have broken the stack:
 3. **The design claim above is false** — see the callout.
 4. **The grant is not view-only** — see the trade table.
 
+5. **The privilege was never confined to wall displays in a running realm.**
+   The provider composes `default-roles-smart-sentinel-eye`, and that composite
+   **includes `offline_access`**. Accounts imported from the realm file are
+   unaffected — they receive exactly the roles they name, which is why
+   `operator` is refused. But **every account created after import inherits
+   it**, including the service account of every kiosk that Enrol mints at
+   runtime. FR-006 — "the widening reaches wall-display accounts and nobody
+   else" — is the claim spec 049 refused this feature over, and it does not hold
+   for any account the system creates itself.
+
+   Four things were checked against a booted realm rather than argued:
+
+   | Question | Answer |
+   |---|---|
+   | Does the composite include the privilege? | **Yes** — `offline_access`, `user`, `uma_authorization`, `view-profile`, `manage-account` |
+   | Do accounts from the file inherit it? | **No** — `operator` resolves to `user` alone |
+   | Does an enrolled kiosk's service account? | **Yes** — created at runtime, inherits all five |
+   | Can the realm file stop it? | **No** — see below |
+
+   It is inert *today* only because no client offers the scope. This feature is
+   the one that would offer one, and at that moment every runtime-created
+   account can mint a credential that never expires.
+
+   **The realm file cannot express the fix.** Declaring
+   `default-roles-smart-sentinel-eye` with a narrowed composite was tried: the
+   import discarded it wholesale — the stored role came back with an empty
+   description and the provider's own five composites — and a composite may only
+   name roles the file declares, so `uma_authorization` could not even be
+   written down. Narrowing it through the admin API **does** work, and applies
+   to accounts already created, because the composite resolves at evaluation
+   time. So this needs a step **after** import, which is a different shape of
+   change from everything else here, and no test in this repository can guard it.
+
+   That change is not made here. It belongs with whichever design actually grants
+   the scope, and making it now would leave a control in place for a feature that
+   is withdrawn.
+
 **How this got past me.** Every probe mirrored changes into a *running* realm by
 hand, because a file edit does not reach one. The verification note says exactly
 that, then asserts "CI closes that gap" — and CI was never run. **The file is the
 only thing this feature changes and the one thing nothing exercised.**
+
+The fifth got past differently and is worth separating: it was not a file that
+went unexercised but a **question never asked**. Every check here read the realm
+file and asked who *declares* the privilege. Nothing asked who *holds* it, and
+the two answers differ for every account the system creates at runtime. A guard
+that reads the same artefact the design was written against can only confirm the
+design was written down.
 
 The account and scope design needs rework rather than repair. This ADR is left
 in place, corrected, because the reasoning is worth keeping and the mistake is
@@ -154,6 +209,8 @@ worth more.
 - **Negative:** a stolen screen yields a grant that does not expire.
 - **Negative:** nothing rotates or cleans up these credentials.
 - **Negative:** the audit trail names the account, not the screen.
+- **Negative:** confining the privilege to wall displays needs a post-import
+  step the realm file cannot express, and no test here can guard it.
 
 ## Alternatives Considered
 

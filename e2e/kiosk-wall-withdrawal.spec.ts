@@ -142,18 +142,23 @@ test.describe('Withdrawing one screen (spec 050 US3)', () => {
       const response = await admin.post(`${issuerOf(refreshToken)}/protocol/openid-connect/token`, {
         form: { client_id: 'kiosk-web', grant_type: 'refresh_token', refresh_token: refreshToken },
       });
-      // The provider's reason is the evidence here: a withdrawn session answers
-      // "Offline user session not found", which distinguishes an ended session
-      // from a grant that never worked. Both look like 400 from outside, and
-      // that ambiguity briefly had this test reporting the wrong finding.
-      if (response.status() !== 200) {
-        console.log('EXCHANGE', response.status(), (await response.text()).slice(0, 220));
-      }
-      return response.status();
+      return { status: response.status(), body: await response.text() };
     };
 
-    expect(await exchange(grantOne), 'the withdrawn screen must stop').toBeGreaterThanOrEqual(400);
-    expect(await exchange(grantTwo), 'and the other nineteen must not').toBe(200);
+    // **The provider's reason is asserted, not printed.** A withdrawn session
+    // answers "Offline user session not found"; a grant that never worked
+    // answers something else entirely, and both are 400 from outside. Logging
+    // the difference and asserting only the status is what let this test report
+    // that withdrawing one screen took down its sibling — the status matched
+    // while the reason said the arrangement was broken.
+    const withdrawn = await exchange(grantOne);
+    expect(withdrawn.status, 'the withdrawn screen must stop').toBeGreaterThanOrEqual(400);
+    expect(withdrawn.body, 'it must stop because its session was ended, not because the grant never worked').toContain(
+      'Offline user session not found',
+    );
+
+    const sibling = await exchange(grantTwo);
+    expect(sibling.status, 'and the other nineteen must not').toBe(200);
 
     await first.close();
     await second.close();

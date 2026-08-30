@@ -384,12 +384,25 @@ unrecorded for as long as nobody looked.
   still needs a person, and a continuously-running wall still drops out
   about twice a day per screen.
 
-  **Two claims made here were wrong and are corrected.** A wall-display
+  **Three claims made here were wrong and are corrected.** A wall-display
   grant would **not** have been view-only: the kiosk client already
   carries `sse.events.write`, so such a screen could inject events into
-  its fab. And such a grant would **not** have been eternal: an unused
+  its fab. Such a grant would **not** have been eternal: an unused
   offline session is removed after 30 days, which bounds the exposure and
-  equally means a screen off for longer needs a person.
+  equally means a screen off for longer needs a person. And the privilege
+  would **not** have reached wall displays alone — the provider's default
+  role composite includes it, so every account created after import
+  inherits it, including the service account of every kiosk enrolled at
+  runtime. That last one is the claim this feature was refused over in
+  spec 049, and the realm file cannot fix it: a narrowed composite is
+  discarded on import, so it needs a step afterwards. All three were
+  checked against a booted realm.
+
+  **Every session figure quoted here is a provider default this
+  repository does not set.** The realm file sets `accessTokenLifespan`
+  and nothing else — the 30 minutes, the 10 hours and the 30 days are all
+  unstated and unguarded, so the target, the problem and the exposure can
+  move under a provider upgrade with every test still green.
 
   **The device-bound credentials this target once assumed are still not
   the answer.** They exist (`POST /kiosks/enroll`) and **cannot be used
