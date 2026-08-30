@@ -189,6 +189,28 @@ an engineer hunting the wrong problem.
 - **FR-011**: The change MUST NOT weaken what a kiosk is allowed to see or
   extend how long a lost credential stays useful.
 
+### Which of these shipped
+
+Recorded here rather than left to a reader to work out, because a spec whose
+requirements all read as satisfied is how a record starts describing a system
+nobody has.
+
+| Requirement | Status |
+|---|---|
+| FR-001 a kiosk resumes its wall after a restart | **Met**, verified against a running stack |
+| FR-002 twenty kiosks do so simultaneously | **Not demonstrated.** One screen was verified; nothing available reboots twenty |
+| FR-003 no human on any schedule, including the ten-hour ceiling | **Not met.** The ceiling stands (issue 1989) |
+| FR-004 no credential readable from the page | **Refined, not met as written** — no browser-only design can meet it (ADR-0131) |
+| FR-005 no more authority than today | **Met**, and it is why FR-003 was not bought |
+| FR-006 each kiosk authenticates as itself | **Not met.** The grant belongs to whoever signed the screen in (issue 1987) |
+| FR-007–FR-009 failure states | **Re-scoped out** (issue 1990) |
+| FR-010 operator sign-in unaffected | **Met** |
+| FR-011 no weakening of what a kiosk may see | **Met.** Scopes are identical; what changed is how long a device-held grant lasts |
+
+**FR-005 and FR-003 are in tension, and that tension is the story of this
+feature.** Meeting FR-003 required a grant that would have broken FR-005, so
+FR-005 was kept and FR-003 was left unmet and tracked.
+
 ### Key Entities
 
 - **Kiosk device** — one physical screen. Enrolled once, identified thereafter,
@@ -233,11 +255,24 @@ uses, must be amended before this is built. The built system contradicts it
 today, and this feature is what forces the question — the same shape as the two
 decisions amended by the last two features.
 
-### In scope
+### In scope — as shipped
 
-- A kiosk resuming its wall unattended, after a restart and indefinitely.
-- Where the device credential lives, which is the whole difficulty.
-- What a screen shows when it cannot come back.
+- **A kiosk resuming its wall unattended after a restart.** Built and verified
+  against a running stack.
+- Where the device credential lives, which is the whole difficulty. Answered:
+  **not in the page**, so the credentials that exist stay unused.
+
+### Narrowed during implementation, and why
+
+- **Running indefinitely (US2) was deferred** — issue 1989. The ten-hour session
+  ceiling needs a long-lived grant, and that needs a realm role on whoever signs
+  the screen in, widening what that account may do generally. FR-005 and FR-011
+  forbid buying recovery with a broader grant, so it was not bought. **The
+  ceiling still stands**: a wall that never reboots drops out about twice a day
+  per screen.
+- **What a screen shows when it cannot come back (US3) was re-scoped out** —
+  issue 1990. Its three states assumed per-device credentials; two of them
+  describe nothing in the design that shipped.
 
 ### Deferred, and to be named as issues during planning
 

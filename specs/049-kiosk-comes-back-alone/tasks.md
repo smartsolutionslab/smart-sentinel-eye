@@ -61,22 +61,36 @@ implements a decision nobody made.
 ## Phase 3 — US2: surviving the ten-hour ceiling
 
 - [x] T010 [US2] Request the long-lived grant, and permit the kiosk client to receive it. The realm already defines the grant type; the kiosk client can currently ask for it **neither by default nor optionally** — verified by query, so this is a small configuration change alongside the app change.
-- [ ] T011 [US2] Test it **with the ceiling shortened on a test realm**, because nothing in CI runs for ten hours. The task, the test's own comment and the verification note must all say this **demonstrates the mechanism and not the production configuration** — a green test here must never be read as a wall having been watched for ten hours.
+- [~] T011 [US2] *(not built — US2 deferred, issue 1989)* Test it **with the ceiling shortened on a test realm**, because nothing in CI runs for ten hours. The task, the test's own comment and the verification note must all say this **demonstrates the mechanism and not the production configuration** — a green test here must never be read as a wall having been watched for ten hours.
 
-**Checkpoint**: both failures addressed. US2 is the more frequent one — twice a day per screen, on a wall that never reboots.
+> **What actually happened, recorded against the plan rather than quietly.**
+> Attempting the ceiling turned up a third requirement neither the plan nor the
+> ADR had accounted for: the long-lived grant needs an `offline_access` **realm
+> role** on whoever signs the screen in, which widens what that account can do
+> generally. This spec's own requirements forbid buying recovery with a broader
+> grant, so **US2 was deferred** (issue 1989) and the ceiling is left standing
+> and recorded as unmet.
+>
+> **US3 was re-scoped out** (issue 1990). Its three states were framed around
+> per-device credentials; two of them describe nothing in the design that
+> shipped. Building them would have meant implementing a requirement that no
+> longer matched, or reinterpreting it to fit — the second being the move
+> ADR-0129 and ADR-0131 exist to correct.
+
+**Checkpoint**: the reboot half is addressed. **The ceiling is not**, and a wall that never reboots still drops out about twice a day per screen.
 
 ---
 
 ## Phase 4 — US3: what a screen shows when it cannot come back
 
-- [ ] T012 [US3] Distinguish the three states in `apps/kiosk-web`: **never enrolled**, **no longer trusted**, **cannot reach the identity service**. The third retries by itself because it clears by itself; the first two must not pretend to, because a screen retrying a withdrawn credential forever tells whoever watches it the problem is transient when it is not.
-- [ ] T013 [US3] **Revocation, tested in both directions** — withdrawing one screen's grant stops that screen **and leaves the others running**. This is the load-bearing security test, not a nicety: per-device revocability is precisely what makes the widened exposure survivable, and an assertion in one direction alone would pass against a mechanism that stops every screen or none.
+- [~] T012 [US3] *(re-scoped out, issue 1990)* Distinguish the three states in `apps/kiosk-web`: **never enrolled**, **no longer trusted**, **cannot reach the identity service**. The third retries by itself because it clears by itself; the first two must not pretend to, because a screen retrying a withdrawn credential forever tells whoever watches it the problem is transient when it is not.
+- [~] T013 [US3] *(re-scoped out, issue 1990)* **Revocation, tested in both directions** — withdrawing one screen's grant stops that screen **and leaves the others running**. This is the load-bearing security test, not a nicety: per-device revocability is precisely what makes the widened exposure survivable, and an assertion in one direction alone would pass against a mechanism that stops every screen or none.
 
 ---
 
 ## Phase 5 — Verify
 
-- [ ] T014 Run the frontend job the way CI runs it — format, lint, typecheck, test — and **read the exit codes**, because counting matching output lines reported a false pass in the last feature. Then write `verification.md` stating plainly **what could not be done**: nothing in CI reboots twenty screens, and nothing runs for ten real hours. If a run against the real stack is not possible, say so rather than narrowing the claim to what the fixtures covered.
+- [x] T014 Run the frontend job the way CI runs it — format, lint, typecheck, test — and **read the exit codes**, because counting matching output lines reported a false pass in the last feature. Then write `verification.md` stating plainly **what could not be done**: nothing in CI reboots twenty screens, and nothing runs for ten real hours. If a run against the real stack is not possible, say so rather than narrowing the claim to what the fixtures covered.
 
 ---
 
