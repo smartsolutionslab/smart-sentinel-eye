@@ -299,3 +299,105 @@ describe('listAllCameraChoices gathers every camera the operator may choose (spe
     expect(data.complete).toBe(true);
   });
 });
+
+/**
+ * Spec 048, found in review — paging turned one request that could fail into
+ * five, and a failure on any of them threw away everything already gathered.
+ */
+describe('A page that fails does not discard the cameras already gathered (spec 048)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const PAGE = 200;
+
+  function camera(index: number): Record<string, unknown> {
+    return {
+      cameraIdentifier: `cam-${String(index).padStart(4, '0')}`,
+      version: 1,
+      fab: 'fab-1',
+      name: `Camera ${String(index).padStart(4, '0')}`,
+      rtspUrl: 'rtsp://10.0.5.1/stream',
+      registeredAt: '2026-01-01T00:00:00Z',
+      status: 'Registered',
+    };
+  }
+
+  /** Serves `total` cameras but fails on the page at `failOn`. */
+  function flakySource(total: number, failOn: number) {
+    return vi.fn((request: Request) => {
+      const offset = Number(new URL(request.url).searchParams.get('offset') ?? '0');
+      if (offset === failOn * PAGE) {
+        return Promise.resolve(new Response('upstream is unwell', { status: 503 }));
+      }
+      const items = Array.from({ length: Math.max(0, Math.min(PAGE, total - offset)) }, (_unused, index) =>
+        camera(offset + index),
+      );
+      return Promise.resolve(
+        new Response(JSON.stringify({ items, count: total, offset, limit: PAGE }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    });
+  }
+
+  async function choices(fetchMock: ReturnType<typeof flakySource>) {
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await createStore().dispatch(camerasApi.endpoints.listAllCameraChoices.initiate());
+    return result;
+  }
+
+  /**
+   * **Induced on a later page, which is the case that matters.** Failing the
+   * first page proves nothing about keeping partial results, because there are
+   * none to keep.
+   */
+  it('Keeps what it gathered when a later page fails, and says the list is short', async () => {
+    const result = await choices(flakySource(1_200, 3));
+    const data = result.data as { items: unknown[]; count: number; complete: boolean };
+
+    expect(data.items, 'three pages survived the fourth failing').toHaveLength(600);
+    expect(data.complete, 'and the picker is told they are not all of them').toBe(false);
+    expect(result.error).toBeUndefined();
+  });
+
+  /**
+   * The counterpart. With nothing gathered there is nothing to degrade to, and
+   * an empty list presented as complete would be a worse lie than an error.
+   */
+  it('Fails outright when the very first page fails', async () => {
+    const result = await choices(flakySource(1_200, 0));
+
+    expect(result.data).toBeUndefined();
+    expect(result.error, 'nothing was gathered, so there is nothing to show').toBeDefined();
+  });
+
+  /**
+   * A fab whose size is an exact multiple of the page size used to cost a whole
+   * extra round trip to discover an empty page — in front of an operator waiting
+   * on a dialog.
+   */
+  it('Does not spend a request discovering an empty page', async () => {
+    const fetchMock = vi.fn((request: Request) => {
+      const offset = Number(new URL(request.url).searchParams.get('offset') ?? '0');
+      const items = Array.from({ length: Math.max(0, Math.min(PAGE, 400 - offset)) }, (_unused, index) =>
+        camera(offset + index),
+      );
+      return Promise.resolve(
+        new Response(JSON.stringify({ items, count: 400, offset, limit: PAGE }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await createStore().dispatch(camerasApi.endpoints.listAllCameraChoices.initiate());
+    const data = result.data as { items: unknown[]; complete: boolean };
+
+    expect(fetchMock, '400 cameras is exactly two pages').toHaveBeenCalledTimes(2);
+    expect(data.items).toHaveLength(400);
+    expect(data.complete).toBe(true);
+  });
+});

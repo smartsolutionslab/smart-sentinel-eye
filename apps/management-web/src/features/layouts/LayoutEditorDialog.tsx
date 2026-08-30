@@ -137,6 +137,10 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   );
   const cameraItems = cameras?.items ?? [];
   // Only ever true when the source says more cameras exist than were gathered.
+  // The copy states the two numbers and stops there, deliberately: the gap can
+  // also come from a camera retired between requests, and telling an operator
+  // "the rest cannot be chosen" would be wrong in that case. A notice that
+  // overclaims is how a notice stops being believed.
   // A notice that appeared whenever the list loaded would carry no information
   // and operators would learn to ignore it, so its absence is what gives it
   // meaning — and is tested as such.
@@ -166,7 +170,7 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
         )}
         {camerasTruncated && (
           <p id={cameraNoticeId} className="text-sm text-fg-muted">
-            Showing {cameraItems.length} of {cameras.count} cameras. The rest cannot be chosen here yet.
+            Showing {cameraItems.length} of {cameras.count} cameras.
           </p>
         )}
         <GridDesigner
