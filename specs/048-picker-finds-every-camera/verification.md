@@ -20,7 +20,7 @@ that had never been run locally.
 | Format | `pnpm format:check` | pass |
 | Lint | `pnpm -r --filter "./apps/**" lint` | pass |
 | Typecheck | `pnpm -r --filter "./apps/**" typecheck` | pass |
-| Test | `pnpm -r --filter "./apps/**" test` | **412 pass** — shared 139, kiosk 62, management 211 |
+| Test | `pnpm -r --filter "./apps/**" test` | **419 pass** — shared 142, kiosk 62, management 215 |
 | Backend | — | **not run, and not needed**: no C# was touched (research R7) |
 
 **Lint failed first, and a grep told me it had passed.** I counted matching
@@ -152,7 +152,67 @@ was asked. This stays unestablished, as §4's last rows say.
 
 ---
 
-## 6. What is still not established
+## 6. Code review — six findings, all real, all fixed
+
+### The one that matters, and it predates this branch
+
+**The picker never showed an edited tile's camera.** A `<select>` cannot carry a
+value whose option does not exist. The field is written at mount, when the only
+option is the placeholder, and nothing re-applies it when the list resolves —
+the field was uncontrolled and the form library's ref callback short-circuits on
+a ref it has already seen.
+
+Every real load resolves after mount. So the edit dialog showed **every
+populated tile as "(empty cell)"**. An operator would read that as an unassigned
+wall; saving re-sent the cameras it had not been showing them, because form
+state kept what the DOM had lost. Both directions are bad, and the second is
+worse: the screen and the saved result disagreed.
+
+**Why the suite was green.** Every existing dialog test mocked the camera list
+as *already resolved at first render* — the one ordering that hides this. The
+regression test induces the ordering that actually happens.
+
+**The first fix did not work, and the failure was informative.** Holding the
+value in a temporary option survives the mount and is lost the instant the real
+options replace it: the browser drops a value when its option is removed, and
+adding options afterwards does not restore it. Instrumenting both stages showed
+the value correct at mount and empty after — which is what pointed at the swap
+rather than the write. The select is now controlled.
+
+**It is not this branch's defect, and it is this branch's business.** The
+feature is about this control being trustworthy, paging widens the window by
+adding a request, and FR-011 already required a selection to survive the list
+arriving.
+
+### The other five
+
+| Finding | Why it mattered |
+|---|---|
+| A failure on a later page discarded every camera already gathered | Paging turned one request that could fail into five. 600 cameras with a notice beats an empty dropdown and a disabled Save. Only a first-page failure errors now — with nothing gathered there is nothing to degrade to |
+| Cross-fab name collisions were unresolvable | Names are unique only *within* a fab; this picker spans all of them, and sorting by name puts collisions adjacent. Qualified with the fab only when a name actually collides |
+| "Camera list unavailable" could sit above a full dropdown | A failed refetch keeps the last fulfilled data, so the two conditions are independent |
+| The notice claimed *"the rest cannot be chosen here yet"* | Wrong when the gap comes from a camera retired between requests. It states the two numbers and stops |
+| A fab of exactly 400 spent a wasted third request | A short page is not the only way to know there is nothing left |
+
+### What this says about the checks that came before
+
+Twelve mutations, a live run against a populated fab, and a green suite did not
+find the highest-severity defect on the screen this feature is about. **The
+fixture always resolved before first render**, so the whole suite tested one
+ordering of two. That is the same shape as spec 046 — where every test seeded
+label text at mount and missed a defect on the cold-load path — and it is worth
+naming as a pattern rather than an incident: *the setup that makes a test easy
+to write is often the one that hides the bug.*
+
+The live check did not catch it either, because it exercised the **create**
+flow, where there is no existing selection to lose.
+
+**Six more mutations** were run against the fixes, each killing at least one
+test — including reverting the select to uncontrolled.
+
+---
+
+## 7. What is still not established
 
 - **Whether a 250-option dropdown is usable** rather than merely correct. The
   live fab held 70, and nobody was asked.
