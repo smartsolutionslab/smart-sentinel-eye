@@ -1,4 +1,5 @@
 import { WebStorageStateStore } from 'oidc-client-ts';
+import type { UserManagerSettings } from 'oidc-client-ts';
 import type { AuthProviderProps } from 'react-oidc-context';
 import { REDIRECT_GUARD_STORAGE_KEY } from './useSessionExpiry.js';
 
@@ -25,7 +26,14 @@ if (import.meta.env.PROD && (import.meta.env.VITE_KEYCLOAK_URL ?? '') === '') {
  * ``sse.management`` — write-everything authority on a screen bolted to a
  * factory wall, using none of it.
  */
-export const oidcConfig: AuthProviderProps = {
+/**
+ * Intersected with the settings type rather than left as `AuthProviderProps`
+ * alone, which is a union whose other member carries a pre-built manager and
+ * therefore none of these fields. The union is right for the provider and
+ * useless for anything reading the configuration back — including the tests
+ * that assert this kiosk asks for no authority beyond coming back.
+ */
+export const oidcConfig: AuthProviderProps & UserManagerSettings = {
   authority: `${KEYCLOAK_BASE_URL}/realms/smart-sentinel-eye`,
   client_id: 'kiosk-web',
   redirect_uri:

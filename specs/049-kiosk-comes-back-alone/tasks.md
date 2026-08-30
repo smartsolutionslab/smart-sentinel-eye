@@ -51,8 +51,8 @@ implements a decision nobody made.
 
 - [x] T006 [US1] Keep the kiosk's tokens in storage that outlives the browser process, in `apps/kiosk-web/src/app/auth.ts`. Today they sit in process-bound storage, so **a restart loses everything unconditionally** and no server setting can help.
 - [x] T007 [US1] Recover on boot: with tokens present, the kiosk returns to its wall **without a redirect and without a prompt**.
-- [ ] T008 [US1] Tests in `apps/kiosk-web/src/app/`. **Every case starts from empty storage** — a check that begins signed in proves nothing about coming back, and this is the third feature running where the convenient fixture is the one that hides the defect: label text seeded at mount two features ago, a camera list resolved at first render in the last one, both shipping a defect because of it. Cover: nothing stored → the prompt appears; a stored grant → the wall returns with no prompt.
-- [ ] T009 [US1] **Prove authority did not change.** Assert the kiosk's scopes are identical before and after. Unattended recovery must not be bought with a broader grant, and a reviewer should be able to confirm it in one diff rather than by reasoning about a flow.
+- [x] T008 [US1] Tests in `apps/kiosk-web/src/app/`. **Every case starts from empty storage** — a check that begins signed in proves nothing about coming back, and this is the third feature running where the convenient fixture is the one that hides the defect: label text seeded at mount two features ago, a camera list resolved at first render in the last one, both shipping a defect because of it. Cover: nothing stored → the prompt appears; a stored grant → the wall returns with no prompt.
+- [x] T009 [US1] **Prove authority did not change.** Assert the kiosk's scopes are identical before and after. Unattended recovery must not be bought with a broader grant, and a reviewer should be able to confirm it in one diff rather than by reasoning about a flow.
 
 **Checkpoint**: a rebooted screen comes back. It still drops out on the ceiling.
 
