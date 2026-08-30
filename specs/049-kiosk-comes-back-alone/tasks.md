@@ -31,11 +31,13 @@ feature's clothes.
 
 ## Phase 1 — The record *(a gate, not paperwork)*
 
-- [ ] T001 Write the ADR amending the kiosk-auth decision. It says the kiosk does **not** use the interactive library it in fact uses, and puts the device credential in a "secure local store" a web page does not have. Amend it the way the last two features amended theirs: **keep the original legible**, record what was built, and say plainly why the original could not be.
-- [ ] T002 **Record the cost in the same ADR, not only the mechanism.** Use `data-model.md`'s exposure table: a powered-off stolen kiosk yields **nothing today and a usable grant afterwards**. Everything else is unchanged — view-only, one fab, independently revocable. An ADR that states what was built and omits what it gives up hands the next reader a weakened posture with no note saying anyone chose it.
-- [ ] T003 Refine FR-004 in writing. *No credential readable from the page* **cannot be met by any browser-only design, including this one** — the app already keeps tokens in the browser. The promise becomes: the delivered bundle carries no credential; what a device acquires is its own, independently revocable, and no broader than view-only. **Weaker than written, and said rather than assumed** — the same move as the label-matching withdrawal two features ago.
-- [ ] T004 Correct constitution §Availability. It currently says the gap is "smaller than it looks" because the credentials exist and the app does not use them. That is too optimistic: they cannot live where the code that would use them runs.
-- [ ] T005 [P] Guard the corrected claims in `tests/Architecture.Tests/`, as a **consistency check** — code versus record, failing in either direction — not a text pin. A guard that pins prose blocks legitimate rewording and gets deleted within a month, taking the useful part with it. Follow the existing latency-leg and founding-decision guards.
+- [x] T001 Write the ADR amending the kiosk-auth decision. It says the kiosk does **not** use the interactive library it in fact uses, and puts the device credential in a "secure local store" a web page does not have. Amend it the way the last two features amended theirs: **keep the original legible**, record what was built, and say plainly why the original could not be.
+- [x] T002 **Record the cost in the same ADR, not only the mechanism.** Use `data-model.md`'s exposure table: a powered-off stolen kiosk yields **nothing today and a usable grant afterwards**. Everything else is unchanged — view-only, one fab, independently revocable. An ADR that states what was built and omits what it gives up hands the next reader a weakened posture with no note saying anyone chose it.
+- [x] T003 Refine FR-004 in writing. *No credential readable from the page* **cannot be met by any browser-only design, including this one** — the app already keeps tokens in the browser. The promise becomes: the delivered bundle carries no credential; what a device acquires is its own, independently revocable, and no broader than view-only. **Weaker than written, and said rather than assumed** — the same move as the label-matching withdrawal two features ago.
+- [x] T004 Correct constitution §Availability. It currently says the gap is "smaller than it looks" because the credentials exist and the app does not use them. That is too optimistic: they cannot live where the code that would use them runs.
+- [x] T005 [P] *(landed with the code, not before it — see note)* Guard the corrected claims in `tests/Architecture.Tests/`, as a **consistency check** — code versus record, failing in either direction — not a text pin. A guard that pins prose blocks legitimate rewording and gets deleted within a month, taking the useful part with it. Follow the existing latency-leg and founding-decision guards.
+
+> **Correction to T005s placement.** A consistency check compares record against code, so it cannot pass while the record describes the target state and the code does not yet reach it. It landed with Phase 2 and 3 rather than ahead of them. The gate is about not *deciding* in code, which held: the ADR was written first and the code follows it.
 
 **Checkpoint — this is a gate.** **Nothing below is built until this lands.**
 The last two features each found a locked decision contradicting the system, and
@@ -47,8 +49,8 @@ implements a decision nobody made.
 
 ## Phase 2 — US1: surviving a restart
 
-- [ ] T006 [US1] Keep the kiosk's tokens in storage that outlives the browser process, in `apps/kiosk-web/src/app/auth.ts`. Today they sit in process-bound storage, so **a restart loses everything unconditionally** and no server setting can help.
-- [ ] T007 [US1] Recover on boot: with tokens present, the kiosk returns to its wall **without a redirect and without a prompt**.
+- [x] T006 [US1] Keep the kiosk's tokens in storage that outlives the browser process, in `apps/kiosk-web/src/app/auth.ts`. Today they sit in process-bound storage, so **a restart loses everything unconditionally** and no server setting can help.
+- [x] T007 [US1] Recover on boot: with tokens present, the kiosk returns to its wall **without a redirect and without a prompt**.
 - [ ] T008 [US1] Tests in `apps/kiosk-web/src/app/`. **Every case starts from empty storage** — a check that begins signed in proves nothing about coming back, and this is the third feature running where the convenient fixture is the one that hides the defect: label text seeded at mount two features ago, a camera list resolved at first render in the last one, both shipping a defect because of it. Cover: nothing stored → the prompt appears; a stored grant → the wall returns with no prompt.
 - [ ] T009 [US1] **Prove authority did not change.** Assert the kiosk's scopes are identical before and after. Unattended recovery must not be bought with a broader grant, and a reviewer should be able to confirm it in one diff rather than by reasoning about a flow.
 
@@ -58,7 +60,7 @@ implements a decision nobody made.
 
 ## Phase 3 — US2: surviving the ten-hour ceiling
 
-- [ ] T010 [US2] Request the long-lived grant, and permit the kiosk client to receive it. The realm already defines the grant type; the kiosk client can currently ask for it **neither by default nor optionally** — verified by query, so this is a small configuration change alongside the app change.
+- [x] T010 [US2] Request the long-lived grant, and permit the kiosk client to receive it. The realm already defines the grant type; the kiosk client can currently ask for it **neither by default nor optionally** — verified by query, so this is a small configuration change alongside the app change.
 - [ ] T011 [US2] Test it **with the ceiling shortened on a test realm**, because nothing in CI runs for ten hours. The task, the test's own comment and the verification note must all say this **demonstrates the mechanism and not the production configuration** — a green test here must never be read as a wall having been watched for ten hours.
 
 **Checkpoint**: both failures addressed. US2 is the more frequent one — twice a day per screen, on a wall that never reboots.

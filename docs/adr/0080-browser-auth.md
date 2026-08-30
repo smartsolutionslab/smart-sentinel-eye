@@ -1,6 +1,7 @@
 # ADR-0080: Browser Auth — react-oidc-context + Custom Kiosk Flow
 
 **Status:** Accepted
+**Amended by:** ADR-0131 (the kiosk flow; the management-app half stands)
 **Date:** 2026-05-25
 
 ## Context
@@ -34,6 +35,15 @@ standard auth code with PKCE; **kiosk app** uses device-bound
 - Silent renew handled automatically.
 
 For the **kiosk app**, a custom auth flow (ADR-0008):
+
+> **Amended by ADR-0131 (2026-08-30).** The paragraph and sketch below were
+> never built, and **cannot be**: they put a device credential in "a secure
+> local store", and a browser has none — anything the page can read, anyone at
+> the screen can read. The kiosk does use `react-oidc-context`, contrary to
+> what this ADR states. It now keeps a long-lived grant of its own so a screen
+> recovers unattended. **The original text is kept below deliberately**: what
+> was decided is a different record from what happened, and overwriting the
+> first loses the reason the second was needed.
 
 ```typescript
 // apps/kiosk-web/src/auth.ts
