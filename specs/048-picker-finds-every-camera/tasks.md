@@ -66,7 +66,7 @@ not be mistaken for the size of the work.
 
 ## Phase 4 — Verify
 
-- [ ] T013 Run the frontend suites **the way CI runs them, not a subset** — `format:check`, then `lint`, `typecheck` and `test` across all three app packages. Spec 045 shipped a green subset and CI caught a test never run locally. Then write `verification.md` stating plainly **what could not be done**: every check here runs against a fixture, and none against a real fab of 250 cameras. If a populated fab is unavailable, say so — do not narrow the claim to what the fixtures happened to cover. Spec 046's verification note is the model, and the reason: it shipped a defect that all sixteen of its mutations missed.
+- [x] T013 Run the frontend suites **the way CI runs them, not a subset** — `format:check`, then `lint`, `typecheck` and `test` across all three app packages. Spec 045 shipped a green subset and CI caught a test never run locally. Then write `verification.md` stating plainly **what could not be done**: every check here runs against a fixture, and none against a real fab of 250 cameras. If a populated fab is unavailable, say so — do not narrow the claim to what the fixtures happened to cover. Spec 046's verification note is the model, and the reason: it shipped a defect that all sixteen of its mutations missed.
 
 ---
 
