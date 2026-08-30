@@ -192,8 +192,7 @@
         "sse.layouts.read",
         "sse.overlays.read",
         "sse.variables.read",
-        "sse.events.write",
-        "offline_access"
+        "sse.events.write"
       ]
     },
     {

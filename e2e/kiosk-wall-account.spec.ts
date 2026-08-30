@@ -14,6 +14,16 @@ import { test, expect, type Page } from '@playwright/test';
  * </p>
  */
 
+/**
+ * <b>Skipped until the scope design is settled.</b> These need the kiosk client
+ * to grant the offline scope, and the arrangement that did so locked every
+ * account without the role out of the kiosk app — including operators and all
+ * six existing kiosk specs. The scope has been withdrawn from the realm while
+ * the design is reworked (ADR-0132, "What review found"), so these would fail
+ * for a reason that is recorded rather than unknown.
+ */
+const WALL_SCOPE_GRANTED = process.env['SSE_WALL_SCOPE'] === '1';
+
 const WALL_USER = 'wall-munich';
 const WALL_PASSWORD = 'Wall-munich-1234';
 
@@ -38,6 +48,8 @@ async function bearer(page: Page): Promise<string> {
   expect(token, 'the screen should be holding a token').not.toBeNull();
   return token as string;
 }
+
+test.skip(!WALL_SCOPE_GRANTED, 'the offline scope is withdrawn pending rework — see ADR-0132');
 
 test('a wall-display account can see its fab and change nothing', async ({ page }) => {
   test.setTimeout(240_000);

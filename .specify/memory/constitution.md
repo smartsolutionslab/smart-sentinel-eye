@@ -371,33 +371,31 @@ unrecorded for as long as nobody looked.
 
 - 24/7 operation. Rolling updates are zero-downtime.
 - StreamKeeper failover ≤ 5 s.
-- A wall of 20 kiosks rebooting must come up unattended. **Met for one
-  screen; not demonstrated for twenty.** A screen signs in as a
-  wall-display account rather than as a person, holding a grant that does
-  not expire, so it keeps its wall past the session limits that ended it
-  before — 30-minute idle, 10-hour ceiling — and comes back from an outage
-  that outlasts them (ADR-0132).
+- A wall of 20 kiosks rebooting must come up unattended. **Not met, and
+  the attempt to meet it was withdrawn before merge.** Spec 050 gave
+  screens a wall-display account holding a grant that outlives the
+  session, and review found the configuration unshippable: the realm file
+  did not import at all, and the scope arrangement locked every operator
+  out of the kiosk app. See ADR-0132, which is kept and corrected.
 
-  **What was actually shown, because this entry has claimed too much
-  before.** The ceiling was **shortened to seconds** on a test realm: that
-  demonstrates the mechanism, **not** the production configuration, and no
-  wall has been watched for ten real hours. **Two** screens were exercised,
-  not twenty — enough to show that withdrawing one leaves the other
-  running, which is a different claim from twenty recovering together.
+  **What ADR-0131 did leave standing**, and still holds: a screen returns
+  from a restart while the session behind its stored grant lives — 30
+  minutes idle, 10 hours regardless. An outage that outlasts the session
+  still needs a person, and a continuously-running wall still drops out
+  about twice a day per screen.
+
+  **Two claims made here were wrong and are corrected.** A wall-display
+  grant would **not** have been view-only: the kiosk client already
+  carries `sse.events.write`, so such a screen could inject events into
+  its fab. And such a grant would **not** have been eternal: an unused
+  offline session is removed after 30 days, which bounds the exposure and
+  equally means a screen off for longer needs a person.
 
   **The device-bound credentials this target once assumed are still not
   the answer.** They exist (`POST /kiosks/enroll`) and **cannot be used
   from a browser** — a page has no secure store, and a secret shipped to
   it is published. They remain minted and unconsumed (issue 1988), and the
   only design that could use them needs a device runtime (issue 1987).
-
-  **The cost, recorded rather than implied.** A stolen powered-off screen
-  now yields a grant with no expiry, where before it yielded one lasting
-  at most thirty minutes. What bounds the loss is that the grant is
-  view-only in a single fab, that ending one screen's session stops only
-  that screen, and that **no operator gained anything** — the privilege
-  reaches wall-display accounts alone. **Nothing cleans these grants up**
-  (issue 1988 makes the same objection about credentials nothing consumes).
 
 ### Security
 

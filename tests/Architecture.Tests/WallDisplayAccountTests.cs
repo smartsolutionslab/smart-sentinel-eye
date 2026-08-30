@@ -78,19 +78,27 @@ public class WallDisplayAccountTests
     }
 
     /// <summary>
-    /// The application never names the scope, so the realm has to grant it by
-    /// default.
+    /// The kiosk client must <b>not</b> grant the offline scope by default.
     ///
     /// <para>
-    /// <b>Default rather than optional, and the distinction is not cosmetic.</b>
-    /// Requesting a scope the realm has not granted fails the <em>entire</em>
-    /// sign-in — no token, the screen never leaves the login form — which is how
-    /// every kiosk went down during spec 049. A default scope leaves nothing in
-    /// the application to be refused.
+    /// <b>This guard is inverted from how it started, and the reason is the
+    /// finding.</b> Granting it as a default looked like the design: the
+    /// application would never name it, so an app build could not be refused by
+    /// a realm that had not caught up. But a default scope is <b>mandatory, not
+    /// neutral</b> — the provider refuses the grant for any account lacking the
+    /// matching role. Verified by booting the realm: <c>operator</c> gets
+    /// <c>not_allowed: Offline tokens not allowed for the user or client</c>, so
+    /// every human and all six kiosk end-to-end specs were locked out.
+    /// </para>
+    ///
+    /// <para>
+    /// The scope is withdrawn while the design is reworked (ADR-0132). This
+    /// fails if it comes back as a default without that rework, because the
+    /// symptom — nobody can sign in — is one nothing else here would catch.
     /// </para>
     /// </summary>
     [Fact]
-    public void The_kiosk_client_grants_the_scope_without_the_application_asking()
+    public void The_kiosk_client_does_not_force_the_offline_scope_on_every_account()
     {
         JsonElement kiosk = RealmClients()
             .First(client => client.GetProperty("clientId").GetString() == "kiosk-web");
@@ -100,16 +108,9 @@ public class WallDisplayAccountTests
             .Select(scope => scope.GetString() ?? string.Empty)
             .ToArray();
 
-        defaults.ShouldContain("offline_access", "a screen cannot stay up without it, and the app must not have to ask");
-
-        // Optional scopes are the ones a caller names. Nothing should be there:
-        // anything that has to be asked for can be refused.
-        if (kiosk.TryGetProperty("optionalClientScopes", out JsonElement optional))
-        {
-            optional.EnumerateArray()
-                .Select(scope => scope.GetString())
-                .ShouldNotContain("offline_access", "as an optional scope the application would have to name it, and could be refused");
-        }
+        defaults.ShouldNotContain(
+            "offline_access",
+            "as a default it is mandatory, and every account without the matching role is refused sign-in entirely");
     }
 
     private sealed record RealmUser(string Username, string[] RealmRoles, string[] Groups);
