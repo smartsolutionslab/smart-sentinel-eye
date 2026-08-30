@@ -15,8 +15,19 @@ const redirectGuardIsFresh = (): boolean => {
   return raw !== null && Date.now() - Number(raw) < REDIRECT_GUARD_WINDOW_MS;
 };
 
-export const hasBeenAuthenticated = (): boolean =>
-  window.sessionStorage.getItem(WAS_AUTHENTICATED_STORAGE_KEY) !== null;
+/**
+ * Whether this screen has ever signed in.
+ *
+ * <p>
+ * <b>Kept where a restart cannot destroy it</b> (ADR-0131), alongside the grant
+ * itself. It lived with the browser process until spec 049, so a rebooted kiosk
+ * reported that it had never signed in — and then showed the *first-boot* manual
+ * sign-in button rather than recovering on its own. Moving the grant and leaving
+ * this behind fixed half a mechanism: the screen held a usable grant and
+ * displayed a button asking someone to press it.
+ * </p>
+ */
+export const hasBeenAuthenticated = (): boolean => window.localStorage.getItem(WAS_AUTHENTICATED_STORAGE_KEY) !== null;
 
 export interface SessionExpiryResult {
   /** Interactive credentials are genuinely required (data-model §3 expired-final). */
@@ -74,19 +85,67 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
 
   useEffect(() => {
     if (auth.isAuthenticated) {
-      window.sessionStorage.setItem(WAS_AUTHENTICATED_STORAGE_KEY, 'true');
+      // Both records of "this screen has a session": one that outlives the
+      // process, and one that distinguishes a restart from a mid-run expiry.
+      // Set here rather than during render — a ref written while rendering is
+      // exactly the pattern the lint rule forbids, and it caught this.
+      authenticatedThisLife.current = true;
+      window.localStorage.setItem(WAS_AUTHENTICATED_STORAGE_KEY, 'true');
     }
   }, [auth.isAuthenticated]);
 
-  // A kiosk that was signed in and lost its session must re-authenticate on
-  // its own instead of falling back to the manual sign-in screen (FR-013).
+  // **Spend the stored grant before asking a person** (spec 049).
+  //
+  // A kiosk that restarts holds a grant on disk whose access token has usually
+  // expired, and the OIDC library will not renew it by itself: its silent-renew
+  // service listens for a token *about to* expire, and a token that loads
+  // already expired cancels that timer instead of raising it. So nothing tried
+  // the refresh token, the expired event fired, and the screen went straight to
+  // an interactive redirect — which after a restart has no sign-in cookie to
+  // ride on, and lands on the login form.
+  //
+  // Attempted once, and only for a screen that has signed in before, so a
+  // first-boot kiosk still asks for credentials rather than silently failing.
+  const silentAttempted = useRef(false);
+  // Whether this page has held a session since it loaded. It distinguishes a
+  // *restart* — signed in before, never in this page's life — from a session
+  // expiring mid-run, which already had a path and keeps it (spec 011 FR-013).
+  const authenticatedThisLife = useRef(false);
+
   useEffect(() => {
-    if (!auth.isAuthenticated && !auth.isLoading && auth.activeNavigator === undefined && hasBeenAuthenticated()) {
+    if (auth.isAuthenticated || auth.isLoading || auth.activeNavigator !== undefined) return;
+    if (!hasBeenAuthenticated() || silentAttempted.current || authenticatedThisLife.current) return;
+
+    silentAttempted.current = true;
+    logResilienceEvent('session', 'restart→silent');
+    void auth
+      .signinSilent()
+      .then((user) => {
+        if (user === null) {
+          beginReauthentication();
+        }
+      })
+      .catch(() => {
+        // The grant is spent or the session behind it has gone. A person is
+        // genuinely needed; falling through says so rather than retrying a
+        // credential that will not work.
+        beginReauthentication();
+      });
+  }, [auth, beginReauthentication]);
+
+  // The interactive fallback, once the stored grant has been tried and failed.
+  useEffect(() => {
+    if (
+      !auth.isAuthenticated &&
+      !auth.isLoading &&
+      auth.activeNavigator === undefined &&
+      hasBeenAuthenticated() &&
+      (silentAttempted.current || authenticatedThisLife.current)
+    ) {
       // Reacts to an external system settling — the OIDC library finishing its
       // load and reporting no session — which is what effects are for. There is
       // nothing to derive during render: the trigger is the transition into
       // that state, not the state itself.
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
       beginReauthentication();
     }
   }, [auth.isAuthenticated, auth.isLoading, auth.activeNavigator, beginReauthentication]);

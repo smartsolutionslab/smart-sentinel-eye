@@ -1,4 +1,4 @@
-# ADR-0131: A kiosk keeps its own long-lived grant, and a stolen screen is worth more than it was
+# ADR-0131: A kiosk keeps its grant across a restart, and a stolen screen is worth more than it was
 
 **Status:** **Accepted**
 **Date:** 2026-08-30
@@ -132,16 +132,20 @@ way it was not before. Everything else is unchanged.
 What makes it survivable is **not** the storage — that is readable on the
 machine it sits on — but that the grant is:
 
-- **that device's alone**, so one screen can be cut off without touching the
-  other nineteen;
-- **independently revocable**, and revocation stops the screen without waiting
-  for a restart;
+- **view-only in one fab**, so a stolen screen sees what that screen already
+  showed to anyone walking past it;
 - **view-only in one fab**, so a stolen screen sees what that screen already
   showed to anyone walking past it.
 
-That last point bounds the loss honestly: a kiosk displays its cameras on a wall
-in a factory. A thief with its grant sees what they could have seen by standing
-in front of it — for as long as it takes someone to withdraw it.
+That bounds the loss honestly: a kiosk displays its cameras on a wall in a
+factory, so a thief with its grant sees what they could have seen by standing in
+front of it.
+
+**What does *not* bound it, and an earlier draft of this ADR claimed it did:**
+per-screen revocation. The grant belongs to whoever signed the screen in, so with
+a shared operator account across a wall there is no recorded way to tell which
+session is screen 7, and withdrawing the account signs out all twenty. Saying
+otherwise made the trade read better than it is (issue 1987).
 
 **What is given up beyond exposure:** the grant belongs to whoever authorised
 the screen, not to the screen. An audit trail names that account, not *screen
