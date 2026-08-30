@@ -48,8 +48,8 @@ was misjudged — stop and take it back through the gate.
 ## Phase 3 — US1: the wall stays up *(P1)*
 
 - [x] T007 [US1] Test that a screen signing in as the wall-display account receives an **offline** grant — decode the refresh token and assert its type and the absence of an expiry. Asserting "a token exists" passes today and proves nothing.
-- [ ] T008 [US1] Test survival past the session limits **with the ceiling shortened on a test realm**, because nothing in CI runs for ten hours. The task, the test's comment and the verification note must each say this **demonstrates the mechanism and not the production configuration** — one place saying it is not enough.
-- [ ] T009 [US1] Test recovery from an outage **longer than the idle cut-off** — the case spec 049 explicitly could not do. Induced by ageing the stored grant past that window before restarting, not by restarting quickly.
+- [x] T008 [US1] Test survival past the session limits **with the ceiling shortened on a test realm**, because nothing in CI runs for ten hours. The task, the test's comment and the verification note must each say this **demonstrates the mechanism and not the production configuration** — one place saying it is not enough.
+- [x] T009 [US1] Test recovery from an outage **longer than the idle cut-off** — the case spec 049 explicitly could not do. Induced by ageing the stored grant past that window before restarting, not by restarting quickly.
 
 **Checkpoint**: the wall stays up, and comes back from an outage that outlasts a session.
 
