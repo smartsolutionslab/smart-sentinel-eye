@@ -108,6 +108,55 @@ export interface CameraListPage {
   limit: number;
 }
 
+/**
+ * Every camera an operator may put on a tile, gathered across as many pages as
+ * it takes (spec 048).
+ *
+ * <p>
+ * <b>`complete` is carried rather than left to each consumer to work out.</b>
+ * Today it is exactly `items.length >= count`, and nothing is hidden from a
+ * caller that wanted to recompute it. It is carried because the rule belongs to
+ * the producer: a consumer that re-derives it pins the rule at every call site,
+ * and they drift apart the day the producer gains another reason to stop short.
+ * </p>
+ */
+export interface CameraChoices {
+  items: CameraSummary[];
+  /**
+   * How many cameras the operator could choose from, as reported by the source.
+   * <b>Not `items.length`</b> — the gap between the two is the whole point, and
+   * what the picker tells the operator about.
+   */
+  count: number;
+  /** Whether `items` is all of them. */
+  complete: boolean;
+}
+
+/**
+ * The largest page the camera source will serve. It <b>refuses</b> anything
+ * larger rather than clamping, so asking for more is an error, not a bigger
+ * page.
+ */
+const MAXIMUM_PAGE_SIZE = 200;
+
+/**
+ * How many pages the picker will gather before it stops and says so.
+ *
+ * <p>
+ * Four times the constitution's 250-camera production target, so the target is
+ * met with room to spare. A bound exists at all because "fetch until count"
+ * turns a ten-thousand-camera fab into fifty sequential requests issued while an
+ * operator waits on a dialog — a worse failure than the one being fixed.
+ * </p>
+ *
+ * <p>
+ * <b>Chosen, not measured.</b> Nothing was benchmarked. What makes it safe is
+ * not the number but that reaching it is reported rather than hidden: past this
+ * point the picker says how many it is showing and how many exist.
+ * </p>
+ */
+const MAXIMUM_PAGES = 5;
+
 export const camerasApi = createApi({
   reducerPath: 'camerasApi',
   baseQuery: gatewayBaseQuery('camera-catalog/cameras'),
@@ -208,12 +257,106 @@ export const camerasApi = createApi({
             ]
           : [{ type: 'Camera' as const, id: 'LIST' }],
     }),
+    /**
+     * Every camera an operator may put on a tile (spec 048).
+     *
+     * <p>
+     * <b>Alongside `listCameras`, not instead of it.</b> The cameras page pages
+     * this endpoint deliberately and correctly — it shows one page at a time and
+     * says which. A picker needs the opposite: the whole choosable set at once,
+     * because an absent option is indistinguishable from a camera that does not
+     * exist.
+     * </p>
+     *
+     * <p>
+     * <b>A `queryFn` rather than `infiniteQuery`.</b> The latter models
+     * user-driven "load more" and hands back an array of pages; the picker wants
+     * one set, once, and its `<select>` is a React Hook Form field where every
+     * change to the option-list shape is a chance to lose a selection already
+     * made. Paging here keeps that shape identical.
+     * </p>
+     *
+     * <p>
+     * Ordered by <b>name</b>, not the default `registeredAt desc`. That default
+     * is why the picker used to offer "the fifty most recently registered" — an
+     * order no operator thinks in. Alphabetical is also what makes a native
+     * select's built-in prefix type-ahead navigable, which is the mitigation
+     * that lets search be a later story.
+     * </p>
+     */
+    listAllCameraChoices: build.query<CameraChoices, { fabId?: string } | void>({
+      queryFn: async (arg, _api, _extraOptions, baseQuery) => {
+        const fabId = arg?.fabId;
+        const gathered: CameraSummary[] = [];
+        // Keyed by identifier because offset paging over a list someone else is
+        // editing can deliver a camera at a page boundary twice: a registration
+        // mid-loop shifts every later page down by one. Two identical options
+        // and a duplicate React key is the visible symptom.
+        const seen = new Set<string>();
+        let count = 0;
+
+        for (let page = 0; page < MAXIMUM_PAGES; page += 1) {
+          const result = await baseQuery({
+            url: '',
+            method: 'GET',
+            params: {
+              sort: 'name',
+              order: 'asc',
+              offset: page * MAXIMUM_PAGE_SIZE,
+              limit: MAXIMUM_PAGE_SIZE,
+              ...(fabId !== undefined && fabId !== '' ? { fabId } : {}),
+            },
+          });
+
+          if (result.error) {
+            return { error: result.error };
+          }
+
+          const body = result.data as CameraListPage;
+          count = body.count;
+
+          for (const camera of body.items) {
+            if (seen.has(camera.cameraIdentifier)) continue;
+            seen.add(camera.cameraIdentifier);
+            gathered.push(camera);
+          }
+
+          // A short page means the source has no more to give, so stop rather
+          // than spend a request discovering an empty one. This is an
+          // optimisation only — it does not decide completeness.
+          if (body.items.length < MAXIMUM_PAGE_SIZE) {
+            break;
+          }
+        }
+
+        // One rule, and it holds for every reason the loop can end: the list is
+        // complete when it holds every camera the source says exists.
+        //
+        // An earlier version also required that the loop had seen a short page,
+        // which was wrong at exactly the bound — 1000 cameras fetched as five
+        // full pages are all of them, and it reported them as incomplete. The
+        // mutation that removed the extra term passed every test, which is how
+        // the defect surfaced.
+        return { data: { items: gathered, count, complete: gathered.length >= count } };
+      },
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.items.map(({ cameraIdentifier }) => ({
+                type: 'Camera' as const,
+                id: cameraIdentifier,
+              })),
+              { type: 'Camera' as const, id: 'LIST' },
+            ]
+          : [{ type: 'Camera' as const, id: 'LIST' }],
+    }),
   }),
 });
 
 export const {
   useRegisterCameraMutation,
   useListCamerasQuery,
+  useListAllCameraChoicesQuery,
   useGetCameraQuery,
   useChangeCameraAddressMutation,
   useRenameCameraMutation,
