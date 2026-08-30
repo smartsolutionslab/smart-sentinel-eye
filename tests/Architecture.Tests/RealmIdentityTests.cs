@@ -60,11 +60,30 @@ public class RealmIdentityTests
     /// client does not have and nothing notices. That silence hid two defects in
     /// two weeks.
     /// </summary>
+    /// <summary>
+    /// Scopes Keycloak creates for every realm, which this file therefore does
+    /// not declare and a client may still name.
+    ///
+    /// <para>
+    /// <b>Deliberately one entry, not a category.</b> The check exists because a
+    /// scope the realm does not define is discarded on import with a warning
+    /// nobody reads, leaving the file claiming a permission the client lacks —
+    /// and widening this list to "anything Keycloak might provide" would give
+    /// that failure back. <c>offline_access</c> is here because it was
+    /// <em>observed</em> present in this realm as imported from this file, not
+    /// because Keycloak documents it.
+    /// </para>
+    /// </summary>
+    private static readonly string[] ProvidedByKeycloak = ["offline_access"];
+
     [Fact]
     public void Every_scope_a_client_names_exists()
     {
-        IReadOnlyCollection<string> defined = [.. Realm().GetProperty("clientScopes").EnumerateArray()
-            .Select(scope => scope.GetProperty("name").GetString() ?? string.Empty)];
+        IReadOnlyCollection<string> defined = [
+            .. Realm().GetProperty("clientScopes").EnumerateArray()
+                .Select(scope => scope.GetProperty("name").GetString() ?? string.Empty),
+            .. ProvidedByKeycloak,
+        ];
 
         foreach (JsonElement client in Clients())
         {

@@ -192,7 +192,8 @@
         "sse.layouts.read",
         "sse.overlays.read",
         "sse.variables.read",
-        "sse.events.write"
+        "sse.events.write",
+        "offline_access"
       ]
     },
     {
@@ -283,6 +284,94 @@
     }
   ],
   "users": [
+    {
+      "username": "wall-munich",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "wall-munich@smart-sentinel-eye.test",
+      "firstName": "Wall",
+      "lastName": "Display munich",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Wall-munich-1234",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "offline_access"],
+      "groups": ["/fabs/munich"],
+      "attributes": {
+        "sse.purpose": [
+          "Wall display (spec 050). Holds offline_access so a screen keeps its wall past the session ceiling. Not held by any operator: see ADR-0132 for what that costs and what ends one."
+        ]
+      }
+    },
+    {
+      "username": "wall-dresden",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "wall-dresden@smart-sentinel-eye.test",
+      "firstName": "Wall",
+      "lastName": "Display dresden",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Wall-dresden-1234",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "offline_access"],
+      "groups": ["/fabs/dresden"],
+      "attributes": {
+        "sse.purpose": [
+          "Wall display (spec 050). Holds offline_access so a screen keeps its wall past the session ceiling. Not held by any operator: see ADR-0132 for what that costs and what ends one."
+        ]
+      }
+    },
+    {
+      "username": "wall-berlin",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "wall-berlin@smart-sentinel-eye.test",
+      "firstName": "Wall",
+      "lastName": "Display berlin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Wall-berlin-1234",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "offline_access"],
+      "groups": ["/fabs/berlin"],
+      "attributes": {
+        "sse.purpose": [
+          "Wall display (spec 050). Holds offline_access so a screen keeps its wall past the session ceiling. Not held by any operator: see ADR-0132 for what that costs and what ends one."
+        ]
+      }
+    },
+    {
+      "username": "wall-hamburg",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "wall-hamburg@smart-sentinel-eye.test",
+      "firstName": "Wall",
+      "lastName": "Display hamburg",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Wall-hamburg-1234",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "offline_access"],
+      "groups": ["/fabs/hamburg"],
+      "attributes": {
+        "sse.purpose": [
+          "Wall display (spec 050). Holds offline_access so a screen keeps its wall past the session ceiling. Not held by any operator: see ADR-0132 for what that costs and what ends one."
+        ]
+      }
+    },
     {
       "username": "admin",
       "enabled": true,
