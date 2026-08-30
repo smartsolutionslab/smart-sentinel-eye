@@ -210,14 +210,17 @@ describe('Kiosk app shell', () => {
     expect(auth.signinRedirect).not.toHaveBeenCalled();
   });
 
-  it('Retry on the session-expired screen clears the guard and starts a fresh sign-in', () => {
+  it('Retry on the session-expired screen clears the guard and starts a fresh sign-in', async () => {
     window.localStorage.setItem('sse.auth.wasAuthenticated', 'true');
     window.sessionStorage.setItem('sse.auth.redirectGuard', String(Date.now()));
     const auth = unauthenticatedAuth();
     authState.current = auth;
     renderApp();
 
-    fireEvent.click(screen.getByRole('button', { name: /sign in again/i }));
+    // The expired screen now arrives after the stored grant has been tried and
+    // come back with nothing, so it is a tick away rather than synchronous.
+    const retry = await screen.findByRole('button', { name: /sign in again/i });
+    fireEvent.click(retry);
 
     expect(window.sessionStorage.getItem('sse.auth.redirectGuard')).toBeNull();
     expect(auth.signinRedirect).toHaveBeenCalledTimes(1);
