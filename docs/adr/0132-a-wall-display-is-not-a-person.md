@@ -90,6 +90,20 @@ than naming an operator, and still not per-device identity (issue 1987).
 - **Twenty screens together.** Two were exercised; the target names twenty.
 - **That any grant is ever cleaned up.** Nothing does it.
 
+### Where these accounts exist, and where they do not
+
+**Dev and CI only, today.** The accounts and the scope are declared in the realm
+the composition root imports. **`deploy/` provisions no realm at all** — it holds
+one hand-written broker chart, and the Kubernetes publisher has never been run
+(ADR-0130, issue 1015). So there is no production realm for these to be missing
+from *yet*, and there is also nothing that would carry them there.
+
+**Whoever builds production provisioning must carry both**, or a wall in a real
+fab still drops out twice a day while dev and CI say the problem is solved. That
+is the same shape as ADR-0131's ordering hazard: a change split across an
+application and a realm, where having only one half is worse than having
+neither.
+
 ## Consequences
 
 - **Positive:** a wall stays up, and comes back from a real outage.
