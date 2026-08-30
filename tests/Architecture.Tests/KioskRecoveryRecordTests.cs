@@ -32,7 +32,10 @@ public class KioskRecoveryRecordTests
     {
         bool survivesRestart = KioskAuthSource().Contains("localStorage", StringComparison.Ordinal);
 
-        ReadAdr0131().Contains("keeps it across restarts", StringComparison.OrdinalIgnoreCase)
+        // The phrase is the claim itself, not decoration: this is the sentence a
+        // reader would rely on. It changed once already when the decision was
+        // narrowed, and this check is what noticed.
+        ReadAdr0131().Contains("survives the browser process", StringComparison.OrdinalIgnoreCase)
             .ShouldBe(
                 survivesRestart,
                 survivesRestart
@@ -62,17 +65,18 @@ public class KioskRecoveryRecordTests
         // scopes are DEFAULT client scopes and are never requested by name.
         // Bounded above: nothing beyond these two, or new authority has arrived
         // under cover of a recovery feature.
-        requested.ShouldBeSubsetOf(
-            ["openid", "offline_access"],
-            "a recovery feature must not widen what a wall-mounted screen may do");
+        // Exactly the sign-in, and nothing else. The six sse.* scopes are DEFAULT
+        // client scopes and are never requested by name, so anything appearing
+        // here is new authority arriving under cover of a recovery feature.
+        requested.ShouldBe(["openid"]);
 
-        // And bounded below. A subset check alone passes when a scope is
-        // *removed* — dropping the long-lived grant would silently restore the
-        // ten-hour ceiling and every test still went green. Found by mutation,
-        // which is the only reason this line exists.
-        requested.ShouldContain(
+        // `offline_access` is absent deliberately (ADR-0131): it would escape the
+        // ten-hour ceiling, and the identity provider grants it only to an
+        // account holding a matching realm role — widening who can mint
+        // long-lived tokens. Adding it back should have to argue with a test.
+        requested.ShouldNotContain(
             "offline_access",
-            "without it the sign-in session ends on the ten-hour clock and the wall drops out twice a day");
+            "a long-lived grant costs a realm role this feature declined to buy");
     }
 
     /// <summary>

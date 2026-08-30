@@ -84,31 +84,37 @@ describe('A kiosk keeps its grant across a restart (spec 049 US1)', () => {
   });
 });
 
-describe('A kiosk asks for a grant that outlives the session ceiling (spec 049 US2)', () => {
+describe('A kiosk buys its recovery with no extra authority (spec 049 US1)', () => {
   /**
-   * The sign-in session ends on a ten-hour clock **regardless of activity**, so
-   * a wall that never reboots still dropped to a prompt roughly twice a day per
-   * screen. Only a grant outside that session escapes it.
+   * **The scope list is asserted exactly, not loosely.** A subset check bounds
+   * authority above and passes when a scope is removed; an exact check fails in
+   * both directions, which is what a claim of "unchanged" requires.
    */
-  it('Requests the long-lived grant', () => {
-    expect(oidcConfig.scope?.split(' ')).toContain('offline_access');
+  it('Asks for nothing beyond signing in', () => {
+    expect(oidcConfig.scope?.split(' ')).toEqual(['openid']);
   });
 
   /**
-   * **Authority is unchanged, and this is the cheap place to notice if it ever
-   * is not.** Unattended recovery must not be bought with a broader grant. The
-   * six sse.* scopes are default client scopes, applied whether or not they are
-   * asked for, so naming any of them here would be new authority arriving under
-   * cover of a recovery feature.
+   * **`offline_access` is absent on purpose** (ADR-0131). It is what would
+   * escape the ten-hour session ceiling, and the identity provider grants it
+   * only to an account holding a matching realm role — which would hand that
+   * account the power to mint long-lived tokens generally. Recovery from a
+   * restart did not need it, so it was not bought.
+   *
+   * <p>
+   * Asserted rather than left implicit: adding it back is a security decision,
+   * and it should have to argue with a test rather than slip in as a one-word
+   * edit.
+   * </p>
    */
-  it('Asks for nothing beyond signing in and coming back', () => {
-    expect(oidcConfig.scope?.split(' ').sort()).toEqual(['offline_access', 'openid']);
+  it('Does not ask for a long-lived grant, which would widen who can mint one', () => {
+    expect(oidcConfig.scope?.split(' ')).not.toContain('offline_access');
   });
 
   /**
    * A screen nobody watches must never pass through the expired state on its
-   * way back — renewing before expiry is what keeps the wall up rather than
-   * recovering it after a gap.
+   * way back — renewing before expiry keeps the wall up rather than recovering
+   * it after a gap.
    */
   it('Renews before expiry rather than recovering afterwards', () => {
     expect(oidcConfig.automaticSilentRenew).toBe(true);

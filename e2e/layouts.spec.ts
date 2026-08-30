@@ -87,9 +87,7 @@ test('operator authors a 2×2 wall referencing a camera and overlay and it appea
 // lost with no indication to either of them. That is the regression this
 // guards: an assertion on the *absence* of a conflict here would have passed
 // on the broken build, so the test asserts the conflict is surfaced.
-test('a second operator publishing the same revision is refused, not silently applied', async ({
-  browser,
-}) => {
+test('a second operator publishing the same revision is refused, not silently applied', async ({ browser }) => {
   const stamp = Date.now();
   const cameraName = `E2E Race Cam ${stamp}`;
   const layoutName = `E2E Race Layout ${stamp}`;

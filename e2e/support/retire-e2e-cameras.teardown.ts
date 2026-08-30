@@ -154,7 +154,10 @@ async function retireAt(page: Page, href: string): Promise<boolean> {
   if ((await retire.count()) === 0) return false;
 
   await retire.click();
-  await page.getByRole('alertdialog').getByRole('button', { name: /retire camera/i }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: /retire camera/i })
+    .click();
 
   // The session can lapse between opening the page and confirming, so this
   // reports rather than asserts — the caller re-authenticates and retries, and

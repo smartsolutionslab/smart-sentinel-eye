@@ -225,7 +225,10 @@ test('an opened camera has a viewer, and a retired one explains why it does not'
   // FR-004. The absence is deliberate and explained — an unexplained one lets
   // an operator conclude the video is broken, which is the whole ambiguity.
   await page.getByRole('button', { name: /retire camera/i }).click();
-  await page.getByRole('alertdialog').getByRole('button', { name: /retire camera/i }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: /retire camera/i })
+    .click();
 
   await expect(page.locator('video')).toHaveCount(0);
   await expect(page.getByRole('status')).toContainText(/stream/i);

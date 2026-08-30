@@ -81,7 +81,10 @@ test('kiosk reconciles the overlay state it missed while the hub was down', asyn
       await admin.getByRole('link', { name: /^overlays$/i }).click();
       const row = admin.getByRole('listitem').filter({ hasText: wall.overlayName });
       await row.getByRole('button', { name: /^archive$/i }).click();
-      await admin.getByRole('alertdialog').getByRole('button', { name: /^archive$/i }).click();
+      await admin
+        .getByRole('alertdialog')
+        .getByRole('button', { name: /^archive$/i })
+        .click();
       await expect(row.getByText(/Archived/)).toBeVisible();
     });
 
