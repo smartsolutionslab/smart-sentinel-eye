@@ -371,12 +371,21 @@ unrecorded for as long as nobody looked.
 
 - 24/7 operation. Rolling updates are zero-downtime.
 - StreamKeeper failover ≤ 5 s.
-- A wall of 20 kiosks rebooting must come up unattended. **Not achievable
-  today** — the kiosk app signs in through the interactive
-  authorization-code flow, so each screen needs a person after a reboot.
-  The device-bound `client_credentials` this target assumes **do exist**
-  (`POST /kiosks/enroll`); the app simply does not use them, which makes
-  the gap smaller than it looks (ADR-0130, issue 1976).
+- A wall of 20 kiosks rebooting must come up unattended. **Addressed by
+  ADR-0131**, and it failed in **two** ways rather than one. A restart lost
+  every token unconditionally — they were kept in storage tied to the
+  browser process, so no server setting could help. Separately the
+  sign-in session ends on a **10-hour** ceiling regardless of activity, so
+  a wall that never reboots still dropped out about **twice a day per
+  screen**; that half went unrecorded until spec 049 measured it.
+  **The earlier claim that the gap was "smaller than it looks" was
+  wrong.** The device-bound `client_credentials` do exist
+  (`POST /kiosks/enroll`) and **cannot be used from a browser**: a page has
+  no secure store, and a secret shipped to it is published. They remain
+  minted and unconsumed (issue 1988). The kiosk instead keeps a long-lived
+  grant of its own, at a cost ADR-0131 records rather than implies — a
+  powered-off stolen screen now yields a usable grant, where it yielded
+  nothing before.
 
 ### Security
 

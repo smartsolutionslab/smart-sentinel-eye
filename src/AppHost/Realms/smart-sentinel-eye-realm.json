@@ -193,6 +193,9 @@
         "sse.overlays.read",
         "sse.variables.read",
         "sse.events.write"
+      ],
+      "optionalClientScopes": [
+        "offline_access"
       ]
     },
     {
