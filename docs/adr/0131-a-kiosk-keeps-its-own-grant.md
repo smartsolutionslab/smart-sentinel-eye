@@ -69,7 +69,15 @@ screen that loses power returns to its wall with nobody touching it.
 - **No realm change, and no new grant to anyone.**
 - Verified against the running stack: a screen carrying only what a rebooted
   device carries — what was written to disk, with no session storage and no
-  sign-in cookie — reaches its wall without a prompt.
+  sign-in cookie — reaches its wall without a prompt, **with its access token
+  already expired**, by spending the refresh token it kept.
+
+**The bound, stated here and not left to a verification note.** Recovery lasts as
+long as the session behind that refresh token: it idles out after **30 minutes**
+and ends at **10 hours** regardless. So this returns a screen from a restart and
+**not from an outage that outlasts the session**. A long power cut still needs a
+person, and the target in §Availability is therefore **not** discharged by this
+decision.
 
 **ADR-0080's kiosk paragraph is superseded** for the flow it names. Its
 management-app half stands untouched, and the original text stays legible there

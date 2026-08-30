@@ -6,9 +6,14 @@ Phase 5.
 
 ## 0. What shipped, in one line
 
-A kiosk that loses power comes back to its wall with nobody touching it. **The
-ten-hour session ceiling still stands**, so a wall that never reboots still
-drops out about twice a day per screen.
+A kiosk that restarts comes back to its wall with nobody touching it, **for as
+long as the session behind its stored grant is still alive.**
+
+That bound is the honest limit and it is not small: the sign-in session idles out
+after **30 minutes** and ends at **10 hours** regardless. So this recovers a
+screen from a restart, and **not from an outage that outlasts the session** — a
+long power cut still needs a person. Escaping that needs the deferred work in
+issue 1989.
 
 ---
 
@@ -43,15 +48,39 @@ kiosk.
 |---|---|
 | The grant is kept where a restart cannot destroy it | **pass** |
 | Nothing that matters lives only with the browser process | **pass** |
-| A restarted screen shows its wall with no prompt | **pass** |
-| No sign-in button appears on the restarted screen | **pass** |
+| A screen restarted with an **expired** access token recovers unattended | **pass** |
+| No sign-in prompt or button appears on the restarted screen | **pass** |
+| The wall itself renders after recovery | **pass** |
 
-**How a restart was simulated, stated plainly.** A fresh browser context
-carrying **only what was written to disk** — no session storage, no in-memory
-state, no sign-in cookie. That is a faithful model of what a rebooted device
-carries over, and it is a model: **no machine was power-cycled.**
+**The expiry is induced, and that is the whole value of the test.** An earlier
+version restored a *fresh* grant and restarted instantly, so it never crossed the
+boundary that matters and passed against a genuine defect. A power cut outlasts
+an access token; a test that does not expire one is testing nothing.
 
----
+**How a restart is simulated, stated plainly.** A fresh browser context carrying
+**only what was written to disk** — no session storage, no in-memory state, no
+sign-in cookie. That is a faithful model of what a rebooted device keeps, and it
+is a model: **no machine was power-cycled.**
+
+### What the strengthened test found
+
+**A race in this feature's own code.** The screen reached a login form while its
+token refresh was returning **200**. The silent attempt and the interactive
+fallback run in the same commit, so the fallback saw the attempt flagged and the
+session still absent, and redirected before the exchange resolved. A successful
+refresh and a failed one looked identical from outside.
+
+**Two wrong diagnoses came first**, and both are worth recording because the
+pattern is the lesson. The rebooted context not inheriting the project's TLS
+setting was plausible and wrong. Concluding the feature was *unbuildable without
+a realm role* was worse: an inference drawn from a symptom whose cause was mine,
+stated with more confidence than the evidence carried.
+
+Instrumenting the page — console output, failed requests, and the token
+endpoint's status — found it in a single run. **That should have been the second
+step, not the fourth.** Four times in this feature a test artifact of mine
+reported a product defect; the common thread is hand-constructing failure
+conditions and getting the environment wrong.
 
 ## 3. What attempting the ceiling cost, and what it taught
 
@@ -86,8 +115,8 @@ restored afterwards.
 
 ## 4. Mutation testing
 
-Nine mutations across the record guard and the unit tests. Each had to kill at
-least one test.
+Mutations across the record guard, the unit tests and the recovery path. Each
+had to kill at least one test.
 
 | Mutation | Killed |
 |---|---|
@@ -97,6 +126,14 @@ least one test.
 | Stop renewing before expiry | 1 |
 | The decision stops recording what it cost | 1 |
 | The superseded flow is overwritten rather than kept | 1 |
+| Never try the stored grant on startup | 1 |
+| The "has signed in" marker read from process storage | 3 |
+| That marker *written* to process storage | 1 |
+| The silent attempt also runs on a mid-run expiry | 1 |
+| Never try the stored grant on startup | 1 |
+| The "has signed in" marker read from process storage | 3 |
+| That marker *written* to process storage | 1 |
+| The silent attempt also runs on a mid-run expiry | 1 |
 
 **Two survived their first pass and both taught something.**
 
@@ -110,13 +147,34 @@ when a scope is **removed**, so the long-lived grant could have been silently
 dropped. That mattered less once the grant was scoped out — but the same check
 now fails in both directions.
 
+*The marker's **write** path was never exercised* — every test seeded it
+directly, so writing it to storage that dies with the process kept the whole
+suite green. It is what tells a restarted screen it has signed in before, and
+written to the wrong place a kiosk holding a usable grant comes back showing a
+first-boot button for someone to press.
+
+*The restart-versus-mid-run distinction rested on nothing.* Removing the guard
+that tells them apart changed no test, so the behaviour this feature deliberately
+preserved was unprotected until a test covered it.
+
+*The marker's **write** path was never exercised* — every test seeded it
+directly, so writing it to storage that dies with the process kept the whole
+suite green. It is what tells a restarted screen it has signed in before, and
+written to the wrong place a kiosk holding a usable grant comes back showing a
+first-boot button for someone to press.
+
+*The restart-versus-mid-run distinction rested on nothing.* Removing the guard
+that tells them apart changed no test, so the behaviour this feature deliberately
+preserved was unprotected until a test covered it.
+
 ---
 
 ## 5. What the checks prove, and what they do not
 
 | Claim | Proved by | Not proved by |
 |---|---|---|
-| A restarted kiosk returns to its wall unattended | live run + unit tests | any test starting from stored tokens |
+| A restarted kiosk returns to its wall unattended | live run with an **expired** token | any test restoring a fresh one, which passes against the defect |
+| Recovery after an outage **longer than the session** | **nothing — and it does not** | the live test restarts within the session's life |
 | The grant survives where a restart cannot reach | mutation-killed test | asserting the store's type |
 | Authority is unchanged | exact scope assertion | reasoning about the flow |
 | The record no longer describes a flow nobody built | architecture guard | — |
