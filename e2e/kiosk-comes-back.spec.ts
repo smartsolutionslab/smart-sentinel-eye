@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { signInToKiosk } from './support/kiosk-session';
+import { openFirstLayout, signInToKiosk } from './support/kiosk-session';
 
 /**
  * Spec 049 US1/US2 — a wall comes back on its own (ADR-0131).
@@ -45,45 +45,67 @@ test('a restarted kiosk shows its wall again without anyone touching it', async 
   test.setTimeout(240_000);
 
   await signInToKiosk(page);
-  await page.getByRole('listitem').first().getByRole('button').click();
-  await expect(page.getByTestId('layout-grid')).toBeVisible();
+  await openFirstLayout(page);
 
   // **The key is read, not constructed.** It embeds the identity provider's
   // authority, which the stack serves on a proxied port — a hardcoded
-  // `localhost:8080` key restored an entry the app never looks for, and the
-  // test reported the feature broken when the fault was its own.
+  // `localhost:8080` key restored an entry the app never looks for, and the test
+  // reported the feature broken when the fault was its own.
   const kept = await page.evaluate(() => {
     const key = Object.keys(window.localStorage).find((candidate) => candidate.includes('oidc.user:'));
-    return key === undefined ? null : { key, value: window.localStorage.getItem(key) };
+    return key === undefined ? null : { key, value: window.localStorage.getItem(key) ?? '' };
   });
   expect(kept, 'the kiosk should have kept its grant').not.toBeNull();
 
-  // **A restart, as faithfully as a browser allows.** A new page in a new
-  // context is a fresh process: no in-memory state, no session storage. What it
-  // carries over is what a rebooted device carries over — whatever was written
-  // to disk.
-  const rebooted = await context.browser()?.newContext({ baseURL: 'http://localhost:5174' });
+  const { key, value } = kept as { key: string; value: string };
+
+  // **The access token is expired before the restart, and this is the whole
+  // point of the test.** A power cut outlasts the token: restoring a *fresh*
+  // grant and restarting instantly passes against the defect this covers, where
+  // nothing exchanged the refresh token and the screen went to a login form.
+  const withExpiredToken = JSON.stringify({
+    ...(JSON.parse(value) as Record<string, unknown>),
+    expires_at: Math.floor(Date.now() / 1000) - 3_600,
+  });
+
+  // **A restart, as faithfully as a browser allows.** A new context is a fresh
+  // process: no in-memory state, no session storage, and — because the context
+  // is new — no sign-in cookie either, which is what a rebooted device lacks.
+  // `ignoreHTTPSErrors` is repeated here on purpose: a context created through
+  // `browser.newContext()` does NOT inherit the project's `use` settings, and
+  // the identity provider is served over HTTPS with a development certificate.
+  // Without it the refresh exchange fails on certificate validation and the
+  // screen falls to a login form — which reads exactly like the product defect
+  // this test exists to catch.
+  const rebooted = await context.browser()?.newContext({
+    baseURL: 'http://localhost:5174',
+    ignoreHTTPSErrors: true,
+  });
   if (rebooted === undefined) throw new Error('could not simulate a restart');
   const screenAfterReboot = await rebooted.newPage();
 
   await screenAfterReboot.addInitScript(
     (stored: { key: string; value: string }) => {
-      // Restore only what survives a power cut: the grant on disk. Nothing else
-      // carries over — no session storage, no in-memory state, no sign-in cookie.
+      // Restore only what survives a power cut: what was written to disk.
       window.localStorage.setItem(stored.key, stored.value);
+      window.localStorage.setItem('sse.auth.wasAuthenticated', 'true');
     },
-    kept as { key: string; value: string },
+    { key, value: withExpiredToken },
   );
 
   await screenAfterReboot.goto('/');
 
-  // No prompt, no redirect to a sign-in form — the wall, by itself.
+  // No prompt and no sign-in button — the screen recovers on its own by
+  // spending the grant it kept.
   await expect(
     screenAfterReboot.getByRole('heading', { name: 'Pick a layout' }),
     'a rebooted screen must not ask anyone for credentials',
   ).toBeVisible({ timeout: 60_000 });
-
   await expect(screenAfterReboot.getByRole('button', { name: /sign in/i })).toHaveCount(0);
+
+  // And the wall itself renders, which is what the operator is there for. The
+  // picker alone would prove authentication and not the thing the story claims.
+  await openFirstLayout(screenAfterReboot);
 
   await rebooted.close();
 });

@@ -140,7 +140,17 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
       !auth.isLoading &&
       auth.activeNavigator === undefined &&
       hasBeenAuthenticated() &&
-      (silentAttempted.current || authenticatedThisLife.current)
+      // **Only the mid-run case.** A restart is handled entirely by the silent
+      // attempt above, which asks for a person itself if the grant is spent.
+      //
+      // Gating this on "a silent attempt has started" instead raced it: both
+      // effects run in the same commit, so this one saw the attempt flagged and
+      // the session still absent, and redirected before the exchange could
+      // resolve. The refresh was succeeding with a 200 while the screen was
+      // already on its way to a login form — which looked exactly like the
+      // refresh failing, and cost two wrong diagnoses before instrumentation
+      // showed the token call succeeding.
+      authenticatedThisLife.current
     ) {
       // Reacts to an external system settling — the OIDC library finishing its
       // load and reporting no session — which is what effects are for. There is
