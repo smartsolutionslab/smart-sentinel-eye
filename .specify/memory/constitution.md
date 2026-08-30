@@ -385,9 +385,12 @@ unrecorded for as long as nobody looked.
   minted and unconsumed (issue 1988). The kiosk instead keeps its grant in
   storage a restart does not destroy, at a cost ADR-0131 records rather than
   implies — a powered-off stolen screen now yields a usable grant, where it
-  yielded nothing before. **The reboot half is met; the ten-hour session
-  ceiling is not**, so a continuously-running wall still drops out about
-  twice a day per screen. Escaping it needs a realm role that would let an
+  yielded nothing before. **Still not met, and by a narrower margin than
+  before.** A screen now returns from a restart while the session behind
+  its stored grant lives — but that session idles out after 30 minutes
+  and ends at 10 hours, so an outage outlasting it still needs a person,
+  and a continuously-running wall still drops out about twice a day per
+  screen. Escaping it needs a realm role that would let an
   account mint long-lived tokens generally, which ADR-0131 declined to buy.
 
 ### Security
