@@ -1,6 +1,6 @@
 # ADR-0132: A wall display is not a person, and only it may hold a grant that never expires
 
-**Status:** **Accepted**
+**Status:** **Superseded before it shipped — see "What review found" below**
 **Date:** 2026-08-30
 **Amends:** constitution §Availability (the unattended-reboot target)
 **Relates to:** ADR-0080, ADR-0131, spec 049, spec 050, issues 1976, 1987, 1988, 1989
@@ -34,12 +34,19 @@ account per fab, holding the offline privilege and nothing else.
 
 The scope is a **default** on the kiosk client rather than an optional one.
 
-**This is what repays spec 049's outage.** Requesting a scope the realm has not
-granted fails the *entire* sign-in — `invalid_scope`, no token, the screen never
-leaves the login form. Spec 049 changed the app to ask for it against a realm
-that had not caught up, and every kiosk sign-in stopped. A default scope leaves
-nothing in the bundle to be refused, so **an app build and a realm change stop
-being able to break each other.**
+> **This claim was wrong, and review caught it before merge.** A default scope is
+> **mandatory, not neutral**: the provider refuses the grant for any account
+> lacking the matching role. Verified by booting the realm and signing in —
+> `operator` gets `not_allowed: Offline tokens not allowed for the user or
+> client`, so every human and all six kiosk end-to-end specs are locked out of
+> the kiosk app. The configuration does not repay spec 049's outage; it moves the
+> coupling from the bundle to the account's role and reproduces it.
+
+The original reasoning, kept because the mistake is instructive: *requesting a
+scope the realm has not granted fails the entire sign-in, so a default scope
+leaves nothing in the bundle to be refused, and an app build and a realm change
+stop being able to break each other.* The first half is true. The second does not
+follow.
 
 Verified before any of it was written: the same sign-in yields `typ: Refresh`
 expiring in half an hour, or `typ: Offline` with no expiry, **with the
@@ -54,20 +61,33 @@ application untouched.**
 | A screen drops to a prompt | twice a day, and after any outage > 30 min | no |
 | What a stolen screen yields | a grant lasting ≤ 30 min | **a grant with no expiry** |
 | Who can mint such a grant | nobody | wall-display accounts only |
-| What the grant permits | view one fab | **view one fab — unchanged** |
+| What the grant permits | view one fab **plus `sse.events.write`** | **unchanged — and that is the problem** |
 | Withdrawing one screen | n/a | stops that screen only |
 | Operator authority | — | **unchanged** |
 
-**Rows two and three are the trade.** A stolen kiosk is worth more than it was,
-and the mitigations are that the grant is view-only in one fab, that ending one
-session stops one screen — **tested, not assumed** — and that nothing an
-operator holds has changed.
+**Rows two and three are the trade.** A stolen kiosk is worth more than it was.
 
-**What nothing does:** clean these up. `offlineSessionMaxLifespanEnabled` is
-false, so a session persists until someone ends it or the account is disabled.
-Disabling an account stops **every screen in that fab**. Rotation is not built,
-and a credential nobody remembers is a credential nobody rotates (issue 1988
-makes the same objection about a different unused credential).
+> **"View-only" was wrong.** The kiosk client already carried `sse.events.write`
+> before this feature, and the never-expiring grant carries it too — so a stolen
+> screen can inject manual events into its fab indefinitely, feeding overlays and
+> automation. Spec 050's FR-004 ("MUST NOT be able to change anything") is
+> **unmet**, and its SC-003 is false. The end-to-end test asserted refusals on
+> three write endpoints and did not attempt the one the account actually holds.
+
+What does hold: ending one session stops one screen — **tested, not assumed** —
+and nothing an operator holds has changed.
+
+**What ends one, corrected.** An *unused* offline session is removed after
+**30 days** (`offlineSessionIdleTimeout`), and only a session kept in use
+persists indefinitely (`offlineSessionMaxLifespanEnabled` is false). So the
+earlier claim cut both ways and was wrong in both: the exposure is **smaller**
+than stated — a stolen powered-off screen is the unused case and expires in 30
+days — and the availability guarantee is **weaker** than stated, because a screen
+switched off for more than 30 days needs a person.
+
+Neither of those figures is set by the realm file; both are provider defaults,
+unstated and unguarded, so a future edit could change them with every test still
+green. Rotation is still not built.
 
 **What the audit trail says:** the wall-display account, not *screen 7*. Better
 than naming an operator, and still not per-device identity (issue 1987).
@@ -80,7 +100,8 @@ than naming an operator, and still not per-device identity (issue 1987).
 - a screen keeps its wall after the session that issued the grant has ended;
 - a screen recovers from an outage longer than the idle cut-off — the case
   ADR-0131 explicitly could not do;
-- the account is refused every write and reads outside its fab;
+- the account is refused writes to cameras, layouts and overlays — **but not
+  `sse.events.write`, which it holds and which nothing tested**;
 - ending one screen's session leaves a sibling running.
 
 **Not demonstrated**, and the record must not imply otherwise:
@@ -103,6 +124,26 @@ fab still drops out twice a day while dev and CI say the problem is solved. That
 is the same shape as ADR-0131's ordering hazard: a change split across an
 application and a realm, where having only one half is worse than having
 neither.
+
+## What review found, before this shipped
+
+Four things, and the first two would have broken the stack:
+
+1. **The realm file did not import at all.** A JSON comment in the users array;
+   the provider rejects unknown fields outright. Nothing would have started.
+2. **A default scope locks out every account without the role**, including every
+   operator and all six kiosk end-to-end specs.
+3. **The design claim above is false** — see the callout.
+4. **The grant is not view-only** — see the trade table.
+
+**How this got past me.** Every probe mirrored changes into a *running* realm by
+hand, because a file edit does not reach one. The verification note says exactly
+that, then asserts "CI closes that gap" — and CI was never run. **The file is the
+only thing this feature changes and the one thing nothing exercised.**
+
+The account and scope design needs rework rather than repair. This ADR is left
+in place, corrected, because the reasoning is worth keeping and the mistake is
+worth more.
 
 ## Consequences
 
