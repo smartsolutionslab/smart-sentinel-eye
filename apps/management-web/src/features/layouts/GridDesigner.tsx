@@ -10,6 +10,20 @@ export interface GridDesignerProps {
   overlays: ReadonlyArray<PublishedOverlay>;
   camerasLoading: boolean;
   overlaysLoading: boolean;
+  /**
+   * The camera list could not be retrieved. Distinct from an empty fab, and the
+   * distinction is the point: an operator who cannot tell "no cameras here"
+   * from "the request failed" goes looking for the wrong problem (spec 048
+   * FR-003).
+   */
+  camerasFailed?: boolean;
+  /**
+   * Id of the dialog's truncation notice, when there is one. Every camera
+   * select points at it so the notice is *announced* on focus rather than
+   * merely painted somewhere on the page — a notice a screen-reader user never
+   * hears satisfies a screenshot and nothing else.
+   */
+  cameraNoticeId?: string;
 }
 
 const SELECT_CLASS = 'w-full rounded-md border border-fg-muted/40 bg-bg-base px-3 py-2 text-fg-primary';
@@ -21,7 +35,28 @@ const SELECT_CLASS = 'w-full rounded-md border border-fg-muted/40 bg-bg-base px-
  * frozen multi-tile Zod schema via the form's resolver, surfacing inline
  * per-cell and grid-level errors (ADR-0079).
  */
-export function GridDesigner({ form, cameras, overlays, camerasLoading, overlaysLoading }: GridDesignerProps) {
+/**
+ * What the empty option says, which is three different things (spec 048
+ * FR-003). Until now the last two were indistinguishable — both rendered as a
+ * dropdown with nothing in it, so a failed request read as a fab with no
+ * cameras.
+ */
+function emptyCameraLabel(loading: boolean, failed: boolean, isEmpty: boolean): string {
+  if (loading) return 'Loading cameras…';
+  if (failed) return 'Camera list unavailable';
+  if (isEmpty) return 'No cameras in this fab';
+  return '(empty cell)';
+}
+
+export function GridDesigner({
+  form,
+  cameras,
+  overlays,
+  camerasLoading,
+  overlaysLoading,
+  camerasFailed = false,
+  cameraNoticeId,
+}: GridDesignerProps) {
   const {
     register,
     setValue,
@@ -91,9 +126,10 @@ export function GridDesigner({ form, cameras, overlays, camerasLoading, overlays
                 <select
                   id={`tile-${index}-camera`}
                   className={SELECT_CLASS}
+                  aria-describedby={cameraNoticeId}
                   {...register(`cells.${index}.cameraIdentifier`)}
                 >
-                  <option value="">{camerasLoading ? 'Loading cameras…' : '(empty cell)'}</option>
+                  <option value="">{emptyCameraLabel(camerasLoading, camerasFailed, cameras.length === 0)}</option>
                   {cameras.map((camera) => (
                     <option key={camera.cameraIdentifier} value={camera.cameraIdentifier}>
                       {camera.name}
