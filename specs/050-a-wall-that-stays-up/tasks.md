@@ -27,9 +27,9 @@ was misjudged — stop and take it back through the gate.
 
 ## Phase 1 — The account and the scope
 
-- [ ] T001 Declare a wall-display account per fab in `src/AppHost/Realms/smart-sentinel-eye-realm.json`. Each carries the base role, membership of **its own fab's group**, and the offline privilege — nothing else. One per fab is forced, not preferred: fab scoping comes from the account, so a shared one would let any screen see every fab (R2).
-- [ ] T002 Add `offline_access` as a **default** client scope on the kiosk client. **Default, not optional**, so the application never names it and an app build cannot be refused by a realm that has not caught up (R1).
-- [ ] T003 [P] Note in the realm file, next to the account, **what it is for and what ends it**. It is declared by hand, never expires, and will outlive whoever installed it — a credential nobody remembers is a credential nobody rotates.
+- [x] T001 Declare a wall-display account per fab in `src/AppHost/Realms/smart-sentinel-eye-realm.json`. Each carries the base role, membership of **its own fab's group**, and the offline privilege — nothing else. One per fab is forced, not preferred: fab scoping comes from the account, so a shared one would let any screen see every fab (R2).
+- [x] T002 Add `offline_access` as a **default** client scope on the kiosk client. **Default, not optional**, so the application never names it and an app build cannot be refused by a realm that has not caught up (R1).
+- [x] T003 [P] Note in the realm file, next to the account, **what it is for and what ends it**. It is declared by hand, never expires, and will outlive whoever installed it — a credential nobody remembers is a credential nobody rotates.
 
 **Checkpoint**: a screen can sign in as something that is not a person.
 
@@ -37,9 +37,9 @@ was misjudged — stop and take it back through the gate.
 
 ## Phase 2 — US2: the account may do nothing else *(P1)*
 
-- [ ] T004 [US2] Test that the wall-display account is **refused every write** it attempts and **refused reads outside its own fab**. Assert the refusals, not the successes — a test that only shows the wall working proves nothing about what else the account could do.
-- [ ] T005 [US2] **Test that an operator account holds exactly what it held before.** This is the task most likely to be skipped and the one FR-006 exists for: the feature was refused once precisely because it widened operator authority, and "we didn't touch it" is an argument rather than evidence.
-- [ ] T006 [US2] Guard the claim in `tests/Architecture.Tests/` as a **consistency check** — the realm's wall-display accounts carry the offline privilege and operator accounts do not, failing in either direction. Not a text pin.
+- [x] T004 [US2] Test that the wall-display account is **refused every write** it attempts and **refused reads outside its own fab**. Assert the refusals, not the successes — a test that only shows the wall working proves nothing about what else the account could do.
+- [x] T005 [US2] **Test that an operator account holds exactly what it held before.** This is the task most likely to be skipped and the one FR-006 exists for: the feature was refused once precisely because it widened operator authority, and "we didn't touch it" is an argument rather than evidence.
+- [x] T006 [US2] Guard the claim in `tests/Architecture.Tests/` as a **consistency check** — the realm's wall-display accounts carry the offline privilege and operator accounts do not, failing in either direction. Not a text pin.
 
 **Checkpoint**: **US2 is the half that makes the rest safe.** If it cannot be shown, nothing below should ship.
 
@@ -47,7 +47,7 @@ was misjudged — stop and take it back through the gate.
 
 ## Phase 3 — US1: the wall stays up *(P1)*
 
-- [ ] T007 [US1] Test that a screen signing in as the wall-display account receives an **offline** grant — decode the refresh token and assert its type and the absence of an expiry. Asserting "a token exists" passes today and proves nothing.
+- [x] T007 [US1] Test that a screen signing in as the wall-display account receives an **offline** grant — decode the refresh token and assert its type and the absence of an expiry. Asserting "a token exists" passes today and proves nothing.
 - [ ] T008 [US1] Test survival past the session limits **with the ceiling shortened on a test realm**, because nothing in CI runs for ten hours. The task, the test's comment and the verification note must each say this **demonstrates the mechanism and not the production configuration** — one place saying it is not enough.
 - [ ] T009 [US1] Test recovery from an outage **longer than the idle cut-off** — the case spec 049 explicitly could not do. Induced by ageing the stored grant past that window before restarting, not by restarting quickly.
 
