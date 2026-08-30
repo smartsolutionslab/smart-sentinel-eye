@@ -64,7 +64,7 @@ was misjudged — stop and take it back through the gate.
 
 ## Phase 5 — The record and verification
 
-- [ ] T012 Write the ADR and update constitution §Availability to **what was actually demonstrated** — including that ten hours was shown on a shortened ceiling and that twenty screens were not exercised. Then `verification.md`. §Availability has been half-met twice and described as met once; the entry should not claim the target is discharged unless it is.
+- [x] T012 Write the ADR and update constitution §Availability to **what was actually demonstrated** — including that ten hours was shown on a shortened ceiling and that twenty screens were not exercised. Then `verification.md`. §Availability has been half-met twice and described as met once; the entry should not claim the target is discharged unless it is.
 
 ---
 
