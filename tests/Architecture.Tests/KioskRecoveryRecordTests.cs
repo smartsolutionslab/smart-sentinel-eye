@@ -133,9 +133,23 @@ public class KioskRecoveryRecordTests
         int availability = constitution.IndexOf("20 kiosks rebooting", StringComparison.Ordinal);
         availability.ShouldBeGreaterThan(-1, "the availability target should still be stated");
 
-        string entry = constitution[availability..Math.Min(constitution.Length, availability + 1400)];
+        // Bounded by the next section rather than a character count. A fixed
+        // window silently stops covering the entry the moment the entry grows,
+        // which is exactly what happened when spec 050 rewrote it — the claim
+        // was still there and the guard could no longer see it.
+        int nextSection = constitution.IndexOf("### ", availability, StringComparison.Ordinal);
+        string entry = nextSection < 0
+            ? constitution[availability..]
+            : constitution[availability..nextSection];
 
-        entry.ShouldContain("cannot be used from a browser", Case.Insensitive);
+        // Whitespace-normalised before matching. The phrase is prose in a wrapped
+        // markdown paragraph, so a reflow splits it across a line break and a raw
+        // substring check fails on a document that still says exactly this. A guard
+        // that breaks when someone rewraps a paragraph is the prose-pinning defect
+        // this file warns about, in its subtlest form.
+        string flattened = Regex.Replace(entry, @"\s+", " ");
+
+        flattened.ShouldContain("cannot be used from a browser", Case.Insensitive);
     }
 
     private static string KioskAuthSource() =>

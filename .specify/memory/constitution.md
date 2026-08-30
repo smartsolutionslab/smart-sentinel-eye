@@ -371,27 +371,33 @@ unrecorded for as long as nobody looked.
 
 - 24/7 operation. Rolling updates are zero-downtime.
 - StreamKeeper failover ≤ 5 s.
-- A wall of 20 kiosks rebooting must come up unattended. **Addressed by
-  ADR-0131**, and it failed in **two** ways rather than one. A restart lost
-  every token unconditionally — they were kept in storage tied to the
-  browser process, so no server setting could help. Separately the
-  sign-in session ends on a **10-hour** ceiling regardless of activity, so
-  a wall that never reboots still dropped out about **twice a day per
-  screen**; that half went unrecorded until spec 049 measured it.
-  **The earlier claim that the gap was "smaller than it looks" was
-  wrong.** The device-bound `client_credentials` do exist
-  (`POST /kiosks/enroll`) and **cannot be used from a browser**: a page has
-  no secure store, and a secret shipped to it is published. They remain
-  minted and unconsumed (issue 1988). The kiosk instead keeps its grant in
-  storage a restart does not destroy, at a cost ADR-0131 records rather than
-  implies — a powered-off stolen screen now yields a usable grant, where it
-  yielded nothing before. **Still not met, and by a narrower margin than
-  before.** A screen now returns from a restart while the session behind
-  its stored grant lives — but that session idles out after 30 minutes
-  and ends at 10 hours, so an outage outlasting it still needs a person,
-  and a continuously-running wall still drops out about twice a day per
-  screen. Escaping it needs a realm role that would let an
-  account mint long-lived tokens generally, which ADR-0131 declined to buy.
+- A wall of 20 kiosks rebooting must come up unattended. **Met for one
+  screen; not demonstrated for twenty.** A screen signs in as a
+  wall-display account rather than as a person, holding a grant that does
+  not expire, so it keeps its wall past the session limits that ended it
+  before — 30-minute idle, 10-hour ceiling — and comes back from an outage
+  that outlasts them (ADR-0132).
+
+  **What was actually shown, because this entry has claimed too much
+  before.** The ceiling was **shortened to seconds** on a test realm: that
+  demonstrates the mechanism, **not** the production configuration, and no
+  wall has been watched for ten real hours. **Two** screens were exercised,
+  not twenty — enough to show that withdrawing one leaves the other
+  running, which is a different claim from twenty recovering together.
+
+  **The device-bound credentials this target once assumed are still not
+  the answer.** They exist (`POST /kiosks/enroll`) and **cannot be used
+  from a browser** — a page has no secure store, and a secret shipped to
+  it is published. They remain minted and unconsumed (issue 1988), and the
+  only design that could use them needs a device runtime (issue 1987).
+
+  **The cost, recorded rather than implied.** A stolen powered-off screen
+  now yields a grant with no expiry, where before it yielded one lasting
+  at most thirty minutes. What bounds the loss is that the grant is
+  view-only in a single fab, that ending one screen's session stops only
+  that screen, and that **no operator gained anything** — the privilege
+  reaches wall-display accounts alone. **Nothing cleans these grants up**
+  (issue 1988 makes the same objection about credentials nothing consumes).
 
 ### Security
 
