@@ -24,9 +24,12 @@ import { openFirstLayout, signInToKiosk } from './support/kiosk-session';
 /** Reads the access token the kiosk is holding, as the app itself would. */
 async function kioskBearerToken(page: import('@playwright/test').Page): Promise<string> {
   const token = await page.evaluate(() => {
-    const key = Object.keys(window.sessionStorage).find((candidate) => candidate.startsWith('oidc.user:'));
+    // The kiosk keeps its grant where a restart cannot destroy it (ADR-0131), so
+    // this reads the storage that survives the process. It read the other one
+    // until that change, and nothing here pointed at it — three tests broke.
+    const key = Object.keys(window.localStorage).find((candidate) => candidate.startsWith('oidc.user:'));
     if (key === undefined) return null;
-    const stored: unknown = JSON.parse(window.sessionStorage.getItem(key) ?? 'null');
+    const stored: unknown = JSON.parse(window.localStorage.getItem(key) ?? 'null');
     const accessToken = (stored as { access_token?: unknown } | null)?.access_token;
     return typeof accessToken === 'string' ? accessToken : null;
   });

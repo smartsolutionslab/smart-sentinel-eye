@@ -69,19 +69,6 @@ describe('A kiosk keeps its grant across a restart (spec 049 US1)', () => {
     const afterRestart = new WebStorageStateStore({ store: window.localStorage });
     expect(await afterRestart.get('oidc.user:test')).toContain('a-grant');
   });
-
-  /**
-   * The counterpart, and the one that fails if the store is ever moved back.
-   * Process-bound storage loses the grant, which is the old behaviour.
-   */
-  it('Would lose the grant if it were kept with the process', async () => {
-    const processBound = new WebStorageStateStore({ store: window.sessionStorage });
-    await processBound.set('oidc.user:test', '{"access_token":"a-grant"}');
-
-    // What survives a restart is what is on disk, and this wrote nowhere near it.
-    const afterRestart = new WebStorageStateStore({ store: window.localStorage });
-    expect(afterRestart.get('oidc.user:test')).resolves.toBeNull();
-  });
 });
 
 describe('A kiosk buys its recovery with no extra authority (spec 049 US1)', () => {

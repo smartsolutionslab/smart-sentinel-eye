@@ -40,8 +40,8 @@ For the **kiosk app**, a custom auth flow (ADR-0008):
 > never built, and **cannot be**: they put a device credential in "a secure
 > local store", and a browser has none — anything the page can read, anyone at
 > the screen can read. The kiosk does use `react-oidc-context`, contrary to
-> what this ADR states. It now keeps a long-lived grant of its own so a screen
-> recovers unattended. **The original text is kept below deliberately**: what
+> what this ADR states. It now keeps its grant in storage that survives the
+> browser process, so a screen recovers from a short interruption unattended. **The original text is kept below deliberately**: what
 > was decided is a different record from what happened, and overwriting the
 > first loses the reason the second was needed.
 

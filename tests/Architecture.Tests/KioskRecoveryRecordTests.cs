@@ -59,12 +59,6 @@ public class KioskRecoveryRecordTests
         string[] requested = scope.Groups["scope"].Value
             .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        // `openid` is the sign-in itself and `offline_access` is what lets the
-        // grant outlive the ten-hour ceiling. Anything else would be new
-        // authority arriving under cover of a recovery feature — the six sse.*
-        // scopes are DEFAULT client scopes and are never requested by name.
-        // Bounded above: nothing beyond these two, or new authority has arrived
-        // under cover of a recovery feature.
         // Exactly the sign-in, and nothing else. The six sse.* scopes are DEFAULT
         // client scopes and are never requested by name, so anything appearing
         // here is new authority arriving under cover of a recovery feature.
