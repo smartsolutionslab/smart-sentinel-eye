@@ -1,4 +1,4 @@
-import { useListCamerasQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
+import { useListAllCameraChoicesQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
 import {
   useCreateLayoutDraftMutation,
   useEditDraftRevisionMutation,
@@ -70,7 +70,11 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
     if (!open) resetMutationState();
   }, [open, resetMutationState]);
 
-  const { data: cameras, isLoading: camerasLoading } = useListCamerasQuery({ limit: 50 });
+  // Every camera the operator may choose, not the first page of them. The
+  // picker used to ask for fifty and render them as the whole set, so past the
+  // fiftieth a camera was absent with nothing said — and an absent option is
+  // indistinguishable from a camera that was never registered (spec 048).
+  const { data: cameras, isLoading: camerasLoading, isError: camerasFailed } = useListAllCameraChoicesQuery();
   const { data: overlays, isLoading: overlaysLoading } = useListOverlaysQuery('Published');
 
   const defaultValues = useMemo<GridDesignerValue>(() => {
@@ -132,6 +136,12 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
     staleConflict ? CONFLICT_FALLBACK : 'Could not save the layout. Try again.',
   );
   const cameraItems = cameras?.items ?? [];
+  // Only ever true when the source says more cameras exist than were gathered.
+  // A notice that appeared whenever the list loaded would carry no information
+  // and operators would learn to ignore it, so its absence is what gives it
+  // meaning — and is tested as such.
+  const camerasTruncated = cameras !== undefined && !cameras.complete;
+  const cameraNoticeId = camerasTruncated ? 'layout-camera-truncation' : undefined;
   const overlayItems = overlays?.published ?? [];
 
   return (
@@ -154,12 +164,19 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
             <Input id="layout-name" autoFocus {...register('name')} />
           </FormField>
         )}
+        {camerasTruncated && (
+          <p id={cameraNoticeId} className="text-sm text-fg-muted">
+            Showing {cameraItems.length} of {cameras.count} cameras. The rest cannot be chosen here yet.
+          </p>
+        )}
         <GridDesigner
           form={form}
           cameras={cameraItems}
           overlays={overlayItems}
           camerasLoading={camerasLoading}
           overlaysLoading={overlaysLoading}
+          camerasFailed={camerasFailed}
+          cameraNoticeId={cameraNoticeId}
         />
         {backendError !== null && (
           <p role="alert" className="text-sm text-accent-fault">

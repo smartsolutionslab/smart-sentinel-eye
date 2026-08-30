@@ -45,11 +45,11 @@ not be mistaken for the size of the work.
 
 ## Phase 2 — US1: the picker stops being silent *(P1 — ships alone)*
 
-- [ ] T006 [US1] Render the truncation notice in `apps/management-web/src/features/layouts/LayoutEditorDialog.tsx` when `complete` is false, stating **both** numbers — how many are shown and how many exist. Vague wording ("some cameras may not be shown") carries no information and teaches operators to ignore it.
-- [ ] T007 [US1] Associate the notice with every camera `<select>` in `GridDesigner.tsx` via `aria-describedby` (research R5). **One notice for the dialog, not one per tile** — the list is fetched once and shared, and twelve copies is noise on screen and considerably worse through a screen reader.
-- [ ] T008 [US1] Distinguish the three empty states in `GridDesigner.tsx` (FR-003): **"this fab has no cameras"**, **"the camera list could not be retrieved"**, and **"still loading"**. Today the first two render identically as an empty dropdown, and an operator who cannot tell them apart goes looking for the wrong problem — the same class of defect as the truncation itself, a state rendered as a more innocent state.
-- [ ] T009 [US1] Tests in `apps/management-web/src/features/layouts/`: the notice appears with both numbers on a truncated list; **the notice is absent on a complete list**; the `aria-describedby` association exists — asserted, not eyeballed, because a notice that is painted but not announced satisfies a screenshot and not a screen-reader user; each of the three empty states renders distinguishably.
-- [ ] T010 [US1] **Mutation-test T009**: *render the notice unconditionally* must fail the absence test. A notice that is always there says nothing, so its absence is the assertion that gives it meaning.
+- [x] T006 [US1] Render the truncation notice in `apps/management-web/src/features/layouts/LayoutEditorDialog.tsx` when `complete` is false, stating **both** numbers — how many are shown and how many exist. Vague wording ("some cameras may not be shown") carries no information and teaches operators to ignore it.
+- [x] T007 [US1] Associate the notice with every camera `<select>` in `GridDesigner.tsx` via `aria-describedby` (research R5). **One notice for the dialog, not one per tile** — the list is fetched once and shared, and twelve copies is noise on screen and considerably worse through a screen reader.
+- [x] T008 [US1] Distinguish the three empty states in `GridDesigner.tsx` (FR-003): **"this fab has no cameras"**, **"the camera list could not be retrieved"**, and **"still loading"**. Today the first two render identically as an empty dropdown, and an operator who cannot tell them apart goes looking for the wrong problem — the same class of defect as the truncation itself, a state rendered as a more innocent state.
+- [x] T009 [US1] Tests in `apps/management-web/src/features/layouts/`: the notice appears with both numbers on a truncated list; **the notice is absent on a complete list**; the `aria-describedby` association exists — asserted, not eyeballed, because a notice that is painted but not announced satisfies a screenshot and not a screen-reader user; each of the three empty states renders distinguishably.
+- [x] T010 [US1] **Mutation-test T009**: *render the notice unconditionally* must fail the absence test. A notice that is always there says nothing, so its absence is the assertion that gives it meaning.
 
 **Checkpoint**: **US1 is shippable on its own, and should ship even if US2 does not.** It does not raise the count by one camera — it ends the deception. An operator who knows the list is incomplete can go and ask someone; an operator who does not know cannot. That is the whole harm this feature was raised for.
 
@@ -57,8 +57,8 @@ not be mistaken for the size of the work.
 
 ## Phase 3 — US2: every camera is reachable *(P2)*
 
-- [ ] T011 [US2] Replace `useListCamerasQuery({ limit: 50 })` with the paging endpoint in `LayoutEditorDialog.tsx`. `cameras.map(...)` in `GridDesigner` **keeps its shape** — FR-011 (a selection surviving a refresh) is protected most cheaply by not changing what the field renders.
-- [ ] T012 [US2] Test through the dialog with a **two-page fixture**: the alphabetically last camera is present and selectable, and a selection already made survives the list being extended (FR-011). This complements T004 rather than repeating it — a component test proves the total is right without proving *which* camera was dropped at a boundary.
+- [x] T011 [US2] Replace `useListCamerasQuery({ limit: 50 })` with the paging endpoint in `LayoutEditorDialog.tsx`. `cameras.map(...)` in `GridDesigner` **keeps its shape** — FR-011 (a selection surviving a refresh) is protected most cheaply by not changing what the field renders.
+- [x] T012 [US2] Test through the dialog with a **two-page fixture**: the alphabetically last camera is present and selectable, and a selection already made survives the list being extended (FR-011). This complements T004 rather than repeating it — a component test proves the total is right without proving *which* camera was dropped at a boundary.
 
 **Checkpoint**: complete to 1000, honest beyond it.
 
