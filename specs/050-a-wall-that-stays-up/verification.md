@@ -4,7 +4,17 @@ Phase 5.
 
 ---
 
-## 0. What shipped
+## 0. What shipped — **nothing**
+
+**Read section 7 first.** This note was written before review, and its tables
+below describe a configuration that was withdrawn rather than merged: the realm
+file did not import, and the scope arrangement locked every operator out of the
+kiosk app. The sections are kept unedited because what they got wrong is the
+useful part; section 7 says which rows are false.
+
+---
+
+## 0b. What was built
 
 A screen signs in as a **wall-display account** rather than as a person, holding
 a grant that does not expire. It keeps its wall past the session limits that
@@ -38,7 +48,7 @@ Read on exit codes. A grep-based check reported a false pass two features ago.
 | A screen keeps its wall after the issuing session ended | **pass** |
 | A screen recovers from an outage longer than the idle cut-off | **pass** — the case ADR-0131 could not do |
 | Ending one screen's session leaves a sibling refreshing | **pass** |
-| No operator holds the privilege | **pass** — architecture guard, mutation-killed |
+| No operator holds the privilege | **pass, and it does not mean what it says** — see §7 |
 
 **The refusals are the assertions.** Showing the wall renders proves the account
 can read and says nothing about what else it could do, which is the entire reason
@@ -130,3 +140,69 @@ provider, so runtime verification meant mirroring changes in by hand. **CI close
 that gap**: it boots a fresh stack from the file, so if the import fails to
 create the accounts or grant the scope by default, the e2e tests fail there
 rather than passing on a hand-built realm.
+
+---
+
+## 7. What review found, after this note was written
+
+Five findings; the first two would have stopped the stack, and the fifth is the
+one this note was most confident about.
+
+| # | Finding | What this note says above |
+|---|---|---|
+| 1 | The realm file did not import at all — a JSON comment among the users | §6 says "CI closes that gap"; CI was never run |
+| 2 | A default scope is mandatory: every account without the role is locked out of the kiosk app | §2 records six passes obtained on a hand-built realm |
+| 3 | The design claim — a default scope decouples app from realm — is false | — |
+| 4 | The grant is not view-only; `sse.events.write` was never attempted | §2 row 3 and §5 "the account may do nothing else" are **false** |
+| 5 | The privilege reaches every account created at runtime | §2 row 7 and §5 "**Operators gained nothing**" are **true of the realm file and of no running realm** |
+
+**Finding 5 is the one worth dwelling on**, because §5 above lists "Operators
+gained nothing — checked directly" against "not having touched them", exactly the
+distinction it was proud of drawing. It checked the realm file. In a running
+realm the provider composes `default-roles-smart-sentinel-eye`, that composite
+includes the privilege, and **every account created after import inherits it** —
+including the service account of every kiosk that enrolment mints. Accounts
+declared in the file are unaffected, which is why `operator` really is refused,
+and why the check passed while the claim it stood for did not hold.
+
+Verified against a booted realm, in both directions and with the fix attempted:
+
+| Asked | Answer |
+|---|---|
+| Does the default composite include the privilege? | yes |
+| `operator`, from the file? | `user` alone — refused an offline grant |
+| A kiosk service account created at runtime? | inherits it |
+| Can the realm file narrow the composite? | **no** — the declaration is discarded on import |
+| Can the admin API? | yes, and it applies to accounts already created |
+
+It is inert only because no client currently offers the scope. This feature is
+the one that would offer one.
+
+**The lesson is narrower than "test more".** Every check here read the artefact
+the design was written against, so it could only confirm the design had been
+written down. Nothing asked the running system a question the file could not
+answer. The control that caught misreport six in §4 was the same move — a cheap
+question put to the system rather than to the record — and it was not repeated
+here.
+
+### Two corrections to the tables above
+
+- **§2's "before" figure is flattering.** Thirty minutes is the *idle* timeout.
+  A thief using a grant holds it against the ten-hour ceiling, so the step being
+  bought is ten hours → unbounded, not thirty minutes → unbounded.
+- **Every session figure quoted anywhere in this note is a provider default.**
+  The realm file sets `accessTokenLifespan` and nothing else — the 30 minutes,
+  10 hours and 30 days are unstated and unguarded.
+
+### What changed on the branch as a result
+
+- the scope was withdrawn, and the guard that asserted it was **inverted** to
+  fail if it returns as a default without the rework;
+- the end-to-end specs that need it are gated, not deleted;
+- `Every_fab_has_a_wall_display_account_that_holds_it` was rewritten against the
+  fabs the realm declares — the previous version **passed with one fab's wall
+  dark**, which was confirmed by mutation before and after;
+- the refusal assertions now require 401 or 403, so a mistyped path can no
+  longer read as proof of safety, and they now attempt `sse.events.write` and a
+  cross-fab read — the two authorities never tested;
+- the withdrawal test asserts the provider's reason instead of printing it.

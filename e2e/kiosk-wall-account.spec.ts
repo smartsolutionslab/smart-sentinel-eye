@@ -80,13 +80,105 @@ test('a wall-display account can see its fab and change nothing', async ({ page 
   // the refusals below would be vacuous.
   expect(await call('GET', '/camera-catalog/cameras?limit=1'), 'a screen must be able to see its cameras').toBe(200);
 
-  // And it can change nothing. Each of these is a separate authority a wall
-  // display has no business holding.
-  expect(
-    await call('POST', '/camera-catalog/cameras', { name: 'x', rtspUrl: 'rtsp://10.0.0.1/s' }),
-  ).toBeGreaterThanOrEqual(400);
-  expect(await call('POST', '/layout-composition/layouts', { name: 'x' })).toBeGreaterThanOrEqual(400);
-  expect(await call('POST', '/overlay-designer/overlays', { name: 'x' })).toBeGreaterThanOrEqual(400);
+  /**
+   * **A refusal, not merely a non-success.** `>= 400` was the earlier
+   * assertion and it cannot tell "the account is forbidden" from "the route is
+   * misspelled" — a typo in any path below would have passed as proof of
+   * safety. Only 401 and 403 mean the provider or the gateway turned the call
+   * down; 404 and 400 mean the test is broken.
+   */
+  const refused = async (method: string, path: string, body?: unknown) => {
+    const status = await call(method, path, body);
+    expect(
+      [401, 403],
+      `${method} ${path} should be refused outright; ${status} suggests the request never reached the check`,
+    ).toContain(status);
+  };
+
+  // Each of these is a separate authority a wall display has no business
+  // holding.
+  await refused('POST', '/camera-catalog/cameras', { name: 'x', rtspUrl: 'rtsp://10.0.0.1/s' });
+  await refused('POST', '/layout-composition/layouts', { name: 'x' });
+  await refused('POST', '/overlay-designer/overlays', { name: 'x' });
+
+  /**
+   * **The one the account actually holds, and the reason FR-004 is unmet.** The
+   * kiosk client carries `sse.events.write`, so a never-expiring grant can
+   * inject events into its fab indefinitely — feeding overlays and automation.
+   * The earlier version of this test asserted three refusals and never
+   * attempted this, which is how "the account can change nothing" was recorded
+   * as demonstrated while being false.
+   *
+   * It is written as the expectation that this **is** refused. It is expected to
+   * fail until the grant is narrowed, and that failure is the point: it holds
+   * the gap open instead of letting a green suite close it.
+   */
+  await refused('POST', '/event-ingestion/events/manual', {
+    deviceId: 'wall-probe',
+    kind: 'manual',
+    occurredAt: new Date().toISOString(),
+    payload: {},
+  });
+});
+
+/**
+ * **Reads outside its own fab, which the trade table claims are refused.** Fab
+ * scoping comes from the account's group membership rather than the client, so
+ * this is the assertion behind "one account per fab" — without it, a shared
+ * account looks identical to a scoped one.
+ *
+ * <p>
+ * The control is what makes it mean anything: the same request, made by the
+ * account that <i>does</i> hold that fab, must return rows. Otherwise an empty
+ * result proves only that the query matched nothing.
+ * </p>
+ */
+test('a wall-display account cannot read another fab', async ({ browser }) => {
+  test.setTimeout(240_000);
+
+  const read = async (username: string, password: string, fab: string) => {
+    const context = await browser.newContext({ baseURL: 'http://localhost:5174', ignoreHTTPSErrors: true });
+    const page = await context.newPage();
+    const gatewayRequest = page.waitForRequest((request) =>
+      /\/(layout-composition|stream-distribution|camera-catalog)\//.test(request.url()),
+    );
+    await signIn(page, username, password);
+    const origin = new URL((await gatewayRequest).url()).origin;
+    const token = await bearer(page);
+    const result = await page.evaluate(
+      async ([o, t, f]) => {
+        const response = await fetch(`${o}/camera-catalog/cameras?fabId=${f}&limit=50`, {
+          headers: { Authorization: `Bearer ${t}` },
+        });
+        const text = await response.text();
+        let count = 0;
+        try {
+          count = (JSON.parse(text) as { items?: unknown[] }).items?.length ?? 0;
+        } catch {
+          count = 0;
+        }
+        return { status: response.status, count };
+      },
+      [origin, token, fab] as const,
+    );
+    await context.close();
+    return result;
+  };
+
+  // The control: dresden's own screen sees dresden's cameras.
+  const own = await read('wall-dresden', 'Wall-dresden-1234', 'dresden');
+  expect(own.status, 'the control must succeed or the refusal below proves nothing').toBe(200);
+  expect(own.count, 'dresden must actually have cameras for this to be a test').toBeGreaterThan(0);
+
+  // The claim: munich's screen gets nothing from dresden — refused outright, or
+  // scoped down to no rows. Either is acceptable; returning dresden's cameras is
+  // not.
+  const other = await read(WALL_USER, WALL_PASSWORD, 'dresden');
+  if (other.status === 200) {
+    expect(other.count, 'a munich screen must not see dresden cameras').toBe(0);
+  } else {
+    expect([401, 403]).toContain(other.status);
+  }
 });
 
 test('a wall-display account holds a grant that outlives a session', async ({ page }) => {
