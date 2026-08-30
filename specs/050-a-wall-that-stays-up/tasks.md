@@ -57,8 +57,8 @@ was misjudged — stop and take it back through the gate.
 
 ## Phase 4 — US3: withdrawal *(P2, and genuinely uncertain)*
 
-- [ ] T010 [US3] **Test whether one screen's session can be ended while a sibling keeps running.** R4 reasons it can; reasoning is what this feature exists to distrust. Both directions: the withdrawn screen stops, the other does not.
-- [ ] T011 [US3] **If it cannot, re-scope US3 in the open** — amend the spec, file the gap, and say so in the record. Do not reinterpret FR-009 into something the mechanism happens to satisfy. Spec 049's US3 was re-scoped exactly this way and that was the right move; quietly redefining it would not have been.
+- [x] T010 [US3] **Test whether one screen's session can be ended while a sibling keeps running.** R4 reasons it can; reasoning is what this feature exists to distrust. Both directions: the withdrawn screen stops, the other does not.
+- [x] T011 [US3] *(not needed — T010 passed)* **If it cannot, re-scope US3 in the open** — amend the spec, file the gap, and say so in the record. Do not reinterpret FR-009 into something the mechanism happens to satisfy. Spec 049's US3 was re-scoped exactly this way and that was the right move; quietly redefining it would not have been.
 
 ---
 
