@@ -529,3 +529,143 @@ describe('Every camera in the fab can be put on a tile (spec 048 US2)', () => {
     expect(grown, 'the choice survives the list being extended').toHaveValue('cam-0100');
   });
 });
+
+/**
+ * Spec 048, found in review — the camera list arrives *after* the dialog mounts,
+ * which is what happens on every real load.
+ *
+ * <p>
+ * The field is written once at mount, when the only option is the placeholder,
+ * and a select cannot carry a value with no matching option. Nothing re-applied
+ * it, so the edit dialog showed every populated tile as "(empty cell)". An
+ * operator would read that as an unassigned wall — and saving re-sent the
+ * cameras it had not shown them, because form state kept what the DOM lost.
+ * </p>
+ *
+ * <p>
+ * <b>Every existing test mocked the list as already resolved at first render</b>,
+ * which is the one ordering that hides this. The suite was green throughout.
+ * </p>
+ */
+describe("The picker shows a tile's camera when the list arrives late (spec 048)", () => {
+  const target: LayoutEditTarget = {
+    layoutIdentifier: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    revisionNumber: 2,
+    name: 'Rolling Mill',
+    grid: { rows: 1, cols: 2 },
+    tiles: [
+      { cameraIdentifier: CAMERA_A, overlayIdentifier: OVERLAY_X, row: 0, col: 0 },
+      { cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 1 },
+    ],
+  };
+
+  afterEach(() => {
+    cameraChoices = COMPLETE_CHOICES;
+  });
+
+  it("Still shows both tiles' cameras once the options resolve", async () => {
+    // Induced: the list is *not* there at mount. Starting from a resolved list
+    // is the ordering that hid this defect, so a test that does it proves
+    // nothing about the case that actually happens.
+    cameraChoices = { data: undefined, isLoading: true, isError: false };
+    const view = renderDialog(target);
+
+    cameraChoices = COMPLETE_CHOICES;
+    view.rerender(
+      <Provider store={store}>
+        <LayoutEditorDialog open={true} onOpenChange={() => {}} editTarget={target} />
+      </Provider>,
+    );
+
+    const selects = await screen.findAllByLabelText(/^Camera$/i);
+    expect(selects[0], 'the first tile keeps its camera').toHaveValue(CAMERA_A);
+    expect(selects[1], 'and so does the second').toHaveValue(CAMERA_B);
+  });
+});
+
+/**
+ * Spec 048, found in review — three ways the picker could still mislead.
+ */
+describe('The picker does not mislead about what it is showing (spec 048, review)', () => {
+  afterEach(() => {
+    cameraChoices = COMPLETE_CHOICES;
+  });
+
+  /**
+   * A failed refetch does not discard the cameras already held, so "camera list
+   * unavailable" could sit at the top of a full dropdown.
+   */
+  it('Does not claim the list is unavailable while showing a full one', async () => {
+    cameraChoices = { data: COMPLETE_CHOICES.data, isLoading: false, isError: true };
+    renderDialog();
+
+    await screen.findByLabelText(/^Camera$/i);
+    expect(screen.queryByText(/Camera list unavailable/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * Names are unique only within a fab, and this picker spans every fab the
+   * operator holds. Sorting by name puts collisions side by side, so without a
+   * qualifier an operator sees two identical options and cannot tell which wall
+   * they are building.
+   */
+  it('Distinguishes two cameras that share a name across fabs', async () => {
+    cameraChoices = {
+      data: {
+        items: [
+          {
+            cameraIdentifier: 'a',
+            name: 'Line-1-Entrance',
+            fab: 'Fab-A',
+            rtspUrl: 'rtsp://x',
+            registeredAt: '2026-01-01T00:00:00Z',
+          },
+          {
+            cameraIdentifier: 'b',
+            name: 'Line-1-Entrance',
+            fab: 'Fab-B',
+            rtspUrl: 'rtsp://y',
+            registeredAt: '2026-01-01T00:00:00Z',
+          },
+          {
+            cameraIdentifier: 'c',
+            name: 'Line-2-Exit',
+            fab: 'Fab-A',
+            rtspUrl: 'rtsp://z',
+            registeredAt: '2026-01-01T00:00:00Z',
+          },
+        ],
+        count: 3,
+        complete: true,
+      },
+      isLoading: false,
+      isError: false,
+    };
+    renderDialog();
+
+    const select = await screen.findByLabelText(/^Camera$/i);
+    expect(within(select).getByRole('option', { name: 'Line-1-Entrance (Fab-A)' })).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'Line-1-Entrance (Fab-B)' })).toBeInTheDocument();
+    // The unambiguous one is left alone: qualifying all 250 would be noise in
+    // the common case of an operator holding a single fab.
+    expect(within(select).getByRole('option', { name: 'Line-2-Exit' })).toBeInTheDocument();
+  });
+
+  /**
+   * The gap between shown and total can come from a camera retired between
+   * requests, not only from the page bound. Telling an operator "the rest cannot
+   * be chosen" would be wrong in that case, and a notice that overclaims is how
+   * a notice stops being believed.
+   */
+  it('States the two numbers without claiming why they differ', async () => {
+    cameraChoices = {
+      data: { items: COMPLETE_CHOICES.data?.items ?? [], count: 3, complete: false },
+      isLoading: false,
+      isError: false,
+    };
+    renderDialog();
+
+    expect(await screen.findByText(/Showing 2 of 3 cameras\./i)).toBeInTheDocument();
+    expect(screen.queryByText(/cannot be chosen/i)).not.toBeInTheDocument();
+  });
+});

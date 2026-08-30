@@ -309,7 +309,15 @@ export const camerasApi = createApi({
           });
 
           if (result.error) {
-            return { error: result.error };
+            // Only a first-page failure leaves nothing to show. Later ones keep
+            // what was gathered and let the picker report it as incomplete —
+            // 600 cameras and a notice saying so beats an empty dropdown and a
+            // disabled Save button. Paging multiplied the exposure here: what
+            // was one request that could fail is now up to five.
+            if (gathered.length === 0) {
+              return { error: result.error };
+            }
+            return { data: { items: gathered, count: Math.max(count, gathered.length + 1), complete: false } };
           }
 
           const body = result.data as CameraListPage;
@@ -321,10 +329,14 @@ export const camerasApi = createApi({
             gathered.push(camera);
           }
 
-          // A short page means the source has no more to give, so stop rather
-          // than spend a request discovering an empty one. This is an
-          // optimisation only — it does not decide completeness.
-          if (body.items.length < MAXIMUM_PAGE_SIZE) {
+          // Two ways to know there is nothing left, and both are optimisations
+          // only — neither decides completeness. A short page means the source
+          // has no more to give. Having gathered everything it says exists means
+          // the same, and catches the case a short page never will: a fab whose
+          // size is an exact multiple of the page size otherwise costs a whole
+          // extra round trip to discover an empty page, in front of an operator
+          // waiting on a dialog.
+          if (body.items.length < MAXIMUM_PAGE_SIZE || gathered.length >= count) {
             break;
           }
         }

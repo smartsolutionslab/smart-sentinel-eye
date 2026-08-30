@@ -43,9 +43,43 @@ const SELECT_CLASS = 'w-full rounded-md border border-fg-muted/40 bg-bg-base px-
  */
 function emptyCameraLabel(loading: boolean, failed: boolean, isEmpty: boolean): string {
   if (loading) return 'Loading cameras…';
-  if (failed) return 'Camera list unavailable';
+  // Both conditions, because a failed refetch does not discard the cameras
+  // already held: the query keeps the last fulfilled data, so "unavailable"
+  // would otherwise sit at the top of a full dropdown.
+  if (failed && isEmpty) return 'Camera list unavailable';
   if (isEmpty) return 'No cameras in this fab';
   return '(empty cell)';
+}
+
+/**
+ * How a camera is labelled in the picker.
+ *
+ * <p>
+ * Names are unique only <b>within</b> a fab, and this picker spans every fab the
+ * operator holds. Sorting by name puts any two that collide side by side, so an
+ * operator with two fabs each holding a <c>Line-1-Entrance</c> saw two identical
+ * adjacent options and no way to tell which wall they were building. The fab is
+ * on the wire for exactly this.
+ * </p>
+ *
+ * <p>
+ * Qualified only when it has to be. Most operators hold one fab, and appending
+ * it to all 250 options would be noise in the common case to serve the rare one.
+ * </p>
+ */
+function cameraLabel(camera: CameraSummary, ambiguousNames: ReadonlySet<string>): string {
+  return ambiguousNames.has(camera.name) ? `${camera.name} (${camera.fab})` : camera.name;
+}
+
+/** Names held by more than one camera, which is possible across fabs. */
+function ambiguousNamesOf(cameras: ReadonlyArray<CameraSummary>): ReadonlySet<string> {
+  const seen = new Set<string>();
+  const twice = new Set<string>();
+  for (const camera of cameras) {
+    if (seen.has(camera.name)) twice.add(camera.name);
+    seen.add(camera.name);
+  }
+  return twice;
 }
 
 export function GridDesigner({
@@ -70,6 +104,12 @@ export function GridDesigner({
   // resize it (a raw `setValue` would not re-sync the rendered field rows).
   const { fields, replace } = useFieldArray({ control, name: 'cells' });
   const grid = watch('grid');
+  const ambiguousCameraNames = ambiguousNamesOf(cameras);
+  /**
+   * What this tile currently holds. The DOM may not be able to show it yet —
+   * the camera list arrives after mount on every real load.
+   */
+  const selectedCameraOf = (index: number): string => watch(`cells.${index}.cameraIdentifier`) ?? '';
 
   const selectPreset = (rows: number, cols: number) => {
     const next = buildCells(rows, cols, getValues('cells'));
@@ -123,16 +163,35 @@ export function GridDesigner({
                   in the cell object so they survive submit without a registered
                   field (a hidden number input would deserialize to NaN). */}
               <FormField label="Camera" htmlFor={`tile-${index}-camera`} error={cameraError}>
+                {/*
+                  Controlled, and it has to be. Left uncontrolled, React Hook
+                  Form writes the value once at mount — when the camera list has
+                  not arrived and the only option is the placeholder — and the
+                  browser drops a value with no matching option. Nothing
+                  re-applies it: the field is uncontrolled and RHF's ref callback
+                  short-circuits on a ref it has already seen.
+
+                  The edit dialog therefore showed every populated tile as
+                  "(empty cell)" on every real load, because the list always
+                  arrives after mount. An operator would read that as an
+                  unassigned wall, while saving re-sent the cameras it had not
+                  shown them — form state kept what the DOM had lost.
+
+                  Holding the value in a temporary option was tried first and is
+                  not enough: it survives the mount and is lost the instant the
+                  real options replace it.
+                */}
                 <select
                   id={`tile-${index}-camera`}
                   className={SELECT_CLASS}
                   aria-describedby={cameraNoticeId}
                   {...register(`cells.${index}.cameraIdentifier`)}
+                  value={selectedCameraOf(index)}
                 >
                   <option value="">{emptyCameraLabel(camerasLoading, camerasFailed, cameras.length === 0)}</option>
                   {cameras.map((camera) => (
                     <option key={camera.cameraIdentifier} value={camera.cameraIdentifier}>
-                      {camera.name}
+                      {cameraLabel(camera, ambiguousCameraNames)}
                     </option>
                   ))}
                 </select>
