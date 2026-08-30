@@ -11,9 +11,7 @@ import { signInToKiosk } from './support/kiosk-session';
 // copy accepted "could not load layouts" as a passing outcome, so this file
 // went green for years against a kiosk that could never show a wall.
 
-test('kiosk shows the degraded badge while the hub is unreachable and clears it after recovery', async ({
-  page,
-}) => {
+test('kiosk shows the degraded badge while the hub is unreachable and clears it after recovery', async ({ page }) => {
   await signInToKiosk(page);
 
   // Kill the hub and reload so even the INITIAL connect fails (FR-006:

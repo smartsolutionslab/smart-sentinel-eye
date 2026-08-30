@@ -382,10 +382,13 @@ unrecorded for as long as nobody looked.
   wrong.** The device-bound `client_credentials` do exist
   (`POST /kiosks/enroll`) and **cannot be used from a browser**: a page has
   no secure store, and a secret shipped to it is published. They remain
-  minted and unconsumed (issue 1988). The kiosk instead keeps a long-lived
-  grant of its own, at a cost ADR-0131 records rather than implies — a
-  powered-off stolen screen now yields a usable grant, where it yielded
-  nothing before.
+  minted and unconsumed (issue 1988). The kiosk instead keeps its grant in
+  storage a restart does not destroy, at a cost ADR-0131 records rather than
+  implies — a powered-off stolen screen now yields a usable grant, where it
+  yielded nothing before. **The reboot half is met; the ten-hour session
+  ceiling is not**, so a continuously-running wall still drops out about
+  twice a day per screen. Escaping it needs a realm role that would let an
+  account mint long-lived tokens generally, which ADR-0131 declined to buy.
 
 ### Security
 

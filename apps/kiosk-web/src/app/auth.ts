@@ -43,18 +43,20 @@ export const oidcConfig: AuthProviderProps & UserManagerSettings = {
   // `sse-groups` sets `include.in.token.scope: false`, so it could not be
   // requested anyway. Naming any scope this client does not hold fails the
   // whole sign-in with `invalid_scope`, no token at all.
-  // `offline_access` is what escapes the ten-hour ceiling (ADR-0131). The
-  // sign-in session ends on that clock **regardless of activity**, so a wall
-  // that never reboots still dropped to a prompt roughly twice a day per
-  // screen — the failure nobody had recorded, because it needs ten hours to
-  // observe. An offline grant is not bound by it.
+  // **Deliberately not `offline_access`, and this is a scoped decision rather
+  // than an omission** (ADR-0131). A long-lived grant is what would escape the
+  // ten-hour session ceiling, and it costs more than it first appears: the
+  // identity provider requires an `offline_access` **realm role** on whoever
+  // signs the screen in, which hands that account the power to mint long-lived
+  // tokens generally. That is authority this feature is not willing to buy, so
+  // the ceiling is left standing and tracked separately.
   //
   // The six sse.* scopes and `sse-groups` stay unnamed: they are DEFAULT client
   // scopes, applied whether or not they are asked for, and `sse-groups` cannot
-  // be requested at all. **Authority is unchanged by this feature** — naming any
-  // scope this client does not hold fails the whole sign-in with
-  // `invalid_scope`, no token at all.
-  scope: 'openid offline_access',
+  // be requested at all. Naming any scope this client does not hold fails the
+  // whole sign-in with `invalid_scope`, no token at all — observed, not
+  // theorised, when this line briefly asked for one the realm had not granted.
+  scope: 'openid',
 
   // **Storage that outlives the browser process** (ADR-0131). The default is
   // tied to the process, so a reboot lost every token unconditionally and no

@@ -60,40 +60,57 @@ has tested.**
 
 ## Decision
 
-**A kiosk acquires a long-lived grant once and keeps it across restarts.**
+**A kiosk keeps its grant in storage that survives the browser process.** That
+is the whole of the change, and it is enough for the failure the target names: a
+screen that loses power returns to its wall with nobody touching it.
 
-- The grant is obtained through the interactive flow **once per device, at
-  installation** — not per restart, which is what the target forbids.
-- It is kept in storage that survives the browser process, so a reboot recovers
-  without a person.
-- It is not bound by the ten-hour ceiling, so a running wall does not drop out.
-- **Authority is unchanged**: view-only, one fab, exactly the scopes the kiosk
-  holds today.
+- **Authority is unchanged.** The kiosk requests exactly the sign-in it
+  requested before — view-only, one fab, the same default scopes.
+- **No realm change, and no new grant to anyone.**
+- Verified against the running stack: a screen carrying only what a rebooted
+  device carries — what was written to disk, with no session storage and no
+  sign-in cookie — reaches its wall without a prompt.
 
 **ADR-0080's kiosk paragraph is superseded** for the flow it names. Its
-management-app half stands untouched. The original text stays legible in that
-ADR rather than being overwritten — what was decided is not the same record as
-what happened.
+management-app half stands untouched, and the original text stays legible there
+rather than being overwritten.
 
-**The device-runtime shape is deferred, not rejected** (issue 1987). It is the
-only shape matching ADR-0080 as written, and nothing runs on a kiosk device
-except a browser: it means building, signing, distributing and updating software
-across 20+ screens per fab, which is a subsystem rather than a feature.
+### The ten-hour ceiling is left standing, and that is a decision
 
-### Spec 049's FR-004 is refined, because it cannot be met
+The sign-in session also ends on a **10-hour** ceiling regardless of activity, so
+a wall that never reboots still drops to a prompt roughly **twice a day per
+screen**. This ADR does **not** fix that, and the reason is a cost found by
+attempting it rather than by reasoning about it.
 
-FR-004 asked that nothing the kiosk uses to prove itself be readable from the
-page it displays. **No browser-only design can satisfy that**, including this
-one — the app already keeps tokens in the browser today.
+Escaping the ceiling needs a long-lived (`offline_access`) grant, and that needs
+**three** changes, not one:
 
-The promise becomes:
+1. the client scope permitted on the kiosk client;
+2. the app requesting it;
+3. **an `offline_access` realm role on whoever signs the screen in** — which the
+   operator account does not hold.
 
-> The delivered bundle carries no credential. What a device acquires is that
-> device's alone, independently revocable, and no broader than view-only.
+The third is the problem. It hands that account the power to mint long-lived
+tokens **generally**, not merely for kiosks, and if it is a shared operator
+account then every operator gains it. **That is a widening of authority outside
+the kiosk**, and this feature declined to buy a recovery story with it.
 
-That is **weaker than FR-004 as written**, and saying so is the point. The same
-move as ADR-0129, which withdrew a frame-matching claim rather than reinterpret
-it into something that sounded satisfied.
+Tracked separately so the choice stays visible rather than disappearing into an
+omission.
+
+### Two things learned by trying, which are worth carrying
+
+**Naming a scope the realm has not granted fails the whole sign-in** —
+`invalid_scope`, no token, the screen never leaves the login form. Observed: the
+app was briefly changed to request the grant against a realm that had not been
+updated, and every kiosk sign-in stopped. So an app build and a realm change of
+this kind are **coupled and ordered**; shipping them apart would cause exactly
+the outage this feature exists to prevent.
+
+**A realm JSON edit does not reach a running identity provider.** Its volume
+persists, so the file describes the next fresh import and nothing else. Anyone
+verifying a realm change on a live stack must apply it through the admin API and
+say which they tested.
 
 ## What this costs
 
@@ -131,15 +148,22 @@ the screen, not to the screen. An audit trail names that account, not *screen
 7*. True device identity was available and is exactly what could not be used
 (issue 1987).
 
+**And what is not given up:** no realm role is granted, no account gains a new
+power, and the ten-hour ceiling is left in place rather than bought off with
+one.
+
 ## Consequences
 
-- **Positive:** both failures addressed — the dramatic one and the frequent one.
+- **Positive:** a screen that loses power comes back with nobody touching it.
 - **Positive:** no new software on kiosk hardware; the kiosk stays a web page.
+- **Positive:** no realm change and no new grant to any account.
 - **Positive:** the record stops describing a flow that was never built.
 - **Negative:** a powered-off stolen device now yields a usable grant.
-- **Negative:** the audit trail identifies the enroller, not the device.
-- **Negative:** one human step per device at installation. Once, ever — not per
-  restart.
+- **Negative:** **the ten-hour ceiling still stands**, so a continuously-running
+  wall still drops to a prompt about twice a day per screen. This is the more
+  frequent failure and it is *not* fixed here.
+- **Negative:** the audit trail identifies whoever signed the screen in, not the
+  screen.
 
 ## Alternatives Considered
 
