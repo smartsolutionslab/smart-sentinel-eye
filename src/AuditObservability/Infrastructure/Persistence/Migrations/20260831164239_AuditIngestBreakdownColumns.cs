@@ -11,19 +11,17 @@ namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence.Migrati
         // **Two columns, and nothing else.** EF also emitted a drop-and-recreate
         // of PK_audit_events and ux_audit_event_identifier in exactly the shape
         // they already have — spurious churn from re-serialising the snapshot on
-        // a newer provider. It was removed by hand, for two reasons:
+        // a newer provider. Removed by hand.
         //
-        // `audit_events` is a hypertable with a compression policy, and dropping
-        // a constraint or index on a table with compressed chunks is refused
-        // outright. The MigrationRunner reports "Finished" either way, so the
-        // columns would silently not exist and every measurement would read null
-        // stamps.
+        // That churn is untidy rather than dangerous, and the distinction was
+        // measured: with the chunk compressed, both the DROP INDEX and the DROP
+        // CONSTRAINT succeed.
         //
-        // The generated Down() was worse: it re-added the primary key on
-        // audit_id alone and the unique index on event_identifier alone.
-        // TimescaleDB requires the partitioning column in both, which is why the
-        // initial migration made them composite. That rollback could never have
-        // succeeded.
+        // **The generated Down() was the real defect.** It re-added the primary
+        // key on audit_id alone and the unique index on event_identifier alone.
+        // TimescaleDB refuses that — "cannot create a unique index without the
+        // column occurred_at (used in partitioning)" — which is why the initial
+        // migration made both composite. That rollback could never have run.
 
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
