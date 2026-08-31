@@ -29,9 +29,9 @@ which is why the clock phase gates everything.
 
 ## Phase 1 — The clocks *(the gate)*
 
-- [ ] T001 Add a clock-offset probe in `tests/Integration.Tests/AuditObservability/ClockOffsetProbe.cs`: ask the shared Postgres server its time from a process, compare with that process's own, and halve the round trip as the standard correction. Return the offset **and its residual** — a figure without its uncertainty is not a measurement.
-- [ ] T002 [P] Compute the **relative skew** between the two stamping processes as the difference of their offsets, in `tests/Integration.Tests/AuditObservability/ClockOffsetProbe.cs`. This is the number the attribution depends on; the individual offsets are working, the difference is the result.
-- [ ] T003 [P] **Test the failure path**, in `tests/Integration.Tests/AuditObservability/`: when the measured offset exceeds 10 ms, the attribution is reported as **NOT ESTABLISHED**. Assert on that outcome, not on a log line. SC-003 makes "we could not tell" a reportable result, and a result nothing tests is a sentence.
+- [x] T001 Add a clock-offset probe in `tests/Integration.Tests/AuditObservability/ClockOffsetProbe.cs`: ask the shared Postgres server its time from a process, compare with that process's own, and halve the round trip as the standard correction. Return the offset **and its residual** — a figure without its uncertainty is not a measurement.
+- [x] T002 [P] Compute the **relative skew** between the two stamping processes as the difference of their offsets, in `tests/Integration.Tests/AuditObservability/ClockOffsetProbe.cs`. This is the number the attribution depends on; the individual offsets are working, the difference is the result.
+- [x] T003 [P] **Test the failure path**, in `tests/Integration.Tests/AuditObservability/`: when the measured offset exceeds 10 ms, the attribution is reported as **NOT ESTABLISHED**. Assert on that outcome, not on a log line. SC-003 makes "we could not tell" a reportable result, and a result nothing tests is a sentence.
 
 **Checkpoint — this is the gate, and it is an epistemic one.** An attribution
 over skewed clocks is a confident, specific, wrong answer, and it would be used
