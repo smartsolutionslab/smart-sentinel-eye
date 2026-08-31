@@ -12,6 +12,11 @@ export const WAS_AUTHENTICATED_STORAGE_KEY = 'sse.auth.wasAuthenticated';
 // the provider needs interaction — redirecting again would just loop.
 const REDIRECT_GUARD_WINDOW_MS = 60_000;
 
+// How long a cause-less fallback waits for a cause to arrive. The identity
+// library reports a failed renewal by resolving null and setting its error a
+// commit later, so acting on the null immediately races the reason for it.
+const CAUSE_SETTLING_MS = 250;
+
 const redirectGuardIsFresh = (): boolean => {
   const raw = window.sessionStorage.getItem(REDIRECT_GUARD_STORAGE_KEY);
   return raw !== null && Date.now() - Number(raw) < REDIRECT_GUARD_WINDOW_MS;
@@ -88,6 +93,9 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
   // Where the retry loop has got to. Zero means "try now" — see retryNow.
   const [attempt, setAttempt] = useState(0);
   const redirectStarted = useRef(false);
+  // Whether a renewal is in flight. While one is, the cause it will produce is
+  // the better answer than anything a cause-less event could say.
+  const renewalInFlight = useRef(false);
 
   /**
    * Decide what a failed renewal means, and act on it.
@@ -120,6 +128,17 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
         return;
       }
 
+      // **A third source speaks with no cause, and it must not pre-empt the
+      // other two.** The library's token-expired event carries nothing to
+      // classify and fires on load for a grant that is already stale — so on a
+      // restart it raced the renewal and redirected a screen the classifier was
+      // about to call refused. That redirect is the whole defect US2 removes:
+      // it hands the wall to the provider's login form. Found by running the
+      // end-to-end test, which is the only place the race is visible.
+      if (renewalInFlight.current || identityFailure !== undefined) {
+        return;
+      }
+
       if (redirectGuardIsFresh()) {
         logResilienceEvent('session', 'expired→final');
         setSessionExpired(true);
@@ -131,7 +150,7 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
       logResilienceEvent('session', 'expired→redirecting', { returnTo: window.location.pathname });
       void auth.signinRedirect({ state: { returnTo: window.location.pathname } });
     },
-    [auth],
+    [auth, identityFailure],
   );
 
   // Registered during render for the same reason as setAccessTokenProvider in
@@ -146,15 +165,20 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
   // The ref is only ever read when the renewer actually runs, which is during a
   // request, never during a render.
   // eslint-disable-next-line react-hooks/refs -- registered during render on purpose; see above
-  setSessionRenewer(() =>
-    auth
+  setSessionRenewer(() => {
+    renewalInFlight.current = true;
+    return auth
       .signinSilent()
-      .then((user) => user !== null)
+      .then((user) => {
+        renewalInFlight.current = false;
+        return user !== null;
+      })
       .catch((cause: unknown) => {
+        renewalInFlight.current = false;
         beginReauthentication(cause);
         return false;
-      }),
-  );
+      });
+  });
   // Registered during render on purpose, for the reason given above: moving
   // this into an effect races the first query's 401 renewal path.
   // eslint-disable-next-line react-hooks/refs -- see above
@@ -171,6 +195,42 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
       removeExpired();
     };
   }, [auth.events, beginReauthentication]);
+
+  /**
+   * **Where the cause actually arrives.**
+   *
+   * <p>
+   * <c>signinSilent</c> from <c>react-oidc-context</c> <b>does not reject</b>
+   * when renewal fails: it catches the error, resolves <c>null</c>, and puts the
+   * cause on <c>auth.error</c>. So the rejection handlers below are the
+   * exception rather than the rule, and a design resting only on them classifies
+   * almost nothing — the screen fell through to a redirect and the wall was
+   * handed to the provider's login form exactly as before.
+   * </p>
+   *
+   * <p>
+   * Registered <b>before</b> the fallback effect so that in a commit where both
+   * are ready, the cause is classified before anything can redirect on the
+   * absence of one. Found by running the end-to-end test; no unit test with a
+   * hand-built double would have shown it, because the double rejects.
+   * </p>
+   */
+  useEffect(() => {
+    if (auth.error === undefined) return undefined;
+
+    // Queued rather than called straight from the effect body: classifying sets
+    // state, and doing that synchronously here cascades renders. A microtask is
+    // still far ahead of the cause-less fallback's wait, so the ordering this
+    // depends on holds.
+    let classified = true;
+    window.queueMicrotask(() => {
+      if (classified) beginReauthentication(auth.error);
+    });
+
+    return () => {
+      classified = false;
+    };
+  }, [auth.error, beginReauthentication]);
 
   useEffect(() => {
     if (auth.isAuthenticated) {
@@ -206,15 +266,31 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
     if (!hasBeenAuthenticated() || silentAttempted.current || authenticatedThisLife.current) return;
 
     silentAttempted.current = true;
+    renewalInFlight.current = true;
     logResilienceEvent('session', 'restart→silent');
     void auth
       .signinSilent()
       .then((user) => {
-        if (user === null) {
-          beginReauthentication();
+        if (user !== null) {
+          renewalInFlight.current = false;
+          return;
         }
+        // **Null is how this library reports a failed renewal**, and the cause
+        // lands on auth.error one commit later — so reading it here gets
+        // undefined, falls through to a redirect, and hands the wall to the
+        // provider's login form. That is the defect, reproduced by the very
+        // change meant to remove it.
+        //
+        // So the cause-less fallback waits a beat. If a cause arrives, the
+        // effect above classifies it and this stands down; if none ever does,
+        // the grant is simply spent and a person is genuinely needed.
+        window.setTimeout(() => {
+          renewalInFlight.current = false;
+          beginReauthentication();
+        }, CAUSE_SETTLING_MS);
       })
       .catch((cause: unknown) => {
+        renewalInFlight.current = false;
         // **The cause is passed on rather than assumed.** A spent grant and an
         // absent provider both arrive here, and only one of them needs a person.
         // Treating them alike is how a restart during an outage ended up at a
@@ -294,6 +370,23 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
 
     return () => window.clearTimeout(timer);
   }, [identityFailure, attempt, auth]);
+
+  /**
+   * **A refused screen stops asking altogether**, not merely stops its own loop.
+   *
+   * <p>
+   * The identity library runs a renewal timer of its own, and switching this
+   * screen's loop off leaves that one running — so a shut-out display went on
+   * calling the provider every few seconds while showing a screen that says
+   * waiting will not help. Found by the end-to-end test asserting the request
+   * count had not moved; the screen itself looked right throughout.
+   * </p>
+   */
+  useEffect(() => {
+    if (identityFailure === 'refused') {
+      auth.stopSilentRenew?.();
+    }
+  }, [identityFailure, auth]);
 
   const retryNow = useCallback(() => setAttempt(0), []);
 

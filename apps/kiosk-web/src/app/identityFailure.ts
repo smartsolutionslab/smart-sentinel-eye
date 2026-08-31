@@ -56,11 +56,27 @@ const REFUSED_CODES: readonly string[] = [
  * </p>
  */
 const codeOf = (cause: unknown): string | undefined => {
-  if (typeof cause !== 'object' || cause === null) return undefined;
+  // **Unwrapped, because the code is not where the error is.** The React
+  // binding does not hand over what the identity library threw: it normalises
+  // it into a fresh object carrying `name`, `message` and `stack`, and keeps
+  // the original — the only thing holding the OAuth code — under `innerError`.
+  // So `auth.error.error` is always undefined, and a classifier reading it
+  // calls every refusal recoverable. Read in the binding's source after an
+  // end-to-end test disagreed with a passing unit test.
+  for (let level: unknown = cause, depth = 0; depth < MAXIMUM_WRAPPING; depth += 1) {
+    if (typeof level !== 'object' || level === null) return undefined;
 
-  const code = (cause as { error?: unknown }).error;
-  return typeof code === 'string' && code.length > 0 ? code : undefined;
+    const code = (level as { error?: unknown }).error;
+    if (typeof code === 'string' && code.length > 0) return code;
+
+    level = (level as { innerError?: unknown }).innerError;
+  }
+
+  return undefined;
 };
+
+/** How far to look for the code. Two levels covers the binding's one wrap, with room. */
+const MAXIMUM_WRAPPING = 4;
 
 /**
  * What a screen should do about a failed renewal.

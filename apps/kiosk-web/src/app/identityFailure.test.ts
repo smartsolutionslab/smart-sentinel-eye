@@ -92,6 +92,61 @@ describe('A refused screen is terminal (spec 051 T003)', () => {
   });
 });
 
+describe('The code survives the React binding wrapping it (spec 051)', () => {
+  /**
+   * **The shape the application actually sees**, and the reason every earlier
+   * case in this file was insufficient on its own.
+   *
+   * <p>
+   * <c>react-oidc-context</c> does not pass on what the identity library threw.
+   * It normalises the error into a fresh object — <c>name</c>, <c>message</c>,
+   * <c>stack</c>, <c>source</c> — and keeps the original, the only thing holding
+   * the OAuth code, under <c>innerError</c>. So <c>auth.error.error</c> is
+   * always undefined.
+   * </p>
+   *
+   * <p>
+   * A classifier reading the top level therefore calls <b>every refusal
+   * recoverable</b>, and a shut-out screen retries forever instead of saying it
+   * has been shut out. Every unit test here passed while that was true, because
+   * they all handed over the unwrapped error. The end-to-end test is what
+   * disagreed.
+   * </p>
+   */
+  const asTheBindingDelivers = (inner: unknown) => ({
+    name: (inner as Error).name,
+    message: (inner as Error).message,
+    stack: 'irrelevant',
+    innerError: inner,
+    source: 'renewSilent',
+  });
+
+  it('Finds a refusal wrapped by the binding', () => {
+    const wrapped = asTheBindingDelivers(
+      new ErrorResponse({ error: 'invalid_grant', error_description: 'User disabled' }),
+    );
+
+    expect(classifyIdentityFailure(wrapped)).toBe('refused');
+  });
+
+  it('Finds an overload wrapped by the binding, and still calls it recoverable', () => {
+    const wrapped = asTheBindingDelivers(new ErrorResponse({ error: 'server_error', error_description: 'busy' }));
+
+    expect(classifyIdentityFailure(wrapped)).toBe('recoverable');
+  });
+
+  it('Treats a wrapped network failure as recoverable', () => {
+    expect(classifyIdentityFailure(asTheBindingDelivers(new TypeError('Failed to fetch')))).toBe('recoverable');
+  });
+
+  it('Does not loop forever on an error that wraps itself', () => {
+    const circular: Record<string, unknown> = { name: 'Error' };
+    circular['innerError'] = circular;
+
+    expect(classifyIdentityFailure(circular)).toBe('recoverable');
+  });
+});
+
 describe('A provider that never answered is recoverable (spec 051 T004)', () => {
   /**
    * What the browser raises when the request does not leave the building. The
