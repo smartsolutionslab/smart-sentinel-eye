@@ -65,6 +65,46 @@ public interface IKeycloakAdminClient
     /// </summary>
     Task<IReadOnlyList<string>> GetSubGroupNamesAsync(
         string parentPath, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The client ids of every kiosk **this system enrolled**.
+    ///
+    /// <para>
+    /// Identified by the <c>sse.kind</c> attribute enrolment stamps, rather
+    /// than by a naming convention written down a second time — a sweep whose
+    /// idea of "a kiosk" drifts from what enrolment creates silently covers
+    /// less than it appears to.
+    /// </para>
+    /// </summary>
+    Task<IReadOnlyList<string>> GetEnrolledKioskClientIdsAsync(
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Takes the realm's inherited privileges off a client's service account.
+    ///
+    /// <para>
+    /// <b>Why this exists.</b> Keycloak grants every account created after the
+    /// realm is imported a default composite that includes
+    /// <c>offline_access</c> — the privilege that mints credentials which never
+    /// expire. So each kiosk this system enrols is born holding it, and "only a
+    /// wall display may mint a long-lived credential" would be true of the realm
+    /// file and false of the running system.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Idempotent.</b> An account already stripped is left alone, so a
+    /// startup sweep can run on every boot and a retry after a partial failure
+    /// is safe.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Only ever call this for an account enrolment created.</b> It removes
+    /// every directly-assigned realm privilege; against a person's account that
+    /// would be destructive.
+    /// </para>
+    /// </summary>
+    Task StripInheritedRealmRolesAsync(
+        string clientId, CancellationToken cancellationToken);
 }
 
 /// <summary>

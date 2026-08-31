@@ -95,6 +95,15 @@ public class KeycloakProvisionedFabSourceTests
             KeycloakClientRepresentation representation, string fabGroupPath, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<IReadOnlyList<string>> GetEnrolledKioskClientIdsAsync(
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task StripInheritedRealmRolesAsync(
+            string clientId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+
         public Task<KeycloakClientCredentials> RotateClientSecretAsync(
             string clientId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
@@ -108,6 +117,14 @@ public class KeycloakProvisionedFabSourceTests
         public Task<IReadOnlyList<string>> GetSubGroupNamesAsync(
             string parentPath, CancellationToken cancellationToken) =>
             throw new HttpRequestException("realm unreachable");
+
+        public Task<IReadOnlyList<string>> GetEnrolledKioskClientIdsAsync(
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task StripInheritedRealmRolesAsync(
+            string clientId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
 
         public Task<KeycloakClientCredentials> CreateClientAsync(
             KeycloakClientRepresentation representation, string fabGroupPath, CancellationToken cancellationToken) =>

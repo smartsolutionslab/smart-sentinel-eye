@@ -72,13 +72,33 @@ public sealed class HttpKeycloakAdminClient(
             ?? throw new InvalidOperationException(
                 $"Keycloak accepted POST /clients but no client with clientId='{representation.ClientId}' is visible.");
 
-        // Attach the service-account user to the fab group so the
-        // `groups` claim carries `/fabs/<fabId>` (FR-003).
-        await AssignServiceAccountToGroupAsync(
-            realm, clientUuid, fabGroupPath, cancellationToken);
+        try
+        {
+            // Attach the service-account user to the fab group so the
+            // `groups` claim carries `/fabs/<fabId>` (FR-003).
+            await AssignServiceAccountToGroupAsync(
+                realm, clientUuid, fabGroupPath, cancellationToken);
 
-        // Read the just-minted secret.
-        return await ReadClientSecretAsync(realm, clientUuid, cancellationToken);
+            // **Take back what the realm gave it for free** (spec 052). Keycloak
+            // grants every account created after import a default composite that
+            // includes the privilege to mint credentials which never expire, so
+            // each kiosk is born holding it. Removing it here rather than later
+            // is what keeps the window one call wide.
+            await StripInheritedRealmRolesAsync(realm, clientUuid, cancellationToken);
+
+            // Read the just-minted secret.
+            return await ReadClientSecretAsync(realm, clientUuid, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // **The client exists but is not properly set up, so it must not
+            // survive.** Leaving it behind fails the caller *and* blocks every
+            // retry — the existence probe above would answer "already enrolled"
+            // for a client that was never finished, while its account keeps the
+            // privilege this step exists to remove.
+            await TryDeleteClientAsync(realm, clientUuid, cancellationToken);
+            throw;
+        }
     }
 
     public async Task<KeycloakClientCredentials> RotateClientSecretAsync(
@@ -247,8 +267,111 @@ public sealed class HttpKeycloakAdminClient(
         return names;
     }
 
+    public async Task<IReadOnlyList<string>> GetEnrolledKioskClientIdsAsync(
+        CancellationToken cancellationToken)
+    {
+        string realm = options.Value.Realm;
+        await AuthorizeAsync(cancellationToken);
+
+        HttpResponseMessage response = await httpClient
+            .GetAsync($"admin/realms/{realm}/clients", cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        ClientDetailRow[] rows = await response.Content
+            .ReadFromJsonAsync<ClientDetailRow[]>(JsonOptions, cancellationToken) ?? [];
+
+        // The same attribute enrolment stamps, read back. Deriving the set from
+        // what enrolment writes is the point: a second naming convention would
+        // drift, and a sweep that quietly matches less than it claims is worse
+        // than no sweep.
+        return rows
+            .Where(row => row.Attributes is not null
+                && row.Attributes.TryGetValue("sse.kind", out string? kind)
+                && kind == "kiosk")
+            .Select(row => row.ClientId)
+            .ToArray();
+    }
+
+    public async Task StripInheritedRealmRolesAsync(
+        string clientId, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        string realm = options.Value.Realm;
+        await AuthorizeAsync(cancellationToken);
+
+        string clientUuid = await TryGetClientUuidAsync(realm, clientId, cancellationToken)
+            ?? throw new KeycloakClientNotFoundException(clientId);
+
+        await StripInheritedRealmRolesAsync(realm, clientUuid, cancellationToken);
+    }
+
+    /// <summary>
+    /// Removes the realm privileges an account inherited simply by being
+    /// created, leaving it with only what it was given deliberately.
+    ///
+    /// <para>
+    /// <b>The shape matters and is not obvious.</b> The assignment must be read
+    /// back before it is removed: the delete only recognises role objects the
+    /// realm reports as <i>directly</i> mapped to this account. A role fetched
+    /// from the realm's own role list looks identical and produces a
+    /// <c>404</c> — which reads exactly like a permissions problem and is not.
+    /// </para>
+    /// </summary>
+    private async Task StripInheritedRealmRolesAsync(
+        string realm, string clientUuid, CancellationToken cancellationToken)
+    {
+        HttpResponseMessage saResponse = await httpClient
+            .GetAsync($"admin/realms/{realm}/clients/{clientUuid}/service-account-user", cancellationToken);
+        saResponse.EnsureSuccessStatusCode();
+        ServiceAccountUser? user = await saResponse.Content
+            .ReadFromJsonAsync<ServiceAccountUser>(JsonOptions, cancellationToken)
+            ?? throw new InvalidOperationException(
+                $"No service-account-user for Keycloak client {clientUuid}.");
+
+        HttpResponseMessage assignedResponse = await httpClient
+            .GetAsync($"admin/realms/{realm}/users/{user.Id}/role-mappings/realm", cancellationToken);
+        assignedResponse.EnsureSuccessStatusCode();
+        RealmRoleRow[] assigned = await assignedResponse.Content
+            .ReadFromJsonAsync<RealmRoleRow[]>(JsonOptions, cancellationToken) ?? [];
+
+        // Already stripped. Returning rather than sending an empty delete is
+        // what makes a sweep safe to run on every startup.
+        if (assigned.Length == 0)
+        {
+            return;
+        }
+
+        HttpRequestMessage remove = new(
+            HttpMethod.Delete,
+            $"admin/realms/{realm}/users/{user.Id}/role-mappings/realm")
+        {
+            Content = JsonContent.Create(assigned, options: JsonOptions),
+        };
+        HttpResponseMessage removeResponse = await httpClient.SendAsync(remove, cancellationToken);
+        removeResponse.EnsureSuccessStatusCode();
+    }
+
+    private async Task TryDeleteClientAsync(
+        string realm, string clientUuid, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await httpClient.DeleteAsync($"admin/realms/{realm}/clients/{clientUuid}", cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Best effort. The caller is already failing and will report that;
+            // a client left behind is caught by the startup sweep, which is
+            // exactly the backstop it exists to be.
+            logger.CouldNotRemoveHalfEnrolledClient(clientUuid, exception);
+        }
+    }
+
     private sealed record ClientRow(string Id, string ClientId);
 
+    private sealed record ClientDetailRow(string Id, string ClientId, Dictionary<string, string>? Attributes);
+
+    private sealed record RealmRoleRow(string Id, string Name);
 
     private sealed record ServiceAccountUser(string Id);
 

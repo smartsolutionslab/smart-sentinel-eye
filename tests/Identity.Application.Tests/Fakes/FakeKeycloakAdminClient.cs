@@ -17,6 +17,19 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
         new(StringComparer.Ordinal);
 
     public List<string> Disabled { get; } = [];
+
+    /// <summary>
+    /// Kiosk accounts whose inherited realm privileges have been taken away.
+    ///
+    /// <para>
+    /// A <b>set</b>, so a test can assert the removal is idempotent without
+    /// counting: sweeping twice must not change what it holds.
+    /// </para>
+    /// </summary>
+    public HashSet<string> Stripped { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Client ids for which the strip should fail, however it is reached.</summary>
+    public HashSet<string> StripFailsFor { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, string> CurrentSecrets { get; } = new(StringComparer.Ordinal);
 
     public string? FailNextCall { get; set; }
@@ -39,6 +52,22 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
             throw new KeycloakClientAlreadyExistsException(representation.ClientId);
         }
         _clients.Add(representation.ClientId, representation);
+
+        // **Production strips as part of creating, so this must too** (spec 052).
+        // A fake that created an account and left the privilege on it would let
+        // every test describe a system that does not exist — and the failure
+        // path below is what proves an enrolment cannot report success over an
+        // account still holding it.
+        if (StripFailsFor.Contains(representation.ClientId))
+        {
+            // The real client removes the half-enrolled client before rethrowing,
+            // so a retry is not blocked by a leftover.
+            _clients.Remove(representation.ClientId);
+            throw new InvalidOperationException(
+                $"Keycloak refused to strip '{representation.ClientId}'.");
+        }
+        Stripped.Add(representation.ClientId);
+
         string secret = $"secret-{representation.ClientId}";
         CurrentSecrets[representation.ClientId] = secret;
         return Task.FromResult(new KeycloakClientCredentials(secret));
@@ -79,6 +108,45 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
     /// <c>/fabs</c> through this seam; Identity's own handlers never call it.
     /// </summary>
     public Dictionary<string, IReadOnlyList<string>> SubGroups { get; } = new(StringComparer.Ordinal);
+
+    public Task<IReadOnlyList<string>> GetEnrolledKioskClientIdsAsync(
+        CancellationToken cancellationToken)
+    {
+        CallCount++;
+        if (FailNextCall is not null)
+        {
+            ThrowAndClear();
+        }
+
+        // Mirrors production: the set is derived from the attribute enrolment
+        // stamps, not from a naming convention repeated here.
+        IReadOnlyList<string> kiosks = _clients
+            .Where(entry => entry.Value.Attributes is not null
+                && entry.Value.Attributes.TryGetValue("sse.kind", out string? kind)
+                && kind == "kiosk")
+            .Select(entry => entry.Key)
+            .ToArray();
+
+        return Task.FromResult(kiosks);
+    }
+
+    public Task StripInheritedRealmRolesAsync(
+        string clientId, CancellationToken cancellationToken)
+    {
+        CallCount++;
+        if (StripFailsFor.Contains(clientId))
+        {
+            throw new InvalidOperationException($"Keycloak refused to strip '{clientId}'.");
+        }
+
+        if (FailNextCall is not null)
+        {
+            ThrowAndClear();
+        }
+
+        Stripped.Add(clientId);
+        return Task.CompletedTask;
+    }
 
     public Task<IReadOnlyList<string>> GetSubGroupNamesAsync(
         string parentPath, CancellationToken cancellationToken)
