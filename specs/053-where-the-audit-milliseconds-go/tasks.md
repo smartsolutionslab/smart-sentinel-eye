@@ -51,16 +51,16 @@ to move a requirement — which is worse than having no attribution at all.
 
 ## Phase 3 — US1: the attribution *(P1)*
 
-- [ ] T009 [US1] Extend the measurement run in `tests/Integration.Tests/AuditObservability/NFR001_AuditIngestLatencyTests.cs` to read the parts beside the total in one query, and to report the **achieved rate next to the intended one**. A run that intended 100 ev/s and delivered 60 answers a different question and must say so.
-- [ ] T010 [US1] **Report the remainder rather than distributing it**, in `tests/Integration.Tests/AuditObservability/NFR001_AuditIngestLatencyTests.cs`, with its own assertion: the parts must sum to the total, and whatever they do not account for is reported as unattributed. **A breakdown whose parts quietly absorb an unexplained gap is the most dangerous output here, because it looks complete.**
-- [ ] T011 [US1] In `tests/Integration.Tests/AuditObservability/NFR001_AuditIngestLatencyTests.cs`, **report both spans** — the requirement's (broker hand-over → row committed) and the observed one (originating change → row stamped) — with the difference attributed at the front and the back separately. Three ADRs have used one figure for both; at 1.7× off a budget that difference may be the answer.
-- [ ] T012 [US1] In `tests/Integration.Tests/AuditObservability/NFR001_AuditIngestLatencyTests.cs`, measure the apparatus' own cost: the same run shape with the switch off and on, and the difference in the total reported. **Measured, not argued** — and if it is large relative to the parts being attributed, the attribution says so.
+- [x] T009 [US1] Extend the measurement run in `tests/Integration.Tests/AuditObservability/NFR001_AuditIngestLatencyTests.cs` to read the parts beside the total in one query, and to report the **achieved rate next to the intended one**. A run that intended 100 ev/s and delivered 60 answers a different question and must say so.
+- [x] T010 [US1] **Report the remainder rather than distributing it**, in `tests/Integration.Tests/AuditObservability/NFR001_AuditIngestLatencyTests.cs`, with its own assertion: the parts must sum to the total, and whatever they do not account for is reported as unattributed. **A breakdown whose parts quietly absorb an unexplained gap is the most dangerous output here, because it looks complete.**
+- [x] T011 [US1] In `tests/Integration.Tests/AuditObservability/NFR001_AuditIngestLatencyTests.cs`, **report both spans** — the requirement's (broker hand-over → row committed) and the observed one (originating change → row stamped) — with the difference attributed at the front and the back separately. Three ADRs have used one figure for both; at 1.7× off a budget that difference may be the answer.
+- [x] T012 [US1] In `tests/Integration.Tests/AuditObservability/NFR001_AuditIngestLatencyTests.cs`, measure the apparatus' own cost: the same run shape with the switch off and on, and the difference in the total reported. **Measured, not argued** — and if it is large relative to the parts being attributed, the attribution says so.
 
 ---
 
 ## Phase 4 — US3: the record *(P2)*
 
-- [ ] T013 [US3] Write the ADR and `verification.md` in `docs/adr/` and `specs/053-where-the-audit-milliseconds-go/`: the breakdown, the load it was taken at, the clock bound and its residual, both spans, the spread across **at least three runs**, and the apparatus' cost. **State what was measured and stop.** No recommendation, no proposed lever, no changed budget — a reviewer should push back if it does otherwise, because the pull towards "and therefore we should…" is exactly what produced two recorded conclusions that skipped this measurement.
+- [x] T013 [US3] Write the ADR and `verification.md` in `docs/adr/` and `specs/053-where-the-audit-milliseconds-go/`: the breakdown, the load it was taken at, the clock bound and its residual, both spans, the spread across **at least three runs**, and the apparatus' cost. **State what was measured and stop.** No recommendation, no proposed lever, no changed budget — a reviewer should push back if it does otherwise, because the pull towards "and therefore we should…" is exactly what produced two recorded conclusions that skipped this measurement.
 
 ---
 
