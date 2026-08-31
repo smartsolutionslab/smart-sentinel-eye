@@ -38,9 +38,15 @@ Whether the requirement moves, and whether a fourth lever is worth building, are
 decisions with their own evidence and their own authors.
 
 Two nullable timestamps were added to the audit row behind a switch that
-**defaults to off** — handler entry, by the consumer's clock, and row commit, by
-the database's. Together with the existing pair they divide the span into parts
-that sum to it.
+**defaults to off** — handler entry, by the consumer's clock, and row **insert**,
+by the database's. Together with the existing pair they divide the span into
+parts that sum to it, row by row.
+
+"Insert" rather than "commit" is deliberate and is a limitation, not a
+simplification: `clock_timestamp()` evaluates as the row is written, inside a
+transaction that has not committed. NFR-001's words are "audit row **committed**",
+so the write leg below under-reports the requirement's back end by whatever the
+commit costs.
 
 ### The breakdown
 
@@ -53,12 +59,36 @@ against a target of 100. Medians. Aspire test fixture, service logging at
 | Observed span (occurred → received) | 1634.9 ms | 2642.5 ms | 1376.8 ms |
 | — before handler entry | 1634.9 ms | 2642.4 ms | 1376.8 ms |
 | — inside the handler | 0.0 ms | 0.0 ms | 0.0 ms |
-| — **unattributed** | **0.0 ms** | **0.0 ms** | **−0.0 ms** |
-| Write (after the observed span ends) | 8.5 ms | 10.1 ms | 9.0 ms |
+| Write, insert only — **not established**, see below | 8.5 ms | 10.1 ms | 9.0 ms |
 | Tail band (rows ≥ p99 of total) | 3145.7 ms | 3530.9 ms | 3026.5 ms |
 
 **Essentially the whole span precedes the audit handler.** The handler's own work
-is 0.0 ms and the write is 8.5–10.1 ms.
+is 0.0 ms.
+
+**The write figure is reported and is not established**, for two independent
+reasons, either of which alone would be enough:
+
+- It subtracts a **host-process** stamp (`received_at`) from a **container**
+  stamp (`clock_timestamp()` in Postgres). Those are different clocks, and the
+  measured disagreement between them is ±8 ms — the same size as the leg. A
+  sub-millisecond write against a container clock 8 ms behind yields a *negative*
+  figure.
+- It ends at insert, not commit, and so under-reports by the commit's own cost.
+
+An earlier draft of this ADR printed 8.5–10.1 ms as a measurement and asserted
+that only "before handler" crossed a clock boundary. **That was backwards**, and
+is corrected below.
+
+**This is not a theoretical objection.** The first run after the verdict was
+wired in measured the host–container offset at **−21.85 ms ± 1.05 ms** and
+reported the tail band's write leg as **−9.2 ms** — a negative duration, which
+nothing in a pipeline can produce. The gate refused the run. Across this session
+the same offset ranged from **−21.85 to +2.31 ms**, so it is not a fixed bias
+that could be subtracted out; it drifts between runs on an idle machine.
+
+The three runs tabulated above sat at 2.91 / 2.30 / 8.21 ms worst case and would
+have passed the gate. That was luck rather than control, and it is why the figure
+is published as *not established* rather than quietly kept.
 
 ### The two spans, stated separately
 
@@ -77,6 +107,19 @@ publisher-side stamp exists to separate it. What can be stated is a range:
 it is wide enough that the requirement's own leg cannot be quoted as a number at
 all. This feature deliberately did not add that stamp; adding one is a change to
 the publish path of every context, not a measurement.
+
+### That each row's parts cover that row's span
+
+Measured on a **later** run than the three tabulated above, because the check did
+not exist when they were taken: the median per-row residual was **0.000 ms** on
+both bands, over 1000 rows with none missing stamps.
+
+That is the claim "the parts account for the span" actually rests on. An earlier
+draft rested it on the printed medians reconciling, which is a weaker and partly
+accidental property — **medians do not add**, and they reconciled here only
+because the in-handler part is degenerate at ~0. A pipeline that genuinely spent
+time in its handler would have broken that check for reasons having nothing to do
+with the stamps.
 
 ### That the breakdown is stable
 
@@ -99,11 +142,19 @@ its time waiting, by definition.
 
 ### The clocks
 
-`occurred_at` and `received_at` are stamped in **different processes**, so some
-unknown fraction of the span could be clock disagreement attributed to a
-component. Each process's offset from the shared Postgres server was measured by
-bracketing the reading and halving the round trip; the residual is reported with
-it.
+**Which pair actually crosses a clock, stated correctly here after being stated
+backwards.** `occurred_at` and `received_at` are stamped in different
+*processes* — but on one machine those processes read one OS clock, so their
+disagreement is not the risk it appears to be. Across machines it would be, and
+nothing in this apparatus would notice.
+
+The pair that genuinely crosses two clocks is `received_at` (host process) and
+`written_at` (Postgres container). That is what the probe below measures, so the
+probe bounds the **write leg** — not the before-handler leg the spec worried
+about.
+
+Each process's offset from the shared Postgres server was measured by bracketing
+the reading and halving the round trip; the residual is reported with it.
 
 | | Run 1 | Run 2 | Run 3 |
 |---|---|---|---|
@@ -114,10 +165,22 @@ Worst case 8.2 ms, against a 10 ms threshold. **The run-to-run spread (8.5 ms)
 is far wider than any single reading's residual (~1 ms)** — the readings are more
 precise than they are accurate, and the spread is the honest figure.
 
-The clock question was this feature's headline risk and turns out to be
-immaterial *at these magnitudes*: 8 ms of uncertainty against a ~1500 ms span is
-0.3%. It would not be immaterial against the 85 ms this work set out to divide,
+**The clock question was this feature's headline risk, and the answer is split.**
+
+Against the observed span it is immaterial: 8 ms of uncertainty on ~1500 ms is
+0.3%, and the before-handler figure stands. Against the **write leg** it is
+fatal: 8 ms of uncertainty on an 8.5–10.1 ms figure establishes nothing. The
+spec's worry was well-founded and pointed at the wrong leg.
+
+It would also not be immaterial against the 85 ms this work set out to divide,
 which is one more reason the two must not be conflated.
+
+**A further limit on the verdict itself.** Measuring one process against itself —
+where the true skew is zero by construction — the instrument returns readings
+spanning roughly 10 ms, with per-reading residuals of only 1–2 ms. So the noise
+floor is the same order as the 10 ms threshold the verdict decides on. The
+verdict separates a badly skewed stack from a healthy one and little finer than
+that, and the residuals understate the real uncertainty.
 
 ### The apparatus' own cost
 
@@ -135,12 +198,16 @@ below run-to-run variance at the tail rather than negative.
 ## Consequences
 
 **What this establishes.** At every load measured, from idle to saturated, the
-audit pipeline's span is spent before the audit handler is entered. The handler's
-own work is unmeasurable at millisecond resolution and the write is single-digit
-to low-teens milliseconds.
+audit pipeline's span is spent before the audit handler is entered, and the
+handler's own work is unmeasurable at millisecond resolution. Each row's parts
+cover that row's span exactly — checked row by row, not by comparing medians,
+which do not add.
 
 **What it does not establish, and these are not caveats but limits on use:**
 
+- **It does not establish the write leg**, and so does not establish the
+  requirement span's floor either, since that floor is built from it. The
+  ceiling, which is dominated by before-handler, is unaffected.
 - **It does not say which of four things spends the time.** "Before handler" is
   one interval covering the publisher's own transaction, the outbox hop, the
   broker, and Wolverine's dispatch to the handler. Separating them needs a
@@ -175,8 +242,17 @@ provoking a known event; and because spans do not survive a run in a form the
 same SQL that produces the percentiles can read.
 
 **Re-sourcing `occurred_at` or `received_at` from the database** to remove the
-cross-process clock question entirely. Rejected: it changes production behaviour
-to suit a measurement, and breaks comparison with every figure already recorded.
+cross-clock question entirely. Rejected: it changes production behaviour to suit
+a measurement, and breaks comparison with every figure already recorded. It is
+worth noting what that rejection costs, now that the write leg is known to be the
+cross-clock one: taking `received_at` from the database clock is precisely what
+would have made the write leg measurable, and the constraint that forbids it is
+the reason this ADR reports a range there instead of a number.
+
+**A second stamp taken after commit**, which would close the gap between insert
+and commit that NFR-001's wording opens. Rejected for this feature: it is a
+second round trip on a path this work is only supposed to observe. It remains the
+obvious way to establish the back of the span, and is not attempted here.
 
 **Taking the p99 of each part separately.** Rejected because three independent
 p99s belong to three different events and adding them divides nothing. The tail

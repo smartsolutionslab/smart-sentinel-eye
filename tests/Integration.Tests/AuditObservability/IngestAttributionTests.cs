@@ -14,8 +14,62 @@ public class IngestAttributionTests
 {
     private static IngestAttribution Attribution(
         double total, double beforeHandler, double inHandler, double write,
-        int rows = 1_000, int missing = 0) =>
-        new(total, beforeHandler, inHandler, write, rows, missing);
+        int rows = 1_000, int missing = 0, double perRowResidual = 0) =>
+        new(total, beforeHandler, inHandler, write, rows, missing, perRowResidual);
+
+    /// <summary>
+    /// **The distinction this type exists to keep, and which an earlier version
+    /// of the measurement run collapsed.**
+    ///
+    /// <para>
+    /// Medians do not add. A perfectly sound apparatus — every row's parts
+    /// summing exactly to that row's span — can still print parts that do not sum
+    /// to the printed total, because the median of a sum is not the sum of
+    /// medians. Blaming the stamps for that would condemn a working instrument.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_median_gap_is_not_an_apparatus_fault()
+    {
+        IngestAttribution attribution =
+            Attribution(total: 85, beforeHandler: 20, inHandler: 5, write: 3, perRowResidual: 0);
+
+        attribution.UnattributedMs.ShouldBe(60, 0.001, "the printed figures do not reconcile");
+        attribution.PartsCoverEveryRow.ShouldBeTrue("yet every row's parts cover its own span exactly");
+    }
+
+    /// <summary>
+    /// The other direction, which is the one worth failing over: the printed
+    /// figures reconcile perfectly and the stamps are still wrong.
+    /// </summary>
+    [Fact]
+    public void Figures_that_reconcile_can_still_rest_on_broken_stamps()
+    {
+        IngestAttribution attribution =
+            Attribution(total: 80, beforeHandler: 60, inHandler: 20, write: 5, perRowResidual: 4.2);
+
+        attribution.UnattributedMs.ShouldBe(0, 0.001, "the printed figures reconcile exactly");
+        attribution.PartsCoverEveryRow.ShouldBeFalse("but the rows behind them do not");
+    }
+
+    [Fact]
+    public void A_sound_apparatus_leaves_no_per_row_residual()
+    {
+        Attribution(80, 60, 20, 5).PartsCoverEveryRow.ShouldBeTrue();
+    }
+
+    /// <summary>
+    /// Sign-independent: a residual in either direction is a disagreement. Only
+    /// its magnitude matters, and a stamp landing *after* the one that should
+    /// follow it produces the negative case.
+    /// </summary>
+    [Theory]
+    [InlineData(4.2)]
+    [InlineData(-4.2)]
+    public void A_residual_in_either_direction_is_a_disagreement(double residual)
+    {
+        Attribution(80, 60, 20, 5, perRowResidual: residual).PartsCoverEveryRow.ShouldBeFalse();
+    }
 
     [Fact]
     public void A_span_its_parts_cover_leaves_nothing_over()
@@ -121,6 +175,14 @@ public class IngestAttributionTests
         attribution.Describe().ShouldContain("12 missing stamps");
     }
 
+    /// <summary>
+    /// **This test previously pinned the wrong claim.** It asserted the
+    /// before-handler line reads "crosses two clocks", which is how the whole
+    /// apparatus described itself until review found it backwards: the two
+    /// processes stamping that leg share one OS clock, and the leg that really
+    /// crosses two is the write. The assertion held the error in place rather
+    /// than catching it — a label test is only as good as the label.
+    /// </summary>
     [Fact]
     public void The_description_carries_both_spans_and_the_remainder()
     {
@@ -129,7 +191,23 @@ public class IngestAttributionTests
         description.ShouldContain("observed span");
         description.ShouldContain("requirement span");
         description.ShouldContain("unattributed");
-        description.ShouldContain("crosses two clocks");
+        description.ShouldContain("per-row residual");
         description.ShouldContain("between");
+    }
+
+    /// <summary>
+    /// Which leg is labelled as crossing clocks, asserted because getting it the
+    /// other way round is what shipped and what a reader would act on.
+    /// </summary>
+    [Fact]
+    public void The_write_leg_is_the_one_labelled_as_crossing_clocks()
+    {
+        string description = Attribution(80, 60, 20, 5).Describe();
+
+        description.ShouldContain("write (two clocks");
+        description.ShouldContain("before handler (two processes, one clock)");
+        // The old label, which attributed the clock risk to the leg that does
+        // not carry it. Asserted absent so it cannot quietly return.
+        description.ShouldNotContain("crosses two clocks");
     }
 }

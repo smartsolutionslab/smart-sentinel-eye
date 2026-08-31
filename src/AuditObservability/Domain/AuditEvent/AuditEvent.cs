@@ -76,13 +76,27 @@ public sealed class AuditEvent
     public DateTimeOffset? HandlerEnteredAt { get; private init; }
 
     /// <summary>
-    /// When the row reached the store, <b>by the database's clock rather than
-    /// any process's</b>. Null unless the measurement switch is on.
+    /// When the row was <b>inserted</b> — not when its transaction committed —
+    /// by the database's clock rather than any process's. Null unless the
+    /// measurement switch is on.
     ///
     /// <para>
-    /// Defaulted by the database on insert, so it costs no second write and no
-    /// round trip — and it is the only timestamp here taken from the clock every
-    /// service in this system shares.
+    /// <b>The distinction is not pedantry: NFR-001's words are "audit row
+    /// committed".</b> <c>clock_timestamp()</c> evaluates as the row is written,
+    /// inside a transaction that has not yet committed, so the commit itself
+    /// falls outside this stamp. Any leg computed from it therefore
+    /// <i>under</i>-reports the requirement's back end by whatever the commit
+    /// costs. Closing that would need a stamp taken after commit, which is a
+    /// second round trip on a path this feature is only supposed to observe.
+    /// </para>
+    ///
+    /// <para>
+    /// Written as <c>clock_timestamp()</c> <b>inside the insert statement</b>,
+    /// not by a column default. A default was the obvious shape and this table
+    /// refuses it: <c>audit_events</c> is a compressed hypertable, and adding a
+    /// column with a non-constant default to one fails outright. Either way the
+    /// value costs no second write and no round trip, and it is the only
+    /// timestamp here taken from the clock every service in this system shares.
     /// </para>
     ///
     /// <para>
@@ -94,8 +108,8 @@ public sealed class AuditEvent
     [SuppressMessage(
         "Minor Code Smell",
         "S1144:Unused private types or members should be removed",
-        Justification = "Set by the database, not by this code — the column carries a clock_timestamp() default "
-            + "so the write's own duration costs no second round trip. Nothing in C# assigns it, which is the point.")]
+        Justification = "Set by the database, not by this code — the repository's insert supplies "
+            + "clock_timestamp() for it. Nothing in C# assigns it, which is the point.")]
     public DateTimeOffset? WrittenAt { get; private init; }
 
     private AuditEvent() { }

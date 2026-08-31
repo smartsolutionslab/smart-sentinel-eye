@@ -61,7 +61,6 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
     private const double TargetRatePerSecond = 100;
 
     /// <summary>
-    /// <summary>
     /// Concurrent writers for the paced attribution run. Fifty, so that no writer
     /// has to issue faster than every half second to hold 100 ev/s between them —
     /// the pacing sets the rate, and the writers only have to be numerous enough
@@ -297,16 +296,20 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
         // unrelated percentiles added together.
         IngestAttribution typical = await AttributionAsync(context, measured, tailOnly: false);
         IngestAttribution tail = await AttributionAsync(context, measured, tailOnly: true);
-        // **What this offset is, and what it is not.** It is this process's
-        // distance from the shared server — an indicator of the drift between a
-        // host process and a container, which is the only clock comparison
-        // reachable from here. It is *not* the publisher-to-consumer skew: that
-        // needs a stamp from each of those processes, and the front of the span
-        // is exactly where this feature chose not to add one.
+        // **Which part this offset actually bounds — corrected in review, having
+        // been stated backwards.**
         //
-        // It still bounds the part that matters, because only "before handler"
-        // crosses a clock boundary at all. "In handler" is stamped twice by one
-        // process and is exact whatever the clocks are doing.
+        // `occurred_at` and `received_at` are stamped in two *processes*, but on
+        // one machine those processes read one OS clock, so the skew between them
+        // is not the risk it looks like. Across machines it would be, and nothing
+        // here would notice.
+        //
+        // The genuinely cross-clock figure is the **write leg**: `received_at`
+        // comes from a host process and `written_at` from `clock_timestamp()`
+        // inside the Postgres container. That is exactly what this probe
+        // measures, and it is the same size as the leg — so the write leg is the
+        // figure that lives or dies by this number, not "before handler" as an
+        // earlier version of this comment claimed.
         ClockOffset offset = await ClockOffsetProbe.MeasureBestOfAsync(
             context.Database.GetConnectionString()!, readings: 20, CancellationToken.None);
 
@@ -317,24 +320,49 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
         output.WriteLine(typical.Describe());
         output.WriteLine("--- tail band (rows at or above the p99 of the total) ---");
         output.WriteLine(tail.Describe());
+        // **The verdict, applied rather than merely available.** The type existed
+        // from Phase 1 and this run printed an offset without ever judging it —
+        // so a stack whose container clock had drifted 40 ms would have passed
+        // every assertion and had its breakdown recorded as fact. That is the
+        // failure the verdict was written to prevent, surviving inside the run
+        // that needed it most.
+        AttributionVerdict verdict = AttributionVerdict.For(
+            RelativeSkew.Between(offset, new ClockOffset(TimeSpan.Zero, TimeSpan.Zero)));
+
         output.WriteLine($"this process vs the shared server: {offset}");
+        output.WriteLine($"  write leg standing: {verdict.Standing} — {verdict.Reason}");
         output.WriteLine(
-            "  only the 'before handler' part crosses a clock boundary; "
-            + "'in handler' is stamped twice by one process and is exact");
+            "  the write leg crosses host and container clocks and is bounded by that offset; "
+            + "'in handler' is stamped twice by one process and is exact whatever the clocks do");
 
         typical.EveryRowStamped.ShouldBeTrue(
             $"{typical.RowsMissingStamps} rows arrived without the measurement stamps; "
             + "turn the switch on before reading anything below");
 
-        // Asserted on the typical band only. Within the tail band the parts are
-        // medians over a *subset* chosen by the total, so they need not sum to
-        // that subset's median total — the remainder is reported there rather
-        // than assured, which is why `Describe` prints it either way.
-        typical.AttributedFraction.ShouldBeGreaterThan(
-            0.8,
-            $"the named parts explain only {typical.AttributedFraction * 100:F1}% of the span; "
-            + $"{typical.UnattributedMs:F1} ms is unaccounted for, which is the apparatus disagreeing "
-            + "with the timestamps that bracket it rather than a property of the pipeline");
+        // **This is the apparatus check, and it is asserted on both bands.**
+        // Each row's parts sum to that row's own span by construction, so the
+        // median of the per-row residual is exactly zero unless the stamps
+        // genuinely disagree — an out-of-order stamp, a clock stepping mid-run.
+        //
+        // The earlier version of this test asserted on AttributedFraction
+        // instead, and that was wrong: medians do not add, so a healthy
+        // apparatus can leave a gap between the printed parts and the printed
+        // total. It read as sound here only because in-handler is degenerate at
+        // ~0, which made the medians additive by accident. A pipeline that
+        // actually spent time in the handler would have failed this test for a
+        // reason that had nothing to do with the stamps.
+        typical.PartsCoverEveryRow.ShouldBeTrue(
+            $"the median row leaves {typical.PerRowResidualMs:F3} ms between its span and its parts; "
+            + "consecutive stamps cannot do that, so the stamps disagree with the timestamps "
+            + "that bracket them");
+
+        tail.PartsCoverEveryRow.ShouldBeTrue(
+            $"the median tail row leaves {tail.PerRowResidualMs:F3} ms between its span and its parts");
+
+        verdict.IsEstablished.ShouldBeTrue(
+            $"{verdict.Reason} — the write leg subtracts a host-process stamp from a container one, "
+            + $"and at {typical.WriteMs:F1} ms it is the same size as that disagreement, so it cannot "
+            + "be reported as measured");
 
         // **The load is part of the result, not a precondition to be assumed.**
         // Below the knee the pipeline is idle and the breakdown describes
@@ -510,23 +538,42 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
         List<double> parts = await context.Database
             .SqlQueryRaw<double>(
                 "WITH samples AS ("
+                // **No COALESCE to zero.** An unstamped row has no parts, and
+                // giving it zeros while keeping its real total drags every median
+                // toward zero and manufactures a remainder that looks like a
+                // pipeline property. The percentiles below are filtered to
+                // stamped rows; the counts are not, so a partly-stamped run is
+                // still visible rather than silently narrowed to what worked.
                 + "SELECT "
                 + "EXTRACT(EPOCH FROM (received_at - occurred_at)) * 1000 AS total, "
-                + "COALESCE(EXTRACT(EPOCH FROM (handler_entered_at - occurred_at)) * 1000, 0) AS before_handler, "
-                + "COALESCE(EXTRACT(EPOCH FROM (received_at - handler_entered_at)) * 1000, 0) AS in_handler, "
-                + "COALESCE(EXTRACT(EPOCH FROM (written_at - received_at)) * 1000, 0) AS write_leg, "
+                + "EXTRACT(EPOCH FROM (handler_entered_at - occurred_at)) * 1000 AS before_handler, "
+                + "EXTRACT(EPOCH FROM (received_at - handler_entered_at)) * 1000 AS in_handler, "
+                + "EXTRACT(EPOCH FROM (written_at - received_at)) * 1000 AS write_leg, "
                 + "(handler_entered_at IS NULL OR written_at IS NULL) AS stamps_missing "
                 + "FROM audit_events "
                 + "WHERE event_kind = 'SystemVariableValueChangedV1' AND resource_identifier = ANY({0})"
                 + "), cut AS ("
                 + "SELECT percentile_cont(0.99) WITHIN GROUP (ORDER BY total) AS threshold FROM samples"
+                // Every percentile over the same population — stamped rows — so
+                // the parts and the total they divide describe one set of events.
+                // COALESCEd on the outside, not the inside: with no stamped rows
+                // at all these are NULL, and a zero that `EveryRowStamped` will
+                // immediately contradict beats a mapping exception.
                 + ") SELECT unnest(ARRAY["
-                + "percentile_cont(0.50) WITHIN GROUP (ORDER BY total), "
-                + "percentile_cont(0.50) WITHIN GROUP (ORDER BY before_handler), "
-                + "percentile_cont(0.50) WITHIN GROUP (ORDER BY in_handler), "
-                + "percentile_cont(0.50) WITHIN GROUP (ORDER BY write_leg), "
+                + "COALESCE(percentile_cont(0.50) WITHIN GROUP (ORDER BY total) "
+                + "FILTER (WHERE NOT stamps_missing), 0), "
+                + "COALESCE(percentile_cont(0.50) WITHIN GROUP (ORDER BY before_handler) "
+                + "FILTER (WHERE NOT stamps_missing), 0), "
+                + "COALESCE(percentile_cont(0.50) WITHIN GROUP (ORDER BY in_handler) "
+                + "FILTER (WHERE NOT stamps_missing), 0), "
+                + "COALESCE(percentile_cont(0.50) WITHIN GROUP (ORDER BY write_leg) "
+                + "FILTER (WHERE NOT stamps_missing), 0), "
                 + "count(*)::float8, "
-                + "count(*) FILTER (WHERE stamps_missing)::float8]) AS \"Value\" "
+                + "count(*) FILTER (WHERE stamps_missing)::float8, "
+                + "COALESCE(percentile_cont(0.50) WITHIN GROUP "
+                + "(ORDER BY total - before_handler - in_handler) "
+                + "FILTER (WHERE NOT stamps_missing), 0)]) "
+                + "AS \"Value\" "
                 + "FROM samples, cut WHERE (NOT {1}) OR samples.total >= cut.threshold",
                 arguments)
             .ToListAsync();
@@ -537,7 +584,8 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
             InHandlerMs: parts[2],
             WriteMs: parts[3],
             RowsMeasured: (int)parts[4],
-            RowsMissingStamps: (int)parts[5]);
+            RowsMissingStamps: (int)parts[5],
+            PerRowResidualMs: parts[6]);
     }
 
     private static async Task<(double P50, double P99, double Max)> PercentilesAsync(

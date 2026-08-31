@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -8,17 +8,30 @@ namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence.Migrati
     /// <inheritdoc />
     public partial class AuditIngestBreakdownColumns : Migration
     {
+        // **Two columns, and nothing else.** EF also emitted a drop-and-recreate
+        // of PK_audit_events and ux_audit_event_identifier in exactly the shape
+        // they already have — spurious churn from re-serialising the snapshot on
+        // a newer provider. It was removed by hand, for two reasons:
+        //
+        // `audit_events` is a hypertable with a compression policy, and dropping
+        // a constraint or index on a table with compressed chunks is refused
+        // outright. The MigrationRunner reports "Finished" either way, so the
+        // columns would silently not exist and every measurement would read null
+        // stamps.
+        //
+        // The generated Down() was worse: it re-added the primary key on
+        // audit_id alone and the unique index on event_identifier alone.
+        // TimescaleDB requires the partitioning column in both, which is why the
+        // initial migration made them composite. That rollback could never have
+        // succeeded.
+
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropPrimaryKey(
-                name: "PK_audit_events",
-                table: "audit_events");
-
-            migrationBuilder.DropIndex(
-                name: "ux_audit_event_identifier",
-                table: "audit_events");
-
+            // No default expression. `clock_timestamp()` is not constant, and
+            // adding a column with a non-constant default to a hypertable with
+            // columnstore enabled fails with SqlState 0A000. The value is
+            // supplied by the repository's insert instead.
             migrationBuilder.AddColumn<DateTimeOffset>(
                 name: "handler_entered_at",
                 table: "audit_events",
@@ -30,30 +43,11 @@ namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence.Migrati
                 table: "audit_events",
                 type: "timestamp with time zone",
                 nullable: true);
-
-            migrationBuilder.AddPrimaryKey(
-                name: "PK_audit_events",
-                table: "audit_events",
-                columns: new[] { "audit_id", "occurred_at" });
-
-            migrationBuilder.CreateIndex(
-                name: "ux_audit_event_identifier",
-                table: "audit_events",
-                columns: new[] { "event_identifier", "occurred_at" },
-                unique: true);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropPrimaryKey(
-                name: "PK_audit_events",
-                table: "audit_events");
-
-            migrationBuilder.DropIndex(
-                name: "ux_audit_event_identifier",
-                table: "audit_events");
-
             migrationBuilder.DropColumn(
                 name: "handler_entered_at",
                 table: "audit_events");
@@ -61,17 +55,6 @@ namespace SmartSentinelEye.AuditObservability.Infrastructure.Persistence.Migrati
             migrationBuilder.DropColumn(
                 name: "written_at",
                 table: "audit_events");
-
-            migrationBuilder.AddPrimaryKey(
-                name: "PK_audit_events",
-                table: "audit_events",
-                column: "audit_id");
-
-            migrationBuilder.CreateIndex(
-                name: "ux_audit_event_identifier",
-                table: "audit_events",
-                column: "event_identifier",
-                unique: true);
         }
     }
 }
