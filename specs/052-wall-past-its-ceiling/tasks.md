@@ -30,13 +30,13 @@ Eighteen tasks across backend, realm configuration and the kiosk app.
 
 ## Phase 1 — The containment *(the gate)*
 
-- [ ] T001 Add the role-removal calls to `src/Identity/Infrastructure/KeycloakAdmin/HttpKeycloakAdminClient.cs`: read the account's **direct** realm mappings, then delete that same list. **The shape is load-bearing** — a role object obtained any other way returns 404, which reads like a permission failure and is not (research §R2).
-- [ ] T002 Strip the privilege during enrolment in `src/Identity/Application/Kiosks/`, immediately after the client exists. Return `Result<T, Error>`; do not throw.
-- [ ] T003 **Fail the enrolment when the strip fails**, in the same handler in `src/Identity/Application/Kiosks/`. Its own task because it is the whole point: an enrolment that reports success while leaving a privilege holder behind is the outcome the containment exists to prevent.
-- [ ] T004 [P] Test in `tests/Identity.Tests/` that a strip failure **fails the enrolment** — induce a failure of the removal call *after* the client is created, and assert the result is a failure. Assert on the reported outcome, not on an exception type.
-- [ ] T005 Add the startup sweep over accounts enrolment created, in `src/Identity/Application/Kiosks/`. Idempotent, so every start is safe and it doubles as reconciliation against drift.
-- [ ] T006 [P] **Test that the sweep does not touch a human account** in `tests/Identity.Tests/` — run it with an operator account present and assert **the operator still holds what it held**. Asserted on the operator, not on the absence of a crash: a sweep that matched everything would remove every role an operator has and still not throw.
-- [ ] T007 [P] Integration test against the Aspire fixture in `tests/Identity.IntegrationTests/`: enrol a kiosk, then **ask the running provider** what that account effectively holds, and assert the privilege is absent. **This is the US1 claim and only the provider can answer it.**
+- [x] T001 Add the role-removal calls to `src/Identity/Infrastructure/KeycloakAdmin/HttpKeycloakAdminClient.cs`: read the account's **direct** realm mappings, then delete that same list. **The shape is load-bearing** — a role object obtained any other way returns 404, which reads like a permission failure and is not (research §R2).
+- [x] T002 Strip the privilege during enrolment in `src/Identity/Application/Kiosks/`, immediately after the client exists. Return `Result<T, Error>`; do not throw.
+- [x] T003 **Fail the enrolment when the strip fails**, in the same handler in `src/Identity/Application/Kiosks/`. Its own task because it is the whole point: an enrolment that reports success while leaving a privilege holder behind is the outcome the containment exists to prevent.
+- [x] T004 [P] Test in `tests/Identity.Tests/` that a strip failure **fails the enrolment** — induce a failure of the removal call *after* the client is created, and assert the result is a failure. Assert on the reported outcome, not on an exception type.
+- [x] T005 Add the startup sweep over accounts enrolment created, in `src/Identity/Application/Kiosks/`. Idempotent, so every start is safe and it doubles as reconciliation against drift.
+- [x] T006 [P] **Test that the sweep does not touch a human account** in `tests/Identity.Tests/` — run it with an operator account present and assert **the operator still holds what it held**. Asserted on the operator, not on the absence of a crash: a sweep that matched everything would remove every role an operator has and still not throw.
+- [x] T007 [P] Integration test against the Aspire fixture in `tests/Identity.IntegrationTests/`: enrol a kiosk, then **ask the running provider** what that account effectively holds, and assert the privilege is absent. **This is the US1 claim and only the provider can answer it.**
 
 **Checkpoint — this is a security gate, not paperwork.** Spec 049 refused this
 feature for widening who may mint a long-lived credential; spec 050 shipped the
@@ -47,10 +47,10 @@ system. **Nothing in Phase 2 or beyond may land until T001–T007 are green.**
 
 ## Phase 2 — The wall client and how a screen is told apart
 
-- [ ] T008 Declare the `kiosk-wall` client in `src/AppHost/Realms/smart-sentinel-eye-realm.json` — **edited line by line** — with the five read scopes, `sse-identity` and `sse-groups` as defaults, `offline_access` as **optional**, and **no `sse.events.write`**.
-- [ ] T009 Select client and scopes from one deployment flag in `apps/kiosk-web/src/app/auth.ts`: wall mode uses `kiosk-wall` and requests `openid offline_access`; anything else uses `kiosk-web` and requests `openid`. **One flag decides both**, so there is no half-configuration to get wrong.
-- [ ] T010 [P] Architecture test in `tests/Architecture.Tests/` for the realm's **declared** shape: the wall client omits the write scope, and `offline_access` is optional rather than default. **Label it as covering declaration only** — it is exactly the kind of check that passed for spec 050's whole feature while the claim it stood for was false, so it must not be offered as evidence for who *holds* the privilege.
-- [ ] T011 [P] Unit test in `apps/kiosk-web/src/app/auth.test.ts` that the two modes produce the two client/scope pairs, and that **no mode produces `kiosk-web` asking for `offline_access`** — that combination is the lockout.
+- [x] T008 Declare the `kiosk-wall` client in `src/AppHost/Realms/smart-sentinel-eye-realm.json` — **edited line by line** — with the five read scopes, `sse-identity` and `sse-groups` as defaults, `offline_access` as **optional**, and **no `sse.events.write`**.
+- [x] T009 Select client and scopes from one deployment flag in `apps/kiosk-web/src/app/auth.ts`: wall mode uses `kiosk-wall` and requests `openid offline_access`; anything else uses `kiosk-web` and requests `openid`. **One flag decides both**, so there is no half-configuration to get wrong.
+- [x] T010 [P] Architecture test in `tests/Architecture.Tests/` for the realm's **declared** shape: the wall client omits the write scope, and `offline_access` is optional rather than default. **Label it as covering declaration only** — it is exactly the kind of check that passed for spec 050's whole feature while the claim it stood for was false, so it must not be offered as evidence for who *holds* the privilege.
+- [x] T011 [P] Unit test in `apps/kiosk-web/src/app/auth.test.ts` that the two modes produce the two client/scope pairs, and that **no mode produces `kiosk-web` asking for `offline_access`** — that combination is the lockout.
 
 ---
 

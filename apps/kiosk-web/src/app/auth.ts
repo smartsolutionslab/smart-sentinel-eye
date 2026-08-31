@@ -15,6 +15,43 @@ if (import.meta.env.PROD && (import.meta.env.VITE_KEYCLOAK_URL ?? '') === '') {
 }
 
 /**
+ * Whether this screen is a wall display.
+ *
+ * <p>
+ * <b>One flag decides both the client and the scopes</b>, and that is the point
+ * (spec 052). They cannot be chosen separately, so there is no half
+ * configuration: a screen asking for a long-lived grant is always the screen
+ * signing in as the client that offers one.
+ * </p>
+ */
+const IS_WALL_DISPLAY = (import.meta.env.VITE_KIOSK_MODE ?? '').toLowerCase() === 'wall';
+
+/**
+ * The client this screen signs in as, and what it asks for.
+ *
+ * <p>
+ * <b>A wall display uses a different client, and the reason is not the scope it
+ * requests.</b> Scopes belong to clients, so a second client is the only place a
+ * wall display's authority can be narrowed — <c>kiosk-wall</c> carries the read
+ * scopes and not <c>sse.events.write</c>. A never-expiring grant that could
+ * inject events into a fab is what spec 050 shipped while recording that the
+ * account could change nothing.
+ * </p>
+ *
+ * <p>
+ * <b>Why the scope cannot simply be added to kiosk-web.</b> An optional scope
+ * refuses nobody only while nobody asks for it: an account <i>without</i> the
+ * matching privilege that requests it is refused the <b>entire sign-in</b>, not
+ * merely that scope. Adding it here would lock out every operator — spec 050's
+ * failure by a different route. And the application cannot decide per account,
+ * because the scope is requested before anyone has signed in.
+ * </p>
+ */
+const SCREEN = IS_WALL_DISPLAY
+  ? { clientId: 'kiosk-wall', scope: 'openid offline_access' }
+  : { clientId: 'kiosk-web', scope: 'openid' };
+
+/**
  * OIDC config for kiosk-web. Same Keycloak realm as management-web, its own
  * public client — ``kiosk-web``, whose default client scopes are exactly
  * ``KeycloakScopeBundles.Kiosk``, the set Identity grants every kiosk device it
@@ -35,7 +72,7 @@ if (import.meta.env.PROD && (import.meta.env.VITE_KEYCLOAK_URL ?? '') === '') {
  */
 export const oidcConfig: AuthProviderProps & UserManagerSettings = {
   authority: `${KEYCLOAK_BASE_URL}/realms/smart-sentinel-eye`,
-  client_id: 'kiosk-web',
+  client_id: SCREEN.clientId,
   redirect_uri:
     typeof window !== 'undefined' ? `${window.location.origin}/oidc/callback` : 'http://localhost:5174/oidc/callback',
   // `openid` alone: the six sse.* scopes and `sse-groups` are DEFAULT client
@@ -56,7 +93,11 @@ export const oidcConfig: AuthProviderProps & UserManagerSettings = {
   // be requested at all. Naming any scope this client does not hold fails the
   // whole sign-in with `invalid_scope`, no token at all — observed, not
   // theorised, when this line briefly asked for one the realm had not granted.
-  scope: 'openid',
+  //
+  // **Spec 052 adds the wall-display case.** A wall screen signs in as
+  // `kiosk-wall` and asks for `offline_access` as well, which is what lets its
+  // grant outlive the session ceiling. Every other screen is unchanged.
+  scope: SCREEN.scope,
 
   // **Storage that outlives the browser process** (ADR-0131). The default is
   // tied to the process, so a reboot lost every token unconditionally and no
