@@ -169,12 +169,24 @@ of error, and the error arrived six times from directions the gate did not cover
    quoted against a 50 ms budget if nothing had checked which load produced it.
    The run is now paced and asserts the rate it landed at.
 
-Also found and fixed en route, outside this feature's scope: **the migration
-silently did not apply.** `audit_events` is a TimescaleDB hypertable with
-columnstore enabled and refuses `ADD COLUMN` with a non-constant default
-(`SqlState 0A000`). The MigrationRunner reported "Finished" regardless. The
-column default moved into the repository's raw INSERT; **the runner's silence on
-a failed migration is not fixed and is worth its own issue.**
+Also found and fixed en route, outside this feature's scope: **the migration did
+not apply.** `audit_events` is a TimescaleDB hypertable with columnstore enabled
+and refuses `ADD COLUMN` with a non-constant default (`SqlState 0A000`). The
+column default moved into the repository's raw INSERT.
+
+> **Corrected 2026-08-31.** This paragraph originally said the MigrationRunner
+> "reported Finished regardless", and an issue was filed against the runner on
+> that basis. **It was wrong, and the issue is closed as not reproducible.**
+> Tested by giving AuditObservability a migration whose `Up()` is `SELECT 1 / 0`
+> and running the real runner: it exits **non-zero**, logs the
+> `PostgresException`, never logs "All migrations applied", and leaves nothing in
+> `__EFMigrationsHistory`. There is no `try`/`catch` anywhere on that path.
+>
+> What was actually misread was a **stale Aspire resource state**: the AppHost
+> was already running, its `migrationrunner` had reached *Finished* on the
+> earlier boot before the migration existed, and it never saw it. The `0A000` was
+> real — it surfaced when the migration was applied by hand, which is also where
+> it was loud.
 
 ---
 
@@ -202,11 +214,19 @@ did not catch.
    not wired to the thing it gated.
 
 3. **The migration dropped and recreated a primary key and unique index it does
-   not change.** Spurious EF churn; on compressed chunks it is refused with the
-   same `SqlState 0A000` class as the columns, and the runner reports "Finished"
-   regardless. `Down()` restored a single-column PK that TimescaleDB forbids on a
-   hypertable, so rollback could never have succeeded. Stripped to two
+   not change**, and its `Down()` could never have run. Stripped to two
    `AddColumn`s.
+
+   **Corrected 2026-08-31.** This item first claimed the churn would be *refused*
+   on compressed chunks. Tested: the chunk was compressed and both the
+   `DROP INDEX` and the `DROP CONSTRAINT` **succeeded**. The churn is untidy, not
+   dangerous, and removing it was tidiness rather than a fix.
+
+   **The `Down()` half does hold**, and was tested rather than reasoned:
+   `CREATE UNIQUE INDEX ... (event_identifier)` on the hypertable is refused with
+   *cannot create a unique index without the column "occurred_at" (used in
+   partitioning)*. So the generated rollback was genuinely impossible, which is
+   the part worth having caught.
 
 4. **The self-versus-self clock test was flaky against data recorded ten lines
    above it.** True skew zero, observed spread ~10 ms, residuals 1–2 ms. Its
