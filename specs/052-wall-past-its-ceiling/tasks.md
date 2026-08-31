@@ -77,7 +77,7 @@ system. **Nothing in Phase 2 or beyond may land until T001–T007 are green.**
 
 ## Phase 6 — The record and verification
 
-- [ ] T018 Write the ADR — **superseding ADR-0132 properly** rather than leaving two records of the same idea — then `verification.md`, then update constitution §Availability. **State what could not be done**: twenty screens, a real power cut, ten hours in production, and an account created by hand in the provider's console, which this feature deliberately does not cover. Do not let the note imply §Availability is discharged.
+- [x] T018 Write the ADR — **superseding ADR-0132 properly** rather than leaving two records of the same idea — then `verification.md`, then update constitution §Availability. **State what could not be done**: twenty screens, a real power cut, ten hours in production, and an account created by hand in the provider's console, which this feature deliberately does not cover. Do not let the note imply §Availability is discharged.
 
 ---
 

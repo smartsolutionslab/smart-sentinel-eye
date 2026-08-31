@@ -384,6 +384,29 @@ unrecorded for as long as nobody looked.
   still needs a person, and a continuously-running wall still drops out
   about twice a day per screen.
 
+  **What spec 052 added.** A wall display now signs in as an account of
+  its own, holding a grant that outlives the session ceiling — so the
+  twice-a-day drop-out is gone for a screen configured as a wall
+  (ADR-0134). Its authority is narrowed by construction rather than by
+  assertion: a wall display uses its own client, which carries the read
+  scopes and no write scope, so the longest-lived credential in the
+  system is also the least able to change anything.
+
+  **The containment landed before the widening, and that ordering is the
+  point.** The provider grants every account created after import a
+  privilege that mints credentials which never expire, so spec 050's
+  claim — only wall displays hold it — was true of the realm file and
+  false of every running system, including every kiosk ever enrolled.
+  That privilege is now taken back as each account is created, using
+  authority the identity service already held, and every check on it asks
+  the running provider rather than reading the file.
+
+  **What it does not cover, priced rather than hidden.** An account
+  created by hand in the provider's console still inherits the privilege.
+  Closing that needs realm-management authority — broader than the
+  privilege it would contain — for a case the system does not drive, so
+  it is filed (issue 1995) and the requirement was narrowed in the open.
+
   **What spec 051 added, and what it deliberately does not claim.**
   A wall now survives an *identity-service* outage without anybody
   walking to it: the provider was stopped and restarted with nothing
@@ -394,12 +417,15 @@ unrecorded for as long as nobody looked.
   and password prompt on a factory wall — and shows no credential field
   at all.
 
-  **This does not discharge the target.** It removes one failure and
-  leaves the more frequent one standing: the ten-hour ceiling still drops
-  a screen roughly twice a day, and a wall that survives outages but not
-  its own ceiling is not unattended. Twenty screens were never exercised —
-  four were — and a real network partition, as distinct from an aborted
-  request, remains untested.
+  **The target is still not discharged, and the reason has changed.**
+  Both named failures are now addressed — an identity outage (spec 051)
+  and the session ceiling (spec 052). What remains unmeasured is the
+  target's own terms: **twenty screens have never been exercised** (four
+  is the most, once), and **a real power cut has never been tested at
+  all**. A reload is not a power cut, and four screens are not twenty.
+  Until someone watches a wall of twenty come back from a real outage,
+  this stays unmet — not because a mechanism is missing, but because
+  nobody has looked.
 
   **Three claims made here were wrong and are corrected.** A wall-display
   grant would **not** have been view-only: the kiosk client already

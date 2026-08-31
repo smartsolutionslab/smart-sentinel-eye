@@ -1,6 +1,6 @@
 # ADR-0132: A wall display is not a person, and only it may hold a grant that never expires
 
-**Status:** **Superseded before it shipped — see "What review found" below**
+**Status:** **Superseded by ADR-0134.** Withdrawn before it shipped; kept because the corrections below are what made ADR-0134 possible
 **Date:** 2026-08-30
 **Amends:** constitution §Availability (the unattended-reboot target)
 **Relates to:** ADR-0080, ADR-0131, spec 049, spec 050, issues 1976, 1987, 1988, 1989
