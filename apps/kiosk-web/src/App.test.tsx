@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Provider } from 'react-redux';
+import { ErrorResponse } from 'oidc-client-ts';
 import type { ReactNode } from 'react';
 
 const authState = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
@@ -225,6 +226,87 @@ describe('Kiosk app shell', () => {
     expect(window.sessionStorage.getItem('sse.auth.redirectGuard')).toBeNull();
     expect(auth.signinRedirect).toHaveBeenCalledTimes(1);
     expect(auth.signinRedirect).toHaveBeenCalledWith({ state: { returnTo: '/' } });
+  });
+
+  /**
+   * **A session that ended is not a screen that was shut out** (spec 051 T014).
+   *
+   * <p>
+   * These are different verdicts with different screens, and folding them
+   * together is the easiest mistake to make while editing the hook underneath
+   * them. It is also the more damaging direction: the ceiling drop-out is the
+   * <i>frequent</i> failure — roughly twice a day per screen — so announcing it
+   * as a revoked display would send someone to re-commission hardware that only
+   * needed a sign-in.
+   * </p>
+   */
+  it('Keeps the session-expired screen distinct from the no-longer-authorized one', async () => {
+    window.localStorage.setItem('sse.auth.wasAuthenticated', 'true');
+    window.sessionStorage.setItem('sse.auth.redirectGuard', String(Date.now()));
+    authState.current = unauthenticatedAuth();
+
+    renderApp();
+
+    await vi.waitFor(() => expect(screen.getByRole('heading', { name: /session expired/i })).toBeInTheDocument());
+    expect(screen.queryByTestId('identity-not-authorized')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('identity-reconnecting')).not.toBeInTheDocument();
+  });
+
+  /**
+   * **The screen this feature exists to retire** (spec 051 FR-010).
+   *
+   * <p>
+   * An error that reaches the shell without having been classified still must
+   * not put the library's own words on a wall. "Failed to fetch" is a browser's
+   * phrase for a request that did not leave the building, and it was the
+   * headline on a factory display above a button nobody was there to press.
+   * </p>
+   *
+   * <p>
+   * <b>Found by mutation.</b> Restoring the old raw-message screen left the
+   * whole suite green, because nothing exercised the unclassified path — the
+   * asymmetric default of FR-005 was resting on nothing.
+   * </p>
+   */
+  it('Never shows the identity library its own words, even for a failure it did not classify', async () => {
+    window.localStorage.setItem('sse.auth.wasAuthenticated', 'true');
+    const auth = unauthenticatedAuth();
+    auth.error = new Error('Failed to fetch') as never;
+    authState.current = auth;
+
+    renderApp();
+
+    await vi.waitFor(() => expect(screen.getByTestId('identity-reconnecting')).toBeInTheDocument());
+    expect(screen.queryByText(/failed to fetch/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /sign-in failed/i })).not.toBeInTheDocument();
+  });
+
+  /**
+   * **The property is the absence** (spec 051 US2). Today this case renders the
+   * identity provider's own login form on a wall-mounted display; asserting that
+   * a nicer heading appeared would pass with that form still on screen.
+   */
+  it('Shows a refused screen carrying no credential prompt, and does not redirect to one', async () => {
+    window.localStorage.setItem('sse.auth.wasAuthenticated', 'true');
+    const auth = unauthenticatedAuth();
+    auth.signinSilent = vi.fn(() =>
+      Promise.reject(new ErrorResponse({ error: 'invalid_grant', error_description: 'User disabled' })),
+    );
+    authState.current = auth;
+
+    renderApp();
+
+    await vi.waitFor(() => expect(screen.getByTestId('identity-not-authorized')).toBeInTheDocument());
+
+    // No password box, no username box, nowhere on the page.
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+    expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/username/i)).not.toBeInTheDocument();
+    expect(document.querySelectorAll('input')).toHaveLength(0);
+
+    // And it never hands the screen to the provider, which is where the real
+    // login form comes from.
+    expect(auth.signinRedirect).not.toHaveBeenCalled();
   });
 
   it('Restores the stashed path and clears the guard in the sign-in callback', () => {

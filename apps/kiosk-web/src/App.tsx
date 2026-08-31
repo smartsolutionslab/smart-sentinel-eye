@@ -6,6 +6,8 @@ import { ErrorBoundary } from '@smart-sentinel-eye/shared/ui/composites/ErrorBou
 import { oidcConfig } from './app/auth.js';
 import { router } from './app/router.js';
 import { hasBeenAuthenticated, useSessionExpiry } from './app/useSessionExpiry.js';
+import { NotAuthorizedScreen } from './features/auth/NotAuthorizedScreen.js';
+import { ReconnectingScreen } from './features/auth/ReconnectingScreen.js';
 import { DevCrashTrigger } from './features/recovery/DevCrashTrigger.js';
 import { KioskCrashRecovery } from './features/recovery/KioskCrashRecovery.js';
 
@@ -25,7 +27,14 @@ function AuthGate() {
   // here fires after the child's mount effect and races the token (ADR-0007/0008).
   // useSessionExpiry registers the session renewer/expiry handlers the same way.
   setAccessTokenProvider(() => auth.user?.access_token);
-  const { sessionExpired, retrySignIn } = useSessionExpiry(auth);
+  const { sessionExpired, identityFailure, attempt, retrySignIn, retryNow } = useSessionExpiry(auth);
+
+  // **Refused comes first, and is not conditioned on being unauthenticated.**
+  // A screen the provider has shut out must stop showing a wall it is no longer
+  // entitled to, whatever token is still in hand (spec 051 US2).
+  if (identityFailure === 'refused') {
+    return <NotAuthorizedScreen />;
+  }
 
   if (sessionExpired) {
     return (
@@ -47,20 +56,19 @@ function AuthGate() {
     );
   }
 
-  if (auth.error !== undefined) {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg-base text-fg-primary">
-        <h1 className="text-2xl font-semibold">Sign-in failed</h1>
-        <p className="text-fg-muted">{auth.error.message}</p>
-        <button
-          type="button"
-          className="rounded-md bg-accent-active/20 px-4 py-2 text-accent-active"
-          onClick={() => void auth.signinRedirect()}
-        >
-          Try again
-        </button>
-      </main>
-    );
+  // **A screen that still holds a working token keeps showing its wall.** A
+  // renewal failing in the background is not a reason to blank a display that
+  // has something valid to show; only losing the session is.
+  if (identityFailure === 'recoverable' && !auth.isAuthenticated) {
+    return <ReconnectingScreen attempt={attempt} onRetryNow={retryNow} />;
+  }
+
+  // Anything that reached the provider layer without being classified is
+  // treated as recoverable, which is the asymmetric default (FR-005). It also
+  // retires the screen that printed the library's own words — "Failed to
+  // fetch" — above a button nobody was there to press.
+  if (auth.error !== undefined && !auth.isAuthenticated) {
+    return <ReconnectingScreen attempt={attempt} onRetryNow={retryNow} />;
   }
 
   if (!auth.isAuthenticated) {
