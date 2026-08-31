@@ -106,17 +106,33 @@ public class WallClientDeclarationTests
     }
 
     /// <summary>
-    /// A wall display signs in through the same browser flow as any other
-    /// screen, so it needs the same redirect targets. Getting this wrong makes
-    /// wall mode fail at the redirect rather than anywhere informative.
+    /// **Each client names the origin it is actually served from.**
+    ///
+    /// <para>
+    /// Not a formality. These clients declare <c>"webOrigins": ["+"]</c>, which
+    /// means "whatever the redirect URIs imply" — so a client whose redirect
+    /// URIs never name its own port has no allowed origin. Sign-in still
+    /// completes and the browser still returns to the app; the <i>token
+    /// exchange</i> is then blocked by CORS, which surfaces as a network failure
+    /// and looks exactly like an identity service being down.
+    /// </para>
+    ///
+    /// <para>
+    /// The wall client was declared with the ordinary kiosk's port and failed
+    /// precisely that way. A wildcard entry was present and did not save it.
+    /// </para>
     /// </summary>
-    [Fact]
-    public void A_wall_display_signs_in_from_the_same_place_as_any_other_screen()
+    [Theory]
+    [InlineData(KioskClient, "5174")]
+    [InlineData(WallClient, "5175")]
+    public void A_client_names_the_origin_it_is_served_from(string clientId, string port)
     {
-        string[] wall = Strings(Client(WallClient), "redirectUris");
-        string[] kiosk = Strings(Client(KioskClient), "redirectUris");
+        string[] redirectUris = Strings(Client(clientId), "redirectUris");
 
-        wall.ShouldBe(kiosk, ignoreOrder: true);
+        redirectUris.ShouldContain(
+            uri => uri.Contains($"localhost:{port}", StringComparison.Ordinal),
+            $"'{clientId}' is served on port {port}; with webOrigins '+' its redirect URIs are the only thing "
+            + "that makes that an allowed origin, and without it the token exchange is blocked by CORS");
     }
 
     /// <summary>

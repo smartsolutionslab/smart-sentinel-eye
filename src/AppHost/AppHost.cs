@@ -458,6 +458,29 @@ if (isRunMode && !isE2ETests)
         .WaitFor(layoutComposition)
         .WithExternalHttpEndpoints()
         .WithParentRelationship(apiGateway);
+
+    // **The same application, deployed as a wall display** (spec 052).
+    //
+    // A second instance rather than a flag on the first, because a fab runs
+    // both: screens somebody stands at, and screens bolted to a wall. Only this
+    // one signs in as `kiosk-wall` and asks for a grant that outlives the
+    // session ceiling — and only this one is narrowed to read-only, since
+    // scopes belong to clients.
+    //
+    // It exists in the dev stack so the difference is exercised rather than
+    // described. Without it, wall mode would be a code path nothing runs.
+    builder.AddNpmApp("kiosk-wall", "../../apps/kiosk-web", "dev")
+        .WithHttpEndpoint(env: "PORT", port: 5175, isProxied: false)
+        .WithReference(apiGateway)
+        .WithEnvironment("VITE_API_GATEWAY_URL", apiGateway.GetEndpoint("http"))
+        .WithReference(keycloak)
+        .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
+        .WithReference(layoutComposition)
+        .WithEnvironment("VITE_LAYOUT_HUB_ORIGIN", layoutComposition.GetEndpoint("http"))
+        .WithEnvironment("VITE_KIOSK_MODE", "wall")
+        .WaitFor(layoutComposition)
+        .WithExternalHttpEndpoints()
+        .WithParentRelationship(apiGateway);
 }
 
 // Scenario Simulator (ADR-0111 M1) — dev-only, gated `isRunMode && !isE2ETests`

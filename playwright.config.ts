@@ -44,6 +44,17 @@ export default defineConfig({
       testMatch: /kiosk-.*\.spec\.ts/,
       dependencies: ['seed'],
     },
+    // Wall display (:5175) — spec 052. The same application in wall mode, so
+    // it signs in as `kiosk-wall` and asks for a grant that outlives the
+    // session ceiling. A separate project because the mode is fixed when the
+    // dev server starts: it cannot be toggled inside a test, and a test that
+    // drove :5174 would silently exercise the ordinary kiosk instead.
+    {
+      name: 'wall',
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5175' },
+      testMatch: /wall-.*.spec.ts/,
+      dependencies: ['seed'],
+    },
     // Issue 1895 — retires the cameras this run registered, so a long-lived dev
     // database does not fill with rows pointing at addresses nothing serves.
     //
@@ -59,7 +70,7 @@ export default defineConfig({
       name: 'cleanup',
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173' },
       testMatch: /.*\.teardown\.ts/,
-      dependencies: ['chromium', 'kiosk'],
+      dependencies: ['chromium', 'kiosk', 'wall'],
     },
   ],
 });

@@ -28,7 +28,14 @@ const layoutComposition =
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5174,
+    // **Taken from the environment, because one bundle now runs twice** (spec
+    // 052): an ordinary kiosk and a wall display, differing only in
+    // configuration. The host has always injected `PORT`; this file ignored it
+    // and hardcoded the same number, which worked only while there was one
+    // instance. A second one bound the same port, and `strictPort` turned that
+    // into an immediate exit — reported upstream as "running", because the
+    // process had indeed started.
+    port: Number(process.env['PORT'] ?? 5174),
     strictPort: true,
     proxy: layoutComposition
       ? { '/hubs': { target: layoutComposition, ws: true, changeOrigin: true, secure: false } }

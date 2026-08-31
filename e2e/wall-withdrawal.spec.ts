@@ -1,7 +1,17 @@
 import { test, expect, request as playwrightRequest, type Page } from '@playwright/test';
 
 /**
- * Spec 050 US3 — withdrawing one screen must not take down the wall.
+ * Spec 052 FR-011 — withdrawing one screen must not take down the wall.
+ *
+ * <p>
+ * <b>Written for spec 050, gated when that attempt was withdrawn, and revived
+ * here unchanged in substance.</b> The claim was always right; what was missing
+ * was a client that offers the grant. It now runs against the wall-mode
+ * instance and the dedicated wall client, ungated.
+ * </p>
+ *
+ * <p>
+ * Originally: spec 050 US3 — withdrawing one screen must not take down the wall.
  *
  * <p>
  * <b>This is the claim the research could only reason about.</b> R4 argued that
@@ -20,9 +30,17 @@ import { test, expect, request as playwrightRequest, type Page } from '@playwrig
  * </p>
  */
 
-const SHORTENED = process.env['SSE_WITHDRAWAL_PROBE'] === '1';
-const KEYCLOAK = process.env['SSE_KEYCLOAK_URL'] ?? 'https://127.0.0.1:10756';
-const ADMIN_PASSWORD = process.env['SSE_KEYCLOAK_ADMIN_PASSWORD'] ?? '';
+/**
+ * The provider's own address, and the development admin secret.
+ *
+ * <p>
+ * <b>The address is derived from a grant, never hardcoded.</b> The host publishes
+ * the provider on a port it chooses, so a fixed one is a different issuer as far
+ * as the provider is concerned and every call comes back refused — which reads
+ * exactly like a withdrawn session. That trap already cost this file once.
+ * </p>
+ */
+const ADMIN_PASSWORD = process.env['SSE_KEYCLOAK_ADMIN_PASSWORD'] ?? 'dev-only-keycloak-admin';
 
 const WALL_USER = 'wall-munich';
 const WALL_PASSWORD = 'Wall-munich-1234';
@@ -76,8 +94,6 @@ function sessionOf(refreshToken: string): string {
 }
 
 test.describe('Withdrawing one screen (spec 050 US3)', () => {
-  test.skip(!SHORTENED, 'needs the wall account mirrored into the running realm — see verification.md');
-
   /**
    * **The control.** If two grants cannot both be exchanged when nothing has
    * been withdrawn, then a failure in the test above says nothing about
@@ -87,8 +103,8 @@ test.describe('Withdrawing one screen (spec 050 US3)', () => {
   test('control: two screens can both refresh when nothing is withdrawn', async ({ browser }) => {
     test.setTimeout(600_000);
 
-    const first = await browser.newContext({ baseURL: 'http://localhost:5174', ignoreHTTPSErrors: true });
-    const second = await browser.newContext({ baseURL: 'http://localhost:5174', ignoreHTTPSErrors: true });
+    const first = await browser.newContext({ baseURL: 'http://localhost:5175', ignoreHTTPSErrors: true });
+    const second = await browser.newContext({ baseURL: 'http://localhost:5175', ignoreHTTPSErrors: true });
     const grantOne = await signIn(await first.newPage());
     const grantTwo = await signIn(await second.newPage());
 
@@ -97,7 +113,7 @@ test.describe('Withdrawing one screen (spec 050 US3)', () => {
     const api = await playwrightRequest.newContext({ ignoreHTTPSErrors: true });
     const exchange = async (refreshToken: string) => {
       const response = await api.post(`${issuerOf(refreshToken)}/protocol/openid-connect/token`, {
-        form: { client_id: 'kiosk-web', grant_type: 'refresh_token', refresh_token: refreshToken },
+        form: { client_id: 'kiosk-wall', grant_type: 'refresh_token', refresh_token: refreshToken },
       });
       return response.status();
     };
@@ -115,8 +131,8 @@ test.describe('Withdrawing one screen (spec 050 US3)', () => {
 
     // Two screens in the same fab, signed in as the same wall-display account —
     // which is the arrangement a real wall has.
-    const first = await browser.newContext({ baseURL: 'http://localhost:5174', ignoreHTTPSErrors: true });
-    const second = await browser.newContext({ baseURL: 'http://localhost:5174', ignoreHTTPSErrors: true });
+    const first = await browser.newContext({ baseURL: 'http://localhost:5175', ignoreHTTPSErrors: true });
+    const second = await browser.newContext({ baseURL: 'http://localhost:5175', ignoreHTTPSErrors: true });
     const grantOne = await signIn(await first.newPage());
     const grantTwo = await signIn(await second.newPage());
 
@@ -125,13 +141,14 @@ test.describe('Withdrawing one screen (spec 050 US3)', () => {
     expect(sessionOne, 'two screens must not share a session, or nothing can be withdrawn alone').not.toBe(sessionTwo);
 
     const admin = await playwrightRequest.newContext({ ignoreHTTPSErrors: true });
-    const tokenResponse = await admin.post(`${KEYCLOAK}/realms/master/protocol/openid-connect/token`, {
+    const provider = new URL(issuerOf(grantOne)).origin;
+    const tokenResponse = await admin.post(`${provider}/realms/master/protocol/openid-connect/token`, {
       form: { client_id: 'admin-cli', username: 'admin', password: ADMIN_PASSWORD, grant_type: 'password' },
     });
     const adminToken = ((await tokenResponse.json()) as { access_token: string }).access_token;
 
     // Withdraw exactly one screen's session.
-    const deleted = await admin.delete(`${KEYCLOAK}/admin/realms/${REALM}/sessions/${sessionOne}?isOffline=true`, {
+    const deleted = await admin.delete(`${provider}/admin/realms/${REALM}/sessions/${sessionOne}?isOffline=true`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
     expect(deleted.status(), 'the provider should be able to end a single session').toBeLessThan(300);
@@ -140,7 +157,7 @@ test.describe('Withdrawing one screen (spec 050 US3)', () => {
     // must fail and the sibling must not.
     const exchange = async (refreshToken: string) => {
       const response = await admin.post(`${issuerOf(refreshToken)}/protocol/openid-connect/token`, {
-        form: { client_id: 'kiosk-web', grant_type: 'refresh_token', refresh_token: refreshToken },
+        form: { client_id: 'kiosk-wall', grant_type: 'refresh_token', refresh_token: refreshToken },
       });
       return { status: response.status(), body: await response.text() };
     };

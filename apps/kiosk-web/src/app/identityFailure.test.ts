@@ -92,6 +92,41 @@ describe('A refused screen is terminal (spec 051 T003)', () => {
   });
 });
 
+describe('A misconfigured wall screen is told the truth (spec 052)', () => {
+  /**
+   * **The case this feature creates, so this feature handles it.**
+   *
+   * <p>
+   * A screen configured as a wall display asks for a long-lived grant. An
+   * operator signing into it lacks that privilege, so the provider refuses the
+   * whole sign-in with <c>not_allowed</c> — and retrying will never change which
+   * account is at the keyboard.
+   * </p>
+   *
+   * <p>
+   * Without this the code is unrecognised, and unrecognised defaults to
+   * recoverable — deliberately, because a wrong "terminal" darkens a wall. Here
+   * that default is wrong in the other direction: the screen would retry
+   * forever behind "Reconnecting", telling a passer-by the problem will clear.
+   * </p>
+   */
+  it('Treats not_allowed as refused, because no number of attempts changes who is signed in', () => {
+    const refusal = new ErrorResponse({
+      error: 'not_allowed',
+      error_description: 'Offline tokens not allowed for the user or client',
+    });
+
+    expect(classifyIdentityFailure(refusal)).toBe('refused');
+  });
+
+  it('Finds it through the binding wrapper too, which is how it actually arrives', () => {
+    const inner = new ErrorResponse({ error: 'not_allowed', error_description: 'no' });
+    const wrapped = { name: inner.name, message: inner.message, innerError: inner, source: 'renewSilent' };
+
+    expect(classifyIdentityFailure(wrapped)).toBe('refused');
+  });
+});
+
 describe('The code survives the React binding wrapping it (spec 051)', () => {
   /**
    * **The shape the application actually sees**, and the reason every earlier
