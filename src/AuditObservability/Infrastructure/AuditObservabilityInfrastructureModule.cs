@@ -69,6 +69,11 @@ public static class AuditObservabilityInfrastructureModule
         builder.Services.AddSingleton(TimeProvider.System);
 
         builder.Services.AddSingleton(V1ResourceMap.Default);
+        // Spec 053. Bound from configuration if present; absent configuration
+        // leaves it off, which is the state every deployment should be in.
+        builder.Services.Configure<AuditMeasurementOptions>(
+            builder.Configuration.GetSection(AuditMeasurementOptions.SectionName));
+
         builder.Services.AddScoped<AuditingMessageHandler>();
 
         builder.Services.AddScoped<SearchAuditQueryHandler>();

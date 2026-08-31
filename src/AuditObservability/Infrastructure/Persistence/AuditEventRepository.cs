@@ -43,7 +43,8 @@ public sealed class AuditEventRepository(AuditObservabilityDbContext dbContext) 
                     audit_id, occurred_at, received_at, fab_id,
                     event_kind, resource_kind, resource_identifier,
                     actor_identifier, actor_username, event_identifier,
-                    payload, payload_size_bytes, schema_version)
+                    payload, payload_size_bytes, schema_version,
+                    handler_entered_at, written_at)
                 VALUES (
                     {row.Id.Value}, {row.OccurredAt}, {row.ReceivedAt},
                     {fab},
@@ -53,7 +54,10 @@ public sealed class AuditEventRepository(AuditObservabilityDbContext dbContext) 
                     {row.Actor.Value}, {row.ActorUsername},
                     {row.EventIdentifier.Value},
                     {row.Payload}::jsonb, {row.PayloadSizeBytes},
-                    {row.SchemaVersion})
+                    {row.SchemaVersion},
+                    {row.HandlerEnteredAt},
+                    CASE WHEN {row.HandlerEnteredAt}::timestamptz IS NULL
+                         THEN NULL ELSE clock_timestamp() END)
                 ON CONFLICT (event_identifier, occurred_at) DO NOTHING
                 """,
                 cancellationToken);

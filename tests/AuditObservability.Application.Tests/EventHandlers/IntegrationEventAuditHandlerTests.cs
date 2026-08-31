@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using SmartSentinelEye.AuditObservability.Application.EventHandlers;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
@@ -24,6 +25,7 @@ public class IntegrationEventAuditHandlerTests
     private static IntegrationEventAuditHandler Build(InMemoryAuditEventRepository repo) =>
         new(new AuditingMessageHandler(
             repo, V1ResourceMap.Default, new FakeClock(Now),
+            Options.Create(new AuditMeasurementOptions()),
             NullLogger<AuditingMessageHandler>.Instance));
 
     [Fact]

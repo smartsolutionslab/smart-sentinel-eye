@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Shared.Kernel;
 using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
@@ -27,7 +28,12 @@ namespace SmartSentinelEye.AuditObservability.Application.EventHandlers;
 /// <see cref="HandleAsync"/>.
 /// </para>
 /// </summary>
-public sealed class AuditingMessageHandler(IAuditEventRepository repository, V1ResourceMap resourceMap, IClock clock, ILogger<AuditingMessageHandler> logger)
+public sealed class AuditingMessageHandler(
+    IAuditEventRepository repository,
+    V1ResourceMap resourceMap,
+    IClock clock,
+    IOptions<AuditMeasurementOptions> measurement,
+    ILogger<AuditingMessageHandler> logger)
 {
     public async Task HandleAsync(
         Type payloadType,
@@ -35,12 +41,18 @@ public sealed class AuditingMessageHandler(IAuditEventRepository repository, V1R
         V1Envelope envelope,
         CancellationToken cancellationToken)
     {
+        // **Taken first, before the guards.** The point of this stamp is when
+        // the handler was entered, and validation is work the handler does — put
+        // it after the guards and the figure quietly includes them.
+        DateTimeOffset? handlerEnteredAt =
+            measurement.Value.RecordIngestBreakdown ? clock.UtcNow : null;
+
         Ensure.That(payloadType).IsNotNull();
         Ensure.That(payload).IsNotNull();
         Ensure.That(envelope).IsNotNull();
 
         V1Mapping mapping = resourceMap.Lookup(payloadType, payload);
-        AuditEventEntity row = AuditEventEntity.From(envelope, mapping, clock);
+        AuditEventEntity row = AuditEventEntity.From(envelope, mapping, clock, handlerEnteredAt);
 
         repository.Add(row);
         await repository.SaveAsync(cancellationToken);
