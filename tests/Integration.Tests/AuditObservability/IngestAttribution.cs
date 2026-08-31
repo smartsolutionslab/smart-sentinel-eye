@@ -7,10 +7,18 @@ namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 /// (spec 053 US1).
 ///
 /// <para>
-/// <b>The observed span is partitioned exactly, and that is not the achievement.</b>
-/// Occurred → handler-entered → received are consecutive, so those two parts sum
-/// to the whole by construction and a remainder there would mean rows with
-/// missing stamps rather than time nobody could account for.
+/// <b>The observed span is partitioned exactly per row, and that is not the
+/// achievement.</b> Occurred → handler-entered → received are consecutive, so
+/// each row's two parts sum to that row's whole by construction, and a residual
+/// there means stamps that disagree rather than time nobody could account for.
+/// </para>
+///
+/// <para>
+/// <b>Per row is doing real work in that sentence.</b> The figures reported here
+/// are medians, and medians do not add — so the printed parts can fail to sum to
+/// the printed total with nothing whatever wrong. Two different questions,
+/// answered separately: see <see cref="UnattributedMs"/> and
+/// <see cref="PerRowResidualMs"/>.
 /// </para>
 ///
 /// <para>
@@ -29,16 +37,25 @@ public readonly record struct IngestAttribution(
     double InHandlerMs,
     double WriteMs,
     int RowsMeasured,
-    int RowsMissingStamps)
+    int RowsMissingStamps,
+    double PerRowResidualMs = 0)
 {
     /// <summary>
-    /// Time inside the observed span that the parts do not account for.
+    /// The gap left by the reported figures — <b>median arithmetic, not an
+    /// apparatus check</b>.
     ///
     /// <para>
-    /// Should be ~0: the two parts are consecutive intervals covering the whole
-    /// span. Anything else means the stamps disagree with the timestamps that
-    /// bracket them, which is a fault in the apparatus rather than a property of
-    /// the pipeline — and worth failing over rather than absorbing.
+    /// <b>Medians do not add.</b> Per row the two parts are consecutive intervals
+    /// covering the whole span exactly, but the median of a sum is not the sum of
+    /// medians, so this can be non-zero with a perfectly sound apparatus. It
+    /// reads as ~0 here only because <see cref="InHandlerMs"/> is degenerate at
+    /// ~0, which makes the medians additive by accident rather than by right.
+    /// </para>
+    ///
+    /// <para>
+    /// Use <see cref="PerRowResidualMs"/> to ask whether the stamps are sound.
+    /// This one answers a different and weaker question: whether the three
+    /// numbers printed above are mutually consistent.
     /// </para>
     /// </summary>
     public double UnattributedMs => TotalMs - (BeforeHandlerMs + InHandlerMs);
@@ -80,15 +97,31 @@ public readonly record struct IngestAttribution(
     /// <summary>Rows that arrived without the stamps this depends on.</summary>
     public bool EveryRowStamped => RowsMissingStamps == 0;
 
+    /// <summary>
+    /// <b>The real apparatus check</b>: the median of each row's own
+    /// <c>total − before − in</c>, computed row by row and only then reduced.
+    ///
+    /// <para>
+    /// Exactly zero by construction when the stamps are sound, because
+    /// occurred → handler-entered → received are consecutive. Non-zero means the
+    /// stamps genuinely disagree with the timestamps that bracket them — an
+    /// out-of-order stamp, a clock stepping mid-run — and unlike
+    /// <see cref="UnattributedMs"/> it cannot be produced by the statistics
+    /// alone. This is the one worth failing over.
+    /// </para>
+    /// </summary>
+    public bool PartsCoverEveryRow => Math.Abs(PerRowResidualMs) < 0.001;
+
     public string Describe() => string.Create(
         CultureInfo.InvariantCulture,
         $"""
          rows measured                         : {RowsMeasured} ({RowsMissingStamps} missing stamps)
          observed span (occurred → received)   : {TotalMs:F1} ms
-           before handler (crosses two clocks) : {BeforeHandlerMs:F1} ms
+           before handler (two processes, one clock): {BeforeHandlerMs:F1} ms
            in handler (one clock, exact)       : {InHandlerMs:F1} ms
-           unattributed                        : {UnattributedMs:F1} ms
-         write (after the observed span ends)  : {WriteMs:F1} ms
+           unattributed (median arithmetic)    : {UnattributedMs:F1} ms
+           per-row residual (apparatus)        : {PerRowResidualMs:F3} ms
+         write (two clocks — see standing)     : {WriteMs:F1} ms
          requirement span (handover → commit)  : between {RequirementSpanFloorMs:F1} and {RequirementSpanCeilingMs:F1} ms
            width, for want of a publisher stamp: {RequirementSpanWidthMs:F1} ms
            front overhang, outside it          : {FrontOverhangMs:F1} ms
