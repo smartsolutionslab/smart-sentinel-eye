@@ -39,6 +39,21 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
             .HasColumnName("received_at")
             .IsRequired();
 
+        // Spec 053. Nullable, and null is the normal state: these are written only
+        // when the measurement switch is on, so an ordinary row is exactly what
+        // it was before.
+        builder.Property(auditEvent => auditEvent.HandlerEnteredAt)
+            .HasColumnName("handler_entered_at");
+
+        // **Supplied by the insert, not by a column default.** The value still
+        // comes from the clock every service shares — it is written as
+        // clock_timestamp() in the statement itself — but it cannot be a column
+        // default: this table is a compressed hypertable, and adding a column
+        // with a non-constant default to one is refused outright. That was found
+        // by running the migration, not by reading about it.
+        builder.Property(auditEvent => auditEvent.WrittenAt)
+            .HasColumnName("written_at");
+
         builder.Property(auditEvent => auditEvent.Fab)
             .HasColumnName("fab_id")
             .HasMaxLength(FabIdentifier.MaximumLength)

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
@@ -51,6 +52,52 @@ public sealed class AuditEvent
 
     public short SchemaVersion { get; private init; }
 
+    /// <summary>
+    /// When this handler was entered, by the consumer's own clock. **Null unless
+    /// the measurement switch is on** (spec 053).
+    ///
+    /// <para>
+    /// <b>This exists to divide a span that has only ever been quoted whole.</b>
+    /// The pipeline's latency is measured from <see cref="OccurredAt"/> to
+    /// <see cref="ReceivedAt"/>, and three decisions have been reasoned from that
+    /// single figure without anyone knowing which part of the pipeline spends it.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Its real value is which side of the clock boundary it sits on.</b>
+    /// <c>OccurredAt</c> is stamped by the publishing process and everything
+    /// after this by the consuming one, so this timestamp is the seam: the span
+    /// before it crosses two clocks and carries their disagreement, while the
+    /// span after it is measured entirely within one process and is exact.
+    /// Without it, that uncertainty is smeared across the whole figure with no
+    /// way to say how much.
+    /// </para>
+    /// </summary>
+    public DateTimeOffset? HandlerEnteredAt { get; private init; }
+
+    /// <summary>
+    /// When the row reached the store, <b>by the database's clock rather than
+    /// any process's</b>. Null unless the measurement switch is on.
+    ///
+    /// <para>
+    /// Defaulted by the database on insert, so it costs no second write and no
+    /// round trip — and it is the only timestamp here taken from the clock every
+    /// service in this system shares.
+    /// </para>
+    ///
+    /// <para>
+    /// It closes the end the historic measurement never covered:
+    /// <see cref="ReceivedAt"/> is stamped <i>before</i> the write, so the write
+    /// itself has never been in any figure quoted for this pipeline.
+    /// </para>
+    /// </summary>
+    [SuppressMessage(
+        "Minor Code Smell",
+        "S1144:Unused private types or members should be removed",
+        Justification = "Set by the database, not by this code — the column carries a clock_timestamp() default "
+            + "so the write's own duration costs no second round trip. Nothing in C# assigns it, which is the point.")]
+    public DateTimeOffset? WrittenAt { get; private init; }
+
     private AuditEvent() { }
 
     /// <summary>
@@ -61,8 +108,16 @@ public sealed class AuditEvent
     /// <see cref="ReceivedAt"/> at handler-local time so a
     /// queue backlog is visible as the gap to
     /// <see cref="OccurredAt"/>.
+    ///
+    /// <para>
+    /// <paramref name="handlerEnteredAt"/> is <b>null unless the measurement
+    /// switch is on</b> (spec 053), and is the only thing this method does
+    /// differently when it is. Passing it does not change the row's meaning —
+    /// it divides a span that has only ever been quoted whole.
+    /// </para>
     /// </summary>
-    public static AuditEvent From(V1Envelope envelope, V1Mapping mapping, IClock clock)
+    public static AuditEvent From(
+        V1Envelope envelope, V1Mapping mapping, IClock clock, DateTimeOffset? handlerEnteredAt = null)
     {
         Ensure.That(envelope).IsNotNull();
         Ensure.That(mapping).IsNotNull();
@@ -73,6 +128,7 @@ public sealed class AuditEvent
             Id = AuditEventIdentifier.New(),
             OccurredAt = envelope.OccurredAt,
             ReceivedAt = clock.UtcNow,
+            HandlerEnteredAt = handlerEnteredAt,
             Fab = envelope.Fab.HasValue ? envelope.Fab.Value : null,
             EventKind = EventKind.From(envelope.EventTypeName),
             ResourceKind = mapping.Kind.HasValue ? mapping.Kind.Value : null,

@@ -41,11 +41,11 @@ to move a requirement — which is worse than having no attribution at all.
 
 ## Phase 2 — The apparatus, behind a switch
 
-- [ ] T004 Add the nullable measurement timestamps to the audit row in `src/AuditObservability/Domain/AuditEvent/AuditEvent.cs` per data-model §3 — enqueued, handler entered, committed. `OccurredAt` and `ReceivedAt` are untouched.
-- [ ] T005 Add the migration for the nullable columns in `src/AuditObservability/Infrastructure/Persistence/Migrations/`, and the switch that controls whether they are written, **defaulting to off**.
-- [ ] T006 Write the timestamps in `src/AuditObservability/Application/EventHandlers/AuditingMessageHandler.cs` only when the switch is on.
-- [ ] T007 [P] **Test that the switch is off by default and the row is unchanged**, in `tests/AuditObservability.Application.Tests/`: write a row through the normal path with no configuration and assert the measurement columns are **absent**. This puts apparatus on a production write path; the default must be verified rather than intended.
-- [ ] T008 [P] In `tests/AuditObservability.Application.Tests/`, test that with the switch on each timestamp is present and ordered — enqueued ≤ handler entered ≤ committed. An out-of-order stamp is a bug that would show up as a negative part.
+- [x] T004 Add the nullable measurement timestamps to the audit row in `src/AuditObservability/Domain/AuditEvent/AuditEvent.cs` per data-model §3 — enqueued, handler entered, committed. `OccurredAt` and `ReceivedAt` are untouched.
+- [x] T005 Add the migration for the nullable columns in `src/AuditObservability/Infrastructure/Persistence/Migrations/`, and the switch that controls whether they are written, **defaulting to off**.
+- [x] T006 Write the timestamps in `src/AuditObservability/Application/EventHandlers/AuditingMessageHandler.cs` only when the switch is on.
+- [x] T007 [P] **Test that the switch is off by default and the row is unchanged**, in `tests/AuditObservability.Application.Tests/`: write a row through the normal path with no configuration and assert the measurement columns are **absent**. This puts apparatus on a production write path; the default must be verified rather than intended.
+- [x] T008 [P] In `tests/AuditObservability.Application.Tests/`, test that with the switch on each timestamp is present and ordered — enqueued ≤ handler entered ≤ committed. An out-of-order stamp is a bug that would show up as a negative part.
 
 ---
 

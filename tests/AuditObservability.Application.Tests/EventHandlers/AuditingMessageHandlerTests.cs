@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using SmartSentinelEye.AuditObservability.Application.EventHandlers;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
@@ -35,6 +36,7 @@ public class AuditingMessageHandlerTests
         InMemoryAuditEventRepository repo = new();
         AuditingMessageHandler handler = new(
             repo, V1ResourceMap.Default, new FakeClock(Now),
+            Options.Create(new AuditMeasurementOptions()),
             NullLogger<AuditingMessageHandler>.Instance);
 
         CameraRegisteredV1 evt = new(
@@ -54,6 +56,7 @@ public class AuditingMessageHandlerTests
         InMemoryAuditEventRepository repo = new();
         AuditingMessageHandler handler = new(
             repo, V1ResourceMap.Default, new FakeClock(Now),
+            Options.Create(new AuditMeasurementOptions()),
             NullLogger<AuditingMessageHandler>.Instance);
 
         CameraRegisteredV1 evt = new(
@@ -76,6 +79,7 @@ public class AuditingMessageHandlerTests
         // learned about).
         AuditingMessageHandler handler = new(
             repo, V1ResourceMap.Default, new FakeClock(Now),
+            Options.Create(new AuditMeasurementOptions()),
             NullLogger<AuditingMessageHandler>.Instance);
 
         V1Envelope envelope = new(
