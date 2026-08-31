@@ -58,8 +58,21 @@ Measured, not assumed:
 So the obvious fix means granting something that runs at startup the power to
 reshape the sign-in realm — session lifetimes, roles, flows, all of it. **A
 control that requires more authority than the thing it controls deserves a
-decision, not a shrug**, and US1 exists to force that decision before anything
-is built on top of it.
+decision, not a shrug.**
+
+**The decision is taken: the narrower containment.** Rather than narrowing the
+default privilege set for everyone, the privilege is removed from each account
+**as this system creates it** — which needs only authority the identity service
+already holds. Measured against the real service account, with no new permission
+granted: enrolling a kiosk leaves it holding the privilege; removing its single
+direct privilege grant is **allowed**, leaves it holding **nothing**, leaves the
+kiosk **still able to obtain a token**, and is **idempotent**. Nothing in the
+system authorises by that grant — access is decided by scope and fab membership —
+so removing it costs the kiosk nothing it was using.
+
+What this does **not** cover is an account created by hand in the provider's own
+console. That is the price of not taking the broader authority, it is stated
+here rather than discovered later, and FR-002a requires it to be filed.
 
 ---
 
@@ -181,9 +194,11 @@ say so.
 - **The provider's own defaults change.** Every timing figure in this problem —
   the ceiling, the idle cut-off, the removal window — is a provider default this
   repository does not set. An upgrade can move all of them with every test green.
-- **Someone creates an account by hand** in the provider's console. Containment
-  applied to the default role covers this; containment applied per-account at
-  enrolment does not.
+- **Someone creates an account by hand** in the provider's console. **Not
+  covered**, and deliberately so: covering it means narrowing the provider's
+  default privilege set, which requires realm-management authority — broader than
+  the privilege it would contain, and held by nothing today. Filed rather than
+  built (FR-002a).
 - **The containment step runs twice**, or runs against a realm already narrowed.
 
 ---
@@ -194,8 +209,17 @@ say so.
 
 - **FR-001**: In the **running** system, the long-lived-credential privilege MUST
   be held only by wall-display accounts.
-- **FR-002**: An account created after startup — including a kiosk enrolled at
-  runtime — MUST NOT inherit that privilege.
+- **FR-002**: An account **the system creates** — every kiosk enrolled at
+  runtime — MUST NOT retain that privilege.
+- **FR-002a**: **The residual gap MUST be filed and recorded, not absorbed.**
+  Containing the privilege per-account covers accounts this system creates and
+  **does not** cover an account created by hand in the provider's own console.
+  Closing that too would mean narrowing the provider's default privilege set,
+  which needs realm-management authority nobody holds and which is broader than
+  the privilege it would contain — so it is a separate decision with its own
+  cost, and the record must say plainly which accounts are covered and which are
+  not. *Chosen deliberately: the narrower containment, needing no new authority,
+  over the total one that needs a great deal.*
 - **FR-003**: FR-001 and FR-002 MUST be verified by asking the running provider,
   **not** by reading configuration.
 - **FR-004**: The authority required to apply the containment MUST be recorded
@@ -245,10 +269,11 @@ say so.
 - **SC-002**: Across a working day, the number of times a person must sign a
   screen in falls from **about two per screen to zero**.
 - **SC-003**: A kiosk enrolled at runtime holds **no** long-lived-credential
-  privilege, confirmed against the running provider.
-- **SC-004**: The count of accounts able to mint a never-expiring credential
-  equals the number of fabs, confirmed against the running provider — **not** the
-  configuration.
+  privilege, confirmed against the running provider. *An account created by hand
+  in the provider's console still does — recorded, not hidden.*
+- **SC-004**: Among the accounts this system creates or declares, the count able
+  to mint a never-expiring credential equals the number of fabs, confirmed
+  against the running provider — **not** the configuration.
 - **SC-005**: Every account that could sign in before can still sign in.
 - **SC-006**: Every authority a wall-display grant carries is enumerated, and
   none is untested.

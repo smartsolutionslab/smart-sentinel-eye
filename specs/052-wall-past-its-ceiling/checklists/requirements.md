@@ -48,6 +48,30 @@ That result is load-bearing, so it is in the spec body rather than a footnote:
 **the containment needs more authority than the thing it contains.** FR-004 and
 US1's fourth scenario exist because of it, and the plan cannot dodge it.
 
+### The design was chosen, and then verified before planning
+
+The narrower containment was chosen over narrowing the provider's default
+privilege set. Verified against the **real** identity service account, with no
+new permission granted:
+
+| | |
+|---|---|
+| Enrol a kiosk | allowed; it is born holding the privilege |
+| Remove its single direct privilege grant | **allowed** |
+| What it holds afterwards | **nothing** |
+| Can the kiosk still obtain a token | **yes** |
+| Run it twice | **idempotent** |
+
+Nothing in the system authorises by that grant — access is decided by scope and
+fab membership — so removing it costs the kiosk nothing it was using. That was
+checked rather than assumed, because "the token still works" and "the system
+still works" are different claims.
+
+**The residual gap is filed**, not absorbed: an account created by hand in the
+provider's console still inherits the privilege. Covering that needs
+realm-management authority, which is broader than the privilege it would
+contain. FR-002a requires the record to say which accounts are covered.
+
 ### Why US1 gates US2 rather than following it
 
 The feature widens who may hold the longest-lived credential in the system.
