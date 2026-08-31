@@ -76,6 +76,27 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
     /// </summary>
     private static readonly Func<Task> NoPacing = () => Task.CompletedTask;
 
+    /// <summary>
+    /// The log level the services under measurement are running at.
+    ///
+    /// <para>
+    /// <b>This is a condition of the measurement, not a detail of the harness.</b>
+    /// Development pins <c>"Default": "Debug"</c> in every service's
+    /// appsettings, which logs every SQL statement on both sides of every
+    /// message. Measured on this stack: at Debug the run sustains ~80 ev/s, at
+    /// Warning ~174–244. The logging is the bottleneck at Debug — which is why
+    /// that figure is the stable one and the quiet figure is not.
+    /// </para>
+    ///
+    /// <para>
+    /// Read from the environment because that is what the fixture propagates to
+    /// the services it boots. Absent means nothing overrode the appsettings, so
+    /// the services are at Debug.
+    /// </para>
+    /// </summary>
+    private static string ServiceLogLevel =>
+        Environment.GetEnvironmentVariable("Logging__LogLevel__Default") ?? "Debug (from appsettings)";
+
     /// <summary>How long to wait for the last measured row to reach the store.</summary>
     private static readonly TimeSpan IngestDeadline = TimeSpan.FromMinutes(3);
 
@@ -316,6 +337,7 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
         output.WriteLine(
             $"intended ~100 ev/s, achieved {achieved:F1} ev/s over {MeasureIterations} events "
             + $"across {Writers} concurrent writers");
+        output.WriteLine($"service log level: {ServiceLogLevel}");
         output.WriteLine("--- typical event (medians over every row) ---");
         output.WriteLine(typical.Describe());
         output.WriteLine("--- tail band (rows at or above the p99 of the total) ---");
@@ -374,6 +396,21 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
         // writers reached 244 ev/s and the span grew to 5.5 s — a number that
         // would have been quoted against a 50 ms budget if nothing checked which
         // load produced it.
+        // **The logging level is a condition of the run, so it is asserted like
+        // the others.** At Debug this stack tops out near 80 ev/s, which is below
+        // the rate NFR-001 names — so a breakdown taken there is measuring the
+        // logging as much as the pipeline, and the run would be quietly reporting
+        // a stack it had throttled itself. Measured, not assumed: pinning EF's
+        // SQL logging alone only reaches ~103 ev/s, because the cost is spread
+        // across Debug categories rather than concentrated in that one.
+        bool verbose =
+            ServiceLogLevel.StartsWith("Debug", StringComparison.OrdinalIgnoreCase)
+            || ServiceLogLevel.StartsWith("Trace", StringComparison.OrdinalIgnoreCase);
+
+        verbose.ShouldBeFalse(
+            $"the services are logging at '{ServiceLogLevel}', where this stack sustains ~80 ev/s "
+            + "against a target of 100; set Logging__LogLevel__Default=Warning for a measurement run");
+
         achieved.ShouldBeInRange(
             TargetRatePerSecond * 0.85,
             TargetRatePerSecond * 1.15,

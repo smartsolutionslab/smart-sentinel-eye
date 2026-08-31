@@ -164,6 +164,14 @@ of error, and the error arrived six times from directions the gate did not cover
    otherwise identical run. Found by running a control rather than writing a
    caveat.
 
+   **Refined 2026-08-31.** The 79-vs-244 pair overstates the precision. Repeated:
+   **Debug 60.0 / 79.1 / 82.5 ev/s, Warning 169.8 / 173.7 / 244.4** — roughly
+   **2–3×**. At Debug the logging is the bottleneck, so that side is
+   reproducible; at Warning the machine is, so it is not. Pinning EF's SQL
+   logging alone reaches only ~103 ev/s: it is the loudest category, not the
+   costliest. The run now reports the service log level and **refuses to run at
+   Debug**.
+
 6. **Adding writers was the wrong instrument.** "Sustained 100 ev/s" is a paced
    rate; flat out reached 244 ev/s and a 5.5 s span. That number would have been
    quoted against a 50 ms budget if nothing had checked which load produced it.
