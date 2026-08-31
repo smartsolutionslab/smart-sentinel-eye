@@ -384,6 +384,23 @@ unrecorded for as long as nobody looked.
   still needs a person, and a continuously-running wall still drops out
   about twice a day per screen.
 
+  **What spec 051 added, and what it deliberately does not claim.**
+  A wall now survives an *identity-service* outage without anybody
+  walking to it: the provider was stopped and restarted with nothing
+  touched, and the wall came back in about 34 seconds (ADR-0133). Before,
+  it was still dark 90 seconds after the provider was healthy, because
+  that failure had no retry in it at all. A screen the provider *refuses*
+  now says so instead of rendering the provider's login form — a username
+  and password prompt on a factory wall — and shows no credential field
+  at all.
+
+  **This does not discharge the target.** It removes one failure and
+  leaves the more frequent one standing: the ten-hour ceiling still drops
+  a screen roughly twice a day, and a wall that survives outages but not
+  its own ceiling is not unattended. Twenty screens were never exercised —
+  four were — and a real network partition, as distinct from an aborted
+  request, remains untested.
+
   **Three claims made here were wrong and are corrected.** A wall-display
   grant would **not** have been view-only: the kiosk client already
   carries `sse.events.write`, so such a screen could inject events into

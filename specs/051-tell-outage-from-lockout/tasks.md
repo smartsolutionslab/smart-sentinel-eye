@@ -33,10 +33,10 @@ new dependency, the scope was misjudged — stop and take it back through the ga
 
 ## Phase 1 — The classification rule *(the gate)*
 
-- [ ] T001 Write the verdict type and the ordered rule in `apps/kiosk-web/src/app/identityFailure.ts`, following data-model.md §1 exactly. **The code check comes before any class check.** Three verdicts — `recoverable`, `refused`, `interactive` — and nothing else.
-- [ ] T002 [P] Test that **`server_error` and `temporarily_unavailable` are `recoverable`**, in `apps/kiosk-web/src/app/identityFailure.test.ts`. **Its own task, not a case inside another one.** These arrive on an `ErrorResponse` from a provider that answered, so a rule branching on class before code marks them terminal and darkens a whole wall. Stopping a provider never reaches this branch, so a suite built only on that would pass with the ordering inverted.
-- [ ] T003 [P] In `apps/kiosk-web/src/app/identityFailure.test.ts`, test the `refused` codes (`invalid_grant`, `invalid_client`, `unauthorized_client`, `access_denied`, `invalid_scope`) and that an **unrecognised code is `recoverable`** (FR-005). Assert the default explicitly, so removing it fails rather than silently reversing the asymmetry.
-- [ ] T004 [P] In `apps/kiosk-web/src/app/identityFailure.test.ts`, test that a network throw and an `ErrorTimeout` are both `recoverable`, and that an error carrying **no code at all** does not reach `refused`.
+- [x] T001 Write the verdict type and the ordered rule in `apps/kiosk-web/src/app/identityFailure.ts`, following data-model.md §1 exactly. **The code check comes before any class check.** Three verdicts — `recoverable`, `refused`, `interactive` — and nothing else.
+- [x] T002 [P] Test that **`server_error` and `temporarily_unavailable` are `recoverable`**, in `apps/kiosk-web/src/app/identityFailure.test.ts`. **Its own task, not a case inside another one.** These arrive on an `ErrorResponse` from a provider that answered, so a rule branching on class before code marks them terminal and darkens a whole wall. Stopping a provider never reaches this branch, so a suite built only on that would pass with the ordering inverted.
+- [x] T003 [P] In `apps/kiosk-web/src/app/identityFailure.test.ts`, test the `refused` codes (`invalid_grant`, `invalid_client`, `unauthorized_client`, `access_denied`, `invalid_scope`) and that an **unrecognised code is `recoverable`** (FR-005). Assert the default explicitly, so removing it fails rather than silently reversing the asymmetry.
+- [x] T004 [P] In `apps/kiosk-web/src/app/identityFailure.test.ts`, test that a network throw and an `ErrorTimeout` are both `recoverable`, and that an error carrying **no code at all** does not reach `refused`.
 
 **Checkpoint — this phase is a gate.** Both P1 stories rest on this rule, and a
 wrong rule breaks them in *opposite* directions: an overloaded provider read as
@@ -48,38 +48,38 @@ are green and mutation-checked.**
 
 ## Phase 2 — The retry schedule
 
-- [ ] T005 Write the schedule in `apps/kiosk-web/src/app/retrySchedule.ts` — 2 s, doubling, **30 s ceiling**, ±30% jitter, unbounded — per data-model.md §2.
-- [ ] T006 [P] **Test the ceiling against SC-001's two-minute budget** in `apps/kiosk-web/src/app/retrySchedule.test.ts`: assert that the worst-case interval (ceiling + maximum jitter) leaves room for a renewal round-trip inside two minutes. **The ceiling lives in one file and the criterion lives in a spec, and nothing else connects them** — without this, a later "let us be gentler, make it 90 seconds" breaks SC-001 with every test still green.
-- [ ] T007 [P] In `apps/kiosk-web/src/app/retrySchedule.test.ts`, test that jitter actually spreads: repeated schedules from the same attempt number must not all return the same delay, and every delay must stay within the ±30% band.
+- [x] T005 Write the schedule in `apps/kiosk-web/src/app/retrySchedule.ts` — 2 s, doubling, **30 s ceiling**, ±30% jitter, unbounded — per data-model.md §2.
+- [x] T006 [P] **Test the ceiling against SC-001's two-minute budget** in `apps/kiosk-web/src/app/retrySchedule.test.ts`: assert that the worst-case interval (ceiling + maximum jitter) leaves room for a renewal round-trip inside two minutes. **The ceiling lives in one file and the criterion lives in a spec, and nothing else connects them** — without this, a later "let us be gentler, make it 90 seconds" breaks SC-001 with every test still green.
+- [x] T007 [P] In `apps/kiosk-web/src/app/retrySchedule.test.ts`, test that jitter actually spreads: repeated schedules from the same attempt number must not all return the same delay, and every delay must stay within the ±30% band.
 
 ---
 
 ## Phase 3 — US1: the wall comes back by itself *(P1)*
 
-- [ ] T008 [US1] Classify the rejection in `apps/kiosk-web/src/app/useSessionExpiry.ts`, replacing the `.catch(() => false)` that currently destroys the cause. **The renewer must still resolve to the same boolean** — the gateway depends on it — and T011 asserts that separately.
-- [ ] T009 [US1] Render the `recoverable` verdict as a reconnecting screen in `apps/kiosk-web/src/features/auth/ReconnectingScreen.tsx` and wire it into `App.tsx` ahead of the raw `auth.error` branch. It says recovery is automatic and no action is needed (FR-008), keeps a manual attempt available (FR-013), and **shows no library text as its headline** (FR-010) — "Failed to fetch" is what it says today.
-- [ ] T010 [US1] End-to-end test in `e2e/kiosk-identity-recovery.spec.ts` that the wall returns **with nothing touched**: intercept the token endpoint to fail, confirm the reconnecting screen, release the interception, and assert the wall returns within the budget. **Must not click the manual retry button, and must assert it was not clicked** — that button already works today, so a test that presses it proves nothing about a wall nobody is standing at. **Must assert the interception actually fired**: `signinSilent` may run in a hidden iframe, and a pattern that matches nothing looks exactly like a test that passes.
-- [ ] T011 [US1] In `apps/kiosk-web/src/app/useSessionExpiry.test.ts`, test that `setSessionRenewer`'s contract is unchanged — classifying a rejection must not change what the renewer resolves to. The gateway's 401 path depends on that boolean, and it is invisible from every screen this feature adds.
+- [x] T008 [US1] Classify the rejection in `apps/kiosk-web/src/app/useSessionExpiry.ts`, replacing the `.catch(() => false)` that currently destroys the cause. **The renewer must still resolve to the same boolean** — the gateway depends on it — and T011 asserts that separately.
+- [x] T009 [US1] Render the `recoverable` verdict as a reconnecting screen in `apps/kiosk-web/src/features/auth/ReconnectingScreen.tsx` and wire it into `App.tsx` ahead of the raw `auth.error` branch. It says recovery is automatic and no action is needed (FR-008), keeps a manual attempt available (FR-013), and **shows no library text as its headline** (FR-010) — "Failed to fetch" is what it says today.
+- [x] T010 [US1] End-to-end test in `e2e/kiosk-identity-recovery.spec.ts` that the wall returns **with nothing touched**: intercept the token endpoint to fail, confirm the reconnecting screen, release the interception, and assert the wall returns within the budget. **Must not click the manual retry button, and must assert it was not clicked** — that button already works today, so a test that presses it proves nothing about a wall nobody is standing at. **Must assert the interception actually fired**: `signinSilent` may run in a hidden iframe, and a pattern that matches nothing looks exactly like a test that passes.
+- [x] T011 [US1] In `apps/kiosk-web/src/app/useSessionExpiry.test.ts`, test that `setSessionRenewer`'s contract is unchanged — classifying a rejection must not change what the renewer resolves to. The gateway's 401 path depends on that boolean, and it is invisible from every screen this feature adds.
 
 ---
 
 ## Phase 4 — US2: a shut-out screen says so *(P1)*
 
-- [ ] T012 [US2] Render the `refused` verdict in `apps/kiosk-web/src/features/auth/NotAuthorizedScreen.tsx` and **skip `signinRedirect` entirely** for that verdict in `useSessionExpiry.ts`. Skipping the redirect is the whole mechanism: it is what keeps the provider's login form off the wall (FR-007).
-- [ ] T013 [US2] End-to-end test in `e2e/kiosk-identity-refused.spec.ts` **asserting absence**: with the token endpoint answering `invalid_grant`, the page must contain **no password input and no username input anywhere**, must state the screen is not authorized, and must not retry. **Absence is the assertion** — "the app stopped erroring" and "a nicer message appeared" both pass while the provider's login form is still on the wall, which is today's actual behaviour. Assert the interception fired.
-- [ ] T014 [US2] In `apps/kiosk-web/src/App.test.tsx`, **regression-test that the `interactive` path is unchanged** — the existing "Session expired" screen still appears for a completed redirect that lands unauthenticated. `useSessionExpiry` is being edited, this path is the twice-daily ceiling drop-out, and it is the most likely thing to break by accident while nobody is looking at it. **Re-render through the same `AuthProvider`** — spec 049 lost a day to a test that re-rendered without it, remounting the component and resetting the very ref it was asserting on, which read as the guard being broken.
+- [x] T012 [US2] Render the `refused` verdict in `apps/kiosk-web/src/features/auth/NotAuthorizedScreen.tsx` and **skip `signinRedirect` entirely** for that verdict in `useSessionExpiry.ts`. Skipping the redirect is the whole mechanism: it is what keeps the provider's login form off the wall (FR-007).
+- [x] T013 [US2] End-to-end test in `e2e/kiosk-identity-refused.spec.ts` **asserting absence**: with the token endpoint answering `invalid_grant`, the page must contain **no password input and no username input anywhere**, must state the screen is not authorized, and must not retry. **Absence is the assertion** — "the app stopped erroring" and "a nicer message appeared" both pass while the provider's login form is still on the wall, which is today's actual behaviour. Assert the interception fired.
+- [x] T014 [US2] In `apps/kiosk-web/src/App.test.tsx`, **regression-test that the `interactive` path is unchanged** — the existing "Session expired" screen still appears for a completed redirect that lands unauthenticated. `useSessionExpiry` is being edited, this path is the twice-daily ceiling drop-out, and it is the most likely thing to break by accident while nobody is looking at it. **Re-render through the same `AuthProvider`** — spec 049 lost a day to a test that re-rendered without it, remounting the component and resetting the very ref it was asserting on, which read as the guard being broken.
 
 ---
 
 ## Phase 5 — US3: screens do not arrive together *(P2, riding along)*
 
-- [ ] T015 [US3] End-to-end test in `e2e/kiosk-identity-herd.spec.ts` that several screens recovering from one outage make their attempts at **measurably different times**. Assert the spread, not the presence of jitter in the source. Assert the interception fired in every context.
+- [x] T015 [US3] End-to-end test in `e2e/kiosk-identity-herd.spec.ts` that several screens recovering from one outage make their attempts at **measurably different times**. Assert the spread, not the presence of jitter in the source. Assert the interception fired in every context.
 
 ---
 
 ## Phase 6 — The record and verification
 
-- [ ] T016 Write the ADR recording the classification rule, its ordering, the asymmetric default and the retry bound; then `verification.md`. **State what could not be done**: twenty screens, a wall over days, and a real network partition as distinct from an aborted request. Do **not** let the note imply this closes §Availability — the ceiling is the more frequent failure and is untouched.
+- [x] T016 Write the ADR recording the classification rule, its ordering, the asymmetric default and the retry bound; then `verification.md`. **State what could not be done**: twenty screens, a wall over days, and a real network partition as distinct from an aborted request. Do **not** let the note imply this closes §Availability — the ceiling is the more frequent failure and is untouched.
 
 ---
 
