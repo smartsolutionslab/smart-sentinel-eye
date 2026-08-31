@@ -96,6 +96,14 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
   // Whether a renewal is in flight. While one is, the cause it will produce is
   // the better answer than anything a cause-less event could say.
   const renewalInFlight = useRef(false);
+  // **The verdict, mirrored where a stale closure cannot miss it.** Deferred
+  // callers — the settling timeout, the library's own events — capture whatever
+  // this callback was when they were scheduled. Reading the state variable meant
+  // reading it as it was *then*, so a screen already ruled refused was redirected
+  // a quarter-second later by a closure that had never heard of the verdict, and
+  // the wall went to the provider's login form after all. The screen was correct
+  // throughout; only the redirect gave it away.
+  const verdict = useRef<Exclude<IdentityFailureVerdict, 'interactive'> | undefined>(undefined);
 
   /**
    * Decide what a failed renewal means, and act on it.
@@ -116,13 +124,14 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
       }
 
       if (cause !== undefined) {
-        const verdict = classifyIdentityFailure(cause);
-        logResilienceEvent('session', 'renewal→' + verdict, { cause: describeCause(cause) });
-        setIdentityFailure(verdict);
+        const classified = classifyIdentityFailure(cause);
+        logResilienceEvent('session', 'renewal→' + classified, { cause: describeCause(cause) });
+        verdict.current = classified;
+        setIdentityFailure(classified);
         // **A refused screen is never redirected.** Sending it to the provider
         // is what puts a username and password prompt on a factory wall for
         // anyone walking past, which is what happens today (FR-007).
-        if (verdict === 'recoverable') {
+        if (classified === 'recoverable') {
           setAttempt(1);
         }
         return;
@@ -135,7 +144,7 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
       // about to call refused. That redirect is the whole defect US2 removes:
       // it hands the wall to the provider's login form. Found by running the
       // end-to-end test, which is the only place the race is visible.
-      if (renewalInFlight.current || identityFailure !== undefined) {
+      if (renewalInFlight.current || verdict.current !== undefined) {
         return;
       }
 
@@ -150,7 +159,7 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
       logResilienceEvent('session', 'expired→redirecting', { returnTo: window.location.pathname });
       void auth.signinRedirect({ state: { returnTo: window.location.pathname } });
     },
-    [auth, identityFailure],
+    [auth],
   );
 
   // Registered during render for the same reason as setAccessTokenProvider in
@@ -350,6 +359,7 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
               return;
             }
             logResilienceEvent('session', 'renewal→recovered', { attempt });
+            verdict.current = undefined;
             setIdentityFailure(undefined);
             setAttempt(0);
           })
@@ -359,6 +369,7 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
             // that keeps saying "reconnecting" would be lying to whoever reads it.
             if (classifyIdentityFailure(cause) === 'refused') {
               logResilienceEvent('session', 'renewal→refused', { cause: describeCause(cause) });
+              verdict.current = 'refused';
               setIdentityFailure('refused');
               return;
             }
