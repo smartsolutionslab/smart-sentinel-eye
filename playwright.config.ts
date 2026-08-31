@@ -26,7 +26,12 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      testIgnore: /kiosk-.*\.spec\.ts/,
+      // **Both exclusions, and the second was learned the hard way.** Adding a
+      // project does not take its files out of this one: the wall specs ran
+      // here too, against the management app, and failed every time — eight
+      // failures and nine minutes of retries for a suite that passed perfectly
+      // in its own project on the same run.
+      testIgnore: /(kiosk|wall)-.*\.spec\.ts/,
     },
     // Spec 041 — the kiosk cannot show a wall until a layout is published, and
     // an e2e stack seeds none. Its own project so the kiosk specs do not depend
