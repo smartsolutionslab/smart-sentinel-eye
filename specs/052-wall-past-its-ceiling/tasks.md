@@ -56,22 +56,22 @@ system. **Nothing in Phase 2 or beyond may land until T001–T007 are green.**
 
 ## Phase 3 — US2: the wall outlives its ceiling *(P1)*
 
-- [ ] T012 [US2] End-to-end test in `e2e/kiosk-wall-outlives-its-session.spec.ts` that a wall screen's refresh token is an **offline grant carrying no expiry** — decoded, not counted. **This is the primary proof**: asserting a token exists passes today with the defect fully present.
-- [ ] T013 [US2] End-to-end test in `e2e/kiosk-wall-outlives-its-session.spec.ts`, **gated behind an explicit flag**, that a screen survives a ceiling shortened on a test realm. The test's own comment must say it **demonstrates the mechanism and not the production configuration**, and so must this task and the verification note — three places, and spec 050 did three and still needed correcting. **Note in the test: shortening the ceiling breaks the e2e seeds**, because they drive a long operator session that expires mid-run; spec 050's run worked only because the dev database already held published layouts.
-- [ ] T014 [US2] [P] End-to-end test in `e2e/kiosk-operator-unchanged.spec.ts` that an **operator's session is unchanged** and that every account which could sign in before still can. FR-007 and FR-008; "we did not touch them" is an argument, not evidence.
+- [x] T012 [US2] End-to-end test in `e2e/kiosk-wall-outlives-its-session.spec.ts` that a wall screen's refresh token is an **offline grant carrying no expiry** — decoded, not counted. **This is the primary proof**: asserting a token exists passes today with the defect fully present.
+- [x] T013 [US2] End-to-end test in `e2e/kiosk-wall-outlives-its-session.spec.ts`, **gated behind an explicit flag**, that a screen survives a ceiling shortened on a test realm. The test's own comment must say it **demonstrates the mechanism and not the production configuration**, and so must this task and the verification note — three places, and spec 050 did three and still needed correcting. **Note in the test: shortening the ceiling breaks the e2e seeds**, because they drive a long operator session that expires mid-run; spec 050's run worked only because the dev database already held published layouts.
+- [x] T014 [US2] [P] End-to-end test in `e2e/kiosk-operator-unchanged.spec.ts` that an **operator's session is unchanged** and that every account which could sign in before still can. FR-007 and FR-008; "we did not touch them" is an argument, not evidence.
 
 ---
 
 ## Phase 4 — US3: what a wall display may do *(P1)*
 
-- [ ] T015 [US3] End-to-end test in `e2e/kiosk-wall-authority.spec.ts` that **enumerates the scopes out of the token the wall account actually receives**, asserts `sse.events.write` is absent, and exercises **every scope that is present**. Spec 050 asserted refusals on three endpoints somebody chose and never attempted the one the account held — which is how "the account can change nothing" was recorded while false.
-- [ ] T016 [US3] [P] End-to-end test in `e2e/kiosk-wall-authority.spec.ts` that a wall display **cannot read another fab**, with a control: the same request from that fab's own screen must return rows, or an empty result proves only that the query matched nothing.
+- [x] T015 [US3] End-to-end test in `e2e/kiosk-wall-authority.spec.ts` that **enumerates the scopes out of the token the wall account actually receives**, asserts `sse.events.write` is absent, and exercises **every scope that is present**. Spec 050 asserted refusals on three endpoints somebody chose and never attempted the one the account held — which is how "the account can change nothing" was recorded while false.
+- [x] T016 [US3] [P] End-to-end test in `e2e/kiosk-wall-authority.spec.ts` that a wall display **cannot read another fab**, with a control: the same request from that fab's own screen must return rows, or an empty result proves only that the query matched nothing.
 
 ---
 
 ## Phase 5 — The misconfigured screen
 
-- [ ] T017 Add `not_allowed` to the refused codes in `apps/kiosk-web/src/app/identityFailure.ts`, and test in `apps/kiosk-web/src/App.test.tsx` that such a screen shows the **terminal** state. A wall-mode screen signed in as an operator gets that code; unrecognised codes default to recoverable, so today it would retry forever behind "Reconnecting", telling whoever reads it that this will clear. **This feature makes the code reachable, so this feature fixes it.**
+- [x] T017 Add `not_allowed` to the refused codes in `apps/kiosk-web/src/app/identityFailure.ts`, and test in `apps/kiosk-web/src/App.test.tsx` that such a screen shows the **terminal** state. A wall-mode screen signed in as an operator gets that code; unrecognised codes default to recoverable, so today it would retry forever behind "Reconnecting", telling whoever reads it that this will clear. **This feature makes the code reachable, so this feature fixes it.**
 
 ---
 

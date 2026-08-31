@@ -309,6 +309,39 @@ describe('Kiosk app shell', () => {
     expect(auth.signinRedirect).not.toHaveBeenCalled();
   });
 
+  /**
+   * **A wall-mode screen with the wrong account says so** (spec 052 T017).
+   *
+   * <p>
+   * Asserted on the <i>screen</i>, not on the classification. A rule that
+   * classifies correctly while the shell still renders "Reconnecting" would
+   * leave a misconfigured display retrying forever in front of whoever walks
+   * past — which is the whole failure this case exists to remove.
+   * </p>
+   */
+  it('Shows the terminal screen when a wall display is signed in as an account that may not hold the grant', async () => {
+    window.localStorage.setItem('sse.auth.wasAuthenticated', 'true');
+    const auth = unauthenticatedAuth();
+    auth.signinSilent = vi.fn(() =>
+      Promise.reject(
+        new ErrorResponse({
+          error: 'not_allowed',
+          error_description: 'Offline tokens not allowed for the user or client',
+        }),
+      ),
+    );
+    authState.current = auth;
+
+    renderApp();
+
+    await vi.waitFor(() => expect(screen.getByTestId('identity-not-authorized')).toBeInTheDocument());
+    expect(
+      screen.queryByTestId('identity-reconnecting'),
+      'a screen that cannot hold the grant must not sit there retrying',
+    ).not.toBeInTheDocument();
+    expect(auth.signinRedirect).not.toHaveBeenCalled();
+  });
+
   it('Restores the stashed path and clears the guard in the sign-in callback', () => {
     window.sessionStorage.setItem('sse.auth.redirectGuard', String(Date.now()));
 

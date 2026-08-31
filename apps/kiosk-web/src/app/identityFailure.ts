@@ -42,6 +42,17 @@ const REFUSED_CODES: readonly string[] = [
   'unauthorized_client',
   'access_denied',
   'invalid_scope',
+  // **What a wall-mode screen gets when the wrong account signs into it**
+  // (spec 052). A screen configured as a wall display asks for a long-lived
+  // grant; an account without that privilege — any operator — is refused the
+  // whole sign-in with this code.
+  //
+  // It is terminal because no amount of retrying changes which account is
+  // signed in. Left unrecognised it would default to recoverable, and a
+  // misconfigured screen would sit on "Reconnecting" forever, telling whoever
+  // reads it that the problem will clear. It will not: someone has to change
+  // the configuration or sign in as something else.
+  'not_allowed',
 ];
 
 /**
