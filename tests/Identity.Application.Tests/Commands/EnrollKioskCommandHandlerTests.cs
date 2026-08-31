@@ -20,6 +20,61 @@ public class EnrollKioskCommandHandlerTests
             FabIdentifier.From("munich"),
             OperatorIdentifier.From(Guid.CreateVersion7()));
 
+    /// <summary>
+    /// **An enrolment must not report success over an account that kept the
+    /// privilege** (spec 052 US1).
+    ///
+    /// <para>
+    /// The realm hands every account it creates a default privilege that mints
+    /// credentials which never expire, and enrolment takes it back. If that
+    /// removal fails and the enrolment still succeeds, the system has said
+    /// "enrolled" about a kiosk holding exactly the credential this feature
+    /// exists to withhold — and nothing downstream would ever mention it.
+    /// </para>
+    ///
+    /// <para>
+    /// Asserted on the reported outcome rather than on an exception type,
+    /// because the handler's job is to turn that failure into a typed error.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Fails_the_enrolment_when_the_inherited_privilege_cannot_be_removed()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        keycloak.StripFailsFor.Add("kiosk-3");
+        EnrollKioskCommandHandler handler = new(
+            repo, keycloak, new FakeClock(Now),
+            NullLogger<EnrollKioskCommandHandler>.Instance);
+
+        Result<KioskCredentialsDto, EnrollKioskError> result =
+            await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeFalse(
+            "an enrolment that succeeds here leaves a kiosk holding a credential that never expires");
+        repo.Clients.ShouldBeEmpty("nothing should be recorded as enrolled when it was not");
+    }
+
+    /// <summary>
+    /// The other half: a successful enrolment has actually taken the privilege
+    /// back, rather than merely not failing.
+    /// </summary>
+    [Fact]
+    public async Task Takes_the_inherited_privilege_back_when_it_enrols()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        EnrollKioskCommandHandler handler = new(
+            repo, keycloak, new FakeClock(Now),
+            NullLogger<EnrollKioskCommandHandler>.Instance);
+
+        await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        keycloak.Stripped.ShouldContain(
+            "kiosk-3",
+            "a kiosk is born holding the realm's default privilege, so enrolling it must remove it");
+    }
+
     [Fact]
     public async Task Happy_path_creates_a_Keycloak_client_and_returns_the_minted_secret()
     {

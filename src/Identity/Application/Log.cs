@@ -7,6 +7,15 @@ namespace SmartSentinelEye.Identity.Application;
 [ExcludeFromCodeCoverage]
 internal static partial class Log
 {
+    // Spec 052. Reported at Information because "how many kiosk accounts still
+    // hold a privilege they should not" is the sort of thing worth being able to
+    // read back after the fact.
+    [LoggerMessage(Level = LogLevel.Information, Message = "Stripped inherited realm privileges from {StrippedCount} of {KioskCount} enrolled kiosk accounts.")]
+    public static partial void SweptKioskPrivileges(this ILogger logger, int strippedCount, int kioskCount);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not strip inherited realm privileges from kiosk '{ClientId}'; it still holds them.")]
+    public static partial void CouldNotSweepKiosk(this ILogger logger, string clientId, Exception exception);
+
     [LoggerMessage(Level = LogLevel.Debug, Message = "Published DeviceRegisteredV1 for {ClientId}.")]
     public static partial void PublishedDeviceRegisteredV1(this ILogger logger, ClientId clientId);
 
