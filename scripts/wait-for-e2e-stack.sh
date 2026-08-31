@@ -24,6 +24,28 @@ if [ "$web_up" != "1" ]; then
   exit 1
 fi
 
+# The two kiosk instances. **Waited for by name, because there are now three
+# front ends and only one of them was ever checked.** The wall display (spec 052)
+# is the same bundle in wall mode; it starts last and a suite that began before
+# it was listening would fail every wall test for a reason that has nothing to do
+# with the product.
+for port in 5174 5175; do
+  echo "Waiting for the kiosk on :$port ..."
+  kiosk_up=0
+  for i in $(seq 1 60); do # up to ~5 min each
+    if curl -fsS -o /dev/null --max-time 4 "http://localhost:$port/" 2>/dev/null; then
+      echo "  serving after ~$((i * 5))s"
+      kiosk_up=1
+      break
+    fi
+    sleep 5
+  done
+  if [ "$kiosk_up" != "1" ]; then
+    echo "::error::nothing served on :$port"
+    exit 1
+  fi
+done
+
 # The gateway origin is baked into the served app (VITE_API_GATEWAY_URL). Poll
 # the gateway -> camera-catalog route until 401 (service + auth up, not 5xx).
 echo "Waiting for the gateway to route to camera-catalog ..."
