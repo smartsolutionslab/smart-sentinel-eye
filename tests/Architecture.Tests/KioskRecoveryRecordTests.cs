@@ -44,33 +44,59 @@ public class KioskRecoveryRecordTests
     }
 
     /// <summary>
-    /// <b>Authority must not have grown.</b> Unattended recovery is not bought
-    /// with a broader grant, and this is the cheapest place to notice if it ever
-    /// is — a reviewer would have to reason about a flow, a test just looks.
+    /// <b>Authority must not have grown by accident.</b> Unattended recovery is
+    /// not bought with a broader grant, and this is the cheapest place to notice
+    /// if it ever is — a reviewer would have to reason about a flow; a test just
+    /// looks.
+    ///
+    /// <para>
+    /// <b>This guard was rewritten rather than deleted, and the reason matters.</b>
+    /// Its previous form asserted the kiosk requested <c>openid</c> and nothing
+    /// else, and said that adding a long-lived grant back "should have to argue
+    /// with a test". Spec 052 argued: a wall display genuinely does need one, or
+    /// a wall drops to a prompt twice a day forever. So the boundary moved, in
+    /// the open, and the guard now pins where it moved <i>to</i> — which is a
+    /// stronger claim than the old one, because it fails if the long-lived scope
+    /// ever appears next to the ordinary kiosk client.
+    /// </para>
     /// </summary>
     [Fact]
-    public void The_kiosk_asks_for_no_authority_beyond_coming_back()
+    public void Only_a_wall_display_asks_for_authority_beyond_coming_back()
     {
         string source = KioskAuthSource();
-        Match scope = Regex.Match(source, @"scope:\s*'(?<scope>[^']*)'");
 
-        scope.Success.ShouldBeTrue("the kiosk should declare the scopes it requests");
+        MatchCollection pairs = Regex.Matches(
+            source,
+            @"clientId:\s*'(?<client>[^']*)'\s*,\s*scope:\s*'(?<scope>[^']*)'");
 
-        string[] requested = scope.Groups["scope"].Value
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        pairs.Count.ShouldBe(2, "a screen is either a wall display or it is not, and each names its own client");
 
-        // Exactly the sign-in, and nothing else. The six sse.* scopes are DEFAULT
-        // client scopes and are never requested by name, so anything appearing
-        // here is new authority arriving under cover of a recovery feature.
-        requested.ShouldBe(["openid"]);
+        foreach (Match pair in pairs)
+        {
+            string client = pair.Groups["client"].Value;
+            string[] requested = pair.Groups["scope"].Value
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        // `offline_access` is absent deliberately (ADR-0131): it would escape the
-        // ten-hour ceiling, and the identity provider grants it only to an
-        // account holding a matching realm role — widening who can mint
-        // long-lived tokens. Adding it back should have to argue with a test.
-        requested.ShouldNotContain(
-            "offline_access",
-            "a long-lived grant costs a realm role this feature declined to buy");
+            if (client == "kiosk-wall")
+            {
+                // The one screen that may hold a grant outliving its session.
+                requested.ShouldBe(["openid", "offline_access"]);
+                continue;
+            }
+
+            // Everything else: exactly the sign-in. The six sse.* scopes are
+            // DEFAULT client scopes and are never requested by name, so anything
+            // appearing here is new authority arriving under cover of a feature.
+            requested.ShouldBe(["openid"]);
+
+            // **The combination that locks everyone out.** An optional scope
+            // refuses nobody only while nobody asks for it: an account without
+            // the matching privilege that requests it is refused the entire
+            // sign-in. On the ordinary kiosk client that is every operator.
+            requested.ShouldNotContain(
+                "offline_access",
+                $"'{client}' asking for a long-lived grant refuses every account that lacks the privilege");
+        }
     }
 
     /// <summary>

@@ -196,6 +196,36 @@
       ]
     },
     {
+      "clientId": "kiosk-wall",
+      "name": "Smart Sentinel Eye - Kiosk Wall (spec 052)",
+      "description": "Wall displays sign in here, not kiosk-web (spec 052). offline_access is OPTIONAL, never default. Carries no sse.events.write: scopes belong to clients, so this is the only place a wall display's authority can be narrowed.",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5174/*",
+        "http://localhost:*"
+      ],
+      "webOrigins": ["+"],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "sse-identity",
+        "sse-groups",
+        "sse.cameras.read",
+        "sse.streams.read",
+        "sse.layouts.read",
+        "sse.overlays.read",
+        "sse.variables.read"
+      ],
+      "optionalClientScopes": [
+        "offline_access"
+      ]
+    },
+    {
       "clientId": "identity-admin",
       "name": "Smart Sentinel Eye â€” Identity Admin (service account)",
       "description": "Used by the Identity API to create/rotate Keycloak clients via the Admin REST API.",
