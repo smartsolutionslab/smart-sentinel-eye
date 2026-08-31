@@ -175,6 +175,83 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
             + $"observed p50 = {p50:F1} ms, p99 = {p99:F1} ms, max = {max:F1} ms");
     }
 
+    /// <summary>
+    /// **Where the span goes** (spec 053 US1). Excluded from CI like its
+    /// neighbour, and for the same reason: it is a measurement, not a check.
+    ///
+    /// <para>
+    /// <b>It asserts almost nothing about the pipeline on purpose.</b> The
+    /// output is a breakdown for someone deciding what to do about a
+    /// requirement, and a test that failed when the pipeline was slow would be
+    /// reporting the thing already known. What it does assert is that the
+    /// breakdown is <i>trustworthy</i>: the parts cover the span, every row
+    /// carried its stamps, and the clocks are close enough for the one part
+    /// that crosses them to mean anything.
+    /// </para>
+    ///
+    /// <para>
+    /// Needs the measurement switch on — with it off the parts are absent and
+    /// the run says so rather than reporting zeros.
+    /// </para>
+    /// </summary>
+    [Trait("Category", "Measurement")]
+    [Fact]
+    public async Task Where_the_ingest_span_goes()
+    {
+        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+
+        string warmName = await DefineAsync(variables);
+        string measureName = await DefineAsync(variables);
+        await SetRepeatedlyAsync(variables, warmName, WarmupIterations);
+
+        DateTimeOffset started = DateTimeOffset.UtcNow;
+        string measureIdentifier = await SetRepeatedlyAsync(variables, measureName, MeasureIterations);
+        TimeSpan drove = DateTimeOffset.UtcNow - started;
+
+        await using AuditObservabilityDbContext context =
+            await aspire.CreateAuditObservabilityDbContextAsync();
+
+        int landed = await WaitForRowsAsync(context, measureIdentifier);
+        landed.ShouldBe(MeasureIterations);
+
+        // **The achieved rate, next to the intended one.** A run that meant to
+        // drive 100 events a second and managed 60 has answered a different
+        // question, and saying so is the difference between a measurement and a
+        // number.
+        double achieved = MeasureIterations / drove.TotalSeconds;
+
+        IngestAttribution attribution = await AttributionAsync(context, measureIdentifier);
+        // **What this offset is, and what it is not.** It is this process's
+        // distance from the shared server — an indicator of the drift between a
+        // host process and a container, which is the only clock comparison
+        // reachable from here. It is *not* the publisher-to-consumer skew: that
+        // needs a stamp from each of those processes, and the front of the span
+        // is exactly where this feature chose not to add one.
+        //
+        // It still bounds the part that matters, because only "before handler"
+        // crosses a clock boundary at all. "In handler" is stamped twice by one
+        // process and is exact whatever the clocks are doing.
+        ClockOffset offset = await ClockOffsetProbe.MeasureBestOfAsync(
+            context.Database.GetConnectionString()!, readings: 20, CancellationToken.None);
+
+        output.WriteLine($"intended ~100 ev/s, achieved {achieved:F1} ev/s over {MeasureIterations} events");
+        output.WriteLine(attribution.Describe());
+        output.WriteLine($"this process vs the shared server: {offset}");
+        output.WriteLine(
+            "  only the 'before handler' part crosses a clock boundary; "
+            + "'in handler' is stamped twice by one process and is exact");
+
+        attribution.EveryRowStamped.ShouldBeTrue(
+            $"{attribution.RowsMissingStamps} rows arrived without the measurement stamps; "
+            + "turn the switch on before reading anything below");
+
+        attribution.AttributedFraction.ShouldBeGreaterThan(
+            0.8,
+            $"the named parts explain only {attribution.AttributedFraction * 100:F1}% of the span; "
+            + $"{attribution.UnattributedMs:F1} ms is unaccounted for, which is the apparatus disagreeing "
+            + "with the timestamps that bracket it rather than a property of the pipeline");
+    }
+
     private static async Task<string> DefineAsync(HttpClient variables)
     {
         string name = $"nfr{Guid.NewGuid():N}"[..16];
@@ -279,6 +356,55 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
             .ToListAsync();
 
         return (int)counted[0];
+    }
+
+    /// <summary>
+    /// The span divided, read in the same query that produces the total.
+    ///
+    /// <para>
+    /// <b>One query, one row per event, so the parts cannot drift from the
+    /// figure they divide.</b> Medians rather than means throughout: a single
+    /// stalled event moves a mean enough to invent a part that is not there,
+    /// and the percentiles beside it are already order statistics.
+    /// </para>
+    ///
+    /// <para>
+    /// Rows without the measurement stamps are counted rather than filtered
+    /// away — a run that quietly measured nine hundred of a thousand events
+    /// would report the nine hundred as though they were the population.
+    /// </para>
+    /// </summary>
+    private static async Task<IngestAttribution> AttributionAsync(
+        AuditObservabilityDbContext context, string identifier)
+    {
+        List<double> parts = await context.Database
+            .SqlQueryRaw<double>(
+                "SELECT unnest(ARRAY["
+                + "percentile_cont(0.50) WITHIN GROUP (ORDER BY total), "
+                + "percentile_cont(0.50) WITHIN GROUP (ORDER BY before_handler), "
+                + "percentile_cont(0.50) WITHIN GROUP (ORDER BY in_handler), "
+                + "percentile_cont(0.50) WITHIN GROUP (ORDER BY write_leg), "
+                + "count(*)::float8, "
+                + "count(*) FILTER (WHERE stamps_missing)::float8]) AS \"Value\" FROM ("
+                + "SELECT "
+                + "EXTRACT(EPOCH FROM (received_at - occurred_at)) * 1000 AS total, "
+                + "COALESCE(EXTRACT(EPOCH FROM (handler_entered_at - occurred_at)) * 1000, 0) AS before_handler, "
+                + "COALESCE(EXTRACT(EPOCH FROM (received_at - handler_entered_at)) * 1000, 0) AS in_handler, "
+                + "COALESCE(EXTRACT(EPOCH FROM (written_at - received_at)) * 1000, 0) AS write_leg, "
+                + "(handler_entered_at IS NULL OR written_at IS NULL) AS stamps_missing "
+                + "FROM audit_events "
+                + "WHERE event_kind = 'SystemVariableValueChangedV1' AND resource_identifier = {0}"
+                + ") samples",
+                identifier)
+            .ToListAsync();
+
+        return new IngestAttribution(
+            TotalMs: parts[0],
+            BeforeHandlerMs: parts[1],
+            InHandlerMs: parts[2],
+            WriteMs: parts[3],
+            RowsMeasured: (int)parts[4],
+            RowsMissingStamps: (int)parts[5]);
     }
 
     private static async Task<(double P50, double P99, double Max)> PercentilesAsync(
