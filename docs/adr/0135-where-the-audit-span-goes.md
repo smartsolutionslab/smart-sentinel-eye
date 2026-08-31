@@ -233,6 +233,22 @@ command. Turning it down raised achieved throughput from 79 to 244 ev/s in an
 otherwise identical run. Any figure taken on a dev stack without checking this
 carries it.
 
+> **Refined 2026-08-31.** That 79-to-244 pair is two real runs, but quoting it as
+> *the* effect size overstates the precision. Repeated: **Debug gives 60.0 / 79.1
+> / 82.5 ev/s, Warning gives 169.8 / 173.7 / 244.4** — so roughly **2–3×**, not a
+> clean 3×.
+>
+> The spread is lopsided for a structural reason worth keeping: **at Debug the
+> logging is the bottleneck, so the figure is reproducible; at Warning the
+> bottleneck is the machine, so it is not.** Any single pair can therefore land
+> anywhere in that range with nothing having changed.
+>
+> Pinning EF's SQL logging alone — the obvious narrow remedy — reaches only
+> ~103 ev/s, because the cost is spread across Debug categories rather than
+> concentrated in the loudest one. The measurement run now reports the service log
+> level and **refuses to run at Debug**, which is the guard this warning was
+> asking for.
+
 ## Alternatives Considered
 
 **OpenTelemetry spans read off the Aspire dashboard.** Idiomatic, and the
