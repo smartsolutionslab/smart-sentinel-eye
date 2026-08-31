@@ -135,6 +135,14 @@ magnitude:
 | 50 writers, unpaced, quiet logs | 244.4 ev/s | 5521.7 ms | 5521.7 ms | 0.0 ms | 9.2 ms |
 | 50 writers, **paced to 100** | 98.7–99.0 ev/s | 1376.8–2642.5 ms | same | 0.0 ms | 8.5–10.1 ms |
 
+> **Widened 2026-09-01 (spec 054).** The paced range above is three runs that
+> happened to cluster, and it understates the spread. Seven paced fixture runs at
+> ~99 ev/s give **267.4, 1376.8, 1414.9, 1634.9, 2642.5, 5516.0 and 7361.9 ms** —
+> a 27× range, not a 2× one. The cause appears to be that 100 ev/s sits at the
+> consumer's drain ceiling, so a run either keeps up or falls behind and
+> accumulates backlog. **The breakdown itself is unaffected**: before-handler is
+> the whole span in every one of those runs. See ADR-0136.
+
 **The 15.6 ev/s row is the one that matters most.** There the pipeline is idle —
 an 11.9 ms span, no backlog — and before-handler is still the whole of it. Without
 that row the paced result would prove itself trivially: a backlogged queue spends

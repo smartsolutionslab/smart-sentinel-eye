@@ -33,10 +33,10 @@ property of how the other phases are built, not a separate slice.
 
 ## Phase 1 — The extraction *(the gate)*
 
-- [ ] T001 Add `IngestRunShape` in `tests/Integration.Tests/AuditObservability/IngestRunShape.cs` per data-model §1: generator, warm-up 100, measured 1000, writers 50, target 100 ev/s, tolerance ±15%. **One definition, so drift between the two runs is not expressible.**
-- [ ] T002 Add `IngestRunConditions` in `tests/Integration.Tests/AuditObservability/IngestRunConditions.cs` per data-model §2: environment, endpoint actually connected to, intended and achieved rate, logging level, switch state, rows measured and missing.
-- [ ] T003 Extract the run body and the attribution SQL from `NFR001_AuditIngestLatencyTests.cs` into `tests/Integration.Tests/AuditObservability/IngestSpanMeasurement.cs`, taking an authenticated client, a DbContext factory, a connection string and an `IngestRunShape`. **Behaviour-preserving: it returns the bands, the offset, the verdict and the conditions, and asserts nothing.**
-- [ ] T004 Rewire `NFR001_AuditIngestLatencyTests.Where_the_ingest_span_goes` to call the extraction and keep its own assertions, in `tests/Integration.Tests/AuditObservability/NFR001_AuditIngestLatencyTests.cs`.
+- [x] T001 Add `IngestRunShape` in `tests/Integration.Tests/AuditObservability/IngestRunShape.cs` per data-model §1: generator, warm-up 100, measured 1000, writers 50, target 100 ev/s, tolerance ±15%. **One definition, so drift between the two runs is not expressible.**
+- [x] T002 Add `IngestRunConditions` in `tests/Integration.Tests/AuditObservability/IngestRunConditions.cs` per data-model §2: environment, endpoint actually connected to, intended and achieved rate, logging level, switch state, rows measured and missing.
+- [x] T003 Extract the run body and the attribution SQL from `NFR001_AuditIngestLatencyTests.cs` into `tests/Integration.Tests/AuditObservability/IngestSpanMeasurement.cs`, taking an authenticated client, a DbContext factory, a connection string and an `IngestRunShape`. **Behaviour-preserving: it returns the bands, the offset, the verdict and the conditions, and asserts nothing.**
+- [x] T004 Rewire `NFR001_AuditIngestLatencyTests.Where_the_ingest_span_goes` to call the extraction and keep its own assertions, in `tests/Integration.Tests/AuditObservability/NFR001_AuditIngestLatencyTests.cs`.
 
 **Checkpoint — this is the gate, and it is a REGRESSION gate.** Re-run the
 fixture measurement and check its output against the figures recorded in
@@ -49,25 +49,25 @@ incomparable with the very figures it exists to be compared against.
 
 ## Phase 2 — The run-mode driver
 
-- [ ] T005 Add `RunModeIngestAttributionTests` in `tests/Integration.Tests/AuditObservability/RunModeIngestAttributionTests.cs` **with no `[Collection]` attribute**, reading the system-variables address, the Keycloak address and the audit-db connection string from the environment.
-- [ ] T006 Mint the access token against the **proxied** Keycloak address in `tests/Integration.Tests/AuditObservability/RunModeIngestAttributionTests.cs`, by the same password grant the fixture uses. **A token minted against the container's mapped port is rejected by every service** — the issuer will not match — and the 401s do not name the cause.
-- [ ] T007 [P] **Test that absent or unreachable configuration is a refusal**, in `tests/Integration.Tests/AuditObservability/`: the run fails naming what it could not reach, and **no stack is started**. Contract C4, and the most important guard here.
-- [ ] T008 [P] **Test that the run-mode class cannot acquire the fixture**, in `tests/Integration.Tests/AuditObservability/`: assert by reflection that it carries no `[Collection]` attribute. The mechanism is real but silent, so it is asserted rather than relied on.
-- [ ] T009 [P] **Test that both runs read one shape**, in `tests/Integration.Tests/AuditObservability/`: assert the fixture run and the run-mode run reference the same `IngestRunShape` values. Two constants that happen to match satisfy a reader and not this test.
+- [x] T005 Add `RunModeIngestAttributionTests` in `tests/Integration.Tests/AuditObservability/RunModeIngestAttributionTests.cs` **with no `[Collection]` attribute**, reading the system-variables address, the Keycloak address and the audit-db connection string from the environment.
+- [x] T006 Mint the access token against the **proxied** Keycloak address in `tests/Integration.Tests/AuditObservability/RunModeIngestAttributionTests.cs`, by the same password grant the fixture uses. **A token minted against the container's mapped port is rejected by every service** — the issuer will not match — and the 401s do not name the cause.
+- [x] T007 [P] **Test that absent or unreachable configuration is a refusal**, in `tests/Integration.Tests/AuditObservability/`: the run fails naming what it could not reach, and **no stack is started**. Contract C4, and the most important guard here.
+- [x] T008 [P] **Test that the run-mode class cannot acquire the fixture**, in `tests/Integration.Tests/AuditObservability/`: assert by reflection that it carries no `[Collection]` attribute. The mechanism is real but silent, so it is asserted rather than relied on.
+- [x] T009 [P] **Test that both runs read one shape**, in `tests/Integration.Tests/AuditObservability/`: assert the fixture run and the run-mode run reference the same `IngestRunShape` values. Two constants that happen to match satisfy a reader and not this test.
 
 ---
 
 ## Phase 3 — US1: the measurement *(P1)*
 
-- [ ] T010 [US1] Emit the conditions block **before any assertion that can fail**, in `tests/Integration.Tests/AuditObservability/RunModeIngestAttributionTests.cs`, and report the **endpoint actually connected to**. A refused run must still say what it was refused for, and the endpoint is the only guard against attributing a figure to the wrong stack.
-- [ ] T011 [US1] Apply the same guards the fixture run applies, in `tests/Integration.Tests/AuditObservability/RunModeIngestAttributionTests.cs`: every row stamped, per-row residual zero, achieved rate within ±15%, logging not Debug or Trace, clock verdict established. **A run that cannot meet its conditions reports rather than publishes** (contract C3).
-- [ ] T012 [US1] Take the measurement per [quickstart.md](./quickstart.md): **at least three runs**, at `Warning`, switch on, spread recorded, achieved rate beside intended. Check the reported endpoint against the stack started, and the audit store's growth against the measured count — **no automated check can do this**.
+- [x] T010 [US1] Emit the conditions block **before any assertion that can fail**, in `tests/Integration.Tests/AuditObservability/RunModeIngestAttributionTests.cs`, and report the **endpoint actually connected to**. A refused run must still say what it was refused for, and the endpoint is the only guard against attributing a figure to the wrong stack.
+- [x] T011 [US1] Apply the same guards the fixture run applies, in `tests/Integration.Tests/AuditObservability/RunModeIngestAttributionTests.cs`: every row stamped, per-row residual zero, achieved rate within ±15%, logging not Debug or Trace, clock verdict established. **A run that cannot meet its conditions reports rather than publishes** (contract C3).
+- [x] T012 [US1] Take the measurement per [quickstart.md](./quickstart.md): **at least three runs**, at `Warning`, switch on, spread recorded, achieved rate beside intended. Check the reported endpoint against the stack started, and the audit store's growth against the measured count — **no automated check can do this**.
 
 ---
 
 ## Phase 4 — US3: the record *(P2)*
 
-- [ ] T013 [US3] Write the ADR and `verification.md` in `docs/adr/` and `specs/054-divide-the-recorded-85ms/`: both breakdowns in one table, every difference between the runs other than the environment nil or named, the spread across ≥3 runs, and **the write leg and requirement-span floor marked NOT ESTABLISHED in the same table as the established figures** — run mode has the same host/container split. **State what was measured and stop.** No recommendation, no lever, no changed budget; a reviewer should push back if it does otherwise.
+- [x] T013 [US3] Write the ADR and `verification.md` in `docs/adr/` and `specs/054-divide-the-recorded-85ms/`: both breakdowns in one table, every difference between the runs other than the environment nil or named, the spread across ≥3 runs, and **the write leg and requirement-span floor marked NOT ESTABLISHED in the same table as the established figures** — run mode has the same host/container split. **State what was measured and stop.** No recommendation, no lever, no changed budget; a reviewer should push back if it does otherwise.
 
 ---
 
