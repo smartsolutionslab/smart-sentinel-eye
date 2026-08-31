@@ -53,28 +53,10 @@ namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 [Collection(AspireCollection.Name)]
 public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHelper output)
 {
-    private const int WarmupIterations = 100;
-    private const int MeasureIterations = 1_000;
+    // The run shape lives in IngestRunShape, read by this run and by the
+    // run-mode run alike (spec 054). Two constants that happened to match would
+    // satisfy a reader and drift the moment one was edited.
     private const double P99BudgetMs = 50;
-
-    /// <summary>The rate NFR-001 names. The run is paced to it, not driven past it.</summary>
-    private const double TargetRatePerSecond = 100;
-
-    /// <summary>
-    /// Concurrent writers for the paced attribution run. Fifty, so that no writer
-    /// has to issue faster than every half second to hold 100 ev/s between them —
-    /// the pacing sets the rate, and the writers only have to be numerous enough
-    /// not to become the limit themselves. Divides <see cref="MeasureIterations"/>
-    /// exactly.
-    /// </summary>
-    private const int Writers = 50;
-
-    /// <summary>
-    /// The gate for runs that are not rate-controlled: the warm-up, and the
-    /// historic NFR-001 run whose figures are compared against recorded ones and
-    /// so must keep the shape they were recorded at.
-    /// </summary>
-    private static readonly Func<Task> NoPacing = () => Task.CompletedTask;
 
     /// <summary>
     /// The log level the services under measurement are running at.
@@ -189,25 +171,25 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
         // same result set as the measured ones with no way to tell them apart
         // after the fact, and the percentile would include the cold path the
         // warm-up exists to exclude.
-        string warmName = await DefineAsync(variables);
-        string measureName = await DefineAsync(variables);
+        string warmName = await IngestSpanMeasurement.DefineAsync(variables);
+        string measureName = await IngestSpanMeasurement.DefineAsync(variables);
 
-        await SetRepeatedlyAsync(variables, warmName, WarmupIterations, NoPacing);
-        string measureIdentifier = await SetRepeatedlyAsync(variables, measureName, MeasureIterations, NoPacing);
+        await IngestSpanMeasurement.SetRepeatedlyAsync(variables, warmName, IngestRunShape.WarmupEvents, IngestSpanMeasurement.NoPacing);
+        string measureIdentifier = await IngestSpanMeasurement.SetRepeatedlyAsync(variables, measureName, IngestRunShape.MeasuredEvents, IngestSpanMeasurement.NoPacing);
 
         await using AuditObservabilityDbContext context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        int landed = await WaitForRowsAsync(context, [measureIdentifier]);
+        int landed = await IngestSpanMeasurement.WaitForRowsAsync(context, [measureIdentifier]);
         landed.ShouldBe(
-            MeasureIterations,
+            IngestRunShape.MeasuredEvents,
             "every measured event must reach the audit store before its latency can be read; "
-            + $"{landed} of {MeasureIterations} arrived within {IngestDeadline.TotalSeconds:F0}s");
+            + $"{landed} of {IngestRunShape.MeasuredEvents} arrived within {IngestDeadline.TotalSeconds:F0}s");
 
-        (double p50, double p99, double max) = await PercentilesAsync(context, [measureIdentifier]);
+        (double p50, double p99, double max) = await IngestSpanMeasurement.PercentilesAsync(context, [measureIdentifier]);
 
         output.WriteLine(
-            $"audit ingest over {MeasureIterations} events: "
+            $"audit ingest over {IngestRunShape.MeasuredEvents} events: "
             + $"p50 = {p50:F1} ms, p99 = {p99:F1} ms, max = {max:F1} ms");
 
         // **The apparatus' own cost, and the reason this line exists** (spec 053).
@@ -217,7 +199,7 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
         // exported is exactly how a figure gets attributed to the wrong
         // configuration, so each run states the switch state it actually ran
         // under, read off the rows it produced rather than off an intention.
-        int stamped = await StampedCountAsync(context, [measureIdentifier]);
+        int stamped = await IngestSpanMeasurement.StampedCountAsync(context, [measureIdentifier]);
         output.WriteLine(
             $"measurement switch: {(stamped > 0 ? "ON" : "OFF")} "
             + $"({stamped} of {landed} rows carry the stamps)");
@@ -253,395 +235,65 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
     {
         using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
 
-        string warmName = await DefineAsync(variables);
-        await SetRepeatedlyAsync(variables, warmName, WarmupIterations, NoPacing);
-
-        // **Concurrent writers, because one is not a load.** A single sequential
-        // caller is capped by its own round trip — measured at ~15 ev/s, which is
-        // far below the knee this requirement lives at, and a breakdown taken
-        // there describes a near-idle pipeline. The writers take a variable each:
-        // the version travels in an `If-Match`, so two callers on one variable
-        // would collide on optimistic concurrency rather than generate load.
-        string[] measureNames = new string[Writers];
-        for (int writer = 0; writer < Writers; writer++)
-        {
-            measureNames[writer] = await DefineAsync(variables);
-        }
-
-        // **Paced to the rate, not driven flat out**, because "sustained 100 ev/s"
-        // is a rate and running as fast as the writers can go measures something
-        // else entirely. Unpaced, these same writers reached 244 ev/s and the span
-        // grew to 5.5 s — a true measurement of overload, and no answer at all
-        // about the load the requirement names. Every writer draws its slot from
-        // one counter, so the pacing is global rather than per-writer.
-        Stopwatch pacing = Stopwatch.StartNew();
-        long issued = 0;
-
-        async Task PaceAsync()
-        {
-            long slot = Interlocked.Increment(ref issued) - 1;
-            double dueMs = slot * (1000d / TargetRatePerSecond);
-            double waitMs = dueMs - pacing.Elapsed.TotalMilliseconds;
-
-            if (waitMs > 0)
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(waitMs));
-            }
-        }
-
-        DateTimeOffset started = DateTimeOffset.UtcNow;
-        string[] measured = await Task.WhenAll(
-            measureNames.Select(name =>
-                SetRepeatedlyAsync(variables, name, MeasureIterations / Writers, PaceAsync)));
-        TimeSpan drove = DateTimeOffset.UtcNow - started;
-
         await using AuditObservabilityDbContext context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        int landed = await WaitForRowsAsync(context, measured);
-        landed.ShouldBe(MeasureIterations);
+        IngestSpanResult result = await IngestSpanMeasurement.RunAsync(
+            variables,
+            context,
+            environment: "Aspire test fixture",
+            endpoint: variables.BaseAddress?.ToString() ?? "unknown",
+            logLevel: ServiceLogLevel,
+            CancellationToken.None);
 
-        // **The achieved rate, next to the intended one.** A run that meant to
-        // drive 100 events a second and managed 60 has answered a different
-        // question, and saying so is the difference between a measurement and a
-        // number.
-        double achieved = MeasureIterations / drove.TotalSeconds;
-
-        // **Both bands, because the requirement is a p99 and the median is not
-        // it.** The typical event and the tail event do not divide their span the
-        // same way — a queue that is keeping up at the median may be the whole
-        // story at the tail — so a median-only breakdown cannot support a
-        // conclusion about a p99 budget. The tail band is the rows at or above
-        // the p99 of the total: each row's parts sum to its own total exactly, so
-        // the band's parts still divide the band's span rather than being three
-        // unrelated percentiles added together.
-        IngestAttribution typical = await AttributionAsync(context, measured, tailOnly: false);
-        IngestAttribution tail = await AttributionAsync(context, measured, tailOnly: true);
-        // **Which part this offset actually bounds — corrected in review, having
-        // been stated backwards.**
-        //
-        // `occurred_at` and `received_at` are stamped in two *processes*, but on
-        // one machine those processes read one OS clock, so the skew between them
-        // is not the risk it looks like. Across machines it would be, and nothing
-        // here would notice.
-        //
-        // The genuinely cross-clock figure is the **write leg**: `received_at`
-        // comes from a host process and `written_at` from `clock_timestamp()`
-        // inside the Postgres container. That is exactly what this probe
-        // measures, and it is the same size as the leg — so the write leg is the
-        // figure that lives or dies by this number, not "before handler" as an
-        // earlier version of this comment claimed.
-        ClockOffset offset = await ClockOffsetProbe.MeasureBestOfAsync(
-            context.Database.GetConnectionString()!, readings: 20, CancellationToken.None);
-
-        output.WriteLine(
-            $"intended ~100 ev/s, achieved {achieved:F1} ev/s over {MeasureIterations} events "
-            + $"across {Writers} concurrent writers");
-        output.WriteLine($"service log level: {ServiceLogLevel}");
+        // **The conditions first, before anything that can fail.** A refused run
+        // still has to say what it was refused for; spec 053's guards behaved
+        // this way and that is why its failures were informative rather than
+        // merely red.
+        output.WriteLine(result.Conditions.Describe());
         output.WriteLine("--- typical event (medians over every row) ---");
-        output.WriteLine(typical.Describe());
+        output.WriteLine(result.Typical.Describe());
         output.WriteLine("--- tail band (rows at or above the p99 of the total) ---");
-        output.WriteLine(tail.Describe());
-        // **The verdict, applied rather than merely available.** The type existed
-        // from Phase 1 and this run printed an offset without ever judging it —
-        // so a stack whose container clock had drifted 40 ms would have passed
-        // every assertion and had its breakdown recorded as fact. That is the
-        // failure the verdict was written to prevent, surviving inside the run
-        // that needed it most.
-        AttributionVerdict verdict = AttributionVerdict.For(
-            RelativeSkew.Between(offset, new ClockOffset(TimeSpan.Zero, TimeSpan.Zero)));
-
-        output.WriteLine($"this process vs the shared server: {offset}");
-        output.WriteLine($"  write leg standing: {verdict.Standing} — {verdict.Reason}");
+        output.WriteLine(result.Tail.Describe());
+        output.WriteLine($"this process vs the shared server: {result.Offset}");
+        output.WriteLine($"  write leg standing: {result.Verdict.Standing} — {result.Verdict.Reason}");
         output.WriteLine(
             "  the write leg crosses host and container clocks and is bounded by that offset; "
             + "'in handler' is stamped twice by one process and is exact whatever the clocks do");
 
-        typical.EveryRowStamped.ShouldBeTrue(
-            $"{typical.RowsMissingStamps} rows arrived without the measurement stamps; "
-            + "turn the switch on before reading anything below");
+        result.Conditions.RowsMeasured.ShouldBe(IngestRunShape.MeasuredEvents);
 
-        // **This is the apparatus check, and it is asserted on both bands.**
-        // Each row's parts sum to that row's own span by construction, so the
-        // median of the per-row residual is exactly zero unless the stamps
-        // genuinely disagree — an out-of-order stamp, a clock stepping mid-run.
-        //
-        // The earlier version of this test asserted on AttributedFraction
-        // instead, and that was wrong: medians do not add, so a healthy
-        // apparatus can leave a gap between the printed parts and the printed
-        // total. It read as sound here only because in-handler is degenerate at
-        // ~0, which made the medians additive by accident. A pipeline that
-        // actually spent time in the handler would have failed this test for a
-        // reason that had nothing to do with the stamps.
-        typical.PartsCoverEveryRow.ShouldBeTrue(
-            $"the median row leaves {typical.PerRowResidualMs:F3} ms between its span and its parts; "
-            + "consecutive stamps cannot do that, so the stamps disagree with the timestamps "
+        result.Typical.EveryRowStamped.ShouldBeTrue(
+            $"{result.Typical.RowsMissingStamps} rows arrived without the measurement stamps; "
+            + "turn the switch on before reading anything above");
+
+        // **The apparatus check, asserted on both bands.** Each row's parts sum
+        // to that row's own span by construction, so the median per-row residual
+        // is exactly zero unless the stamps genuinely disagree. Asserting on the
+        // reported medians instead would be wrong: medians do not add, so a
+        // healthy apparatus can leave a gap between the printed parts and the
+        // printed total.
+        result.Typical.PartsCoverEveryRow.ShouldBeTrue(
+            $"the median row leaves {result.Typical.PerRowResidualMs:F3} ms between its span and its "
+            + "parts; consecutive stamps cannot do that, so the stamps disagree with the timestamps "
             + "that bracket them");
 
-        tail.PartsCoverEveryRow.ShouldBeTrue(
-            $"the median tail row leaves {tail.PerRowResidualMs:F3} ms between its span and its parts");
+        result.Tail.PartsCoverEveryRow.ShouldBeTrue(
+            $"the median tail row leaves {result.Tail.PerRowResidualMs:F3} ms between its span and its parts");
 
-        verdict.IsEstablished.ShouldBeTrue(
-            $"{verdict.Reason} — the write leg subtracts a host-process stamp from a container one, "
-            + $"and at {typical.WriteMs:F1} ms it is the same size as that disagreement, so it cannot "
-            + "be reported as measured");
+        result.Verdict.IsEstablished.ShouldBeTrue(
+            $"{result.Verdict.Reason} — the write leg subtracts a host-process stamp from a container "
+            + $"one, and at {result.Typical.WriteMs:F1} ms it is the same size as that disagreement, "
+            + "so it cannot be reported as measured");
 
-        // **The load is part of the result, not a precondition to be assumed.**
-        // Below the knee the pipeline is idle and the breakdown describes
-        // something other than the requirement's conditions, so a run that did
-        // not reach the rate must not be read as though it had.
-        // **Bracketed, not floored.** Too slow and the breakdown describes a
-        // near-idle pipeline; too fast and it describes overload, which is a
-        // different question with a much more alarming answer. Unpaced these
-        // writers reached 244 ev/s and the span grew to 5.5 s — a number that
-        // would have been quoted against a 50 ms budget if nothing checked which
-        // load produced it.
-        // **The logging level is a condition of the run, so it is asserted like
-        // the others.** At Debug this stack tops out near 80 ev/s, which is below
-        // the rate NFR-001 names — so a breakdown taken there is measuring the
-        // logging as much as the pipeline, and the run would be quietly reporting
-        // a stack it had throttled itself. Measured, not assumed: pinning EF's
-        // SQL logging alone only reaches ~103 ev/s, because the cost is spread
-        // across Debug categories rather than concentrated in that one.
-        bool verbose =
-            ServiceLogLevel.StartsWith("Debug", StringComparison.OrdinalIgnoreCase)
-            || ServiceLogLevel.StartsWith("Trace", StringComparison.OrdinalIgnoreCase);
+        result.Conditions.LoggingIsVerbose.ShouldBeFalse(
+            $"the services are logging at '{result.Conditions.LogLevel}', where this stack sustains "
+            + "~80 ev/s against a target of 100; set Logging__LogLevel__Default=Warning for a "
+            + "measurement run");
 
-        verbose.ShouldBeFalse(
-            $"the services are logging at '{ServiceLogLevel}', where this stack sustains ~80 ev/s "
-            + "against a target of 100; set Logging__LogLevel__Default=Warning for a measurement run");
-
-        achieved.ShouldBeInRange(
-            TargetRatePerSecond * 0.85,
-            TargetRatePerSecond * 1.15,
-            $"the run drove {achieved:F1} ev/s against a target of {TargetRatePerSecond:F0}; "
-            + "NFR-001 is a claim about that rate sustained, and a breakdown taken at another rate "
-            + "answers another question");
-    }
-
-    /// <summary>
-    /// How many of a run's rows carry the measurement stamps, which is how a run
-    /// reports the switch state it <b>ran under</b> rather than the one somebody
-    /// meant to set (spec 053).
-    /// </summary>
-    private static async Task<int> StampedCountAsync(AuditObservabilityDbContext context, string[] identifiers)
-    {
-        List<long> counted = await context.Database
-            .SqlQueryRaw<long>(
-                "SELECT count(*) AS \"Value\" FROM audit_events "
-                + "WHERE event_kind = 'SystemVariableValueChangedV1' AND resource_identifier = ANY({0}) "
-                + "AND handler_entered_at IS NOT NULL",
-                (object)identifiers)
-            .ToListAsync();
-
-        return (int)counted[0];
-    }
-
-    private static async Task<string> DefineAsync(HttpClient variables)
-    {
-        string name = $"nfr{Guid.NewGuid():N}"[..16];
-
-        // Deliberately no initialValue. Setting a variable to the value it
-        // already holds is a no-op: it answers 200, raises nothing, and leaves
-        // the version where it was — correct of the domain, and fatal here,
-        // because the next write's If-Match would carry a version that never
-        // came to exist. Defining without a value means every write below is a
-        // real change.
-        HttpResponseMessage defined = await variables.PostAsJsonAsync("/system-variables", new
-        {
-            name,
-            type = "Number",
-            truthyLabel = (string?)null,
-            falsyLabel = (string?)null,
-        });
-
-        defined.EnsureSuccessStatusCode();
-        return name;
-    }
-
-    /// <summary>
-    /// Sets the variable <paramref name="times"/> times, tracking the version
-    /// locally: each set bumps it by exactly one, so re-reading between writes
-    /// would add an HTTP round trip per iteration and establish nothing. Returns
-    /// the variable's identifier, which is what the audit row carries.
-    ///
-    /// <para>
-    /// The starting version is <b>read</b> rather than assumed to be zero.
-    /// Defining with an <c>initialValue</c> performs a value set of its own, so
-    /// the variable is already at version 1 before this loop begins — assuming
-    /// zero costs a 409 on the first write.
-    /// </para>
-    /// </summary>
-    private static async Task<string> SetRepeatedlyAsync(
-        HttpClient variables, string name, int times, Func<Task> pace)
-    {
-        int first = await ReadVersionAsync(variables, name);
-
-        for (int version = first; version < first + times; version++)
-        {
-            await pace();
-
-            using HttpRequestMessage request = new(
-                HttpMethod.Put,
-                $"/system-variables/{name}/value?fabId=munich");
-            request.Headers.TryAddWithoutValidation("If-Match", $"\"{version}\"");
-            request.Content = JsonContent.Create(new { value = (version + 1).ToString(CultureInfo.InvariantCulture) });
-
-            using HttpResponseMessage response = await variables.SendAsync(request);
-            if (!response.IsSuccessStatusCode)
-            {
-                string detail = await response.Content.ReadAsStringAsync();
-                int actual = await ReadVersionAsync(variables, name);
-                throw new InvalidOperationException(
-                    $"set #{version - first + 1} of {times} on '{name}' sent If-Match \"{version}\" "
-                    + $"and got {(int)response.StatusCode}; the variable now reads version {actual}. {detail}");
-            }
-        }
-
-        return await ReadIdentifierAsync(variables, name);
-    }
-
-    private static async Task<string> ReadIdentifierAsync(HttpClient variables, string name) =>
-        (await ReadAsync(variables, name)).GetProperty("variableIdentifier").GetString()!;
-
-    private static async Task<int> ReadVersionAsync(HttpClient variables, string name) =>
-        (await ReadAsync(variables, name)).GetProperty("version").GetInt32();
-
-    private static async Task<JsonElement> ReadAsync(HttpClient variables, string name)
-    {
-        using HttpResponseMessage read = await variables.GetAsync($"/system-variables/{name}?fabId=munich");
-        read.EnsureSuccessStatusCode();
-
-        return await read.Content.ReadFromJsonAsync<JsonElement>();
-    }
-
-    private static async Task<int> WaitForRowsAsync(AuditObservabilityDbContext context, string[] identifiers)
-    {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + IngestDeadline;
-        int landed = 0;
-
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            landed = await CountAsync(context, identifiers);
-            if (landed >= MeasureIterations)
-            {
-                return landed;
-            }
-
-            await Task.Delay(TimeSpan.FromSeconds(1));
-        }
-
-        return landed;
-    }
-
-    private static async Task<int> CountAsync(AuditObservabilityDbContext context, string[] identifiers)
-    {
-        List<long> counted = await context.Database
-            .SqlQueryRaw<long>(
-                "SELECT count(*) AS \"Value\" FROM audit_events "
-                + "WHERE event_kind = 'SystemVariableValueChangedV1' AND resource_identifier = ANY({0})",
-                (object)identifiers)
-            .ToListAsync();
-
-        return (int)counted[0];
-    }
-
-    /// <summary>
-    /// The span divided, read in the same query that produces the total.
-    ///
-    /// <para>
-    /// <b>One query, one row per event, so the parts cannot drift from the
-    /// figure they divide.</b> Medians rather than means throughout: a single
-    /// stalled event moves a mean enough to invent a part that is not there,
-    /// and the percentiles beside it are already order statistics.
-    /// </para>
-    ///
-    /// <para>
-    /// Rows without the measurement stamps are counted rather than filtered
-    /// away — a run that quietly measured nine hundred of a thousand events
-    /// would report the nine hundred as though they were the population.
-    /// </para>
-    /// </summary>
-    private static async Task<IngestAttribution> AttributionAsync(
-        AuditObservabilityDbContext context, string[] identifiers, bool tailOnly)
-    {
-        // The tail band is "rows at or above the p99 of the total". Selecting rows
-        // rather than taking the p99 of each part separately is the whole point:
-        // three independent p99s belong to three different events and adding them
-        // divides nothing. Every row's parts sum to that row's own total, so a
-        // band of rows still has a span to divide.
-        object[] arguments = [identifiers, tailOnly];
-
-        List<double> parts = await context.Database
-            .SqlQueryRaw<double>(
-                "WITH samples AS ("
-                // **No COALESCE to zero.** An unstamped row has no parts, and
-                // giving it zeros while keeping its real total drags every median
-                // toward zero and manufactures a remainder that looks like a
-                // pipeline property. The percentiles below are filtered to
-                // stamped rows; the counts are not, so a partly-stamped run is
-                // still visible rather than silently narrowed to what worked.
-                + "SELECT "
-                + "EXTRACT(EPOCH FROM (received_at - occurred_at)) * 1000 AS total, "
-                + "EXTRACT(EPOCH FROM (handler_entered_at - occurred_at)) * 1000 AS before_handler, "
-                + "EXTRACT(EPOCH FROM (received_at - handler_entered_at)) * 1000 AS in_handler, "
-                + "EXTRACT(EPOCH FROM (written_at - received_at)) * 1000 AS write_leg, "
-                + "(handler_entered_at IS NULL OR written_at IS NULL) AS stamps_missing "
-                + "FROM audit_events "
-                + "WHERE event_kind = 'SystemVariableValueChangedV1' AND resource_identifier = ANY({0})"
-                + "), cut AS ("
-                + "SELECT percentile_cont(0.99) WITHIN GROUP (ORDER BY total) AS threshold FROM samples"
-                // Every percentile over the same population — stamped rows — so
-                // the parts and the total they divide describe one set of events.
-                // COALESCEd on the outside, not the inside: with no stamped rows
-                // at all these are NULL, and a zero that `EveryRowStamped` will
-                // immediately contradict beats a mapping exception.
-                + ") SELECT unnest(ARRAY["
-                + "COALESCE(percentile_cont(0.50) WITHIN GROUP (ORDER BY total) "
-                + "FILTER (WHERE NOT stamps_missing), 0), "
-                + "COALESCE(percentile_cont(0.50) WITHIN GROUP (ORDER BY before_handler) "
-                + "FILTER (WHERE NOT stamps_missing), 0), "
-                + "COALESCE(percentile_cont(0.50) WITHIN GROUP (ORDER BY in_handler) "
-                + "FILTER (WHERE NOT stamps_missing), 0), "
-                + "COALESCE(percentile_cont(0.50) WITHIN GROUP (ORDER BY write_leg) "
-                + "FILTER (WHERE NOT stamps_missing), 0), "
-                + "count(*)::float8, "
-                + "count(*) FILTER (WHERE stamps_missing)::float8, "
-                + "COALESCE(percentile_cont(0.50) WITHIN GROUP "
-                + "(ORDER BY total - before_handler - in_handler) "
-                + "FILTER (WHERE NOT stamps_missing), 0)]) "
-                + "AS \"Value\" "
-                + "FROM samples, cut WHERE (NOT {1}) OR samples.total >= cut.threshold",
-                arguments)
-            .ToListAsync();
-
-        return new IngestAttribution(
-            TotalMs: parts[0],
-            BeforeHandlerMs: parts[1],
-            InHandlerMs: parts[2],
-            WriteMs: parts[3],
-            RowsMeasured: (int)parts[4],
-            RowsMissingStamps: (int)parts[5],
-            PerRowResidualMs: parts[6]);
-    }
-
-    private static async Task<(double P50, double P99, double Max)> PercentilesAsync(
-        AuditObservabilityDbContext context,
-        string[] identifiers)
-    {
-        List<double> percentiles = await context.Database
-            .SqlQueryRaw<double>(
-                "SELECT unnest(ARRAY["
-                + "percentile_cont(0.50) WITHIN GROUP (ORDER BY delta), "
-                + "percentile_cont(0.99) WITHIN GROUP (ORDER BY delta), "
-                + "max(delta)]) AS \"Value\" FROM ("
-                + "SELECT EXTRACT(EPOCH FROM (received_at - occurred_at)) * 1000 AS delta "
-                + "FROM audit_events "
-                + "WHERE event_kind = 'SystemVariableValueChangedV1' AND resource_identifier = ANY({0})"
-                + ") samples",
-                (object)identifiers)
-            .ToListAsync();
-
-        return (percentiles[0], percentiles[1], percentiles[2]);
+        result.Conditions.RateWasMet.ShouldBeTrue(
+            $"the run drove {result.Conditions.AchievedRatePerSecond:F1} ev/s against a target of "
+            + $"{IngestRunShape.TargetRatePerSecond:F0}; NFR-001 is a claim about that rate sustained, "
+            + "and a breakdown taken at another rate answers another question");
     }
 }
