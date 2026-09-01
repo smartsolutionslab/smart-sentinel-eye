@@ -136,15 +136,14 @@ var mediamtx = builder
 // address nothing served, so the tiles rendered `WHEP returned 404` and a tile
 // that drew its label ONLY when the video failed passed the whole suite.
 //
-// **Run mode, not gated on `isE2ETests`, and that is deliberate.** `E2ETests`
-// is never set to true anywhere in this repository -- not in `ci.yml`, not in
-// `wait-for-e2e-stack.sh`, not in any settings file -- so a resource gated on it
-// would be dead code, and CI (which boots with plain `dotnet run`) would never
-// see it. Running it wherever the SFU runs also keeps the fixture identical in
-// CI and on a developer machine, which is worth more here than saving a
-// container: a fixture that behaves differently in the two places is one whose
-// failures cannot be reproduced.
-if (isRunMode)
+// **Gated exactly as `camera-sim` is**, and the Playwright stack still gets it:
+// `E2ETests` is set by the *integration* fixture (`AspireFixture`) and by
+// `AppHostE2ESwitchTests`, but **not** by the end-to-end stack boot, which is a
+// plain `dotnet run` in `ci.yml`. So this is present where a browser needs a
+// picture and absent where nothing consumes one -- an integration run has no
+// browser, and would otherwise pay for a container, a 45 MB bind mount and a
+// permanently looping FFmpeg it never reads.
+if (isRunMode && !isE2ETests)
 {
     builder
         .AddContainer("fixture-video", "bluenviron/mediamtx", "latest-ffmpeg")

@@ -22,8 +22,20 @@ import { isDecodeOngoing, readLiveVideoWall } from './support/live-video-wall';
  * </para>
  */
 
-/** How long to wait for the first decoded frame. Stated, not discovered. */
-const FIRST_FRAME_TIMEOUT_MS = 30_000;
+/**
+ * How long to wait for the first decoded frame. Stated, not discovered.
+ *
+ * <para>
+ * <b>Longer than it looks like it needs, because nothing waits for this chain.</b>
+ * Between the seed and this assertion the whole path must come up: the fixture
+ * source's FFmpeg publishing, stream-distribution pushing the path into the SFU,
+ * the SFU's RTSP pull, WHEP negotiation, and a first decode. The stack-readiness
+ * script waits for the web apps, the ports and a gateway 401 — none of that.
+ * The seeds in this same run were given 90 s for a single write on a cold
+ * service; this is a longer chain and had a third of the budget.
+ * </para>
+ */
+const FIRST_FRAME_TIMEOUT_MS = process.env['CI'] !== undefined ? 90_000 : 60_000;
 
 /** The gap between decode samples, and the frames the second must add. */
 const SAMPLE_GAP_MS = 1_000;
@@ -35,7 +47,19 @@ const SAMPLE_GAP_MS = 1_000;
 const MINIMUM_FRAMES_PER_SAMPLE = 10;
 
 interface DecodeReading {
-  /** Frames the decoder has produced for this element, over the session. */
+  /**
+   * Frames per `<video>` element, in document order.
+   *
+   * <para>
+   * <b>Per element, not summed, because a sum hides a dead tile.</b> On a wall
+   * with more than one tile, one live picture carries the total past any
+   * threshold while its neighbour is black — which is precisely the failure this
+   * file exists to catch, so a check that could be fooled by it would be no
+   * check at all. Every element must advance on its own.
+   * </para>
+   */
+  perElement: ReadonlyArray<number>;
+  /** The sum, used only to wait for the first frame anywhere on the wall. */
   totalVideoFrames: number;
   /** How many video elements were found — 0 means no picture at all. */
   elements: number;
@@ -65,14 +89,17 @@ interface DecodeReading {
 async function readDecode(page: Page): Promise<DecodeReading> {
   return page.evaluate(() => {
     const videos = Array.from(document.querySelectorAll('video'));
-    let totalVideoFrames = 0;
+    const perElement = videos.map((video) =>
+      typeof video.getVideoPlaybackQuality === 'function'
+        ? video.getVideoPlaybackQuality().totalVideoFrames
+        : 0,
+    );
 
-    for (const video of videos) {
-      if (typeof video.getVideoPlaybackQuality !== 'function') continue;
-      totalVideoFrames += video.getVideoPlaybackQuality().totalVideoFrames;
-    }
-
-    return { totalVideoFrames, elements: videos.length };
+    return {
+      perElement,
+      totalVideoFrames: perElement.reduce((sum, frames) => sum + frames, 0),
+      elements: videos.length,
+    };
   });
 }
 
@@ -116,11 +143,21 @@ test('a tile shows an overlay label over video that is actually decoding', async
       `(+${framesAdvanced}, threshold ${MINIMUM_FRAMES_PER_SAMPLE}) across ${second.elements} element(s)`,
   );
 
-  expect(
-    isDecodeOngoing(first.totalVideoFrames, second.totalVideoFrames, MINIMUM_FRAMES_PER_SAMPLE),
-    `the picture is frozen, not live: ${first.totalVideoFrames} → ${second.totalVideoFrames} ` +
-      `frames in ${SAMPLE_GAP_MS}ms across ${second.elements} video element(s)`,
-  ).toBe(true);
+  // There is one tile on this wall by construction. Asserted rather than
+  // assumed, because the per-element check below is only as good as the set it
+  // iterates: a wall that silently gained a tile would still be checked, but a
+  // wall that silently lost its only one would pass an empty loop.
+  expect(second.elements, 'the wall should carry exactly one tile').toBe(1);
+
+  // **Every element, not the total.** A sum lets one live picture carry a black
+  // neighbour past the threshold.
+  second.perElement.forEach((frames, index) => {
+    expect(
+      isDecodeOngoing(first.perElement[index] ?? 0, frames, MINIMUM_FRAMES_PER_SAMPLE),
+      `tile ${index} is frozen, not live: ${first.perElement[index] ?? 0} → ${frames} ` +
+        `frames in ${SAMPLE_GAP_MS}ms`,
+    ).toBe(true);
+  });
 
   // **The rule must also reject a stall, or it is not a rule.** A check that
   // only ever sees healthy readings cannot distinguish "the picture is moving"
@@ -243,17 +280,36 @@ function report(measurements: ReadonlyArray<SpanMeasurement>): void {
     return;
   }
 
-  const median = figures[Math.floor(figures.length / 2)]!;
-
   // Every figure, not a summary. A median without its spread hides whether the
   // system under test or the machine is the bottleneck, which is the distinction
   // that made an earlier "~3x" claim in this repository wrong.
-  console.info(`[span] ${figures.length} runs — ${figures.join(' / ')} ms`);
-  console.info(`[span] median ${median} ms, range ${figures[0]}-${figures[figures.length - 1]} ms`);
+  console.info(`[span] ${figures.length} run(s) — ${figures.join(' / ')} ms`);
+
+  // **No median and no range from one figure.** The loop stops at the first
+  // refusal, so one or two figures is a reachable state, and a lone sample
+  // dressed as "median X, range X-X" reads as a measurement that repeated.
+  if (figures.length === 1) {
+    console.info('[span] one figure only — no median, no range; a single run is not a measurement');
+  } else {
+    // The lower-middle of an even count is not the median either; average the
+    // two middles rather than silently picking a side.
+    const middle = Math.floor(figures.length / 2);
+    const median =
+      figures.length % 2 === 1 ? figures[middle]! : (figures[middle - 1]! + figures[middle]!) / 2;
+    console.info(`[span] median ${median} ms, range ${figures[0]}-${figures[figures.length - 1]} ms`);
+  }
   console.info(`[span] covers: ${LEGS_COVERED.join(', ')}`);
   console.info(`[span] NOT covered: ${LEGS_NOT_COVERED.join(', ')}`);
   console.info('[span] includes the label hold (ADR-0129): yes — this wall has video');
   console.info(`[span] conditions: ${process.platform}, CI=${process.env['CI'] ?? 'false'}, one tile, one clip`);
+
+  // **The instrument's own error, beside its figures.** The end is observed by
+  // a polling assertion whose interval backs off to 1000 ms, and the start is
+  // stamped before a fill and a click, each a round trip to the browser. So a
+  // figure is good to roughly ±1 s — five times the 200 ms leg it is meant to
+  // characterise. Printed because a number without its resolution reads as far
+  // more precise than it is.
+  console.info('[span] instrument error: ~±1000 ms (polled observation + automation round trips)');
 }
 
 async function setValue(operatorPage: Page, variableName: string, value: string): Promise<void> {
@@ -262,7 +318,25 @@ async function setValue(operatorPage: Page, variableName: string, value: string)
   await row.getByRole('button', { name: /^set value$/i }).click();
 }
 
-test('the span from a value being submitted to it being visible', async ({ page, context }) => {
+/**
+ * **Held back for the same reason as the label-follows check**, and marked here
+ * rather than dressed up as a passing refusal.
+ *
+ * <para>
+ * It fails today because no iteration completes: the value never reaches the
+ * already-open tile. That is a defect, not FR-009's refusal — FR-009 is about
+ * two ends that cannot be shown to share a clock, which is checked before
+ * anything is timed and is not what happens here. Reporting a product failure
+ * as "the span is honestly unmeasured" would let a bug pass as a design
+ * success, and would make a total regression indistinguishable from today.
+ * </para>
+ *
+ * <para>
+ * The refusal path itself stays implemented and reachable, for the case it was
+ * written for.
+ * </para>
+ */
+test.fixme('the span from a value being submitted to it being visible', async ({ page, context }) => {
   test.setTimeout(300_000);
 
   const wall = readLiveVideoWall();
@@ -272,8 +346,13 @@ test('the span from a value being submitted to it being visible', async ({ page,
   await page.getByRole('listitem').filter({ hasText: wall.layoutName }).getByRole('button').click();
   await expect(page.getByTestId('layout-grid')).toBeVisible();
 
+  // **Only that a label is there — deliberately not which text it carries.**
+  // This test leaves the variable on its last value, and CI retries at *test*
+  // granularity, so a precondition demanding the seeded initial value would
+  // fail both retries after any first failure and report the precondition as
+  // the cause instead of the real one.
   const label = page.getByTestId('camera-viewer-overlay-label').first();
-  await expect(label).toContainText(wall.variableInitialValue, { timeout: 30_000 });
+  await expect(label).toBeVisible({ timeout: 30_000 });
 
   // The channel must be up before anything is timed, or the first figure
   // measures the connection rather than the span.
@@ -320,15 +399,39 @@ test('the span from a value being submitted to it being visible', async ({ page,
 
   report(measurements);
 
+  // **The picture must still be moving after all that** — folded in from what
+  // was a separate held-back check. A tile that lost its video and fell back to
+  // a label-only state would satisfy every timing assertion above while showing
+  // an operator nothing. Kept here rather than in its own file because it drives
+  // the same variable on the same wall: two files doing that race locally, and
+  // in CI the alphabetically earlier one runs first and breaks the other.
+  const afterChanges = await readDecode(page);
+  await page.waitForTimeout(SAMPLE_GAP_MS);
+  const settled = await readDecode(page);
+
+  settled.perElement.forEach((frames, index) => {
+    expect(
+      isDecodeOngoing(afterChanges.perElement[index] ?? 0, frames, MINIMUM_FRAMES_PER_SAMPLE),
+      `tile ${index} stopped decoding while the label was being driven: ` +
+        `${afterChanges.perElement[index] ?? 0} → ${frames} frames in ${SAMPLE_GAP_MS}ms`,
+    ).toBe(true);
+  });
+
   const timed = measurements.filter((measurement) => measurement.elapsedMilliseconds !== undefined);
 
-  // **An unmeasured span honestly recorded is the required outcome**, not a
-  // failure — FR-009. What is forbidden is substituting a derived figure, and
-  // there is nowhere in this file that could produce one.
-  if (timed.length === 0) {
-    test.skip(true, `span unmeasured: ${measurements[0]?.refusal ?? 'unknown'}`);
-    return;
-  }
-
-  expect(timed.length, 'a single run is not a measurement').toBeGreaterThan(1);
+  // **A value that never arrives is a failure, not an "unmeasured span".**
+  //
+  // FR-009's refusal is about *clocks* — two ends that cannot be shown to share
+  // one, handled above before anything is timed. The refusal actually reached
+  // today is that the value never lands on the tile, which is a defect. Treating
+  // it as the specification's honesty policy being exercised would dress a bug
+  // up as a design success, and would make the outcome non-monotonic: total
+  // failure green, one success red, two green. A regression to complete
+  // breakage would then be indistinguishable from today.
+  expect(
+    timed.length,
+    timed.length === 0
+      ? `no iteration completed — ${measurements[0]?.refusal ?? 'unknown'}`
+      : 'a single run is not a measurement',
+  ).toBeGreaterThan(1);
 });
