@@ -1,7 +1,4 @@
-import {
-  useListAllCameraChoicesQuery,
-  type CameraSummary,
-} from '@smart-sentinel-eye/shared/api/cameras.api';
+import { useListAllCameraChoicesQuery, type CameraSummary } from '@smart-sentinel-eye/shared/api/cameras.api';
 import {
   useCreateLayoutDraftMutation,
   useEditDraftRevisionMutation,

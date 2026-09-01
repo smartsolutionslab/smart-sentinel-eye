@@ -60,7 +60,12 @@ vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => 
     useListAllCameraChoicesQuery: (arg: { name?: string } | void) => {
       const name = (arg ?? {}).name;
       const items = name === undefined ? ALL_ITEMS : name.toLowerCase().includes('inlet') ? INLET_ONLY : [];
-      return { data: { items, count: items.length, complete: true }, isLoading: false, isFetching: false, isError: false };
+      return {
+        data: { items, count: items.length, complete: true },
+        isLoading: false,
+        isFetching: false,
+        isError: false,
+      };
     },
   };
 });
@@ -183,9 +188,7 @@ describe('LayoutEditorDialog — the retained camera survives a close and reopen
 
     // The status paragraph specifically: the picker's placeholder now says
     // something similar, which is the point of the other fix.
-    await vi.waitFor(() =>
-      expect(screen.getByText(/no camera matches “nothingmatchesthis”/i)).toBeInTheDocument(),
-    );
+    await vi.waitFor(() => expect(screen.getByText(/no camera matches “nothingmatchesthis”/i)).toBeInTheDocument());
 
     expect(screen.getByRole('button', { name: /save/i })).toBeEnabled();
   });
