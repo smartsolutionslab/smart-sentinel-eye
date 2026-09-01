@@ -39,19 +39,37 @@ measures the logging as much as the pipeline, and the driver refuses it.
 
 ---
 
-## 3. Read the endpoints off the Aspire dashboard
-
-Take the **proxied** addresses the dashboard shows for `system-variables`,
-`keycloak` and the Postgres connection — **not** the ports `docker ps` reports.
-
-> **This is the trap.** A token minted against the container's mapped port is
-> rejected by every service, because the issuer in the token does not match the
-> one the services expect. Everything 401s and the cause is not visible in the
-> failure.
+## 3. Find the endpoints — and settle Keycloak by asking, not by rule
 
 Ports are assigned per boot: every service uses `.WithHttpEndpoint()` with no
-port, so these change each time. That is why the driver is told rather than
-guessing.
+port, so they change each time and the driver has to be told.
+
+**For `system-variables`**, take the **http** endpoint. The dashboard shows both;
+the driver accepts either, but https on a host without a trusted dev certificate
+fails inside the drive rather than at startup.
+
+**For Keycloak, do not follow a rule — ask the realm which address it issues
+tokens for:**
+
+```sh
+curl -sk https://<candidate>/realms/smart-sentinel-eye/.well-known/openid-configuration \
+  | grep -o '"issuer":"[^"]*"'
+```
+
+**Use whatever that prints.** A token minted against an address the realm does not
+claim as its issuer is rejected by every service, everything 401s, and nothing in
+the failure names the cause.
+
+> **Why this is a question rather than an instruction.** The standing advice in
+> this repository is to prefer Aspire's proxied endpoint over the container's
+> mapped port, and that advice is right when the two differ. On a stack whose
+> Keycloak is a *persistent* container with a fixed port, the issuer **is** the
+> container address — spec 054's own measurement used `https://localhost:10756`
+> for exactly that reason. Following the rule blindly there would produce the 401
+> the rule exists to prevent. The `issuer` field settles it in one command; a rule
+> cannot.
+
+**For the audit database**, any connection string reaching run mode's `audit-db`.
 
 ---
 

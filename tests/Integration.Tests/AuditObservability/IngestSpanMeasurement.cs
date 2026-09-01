@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -74,8 +75,8 @@ public static class IngestSpanMeasurement
         Ensure.That(variables).IsNotNull();
         Ensure.That(context).IsNotNull();
 
-        string warmName = await DefineAsync(variables);
-        await SetRepeatedlyAsync(variables, warmName, IngestRunShape.WarmupEvents, NoPacing);
+        string warmName = await DefineAsync(variables, cancellationToken);
+        await SetRepeatedlyAsync(variables, warmName, IngestRunShape.WarmupEvents, NoPacing, cancellationToken);
 
         // **Concurrent writers, because one is not a load.** A single sequential
         // caller is capped by its own round trip — measured at ~15 ev/s, far
@@ -85,7 +86,7 @@ public static class IngestSpanMeasurement
         string[] measureNames = new string[IngestRunShape.Writers];
         for (int writer = 0; writer < IngestRunShape.Writers; writer++)
         {
-            measureNames[writer] = await DefineAsync(variables);
+            measureNames[writer] = await DefineAsync(variables, cancellationToken);
         }
 
         // **Paced to the rate, not driven flat out.** Every writer draws its slot
@@ -108,10 +109,10 @@ public static class IngestSpanMeasurement
         DateTimeOffset started = DateTimeOffset.UtcNow;
         string[] measured = await Task.WhenAll(
             measureNames.Select(name =>
-                SetRepeatedlyAsync(variables, name, IngestRunShape.EventsPerWriter, PaceAsync)));
+                SetRepeatedlyAsync(variables, name, IngestRunShape.EventsPerWriter, PaceAsync, cancellationToken)));
         TimeSpan drove = DateTimeOffset.UtcNow - started;
 
-        int landed = await WaitForRowsAsync(context, measured);
+        int landed = await WaitForRowsAsync(context, measured, cancellationToken);
         double achieved = IngestRunShape.MeasuredEvents / drove.TotalSeconds;
 
         // **Both bands, because the requirement is a p99 and the median is not
@@ -119,8 +120,8 @@ public static class IngestSpanMeasurement
         // row's parts sum to its own total exactly, so the band's parts still
         // divide the band's span rather than being three unrelated percentiles
         // added together.
-        IngestAttribution typical = await AttributionAsync(context, measured, tailOnly: false);
-        IngestAttribution tail = await AttributionAsync(context, measured, tailOnly: true);
+        IngestAttribution typical = await AttributionAsync(context, measured, tailOnly: false, cancellationToken);
+        IngestAttribution tail = await AttributionAsync(context, measured, tailOnly: true, cancellationToken);
 
         ClockOffset offset = await ClockOffsetProbe.MeasureBestOfAsync(
             context.Database.GetConnectionString()!, readings: 20, cancellationToken);
@@ -146,7 +147,7 @@ public static class IngestSpanMeasurement
     /// reports the switch state it <b>ran under</b> rather than the one somebody
     /// meant to set (spec 053).
     /// </summary>
-    internal static async Task<int> StampedCountAsync(AuditObservabilityDbContext context, string[] identifiers)
+    internal static async Task<int> StampedCountAsync(AuditObservabilityDbContext context, string[] identifiers, CancellationToken cancellationToken)
     {
         List<long> counted = await context.Database
             .SqlQueryRaw<long>(
@@ -154,12 +155,12 @@ public static class IngestSpanMeasurement
                 + "WHERE event_kind = 'SystemVariableValueChangedV1' AND resource_identifier = ANY({0}) "
                 + "AND handler_entered_at IS NOT NULL",
                 (object)identifiers)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return (int)counted[0];
     }
 
-    internal static async Task<string> DefineAsync(HttpClient variables)
+    internal static async Task<string> DefineAsync(HttpClient variables, CancellationToken cancellationToken)
     {
         string name = $"nfr{Guid.NewGuid():N}"[..16];
 
@@ -175,7 +176,7 @@ public static class IngestSpanMeasurement
             type = "Number",
             truthyLabel = (string?)null,
             falsyLabel = (string?)null,
-        });
+        }, cancellationToken);
 
         defined.EnsureSuccessStatusCode();
         return name;
@@ -195,9 +196,9 @@ public static class IngestSpanMeasurement
     /// </para>
     /// </summary>
     internal static async Task<string> SetRepeatedlyAsync(
-        HttpClient variables, string name, int times, Func<Task> pace)
+        HttpClient variables, string name, int times, Func<Task> pace, CancellationToken cancellationToken)
     {
-        int first = await ReadVersionAsync(variables, name);
+        int first = await ReadVersionAsync(variables, name, cancellationToken);
 
         for (int version = first; version < first + times; version++)
         {
@@ -209,61 +210,76 @@ public static class IngestSpanMeasurement
             request.Headers.TryAddWithoutValidation("If-Match", $"\"{version}\"");
             request.Content = JsonContent.Create(new { value = (version + 1).ToString(CultureInfo.InvariantCulture) });
 
-            using HttpResponseMessage response = await variables.SendAsync(request);
+            using HttpResponseMessage response = await variables.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                string detail = await response.Content.ReadAsStringAsync();
-                int actual = await ReadVersionAsync(variables, name);
+                // **A 401 here is not an optimistic-concurrency failure**, and
+                // saying so matters: the token is minted once and held for the
+                // whole run, so a long drive can outlive it. Reporting version
+                // numbers for an expired token sends the reader after If-Match,
+                // which is the one thing that cannot be wrong here — the version
+                // is tracked locally and increments by one.
+                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    throw new InvalidOperationException(
+                        $"set #{version - first + 1} of {times} on '{name}' was refused with 401. "
+                        + "The access token is minted once at the start of the run and held "
+                        + "throughout; a drive longer than the token's lifetime outlives it. This is "
+                        + "not an If-Match problem.");
+                }
+
+                string detail = await response.Content.ReadAsStringAsync(cancellationToken);
+                int actual = await ReadVersionAsync(variables, name, cancellationToken);
                 throw new InvalidOperationException(
                     $"set #{version - first + 1} of {times} on '{name}' sent If-Match \"{version}\" "
                     + $"and got {(int)response.StatusCode}; the variable now reads version {actual}. {detail}");
             }
         }
 
-        return await ReadIdentifierAsync(variables, name);
+        return await ReadIdentifierAsync(variables, name, cancellationToken);
     }
 
-    internal static async Task<string> ReadIdentifierAsync(HttpClient variables, string name) =>
-        (await ReadAsync(variables, name)).GetProperty("variableIdentifier").GetString()!;
+    internal static async Task<string> ReadIdentifierAsync(HttpClient variables, string name, CancellationToken cancellationToken) =>
+        (await ReadAsync(variables, name, cancellationToken)).GetProperty("variableIdentifier").GetString()!;
 
-    internal static async Task<int> ReadVersionAsync(HttpClient variables, string name) =>
-        (await ReadAsync(variables, name)).GetProperty("version").GetInt32();
+    internal static async Task<int> ReadVersionAsync(HttpClient variables, string name, CancellationToken cancellationToken) =>
+        (await ReadAsync(variables, name, cancellationToken)).GetProperty("version").GetInt32();
 
-    internal static async Task<JsonElement> ReadAsync(HttpClient variables, string name)
+    internal static async Task<JsonElement> ReadAsync(HttpClient variables, string name, CancellationToken cancellationToken)
     {
-        using HttpResponseMessage read = await variables.GetAsync($"/system-variables/{name}?fabId=munich");
+        using HttpResponseMessage read = await variables.GetAsync($"/system-variables/{name}?fabId=munich", cancellationToken);
         read.EnsureSuccessStatusCode();
 
-        return await read.Content.ReadFromJsonAsync<JsonElement>();
+        return await read.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
     }
 
-    internal static async Task<int> WaitForRowsAsync(AuditObservabilityDbContext context, string[] identifiers)
+    internal static async Task<int> WaitForRowsAsync(AuditObservabilityDbContext context, string[] identifiers, CancellationToken cancellationToken)
     {
         DateTimeOffset deadline = DateTimeOffset.UtcNow + IngestDeadline;
         int landed = 0;
 
         while (DateTimeOffset.UtcNow < deadline)
         {
-            landed = await CountAsync(context, identifiers);
+            landed = await CountAsync(context, identifiers, cancellationToken);
             if (landed >= IngestRunShape.MeasuredEvents)
             {
                 return landed;
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(1));
+            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
         }
 
         return landed;
     }
 
-    internal static async Task<int> CountAsync(AuditObservabilityDbContext context, string[] identifiers)
+    internal static async Task<int> CountAsync(AuditObservabilityDbContext context, string[] identifiers, CancellationToken cancellationToken)
     {
         List<long> counted = await context.Database
             .SqlQueryRaw<long>(
                 "SELECT count(*) AS \"Value\" FROM audit_events "
                 + "WHERE event_kind = 'SystemVariableValueChangedV1' AND resource_identifier = ANY({0})",
                 (object)identifiers)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return (int)counted[0];
     }
@@ -285,7 +301,7 @@ public static class IngestSpanMeasurement
     /// </para>
     /// </summary>
     internal static async Task<IngestAttribution> AttributionAsync(
-        AuditObservabilityDbContext context, string[] identifiers, bool tailOnly)
+        AuditObservabilityDbContext context, string[] identifiers, bool tailOnly, CancellationToken cancellationToken)
     {
         // The tail band is "rows at or above the p99 of the total". Selecting rows
         // rather than taking the p99 of each part separately is the whole point:
@@ -335,7 +351,7 @@ public static class IngestSpanMeasurement
                 + "AS \"Value\" "
                 + "FROM samples, cut WHERE (NOT {1}) OR samples.total >= cut.threshold",
                 arguments)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return new IngestAttribution(
             TotalMs: parts[0],
@@ -349,7 +365,7 @@ public static class IngestSpanMeasurement
 
     internal static async Task<(double P50, double P99, double Max)> PercentilesAsync(
         AuditObservabilityDbContext context,
-        string[] identifiers)
+        string[] identifiers, CancellationToken cancellationToken)
     {
         List<double> percentiles = await context.Database
             .SqlQueryRaw<double>(
@@ -362,7 +378,7 @@ public static class IngestSpanMeasurement
                 + "WHERE event_kind = 'SystemVariableValueChangedV1' AND resource_identifier = ANY({0})"
                 + ") samples",
                 (object)identifiers)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return (percentiles[0], percentiles[1], percentiles[2]);
     }

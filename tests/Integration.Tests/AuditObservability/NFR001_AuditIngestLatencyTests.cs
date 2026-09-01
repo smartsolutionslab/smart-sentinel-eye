@@ -80,7 +80,6 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
         Environment.GetEnvironmentVariable("Logging__LogLevel__Default") ?? "Debug (from appsettings)";
 
     /// <summary>How long to wait for the last measured row to reach the store.</summary>
-    private static readonly TimeSpan IngestDeadline = TimeSpan.FromMinutes(3);
 
     /// <summary>
     /// <b>Excluded from CI</b> by <c>Category!=Measurement</c> in `ci.yml`, which
@@ -171,22 +170,22 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
         // same result set as the measured ones with no way to tell them apart
         // after the fact, and the percentile would include the cold path the
         // warm-up exists to exclude.
-        string warmName = await IngestSpanMeasurement.DefineAsync(variables);
-        string measureName = await IngestSpanMeasurement.DefineAsync(variables);
+        string warmName = await IngestSpanMeasurement.DefineAsync(variables, CancellationToken.None);
+        string measureName = await IngestSpanMeasurement.DefineAsync(variables, CancellationToken.None);
 
-        await IngestSpanMeasurement.SetRepeatedlyAsync(variables, warmName, IngestRunShape.WarmupEvents, IngestSpanMeasurement.NoPacing);
-        string measureIdentifier = await IngestSpanMeasurement.SetRepeatedlyAsync(variables, measureName, IngestRunShape.MeasuredEvents, IngestSpanMeasurement.NoPacing);
+        await IngestSpanMeasurement.SetRepeatedlyAsync(variables, warmName, IngestRunShape.WarmupEvents, IngestSpanMeasurement.NoPacing, CancellationToken.None);
+        string measureIdentifier = await IngestSpanMeasurement.SetRepeatedlyAsync(variables, measureName, IngestRunShape.MeasuredEvents, IngestSpanMeasurement.NoPacing, CancellationToken.None);
 
         await using AuditObservabilityDbContext context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        int landed = await IngestSpanMeasurement.WaitForRowsAsync(context, [measureIdentifier]);
+        int landed = await IngestSpanMeasurement.WaitForRowsAsync(context, [measureIdentifier], CancellationToken.None);
         landed.ShouldBe(
             IngestRunShape.MeasuredEvents,
             "every measured event must reach the audit store before its latency can be read; "
-            + $"{landed} of {IngestRunShape.MeasuredEvents} arrived within {IngestDeadline.TotalSeconds:F0}s");
+            + $"{landed} of {IngestRunShape.MeasuredEvents} arrived within {IngestSpanMeasurement.IngestDeadline.TotalSeconds:F0}s");
 
-        (double p50, double p99, double max) = await IngestSpanMeasurement.PercentilesAsync(context, [measureIdentifier]);
+        (double p50, double p99, double max) = await IngestSpanMeasurement.PercentilesAsync(context, [measureIdentifier], CancellationToken.None);
 
         output.WriteLine(
             $"audit ingest over {IngestRunShape.MeasuredEvents} events: "
@@ -199,7 +198,7 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
         // exported is exactly how a figure gets attributed to the wrong
         // configuration, so each run states the switch state it actually ran
         // under, read off the rows it produced rather than off an intention.
-        int stamped = await IngestSpanMeasurement.StampedCountAsync(context, [measureIdentifier]);
+        int stamped = await IngestSpanMeasurement.StampedCountAsync(context, [measureIdentifier], CancellationToken.None);
         output.WriteLine(
             $"measurement switch: {(stamped > 0 ? "ON" : "OFF")} "
             + $"({stamped} of {landed} rows carry the stamps)");
@@ -256,7 +255,7 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
         output.WriteLine("--- tail band (rows at or above the p99 of the total) ---");
         output.WriteLine(result.Tail.Describe());
         output.WriteLine($"this process vs the shared server: {result.Offset}");
-        output.WriteLine($"  write leg standing: {result.Verdict.Standing} — {result.Verdict.Reason}");
+        output.WriteLine($"  clock standing: {result.Verdict.Standing} — {result.Verdict.Reason}");
         output.WriteLine(
             "  the write leg crosses host and container clocks and is bounded by that offset; "
             + "'in handler' is stamped twice by one process and is exact whatever the clocks do");

@@ -46,6 +46,15 @@ public class RunModeIngestAttributionTests(ITestOutputHelper output)
 
         RunModeStackAddress address = configured.Value;
 
+        // **The endpoint before anything that can fail**, because the run that
+        // most needs this line is the one that throws inside the drive — a wrong
+        // address, an expired token — and printing it afterwards loses it exactly
+        // then. It is the only guard against attributing a figure to the wrong
+        // stack, and no automated check can replace it.
+        output.WriteLine($"environment                           : run mode (AppHost)");
+        output.WriteLine($"endpoint reached                      : {address.Describe()}");
+        output.WriteLine($"service log level                     : {ServiceLogLevel}");
+
         using HttpClient variables = await address.CreateAuthenticatedClientAsync(CancellationToken.None);
         await using AuditObservabilityDbContext context = address.CreateAuditContext();
 
@@ -57,22 +66,34 @@ public class RunModeIngestAttributionTests(ITestOutputHelper output)
             logLevel: ServiceLogLevel,
             CancellationToken.None);
 
-        // **The conditions first, before anything that can fail.** A refused run
-        // still has to say what it was refused for — and the endpoint line is the
-        // only guard against attributing this figure to the wrong stack, so it
-        // must survive a failure rather than being lost with it.
         output.WriteLine(result.Conditions.Describe());
+
+        // **Asserted before the breakdown is printed, not after.** A run where
+        // only nine hundred rows landed would otherwise emit a complete,
+        // well-formed division — the exact output shape a good run produces —
+        // and only then fail. A breakdown that looks like a result must not be
+        // printed for a run that is not one.
+        result.Conditions.RowsMeasured.ShouldBe(
+            IngestRunShape.MeasuredEvents,
+            $"only {result.Conditions.RowsMeasured} of {IngestRunShape.MeasuredEvents} events reached "
+            + "the audit store, so there is no population to divide");
+
         output.WriteLine("--- typical event (medians over every row) ---");
         output.WriteLine(result.Typical.Describe());
         output.WriteLine("--- tail band (rows at or above the p99 of the total) ---");
         output.WriteLine(result.Tail.Describe());
         output.WriteLine($"this process vs the run-mode server: {result.Offset}");
-        output.WriteLine($"  write leg standing: {result.Verdict.Standing} — {result.Verdict.Reason}");
-        output.WriteLine(
-            "  run mode has the same host-process and container split as the fixture, so the write "
-            + "leg is bounded by that offset and remains not established");
+        output.WriteLine($"  clock standing: {result.Verdict.Standing} — {result.Verdict.Reason}");
 
-        result.Conditions.RowsMeasured.ShouldBe(IngestRunShape.MeasuredEvents);
+        // **Two senses of "established", kept apart.** The verdict above is about
+        // the *clocks*, and here they agree closely. The write leg is still not
+        // established as a measurement, for a reason the clocks cannot fix: it
+        // ends at insert rather than commit, where NFR-001's words are "audit row
+        // committed". Close clocks make it readable; they do not make it the
+        // figure the requirement names.
+        output.WriteLine(
+            "  the write leg crosses host and container clocks — bounded by that offset — and ends "
+            + "at insert, not commit, so it under-reports the requirement's back end either way");
 
         result.Typical.EveryRowStamped.ShouldBeTrue(
             $"{result.Typical.RowsMissingStamps} rows arrived without the measurement stamps; set "

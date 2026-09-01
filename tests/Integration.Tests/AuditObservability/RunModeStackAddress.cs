@@ -48,12 +48,20 @@ public sealed record RunModeStackAddress(string SystemVariables, string Keycloak
     /// the worst outcome this feature can produce.
     /// </para>
     /// </summary>
-    public static Option<RunModeStackAddress> FromEnvironment()
-    {
-        string? systemVariables = Environment.GetEnvironmentVariable(SystemVariablesVariable);
-        string? keycloak = Environment.GetEnvironmentVariable(KeycloakVariable);
-        string? auditDb = Environment.GetEnvironmentVariable(AuditDbVariable);
+    public static Option<RunModeStackAddress> FromEnvironment() =>
+        From(
+            Environment.GetEnvironmentVariable(SystemVariablesVariable),
+            Environment.GetEnvironmentVariable(KeycloakVariable),
+            Environment.GetEnvironmentVariable(AuditDbVariable));
 
+    /// <summary>
+    /// The decision, separated from where the values came from — so it can be
+    /// tested without mutating process-wide state that a concurrently running
+    /// measurement reads.
+    /// </summary>
+    public static Option<RunModeStackAddress> From(
+        string? systemVariables, string? keycloak, string? auditDb)
+    {
         if (string.IsNullOrWhiteSpace(systemVariables)
             || string.IsNullOrWhiteSpace(keycloak)
             || string.IsNullOrWhiteSpace(auditDb))
@@ -68,8 +76,9 @@ public sealed record RunModeStackAddress(string SystemVariables, string Keycloak
     public static string Missing =>
         "No run-mode stack configured. This run targets a stack it did not start and will not "
         + $"start one. Set {SystemVariablesVariable}, {KeycloakVariable} and {AuditDbVariable} to the "
-        + "addresses the Aspire dashboard shows — the proxied ones, not the ports `docker ps` "
-        + "reports. See specs/054-divide-the-recorded-85ms/quickstart.md.";
+        + "addresses of a running run-mode stack. For Keycloak, use whatever the realm names as "
+        + "its `issuer` — ask its .well-known/openid-configuration rather than assuming the "
+        + "proxied or the mapped port. See specs/054-divide-the-recorded-85ms/quickstart.md.";
 
     /// <summary>
     /// Mints an admin token against the <b>proxied</b> Keycloak address and
@@ -118,7 +127,21 @@ public sealed record RunModeStackAddress(string SystemVariables, string Keycloak
         JsonElement json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
         string token = json.GetProperty("access_token").GetString()!;
 
-        HttpClient client = new() { BaseAddress = new Uri(SystemVariables) };
+        // The same certificate handling as the Keycloak call above. The dashboard
+        // shows both an http and an https endpoint for the service, and an
+        // operator who copies the https one on a host where the dev certificate
+        // is untrusted would otherwise get an opaque HttpRequestException from
+        // inside the drive rather than a measurement.
+        HttpClientHandler serviceHandler = new()
+        {
+            ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+        };
+
+        HttpClient client = new(serviceHandler, disposeHandler: true)
+        {
+            BaseAddress = new Uri(SystemVariables),
+        };
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         return client;
