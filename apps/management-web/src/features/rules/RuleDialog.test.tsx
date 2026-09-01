@@ -24,6 +24,27 @@ vi.mock('@smart-sentinel-eye/shared/api/rules.api', async (importOriginal) => {
 
 const { RuleDialog } = await import('./RuleDialog.js');
 
+/**
+ * Fills a field in one event rather than one per character.
+ *
+ * `user.type` sends a keystroke at a time, and each one costs a React render
+ * plus a react-hook-form validation pass. Across the five fields these tests
+ * fill that is fifty-six keystrokes, and it put every typing test at 1.2-1.4 s
+ * on an idle machine -- close enough to the 5 s default that a loaded one
+ * tipped 'Submits a SetVariableValue rule' over, intermittently, in CI.
+ *
+ * Nothing here tests per-character behaviour: every assertion is made after
+ * submit. So the typing was work the tests never asked for.
+ */
+async function fill(
+  user: ReturnType<typeof userEvent.setup>,
+  field: ReturnType<typeof screen.getByLabelText>,
+  text: string,
+) {
+  await user.click(field);
+  await user.paste(text);
+}
+
 function renderDialog() {
   return render(
     <Provider store={store}>
@@ -65,11 +86,11 @@ describe('RuleDialog', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    await user.type(screen.getByLabelText(/^name$/i), 'high-oee');
-    await user.type(screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
-    await user.type(screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
-    await user.type(screen.getByLabelText(/variable name/i), 'oeeLine1');
-    await user.type(screen.getByLabelText(/value expression/i), '42');
+    await fill(user, screen.getByLabelText(/^name$/i), 'high-oee');
+    await fill(user, screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
+    await fill(user, screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
+    await fill(user, screen.getByLabelText(/variable name/i), 'oeeLine1');
+    await fill(user, screen.getByLabelText(/value expression/i), '42');
     await user.click(screen.getByRole('button', { name: /create draft/i }));
 
     expect(createMock).toHaveBeenCalledTimes(1);
@@ -87,11 +108,11 @@ describe('RuleDialog', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    await user.type(screen.getByLabelText(/^name$/i), 'High OEE');
-    await user.type(screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
-    await user.type(screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
-    await user.type(screen.getByLabelText(/variable name/i), 'oeeLine1');
-    await user.type(screen.getByLabelText(/value expression/i), '42');
+    await fill(user, screen.getByLabelText(/^name$/i), 'High OEE');
+    await fill(user, screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
+    await fill(user, screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
+    await fill(user, screen.getByLabelText(/variable name/i), 'oeeLine1');
+    await fill(user, screen.getByLabelText(/value expression/i), '42');
     await user.click(screen.getByRole('button', { name: /create draft/i }));
 
     expect(await screen.findByText(/lowercase kebab-case/i)).toBeInTheDocument();
@@ -102,9 +123,9 @@ describe('RuleDialog', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    await user.type(screen.getByLabelText(/^name$/i), 'high-oee');
-    await user.type(screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
-    await user.type(screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
+    await fill(user, screen.getByLabelText(/^name$/i), 'high-oee');
+    await fill(user, screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
+    await fill(user, screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
     await user.click(screen.getByRole('button', { name: /create draft/i }));
 
     expect(await screen.findByText(/variable name is required/i)).toBeInTheDocument();
@@ -175,9 +196,9 @@ describe('RuleDialog', () => {
 });
 
 async function fillValidRule(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText(/^name$/i), 'high-oee');
-  await user.type(screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
-  await user.type(screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
-  await user.type(screen.getByLabelText(/variable name/i), 'oeeLine1');
-  await user.type(screen.getByLabelText(/value expression/i), '42');
+  await fill(user, screen.getByLabelText(/^name$/i), 'high-oee');
+  await fill(user, screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
+  await fill(user, screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
+  await fill(user, screen.getByLabelText(/variable name/i), 'oeeLine1');
+  await fill(user, screen.getByLabelText(/value expression/i), '42');
 }
