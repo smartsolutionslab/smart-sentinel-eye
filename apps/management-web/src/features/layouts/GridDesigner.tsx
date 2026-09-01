@@ -262,7 +262,9 @@ export function GridDesigner({
                   {...register(`cells.${index}.cameraIdentifier`)}
                   value={selectedCameraOf(index)}
                 >
-                  <option value="">{emptyCameraLabel(camerasLoading, camerasFailed, cameras.length === 0, cameraFilterActive)}</option>
+                  <option value="">
+                    {emptyCameraLabel(camerasLoading, camerasFailed, cameras.length === 0, cameraFilterActive)}
+                  </option>
                   {optionsFor(selectedCameraOf(index)).map((camera) => (
                     <option key={camera.cameraIdentifier} value={camera.cameraIdentifier}>
                       {cameraLabel(camera, ambiguousCameraNames)}

@@ -82,9 +82,7 @@ describe('CamerasPage — finding a camera by name', () => {
     await user.click(field);
     await user.paste('furn');
 
-    await vi.waitFor(() =>
-      expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'furn' })),
-    );
+    await vi.waitFor(() => expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'furn' })));
   });
 
   it('Sends no fragment at all when the box is cleared', async () => {

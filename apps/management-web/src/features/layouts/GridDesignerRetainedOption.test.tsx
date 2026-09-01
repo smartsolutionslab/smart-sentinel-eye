@@ -32,9 +32,15 @@ function camera(identifier: string, name: string, fab = 'munich'): CameraSummary
  * </para>
  *
  * <para>
- * It is tested at <c>GridDesigner</c> rather than through the dialog because
- * that is where the option list is built, and because the dialog would need a
- * mocked query mid-filter to reach the same state.
+ * Tested at <c>GridDesigner</c> because that is where the option list is built,
+ * with the retained map supplied directly.
+ * </para>
+ *
+ * <para>
+ * <b>That is only half of it, and the half that worked.</b> Handing the map in
+ * proves the designer consults one and says nothing about the dialog filling it
+ * — which is exactly where the shipped defect was.
+ * <c>LayoutEditorDialogRetention.test.tsx</c> drives the dialog for that reason.
  * </para>
  */
 describe('GridDesigner — a filtered-out camera stays on its own tile', () => {
@@ -76,13 +82,7 @@ describe('GridDesigner — a filtered-out camera stays on its own tile', () => {
     const assigned = camera(CAMERA_A, 'Line 2 Furnace');
     const matched = camera(CAMERA_B, 'Bay 4 Inlet');
 
-    render(
-      <Harness
-        cameras={[matched]}
-        knownCameras={new Map([[CAMERA_A, assigned]])}
-        selected={CAMERA_A}
-      />,
-    );
+    render(<Harness cameras={[matched]} knownCameras={new Map([[CAMERA_A, assigned]])} selected={CAMERA_A} />);
 
     const select = screen.getByLabelText(/^Camera$/i);
 
@@ -116,13 +116,7 @@ describe('GridDesigner — a filtered-out camera stays on its own tile', () => {
    * a test that passes with and without the mechanism proves nothing.
    */
   it('Goes blank without the retained camera, which is what the retention prevents', () => {
-    render(
-      <Harness
-        cameras={[camera(CAMERA_B, 'Bay 4 Inlet')]}
-        knownCameras={new Map()}
-        selected={CAMERA_A}
-      />,
-    );
+    render(<Harness cameras={[camera(CAMERA_B, 'Bay 4 Inlet')]} knownCameras={new Map()} selected={CAMERA_A} />);
 
     const select = screen.getByLabelText(/^Camera$/i);
 
@@ -198,14 +192,7 @@ describe('GridDesigner — a filtered-out camera stays on its own tile', () => {
     const munich = camera(CAMERA_A, 'Line-1-Entrance', 'munich');
     const berlin = camera(CAMERA_B, 'Line-1-Entrance', 'berlin');
 
-    render(
-      <Harness
-        cameras={[munich]}
-        knownCameras={new Map([[CAMERA_B, berlin]])}
-        selected={CAMERA_A}
-        filtering
-      />,
-    );
+    render(<Harness cameras={[munich]} knownCameras={new Map([[CAMERA_B, berlin]])} selected={CAMERA_A} filtering />);
 
     const select = screen.getByLabelText(/^Camera$/i);
 
