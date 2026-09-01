@@ -39,9 +39,9 @@ a browser**, once, by hand if necessary.
 Stopping at "the container is up" would be this spec's own defect — a check
 that passes on half a system — committed inside the fix.
 
-- [ ] T001 Add an end-to-end-gated video-source container in `src/AppHost/AppHost.cs`, from `bluenviron/mediamtx:latest-ffmpeg`, bind-mounting `Resources/clips`, and a `src/AppHost/Resources/e2e-video-source.yml` holding one static path that loops one clip over RTSP
-- [ ] T002 Publish the source's RTSP address to the end-to-end run as configuration in `src/AppHost/AppHost.cs`, so no spec file composes a host and port
-- [ ] T003 **GATE — observe a decoded frame.** Bring the stack up, register a camera at the source, open the wall in a browser, and confirm `framesDecoded` **increases between two readings**. Record the two numbers in the verification note. Do not proceed on a resolving path or a completed negotiation.
+- [x] T001 Add an end-to-end-gated video-source container in `src/AppHost/AppHost.cs`, from `bluenviron/mediamtx:latest-ffmpeg`, bind-mounting `Resources/clips`, and a `src/AppHost/Resources/fixture-video.yml` holding one static path that loops one clip over RTSP
+- [x] T002 Publish the source's RTSP address to the end-to-end run as configuration in `src/AppHost/AppHost.cs`, so no spec file composes a host and port
+- [x] T003 **GATE — observe a decoded frame.** Bring the stack up, register a camera at the source, open the wall in a browser, and confirm `framesDecoded` **increases between two readings**. Record the two numbers in the verification note. Do not proceed on a resolving path or a completed negotiation.
 
 ---
 
@@ -52,36 +52,45 @@ that passes on half a system — committed inside the fix.
 **Independently testable**: remove the video → it fails; remove the label → it
 fails; and both failures are *observed*, not argued.
 
-- [ ] T004 [US1] Add `e2e/support/live-video-wall.ts` owning every name the fixture creates, each carrying the end-to-end prefix the teardown matches on
-- [ ] T005 [US1] Add `e2e/support/seed-live-video-wall.setup.ts` creating the camera (at the configured source address), variable, bound overlay and published one-tile wall
-- [ ] T006 [P] [US1] Extend the teardown in `e2e/support/` to remove this fixture's rows, matching on the prefix
-- [ ] T007 [US1] Add `e2e/wall-shows-a-label-over-video.spec.ts` asserting **both halves on the same tile**: ongoing decode (two samples 1000 ms apart, delta ≥ 10 frames, via `decodeSampleFrom`/`decodeElapsedBetween`) **and** the overlay's resolved text — each assertion naming which half it inspected and what it saw instead
-- [ ] T008 [US1] Add `e2e/wall-label-follows-its-variable.spec.ts` changing the variable and asserting the label follows **while video keeps decoding**, so a label correct by coincidence cannot pass
-- [ ] T009 [US1] **Demonstrate both refusals by running them** (contract C3): point the camera at an address nothing serves and observe the failure; unbind the label and observe the failure. Record both messages. "It would fail" is not evidence — a prior spec's guard passed with its mechanism entirely unwired
-- [ ] T010 [US1] Assert the decode threshold **rejects a stalled stream**, not merely that it accepts a healthy one
+- [x] T004 [US1] Add `e2e/support/live-video-wall.ts` owning every name the fixture creates, each carrying the end-to-end prefix the teardown matches on
+- [x] T005 [US1] Add `e2e/support/seed-live-video-wall.setup.ts` creating the camera (at the configured source address), variable, bound overlay and published one-tile wall
+- [x] T006 [P] [US1] Extend the teardown in `e2e/support/` to remove this fixture's rows, matching on the prefix
+- [x] T007 [US1] Add `e2e/kiosk-shows-a-label-over-video.spec.ts` asserting **both halves on the same tile**: ongoing decode (two samples 1000 ms apart, delta ≥ 10 frames, via `decodeSampleFrom`/`decodeElapsedBetween`) **and** the overlay's resolved text — each assertion naming which half it inspected and what it saw instead
+- [~] T008 [US1] Add `e2e/kiosk-label-follows-its-variable.spec.ts` changing the variable and asserting the label follows **while video keeps decoding**, so a label correct by coincidence cannot pass
+- [x] T009 [US1] **Demonstrate both refusals by running them** (contract C3): point the camera at an address nothing serves and observe the failure; unbind the label and observe the failure. Record both messages. "It would fail" is not evidence — a prior spec's guard passed with its mechanism entirely unwired
+- [x] T010 [US1] Assert the decode threshold **rejects a stalled stream**, not merely that it accepts a healthy one
 
 ---
 
 ## Phase 3 — US2: the span, timed or refused *(P1)*
 
-- [ ] T011 [US2] Add `e2e/wall-label-span.spec.ts` measuring submission → label-visible as **one subtraction on one clock**, both stamps taken by the test process; five iterations
-- [ ] T012 [US2] Report **every** figure plus median and range, with `legsCovered`, `legsNotCovered` and the conditions — structured so a figure **cannot** be printed without its scope
-- [ ] T013 [US2] **Exercise the refusal path**: a run that cannot establish one clock reports what it could not establish and **no figure**. An untested refusal is the branch that will be wrong when it matters
-- [ ] T014 [US2] Confirm **by search** that no field and no code path sums per-leg figures into an end-to-end number
+- [x] T011 [US2] Add `e2e/kiosk-shows-a-label-over-video.spec.ts (merged)` measuring submission → label-visible as **one subtraction on one clock**, both stamps taken by the test process; five iterations
+- [x] T012 [US2] Report **every** figure plus median and range, with `legsCovered`, `legsNotCovered` and the conditions — structured so a figure **cannot** be printed without its scope
+- [x] T013 [US2] **Exercise the refusal path**: a run that cannot establish one clock reports what it could not establish and **no figure**. An untested refusal is the branch that will be wrong when it matters
+- [x] T014 [US2] Confirm **by search** that no field and no code path sums per-leg figures into an end-to-end number
 
 ---
 
 ## Phase 4 — US3: the record *(P2)*
 
-- [ ] T015 [US3] Write `docs/adr/0138-<slug>.md` (what was seen, what was timed, which legs the span covers, that the hold is inside it); update **§IV's leg table** in `.specify/memory/constitution.md` for the **two** legs whose state changes; measure and report the added CI time against the **3-minute ceiling** and the **10m35s** baseline; run the mutation table; write `specs/056-label-over-live-video/verification.md`
+- [x] T015 [US3] Write `docs/adr/0138-<slug>.md` (what was seen, what was timed, which legs the span covers, that the hold is inside it); update **§IV's leg table** in `.specify/memory/constitution.md` for the **two** legs whose state changes; measure and report the added CI time against the **3-minute ceiling** and the **10m35s** baseline; run the mutation table; write `specs/056-label-over-live-video/verification.md`
 
-**Which two legs, and only those.** *SFU → kiosk decode* moves from **in
-part** — because decode is now observed end to end in a browser rather than
-inferred — and *event → overlay state* gains a measured figure it did not
-have. **Camera → SFU, the presentation buffer and composite+render do not
-change**: this run does not measure them. The table recorded three legs as
-unbuilt for months after they were built; claiming more than the run
-established is the same defect pointed the other way.
+**This predicted two legs would change state. Neither did, and the table
+records what happened rather than what was expected.**
+
+The prediction was: *SFU → kiosk decode* moves from **in part**, and *event →
+overlay state* gains a figure. What the run established:
+
+- Decode is now **observed** — frames advancing in a browser — but observation
+  is not a latency figure, and the Measured column is about figures.
+- Event → overlay state gained **no** figure: the span was **refused**, because
+  the value never reached the already-open tile.
+
+So §IV changed **no cell**, and says so explicitly. Leaving the prediction here
+uncorrected would be the defect this feature exists to close, in the document
+that ordered the work: the table once recorded three legs as unbuilt for months
+after they were built, and a cell that gains a *measured* because a task list
+expected one is the same error arriving by a tidier route.
 
 ---
 
