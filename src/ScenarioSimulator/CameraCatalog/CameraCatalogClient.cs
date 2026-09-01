@@ -61,6 +61,9 @@ public sealed class CameraCatalogClient(
         return camera;
     }
 
+    /// <summary>The largest page the catalog serves; it refuses more rather than clamping.</summary>
+    private const int PageSize = 200;
+
     /// <summary>
     /// Best-effort read-back. A failure here must not take the worker down:
     /// the read needs <c>sse.cameras.read</c>, and a grant still missing that
@@ -72,21 +75,55 @@ public sealed class CameraCatalogClient(
     {
         try
         {
-            using HttpRequestMessage list = new(HttpMethod.Get, "/cameras?limit=200");
-            list.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            using HttpResponseMessage response = await http.SendAsync(list, cancellationToken);
-            response.EnsureSuccessStatusCode();
+            // **Every page, not the first.** This asked for one page of 200 —
+            // the largest the endpoint serves — and searched it by name. Past
+            // 200 cameras a camera that exists was reported "not present in the
+            // catalog listing": not silence but a false statement about the
+            // catalogue, and the correlation to a wall tile lost with it. The
+            // constitution targets 250 per fab, so the target itself reaches it.
+            //
+            // Raising the number would not work: the endpoint refuses anything
+            // above 200 rather than clamping, so the page size is a ceiling and
+            // the offset is the only way through.
+            int offset = 0;
+            int reported = 0;
 
-            CameraPage payload = await response.Content.ReadFromJsonAsync<CameraPage>(cancellationToken);
-            CameraSummary match = payload?.Items?
-                .FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
-
-            if (match is null)
+            do
             {
-                logger.CameraReadBackFailed(name, "not present in the catalog listing");
-            }
+                using HttpRequestMessage list = new(
+                    HttpMethod.Get, $"/cameras?limit={PageSize}&offset={offset}");
+                list.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                using HttpResponseMessage response = await http.SendAsync(list, cancellationToken);
+                response.EnsureSuccessStatusCode();
 
-            return match?.CameraIdentifier;
+                CameraPage payload = await response.Content.ReadFromJsonAsync<CameraPage>(cancellationToken);
+                IReadOnlyList<CameraSummary> items = payload?.Items ?? [];
+
+                CameraSummary match = items
+                    .FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
+
+                if (match is not null)
+                {
+                    return match.CameraIdentifier;
+                }
+
+                // An empty page ends the walk whatever the count says. Without
+                // it a count that outruns the rows — a camera retired between
+                // two requests — spins here forever.
+                if (items.Count == 0)
+                {
+                    break;
+                }
+
+                reported = payload?.Count ?? 0;
+                offset += items.Count;
+            }
+            while (offset < reported);
+
+            logger.CameraReadBackFailed(
+                name, $"not present in any of the {reported} cameras the catalog listed");
+
+            return null;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -101,7 +138,13 @@ public sealed class CameraCatalogClient(
     // Just the fields the seeder correlates on — deliberately not the full
     // CameraSummaryDto, so the simulator gains no compile-time dependency on
     // CameraCatalog's read model.
-    private sealed record CameraPage(IReadOnlyList<CameraSummary> Items);
+    //
+    // **`Count` is one of those fields, and it was the omission.** Leaving it
+    // out did not merely let the "there is more" signal be ignored — it made the
+    // signal inexpressible, so nothing could have caught the truncation by
+    // reading this code. A hand-rolled projection is where such a field goes
+    // missing before anybody gets the chance to ignore it.
+    private sealed record CameraPage(IReadOnlyList<CameraSummary> Items, int Count);
 
     private sealed record CameraSummary(Guid CameraIdentifier, string Name);
 }
