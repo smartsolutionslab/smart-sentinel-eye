@@ -337,7 +337,11 @@ public static class CameraEndpoints
         [FromQuery] string? order = null,
         [FromQuery] int? offset = null,
         [FromQuery] int? limit = null,
-        [FromQuery] bool includeRetired = false)
+        [FromQuery] bool includeRetired = false,
+        // Spec 055. Optional, and a fragment matching nothing is an empty page
+        // rather than a failure: "no camera is called that" is an answer, not an
+        // error, and an operator needs to tell it from a request they got wrong.
+        [FromQuery] string? name = null)
     {
         (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
@@ -352,7 +356,8 @@ public static class CameraEndpoints
             Order: order ?? ListCamerasDefaults.DefaultOrder,
             Offset: offset ?? ListCamerasDefaults.DefaultOffset,
             Limit: limit ?? ListCamerasDefaults.DefaultLimit,
-            IncludeRetired: includeRetired);
+            IncludeRetired: includeRetired,
+            NameFragment: name);
 
         Result<CameraListPageDto, ListCamerasError> result =
             await handler.HandleAsync(query, cancellationToken);

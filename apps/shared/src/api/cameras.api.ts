@@ -14,6 +14,14 @@ export interface ListCamerasParams {
   order?: CameraSortOrder;
   offset?: number;
   limit?: number;
+  /**
+   * A fragment of a camera's name, matched anywhere in it (spec 055).
+   *
+   * Omit to list everything. An empty or whitespace-only value is the same as
+   * omitting it -- a cleared search box returns the catalogue rather than
+   * emptying it.
+   */
+  name?: string;
 }
 
 export interface CameraSummary {
@@ -284,9 +292,16 @@ export const camerasApi = createApi({
      * that lets search be a later story.
      * </p>
      */
-    listAllCameraChoices: build.query<CameraChoices, { fabId?: string } | void>({
+    listAllCameraChoices: build.query<CameraChoices, { fabId?: string; name?: string } | void>({
       queryFn: async (arg, _api, _extraOptions, baseQuery) => {
         const fabId = arg?.fabId;
+        // Spec 055: the fragment narrows on the server, so the pages walked here
+        // are pages of the matches and the reported count is their number.
+        // Filtering the gathered array instead would leave "complete"
+        // describing a population the operator is not looking at — and would be
+        // a second implementation of "matches", in a second language, that an
+        // operator could not tell apart from the first.
+        const name = arg?.name?.trim();
         const gathered: CameraSummary[] = [];
         // Keyed by identifier because offset paging over a list someone else is
         // editing can deliver a camera at a page boundary twice: a registration
@@ -305,6 +320,7 @@ export const camerasApi = createApi({
               offset: page * MAXIMUM_PAGE_SIZE,
               limit: MAXIMUM_PAGE_SIZE,
               ...(fabId !== undefined && fabId !== '' ? { fabId } : {}),
+              ...(name !== undefined && name !== '' ? { name } : {}),
             },
           });
 

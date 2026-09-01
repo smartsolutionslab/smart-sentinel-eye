@@ -44,9 +44,9 @@ all.
 
 ## Phase 2 — The contract
 
-- [ ] T007 Accept `?name=` on the list endpoint in `src/CameraCatalog/Api/CameraEndpoints.cs`, optional, passed through unchanged. No new failure code — a fragment matching nothing is an empty page, not an error.
-- [ ] T008 Thread the fragment through the shared client in `apps/shared/src/api/cameras.api.ts`, leaving every existing caller's behaviour identical when it is absent.
-- [ ] T009 [P] **Test the endpoint end to end** in `tests/Integration.Tests/`: a fragment returns matching cameras with a total counting them, through the real HTTP contract rather than the handler alone.
+- [x] T007 Accept `?name=` on the list endpoint in `src/CameraCatalog/Api/CameraEndpoints.cs`, optional, passed through unchanged. No new failure code — a fragment matching nothing is an empty page, not an error.
+- [x] T008 Thread the fragment through the shared client in `apps/shared/src/api/cameras.api.ts`, leaving every existing caller's behaviour identical when it is absent.
+- [x] T009 [P] **Test the endpoint end to end** in `tests/Integration.Tests/`: a fragment returns matching cameras with a total counting them, through the real HTTP contract rather than the handler alone.
 
 ---
 
@@ -74,7 +74,7 @@ all.
 | 3 | Stop trimming the fragment | T005, T006 | **killed** — 3 failures |
 | 4 | Match on prefix instead of substring | T006 | |
 | 5 | Drop the case folding | T006 | **killed** — 9 failures |
-| 6 | Interpolate the fragment, so `%` matches everything | T006 | |
+| 6 | Interpolate the fragment, so `%` matches everything | **T009** | **killed** — 2 failures, and no handler test noticed |
 | 7 | Fold accents | T006 | |
 | 8 | Render a miss as an empty list with no message | T012 | |
 
@@ -89,6 +89,11 @@ both are the same lesson:
   the filter. **It survived, and it should have** — sorting does not change the
   row set, so the two counts are equal. A mutation that is not the mutation you
   named proves nothing, and this one would have been recorded as "killed".
+- **Mutation 6 was attributed to the wrong test.** The table said T006, a handler
+  test; the mutation survives every handler test, because whether the fragment
+  reaches the database as text or as a pattern is decided below the in-memory
+  fake. Only T009, against real Postgres, catches it. That is also the answer to
+  "why an integration test when the handler is already covered".
 - Mutation 3 was originally written as *"treat an empty fragment as match
   nothing"*. **That is not expressible against this implementation**: a blank
   fragment trims to the empty string, and `Contains("")` is true of every name, so
