@@ -17,7 +17,7 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
         CancellationToken cancellationToken)
     {
         Ensure.That(query).IsNotNull();
-        (IReadOnlyList<FabIdentifier>? fabs, string? sort, string? order, int offset, int limit, bool includeRetired) = query;
+        (IReadOnlyList<FabIdentifier>? fabs, string? sort, string? order, int offset, int limit, bool includeRetired, _) = query;
 
         if (!AllowedSortFields.Contains(sort, StringComparer.Ordinal))
         {
@@ -55,6 +55,33 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
         if (!includeRetired)
         {
             visible = visible.Where(camera => camera.Status != CameraStatus.Decommissioned);
+        }
+
+        // Spec 055, and **it belongs here for the same reason as the two above**:
+        // the count is taken from this query, so filtering before it is what
+        // makes the reported total describe the matches rather than the fab. At
+        // the endpoint, or after Skip/Take, or in the browser, the total would
+        // describe a different population than the rows beside it — a filtered
+        // list that reads as authoritative and says there are 250 when eleven
+        // matched.
+        //
+        // **Matched against the name as the uniqueness constraint normalises
+        // it**, so "matches" and "is the same name" agree by construction. A
+        // search folding what uniqueness keeps would show two distinct cameras
+        // as one match; folding nothing it keeps would hide one an operator
+        // knows exists. Case-insensitivity falls out of that, and so does
+        // accents *not* folding — `upper` maps `ü` to `Ü`, not to `U`.
+        //
+        // `ToUpperInvariant` rather than `ToUpper`, and it matters: the culture
+        // forms disagree on the Turkish dotless i, which would make a match
+        // depend on the server's locale.
+        //
+        // The predicate comes from the seam because EF and the in-memory fake
+        // reach the normalised name differently — see ICameraQuerySource.
+        string? fragment = query.TrimmedFragment;
+        if (fragment is not null)
+        {
+            visible = visible.Where(cameras.NameContains(fragment.ToUpperInvariant()));
         }
 
         IQueryable<Camera> source = SortBy(visible, sort, descending);
