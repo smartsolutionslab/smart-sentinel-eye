@@ -65,6 +65,48 @@ public class ListCamerasByNameIntegrationTests(AspireFixture aspire) : IAsyncLif
     }
 
     /// <summary>
+    /// **Two normalisers, and this is the only thing that checks they agree.**
+    ///
+    /// <para>
+    /// The fragment is upper-cased in the handler by .NET
+    /// (<c>ToUpperInvariant</c>); the column it is compared against is
+    /// upper-cased by Postgres (<c>upper(name)</c>, a stored generated column).
+    /// Every handler test runs against the in-memory fake, so all of them
+    /// exercise the .NET side twice and none of them exercise Postgres at all —
+    /// including the one asserting that accents do not fold.
+    /// </para>
+    ///
+    /// <para>
+    /// They do agree, and ADR-0137 records the behaviour they agree on. But
+    /// they agree <i>because this database is</i> <c>en_US.utf8</c>: under a
+    /// <c>C</c> ctype Postgres leaves <c>ü</c> alone while .NET does not, and an
+    /// accented camera becomes unfindable by the very fragment that names it.
+    /// That is a property of how the database was created rather than of this
+    /// code, which is why it is asserted rather than assumed.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task An_accented_name_normalises_the_same_way_on_both_sides()
+    {
+        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
+
+        await RegisterAsync(client, "Fürnace", "rtsp://10.0.5.1/h264");
+        await RegisterAsync(client, "Fuernace", "rtsp://10.0.5.2/h264");
+
+        JsonElement accented = await ListAsync(client, "?name=f%C3%BCr");
+        JsonElement plain = await ListAsync(client, "?name=fur");
+
+        // The accented fragment finds the accented name: the two upper-casings
+        // agree, case-insensitively, on a character outside ASCII.
+        accented.GetProperty("count").GetInt32().ShouldBe(1);
+        accented.GetProperty("items")[0].GetProperty("name").GetString().ShouldBe("Fürnace");
+
+        // And the unaccented fragment does not — accents are not folded, which
+        // is the half of the rule an operator has to be told.
+        plain.GetProperty("count").GetInt32().ShouldBe(0);
+    }
+
+    /// <summary>
     /// **The one the fake cannot answer.** Whether the fragment is text or a
     /// pattern is decided by how the query reaches the database, so a per-cent
     /// sign matching everything would pass every handler test and fail here.

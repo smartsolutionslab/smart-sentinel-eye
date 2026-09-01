@@ -13,6 +13,7 @@ import {
   type DataTableSort,
 } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
 import { useMemo, useState } from 'react';
+import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
 import { Link } from 'react-router-dom';
 import { RegisterCameraDialog } from './RegisterCameraDialog.js';
 import { StreamHealthBadge } from './StreamHealthBadge.js';
@@ -28,7 +29,11 @@ export function CamerasPage() {
   });
   const [offset, setOffset] = useState(0);
   const [nameFilter, setNameFilter] = useState('');
-  const fragment = nameFilter.trim();
+
+  // Settled before it reaches the query, so a request goes out per search
+  // rather than per keystroke. One page here rather than the picker's five, but
+  // the same hook so the two boxes in this app behave alike.
+  const fragment = useDebouncedValue(nameFilter.trim());
 
   // **Back to the first page whenever the fragment changes**, adjusted during
   // render as React documents rather than in an effect. Without it an operator

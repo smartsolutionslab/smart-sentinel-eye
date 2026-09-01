@@ -46,6 +46,9 @@ Seven verified by running them, not by reasoning about them.
 | Drop the offset reset when the fragment changes | page tests | 1 |
 | Remove the retained camera | designer tests | 1 |
 
+Six rows above; a seventh (moving the count above `SortBy`) is the first entry in
+the list below, which is where it belongs — it survived.
+
 **Three were misnamed, and running them is the only reason that is known.**
 
 1. **The first "count before filtering" moved the count above `SortBy`**, not
@@ -91,7 +94,7 @@ a real answer and the one the spec said to accept if it arrived.
 | A middle fragment finds the camera | handler + integration tests | the screen having a search box |
 | The total counts the matches | asserted at the handler **and** through HTTP | the number looking plausible |
 | The fragment is text, not syntax | integration only | it working for ordinary names |
-| Accents do not fold | a handler test | nobody having tried one |
+| Accents do not fold | an **integration** test against the real column | a handler test, which normalises both sides the .NET way |
 | An assigned tile survives a filter | designer tests, including one that fails **without** the retention | the tile looking right unfiltered |
 | Filtering resets the page | a page test that fails without the reset | filtering from page one |
 | The task completes with no pointer | a test that never clicks | the feature working with a mouse |
@@ -141,8 +144,52 @@ specific than what it replaced, not looser.
 
 ---
 
-## 7. Phases
+## 7. Phase 6 — ten findings, and what they were about
+
+All ten confirmed by reading the code; eight fixed, two recorded as decisions.
+
+| # | Finding | Outcome |
+|---|---|---|
+| 1 | The retention was dead after a close and reopen | fixed — merge converges on contents |
+| 2 | A search matching nothing disabled Save | fixed — reads "ever seen a camera" |
+| 3 | The picker's placeholder said "No cameras in this fab" under a filter | fixed |
+| 4 | Two `upper` implementations, nothing pinning them together | fixed — integration test |
+| 5 | No debounce on a query that walks five pages | fixed — shared hook |
+| 6 | Retained options escaped fab-qualification | fixed |
+| 7 | The status could print a sentinel as a match count | fixed |
+| 8 | `name` is the only list parameter without validation | **recorded as a decision**, ADR-0137 |
+| 9 | Two ADR claims stated more firmly than established | fixed |
+| 10 | This note's §4 overstated the accent row | fixed |
+
+**Seven of the ten are one mistake.** Findings 2, 3 and 7 are all the same shape
+as the defect this feature exists to prevent — treating "nothing matched" as
+"nothing exists" — committed three more times in the very change that fixes it,
+in the disabled Save, in the placeholder a screen reader announces, and in a
+status line contradicting the notice above it. Finding 1 is the fix for the
+*other* hazard, shipped broken.
+
+**The tests did not catch any of them, and the reason is worth keeping.** The
+retention tests handed the designer a map that already held the camera, so they
+exercised the half that worked. The accent claim was asserted against a fake that
+normalises both sides in .NET, so it could not have failed. Both were tests
+pointed one layer away from where the mistake was.
+
+### Two things found while fixing
+
+1. **A crash, not a misbehaviour.** The original merge keyed on the response
+   array's identity, so any response that is not reference-stable set state every
+   render and React aborted the component — *too many re-renders*. Found because
+   a mock returned a fresh empty array, which is what a filter matching nothing
+   produces.
+
+2. **A test that proved nothing, for a whole hour.** Adding the debounce made the
+   reopen test assert before the filter was in force, so it passed with the
+   retention entirely unwired. Caught only by running that mutation and checking
+   the mutation had applied — the second time this spec that a mutation had to be
+   verified before its result could be read.
+
+## 8. Phases
 
 - Phases 1–4: the query, the contract, the screens, the record.
 - Phase 5: this note.
-- Phase 6: pending.
+- Phase 6: §7 above.

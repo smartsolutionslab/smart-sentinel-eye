@@ -97,7 +97,9 @@ describe('CamerasPage — the filter without a pointer', () => {
 
     await user.keyboard('furn');
 
-    expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'furn' }));
+    await vi.waitFor(() =>
+      expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'furn' })),
+    );
   });
 
   /**
