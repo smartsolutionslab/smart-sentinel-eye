@@ -82,7 +82,9 @@ describe('CamerasPage — finding a camera by name', () => {
     await user.click(field);
     await user.paste('furn');
 
-    expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'furn' }));
+    await vi.waitFor(() =>
+      expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'furn' })),
+    );
   });
 
   it('Sends no fragment at all when the box is cleared', async () => {
@@ -95,7 +97,9 @@ describe('CamerasPage — finding a camera by name', () => {
     await user.paste('furn');
     await user.clear(field);
 
-    expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: undefined }));
+    await vi.waitFor(() =>
+      expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: undefined })),
+    );
   });
 
   /**
@@ -115,8 +119,8 @@ describe('CamerasPage — finding a camera by name', () => {
     await user.click(field);
     await user.paste('furn');
 
-    expect(listCamerasMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({ offset: 0, name: 'furn' }),
+    await vi.waitFor(() =>
+      expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 0, name: 'furn' })),
     );
   });
 

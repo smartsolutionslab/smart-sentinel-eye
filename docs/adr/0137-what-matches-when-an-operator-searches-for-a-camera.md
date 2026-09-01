@@ -57,6 +57,16 @@ Case-insensitivity follows. Accents not folding follows too — `upper` maps `ü
 recorded**, and it is recorded here because an operator staring at an empty
 result needs to be able to find out why.
 
+**That last sentence is contingent, and the contingency is worth naming.** The
+fragment is upper-cased by .NET (`ToUpperInvariant`) and the column by Postgres
+(`upper`), and the two agree on characters outside ASCII only under a suitable
+`LC_CTYPE`. This database is `en_US.utf8`, where they do. Under a `C` ctype
+Postgres would leave `ü` alone while .NET would not, and an accented camera would
+become unfindable by the very fragment that names it. Nothing in the code or the
+deployment pins the locale, so the agreement is asserted by an integration test
+against the real column rather than assumed — the handler tests cannot settle it,
+because the in-memory fake normalises both sides the .NET way.
+
 ### The reported total counts the matches
 
 A filtered response's `count` is **the number of matches**, at every offset and
@@ -82,6 +92,36 @@ it is a second implementation of "matches", in a second language, that agrees on
 the day it is written and that an operator cannot tell apart when it stops
 agreeing.
 
+### The fragment is settled before it is sent
+
+Both boxes debounce at 250 ms, sharing one hook so they cannot feel different.
+
+Not a performance flourish. The picker's query is a **page walk** — up to five
+sequential requests of 200 rows to assemble the whole choice list — so keying it
+on the keystroke meant about thirty-five round trips to type `furnace`, and a
+cache entry per prefix that every camera mutation would then refetch. It is also
+an accessibility argument: the status beside the field is a polite live region,
+and one tied to a per-keystroke query re-announces on every letter, chattering at
+exactly the person it was added for.
+
+The input still reads the raw value, so nothing is dropped while typing; only the
+query and the status read the settled one. A fragment typed but not yet sent
+reports as *searching*, because reporting the previous fragment's match count
+beside a box that no longer contains it is its own small untruth.
+
+### The fragment's length is not validated, and that is a decision
+
+Every other list parameter is rejected when out of range; `name` is not. A
+fragment longer than the 200-character column cannot match anything, so it buys a
+scan that returns nothing.
+
+Left unguarded because the cost is the measured one — a scan of a fab's rows, a
+fraction of a millisecond — and because the fragment reaches Postgres as a
+parameter rather than as syntax, so length buys no leverage. Adding a guard means
+adding a failure an API consumer must handle, to prevent an outcome that is
+already correct and already cheap. Recorded so the omission reads as a decision
+rather than as the one parameter nobody thought about.
+
 ### A filter field, not a combobox
 
 The picker is a native `<select>`. It supplies role and value announcement,
@@ -103,15 +143,38 @@ away.
 from the server's matches, so a fragment excluding a camera a tile has *already
 been assigned* leaves a `<select>` whose value has no matching option: blank on
 screen while the form still carries the value. An operator reads that as lost and
-reassigns it — the filter silently editing their layout. Every camera seen since
-the dialog opened is retained so the tile keeps showing its own camera by name.
-The same shape on the list page is the offset outliving the population it was an
-offset into, and is reset when the fragment changes.
+reassigns it — the filter silently editing their layout. Every camera seen is
+retained so the tile keeps showing its own camera by name. The same shape on the
+list page is the offset outliving the population it was an offset into, and is
+reset when the fragment changes.
 
-**Speed was measured, not assumed.** At 259 cameras — above the 250-per-fab
-target — the filtered count runs in **0.230–0.331 ms** over five runs, and the
-sorted, paged query in **0.226–0.375 ms**. The unfiltered count is **0.214 ms**,
-so the substring match costs a fraction of a millisecond.
+**The retention itself then shipped broken, and review caught it rather than a
+test.** The map was cleared when the dialog closed, and the merge that refilled
+it keyed on the identity of the response array. Both dialogs stay mounted, so a
+reopen with nothing typed re-read the same cache entry, the merge saw no change,
+and the map stayed empty — leaving the retention absent at precisely the moment
+it was needed. The merge now asks which cameras are not yet known, which
+converges on contents rather than on a reference. That also removed a second
+failure the identity check carried: against any response that is not
+reference-stable it set state on every render, and React aborts the component
+with *too many re-renders* — a dialog that crashes rather than misbehaves.
+
+**What that says about the guards.** The first retention tests handed the
+designer a map that already held the camera, so they proved the designer consults
+one and nothing about the dialog filling it. The gap was one layer below where
+the tests were pointed.
+
+**The database query was measured, not assumed.** At 259 cameras — the whole dev
+catalogue, above the 250-per-fab target — the filtered count runs in
+**0.230–0.331 ms** over five runs, and the sorted, paged query in
+**0.226–0.375 ms**. The unfiltered count is **0.214 ms**, so the substring match
+costs a fraction of a millisecond.
+
+**That is the statement, and it is narrower than "the feature is fast".** It
+measures one statement against the database, not the path an operator drives:
+the picker assembles its choice list by walking up to five pages, so what a
+keystroke costs is a question about the client, answered by settling the fragment
+before it reaches the query rather than by this figure.
 
 **No index was added, and that is the finding.** The btree on
 `(fab, name_normalized)` serves a prefix and cannot serve a substring, so the

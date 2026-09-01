@@ -8,11 +8,11 @@ import { buildCells, type GridDesignerValue } from './gridDesignerModel.js';
 const CAMERA_A = '11111111-1111-1111-1111-111111111111';
 const CAMERA_B = '22222222-2222-2222-2222-222222222222';
 
-function camera(identifier: string, name: string): CameraSummary {
+function camera(identifier: string, name: string, fab = 'munich'): CameraSummary {
   return {
     cameraIdentifier: identifier,
     version: 1,
-    fab: 'munich',
+    fab,
     name,
     rtspUrl: 'rtsp://10.0.5.1/h264',
     registeredAt: '2026-05-24T10:00:00Z',
@@ -42,16 +42,21 @@ describe('GridDesigner — a filtered-out camera stays on its own tile', () => {
     cameras,
     knownCameras,
     selected,
+    filtering = false,
   }: {
     cameras: ReadonlyArray<CameraSummary>;
     knownCameras?: ReadonlyMap<string, CameraSummary>;
-    selected: string;
+    selected: string | ReadonlyArray<string>;
+    filtering?: boolean;
   }) {
-    const cells = buildCells(1, 1);
-    cells[0]!.cameraIdentifier = selected;
+    const held = typeof selected === 'string' ? [selected] : selected;
+    const cells = buildCells(1, held.length);
+    held.forEach((identifier, index) => {
+      cells[index]!.cameraIdentifier = identifier;
+    });
 
     const form = useForm<GridDesignerValue>({
-      defaultValues: { name: 'wall', grid: { rows: 1, cols: 1 }, cells },
+      defaultValues: { name: 'wall', grid: { rows: 1, cols: held.length }, cells },
     });
 
     return (
@@ -62,6 +67,7 @@ describe('GridDesigner — a filtered-out camera stays on its own tile', () => {
         overlays={[]}
         camerasLoading={false}
         overlaysLoading={false}
+        cameraFilterActive={filtering}
       />
     );
   }
@@ -145,5 +151,109 @@ describe('GridDesigner — a filtered-out camera stays on its own tile', () => {
     // too. The first version of this assertion did, and failed for a reason
     // that had nothing to do with the behaviour under test.
     expect(within(select).getAllByRole('option')).toHaveLength(3);
+  });
+
+  /**
+   * **A retained option is qualified by the same rule as any other.**
+   *
+   * <para>
+   * Ambiguity was computed over the matches alone, and the retained camera is
+   * appended after that — so an operator holding two fabs, each with a
+   * <c>Line-1-Entrance</c>, one on each of two tiles, who then types a fragment
+   * matching neither, saw two identical unqualified options. That is exactly the
+   * confusion spec 048's fab suffix exists to remove, let back in through the
+   * retention path added here.
+   * </para>
+   */
+  it('Qualifies a retained camera by fab when another retained camera shares its name', () => {
+    const munich = camera(CAMERA_A, 'Line-1-Entrance', 'munich');
+    const berlin = camera(CAMERA_B, 'Line-1-Entrance', 'berlin');
+
+    render(
+      <Harness
+        cameras={[camera('33333333-3333-3333-3333-333333333333', 'Bay 4 Inlet')]}
+        knownCameras={
+          new Map([
+            [CAMERA_A, munich],
+            [CAMERA_B, berlin],
+          ])
+        }
+        selected={[CAMERA_A, CAMERA_B]}
+        filtering
+      />,
+    );
+
+    const [first, second] = screen.getAllByLabelText(/^Camera$/i);
+
+    expect(within(first!).getByRole('option', { name: 'Line-1-Entrance (munich)' })).toBeInTheDocument();
+    expect(within(second!).getByRole('option', { name: 'Line-1-Entrance (berlin)' })).toBeInTheDocument();
+  });
+
+  /**
+   * A camera not on any tile must not cause qualification. The retained map
+   * holds everything seen, so qualifying from it wholesale would put a fab
+   * suffix on options for a reason no longer on screen.
+   */
+  it('Leaves a name unqualified when the twin is only in the retained map', () => {
+    const munich = camera(CAMERA_A, 'Line-1-Entrance', 'munich');
+    const berlin = camera(CAMERA_B, 'Line-1-Entrance', 'berlin');
+
+    render(
+      <Harness
+        cameras={[munich]}
+        knownCameras={new Map([[CAMERA_B, berlin]])}
+        selected={CAMERA_A}
+        filtering
+      />,
+    );
+
+    const select = screen.getByLabelText(/^Camera$/i);
+
+    expect(within(select).getByRole('option', { name: 'Line-1-Entrance' })).toBeInTheDocument();
+  });
+});
+
+/**
+ * The placeholder is what a screen reader announces when the picker takes
+ * focus, which makes it the one place an operator is told why the list is empty
+ * (spec 055).
+ */
+describe('GridDesigner — an empty list under a filter is not an empty fab', () => {
+  function EmptyHarness({ filtering }: { filtering: boolean }) {
+    const form = useForm<GridDesignerValue>({
+      defaultValues: { name: 'wall', grid: { rows: 1, cols: 1 }, cells: buildCells(1, 1) },
+    });
+
+    return (
+      <GridDesigner
+        form={form}
+        cameras={[]}
+        overlays={[]}
+        camerasLoading={false}
+        overlaysLoading={false}
+        cameraFilterActive={filtering}
+      />
+    );
+  }
+
+  it('Says the search matched nothing while a fragment is in force', () => {
+    render(<EmptyHarness filtering={true} />);
+
+    const select = screen.getByLabelText(/^Camera$/i);
+
+    expect(within(select).getByRole('option', { name: /no camera matches your search/i })).toBeInTheDocument();
+    expect(within(select).queryByRole('option', { name: /no cameras in this fab/i })).not.toBeInTheDocument();
+  });
+
+  /**
+   * And still says the fab is empty when it is, which is the fact the filtered
+   * message must not displace — an operator here should register a camera.
+   */
+  it('Still says the fab is empty when nothing is filtered', () => {
+    render(<EmptyHarness filtering={false} />);
+
+    const select = screen.getByLabelText(/^Camera$/i);
+
+    expect(within(select).getByRole('option', { name: /no cameras in this fab/i })).toBeInTheDocument();
   });
 });

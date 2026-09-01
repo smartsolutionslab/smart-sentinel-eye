@@ -26,6 +26,8 @@ export interface GridDesignerProps {
    * FR-003).
    */
   camerasFailed?: boolean;
+  /** Whether a name fragment is in force, so an empty list can be told from an empty fab. */
+  cameraFilterActive?: boolean;
   /**
    * Id of the dialog's truncation notice, when there is one. Every camera
    * select points at it so the notice is *announced* on focus rather than
@@ -50,12 +52,18 @@ const SELECT_CLASS = 'w-full rounded-md border border-fg-muted/40 bg-bg-base px-
  * dropdown with nothing in it, so a failed request read as a fab with no
  * cameras.
  */
-function emptyCameraLabel(loading: boolean, failed: boolean, isEmpty: boolean): string {
+function emptyCameraLabel(loading: boolean, failed: boolean, isEmpty: boolean, filtering: boolean): string {
   if (loading) return 'Loading cameras…';
   // Both conditions, because a failed refetch does not discard the cameras
   // already held: the query keeps the last fulfilled data, so "unavailable"
   // would otherwise sit at the top of a full dropdown.
   if (failed && isEmpty) return 'Camera list unavailable';
+  // **A search that matched nothing is not an empty fab**, and this is the one
+  // place an operator is told which — the placeholder is what a screen reader
+  // announces when the picker takes focus. Saying "No cameras in this fab"
+  // under a filter sends them to register a camera that already exists, and
+  // registering a duplicate name is refused, so they end up stuck.
+  if (isEmpty && filtering) return 'No camera matches your search';
   if (isEmpty) return 'No cameras in this fab';
   return '(empty cell)';
 }
@@ -99,6 +107,7 @@ export function GridDesigner({
   camerasLoading,
   overlaysLoading,
   camerasFailed = false,
+  cameraFilterActive = false,
   cameraNoticeId,
 }: GridDesignerProps) {
   const {
@@ -114,12 +123,41 @@ export function GridDesigner({
   // resize it (a raw `setValue` would not re-sync the rendered field rows).
   const { fields, replace } = useFieldArray({ control, name: 'cells' });
   const grid = watch('grid');
-  const ambiguousCameraNames = ambiguousNamesOf(cameras);
+
   /**
    * What this tile currently holds. The DOM may not be able to show it yet —
    * the camera list arrives after mount on every real load.
    */
   const selectedCameraOf = (index: number): string => watch(`cells.${index}.cameraIdentifier`) ?? '';
+
+  /**
+   * The retained cameras this render will actually append (spec 055).
+   *
+   * <p>
+   * Needed by name because <b>a retained option is qualified by the same rule as
+   * any other</b>. Computing ambiguity over the matches alone missed them: an
+   * operator holding two fabs, each with a <c>Line-1-Entrance</c>, with one on
+   * each of two tiles, then typing a fragment matching neither, saw two
+   * identical unqualified options — the exact confusion <c>cameraLabel</c>
+   * exists to remove, let back in through the retention path.
+   * </p>
+   *
+   * <p>
+   * Gathered from the cells rather than from the whole retained map so nothing
+   * is qualified on account of a camera that is not on screen.
+   * </p>
+   */
+  const retainedInUse: CameraSummary[] = [];
+  for (const cell of watch('cells') ?? []) {
+    const held = cell?.cameraIdentifier ?? '';
+    if (held === '' || cameras.some((camera) => camera.cameraIdentifier === held)) continue;
+    const retained = knownCameras?.get(held);
+    if (retained !== undefined && !retainedInUse.some((camera) => camera.cameraIdentifier === held)) {
+      retainedInUse.push(retained);
+    }
+  }
+
+  const ambiguousCameraNames = ambiguousNamesOf([...cameras, ...retainedInUse]);
 
   /**
    * The options for one tile: the current matches, plus the camera that tile
@@ -224,7 +262,7 @@ export function GridDesigner({
                   {...register(`cells.${index}.cameraIdentifier`)}
                   value={selectedCameraOf(index)}
                 >
-                  <option value="">{emptyCameraLabel(camerasLoading, camerasFailed, cameras.length === 0)}</option>
+                  <option value="">{emptyCameraLabel(camerasLoading, camerasFailed, cameras.length === 0, cameraFilterActive)}</option>
                   {optionsFor(selectedCameraOf(index)).map((camera) => (
                     <option key={camera.cameraIdentifier} value={camera.cameraIdentifier}>
                       {cameraLabel(camera, ambiguousCameraNames)}
