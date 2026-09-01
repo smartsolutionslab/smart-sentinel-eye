@@ -6,6 +6,7 @@ import {
 } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { useListStreamsQuery, type StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
+import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import {
   DataTable,
   type DataTableColumn,
@@ -26,12 +27,26 @@ export function CamerasPage() {
     direction: 'desc',
   });
   const [offset, setOffset] = useState(0);
+  const [nameFilter, setNameFilter] = useState('');
+  const fragment = nameFilter.trim();
+
+  // **Back to the first page whenever the fragment changes**, adjusted during
+  // render as React documents rather than in an effect. Without it an operator
+  // on page three who narrows to two matches is shown an empty table and a
+  // pager that says "Showing 0–0 of 2" — the offset outliving the population it
+  // was an offset into.
+  const [lastFragment, setLastFragment] = useState(fragment);
+  if (fragment !== lastFragment) {
+    setLastFragment(fragment);
+    setOffset(0);
+  }
 
   const { data, isLoading, isFetching, error, refetch } = useListCamerasQuery({
     sort: sort.field,
     order: sort.direction as CameraSortOrder,
     offset,
     limit: PAGE_SIZE,
+    name: fragment === '' ? undefined : fragment,
   });
 
   const items = useMemo(() => data?.items ?? [], [data?.items]);
@@ -112,6 +127,24 @@ export function CamerasPage() {
         </div>
       )}
 
+      {/*
+        Spec 055. A search input above the table rather than a control that
+        replaces it: the table keeps its own sorting and paging, and this only
+        narrows what they operate on.
+      */}
+      <div className="mb-3 max-w-sm">
+        <label htmlFor="camera-name-filter" className="mb-1 block text-sm font-medium text-fg-primary">
+          Find a camera
+        </label>
+        <Input
+          id="camera-name-filter"
+          type="search"
+          placeholder="Part of a name, anywhere in it"
+          value={nameFilter}
+          onChange={(event) => setNameFilter(event.target.value)}
+        />
+      </div>
+
       <DataTable
         columns={columns}
         rows={items}
@@ -119,7 +152,15 @@ export function CamerasPage() {
         sort={sort}
         onSortChange={onSortChange}
         isLoading={isLoading || isFetching}
-        emptyMessage="No cameras registered yet."
+        emptyMessage={
+          /*
+            **A miss and an empty catalogue are different facts.** An operator
+            told "no cameras registered yet" while filtering concludes the fab
+            is empty; one told nothing at all concludes the camera is gone and
+            registers a duplicate, which is refused because names are unique.
+          */
+          fragment === '' ? 'No cameras registered yet.' : `No camera matches “${fragment}”.`
+        }
         caption="Registered cameras"
       />
 
