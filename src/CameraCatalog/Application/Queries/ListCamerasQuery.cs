@@ -35,5 +35,37 @@ public static class ListCamerasDefaults
     public const string DefaultOrder = "desc";
     public const int DefaultOffset = 0;
     public const int DefaultLimit = 50;
+
+    /// <summary>
+    /// The largest page this endpoint serves. It <b>refuses</b> anything larger
+    /// — <c>CATALOG_LIMIT_EXCEEDED</c> — rather than clamping, so asking for more
+    /// is an error and not a smaller page.
+    ///
+    /// <para>
+    /// <b>It sits below the production target of 250 cameras per fab</b>
+    /// (constitution §Scale). That is not a contradiction to be fixed by reading
+    /// this comment: it means <i>no single request can enumerate a fab at the
+    /// scale the system is designed for</i>, and every caller wanting the whole
+    /// set must page. Both known callers do — the picker in
+    /// <c>apps/shared</c> and the scenario simulator's read-back, the latter
+    /// having been fixed after reporting a camera past the 200th as absent.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Why 200, specifically, is not recorded anywhere and could not be
+    /// recovered.</b> Spec 001 states it three times — FR-007b, a clarification,
+    /// and decision-table row 6 — and justifies it in none of them. It is
+    /// therefore deliberate rather than drift, and the 250 target predates it
+    /// (the constitution's bootstrap commit; this constant arrived later), so it
+    /// was chosen with that target already written down. Whether it was chosen
+    /// <i>with reference to</i> the target is what the record does not say.
+    /// </para>
+    ///
+    /// <para>
+    /// This note exists because the number was rediscovered painfully twice.
+    /// Raising it, or changing the refusal to a clamp, needs a reason nobody has
+    /// yet supplied — it is not decided here.
+    /// </para>
+    /// </summary>
     public const int MaximumLimit = 200;
 }
