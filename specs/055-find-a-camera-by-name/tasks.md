@@ -60,8 +60,8 @@ all.
 
 ## Phase 4 — US3 + the record *(P2)*
 
-- [ ] T013 [US3] **Test the keyboard path**, in `apps/management-web/src/features/layouts/` and `e2e/`: reach the chooser, filter, move, choose, dismiss — with no pointer — and assert the match count is announced when it changes. The check most likely to be skipped, because the feature looks finished either way.
-- [ ] T014 Write the record in `docs/adr/` and `specs/055-find-a-camera-by-name/verification.md`: **the match rule where an operator will find it** (substring, case-insensitive, trimmed, accents not folded, and why that follows from the uniqueness normalisation), and **the measured time** of the filtered query at 250 cameras in one fab — whichever way it falls. If it is plainly fast, say so and add no index.
+- [x] T013 [US3] **Test the keyboard path**, in `apps/management-web/src/features/layouts/` and `e2e/`: reach the chooser, filter, move, choose, dismiss — with no pointer — and assert the match count is announced when it changes. The check most likely to be skipped, because the feature looks finished either way.
+- [x] T014 Write the record in `docs/adr/` and `specs/055-find-a-camera-by-name/verification.md`: **the match rule where an operator will find it** (substring, case-insensitive, trimmed, accents not folded, and why that follows from the uniqueness normalisation), and **the measured time** of the filtered query at 250 cameras in one fab — whichever way it falls. If it is plainly fast, say so and add no index.
 
 ---
 
@@ -76,7 +76,7 @@ all.
 | 5 | Drop the case folding | T006 | **killed** — 9 failures |
 | 6 | Interpolate the fragment, so `%` matches everything | **T009** | **killed** — 2 failures, and no handler test noticed |
 | 7 | Fold accents | T006 | |
-| 8 | Render a miss as an empty list with no message | T012 | |
+| 8 | Render a miss as an empty list with no message | T012 | **killed** — 1 failure |
 
 **Mutation 1 first.** It is the only one whose survival produces a *plausible*
 wrong answer — a filtered list with a confident, authoritative, wrong total —
