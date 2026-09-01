@@ -157,4 +157,79 @@ variable list unusable, and the count only grows.
 
 - Phases 1–4: the extraction, the driver, the measurement, the record.
 - Phase 5: this note.
-- Phase 6: pending.
+- Phase 6: the review round — thirteen findings, all confirmed, recorded in §8.
+
+---
+
+## 8. What review found
+
+**Thirteen findings, all confirmed, none a false positive.** Recorded because two
+of them contradict comments this feature wrote about itself, and that pattern is
+worth more than the individual fixes.
+
+1. **The conditions block did not survive the failure it exists for.** Its own
+   comment says the endpoint line "must survive a failure rather than being lost
+   with it" — and it printed only after the drive returned. A wrong address or an
+   expired token throws inside the drive, and the output would carry no
+   environment, no endpoint, no rate. **The justification was written and then the
+   opposite was built.**
+
+2. **The row-count assertion had drifted after the breakdown print.** A run where
+   nine hundred rows landed would emit a complete, well-formed division — the
+   output shape a good run produces — and only then fail.
+
+   Together these two settle the ordering: conditions, drive, assert the
+   population, breakdown.
+
+3. **Two senses of "established" were run together.** The verdict is about the
+   *clocks*, which in run mode agree closely. The write leg is still not
+   established, because it ends at insert rather than commit — something no clock
+   agreement can fix. Every passing run printed two adjacent contradictory lines,
+   and ADR-0136's table repeated it.
+
+4. **The refusal guard killed one third of its named mutation**, clearing only the
+   system-variables setting; a default for either of the other two survived
+   untouched.
+
+5. **That same guard mutated process-wide state** while xUnit runs collectionless
+   classes in parallel — able to refuse a correctly configured measurement with a
+   message naming a cause that was not true. The decision is now a pure function
+   the test calls directly.
+
+6. **The runbook's Keycloak instruction was the opposite of what worked.** It
+   insisted on the proxied address; the measurement used the container's fixed
+   port, because that is what the realm names as its `issuer`. An operator
+   following it literally would produce the 401 it warns about. **It now says to
+   ask the realm rather than to follow either rule** — a fact settles this, a
+   heuristic cannot.
+
+7. **`IngestDeadline` was duplicated**, with the surviving copy feeding only a
+   failure message while the other governed the wait. Precisely the drift
+   `IngestRunShape`'s doc comment says this spec exists to make inexpressible.
+
+8. **The certificate bypass covered Keycloak but not the service the load goes
+   to**, while the runbook told operators to paste a dashboard address and the
+   service offers both http and https.
+
+9. **A 401 mid-run was diagnosed as an If-Match failure**, reporting version
+   numbers for a token-expiry problem — sending the reader after the one thing
+   that cannot be wrong, since the version is tracked locally.
+
+10. **A dead `EveryRowStamped`** on the conditions, duplicating the one on the
+    attribution that both callers actually assert.
+
+11. **The cancellation token reached almost nothing** — not the HTTP calls, not the
+    three-minute wait loop, not the queries.
+
+12. **Two ADR passages read as recommendations.** The lever paragraph's bolding and
+    juxtaposition argued that the three shipped levers were aimed at the wrong
+    side; and a rejected alternative closed by calling itself "the obvious way".
+    Both neutralised: the measurement is stated, the argument is not made.
+
+13. **A write figure contradicted its own table** — 12.4 ms in prose against 5.3 ms
+    in a row whose band was unlabelled.
+
+**The pattern.** Findings 1, 3, 6 and 7 are all the same defect: **a claim written
+about the work, and the work doing something else.** This note's §5 says the same
+thing happened to ADR-0135's spread. The discipline that catches it is not care
+while writing — it is a second reader, or a run.
