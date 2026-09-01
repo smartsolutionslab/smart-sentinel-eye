@@ -57,13 +57,40 @@ fixture exercises the real path rather than a shortcut around it.
 **Decision**: a container from `bluenviron/mediamtx:latest-ffmpeg` with its own
 config holding **one static looping path**, gated to end-to-end only.
 
-**Alternative A — un-gate `camera-sim`.** Rejected on a locked decision rather
-than on taste. ADR-0111 accepts the simulator's cost explicitly because *"All
-dev-only, so prod/CI are untouched."* Un-gating spends a cost that ADR was told
-it would not have to pay, and would need an amendment. It also drags in the
-provisioning worker — Keycloak client credentials, RabbitMQ, a seeded catalog —
-to serve one tile, and puts two components in the business of provisioning
-paths for the same cameras.
+**Alternative A — un-gate `camera-sim`. Rejected — but the first reason given
+for rejecting it was wrong, and the correction is the more interesting finding.**
+
+**`camera-sim` is not gated off in CI. It runs there today.** The guard is
+`isRunMode && !isE2ETests`, and **`E2ETests` is never set to `true` anywhere in
+this repository** — not in `ci.yml`, not in `wait-for-e2e-stack.sh`, not in any
+settings file. CI boots the AppHost with plain `dotnet run`, which is run mode,
+so the guard is **true** and both `camera-sim` and `scenario-simulator` start.
+Confirmed by listing containers from a run-mode boot: `camera-sim` is up, and
+the catalogue holds 23 cameras with `rtsp://camera-sim:8554/...` addresses.
+
+So there is nothing to un-gate. The question becomes whether to *depend* on it,
+and the answer is still no, for two reasons that survive the correction:
+
+1. **Nothing waits for it.** `wait-for-e2e-stack.sh` waits for the web app, the
+   ports, and a 401 from the gateway's camera-catalog route. It does not wait
+   for the simulator to seed. Whether a simulator camera exists when a test
+   looks is a **race**, and a fixture that races is the implicit coupling
+   `seed-published-layout.setup.ts` already argues against by name.
+2. **The fixture would not own its data.** It must create and remove what it
+   uses; simulator cameras are not its to delete.
+
+**Three committed comments state the false mechanism** and should be corrected
+rather than left to mislead the next reader:
+`e2e/kiosk-shows-a-wall.spec.ts` ("so a Playwright kiosk gets no video"),
+`e2e/support/seed-published-layout.setup.ts` ("so CI boots on an empty
+catalogue"), and `apps/shared/src/observability/kioskLatency.test.ts`. Each
+reasons from the guard to a conclusion the guard does not support.
+
+**And ADR-0111's recorded scope does not match what happens.** It accepts the
+simulator's cost on the grounds that *"All dev-only, so prod/CI are
+untouched."* CI is not untouched. That is a record-vs-reality gap of exactly
+the kind this feature exists to correct elsewhere, and it is raised rather than
+absorbed — see the verification note.
 
 **Alternative B — a static path on the main SFU.** Rejected on the config's own
 recorded reason: `mediamtx.yml` keeps `paths: {}` because static entries

@@ -1,31 +1,37 @@
 import { test as setup, expect } from '@playwright/test';
 import { signInAsOperator } from './sign-in';
-import { newBoundOverlayWall, writeBoundOverlayWall } from './bound-overlay-wall';
+import { newLiveVideoWall, writeLiveVideoWall } from './live-video-wall';
 
 /**
- * Issue 1921 — a published wall whose tile binds a published overlay whose
- * label binds a system variable.
+ * Spec 056 — a wall whose tile has **both** halves: a camera whose video
+ * actually arrives, and an overlay bound to a variable.
  *
- * `seed-published-layout.setup.ts` deliberately publishes a layout with an
- * *unbound* tile, because that is all the kiosk needs to render a wall. SC-004
- * needs the opposite: something on screen whose value can go stale while the
- * hub is down, so that reconciliation after reconnect is observable at all.
+ * <para>
+ * <b>The one difference from the SC-004 seed is the camera's address, and it is
+ * the whole point.</b> That seed registers `rtsp://10.0.5.71/stream`, which
+ * nothing serves, so its tiles render `WHEP returned 404` and never create an
+ * <c>RTCRtpReceiver</c>. Every overlay assertion in this repository has run
+ * against that wall — so a tile that draws its label <i>only when the video
+ * fails</i> passes the entire suite. This one points at the fixture's video
+ * source, so the SFU has something to pull.
+ * </para>
  *
- * Nothing else seeds this. The scenario simulator builds richer walls but is
- * gated out of the e2e stack — the same reason the other seed exists.
- *
- * Drives management-web rather than the API: publishing needs an `If-Match`
- * round-trip, and the UI path gets the contract right for free.
+ * <para>
+ * Drives management-web rather than the API for the same reason the other seeds
+ * do: publishing needs an `If-Match` round-trip and the UI path gets the
+ * contract right for free.
+ * </para>
  */
-setup('a published wall exists whose tile binds an overlay bound to a variable', async ({ page }) => {
+setup('a published wall exists whose tile has both video and a bound overlay', async ({ page }) => {
   setup.setTimeout(180_000);
 
-  const wall = newBoundOverlayWall();
-  writeBoundOverlayWall(wall);
+  const wall = newLiveVideoWall();
+  writeLiveVideoWall(wall);
 
   await signInAsOperator(page);
 
-  // 1. The variable the overlay label will resolve from.
+  // 1. The variable the label resolves from, and which the span measurement
+  //    later changes.
   await page.getByRole('link', { name: /^system variables$/i }).click();
   await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
 
@@ -34,18 +40,20 @@ setup('a published wall exists whose tile binds an overlay bound to a variable',
   await page.locator('#variable-initial-value').fill(wall.variableInitialValue);
   await page.getByRole('button', { name: /^define$/i }).click();
 
-  // The first write of the run, against a service that may still be cold, and
-  // given its own budget for that reason — the shared `expect` timeout is 15 s
-  // locally. Observed failing here twice on a freshly booted stack (spec 056),
-  // once with the dialog still reading "Saving…", and passing on a warm one.
-  // A seed that only succeeds when something else warmed the service first is a
-  // flake waiting for the run where it goes first.
+  // **The first write of the run, against a service that may still be cold.**
+  // Given its own budget rather than the shared `expect` timeout, which is 15 s
+  // locally: this failed twice at exactly this line on a freshly booted stack,
+  // with the dialog still showing "Saving…" — a request in flight, not a
+  // rejection — and passed on a warm one. A fixture whose success depends on
+  // something else having warmed the service first is a flake waiting for the
+  // run where it goes first.
   await expect(page.getByRole('heading', { name: wall.variableName })).toBeVisible({
     timeout: 90_000,
   });
 
-  // 2. An overlay whose label is a token (spec 005) so the service holds a
-  //    resolved snapshot for it — a static label has none.
+  // 2. An overlay whose text is a token, so the service holds a resolved
+  //    snapshot for it — a static label has none, and the label could then be
+  //    right without the binding working at all.
   await page.getByRole('link', { name: /^overlays$/i }).click();
   await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
 
@@ -55,21 +63,23 @@ setup('a published wall exists whose tile binds an overlay bound to a variable',
   await page.getByRole('button', { name: /save as draft/i }).click();
   await expect(page.getByText(wall.overlayName)).toBeVisible();
 
-  // Published, not draft: a tile can only bind a published overlay.
   const overlayRow = page.getByRole('listitem').filter({ hasText: wall.overlayName });
   await overlayRow.getByRole('button', { name: /^publish$/i }).click();
   await expect(overlayRow.getByText(/Published/)).toBeVisible();
 
-  // 3. A camera, because a tile requires one. The `E2E ` prefix is what the
-  //    cleanup teardown matches on (issue 1895).
+  // 3. The camera — **at an address something actually serves**. The URL comes
+  //    from the module that owns it, never composed here: a host and port
+  //    written into a fixture is a second thing to keep true, and when it rots
+  //    the wall looks like a broken product rather than a broken fixture.
   await page.getByRole('link', { name: /^cameras$/i }).click();
   await page.getByRole('button', { name: /register camera/i }).click();
   await page.locator('#register-camera-name').fill(wall.cameraName);
-  await page.locator('#register-camera-url').fill('rtsp://10.0.5.71/stream');
+  await page.locator('#register-camera-url').fill(wall.cameraRtspUrl);
   await page.getByRole('button', { name: /^register$/i }).click();
   await expect(page.getByRole('cell', { name: wall.cameraName })).toBeVisible();
 
-  // 4. The wall: one tile, that camera, that overlay.
+  // 4. The wall: one tile, that camera, that overlay. One tile is enough —
+  //    the gap is that no check has both halves, not that none has four.
   await page.getByRole('link', { name: /^layouts$/i }).click();
   await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
 

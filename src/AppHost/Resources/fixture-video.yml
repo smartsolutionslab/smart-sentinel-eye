@@ -1,0 +1,54 @@
+# fixture-video — one looping clip, so an end-to-end check can see a picture.
+#
+# Spec 056. Every automated check involving an overlay has run against a wall
+# whose video never arrives: the seed registers a camera at an address the SFU
+# has no path for, the tiles render `WHEP returned 404`, and no RTCRtpReceiver
+# is ever created. So a tile that draws its label ONLY when the video fails
+# passes the whole suite. This server is what closes that.
+#
+# **Deliberately not the Scenario Simulator's `camera-sim`.** That one holds no
+# static paths by design (ADR-0111): its worker provisions a path per catalog
+# camera over the control API, driven by RabbitMQ, authenticated through
+# Keycloak. Nothing waits for that to finish — `wait-for-e2e-stack.sh` waits for
+# the web app, the ports and a 401 from the gateway — so a fixture leaning on it
+# would be racing, and a check that races is the implicit coupling
+# `seed-published-layout.setup.ts` argues against by name. A fixture must also
+# own and remove its own data, and simulator cameras are not its to delete.
+#
+# One static path, published on start, no worker, no credentials, no message
+# round-trip. It is up when the container is up.
+
+logLevel: info
+logDestinations: [stdout]
+
+# RTSP only. The main MediaMTX pulls from here exactly as it pulls a camera
+# (`MediaMtxRtspGateway.AddPathAsync` POSTs the source and the SFU pulls it), so
+# the fixture exercises the real path rather than a shortcut around it.
+# No control API: there is nothing to provision at runtime.
+rtsp: yes
+rtspAddress: :8554
+
+# Permissive internal auth, reachable only on the AppHost container network.
+# MediaMTX's default internal user omits `publish`, which the FFmpeg below needs;
+# without this the loop starts, fails to publish, and the path stays empty — a
+# server that is up and serving nothing, which is the exact failure this whole
+# feature exists to make impossible.
+authInternalUsers:
+  - user: any
+    permissions:
+      - action: publish
+      - action: read
+      - action: playback
+
+paths:
+  loop:
+    # `-c copy`: the clip is already H.264, which is WebRTC-compatible, so the
+    # SFU passes it through (decision 011) and nothing re-encodes. `-re` paces
+    # it at real time — without it FFmpeg pushes as fast as it can read, and a
+    # burst-then-idle stream would satisfy "frames decoded" while looking
+    # nothing like a camera. `-stream_loop -1` so a run outlasts the clip.
+    runOnInit: >-
+      ffmpeg -stream_loop -1 -re -i /media/sim-loop.mp4
+      -c copy -f rtsp rtsp://localhost:8554/$MTX_PATH
+    # FFmpeg exiting must not leave the path silently dead for the rest of a run.
+    runOnInitRestart: yes
