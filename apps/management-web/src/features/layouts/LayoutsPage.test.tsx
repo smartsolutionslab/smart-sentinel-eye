@@ -491,8 +491,14 @@ describe('LayoutsPage — archive confirmation', () => {
 
       // The designer opens pre-loaded from the branch source. Two camera pickers
       // means the 1×2 published grid; one would mean the discarded draft's 1×1.
+      //
+      // Counted by role, not by label alone: the dialog also carries a "Find a
+      // camera" field (spec 055), whose label matches /camera/i as truly as the
+      // pickers do. The claim here was always about the *pickers*, and the role
+      // is what says so — the sibling assertions in LayoutEditorDialog.test.tsx
+      // already spell it this way.
       const editor = await screen.findByRole('dialog');
-      expect(within(editor).getAllByLabelText(/camera/i)).toHaveLength(2);
+      expect(within(editor).getAllByRole('combobox', { name: /camera/i })).toHaveLength(2);
     });
   });
 

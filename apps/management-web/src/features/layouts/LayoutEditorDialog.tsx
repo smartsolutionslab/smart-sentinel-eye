@@ -1,4 +1,7 @@
-import { useListAllCameraChoicesQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
+import {
+  useListAllCameraChoicesQuery,
+  type CameraSummary,
+} from '@smart-sentinel-eye/shared/api/cameras.api';
 import {
   useCreateLayoutDraftMutation,
   useEditDraftRevisionMutation,
@@ -12,7 +15,7 @@ import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { GridDesigner } from './GridDesigner.js';
 import {
@@ -74,7 +77,53 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   // picker used to ask for fifty and render them as the whole set, so past the
   // fiftieth a camera was absent with nothing said — and an absent option is
   // indistinguishable from a camera that was never registered (spec 048).
-  const { data: cameras, isLoading: camerasLoading, isError: camerasFailed } = useListAllCameraChoicesQuery();
+  // Spec 055: the fragment narrows on the server, so `cameras` is the matches
+  // and `count` is their number. Filtering the gathered array here instead would
+  // be a second implementation of "matches" that an operator could not tell
+  // apart from the first when the two stopped agreeing.
+  const [cameraFilter, setCameraFilter] = useState('');
+  const {
+    data: cameras,
+    isLoading: camerasLoading,
+    isFetching: camerasFetching,
+    isError: camerasFailed,
+  } = useListAllCameraChoicesQuery({ name: cameraFilter.trim() || undefined });
+
+  // **Every camera seen so far, so a filter cannot blank a tile that is already
+  // assigned.** The options come from the server's matches; a tile holding a
+  // camera the current fragment excludes would render a select whose value has
+  // no option — blank on screen while the form still carries it. The operator
+  // reads that as lost, and the next thing they do is reassign it.
+  //
+  // Keeping what has been seen is what lets that tile keep showing its own
+  // camera by name. Cleared with the dialog, not accumulated across openings.
+  // State rather than a ref, and adjusted during render rather than in an
+  // effect — React's documented pattern for deriving from a changed prop. A ref
+  // read during render, or a setState inside an effect, both produce the
+  // cascading-render bug the hooks rules exist to stop, and both were the first
+  // thing written here.
+  const [knownCameras, setKnownCameras] = useState<ReadonlyMap<string, CameraSummary>>(() => new Map());
+  const [lastSeenItems, setLastSeenItems] = useState<ReadonlyArray<CameraSummary> | undefined>(undefined);
+
+  if (cameras?.items !== lastSeenItems) {
+    setLastSeenItems(cameras?.items);
+    if (cameras !== undefined) {
+      const merged = new Map(knownCameras);
+      for (const camera of cameras.items) {
+        merged.set(camera.cameraIdentifier, camera);
+      }
+      setKnownCameras(merged);
+    }
+  }
+
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (!open) {
+      setCameraFilter('');
+      setKnownCameras(new Map());
+    }
+  }
   const { data: overlays, isLoading: overlaysLoading } = useListOverlaysQuery('Published');
 
   const defaultValues = useMemo<GridDesignerValue>(() => {
@@ -145,6 +194,21 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   // and operators would learn to ignore it, so its absence is what gives it
   // meaning — and is tested as such.
   const camerasTruncated = cameras !== undefined && !cameras.complete;
+
+  const cameraFilterStatusId = 'layout-camera-filter-status';
+  const filtering = cameraFilter.trim() !== '';
+
+  // The order matters: "searching" before "nothing matched", or a slow response
+  // shows an operator "no cameras match" about a search still running — the one
+  // wrong answer this state exists to prevent.
+  const cameraFilterStatus = (() => {
+    if (camerasFetching) return 'Searching…';
+    if (camerasFailed) return 'The camera list could not be loaded.';
+    if (!filtering) return `${cameraItems.length} cameras.`;
+    if (cameraItems.length === 0) return `No camera matches “${cameraFilter.trim()}”.`;
+
+    return `${cameraItems.length} of ${cameras?.count ?? cameraItems.length} cameras match.`;
+  })();
   const cameraNoticeId = camerasTruncated ? 'layout-camera-truncation' : undefined;
   const overlayItems = overlays?.published ?? [];
 
@@ -168,14 +232,47 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
             <Input id="layout-name" autoFocus {...register('name')} />
           </FormField>
         )}
+        {/*
+          Spec 048's truncation notice. It says how many of how many, and stops
+          there — the gap can also come from a camera retired between requests,
+          so "the rest cannot be chosen" would sometimes be wrong.
+        */}
         {camerasTruncated && (
           <p id={cameraNoticeId} className="text-sm text-fg-muted">
             Showing {cameraItems.length} of {cameras.count} cameras.
           </p>
         )}
+        {/*
+          Spec 055. A field beside the native lists rather than a combobox
+          replacing them: the selects already carry role and value
+          announcement, arrow-key movement, Escape and start-of-name
+          type-ahead. Replacing them would mean re-implementing all of it, and
+          losing any of it is invisible to anyone testing with a mouse.
+        */}
+        <FormField label="Find a camera" htmlFor="layout-camera-filter">
+          <Input
+            id="layout-camera-filter"
+            type="search"
+            placeholder="Part of a name, anywhere in it"
+            value={cameraFilter}
+            onChange={(event) => setCameraFilter(event.target.value)}
+            aria-describedby={cameraFilterStatusId}
+          />
+        </FormField>
+        {/*
+          **Three states, told apart.** An operator who cannot distinguish
+          "nothing matched" from "still loading" concludes the camera is gone
+          and registers a duplicate — which is refused, because names are
+          unique, so they are then stuck. `aria-live` because the list shrinking
+          silently is the same problem for anyone not watching it.
+        */}
+        <p id={cameraFilterStatusId} aria-live="polite" className="text-sm text-fg-muted">
+          {cameraFilterStatus}
+        </p>
         <GridDesigner
           form={form}
           cameras={cameraItems}
+          knownCameras={knownCameras}
           overlays={overlayItems}
           camerasLoading={camerasLoading}
           overlaysLoading={overlaysLoading}
