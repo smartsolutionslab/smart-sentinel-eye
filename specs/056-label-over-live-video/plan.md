@@ -93,12 +93,17 @@ image, carrying its own small config with **one static path** that loops one
 clip via FFmpeg. It runs **in end-to-end mode only**, never in run mode and
 never in production.
 
-**Why not un-gate `camera-sim`.** ADR-0111 records the simulator's cost as
-acceptable *because* prod and CI never see it. Un-gating drags in the
-provisioning worker, and with it Keycloak client credentials, RabbitMQ, and a
-seeded catalog — all to serve a single tile. It would also put two sources in
-the business of provisioning paths for the same cameras, which is the
-"fighting over cameras" failure the input warns about.
+**Why not depend on `camera-sim`. The original reason was wrong; the
+replacement is stronger.** There is nothing to un-gate — **`camera-sim` already
+runs in CI**, because `E2ETests` is never set anywhere and CI boots in run
+mode, so `isRunMode && !isE2ETests` is true (research §3). Depending on it is
+still rejected, because **nothing waits for the simulator to seed** — that is a
+race, and a fixture that races is the implicit coupling
+`seed-published-layout.setup.ts` argues against by name — and because a fixture
+must own and remove its own data.
+
+This also means **ADR-0111's "All dev-only, so prod/CI are untouched" does not
+describe what happens.** Raised, not absorbed.
 
 **Why not a static path on the main SFU.** `mediamtx.yml` keeps `paths: {}`
 deliberately: static entries collide with the ones `StreamDistribution` adds

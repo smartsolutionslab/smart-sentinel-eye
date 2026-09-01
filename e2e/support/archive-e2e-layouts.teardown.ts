@@ -28,7 +28,7 @@ import { signInAsOperator } from './sign-in';
  * It targets the live revision, which is the one the picker lists — a chain with
  * only a draft was never on the picker and is left alone.
  */
-const DISPOSABLE = /^(E2E Layout |E2E Race Layout |Kiosk Seed Wall |SC004 Wall )/;
+const DISPOSABLE = /^(E2E Layout |E2E Race Layout |Kiosk Seed Wall |SC004 Wall |Spec056 Wall )/;
 
 /**
  * Stop working after this long and report the remainder — the same reasoning as

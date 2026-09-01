@@ -131,6 +131,29 @@ var mediamtx = builder
     .WithHttpEndpoint(targetPort: 8889, name: "whep")
     .WithEndpoint(targetPort: 8554, name: "rtsp", scheme: "tcp");
 
+// fixture-video (spec 056) — one looping clip over RTSP, so an automated check
+// can see a picture. Until now every overlay fixture pointed its camera at an
+// address nothing served, so the tiles rendered `WHEP returned 404` and a tile
+// that drew its label ONLY when the video failed passed the whole suite.
+//
+// **Run mode, not gated on `isE2ETests`, and that is deliberate.** `E2ETests`
+// is never set to true anywhere in this repository -- not in `ci.yml`, not in
+// `wait-for-e2e-stack.sh`, not in any settings file -- so a resource gated on it
+// would be dead code, and CI (which boots with plain `dotnet run`) would never
+// see it. Running it wherever the SFU runs also keeps the fixture identical in
+// CI and on a developer machine, which is worth more here than saving a
+// container: a fixture that behaves differently in the two places is one whose
+// failures cannot be reproduced.
+if (isRunMode)
+{
+    builder
+        .AddContainer("fixture-video", "bluenviron/mediamtx", "latest-ffmpeg")
+        .WithBindMount("Resources/fixture-video.yml", "/mediamtx.yml")
+        // The whole clips directory, mounted where the config expects it.
+        .WithBindMount("Resources/clips", "/media")
+        .WithEndpoint(targetPort: 8554, name: "rtsp", scheme: "tcp");
+}
+
 if (isRunMode && !isE2ETests)
 {
     // WebRTC media (ICE) must reach the host browser, which can't route to the
