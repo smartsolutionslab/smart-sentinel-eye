@@ -24,10 +24,42 @@ namespace SmartSentinelEye.CameraCatalog.Application.Queries;
 /// two callers both state it, and a silent <c>false</c> is the kind of default
 /// that later reads as "retired cameras were never considered here".
 /// </para>
+///
+/// <para>
+/// <c>NameFragment</c> is spec 055. **Optional, and absent is not "match
+/// nothing"** — a cleared search box must return the catalogue, not empty it.
+/// A fragment that is only whitespace is the same as none.
+/// </para>
+///
+/// <para>
+/// It is a fragment of a name, <b>not a pattern</b>. An operator types words;
+/// characters with meaning to the underlying match are matched literally, so a
+/// camera called <c>50% Load</c> is found by typing <c>%</c> and a fragment of
+/// <c>%</c> does not match everything. That is a trust boundary as much as a
+/// usability one — this arrives over HTTP.
+/// </para>
 /// </summary>
 public sealed record ListCamerasQuery(
-    IReadOnlyList<FabIdentifier> Fabs, string Sort, string Order, int Offset, int Limit, bool IncludeRetired)
-    : IQuery<Result<CameraListPageDto, ListCamerasError>>;
+    IReadOnlyList<FabIdentifier> Fabs,
+    string Sort,
+    string Order,
+    int Offset,
+    int Limit,
+    bool IncludeRetired,
+    string? NameFragment = null)
+    : IQuery<Result<CameraListPageDto, ListCamerasError>>
+{
+    /// <summary>
+    /// The fragment to match on, or <c>null</c> when there is nothing to match.
+    ///
+    /// <para>
+    /// Trimmed here rather than at each use so "absent", "empty" and "spaces"
+    /// cannot mean three different things in three places (FR-003, FR-007).
+    /// </para>
+    /// </summary>
+    public string? TrimmedFragment =>
+        string.IsNullOrWhiteSpace(NameFragment) ? null : NameFragment.Trim();
+}
 
 public static class ListCamerasDefaults
 {

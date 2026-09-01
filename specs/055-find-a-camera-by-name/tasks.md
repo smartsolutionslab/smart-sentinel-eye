@@ -28,12 +28,12 @@ needs already exists and the picker already has the accessibility.
 
 ## Phase 1 — The query *(the gate)*
 
-- [ ] T001 Add an optional `NameFragment` to `ListCamerasQuery` in `src/CameraCatalog/Application/Queries/ListCamerasQuery.cs`, per data-model §2. Absent and empty-after-trim are the same thing.
-- [ ] T002 Apply the filter in `src/CameraCatalog/Application/Queries/Handlers/ListCamerasQueryHandler.cs` **on `visible`, before `CountAsync`** — beside the fab and retired filters, which already carry the reason in their comments. Match case-insensitively against `name_normalized`, escaped so the fragment is text rather than pattern.
-- [ ] T003 [P] **Test that the total counts the matches**, in `tests/CameraCatalog.Application.Tests/`: filter a known subset and assert the reported total equals the match count, not the catalogue size. Contract C1, and the clause this feature can fail quietly.
-- [ ] T004 [P] **Test that filtering and paging compose**, in `tests/CameraCatalog.Application.Tests/`: a match set spanning more than one page, every page drawn from the matches, total unchanged across pages.
-- [ ] T005 [P] **Test that absent means unchanged**, in `tests/CameraCatalog.Application.Tests/`: no fragment, and a whitespace-only fragment, both return exactly what the list returns today. Contract C2 — an empty search box must not empty the catalogue.
-- [ ] T006 [P] **Test the match rule itself**, in `tests/CameraCatalog.Application.Tests/`: a middle fragment matches; case is ignored; surrounding whitespace is ignored; **an accented name is not matched by its unaccented fragment**; `%` matches only a name containing one. Contracts C3 and C4.
+- [x] T001 Add an optional `NameFragment` to `ListCamerasQuery` in `src/CameraCatalog/Application/Queries/ListCamerasQuery.cs`, per data-model §2. Absent and empty-after-trim are the same thing.
+- [x] T002 Apply the filter in `src/CameraCatalog/Application/Queries/Handlers/ListCamerasQueryHandler.cs` **on `visible`, before `CountAsync`** — beside the fab and retired filters, which already carry the reason in their comments. Match case-insensitively against `name_normalized`, escaped so the fragment is text rather than pattern.
+- [x] T003 [P] **Test that the total counts the matches**, in `tests/CameraCatalog.Application.Tests/`: filter a known subset and assert the reported total equals the match count, not the catalogue size. Contract C1, and the clause this feature can fail quietly.
+- [x] T004 [P] **Test that filtering and paging compose**, in `tests/CameraCatalog.Application.Tests/`: a match set spanning more than one page, every page drawn from the matches, total unchanged across pages.
+- [x] T005 [P] **Test that absent means unchanged**, in `tests/CameraCatalog.Application.Tests/`: no fragment, and a whitespace-only fragment, both return exactly what the list returns today. Contract C2 — an empty search box must not empty the catalogue.
+- [x] T006 [P] **Test the match rule itself**, in `tests/CameraCatalog.Application.Tests/`: a middle fragment matches; case is ignored; surrounding whitespace is ignored; **an accented name is not matched by its unaccented fragment**; `%` matches only a name containing one. Contracts C3 and C4.
 
 **Checkpoint — this is the gate.** T003 is the one that matters: a filtered total
 describing the unfiltered catalogue reads as authoritative and is wrong. Settle it
@@ -67,20 +67,34 @@ all.
 
 ## Mutations that must each kill a test
 
-| # | Mutation | Must be killed by |
-|---|---|---|
-| 1 | Count before filtering, so the total describes the fab | T003 |
-| 2 | Filter after `Skip`/`Take` | T004 |
-| 3 | Treat an empty fragment as "match nothing" | T005 |
-| 4 | Match on prefix instead of substring | T006 |
-| 5 | Make the match case-sensitive | T006 |
-| 6 | Interpolate the fragment, so `%` matches everything | T006 |
-| 7 | Fold accents | T006 |
-| 8 | Render a miss as an empty list with no message | T012 |
+| # | Mutation | Must be killed by | Verified |
+|---|---|---|---|
+| 1 | Count the population **before** the name filter narrows it | T003 | **killed** — 3 failures |
+| 2 | Filter after `Skip`/`Take` | T004 | |
+| 3 | Stop trimming the fragment | T005, T006 | **killed** — 3 failures |
+| 4 | Match on prefix instead of substring | T006 | |
+| 5 | Drop the case folding | T006 | **killed** — 9 failures |
+| 6 | Interpolate the fragment, so `%` matches everything | T006 | |
+| 7 | Fold accents | T006 | |
+| 8 | Render a miss as an empty list with no message | T012 | |
 
 **Mutation 1 first.** It is the only one whose survival produces a *plausible*
 wrong answer — a filtered list with a confident, authoritative, wrong total —
 rather than an obviously broken one.
+
+**Two corrections found by running these rather than reasoning about them**, and
+both are the same lesson:
+
+- The first attempt at mutation 1 moved the count above `SortBy` instead of above
+  the filter. **It survived, and it should have** — sorting does not change the
+  row set, so the two counts are equal. A mutation that is not the mutation you
+  named proves nothing, and this one would have been recorded as "killed".
+- Mutation 3 was originally written as *"treat an empty fragment as match
+  nothing"*. **That is not expressible against this implementation**: a blank
+  fragment trims to the empty string, and `Contains("")` is true of every name, so
+  the code returns everything however the null check is spelled. The mutation that
+  does exist is dropping the trim — which makes a blank fragment match only names
+  containing whitespace, and is killed.
 
 ---
 
