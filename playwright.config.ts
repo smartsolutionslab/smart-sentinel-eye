@@ -25,6 +25,7 @@ export default defineConfig({
     // Management app (:5173) — everything except the kiosk specs.
     {
       name: 'chromium',
+      teardown: 'cleanup',
       use: { ...devices['Desktop Chrome'] },
       // **Both exclusions, and the second was learned the hard way.** Adding a
       // project does not take its files out of this one: the wall specs ran
@@ -46,8 +47,9 @@ export default defineConfig({
     {
       name: 'kiosk',
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5174' },
-      testMatch: /kiosk-.*\.spec\.ts/,
+      testMatch: /kiosk-.*.spec.ts/,
       dependencies: ['seed'],
+      teardown: 'cleanup',
     },
     // Wall display (:5175) — spec 052. The same application in wall mode, so
     // it signs in as `kiosk-wall` and asks for a grant that outlives the
@@ -59,23 +61,29 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5175' },
       testMatch: /wall-.*.spec.ts/,
       dependencies: ['seed'],
+      teardown: 'cleanup',
     },
-    // Issue 1895 — retires the cameras this run registered, so a long-lived dev
-    // database does not fill with rows pointing at addresses nothing serves.
+    // Retires the cameras this run registered and archives the layouts it
+    // published, so a long-lived dev database does not fill with rows pointing
+    // at addresses nothing serves.
     //
-    // `dependencies` rather than a project-level `teardown`, and the ordering is
-    // the reason: the seed camera is bound to the published layout the kiosk
-    // opens, so cleaning it while `kiosk` is still running would pull a wall out
-    // from under a test. Depending on both projects makes "after everything that
-    // registers a camera" explicit instead of implied.
+    // **Referenced as each test project's `teardown` rather than depending on
+    // them.** This was the other way round, for a reason that turned out not to
+    // apply: the fear was that cleaning up while `kiosk` still ran would delete
+    // the layout a test was watching. A `teardown` project does not do that — it
+    // runs after the projects that name it have finished, and once, not per
+    // project.
     //
-    // A `--project=chromium` run therefore does NOT clean up. That is the
-    // trade for not deleting the kiosk's layout mid-run; a full run does.
+    // What `dependencies` cost was the partial run. `--project=kiosk` pulled in
+    // `seed` (a dependency) but never `cleanup` (which depended on projects the
+    // run did not select), so every partial run registered two cameras and
+    // retired none. The dev stack reached seventy that way. Now every project
+    // that registers a camera names the cleanup that removes it, and
+    // `--project=kiosk --list` shows `cleanup` scheduled.
     {
       name: 'cleanup',
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173' },
-      testMatch: /.*\.teardown\.ts/,
-      dependencies: ['chromium', 'kiosk', 'wall'],
+      testMatch: /.*.teardown.ts/,
     },
   ],
 });
