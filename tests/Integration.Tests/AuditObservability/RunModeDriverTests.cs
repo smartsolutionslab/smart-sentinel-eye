@@ -61,35 +61,48 @@ public class RunModeDriverTests
     }
 
     /// <summary>
-    /// **Absent configuration is a refusal, not a default.**
+    /// **Each of the three, not just the first.**
     ///
     /// <para>
-    /// A fallback address is the quiet version of the same failure: the run would
-    /// measure whatever answered and label it run mode. Asserting <c>None</c>
-    /// here is asserting that no such default exists to fall back to.
+    /// The mutation named is "a fallback address", and clearing only
+    /// <c>SSE_RUNMODE_SYSTEM_VARIABLES</c> would miss two thirds of it: a default
+    /// introduced for the Keycloak or audit-db variable survives untouched,
+    /// because the first branch short-circuits before either is read.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Reads no real environment variable.</b> xUnit runs classes without a
+    /// collection attribute in parallel, and this class and the measurement both
+    /// lack one — so nulling the real variables here could refuse a correctly
+    /// configured measurement running alongside, with a message naming a cause
+    /// that was not true.
     /// </para>
     /// </summary>
-    [Fact]
-    public void Absent_configuration_yields_no_address_rather_than_a_default()
+    [Theory]
+    [InlineData(null, "https://keycloak", "Host=db")]
+    [InlineData("http://variables", null, "Host=db")]
+    [InlineData("http://variables", "https://keycloak", null)]
+    [InlineData("", "https://keycloak", "Host=db")]
+    [InlineData("http://variables", "   ", "Host=db")]
+    public void Any_absent_setting_yields_no_address_rather_than_a_default(
+        string? systemVariables, string? keycloak, string? auditDb)
     {
-        string? systemVariables = Environment.GetEnvironmentVariable(
-            RunModeStackAddress.SystemVariablesVariable);
+        Option<RunModeStackAddress> configured =
+            RunModeStackAddress.From(systemVariables, keycloak, auditDb);
 
-        try
-        {
-            Environment.SetEnvironmentVariable(RunModeStackAddress.SystemVariablesVariable, null);
+        configured.HasValue.ShouldBeFalse(
+            "with any part of the stack unconfigured there must be no address at all; a default "
+            + "would let the run measure something else and call it run mode");
+    }
 
-            Option<RunModeStackAddress> configured = RunModeStackAddress.FromEnvironment();
+    [Fact]
+    public void A_fully_configured_stack_yields_an_address()
+    {
+        Option<RunModeStackAddress> configured =
+            RunModeStackAddress.From("http://variables", "https://keycloak", "Host=db");
 
-            configured.HasValue.ShouldBeFalse(
-                "with no stack configured there must be no address at all; a default would let the "
-                + "run measure something else and call it run mode");
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(
-                RunModeStackAddress.SystemVariablesVariable, systemVariables);
-        }
+        configured.HasValue.ShouldBeTrue(
+            "without this the refusal test above would pass on a function that always refuses");
     }
 
     /// <summary>
@@ -105,7 +118,7 @@ public class RunModeDriverTests
         missing.ShouldContain(RunModeStackAddress.KeycloakVariable);
         missing.ShouldContain(RunModeStackAddress.AuditDbVariable);
         missing.ShouldContain("will not", Case.Insensitive);
-        missing.ShouldContain("proxied", Case.Insensitive);
+        missing.ShouldContain("issuer", Case.Insensitive);
     }
 
     /// <summary>

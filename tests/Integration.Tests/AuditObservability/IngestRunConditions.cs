@@ -49,9 +49,6 @@ public sealed record IngestRunConditions(
         AchievedRatePerSecond >= IngestRunShape.MinimumAcceptableRate
         && AchievedRatePerSecond <= IngestRunShape.MaximumAcceptableRate;
 
-    /// <summary>Rows that arrived without the stamps the division depends on.</summary>
-    public bool EveryRowStamped => RowsMissingStamps == 0;
-
     public string Describe() => string.Create(
         CultureInfo.InvariantCulture,
         $"""

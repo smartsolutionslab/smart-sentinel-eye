@@ -42,9 +42,17 @@ on every band of every run.
 | **Tail band** — observed span | 1499.5 ms | 589.0 ms | **87.4 ms** |
 | — before handler entry | 1499.5 ms | 589.0 ms | **87.4 ms** |
 | — inside the handler | 0.0 ms | 0.0 ms | 0.0 ms |
-| Write (insert, not commit — not established) | 8.2 ms | 3.5 ms | 5.3 ms |
+| Write, **typical band** (insert, not commit) | 8.2 ms | 3.5 ms | 5.3 ms |
+| Write, **tail band** (insert, not commit) | 10.3 ms | — | 12.4 ms |
 | Clock offset | −0.45 ± 0.74 ms | +1.72 ± 0.66 ms | −1.71 ± 0.77 ms |
-| Write-leg standing | Established | Established | Established |
+| **Clock** standing | Established | Established | Established |
+
+**Two senses of "established", and they must not be run together.** The standing
+row is a verdict about the **clocks**, and here they agree closely — better than on
+the fixture. The **write leg** is still not established as a measurement, for a
+reason no clock agreement can fix: it ends at *insert*, not *commit*, where
+NFR-001's words are "audit row committed". Close clocks make the figure readable;
+they do not make it the figure the requirement names.
 
 ### The figure the decision is about, divided
 
@@ -52,12 +60,18 @@ on every band of every run.
 the recorded range 85–236 ms. That is the figure, reproduced under a paced
 sustained ~100 ev/s — and **87.4 ms of it precedes the audit handler.**
 
-In-handler is 0.0 ms. The write is 12.4 ms in that band.
+In-handler is 0.0 ms. The write, in that same band, is 12.4 ms.
 
-**Three levers have been applied or rejected against this budget — parallel
+Three levers have been applied or rejected against this budget: parallel
 listeners (ADR-0124), settling at the broker (ADR-0126), batching audit writes
-(ADR-0127). All three changed the consumer side. The consumer side is 0.0 ms of
-handler work plus a single-digit-to-low-teens write.**
+(ADR-0127). Each of them changed the consumer side, which these figures measure
+at 0.0 ms of handler work plus a single-digit-to-low-teens write.
+
+That juxtaposition is recorded because it is what the measurement says, and for
+no other purpose. **It is not an argument for a producer-side lever.** Nothing
+here establishes that the time before handler entry is reducible, or by what — see
+the Consequences, which name four separate things this cannot tell you about that
+interval.
 
 ### That the shape is not an artefact of one environment
 
@@ -144,7 +158,8 @@ comparison requires differences to be nil or named. Both runs target
 
 **Closing the write leg with a post-commit stamp.** Rejected in spec 053 as a
 second round trip on a path this work only observes, and that rejection stands.
-It remains the obvious way to establish the back of the span.
+Whether the back of the span is worth establishing, and at what cost, is not decided
+here.
 
 ## Implementation Notes
 
