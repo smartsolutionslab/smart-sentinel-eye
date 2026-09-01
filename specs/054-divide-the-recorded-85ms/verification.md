@@ -1,6 +1,6 @@
 # Verification — 054 divide the span the decision is waiting on
 
-Phase 5.
+Phases 5 and 6.
 
 ---
 
@@ -134,6 +134,24 @@ the check that settles it is asking the realm for its issuer, which is what was
 done rather than assuming either way.
 
 ---
+
+## 6a. A cost this feature adds, found while reviewing it
+
+**The measurement leaves 51 system variables behind per run** — one warm-up plus
+one per writer — and run mode keeps them. On the fixture this cost nothing,
+because the stack is torn down with its database.
+
+Counted on the dev stack after these runs: **1468 of 1559 system variables are
+measurement residue**, 94% of the table.
+
+**It is filed rather than fixed**, because neither available remedy is obviously
+right. There is no delete endpoint and that looks deliberate — `archive` marks
+rather than removes — so cleanup would either publish 51 more events into the
+pipeline the run just measured, or reach around the domain from a test. Which of
+those the repository wants is a decision, not a tidy-up.
+
+Worth knowing because a dev stack with 1468 variables makes the management UI's
+variable list unusable, and the count only grows.
 
 ## 7. Phases
 
