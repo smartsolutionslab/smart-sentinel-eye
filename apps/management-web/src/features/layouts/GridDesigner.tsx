@@ -7,6 +7,15 @@ import { buildCells, GRID_PRESETS, type GridDesignerValue } from './gridDesigner
 export interface GridDesignerProps {
   form: UseFormReturn<GridDesignerValue>;
   cameras: ReadonlyArray<CameraSummary>;
+  /**
+   * Every camera seen since the dialog opened, by identifier (spec 055).
+   *
+   * A tile whose assigned camera the current filter excludes must still show
+   * it: options come from the matches, so without this the select renders
+   * blank while the form still holds the value. An operator reads that as lost
+   * and reassigns it -- the filter silently editing the layout.
+   */
+  knownCameras?: ReadonlyMap<string, CameraSummary>;
   overlays: ReadonlyArray<PublishedOverlay>;
   camerasLoading: boolean;
   overlaysLoading: boolean;
@@ -85,6 +94,7 @@ function ambiguousNamesOf(cameras: ReadonlyArray<CameraSummary>): ReadonlySet<st
 export function GridDesigner({
   form,
   cameras,
+  knownCameras,
   overlays,
   camerasLoading,
   overlaysLoading,
@@ -110,6 +120,32 @@ export function GridDesigner({
    * the camera list arrives after mount on every real load.
    */
   const selectedCameraOf = (index: number): string => watch(`cells.${index}.cameraIdentifier`) ?? '';
+
+  /**
+   * The options for one tile: the current matches, plus the camera that tile
+   * already holds if the filter excludes it (spec 055).
+   *
+   * <p>
+   * Without the second part a filter blanks an assigned tile — the select's
+   * value has no matching option, so it paints empty while the form still
+   * carries the camera. The operator sees a tile they filled become empty and
+   * fills it again, and the filter has quietly edited the layout.
+   * </p>
+   *
+   * <p>
+   * Appended rather than prepended so the matches stay in their sorted order
+   * and the retained one is visibly the odd entry out.
+   * </p>
+   */
+  const optionsFor = (selected: string): ReadonlyArray<CameraSummary> => {
+    if (selected === '' || cameras.some((camera) => camera.cameraIdentifier === selected)) {
+      return cameras;
+    }
+
+    const retained = knownCameras?.get(selected);
+
+    return retained === undefined ? cameras : [...cameras, retained];
+  };
 
   const selectPreset = (rows: number, cols: number) => {
     const next = buildCells(rows, cols, getValues('cells'));
@@ -189,7 +225,7 @@ export function GridDesigner({
                   value={selectedCameraOf(index)}
                 >
                   <option value="">{emptyCameraLabel(camerasLoading, camerasFailed, cameras.length === 0)}</option>
-                  {cameras.map((camera) => (
+                  {optionsFor(selectedCameraOf(index)).map((camera) => (
                     <option key={camera.cameraIdentifier} value={camera.cameraIdentifier}>
                       {cameraLabel(camera, ambiguousCameraNames)}
                     </option>

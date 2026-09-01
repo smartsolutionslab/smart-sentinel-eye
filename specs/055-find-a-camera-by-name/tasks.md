@@ -52,9 +52,9 @@ all.
 
 ## Phase 3 — US1 + US2: the screens *(P1)*
 
-- [ ] T010 [US1] Add a filter field beside the camera `<select>` in `apps/management-web/src/features/layouts/GridDesigner.tsx`. **The native list stays** — it carries the keyboard and screen-reader behaviour. Associate the field with the list it filters, and discard responses older than one already shown (FR-013).
+- [x] T010 [US1] Add a filter field beside the camera `<select>` in `apps/management-web/src/features/layouts/GridDesigner.tsx`. **The native list stays** — it carries the keyboard and screen-reader behaviour. Associate the field with the list it filters, and discard responses older than one already shown (FR-013).
 - [ ] T011 [US1] Add the same filter to `apps/management-web/src/features/cameras/CamerasPage.tsx`, reusing whatever T010 produces rather than writing a second one.
-- [ ] T012 [US2] **Show a miss as a miss** in `apps/management-web/src/features/layouts/GridDesigner.tsx` and `apps/management-web/src/features/cameras/CamerasPage.tsx`: "nothing matched" distinguishable from "still loading" and from "there are no cameras". Contract C6 — the state an operator most needs to tell apart, and the one a spinner-then-empty-list produces by default.
+- [x] T012 [US2] **Show a miss as a miss** in `apps/management-web/src/features/layouts/GridDesigner.tsx` and `apps/management-web/src/features/cameras/CamerasPage.tsx`: "nothing matched" distinguishable from "still loading" and from "there are no cameras". Contract C6 — the state an operator most needs to tell apart, and the one a spinner-then-empty-list produces by default.
 
 ---
 
