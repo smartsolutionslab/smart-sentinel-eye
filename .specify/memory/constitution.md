@@ -129,6 +129,21 @@ re-measured the path with alignment active, and **inter-display
 synchronisation remains unbuilt and out of scope** (ADR-0128) — it is not
 a row here, and its absence is not covered by this paragraph.
 
+**Spec 056 changed no cell of the table above, and that is the finding**
+(ADR-0138). It built the first automated check that a tile carries an
+overlay label over *decoding* video — the product's central behaviour,
+previously unchecked in either direction, because every overlay fixture
+pointed its camera at an address nothing serves. What it did **not**
+produce is a figure. The span it attempted was **refused**: the value
+never reached the already-open tile, so it reports what it could not
+establish and no number. Decode is now *observed*; observation is not a
+latency figure, and the Measured column is about figures.
+
+That feature's own task list predicted two legs would change state. They
+did not, and the table says so rather than the prediction. A cell that
+gains a *measured* because a plan expected one is the same defect as a
+leg recorded unbuilt after it was built — arriving by a tidier route.
+
 **It also spends the last §VII exemption, and that is now urgent rather
 than theoretical.** ADR-0117 exempts a leg by its being *not yet
 subject*; no leg is unbuilt, so **every leg is now subject** — and the

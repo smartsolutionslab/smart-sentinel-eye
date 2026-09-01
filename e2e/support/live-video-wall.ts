@@ -74,3 +74,23 @@ export function writeLiveVideoWall(wall: LiveVideoWall): void {
 export function readLiveVideoWall(): LiveVideoWall {
   return JSON.parse(readFileSync(handoffPath, 'utf8')) as LiveVideoWall;
 }
+
+/**
+ * Whether a picture is <b>moving</b>, given two frame counts and the gap
+ * between them.
+ *
+ * <para>
+ * A rule rather than an inline comparison so it can be checked in both
+ * directions. A source that emitted one frame and stopped satisfies "frames
+ * have been decoded" while showing something an operator cannot tell from a
+ * frozen wall — and neither can a screenshot, which is why the delta is the
+ * assertion and the count is not.
+ * </para>
+ */
+export function isDecodeOngoing(
+  framesBefore: number,
+  framesAfter: number,
+  minimumFrames: number,
+): boolean {
+  return framesAfter - framesBefore >= minimumFrames;
+}
