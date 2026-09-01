@@ -23,12 +23,17 @@ started, not a path that resolved, not a WHEP negotiation that completed. Every
 one of those is compatible with a black tile.
 
 ```
-[decode] 22 → 42 frames in 1000ms (+20, threshold 10) across 1 element(s)
+[decode] 23 → 49 frames in 1000ms (+26, threshold 10) across 1 element(s)
 ```
 
 The clip runs at 25 fps, so ~25 frames per second is the healthy figure and the
 threshold of 10 sits comfortably below it. Observed across runs at +20, +25,
 +26, +30.
+
+**This figure is from the code that merges.** An earlier draft quoted a run
+taken against the *summed* reader, which review replaced with a per-element
+check — so the quoted evidence had not exercised the code it was offered for.
+Re-run after the change.
 
 ---
 
@@ -97,7 +102,8 @@ noise, and far below the 180 s ceiling.** The CI figure against the recorded
 | The check can fail | both mutations, run | asserting that it would |
 | The old fixtures had no video | mutation 1 | reading the AppHost |
 | Nothing sums the legs | the search | nobody having meant to |
-| The fixture cleans up | teardown output: 3 cameras, 3 layouts | a green run alone |
+| The fixture cleans up **cameras, layouts and overlays** | three teardown sweeps, each reporting its totals | a green run alone |
+| **That the fixture cleans up everything it creates (FR-006)** | **nothing — it does not** | the three sweeps that do run |
 | **That the 800 ms budget holds** | **nothing** | a span that omits three legs |
 | **That the label path works** | **nothing — it demonstrably does not** | the suite being green |
 | **That anyone has watched a wall align** | **nothing** | every check above passing |
@@ -138,6 +144,32 @@ raised against working code this session.
 
 ---
 
+## 6a. FR-006 is not met, and saying so is the point
+
+The seed creates four things. Three now have a sweep:
+
+| Artefact | Swept | By |
+|---|---|---|
+| Camera | yes | existing `E2E ` prefix |
+| Layout | yes | prefix added here |
+| Overlay | yes | **new sweep** — 111 of 124 overlays were residue, ninety per cent |
+| **Variable** | **no** | **the product has no way to remove one** |
+
+**A system variable cannot be deleted** — no control, no endpoint. 1618 have
+accumulated. So FR-006, *"clean up whatever it creates"*, is **unmeetable** for
+one of the four, and raised rather than glossed.
+
+**And "including on a partial run" is only partly true.** A Playwright teardown
+project runs after the projects that name it, but **not** after an aborted run —
+Ctrl-C or a worker crash leaves everything. The sweeps are prefix-matched, so a
+later run clears the residue; nothing clears it at the moment of the abort.
+
+An earlier draft of this note claimed the fixture cleans up, citing "3 cameras,
+3 layouts" — evidence for two of four kinds, offered as proof of a requirement
+about all of them.
+
+---
+
 ## 7. Raised rather than absorbed
 
 - **A variable change does not reach an already-open tile**, and no test has
@@ -149,6 +181,49 @@ raised against working code this session.
 - **`system-variables.spec.ts` fails locally on a cold stack**, the same cause
   as the two seeds fixed here. Those two blocked this feature; that one did not,
   so it is raised rather than swept into this diff.
+
+---
+
+## 7a. Phase 6 — fifteen findings, and the worst was a truncated search
+
+All confirmed. The four that mattered:
+
+**1. The AppHost gate was wrong, from an absence I never verified.** I gated the
+video container on `isRunMode` alone, justified by "`E2ETests` is never set to
+true anywhere". **It is set** — by `AspireFixture` and `AppHostE2ESwitchTests`.
+My search printed twelve lines when there are twenty-one matches, and I read the
+truncation as absence. The consequence was real: every integration-test run
+booted a container, a 45 MB bind mount and a permanently looping FFmpeg that
+nothing consumed. Now gated `isRunMode && !isE2ETests`, exactly as `camera-sim`
+is — the end-to-end stack still gets it, because that boot does not set the flag.
+
+**2. A bug was dressed up as the specification working.** The span "refused",
+and the ADR called that FR-009's honesty policy being exercised. FR-009's
+refusal is about **clocks**. The refusal actually reached was *the value never
+arrives* — a defect. The outcome was also non-monotonic: nought figures passed,
+one failed, two passed, so a total regression would have looked like today.
+Now it fails, and the check is held back explicitly.
+
+**3. The span was not idempotent.** It asserted the seeded initial value as a
+precondition and left the variable on its last value. CI retries at *test*
+granularity, so any first failure guaranteed two more blaming the precondition
+instead of the cause.
+
+**4. My stated fix for the wall collision did not cover the third test.** It
+lived in a separate file that sorts *before* the merged one, drove the same
+variable, and was inert only because it was held back. Folded in; that file is
+gone.
+
+Also fixed: the decode reader summed across elements, so one live tile could
+carry a black one past the threshold — the very failure this feature exists to
+catch, latent in my own reader. And two bugs in the overlay sweep I had just
+written, one of which counted a successful archive as a skip.
+
+**And one more claim of mine that did not survive checking.** I justified the
+overlay sweep with "111 of 124 overlays were residue — ninety per cent". True as
+a count, misleading as a picture: about a hundred were **already Archived**, so
+they were never on the default list. What actually accumulates is a handful per
+run. Corrected in the file and here.
 
 ---
 

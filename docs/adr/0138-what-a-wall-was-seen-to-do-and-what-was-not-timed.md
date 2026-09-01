@@ -56,20 +56,26 @@ it pulls a camera. Not the Scenario Simulator's `camera-sim`: **nothing waits
 for that worker to seed**, so a fixture leaning on it would be racing, and a
 fixture must own and remove its own data.
 
-### The span is reported as unmeasured, and that is the outcome
+### No figure was obtained, and the reason is a defect rather than a refusal
 
-The measurement ran and **refused**: the value never reached the tile within its
-window, so it reports what it could not establish and **no figure**.
+The measurement ran and produced nothing: the value never reached the
+already-open tile, so no iteration completed.
 
-**This is the required outcome, not a failure** — the specification made an
-honestly-reported gap a passing result precisely so that the alternative could
-be ruled out. The alternative was available and cheap: six per-leg figures exist
-and adding them yields an 800 ms-shaped number in a minute. ADR-0135 established
-that medians do not add. Such a number would have closed the question while
-leaving the risk exactly where it is, and would be indistinguishable from a
-measurement to anyone reading it later.
+**That is a failure, and it is recorded as one.** An earlier draft of this ADR
+called it FR-009's refusal working as designed. It is not. FR-009's refusal is
+about *clocks* — two ends that cannot be shown to share one — which is checked
+before anything is timed and is not what happened. Calling a product defect the
+specification's honesty policy would let a bug pass as a design success, and
+would make a total regression indistinguishable from today's state.
 
-There is no field, and no code path, that could produce one. Confirmed by search.
+The check is therefore **held back explicitly**, not reported as a passing
+unmeasured span. The refusal path itself stays implemented for the case it was
+written for.
+
+**What the failure does not excuse.** No end-to-end figure may be assembled from
+the per-leg ones. Six exist and adding them yields an 800 ms-shaped number in a
+minute; ADR-0135 established that medians do not add. There is no field and no
+code path that could produce one, confirmed by search.
 
 ### What the span would have covered, had it been measured
 
@@ -112,10 +118,18 @@ tidier route.
   label hold (fails identically with no video), the locator, and propagation.
   Not filed as a proven defect, because the working path was not reproduced
   side-by-side.
-- **The Scenario Simulator runs in CI**, contrary to ADR-0111's *"All dev-only,
-  so prod/CI are untouched"*: `E2ETests` is never set to `true` anywhere, so the
-  guard `isRunMode && !isE2ETests` is true in CI. Three committed comments
-  reason from that guard to a conclusion it does not support.
+- **The Scenario Simulator runs in the end-to-end stack**, contrary to
+  ADR-0111's *"All dev-only, so prod/CI are untouched"*. The flag `E2ETests` is
+  set by the **integration** fixture (`AspireFixture`) and by
+  `AppHostE2ESwitchTests` — but **not** by the end-to-end stack boot, which is a
+  plain `dotnet run` in `ci.yml`. So `isRunMode && !isE2ETests` is true there and
+  the dev-only resources start. Three committed comments reason from that guard
+  to a conclusion it does not support.
+
+  **A first draft of this ADR said the flag "is never set to `true` anywhere",
+  which is false.** It came from a search whose output was truncated at twelve
+  lines when there are twenty-one matches — an absence concluded from a partial
+  read. The correct claim is narrower and is the one above.
 
 **What this does not establish:**
 
