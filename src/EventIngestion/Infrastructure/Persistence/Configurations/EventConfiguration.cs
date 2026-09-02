@@ -77,7 +77,8 @@ public sealed class EventConfiguration : IEntityTypeConfiguration<EventAggregate
         builder.Property(eventEntity => eventEntity.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
-            .IsConcurrencyToken();
+            .IsConcurrencyToken()
+            .IsRequired();
 
         builder.Ignore(eventEntity => eventEntity.PendingEvents);
     }

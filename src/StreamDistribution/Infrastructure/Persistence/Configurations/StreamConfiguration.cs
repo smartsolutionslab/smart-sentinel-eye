@@ -93,7 +93,8 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
         builder.Property(stream => stream.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
-            .IsConcurrencyToken();
+            .IsConcurrencyToken()
+            .IsRequired();
 
         // One stream per camera (FR-011 idempotency enforced at the DB layer too).
         builder.HasIndex(stream => stream.Camera)

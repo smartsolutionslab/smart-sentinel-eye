@@ -74,7 +74,8 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
         builder.Property(integration => integration.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
-            .IsConcurrencyToken();
+            .IsConcurrencyToken()
+            .IsRequired();
 
         // Still globally unique, not (fab, name): the name is the path segment
         // of POST /events/webhook/{name} and the ingest lookup has only the name

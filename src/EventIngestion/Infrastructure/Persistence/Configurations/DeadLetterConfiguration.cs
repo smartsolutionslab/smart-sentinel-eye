@@ -57,7 +57,8 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
         builder.Property(deadLetter => deadLetter.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
-            .IsConcurrencyToken();
+            .IsConcurrencyToken()
+            .IsRequired();
 
         builder.HasIndex(deadLetter => deadLetter.RejectedAt)
             .HasDatabaseName("ix_dead_letters_rejected_at");
