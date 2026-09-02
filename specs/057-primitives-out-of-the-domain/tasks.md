@@ -40,6 +40,22 @@ phase in this repository's history where green means the work did not happen.
   They are the boundary the rule protects, not a violation of it.
 - **Do not widen the ConfigureAwait ban.** It stays exempt for `Shared.*` and
   tests. Two lists, two scopes, on purpose.
+- **Do not assume a value converter reaches raw SQL. It does not.**
+  `AuditEventRepository.SaveAsync` inserts with
+  `ExecuteSqlInterpolatedAsync`, which bypasses the change tracker entirely, so
+  the converter never runs and EF fails with *"The current provider doesn't
+  have a store type mapping for properties of type 'X'"* — at runtime, on
+  every audit write. Interpolate `.Value` (and `?.Value` when nullable).
+
+  This cost a full CI cycle in Phase 4 and **Phase 5 will hit it again in the
+  same file**: `{row.OccurredAt}`, `{row.ReceivedAt}` and
+  `{row.HandlerEnteredAt}` are all interpolated there and are all on the
+  timestamp list. Check that file *before* retyping them, not after.
+
+  Nothing catches this short of the integration suite — the build is clean, the
+  unit tests are green, and the schema probe is empty, because none of them
+  execute that INSERT. The five raw-SQL sites are listed in
+  `verification.md`.
 
 ---
 

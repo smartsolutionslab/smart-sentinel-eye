@@ -359,3 +359,72 @@ Three things follow, and only one of them is the code fix:
 This is the same defect this whole feature exists to correct — a check that
 passes on half a system, believed because it was green — committed inside the
 fix for it. Recorded rather than quietly amended.
+
+## The integration suite caught what nothing else could: converters do not reach raw SQL
+
+CI failed **twice, identically** — 5 of 349, same tests, same counts. Deterministic,
+so not the repository's known integration flakiness. Both logs were downloaded
+before the re-run, because a re-run erases the failure from CI history.
+
+Every failure read as *"no audit row appeared"*. The cause, from the service log
+inside the uploaded `.trx`:
+
+```text
+System.InvalidOperationException: The current provider doesn't have a store type
+  mapping for properties of type 'AuditPayload'.
+   at Microsoft.EntityFrameworkCore.Storage.RelationalTypeMappingSourceExtensions.GetMapping(...)
+   at Microsoft.EntityFrameworkCore.Storage.Internal.RawSqlCommandBuilder.Build(...)
+   at Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.ExecuteSqlRawAsync(...)
+   at SmartSentinelEye.AuditObservability.Infrastructure.Persistence.AuditEventRepository.SaveAsync(...)
+```
+
+`AuditEventRepository` inserts with `ExecuteSqlInterpolatedAsync`, **bypassing the
+change tracker**. A value converter is a change-tracker concept, so it never ran,
+and EF had no store mapping for a domain type it was handed as a raw parameter.
+Every audit write threw. The fix is one line: interpolate `.Value`, and `?.Value`
+where nullable.
+
+### Three hypotheses, all wrong, and how they were killed
+
+Worth recording because the reasoning was plausible and the evidence was cheap:
+
+1. **`jsonb` + value converter is unsupported.** Killed by probing the live EF
+   model: `EventIngestion`'s `Event.Payload` is *also* `jsonb` with a converter and
+   `NpgsqlJsonTypeMapping`, predates this work, and passes. The pattern is proven
+   here. Acting on this would have "fixed" something that was never broken.
+2. **The nullable converter on `actor_username` mishandles null.** Killed by the
+   same probe plus precedent — `DeadLetterConfiguration` has used `fab => fab!.Value`
+   since spec 018.
+3. **`Payload`'s default changed from `string.Empty` to `null!`, so some path
+   writes null.** Killed by search: `AuditEvent` has exactly one construction site.
+
+The probe that settled all three was a throwaway xUnit test that builds both
+`DbContext` models offline and prints each property's converter and relational
+type mapping. No Docker. An earlier attempt at the same thing as a standalone
+console app failed on an EF assembly-version conflict (10.0.4 against 10.0.11) and
+was abandoned rather than fought — inside the repository the versions are
+consistent.
+
+### Why nothing local could have caught it
+
+| Check | Result | Why it was blind |
+|---|---|---|
+| `dotnet build -c Release` | green | the call compiles; the type is only rejected at runtime |
+| 1864 unit tests | green | the repository is faked at that level |
+| EF migration probe | empty | it inspects the model, never executes the INSERT |
+| Integration suite | **caught it** | the only check that runs the real INSERT |
+
+The generalisable rule, now in `tasks.md`'s **Do not** list: a value converter
+reaches EF-tracked writes and nothing else. Five files use raw SQL —
+`AuditEventRepository`, `TimescaleAuditChunkInventory`,
+`EventPartitionRolloverMigrator`, `FabPartitionProvisioner`,
+`VariableValueRequestDedupStore` — and only the first interpolated a retyped
+property.
+
+**Phase 5 will hit this again in the same file.** `{row.OccurredAt}`,
+`{row.ReceivedAt}` and `{row.HandlerEnteredAt}` are all interpolated in that
+INSERT and all on the 26-timestamp list. Check before retyping, not after.
+
+A permanent guard is a candidate and was not built: an architecture test flagging
+raw-SQL interpolation of a value-object-typed property. It is recorded here rather
+than claimed, because the guard rule is the only one this feature made mechanical.
