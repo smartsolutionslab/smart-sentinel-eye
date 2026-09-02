@@ -20,13 +20,28 @@ A survey of every domain model found four such groups.
 | Group | Sites | Today | What the pairing means |
 |---|---|---|---|
 | Timestamp + actor | 9 | `CreatedAt` + `CreatedBy`, `RegisteredAt` + `RegisteredBy`, `ProvisionedAt` + `ProvisionedBy` | Always written in the same statement; neither is meaningful alone |
-| Actor + username | 1 | `AuditEvent.Actor` + `ActorUsername` | One identity, of which the username is the optional human-readable half |
+| Actor + username | 1 | `AuditEvent.Actor` + `ActorUsername` | One identity, of which the username is the optional human-readable half — **not grouped; see below** |
 | Payload + size | 1 | `AuditEvent.Payload` + `PayloadSizeBytes` | **Not a pair — a derivation.** See below |
-| Trigger source + kind | 1 | `Rule.TriggerSource` + `TriggerKind` | Together they name one trigger; separately they name half of one |
+| Trigger source + kind | 1 | `Rule.TriggerSource` + `TriggerKind` | Together they name one trigger; separately they name half of one — **not grouped; see below** |
 
 The nine timestamp/actor sites are: `Rule`, `Layout`, `Layout.Revision`,
 `Overlay`, `Overlay.Revision`, `Variable` (creation); `Camera`,
 `RegisteredClient` (registration); `Stream` (provisioning).
+
+**Two of the twelve were surveyed, attempted and then accepted ungrouped**
+(2026-09-02, issue #2026, option C). `AuditEvent.Actor` + `ActorUsername` and
+`Rule.TriggerSource` + `TriggerKind` each sit inside a composite index
+alongside a column outside the pair — `ix_audit_actor_occurred` and
+`ix_rules_fab_trigger_state`. Grouping either would move the pair into a
+composite, and **EF cannot express an index that spans a composite and its
+row**, by owned reference or complex type. The alternatives were to take the
+index out of the EF model, which re-creates issue #2022's divergence trap on
+purpose, or to change what these tables are indexed on, which is a
+query-performance decision this feature had no standing to make.
+
+**So this spec delivers ten of twelve, deliberately.** The two that remain are
+the two where the database has an opinion, and the reasoning is recorded here
+rather than left for the next reader to re-derive.
 
 **Why this is worth doing at all.** Two fields that must agree, and that
 nothing forces to agree, will eventually disagree. The aggregate's constructor
@@ -113,7 +128,13 @@ size.
 
 ---
 
-### User Story 3 — An actor is one thing, with an optional name (Priority: P2)
+### User Story 3 — An actor is one thing, with an optional name (Priority: P2) — NOT BUILT
+
+> **Accepted ungrouped on 2026-09-02** (issue #2026, option C).
+> `ix_audit_actor_occurred` spans the composite and the row, and EF cannot
+> express that index. The story is kept as written because the reasoning below
+> is still the reason someone would want it — what changed is the cost, not the
+> value.
 
 An audit row identifies who acted. Some actors are the system itself and have
 no username; the rest have one. Today that is an identifier property beside a
@@ -140,7 +161,11 @@ projection.
 
 ---
 
-### User Story 4 — A trigger is one thing (Priority: P3)
+### User Story 4 — A trigger is one thing (Priority: P3) — NOT BUILT
+
+> **Accepted ungrouped on 2026-09-02** (issue #2026, option C), for the same
+> reason as User Story 3: `ix_rules_fab_trigger_state` spans the composite and
+> the row.
 
 A rule fires on a trigger. The trigger has a source and a kind, and neither
 half describes a trigger on its own.
@@ -194,8 +219,11 @@ persistence and projection are unchanged.
   properties it replaces.
 - **FR-005**: The stored-payload composite MUST derive its size from its
   content. It MUST NOT accept a size from a caller.
-- **FR-006**: The actor composite MUST require an identifier and permit the
-  username to be absent, and MUST continue to distinguish the system actor.
+- **FR-006**: ~~The actor composite MUST require an identifier and permit the
+  username to be absent, and MUST continue to distinguish the system actor.~~
+  **Withdrawn 2026-09-02** (issue #2026, option C). The actor pair stays two
+  properties; `ix_audit_actor_occurred` cannot survive the composite. The same
+  withdrawal applies to the trigger pair, which FR-001 no longer covers.
 - **FR-007**: Every write path that sets these properties MUST be updated with
   them. The audit context has one that writes its columns directly rather than
   through the path the other contexts share, and it is in scope.
@@ -215,18 +243,24 @@ persistence and projection are unchanged.
   separately in CameraCatalog and Identity.
 - **Provisioning**: when a stream was provisioned and by whom. Declared in
   StreamDistribution.
-- **Audit actor**: who acted, and their username where there is one.
+- ~~**Audit actor**: who acted, and their username where there is one.~~ Not
+  built — see Context.
 - **Stored payload**: an audit row's captured content together with the size
   derived from it.
-- **Trigger**: the source and kind a rule fires on.
+- ~~**Trigger**: the source and kind a rule fires on.~~ Not built — see Context.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: The twelve pairs become twelve single properties — 24 loose
-  properties reduced to 12 — with no property left ungrouped that the survey
-  identified.
+- **SC-001**: **Ten** of the twelve pairs become ten single properties — 20
+  loose properties reduced to 10. The two the survey identified and this spec
+  does not group are named in Context, with the reason; no *other* property it
+  found is left ungrouped.
+
+  *Corrected from "twelve … reduced to 12" on 2026-09-02. The original count
+  was written before anyone checked whether the indexes survive a composite —
+  Phase 0 proved only that the columns do.*
 - **SC-002**: No database schema change is pending in any context after the
   work, verified the same way it is verified today, and no migration is added
   by this feature.
