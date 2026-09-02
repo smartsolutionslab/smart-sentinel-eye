@@ -80,7 +80,7 @@ user to confirm before continuing.
 | 1 | Specify | `/speckit-specify` (+ `/speckit-clarify`) | `specs/NNN-x/spec.md` | Spec reviewed; no `[NEEDS CLARIFICATION]` left. |
 | 2 | Plan | `/speckit-plan` | `specs/NNN-x/plan.md` | Plan aligns with constitution + ADRs. |
 | 3 | Tasks | `/speckit-tasks` | `tasks.md` | Tasks atomic; the feature's issue on Project #13. |
-| 4 | Implement | `/speckit-implement` | Code + tests; format & analyzers clean | Tests green; commits follow ADR-0030. |
+| 4 | Implement | `/speckit-implement` | Code + tests; format & analyzers clean | Tests green; **new-behaviour tests observed red first, failure quoted in the PR** (ADR-0139); commits follow ADR-0030. |
 | 5 | Verify | `/verify` or explicit run/test | Verification note on the PR | Behaviour observed end-to-end. Latency cited if on SLO path. |
 | 6 | QA | `/code-review`; `/security-review` if security-sensitive | Findings addressed | All findings resolved or accepted in writing. |
 | 7 | PR | `gh pr create` with template | PR to `develop`, CI green | Reviewer approval + green CI. |
@@ -186,9 +186,17 @@ deploy/helm/            One hand-written Mosquitto chart. The Aspire k8s
 
 ## House rules
 
-- **DDD with value objects.** Primitives (`Guid`, `string`, `double`)
-  do not cross domain boundaries. If you find yourself passing one,
-  introduce a value object (e.g. `CameraId`, `Percentage`).
+- **DDD with value objects.** Primitives do not appear on a domain
+  model. **The authority is the exhaustive list in constitution §II**
+  (ADR-0139) — nine types, four exemptions. Do not restate it here: a
+  partial summary is how §II itself drifted, illustrated by three
+  examples while 35 primitive properties accumulated on aggregates. If
+  you find yourself passing one, introduce a value object (e.g.
+  `CameraId`, `Percentage`).
+- **Refactors stay green; new behaviour starts red.** Two obligations,
+  not one rule with an exception — constitution §Testing. A red test
+  during a behaviour-preserving change is a regression. A new-behaviour
+  test that was never seen failing does not satisfy the Phase 4 gate.
 - **No cross-context project references.** Communication between
   bounded contexts only via `Shared.Contracts`. NetArchTest enforces
   this; PRs that break the rule cannot merge.

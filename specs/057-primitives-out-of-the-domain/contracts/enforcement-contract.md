@@ -26,12 +26,31 @@ root file (research R1).
 Each entry carries a message naming the replacement and ADR-0139, in the
 style the existing root file already uses for ADR-0049.
 
-**The last two are speculative and must be dropped if unused.** The survey
-found `ThrowIfLessThan` at exactly one site and no use of `ThrowIfGreaterThan`
-or `ThrowIfNegative`. Banning an API nobody calls is free to add and costs
-nothing to omit — but "no speculative generality" applies to rules as much as
-to code, and a ban list padded with hypotheticals invites the reader to stop
-believing the ones that matter. Include only what the codebase can actually hit.
+**All six are included, including the three with zero call sites.**
+
+An earlier draft of this contract said the opposite — trim anything the
+codebase cannot currently hit, on the grounds that "no speculative generality"
+applies to rules as much as to code. Measurement at T002 showed
+`ThrowIfNullOrEmpty`, `ThrowIfGreaterThan` and `ThrowIfNegative` at **zero**
+sites, which under that rule would have dropped all three.
+
+That reasoning was wrong. "No speculative generality" governs *code
+abstractions* — layers and knobs built for needs that do not exist. A ban list
+is not an abstraction; it is a prohibition, and a prohibition is
+forward-looking by definition. Its entire purpose is the call site nobody has
+written yet.
+
+The operative test is **substitutability**: does the entry name a direct
+alternative to an already-banned API? `ThrowIfNullOrEmpty` is
+`ThrowIfNullOrWhiteSpace`'s sibling; `ThrowIfGreaterThan` and `ThrowIfNegative`
+are `ThrowIfLessThan`'s. Banning one of a pair and leaving the other legal is
+worse than banning neither — the omission reads as a deliberate carve-out, and
+the next engineer reaches for the sibling that still compiles.
+
+The cost is three lines of data and no code. What a padded list would actually
+risk — a reader disbelieving the entries that matter — does not arise here,
+because every entry names a real BCL guard that a real engineer could
+plausibly reach for.
 
 ---
 
