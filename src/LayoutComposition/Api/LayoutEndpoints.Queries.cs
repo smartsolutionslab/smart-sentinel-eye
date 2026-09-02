@@ -31,12 +31,14 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<LayoutDto, GetLayoutError> result = await handler
             .HandleAsync(new GetLayoutQuery(fabs, LayoutIdentifier.From(layoutIdentifier)), cancellationToken);
@@ -77,12 +79,14 @@ public static partial class LayoutEndpoints
             }
         }
 
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<ListLayoutsResult, ListLayoutsError> result = await handler
             .HandleAsync(new ListLayoutsQuery(fabs, filter), cancellationToken);

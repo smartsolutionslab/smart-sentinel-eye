@@ -41,12 +41,14 @@ public static partial class EventsEndpoints
         // Resolved BEFORE anything is written (spec 018 FR-007): a refusal that
         // had already stored would place a fabricated event in another plant's
         // stream while reporting that it had been stopped.
-        (FabIdentifier? fab, IResult? fabProblem) =
+        Result<FabIdentifier, IResult> fabResolution =
             await EventIngestionFabResolution.ResolveWriteFabAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
-        if (fab is null)
+        if (fabResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabResolution.Error;
         }
+
+        FabIdentifier fab = fabResolution.Value;
 
         // Spec 019 FR-007. Still checked first: it names the cause precisely
         // ("this plant has no storage") where the write below could only report

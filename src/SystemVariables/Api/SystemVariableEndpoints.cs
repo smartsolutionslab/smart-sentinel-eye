@@ -125,12 +125,14 @@ public static class SystemVariableEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        (FabIdentifier? fab, IResult? fabProblem) =
+        Result<FabIdentifier, IResult> fabResolution =
             await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
-        if (fab is null)
+        if (fabResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabResolution.Error;
         }
+
+        FabIdentifier fab = fabResolution.Value;
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         DefineVariableCommand command = new(fab, name, type, initialValue, booleanLabels, actingOperator);
@@ -163,12 +165,14 @@ public static class SystemVariableEndpoints
         }
 
         // Resolved before the precondition, for the same reason as Archive.
-        (FabIdentifier? fab, IResult? fabProblem) =
+        Result<FabIdentifier, IResult> fabResolution =
             await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
-        if (fab is null)
+        if (fabResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabResolution.Error;
         }
+
+        FabIdentifier fab = fabResolution.Value;
 
         if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
         {
@@ -201,12 +205,14 @@ public static class SystemVariableEndpoints
             return problem;
         }
 
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
             new GetVariableQuery(fabs, parsed), cancellationToken);
@@ -246,12 +252,14 @@ public static class SystemVariableEndpoints
             }
         }
 
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
             new ListVariablesQuery(fabs, filter), cancellationToken);
@@ -275,12 +283,14 @@ public static class SystemVariableEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result = await handler.HandleAsync(
             new GetOverlaySnapshotQuery(fabs, overlayIdentifier), cancellationToken);
@@ -310,12 +320,14 @@ public static class SystemVariableEndpoints
         // they do not hold is refused on that ground rather than on a missing
         // If-Match — the reverse order answers 428 to a request that was never
         // theirs to make.
-        (FabIdentifier? fab, IResult? fabProblem) =
+        Result<FabIdentifier, IResult> fabResolution =
             await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
-        if (fab is null)
+        if (fabResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabResolution.Error;
         }
+
+        FabIdentifier fab = fabResolution.Value;
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
@@ -335,29 +347,29 @@ public static class SystemVariableEndpoints
     /// itself lives in <see cref="FabResolution"/>; this feature adds no
     /// resolution mechanism, it applies the existing one.
     /// </summary>
-    private static async Task<(FabIdentifier? Fab, IResult? Problem)> ResolveWriteFabAsync(
+    private static async Task<Result<FabIdentifier, IResult>> ResolveWriteFabAsync(
         ClaimsPrincipal user, string fabId, IFabAuthorizationGuard fabGuard, CancellationToken cancellationToken)
     {
         Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
             user, fabId, fabGuard, "VARIABLE_FAB_REQUIRED", cancellationToken);
         if (resolution.IsFailure)
         {
-            return (null, resolution.Error);
+            return Result<FabIdentifier, IResult>.Failure(resolution.Error);
         }
 
         try
         {
-            return (FabIdentifier.From(resolution.Value), null);
+            return Result<FabIdentifier, IResult>.Success(FabIdentifier.From(resolution.Value));
         }
         catch (ArgumentException ex)
         {
-            return (null, Results.Problem(
+            return Result<FabIdentifier, IResult>.Failure(Results.Problem(
                 title: "VARIABLE_INVALID_INPUT", detail: ex.Message,
                 statusCode: StatusCodes.Status400BadRequest));
         }
     }
 
-    private static async Task<(IReadOnlyList<FabIdentifier>? Fabs, IResult? Problem)> ResolveReadFabsAsync(
+    private static async Task<Result<IReadOnlyList<FabIdentifier>, IResult>> ResolveReadFabsAsync(
         ClaimsPrincipal user, string fabId, IFabAuthorizationGuard fabGuard, CancellationToken cancellationToken)
     {
         IReadOnlyList<string> resolved = await FabResolution.ResolveForReadAsync(
@@ -386,12 +398,12 @@ public static class SystemVariableEndpoints
 
         if (fabs.Count == 0)
         {
-            return (null, Results.Problem(
+            return Result<IReadOnlyList<FabIdentifier>, IResult>.Failure(Results.Problem(
                 title: "VARIABLE_FAB_REQUIRED",
                 detail: "None of your fab groups is a usable fab name.",
                 statusCode: StatusCodes.Status400BadRequest));
         }
 
-        return (fabs, null);
+        return Result<IReadOnlyList<FabIdentifier>, IResult>.Success(fabs);
     }
 }

@@ -61,12 +61,14 @@ public static partial class EventsEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await EventIngestionFabResolution.ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<EventPageDto, ListEventsError> result = await handler.HandleAsync(
             new ListEventsQuery(
@@ -100,12 +102,14 @@ public static partial class EventsEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await EventIngestionFabResolution.ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<EventDto, GetEventError> result = await handler.HandleAsync(
             new GetEventQuery(fabs, identifier), cancellationToken);
@@ -126,12 +130,14 @@ public static partial class EventsEndpoints
         [FromServices] ListDeadLettersQueryHandler handler,
         CancellationToken cancellationToken)
     {
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await EventIngestionFabResolution.ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError> result =
             await handler.HandleAsync(

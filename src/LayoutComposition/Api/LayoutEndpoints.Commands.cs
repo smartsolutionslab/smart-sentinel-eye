@@ -26,7 +26,7 @@ public static partial class LayoutEndpoints
     /// there would allow the two to disagree.
     /// </para>
     /// </summary>
-    private static async Task<(FabIdentifier? Fab, IResult? Problem)> ResolveWriteFabAsync(
+    private static async Task<Result<FabIdentifier, IResult>> ResolveWriteFabAsync(
         ClaimsPrincipal user,
         string fabId,
         IFabAuthorizationGuard fabGuard,
@@ -36,16 +36,16 @@ public static partial class LayoutEndpoints
             user, fabId, fabGuard, "LAYOUT_FAB_REQUIRED", cancellationToken);
         if (resolution.IsFailure)
         {
-            return (null, resolution.Error);
+            return Result<FabIdentifier, IResult>.Failure(resolution.Error);
         }
 
         try
         {
-            return (FabIdentifier.From(resolution.Value), null);
+            return Result<FabIdentifier, IResult>.Success(FabIdentifier.From(resolution.Value));
         }
         catch (ArgumentException ex)
         {
-            return (null, Results.Problem(
+            return Result<FabIdentifier, IResult>.Failure(Results.Problem(
                 title: "LAYOUT_INVALID_INPUT", detail: ex.Message,
                 statusCode: StatusCodes.Status400BadRequest));
         }
@@ -62,7 +62,7 @@ public static partial class LayoutEndpoints
     /// reported exactly as one that never existed (FR-006).
     /// </para>
     /// </summary>
-    private static Task<(IReadOnlyList<FabIdentifier>? Fabs, IResult? Problem)> ResolveCallerFabsAsync(
+    private static Task<Result<IReadOnlyList<FabIdentifier>, IResult>> ResolveCallerFabsAsync(
         ClaimsPrincipal user,
         IFabAuthorizationGuard fabGuard,
         CancellationToken cancellationToken) =>
@@ -79,7 +79,7 @@ public static partial class LayoutEndpoints
     /// holds. Mirrors <c>CameraEndpoints</c>, where that was a real defect.
     /// </para>
     /// </summary>
-    private static async Task<(IReadOnlyList<FabIdentifier>? Fabs, IResult? Problem)> ResolveReadFabsAsync(
+    private static async Task<Result<IReadOnlyList<FabIdentifier>, IResult>> ResolveReadFabsAsync(
         ClaimsPrincipal user,
         string fabId,
         IFabAuthorizationGuard fabGuard,
@@ -105,13 +105,13 @@ public static partial class LayoutEndpoints
 
         if (fabs.Count == 0)
         {
-            return (null, Results.Problem(
+            return Result<IReadOnlyList<FabIdentifier>, IResult>.Failure(Results.Problem(
                 title: "LAYOUT_FAB_REQUIRED",
                 detail: "None of your fab groups is a usable fab name.",
                 statusCode: StatusCodes.Status400BadRequest));
         }
 
-        return (fabs, null);
+        return Result<IReadOnlyList<FabIdentifier>, IResult>.Success(fabs);
     }
 
     private static async Task<IResult> CreateDraft(
@@ -141,12 +141,14 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        (FabIdentifier? fab, IResult? fabProblem) =
+        Result<FabIdentifier, IResult> fabResolution =
             await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
-        if (fab is null)
+        if (fabResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabResolution.Error;
         }
+
+        FabIdentifier fab = fabResolution.Value;
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler
@@ -188,12 +190,14 @@ public static partial class LayoutEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler
             .HandleAsync(
@@ -236,12 +240,14 @@ public static partial class LayoutEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler
             .HandleAsync(
@@ -275,12 +281,14 @@ public static partial class LayoutEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler
             .HandleAsync(
@@ -333,12 +341,14 @@ public static partial class LayoutEndpoints
             return precondition;
         }
 
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler
             .HandleAsync(
@@ -381,12 +391,14 @@ public static partial class LayoutEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler
             .HandleAsync(
