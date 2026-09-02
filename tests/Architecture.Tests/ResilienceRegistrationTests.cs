@@ -98,6 +98,31 @@ public class ResilienceRegistrationTests
     }
 
     /// <summary>
+    /// The other way to disarm the pipeline, and the quieter one. A client-level
+    /// timeout is not a per-attempt cap: it wraps the whole handler chain, so a
+    /// value below the pipeline's 30 s total budget cancels the retries rather
+    /// than bounding them. Identity's admin client held 10 s and had, in effect,
+    /// no retries at all — while reading like a client that was careful about
+    /// both.
+    /// </summary>
+    [Fact]
+    public void No_client_caps_the_resilience_pipeline_with_its_own_timeout()
+    {
+        (string File, string Line)[] finite = ReadSources()
+            .SelectMany(file => CodeLines(file.Value).Select(line => (File: file.Key, Line: line.Trim())))
+            .Where(entry => entry.Line.Contains(".Timeout = ", StringComparison.Ordinal))
+            .Where(entry => !entry.Line.Contains("Timeout.InfiniteTimeSpan", StringComparison.Ordinal))
+            .ToArray();
+
+        finite.ShouldBeEmpty(
+            "HttpClient.Timeout wraps the entire handler chain, retries included, so a finite value is a "
+            + "ceiling over the whole resilience pipeline rather than a limit on one attempt. Set below "
+            + "the pipeline's total budget it silently cancels the retries; the per-attempt cap that was "
+            + "actually wanted already exists inside the standard handler. Configure the pipeline's "
+            + "AttemptTimeout or TotalRequestTimeout instead of the client's.");
+    }
+
+    /// <summary>
     /// Lines with the comment prefix stripped out. The registration is named in
     /// prose in a few places — including in the comment explaining why it must not
     /// be called twice — and a guard that counted those would fail for describing

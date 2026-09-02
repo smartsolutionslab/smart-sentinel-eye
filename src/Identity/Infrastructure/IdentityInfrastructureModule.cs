@@ -142,7 +142,16 @@ public static class IdentityInfrastructureModule
         string baseUrl = opts.BaseUrl.EndsWith('/') ? opts.BaseUrl : opts.BaseUrl + '/';
 #pragma warning restore S1075
         client.BaseAddress = new Uri(baseUrl);
-        client.Timeout = TimeSpan.FromSeconds(10);
+
+        // HttpClient.Timeout wraps the entire handler chain, retries included, so
+        // it is not a per-attempt cap — it is a ceiling over the whole resilience
+        // pipeline. At the 10 s it used to hold, a Keycloak slow enough to be
+        // worth retrying spent the entire budget on the first attempt and the
+        // configured retries never ran: the client looked resilient and behaved
+        // like it had none. The per-attempt cap it was reaching for already
+        // exists, at the same 10 s, inside the standard handler ServiceDefaults
+        // applies; the pipeline's own 30 s total budget bounds the retries.
+        client.Timeout = Timeout.InfiniteTimeSpan;
     }
 
 }
