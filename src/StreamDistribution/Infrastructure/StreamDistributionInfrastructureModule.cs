@@ -151,6 +151,11 @@ public static class StreamDistributionInfrastructureModule
 
         builder.Services.AddHttpClient<CameraCatalogTokenProvider>();
 
+        // On the lookup only. The token provider's own client mints the token
+        // this handler attaches, so authorising it would make the mint depend on
+        // itself.
+        builder.Services.AddTransient<CameraCatalogAuthorizationHandler>();
+
         builder.Services.AddHttpClient<ICameraFabLookup, CameraCatalogFabLookup>(client =>
         {
             // S1075 flags the literal URI, S5332 the clear-text scheme. Neither
@@ -159,7 +164,7 @@ public static class StreamDistributionInfrastructureModule
 #pragma warning disable S1075, S5332
             client.BaseAddress = new Uri("http://camera-catalog");
 #pragma warning restore S1075, S5332
-        });
+        }).AddHttpMessageHandler<CameraCatalogAuthorizationHandler>();
     }
 
     private static void BindWhepAuthOptions(IHostApplicationBuilder builder)

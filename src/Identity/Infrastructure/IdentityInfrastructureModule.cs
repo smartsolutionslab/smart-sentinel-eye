@@ -127,8 +127,13 @@ public static class IdentityInfrastructureModule
                         "Keycloak base URL not found; expected ConnectionStrings:keycloak or services:keycloak:*.");
             });
 
+        // The handler goes on the admin client and deliberately not on the token
+        // provider's own client: the provider is what mints the token the handler
+        // attaches, so applying it to both would have the mint authorise itself.
+        builder.Services.AddTransient<KeycloakAdminAuthorizationHandler>();
         builder.Services.AddHttpClient<KeycloakAdminTokenProvider>(ConfigureHttpClient);
-        builder.Services.AddHttpClient<HttpKeycloakAdminClient>(ConfigureHttpClient);
+        builder.Services.AddHttpClient<HttpKeycloakAdminClient>(ConfigureHttpClient)
+            .AddHttpMessageHandler<KeycloakAdminAuthorizationHandler>();
         builder.Services.AddScoped<IKeycloakAdminClient>(sp => sp.GetRequiredService<HttpKeycloakAdminClient>());
 
         return builder;
