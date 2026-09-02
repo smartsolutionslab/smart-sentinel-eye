@@ -31,4 +31,4 @@ public sealed record StreamHealthChangedDomainEvent(
     StreamState FromState,
     StreamState ToState,
     DateTimeOffset ChangedAt,
-    string? Error) : IDomainEvent;
+    StreamError? Error) : IDomainEvent;

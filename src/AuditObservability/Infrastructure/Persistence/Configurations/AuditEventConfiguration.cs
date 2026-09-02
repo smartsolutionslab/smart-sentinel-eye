@@ -88,7 +88,8 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
 
         builder.Property(auditEvent => auditEvent.ActorUsername)
             .HasColumnName("actor_username")
-            .HasMaxLength(255);
+            .HasMaxLength(ActorUsername.MaximumLength)
+            .HasConversion(username => username.Value, value => ActorUsername.From(value));
 
         builder.Property(auditEvent => auditEvent.EventIdentifier)
             .HasColumnName("event_identifier")
@@ -98,6 +99,7 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
         builder.Property(auditEvent => auditEvent.Payload)
             .HasColumnName("payload")
             .HasColumnType("jsonb")
+            .HasConversion(payload => payload.Value, value => AuditPayload.From(value))
             .IsRequired();
 
         builder.Property(auditEvent => auditEvent.PayloadSizeBytes)

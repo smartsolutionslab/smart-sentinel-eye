@@ -74,7 +74,8 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
 
         builder.Property(stream => stream.LastError)
             .HasColumnName("last_error")
-            .HasMaxLength(1024)
+            .HasMaxLength(StreamError.MaximumLength)
+            .HasConversion(error => error.Value, value => StreamError.From(value))
             .IsRequired(false);
 
         builder.Property(stream => stream.ProvisionedAt)

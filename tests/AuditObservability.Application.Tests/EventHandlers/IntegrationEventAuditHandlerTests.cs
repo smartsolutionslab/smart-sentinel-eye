@@ -50,7 +50,7 @@ public class IntegrationEventAuditHandlerTests
         row.Fab.ShouldBeNull();
         row.ResourceKind.ShouldBe(ResourceKind.Camera);
         row.ResourceIdentifier!.Value.ShouldBe(cameraId.ToString());
-        row.Payload.ShouldContain("north-gate");
+        row.Payload.Value.ShouldContain("north-gate");
     }
 
     [Fact]

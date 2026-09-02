@@ -169,7 +169,7 @@ public class StreamHealthChangedJourneyOriginTests
         FromState: StreamState.Healthy,
         ToState: StreamState.Degraded,
         ChangedAt: ChangedAtMoment,
-        Error: "probe timed out");
+        Error: StreamError.From("probe timed out"));
 
     /// <summary>
     /// Notes how many journeys were open at the moment of the publish, which is

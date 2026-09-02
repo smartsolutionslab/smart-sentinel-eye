@@ -175,7 +175,7 @@ public sealed class MinioAuditChunkArchiver(
             row.Id.Value, row.OccurredAt, row.ReceivedAt,
             row.Fab?.Value, row.EventKind.Value,
             row.ResourceKind?.Value, row.ResourceIdentifier?.Value,
-            row.Actor.Value, row.ActorUsername,
-            row.EventIdentifier.Value, row.Payload, row.SchemaVersion);
+            row.Actor.Value, row.ActorUsername?.Value,
+            row.EventIdentifier.Value, row.Payload.Value, row.SchemaVersion);
     }
 }

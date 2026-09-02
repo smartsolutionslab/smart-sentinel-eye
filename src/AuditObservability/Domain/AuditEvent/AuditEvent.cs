@@ -1,6 +1,11 @@
 using System.Diagnostics.CodeAnalysis;
 using SmartSentinelEye.Shared.Kernel;
 
+// The property AuditEvent.ActorUsername shadows the type of the same name inside
+// this class, so the simple name binds to the member and cannot be used to reach
+// the factory from a static context. The alias names the type unambiguously.
+using ActorUsernameValue = SmartSentinelEye.AuditObservability.Domain.AuditEvent.ActorUsername;
+
 namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 
 /// <summary>
@@ -42,11 +47,11 @@ public sealed class AuditEvent
 
     public ActorIdentifier Actor { get; private init; } = ActorIdentifier.System;
 
-    public string? ActorUsername { get; private init; }
+    public ActorUsername? ActorUsername { get; private init; }
 
     public EventIdentifier EventIdentifier { get; private init; } = null!;
 
-    public string Payload { get; private init; } = string.Empty;
+    public AuditPayload Payload { get; private init; } = null!;
 
     public int PayloadSizeBytes { get; private init; }
 
@@ -148,9 +153,9 @@ public sealed class AuditEvent
             ResourceKind = mapping.Kind.HasValue ? mapping.Kind.Value : null,
             ResourceIdentifier = mapping.ResourceIdentifier.HasValue ? mapping.ResourceIdentifier.Value : null,
             Actor = envelope.Actor,
-            ActorUsername = envelope.ActorUsername.HasValue ? envelope.ActorUsername.Value : null,
+            ActorUsername = envelope.ActorUsername.HasValue ? ActorUsernameValue.From(envelope.ActorUsername.Value) : null,
             EventIdentifier = envelope.EventIdentifier,
-            Payload = envelope.Payload,
+            Payload = AuditPayload.From(envelope.Payload),
             PayloadSizeBytes = System.Text.Encoding.UTF8.GetByteCount(envelope.Payload),
             SchemaVersion = CurrentSchemaVersion,
         };

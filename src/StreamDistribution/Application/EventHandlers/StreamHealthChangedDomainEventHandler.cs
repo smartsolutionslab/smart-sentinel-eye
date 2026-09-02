@@ -46,7 +46,7 @@ public sealed class StreamHealthChangedDomainEventHandler(IEventBus events, IJou
             FromState: domainEvent.FromState.Value,
             ToState: domainEvent.ToState.Value,
             ChangedAt: domainEvent.ChangedAt,
-            Error: domainEvent.Error,
+            Error: domainEvent.Error?.Value,
             // The fab comes off the domain event, not from ambient context:
             // the watcher publishes from a background loop where there is none.
             // Null only when the stream itself has no fab yet (spec 016).
