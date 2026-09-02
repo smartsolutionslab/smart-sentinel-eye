@@ -33,17 +33,20 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
 
         builder.Property(auditEvent => auditEvent.OccurredAt)
             .HasColumnName("occurred_at")
+            .HasConversion(occurredAt => occurredAt.Value, value => OccurredAt.From(value))
             .IsRequired();
 
         builder.Property(auditEvent => auditEvent.ReceivedAt)
             .HasColumnName("received_at")
+            .HasConversion(receivedAt => receivedAt.Value, value => ReceivedAt.From(value))
             .IsRequired();
 
         // Spec 053. Nullable, and null is the normal state: these are written only
         // when the measurement switch is on, so an ordinary row is exactly what
         // it was before.
         builder.Property(auditEvent => auditEvent.HandlerEnteredAt)
-            .HasColumnName("handler_entered_at");
+            .HasColumnName("handler_entered_at")
+            .HasConversion(enteredAt => enteredAt!.Value, value => HandlerEnteredAt.From(value));
 
         // **Supplied by the insert, not by a column default.** The value still
         // comes from the clock every service shares — it is written as
@@ -52,7 +55,8 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
         // with a non-constant default to one is refused outright. That was found
         // by running the migration, not by reading about it.
         builder.Property(auditEvent => auditEvent.WrittenAt)
-            .HasColumnName("written_at");
+            .HasColumnName("written_at")
+            .HasConversion(writtenAt => writtenAt!.Value, value => WrittenAt.From(value));
 
         builder.Property(auditEvent => auditEvent.Fab)
             .HasColumnName("fab_id")

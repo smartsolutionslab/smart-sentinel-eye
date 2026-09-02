@@ -38,7 +38,7 @@ public class AuditEventTests
 
         row.Id.Value.ShouldNotBe(Guid.Empty);
         row.Id.Value.Version.ShouldBe(7);
-        row.ReceivedAt.ShouldBe(Received);
+        row.ReceivedAt.Value.ShouldBe(Received);
     }
 
     [Fact]
@@ -46,7 +46,7 @@ public class AuditEventTests
     {
         AuditEventEntity row = AuditEventEntity.From(SampleEnvelope(), SampleMapping(), new FakeClock(Received));
 
-        row.OccurredAt.ShouldBe(Occurred);
+        row.OccurredAt.Value.ShouldBe(Occurred);
         row.EventKind.Value.ShouldBe("CameraRegisteredV1");
         row.Fab!.Value.ShouldBe("munich");
         row.Actor.Value.ShouldBe(ActorGuid);

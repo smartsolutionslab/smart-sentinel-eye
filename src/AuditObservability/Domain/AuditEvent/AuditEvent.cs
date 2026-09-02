@@ -28,9 +28,9 @@ public sealed class AuditEvent
 
     public AuditEventIdentifier Id { get; private init; }
 
-    public DateTimeOffset OccurredAt { get; private init; }
+    public OccurredAt OccurredAt { get; private init; } = null!;
 
-    public DateTimeOffset ReceivedAt { get; private init; }
+    public ReceivedAt ReceivedAt { get; private init; } = null!;
 
     public FabIdentifier? Fab { get; private init; }
 
@@ -73,7 +73,7 @@ public sealed class AuditEvent
     /// way to say how much.
     /// </para>
     /// </summary>
-    public DateTimeOffset? HandlerEnteredAt { get; private init; }
+    public HandlerEnteredAt? HandlerEnteredAt { get; private init; }
 
     /// <summary>
     /// When the row was <b>inserted</b> — not when its transaction committed —
@@ -110,7 +110,7 @@ public sealed class AuditEvent
         "S1144:Unused private types or members should be removed",
         Justification = "Set by the database, not by this code — the repository's insert supplies "
             + "clock_timestamp() for it. Nothing in C# assigns it, which is the point.")]
-    public DateTimeOffset? WrittenAt { get; private init; }
+    public WrittenAt? WrittenAt { get; private init; }
 
     private AuditEvent() { }
 
@@ -140,9 +140,9 @@ public sealed class AuditEvent
         return new AuditEvent
         {
             Id = AuditEventIdentifier.New(),
-            OccurredAt = envelope.OccurredAt,
-            ReceivedAt = clock.UtcNow,
-            HandlerEnteredAt = handlerEnteredAt,
+            OccurredAt = OccurredAt.From(envelope.OccurredAt),
+            ReceivedAt = ReceivedAt.From(clock.UtcNow),
+            HandlerEnteredAt = handlerEnteredAt.HasValue ? HandlerEnteredAt.From(handlerEnteredAt.Value) : null,
             Fab = envelope.Fab.HasValue ? envelope.Fab.Value : null,
             EventKind = EventKind.From(envelope.EventTypeName),
             ResourceKind = mapping.Kind.HasValue ? mapping.Kind.Value : null,
