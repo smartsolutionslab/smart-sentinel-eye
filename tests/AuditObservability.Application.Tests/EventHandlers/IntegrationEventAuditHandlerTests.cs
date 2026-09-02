@@ -44,7 +44,7 @@ public class IntegrationEventAuditHandlerTests
         repo.Committed.Count.ShouldBe(1);
         AuditEvent row = repo.Committed[0];
         row.EventKind.Value.ShouldBe("CameraRegisteredV1");
-        row.OccurredAt.ShouldBe(OccurredAt);
+        row.OccurredAt.Value.ShouldBe(OccurredAt);
         row.EventIdentifier.Value.ShouldBe(eventId);
         row.Actor.Value.ShouldBe(actor);
         row.Fab.ShouldBeNull();
