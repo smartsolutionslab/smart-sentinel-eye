@@ -195,7 +195,9 @@ deploy/helm/            One hand-written Mosquitto chart. The Aspire k8s
   by three examples while 35 primitive properties accumulated, then
   enumerated as nine types that omitted `short`. If you find yourself
   passing one, introduce a value object (e.g. `CameraId`,
-  `Percentage`).
+  `Percentage`). **`PrimitiveBoundaryTests` now fails the build** when a
+  domain model exposes primitive-typed state, so this is no longer a rule
+  a reviewer has to remember (issue #2028).
 - **Refactors stay green; new behaviour starts red.** Two obligations,
   not one rule with an exception — constitution §Testing. A red test
   during a behaviour-preserving change is a regression. A new-behaviour

@@ -148,6 +148,18 @@ could add an architecture test asserting no aggregate exposes a banned
 primitive. This one does not, and recording that plainly is preferable to
 implying a guarantee nobody built.
 
+> **Update, 2026-09-02 (issue #2028): the primitive rule is now mechanical.**
+> `PrimitiveBoundaryTests` fails the build when a domain model exposes
+> primitive-typed state. It walks outward from the eleven aggregate roots
+> rather than scanning the Domain assemblies, because scanning flags 30
+> members of which 29 are wire and port shapes. Written against this
+> paragraph's own prediction that the exemptions would be the hard part —
+> they were, and ADR-0140 had to state them precisely first.
+>
+> **The TDD rule is still not mechanical, and cannot be.** Nothing in CI can
+> establish after the fact that a test was written before the code. The PR
+> quotation remains the only honest evidence.
+
 **Cost.** Roughly 200 mechanical edits across ~70 files, sequenced so that the
 enforcement and the guard conversions land first and independently.
 
