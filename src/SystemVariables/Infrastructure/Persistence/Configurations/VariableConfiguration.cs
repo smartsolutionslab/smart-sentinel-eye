@@ -80,15 +80,22 @@ public sealed class VariableConfiguration : IEntityTypeConfiguration<Variable>
                 .HasMaxLength(BooleanLabels.MaximumLength);
         });
 
-        builder.Property(variable => variable.CreatedAt)
-            .HasColumnName("created_at")
-            .HasConversion(v => v.Value, value => CreatedAt.From(value))
-            .IsRequired();
+        // Owned reference onto the two columns the pair occupied. The
+        // Navigation(...).IsRequired() line keeps them NOT NULL; without it the
+        // model silently diverges from the schema (#2022).
+        builder.OwnsOne(variable => variable.Creation, creation =>
+        {
+            creation.Property(value => value.At)
+                .HasColumnName("created_at")
+                .HasConversion(at => at.Value, value => CreatedAt.From(value))
+                .IsRequired();
 
-        builder.Property(variable => variable.CreatedBy)
-            .HasColumnName("created_by")
-            .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
-            .IsRequired();
+            creation.Property(value => value.By)
+                .HasColumnName("created_by")
+                .HasConversion(by => by.Value, value => OperatorIdentifier.From(value))
+                .IsRequired();
+        });
+        builder.Navigation(variable => variable.Creation).IsRequired();
 
         builder.Property(variable => variable.Version)
             .HasColumnName("version")

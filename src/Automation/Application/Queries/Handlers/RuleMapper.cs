@@ -20,8 +20,8 @@ internal static class RuleMapper
             Predicate: rule.Predicate.Value,
             Action: MapAction(rule.Action),
             State: rule.State.Value,
-            CreatedAt: rule.CreatedAt,
-            CreatedBy: rule.CreatedBy.Value,
+            CreatedAt: rule.Creation.At,
+            CreatedBy: rule.Creation.By.Value,
             PublishedAt: rule.PublishedAt?.Value,
             ArchivedAt: rule.ArchivedAt?.Value);
 

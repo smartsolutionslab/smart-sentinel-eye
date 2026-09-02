@@ -7,6 +7,17 @@ namespace SmartSentinelEye.SystemVariables.Domain.Tests.Variable;
 public class VariableTests
 {
     [Fact]
+    public void Define_records_when_it_happened_and_who_did_it()
+    {
+        VariableBuilder builder = new();
+
+        Domain.Variable.Variable variable = builder.Build();
+
+        variable.Creation.At.Value.ShouldBe(builder.Clock.UtcNow);
+        variable.Creation.By.ShouldBe(builder.Operator);
+    }
+
+    [Fact]
     public void Define_with_no_initial_value_starts_Unset_in_Defined_state()
     {
         Domain.Variable.Variable v = new VariableBuilder()

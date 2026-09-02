@@ -76,15 +76,22 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
             .HasConversion(state => state.Value, value => RuleState.From(value))
             .IsRequired();
 
-        builder.Property(rule => rule.CreatedAt)
-            .HasColumnName("created_at")
-            .HasConversion(v => v.Value, value => CreatedAt.From(value))
-            .IsRequired();
+        // Owned reference onto the two columns the pair occupied. The
+        // Navigation(...).IsRequired() line keeps them NOT NULL; without it the
+        // model silently diverges from the schema (#2022).
+        builder.OwnsOne(rule => rule.Creation, creation =>
+        {
+            creation.Property(value => value.At)
+                .HasColumnName("created_at")
+                .HasConversion(at => at.Value, value => CreatedAt.From(value))
+                .IsRequired();
 
-        builder.Property(rule => rule.CreatedBy)
-            .HasColumnName("created_by")
-            .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
-            .IsRequired();
+            creation.Property(value => value.By)
+                .HasColumnName("created_by")
+                .HasConversion(by => by.Value, value => OperatorIdentifier.From(value))
+                .IsRequired();
+        });
+        builder.Navigation(rule => rule.Creation).IsRequired();
 
         builder.Property(rule => rule.PublishedAt)
             .HasColumnName("published_at")

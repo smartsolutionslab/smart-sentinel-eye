@@ -66,6 +66,6 @@ public sealed class CompiledRule
             : null;
         return new CompiledRule(
             rule.Id, rule.Fab, rule.TriggerSource, rule.TriggerKind,
-            rule.CreatedAt, predicate, rule.Action, valueExpression);
+            rule.Creation.At, predicate, rule.Action, valueExpression);
     }
 }
