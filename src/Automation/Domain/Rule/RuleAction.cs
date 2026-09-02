@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Automation.Domain.Rule;
@@ -18,7 +19,7 @@ namespace SmartSentinelEye.Automation.Domain.Rule;
 /// consumes the effect, and the second is source text this context compiles.
 /// </para>
 /// </summary>
-public abstract record RuleAction
+public abstract record RuleAction : IValueObject
 {
     /// <summary>
     /// Sets a system variable's value to the result of evaluating
