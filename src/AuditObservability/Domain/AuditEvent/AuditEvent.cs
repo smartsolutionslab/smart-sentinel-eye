@@ -24,8 +24,6 @@ namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 /// </summary>
 public sealed class AuditEvent
 {
-    public const short CurrentSchemaVersion = 1;
-
     public AuditEventIdentifier Id { get; private init; }
 
     public OccurredAt OccurredAt { get; private init; } = null!;
@@ -50,7 +48,7 @@ public sealed class AuditEvent
 
     public PayloadSizeBytes PayloadSizeBytes { get; private init; }
 
-    public short SchemaVersion { get; private init; }
+    public SchemaVersion SchemaVersion { get; private init; }
 
     /// <summary>
     /// When this handler was entered, by the consumer's own clock. **Null unless
@@ -152,7 +150,7 @@ public sealed class AuditEvent
             EventIdentifier = envelope.EventIdentifier,
             Payload = AuditPayload.From(envelope.Payload),
             PayloadSizeBytes = PayloadSizeBytes.Of(envelope.Payload),
-            SchemaVersion = CurrentSchemaVersion,
+            SchemaVersion = SchemaVersion.Current,
         };
     }
 }

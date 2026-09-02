@@ -187,12 +187,15 @@ deploy/helm/            One hand-written Mosquitto chart. The Aspire k8s
 ## House rules
 
 - **DDD with value objects.** Primitives do not appear on a domain
-  model. **The authority is the exhaustive list in constitution §II**
-  (ADR-0139) — nine types, four exemptions. Do not restate it here: a
-  partial summary is how §II itself drifted, illustrated by three
-  examples while 35 primitive properties accumulated on aggregates. If
-  you find yourself passing one, introduce a value object (e.g.
-  `CameraId`, `Percentage`).
+  model. **The authority is constitution §II** (ADR-0139, as amended by
+  ADR-0140), which bans a *category* — any type with a C# keyword
+  spelling, plus a named list of BCL types — with a stated scope and
+  four exemptions. Do not restate it here, and do not restate it as a
+  count: a partial summary is how §II drifted twice, first illustrated
+  by three examples while 35 primitive properties accumulated, then
+  enumerated as nine types that omitted `short`. If you find yourself
+  passing one, introduce a value object (e.g. `CameraId`,
+  `Percentage`).
 - **Refactors stay green; new behaviour starts red.** Two obligations,
   not one rule with an exception — constitution §Testing. A red test
   during a behaviour-preserving change is a regression. A new-behaviour

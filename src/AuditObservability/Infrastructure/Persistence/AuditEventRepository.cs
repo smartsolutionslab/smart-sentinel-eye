@@ -54,7 +54,7 @@ public sealed class AuditEventRepository(AuditObservabilityDbContext dbContext) 
                     {row.Actor.Value}, {row.ActorUsername?.Value},
                     {row.EventIdentifier.Value},
                     {row.Payload.Value}::jsonb, {row.PayloadSizeBytes.Value},
-                    {row.SchemaVersion},
+                    {row.SchemaVersion.Value},
                     {row.HandlerEnteredAt?.Value},
                     CASE WHEN {row.HandlerEnteredAt?.Value}::timestamptz IS NULL
                          THEN NULL ELSE clock_timestamp() END)

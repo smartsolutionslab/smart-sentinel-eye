@@ -216,8 +216,16 @@ two would turn malformed user input into a 500.
 - **`Shared.Contracts`** — a wire format, primitives by design, out of scope.
 - **`ApiError(Code, Message, Status)`** — a serialization contract (ADR-0089),
   an exemption of record.
-- **`Tile.Row` / `Tile.Col`, `GridDimensions`** — already inside value
-  objects; the `int` is the backing value, as with the three string cases above.
+- ~~**`Tile.Row` / `Tile.Col`, `GridDimensions`** — already inside value
+  objects; the `int` is the backing value, as with the three string cases
+  above.~~ **Wrong for `Tile`, and corrected on 2026-09-02.** True of
+  `GridDimensions`, whose ints *are* its backing values. `Tile` stored two
+  loose ints and reconstructed `GridPosition` from them, so the primitives
+  were its storage, not a value object's backing value; the real reason was
+  EF's need for scalar key columns, which is not one of §II's exemptions.
+  The coordinate fields are now private and the domain sees only `Position`
+  — the schema is unchanged. ADR-0140 rewrites the exemption that admitted
+  this reading. `GridDimensions` stands as written.
 - **`FabIdentifier.CompareTo` and friends** — `int` return types required by
   `IComparable<T>`. These inflated the original survey and are not properties
   at all.
