@@ -46,7 +46,7 @@ public static class FabResolution
     /// caller names a fab they do not hold, or holds none at all.
     /// </para>
     /// </summary>
-    public static async Task<(string Fab, IResult Problem)> ResolveForWriteAsync(
+    public static async Task<(string? Fab, IResult? Problem)> ResolveForWriteAsync(
         ClaimsPrincipal user,
         string fabId,
         IFabAuthorizationGuard fabGuard,

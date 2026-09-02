@@ -16,7 +16,7 @@ public class ConcurrencyHeadersTests
     {
         HttpRequest request = RequestWith(ConcurrencyHeaders.ETag(42));
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out int version, out IResult problem).ShouldBeTrue();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out int version, out IResult? problem).ShouldBeTrue();
         version.ShouldBe(42);
         problem.ShouldBeNull();
     }
@@ -55,7 +55,7 @@ public class ConcurrencyHeadersTests
     {
         HttpRequest request = new DefaultHttpContext().Request;
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult? problem).ShouldBeFalse();
         ProblemHttpResult result = problem.ShouldBeOfType<ProblemHttpResult>();
         result.StatusCode.ShouldBe(StatusCodes.Status428PreconditionRequired);
         result.ProblemDetails.Title.ShouldBe(ConcurrencyHeaders.MissingErrorCode);
@@ -66,7 +66,7 @@ public class ConcurrencyHeadersTests
     {
         HttpRequest request = RequestWith("   ");
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult? problem).ShouldBeFalse();
         problem.ShouldBeOfType<ProblemHttpResult>()
             .StatusCode.ShouldBe(StatusCodes.Status428PreconditionRequired);
     }
@@ -79,7 +79,7 @@ public class ConcurrencyHeadersTests
     {
         HttpRequest request = RequestWith("*");
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult? problem).ShouldBeFalse();
         ProblemHttpResult result = problem.ShouldBeOfType<ProblemHttpResult>();
         result.StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
         result.ProblemDetails.Title.ShouldBe(ConcurrencyHeaders.MalformedErrorCode);
@@ -90,7 +90,7 @@ public class ConcurrencyHeadersTests
     {
         HttpRequest request = RequestWith("W/\"4\"");
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult? problem).ShouldBeFalse();
         problem.ShouldBeOfType<ProblemHttpResult>()
             .StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
     }
@@ -100,7 +100,7 @@ public class ConcurrencyHeadersTests
     {
         HttpRequest request = RequestWith("\"4\", \"5\"");
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult? problem).ShouldBeFalse();
         problem.ShouldBeOfType<ProblemHttpResult>()
             .StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
     }
@@ -111,7 +111,7 @@ public class ConcurrencyHeadersTests
         HttpRequest request = new DefaultHttpContext().Request;
         request.Headers.IfMatch = new Microsoft.Extensions.Primitives.StringValues(["\"4\"", "\"5\""]);
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult? problem).ShouldBeFalse();
         problem.ShouldBeOfType<ProblemHttpResult>()
             .StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
     }
@@ -126,7 +126,7 @@ public class ConcurrencyHeadersTests
     {
         HttpRequest request = RequestWith(headerValue);
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult? problem).ShouldBeFalse();
         ProblemHttpResult result = problem.ShouldBeOfType<ProblemHttpResult>();
         result.StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
         result.ProblemDetails.Title.ShouldBe(ConcurrencyHeaders.MalformedErrorCode);

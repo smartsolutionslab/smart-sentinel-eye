@@ -32,7 +32,7 @@ public class FabResolutionTests
     [Fact]
     public async Task One_fab_and_none_named_is_inferred()
     {
-        (string fab, IResult problem) = await FabResolution.ResolveForWriteAsync(
+        (string? fab, IResult? problem) = await FabResolution.ResolveForWriteAsync(
             With("/fabs/munich"), fabId: "", new DefaultFabAuthorizationGuard(), Ambiguous, default);
 
         fab.ShouldBe("munich");
@@ -42,7 +42,7 @@ public class FabResolutionTests
     [Fact]
     public async Task One_fab_and_that_fab_named_is_accepted()
     {
-        (string fab, IResult problem) = await FabResolution.ResolveForWriteAsync(
+        (string? fab, IResult? problem) = await FabResolution.ResolveForWriteAsync(
             With("/fabs/munich"), fabId: "munich", new DefaultFabAuthorizationGuard(), Ambiguous, default);
 
         fab.ShouldBe("munich");
@@ -53,7 +53,7 @@ public class FabResolutionTests
     [Fact]
     public async Task Several_fabs_and_none_named_is_refused_rather_than_guessed()
     {
-        (string fab, IResult problem) = await FabResolution.ResolveForWriteAsync(
+        (string? fab, IResult? problem) = await FabResolution.ResolveForWriteAsync(
             With("/fabs/munich", "/fabs/dresden"), fabId: "", new DefaultFabAuthorizationGuard(), Ambiguous, default);
 
         fab.ShouldBeNull();
@@ -65,7 +65,7 @@ public class FabResolutionTests
     [Fact]
     public async Task Several_fabs_and_one_of_theirs_named_is_accepted()
     {
-        (string fab, IResult problem) = await FabResolution.ResolveForWriteAsync(
+        (string? fab, IResult? problem) = await FabResolution.ResolveForWriteAsync(
             With("/fabs/munich", "/fabs/dresden"), fabId: "dresden", new DefaultFabAuthorizationGuard(), Ambiguous, default);
 
         fab.ShouldBe("dresden");

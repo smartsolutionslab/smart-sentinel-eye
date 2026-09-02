@@ -37,7 +37,7 @@ public sealed class AggregateVersionInterceptor : SaveChangesInterceptor
     {
         Ensure.That(eventData).IsNotNull();
 
-        BumpVersions(eventData.Context);
+        BumpVersions(eventData.Context!);
 
         return base.SavingChanges(eventData, result);
     }
@@ -49,7 +49,7 @@ public sealed class AggregateVersionInterceptor : SaveChangesInterceptor
     {
         Ensure.That(eventData).IsNotNull();
 
-        BumpVersions(eventData.Context);
+        BumpVersions(eventData.Context!);
 
         return base.SavingChangesAsync(eventData, result, cancellationToken);
     }
@@ -98,7 +98,7 @@ public sealed class AggregateVersionInterceptor : SaveChangesInterceptor
         // Version was an int and would have thrown InvalidCastException on every
         // save the moment it became a value object -- a runtime failure the
         // compiler cannot see.
-        AggregateVersion original = (AggregateVersion)version.OriginalValue;
+        AggregateVersion original = (AggregateVersion)version.OriginalValue!;
         version.CurrentValue = AggregateVersion.From(original.Value + 1);
     }
 
@@ -140,7 +140,7 @@ public sealed class AggregateVersionInterceptor : SaveChangesInterceptor
     private static IEnumerable<EntityEntry> ChildrenOf(DbContext context, EntityEntry owner, INavigation navigation)
     {
         IEntityType target = navigation.TargetEntityType;
-        IForeignKey ownership = target.FindOwnership();
+        IForeignKey? ownership = target.FindOwnership();
 
         if (ownership is null)
         {
@@ -156,8 +156,8 @@ public sealed class AggregateVersionInterceptor : SaveChangesInterceptor
     {
         for (int index = 0; index < ownership.Properties.Count; index++)
         {
-            object childValue = ValueOf(child, ownership.Properties[index].Name);
-            object ownerValue = ValueOf(owner, ownership.PrincipalKey.Properties[index].Name);
+            object? childValue = ValueOf(child, ownership.Properties[index].Name);
+            object? ownerValue = ValueOf(owner, ownership.PrincipalKey.Properties[index].Name);
 
             if (!Equals(childValue, ownerValue))
             {
@@ -170,7 +170,7 @@ public sealed class AggregateVersionInterceptor : SaveChangesInterceptor
 
     // A deleted entry's CurrentValue is unreliable; its OriginalValue still
     // carries the key it was loaded with.
-    private static object ValueOf(EntityEntry entry, string propertyName)
+    private static object? ValueOf(EntityEntry entry, string propertyName)
     {
         PropertyEntry property = entry.Property(propertyName);
 

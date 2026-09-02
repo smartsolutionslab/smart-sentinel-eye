@@ -20,7 +20,7 @@ public class UpsertPreconditionTests
         HttpRequest request = new DefaultHttpContext().Request;
         request.Headers.IfNoneMatch = "*";
 
-        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out Option<int> version, out IResult problem)
+        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out Option<int> version, out IResult? problem)
             .ShouldBeTrue();
         version.HasValue.ShouldBeFalse();
         problem.ShouldBeNull();
@@ -55,7 +55,7 @@ public class UpsertPreconditionTests
     {
         HttpRequest request = new DefaultHttpContext().Request;
 
-        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out IResult problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out IResult? problem).ShouldBeFalse();
         ProblemHttpResult result = problem.ShouldBeOfType<ProblemHttpResult>();
         result.StatusCode.ShouldBe(StatusCodes.Status428PreconditionRequired);
         result.ProblemDetails.Title.ShouldBe(ConcurrencyHeaders.MissingErrorCode);
@@ -69,7 +69,7 @@ public class UpsertPreconditionTests
         request.Headers.IfMatch = "\"7\"";
         request.Headers.IfNoneMatch = "*";
 
-        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out IResult problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out IResult? problem).ShouldBeFalse();
         problem.ShouldBeOfType<ProblemHttpResult>().StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
     }
 
@@ -81,7 +81,7 @@ public class UpsertPreconditionTests
         HttpRequest request = new DefaultHttpContext().Request;
         request.Headers.IfNoneMatch = "\"3\"";
 
-        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out IResult problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out IResult? problem).ShouldBeFalse();
         ProblemHttpResult result = problem.ShouldBeOfType<ProblemHttpResult>();
         result.StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
         result.ProblemDetails.Title.ShouldBe(ConcurrencyHeaders.MalformedErrorCode);
@@ -93,7 +93,7 @@ public class UpsertPreconditionTests
         HttpRequest request = new DefaultHttpContext().Request;
         request.Headers.IfMatch = "*";
 
-        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out IResult problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out IResult? problem).ShouldBeFalse();
         problem.ShouldBeOfType<ProblemHttpResult>().StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
     }
 }

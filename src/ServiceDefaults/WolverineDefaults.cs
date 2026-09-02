@@ -45,7 +45,7 @@ public static class WolverineDefaults
         string rabbitConnectionName = "rabbitmq",
         int listenerCount = 1,
         bool useNativeAcks = false,
-        Action<WolverineOptions> configureMore = null)
+        Action<WolverineOptions>? configureMore = null)
         where TDbContext : DbContext
     {
         Ensure.That(moduleQueuePrefix).IsNotNull().IsNotNullOrWhiteSpace();
@@ -63,7 +63,7 @@ public static class WolverineDefaults
             builder.Configuration.GetConnectionString(rabbitConnectionName)
             ?? throw new InvalidOperationException($"Connection string '{rabbitConnectionName}' is required for Wolverine RabbitMQ transport.");
 
-        Assembly applicationAssembly = TryLoadApplicationAssembly(typeof(TDbContext).Assembly);
+        Assembly? applicationAssembly = TryLoadApplicationAssembly(typeof(TDbContext).Assembly);
 
         builder.UseWolverine(opts =>
         {
@@ -181,7 +181,7 @@ public static class WolverineDefaults
     /// the convention silent when a future context legitimately has no
     /// Application handlers to discover.
     /// </summary>
-    private static Assembly TryLoadApplicationAssembly(Assembly infrastructureAssembly)
+    private static Assembly? TryLoadApplicationAssembly(Assembly infrastructureAssembly)
     {
         const string InfrastructureSuffix = ".Infrastructure";
         string name = infrastructureAssembly.GetName().Name ?? string.Empty;

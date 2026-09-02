@@ -71,12 +71,12 @@ public static partial class OverlayEndpoints
             () => OverlayRevisionNumber.From(revisionNumber),
             "OVERLAY_INVALID_INPUT",
             out OverlayRevisionNumber number,
-            out IResult problem))
+            out IResult? problem))
         {
             return problem;
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
         {
             return precondition;
         }
@@ -111,12 +111,12 @@ public static partial class OverlayEndpoints
             () => OverlayRevisionNumber.From(revisionNumber),
             "OVERLAY_INVALID_INPUT",
             out OverlayRevisionNumber number,
-            out IResult problem))
+            out IResult? problem))
         {
             return problem;
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
         {
             return precondition;
         }
@@ -147,7 +147,7 @@ public static partial class OverlayEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
         {
             return precondition;
         }
@@ -202,7 +202,7 @@ public static partial class OverlayEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
         {
             return precondition;
         }
@@ -236,12 +236,12 @@ public static partial class OverlayEndpoints
             () => OverlayRevisionNumber.From(revisionNumber),
             "OVERLAY_INVALID_INPUT",
             out OverlayRevisionNumber number,
-            out IResult problem))
+            out IResult? problem))
         {
             return problem;
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
         {
             return precondition;
         }

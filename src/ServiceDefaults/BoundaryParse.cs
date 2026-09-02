@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Http;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -20,7 +21,7 @@ public static class BoundaryParse
     /// titled <paramref name="errorCode"/> with the exception message as the
     /// detail, and returns <c>false</c>.
     /// </summary>
-    public static bool TryParse<T>(Func<T> parse, string errorCode, out T value, out IResult problem)
+    public static bool TryParse<T>(Func<T> parse, string errorCode, [MaybeNullWhen(false)] out T value, [NotNullWhen(false)] out IResult? problem)
     {
         Ensure.That(parse).IsNotNull();
         try
@@ -32,7 +33,7 @@ public static class BoundaryParse
         }
         catch (ArgumentException exception)
         {
-            value = default;
+            value = default!;
             problem = Results.Problem(
                 title: errorCode,
                 detail: exception.Message,

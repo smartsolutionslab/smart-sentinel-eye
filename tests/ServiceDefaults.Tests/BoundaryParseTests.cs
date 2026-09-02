@@ -9,7 +9,7 @@ public class BoundaryParseTests
     public void Yields_the_parsed_value_and_no_problem_on_success()
     {
         bool succeeded = BoundaryParse.TryParse(
-            () => "parsed", "CODE", out string value, out IResult problem);
+            () => "parsed", "CODE", out var value, out IResult? problem);
 
         succeeded.ShouldBeTrue();
         value.ShouldBe("parsed");
@@ -22,8 +22,8 @@ public class BoundaryParseTests
         bool succeeded = BoundaryParse.TryParse<string>(
             () => throw new ArgumentException("revisionNumber must be positive."),
             "LAYOUT_INVALID_INPUT",
-            out string value,
-            out IResult problem);
+            out var value,
+            out IResult? problem);
 
         succeeded.ShouldBeFalse();
         value.ShouldBeNull();

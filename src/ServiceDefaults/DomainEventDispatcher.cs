@@ -42,7 +42,7 @@ public sealed class DomainEventDispatcher(IServiceProvider services) : IDomainEv
             object handlers = provider.GetRequiredService(enumerableHandlerType);
             foreach (object handler in (System.Collections.IEnumerable)handlers)
             {
-                Task task = (Task)handleMethod.Invoke(handler, [domainEvent, cancellationToken]);
+                Task task = (Task)handleMethod.Invoke(handler, [domainEvent, cancellationToken])!;
                 await task;
             }
         }

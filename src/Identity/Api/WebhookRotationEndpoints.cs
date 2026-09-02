@@ -128,7 +128,7 @@ public static class WebhookRotationEndpoints
         // If-None-Match: * to create the client, If-Match: "N" to rotate the
         // one at version N. See ConcurrencyHeaders for why a lone If-Match
         // cannot carry both.
-        if (!ConcurrencyHeaders.TryReadUpsertPrecondition(request, out Option<int> expectedVersion, out IResult precondition))
+        if (!ConcurrencyHeaders.TryReadUpsertPrecondition(request, out Option<int> expectedVersion, out IResult? precondition))
         {
             return precondition;
         }
