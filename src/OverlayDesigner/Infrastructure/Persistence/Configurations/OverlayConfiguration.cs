@@ -43,15 +43,21 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
             .HasConversion(name => name.Value, value => OverlayName.From(value))
             .IsRequired();
 
-        builder.Property(overlay => overlay.CreatedAt)
-            .HasColumnName("created_at")
-            .HasConversion(v => v.Value, value => CreatedAt.From(value))
-            .IsRequired();
+        // Owned reference onto the two columns the pair occupied. The
+        // Navigation(...).IsRequired() line keeps them NOT NULL (#2022).
+        builder.OwnsOne(overlay => overlay.Creation, creation =>
+        {
+            creation.Property(value => value.At)
+                .HasColumnName("created_at")
+                .HasConversion(at => at.Value, value => CreatedAt.From(value))
+                .IsRequired();
 
-        builder.Property(overlay => overlay.CreatedBy)
-            .HasColumnName("created_by")
-            .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
-            .IsRequired();
+            creation.Property(value => value.By)
+                .HasColumnName("created_by")
+                .HasConversion(by => by.Value, value => OperatorIdentifier.From(value))
+                .IsRequired();
+        });
+        builder.Navigation(overlay => overlay.Creation).IsRequired();
 
         builder.Property(overlay => overlay.Version)
             .HasColumnName("version")
@@ -97,15 +103,22 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
                 label.Property(labelValue => labelValue.FontSizePx).HasColumnName("label_font_size_px").IsRequired();
             });
 
-            revisions.Property(revision => revision.CreatedAt)
-                .HasColumnName("created_at")
-            .HasConversion(v => v.Value, value => CreatedAt.From(value))
-                .IsRequired();
+            // The nested case: a composite inside an owned collection, one
+            // level deeper than anything else in this feature. The columns
+            // land on the revisions table exactly as the pair did.
+            revisions.OwnsOne(revision => revision.Creation, creation =>
+            {
+                creation.Property(value => value.At)
+                    .HasColumnName("created_at")
+                    .HasConversion(at => at.Value, value => CreatedAt.From(value))
+                    .IsRequired();
 
-            revisions.Property(revision => revision.CreatedBy)
-                .HasColumnName("created_by")
-                .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
-                .IsRequired();
+                creation.Property(value => value.By)
+                    .HasColumnName("created_by")
+                    .HasConversion(by => by.Value, value => OperatorIdentifier.From(value))
+                    .IsRequired();
+            });
+            revisions.Navigation(revision => revision.Creation).IsRequired();
 
             revisions.Property(revision => revision.PublishedAt)
                 .HasColumnName("published_at")

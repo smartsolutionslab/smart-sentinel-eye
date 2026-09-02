@@ -97,7 +97,8 @@ Audited per slice, immediately before the change it guards.
 | `RegisteredClient` (registration) | **No** — `RegisteredClientTests` asserted `RegisteredAt` only | `Register_records_when_it_happened_and_who_did_it` added **first**, on the old shape, and observed green (FR-009) |
 | `Rule` (creation) | **No** — `RuleTests` asserted `CreatedAt` only | `Create_records_when_it_happened_and_who_did_it` added **first**, green on the old shape (FR-009) |
 | `Variable` (creation) | **No** — nothing asserted either half on the aggregate | `Define_records_when_it_happened_and_who_did_it` added **first**, green on the old shape (FR-009) |
----
+| `Layout` + `Layout.Revision` (creation) | **No** — nothing asserted either half on either | one test covering the chain **and** its revision, added first, green on the old shape (FR-009) |
+| `Overlay` + `Overlay.Revision` (creation) | **No** — same | same |---
 
 ## CameraCatalog: resolved
 

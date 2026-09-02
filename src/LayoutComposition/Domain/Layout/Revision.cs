@@ -36,9 +36,7 @@ public sealed class Revision
     /// </summary>
     public IReadOnlyList<Tile> Tiles => tiles;
 
-    public CreatedAt CreatedAt { get; private set; } = null!;
-
-    public OperatorIdentifier CreatedBy { get; private set; }
+    public Creation Creation { get; private set; } = null!;
 
     public PublishedAt? PublishedAt { get; private set; }
 
@@ -59,8 +57,7 @@ public sealed class Revision
             Number = number,
             State = LayoutRevisionState.Draft,
             Grid = new GridDimensions(grid.Rows, grid.Cols),
-            CreatedAt = CreatedAt.From(createdAt),
-            CreatedBy = createdBy,
+            Creation = Creation.From(CreatedAt.From(createdAt), createdBy),
         };
         // Clone the owned entities (Grid above + each tile below) so the
         // revision owns fresh instances. BranchDraft copies a Published

@@ -12,6 +12,22 @@ public class OverlayTests
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture);
 
     [Fact]
+    public void CreateDraft_records_when_it_happened_and_who_did_it_on_the_chain_and_its_revision()
+    {
+        OperatorIdentifier createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
+
+        Domain.Overlay.Overlay overlay = new OverlayBuilder()
+            .At(FixedMoment)
+            .CreatedBy(createdBy)
+            .Build();
+
+        overlay.Creation.At.Value.ShouldBe(FixedMoment);
+        overlay.Creation.By.ShouldBe(createdBy);
+        overlay.Revisions[0].Creation.At.Value.ShouldBe(FixedMoment);
+        overlay.Revisions[0].Creation.By.ShouldBe(createdBy);
+    }
+
+    [Fact]
     public void CreateDraft_yields_revision_one_in_Draft_with_no_pending_events()
     {
         Label label = Label.From("Production Line 1", 0.5m, 0.05m, 0.3m, 0.08m, 48);
