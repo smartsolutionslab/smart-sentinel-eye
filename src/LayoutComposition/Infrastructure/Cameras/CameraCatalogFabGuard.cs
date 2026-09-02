@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using SmartSentinelEye.LayoutComposition.Application.Tiles;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Infrastructure.Cameras;
 
@@ -38,8 +39,8 @@ public sealed class CameraCatalogFabGuard(
         IReadOnlyList<CameraIdentifier> cameras,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(fab);
-        ArgumentNullException.ThrowIfNull(cameras);
+        Ensure.That(fab).IsNotNull();
+        Ensure.That(cameras).IsNotNull();
 
         if (cameras.Count == 0)
         {

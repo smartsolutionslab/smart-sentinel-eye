@@ -72,8 +72,8 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
         Ensure.That(predicate).IsNotNull();
         Ensure.That(action).IsNotNull();
         Ensure.That(clock).IsNotNull();
-        ArgumentException.ThrowIfNullOrWhiteSpace(triggerSource);
-        ArgumentException.ThrowIfNullOrWhiteSpace(triggerKind);
+        Ensure.That(triggerSource).IsNotNull().IsNotNullOrWhiteSpace();
+        Ensure.That(triggerKind).IsNotNull().IsNotNullOrWhiteSpace();
 
         DateTimeOffset now = clock.UtcNow;
         Rule rule = new()

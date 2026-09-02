@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using SmartSentinelEye.Automation.Application.Evaluation;
 using SmartSentinelEye.Automation.Domain.Rule;
 using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Automation.Application.Tests.Fakes;
 
@@ -27,7 +28,7 @@ public sealed class InMemoryRuleCache : IRuleCache
     public IReadOnlyList<CompiledRule> LookupActive(
         FabIdentifier fab, string triggerSource, string triggerKind)
     {
-        ArgumentNullException.ThrowIfNull(fab);
+        Ensure.That(fab).IsNotNull();
 
         if (!_byTrigger.TryGetValue((fab.Value, triggerSource, triggerKind), out List<CompiledRule>? bucket))
         {
@@ -41,7 +42,7 @@ public sealed class InMemoryRuleCache : IRuleCache
 
     public void Upsert(RuleAggregate rule)
     {
-        ArgumentNullException.ThrowIfNull(rule);
+        Ensure.That(rule).IsNotNull();
         if (rule.State != RuleState.Active)
         {
             return;

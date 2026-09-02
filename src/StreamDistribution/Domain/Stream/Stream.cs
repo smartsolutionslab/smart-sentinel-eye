@@ -231,7 +231,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
 
     public void ReportDegraded(string error, IClock clock)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(error);
+        Ensure.That(error).IsNotNull().IsNotNullOrWhiteSpace();
         Ensure.That(clock).IsNotNull();
         EnsureNotRetired(nameof(ReportDegraded));
 
@@ -256,7 +256,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
 
     public void ReportOffline(string error, IClock clock)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(error);
+        Ensure.That(error).IsNotNull().IsNotNullOrWhiteSpace();
         Ensure.That(clock).IsNotNull();
         EnsureNotRetired(nameof(ReportOffline));
 

@@ -27,7 +27,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
     /// </summary>
     public void Seed(RegisteredClientAggregate client, int version = 0)
     {
-        ArgumentNullException.ThrowIfNull(client);
+        Ensure.That(client).IsNotNull();
 
         AggregateVersions.SetTo(client, version);
         _clients.Add(client);
@@ -47,7 +47,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
     public Task<Option<RegisteredClientAggregate>> GetByClientIdAsync(
         ClientId clientId, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(clientId);
+        Ensure.That(clientId).IsNotNull();
         // Disabled rows release the name for re-registration (mirrors
         // spec 005's archived-name pattern).
         RegisteredClientAggregate? found = _clients.SingleOrDefault(c =>
@@ -59,7 +59,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
 
     public void Add(RegisteredClientAggregate client)
     {
-        ArgumentNullException.ThrowIfNull(client);
+        Ensure.That(client).IsNotNull();
         _clients.Add(client);
     }
 

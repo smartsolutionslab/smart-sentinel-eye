@@ -21,7 +21,7 @@ public sealed class VariableValueRequestDedupStore(
         FabIdentifier fab, string variableName, Guid causingEventIdentifier, CancellationToken cancellationToken)
     {
         Ensure.That(fab).IsNotNull();
-        ArgumentException.ThrowIfNullOrWhiteSpace(variableName);
+        Ensure.That(variableName).IsNotNull().IsNotNullOrWhiteSpace();
         const string sql =
             """
             INSERT INTO variable_value_request_dedup (fab, variable_name, causing_event_identifier, seen_at)

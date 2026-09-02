@@ -17,8 +17,8 @@ public sealed class InMemoryVariableRepository : IVariableRepository
 
     public Task<Option<Variable>> GetByNameAsync(FabIdentifier fab, VariableName name, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(fab);
-        ArgumentNullException.ThrowIfNull(name);
+        Ensure.That(fab).IsNotNull();
+        Ensure.That(name).IsNotNull();
         // Archived names are released for re-use; only return non-Archived rows.
         // Fab is part of the match, not a filter applied afterwards: keyed on
         // the name alone this SingleOrDefault would throw the moment two fabs
@@ -30,7 +30,7 @@ public sealed class InMemoryVariableRepository : IVariableRepository
 
     public void Add(Variable variable)
     {
-        ArgumentNullException.ThrowIfNull(variable);
+        Ensure.That(variable).IsNotNull();
         _variables.Add(variable);
     }
 

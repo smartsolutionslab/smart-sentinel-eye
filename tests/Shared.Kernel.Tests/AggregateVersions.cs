@@ -1,5 +1,6 @@
 using System.Reflection;
 using SmartSentinelEye.Shared.Kernel.Primitives;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Shared.Kernel.Tests;
 
@@ -33,7 +34,7 @@ public static class AggregateVersions
 {
     public static void Bump(IVersionedAggregate aggregate)
     {
-        ArgumentNullException.ThrowIfNull(aggregate);
+        Ensure.That(aggregate).IsNotNull();
 
         SetTo(aggregate, aggregate.Version + 1);
     }
@@ -44,7 +45,7 @@ public static class AggregateVersions
     /// </summary>
     public static void SetTo(IVersionedAggregate aggregate, int version)
     {
-        ArgumentNullException.ThrowIfNull(aggregate);
+        Ensure.That(aggregate).IsNotNull();
 
         // Resolved from the instance, not a hardcoded aggregate type: the
         // property is declared on AggregateRoot<TIdentifier>, which is an open

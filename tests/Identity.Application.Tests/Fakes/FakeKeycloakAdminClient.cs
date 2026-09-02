@@ -1,4 +1,5 @@
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Application.Tests.Fakes;
 
@@ -46,7 +47,7 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
             ThrowAndClear();
         }
 
-        ArgumentNullException.ThrowIfNull(representation);
+        Ensure.That(representation).IsNotNull();
         if (_clients.ContainsKey(representation.ClientId))
         {
             throw new KeycloakClientAlreadyExistsException(representation.ClientId);

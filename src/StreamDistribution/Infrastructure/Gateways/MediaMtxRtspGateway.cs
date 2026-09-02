@@ -18,7 +18,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
     public async Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken)
     {
         Ensure.That(path).IsNotNull();
-        ArgumentException.ThrowIfNullOrWhiteSpace(rtspSourceUrl);
+        Ensure.That(rtspSourceUrl).IsNotNull().IsNotNullOrWhiteSpace();
 
         // POST /v3/config/paths/add/{name}
         // Body: { "source": "rtsp://..." } — MediaMTX pulls the source on demand.
@@ -37,7 +37,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
     public async Task RepointPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken)
     {
         Ensure.That(path).IsNotNull();
-        ArgumentException.ThrowIfNullOrWhiteSpace(rtspSourceUrl);
+        Ensure.That(rtspSourceUrl).IsNotNull().IsNotNullOrWhiteSpace();
 
         // PATCH /v3/config/paths/patch/{name} changes the source in place.
         // add/ would reject an existing path and delete+add would leave a

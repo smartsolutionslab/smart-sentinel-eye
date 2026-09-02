@@ -140,7 +140,7 @@ public static class PostgresConnectionBudget
         this IHostApplicationBuilder builder, string connectionName)
     {
         Ensure.That(builder).IsNotNull();
-        ArgumentException.ThrowIfNullOrWhiteSpace(connectionName);
+        Ensure.That(connectionName).IsNotNull().IsNotNullOrWhiteSpace();
 
         string connectionString = builder.Configuration.GetConnectionString(connectionName)
             ?? throw new InvalidOperationException(
@@ -157,7 +157,7 @@ public static class PostgresConnectionBudget
     /// </summary>
     public static string Bounded(string connectionString)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        Ensure.That(connectionString).IsNotNull().IsNotNullOrWhiteSpace();
 
         // Asked of a plain DbConnectionStringBuilder, which holds only the keys
         // the string actually names. NpgsqlConnectionStringBuilder answers
