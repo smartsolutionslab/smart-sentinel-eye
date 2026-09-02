@@ -110,7 +110,7 @@ public class EnsureTests
     [Fact]
     public void IsNotNull_throws_ArgumentNullException_on_null()
     {
-        object missing = null;
+        object missing = null!;
 
         Action act = () => Ensure.That(missing).IsNotNull();
 
@@ -120,7 +120,7 @@ public class EnsureTests
     [Fact]
     public void IsNotNull_names_the_argument_from_the_call_site()
     {
-        List<int> numbers = null;
+        List<int> numbers = null!;
 
         ArgumentNullException thrown =
             Should.Throw<ArgumentNullException>(() => Ensure.That(numbers).IsNotNull());

@@ -25,7 +25,7 @@ public class OptionTests
     [Fact]
     public void Some_with_null_throws()
     {
-        Should.Throw<ArgumentNullException>(() => Option<string>.Some(null));
+        Should.Throw<ArgumentNullException>(() => Option<string>.Some(null!));
     }
 
     [Fact]

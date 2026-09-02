@@ -65,7 +65,7 @@ public class StreamTests
         Should.Throw<ArgumentException>(() => Domain.Stream.Stream.Provision(
             FabIdentifier.From("munich"),
             CameraIdentifier.From(Guid.CreateVersion7()),
-            null,
+            null!,
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new FixedClock(FixedMoment)));
     }
@@ -74,7 +74,7 @@ public class StreamTests
     public void Provision_requires_a_fab()
     {
         Should.Throw<ArgumentException>(() => Domain.Stream.Stream.Provision(
-            null,
+            null!,
             CameraIdentifier.From(Guid.CreateVersion7()),
             StreamSourceUrl.From("rtsp://camera-sim:8554/station-4"),
             OperatorIdentifier.From(Guid.CreateVersion7()),
@@ -106,7 +106,7 @@ public class StreamTests
 
         stream.State.ShouldBe(StreamState.Healthy);
         stream.TranscodeMode.ShouldBe(TranscodeMode.Passthrough);
-        stream.LastSuccessAt.Value.ShouldBe(FixedMoment);
+        stream.LastSuccessAt!.Value.ShouldBe(FixedMoment);
         stream.LastError.ShouldBeNull();
 
         StreamHealthChangedDomainEvent transition =
@@ -139,13 +139,13 @@ public class StreamTests
         stream.ReportDegraded(StreamError.From("source unreachable"), new TestClock(FixedMoment.AddSeconds(15)));
 
         stream.State.ShouldBe(StreamState.Degraded);
-        stream.LastError.Value.ShouldBe("source unreachable");
+        stream.LastError!.Value.ShouldBe("source unreachable");
 
         StreamHealthChangedDomainEvent transition =
             stream.PendingEvents.Single().ShouldBeOfType<StreamHealthChangedDomainEvent>();
         transition.FromState.ShouldBe(StreamState.Healthy);
         transition.ToState.ShouldBe(StreamState.Degraded);
-        transition.Error.Value.ShouldBe("source unreachable");
+        transition.Error!.Value.ShouldBe("source unreachable");
     }
 
     [Fact]
@@ -158,7 +158,7 @@ public class StreamTests
 
         stream.ReportDegraded(StreamError.From("retry failed"), new TestClock(FixedMoment.AddSeconds(20)));
 
-        stream.LastError.Value.ShouldBe("retry failed");
+        stream.LastError!.Value.ShouldBe("retry failed");
         stream.PendingEvents.ShouldBeEmpty();
     }
 
@@ -185,7 +185,7 @@ public class StreamTests
         stream.ReportOffline(StreamError.From("still unreachable after retry"), new TestClock(FixedMoment.AddSeconds(45)));
 
         stream.State.ShouldBe(StreamState.Offline);
-        stream.LastError.Value.ShouldBe("still unreachable after retry");
+        stream.LastError!.Value.ShouldBe("still unreachable after retry");
         stream.PendingEvents.ShouldBeEmpty();
     }
 
@@ -332,7 +332,7 @@ public class StreamTests
     public void The_fab_has_no_setter()
     {
         typeof(Domain.Stream.Stream)
-            .GetProperty(nameof(Domain.Stream.Stream.Fab))
+            .GetProperty(nameof(Domain.Stream.Stream.Fab))!
             .GetSetMethod(nonPublic: false)
             .ShouldBeNull();
     }

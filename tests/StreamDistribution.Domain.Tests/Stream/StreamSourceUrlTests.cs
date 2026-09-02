@@ -22,9 +22,9 @@ public class StreamSourceUrlTests
     [InlineData("")]
     [InlineData("   ")]
     [InlineData(null)]
-    public void From_rejects_blank_input(string value)
+    public void From_rejects_blank_input(string? value)
     {
-        Should.Throw<ArgumentException>(() => StreamSourceUrl.From(value));
+        Should.Throw<ArgumentException>(() => StreamSourceUrl.From(value!));
     }
 
     [Fact]

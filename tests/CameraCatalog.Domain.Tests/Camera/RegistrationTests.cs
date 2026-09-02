@@ -24,7 +24,7 @@ public class RegistrationTests
     public void Refuses_a_missing_moment()
     {
         Should.Throw<ArgumentException>(() =>
-            Registration.From(null, OperatorIdentifier.From(Guid.CreateVersion7())));
+            Registration.From(null!, OperatorIdentifier.From(Guid.CreateVersion7())));
     }
 
     [Fact]
