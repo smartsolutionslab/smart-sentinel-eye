@@ -176,7 +176,7 @@ public readonly struct EnsuredGuid
         this.parameter = parameter;
     }
 
-    public EnsuredGuid IsNotEmpty(string message = null)
+    public EnsuredGuid IsNotEmpty(string? message = null)
     {
         if (value == Guid.Empty)
         {

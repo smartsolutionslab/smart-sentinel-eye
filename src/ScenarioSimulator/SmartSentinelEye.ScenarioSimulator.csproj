@@ -7,9 +7,10 @@
        AppHost gates it behind `isRunMode && !isE2ETests`. -->
 
   <PropertyGroup>
+    <!-- ADR-0141: NRT exception, not yet converted. -->
+    <Nullable>disable</Nullable>
     <TargetFramework>net10.0</TargetFramework>
     <!-- NRT disabled + Option<T> elsewhere (ADR-0048); mirror the solution. -->
-    <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-SmartSentinelEye.ScenarioSimulator-7f3c1e90-4d52-4a18-9b7e-2c6f5a0d1e44</UserSecretsId>
   </PropertyGroup>
