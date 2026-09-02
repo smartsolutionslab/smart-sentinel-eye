@@ -24,6 +24,16 @@ namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 /// mapping and the clock, and never this — so an audit row could assert that
 /// something happened while carrying nothing to inspect.
 /// </para>
+///
+/// <para>
+/// This is the opposite choice from <c>DeadLetter.RawPayload</c>, and the
+/// difference is reachability rather than taste. That payload comes from
+/// <c>Encoding.UTF8.GetString</c> over an arbitrary MQTT body, so <c>""</c> is
+/// both reachable and meaningful. This one is produced by
+/// <c>JsonSerializer.Serialize</c> in <c>IntegrationEventAuditHandler</c>, which
+/// yields at least <c>{}</c> for any object — so an empty payload here is not a
+/// malformed message but a defect upstream, and failing loudly is right.
+/// </para>
 /// </summary>
 public sealed record AuditPayload : StringValueObject
 {

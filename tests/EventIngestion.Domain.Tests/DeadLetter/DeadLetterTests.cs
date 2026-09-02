@@ -14,15 +14,15 @@ public class DeadLetterTests
     public void Capture_stores_the_topic_payload_and_error_with_the_clock_moment()
     {
         Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
-            "fab/munich/plc/station-4",
+            DeliveryTopic.From("fab/munich/plc/station-4"),
             FabIdentifier.From("munich"),
-            "<not-json>",
-            "payload parse failed",
+            RawPayload.From("<not-json>"),
+            RejectionReason.From("payload parse failed"),
             new FakeClock(Now));
 
-        deadLetter.Topic.ShouldBe("fab/munich/plc/station-4");
-        deadLetter.RawPayload.ShouldBe("<not-json>");
-        deadLetter.Error.ShouldBe("payload parse failed");
+        deadLetter.Topic.Value.ShouldBe("fab/munich/plc/station-4");
+        deadLetter.RawPayload.Value.ShouldBe("<not-json>");
+        deadLetter.Error.Value.ShouldBe("payload parse failed");
         deadLetter.RejectedAt.ShouldBe(Now);
         deadLetter.Id.Value.ShouldNotBe(Guid.Empty);
     }
@@ -36,10 +36,10 @@ public class DeadLetterTests
     public void Capture_records_the_fab_it_is_given()
     {
         Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
-            "fab/dresden/plc/station-9",
+            DeliveryTopic.From("fab/dresden/plc/station-9"),
             FabIdentifier.From("dresden"),
-            "<not-json>",
-            "payload parse failed",
+            RawPayload.From("<not-json>"),
+            RejectionReason.From("payload parse failed"),
             new FakeClock(Now));
 
         deadLetter.Fab.ShouldBe(FabIdentifier.From("dresden"));
@@ -54,10 +54,10 @@ public class DeadLetterTests
     public void Capture_leaves_the_fab_unset_when_none_was_established()
     {
         Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
-            "fab/NOT-A-FAB/plc/station-4",
+            DeliveryTopic.From("fab/NOT-A-FAB/plc/station-4"),
             null,
-            "<not-json>",
-            "envelope parse failed",
+            RawPayload.From("<not-json>"),
+            RejectionReason.From("envelope parse failed"),
             new FakeClock(Now));
 
         deadLetter.Fab.ShouldBeNull();
@@ -69,9 +69,9 @@ public class DeadLetterTests
         FakeClock clock = new(Now);
         FabIdentifier fab = FabIdentifier.From("munich");
         Action emptyTopic = () =>
-            Domain.DeadLetter.DeadLetter.Capture("", fab, "raw", "err", clock);
+            Domain.DeadLetter.DeadLetter.Capture(DeliveryTopic.From(""), fab, RawPayload.From("raw"), RejectionReason.From("err"), clock);
         Action emptyError = () =>
-            Domain.DeadLetter.DeadLetter.Capture("fab/m/plc/x", fab, "raw", "", clock);
+            Domain.DeadLetter.DeadLetter.Capture(DeliveryTopic.From("fab/m/plc/x"), fab, RawPayload.From("raw"), RejectionReason.From(""), clock);
         emptyTopic.ShouldThrow<ArgumentException>();
         emptyError.ShouldThrow<ArgumentException>();
     }

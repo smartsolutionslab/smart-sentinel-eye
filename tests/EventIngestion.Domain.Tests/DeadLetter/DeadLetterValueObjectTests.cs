@@ -37,14 +37,28 @@ public class DeadLetterValueObjectTests
         act.ShouldThrow<ArgumentException>();
     }
 
+    /// <summary>
+    /// The one property in this feature that deliberately keeps accepting empty
+    /// input. A zero-length MQTT delivery reaches
+    /// <c>MqttSubscriberHostedService</c> as <c>""</c> and is exactly the kind of
+    /// malformed message that gets rejected — refusing it would throw inside the
+    /// capture path and lose the dead letter for one of the most likely rejection
+    /// causes.
+    /// </summary>
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public void A_raw_payload_that_is_empty_or_whitespace_is_refused(string input)
+    public void A_raw_payload_that_is_empty_is_still_captured(string input)
     {
-        Action act = () => RawPayload.From(input);
+        RawPayload.From(input).Value.ShouldBe(input);
+    }
 
-        act.ShouldThrow<ArgumentException>();
+    [Fact]
+    public void A_raw_payload_that_is_null_is_refused()
+    {
+        Action act = () => RawPayload.From(null);
+
+        act.ShouldThrow<ArgumentNullException>();
     }
 
     [Theory]

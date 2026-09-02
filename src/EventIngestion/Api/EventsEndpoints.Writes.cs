@@ -239,7 +239,7 @@ public static partial class EventsEndpoints
         }
 
         string? azp = user.FindFirst("azp")?.Value;
-        if (!string.Equals(azp, integration.KeycloakClientId, StringComparison.Ordinal))
+        if (!string.Equals(azp, integration.KeycloakClientId?.Value, StringComparison.Ordinal))
         {
             return false;
         }

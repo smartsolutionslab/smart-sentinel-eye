@@ -39,7 +39,7 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
         }
 
         WebhookIntegration integration = found.Value;
-        integration.MarkAsRotated(clientId, clock);
+        integration.MarkAsRotated(KeycloakClientIdentifier.From(clientId), clock);
         await integrations.SaveAsync(cancellationToken);
 
         logger.WebhookIntegrationFlippedToJwt(integrationName, clientId);

@@ -39,7 +39,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
             CancellationToken.None);
 
         integration.ValidationMode.ShouldBe(BearerValidationMode.Jwt);
-        integration.KeycloakClientId.ShouldBe("webhook-qa");
+        integration.KeycloakClientId.Value.ShouldBe("webhook-qa");
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
             FabIdentifier.From("munich"),
             Kind.From("QaResult"),
             new FakeClock(Now));
-        integration.MarkAsRotated("webhook-qa", new FakeClock(Now.AddMinutes(1)));
+        integration.MarkAsRotated(KeycloakClientIdentifier.From("webhook-qa"), new FakeClock(Now.AddMinutes(1)));
         repo.Add(integration);
 
         WebhookIntegrationRotatedV1Handler handler = new(

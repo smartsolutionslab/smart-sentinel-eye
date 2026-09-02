@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Protocol;
+using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -95,7 +96,7 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
         // capture path simply never wrote the row.
         await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
         DeadLetterAggregate orphan = await database.DeadLetters.AsNoTracking()
-            .SingleAsync(deadLetter => deadLetter.RawPayload == orphanPayload);
+            .SingleAsync(deadLetter => deadLetter.RawPayload == RawPayload.From(orphanPayload));
         orphan.Fab.ShouldBeNull();
     }
 
@@ -143,7 +144,7 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
     {
         await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
         database.DeadLetters.Add(DeadLetterAggregate.Capture(
-            topic, fab, rawPayload, "spec 018 T024 seed", new SystemClock()));
+            DeliveryTopic.From(topic), fab, RawPayload.From(rawPayload), RejectionReason.From("spec 018 T024 seed"), new SystemClock()));
         await database.SaveChangesAsync();
     }
 
@@ -167,7 +168,7 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
 
                 await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
                 DeadLetterAggregate? captured = await database.DeadLetters.AsNoTracking()
-                    .FirstOrDefaultAsync(deadLetter => deadLetter.RawPayload == rawPayload);
+                    .FirstOrDefaultAsync(deadLetter => deadLetter.RawPayload == RawPayload.From(rawPayload));
                 if (captured is not null)
                 {
                     return captured;

@@ -157,7 +157,7 @@ public class WebhookIntegrationConcurrencyIntegrationTests(AspireFixture aspire)
         WebhookIntegration integration = await context.WebhookIntegrations
             .FirstAsync(candidate => candidate.Name == parsed);
 
-        integration.MarkAsRotated($"webhook-{name}", new SystemClock());
+        integration.MarkAsRotated(KeycloakClientIdentifier.From($"webhook-{name}"), new SystemClock());
         integration.ClearPendingEvents();
         await context.SaveChangesAsync();
     }

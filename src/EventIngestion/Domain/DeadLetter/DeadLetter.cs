@@ -9,7 +9,7 @@ namespace SmartSentinelEye.EventIngestion.Domain.DeadLetter;
 /// </summary>
 public sealed class DeadLetter : AggregateRoot<DeadLetterIdentifier>
 {
-    public string Topic { get; private set; } = string.Empty;
+    public DeliveryTopic Topic { get; private set; } = null!;
 
     /// <summary>
     /// The plant the delivery came from, where the delivery address establishes
@@ -25,9 +25,9 @@ public sealed class DeadLetter : AggregateRoot<DeadLetterIdentifier>
     /// </summary>
     public FabIdentifier? Fab { get; private set; }
 
-    public string RawPayload { get; private set; } = string.Empty;
+    public RawPayload RawPayload { get; private set; } = null!;
 
-    public string Error { get; private set; } = string.Empty;
+    public RejectionReason Error { get; private set; } = null!;
 
     public DateTimeOffset RejectedAt { get; private set; }
 
@@ -40,11 +40,11 @@ public sealed class DeadLetter : AggregateRoot<DeadLetterIdentifier>
     /// modes it hit.
     /// </summary>
     public static DeadLetter Capture(
-        string topic, FabIdentifier? fab, string rawPayload, string error, IClock clock)
+        DeliveryTopic topic, FabIdentifier? fab, RawPayload rawPayload, RejectionReason error, IClock clock)
     {
-        Ensure.That(topic).IsNotNull().IsNotNullOrWhiteSpace();
+        Ensure.That(topic).IsNotNull();
         Ensure.That(rawPayload).IsNotNull();
-        Ensure.That(error).IsNotNull().IsNotNullOrWhiteSpace();
+        Ensure.That(error).IsNotNull();
         Ensure.That(clock).IsNotNull();
         return new DeadLetter
         {
