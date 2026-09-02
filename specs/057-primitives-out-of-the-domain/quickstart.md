@@ -17,7 +17,7 @@ Story 1's red. Run this **before** converting the two production sites, so the
 failure is observed rather than assumed, and quote the output in the PR.
 
 ```powershell
-dotnet build SmartSentinelEye.slnx -v:q --nologo
+dotnet build SmartSentinelEye.slnx -c Release -v:q --nologo
 ```
 
 Expect `error RS0030` at
@@ -100,10 +100,18 @@ refused where a bound exists, and a valid value round-trips.
 ## Full regression
 
 ```powershell
-dotnet build SmartSentinelEye.slnx -v:q --nologo    # analyzers clean, warnings-as-errors
-dotnet test SmartSentinelEye.slnx
-./scripts/coverage-check.ps1                        # Domain ≥ 90, Application ≥ 80, Shared ≥ 90
+dotnet build SmartSentinelEye.slnx -c Release -v:q --nologo   # analyzers clean, warnings-as-errors
+dotnet test SmartSentinelEye.slnx -c Release
+./scripts/coverage-check.ps1                                  # Domain ≥ 90, Application ≥ 80, Shared ≥ 90
 ```
+
+**`-c Release` is not optional, and this was learned the hard way.** Phase 4
+was verified against a green Debug build and failed CI on six `CS8602` /
+`CS8625` nullable-reference errors that Debug does not raise. Debug is not a
+weaker version of the gate — it is a different one, and passing it says
+nothing about Release. Nullable value objects are exactly where the two
+diverge: an EF converter over a nullable property needs `x => x!.Value`, as
+`DeadLetterConfiguration` already did for `fab`.
 
 Coverage matters more than usual here: Story 2 adds nine domain types with
 branching factories, all of which land in the ≥ 90% bucket.

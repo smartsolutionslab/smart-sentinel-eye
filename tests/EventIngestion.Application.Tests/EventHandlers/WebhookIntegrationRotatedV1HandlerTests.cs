@@ -39,7 +39,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
             CancellationToken.None);
 
         integration.ValidationMode.ShouldBe(BearerValidationMode.Jwt);
-        integration.KeycloakClientId.Value.ShouldBe("webhook-qa");
+        integration.KeycloakClientId!.Value.ShouldBe("webhook-qa");
     }
 
     [Fact]
