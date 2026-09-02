@@ -58,7 +58,7 @@ public sealed class InMemoryRuleCache : IRuleCache
 
         CompiledRule compiled = CompiledRule.From(rule);
         (string Fab, string TriggerSource, string TriggerKind) key =
-            (rule.Fab.Value, rule.TriggerSource, rule.TriggerKind);
+            (rule.Fab.Value, rule.TriggerSource.Value, rule.TriggerKind.Value);
 
         List<CompiledRule> bucket = _byTrigger.GetOrAdd(key, _ => []);
         lock (gate)

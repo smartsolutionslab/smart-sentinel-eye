@@ -21,9 +21,9 @@ public sealed class CompiledRule
     /// </summary>
     public FabIdentifier Fab { get; }
 
-    public string TriggerSource { get; }
+    public TriggerSource TriggerSource { get; }
 
-    public string TriggerKind { get; }
+    public TriggerKind TriggerKind { get; }
 
     public DateTimeOffset CreatedAt { get; }
 
@@ -40,8 +40,8 @@ public sealed class CompiledRule
     private CompiledRule(
         RuleIdentifier identifier,
         FabIdentifier fab,
-        string triggerSource,
-        string triggerKind,
+        TriggerSource triggerSource,
+        TriggerKind triggerKind,
         DateTimeOffset createdAt,
         AelExpression compiledPredicate,
         RuleAction action,

@@ -42,12 +42,37 @@ public sealed class ListRulesQueryHandler(IRuleQuerySource rules)
 
         if (!string.IsNullOrWhiteSpace(triggerSource))
         {
-            filtered = filtered.Where(rule => rule.TriggerSource == triggerSource);
+            // A filter value that could never be a TriggerSource matches nothing —
+            // which is exactly what comparing it to the column did while this
+            // property was a string. Parsing and failing the request instead would
+            // turn a 200 with no rows into a 400, and the contract for this feature
+            // is that no status code moves.
+            TriggerSource parsedTriggerSource;
+            try
+            {
+                parsedTriggerSource = TriggerSource.From(triggerSource);
+            }
+            catch (ArgumentException)
+            {
+                return Success<IReadOnlyList<RuleDto>>([]);
+            }
+
+            filtered = filtered.Where(rule => rule.TriggerSource == parsedTriggerSource);
         }
 
         if (!string.IsNullOrWhiteSpace(triggerKind))
         {
-            filtered = filtered.Where(rule => rule.TriggerKind == triggerKind);
+            TriggerKind parsedTriggerKind;
+            try
+            {
+                parsedTriggerKind = TriggerKind.From(triggerKind);
+            }
+            catch (ArgumentException)
+            {
+                return Success<IReadOnlyList<RuleDto>>([]);
+            }
+
+            filtered = filtered.Where(rule => rule.TriggerKind == parsedTriggerKind);
         }
 
         List<Rule> matches = await filtered

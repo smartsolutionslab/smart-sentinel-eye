@@ -17,8 +17,8 @@ public class RuleTests
 
         rule.State.ShouldBe(RuleState.Draft);
         rule.Name.Value.ShouldBe("high-oee-on-fast-cycle");
-        rule.TriggerSource.ShouldBe("plc");
-        rule.TriggerKind.ShouldBe("PlcCycleStart");
+        rule.TriggerSource.Value.ShouldBe("plc");
+        rule.TriggerKind.Value.ShouldBe("PlcCycleStart");
         rule.CreatedAt.ShouldBe(Now);
         rule.PublishedAt.ShouldBeNull();
         rule.ArchivedAt.ShouldBeNull();
@@ -34,8 +34,8 @@ public class RuleTests
             .ShouldHaveSingleItem();
         raised.Rule.ShouldBe(rule.Id);
         raised.Name.ShouldBe(rule.Name);
-        raised.TriggerSource.ShouldBe("plc");
-        raised.TriggerKind.ShouldBe("PlcCycleStart");
+        raised.TriggerSource.Value.ShouldBe("plc");
+        raised.TriggerKind.Value.ShouldBe("PlcCycleStart");
         raised.CreatedAt.ShouldBe(Now);
     }
 }

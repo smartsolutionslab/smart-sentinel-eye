@@ -169,8 +169,8 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
         RuleAggregate rule = RuleAggregate.Create(
             FabIdentifier.From(fab),
             RuleName.From(name),
-            "plc",
-            "PlcCycleStart",
+            TriggerSource.From("plc"),
+            TriggerKind.From("PlcCycleStart"),
             RulePredicate.From("$.payload.cycleTime <= 30"),
             RuleAction.SetVariableValue.From(variable, "100 - $.payload.cycleTime * 2"),
             OperatorIdentifier.From(Guid.CreateVersion7()),
@@ -190,8 +190,8 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
         RuleAggregate rule = RuleAggregate.Create(
             FabIdentifier.From(fab),
             RuleName.From(name),
-            "plc",
-            "PlcCycleStart",
+            TriggerSource.From("plc"),
+            TriggerKind.From("PlcCycleStart"),
             RulePredicate.From("$.payload.cycleTime <= 30"),
             RuleAction.SetVariableValue.From("oeeLine1", "100 - $.payload.cycleTime * 2"),
             OperatorIdentifier.From(Guid.CreateVersion7()),
