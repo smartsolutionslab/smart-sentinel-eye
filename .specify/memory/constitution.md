@@ -31,11 +31,24 @@ explicit.
 ### II. Domain-Driven Design with Value Objects (ADR-001)
 
 The system is modelled as bounded contexts with explicit ubiquitous
-language. **Value objects are the default;** primitive types
-(`string`, `int`, `Guid`) do not cross domain boundaries.
+language. **Value objects are the default.** These primitive types do
+not appear on a domain model (ADR-0139): `string`, `int`, `bool`,
+`double`, `decimal`, `float`, `long`, `Guid`, `DateTimeOffset`.
+
+The list is exhaustive on purpose. It was three examples until
+2026-09-02, and a rule illustrated rather than stated is one every
+reader draws differently — 9 `string` and 26 `DateTimeOffset`
+properties had accumulated on aggregates before anyone counted.
 
 - A `CameraId` is not a `Guid`; a `Percentage` is not a `double`; a
   `Timestamp` knows whether it is `source` or `ingestion` time-based.
+- **Four exemptions, and no others** (ADR-0139): `ApiError`'s `Code`
+  and `Message`, a serialization contract (ADR-0089); opaque captured
+  payloads, exempt from being *parsed*, not from having a type;
+  a value object's own backing value, which is the boundary the rule
+  protects rather than a breach of it; and `Shared.Contracts`, a wire
+  format. Anything else requires amending this section, not a local
+  judgement call.
 - Aggregates are small and protect invariants.
 - CQRS and event sourcing are tools, not defaults. Use them only when a
   context's invariants demand replayability or strict read/write
@@ -515,7 +528,21 @@ smart-sentinel-eye/
 
 ### Testing
 
-- **Domain logic:** TDD red-green-refactor.
+- **New behaviour:** TDD red-green-refactor. The test is written first,
+  is **observed failing**, and that failure is quoted in the PR body.
+  Domain, application and infrastructure alike (ADR-0139).
+- **Behaviour-preserving refactors:** the inverse obligation. Covering
+  tests must exist and be green *before* the change, and stay green
+  throughout. **A red test during a refactor is a regression, not a
+  step.** Where a path being changed has no covering test, one is added
+  first, while the old shape still compiles.
+
+  These are two obligations, not one rule with an exception. Until
+  2026-09-02 this read "Domain logic: TDD red-green-refactor" — which
+  bound one layer, and which no behaviour-preserving change could
+  satisfy at all. Quoting an observed failure is the only honest proof
+  available: nothing in CI can establish after the fact that a test was
+  written before the code.
 - **Integration:** against real Postgres + RabbitMQ + Keycloak via the
   Aspire AppHost in test mode (the `AspireFixture`); no Testcontainers —
   CI runs the same fixture (Docker required on the runner). See ADR-0103.
