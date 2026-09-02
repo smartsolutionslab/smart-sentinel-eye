@@ -112,10 +112,10 @@ public class WebhookIntegrationTests
                 new FakeClock(Now));
         integration.ClearPendingEvents();
 
-        integration.MarkAsRotated("webhook-qa", new FakeClock(Now.AddHours(1)));
+        integration.MarkAsRotated(KeycloakClientIdentifier.From("webhook-qa"), new FakeClock(Now.AddHours(1)));
 
         integration.ValidationMode.ShouldBe(BearerValidationMode.Jwt);
-        integration.KeycloakClientId.ShouldBe("webhook-qa");
+        integration.KeycloakClientId.Value.ShouldBe("webhook-qa");
         integration.RotatedAt.ShouldBe(Now.AddHours(1));
         integration.PendingEvents.OfType<WebhookIntegrationRotatedDomainEvent>()
             .ShouldHaveSingleItem();
@@ -130,10 +130,10 @@ public class WebhookIntegrationTests
                 FabIdentifier.From("munich"),
                 Kind.From("QaResult"),
                 new FakeClock(Now));
-        integration.MarkAsRotated("webhook-qa", new FakeClock(Now.AddHours(1)));
+        integration.MarkAsRotated(KeycloakClientIdentifier.From("webhook-qa"), new FakeClock(Now.AddHours(1)));
         integration.ClearPendingEvents();
 
-        integration.MarkAsRotated("webhook-qa", new FakeClock(Now.AddHours(2)));
+        integration.MarkAsRotated(KeycloakClientIdentifier.From("webhook-qa"), new FakeClock(Now.AddHours(2)));
 
         integration.RotatedAt.ShouldBe(Now.AddHours(1));
         integration.PendingEvents.ShouldBeEmpty();

@@ -22,7 +22,8 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
 
         builder.Property(deadLetter => deadLetter.Topic)
             .HasColumnName("topic")
-            .HasMaxLength(256)
+            .HasMaxLength(DeliveryTopic.MaximumLength)
+            .HasConversion(topic => topic.Value, value => DeliveryTopic.From(value))
             .IsRequired();
 
         // Nullable permanently (spec 018 FR-010): a delivery whose address does
@@ -38,11 +39,13 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
         builder.Property(deadLetter => deadLetter.RawPayload)
             .HasColumnName("raw_payload")
             .HasColumnType("text")
+            .HasConversion(payload => payload.Value, value => RawPayload.From(value))
             .IsRequired();
 
         builder.Property(deadLetter => deadLetter.Error)
             .HasColumnName("error")
-            .HasMaxLength(512)
+            .HasMaxLength(RejectionReason.MaximumLength)
+            .HasConversion(reason => reason.Value, value => RejectionReason.From(value))
             .IsRequired();
 
         builder.Property(deadLetter => deadLetter.RejectedAt)

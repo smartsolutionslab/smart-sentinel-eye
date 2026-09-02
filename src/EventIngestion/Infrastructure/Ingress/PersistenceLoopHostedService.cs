@@ -297,10 +297,10 @@ public sealed class PersistenceLoopHostedService(
                 scope.ServiceProvider.GetRequiredService<IDeadLetterRepository>();
 
             deadLetters.Add(Domain.DeadLetter.DeadLetter.Capture(
-                $"event/{envelope.Fab.Value}/{envelope.Source.Value}/{envelope.Device.Value}",
+                DeliveryTopic.From($"event/{envelope.Fab.Value}/{envelope.Source.Value}/{envelope.Device.Value}"),
                 envelope.Fab,
-                envelope.Payload.Value,
-                $"not storable after {window} of retrying",
+                RawPayload.From(envelope.Payload.Value),
+                RejectionReason.From($"not storable after {window} of retrying"),
                 clock));
             await deadLetters.SaveAsync(cancellationToken);
 

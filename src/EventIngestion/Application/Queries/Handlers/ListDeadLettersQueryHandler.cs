@@ -31,7 +31,7 @@ public sealed class ListDeadLettersQueryHandler(IDeadLetterQuerySource deadLette
             .ToListAsync(cancellationToken);
 
         IReadOnlyList<DeadLetterDto> dtos = rows
-            .Select(deadLetter => new DeadLetterDto(deadLetter.Id.Value, deadLetter.Topic, deadLetter.RawPayload, deadLetter.Error, deadLetter.RejectedAt))
+            .Select(deadLetter => new DeadLetterDto(deadLetter.Id.Value, deadLetter.Topic.Value, deadLetter.RawPayload.Value, deadLetter.Error.Value, deadLetter.RejectedAt))
             .ToArray();
 
         return Success(dtos);

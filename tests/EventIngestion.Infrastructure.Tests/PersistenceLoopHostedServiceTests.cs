@@ -68,7 +68,7 @@ public class PersistenceLoopHostedServiceTests
         completion.Abandoned.ShouldBe(1);
         completion.Stored.ShouldBe(0);
         harness.DeadLetters.ShouldHaveSingleItem()
-            .Error.ShouldContain("not storable after");
+            .Error.Value.ShouldContain("not storable after");
     }
 
     /// <summary>

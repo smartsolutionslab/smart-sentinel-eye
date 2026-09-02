@@ -21,9 +21,27 @@ namespace SmartSentinelEye.EventIngestion.Domain.DeadLetter;
 /// </para>
 ///
 /// <para>
-/// It does refuse emptiness, which is a change: <c>Capture</c> guarded this with
-/// <c>IsNotNull()</c> alone, so an empty payload was capturable. Such a row
-/// asserts that something was rejected while carrying nothing to inspect.
+/// <b>Empty is allowed</b>, matching <c>Capture</c>'s existing <c>IsNotNull()</c>
+/// guard. An earlier draft of this type refused emptiness on the reasoning that
+/// an empty payload discards the evidence. That is backwards: the topic and the
+/// rejection reason are the evidence, and an empty body is itself a finding.
+/// </para>
+///
+/// <para>
+/// It is also reachable. <c>MqttSubscriberHostedService</c> builds this from
+/// <c>Encoding.UTF8.GetString(body.Span)</c>, so a zero-length MQTT delivery
+/// produces <c>""</c> — and a zero-length delivery is exactly the sort of
+/// malformed message that gets rejected. Refusing it here would throw inside
+/// the capture path, be swallowed by the surrounding handler as though the
+/// database were down, and silently lose the dead letter for one of the most
+/// likely rejection causes. The invariant would have suppressed the evidence it
+/// was meant to protect.
+/// </para>
+///
+/// <para>
+/// What the type does add is distinctness: <c>Capture</c> took topic, payload
+/// and error as three adjacent strings, and transposing any two compiled
+/// cleanly.
 /// </para>
 /// </summary>
 public sealed record RawPayload : StringValueObject
@@ -35,7 +53,7 @@ public sealed record RawPayload : StringValueObject
 
     public static RawPayload From(string value)
     {
-        Ensure.That(value, nameof(value)).IsNotNullOrWhiteSpace();
+        Ensure.That(value, nameof(value)).IsNotNull();
 
         return new RawPayload(value);
     }

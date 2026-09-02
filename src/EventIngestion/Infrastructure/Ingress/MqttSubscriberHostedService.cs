@@ -305,7 +305,7 @@ public sealed class MqttSubscriberHostedService(
             await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
             IDeadLetterRepository deadLetters =
                 scope.ServiceProvider.GetRequiredService<IDeadLetterRepository>();
-            deadLetters.Add(DeadLetter.Capture(topic, fab, raw, error, clock));
+            deadLetters.Add(DeadLetter.Capture(DeliveryTopic.From(topic), fab, RawPayload.From(raw), RejectionReason.From(error), clock));
             await deadLetters.SaveAsync(CancellationToken.None);
             return true;
         }

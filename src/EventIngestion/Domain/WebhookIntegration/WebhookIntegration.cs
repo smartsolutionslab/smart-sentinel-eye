@@ -51,7 +51,7 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
     /// rotation. <c>null</c> while the integration is still on the
     /// legacy hash-compare path.
     /// </summary>
-    public string? KeycloakClientId { get; private set; }
+    public KeycloakClientIdentifier? KeycloakClientId { get; private set; }
 
     public DateTimeOffset? RotatedAt { get; private set; }
 
@@ -110,13 +110,13 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
     /// Idempotent on the same clientId; replays from the outbox or
     /// at-least-once delivery are absorbed silently.
     /// </summary>
-    public void MarkAsRotated(string keycloakClientId, IClock clock)
+    public void MarkAsRotated(KeycloakClientIdentifier keycloakClientId, IClock clock)
     {
-        Ensure.That(keycloakClientId).IsNotNull().IsNotNullOrWhiteSpace();
+        Ensure.That(keycloakClientId).IsNotNull();
         Ensure.That(clock).IsNotNull();
 
         if (ValidationMode == BearerValidationMode.Jwt &&
-            string.Equals(KeycloakClientId, keycloakClientId, StringComparison.Ordinal))
+            KeycloakClientId == keycloakClientId)
         {
             return; // idempotent
         }

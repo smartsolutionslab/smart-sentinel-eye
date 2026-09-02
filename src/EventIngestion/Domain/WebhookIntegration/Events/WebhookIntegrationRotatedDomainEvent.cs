@@ -11,5 +11,5 @@ namespace SmartSentinelEye.EventIngestion.Domain.WebhookIntegration.Events;
 /// </summary>
 public sealed record WebhookIntegrationRotatedDomainEvent(
     WebhookIntegrationName Name,
-    string KeycloakClientId,
+    KeycloakClientIdentifier KeycloakClientId,
     DateTimeOffset RotatedAt) : IDomainEvent;

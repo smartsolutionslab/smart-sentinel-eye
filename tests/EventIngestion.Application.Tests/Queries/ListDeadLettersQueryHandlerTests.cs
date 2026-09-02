@@ -116,5 +116,5 @@ public class ListDeadLettersQueryHandlerTests
     }
 
     private static DeadLetter Captured(string topic, FabIdentifier? fab, DateTimeOffset at) =>
-        DeadLetter.Capture(topic, fab, "raw", "err", new FakeClock(at));
+        DeadLetter.Capture(DeliveryTopic.From(topic), fab, RawPayload.From("raw"), RejectionReason.From("err"), new FakeClock(at));
 }
