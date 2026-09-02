@@ -44,9 +44,7 @@ public sealed class AuditEvent
 
     public EventIdentifier EventIdentifier { get; private init; } = null!;
 
-    public AuditPayload Payload { get; private init; } = null!;
-
-    public PayloadSizeBytes PayloadSizeBytes { get; private init; }
+    public StoredPayload Payload { get; private init; } = null!;
 
     public SchemaVersion SchemaVersion { get; private init; }
 
@@ -148,8 +146,7 @@ public sealed class AuditEvent
             Actor = envelope.Actor,
             ActorUsername = envelope.ActorUsername.HasValue ? ActorUsername.From(envelope.ActorUsername.Value) : null,
             EventIdentifier = envelope.EventIdentifier,
-            Payload = AuditPayload.From(envelope.Payload),
-            PayloadSizeBytes = PayloadSizeBytes.Of(envelope.Payload),
+            Payload = StoredPayload.From(envelope.Payload),
             SchemaVersion = SchemaVersion.Current,
         };
     }
