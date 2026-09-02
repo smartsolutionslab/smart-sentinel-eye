@@ -216,7 +216,7 @@ public static class CameraEndpoints
         }
 
         if (!ConcurrencyHeaders.TryReadExpectedVersion(
-                httpContext.Request, out int expectedVersion, out IResult precondition))
+                httpContext.Request, out int expectedVersion, out IResult? precondition))
         {
             return precondition;
         }
@@ -405,7 +405,7 @@ public static class CameraEndpoints
         IFabAuthorizationGuard fabGuard,
         CancellationToken cancellationToken)
     {
-        (string resolved, IResult problem) = await FabResolution.ResolveForWriteAsync(
+        (string? resolved, IResult? problem) = await FabResolution.ResolveForWriteAsync(
             user, fabId, fabGuard, "CAMERA_FAB_REQUIRED", cancellationToken);
         if (problem is not null)
         {
@@ -414,7 +414,7 @@ public static class CameraEndpoints
 
         try
         {
-            return (FabIdentifier.From(resolved), null);
+            return (FabIdentifier.From(resolved!), null);
         }
         catch (ArgumentException ex)
         {

@@ -101,7 +101,7 @@ public sealed class FabAuthorizationException : Exception
     /// The fab the caller was refused, or none when they belong to no fab and
     /// so never named one.
     /// </summary>
-    public string FabId { get; }
+    public string? FabId { get; }
 
     /// <summary>
     /// The caller holds no fab membership at all — a misconfigured account

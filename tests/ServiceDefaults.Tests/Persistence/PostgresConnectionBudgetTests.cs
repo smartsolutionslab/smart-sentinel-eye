@@ -131,5 +131,5 @@ public class PostgresConnectionBudgetTests
     // literal for a non-nullable parameter and fails the Release build.
     [Fact]
     public void A_null_connection_string_is_refused() =>
-        Should.Throw<ArgumentException>(() => PostgresConnectionBudget.Bounded(null));
+        Should.Throw<ArgumentException>(() => PostgresConnectionBudget.Bounded(null!));
 }

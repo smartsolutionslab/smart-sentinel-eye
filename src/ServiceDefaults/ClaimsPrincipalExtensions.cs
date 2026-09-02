@@ -25,7 +25,7 @@ public static class ClaimsPrincipalExtensions
     {
         Ensure.That(user).IsNotNull();
 
-        string raw = user.FindFirst("sub")?.Value ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        string? raw = user.FindFirst("sub")?.Value ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return Guid.TryParse(raw, out Guid value) && value != Guid.Empty ? OperatorIdentifier.From(value) : throw new UnattributableOperatorException();
     }
 

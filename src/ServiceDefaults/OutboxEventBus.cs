@@ -60,12 +60,12 @@ public sealed class OutboxEventBus<TDbContext>(
         // documented discriminator, rather than a guess about the call stack.
         if (ambient.Envelope is not null)
         {
-            logger.PublishingIntegrationEvent(typeof(TEvent).FullName);
+            logger.PublishingIntegrationEvent(typeof(TEvent).FullName ?? typeof(TEvent).Name);
             await ambient.PublishAsync(integrationEvent);
             return;
         }
 
-        logger.CapturingIntegrationEvent(typeof(TEvent).FullName);
+        logger.CapturingIntegrationEvent(typeof(TEvent).FullName ?? typeof(TEvent).Name);
 
         // Captured, not sent. It reaches the broker when the caller commits,
         // and never if the caller's transaction rolls back — which is the half

@@ -156,8 +156,8 @@ public static class SystemVariableEndpoints
         if (!BoundaryParse.TryParse(
             () => VariableName.From(name),
             "VARIABLE_INVALID_INPUT",
-            out VariableName parsed,
-            out IResult problem))
+            out var parsed,
+            out IResult? problem))
         {
             return problem;
         }
@@ -170,7 +170,7 @@ public static class SystemVariableEndpoints
             return fabProblem!;
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
         {
             return precondition;
         }
@@ -195,8 +195,8 @@ public static class SystemVariableEndpoints
         if (!BoundaryParse.TryParse(
             () => VariableName.From(name),
             "VARIABLE_INVALID_INPUT",
-            out VariableName parsed,
-            out IResult problem))
+            out var parsed,
+            out IResult? problem))
         {
             return problem;
         }
@@ -300,8 +300,8 @@ public static class SystemVariableEndpoints
         if (!BoundaryParse.TryParse(
             () => VariableName.From(name),
             "VARIABLE_INVALID_INPUT",
-            out VariableName parsed,
-            out IResult problem))
+            out var parsed,
+            out IResult? problem))
         {
             return problem;
         }
@@ -318,7 +318,7 @@ public static class SystemVariableEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
         {
             return precondition;
         }
@@ -338,7 +338,7 @@ public static class SystemVariableEndpoints
     private static async Task<(FabIdentifier? Fab, IResult? Problem)> ResolveWriteFabAsync(
         ClaimsPrincipal user, string fabId, IFabAuthorizationGuard fabGuard, CancellationToken cancellationToken)
     {
-        (string resolved, IResult problem) = await FabResolution.ResolveForWriteAsync(
+        (string? resolved, IResult? problem) = await FabResolution.ResolveForWriteAsync(
             user, fabId, fabGuard, "VARIABLE_FAB_REQUIRED", cancellationToken);
         if (problem is not null)
         {
@@ -347,7 +347,7 @@ public static class SystemVariableEndpoints
 
         try
         {
-            return (FabIdentifier.From(resolved), null);
+            return (FabIdentifier.From(resolved!), null);
         }
         catch (ArgumentException ex)
         {

@@ -32,7 +32,7 @@ public static partial class LayoutEndpoints
         IFabAuthorizationGuard fabGuard,
         CancellationToken cancellationToken)
     {
-        (string resolved, IResult problem) = await FabResolution.ResolveForWriteAsync(
+        (string? resolved, IResult? problem) = await FabResolution.ResolveForWriteAsync(
             user, fabId, fabGuard, "LAYOUT_FAB_REQUIRED", cancellationToken);
         if (problem is not null)
         {
@@ -41,7 +41,7 @@ public static partial class LayoutEndpoints
 
         try
         {
-            return (FabIdentifier.From(resolved), null);
+            return (FabIdentifier.From(resolved!), null);
         }
         catch (ArgumentException ex)
         {
@@ -177,12 +177,12 @@ public static partial class LayoutEndpoints
             () => LayoutRevisionNumber.From(revisionNumber),
             "LAYOUT_INVALID_INPUT",
             out LayoutRevisionNumber number,
-            out IResult problem))
+            out IResult? problem))
         {
             return problem;
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
         {
             return precondition;
         }
@@ -225,12 +225,12 @@ public static partial class LayoutEndpoints
             () => LayoutRevisionNumber.From(revisionNumber),
             "LAYOUT_INVALID_INPUT",
             out LayoutRevisionNumber number,
-            out IResult problem))
+            out IResult? problem))
         {
             return problem;
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
         {
             return precondition;
         }
@@ -269,7 +269,7 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
         {
             return precondition;
         }
@@ -328,7 +328,7 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
         {
             return precondition;
         }
@@ -370,12 +370,12 @@ public static partial class LayoutEndpoints
             () => LayoutRevisionNumber.From(revisionNumber),
             "LAYOUT_INVALID_INPUT",
             out LayoutRevisionNumber number,
-            out IResult problem))
+            out IResult? problem))
         {
             return problem;
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
         {
             return precondition;
         }

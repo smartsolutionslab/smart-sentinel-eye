@@ -44,7 +44,7 @@ public sealed class LayoutLifecycleHub : Hub<ILayoutLifecycleClient>
     /// </summary>
     public override async Task OnConnectedAsync()
     {
-        foreach (string fab in FabClaims.AssignedFabs(Context.User))
+        foreach (string fab in FabClaims.AssignedFabs(Context.User!))
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, FabGroup(fab));
         }

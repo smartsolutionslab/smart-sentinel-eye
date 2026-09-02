@@ -70,7 +70,7 @@ public class FabClaimsTests
     [Fact]
     public void A_null_principal_is_refused()
     {
-        Should.Throw<ArgumentNullException>(() => FabClaims.AssignedFabs(null));
+        Should.Throw<ArgumentNullException>(() => FabClaims.AssignedFabs(null!));
     }
 
     private static ClaimsPrincipal With(params string[] groups) =>

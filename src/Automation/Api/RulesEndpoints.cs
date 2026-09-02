@@ -189,7 +189,7 @@ public static class RulesEndpoints
     private static async Task<(FabIdentifier? Fab, IResult? Problem)> ResolveWriteFabAsync(
         ClaimsPrincipal user, string fabId, IFabAuthorizationGuard fabGuard, CancellationToken cancellationToken)
     {
-        (string resolved, IResult problem) = await FabResolution.ResolveForWriteAsync(
+        (string? resolved, IResult? problem) = await FabResolution.ResolveForWriteAsync(
             user, fabId, fabGuard, "RULE_FAB_REQUIRED", cancellationToken);
         if (problem is not null)
         {
@@ -198,7 +198,7 @@ public static class RulesEndpoints
 
         try
         {
-            return (FabIdentifier.From(resolved), null);
+            return (FabIdentifier.From(resolved!), null);
         }
         catch (ArgumentException ex)
         {
@@ -319,7 +319,7 @@ public static class RulesEndpoints
             return Results.Problem(title: "RULE_INVALID_INPUT", detail: ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
         {
             return precondition;
         }
@@ -355,7 +355,7 @@ public static class RulesEndpoints
             return Results.Problem(title: "RULE_INVALID_INPUT", detail: ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
         {
             return precondition;
         }

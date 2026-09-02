@@ -30,7 +30,7 @@ internal static class EventIngestionFabResolution
         IFabAuthorizationGuard fabGuard,
         CancellationToken cancellationToken)
     {
-        (string resolved, IResult problem) = await FabResolution.ResolveForWriteAsync(
+        (string? resolved, IResult? problem) = await FabResolution.ResolveForWriteAsync(
             user, fabId, fabGuard, "EVENT_FAB_REQUIRED", cancellationToken);
         if (problem is not null)
         {
@@ -39,7 +39,7 @@ internal static class EventIngestionFabResolution
 
         try
         {
-            return (FabIdentifier.From(resolved), null);
+            return (FabIdentifier.From(resolved!), null);
         }
         catch (ArgumentException ex)
         {

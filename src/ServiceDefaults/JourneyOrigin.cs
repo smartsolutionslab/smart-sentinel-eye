@@ -43,7 +43,7 @@ public sealed class JourneyOrigin : IJourneyOrigin, IDisposable
 
         // Producer rather than Internal: what follows is a message being sent,
         // and the span this parents is the receiving service's Consumer span.
-        Activity activity = source.StartActivity(name, ActivityKind.Producer);
+        Activity? activity = source.StartActivity(name, ActivityKind.Producer);
 
         return activity is null ? NotListening : new RecordedJourney(activity);
     }

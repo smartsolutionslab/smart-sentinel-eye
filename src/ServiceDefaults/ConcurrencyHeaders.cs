@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
@@ -72,7 +73,7 @@ public static class ConcurrencyHeaders
     /// </para>
     /// </summary>
     public static bool TryReadUpsertPrecondition(
-        HttpRequest request, out Option<int> expectedVersion, out IResult problem)
+        HttpRequest request, out Option<int> expectedVersion, [NotNullWhen(false)] out IResult? problem)
     {
         Ensure.That(request).IsNotNull();
 
@@ -91,7 +92,7 @@ public static class ConcurrencyHeaders
 
         if (hasIfNoneMatch)
         {
-            string raw = request.Headers.IfNoneMatch[0]?.Trim();
+            string? raw = request.Headers.IfNoneMatch[0]?.Trim();
             if (!string.Equals(raw, Wildcard, StringComparison.Ordinal))
             {
                 problem = Malformed("If-None-Match must be '*' here; it asserts the resource does not exist yet.");
@@ -119,7 +120,7 @@ public static class ConcurrencyHeaders
         return true;
     }
 
-    public static bool TryReadExpectedVersion(HttpRequest request, out int expectedVersion, out IResult problem)
+    public static bool TryReadExpectedVersion(HttpRequest request, out int expectedVersion, [NotNullWhen(false)] out IResult? problem)
     {
         Ensure.That(request).IsNotNull();
 
@@ -142,7 +143,7 @@ public static class ConcurrencyHeaders
             return false;
         }
 
-        string raw = header[0]?.Trim();
+        string? raw = header[0]?.Trim();
 
         if (string.IsNullOrEmpty(raw))
         {
@@ -154,7 +155,7 @@ public static class ConcurrencyHeaders
         return TryParseTag(raw, out expectedVersion, out problem);
     }
 
-    private static bool TryParseTag(string raw, out int version, out IResult problem)
+    private static bool TryParseTag(string? raw, out int version, [NotNullWhen(false)] out IResult? problem)
     {
         version = default;
         problem = null;
@@ -169,7 +170,7 @@ public static class ConcurrencyHeaders
         }
 
         // RFC 7232 requires strong comparison for If-Match, so W/"..." is invalid here.
-        if (raw.StartsWith(WeakPrefix, StringComparison.Ordinal))
+        if (raw!.StartsWith(WeakPrefix, StringComparison.Ordinal))
         {
             problem = Malformed("If-Match requires a strong entity tag; weak tags are not accepted.");
 
