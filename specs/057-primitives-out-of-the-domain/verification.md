@@ -516,3 +516,33 @@ build and are genuinely empty.
 That is the third time in this feature a green result has meant "the check did
 not run": the ban list that was never read, the mutation that never applied, and
 now a probe against a stale model.
+
+### The coverage gate, and what the tests are for
+
+CI failed PR #2020 on the ADR-0065 Domain gate (≥ 90%). Five Domain projects
+dropped below it — AuditObservability 80.1%, Identity 81.4%, Automation 83.2%,
+OverlayDesigner 83.6%, EventIngestion 86.9% — because 26 types each gained
+`CompareTo`, four comparison operators, an implicit unwrap and a `ToString`, and
+none of it was exercised.
+
+`TimestampOrderingTests` now covers all 26 in nine files. The framing matters:
+this is **not** coverage padding. The central assertion is the exact call that
+failed before `IComparable` existed —
+
+```csharp
+T[] sorted = [.. new[] { later, earlier }.OrderBy(instant => instant)];
+```
+
+— so the suite would catch the same defect again in any type added later. The
+operators are exercised because `CA1036` requires them of an `IComparable`, and
+four unread methods per type is worse than four tested ones.
+
+**Ordering was proven red first; the operators were not.** The 22 failures were
+the red for `IComparable`. The operators were written to satisfy `CA1036` and
+tested afterwards — the same ordering violation as `StreamError.Truncating` in
+Phase 4, recorded rather than dressed up.
+
+**The gate itself could not be run locally.** `scripts/coverage-check.ps1`
+requires PowerShell 7 and only 5.1 is installed here, so the figures above come
+from CI and CI is what confirms the fix. Another instance of the same lesson:
+the local check available is not always the gate.
