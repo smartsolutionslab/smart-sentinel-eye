@@ -11,7 +11,7 @@ public static class RtspPath
         path = string.Empty;
 
         if (string.IsNullOrWhiteSpace(rtspUrl) ||
-            !Uri.TryCreate(rtspUrl, UriKind.Absolute, out Uri uri))
+            !Uri.TryCreate(rtspUrl, UriKind.Absolute, out Uri? uri))
         {
             return false;
         }

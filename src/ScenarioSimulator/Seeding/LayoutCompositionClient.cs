@@ -104,7 +104,7 @@ public sealed class LayoutCompositionClient(
         // wall kept composing the camera that no longer exists. Same shape as the
         // FR-008 bug one level up — idempotent *by name* is the wrong identity
         // once the contents can change.
-        LayoutRevisionItem published = existing.LatestPublished();
+        LayoutRevisionItem? published = existing.LatestPublished();
 
         // No published revision and no draft first revision: an archived or
         // otherwise unexpected chain. Leave it and say so — re-tiling something
@@ -195,8 +195,8 @@ public sealed class LayoutCompositionClient(
         using HttpResponseMessage response = await http.SendAsync(list, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        LayoutListResponse payload = await response.Content.ReadFromJsonAsync<LayoutListResponse>(cancellationToken);
-        LayoutListItem match = payload?.Chains?.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
+        LayoutListResponse? payload = await response.Content.ReadFromJsonAsync<LayoutListResponse>(cancellationToken);
+        LayoutListItem? match = payload?.Chains?.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
         return match
             ?? throw new InvalidOperationException($"Wall '{name}' conflicted but could not be read back.");
     }
@@ -241,7 +241,7 @@ public sealed class LayoutCompositionClient(
                 && string.Equals(revision.State, DraftState, StringComparison.Ordinal));
 
         /// <summary>The newest Published revision, or null when there is none.</summary>
-        public LayoutRevisionItem LatestPublished() =>
+        public LayoutRevisionItem? LatestPublished() =>
             Revisions
                 .Where(revision => string.Equals(revision.State, PublishedState, StringComparison.Ordinal))
                 .OrderByDescending(revision => revision.RevisionNumber)

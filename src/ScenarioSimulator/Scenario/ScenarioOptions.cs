@@ -68,13 +68,13 @@ public sealed class ScenarioDefinition
     /// M2 billet-timeline cadence (dwell per station, emit tick, loop gap). The
     /// billet visits <see cref="Assets"/> in order; <c>null</c> until M2 seeds it.
     /// </summary>
-    public TimelineDefinition Timeline { get; set; }
+    public TimelineDefinition? Timeline { get; set; }
 
     /// <summary>
     /// M2 single 2×2 rolling-mill wall (ADR-0112): the four assets' tiles compose
     /// one published layout. <c>null</c> until M2 seeds it.
     /// </summary>
-    public WallDefinition Wall { get; set; }
+    public WallDefinition? Wall { get; set; }
 }
 
 /// <summary>
@@ -101,21 +101,21 @@ public sealed class AssetDefinition
     /// Phase-A overlay create so the per-asset banner is data-driven. <c>null</c>
     /// for assets that seed no overlay.
     /// </summary>
-    public OverlayDefinition Overlay { get; set; }
+    public OverlayDefinition? Overlay { get; set; }
 
     /// <summary>
     /// M2 highlight rule seeded for this asset (trigger kind + comparison +
     /// threshold + duration). Drives the Phase-B rule create. <c>null</c> for
     /// assets that seed no rule.
     /// </summary>
-    public HighlightDefinition Highlight { get; set; }
+    public HighlightDefinition? Highlight { get; set; }
 
     /// <summary>
     /// M2 tile coordinate of this asset on the single 2×2 wall
     /// (S4→(0,0), S7→(0,1), CB→(1,0), CO→(1,1)). <c>null</c> for assets not on
     /// the wall.
     /// </summary>
-    public TileDefinition Tile { get; set; }
+    public TileDefinition? Tile { get; set; }
 }
 
 /// <summary>Camera leg of an asset: the MediaMTX path and which loop clip.</summary>

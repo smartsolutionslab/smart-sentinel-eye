@@ -25,7 +25,7 @@ public sealed class KeycloakTokenProvider(
     };
 
     private readonly SemaphoreSlim gate = new(initialCount: 1, maxCount: 1);
-    private string cachedToken;
+    private string? cachedToken;
     private DateTimeOffset refreshAfter = DateTimeOffset.MinValue;
 
     public void Dispose() => gate.Dispose();
@@ -58,7 +58,7 @@ public sealed class KeycloakTokenProvider(
             using HttpResponseMessage response = await httpClient.PostAsync(url, form, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            TokenResponse payload = await response.Content.ReadFromJsonAsync<TokenResponse>(JsonOpts, cancellationToken)
+            TokenResponse? payload = await response.Content.ReadFromJsonAsync<TokenResponse>(JsonOpts, cancellationToken)
                 ?? throw new InvalidOperationException("Keycloak returned an empty token response.");
 
             cachedToken = payload.AccessToken;

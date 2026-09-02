@@ -68,13 +68,22 @@ else in this ADR's history: a whole-solution build stops at the first failing
 project, so anything downstream of it is unmeasured rather than clean. Building
 each project alone is the only count that means anything here.
 
-> **Progress, 2026-09-02.** All six test projects converted, two remain.
-> The three that carried the twin-file problem this ADR opens with went first —
-> the two `Registration` test files are now byte-identical apart from their
-> context and aggregate names — followed by the three remaining test projects.
-> Remaining after the test projects converted: `ServiceDefaults` 56 and
-> `ScenarioSimulator` 52 — **108 of the original 234**, and the only two that
-> are production code rather than tests.
+> **Complete, 2026-09-02.** All eight exceptions converted; `Directory.Build.props`
+> states `enable` and **no project overrides it**. The three that carried the
+> twin-file problem this ADR opens with went first, then the remaining test
+> projects, then `ServiceDefaults` and `ScenarioSimulator`.
+>
+> **The per-project counts in the table above understate a library.**
+> `ServiceDefaults` measured 56 in isolation; annotating it made its public API
+> honest to its consumers and surfaced **126 more** across eight projects. That
+> is not an error in the measurement — it is what the measurement could not
+> see, and it applies to any library rather than a leaf. `ScenarioSimulator` is
+> a leaf and cost what it measured.
+>
+> **The exception mechanism is retained deliberately** even with the list empty.
+> A project that cannot comply says so with a comment; the point of this ADR is
+> that the setting is stated once and departures are visible, not that there
+> are none.
 
 **These are a conversion backlog, not a carve-out.** They are the projects that
 genuinely relied on the documented default, and naming them makes the work
