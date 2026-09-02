@@ -80,15 +80,24 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
             .HasConversion(error => error!.Value, value => StreamError.From(value))
             .IsRequired(false);
 
-        builder.Property(stream => stream.ProvisionedAt)
-            .HasColumnName("provisioned_at")
-            .HasConversion(v => v.Value, value => ProvisionedAt.From(value))
-            .IsRequired();
+        // Owned reference onto the two columns the pair occupied, unchanged.
+        // Navigation(...).IsRequired() below is load-bearing: without it EF
+        // treats the reference as optional and both columns become nullable in
+        // the model while the database keeps them NOT NULL -- issue #2022's
+        // failure mode, which compiles and fails no test.
+        builder.OwnsOne(stream => stream.Provisioning, provisioning =>
+        {
+            provisioning.Property(value => value.At)
+                .HasColumnName("provisioned_at")
+                .HasConversion(at => at.Value, value => ProvisionedAt.From(value))
+                .IsRequired();
 
-        builder.Property(stream => stream.ProvisionedBy)
-            .HasColumnName("provisioned_by")
-            .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
-            .IsRequired();
+            provisioning.Property(value => value.By)
+                .HasColumnName("provisioned_by")
+                .HasConversion(by => by.Value, value => OperatorIdentifier.From(value))
+                .IsRequired();
+        });
+        builder.Navigation(stream => stream.Provisioning).IsRequired();
 
         builder.Property(stream => stream.Version)
             .HasColumnName("version")
