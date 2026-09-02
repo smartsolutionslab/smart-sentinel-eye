@@ -22,7 +22,7 @@ public sealed class RecordingJourneyOrigin : IJourneyOrigin
 
     public int Open { get; private set; }
 
-    public Exception Failure { get; private set; }
+    public Exception? Failure { get; private set; }
 
     public IJourney Begin(string name)
     {

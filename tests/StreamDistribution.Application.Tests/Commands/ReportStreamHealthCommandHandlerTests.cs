@@ -67,7 +67,7 @@ public class ReportStreamHealthCommandHandlerTests
             CancellationToken.None);
 
         streams.Streams.Single().State.ShouldBe(StreamState.Degraded);
-        streams.Streams.Single().LastError.Value.ShouldBe("source unreachable");
+        streams.Streams.Single().LastError!.Value.ShouldBe("source unreachable");
     }
 
     [Fact]

@@ -59,7 +59,7 @@ public class SystemVariableDefinedV1Tests
 
         string json = JsonSerializer.Serialize(original);
         SystemVariableDefinedV1 deserialized =
-            JsonSerializer.Deserialize<SystemVariableDefinedV1>(json);
+            JsonSerializer.Deserialize<SystemVariableDefinedV1>(json)!;
 
         deserialized.ShouldBe(original);
     }

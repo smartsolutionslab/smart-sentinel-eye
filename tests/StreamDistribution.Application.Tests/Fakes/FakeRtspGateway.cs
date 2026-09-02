@@ -70,7 +70,7 @@ public sealed class FakeRtspGateway : IRtspGateway
 
     public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken)
     {
-        if (_paths.TryGetValue(path, out RtspPathHealth health))
+        if (_paths.TryGetValue(path, out RtspPathHealth? health))
         {
             return Task.FromResult(health);
         }

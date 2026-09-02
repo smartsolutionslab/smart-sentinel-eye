@@ -19,7 +19,7 @@ public class CameraRegisteredIntegrationEventHandlerTests
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
     private static readonly EventMetadata TestMetadata = MetadataForFab("munich");
 
-    private static EventMetadata MetadataForFab(string fab) => new(
+    private static EventMetadata MetadataForFab(string? fab) => new(
         Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
         DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture),
         fab,
