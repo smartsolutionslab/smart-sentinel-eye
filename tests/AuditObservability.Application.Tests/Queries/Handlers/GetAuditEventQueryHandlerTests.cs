@@ -1,4 +1,5 @@
 using SmartSentinelEye.AuditObservability.Application.DTOs;
+using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.AuditObservability.Application.Queries;
 using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
@@ -17,7 +18,7 @@ public class GetAuditEventQueryHandlerTests
         TestAuditEventQuerySource source = new([row]);
         GetAuditEventQueryHandler handler = new(source);
 
-        Result<AuditRowDto, GetAuditEventError> result = await handler.HandleAsync(new GetAuditEventQuery(row.Id.Value), default);
+        Result<AuditRowDto, GetAuditEventError> result = await handler.HandleAsync(new GetAuditEventQuery(AuditEventIdentifier.From(row.Id.Value)), default);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.AuditIdentifier.ShouldBe(row.Id.Value);
@@ -32,7 +33,7 @@ public class GetAuditEventQueryHandlerTests
         GetAuditEventQueryHandler handler = new(source);
         Guid missing = Guid.CreateVersion7();
 
-        Result<AuditRowDto, GetAuditEventError> result = await handler.HandleAsync(new GetAuditEventQuery(missing), default);
+        Result<AuditRowDto, GetAuditEventError> result = await handler.HandleAsync(new GetAuditEventQuery(AuditEventIdentifier.From(missing)), default);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBeOfType<GetAuditEventError.AuditEventNotFound>();

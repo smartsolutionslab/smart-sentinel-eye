@@ -15,10 +15,10 @@ public sealed class GetAuditEventQueryHandler(IAuditEventQuerySource events)
         Ensure.That(query).IsNotNull();
 
         AuditEventEntity? row = await events.AuditEvents
-            .FirstOrDefaultAsync(auditEvent => auditEvent.Id.Value == query.AuditIdentifier, cancellationToken);
+            .FirstOrDefaultAsync(auditEvent => auditEvent.Id == query.AuditIdentifier, cancellationToken);
 
         return row is null
-            ? Failure(GetAuditEventFailures.AuditEventNotFound(query.AuditIdentifier))
+            ? Failure(GetAuditEventFailures.AuditEventNotFound(query.AuditIdentifier.Value))
             : Success(AuditRowMapper.Map(row));
     }
 }

@@ -22,7 +22,7 @@ public class GetResourceTimelineQueryHandlerTests
         string fab = "munich",
         DateTimeOffset? since = null,
         int pageSize = 50) =>
-        new(resourceKind, resourceIdentifier, fab, since, null, pageSize, null);
+        new(resourceKind, ResourceIdentifier.From(resourceIdentifier), FabIdentifier.From(fab), since, null, pageSize, null);
 
     private static AuditEventEntity Row(
         int offsetMinutes, string overlay = TargetOverlay, string kind = "overlay") =>

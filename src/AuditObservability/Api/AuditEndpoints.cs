@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Application.Queries;
 using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
+using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
@@ -106,11 +107,31 @@ public static class AuditEndpoints
     {
         await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken);
 
+        // Parsed here rather than in the handler, which called From unguarded: a
+        // malformed route or query value threw ArgumentException and surfaced as a
+        // 500. Malformed input from a caller is a client error (ADR-0139, FR-020).
+        // ResourceKind stays a string: the handler already answers an unknown kind
+        // with AUDIT_TIMELINE_UNKNOWN_RESOURCE_KIND, and that code is part of the
+        // contract. These two had no guard at all.
+        ResourceIdentifier parsedResourceIdentifier;
+        FabIdentifier parsedFab;
+        try
+        {
+            parsedResourceIdentifier = ResourceIdentifier.From(resourceIdentifier);
+            parsedFab = FabIdentifier.From(fabId);
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.Problem(
+                title: "AUDIT_INVALID_INPUT", detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
         Result<AuditPageDto, GetResourceTimelineError> result = await handler.HandleAsync(
             new GetResourceTimelineQuery(
                 ResourceKind: resourceKind,
-                ResourceIdentifier: resourceIdentifier,
-                Fab: fabId,
+                ResourceIdentifier: parsedResourceIdentifier,
+                Fab: parsedFab,
                 Since: since,
                 Until: until,
                 PageSize: pageSize ?? 0,
@@ -127,7 +148,21 @@ public static class AuditEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        GetAuditEventQuery query = new(auditIdentifier);
+        // An empty Guid cannot identify a row, so it is refused here rather than
+        // reaching the query as one (ADR-0139, FR-020).
+        AuditEventIdentifier parsedIdentifier;
+        try
+        {
+            parsedIdentifier = AuditEventIdentifier.From(auditIdentifier);
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.Problem(
+                title: "AUDIT_INVALID_INPUT", detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        GetAuditEventQuery query = new(parsedIdentifier);
         Result<AuditRowDto, GetAuditEventError> result = await handler.HandleAsync(query, cancellationToken);
 
         if (result.IsFailure)

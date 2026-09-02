@@ -266,11 +266,15 @@ public static class RulesEndpoints
         RuleName name;
         RulePredicate predicate;
         RuleAction action;
+        TriggerSource triggerSource;
+        TriggerKind triggerKind;
         try
         {
             name = RuleName.From(body.Name);
             predicate = RulePredicate.From(body.Predicate);
             action = BuildAction(body);
+            triggerSource = TriggerSource.From(body.TriggerSource);
+            triggerKind = TriggerKind.From(body.TriggerKind);
         }
         catch (ArgumentException ex)
         {
@@ -281,7 +285,7 @@ public static class RulesEndpoints
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
-            new CreateRuleCommand(fab, name, body.TriggerSource, body.TriggerKind, predicate, action, actingOperator),
+            new CreateRuleCommand(fab, name, triggerSource, triggerKind, predicate, action, actingOperator),
             cancellationToken);
 
         return result.Match<IResult>(

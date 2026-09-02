@@ -17,7 +17,7 @@ public sealed class CreateRuleCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        (FabIdentifier? fab, RuleName? name, string? triggerSource, string? triggerKind, RulePredicate? predicate, RuleAction? action, OperatorIdentifier createdBy) = command;
+        (FabIdentifier? fab, RuleName? name, TriggerSource? triggerSource, TriggerKind? triggerKind, RulePredicate? predicate, RuleAction? action, OperatorIdentifier createdBy) = command;
 
         // Name uniqueness (FR-002). Archived names are released for
         // re-use; the repository's GetByNameAsync ignores Archived.
@@ -56,13 +56,13 @@ public sealed class CreateRuleCommandHandler(
         }
 
         Rule rule = Rule.Create(
-            fab, name, TriggerSource.From(triggerSource), TriggerKind.From(triggerKind),
+            fab, name, triggerSource, triggerKind,
             predicate, action, createdBy, clock);
 
         rules.Add(rule);
         await rules.SaveAsync(cancellationToken);
 
-        logger.CreatedRule(rule.Id, name, triggerSource, triggerKind, createdBy);
+        logger.CreatedRule(rule.Id, name, triggerSource.Value, triggerKind.Value, createdBy);
 
         return Success(rule.Id);
     }
