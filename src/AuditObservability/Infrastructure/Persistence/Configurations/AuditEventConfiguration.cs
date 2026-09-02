@@ -113,6 +113,7 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
 
         builder.Property(auditEvent => auditEvent.SchemaVersion)
             .HasColumnName("schema_version")
+            .HasConversion(version => version.Value, value => SchemaVersion.From(value))
             .IsRequired();
 
         // Idempotency: Wolverine at-least-once redeliveries are absorbed

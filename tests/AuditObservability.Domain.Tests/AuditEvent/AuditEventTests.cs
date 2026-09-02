@@ -56,7 +56,7 @@ public class AuditEventTests
         row.Payload.Value.ShouldBe(PayloadJson);
         row.PayloadSizeBytes.Value.ShouldBe(
             System.Text.Encoding.UTF8.GetByteCount(PayloadJson));
-        row.SchemaVersion.ShouldBe(AuditEventEntity.CurrentSchemaVersion);
+        row.SchemaVersion.ShouldBe(SchemaVersion.Current);
     }
 
     [Fact]

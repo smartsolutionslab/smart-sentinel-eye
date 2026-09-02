@@ -19,5 +19,5 @@ internal static class AuditRowMapper
         EventIdentifier: audit.EventIdentifier.Value,
         Payload: audit.Payload.Value,
         PayloadSizeBytes: audit.PayloadSizeBytes.Value,
-        SchemaVersion: audit.SchemaVersion);
+        SchemaVersion: audit.SchemaVersion.Value);
 }

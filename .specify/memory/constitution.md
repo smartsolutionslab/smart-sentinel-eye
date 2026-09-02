@@ -31,24 +31,45 @@ explicit.
 ### II. Domain-Driven Design with Value Objects (ADR-001)
 
 The system is modelled as bounded contexts with explicit ubiquitous
-language. **Value objects are the default.** These primitive types do
-not appear on a domain model (ADR-0139): `string`, `int`, `bool`,
-`double`, `decimal`, `float`, `long`, `Guid`, `DateTimeOffset`.
+language. **Value objects are the default.** A type does not appear on a
+domain model if it is (ADR-0139, as amended by ADR-0140):
 
-The list is exhaustive on purpose. It was three examples until
-2026-09-02, and a rule illustrated rather than stated is one every
-reader draws differently — 9 `string` and 26 `DateTimeOffset`
-properties had accumulated on aggregates before anyone counted.
+- **a C# predefined type** — one with a language keyword spelling:
+  `bool`, `byte`, `sbyte`, `char`, `decimal`, `double`, `float`, `int`,
+  `uint`, `nint`, `nuint`, `long`, `ulong`, `short`, `ushort`,
+  `string`, `object`; or
+- one of these BCL types, which carry no domain meaning on their own:
+  `Guid`, `DateTime`, `DateTimeOffset`, `DateOnly`, `TimeOnly`,
+  `TimeSpan`, `Uri`.
+
+**The first bullet is a category, not a list.** The keywords are spelled
+out to be read, but a type is banned by *having* a keyword — so `short`
+is banned without anyone having to remember it. That distinction is the
+whole amendment: ADR-0139 named nine types on 2026-09-02 and omitted
+`short` while banning `int` and `long`, which made a bare numeric
+primitive legal by clerical accident. Before that it was three examples,
+and a rule illustrated rather than stated is one every reader draws
+differently — 9 `string` and 26 `DateTimeOffset` properties had
+accumulated on aggregates before anyone counted.
 
 - A `CameraId` is not a `Guid`; a `Percentage` is not a `double`; a
   `Timestamp` knows whether it is `source` or `ingestion` time-based.
-- **Four exemptions, and no others** (ADR-0139): `ApiError`'s `Code`
-  and `Message`, a serialization contract (ADR-0089); opaque captured
-  payloads, exempt from being *parsed*, not from having a type;
-  a value object's own backing value, which is the boundary the rule
-  protects rather than a breach of it; and `Shared.Contracts`, a wire
-  format. Anything else requires amending this section, not a local
-  judgement call.
+- **What is bound** (ADR-0140): members that carry state — properties,
+  record components, and the constructor or factory parameters that set
+  them. **Not** values a domain model *computes*: `IsRevoked` and
+  `Contains(...)` returning `bool`, or `CompareTo` returning `int`, are
+  outside the rule, not exemptions to it.
+- **Four exemptions, and no others** (ADR-0139, ADR-0140): `ApiError`'s
+  `Code` and `Message`, a serialization contract (ADR-0089); opaque
+  captured payloads, exempt from being *parsed*, not from having a type;
+  a value object's own backing **values** — plural, so a composite like
+  `GridPosition(int Row, int Col)` is exempt in all of them, and the
+  exemption reaches a value object's own components and stops there; and
+  `Shared.Contracts`, a wire format. Anything else requires amending
+  this section, not a local judgement call — an aggregate holding a
+  primitive it *constructs* a value object from is a breach, not a
+  backing value, and reading it as one is how `Tile.Row`/`Tile.Col`
+  survived a survey that had already looked at them.
 - Aggregates are small and protect invariants.
 - CQRS and event sourcing are tools, not defaults. Use them only when a
   context's invariants demand replayability or strict read/write
@@ -585,9 +606,20 @@ contradicting tribal knowledge.
 
 ---
 
-**Version:** 1.6.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-08-29
+**Version:** 1.7.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-09-02
 
 **Amendment history.**
+1.7.0 — §II's banned set becomes a **category** rather than an
+enumeration (ADR-0140). The nine-type list 1.6.x introduced had a hole on
+the day it was written: it banned `int` and `long` and omitted `short`,
+so `AuditEvent.SchemaVersion` was a bare numeric primitive on a domain
+model, legal by clerical accident. Any type with a C# keyword spelling is
+now banned by *being* one, plus a short named list of BCL types. §II also
+gains an explicit **scope** — the ban binds state, not computed answers
+like a `bool` predicate or `CompareTo` — and the backing-value exemption
+becomes **plural**, since the singular wording both excluded composite
+value objects and stretched far enough to excuse `Tile.Row`/`Tile.Col`,
+which were not backing values at all.
 1.6.0 — §IV withdraws the SLO's **frame-synced** claim (ADR-0129,
 issue 1967). The overlay is a label layered over the video, not paired with
 the frame whose instant it describes — which needs a clock shared between
