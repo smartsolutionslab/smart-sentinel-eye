@@ -147,18 +147,18 @@ fails to compile; ordering and range queries return identical rows.
 **Green throughout.** Nothing here is new behaviour. A red test in this phase
 is a regression.
 
-- [ ] T023 [US3] Audit which of the 26 properties are **queried, ordered, or range-filtered**, by reading the read-side handlers and EF configurations. Record the list in `verification.md`. Each one's type must carry `implicit operator DateTimeOffset` — `IngestedAt.cs` documents why: member access on a value-converted column does not translate.
-- [ ] T024 [P] [US3] `AuditObservability`: add `OccurredAt`, `ReceivedAt`, `HandlerEnteredAt`, `WrittenAt` in `src/AuditObservability/Domain/AuditEvent/`; retype; map.
-- [ ] T025 [P] [US3] `Automation`: add `CreatedAt`, `PublishedAt`, `ArchivedAt` in `src/Automation/Domain/Rule/`; retype; map.
-- [ ] T026 [P] [US3] `CameraCatalog`: add `RegisteredAt` in `src/CameraCatalog/Domain/Camera/`; retype; map.
-- [ ] T027 [P] [US3] `EventIngestion`: add `RejectedAt` in `Domain/DeadLetter/`, `RegisteredAt`, `RevokedAt`, `RotatedAt` in `Domain/WebhookIntegration/`; retype; map.
-- [ ] T028 [P] [US3] `Identity`: add `RegisteredAt`, `DisabledAt`, `LastRotatedAt` in `src/Identity/Domain/RegisteredClient/`; retype; map.
-- [ ] T029 [P] [US3] `LayoutComposition`: add `CreatedAt` (Layout), and `CreatedAt`, `PublishedAt`, `ArchivedAt` (Revision) in `src/LayoutComposition/Domain/Layout/`; retype; map. The two `CreatedAt`s are **distinct types** — that is the point.
-- [ ] T030 [P] [US3] `OverlayDesigner`: add `CreatedAt` (Overlay), and `CreatedAt`, `PublishedAt`, `ArchivedAt` (Revision) in `src/OverlayDesigner/Domain/Overlay/`; retype; map.
-- [ ] T031 [P] [US3] `StreamDistribution`: add `ProvisionedAt`, `LastSuccessAt` in `src/StreamDistribution/Domain/Stream/`; retype; map.
-- [ ] T032 [P] [US3] `SystemVariables`: add `CreatedAt` in `src/SystemVariables/Domain/Variable/`; retype; map.
-- [ ] T033 [US3] Run quickstart check 3 across all nine contexts. Empty diff each time.
-- [ ] T034 [US3] Run the read-side integration tests that order or range-filter on a converted column and confirm identical rows — the specific failure T023 exists to prevent is a silent fall back to client evaluation, which passes tests while scanning the table.
+- [X] T023 [US3] Audit which of the 26 properties are **queried, ordered, or range-filtered**, by reading the read-side handlers and EF configurations. Record the list in `verification.md`. Each one's type must carry `implicit operator DateTimeOffset` — `IngestedAt.cs` documents why: member access on a value-converted column does not translate.
+- [X] T024 [P] [US3] `AuditObservability`: add `OccurredAt`, `ReceivedAt`, `HandlerEnteredAt`, `WrittenAt` in `src/AuditObservability/Domain/AuditEvent/`; retype; map.
+- [X] T025 [P] [US3] `Automation`: add `CreatedAt`, `PublishedAt`, `ArchivedAt` in `src/Automation/Domain/Rule/`; retype; map.
+- [X] T026 [P] [US3] `CameraCatalog`: add `RegisteredAt` in `src/CameraCatalog/Domain/Camera/`; retype; map.
+- [X] T027 [P] [US3] `EventIngestion`: add `RejectedAt` in `Domain/DeadLetter/`, `RegisteredAt`, `RevokedAt`, `RotatedAt` in `Domain/WebhookIntegration/`; retype; map.
+- [X] T028 [P] [US3] `Identity`: add `RegisteredAt`, `DisabledAt`, `LastRotatedAt` in `src/Identity/Domain/RegisteredClient/`; retype; map.
+- [X] T029 [P] [US3] `LayoutComposition`: add `CreatedAt` (Layout), and `CreatedAt`, `PublishedAt`, `ArchivedAt` (Revision) in `src/LayoutComposition/Domain/Layout/`; retype; map. The two `CreatedAt`s are **distinct types** — that is the point.
+- [X] T030 [P] [US3] `OverlayDesigner`: add `CreatedAt` (Overlay), and `CreatedAt`, `PublishedAt`, `ArchivedAt` (Revision) in `src/OverlayDesigner/Domain/Overlay/`; retype; map.
+- [X] T031 [P] [US3] `StreamDistribution`: add `ProvisionedAt`, `LastSuccessAt` in `src/StreamDistribution/Domain/Stream/`; retype; map.
+- [X] T032 [P] [US3] `SystemVariables`: add `CreatedAt` in `src/SystemVariables/Domain/Variable/`; retype; map.
+- [X] T033 [US3] Run quickstart check 3 across all nine contexts. Empty diff each time.
+- [X] T034 [US3] Run the read-side integration tests that order or range-filter on a converted column and confirm identical rows — the specific failure T023 exists to prevent is a silent fall back to client evaluation, which passes tests while scanning the table.
 
 ---
 
