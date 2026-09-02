@@ -19,7 +19,7 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
     {
         Ensure.That(query).IsNotNull();
 
-        (string? resourceKind, string? resourceIdentifier, string? fab, DateTimeOffset? since, DateTimeOffset? until, int rawPageSize, string? rawCursor) = query;
+        (string? resourceKind, ResourceIdentifier? resourceIdentifier, FabIdentifier? fab, DateTimeOffset? since, DateTimeOffset? until, int rawPageSize, string? rawCursor) = query;
 
         if (DomainResourceKind.All.All(kind => kind.Value != resourceKind))
         {
@@ -45,8 +45,8 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
         // Compare value objects directly so EF translates to column
         // comparisons (member access on the converted type does not translate).
         DomainResourceKind resourceKindFilter = DomainResourceKind.From(resourceKind);
-        ResourceIdentifier resourceIdentifierFilter = ResourceIdentifier.From(resourceIdentifier);
-        FabIdentifier fabFilter = FabIdentifier.From(fab);
+        ResourceIdentifier resourceIdentifierFilter = resourceIdentifier;
+        FabIdentifier fabFilter = fab;
 
         IQueryable<AuditEventEntity> source = events.AuditEvents
             .Where(auditEvent => auditEvent.ResourceKind == resourceKindFilter)

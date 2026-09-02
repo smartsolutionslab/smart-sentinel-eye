@@ -21,8 +21,8 @@ public class CreateRuleCommandHandlerTests
         new(
             FabIdentifier.From(fab),
             RuleName.From(name),
-            "plc",
-            "PlcCycleStart",
+            TriggerSource.From("plc"),
+            TriggerKind.From("PlcCycleStart"),
             RulePredicate.From(predicate),
             action ?? RuleAction.SetVariableValue.From(
                 "oeeLine1", "100 - $.payload.cycleTime * 2"),

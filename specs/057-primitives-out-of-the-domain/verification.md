@@ -546,3 +546,54 @@ Phase 4, recorded rather than dressed up.
 requires PowerShell 7 and only 5.1 is installed here, so the figures above come
 from CI and CI is what confirms the fix. Another instance of the same lesson:
 the local check available is not always the gate.
+
+---
+
+# Phase 6 — US4: typed at the boundary (T035–T041)
+
+## Narrowed, on evidence, to genuine HTTP boundaries
+
+Phase 6 was planned as mechanical retyping of ~12 command and query shapes. It
+is not. **FR-019 (convert at the boundary) and FR-021 (observable behaviour
+unchanged) conflict wherever this codebase already parses inside a handler** —
+and it does that deliberately, so a bad value becomes a *domain failure* rather
+than an exception. Parsing at the edge turns those into `ArgumentException` →
+400, which moves status codes and error codes the contract protects.
+
+Scope was narrowed with the user's agreement to shapes whose input genuinely
+arrives untyped over HTTP and whose failure is already a client error.
+
+### Done
+
+| Shape | Change | Why it qualifies |
+|---|---|---|
+| `CreateRuleCommand.TriggerSource` / `TriggerKind` | typed; parsed in the endpoint's existing `try` | HTTP body; endpoint already answered `400 RULE_INVALID_INPUT` |
+| `GetResourceTimelineQuery.ResourceIdentifier` / `Fab` | typed; parsed at the endpoint | the handler called `From` **unguarded**, so malformed input surfaced as a **500** |
+| `GetAuditEventQuery.AuditIdentifier` | `Guid` → `AuditEventIdentifier` | HTTP route; empty Guid now refused as 400 |
+
+`GetAuditEventQuery` also fixed a translation hazard in passing. The handler
+compared `auditEvent.Id.Value == query.AuditIdentifier` — member access on a
+value-converted property, the exact pattern this codebase documents as
+untranslatable. It now compares value object to value object.
+
+### Declined, each with its reason
+
+| Shape | Why not |
+|---|---|
+| `GetRuleQuery.Name`, `DryRunRuleQuery.Name` | The handler parses deliberately: *"A name that is not a legal RuleName cannot match a stored row, so it is not-found rather than a 500."* It answers **404**. Parsing at the edge makes it **400** under FR-020 — a status change FR-021 forbids. |
+| `ProvisionStreamCommand`, `RepointStreamCommand` | Built by **integration event handlers**, not HTTP. The handlers say: *"Re-validated at the trust boundary: the address arrives as a primitive from CameraCatalog, so its invariants are asserted again rather than trusted because another context checked them."* The handler already **is** the boundary. |
+| `SetVariableValueCommand.WireValue` | Same — built by `SystemVariableValueRequestedV1Handler` off the bus. |
+| `GetResourceTimelineQuery.ResourceKind` | The handler answers an unknown kind with `AUDIT_TIMELINE_UNKNOWN_RESOURCE_KIND`, already a 400. The contract forbids changing an error **code**, and parsing at the edge would replace it with `AUDIT_INVALID_INPUT`. |
+| `ListCamerasQuery.Sort` / `Order` / `Offset` | Paging and sort parameters, not domain concepts. §II governs domain models; wrapping a page offset in a value object buys nothing. |
+| `RegisterDeviceCommand`, `RotateWebhookClientCommand`, `AuthorizeWhepCommand` | Genuine HTTP boundaries, but no value object exists for `DeviceType`, `DeviceIdentifier`, `IntegrationName` or `BearerToken`. Creating four types to satisfy a task is speculative generality; each should be introduced when a second caller or a real invariant demands it. |
+
+Six of eleven declined. That is the finding, not a shortfall: **more than half of
+this feature's "untyped boundary" list was already validated at the right place,
+by design.** The spec assumed otherwise and was wrong.
+
+## What Phase 6 did not deliver
+
+FR-019 is satisfied for HTTP-arriving input and **not** for bus-arriving input,
+where the existing handler-side re-validation is retained on purpose. Anyone
+reading FR-019 as "every command carries value objects" should read this section
+instead.

@@ -15,8 +15,8 @@ namespace SmartSentinelEye.Automation.Application.Commands;
 public sealed record CreateRuleCommand(
     FabIdentifier Fab,
     RuleName Name,
-    string TriggerSource,
-    string TriggerKind,
+    TriggerSource TriggerSource,
+    TriggerKind TriggerKind,
     RulePredicate Predicate,
     RuleAction Action,
     OperatorIdentifier CreatedBy)

@@ -1,4 +1,5 @@
 using SmartSentinelEye.AuditObservability.Application.DTOs;
+using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -12,8 +13,8 @@ namespace SmartSentinelEye.AuditObservability.Application.Queries;
 /// </summary>
 public sealed record GetResourceTimelineQuery(
     string ResourceKind,
-    string ResourceIdentifier,
-    string Fab,
+    ResourceIdentifier ResourceIdentifier,
+    FabIdentifier Fab,
     DateTimeOffset? Since,
     DateTimeOffset? Until,
     int PageSize,
