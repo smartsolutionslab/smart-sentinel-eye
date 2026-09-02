@@ -13,22 +13,23 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 /// be reused across tiles (ADR-0112 §2).
 ///
 /// <para>
-/// The grid coordinate (<see cref="Position"/>) and overlay
-/// (<see cref="Overlay"/>) are exposed as value objects but persisted as
-/// EF-friendly scalars — <see cref="Row"/>/<see cref="Col"/> so EF can
-/// key <c>layout_revision_tiles</c> on <c>(revision_id, row, col)</c>,
-/// and a nullable <see cref="OverlayValue"/> so the <c>overlay_id</c>
+/// The grid coordinate is stored as two <c>int</c> fields so EF can key
+/// <c>layout_revision_tiles</c> on <c>(revision_id, row, col)</c>, and the
+/// overlay as a nullable <see cref="OverlayValue"/> so the <c>overlay_id</c>
 /// column is nullable (EF cannot own a struct value object, nor make a
-/// non-nullable <c>Option&lt;T&gt;</c> column nullable).
+/// non-nullable <c>Option&lt;T&gt;</c> column nullable). The coordinate fields
+/// are <b>private</b>: EF's need for scalar columns is not one of constitution
+/// §II's four exemptions, so the pair is mapped by
+/// <c>LayoutConfiguration</c> as field-backed properties and the domain sees
+/// only <see cref="Position"/>.
 /// </para>
 /// </summary>
 public sealed record Tile
 {
+    private readonly int row;
+    private readonly int col;
+
     public CameraIdentifier Camera { get; }
-
-    public int Row { get; }
-
-    public int Col { get; }
 
     /// <summary>
     /// The nullable backing for <see cref="Overlay"/>, exposed for the EF
@@ -42,8 +43,8 @@ public sealed record Tile
         Ensure.That(position).IsNotNull();
         Camera = camera;
         OverlayValue = overlay.Match(value => (OverlayIdentifier?)value, () => null);
-        Row = position.Row;
-        Col = position.Col;
+        row = position.Row;
+        col = position.Col;
     }
 
     // EF materialization constructor — invoked by EF Core via reflection
@@ -55,14 +56,14 @@ public sealed record Tile
     {
         Camera = camera;
         OverlayValue = overlayValue;
-        Row = row;
-        Col = col;
+        this.row = row;
+        this.col = col;
     }
 
     /// <summary>The optional overlay bound to this tile (ADR-0048).</summary>
     public Option<OverlayIdentifier> Overlay =>
         OverlayValue.HasValue ? Option<OverlayIdentifier>.Some(OverlayValue.Value) : Option<OverlayIdentifier>.None;
 
-    /// <summary>The tile's grid coordinate, reconstructed from <see cref="Row"/>/<see cref="Col"/>.</summary>
-    public GridPosition Position => new(Row, Col);
+    /// <summary>The tile's grid coordinate.</summary>
+    public GridPosition Position => new(row, col);
 }

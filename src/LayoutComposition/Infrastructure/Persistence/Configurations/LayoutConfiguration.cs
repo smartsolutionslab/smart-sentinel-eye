@@ -114,16 +114,22 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
 
             // Tiles are a nested owned collection on layout_revision_tiles
             // (ADR-0112 §3). A tile has no identity of its own, so the
-            // composite key is (revision_id, row, col) — the tile's grid
-            // position, flattened from the owned Position value object.
+            // composite key is (revision_id, row, col) — the tile's GridPosition,
+            // flattened into the two scalars mapped below.
             revisions.OwnsMany(revision => revision.Tiles, tiles =>
             {
                 tiles.ToTable("layout_revision_tiles");
                 tiles.WithOwner().HasForeignKey("revision_id");
 
-                tiles.Property(tile => tile.Row).HasColumnName("row").IsRequired();
-                tiles.Property(tile => tile.Col).HasColumnName("col").IsRequired();
-                tiles.HasKey("revision_id", nameof(Tile.Row), nameof(Tile.Col));
+                // Field-backed, not CLR properties: the tile exposes only its
+                // GridPosition, so the two scalars the key needs are mapped onto
+                // its private fields rather than published as ints on a domain
+                // type (constitution §II). The names must be the field names
+                // exactly — EF refuses a field-only property whose name differs,
+                // so these are "row"/"col" and not the PascalCase they replaced.
+                tiles.Property<int>("row").HasColumnName("row").IsRequired();
+                tiles.Property<int>("col").HasColumnName("col").IsRequired();
+                tiles.HasKey("revision_id", "row", "col");
                 tiles.Ignore(tile => tile.Position);
                 tiles.Ignore(tile => tile.Overlay);
 

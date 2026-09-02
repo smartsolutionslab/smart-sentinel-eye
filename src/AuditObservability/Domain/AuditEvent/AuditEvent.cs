@@ -48,7 +48,7 @@ public sealed class AuditEvent
 
     public AuditPayload Payload { get; private init; } = null!;
 
-    public int PayloadSizeBytes { get; private init; }
+    public PayloadSizeBytes PayloadSizeBytes { get; private init; }
 
     public short SchemaVersion { get; private init; }
 
@@ -151,7 +151,7 @@ public sealed class AuditEvent
             ActorUsername = envelope.ActorUsername.HasValue ? ActorUsername.From(envelope.ActorUsername.Value) : null,
             EventIdentifier = envelope.EventIdentifier,
             Payload = AuditPayload.From(envelope.Payload),
-            PayloadSizeBytes = System.Text.Encoding.UTF8.GetByteCount(envelope.Payload),
+            PayloadSizeBytes = PayloadSizeBytes.Of(envelope.Payload),
             SchemaVersion = CurrentSchemaVersion,
         };
     }

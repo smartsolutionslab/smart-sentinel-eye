@@ -108,6 +108,7 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
 
         builder.Property(auditEvent => auditEvent.PayloadSizeBytes)
             .HasColumnName("payload_size_bytes")
+            .HasConversion(size => size.Value, value => PayloadSizeBytes.From(value))
             .IsRequired();
 
         builder.Property(auditEvent => auditEvent.SchemaVersion)

@@ -54,7 +54,7 @@ public class AuditEventTests
         row.ActorUsername!.Value.ShouldBe("admin@munich.test");
         row.EventIdentifier.Value.ShouldBe(EventGuid);
         row.Payload.Value.ShouldBe(PayloadJson);
-        row.PayloadSizeBytes.ShouldBe(
+        row.PayloadSizeBytes.Value.ShouldBe(
             System.Text.Encoding.UTF8.GetByteCount(PayloadJson));
         row.SchemaVersion.ShouldBe(AuditEventEntity.CurrentSchemaVersion);
     }
@@ -109,8 +109,8 @@ public class AuditEventTests
         V1Envelope envelope = SampleEnvelope() with { Payload = payloadWithMultibyte };
         AuditEventEntity row = AuditEventEntity.From(envelope, V1Mapping.Unmapped, new FakeClock(Received));
 
-        row.PayloadSizeBytes.ShouldBe(
+        row.PayloadSizeBytes.Value.ShouldBe(
             System.Text.Encoding.UTF8.GetByteCount(payloadWithMultibyte));
-        row.PayloadSizeBytes.ShouldBeGreaterThan(payloadWithMultibyte.Length);
+        row.PayloadSizeBytes.Value.ShouldBeGreaterThan(payloadWithMultibyte.Length);
     }
 }

@@ -18,6 +18,6 @@ internal static class AuditRowMapper
         ActorUsername: audit.ActorUsername?.Value,
         EventIdentifier: audit.EventIdentifier.Value,
         Payload: audit.Payload.Value,
-        PayloadSizeBytes: audit.PayloadSizeBytes,
+        PayloadSizeBytes: audit.PayloadSizeBytes.Value,
         SchemaVersion: audit.SchemaVersion);
 }
