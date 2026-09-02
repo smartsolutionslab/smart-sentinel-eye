@@ -6,9 +6,6 @@ namespace SmartSentinelEye.Identity.Infrastructure;
 [ExcludeFromCodeCoverage]
 internal static partial class Log
 {
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Minted Identity admin token; valid for {Lifetime}s.")]
-    public static partial void MintedAdminToken(this ILogger logger, int lifetime);
-
     [LoggerMessage(Level = LogLevel.Debug, Message = "DisableClientAsync('{ClientId}'): no such Keycloak client; treating as no-op.")]
     public static partial void DisableClientNoOp(this ILogger logger, string clientId);
 

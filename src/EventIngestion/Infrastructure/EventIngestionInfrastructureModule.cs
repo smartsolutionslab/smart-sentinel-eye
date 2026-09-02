@@ -43,6 +43,7 @@ public static class EventIngestionInfrastructureModule
         builder.Services.AddScoped<IWebhookIntegrationQuerySource, WebhookIntegrationQuerySource>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
+        builder.Services.AddSingleton(TimeProvider.System);
 
         // Spec 019: the write paths ask whether a fab can store anything before
         // touching the ingest channel. Registered here rather than in the

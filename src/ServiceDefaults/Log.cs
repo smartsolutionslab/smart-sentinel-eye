@@ -33,4 +33,13 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Outbox {Schema} is not draining: {Pending} announcement(s) waiting, most-retried has failed {Attempts} time(s).")]
     public static partial void OutboxBacklogConcerning(this ILogger logger, string schema, long pending, int attempts);
+
+    // Names the client, because one message now covers what four per-context
+    // ones used to. The category still identifies the caller — the wrapper
+    // passes its own ILogger<T> — but a grep for the client id is what an
+    // operator actually reaches for when a service account stops working.
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Minted a client_credentials token for '{ClientIdentifier}' (expires in {ExpiresIn}s).")]
+    public static partial void MintedClientCredentialsToken(
+        this ILogger logger, string clientIdentifier, int expiresIn);
 }

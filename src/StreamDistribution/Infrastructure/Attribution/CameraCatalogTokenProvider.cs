@@ -1,46 +1,44 @@
-using System.Net.Http.Json;
-using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SmartSentinelEye.ServiceDefaults.Authentication;
 
 namespace SmartSentinelEye.StreamDistribution.Infrastructure.Attribution;
 
 /// <summary>
-/// Mints the <c>stream-distribution-attribution</c> client_credentials token
-/// the startup attribution pass presents to CameraCatalog (ADR-0116). Mirrors
-/// EventIngestion's <c>MqttTokenProvider</c>.
+/// The <c>stream-distribution-attribution</c> client_credentials token the
+/// startup attribution pass presents to CameraCatalog (ADR-0116).
 ///
 /// <para>
-/// Deliberately not cached, unlike its siblings: attribution runs once per
-/// host start and asks for one token. A cache with a refresh window would be
-/// machinery for a second call that never happens.
+/// This was the one sibling that deliberately did not cache: attribution runs
+/// once per host start and asks for one token, so a cache with a refresh window
+/// was machinery for a second call that never happens. That reasoning was about
+/// the cost of writing the cache, and it lapsed the moment the cache became
+/// something shared rather than something rewritten. Sharing
+/// <see cref="ClientCredentialsTokenProvider"/> costs a field that is never
+/// read twice, and buys the loss of the fourth divergent copy.
 /// </para>
 /// </summary>
 public sealed class CameraCatalogTokenProvider(
     HttpClient httpClient,
-    IOptions<StreamFabAttributionOptions> options)
+    IOptions<StreamFabAttributionOptions> options,
+    TimeProvider clock,
+    ILogger<CameraCatalogTokenProvider> logger)
+    : IDisposable
 {
-    public async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken)
+    private readonly ClientCredentialsTokenProvider tokens = new(
+        httpClient,
+        () => Credentials(options),
+        clock,
+        logger);
+
+    public void Dispose() => tokens.Dispose();
+
+    public Task<string> GetAccessTokenAsync(CancellationToken cancellationToken) =>
+        tokens.GetAccessTokenAsync(cancellationToken);
+
+    private static ClientCredentials Credentials(IOptions<StreamFabAttributionOptions> options)
     {
-        StreamFabAttributionOptions settings = options.Value;
-        string url = $"{settings.KeycloakUrl.TrimEnd('/')}/realms/{settings.Realm}/protocol/openid-connect/token";
-
-        using FormUrlEncodedContent form = new(new Dictionary<string, string>
-        {
-            ["grant_type"] = "client_credentials",
-            ["client_id"] = settings.ClientIdentifier,
-            ["client_secret"] = settings.ClientSecret,
-        });
-
-        using HttpResponseMessage response = await httpClient.PostAsync(url, form, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        TokenResponse payload = await response.Content
-            .ReadFromJsonAsync<TokenResponse>(cancellationToken)
-            ?? throw new InvalidOperationException("Keycloak returned an empty token response.");
-
-        return payload.AccessToken;
+        StreamFabAttributionOptions opts = options.Value;
+        return new ClientCredentials(opts.KeycloakUrl, opts.Realm, opts.ClientIdentifier, opts.ClientSecret);
     }
-
-    private sealed record TokenResponse(
-        [property: JsonPropertyName("access_token")] string AccessToken);
 }
