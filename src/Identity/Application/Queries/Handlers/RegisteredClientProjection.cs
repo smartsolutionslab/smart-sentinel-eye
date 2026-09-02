@@ -40,8 +40,8 @@ internal static class RegisteredClientProjection
                 client.Fab.Value,
                 client.RegisteredAt,
                 client.RegisteredBy.Value,
-                client.DisabledAt,
-                client.LastRotatedAt))
+                client.DisabledAt == null ? null : (DateTimeOffset?)client.DisabledAt.Value,
+                client.LastRotatedAt == null ? null : (DateTimeOffset?)client.LastRotatedAt.Value))
             .ToListAsync(cancellationToken);
     }
 }

@@ -18,13 +18,13 @@ public sealed class Revision
 
     public Label Label { get; private set; } = null!;
 
-    public DateTimeOffset CreatedAt { get; private set; }
+    public CreatedAt CreatedAt { get; private set; } = null!;
 
     public OperatorIdentifier CreatedBy { get; private set; }
 
-    public DateTimeOffset? PublishedAt { get; private set; }
+    public PublishedAt? PublishedAt { get; private set; }
 
-    public DateTimeOffset? ArchivedAt { get; private set; }
+    public ArchivedAt? ArchivedAt { get; private set; }
 
     private Revision() { }
 
@@ -39,7 +39,7 @@ public sealed class Revision
             Number = number,
             State = OverlayRevisionState.Draft,
             Label = label,
-            CreatedAt = createdAt,
+            CreatedAt = CreatedAt.From(createdAt),
             CreatedBy = createdBy,
         };
 
@@ -62,7 +62,7 @@ public sealed class Revision
                 $"Revision {Number} cannot transition {State} -> Published.");
         }
         State = OverlayRevisionState.Published;
-        PublishedAt = publishedAt;
+        PublishedAt = PublishedAt.From(publishedAt);
     }
 
     internal void Revert()
@@ -95,6 +95,6 @@ public sealed class Revision
             return;
         }
         State = OverlayRevisionState.Archived;
-        ArchivedAt = archivedAt;
+        ArchivedAt = ArchivedAt.From(archivedAt);
     }
 }

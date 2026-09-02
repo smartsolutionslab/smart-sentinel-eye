@@ -77,6 +77,6 @@ public class WebhookIntegrationRotatedV1HandlerTests
             new WebhookIntegrationRotatedV1("qa", "webhook-qa", Now.AddMinutes(5), Metadata: TestMetadata),
             CancellationToken.None);
 
-        integration.RotatedAt.ShouldBe(Now.AddMinutes(1)); // unchanged
+        integration.RotatedAt!.Value.ShouldBe(Now.AddMinutes(1)); // unchanged
     }
 }

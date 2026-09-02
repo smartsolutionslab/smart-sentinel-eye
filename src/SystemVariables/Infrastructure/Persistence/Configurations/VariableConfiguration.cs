@@ -81,6 +81,7 @@ public sealed class VariableConfiguration : IEntityTypeConfiguration<Variable>
 
         builder.Property(variable => variable.CreatedAt)
             .HasColumnName("created_at")
+            .HasConversion(v => v.Value, value => CreatedAt.From(value))
             .IsRequired();
 
         builder.Property(variable => variable.CreatedBy)

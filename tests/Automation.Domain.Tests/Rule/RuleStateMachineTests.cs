@@ -21,7 +21,7 @@ public class RuleStateMachineTests
         rule.Publish(new FakeClock(publishedMoment));
 
         rule.State.ShouldBe(RuleState.Active);
-        rule.PublishedAt.ShouldBe(publishedMoment);
+        rule.PublishedAt!.Value.ShouldBe(publishedMoment);
         rule.PendingEvents.OfType<RulePublishedDomainEvent>().ShouldHaveSingleItem();
     }
 
@@ -36,7 +36,7 @@ public class RuleStateMachineTests
         rule.Archive(new FakeClock(archivedMoment));
 
         rule.State.ShouldBe(RuleState.Archived);
-        rule.ArchivedAt.ShouldBe(archivedMoment);
+        rule.ArchivedAt!.Value.ShouldBe(archivedMoment);
         rule.PendingEvents.OfType<RuleArchivedDomainEvent>().ShouldHaveSingleItem();
     }
 
@@ -62,7 +62,7 @@ public class RuleStateMachineTests
         rule.Publish(new FakeClock(Created.AddHours(2)));
 
         rule.State.ShouldBe(RuleState.Active);
-        rule.PublishedAt.ShouldBe(Created.AddHours(1)); // unchanged
+        rule.PublishedAt!.Value.ShouldBe(Created.AddHours(1)); // unchanged
         rule.PendingEvents.ShouldBeEmpty();
     }
 
@@ -76,7 +76,7 @@ public class RuleStateMachineTests
         rule.Archive(new FakeClock(Created.AddHours(2)));
 
         rule.State.ShouldBe(RuleState.Archived);
-        rule.ArchivedAt.ShouldBe(Created.AddHours(1)); // unchanged
+        rule.ArchivedAt!.Value.ShouldBe(Created.AddHours(1)); // unchanged
         rule.PendingEvents.ShouldBeEmpty();
     }
 

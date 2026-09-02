@@ -34,9 +34,9 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
 
     public BearerTokenHash TokenHash { get; private set; } = null!;
 
-    public DateTimeOffset RegisteredAt { get; private set; }
+    public RegisteredAt RegisteredAt { get; private set; } = null!;
 
-    public DateTimeOffset? RevokedAt { get; private set; }
+    public RevokedAt? RevokedAt { get; private set; }
 
     /// <summary>
     /// How <c>IngestWebhook</c> validates incoming bearers for this
@@ -53,7 +53,7 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
     /// </summary>
     public KeycloakClientIdentifier? KeycloakClientId { get; private set; }
 
-    public DateTimeOffset? RotatedAt { get; private set; }
+    public RotatedAt? RotatedAt { get; private set; }
 
     private WebhookIntegration() { }
 
@@ -82,14 +82,14 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
             Fab = fab,
             DefaultKind = defaultKind,
             TokenHash = hash,
-            RegisteredAt = now,
+            RegisteredAt = RegisteredAt.From(now),
             RevokedAt = null,
         };
         integration.Raise(new WebhookIntegrationRegisteredDomainEvent(name, defaultKind, now));
         return (integration, plaintext);
     }
 
-    public bool IsRevoked => RevokedAt.HasValue;
+    public bool IsRevoked => RevokedAt is not null;
 
     public void Revoke(IClock clock)
     {
@@ -99,7 +99,7 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
             return; // idempotent
         }
 
-        RevokedAt = clock.UtcNow;
+        RevokedAt = RevokedAt.From(clock.UtcNow);
         Raise(new WebhookIntegrationRevokedDomainEvent(Name, RevokedAt.Value));
     }
 
@@ -123,7 +123,7 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
 
         ValidationMode = BearerValidationMode.Jwt;
         KeycloakClientId = keycloakClientId;
-        RotatedAt = clock.UtcNow;
+        RotatedAt = RotatedAt.From(clock.UtcNow);
         Raise(new WebhookIntegrationRotatedDomainEvent(Name, keycloakClientId, RotatedAt.Value));
     }
 }

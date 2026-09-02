@@ -55,8 +55,8 @@ public sealed class GetLayoutQueryHandler(ILayoutQuerySource layouts)
             Tiles: MapTiles(revision),
             CreatedAt: revision.CreatedAt,
             CreatedBy: revision.CreatedBy.Value,
-            PublishedAt: revision.PublishedAt,
-            ArchivedAt: revision.ArchivedAt);
+            PublishedAt: revision.PublishedAt?.Value,
+            ArchivedAt: revision.ArchivedAt?.Value);
 
     internal static IReadOnlyList<TileDto> MapTiles(Revision revision) =>
         revision.Tiles

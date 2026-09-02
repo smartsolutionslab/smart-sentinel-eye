@@ -64,7 +64,7 @@ public class LayoutTests
         layout.Publish(LayoutRevisionNumber.One, by, clock);
 
         layout.Revisions.Single().State.ShouldBe(LayoutRevisionState.Published);
-        layout.Revisions.Single().PublishedAt.ShouldBe(FixedMoment);
+        layout.Revisions.Single().PublishedAt!.Value.ShouldBe(FixedMoment);
 
         LayoutRevisionPublishedDomainEvent evt =
             layout.PendingEvents.OfType<LayoutRevisionPublishedDomainEvent>().ShouldHaveSingleItem();

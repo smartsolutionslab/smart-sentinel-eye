@@ -52,6 +52,7 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
 
         builder.Property(layout => layout.CreatedAt)
             .HasColumnName("created_at")
+            .HasConversion(v => v.Value, value => CreatedAt.From(value))
             .IsRequired();
 
         builder.Property(layout => layout.CreatedBy)
@@ -147,6 +148,7 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
 
             revisions.Property(revision => revision.CreatedAt)
                 .HasColumnName("created_at")
+            .HasConversion(v => v.Value, value => CreatedAt.From(value))
                 .IsRequired();
 
             revisions.Property(revision => revision.CreatedBy)
@@ -156,10 +158,12 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
 
             revisions.Property(revision => revision.PublishedAt)
                 .HasColumnName("published_at")
+            .HasConversion(v => v!.Value, value => PublishedAt.From(value))
                 .IsRequired(false);
 
             revisions.Property(revision => revision.ArchivedAt)
                 .HasColumnName("archived_at")
+            .HasConversion(v => v!.Value, value => ArchivedAt.From(value))
                 .IsRequired(false);
 
             revisions.HasIndex("layout_id", nameof(Revision.Number))

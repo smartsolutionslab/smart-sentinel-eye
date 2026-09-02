@@ -42,7 +42,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
 
     public IReadOnlyList<Revision> Revisions => revisions;
 
-    public DateTimeOffset CreatedAt { get; private set; }
+    public CreatedAt CreatedAt { get; private set; } = null!;
 
     public OperatorIdentifier CreatedBy { get; private set; }
 
@@ -102,7 +102,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
             Id = LayoutIdentifier.New(),
             Fab = fab,
             Name = name,
-            CreatedAt = now,
+            CreatedAt = CreatedAt.From(now),
             CreatedBy = createdBy,
         };
         layout.revisions.Add(

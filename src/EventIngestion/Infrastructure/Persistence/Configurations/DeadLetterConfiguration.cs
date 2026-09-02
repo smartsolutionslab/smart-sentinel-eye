@@ -50,6 +50,7 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
 
         builder.Property(deadLetter => deadLetter.RejectedAt)
             .HasColumnName("rejected_at")
+            .HasConversion(v => v.Value, value => RejectedAt.From(value))
             .IsRequired();
 
         builder.Property(deadLetter => deadLetter.Version)

@@ -29,7 +29,7 @@ public sealed class Camera : AggregateRoot<CameraIdentifier>
 
     public CameraStatus Status { get; private set; } = null!;
 
-    public DateTimeOffset RegisteredAt { get; private set; }
+    public RegisteredAt RegisteredAt { get; private set; } = null!;
 
     public OperatorIdentifier RegisteredBy { get; private set; }
 
@@ -51,7 +51,7 @@ public sealed class Camera : AggregateRoot<CameraIdentifier>
             Name = name,
             Url = url,
             Status = CameraStatus.Registered,
-            RegisteredAt = clock.UtcNow,
+            RegisteredAt = RegisteredAt.From(clock.UtcNow),
             RegisteredBy = registeredBy,
         };
 

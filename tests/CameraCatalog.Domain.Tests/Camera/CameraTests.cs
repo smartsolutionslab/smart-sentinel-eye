@@ -33,7 +33,7 @@ public class CameraTests
 
         Domain.Camera.Camera camera = new CameraBuilder().At(moment).Build();
 
-        camera.RegisteredAt.ShouldBe(moment);
+        camera.RegisteredAt.Value.ShouldBe(moment);
     }
 
     [Fact]

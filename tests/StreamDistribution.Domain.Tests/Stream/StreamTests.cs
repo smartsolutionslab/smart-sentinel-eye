@@ -27,7 +27,7 @@ public class StreamTests
         stream.TranscodeMode.ShouldBe(TranscodeMode.Unknown);
         stream.LastSuccessAt.ShouldBeNull();
         stream.LastError.ShouldBeNull();
-        stream.ProvisionedAt.ShouldBe(FixedMoment);
+        stream.ProvisionedAt.Value.ShouldBe(FixedMoment);
 
         stream.PendingEvents.Count.ShouldBe(1);
         stream.PendingEvents.Single().ShouldBeOfType<StreamProvisionedDomainEvent>();
@@ -92,7 +92,7 @@ public class StreamTests
 
         stream.State.ShouldBe(StreamState.Healthy);
         stream.TranscodeMode.ShouldBe(TranscodeMode.Passthrough);
-        stream.LastSuccessAt.ShouldBe(FixedMoment);
+        stream.LastSuccessAt.Value.ShouldBe(FixedMoment);
         stream.LastError.ShouldBeNull();
 
         StreamHealthChangedDomainEvent transition =

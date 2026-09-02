@@ -19,7 +19,7 @@ public class RuleTests
         rule.Name.Value.ShouldBe("high-oee-on-fast-cycle");
         rule.TriggerSource.Value.ShouldBe("plc");
         rule.TriggerKind.Value.ShouldBe("PlcCycleStart");
-        rule.CreatedAt.ShouldBe(Now);
+        rule.CreatedAt.Value.ShouldBe(Now);
         rule.PublishedAt.ShouldBeNull();
         rule.ArchivedAt.ShouldBeNull();
     }

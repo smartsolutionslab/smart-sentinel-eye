@@ -28,7 +28,7 @@ public sealed class ListWebhookIntegrationsQueryHandler(IWebhookIntegrationQuery
 
         IReadOnlyList<WebhookIntegrationDto> dtos = rows
             .Select(integration => new WebhookIntegrationDto(
-                integration.Id.Value, integration.Version, integration.Name.Value, integration.Fab.Value, integration.DefaultKind.Value, integration.RegisteredAt, integration.RevokedAt))
+                integration.Id.Value, integration.Version, integration.Name.Value, integration.Fab.Value, integration.DefaultKind.Value, integration.RegisteredAt, integration.RevokedAt?.Value))
             .OrderBy(dto => dto.Name, StringComparer.Ordinal)
             .ToArray();
 

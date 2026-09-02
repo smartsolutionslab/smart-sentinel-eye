@@ -70,6 +70,7 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
 
         builder.Property(stream => stream.LastSuccessAt)
             .HasColumnName("last_success_at")
+            .HasConversion(v => v!.Value, value => LastSuccessAt.From(value))
             .IsRequired(false);
 
         builder.Property(stream => stream.LastError)
@@ -80,6 +81,7 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
 
         builder.Property(stream => stream.ProvisionedAt)
             .HasColumnName("provisioned_at")
+            .HasConversion(v => v.Value, value => ProvisionedAt.From(value))
             .IsRequired();
 
         builder.Property(stream => stream.ProvisionedBy)
