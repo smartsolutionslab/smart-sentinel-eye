@@ -160,8 +160,24 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
             TimeProvider.System,
             NullLogger<KeycloakAdminTokenProvider>.Instance);
 
+        // The composition the DI registration performs, spelled out: the client
+        // no longer authorises itself, so the token provider reaches it through
+        // the same delegating handler AddHttpMessageHandler would insert.
+        HttpClient authorised = new(
+            new KeycloakAdminAuthorizationHandler(tokens)
+            {
+                InnerHandler = new HttpClientHandler
+                {
+                    ServerCertificateCustomValidationCallback =
+                        HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+                },
+            })
+        {
+            BaseAddress = http.BaseAddress,
+        };
+
         return new HttpKeycloakAdminClient(
-            http, tokens, Options.Create(options), NullLogger<HttpKeycloakAdminClient>.Instance);
+            authorised, Options.Create(options), NullLogger<HttpKeycloakAdminClient>.Instance);
     }
 
     private async Task<HttpClient> AuthorisedAdminClientAsync()

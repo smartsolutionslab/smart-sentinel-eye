@@ -54,12 +54,13 @@ public static class LayoutCompositionInfrastructureModule
         // literal; neither applies, because it is a logical name rather than
         // an address.
         builder.Services.AddHttpContextAccessor();
+        builder.Services.AddTransient<CallerTokenForwardingHandler>();
         builder.Services.AddHttpClient<ICameraFabGuard, CameraCatalogFabGuard>(client =>
         {
 #pragma warning disable S1075, S5332
             client.BaseAddress = new Uri("http://camera-catalog");
 #pragma warning restore S1075, S5332
-        });
+        }).AddHttpMessageHandler<CallerTokenForwardingHandler>();
 
         // Hand-rolled command handler registrations (ADR-0042 + ADR-0057).
         builder.Services.AddScoped<

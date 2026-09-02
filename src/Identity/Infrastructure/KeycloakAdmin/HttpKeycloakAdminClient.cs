@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -12,9 +11,10 @@ namespace SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 
 /// <summary>
 /// Hand-rolled <see cref="IKeycloakAdminClient"/> implementation
-/// against Keycloak's REST Admin API. No external SDK
-/// dependency; uses a single <see cref="HttpClient"/> wired
-/// through DI + the cached <see cref="KeycloakAdminTokenProvider"/>.
+/// against Keycloak's REST Admin API. No external SDK dependency.
+/// The bearer token is attached per request by
+/// <see cref="KeycloakAdminAuthorizationHandler"/> rather than by this class,
+/// so nothing here touches a credential.
 ///
 /// <para>
 /// Idempotency notes:
@@ -30,7 +30,6 @@ namespace SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 /// </summary>
 public sealed class HttpKeycloakAdminClient(
     HttpClient httpClient,
-    KeycloakAdminTokenProvider tokenProvider,
     IOptions<KeycloakAdminOptions> options,
     ILogger<HttpKeycloakAdminClient> logger) : IKeycloakAdminClient
 {
@@ -47,7 +46,6 @@ public sealed class HttpKeycloakAdminClient(
         Ensure.That(representation).IsNotNull();
 
         string realm = options.Value.Realm;
-        await AuthorizeAsync(cancellationToken);
 
         // Existence probe — Keycloak's create endpoint returns 409
         // on duplicate, but we want a typed exception either way.
@@ -106,7 +104,6 @@ public sealed class HttpKeycloakAdminClient(
     {
         Ensure.That(clientId).IsNotNull().IsNotNullOrWhiteSpace();
         string realm = options.Value.Realm;
-        await AuthorizeAsync(cancellationToken);
 
         string clientUuid = await TryGetClientUuidAsync(realm, clientId, cancellationToken)
             ?? throw new KeycloakClientNotFoundException(clientId);
@@ -127,7 +124,6 @@ public sealed class HttpKeycloakAdminClient(
     {
         Ensure.That(clientId).IsNotNull().IsNotNullOrWhiteSpace();
         string realm = options.Value.Realm;
-        await AuthorizeAsync(cancellationToken);
 
         string? clientUuid = await TryGetClientUuidAsync(realm, clientId, cancellationToken);
         if (clientUuid is null)
@@ -142,12 +138,6 @@ public sealed class HttpKeycloakAdminClient(
         };
         using HttpResponseMessage response = await httpClient.SendAsync(update, cancellationToken);
         response.EnsureSuccessStatusCode();
-    }
-
-    private async Task AuthorizeAsync(CancellationToken cancellationToken)
-    {
-        string token = await tokenProvider.GetAccessTokenAsync(cancellationToken);
-        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
 
     private async Task<string?> TryGetClientUuidAsync(
@@ -220,7 +210,6 @@ public sealed class HttpKeycloakAdminClient(
         Ensure.That(parentPath).IsNotNull().IsNotNullOrWhiteSpace();
 
         string realm = options.Value.Realm;
-        await AuthorizeAsync(cancellationToken);
 
         using HttpResponseMessage response = await httpClient.GetAsync(
             $"admin/realms/{realm}/group-by-path/{parentPath.TrimStart('/')}", cancellationToken);
@@ -271,7 +260,6 @@ public sealed class HttpKeycloakAdminClient(
         CancellationToken cancellationToken)
     {
         string realm = options.Value.Realm;
-        await AuthorizeAsync(cancellationToken);
 
         using HttpResponseMessage response = await httpClient
             .GetAsync($"admin/realms/{realm}/clients", cancellationToken);
@@ -297,7 +285,6 @@ public sealed class HttpKeycloakAdminClient(
     {
         Ensure.That(clientId).IsNotNull().IsNotNullOrWhiteSpace();
         string realm = options.Value.Realm;
-        await AuthorizeAsync(cancellationToken);
 
         string clientUuid = await TryGetClientUuidAsync(realm, clientId, cancellationToken)
             ?? throw new KeycloakClientNotFoundException(clientId);

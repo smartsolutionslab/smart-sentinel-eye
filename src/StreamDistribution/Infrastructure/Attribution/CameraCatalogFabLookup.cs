@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
@@ -19,14 +18,10 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Attribution;
 /// </summary>
 public sealed class CameraCatalogFabLookup(
     HttpClient httpClient,
-    CameraCatalogTokenProvider tokens,
     IOptions<StreamFabAttributionOptions> options) : ICameraFabLookup
 {
     public async Task<IReadOnlyDictionary<Guid, string>> FabsByCameraAsync(CancellationToken cancellationToken)
     {
-        string token = await tokens.GetAccessTokenAsync(cancellationToken);
-        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
         int pageSize = options.Value.PageSize;
         Dictionary<Guid, string> fabs = [];
 

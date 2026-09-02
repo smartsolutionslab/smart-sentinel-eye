@@ -224,14 +224,23 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
                 HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
         };
 
-        return new CameraCatalogFabLookup(
-            aspire.CreateServiceClient("camera-catalog"),
-            new CameraCatalogTokenProvider(
-                new HttpClient(acceptsDevCert),
-                options,
-                TimeProvider.System,
-                NullLogger<CameraCatalogTokenProvider>.Instance),
-            options);
+        CameraCatalogTokenProvider tokens = new(
+            new HttpClient(acceptsDevCert),
+            options,
+            TimeProvider.System,
+            NullLogger<CameraCatalogTokenProvider>.Instance);
+
+        // The lookup no longer holds the token provider — the bearer header is
+        // attached per request by the delegating handler the registration adds,
+        // so the test composes the same chain by hand.
+        HttpClient catalogue = aspire.CreateServiceClient("camera-catalog");
+        HttpClient authorised = new(
+            new CameraCatalogAuthorizationHandler(tokens) { InnerHandler = new HttpClientHandler() })
+        {
+            BaseAddress = catalogue.BaseAddress,
+        };
+
+        return new CameraCatalogFabLookup(authorised, options);
     }
 
     private async Task<(Guid InMunich, Guid InDresden)> ProvisionOnePerFabAsync()

@@ -1,7 +1,5 @@
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.AspNetCore.Http;
 using SmartSentinelEye.LayoutComposition.Application.Tiles;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Kernel;
@@ -23,14 +21,15 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Cameras;
 /// </para>
 ///
 /// <para>
-/// The token is read here rather than threaded through the command, because a
-/// credential has no business in the Application layer. Framework coupling
-/// belongs in the adapter.
+/// The token is read from the incoming request rather than threaded through the
+/// command, because a credential has no business in the Application layer.
+/// Framework coupling belongs in the adapter — and specifically in
+/// <see cref="CallerTokenForwardingHandler"/>, which is the adapter's adapter:
+/// this class knows there is an authorised caller, not how the authorisation
+/// travels.
 /// </para>
 /// </summary>
-public sealed class CameraCatalogFabGuard(
-    HttpClient httpClient,
-    IHttpContextAccessor httpContextAccessor) : ICameraFabGuard
+public sealed class CameraCatalogFabGuard(HttpClient httpClient) : ICameraFabGuard
 {
     private const int PageSize = 200;
 
@@ -56,8 +55,6 @@ public sealed class CameraCatalogFabGuard(
     private async Task<HashSet<Guid>> CamerasInFabAsync(
         FabIdentifier fab, CancellationToken cancellationToken)
     {
-        ForwardCallersToken();
-
         HashSet<Guid> identifiers = [];
         int offset = 0;
         int fetched;
@@ -81,20 +78,5 @@ public sealed class CameraCatalogFabGuard(
         while (fetched == PageSize);
 
         return identifiers;
-    }
-
-    /// <summary>
-    /// Copies the incoming Authorization header onto the outgoing request.
-    /// Absent one, the call goes out unauthenticated and CameraCatalog answers
-    /// 401 — which surfaces as a refused tile rather than an accepted one, so
-    /// the failure direction is closed.
-    /// </summary>
-    private void ForwardCallersToken()
-    {
-        string? authorization = httpContextAccessor.HttpContext?.Request.Headers.Authorization;
-        httpClient.DefaultRequestHeaders.Authorization =
-            AuthenticationHeaderValue.TryParse(authorization, out AuthenticationHeaderValue? parsed)
-                ? parsed
-                : null;
     }
 }
