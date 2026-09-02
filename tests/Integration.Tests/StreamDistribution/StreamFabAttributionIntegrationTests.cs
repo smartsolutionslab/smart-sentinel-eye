@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Attribution;
@@ -225,7 +226,11 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
 
         return new CameraCatalogFabLookup(
             aspire.CreateServiceClient("camera-catalog"),
-            new CameraCatalogTokenProvider(new HttpClient(acceptsDevCert), options),
+            new CameraCatalogTokenProvider(
+                new HttpClient(acceptsDevCert),
+                options,
+                TimeProvider.System,
+                NullLogger<CameraCatalogTokenProvider>.Instance),
             options);
     }
 

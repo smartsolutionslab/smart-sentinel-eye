@@ -37,9 +37,6 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Error, Message = "Could not refresh the MQTT token before reconnect: {Error}.")]
     public static partial void MqttReconnectTokenFailed(this ILogger logger, string error);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Minted event-ingestion MQTT token (expires in {ExpiresIn}s).")]
-    public static partial void MintedMqttToken(this ILogger logger, int expiresIn);
-
     [LoggerMessage(Level = LogLevel.Warning, Message = "Rejecting MQTT delivery on '{Topic}': {Error}.")]
     public static partial void RejectingMqttDelivery(this ILogger logger, string topic, string error);
 
