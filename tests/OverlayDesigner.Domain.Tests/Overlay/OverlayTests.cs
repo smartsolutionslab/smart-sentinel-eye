@@ -44,7 +44,7 @@ public class OverlayTests
         overlay.Publish(OverlayRevisionNumber.One, by, clock);
 
         overlay.Revisions.Single().State.ShouldBe(OverlayRevisionState.Published);
-        overlay.Revisions.Single().PublishedAt.ShouldBe(FixedMoment);
+        overlay.Revisions.Single().PublishedAt!.Value.ShouldBe(FixedMoment);
 
         OverlayRevisionPublishedDomainEvent evt =
             overlay.PendingEvents.OfType<OverlayRevisionPublishedDomainEvent>().ShouldHaveSingleItem();

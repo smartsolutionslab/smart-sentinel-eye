@@ -122,7 +122,7 @@ public class CameraAddressChangeTests
         camera.Id.ShouldBe(identifier);
         camera.Fab.Value.ShouldBe("munich");
         camera.Name.Value.ShouldBe("line-3-inlet");
-        camera.RegisteredAt.ShouldBe(registeredAt);
+        camera.RegisteredAt.Value.ShouldBe(registeredAt);
         camera.RegisteredBy.ShouldBe(registeredBy);
         camera.Status.ShouldBe(CameraStatus.Registered);
     }

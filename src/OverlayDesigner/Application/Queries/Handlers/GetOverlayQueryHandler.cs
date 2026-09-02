@@ -48,6 +48,6 @@ public sealed class GetOverlayQueryHandler(IOverlayQuerySource overlays)
             FontSizePx: revision.Label.FontSizePx,
             CreatedAt: revision.CreatedAt,
             CreatedBy: revision.CreatedBy.Value,
-            PublishedAt: revision.PublishedAt,
-            ArchivedAt: revision.ArchivedAt);
+            PublishedAt: revision.PublishedAt?.Value,
+            ArchivedAt: revision.ArchivedAt?.Value);
 }

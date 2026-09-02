@@ -17,7 +17,7 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
 
     public IReadOnlyList<Revision> Revisions => revisions;
 
-    public DateTimeOffset CreatedAt { get; private set; }
+    public CreatedAt CreatedAt { get; private set; } = null!;
 
     public OperatorIdentifier CreatedBy { get; private set; }
 
@@ -43,7 +43,7 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
         {
             Id = OverlayIdentifier.New(),
             Name = name,
-            CreatedAt = now,
+            CreatedAt = CreatedAt.From(now),
             CreatedBy = createdBy,
         };
         overlay.revisions.Add(

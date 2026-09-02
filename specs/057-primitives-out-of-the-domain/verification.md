@@ -428,3 +428,91 @@ INSERT and all on the 26-timestamp list. Check before retyping, not after.
 A permanent guard is a candidate and was not built: an architecture test flagging
 raw-SQL interpolation of a value-object-typed property. It is recorded here rather
 than claimed, because the guard rule is the only one this feature made mechanical.
+
+---
+
+# Phase 5 — US3: timestamps (T023–T034)
+
+## 24 types, not 26
+
+`Layout` and `Revision` share a namespace and both carry `CreatedAt`; so do
+`Overlay` and `Revision`. Two types cannot hold one name there. Each context
+gets one type per *concept* instead — within LayoutComposition, `CreatedAt`
+means "when this thing was created".
+
+What FR-015 exists to stop is still a compile error: `PublishedAt` cannot be
+passed where `CreatedAt` is expected. Only the far weaker layout-versus-its-own-
+revision distinction is given up, and it is given up deliberately.
+
+## T023 — which timestamps are queried
+
+| Used in an EF predicate or ordering | Interpolated into raw SQL |
+|---|---|
+| `AuditEvent.OccurredAt` (range ×4, ordering) | `AuditEvent.OccurredAt` |
+| `Rule.CreatedAt`, `DeadLetter.RejectedAt` (ordering) | `AuditEvent.ReceivedAt` |
+| `WebhookIntegration.RevokedAt`, `RegisteredClient.DisabledAt` (null checks) | `AuditEvent.HandlerEnteredAt` (×2) |
+| `RegisteredClient.RegisteredAt` (ordering) | |
+
+The implicit `DateTimeOffset` operator carried the entire query side — the read
+layer compiled untouched. It does **not** help raw SQL: `FormattableString`
+captures each hole as `object`, so no user-defined conversion runs and EF is
+handed the value object. Those three interpolate `.Value` explicitly, written
+before the integration suite could object rather than after.
+
+## Two defects the tests found, and one false pass they did not
+
+### `IComparable` is not optional on an instant
+
+22 tests failed across 6 projects:
+
+```text
+System.ArgumentException : At least one object must implement IComparable.
+   at RegisteredClientProjection.ListAsync   ← OrderByDescending(client => client.RegisteredAt)
+```
+
+`Comparer<T>.Default` throws the moment a list of value objects is sorted in
+memory. **Real EF hides this** by translating `OrderBy` into SQL, so the gap
+appears only against a fake — the unit suite caught what the schema probe
+structurally could not.
+
+The convention already existed and was not read: `FabIdentifier` and
+`CameraName` implement `IComparable<T>`, and `Architecture.Tests` has
+`Every_FabIdentifier_can_be_ordered`. Adding it raised `CA1036` (an
+`IComparable` must define `<`, `<=`, `>`, `>=`), which `CameraName` also already
+satisfied. All 26 timestamp types now carry both.
+
+**Two of those 26 are pre-existing and outside this phase's scope** —
+EventIngestion's `OccurredAt` and `IngestedAt` had the same latent gap. They are
+included deliberately: leaving 2 of 26 unorderable would be exactly the
+inconsistency this feature exists to remove.
+
+### A converter that silently did not apply
+
+`WebhookIntegration.RevokedAt` and `RotatedAt` kept their column mapping but
+never received a converter, because their configuration uses a third syntactic
+form the edit did not match. EF refused the whole model:
+
+```text
+The 'RevokedAt' property 'WebhookIntegration.RevokedAt' could not be mapped
+because the database provider does not support this type.
+```
+
+Counting converters was not enough; the check that found it counts **columns
+against converters, per column name**, and that check is what the next phase
+should use.
+
+### The probe reported EMPTY against a model that did not validate
+
+Worse, and the reason this is written down: the first probe run reported all
+nine contexts **empty** — including EventIngestion, whose model was at that
+moment invalid. It ran with `--no-build` against a stale assembly, so it
+validated the previous build.
+
+**`dotnet ef migrations add --no-build` is only meaningful after a build that
+succeeded on the current tree.** An empty diff from a stale assembly is
+indistinguishable from a real one. All nine were re-probed against the current
+build and are genuinely empty.
+
+That is the third time in this feature a green result has meant "the check did
+not run": the ban list that was never read, the mutation that never applied, and
+now a probe against a stale model.

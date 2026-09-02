@@ -48,10 +48,12 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
 
         builder.Property(integration => integration.RegisteredAt)
             .HasColumnName("registered_at")
+            .HasConversion(v => v.Value, value => RegisteredAt.From(value))
             .IsRequired();
 
         builder.Property(integration => integration.RevokedAt)
-            .HasColumnName("revoked_at");
+            .HasColumnName("revoked_at")
+            .HasConversion(v => v!.Value, value => RevokedAt.From(value));
 
         builder.Property(integration => integration.ValidationMode)
             .HasColumnName("validation_mode")
@@ -65,7 +67,8 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
             .HasConversion(client => client!.Value, value => KeycloakClientIdentifier.From(value));
 
         builder.Property(integration => integration.RotatedAt)
-            .HasColumnName("rotated_at");
+            .HasColumnName("rotated_at")
+            .HasConversion(v => v!.Value, value => RotatedAt.From(value));
 
         builder.Property(integration => integration.Version)
             .HasColumnName("version")

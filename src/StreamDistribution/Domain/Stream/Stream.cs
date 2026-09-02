@@ -57,11 +57,11 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
 
     public TranscodeMode TranscodeMode { get; private set; } = null!;
 
-    public DateTimeOffset? LastSuccessAt { get; private set; }
+    public LastSuccessAt? LastSuccessAt { get; private set; }
 
     public StreamError? LastError { get; private set; }
 
-    public DateTimeOffset ProvisionedAt { get; private set; }
+    public ProvisionedAt ProvisionedAt { get; private set; } = null!;
 
     public OperatorIdentifier ProvisionedBy { get; private set; }
 
@@ -91,7 +91,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
             TranscodeMode = TranscodeMode.Unknown,
             LastSuccessAt = null,
             LastError = null,
-            ProvisionedAt = now,
+            ProvisionedAt = ProvisionedAt.From(now),
             ProvisionedBy = provisionedBy,
         };
 
@@ -212,7 +212,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
         DateTimeOffset now = clock.UtcNow;
 
         TranscodeMode = detectedMode;
-        LastSuccessAt = now;
+        LastSuccessAt = LastSuccessAt.From(now);
         LastError = null;
         State = StreamState.Healthy;
 

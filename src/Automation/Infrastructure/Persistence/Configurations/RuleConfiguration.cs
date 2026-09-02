@@ -77,6 +77,7 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
 
         builder.Property(rule => rule.CreatedAt)
             .HasColumnName("created_at")
+            .HasConversion(v => v.Value, value => CreatedAt.From(value))
             .IsRequired();
 
         builder.Property(rule => rule.CreatedBy)
@@ -84,8 +85,12 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
             .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
             .IsRequired();
 
-        builder.Property(rule => rule.PublishedAt).HasColumnName("published_at");
-        builder.Property(rule => rule.ArchivedAt).HasColumnName("archived_at");
+        builder.Property(rule => rule.PublishedAt)
+            .HasColumnName("published_at")
+            .HasConversion(v => v!.Value, value => PublishedAt.From(value));
+        builder.Property(rule => rule.ArchivedAt)
+            .HasColumnName("archived_at")
+            .HasConversion(v => v!.Value, value => ArchivedAt.From(value));
 
         builder.Property(rule => rule.Version)
             .HasColumnName("version")

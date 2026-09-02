@@ -18,7 +18,7 @@ public class RegisteredClientTests
 
         client.DisabledAt.ShouldBeNull();
         client.LastRotatedAt.ShouldBeNull();
-        client.RegisteredAt.ShouldBe(Created);
+        client.RegisteredAt.Value.ShouldBe(Created);
         client.ClientId.Value.ShouldBe("plc-station-4");
         client.Kind.ShouldBe(ClientKind.Device);
         client.Fab.Value.ShouldBe("munich");
@@ -35,7 +35,7 @@ public class RegisteredClientTests
         DateTimeOffset disabledMoment = Created.AddHours(1);
         client.Disable(new FakeClock(disabledMoment));
 
-        client.DisabledAt.ShouldBe(disabledMoment);
+        client.DisabledAt!.Value.ShouldBe(disabledMoment);
         client.PendingEvents.OfType<ClientDisabledDomainEvent>().ShouldHaveSingleItem();
     }
 
@@ -48,7 +48,7 @@ public class RegisteredClientTests
 
         client.Disable(new FakeClock(Created.AddHours(2)));
 
-        client.DisabledAt.ShouldBe(Created.AddHours(1)); // unchanged
+        client.DisabledAt!.Value.ShouldBe(Created.AddHours(1)); // unchanged
         client.PendingEvents.ShouldBeEmpty();
     }
 
@@ -65,7 +65,7 @@ public class RegisteredClientTests
         DateTimeOffset rotatedMoment = Created.AddHours(2);
         client.Rotate(new FakeClock(rotatedMoment));
 
-        client.LastRotatedAt.ShouldBe(rotatedMoment);
+        client.LastRotatedAt!.Value.ShouldBe(rotatedMoment);
         client.PendingEvents.OfType<ClientRotatedDomainEvent>().ShouldHaveSingleItem();
     }
 

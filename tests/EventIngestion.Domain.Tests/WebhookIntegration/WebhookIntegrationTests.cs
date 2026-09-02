@@ -23,7 +23,7 @@ public class WebhookIntegrationTests
 
         integration.Name.Value.ShouldBe("qa");
         integration.DefaultKind.Value.ShouldBe("QaResult");
-        integration.RegisteredAt.ShouldBe(Now);
+        integration.RegisteredAt.Value.ShouldBe(Now);
         integration.IsRevoked.ShouldBeFalse();
 
         // #1545. Without this the integration has no plant to compare a
@@ -63,7 +63,7 @@ public class WebhookIntegrationTests
         integration.Revoke(new FakeClock(Now.AddHours(1)));
 
         integration.IsRevoked.ShouldBeTrue();
-        integration.RevokedAt.ShouldBe(Now.AddHours(1));
+        integration.RevokedAt!.Value.ShouldBe(Now.AddHours(1));
         integration.PendingEvents.OfType<WebhookIntegrationRevokedDomainEvent>()
             .ShouldHaveSingleItem();
     }
@@ -82,7 +82,7 @@ public class WebhookIntegrationTests
 
         integration.Revoke(new FakeClock(Now.AddHours(2)));
 
-        integration.RevokedAt.ShouldBe(Now.AddHours(1));
+        integration.RevokedAt!.Value.ShouldBe(Now.AddHours(1));
         integration.PendingEvents.ShouldBeEmpty();
     }
 
@@ -116,7 +116,7 @@ public class WebhookIntegrationTests
 
         integration.ValidationMode.ShouldBe(BearerValidationMode.Jwt);
         integration.KeycloakClientId!.Value.ShouldBe("webhook-qa");
-        integration.RotatedAt.ShouldBe(Now.AddHours(1));
+        integration.RotatedAt!.Value.ShouldBe(Now.AddHours(1));
         integration.PendingEvents.OfType<WebhookIntegrationRotatedDomainEvent>()
             .ShouldHaveSingleItem();
     }
@@ -135,7 +135,7 @@ public class WebhookIntegrationTests
 
         integration.MarkAsRotated(KeycloakClientIdentifier.From("webhook-qa"), new FakeClock(Now.AddHours(2)));
 
-        integration.RotatedAt.ShouldBe(Now.AddHours(1));
+        integration.RotatedAt!.Value.ShouldBe(Now.AddHours(1));
         integration.PendingEvents.ShouldBeEmpty();
     }
 }

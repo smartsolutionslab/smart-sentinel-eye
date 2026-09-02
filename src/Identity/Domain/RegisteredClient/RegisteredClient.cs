@@ -24,13 +24,13 @@ public sealed class RegisteredClient : AggregateRoot<RegisteredClientIdentifier>
 
     public FabIdentifier Fab { get; private set; } = null!;
 
-    public DateTimeOffset RegisteredAt { get; private set; }
+    public RegisteredAt RegisteredAt { get; private set; } = null!;
 
     public OperatorIdentifier RegisteredBy { get; private set; }
 
-    public DateTimeOffset? DisabledAt { get; private set; }
+    public DisabledAt? DisabledAt { get; private set; }
 
-    public DateTimeOffset? LastRotatedAt { get; private set; }
+    public LastRotatedAt? LastRotatedAt { get; private set; }
 
     private RegisteredClient() { }
 
@@ -57,7 +57,7 @@ public sealed class RegisteredClient : AggregateRoot<RegisteredClientIdentifier>
             ClientId = clientId,
             Kind = kind,
             Fab = fab,
-            RegisteredAt = now,
+            RegisteredAt = RegisteredAt.From(now),
             RegisteredBy = registeredBy,
         };
         registered.Raise(new ClientRegisteredDomainEvent(
@@ -79,7 +79,7 @@ public sealed class RegisteredClient : AggregateRoot<RegisteredClientIdentifier>
             return;
         }
 
-        DisabledAt = clock.UtcNow;
+        DisabledAt = DisabledAt.From(clock.UtcNow);
         Raise(new ClientDisabledDomainEvent(Id, ClientId, DisabledAt.Value));
     }
 
@@ -102,7 +102,7 @@ public sealed class RegisteredClient : AggregateRoot<RegisteredClientIdentifier>
             throw new InvalidOperationException(
                 $"Rotate is only valid for WebhookIntegration clients; got {Kind}.");
         }
-        LastRotatedAt = clock.UtcNow;
+        LastRotatedAt = LastRotatedAt.From(clock.UtcNow);
         Raise(new ClientRotatedDomainEvent(Id, ClientId, LastRotatedAt.Value));
     }
 }

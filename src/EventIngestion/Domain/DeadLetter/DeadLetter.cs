@@ -29,7 +29,7 @@ public sealed class DeadLetter : AggregateRoot<DeadLetterIdentifier>
 
     public RejectionReason Error { get; private set; } = null!;
 
-    public DateTimeOffset RejectedAt { get; private set; }
+    public RejectedAt RejectedAt { get; private set; } = null!;
 
     private DeadLetter() { }
 
@@ -53,7 +53,7 @@ public sealed class DeadLetter : AggregateRoot<DeadLetterIdentifier>
             Fab = fab,
             RawPayload = rawPayload,
             Error = error,
-            RejectedAt = clock.UtcNow,
+            RejectedAt = RejectedAt.From(clock.UtcNow),
         };
     }
 }

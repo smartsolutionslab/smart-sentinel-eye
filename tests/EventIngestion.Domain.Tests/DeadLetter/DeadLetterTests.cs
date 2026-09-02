@@ -23,7 +23,7 @@ public class DeadLetterTests
         deadLetter.Topic.Value.ShouldBe("fab/munich/plc/station-4");
         deadLetter.RawPayload.Value.ShouldBe("<not-json>");
         deadLetter.Error.Value.ShouldBe("payload parse failed");
-        deadLetter.RejectedAt.ShouldBe(Now);
+        deadLetter.RejectedAt.Value.ShouldBe(Now);
         deadLetter.Id.Value.ShouldNotBe(Guid.Empty);
     }
 

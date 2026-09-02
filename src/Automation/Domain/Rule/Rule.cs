@@ -43,13 +43,13 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
 
     public RuleState State { get; private set; } = null!;
 
-    public DateTimeOffset CreatedAt { get; private set; }
+    public CreatedAt CreatedAt { get; private set; } = null!;
 
     public OperatorIdentifier CreatedBy { get; private set; }
 
-    public DateTimeOffset? PublishedAt { get; private set; }
+    public PublishedAt? PublishedAt { get; private set; }
 
-    public DateTimeOffset? ArchivedAt { get; private set; }
+    public ArchivedAt? ArchivedAt { get; private set; }
 
     private Rule() { }
 
@@ -86,7 +86,7 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
             Predicate = predicate,
             Action = action,
             State = RuleState.Draft,
-            CreatedAt = now,
+            CreatedAt = CreatedAt.From(now),
             CreatedBy = createdBy,
         };
         rule.Raise(new RuleCreatedDomainEvent(
@@ -111,7 +111,7 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
             throw new InvalidOperationException($"Rule {Id} is Archived; clone the rule to author a new one.");
         }
         State = RuleState.Active;
-        PublishedAt = clock.UtcNow;
+        PublishedAt = PublishedAt.From(clock.UtcNow);
         Raise(new RulePublishedDomainEvent(Id, Name, PublishedAt.Value));
     }
 
@@ -129,7 +129,7 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
         }
 
         State = RuleState.Archived;
-        ArchivedAt = clock.UtcNow;
+        ArchivedAt = ArchivedAt.From(clock.UtcNow);
         Raise(new RuleArchivedDomainEvent(Id, Name, ArchivedAt.Value));
     }
 }

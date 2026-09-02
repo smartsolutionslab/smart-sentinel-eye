@@ -46,6 +46,7 @@ public sealed class RegisteredClientConfiguration : IEntityTypeConfiguration<Reg
 
         builder.Property(client => client.RegisteredAt)
             .HasColumnName("registered_at")
+            .HasConversion(v => v.Value, value => RegisteredAt.From(value))
             .IsRequired();
 
         builder.Property(client => client.RegisteredBy)
@@ -53,8 +54,12 @@ public sealed class RegisteredClientConfiguration : IEntityTypeConfiguration<Reg
             .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
             .IsRequired();
 
-        builder.Property(client => client.DisabledAt).HasColumnName("disabled_at");
-        builder.Property(client => client.LastRotatedAt).HasColumnName("last_rotated_at");
+        builder.Property(client => client.DisabledAt)
+            .HasColumnName("disabled_at")
+            .HasConversion(v => v!.Value, value => DisabledAt.From(value));
+        builder.Property(client => client.LastRotatedAt)
+            .HasColumnName("last_rotated_at")
+            .HasConversion(v => v!.Value, value => LastRotatedAt.From(value));
 
         builder.Property(client => client.Version)
             .HasColumnName("version")

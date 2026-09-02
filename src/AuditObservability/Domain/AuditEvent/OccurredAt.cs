@@ -10,8 +10,29 @@ namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 /// <c>EventIngestion</c>'s <c>OccurredAt</c> and <c>IngestedAt</c>.
 /// </para>
 /// </summary>
-public sealed record OccurredAt(DateTimeOffset Value) : IValueObject<DateTimeOffset>
+public sealed record OccurredAt(DateTimeOffset Value) : IValueObject<DateTimeOffset>, IComparable<OccurredAt>
 {
+    /// <summary>
+    /// Instants are ordered, and /nothing/ orders a value object for free:
+    /// Comparer<T>.Default throws "At least one object must implement
+    /// IComparable" the moment a list of these is sorted in memory. EF hides it
+    /// by translating OrderBy into SQL, so the gap only shows against a fake.
+    /// </summary>
+    public int CompareTo(OccurredAt? other) =>
+        other is null ? 1 : Value.CompareTo(other.Value);
+
+    public static bool operator <(OccurredAt left, OccurredAt right) =>
+        Comparer<OccurredAt>.Default.Compare(left, right) < 0;
+
+    public static bool operator >(OccurredAt left, OccurredAt right) =>
+        Comparer<OccurredAt>.Default.Compare(left, right) > 0;
+
+    public static bool operator <=(OccurredAt left, OccurredAt right) =>
+        Comparer<OccurredAt>.Default.Compare(left, right) <= 0;
+
+    public static bool operator >=(OccurredAt left, OccurredAt right) =>
+        Comparer<OccurredAt>.Default.Compare(left, right) >= 0;
+
     public static OccurredAt From(DateTimeOffset value) =>
         new(value.ToUniversalTime());
 

@@ -82,6 +82,7 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
 
         builder.Property(camera => camera.RegisteredAt)
             .HasColumnName("registered_at")
+            .HasConversion(v => v.Value, value => RegisteredAt.From(value))
             .IsRequired();
 
         builder.Property(camera => camera.RegisteredBy)

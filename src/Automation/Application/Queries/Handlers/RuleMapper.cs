@@ -22,8 +22,8 @@ internal static class RuleMapper
             State: rule.State.Value,
             CreatedAt: rule.CreatedAt,
             CreatedBy: rule.CreatedBy.Value,
-            PublishedAt: rule.PublishedAt,
-            ArchivedAt: rule.ArchivedAt);
+            PublishedAt: rule.PublishedAt?.Value,
+            ArchivedAt: rule.ArchivedAt?.Value);
 
     public static RuleActionDto MapAction(RuleAction action) =>
         action switch

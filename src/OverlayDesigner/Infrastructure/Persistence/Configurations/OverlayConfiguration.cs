@@ -44,6 +44,7 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
 
         builder.Property(overlay => overlay.CreatedAt)
             .HasColumnName("created_at")
+            .HasConversion(v => v.Value, value => CreatedAt.From(value))
             .IsRequired();
 
         builder.Property(overlay => overlay.CreatedBy)
@@ -95,6 +96,7 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
 
             revisions.Property(revision => revision.CreatedAt)
                 .HasColumnName("created_at")
+            .HasConversion(v => v.Value, value => CreatedAt.From(value))
                 .IsRequired();
 
             revisions.Property(revision => revision.CreatedBy)
@@ -104,10 +106,12 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
 
             revisions.Property(revision => revision.PublishedAt)
                 .HasColumnName("published_at")
+            .HasConversion(v => v!.Value, value => PublishedAt.From(value))
                 .IsRequired(false);
 
             revisions.Property(revision => revision.ArchivedAt)
                 .HasColumnName("archived_at")
+            .HasConversion(v => v!.Value, value => ArchivedAt.From(value))
                 .IsRequired(false);
 
             revisions.HasIndex("overlay_id", nameof(Revision.Number))
