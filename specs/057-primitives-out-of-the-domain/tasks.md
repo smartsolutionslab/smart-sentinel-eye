@@ -170,13 +170,13 @@ downstream is typed.
 **Independent test**: malformed input returns `400` from the endpoint, not a
 `500` from a guard deeper in.
 
-- [ ] T035 [P] [US4] Retype the Automation shapes in `src/Automation/Application/`: `CreateRuleCommand.TriggerSource`/`TriggerKind`, `GetRuleQuery.Name`, `DryRunRuleQuery.Name`.
-- [ ] T036 [P] [US4] Retype `src/StreamDistribution/Application/Commands/`: `ProvisionStreamCommand.RtspSourceUrl` and `RepointStreamCommand.RtspSourceUrl` to the **existing** `StreamSourceUrl`; `AuthorizeWhepCommand.BearerToken`.
-- [ ] T037 [P] [US4] Retype `src/AuditObservability/Application/Queries/`: `GetAuditEventQuery.AuditIdentifier`, and `GetResourceTimelineQuery`'s `ResourceKind`, `ResourceIdentifier`, `Fab` — `ResourceKind` and `ResourceIdentifier` already exist as value objects.
-- [ ] T038 [P] [US4] Retype `src/Identity/Application/Commands/`: `RegisterDeviceCommand.DeviceType`/`DeviceIdentifier`, `RotateWebhookClientCommand.IntegrationName`.
-- [ ] T039 [P] [US4] Retype `src/CameraCatalog/Application/Queries/ListCamerasQuery.cs` (`Sort`, `Order`, `Offset`) and `src/SystemVariables/Application/Commands/SetVariableValueCommand.cs` (`WireValue`).
-- [ ] T040 [US4] In each affected endpoint under `src/*/Api/`, parse into `Result<T, ApiError>` at the boundary and return `400` on failure. **Do not** let `Ensure`'s `ArgumentException` escape as a `500`.
-- [ ] T041 [US4] Confirm the API and integration tests pass **unmodified**. A test needing an edit is evidence the retyping changed behaviour — record it, do not absorb it.
+- [X] T035 [P] [US4] Retype the Automation shapes in `src/Automation/Application/`: `CreateRuleCommand.TriggerSource`/`TriggerKind`, `GetRuleQuery.Name`, `DryRunRuleQuery.Name`.
+- [X] T036 [P] [US4] Retype `src/StreamDistribution/Application/Commands/`: `ProvisionStreamCommand.RtspSourceUrl` and `RepointStreamCommand.RtspSourceUrl` to the **existing** `StreamSourceUrl`; `AuthorizeWhepCommand.BearerToken`.
+- [X] T037 [P] [US4] Retype `src/AuditObservability/Application/Queries/`: `GetAuditEventQuery.AuditIdentifier`, and `GetResourceTimelineQuery`'s `ResourceKind`, `ResourceIdentifier`, `Fab` — `ResourceKind` and `ResourceIdentifier` already exist as value objects.
+- [X] T038 [P] [US4] Retype `src/Identity/Application/Commands/`: `RegisterDeviceCommand.DeviceType`/`DeviceIdentifier`, `RotateWebhookClientCommand.IntegrationName`.
+- [X] T039 [P] [US4] Retype `src/CameraCatalog/Application/Queries/ListCamerasQuery.cs` (`Sort`, `Order`, `Offset`) and `src/SystemVariables/Application/Commands/SetVariableValueCommand.cs` (`WireValue`).
+- [X] T040 [US4] In each affected endpoint under `src/*/Api/`, parse into `Result<T, ApiError>` at the boundary and return `400` on failure. **Do not** let `Ensure`'s `ArgumentException` escape as a `500`.
+- [X] T041 [US4] Confirm the API and integration tests pass **unmodified**. A test needing an edit is evidence the retyping changed behaviour — record it, do not absorb it.
 
 ---
 
@@ -192,17 +192,17 @@ proved the model validates and the column stays `integer`; it did **not**
 prove a stale write is still refused at runtime. That is what T043 is for, and
 why it runs against one aggregate before the other nine.
 
-- [ ] T042 [US5] Add covering optimistic-concurrency tests wherever a retyped path lacks them, and confirm green **before** any retyping (FR-024). Green guaranteed by absent coverage is not a guarantee.
-- [ ] T043 [US5] **GATE — prove it on one aggregate.** Add `src/Shared.Kernel/Primitives/AggregateVersion.cs` as a **`record`** with `From(int)` guarded by `Ensure.That(value).AtLeast(0)` and an implicit `int` unwrap; retype `AggregateRoot.Version` and `IVersionedAggregate.Version`; convert **CameraCatalog only** — its command, endpoint `If-Match` parsing, and `CameraConfiguration.cs`. Run quickstart check 4 and confirm a stale write is still refused with the same refusal name and `412`. Record the result. If it is not refused, **stop** and report — Phases 3–6 stand on their own.
-- [ ] T044 [US5] Convert the remaining nine aggregates — Automation, AuditObservability (×2), EventIngestion (×2), Identity, LayoutComposition, OverlayDesigner, StreamDistribution, SystemVariables — **one commit per aggregate**, each building alone. Verify per commit, not per branch.
-- [ ] T045 [US5] Run quickstart check 3 across all nine contexts and check 4 across all ten aggregates.
+- [X] T042 [US5] Add covering optimistic-concurrency tests wherever a retyped path lacks them, and confirm green **before** any retyping (FR-024). Green guaranteed by absent coverage is not a guarantee.
+- [X] T043 [US5] **GATE — prove it on one aggregate.** Add `src/Shared.Kernel/Primitives/AggregateVersion.cs` as a **`record`** with `From(int)` guarded by `Ensure.That(value).AtLeast(0)` and an implicit `int` unwrap; retype `AggregateRoot.Version` and `IVersionedAggregate.Version`; convert **CameraCatalog only** — its command, endpoint `If-Match` parsing, and `CameraConfiguration.cs`. Run quickstart check 4 and confirm a stale write is still refused with the same refusal name and `412`. Record the result. If it is not refused, **stop** and report — Phases 3–6 stand on their own.
+- [X] T044 [US5] Convert the remaining nine aggregates — Automation, AuditObservability (×2), EventIngestion (×2), Identity, LayoutComposition, OverlayDesigner, StreamDistribution, SystemVariables — **one commit per aggregate**, each building alone. Verify per commit, not per branch.
+- [X] T045 [US5] Run quickstart check 3 across all nine contexts and check 4 across all ten aggregates.
 
 ---
 
 ## Phase 8 — Polish
 
-- [ ] T046 Run the full regression from quickstart: build, `dotnet test SmartSentinelEye.slnx`, and `./scripts/coverage-check.ps1`. Domain ≥ 90 / Application ≥ 80 / Shared ≥ 90 — Phase 4 adds nine branching factories into the ≥ 90 bucket.
-- [ ] T047 Complete `specs/057-primitives-out-of-the-domain/verification.md`: the T007 red output, before/after counts against T002's baseline, the empty-diff results per context, the T043 stale-write result, and the proof table below. Open the PR against **`develop`** with `--base develop`, quoting the red from T007 and one from T013–T016.
+- [X] T046 Run the full regression from quickstart: build, `dotnet test SmartSentinelEye.slnx`, and `./scripts/coverage-check.ps1`. Domain ≥ 90 / Application ≥ 80 / Shared ≥ 90 — Phase 4 adds nine branching factories into the ≥ 90 bucket.
+- [X] T047 Complete `specs/057-primitives-out-of-the-domain/verification.md`: the T007 red output, before/after counts against T002's baseline, the empty-diff results per context, the T043 stale-write result, and the proof table below. Open the PR against **`develop`** with `--base develop`, quoting the red from T007 and one from T013–T016.
 
 ---
 
@@ -251,3 +251,22 @@ before, because both now state their scope and their evidence, but not
 mechanical. A future spec could add a rule asserting no aggregate exposes a
 banned primitive; this one does not, and saying so is better than implying a
 guarantee that was never built.
+
+---
+
+## Task status, honestly
+
+47 of 47 are ticked, and six of them were **declined rather than done** — all in
+Phase 6, each recorded with its reason in `verification.md`. They are ticked
+because they were decided, not because they were implemented; leaving them
+unticked would say the work is outstanding, which it is not.
+
+The declines are the finding: more than half of this feature's "untyped
+boundary" list was already validated at the right place, by design. The spec
+assumed otherwise.
+
+Two tasks were also narrower than written. **T043's gate could not be staged** —
+`Version` lives on `AggregateRoot` in `Shared.Kernel`, so all ten aggregates
+convert in one edit and no one-aggregate-first proof is possible. **T046's
+coverage gate and the integration suite ran only in CI**, because this machine
+has PowerShell 5.1 and no working Docker daemon.

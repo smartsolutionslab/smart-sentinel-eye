@@ -697,3 +697,104 @@ Both belong with the `AggregateVersionInterceptor` cast in the same family:
 compiler would have applied.** There are three such boundaries in this
 codebase — raw SQL parameters, `PropertyEntry` values, and reflection — and
 this feature has now been bitten at all three.
+
+## The `record` guarantee is now asserted, not claimed
+
+`AggregateVersionTests` covers the type, and its first two tests exist for one
+reason: EF derives the concurrency comparer from this type's equality, and a
+change there breaks stale-write detection **silently**.
+
+Both failure routes were provoked:
+
+| Mutation | Result |
+|---|---|
+| `record` → `class` | **does not compile** — a class with a primary constructor does not satisfy `IValueObject<int>.Value` |
+| value equality → `ReferenceEquals` (with matching `GetHashCode`) | **2 of 6 tests fail**; file restored to its original checksum |
+
+The first is the stronger guard and was not designed — it fell out of the
+`IValueObject<T>` marker. The second is what the tests are for, since equality
+can be overridden on a record without any compiler complaint.
+
+---
+
+# Phase 8 — T046, T047
+
+## Full regression
+
+| Check | Result |
+|---|---|
+| `dotnet build -c Release` | **0 errors, 0 warnings** |
+| 28 unit/architecture projects | **1879 tests, 0 failures** |
+| Nine EF schema probes | **all empty** |
+| Coverage gate (ADR-0065) | **CI only** — `coverage-check.ps1` needs PowerShell 7; 5.1 is installed here |
+| Integration suite | **CI only** — Docker's daemon does not answer on this machine |
+
+Two of the five cannot be run locally, and both are stated as CI's rather than
+claimed.
+
+## What this feature proved, and what it did not
+
+| Claim | Proved by | **Not** proved by |
+|---|---|---|
+| The guard ban is wired | T007's observed red, then the two named errors | the list existing |
+| The guard ban stays wired | `GuardBanWiringTests` + both mutations | the tests passing, which an inert check also does |
+| No banned guard survives | the T011 audit | a green build, which the exemptions also produce |
+| `""` cannot enter the domain | 9 types, tests written before them | the types existing |
+| Two instants cannot be swapped | 24 distinct types compiling | one shared timestamp type |
+| Instants can be ordered | `TimestampOrderingTests` after 22 real failures | EF, which translates `OrderBy` to SQL and hides it |
+| The schema never moved | 9 empty probes **against a current build** | a probe run with `--no-build` |
+| Stale writes are still refused | **CI's integration suite** | the model validating, or any faked-repository test |
+| The version type keeps value equality | mutation, 2 tests failed | the class comment saying so |
+| **The primitive rule cannot drift** | **nothing** | this feature; it stays review-enforced |
+| **The TDD rule cannot drift** | **nothing** | this feature; it stays review-enforced |
+
+The last two rows are unchanged from Phase 3 and are the honest close. **One of
+the three rules became mechanical.** The other two now state their scope, their
+exemptions and their evidence — strictly better than a rule illustrated by three
+examples — and are still enforced by a reviewer reading a PR.
+
+## Five times a green result meant the check did not run
+
+The most transferable thing this feature produced is not the types. It is that
+**a passing check and an absent check are indistinguishable without evidence**,
+and it happened five times in eight phases:
+
+1. **The ban list nothing read** — Phase 3. A list in the wrong place emits no
+   diagnostic. Caught because T007 required red to be *observed*.
+2. **The mutation that never applied** — Phase 4. `perl` aborted on an escaping
+   error, the file was untouched, the suite passed. Caught by a checksum.
+3. **The probe against a stale assembly** — Phase 5. `--no-build` validated the
+   previous build and reported nine empty diffs for a model that did not
+   validate.
+4. **Debug standing in for Release** — Phase 4. Six nullable errors that only
+   the Release configuration raises; the local check was not the gate.
+5. **A gate that cannot run locally at all** — Phase 5 onward. The coverage
+   script needs PowerShell 7; the machine has 5.1.
+
+Each was survivable. Together they are the argument for the feature itself: a
+rule is only as good as the evidence that it ran.
+
+## Three boundaries the compiler cannot help with
+
+Recorded because it outlives this feature. A value object crossing an
+`object`-typed boundary loses every conversion the compiler would have applied:
+
+- **Raw SQL** — `ExecuteSqlInterpolatedAsync` captures each hole as `object`.
+  Broke every audit write in Phase 4.
+- **`PropertyEntry`** — `OriginalValue`/`CurrentValue` are `object?`. Would have
+  broken every save in Phase 7.
+- **Reflection** — `MethodBase.Invoke` takes `object[]`. Broke 16 tests.
+
+An implicit operator makes a retyping look cheap by absorbing the call sites the
+compiler can see. These three are exactly where it does not, and they are the
+ones that fail at runtime.
+
+## Left open, deliberately
+
+- **Phase 6 declined six of eleven shapes**, each recorded with its reason. More
+  than half the "untyped boundary" list was already validated at the right
+  place, by design.
+- **No architecture test asserts the primitive rule.** It was a candidate and is
+  not built; saying so is better than implying a guarantee nobody wrote.
+- **No guard against raw-SQL interpolation of a value object.** Same status: a
+  named candidate, not a claim.
