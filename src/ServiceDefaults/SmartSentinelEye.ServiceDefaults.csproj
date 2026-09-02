@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- ADR-0141: NRT exception, not yet converted. -->
+    <Nullable>disable</Nullable>
     <IsAspireSharedProject>true</IsAspireSharedProject>
     <!-- ServiceDefaults extension methods live in Microsoft.Extensions.Hosting by convention so
          consumers don't need an explicit using directive. Suppress the folder-structure check. -->

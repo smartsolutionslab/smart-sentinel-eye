@@ -40,7 +40,7 @@ public readonly struct Option<T> : IEquatable<Option<T>>
     public bool Equals(Option<T> other) =>
         hasValue == other.hasValue && (!hasValue || EqualityComparer<T>.Default.Equals(value, other.value));
 
-    public override bool Equals(object obj) => obj is Option<T> other && Equals(other);
+    public override bool Equals(object? obj) => obj is Option<T> other && Equals(other);
 
     public override int GetHashCode() =>
         hasValue ? HashCode.Combine(true, value) : HashCode.Combine(false);

@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-SmartSentinelEye.MigrationRunner-a5de1002-d345-42ea-a0ca-ec4c87b30025</UserSecretsId>
   </PropertyGroup>

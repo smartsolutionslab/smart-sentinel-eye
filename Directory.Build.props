@@ -5,8 +5,9 @@
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
 
-    <!-- ADR-0048: NRT disabled, Option<T> used for absences. -->
-    <Nullable>disable</Nullable>
+    <!-- ADR-0141 (amending ADR-0048): NRT enabled; Option<T> retained for
+         domain absences and repository lookups. One default, no overrides. -->
+    <Nullable>enable</Nullable>
 
     <!-- ADR-0034: Roslyn analyzers enforced; warnings are errors in Release. -->
     <EnableNETAnalyzers>true</EnableNETAnalyzers>

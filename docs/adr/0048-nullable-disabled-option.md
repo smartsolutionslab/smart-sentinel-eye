@@ -1,6 +1,8 @@
 # ADR-0048: Null Handling — NRT Disabled, Option&lt;T&gt; Everywhere
 
 **Status:** Accepted (confirmed against Yumney divergence by ADR-0056)
+**Amended by:** ADR-0141 (2026-09-02) — **the NRT half below is reversed**; the
+`Option<T>` half stands and is sharpened. Read that ADR before acting on this one.
 **Date:** 2026-05-25
 
 ## Context

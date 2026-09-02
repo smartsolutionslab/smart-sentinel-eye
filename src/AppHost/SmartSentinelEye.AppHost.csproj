@@ -27,7 +27,6 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
     <UserSecretsId>b82c8f51-95b9-4b1a-832a-a8744b2112a9</UserSecretsId>
 
     <!-- Aspire 13.5 reports ASPIRE010 whenever AspireUseCliBundle is left at

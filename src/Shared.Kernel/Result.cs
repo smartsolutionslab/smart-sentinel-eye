@@ -30,10 +30,10 @@ public readonly struct Result<TValue, TError>
         isSuccess ? throw new InvalidOperationException("Result is a success; no error.") : error;
 
     public static Result<TValue, TError> Success(TValue value) =>
-        new(value, default, isSuccess: true);
+        new(value, default!, isSuccess: true);
 
     public static Result<TValue, TError> Failure(TError error) =>
-        new(default, error, isSuccess: false);
+        new(default!, error, isSuccess: false);
 
     /// <summary>
     /// Lets a handler write <c>Success(dto)</c> instead of naming both type
