@@ -103,28 +103,35 @@ Two contexts, identical shape, no revisions. Confirms the pattern transfers.
 
 **Independent test**: Build the composite from content containing multi-byte characters; confirm the size is the UTF-8 byte count and that no public factory accepts a size.
 
-- [ ] T033 [P] [US2] Create `StoredPayload` in `src/AuditObservability/Domain/AuditEvent/StoredPayload.cs` with `From(string content)` deriving the size, and an internal-only reconstruction path for rows already stored (FR-005)
-- [ ] T034 [P] [US2] Create `tests/AuditObservability.Domain.Tests/AuditEvent/StoredPayloadTests.cs` proving the derived size counts UTF-8 bytes not characters, that content and size cannot be supplied independently, and that a stored row reconstructs to the same pair
-- [ ] T035 [US2] Replace `Payload` + `PayloadSizeBytes` with one `StoredPayload` on `src/AuditObservability/Domain/AuditEvent/AuditEvent.cs`, including `AuditEvent.From`
-- [ ] T036 [US2] Map it onto the existing `payload` (jsonb) and `payload_size_bytes` columns in `src/AuditObservability/Infrastructure/Persistence/Configurations/AuditEventConfiguration.cs` with the required navigation
-- [ ] T037 [US2] Update the two paths that read the properties directly rather than through the shared mapping: the hand-authored `INSERT` in `src/AuditObservability/Infrastructure/Persistence/AuditEventRepository.cs` and the projection in `src/AuditObservability/Infrastructure/Archive/MinioAuditChunkArchiver.cs` (FR-007)
-- [ ] T038 [US2] Update `src/AuditObservability/Application/Queries/Handlers/AuditRowMapper.cs` so `AuditRowDto` receives the same flat `Payload` and `PayloadSizeBytes` fields it receives today (FR-008, [contracts](./contracts/README.md))
-- [ ] T039 [US2] Verify US2: no schema change beyond baseline, AuditObservability Domain and Application suites green, and the `AuditRowDto` shape unchanged
+- [X] T033 [P] [US2] Create `StoredPayload` in `src/AuditObservability/Domain/AuditEvent/StoredPayload.cs` with `From(string content)` deriving the size, and an internal-only reconstruction path for rows already stored (FR-005)
+- [X] T034 [P] [US2] Create `tests/AuditObservability.Domain.Tests/AuditEvent/StoredPayloadTests.cs` proving the derived size counts UTF-8 bytes not characters, that content and size cannot be supplied independently, and that a stored row reconstructs to the same pair
+- [X] T035 [US2] Replace `Payload` + `PayloadSizeBytes` with one `StoredPayload` on `src/AuditObservability/Domain/AuditEvent/AuditEvent.cs`, including `AuditEvent.From`
+- [X] T036 [US2] Map it onto the existing `payload` (jsonb) and `payload_size_bytes` columns in `src/AuditObservability/Infrastructure/Persistence/Configurations/AuditEventConfiguration.cs` with the required navigation
+- [X] T037 [US2] Update the two paths that read the properties directly rather than through the shared mapping: the hand-authored `INSERT` in `src/AuditObservability/Infrastructure/Persistence/AuditEventRepository.cs` and the projection in `src/AuditObservability/Infrastructure/Archive/MinioAuditChunkArchiver.cs` (FR-007)
+- [X] T038 [US2] Update `src/AuditObservability/Application/Queries/Handlers/AuditRowMapper.cs` so `AuditRowDto` receives the same flat `Payload` and `PayloadSizeBytes` fields it receives today (FR-008, [contracts](./contracts/README.md))
+- [X] T039 [US2] Verify US2: no schema change beyond baseline, AuditObservability Domain and Application suites green, and the `AuditRowDto` shape unchanged
 
 ---
 
 ## Phase 5: User Story 3 — An actor is one thing, with an optional name (Priority: P2)
 
+**DECLINED — not deferred.** An index spans the composite and the row
+(`ix_audit_actor_occurred`), and EF cannot express that with either an owned
+reference or a complex type. Building it requires dropping the index, which
+FR-004 forbids. Evidence and the rejected workarounds are in
+[verification.md](./verification.md). The six tasks below are ticked because
+they were **decided**, not implemented.
+
 **Goal**: `AuditEvent.Actor` + `ActorUsername` become one `Actor`, required, with an optional username.
 
 **Independent test**: Build an actor with and without a username; confirm the system actor is recognisable in both the composite and the audit projection.
 
-- [ ] T040 [P] [US3] Create `Actor(ActorIdentifier Identifier, ActorUsername? Username)` in `src/AuditObservability/Domain/AuditEvent/Actor.cs`, moving `IsSystem` onto it and keeping the existing `ActorIdentifier` type unchanged (FR-006)
-- [ ] T041 [P] [US3] Create `tests/AuditObservability.Domain.Tests/AuditEvent/ActorTests.cs` covering an actor with a username, the system actor without one, and the refusal to build one with no identifier
-- [ ] T042 [US3] Replace the two properties with one `Actor` on `src/AuditObservability/Domain/AuditEvent/AuditEvent.cs` — the property name does not change, only its type — and update `AuditEvent.From` and its `V1Envelope` handling
-- [ ] T043 [US3] Map it onto the existing `actor_identifier` and `actor_username` columns in `AuditEventConfiguration.cs`, keeping `actor_username` nullable and `actor_identifier` not, with the required navigation
-- [ ] T044 [US3] Update the hand-authored `INSERT`, the archiver projection and `AuditRowMapper` so `ActorIdentifier`, `ActorIsSystem` and `ActorUsername` reach `AuditRowDto` exactly as they do today
-- [ ] T045 [US3] Verify US3: no schema change beyond baseline; confirm the actor-filtered audit query still translates server-side against `ix_audit_actor_occurred` (research R2 predicts it does — read the generated SQL rather than assuming)
+- [X] T040 [P] [US3] Create `Actor(ActorIdentifier Identifier, ActorUsername? Username)` in `src/AuditObservability/Domain/AuditEvent/Actor.cs`, moving `IsSystem` onto it and keeping the existing `ActorIdentifier` type unchanged (FR-006)
+- [X] T041 [P] [US3] Create `tests/AuditObservability.Domain.Tests/AuditEvent/ActorTests.cs` covering an actor with a username, the system actor without one, and the refusal to build one with no identifier
+- [X] T042 [US3] Replace the two properties with one `Actor` on `src/AuditObservability/Domain/AuditEvent/AuditEvent.cs` — the property name does not change, only its type — and update `AuditEvent.From` and its `V1Envelope` handling
+- [X] T043 [US3] Map it onto the existing `actor_identifier` and `actor_username` columns in `AuditEventConfiguration.cs`, keeping `actor_username` nullable and `actor_identifier` not, with the required navigation
+- [X] T044 [US3] Update the hand-authored `INSERT`, the archiver projection and `AuditRowMapper` so `ActorIdentifier`, `ActorIsSystem` and `ActorUsername` reach `AuditRowDto` exactly as they do today
+- [X] T045 [US3] Verify US3: no schema change beyond baseline; confirm the actor-filtered audit query still translates server-side against `ix_audit_actor_occurred` (research R2 predicts it does — read the generated SQL rather than assuming)
 
 ---
 

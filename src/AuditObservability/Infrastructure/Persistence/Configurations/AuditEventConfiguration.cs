@@ -100,16 +100,23 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
             .HasConversion(eventIdentifier => eventIdentifier.Value, value => EventIdentifier.From(value))
             .IsRequired();
 
-        builder.Property(auditEvent => auditEvent.Payload)
-            .HasColumnName("payload")
-            .HasColumnType("jsonb")
-            .HasConversion(payload => payload.Value, value => AuditPayload.From(value))
-            .IsRequired();
+        // Owned reference onto the two columns the pair occupied. Both stay,
+        // because payload_size_bytes is queried; the size is derived when a row
+        // is built and read back from its column when one is loaded.
+        builder.OwnsOne(auditEvent => auditEvent.Payload, payload =>
+        {
+            payload.Property(value => value.Content)
+                .HasColumnName("payload")
+                .HasColumnType("jsonb")
+                .HasConversion(content => content.Value, value => AuditPayload.From(value))
+                .IsRequired();
 
-        builder.Property(auditEvent => auditEvent.PayloadSizeBytes)
-            .HasColumnName("payload_size_bytes")
-            .HasConversion(size => size.Value, value => PayloadSizeBytes.From(value))
-            .IsRequired();
+            payload.Property(value => value.Size)
+                .HasColumnName("payload_size_bytes")
+                .HasConversion(size => size.Value, value => PayloadSizeBytes.From(value))
+                .IsRequired();
+        });
+        builder.Navigation(auditEvent => auditEvent.Payload).IsRequired();
 
         builder.Property(auditEvent => auditEvent.SchemaVersion)
             .HasColumnName("schema_version")
@@ -129,6 +136,7 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
         // Cross-cutting search.
         builder.HasIndex(auditEvent => new { auditEvent.Actor, auditEvent.OccurredAt })
             .HasDatabaseName("ix_audit_actor_occurred");
+
 
         builder.HasIndex(auditEvent => new { auditEvent.Fab, auditEvent.OccurredAt })
             .HasDatabaseName("ix_audit_fab_occurred");

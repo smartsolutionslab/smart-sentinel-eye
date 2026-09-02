@@ -144,6 +144,6 @@ public class AuditMeasurementSwitchTests
         on.Fab.ShouldBe(off.Fab);
         on.Actor.ShouldBe(off.Actor);
         on.SchemaVersion.ShouldBe(off.SchemaVersion);
-        on.PayloadSizeBytes.ShouldBe(off.PayloadSizeBytes);
+        on.Payload.Size.ShouldBe(off.Payload.Size);
     }
 }
