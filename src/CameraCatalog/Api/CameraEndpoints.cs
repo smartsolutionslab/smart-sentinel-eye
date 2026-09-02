@@ -142,12 +142,14 @@ public static class CameraEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        (FabIdentifier? fab, IResult? fabProblem) =
+        Result<FabIdentifier, IResult> fabResolution =
             await ResolveWriteFabAsync(httpContext.User, fabId, fabGuard, cancellationToken);
-        if (fab is null)
+        if (fabResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabResolution.Error;
         }
+
+        FabIdentifier fab = fabResolution.Value;
 
         OperatorIdentifier registeredBy = ResolveOperator(httpContext);
 
@@ -171,12 +173,14 @@ public static class CameraEndpoints
         CancellationToken cancellationToken,
         [FromQuery] string fabId = "")
     {
-        (FabIdentifier? fab, IResult? fabProblem) =
+        Result<FabIdentifier, IResult> fabResolution =
             await ResolveWriteFabAsync(httpContext.User, fabId, fabGuard, cancellationToken);
-        if (fab is null)
+        if (fabResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabResolution.Error;
         }
+
+        FabIdentifier fab = fabResolution.Value;
 
         RetireCameraCommand command = new(fab, CameraIdentifier.From(camera), ResolveOperator(httpContext));
 
@@ -208,12 +212,14 @@ public static class CameraEndpoints
         // another fab's camera would confirm that camera exists, which is the
         // enumeration FR-006 exists to prevent. The cheap checks are the
         // tempting ones to hoist; they must stay below this.
-        (FabIdentifier? fab, IResult? fabProblem) =
+        Result<FabIdentifier, IResult> fabResolution =
             await ResolveWriteFabAsync(httpContext.User, fabId, fabGuard, cancellationToken);
-        if (fab is null)
+        if (fabResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabResolution.Error;
         }
+
+        FabIdentifier fab = fabResolution.Value;
 
         if (!ConcurrencyHeaders.TryReadExpectedVersion(
                 httpContext.Request, out int expectedVersion, out IResult? precondition))
@@ -304,12 +310,14 @@ public static class CameraEndpoints
         // Fab first, before anything else is evaluated (FR-007). Nothing about
         // the camera is looked at until the caller's fabs are known, so a
         // refusal cannot be shaped by whether the camera happens to exist.
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         GetCameraQuery query = new(fabs, CameraIdentifier.From(camera));
 
@@ -343,12 +351,14 @@ public static class CameraEndpoints
         // error, and an operator needs to tell it from a request they got wrong.
         [FromQuery] string? name = null)
     {
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         ListCamerasQuery query = new(
             Fabs: fabs,
@@ -399,7 +409,7 @@ public static class CameraEndpoints
     /// <see cref="FabResolution"/>; this feature adds no resolution mechanism,
     /// it applies the existing one (spec 015).
     /// </summary>
-    private static async Task<(FabIdentifier? Fab, IResult? Problem)> ResolveWriteFabAsync(
+    private static async Task<Result<FabIdentifier, IResult>> ResolveWriteFabAsync(
         System.Security.Claims.ClaimsPrincipal user,
         string fabId,
         IFabAuthorizationGuard fabGuard,
@@ -409,16 +419,16 @@ public static class CameraEndpoints
             user, fabId, fabGuard, "CAMERA_FAB_REQUIRED", cancellationToken);
         if (resolution.IsFailure)
         {
-            return (null, resolution.Error);
+            return Result<FabIdentifier, IResult>.Failure(resolution.Error);
         }
 
         try
         {
-            return (FabIdentifier.From(resolution.Value), null);
+            return Result<FabIdentifier, IResult>.Success(FabIdentifier.From(resolution.Value));
         }
         catch (ArgumentException ex)
         {
-            return (null, Results.Problem(
+            return Result<FabIdentifier, IResult>.Failure(Results.Problem(
                 title: "CAMERA_INVALID_REQUEST", detail: ex.Message,
                 statusCode: StatusCodes.Status400BadRequest));
         }
@@ -435,7 +445,7 @@ public static class CameraEndpoints
     /// holds. Mirrors RulesEndpoints, where that was a real defect.
     /// </para>
     /// </summary>
-    private static async Task<(IReadOnlyList<FabIdentifier>? Fabs, IResult? Problem)> ResolveReadFabsAsync(
+    private static async Task<Result<IReadOnlyList<FabIdentifier>, IResult>> ResolveReadFabsAsync(
         System.Security.Claims.ClaimsPrincipal user,
         string fabId,
         IFabAuthorizationGuard fabGuard,
@@ -461,12 +471,12 @@ public static class CameraEndpoints
 
         if (fabs.Count == 0)
         {
-            return (null, Results.Problem(
+            return Result<IReadOnlyList<FabIdentifier>, IResult>.Failure(Results.Problem(
                 title: "CAMERA_FAB_REQUIRED",
                 detail: "None of your fab groups is a usable fab name.",
                 statusCode: StatusCodes.Status400BadRequest));
         }
 
-        return (fabs, null);
+        return Result<IReadOnlyList<FabIdentifier>, IResult>.Success(fabs);
     }
 }

@@ -90,13 +90,15 @@ public static class WebhookIntegrationsEndpoints
         // same way the manual write resolves an event's (#1545). It decides
         // which plant the integration's deliveries may name, so it is a write
         // resolution rather than a read: a multi-fab admin must choose.
-        (FabIdentifier? fab, IResult? fabProblem) =
+        Result<FabIdentifier, IResult> fabResolution =
             await EventIngestionFabResolution.ResolveWriteFabAsync(
                 user, fabId ?? string.Empty, fabGuard, cancellationToken);
-        if (fab is null)
+        if (fabResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabResolution.Error;
         }
+
+        FabIdentifier fab = fabResolution.Value;
 
         Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError> result =
             await handler.HandleAsync(
@@ -118,13 +120,15 @@ public static class WebhookIntegrationsEndpoints
         [FromServices] ListWebhookIntegrationsQueryHandler handler,
         CancellationToken cancellationToken)
     {
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await EventIngestionFabResolution.ResolveReadFabsAsync(
                 user, fabId ?? string.Empty, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<IReadOnlyList<WebhookIntegrationDto>, ListWebhookIntegrationsError> result =
             await handler.HandleAsync(
@@ -162,13 +166,15 @@ public static class WebhookIntegrationsEndpoints
             return precondition;
         }
 
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await EventIngestionFabResolution.ResolveReadFabsAsync(
                 user, fabId ?? string.Empty, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> result =
             await handler.HandleAsync(

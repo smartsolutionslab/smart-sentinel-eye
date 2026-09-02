@@ -25,7 +25,7 @@ internal static class EventIngestionFabResolution
     /// and named none, because any tie-break would file the write into a plant
     /// they did not choose.
     /// </summary>
-    public static async Task<(FabIdentifier? Fab, IResult? Problem)> ResolveWriteFabAsync(
+    public static async Task<Result<FabIdentifier, IResult>> ResolveWriteFabAsync(
         ClaimsPrincipal user,
         string fabId,
         IFabAuthorizationGuard fabGuard,
@@ -35,16 +35,16 @@ internal static class EventIngestionFabResolution
             user, fabId, fabGuard, "EVENT_FAB_REQUIRED", cancellationToken);
         if (resolution.IsFailure)
         {
-            return (null, resolution.Error);
+            return Result<FabIdentifier, IResult>.Failure(resolution.Error);
         }
 
         try
         {
-            return (FabIdentifier.From(resolution.Value), null);
+            return Result<FabIdentifier, IResult>.Success(FabIdentifier.From(resolution.Value));
         }
         catch (ArgumentException ex)
         {
-            return (null, Results.Problem(
+            return Result<FabIdentifier, IResult>.Failure(Results.Problem(
                 title: "EVENT_INVALID_INPUT", detail: ex.Message,
                 statusCode: StatusCodes.Status400BadRequest));
         }
@@ -69,7 +69,7 @@ internal static class EventIngestionFabResolution
     /// holds. Mirrors <c>CameraEndpoints</c>, where that was a real defect.
     /// </para>
     /// </summary>
-    public static async Task<(IReadOnlyList<FabIdentifier>? Fabs, IResult? Problem)> ResolveReadFabsAsync(
+    public static async Task<Result<IReadOnlyList<FabIdentifier>, IResult>> ResolveReadFabsAsync(
         ClaimsPrincipal user,
         string fabId,
         IFabAuthorizationGuard fabGuard,
@@ -95,12 +95,12 @@ internal static class EventIngestionFabResolution
 
         if (fabs.Count == 0)
         {
-            return (null, Results.Problem(
+            return Result<IReadOnlyList<FabIdentifier>, IResult>.Failure(Results.Problem(
                 title: "EVENT_FAB_REQUIRED",
                 detail: "None of your fab groups is a usable fab name.",
                 statusCode: StatusCodes.Status400BadRequest));
         }
 
-        return (fabs, null);
+        return Result<IReadOnlyList<FabIdentifier>, IResult>.Success(fabs);
     }
 }

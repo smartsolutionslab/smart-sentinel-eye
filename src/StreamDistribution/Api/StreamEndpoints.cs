@@ -232,12 +232,14 @@ public static class StreamEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveReadFabsAsync(httpContext.User, fabId, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         GetStreamQuery query = new(fabs, CameraIdentifier.From(cameraIdentifier));
         Result<StreamHealthDto, GetStreamError> result = await handler.HandleAsync(query, cancellationToken);
@@ -266,12 +268,14 @@ public static class StreamEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveReadFabsAsync(httpContext.User, fabId, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result =
             await handler.HandleAsync(new ListStreamsQuery(fabs, parsed), cancellationToken);
@@ -291,7 +295,7 @@ public static class StreamEndpoints
     /// legitimately holds.
     /// </para>
     /// </summary>
-    private static async Task<(IReadOnlyList<FabIdentifier>? Fabs, IResult? Problem)> ResolveReadFabsAsync(
+    private static async Task<Result<IReadOnlyList<FabIdentifier>, IResult>> ResolveReadFabsAsync(
         ClaimsPrincipal user,
         string fabId,
         IFabAuthorizationGuard fabGuard,
@@ -317,13 +321,13 @@ public static class StreamEndpoints
 
         if (fabs.Count == 0)
         {
-            return (null, Results.Problem(
+            return Result<IReadOnlyList<FabIdentifier>, IResult>.Failure(Results.Problem(
                 title: "STREAM_FAB_UNUSABLE",
                 detail: "None of your fab groups is a usable fab name.",
                 statusCode: StatusCodes.Status400BadRequest));
         }
 
-        return (fabs, null);
+        return Result<IReadOnlyList<FabIdentifier>, IResult>.Success(fabs);
     }
 
     private static async Task<IResult> AuthorizeWhep(

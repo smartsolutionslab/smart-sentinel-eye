@@ -107,12 +107,14 @@ public static class RulesEndpoints
         CancellationToken cancellationToken,
         [FromQuery] string fabId = "")
     {
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<IReadOnlyList<RuleDto>, ListRulesError> result = await handler.HandleAsync(
             new ListRulesQuery(fabs, state, triggerSource, triggerKind), cancellationToken);
@@ -131,12 +133,14 @@ public static class RulesEndpoints
         CancellationToken cancellationToken,
         [FromQuery] string fabId = "")
     {
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<RuleDto, GetRuleError> result = await handler.HandleAsync(
             new GetRuleQuery(fabs, name), cancellationToken);
@@ -165,12 +169,14 @@ public static class RulesEndpoints
 
         // Guarded like the reads: a trial run must not be a side channel for
         // discovering another fab's rule behaviour (spec 013 FR-006).
-        (IReadOnlyList<FabIdentifier>? fabs, IResult? fabProblem) =
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
-        if (fabs is null)
+        if (fabsResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabsResolution.Error;
         }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<DryRunResultDto, DryRunRuleError> result = await handler.HandleAsync(
             new DryRunRuleQuery(fabs, name, body.SampleEvent), cancellationToken);
@@ -186,29 +192,29 @@ public static class RulesEndpoints
     /// <see cref="FabResolution"/> so it can be tested without a realm — the
     /// multi-fab branch has no reachable user in the current deployment.
     /// </summary>
-    private static async Task<(FabIdentifier? Fab, IResult? Problem)> ResolveWriteFabAsync(
+    private static async Task<Result<FabIdentifier, IResult>> ResolveWriteFabAsync(
         ClaimsPrincipal user, string fabId, IFabAuthorizationGuard fabGuard, CancellationToken cancellationToken)
     {
         Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
             user, fabId, fabGuard, "RULE_FAB_REQUIRED", cancellationToken);
         if (resolution.IsFailure)
         {
-            return (null, resolution.Error);
+            return Result<FabIdentifier, IResult>.Failure(resolution.Error);
         }
 
         try
         {
-            return (FabIdentifier.From(resolution.Value), null);
+            return Result<FabIdentifier, IResult>.Success(FabIdentifier.From(resolution.Value));
         }
         catch (ArgumentException ex)
         {
-            return (null, Results.Problem(
+            return Result<FabIdentifier, IResult>.Failure(Results.Problem(
                 title: "RULE_INVALID_INPUT", detail: ex.Message,
                 statusCode: StatusCodes.Status400BadRequest));
         }
     }
 
-    private static async Task<(IReadOnlyList<FabIdentifier>? Fabs, IResult? Problem)> ResolveReadFabsAsync(
+    private static async Task<Result<IReadOnlyList<FabIdentifier>, IResult>> ResolveReadFabsAsync(
         ClaimsPrincipal user, string fabId, IFabAuthorizationGuard fabGuard, CancellationToken cancellationToken)
     {
         IReadOnlyList<string> resolved = await FabResolution.ResolveForReadAsync(
@@ -237,13 +243,13 @@ public static class RulesEndpoints
 
         if (fabs.Count == 0)
         {
-            return (null, Results.Problem(
+            return Result<IReadOnlyList<FabIdentifier>, IResult>.Failure(Results.Problem(
                 title: "RULE_INVALID_INPUT",
                 detail: "None of your fab group memberships is a usable fab identifier.",
                 statusCode: StatusCodes.Status400BadRequest));
         }
 
-        return (fabs, null);
+        return Result<IReadOnlyList<FabIdentifier>, IResult>.Success(fabs);
     }
 
     private static async Task<IResult> Create(
@@ -256,12 +262,14 @@ public static class RulesEndpoints
     {
         Ensure.That(body).IsNotNull();
 
-        (FabIdentifier? fab, IResult? fabProblem) =
+        Result<FabIdentifier, IResult> fabResolution =
             await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
-        if (fab is null)
+        if (fabResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabResolution.Error;
         }
+
+        FabIdentifier fab = fabResolution.Value;
 
         RuleName name;
         RulePredicate predicate;
@@ -302,12 +310,14 @@ public static class RulesEndpoints
         CancellationToken cancellationToken,
         [FromQuery] string fabId = "")
     {
-        (FabIdentifier? fab, IResult? fabProblem) =
+        Result<FabIdentifier, IResult> fabResolution =
             await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
-        if (fab is null)
+        if (fabResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabResolution.Error;
         }
+
+        FabIdentifier fab = fabResolution.Value;
 
         RuleName parsed;
         try
@@ -338,12 +348,14 @@ public static class RulesEndpoints
         CancellationToken cancellationToken,
         [FromQuery] string fabId = "")
     {
-        (FabIdentifier? fab, IResult? fabProblem) =
+        Result<FabIdentifier, IResult> fabResolution =
             await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
-        if (fab is null)
+        if (fabResolution.IsFailure)
         {
-            return fabProblem!;
+            return fabResolution.Error;
         }
+
+        FabIdentifier fab = fabResolution.Value;
 
         RuleName parsed;
         try
