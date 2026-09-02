@@ -49,16 +49,24 @@ comply say so explicitly, with a comment. No project restates the default.**
 
 Eight exceptions today:
 
-| Project | |
+| Project | Diagnostics |
 |---|---|
-| `ServiceDefaults` | 56 diagnostics |
+| `ServiceDefaults` | 56 |
+| `ScenarioSimulator` | 52 |
 | `Shared.Contracts.Tests` | 38 |
+| `StreamDistribution.Application.Tests` | 26 |
 | `StreamDistribution.Domain.Tests` | 24 |
+| `CameraCatalog.Application.Tests` | 18 |
 | `Shared.Kernel.Tests` | 10 |
 | `CameraCatalog.Domain.Tests` | 10 |
-| `ScenarioSimulator` | 52 |
-| `CameraCatalog.Application.Tests` | — inherits with its sibling |
-| `StreamDistribution.Application.Tests` | — inherits with its sibling |
+| **Total** | **234** |
+
+**Measured per project, each built on its own.** An earlier draft of this table
+credited the two Application test projects with no diagnostics of their own and
+put the total at 138. Both were wrong, and wrong the same way as everything
+else in this ADR's history: a whole-solution build stops at the first failing
+project, so anything downstream of it is unmeasured rather than clean. Building
+each project alone is the only count that means anything here.
 
 **These are a conversion backlog, not a carve-out.** They are the projects that
 genuinely relied on the documented default, and naming them makes the work
@@ -117,7 +125,7 @@ nobody counted. `ServiceDefaults` at 56 diagnostics is the real one.
 solution builds clean in Release with no warnings, and every unit suite passes.
 
 **Not delivered.** The eight exceptions are not converted here. Doing that in
-the same change would mix a governance correction with 138 diagnostic fixes,
+the same change would mix a governance correction with 234 diagnostic fixes,
 and the fixes deserve their own review.
 
 ## Alternatives Considered
@@ -128,10 +136,11 @@ inherit `disable`. Measured: **274 errors**, of which 154 are `CS8632` — every
 losing the information it carries. It honours the written decision by stripping
 a safety net that 42 production projects rely on today. Rejected.
 
-**Enable everywhere with no exceptions** — measured at **138 errors** across
-five projects. Rejected for this change, not forever: it is the same end state,
+**Enable everywhere with no exceptions** — **234 diagnostics** across the eight
+projects above, measured per project because a whole-solution build stops at
+the first failure. Rejected for this change, not forever: it is the same end state,
 reached after the backlog above is converted. Bundling it here would put a
-governance correction and 138 fixes in one review.
+governance correction and 234 fixes in one review.
 
 **Leave the settings alone and document the split** — amend ADR-0048 to say
 "enabled per project by convention". Cheapest, and it does stop `CLAUDE.md`
@@ -146,8 +155,11 @@ that a default nobody states is a default nobody can check.
 mid-flight.** The first comparison on issue #2025 reported option A at *8
 errors in 1 project*. That was a **short-circuited build** — `Shared.Kernel`
 failed, so nothing depending on it compiled, and the list looked complete
-because the build stopped rather than because it finished. The true figure is
-138, and A′ exists because the correction made it obvious.
+because the build stopped rather than because it finished. The true figure is 234 — and even the
+corrected 138 was short of it, because that run stopped before `ScenarioSimulator`
+and the two Application test projects compiled. Only a per-project build settles
+it. The named-exception variant exists because the first correction made it
+obvious; the second correction only made it more so.
 
 The same family of error produced a wrong public claim earlier the same day, on
 issue #2022, where `dotnet ef --no-build` read Debug binaries built on another
