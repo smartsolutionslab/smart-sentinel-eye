@@ -59,7 +59,7 @@ public static class LayoutCompositionInfrastructureModule
 #pragma warning disable S1075, S5332
             client.BaseAddress = new Uri("http://camera-catalog");
 #pragma warning restore S1075, S5332
-        }).AddStandardResilienceHandler();
+        });
 
         // Hand-rolled command handler registrations (ADR-0042 + ADR-0057).
         builder.Services.AddScoped<

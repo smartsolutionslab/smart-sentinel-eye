@@ -10,8 +10,9 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Gateways;
 /// <summary>
 /// IRtspGateway implementation that talks to MediaMTX's HTTP control API
 /// (v3). The typed HttpClient is configured against the Aspire-resolved
-/// <c>mediamtx:api</c> endpoint. Polly retry is applied at the HttpClient
-/// factory level in <see cref="StreamDistributionInfrastructureModule"/>.
+/// <c>mediamtx:api</c> endpoint. Retry, timeout and circuit breaking come
+/// from the standard resilience handler ServiceDefaults applies to every
+/// client, not from this context's registration.
 /// </summary>
 public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGateway> logger) : IRtspGateway
 {

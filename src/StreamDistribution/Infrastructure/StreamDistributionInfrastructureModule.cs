@@ -81,15 +81,17 @@ public static class StreamDistributionInfrastructureModule
         builder.Services.AddScoped<StreamHealthChangedDomainEventHandler>();
         builder.Services.AddScoped<StreamProvisionedDomainEventHandler>();
 
-        // Typed HttpClient for MediaMTX with the spec's retry policy
-        // (1 s → 30 s exp backoff). Microsoft.Extensions.Http.Resilience
-        // applies the AddStandardResilienceHandler defaults; the budget
-        // mirrors the spec's outage-retry schedule.
+        // Typed HttpClient for MediaMTX. The retry schedule comes from
+        // ServiceDefaults, which applies AddStandardResilienceHandler to every
+        // client through ConfigureHttpClientDefaults — so asking for it again
+        // here does not reinforce it, it nests a second pipeline inside the
+        // first. That is what this call site used to do: four attempts became
+        // sixteen, and the two-second health sweep inherited both budgets.
         builder.Services.AddHttpClient<IRtspGateway, MediaMtxRtspGateway>((sp, client) =>
         {
             MediaMtxOptions options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MediaMtxOptions>>().Value;
             client.BaseAddress = new Uri(options.ManagementUrl);
-        }).AddStandardResilienceHandler();
+        });
 
         builder.Services.AddHostedService<StreamHealthWatcher>();
         builder.Services.AddHostedService<MediaMtxReconciler>();
@@ -156,7 +158,7 @@ public static class StreamDistributionInfrastructureModule
 #pragma warning disable S1075, S5332
             client.BaseAddress = new Uri("http://camera-catalog");
 #pragma warning restore S1075, S5332
-        }).AddStandardResilienceHandler();
+        });
     }
 
     private static void BindWhepAuthOptions(IHostApplicationBuilder builder)
