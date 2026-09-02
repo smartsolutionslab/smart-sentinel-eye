@@ -31,16 +31,10 @@ public sealed class ReverseIndexSeederHostedService(
     {
         try
         {
-            HttpClient client = httpClientFactory.CreateClient("overlay-designer");
-            // S1075 flags the literal URI, S5332 the clear-text scheme.
-            // Suppressed: this is not a real address. Aspire service
-            // discovery treats "overlay-designer" as a logical resource
-            // name and rewrites the whole URI — scheme included — to
-            // whichever endpoint the resource actually publishes, in dev
-            // and on k3s alike. There's no configurable alternative for v1.
-#pragma warning disable S1075, S5332
-            client.BaseAddress ??= new Uri("http://overlay-designer");
-#pragma warning restore S1075, S5332
+            // The factory, not a typed client: this is a hosted service and so a
+            // singleton, and a typed client held by one never gets its handler
+            // rotated. The base address comes from the registration.
+            using HttpClient client = httpClientFactory.CreateClient("overlay-designer");
 
             using HttpResponseMessage response = await client
                 .GetAsync("/overlays?state=Published", cancellationToken);
