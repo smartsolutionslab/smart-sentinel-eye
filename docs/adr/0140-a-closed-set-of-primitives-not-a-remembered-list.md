@@ -153,6 +153,23 @@ value object's own components from state on an aggregate — which is exactly
 the distinction §2 and §3 above just had to write down in prose. The prose is
 the prerequisite; the test is the next step, and it is code, not an amendment.
 
+> **Update, 2026-09-02 (issue #2028): the test exists.**
+> `PrimitiveBoundaryTests` enforces this section, and the prediction above held
+> exactly. A rule that scans the Domain assemblies flags 30 members, 29 of them
+> wire and port shapes; one that walks outward from the aggregate roots flags
+> two. Both were the same defect — `RuleAction` described itself as a
+> discriminated value object and never implemented `IValueObject`, so §3's
+> exemption could not reach its members. The marker was the fix, and the code
+> now says what its comment claimed.
+>
+> **§3's identity-reference sentence is mechanised only in part.** A `Guid` on a
+> value object is checkable — legitimate where the type declares
+> `IValueObject<Guid>`, an identity reference where it sits inside a composite.
+> The general rule is not: reflection cannot tell a name that refers to
+> something else from a name that is the value object's own. `SetVariableValue`
+> passes because its strings are backing values, and it would pass equally if
+> they were not.
+
 **A hole found by hand implies others found the same way.** This amendment
 closes a class rather than an instance, which is the only reason it is worth a
 version bump. It does not establish that the rest of §II is sound.
