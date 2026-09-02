@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using System.Globalization;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Domain.Rule.Events;
@@ -19,9 +20,20 @@ public class RuleTests
         rule.Name.Value.ShouldBe("high-oee-on-fast-cycle");
         rule.TriggerSource.Value.ShouldBe("plc");
         rule.TriggerKind.Value.ShouldBe("PlcCycleStart");
-        rule.CreatedAt.Value.ShouldBe(Now);
+        rule.Creation.At.Value.ShouldBe(Now);
         rule.PublishedAt.ShouldBeNull();
         rule.ArchivedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Create_records_when_it_happened_and_who_did_it()
+    {
+        OperatorIdentifier createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
+
+        RuleAggregate rule = new RuleBuilder().WithClock(Now).WithCreatedBy(createdBy).Build();
+
+        rule.Creation.At.Value.ShouldBe(Now);
+        rule.Creation.By.ShouldBe(createdBy);
     }
 
     [Fact]

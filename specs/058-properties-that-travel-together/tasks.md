@@ -71,13 +71,13 @@ Two contexts, identical shape, no revisions. Confirms the pattern transfers.
 
 ### Slice 3 — Automation and SystemVariables (`Creation`)
 
-- [ ] T017 [P] [US1] Create `Creation(CreatedAt At, OperatorIdentifier By)` in `src/Automation/Domain/Rule/Creation.cs` plus `tests/Automation.Domain.Tests/Rule/CreationTests.cs`
-- [ ] T018 [P] [US1] Create `Creation(CreatedAt At, OperatorIdentifier By)` in `src/SystemVariables/Domain/Variable/Creation.cs` plus `tests/SystemVariables.Domain.Tests/Variable/CreationTests.cs`
-- [ ] T019 [P] [US1] Replace the pair on `src/Automation/Domain/Rule/Rule.cs` and map it in `src/Automation/Infrastructure/Persistence/Configurations/RuleConfiguration.cs` with the required navigation
-- [ ] T020 [P] [US1] Replace the pair on `src/SystemVariables/Domain/Variable/Variable.cs` and map it in `src/SystemVariables/Infrastructure/Persistence/Configurations/VariableConfiguration.cs` with the required navigation
-- [ ] T021 [P] [US1] Rename readers across `src/Automation/Application/**` and the Automation test builders
-- [ ] T022 [P] [US1] Rename readers across `src/SystemVariables/Application/**` and the SystemVariables test builders
-- [ ] T023 [US1] Verify slice 3: no schema change in either context beyond baseline; both contexts' suites and `Architecture.Tests` green
+- [X] T017 [P] [US1] Create `Creation(CreatedAt At, OperatorIdentifier By)` in `src/Automation/Domain/Rule/Creation.cs` plus `tests/Automation.Domain.Tests/Rule/CreationTests.cs`
+- [X] T018 [P] [US1] Create `Creation(CreatedAt At, OperatorIdentifier By)` in `src/SystemVariables/Domain/Variable/Creation.cs` plus `tests/SystemVariables.Domain.Tests/Variable/CreationTests.cs`
+- [X] T019 [P] [US1] Replace the pair on `src/Automation/Domain/Rule/Rule.cs` and map it in `src/Automation/Infrastructure/Persistence/Configurations/RuleConfiguration.cs` with the required navigation
+- [X] T020 [P] [US1] Replace the pair on `src/SystemVariables/Domain/Variable/Variable.cs` and map it in `src/SystemVariables/Infrastructure/Persistence/Configurations/VariableConfiguration.cs` with the required navigation
+- [X] T021 [P] [US1] Rename readers across `src/Automation/Application/**` and the Automation test builders
+- [X] T022 [P] [US1] Rename readers across `src/SystemVariables/Application/**` and the SystemVariables test builders
+- [X] T023 [US1] Verify slice 3: no schema change in either context beyond baseline; both contexts' suites and `Architecture.Tests` green
 
 ### Slice 4 — LayoutComposition and OverlayDesigner (`Creation`, nested)
 

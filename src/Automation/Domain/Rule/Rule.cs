@@ -43,9 +43,7 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
 
     public RuleState State { get; private set; } = null!;
 
-    public CreatedAt CreatedAt { get; private set; } = null!;
-
-    public OperatorIdentifier CreatedBy { get; private set; }
+    public Creation Creation { get; private set; } = null!;
 
     public PublishedAt? PublishedAt { get; private set; }
 
@@ -86,8 +84,7 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
             Predicate = predicate,
             Action = action,
             State = RuleState.Draft,
-            CreatedAt = CreatedAt.From(now),
-            CreatedBy = createdBy,
+            Creation = Creation.From(CreatedAt.From(now), createdBy),
         };
         rule.Raise(new RuleCreatedDomainEvent(
             rule.Id, name, triggerSource, triggerKind, now, createdBy));

@@ -49,6 +49,6 @@ public sealed class GetVariableQueryHandler(IVariableQuerySource variables)
             Value: variable.Value is VariableValue.Unset ? null : variable.Value.ToWireString(),
             TruthyLabel: variable.BooleanLabels?.TruthyLabel,
             FalsyLabel: variable.BooleanLabels?.FalsyLabel,
-            CreatedAt: variable.CreatedAt,
-            CreatedBy: variable.CreatedBy.Value);
+            CreatedAt: variable.Creation.At,
+            CreatedBy: variable.Creation.By.Value);
 }

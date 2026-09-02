@@ -44,9 +44,7 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
     /// </summary>
     public BooleanLabels? BooleanLabels { get; private set; }
 
-    public CreatedAt CreatedAt { get; private set; } = null!;
-
-    public OperatorIdentifier CreatedBy { get; private set; }
+    public Creation Creation { get; private set; } = null!;
 
     private Variable() { }
 
@@ -92,8 +90,7 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
             Value = value,
             State = VariableState.Defined,
             BooleanLabels = booleanLabels,
-            CreatedAt = CreatedAt.From(now),
-            CreatedBy = definedBy,
+            Creation = Creation.From(CreatedAt.From(now), definedBy),
         };
         variable.Raise(new VariableDefinedDomainEvent(variable.Id, fab, name, type, now, definedBy));
         return variable;

@@ -95,20 +95,18 @@ Audited per slice, immediately before the change it guards.
 | `Stream` (provisioning) | **No** — `StreamTests` asserted `ProvisionedAt` only; nothing asserted `ProvisionedBy` on the aggregate | `Provision_records_when_it_happened_and_who_did_it` added **first**, on the old shape, and observed green before the composite existed (FR-009) |
 | `Camera` (registration) | **Yes** — `CameraAddressChangeTests` asserts both halves survive an address change | none needed |
 | `RegisteredClient` (registration) | **No** — `RegisteredClientTests` asserted `RegisteredAt` only | `Register_records_when_it_happened_and_who_did_it` added **first**, on the old shape, and observed green (FR-009) |
-
+| `Rule` (creation) | **No** — `RuleTests` asserted `CreatedAt` only | `Create_records_when_it_happened_and_who_did_it` added **first**, green on the old shape (FR-009) |
+| `Variable` (creation) | **No** — nothing asserted either half on the aggregate | `Define_records_when_it_happened_and_who_did_it` added **first**, green on the old shape (FR-009) |
 ---
 
-## Slice 2 note — CameraCatalog was verified with a borrowed line
+## CameraCatalog: resolved
 
-CameraCatalog's schema evidence for slice 2 was obtained with
-`Microsoft.EntityFrameworkCore.Design` **temporarily** added to its csproj, then
-reverted. That reference is the real fix for the design-time load failure above,
-and it lands on `develop` with PR #2021 rather than being duplicated here — two
-branches adding the identical line would collide on rebase.
-
-So on this branch, as committed, `dotnet ef` still cannot load CameraCatalog.
-After #2021 merges and this branch rebases, it can, and the check should be
-re-run without borrowing anything.
+Slice 2 verified CameraCatalog with `Microsoft.EntityFrameworkCore.Design`
+temporarily added and then reverted, because the real fix was still unmerged.
+**PR #2021 merged on 2026-09-02 and this branch was rebased onto it**, so the
+reference is now present from `develop` and the check was re-run without
+borrowing anything: all nine contexts CLEAN, CameraCatalog included. The
+design-time load failure described above no longer occurs.
 
 ---
 

@@ -76,7 +76,7 @@ public sealed class ListRulesQueryHandler(IRuleQuerySource rules)
         }
 
         List<Rule> matches = await filtered
-            .OrderByDescending(rule => rule.CreatedAt)
+            .OrderByDescending(rule => rule.Creation.At)
             .ToListAsync(cancellationToken);
 
         IReadOnlyList<RuleDto> projected = matches.Select(RuleMapper.Map).ToList();
