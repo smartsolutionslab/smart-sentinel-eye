@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using SmartSentinelEye.Shared.Kernel.Primitives;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 
@@ -29,14 +30,14 @@ public sealed record BearerTokenHash : IValueObject<string>
 
     public static BearerTokenHash FromPlaintext(string plaintext)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(plaintext);
+        Ensure.That(plaintext).IsNotNull().IsNotNullOrWhiteSpace();
         byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(plaintext));
         return new BearerTokenHash(Convert.ToBase64String(hash));
     }
 
     public static BearerTokenHash FromStored(string base64Hash)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(base64Hash);
+        Ensure.That(base64Hash).IsNotNull().IsNotNullOrWhiteSpace();
         return new BearerTokenHash(base64Hash);
     }
 

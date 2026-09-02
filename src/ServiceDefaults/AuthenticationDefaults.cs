@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.ServiceDefaults.Persistence;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults;
 
@@ -35,8 +36,8 @@ public static class AuthenticationDefaults
         string keycloakResourceName = "keycloak",
         string realm = "smart-sentinel-eye")
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(keycloakResourceName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(realm);
+        Ensure.That(keycloakResourceName).IsNotNull().IsNotNullOrWhiteSpace();
+        Ensure.That(realm).IsNotNull().IsNotNullOrWhiteSpace();
 
         // Aspire publishes Keycloak under one of three keys depending on
         // the dev-cert / HTTPS-upgrade configuration. Accept any of them.

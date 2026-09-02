@@ -22,8 +22,8 @@ public sealed class InMemoryRuleRepository : IRuleRepository
     public Task<Option<RuleAggregate>> GetByNameAsync(
         FabIdentifier fab, RuleName name, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(fab);
-        ArgumentNullException.ThrowIfNull(name);
+        Ensure.That(fab).IsNotNull();
+        Ensure.That(name).IsNotNull();
         // Archived names released for re-use (FR-002), scoped to the fab: the
         // same name in another fab is a different rule, not a clash
         // (spec 013). Matching production here matters — a fake that ignored
@@ -38,7 +38,7 @@ public sealed class InMemoryRuleRepository : IRuleRepository
 
     public void Add(RuleAggregate rule)
     {
-        ArgumentNullException.ThrowIfNull(rule);
+        Ensure.That(rule).IsNotNull();
         _rules.Add(rule);
     }
 

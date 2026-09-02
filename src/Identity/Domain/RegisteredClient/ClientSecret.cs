@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using SmartSentinelEye.Shared.Kernel.Primitives;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Domain.RegisteredClient;
 
@@ -36,7 +37,7 @@ public sealed class ClientSecret : IValueObject<string>, IEquatable<ClientSecret
 
     public static ClientSecret WrapPlaintext(string plaintext)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(plaintext);
+        Ensure.That(plaintext).IsNotNull().IsNotNullOrWhiteSpace();
         return new ClientSecret(plaintext, HashOf(plaintext));
     }
 

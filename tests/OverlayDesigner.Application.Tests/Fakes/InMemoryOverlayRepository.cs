@@ -17,7 +17,7 @@ public sealed class InMemoryOverlayRepository : IOverlayRepository
 
     public Task<Option<Overlay>> GetByNameAsync(OverlayName name, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(name);
+        Ensure.That(name).IsNotNull();
         Overlay? found = _overlays.SingleOrDefault(candidate =>
             candidate.Name == name &&
             candidate.Revisions.Any(r => r.State != OverlayRevisionState.Archived));
@@ -26,7 +26,7 @@ public sealed class InMemoryOverlayRepository : IOverlayRepository
 
     public void Add(Overlay overlay)
     {
-        ArgumentNullException.ThrowIfNull(overlay);
+        Ensure.That(overlay).IsNotNull();
         _overlays.Add(overlay);
     }
 

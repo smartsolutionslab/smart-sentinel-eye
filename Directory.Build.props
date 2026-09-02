@@ -51,6 +51,22 @@
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
   </ItemGroup>
 
+  <!-- ADR-0139: every argument precondition uses Ensure.That, not the BCL
+       ThrowIf* helpers. This ban binds MORE broadly than the ConfigureAwait one
+       above: Shared.* and test projects are covered, because Ensure lives in
+       Shared.Kernel and there is no standalone-packaging argument for guards.
+       AppHost is the sole project exemption; it does not reference
+       Shared.Kernel by design, so the replacement is unavailable there.
+       Generated migrations are exempted by path in .editorconfig instead,
+       because they share a project with infrastructure code that must stay
+       covered. Both lists must be named BannedSymbols.txt: the analyzer
+       matches additional files by that prefix, and multi-file support has
+       regressed once (roslyn-analyzers#5622). The directory is what
+       distinguishes them. -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'SmartSentinelEye.AppHost'">
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)build\guards\BannedSymbols.txt" />
+  </ItemGroup>
+
   <!-- Production code: hard limits per ADR-0084. -->
   <PropertyGroup Condition="'$(IsTestProject)' != 'true'">
     <!--

@@ -42,9 +42,9 @@ public sealed class DeadLetter : AggregateRoot<DeadLetterIdentifier>
     public static DeadLetter Capture(
         string topic, FabIdentifier? fab, string rawPayload, string error, IClock clock)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(topic);
+        Ensure.That(topic).IsNotNull().IsNotNullOrWhiteSpace();
         Ensure.That(rawPayload).IsNotNull();
-        ArgumentException.ThrowIfNullOrWhiteSpace(error);
+        Ensure.That(error).IsNotNull().IsNotNullOrWhiteSpace();
         Ensure.That(clock).IsNotNull();
         return new DeadLetter
         {

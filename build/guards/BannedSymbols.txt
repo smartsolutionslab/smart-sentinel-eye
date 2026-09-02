@@ -1,0 +1,6 @@
+M:System.ArgumentNullException.ThrowIfNull(System.Object,System.String);Argument guards use Ensure.That (ADR-0105, ADR-0139). Use Ensure.That(x).IsNotNull() -- it raises the same ArgumentNullException and captures the parameter name.
+M:System.ArgumentException.ThrowIfNullOrWhiteSpace(System.String,System.String);Argument guards use Ensure.That (ADR-0139). Use Ensure.That(x).IsNotNull().IsNotNullOrWhiteSpace() -- chain IsNotNull first, or a null input widens from ArgumentNullException to ArgumentException.
+M:System.ArgumentException.ThrowIfNullOrEmpty(System.String,System.String);Argument guards use Ensure.That (ADR-0139). Use Ensure.That(x).IsNotNull().IsNotNullOrWhiteSpace().
+M:System.ArgumentOutOfRangeException.ThrowIfLessThan``1(``0,``0,System.String);Argument guards use Ensure.That (ADR-0139). Use Ensure.That(x).AtLeast(n).
+M:System.ArgumentOutOfRangeException.ThrowIfGreaterThan``1(``0,``0,System.String);Argument guards use Ensure.That (ADR-0139). Use Ensure.That(x).InRange(lo, hi).
+M:System.ArgumentOutOfRangeException.ThrowIfNegative``1(``0,System.String);Argument guards use Ensure.That (ADR-0139). Use Ensure.That(x).AtLeast(0).

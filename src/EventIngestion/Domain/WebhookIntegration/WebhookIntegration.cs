@@ -112,7 +112,7 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
     /// </summary>
     public void MarkAsRotated(string keycloakClientId, IClock clock)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(keycloakClientId);
+        Ensure.That(keycloakClientId).IsNotNull().IsNotNullOrWhiteSpace();
         Ensure.That(clock).IsNotNull();
 
         if (ValidationMode == BearerValidationMode.Jwt &&

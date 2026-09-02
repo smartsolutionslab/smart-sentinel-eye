@@ -12,6 +12,7 @@ using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
 using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.Shared.CQRS;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults;
 
@@ -47,10 +48,10 @@ public static class WolverineDefaults
         Action<WolverineOptions> configureMore = null)
         where TDbContext : DbContext
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(moduleQueuePrefix);
-        ArgumentException.ThrowIfNullOrWhiteSpace(outboxSchema);
-        ArgumentException.ThrowIfNullOrWhiteSpace(postgresConnectionName);
-        ArgumentOutOfRangeException.ThrowIfLessThan(listenerCount, 1);
+        Ensure.That(moduleQueuePrefix).IsNotNull().IsNotNullOrWhiteSpace();
+        Ensure.That(outboxSchema).IsNotNull().IsNotNullOrWhiteSpace();
+        Ensure.That(postgresConnectionName).IsNotNull().IsNotNullOrWhiteSpace();
+        Ensure.That(listenerCount).AtLeast(1);
 
         // The message store is the service's *second* Postgres pool, not a share
         // of the DbContext's — same connection string, separate

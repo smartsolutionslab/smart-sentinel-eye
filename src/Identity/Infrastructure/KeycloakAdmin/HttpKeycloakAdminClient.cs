@@ -104,7 +104,7 @@ public sealed class HttpKeycloakAdminClient(
     public async Task<KeycloakClientCredentials> RotateClientSecretAsync(
         string clientId, CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        Ensure.That(clientId).IsNotNull().IsNotNullOrWhiteSpace();
         string realm = options.Value.Realm;
         await AuthorizeAsync(cancellationToken);
 
@@ -125,7 +125,7 @@ public sealed class HttpKeycloakAdminClient(
 
     public async Task DisableClientAsync(string clientId, CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        Ensure.That(clientId).IsNotNull().IsNotNullOrWhiteSpace();
         string realm = options.Value.Realm;
         await AuthorizeAsync(cancellationToken);
 
@@ -217,7 +217,7 @@ public sealed class HttpKeycloakAdminClient(
     public async Task<IReadOnlyList<string>> GetSubGroupNamesAsync(
         string parentPath, CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(parentPath);
+        Ensure.That(parentPath).IsNotNull().IsNotNullOrWhiteSpace();
 
         string realm = options.Value.Realm;
         await AuthorizeAsync(cancellationToken);
@@ -295,7 +295,7 @@ public sealed class HttpKeycloakAdminClient(
     public async Task StripInheritedRealmRolesAsync(
         string clientId, CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        Ensure.That(clientId).IsNotNull().IsNotNullOrWhiteSpace();
         string realm = options.Value.Realm;
         await AuthorizeAsync(cancellationToken);
 

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Automation.Application.Tests.Fakes;
 
@@ -26,7 +27,7 @@ public sealed class CapturingLogger<T> : ILogger<T>
         Exception? exception,
         Func<TState, Exception?, string> formatter)
     {
-        ArgumentNullException.ThrowIfNull(formatter);
+        Ensure.That(formatter).IsNotNull();
         _entries.Add((logLevel, formatter(state, exception), exception));
     }
 }

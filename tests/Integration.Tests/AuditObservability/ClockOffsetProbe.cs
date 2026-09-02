@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Globalization;
 using Npgsql;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 
@@ -45,7 +46,7 @@ public static class ClockOffsetProbe
     public static async Task<ClockOffset> MeasureAsync(
         string connectionString, CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        Ensure.That(connectionString).IsNotNull().IsNotNullOrWhiteSpace();
 
         await using NpgsqlConnection connection = new(connectionString);
         await connection.OpenAsync(cancellationToken);
@@ -82,7 +83,7 @@ public static class ClockOffsetProbe
     public static async Task<ClockOffset> MeasureBestOfAsync(
         string connectionString, int readings, CancellationToken cancellationToken)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(readings, 1);
+        Ensure.That(readings).AtLeast(1);
 
         ClockOffset best = await MeasureAsync(connectionString, cancellationToken);
         for (int reading = 1; reading < readings; reading += 1)

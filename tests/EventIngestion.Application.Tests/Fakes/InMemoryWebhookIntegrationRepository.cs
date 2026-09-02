@@ -27,7 +27,7 @@ public sealed class InMemoryWebhookIntegrationRepository : IWebhookIntegrationRe
     /// </summary>
     public void Seed(WebhookIntegration integration, int version = 0)
     {
-        ArgumentNullException.ThrowIfNull(integration);
+        Ensure.That(integration).IsNotNull();
 
         AggregateVersions.SetTo(integration, version);
 
@@ -39,7 +39,7 @@ public sealed class InMemoryWebhookIntegrationRepository : IWebhookIntegrationRe
     public Task<Option<WebhookIntegration>> GetByNameAsync(
         WebhookIntegrationName name, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(name);
+        Ensure.That(name).IsNotNull();
         WebhookIntegration? found = _integrations.SingleOrDefault(i => i.Name == name);
         return Task.FromResult(found is null
             ? Option<WebhookIntegration>.None
@@ -48,7 +48,7 @@ public sealed class InMemoryWebhookIntegrationRepository : IWebhookIntegrationRe
 
     public void Add(WebhookIntegration integration)
     {
-        ArgumentNullException.ThrowIfNull(integration);
+        Ensure.That(integration).IsNotNull();
         _integrations.Add(integration);
     }
 

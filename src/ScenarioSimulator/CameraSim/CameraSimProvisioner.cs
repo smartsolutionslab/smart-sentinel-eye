@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.ScenarioSimulator.Configuration;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ScenarioSimulator.CameraSim;
 
@@ -71,7 +72,7 @@ public sealed class CameraSimProvisioner(HttpClient http, ILogger<CameraSimProvi
 
     public Task ProvisionLoopPathAsync(string path, string clip, CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(clip);
+        Ensure.That(clip).IsNotNull().IsNotNullOrWhiteSpace();
         return ProvisionAsync(path, clip, LoopCommand(clip), cancellationToken);
     }
 
@@ -86,7 +87,7 @@ public sealed class CameraSimProvisioner(HttpClient http, ILogger<CameraSimProvi
         Guid camera,
         CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(label);
+        Ensure.That(label).IsNotNull().IsNotNullOrWhiteSpace();
 
         // Deterministic per camera, so a restart does not recolour the wall. The
         // spread is what matters, not the value — 360 buckets off the identifier.
@@ -111,7 +112,7 @@ public sealed class CameraSimProvisioner(HttpClient http, ILogger<CameraSimProvi
         string command,
         CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        Ensure.That(path).IsNotNull().IsNotNullOrWhiteSpace();
 
         PathConfig body = new(
             RunOnDemand: command,
