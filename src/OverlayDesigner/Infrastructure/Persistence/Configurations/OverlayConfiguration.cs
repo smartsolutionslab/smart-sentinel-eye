@@ -56,7 +56,8 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
         builder.Property(overlay => overlay.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
-            .IsConcurrencyToken();
+            .IsConcurrencyToken()
+            .IsRequired();
 
         builder.HasIndex(overlay => overlay.Name)
             .HasDatabaseName("ix_overlays_name");

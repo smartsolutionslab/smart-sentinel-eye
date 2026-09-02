@@ -64,7 +64,8 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
         builder.Property(layout => layout.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
-            .IsConcurrencyToken();
+            .IsConcurrencyToken()
+            .IsRequired();
 
         // Replaces ix_layouts_name. The name-uniqueness check is enforced in
         // CreateLayoutDraftCommandHandler and became fab-scoped with spec 017

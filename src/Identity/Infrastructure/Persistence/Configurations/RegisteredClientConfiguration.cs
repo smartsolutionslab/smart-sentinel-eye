@@ -65,7 +65,8 @@ public sealed class RegisteredClientConfiguration : IEntityTypeConfiguration<Reg
         builder.Property(client => client.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
-            .IsConcurrencyToken();
+            .IsConcurrencyToken()
+            .IsRequired();
 
         // Active row uniqueness on client_id (FR-002 mirrors
         // spec 005's archived-name pattern: disabled rows release

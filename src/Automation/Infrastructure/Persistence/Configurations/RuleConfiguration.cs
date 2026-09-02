@@ -96,7 +96,8 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
         builder.Property(rule => rule.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
-            .IsConcurrencyToken();
+            .IsConcurrencyToken()
+            .IsRequired();
 
         // FR-002 belt-and-braces: at most one non-Archived rule per
         // name *within a fab* (spec 013 FR-004). The application handler is

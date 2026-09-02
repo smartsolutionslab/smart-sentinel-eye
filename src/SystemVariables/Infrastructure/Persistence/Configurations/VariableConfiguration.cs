@@ -93,7 +93,8 @@ public sealed class VariableConfiguration : IEntityTypeConfiguration<Variable>
         builder.Property(variable => variable.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
-            .IsConcurrencyToken();
+            .IsConcurrencyToken()
+            .IsRequired();
 
         // FR-005 belt-and-braces: at most one non-Archived variable
         // per name *within a fab* (spec 014). The application-level

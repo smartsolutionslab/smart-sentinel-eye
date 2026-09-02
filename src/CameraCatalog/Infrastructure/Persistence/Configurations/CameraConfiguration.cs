@@ -94,7 +94,8 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
         builder.Property(camera => camera.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
-            .IsConcurrencyToken();
+            .IsConcurrencyToken()
+            .IsRequired();
 
         // #1434. The normalised name, computed by Postgres rather than written
         // by us: a stored generated column cannot drift from `name`, whereas a
