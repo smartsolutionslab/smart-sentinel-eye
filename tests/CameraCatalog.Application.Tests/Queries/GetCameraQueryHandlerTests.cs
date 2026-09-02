@@ -33,7 +33,7 @@ public class GetCameraQueryHandlerTests
         result.Value.CameraIdentifier.ShouldBe(camera.Id.Value);
         result.Value.Fab.ShouldBe("munich");
         result.Value.Name.ShouldBe("Line-7");
-        result.Value.RegisteredAt.ShouldBe(camera.RegisteredAt);
+        result.Value.RegisteredAt.ShouldBe(camera.Registration.At);
 
         // The aggregate's own version, not a constant — this is the value a
         // caller has to quote to change the camera, and nothing exposed it

@@ -61,13 +61,13 @@ FR-002 forbids a shared or generic composite, so there is no common type, base c
 
 Two contexts, identical shape, no revisions. Confirms the pattern transfers.
 
-- [ ] T010 [P] [US1] Create `Registration(RegisteredAt At, OperatorIdentifier By)` in `src/CameraCatalog/Domain/Camera/Registration.cs` plus `tests/CameraCatalog.Domain.Tests/Camera/RegistrationTests.cs`
-- [ ] T011 [P] [US1] Create `Registration(RegisteredAt At, OperatorIdentifier By)` in `src/Identity/Domain/RegisteredClient/Registration.cs` plus `tests/Identity.Domain.Tests/RegisteredClient/RegistrationTests.cs` — a separate type from CameraCatalog's by FR-002, not a copy to be deduplicated later
-- [ ] T012 [P] [US1] Replace the pair on `src/CameraCatalog/Domain/Camera/Camera.cs` and map it in `src/CameraCatalog/Infrastructure/Persistence/Configurations/CameraConfiguration.cs` with the required navigation
-- [ ] T013 [P] [US1] Replace the pair on `src/Identity/Domain/RegisteredClient/RegisteredClient.cs` and map it in `src/Identity/Infrastructure/Persistence/Configurations/RegisteredClientConfiguration.cs` with the required navigation
-- [ ] T014 [P] [US1] Rename readers across `src/CameraCatalog/Application/**` and the CameraCatalog test builders
-- [ ] T015 [P] [US1] Rename readers across `src/Identity/Application/**` and the Identity test builders
-- [ ] T016 [US1] Verify slice 2: no schema change in either context beyond baseline; both contexts' suites and `Architecture.Tests` green
+- [X] T010 [P] [US1] Create `Registration(RegisteredAt At, OperatorIdentifier By)` in `src/CameraCatalog/Domain/Camera/Registration.cs` plus `tests/CameraCatalog.Domain.Tests/Camera/RegistrationTests.cs`
+- [X] T011 [P] [US1] Create `Registration(RegisteredAt At, OperatorIdentifier By)` in `src/Identity/Domain/RegisteredClient/Registration.cs` plus `tests/Identity.Domain.Tests/RegisteredClient/RegistrationTests.cs` — a separate type from CameraCatalog's by FR-002, not a copy to be deduplicated later
+- [X] T012 [P] [US1] Replace the pair on `src/CameraCatalog/Domain/Camera/Camera.cs` and map it in `src/CameraCatalog/Infrastructure/Persistence/Configurations/CameraConfiguration.cs` with the required navigation
+- [X] T013 [P] [US1] Replace the pair on `src/Identity/Domain/RegisteredClient/RegisteredClient.cs` and map it in `src/Identity/Infrastructure/Persistence/Configurations/RegisteredClientConfiguration.cs` with the required navigation
+- [X] T014 [P] [US1] Rename readers across `src/CameraCatalog/Application/**` and the CameraCatalog test builders
+- [X] T015 [P] [US1] Rename readers across `src/Identity/Application/**` and the Identity test builders
+- [X] T016 [US1] Verify slice 2: no schema change in either context beyond baseline; both contexts' suites and `Architecture.Tests` green
 
 ### Slice 3 — Automation and SystemVariables (`Creation`)
 
