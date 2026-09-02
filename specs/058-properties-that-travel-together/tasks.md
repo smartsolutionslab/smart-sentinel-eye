@@ -158,11 +158,11 @@ were **decided**, not implemented.
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T050 Run every context's `has-pending-model-changes` and diff the results against `baseline-schema.md`, confirming this feature added no pending change anywhere (SC-002)
-- [ ] T051 Confirm no file under `src/Shared.Contracts/` was modified and no DTO record definition changed — only the mapper expressions that fill them (FR-008, SC-005)
-- [ ] T052 Measure the Domain coverage figure for every touched context and confirm each is at or above its ADR-0065 floor, using the manual route in [quickstart.md](./quickstart.md); **delete any composite member that has no caller rather than writing a test to cover it**
-- [ ] T053 Full Release build and the complete unit suite green; record which suites could not run locally (integration and e2e need Docker) so the PR states it rather than implying a full run
-- [ ] T054 Record in the PR body the two findings this feature surfaced but did not fix: publish and archive carry no actor (FR-010), and whether any stored audit row's size already disagrees with its content is untested for
+- [X] T050 Run every context's `has-pending-model-changes` and diff the results against `baseline-schema.md`, confirming this feature added no pending change anywhere (SC-002)
+- [X] T051 Confirm no file under `src/Shared.Contracts/` was modified and no DTO record definition changed — only the mapper expressions that fill them (FR-008, SC-005)
+- [X] T052 Measure the Domain coverage figure for every touched context and confirm each is at or above its ADR-0065 floor, using the manual route in [quickstart.md](./quickstart.md); **delete any composite member that has no caller rather than writing a test to cover it**
+- [X] T053 Full Release build and the complete unit suite green; record which suites could not run locally (integration and e2e need Docker) so the PR states it rather than implying a full run
+- [X] T054 Record in the PR body the two findings this feature surfaced but did not fix: publish and archive carry no actor (FR-010), and whether any stored audit row's size already disagrees with its content is untested for
 
 ---
 
