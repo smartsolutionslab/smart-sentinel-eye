@@ -28,8 +28,8 @@ public sealed class GetOverlayQueryHandler(IOverlayQuerySource overlays)
             OverlayIdentifier: overlay.Id.Value,
             Version: overlay.Version,
             Name: overlay.Name.Value,
-            CreatedAt: overlay.CreatedAt,
-            CreatedBy: overlay.CreatedBy.Value,
+            CreatedAt: overlay.Creation.At,
+            CreatedBy: overlay.Creation.By.Value,
             Revisions: overlay.Revisions
                 .OrderBy(revision => revision.Number.Value)
                 .Select(MapRevision)
@@ -46,8 +46,8 @@ public sealed class GetOverlayQueryHandler(IOverlayQuerySource overlays)
             NormalizedWidth: revision.Label.NormalizedWidth,
             NormalizedHeight: revision.Label.NormalizedHeight,
             FontSizePx: revision.Label.FontSizePx,
-            CreatedAt: revision.CreatedAt,
-            CreatedBy: revision.CreatedBy.Value,
+            CreatedAt: revision.Creation.At,
+            CreatedBy: revision.Creation.By.Value,
             PublishedAt: revision.PublishedAt?.Value,
             ArchivedAt: revision.ArchivedAt?.Value);
 }

@@ -38,8 +38,8 @@ public sealed class GetLayoutQueryHandler(ILayoutQuerySource layouts)
             Version: layout.Version,
             Fab: layout.Fab.Value,
             Name: layout.Name.Value,
-            CreatedAt: layout.CreatedAt,
-            CreatedBy: layout.CreatedBy.Value,
+            CreatedAt: layout.Creation.At,
+            CreatedBy: layout.Creation.By.Value,
             Revisions: layout.Revisions
                 .OrderBy(revision => revision.Number.Value)
                 .Select(MapRevision)
@@ -53,8 +53,8 @@ public sealed class GetLayoutQueryHandler(ILayoutQuerySource layouts)
             GridRows: revision.Grid.Rows,
             GridCols: revision.Grid.Cols,
             Tiles: MapTiles(revision),
-            CreatedAt: revision.CreatedAt,
-            CreatedBy: revision.CreatedBy.Value,
+            CreatedAt: revision.Creation.At,
+            CreatedBy: revision.Creation.By.Value,
             PublishedAt: revision.PublishedAt?.Value,
             ArchivedAt: revision.ArchivedAt?.Value);
 

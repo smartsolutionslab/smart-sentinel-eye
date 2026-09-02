@@ -83,15 +83,15 @@ Two contexts, identical shape, no revisions. Confirms the pattern transfers.
 
 **The nested case**: each context uses its `Creation` twice, once on the aggregate and once inside an owned collection of revisions. Research R1 proved the columns land correctly at that depth; this is where it is proven on real code.
 
-- [ ] T024 [P] [US1] Create `Creation(CreatedAt At, OperatorIdentifier By)` in `src/LayoutComposition/Domain/Layout/Creation.cs` plus `tests/LayoutComposition.Domain.Tests/Layout/CreationTests.cs`
-- [ ] T025 [P] [US1] Create `Creation(CreatedAt At, OperatorIdentifier By)` in `src/OverlayDesigner/Domain/Overlay/Creation.cs` plus `tests/OverlayDesigner.Domain.Tests/Overlay/CreationTests.cs`
-- [ ] T026 [US1] Replace the pair on **both** `src/LayoutComposition/Domain/Layout/Layout.cs` and `src/LayoutComposition/Domain/Layout/Revision.cs`, leaving `PublishedAt` and `ArchivedAt` untouched as bare timestamps (FR-010)
-- [ ] T027 [US1] Map both in `src/LayoutComposition/Infrastructure/Persistence/Configurations/LayoutConfiguration.cs` — the revision one nested inside the existing `OwnsMany`, each with its required navigation
-- [ ] T028 [US1] Replace the pair on **both** `src/OverlayDesigner/Domain/Overlay/Overlay.cs` and `src/OverlayDesigner/Domain/Overlay/Revision.cs`, likewise leaving publish/archive timestamps alone
-- [ ] T029 [US1] Map both in `src/OverlayDesigner/Infrastructure/Persistence/Configurations/OverlayConfiguration.cs`, each with its required navigation
-- [ ] T030 [P] [US1] Rename readers across `src/LayoutComposition/Application/**` and its test builders
-- [ ] T031 [P] [US1] Rename readers across `src/OverlayDesigner/Application/**` and its test builders
-- [ ] T032 [US1] Verify slice 4: no schema change in either context beyond baseline — **check the revisions tables specifically**, since that is the depth research R1 covered but no shipped code has yet exercised — and both contexts' suites plus `Architecture.Tests` green
+- [X] T024 [P] [US1] Create `Creation(CreatedAt At, OperatorIdentifier By)` in `src/LayoutComposition/Domain/Layout/Creation.cs` plus `tests/LayoutComposition.Domain.Tests/Layout/CreationTests.cs`
+- [X] T025 [P] [US1] Create `Creation(CreatedAt At, OperatorIdentifier By)` in `src/OverlayDesigner/Domain/Overlay/Creation.cs` plus `tests/OverlayDesigner.Domain.Tests/Overlay/CreationTests.cs`
+- [X] T026 [US1] Replace the pair on **both** `src/LayoutComposition/Domain/Layout/Layout.cs` and `src/LayoutComposition/Domain/Layout/Revision.cs`, leaving `PublishedAt` and `ArchivedAt` untouched as bare timestamps (FR-010)
+- [X] T027 [US1] Map both in `src/LayoutComposition/Infrastructure/Persistence/Configurations/LayoutConfiguration.cs` — the revision one nested inside the existing `OwnsMany`, each with its required navigation
+- [X] T028 [US1] Replace the pair on **both** `src/OverlayDesigner/Domain/Overlay/Overlay.cs` and `src/OverlayDesigner/Domain/Overlay/Revision.cs`, likewise leaving publish/archive timestamps alone
+- [X] T029 [US1] Map both in `src/OverlayDesigner/Infrastructure/Persistence/Configurations/OverlayConfiguration.cs`, each with its required navigation
+- [X] T030 [P] [US1] Rename readers across `src/LayoutComposition/Application/**` and its test builders
+- [X] T031 [P] [US1] Rename readers across `src/OverlayDesigner/Application/**` and its test builders
+- [X] T032 [US1] Verify slice 4: no schema change in either context beyond baseline — **check the revisions tables specifically**, since that is the depth research R1 covered but no shipped code has yet exercised — and both contexts' suites plus `Architecture.Tests` green
 
 **Checkpoint**: US1 complete. Nine sites, seven types, no schema movement. The feature can stop here with the codebase consistent.
 

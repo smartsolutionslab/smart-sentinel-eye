@@ -15,6 +15,22 @@ public class LayoutTests
         new(camera, Option<OverlayIdentifier>.None, GridPosition.From(row, col));
 
     [Fact]
+    public void CreateDraft_records_when_it_happened_and_who_did_it_on_the_chain_and_its_revision()
+    {
+        OperatorIdentifier createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
+
+        Domain.Layout.Layout layout = new LayoutBuilder()
+            .At(FixedMoment)
+            .CreatedBy(createdBy)
+            .Build();
+
+        layout.Creation.At.Value.ShouldBe(FixedMoment);
+        layout.Creation.By.ShouldBe(createdBy);
+        layout.Revisions[0].Creation.At.Value.ShouldBe(FixedMoment);
+        layout.Revisions[0].Creation.By.ShouldBe(createdBy);
+    }
+
+    [Fact]
     public void CreateDraft_yields_revision_one_in_Draft_state_with_no_pending_events()
     {
         CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());

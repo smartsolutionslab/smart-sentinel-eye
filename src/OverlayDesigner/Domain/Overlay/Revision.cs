@@ -18,9 +18,7 @@ public sealed class Revision
 
     public Label Label { get; private set; } = null!;
 
-    public CreatedAt CreatedAt { get; private set; } = null!;
-
-    public OperatorIdentifier CreatedBy { get; private set; }
+    public Creation Creation { get; private set; } = null!;
 
     public PublishedAt? PublishedAt { get; private set; }
 
@@ -39,8 +37,7 @@ public sealed class Revision
             Number = number,
             State = OverlayRevisionState.Draft,
             Label = label,
-            CreatedAt = CreatedAt.From(createdAt),
-            CreatedBy = createdBy,
+            Creation = Creation.From(CreatedAt.From(createdAt), createdBy),
         };
 
     internal static Revision Branch(

@@ -42,9 +42,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
 
     public IReadOnlyList<Revision> Revisions => revisions;
 
-    public CreatedAt CreatedAt { get; private set; } = null!;
-
-    public OperatorIdentifier CreatedBy { get; private set; }
+    public Creation Creation { get; private set; } = null!;
 
     private Layout() { }
 
@@ -102,8 +100,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
             Id = LayoutIdentifier.New(),
             Fab = fab,
             Name = name,
-            CreatedAt = CreatedAt.From(now),
-            CreatedBy = createdBy,
+            Creation = Creation.From(CreatedAt.From(now), createdBy),
         };
         layout.revisions.Add(
             Revision.NewDraft(LayoutRevisionNumber.One, grid, tiles, now, createdBy));

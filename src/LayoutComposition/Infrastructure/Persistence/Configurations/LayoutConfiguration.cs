@@ -51,15 +51,21 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
             .HasConversion(name => name.Value, value => LayoutName.From(value))
             .IsRequired();
 
-        builder.Property(layout => layout.CreatedAt)
-            .HasColumnName("created_at")
-            .HasConversion(v => v.Value, value => CreatedAt.From(value))
-            .IsRequired();
+        // Owned reference onto the two columns the pair occupied. The
+        // Navigation(...).IsRequired() line keeps them NOT NULL (#2022).
+        builder.OwnsOne(layout => layout.Creation, creation =>
+        {
+            creation.Property(value => value.At)
+                .HasColumnName("created_at")
+                .HasConversion(at => at.Value, value => CreatedAt.From(value))
+                .IsRequired();
 
-        builder.Property(layout => layout.CreatedBy)
-            .HasColumnName("created_by")
-            .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
-            .IsRequired();
+            creation.Property(value => value.By)
+                .HasColumnName("created_by")
+                .HasConversion(by => by.Value, value => OperatorIdentifier.From(value))
+                .IsRequired();
+        });
+        builder.Navigation(layout => layout.Creation).IsRequired();
 
         builder.Property(layout => layout.Version)
             .HasColumnName("version")
@@ -155,15 +161,22 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
                     .HasDatabaseName("ix_layout_revision_tiles_overlay_id");
             });
 
-            revisions.Property(revision => revision.CreatedAt)
-                .HasColumnName("created_at")
-            .HasConversion(v => v.Value, value => CreatedAt.From(value))
-                .IsRequired();
+            // The nested case: a composite inside an owned collection, one
+            // level deeper than anything else in this feature. The columns
+            // land on the revisions table exactly as the pair did.
+            revisions.OwnsOne(revision => revision.Creation, creation =>
+            {
+                creation.Property(value => value.At)
+                    .HasColumnName("created_at")
+                    .HasConversion(at => at.Value, value => CreatedAt.From(value))
+                    .IsRequired();
 
-            revisions.Property(revision => revision.CreatedBy)
-                .HasColumnName("created_by")
-                .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
-                .IsRequired();
+                creation.Property(value => value.By)
+                    .HasColumnName("created_by")
+                    .HasConversion(by => by.Value, value => OperatorIdentifier.From(value))
+                    .IsRequired();
+            });
+            revisions.Navigation(revision => revision.Creation).IsRequired();
 
             revisions.Property(revision => revision.PublishedAt)
                 .HasColumnName("published_at")
