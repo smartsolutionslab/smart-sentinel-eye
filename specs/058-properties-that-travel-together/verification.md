@@ -208,3 +208,30 @@ here about e2e either.
    and `Directory.Build.props` say disabled. It is why the same guard test needs
    `null!` in some projects and plain `null` in others. Not this feature's to
    fix; worth an issue.
+
+## Decision: the two declines are accepted, not deferred
+
+**2026-09-02, issue #2026, option C.** The actor and trigger pairs stay two
+properties each. The alternatives were considered and rejected:
+
+- **Take the index out of the EF model** (option A) — buildable, and it
+  deliberately re-creates issue #2022's divergence trap: EF's differ would want
+  to `DROP` the index on the next migration anyone generates in that context.
+  Trading a modelling improvement for a latent schema hazard is a bad trade,
+  especially in the feature that spent its first slice discovering how that
+  hazard hides.
+- **Change what these tables are indexed on** (option B) — a query-performance
+  decision on the audit search and rule lookup, which this feature had no
+  standing to make and no measurement to justify.
+
+`spec.md` has been corrected rather than annotated: the Context table marks
+both pairs as not grouped, FR-006 is struck through as withdrawn, SC-001's
+count is ten rather than twelve, both Key Entities are struck through, and
+User Stories 3 and 4 carry a NOT BUILT banner. **A spec that still promised
+twelve would be the same defect this repo keeps naming — a record nobody
+checked against what actually happened.**
+
+The two stories are kept rather than deleted. The reasoning in them is still
+why someone would want the change; what moved is the cost, not the value. If
+EF ever supports an index spanning a composite and its row, this is the file
+that says what to do about it.
