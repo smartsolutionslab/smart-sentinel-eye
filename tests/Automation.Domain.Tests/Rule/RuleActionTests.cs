@@ -29,8 +29,8 @@ public class RuleActionTests
         Guid overlay = Guid.CreateVersion7();
         RuleAction.HighlightOverlay action = RuleAction.HighlightOverlay.From(overlay, 10_000);
 
-        action.Overlay.ShouldBe(overlay);
-        action.DurationMs.ShouldBe(10_000);
+        action.Overlay.Value.ShouldBe(overlay);
+        action.Duration.Value.ShouldBe(10_000);
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public class RuleActionTests
     {
         RuleAction.HighlightOverlay action = RuleAction.HighlightOverlay.From(
             Guid.CreateVersion7(), duration);
-        action.DurationMs.ShouldBe(duration);
+        action.Duration.Value.ShouldBe(duration);
     }
 
     [Fact]

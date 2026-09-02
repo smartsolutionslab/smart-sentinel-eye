@@ -63,8 +63,10 @@ accumulated on aggregates before anyone counted.
   `Code` and `Message`, a serialization contract (ADR-0089); opaque
   captured payloads, exempt from being *parsed*, not from having a type;
   a value object's own backing **values** — plural, so a composite like
-  `GridPosition(int Row, int Col)` is exempt in all of them, and the
-  exemption reaches a value object's own components and stops there; and
+  `GridPosition(int Row, int Col)` is exempt in all of them; the exemption
+  reaches a value object's own components and stops there, and **an
+  identity reference is never one of them** (`GridPosition` *is* its two
+  ints; a `HighlightOverlay` action is not the overlay it points at); and
   `Shared.Contracts`, a wire format. Anything else requires amending
   this section, not a local judgement call — an aggregate holding a
   primitive it *constructs* a value object from is a breach, not a

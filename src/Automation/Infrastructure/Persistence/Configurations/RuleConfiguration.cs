@@ -138,7 +138,7 @@ internal static class RuleActionColumnConverter
             RuleAction.SetVariableValue setVariableValue =>
                 $"{SetVariableValueTag}|{setVariableValue.VariableName}|{setVariableValue.ValueExpression}",
             RuleAction.HighlightOverlay highlightOverlay =>
-                $"{HighlightOverlayTag}|{highlightOverlay.Overlay:D}|{highlightOverlay.DurationMs.ToString(CultureInfo.InvariantCulture)}",
+                $"{HighlightOverlayTag}|{highlightOverlay.Overlay.Value:D}|{highlightOverlay.Duration.Value.ToString(CultureInfo.InvariantCulture)}",
             _ => throw new InvalidOperationException($"Unhandled RuleAction case: {action.GetType().Name}"),
         };
 
