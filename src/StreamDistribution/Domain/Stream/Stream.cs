@@ -61,9 +61,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
 
     public StreamError? LastError { get; private set; }
 
-    public ProvisionedAt ProvisionedAt { get; private set; } = null!;
-
-    public OperatorIdentifier ProvisionedBy { get; private set; }
+    public Provisioning Provisioning { get; private set; } = null!;
 
     private Stream() { }
 
@@ -91,8 +89,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
             TranscodeMode = TranscodeMode.Unknown,
             LastSuccessAt = null,
             LastError = null,
-            ProvisionedAt = ProvisionedAt.From(now),
-            ProvisionedBy = provisionedBy,
+            Provisioning = Provisioning.From(ProvisionedAt.From(now), provisionedBy),
         };
 
         stream.Raise(new StreamProvisionedDomainEvent(

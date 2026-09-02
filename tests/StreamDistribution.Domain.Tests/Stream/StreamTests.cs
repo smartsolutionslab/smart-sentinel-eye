@@ -27,10 +27,24 @@ public class StreamTests
         stream.TranscodeMode.ShouldBe(TranscodeMode.Unknown);
         stream.LastSuccessAt.ShouldBeNull();
         stream.LastError.ShouldBeNull();
-        stream.ProvisionedAt.Value.ShouldBe(FixedMoment);
+        stream.Provisioning.At.Value.ShouldBe(FixedMoment);
 
         stream.PendingEvents.Count.ShouldBe(1);
         stream.PendingEvents.Single().ShouldBeOfType<StreamProvisionedDomainEvent>();
+    }
+
+    [Fact]
+    public void Provision_records_when_it_happened_and_who_did_it()
+    {
+        OperatorIdentifier operatorIdentifier = OperatorIdentifier.From(Guid.CreateVersion7());
+
+        Domain.Stream.Stream stream = new StreamBuilder()
+            .At(FixedMoment)
+            .ProvisionedBy(operatorIdentifier)
+            .Build();
+
+        stream.Provisioning.At.Value.ShouldBe(FixedMoment);
+        stream.Provisioning.By.ShouldBe(operatorIdentifier);
     }
 
     [Fact]
