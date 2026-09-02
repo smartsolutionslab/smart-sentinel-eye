@@ -20,16 +20,13 @@ public static class ScenarioSeedingExtensions
         builder.Services.AddSingleton<AssetCorrelationTable>();
 
         builder.Services.AddHttpClient<OverlayDesignerClient>((sp, client) =>
-                client.BaseAddress = new Uri(Resolve(sp).OverlayDesignerUrl))
-            .AddStandardResilienceHandler();
+                client.BaseAddress = new Uri(Resolve(sp).OverlayDesignerUrl));
 
         builder.Services.AddHttpClient<AutomationRulesClient>((sp, client) =>
-                client.BaseAddress = new Uri(Resolve(sp).AutomationUrl))
-            .AddStandardResilienceHandler();
+                client.BaseAddress = new Uri(Resolve(sp).AutomationUrl));
 
         builder.Services.AddHttpClient<LayoutCompositionClient>((sp, client) =>
-                client.BaseAddress = new Uri(Resolve(sp).LayoutCompositionUrl))
-            .AddStandardResilienceHandler();
+                client.BaseAddress = new Uri(Resolve(sp).LayoutCompositionUrl));
 
         // Shared by the seeder (restart path) and the CameraRegisteredV1
         // handler (live path); the correlation table's one-shot claim keeps
