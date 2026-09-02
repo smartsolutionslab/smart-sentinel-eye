@@ -53,7 +53,7 @@ public sealed class AuditEventRepository(AuditObservabilityDbContext dbContext) 
                     {resourceIdentifier},
                     {row.Actor.Value}, {row.ActorUsername?.Value},
                     {row.EventIdentifier.Value},
-                    {row.Payload.Value}::jsonb, {row.PayloadSizeBytes},
+                    {row.Payload.Value}::jsonb, {row.PayloadSizeBytes.Value},
                     {row.SchemaVersion},
                     {row.HandlerEnteredAt?.Value},
                     CASE WHEN {row.HandlerEnteredAt?.Value}::timestamptz IS NULL

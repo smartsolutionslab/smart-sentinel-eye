@@ -18,8 +18,6 @@ public class TileTests
         tile.Overlay.Value.ShouldBe(overlay);
         tile.OverlayValue.ShouldBe(overlay);
         tile.Position.ShouldBe(GridPosition.From(1, 0));
-        tile.Row.ShouldBe(1);
-        tile.Col.ShouldBe(0);
     }
 
     [Fact]
