@@ -53,9 +53,9 @@ public class StreamRetirementTests
         Should.Throw<InvalidOperationException>(() =>
             stream.ReportHealthy(TranscodeMode.Passthrough, Clock()));
         Should.Throw<InvalidOperationException>(() =>
-            stream.ReportDegraded("no frames", Clock()));
+            stream.ReportDegraded(StreamError.From("no frames"), Clock()));
         Should.Throw<InvalidOperationException>(() =>
-            stream.ReportOffline("no frames", Clock()));
+            stream.ReportOffline(StreamError.From("no frames"), Clock()));
 
         stream.State.ShouldBe(StreamState.Retired, "a refused report must not have moved the state either");
     }
@@ -117,11 +117,11 @@ public class StreamRetirementTests
                 stream.ReportHealthy(TranscodeMode.Passthrough, clock);
                 break;
             case "Degraded":
-                stream.ReportDegraded("no frames", clock);
+                stream.ReportDegraded(StreamError.From("no frames"), clock);
                 break;
             case "Offline":
-                stream.ReportDegraded("no frames", clock);
-                stream.ReportOffline("still no frames", clock);
+                stream.ReportDegraded(StreamError.From("no frames"), clock);
+                stream.ReportOffline(StreamError.From("still no frames"), clock);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(state), state, "Unhandled state.");

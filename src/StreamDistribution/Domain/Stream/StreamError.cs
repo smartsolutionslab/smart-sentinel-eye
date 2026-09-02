@@ -33,4 +33,33 @@ public sealed record StreamError : StringValueObject
 
         return new StreamError(value);
     }
+
+    /// <summary>
+    /// Builds an error from text this system did not author — a gateway or
+    /// transport message — clipping it to <see cref="MaximumLength"/> rather
+    /// than refusing it.
+    ///
+    /// <para>
+    /// The health watcher runs in a background loop and reports whatever the SFU
+    /// hands it. Before this type existed, an over-long message was accepted by
+    /// the aggregate and rejected by Postgres, so the health report was lost to a
+    /// <c>DbUpdateException</c>. Refusing it here instead would throw
+    /// <c>ArgumentException</c> into that loop and lose the report the same way,
+    /// for the same input. Clipping keeps the report — a truncated reason is
+    /// worth more to an operator than no state change at all.
+    /// </para>
+    ///
+    /// <para>
+    /// Separate from <see cref="From"/> on purpose: silently shortening a caller's
+    /// value is the right answer only where the caller is an external system, and
+    /// the name has to say so at the call site.
+    /// </para>
+    /// </summary>
+    public static StreamError Truncating(string value)
+    {
+        Ensure.That(value, nameof(value)).IsNotNullOrWhiteSpace();
+
+        return new StreamError(
+            value.Length <= MaximumLength ? value : value[..MaximumLength]);
+    }
 }

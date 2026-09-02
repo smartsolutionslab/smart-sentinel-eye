@@ -51,9 +51,9 @@ public class AuditEventTests
         row.Fab!.Value.ShouldBe("munich");
         row.Actor.Value.ShouldBe(ActorGuid);
         row.Actor.IsSystem.ShouldBeFalse();
-        row.ActorUsername.ShouldBe("admin@munich.test");
+        row.ActorUsername.Value.ShouldBe("admin@munich.test");
         row.EventIdentifier.Value.ShouldBe(EventGuid);
-        row.Payload.ShouldBe(PayloadJson);
+        row.Payload.Value.ShouldBe(PayloadJson);
         row.PayloadSizeBytes.ShouldBe(
             System.Text.Encoding.UTF8.GetByteCount(PayloadJson));
         row.SchemaVersion.ShouldBe(AuditEventEntity.CurrentSchemaVersion);

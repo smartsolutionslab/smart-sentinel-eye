@@ -44,5 +44,5 @@ public sealed class GetStreamQueryHandler(IStreamQuerySource streams, IStreamWhe
             WhepUrl: whepUrls.For(stream.Path),
             TranscodeMode: stream.TranscodeMode.Value,
             LastSuccessAt: stream.LastSuccessAt,
-            Error: stream.LastError);
+            Error: stream.LastError?.Value);
 }

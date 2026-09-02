@@ -59,7 +59,7 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
 
     public DateTimeOffset? LastSuccessAt { get; private set; }
 
-    public string? LastError { get; private set; }
+    public StreamError? LastError { get; private set; }
 
     public DateTimeOffset ProvisionedAt { get; private set; }
 
@@ -229,9 +229,9 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
         }
     }
 
-    public void ReportDegraded(string error, IClock clock)
+    public void ReportDegraded(StreamError error, IClock clock)
     {
-        Ensure.That(error).IsNotNull().IsNotNullOrWhiteSpace();
+        Ensure.That(error).IsNotNull();
         Ensure.That(clock).IsNotNull();
         EnsureNotRetired(nameof(ReportDegraded));
 
@@ -254,9 +254,9 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
         }
     }
 
-    public void ReportOffline(string error, IClock clock)
+    public void ReportOffline(StreamError error, IClock clock)
     {
-        Ensure.That(error).IsNotNull().IsNotNullOrWhiteSpace();
+        Ensure.That(error).IsNotNull();
         Ensure.That(clock).IsNotNull();
         EnsureNotRetired(nameof(ReportOffline));
 

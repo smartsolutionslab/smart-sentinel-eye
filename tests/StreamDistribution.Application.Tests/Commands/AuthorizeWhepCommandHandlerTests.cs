@@ -140,8 +140,8 @@ public class AuthorizeWhepCommandHandlerTests
             .At(FixedMoment)
             .Build();
         stream.ReportHealthy(TranscodeMode.Passthrough, new FixedClock(FixedMoment));
-        stream.ReportDegraded("source unreachable", new FixedClock(FixedMoment.AddSeconds(15)));
-        stream.ReportOffline("retry exhausted", new FixedClock(FixedMoment.AddMinutes(5)));
+        stream.ReportDegraded(StreamError.From("source unreachable"), new FixedClock(FixedMoment.AddSeconds(15)));
+        stream.ReportOffline(StreamError.From("retry exhausted"), new FixedClock(FixedMoment.AddMinutes(5)));
         streams.Add(stream);
         await streams.SaveAsync(CancellationToken.None);
 

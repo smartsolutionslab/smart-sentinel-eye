@@ -97,7 +97,7 @@ public class GetStreamQueryHandlerTests
         InMemoryStreamRepository streams = SeededWith(Munich, camera, state =>
         {
             state.ReportHealthy(TranscodeMode.Passthrough, new FixedClock(FixedMoment));
-            state.ReportDegraded("source unreachable", new FixedClock(FixedMoment.AddSeconds(15)));
+            state.ReportDegraded(StreamError.From("source unreachable"), new FixedClock(FixedMoment.AddSeconds(15)));
         });
         GetStreamQueryHandler handler = NewHandler(streams);
 

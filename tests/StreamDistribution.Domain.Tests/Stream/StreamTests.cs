@@ -122,16 +122,16 @@ public class StreamTests
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
         stream.ClearPendingEvents();
 
-        stream.ReportDegraded("source unreachable", new TestClock(FixedMoment.AddSeconds(15)));
+        stream.ReportDegraded(StreamError.From("source unreachable"), new TestClock(FixedMoment.AddSeconds(15)));
 
         stream.State.ShouldBe(StreamState.Degraded);
-        stream.LastError.ShouldBe("source unreachable");
+        stream.LastError.Value.ShouldBe("source unreachable");
 
         StreamHealthChangedDomainEvent transition =
             stream.PendingEvents.Single().ShouldBeOfType<StreamHealthChangedDomainEvent>();
         transition.FromState.ShouldBe(StreamState.Healthy);
         transition.ToState.ShouldBe(StreamState.Degraded);
-        transition.Error.ShouldBe("source unreachable");
+        transition.Error.Value.ShouldBe("source unreachable");
     }
 
     [Fact]
@@ -139,12 +139,12 @@ public class StreamTests
     {
         Domain.Stream.Stream stream = new StreamBuilder().Build();
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
-        stream.ReportDegraded("first failure", new TestClock(FixedMoment.AddSeconds(15)));
+        stream.ReportDegraded(StreamError.From("first failure"), new TestClock(FixedMoment.AddSeconds(15)));
         stream.ClearPendingEvents();
 
-        stream.ReportDegraded("retry failed", new TestClock(FixedMoment.AddSeconds(20)));
+        stream.ReportDegraded(StreamError.From("retry failed"), new TestClock(FixedMoment.AddSeconds(20)));
 
-        stream.LastError.ShouldBe("retry failed");
+        stream.LastError.Value.ShouldBe("retry failed");
         stream.PendingEvents.ShouldBeEmpty();
     }
 
@@ -164,14 +164,14 @@ public class StreamTests
     {
         Domain.Stream.Stream stream = new StreamBuilder().Build();
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
-        stream.ReportDegraded("source unreachable", new TestClock(FixedMoment.AddSeconds(15)));
-        stream.ReportOffline("still unreachable", new TestClock(FixedMoment.AddSeconds(30)));
+        stream.ReportDegraded(StreamError.From("source unreachable"), new TestClock(FixedMoment.AddSeconds(15)));
+        stream.ReportOffline(StreamError.From("still unreachable"), new TestClock(FixedMoment.AddSeconds(30)));
         stream.ClearPendingEvents();
 
-        stream.ReportOffline("still unreachable after retry", new TestClock(FixedMoment.AddSeconds(45)));
+        stream.ReportOffline(StreamError.From("still unreachable after retry"), new TestClock(FixedMoment.AddSeconds(45)));
 
         stream.State.ShouldBe(StreamState.Offline);
-        stream.LastError.ShouldBe("still unreachable after retry");
+        stream.LastError.Value.ShouldBe("still unreachable after retry");
         stream.PendingEvents.ShouldBeEmpty();
     }
 
@@ -180,10 +180,10 @@ public class StreamTests
     {
         Domain.Stream.Stream stream = new StreamBuilder().Build();
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
-        stream.ReportDegraded("first failure", new TestClock(FixedMoment.AddSeconds(15)));
+        stream.ReportDegraded(StreamError.From("first failure"), new TestClock(FixedMoment.AddSeconds(15)));
         stream.ClearPendingEvents();
 
-        stream.ReportOffline("retry exhausted", new TestClock(FixedMoment.AddMinutes(5)));
+        stream.ReportOffline(StreamError.From("retry exhausted"), new TestClock(FixedMoment.AddMinutes(5)));
 
         stream.State.ShouldBe(StreamState.Offline);
         StreamHealthChangedDomainEvent transition =
@@ -198,7 +198,7 @@ public class StreamTests
         Domain.Stream.Stream stream = new StreamBuilder().Build();
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
 
-        Action act = () => stream.ReportOffline("can't happen", new TestClock(FixedMoment.AddSeconds(10)));
+        Action act = () => stream.ReportOffline(StreamError.From("can't happen"), new TestClock(FixedMoment.AddSeconds(10)));
 
         act.ShouldThrow<InvalidOperationException>();
     }
@@ -208,7 +208,7 @@ public class StreamTests
     {
         Domain.Stream.Stream stream = new StreamBuilder().Build();
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
-        stream.ReportDegraded("first failure", new TestClock(FixedMoment.AddSeconds(15)));
+        stream.ReportDegraded(StreamError.From("first failure"), new TestClock(FixedMoment.AddSeconds(15)));
         stream.ClearPendingEvents();
 
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment.AddMinutes(1)));
@@ -226,8 +226,8 @@ public class StreamTests
     {
         Domain.Stream.Stream stream = new StreamBuilder().Build();
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
-        stream.ReportDegraded("failure", new TestClock(FixedMoment.AddSeconds(15)));
-        stream.ReportOffline("exhausted", new TestClock(FixedMoment.AddMinutes(5)));
+        stream.ReportDegraded(StreamError.From("failure"), new TestClock(FixedMoment.AddSeconds(15)));
+        stream.ReportOffline(StreamError.From("exhausted"), new TestClock(FixedMoment.AddMinutes(5)));
         stream.ClearPendingEvents();
 
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment.AddMinutes(10)));
@@ -255,10 +255,10 @@ public class StreamTests
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
         stream.Fab.ShouldBe(dresden);
 
-        stream.ReportDegraded("source unreachable", new TestClock(FixedMoment.AddSeconds(15)));
+        stream.ReportDegraded(StreamError.From("source unreachable"), new TestClock(FixedMoment.AddSeconds(15)));
         stream.Fab.ShouldBe(dresden);
 
-        stream.ReportOffline("retry exhausted", new TestClock(FixedMoment.AddMinutes(5)));
+        stream.ReportOffline(StreamError.From("retry exhausted"), new TestClock(FixedMoment.AddMinutes(5)));
         stream.Fab.ShouldBe(dresden);
 
         stream.ReportHealthy(TranscodeMode.Software, new TestClock(FixedMoment.AddMinutes(10)));
@@ -290,8 +290,8 @@ public class StreamTests
         Domain.Stream.Stream stream = new StreamBuilder().WithFab(dresden).Build();
 
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
-        stream.ReportDegraded("source unreachable", new TestClock(FixedMoment.AddSeconds(15)));
-        stream.ReportOffline("retry exhausted", new TestClock(FixedMoment.AddMinutes(5)));
+        stream.ReportDegraded(StreamError.From("source unreachable"), new TestClock(FixedMoment.AddSeconds(15)));
+        stream.ReportOffline(StreamError.From("retry exhausted"), new TestClock(FixedMoment.AddMinutes(5)));
         stream.Retire(new TestClock(FixedMoment.AddMinutes(10)));
 
         StreamHealthChangedDomainEvent[] raised = stream.PendingEvents

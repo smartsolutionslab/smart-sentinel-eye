@@ -21,7 +21,7 @@ public class GetAuditEventQueryHandlerTests
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.AuditIdentifier.ShouldBe(row.Id.Value);
-        result.Value.Payload.ShouldBe(row.Payload);
+        result.Value.Payload.ShouldBe(row.Payload.Value);
         result.Value.EventKind.ShouldBe(row.EventKind.Value);
     }
 

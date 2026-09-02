@@ -78,7 +78,21 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         }
         if (actorUsername is not null)
         {
-            source = source.Where(auditEvent => auditEvent.ActorUsername == actorUsername);
+            // A search term too long to be an ActorUsername matched no rows while
+            // this column was a string, and still should. Parsing it unguarded —
+            // as the actor filter above does — would turn an over-long term into
+            // a 500, which is a status this refactor must not introduce.
+            ActorUsername parsedActorUsername;
+            try
+            {
+                parsedActorUsername = ActorUsername.From(actorUsername);
+            }
+            catch (ArgumentException)
+            {
+                return Success(new AuditPageDto([], null));
+            }
+
+            source = source.Where(auditEvent => auditEvent.ActorUsername == parsedActorUsername);
         }
         if (eventKind is not null)
         {

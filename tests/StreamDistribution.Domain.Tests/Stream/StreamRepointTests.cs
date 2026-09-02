@@ -93,11 +93,11 @@ public class StreamRepointTests
                 stream.ReportHealthy(TranscodeMode.Passthrough, clock);
                 break;
             case "Degraded":
-                stream.ReportDegraded("no frames", clock);
+                stream.ReportDegraded(StreamError.From("no frames"), clock);
                 break;
             case "Offline":
-                stream.ReportDegraded("no frames", clock);
-                stream.ReportOffline("still no frames", clock);
+                stream.ReportDegraded(StreamError.From("no frames"), clock);
+                stream.ReportOffline(StreamError.From("still no frames"), clock);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(state), state, "Unhandled state.");

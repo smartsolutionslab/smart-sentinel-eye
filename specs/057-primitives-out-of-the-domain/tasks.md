@@ -107,16 +107,16 @@ will fail to *compile*, which is the strongest red available. Quote one such
 failure in the PR (FR-008); nine near-identical quotations prove nothing the
 first does not.
 
-- [ ] T013 [P] [US2] Write the invariant tests for `TriggerSource` and `TriggerKind` in `tests/Automation.Domain.Tests/` — `""` refused, whitespace refused, over-length refused (16 / 128), valid round-trips. Observe them fail.
-- [ ] T014 [P] [US2] Write the invariant tests for `DeliveryTopic` (≤ 256), `RejectionReason` (≤ 512), `RawPayload` (non-empty only) and `KeycloakClientIdentifier` (≤ 255, nullable) in `tests/EventIngestion.Domain.Tests/`. Observe them fail.
-- [ ] T015 [P] [US2] Write the invariant tests for `ActorUsername` (≤ 255, nullable) and `AuditPayload` (non-empty only) in `tests/AuditObservability.Domain.Tests/`. Observe them fail.
-- [ ] T016 [P] [US2] Write the invariant tests for `StreamError` (≤ 1024, nullable) in `tests/StreamDistribution.Domain.Tests/`. Observe them fail.
-- [ ] T017 [P] [US2] Add `TriggerSource` and `TriggerKind` in `src/Automation/Domain/Rule/`, deriving `StringValueObject`, validating in `From(...)` via `Ensure`; retype `Rule.TriggerSource` and `Rule.TriggerKind`.
-- [ ] T018 [P] [US2] Add `DeliveryTopic`, `RejectionReason`, `RawPayload` in `src/EventIngestion/Domain/DeadLetter/` and `KeycloakClientIdentifier` in `src/EventIngestion/Domain/WebhookIntegration/`; retype the four properties.
-- [ ] T019 [P] [US2] Add `ActorUsername` and `AuditPayload` in `src/AuditObservability/Domain/AuditEvent/`; retype both properties.
-- [ ] T020 [P] [US2] Add `StreamError` in `src/StreamDistribution/Domain/Stream/`; retype `Stream.LastError`, keeping it a nullable reference.
-- [ ] T021 [US2] Add `HasConversion` for all nine in the four affected files under `src/*/Infrastructure/Persistence/Configurations/`. **Leave every `HasMaxLength` exactly as it is** — the bound now lives in two places on purpose: the value object refuses it, the column still declares it, and the column is what keeps the schema identical.
-- [ ] T022 [US2] Run quickstart check 3 for Automation, EventIngestion, AuditObservability and StreamDistribution. Empty `Up()`/`Down()` each time; `migrations remove` after each probe.
+- [X] T013 [P] [US2] Write the invariant tests for `TriggerSource` and `TriggerKind` in `tests/Automation.Domain.Tests/` — `""` refused, whitespace refused, over-length refused (16 / 128), valid round-trips. Observe them fail.
+- [X] T014 [P] [US2] Write the invariant tests for `DeliveryTopic` (≤ 256), `RejectionReason` (≤ 512), `RawPayload` (non-empty only) and `KeycloakClientIdentifier` (≤ 255, nullable) in `tests/EventIngestion.Domain.Tests/`. Observe them fail.
+- [X] T015 [P] [US2] Write the invariant tests for `ActorUsername` (≤ 255, nullable) and `AuditPayload` (non-empty only) in `tests/AuditObservability.Domain.Tests/`. Observe them fail.
+- [X] T016 [P] [US2] Write the invariant tests for `StreamError` (≤ 1024, nullable) in `tests/StreamDistribution.Domain.Tests/`. Observe them fail.
+- [X] T017 [P] [US2] Add `TriggerSource` and `TriggerKind` in `src/Automation/Domain/Rule/`, deriving `StringValueObject`, validating in `From(...)` via `Ensure`; retype `Rule.TriggerSource` and `Rule.TriggerKind`.
+- [X] T018 [P] [US2] Add `DeliveryTopic`, `RejectionReason`, `RawPayload` in `src/EventIngestion/Domain/DeadLetter/` and `KeycloakClientIdentifier` in `src/EventIngestion/Domain/WebhookIntegration/`; retype the four properties.
+- [X] T019 [P] [US2] Add `ActorUsername` and `AuditPayload` in `src/AuditObservability/Domain/AuditEvent/`; retype both properties.
+- [X] T020 [P] [US2] Add `StreamError` in `src/StreamDistribution/Domain/Stream/`; retype `Stream.LastError`, keeping it a nullable reference.
+- [X] T021 [US2] Add `HasConversion` for all nine in the four affected files under `src/*/Infrastructure/Persistence/Configurations/`. **Leave every `HasMaxLength` exactly as it is** — the bound now lives in two places on purpose: the value object refuses it, the column still declares it, and the column is what keeps the schema identical.
+- [X] T022 [US2] Run quickstart check 3 for Automation, EventIngestion, AuditObservability and StreamDistribution. Empty `Up()`/`Down()` each time; `migrations remove` after each probe.
 
 ---
 

@@ -206,3 +206,108 @@ assumed from the reasoning above.
 The last three are the honest ones. Phases 1–3 make the **guard** rule
 mechanical. The other two rules now state their scope and their evidence, which
 is strictly better than before, and remain enforced by review.
+
+---
+
+# Phase 4 — US2: text types (T013–T022)
+
+## The spec's premise was wrong for six of nine
+
+The spec said "a caller can put `""` into a rule's trigger source". Measuring
+before writing the tests showed otherwise, and changed what they assert.
+
+| Property | Guarded before | What the type actually adds |
+|---|---|---|
+| `Rule.TriggerSource` / `TriggerKind` | non-empty | **type safety** — both were `string` and adjacent in `Rule.Create`; a bound |
+| `DeadLetter.Topic` / `Error` | non-empty | length bound, all construction paths |
+| `DeadLetter.RawPayload` | **null only** | distinctness only — see below |
+| `WebhookIntegration.KeycloakClientId` | non-empty | length bound |
+| `AuditEvent.ActorUsername` / `Payload` | **nothing** | non-empty, length bound |
+| `Stream.LastError` | non-empty | length bound |
+
+Only three gain `""` rejection. The general win is that every length limit
+lived **only** in the EF configuration, so an over-long value was
+constructible and failed as a `DbUpdateException` at the far end of the
+request.
+
+## T013–T016 — red observed
+
+All nine types absent; the tests failed to **compile**, which is the strongest
+red available.
+
+```text
+error CS0103: The name 'TriggerSource' does not exist in the current context
+error CS0103: The name 'DeliveryTopic' does not exist in the current context
+error CS0103: The name 'ActorUsername' does not exist in the current context
+error CS0103: The name 'StreamError' does not exist in the current context
+```
+
+## T022 — the probe caught a real defect
+
+`EventIngestion` did **not** come back empty on the first run:
+
+```text
+migrationBuilder.AlterColumn<string>(
+    name: "keycloak_client_id", table: "webhook_integrations",
+    nullable: false, defaultValue: "", oldNullable: true);
+```
+
+Retyping `KeycloakClientId` dropped its `?`, and EF read the non-nullable
+annotation as required. That is the defect the empty-diff check exists to
+catch. Restoring the nullable reference made the probe empty.
+
+Final state — every context probed, every `Up()`/`Down()` empty, no migration
+committed. The only model-snapshot difference anywhere was EF's own
+`ProductVersion` annotation (10.0.10 → 10.0.11), which is tooling, not schema.
+
+| Context | Probe |
+|---|---|
+| Automation | empty |
+| EventIngestion | empty (after the fix above) |
+| AuditObservability | empty |
+| StreamDistribution | empty |
+
+## Two invariants the code disproved
+
+**`RawPayload` does not refuse empty.** `MqttSubscriberHostedService` builds it
+from `Encoding.UTF8.GetString(body.Span)`, so a zero-length MQTT delivery gives
+`""` — and a zero-length delivery is exactly the sort of malformed message that
+gets dead-lettered. Refusing it would throw inside the capture path, be
+swallowed by the surrounding handler as though the database were down, and lose
+the dead letter for one of the most likely rejection causes. The invariant would
+have suppressed the evidence it was meant to protect.
+
+**`AuditPayload` keeps its non-empty rule**, and the asymmetry is reachability
+rather than taste: it comes from `JsonSerializer.Serialize`, which yields at
+least `{}` for any object.
+
+## A rule this phase broke, and did not hide
+
+`StreamError.Truncating` was written **before** its test — a violation of the
+red-first obligation ADR-0139 introduced two commits earlier.
+
+It is disclosed rather than quietly corrected. What was done instead: the
+truncation was removed by mutation, the test was confirmed **failing**, and the
+file was restored to its original checksum. That proves the test has power; it
+does **not** prove the test came first, and the two are not the same claim.
+
+The factory exists because the alternative was worse. An over-long gateway
+error previously failed as a `DbUpdateException`; refusing it in `From` would
+have thrown `ArgumentException` into a background loop instead — losing the same
+health report, for the same input, by a new route.
+
+## Query filters that must still translate
+
+Three EF predicates compared a converted column to a raw string. Unwrapping to
+`.Value` would have stopped translating and fallen back to client evaluation —
+passing tests while scanning the table. Each now parses the filter into the
+value object and compares type to type.
+
+All three return an **empty page** rather than a `400` when the filter cannot be
+a valid value, because that is what comparing it to the column did before, and
+this feature moves no status code:
+`ListRulesQueryHandler` (×2) and `SearchAuditQueryHandler` (×1).
+
+The webhook `azp` authorization check keeps `string.Equals` against `?.Value`
+rather than record equality — its null handling is preserved exactly, including
+the null-versus-null case, which this refactor is not the place to change.

@@ -55,4 +55,41 @@ public class StreamErrorTests
     {
         StreamError.MaximumLength.ShouldBe(1024);
     }
+
+    /// <summary>
+    /// The health watcher reports whatever the SFU hands it, from a background
+    /// loop. <c>Truncating</c> clips rather than refuses so the state change
+    /// survives a message nobody controls the length of.
+    /// </summary>
+    [Fact]
+    public void An_error_from_an_external_system_is_clipped_rather_than_refused()
+    {
+        string tooLong = new('x', StreamError.MaximumLength + 500);
+
+        StreamError clipped = StreamError.Truncating(tooLong);
+
+        clipped.Value.Length.ShouldBe(StreamError.MaximumLength);
+    }
+
+    [Fact]
+    public void An_error_within_the_bound_is_left_alone_by_the_truncating_factory()
+    {
+        const string reported = "RTSP 401 Unauthorized from upstream";
+
+        StreamError.Truncating(reported).Value.ShouldBe(reported);
+    }
+
+    /// <summary>
+    /// Clipping is not a licence to accept nothing: an empty report is a defect
+    /// in the caller, not an over-long message.
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void The_truncating_factory_still_refuses_an_empty_error(string input)
+    {
+        Action act = () => StreamError.Truncating(input);
+
+        act.ShouldThrow<ArgumentException>();
+    }
 }
