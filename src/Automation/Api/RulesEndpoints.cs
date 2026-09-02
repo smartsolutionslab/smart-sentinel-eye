@@ -189,16 +189,16 @@ public static class RulesEndpoints
     private static async Task<(FabIdentifier? Fab, IResult? Problem)> ResolveWriteFabAsync(
         ClaimsPrincipal user, string fabId, IFabAuthorizationGuard fabGuard, CancellationToken cancellationToken)
     {
-        (string? resolved, IResult? problem) = await FabResolution.ResolveForWriteAsync(
+        Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
             user, fabId, fabGuard, "RULE_FAB_REQUIRED", cancellationToken);
-        if (problem is not null)
+        if (resolution.IsFailure)
         {
-            return (null, problem);
+            return (null, resolution.Error);
         }
 
         try
         {
-            return (FabIdentifier.From(resolved!), null);
+            return (FabIdentifier.From(resolution.Value), null);
         }
         catch (ArgumentException ex)
         {

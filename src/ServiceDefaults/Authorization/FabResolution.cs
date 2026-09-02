@@ -46,7 +46,7 @@ public static class FabResolution
     /// caller names a fab they do not hold, or holds none at all.
     /// </para>
     /// </summary>
-    public static async Task<(string? Fab, IResult? Problem)> ResolveForWriteAsync(
+    public static async Task<Result<string, IResult>> ResolveForWriteAsync(
         ClaimsPrincipal user,
         string fabId,
         IFabAuthorizationGuard fabGuard,
@@ -61,14 +61,14 @@ public static class FabResolution
         {
             await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken);
 
-            return (fabId, null);
+            return Result<string, IResult>.Success(fabId);
         }
 
         IReadOnlyList<string> assigned = FabClaims.AssignedFabs(user);
 
         if (assigned.Count == 1)
         {
-            return (assigned[0], null);
+            return Result<string, IResult>.Success(assigned[0]);
         }
 
         if (assigned.Count == 0)
@@ -81,7 +81,7 @@ public static class FabResolution
             throw FabAuthorizationException.ForNoFabMembership();
         }
 
-        return (null, Results.Problem(
+        return Result<string, IResult>.Failure(Results.Problem(
             title: ambiguousErrorCode,
             detail: "You are assigned to more than one fab; name the one this applies to with ?fabId=.",
             statusCode: StatusCodes.Status400BadRequest));

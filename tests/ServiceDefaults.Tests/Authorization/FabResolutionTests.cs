@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -32,32 +33,32 @@ public class FabResolutionTests
     [Fact]
     public async Task One_fab_and_none_named_is_inferred()
     {
-        (string? fab, IResult? problem) = await FabResolution.ResolveForWriteAsync(
+        Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
             With("/fabs/munich"), fabId: "", new DefaultFabAuthorizationGuard(), Ambiguous, default);
 
-        fab.ShouldBe("munich");
-        problem.ShouldBeNull();
+        resolution.IsSuccess.ShouldBeTrue();
+        resolution.Value.ShouldBe("munich");
     }
 
     [Fact]
     public async Task One_fab_and_that_fab_named_is_accepted()
     {
-        (string? fab, IResult? problem) = await FabResolution.ResolveForWriteAsync(
+        Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
             With("/fabs/munich"), fabId: "munich", new DefaultFabAuthorizationGuard(), Ambiguous, default);
 
-        fab.ShouldBe("munich");
-        problem.ShouldBeNull();
+        resolution.IsSuccess.ShouldBeTrue();
+        resolution.Value.ShouldBe("munich");
     }
 
     // The row with no reachable user, and the reason this file exists.
     [Fact]
     public async Task Several_fabs_and_none_named_is_refused_rather_than_guessed()
     {
-        (string? fab, IResult? problem) = await FabResolution.ResolveForWriteAsync(
+        Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
             With("/fabs/munich", "/fabs/dresden"), fabId: "", new DefaultFabAuthorizationGuard(), Ambiguous, default);
 
-        fab.ShouldBeNull();
-        ProblemHttpResult result = problem.ShouldBeOfType<ProblemHttpResult>();
+        resolution.IsFailure.ShouldBeTrue();
+        ProblemHttpResult result = resolution.Error.ShouldBeOfType<ProblemHttpResult>();
         result.StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
         result.ProblemDetails.Title.ShouldBe(Ambiguous);
     }
@@ -65,11 +66,11 @@ public class FabResolutionTests
     [Fact]
     public async Task Several_fabs_and_one_of_theirs_named_is_accepted()
     {
-        (string? fab, IResult? problem) = await FabResolution.ResolveForWriteAsync(
+        Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
             With("/fabs/munich", "/fabs/dresden"), fabId: "dresden", new DefaultFabAuthorizationGuard(), Ambiguous, default);
 
-        fab.ShouldBe("dresden");
-        problem.ShouldBeNull();
+        resolution.IsSuccess.ShouldBeTrue();
+        resolution.Value.ShouldBe("dresden");
     }
 
     [Fact]
