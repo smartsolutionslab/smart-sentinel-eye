@@ -38,7 +38,7 @@ public class FabIdentifierTests
     [Fact]
     public void Rejects_null()
     {
-        Should.Throw<ArgumentException>(() => FabIdentifier.From(null));
+        Should.Throw<ArgumentException>(() => FabIdentifier.From(null!));
     }
 
     [Theory]

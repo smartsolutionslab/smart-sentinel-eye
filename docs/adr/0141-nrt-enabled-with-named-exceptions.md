@@ -68,6 +68,15 @@ else in this ADR's history: a whole-solution build stops at the first failing
 project, so anything downstream of it is unmeasured rather than clean. Building
 each project alone is the only count that means anything here.
 
+> **Progress, 2026-09-02.** Three converted, five remain:
+> `Shared.Kernel.Tests`, `CameraCatalog.Domain.Tests` and
+> `StreamDistribution.Domain.Tests` are off the list — the three that carried
+> the twin-file problem this ADR opens with. Those two `Registration` test
+> files are now byte-identical apart from their context and aggregate names.
+> Remaining: `ServiceDefaults` 56, `ScenarioSimulator` 52,
+> `Shared.Contracts.Tests` 38, `StreamDistribution.Application.Tests` 26,
+> `CameraCatalog.Application.Tests` 18 — **190 of the original 234**.
+
 **These are a conversion backlog, not a carve-out.** They are the projects that
 genuinely relied on the documented default, and naming them makes the work
 countable instead of invisible. Removing one is a normal change; adding one

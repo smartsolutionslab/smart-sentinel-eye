@@ -212,6 +212,30 @@ deploy/helm/            One hand-written Mosquitto chart. The Aspire k8s
   event-to-overlay path cites which leg it affects.
 - **Aspire is the composition root.** New runtime resources go in
   `AppHost`. Don't wire connection strings by hand.
+- **Prefer `Option<T>` to a nullable parameter, in Domain and
+  Application** (ADR-0141). A nullable parameter says a value may be
+  absent; `Option<T>` says what absent *means* and forces the caller to
+  handle it. **Advisory, not enforced** — no analyzer, no architecture
+  test, and existing signatures are not a defect.
+
+  Scope is deliberate. Infrastructure and Api keep nullable parameters,
+  because they translate wire and framework shapes where `null` is the
+  native vocabulary — the same reasoning that exempts `Shared.Contracts`
+  from §II. Nullable **properties** are untouched: persisted absences use
+  nullable value-object references, because EF maps those and does not map
+  `Option<T>`.
+
+  **Baseline, 2026-09-02: 70 nullable reference parameters in Domain and
+  Application, against 7 `Option<T>` parameters.** The count is recorded
+  because this rule has no test, and an advisory rule nobody measures is
+  the exact shape of every rule this repository has had to correct — §II
+  twice, the Phase 3 board gate, §IV's leg table, ADR-0048. Re-measure
+  before claiming it holds:
+
+  ```sh
+  grep -rnE '\([^)]*[A-Za-z]+\? [a-z][A-Za-z]*[,)]' --include=*.cs src/*/Domain src/*/Application | grep -v obj/ | wc -l
+  ```
+
 - **Handlers destructure their input first.** A message, command or
   query handler that reads **two or more** fields deconstructs the
   incoming record into locals as the first statement after the guard,
@@ -331,7 +355,7 @@ claims a discharge nobody earned.
 | Application layout | Per-message-kind: `Commands/`, `Queries/`, `EventHandlers/`, `DTOs/`, each with `Handlers/` subfolder and paired `*Errors.cs` | 0093 |
 | Errors | `Result<T, Error>` with `ApiError(Code, Message, HttpStatusCode)` base | 0047, 0089 |
 | Argument guards | **`Ensure.That(x).IsNotNull()`** — never `ArgumentNullException.ThrowIfNull` or bare `throw new ArgumentException` for argument preconditions (AppHost + generated migrations + parse/format errors excepted) | 0059, 0105 |
-| Nulls | **NRT enabled**, one default with eight named exceptions; `Option<T>` for domain absences and repository lookups, nullable references for persisted state | 0048, **0141** |
+| Nulls | **NRT enabled**, one default with five named exceptions (was eight; see ADR-0141); `Option<T>` for domain absences and repository lookups, nullable references for persisted state | 0048, **0141** |
 | Async | `CancellationToken` mandatory last param; no `ConfigureAwait` | 0049 |
 | Persistence | PostgreSQL. **Marten is permitted and unused** — no context has justified it (ADR-0130) | 0009, 0071, **0130** |
 | Concurrency | Two-layer optimistic: `If-Match` expected version (cross-request) + EF token (in-transaction); no retry-on-conflict | 0043, **0113** |

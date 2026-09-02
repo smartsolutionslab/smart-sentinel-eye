@@ -24,7 +24,7 @@ public class ProvisioningTests
     public void Refuses_a_missing_moment()
     {
         Should.Throw<ArgumentException>(() =>
-            Provisioning.From(null, OperatorIdentifier.From(Guid.CreateVersion7())));
+            Provisioning.From(null!, OperatorIdentifier.From(Guid.CreateVersion7())));
     }
 
     [Fact]

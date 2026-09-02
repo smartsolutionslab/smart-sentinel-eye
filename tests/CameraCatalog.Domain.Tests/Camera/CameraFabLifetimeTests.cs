@@ -69,7 +69,7 @@ public class CameraFabLifetimeTests
         // camera with no fab is invisible to every operator (FR-005), which is
         // a worse failure than being refused at the boundary.
         Should.Throw<ArgumentException>(() => Domain.Camera.Camera.Register(
-            null,
+            null!,
             CameraName.From("Line-1-North"),
             RtspUrl.From("rtsp://10.0.5.12/h264"),
             OperatorIdentifier.From(Guid.CreateVersion7()),
@@ -85,7 +85,7 @@ public class CameraFabLifetimeTests
         // Asserts the setter is not public rather than that no method mentions
         // "Fab", which would match the property getter and pass vacuously.
         System.Reflection.PropertyInfo fab =
-            typeof(Domain.Camera.Camera).GetProperty("Fab");
+            typeof(Domain.Camera.Camera).GetProperty("Fab")!;
 
         fab.ShouldNotBeNull();
         fab.SetMethod?.IsPublic.ShouldNotBe(true);

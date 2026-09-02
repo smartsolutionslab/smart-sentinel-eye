@@ -70,7 +70,7 @@ public class TimestampOrderingTests
 
         unwrap(instant).Offset.ShouldBe(TimeSpan.Zero);
         unwrap(instant).ShouldBe(elsewhere);
-        instant.ToString().ShouldBe(elsewhere.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+        instant!.ToString().ShouldBe(elsewhere.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture));
     }
 
     [Fact]
