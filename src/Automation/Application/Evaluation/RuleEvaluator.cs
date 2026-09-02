@@ -57,7 +57,7 @@ public sealed class RuleEvaluator(
 
                 case RuleAction.HighlightOverlay highlight:
                     effects.Add(new RuleActionEffect.HighlightOverlay(
-                        highlight.Overlay, highlight.DurationMs));
+                        highlight.Overlay.Value, highlight.Duration.Value));
                     break;
 
                 default:

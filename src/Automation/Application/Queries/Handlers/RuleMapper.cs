@@ -31,7 +31,7 @@ internal static class RuleMapper
             RuleAction.SetVariableValue setValue =>
                 RuleActionDto.ForSetVariableValue(setValue.VariableName, setValue.ValueExpression),
             RuleAction.HighlightOverlay highlight =>
-                RuleActionDto.ForHighlightOverlay(highlight.Overlay, highlight.DurationMs),
+                RuleActionDto.ForHighlightOverlay(highlight.Overlay.Value, highlight.Duration.Value),
             // A new variant must be given a wire shape deliberately rather than
             // silently serialising as an empty object.
             _ => throw new NotSupportedException(

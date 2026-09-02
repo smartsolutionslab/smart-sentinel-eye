@@ -92,6 +92,25 @@ does not reach a primitive held by an entity or aggregate that merely
 *constructs* a value object from it — which is the reading that let `Tile`
 through, and which the corrected wording now refuses.
 
+**And an identity reference is never a backing value.** A component that
+identifies another entity is a *reference*, not part of what the value object
+is: `GridPosition` **is** its two ints, whereas `RuleAction.HighlightOverlay`
+is not the overlay it points at. Without this sentence the plural exemption
+swallows the case it was widened for — `HighlightOverlay(Guid Overlay, int
+DurationMs)` is a composite value object, so its raw `Guid` would have been
+exempt on the same words that exempt `Label`. Found by applying this
+amendment, on the day it was written, to the first type it was pointed at.
+The same class of hole as the one above; caught before merge rather than
+after, which is the only difference worth claiming.
+
+The line sits at *identity*, and it is worth saying where the near cases fall.
+`RuleAction.SetVariableValue`'s `VariableName` and `ValueExpression` stay
+`string`: a variable name is resolved by SystemVariables when it consumes the
+effect, and an AEL expression is source text this context compiles — neither
+is an identifier, and typing them here would put SystemVariables' vocabulary
+in Automation's domain. If that line later proves to be in the wrong place, it
+moves by amendment, which is the point of writing it down at all.
+
 ### 4. No exemption for EF-mapped scalars
 
 Considered and rejected on evidence, because it is the exemption `Tile` was

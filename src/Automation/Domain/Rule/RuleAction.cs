@@ -8,10 +8,14 @@ namespace SmartSentinelEye.Automation.Domain.Rule;
 /// <see cref="HighlightOverlay"/>.
 ///
 /// <para>
-/// The action carries primitive types only — Automation never
-/// references SystemVariables.Domain or OverlayDesigner.Domain. The
-/// referenced names + identifiers are validated at the API edge
-/// (cross-context boundary) and passed through.
+/// Automation never references SystemVariables.Domain or
+/// OverlayDesigner.Domain, and each <c>From</c> takes the primitive it was
+/// handed at the API edge. That is a rule about **project references**, not
+/// about the types an action stores: an overlay reference is a context-local
+/// <see cref="OverlayIdentifier"/> and a highlight window a
+/// <see cref="HighlightDuration"/>, both declared here. The variable name and
+/// AEL expression stay strings — SystemVariables validates the first when it
+/// consumes the effect, and the second is source text this context compiles.
 /// </para>
 /// </summary>
 public abstract record RuleAction
@@ -47,16 +51,9 @@ public abstract record RuleAction
     /// <c>ssE-overlay-highlight</c> CSS class for
     /// <see cref="DurationMs"/> milliseconds.
     /// </summary>
-    public sealed record HighlightOverlay(Guid Overlay, int DurationMs) : RuleAction
+    public sealed record HighlightOverlay(OverlayIdentifier Overlay, HighlightDuration Duration) : RuleAction
     {
-        public const int MinimumDurationMs = 500;
-        public const int MaximumDurationMs = 60_000;
-
-        public static HighlightOverlay From(Guid overlay, int durationMs)
-        {
-            Ensure.That(overlay).IsNotEmpty();
-            Ensure.That(durationMs).InRange(MinimumDurationMs, MaximumDurationMs);
-            return new HighlightOverlay(overlay, durationMs);
-        }
+        public static HighlightOverlay From(Guid overlay, int durationMs) =>
+            new(OverlayIdentifier.From(overlay), HighlightDuration.From(durationMs));
     }
 }
