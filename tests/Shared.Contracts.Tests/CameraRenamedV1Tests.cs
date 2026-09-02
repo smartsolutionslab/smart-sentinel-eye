@@ -105,7 +105,7 @@ public class CameraRenamedV1Tests
             camera, "munich", "line-3-inlet", "line-4-inlet", RenamedAt, operatorId, Metadata: TestMetadata);
 
         string json = JsonSerializer.Serialize(original);
-        CameraRenamedV1 deserialized = JsonSerializer.Deserialize<CameraRenamedV1>(json);
+        CameraRenamedV1 deserialized = JsonSerializer.Deserialize<CameraRenamedV1>(json)!;
 
         deserialized.ShouldBe(original);
     }

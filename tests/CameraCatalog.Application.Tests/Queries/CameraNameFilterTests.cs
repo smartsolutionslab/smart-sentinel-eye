@@ -105,7 +105,7 @@ public class CameraNameFilterTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public async Task An_absent_or_blank_fragment_returns_everything(string fragment)
+    public async Task An_absent_or_blank_fragment_returns_everything(string? fragment)
     {
         ListCamerasQueryHandler handler = NewHandler(
             CameraNamed("Line 2 Furnace"),

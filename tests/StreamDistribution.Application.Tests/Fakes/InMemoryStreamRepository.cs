@@ -17,7 +17,7 @@ public sealed class InMemoryStreamRepository : IStreamRepository
 
     public Task<Option<Domain.Stream.Stream>> GetByIdentifierAsync(StreamIdentifier stream, CancellationToken cancellationToken)
     {
-        Domain.Stream.Stream found = _streams.FirstOrDefault(candidate => candidate.Id.Equals(stream));
+        Domain.Stream.Stream? found = _streams.FirstOrDefault(candidate => candidate.Id.Equals(stream));
         return Task.FromResult(found is null
             ? Option<Domain.Stream.Stream>.None
             : Option<Domain.Stream.Stream>.Some(found));
@@ -25,7 +25,7 @@ public sealed class InMemoryStreamRepository : IStreamRepository
 
     public Task<Option<Domain.Stream.Stream>> GetByCameraAsync(CameraIdentifier camera, CancellationToken cancellationToken)
     {
-        Domain.Stream.Stream found = _streams.FirstOrDefault(candidate => candidate.Camera.Equals(camera));
+        Domain.Stream.Stream? found = _streams.FirstOrDefault(candidate => candidate.Camera.Equals(camera));
         return Task.FromResult(found is null
             ? Option<Domain.Stream.Stream>.None
             : Option<Domain.Stream.Stream>.Some(found));
@@ -33,7 +33,7 @@ public sealed class InMemoryStreamRepository : IStreamRepository
 
     public Task<Option<Domain.Stream.Stream>> GetByPathAsync(MediaMtxPath path, CancellationToken cancellationToken)
     {
-        Domain.Stream.Stream found = _streams.FirstOrDefault(candidate => candidate.Path.Equals(path));
+        Domain.Stream.Stream? found = _streams.FirstOrDefault(candidate => candidate.Path.Equals(path));
         return Task.FromResult(found is null
             ? Option<Domain.Stream.Stream>.None
             : Option<Domain.Stream.Stream>.Some(found));

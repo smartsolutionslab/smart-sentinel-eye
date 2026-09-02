@@ -56,7 +56,7 @@ public class OverlayHighlightRequestedV1Tests
 
         string json = JsonSerializer.Serialize(original);
         OverlayHighlightRequestedV1 deserialized =
-            JsonSerializer.Deserialize<OverlayHighlightRequestedV1>(json);
+            JsonSerializer.Deserialize<OverlayHighlightRequestedV1>(json)!;
 
         deserialized.ShouldBe(original);
     }

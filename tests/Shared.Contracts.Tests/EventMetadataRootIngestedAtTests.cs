@@ -39,7 +39,7 @@ public class EventMetadataRootIngestedAtTests
             }
             """;
 
-        EventMetadata metadata = JsonSerializer.Deserialize<EventMetadata>(beforeTheChange);
+        EventMetadata metadata = JsonSerializer.Deserialize<EventMetadata>(beforeTheChange)!;
 
         metadata.ShouldNotBeNull();
         metadata.Fab.ShouldBe("munich");
@@ -62,7 +62,7 @@ public class EventMetadataRootIngestedAtTests
 
         string wire = JsonSerializer.Serialize(current);
 
-        MetadataAsItWasBefore old = JsonSerializer.Deserialize<MetadataAsItWasBefore>(wire);
+        MetadataAsItWasBefore old = JsonSerializer.Deserialize<MetadataAsItWasBefore>(wire)!;
 
         old.ShouldNotBeNull();
         old.Fab.ShouldBe("munich");
@@ -83,7 +83,7 @@ public class EventMetadataRootIngestedAtTests
             DecisionAt, "OccurredAt still means when this event's own action happened");
         downstream.RootIngestedAt.ShouldBe(
             Ingested, "RootIngestedAt means when the plant-floor event that caused it was accepted");
-        downstream.RootIngestedAt.Value.ShouldBeLessThan(
+        downstream.RootIngestedAt!.Value.ShouldBeLessThan(
             downstream.OccurredAt, "the root is upstream in time of the decision it caused");
     }
 

@@ -58,7 +58,7 @@ public class OverlayRevisionArchivedV1Tests
 
         string json = JsonSerializer.Serialize(original);
         OverlayRevisionArchivedV1 deserialized =
-            JsonSerializer.Deserialize<OverlayRevisionArchivedV1>(json);
+            JsonSerializer.Deserialize<OverlayRevisionArchivedV1>(json)!;
 
         deserialized.ShouldBe(original);
     }

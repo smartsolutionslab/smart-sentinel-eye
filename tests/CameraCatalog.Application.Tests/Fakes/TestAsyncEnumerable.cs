@@ -45,21 +45,21 @@ internal sealed class TestAsyncQueryProvider<TEntity>(IQueryProvider inner) : IA
     public IQueryable<TElement> CreateQuery<TElement>(Expression expression) =>
         new TestAsyncEnumerable<TElement>(expression);
 
-    public object Execute(Expression expression) => inner.Execute(expression);
+    public object? Execute(Expression expression) => inner.Execute(expression);
 
     public TResult Execute<TResult>(Expression expression) => inner.Execute<TResult>(expression);
 
     public TResult ExecuteAsync<TResult>(Expression expression, CancellationToken cancellationToken = default)
     {
         Type expectedResultType = typeof(TResult).GetGenericArguments()[0];
-        object executionResult = typeof(IQueryProvider)
-            .GetMethod(name: nameof(IQueryProvider.Execute), genericParameterCount: 1, types: [typeof(Expression)])
+        object? executionResult = typeof(IQueryProvider)
+            .GetMethod(name: nameof(IQueryProvider.Execute), genericParameterCount: 1, types: [typeof(Expression)])!
             .MakeGenericMethod(expectedResultType)
             .Invoke(inner, [expression]);
 
         return (TResult)typeof(Task)
-            .GetMethod(nameof(Task.FromResult))
+            .GetMethod(nameof(Task.FromResult))!
             .MakeGenericMethod(expectedResultType)
-            .Invoke(null, [executionResult]);
+            .Invoke(null, [executionResult])!;
     }
 }

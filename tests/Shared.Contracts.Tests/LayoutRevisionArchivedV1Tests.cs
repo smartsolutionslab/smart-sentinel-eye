@@ -61,7 +61,7 @@ public class LayoutRevisionArchivedV1Tests
             Metadata: TestMetadata);
 
         string json = JsonSerializer.Serialize(original);
-        LayoutRevisionArchivedV1 deserialized = JsonSerializer.Deserialize<LayoutRevisionArchivedV1>(json);
+        LayoutRevisionArchivedV1 deserialized = JsonSerializer.Deserialize<LayoutRevisionArchivedV1>(json)!;
 
         deserialized.ShouldBe(original);
     }

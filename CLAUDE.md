@@ -355,7 +355,7 @@ claims a discharge nobody earned.
 | Application layout | Per-message-kind: `Commands/`, `Queries/`, `EventHandlers/`, `DTOs/`, each with `Handlers/` subfolder and paired `*Errors.cs` | 0093 |
 | Errors | `Result<T, Error>` with `ApiError(Code, Message, HttpStatusCode)` base | 0047, 0089 |
 | Argument guards | **`Ensure.That(x).IsNotNull()`** — never `ArgumentNullException.ThrowIfNull` or bare `throw new ArgumentException` for argument preconditions (AppHost + generated migrations + parse/format errors excepted) | 0059, 0105 |
-| Nulls | **NRT enabled**, one default with five named exceptions (was eight; see ADR-0141); `Option<T>` for domain absences and repository lookups, nullable references for persisted state | 0048, **0141** |
+| Nulls | **NRT enabled**, one default with two named exceptions (was eight; see ADR-0141); `Option<T>` for domain absences and repository lookups, nullable references for persisted state | 0048, **0141** |
 | Async | `CancellationToken` mandatory last param; no `ConfigureAwait` | 0049 |
 | Persistence | PostgreSQL. **Marten is permitted and unused** — no context has justified it (ADR-0130) | 0009, 0071, **0130** |
 | Concurrency | Two-layer optimistic: `If-Match` expected version (cross-request) + EF token (in-transaction); no retry-on-conflict | 0043, **0113** |
