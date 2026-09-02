@@ -405,16 +405,16 @@ public static class CameraEndpoints
         IFabAuthorizationGuard fabGuard,
         CancellationToken cancellationToken)
     {
-        (string? resolved, IResult? problem) = await FabResolution.ResolveForWriteAsync(
+        Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
             user, fabId, fabGuard, "CAMERA_FAB_REQUIRED", cancellationToken);
-        if (problem is not null)
+        if (resolution.IsFailure)
         {
-            return (null, problem);
+            return (null, resolution.Error);
         }
 
         try
         {
-            return (FabIdentifier.From(resolved!), null);
+            return (FabIdentifier.From(resolution.Value), null);
         }
         catch (ArgumentException ex)
         {
