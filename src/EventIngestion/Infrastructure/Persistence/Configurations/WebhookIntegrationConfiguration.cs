@@ -62,7 +62,7 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
         builder.Property(integration => integration.KeycloakClientId)
             .HasColumnName("keycloak_client_id")
             .HasMaxLength(KeycloakClientIdentifier.MaximumLength)
-            .HasConversion(client => client.Value, value => KeycloakClientIdentifier.From(value));
+            .HasConversion(client => client!.Value, value => KeycloakClientIdentifier.From(value));
 
         builder.Property(integration => integration.RotatedAt)
             .HasColumnName("rotated_at");

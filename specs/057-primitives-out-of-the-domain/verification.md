@@ -311,3 +311,51 @@ this feature moves no status code:
 The webhook `azp` authorization check keeps `string.Equals` against `?.Value`
 rather than record equality — its null handling is preserved exactly, including
 the null-versus-null case, which this refactor is not the place to change.
+
+## CI caught what every local check missed: Debug is not the gate
+
+PR #2019's first CI run **failed**. Six errors, all `CS8602` / `CS8625` —
+nullable-reference violations in the **Release** build:
+
+```text
+tests/AuditObservability.Domain.Tests/AuditEvent/AuditEventTests.cs(54,9):
+  error CS8602: Dereference of a possibly null reference.
+tests/EventIngestion.Domain.Tests/DeadLetter/DeadLetterValueObjectTests.cs(59,44):
+  error CS8625: Cannot convert null literal to non-nullable reference type.
+src/AuditObservability/Infrastructure/Persistence/Configurations/AuditEventConfiguration.cs(92,40):
+  error CS8602: Dereference of a possibly null reference.
+src/StreamDistribution/Infrastructure/Persistence/Configurations/StreamConfiguration.cs(78,37):
+  error CS8602: Dereference of a possibly null reference.
+src/EventIngestion/Infrastructure/Persistence/Configurations/WebhookIntegrationConfiguration.cs(65,38):
+  error CS8602: Dereference of a possibly null reference.
+```
+
+Every local build in this phase was **Debug**. Debug was green throughout, and
+green Debug says nothing at all about Release — they are different gates, not
+strong and weak versions of one.
+
+A seventh surfaced only after fixing the first six
+(`WebhookIntegrationRotatedV1HandlerTests.cs:42`), because the compiler stops
+per project.
+
+**All six live where a nullable value object is dereferenced**, which is the
+new construct this phase introduced and therefore exactly where the two
+configurations were always going to diverge. The fix is the idiom the codebase
+already used and which was not carried across: `DeadLetterConfiguration` has
+written `fab => fab!.Value` since spec 018. It was read during this work and not
+generalised.
+
+Three things follow, and only one of them is the code fix:
+
+1. The converters and assertions take `!` where the property is nullable.
+2. `quickstart.md`'s full-regression step now says `-c Release`, because it said
+   plain `dotnet build` and that is what licensed the mistake. A verification
+   document that names a weaker check than CI runs is not a verification
+   document.
+3. The claim "28 projects, 1864 tests, no failures" in the previous commit was
+   **true and insufficient**. It was measured in Debug. Restated below against
+   Release.
+
+This is the same defect this whole feature exists to correct — a check that
+passes on half a system, believed because it was green — committed inside the
+fix for it. Recorded rather than quietly amended.

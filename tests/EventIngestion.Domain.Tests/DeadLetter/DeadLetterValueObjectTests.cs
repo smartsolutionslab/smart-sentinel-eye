@@ -8,11 +8,10 @@ namespace SmartSentinelEye.EventIngestion.Domain.Tests.DeadLetter;
 /// client identifier.
 ///
 /// <para>
-/// <c>RawPayload</c> is the one that changes behaviour rather than only moving
-/// it: <c>DeadLetter.Capture</c> guarded it with <c>IsNotNull()</c> alone, so an
-/// empty payload was capturable. An empty dead letter records that something was
-/// rejected while discarding the only evidence of what — the exact thing the
-/// aggregate exists to preserve.
+/// <c>RawPayload</c> is the one that deliberately keeps accepting empty input,
+/// matching <c>Capture</c>'s existing <c>IsNotNull()</c> guard. An earlier draft
+/// refused emptiness; the calling code disproved it. See the type's own remarks
+/// and the test below for why.
 /// </para>
 /// </summary>
 public class DeadLetterValueObjectTests
@@ -56,7 +55,7 @@ public class DeadLetterValueObjectTests
     [Fact]
     public void A_raw_payload_that_is_null_is_refused()
     {
-        Action act = () => RawPayload.From(null);
+        Action act = () => RawPayload.From(null!);
 
         act.ShouldThrow<ArgumentNullException>();
     }

@@ -89,7 +89,7 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
         builder.Property(auditEvent => auditEvent.ActorUsername)
             .HasColumnName("actor_username")
             .HasMaxLength(ActorUsername.MaximumLength)
-            .HasConversion(username => username.Value, value => ActorUsername.From(value));
+            .HasConversion(username => username!.Value, value => ActorUsername.From(value));
 
         builder.Property(auditEvent => auditEvent.EventIdentifier)
             .HasColumnName("event_identifier")

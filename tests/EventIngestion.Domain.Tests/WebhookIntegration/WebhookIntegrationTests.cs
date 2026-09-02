@@ -115,7 +115,7 @@ public class WebhookIntegrationTests
         integration.MarkAsRotated(KeycloakClientIdentifier.From("webhook-qa"), new FakeClock(Now.AddHours(1)));
 
         integration.ValidationMode.ShouldBe(BearerValidationMode.Jwt);
-        integration.KeycloakClientId.Value.ShouldBe("webhook-qa");
+        integration.KeycloakClientId!.Value.ShouldBe("webhook-qa");
         integration.RotatedAt.ShouldBe(Now.AddHours(1));
         integration.PendingEvents.OfType<WebhookIntegrationRotatedDomainEvent>()
             .ShouldHaveSingleItem();
