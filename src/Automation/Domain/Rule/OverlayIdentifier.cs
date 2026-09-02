@@ -18,24 +18,25 @@ namespace SmartSentinelEye.Automation.Domain.Rule;
 /// require the reference to be a bare <see cref="Guid"/>, which is how this
 /// one stayed untyped.
 /// </para>
+///
+/// <para>
+/// <b>Deliberately smaller than its twin.</b> LayoutComposition's copy is
+/// <c>IComparable</c> with four comparison operators and an implicit unwrap,
+/// because that context orders tiles and hands the raw <see cref="Guid"/> to
+/// EF. Nothing in Automation orders overlays or compares two of them — a rule
+/// points at one — so those members would be surface with no caller, tested
+/// only to keep a coverage gate quiet. Copying the twin wholesale is exactly
+/// how that happens; ADR-0139 refused `IComparable` on `AggregateVersion` for
+/// the same reason. They are one edit away if a caller appears.
+/// </para>
 /// </summary>
-public readonly record struct OverlayIdentifier(Guid Value) : IStronglyTypedId<Guid>, IComparable<OverlayIdentifier>
+public readonly record struct OverlayIdentifier(Guid Value) : IStronglyTypedId<Guid>
 {
     public static OverlayIdentifier From(Guid value)
     {
         Ensure.That(value).IsNotEmpty();
         return new(value);
     }
-
-    public static implicit operator Guid(OverlayIdentifier id) => id.Value;
-
-    /// <summary>Orders by the underlying Guid v7 so EF ordering and in-memory sorts agree.</summary>
-    public int CompareTo(OverlayIdentifier other) => Value.CompareTo(other.Value);
-
-    public static bool operator <(OverlayIdentifier left, OverlayIdentifier right) => left.CompareTo(right) < 0;
-    public static bool operator <=(OverlayIdentifier left, OverlayIdentifier right) => left.CompareTo(right) <= 0;
-    public static bool operator >(OverlayIdentifier left, OverlayIdentifier right) => left.CompareTo(right) > 0;
-    public static bool operator >=(OverlayIdentifier left, OverlayIdentifier right) => left.CompareTo(right) >= 0;
 
     public override string ToString() => Value.ToString();
 }
