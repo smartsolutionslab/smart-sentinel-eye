@@ -36,7 +36,7 @@ public sealed class ScenarioSeeder(
         // the run.
         foreach (string key in scenarios.Active)
         {
-            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition scenario))
+            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition? scenario))
             {
                 logger.ScenarioNotFound(key);
                 continue;

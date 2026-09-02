@@ -96,10 +96,10 @@ public sealed class CameraCatalogClient(
                 using HttpResponseMessage response = await http.SendAsync(list, cancellationToken);
                 response.EnsureSuccessStatusCode();
 
-                CameraPage payload = await response.Content.ReadFromJsonAsync<CameraPage>(cancellationToken);
+                CameraPage? payload = await response.Content.ReadFromJsonAsync<CameraPage>(cancellationToken);
                 IReadOnlyList<CameraSummary> items = payload?.Items ?? [];
 
-                CameraSummary match = items
+                CameraSummary? match = items
                     .FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
 
                 if (match is not null)

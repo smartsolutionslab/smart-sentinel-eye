@@ -40,7 +40,7 @@ public sealed class WallSeeder(
 
         foreach (string key in scenarios.Active)
         {
-            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition scenario) || scenario.Wall is null)
+            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition? scenario) || scenario.Wall is null)
             {
                 continue;
             }
@@ -69,7 +69,7 @@ public sealed class WallSeeder(
         try
         {
             await layouts.EnsureWallAsync(
-                scenario.Wall.Name,
+                scenario.Wall!.Name,
                 scenario.Wall.Rows,
                 scenario.Wall.Cols,
                 correlation.CompleteTiles(key),
@@ -79,7 +79,7 @@ public sealed class WallSeeder(
         {
             // Release so a later CameraRegisteredV1 retries the wall creation.
             correlation.ReleaseWallClaim(key);
-            logger.AssetMissingField(scenario.Wall.Name, $"wall ({ex.Message})");
+            logger.AssetMissingField(scenario.Wall!.Name, $"wall ({ex.Message})");
         }
     }
 }

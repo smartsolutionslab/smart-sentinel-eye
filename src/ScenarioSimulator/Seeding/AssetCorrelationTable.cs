@@ -75,7 +75,7 @@ public sealed class AssetCorrelationTable
             .Where(row => row.Scenario == scenario && row.Overlay.HasValue && row.Camera.HasValue)
             .OrderBy(row => row.TileRow)
             .ThenBy(row => row.TileCol)
-            .Select(row => new CorrelatedTile(row.Camera.Value, row.Overlay.Value, row.TileRow, row.TileCol))
+            .Select(row => new CorrelatedTile(row.Camera!.Value, row.Overlay!.Value, row.TileRow, row.TileCol))
             .ToList();
 
     private sealed class AssetRow

@@ -45,7 +45,7 @@ public sealed class AutomationRulesClient(
         using HttpRequestMessage create = new(HttpMethod.Post, $"/rules?fabId={FabId}")
         {
             Content = JsonContent.Create(
-                new CreateRuleBody(name, triggerSource, triggerKind, predicate, "HighlightOverlay", null, null, overlay, durationMs)),
+                new CreateRuleBody(name, triggerSource, triggerKind, predicate, "HighlightOverlay", null!, null!, overlay, durationMs)),
         };
         create.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using HttpResponseMessage created = await http.SendAsync(create, cancellationToken);
@@ -102,7 +102,7 @@ public sealed class AutomationRulesClient(
             return Option<RuleSummary>.None;
         }
 
-        RuleSummary summary = await response.Content
+        RuleSummary? summary = await response.Content
             .ReadFromJsonAsync<RuleSummary>(cancellationToken);
 
         return summary is null ? Option<RuleSummary>.None : Option<RuleSummary>.Some(summary);

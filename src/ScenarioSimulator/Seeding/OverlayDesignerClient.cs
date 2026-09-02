@@ -94,8 +94,8 @@ public sealed class OverlayDesignerClient(
         using HttpResponseMessage response = await http.SendAsync(list, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        OverlayListResponse payload = await response.Content.ReadFromJsonAsync<OverlayListResponse>(cancellationToken);
-        OverlayListItem match = payload?.Chains?.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
+        OverlayListResponse? payload = await response.Content.ReadFromJsonAsync<OverlayListResponse>(cancellationToken);
+        OverlayListItem? match = payload?.Chains?.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
         return match
             ?? throw new InvalidOperationException($"Overlay '{name}' conflicted but could not be read back.");
     }

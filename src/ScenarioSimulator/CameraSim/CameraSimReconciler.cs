@@ -38,7 +38,7 @@ public sealed class CameraSimReconciler(
         // entry in the list must not take the other plants down with it.
         foreach (string key in scenarios.Active)
         {
-            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition scenario))
+            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition? scenario))
             {
                 logger.ScenarioNotFound(key);
                 continue;

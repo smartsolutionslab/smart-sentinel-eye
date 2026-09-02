@@ -7,8 +7,6 @@
        AppHost gates it behind `isRunMode && !isE2ETests`. -->
 
   <PropertyGroup>
-    <!-- ADR-0141: NRT exception, not yet converted. -->
-    <Nullable>disable</Nullable>
     <TargetFramework>net10.0</TargetFramework>
     <!-- NRT disabled + Option<T> elsewhere (ADR-0048); mirror the solution. -->
     <ImplicitUsings>enable</ImplicitUsings>

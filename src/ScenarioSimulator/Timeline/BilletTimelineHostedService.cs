@@ -36,7 +36,7 @@ public sealed class BilletTimelineHostedService(
         // Deliberate, not an oversight: quickstart §3 tells the verifier to
         // expect exactly one wall animating, so two static walls are not
         // diagnosed as a bug.
-        if (!options.Scenarios.TryGetValue(options.Animated, out ScenarioDefinition scenario)
+        if (!options.Scenarios.TryGetValue(options.Animated, out ScenarioDefinition? scenario)
             || scenario.Timeline is null
             || scenario.Assets.Count == 0)
         {
@@ -78,7 +78,7 @@ public sealed class BilletTimelineHostedService(
 
             foreach (SensorDefinition sensor in asset.Sensors)
             {
-                if (!behaviours.TryGetValue(sensor.Behaviour, out ISensorBehaviour behaviour))
+                if (!behaviours.TryGetValue(sensor.Behaviour, out ISensorBehaviour? behaviour))
                 {
                     continue;
                 }

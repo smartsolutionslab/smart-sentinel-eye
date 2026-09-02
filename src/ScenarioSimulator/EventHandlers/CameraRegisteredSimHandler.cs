@@ -73,12 +73,12 @@ public sealed class CameraRegisteredSimHandler(
 
         foreach (string key in scenarios.Active)
         {
-            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition scenario))
+            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition? scenario))
             {
                 continue;
             }
 
-            AssetDefinition asset = scenario.Assets
+            AssetDefinition? asset = scenario.Assets
                 .FirstOrDefault(candidate => string.Equals(candidate.Camera.Path, path, StringComparison.Ordinal));
 
             if (asset is not null)
