@@ -56,7 +56,7 @@ public sealed class CreateRuleCommandHandler(
         }
 
         Rule rule = Rule.Create(
-            fab, name, triggerSource, triggerKind,
+            fab, name, TriggerSource.From(triggerSource), TriggerKind.From(triggerKind),
             predicate, action, createdBy, clock);
 
         rules.Add(rule);

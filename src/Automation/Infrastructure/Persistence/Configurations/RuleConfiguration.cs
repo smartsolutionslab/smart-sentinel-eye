@@ -45,12 +45,14 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
 
         builder.Property(rule => rule.TriggerSource)
             .HasColumnName("trigger_source")
-            .HasMaxLength(16)
+            .HasMaxLength(TriggerSource.MaximumLength)
+            .HasConversion(source => source.Value, value => TriggerSource.From(value))
             .IsRequired();
 
         builder.Property(rule => rule.TriggerKind)
             .HasColumnName("trigger_kind")
-            .HasMaxLength(128)
+            .HasMaxLength(TriggerKind.MaximumLength)
+            .HasConversion(kind => kind.Value, value => TriggerKind.From(value))
             .IsRequired();
 
         builder.Property(rule => rule.Predicate)

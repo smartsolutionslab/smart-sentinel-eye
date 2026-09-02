@@ -33,9 +33,9 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
 
     public RuleName Name { get; private set; } = null!;
 
-    public string TriggerSource { get; private set; } = string.Empty;
+    public TriggerSource TriggerSource { get; private set; } = null!;
 
-    public string TriggerKind { get; private set; } = string.Empty;
+    public TriggerKind TriggerKind { get; private set; } = null!;
 
     public RulePredicate Predicate { get; private set; } = null!;
 
@@ -60,8 +60,8 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
     public static Rule Create(
         FabIdentifier fab,
         RuleName name,
-        string triggerSource,
-        string triggerKind,
+        TriggerSource triggerSource,
+        TriggerKind triggerKind,
         RulePredicate predicate,
         RuleAction action,
         OperatorIdentifier createdBy,
@@ -72,8 +72,8 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
         Ensure.That(predicate).IsNotNull();
         Ensure.That(action).IsNotNull();
         Ensure.That(clock).IsNotNull();
-        Ensure.That(triggerSource).IsNotNull().IsNotNullOrWhiteSpace();
-        Ensure.That(triggerKind).IsNotNull().IsNotNullOrWhiteSpace();
+        Ensure.That(triggerSource).IsNotNull();
+        Ensure.That(triggerKind).IsNotNull();
 
         DateTimeOffset now = clock.UtcNow;
         Rule rule = new()

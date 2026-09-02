@@ -18,8 +18,8 @@ public sealed class RuleBuilder
     // the same as it did before the field existed.
     private FabIdentifier _fab = FabIdentifier.From("munich");
     private RuleName _name = RuleName.From("high-oee-on-fast-cycle");
-    private string _triggerSource = "plc";
-    private string _triggerKind = "PlcCycleStart";
+    private TriggerSource _triggerSource = TriggerSource.From("plc");
+    private TriggerKind _triggerKind = TriggerKind.From("PlcCycleStart");
     private RulePredicate _predicate = RulePredicate.From("$.payload.cycleTime <= 30");
     private RuleAction _action = RuleAction.SetVariableValue.From(
         "oeeLine1", "100 - $.payload.cycleTime * 2");
@@ -29,8 +29,8 @@ public sealed class RuleBuilder
 
     public RuleBuilder WithFab(string fab) { _fab = FabIdentifier.From(fab); return this; }
     public RuleBuilder WithName(string name) { _name = RuleName.From(name); return this; }
-    public RuleBuilder WithTriggerSource(string source) { _triggerSource = source; return this; }
-    public RuleBuilder WithTriggerKind(string kind) { _triggerKind = kind; return this; }
+    public RuleBuilder WithTriggerSource(string source) { _triggerSource = TriggerSource.From(source); return this; }
+    public RuleBuilder WithTriggerKind(string kind) { _triggerKind = TriggerKind.From(kind); return this; }
     public RuleBuilder WithPredicate(string predicate) { _predicate = RulePredicate.From(predicate); return this; }
     public RuleBuilder WithAction(RuleAction action) { _action = action; return this; }
     public RuleBuilder WithCreatedBy(OperatorIdentifier op) { _createdBy = op; return this; }
