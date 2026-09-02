@@ -13,7 +13,7 @@ public abstract class AggregateRoot<TIdentifier> : IVersionedAggregate
 
     public TIdentifier Id { get; protected set; }
 
-    public int Version { get; protected set; }
+    public AggregateVersion Version { get; protected set; } = AggregateVersion.Initial;
 
     public IReadOnlyList<IDomainEvent> PendingEvents => pendingEvents;
 

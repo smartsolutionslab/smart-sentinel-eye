@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
@@ -72,6 +73,7 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
 
         builder.Property(integration => integration.Version)
             .HasColumnName("version")
+            .HasConversion(version => version.Value, value => AggregateVersion.From(value))
             .IsConcurrencyToken();
 
         // Still globally unique, not (fab, name): the name is the path segment

@@ -21,7 +21,7 @@ public class AggregateVersionInterceptorTests
         root.Name = "renamed";
         AggregateVersionInterceptor.BumpVersions(context);
 
-        VersionOf(context, root).CurrentValue.ShouldBe(8);
+        VersionOf(context, root).CurrentValue.ShouldBe(AggregateVersion.From(8));
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public class AggregateVersionInterceptorTests
         context.Roots.Add(root);
         AggregateVersionInterceptor.BumpVersions(context);
 
-        VersionOf(context, root).CurrentValue.ShouldBe(0);
+        VersionOf(context, root).CurrentValue.ShouldBe(AggregateVersion.From(0));
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public class AggregateVersionInterceptorTests
 
         AggregateVersionInterceptor.BumpVersions(context);
 
-        VersionOf(context, root).CurrentValue.ShouldBe(3);
+        VersionOf(context, root).CurrentValue.ShouldBe(AggregateVersion.From(3));
         context.Entry(root).State.ShouldBe(EntityState.Unchanged);
     }
 
@@ -58,8 +58,8 @@ public class AggregateVersionInterceptorTests
         AggregateVersionInterceptor.BumpVersions(context);
 
         PropertyEntry version = VersionOf(context, root);
-        version.OriginalValue.ShouldBe(12);
-        version.CurrentValue.ShouldBe(13);
+        version.OriginalValue.ShouldBe(AggregateVersion.From(12));
+        version.CurrentValue.ShouldBe(AggregateVersion.From(13));
     }
 
     // The three cases below are the reason this interceptor exists. When only
@@ -75,7 +75,7 @@ public class AggregateVersionInterceptorTests
         root.Revisions[0].Label = "edited";
         AggregateVersionInterceptor.BumpVersions(context);
 
-        VersionOf(context, root).CurrentValue.ShouldBe(5);
+        VersionOf(context, root).CurrentValue.ShouldBe(AggregateVersion.From(5));
         context.Entry(root).State.ShouldBe(EntityState.Modified);
     }
 
@@ -88,7 +88,7 @@ public class AggregateVersionInterceptorTests
         root.Revisions.Add(new TestRevision { Id = Guid.CreateVersion7(), Label = "second" });
         AggregateVersionInterceptor.BumpVersions(context);
 
-        VersionOf(context, root).CurrentValue.ShouldBe(5);
+        VersionOf(context, root).CurrentValue.ShouldBe(AggregateVersion.From(5));
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public class AggregateVersionInterceptorTests
         root.Revisions.RemoveAt(0);
         AggregateVersionInterceptor.BumpVersions(context);
 
-        VersionOf(context, root).CurrentValue.ShouldBe(5);
+        VersionOf(context, root).CurrentValue.ShouldBe(AggregateVersion.From(5));
     }
 
     [Fact]
@@ -112,7 +112,7 @@ public class AggregateVersionInterceptorTests
         root.Revisions[0].Tiles[0].CameraName = "camera-2";
         AggregateVersionInterceptor.BumpVersions(context);
 
-        VersionOf(context, root).CurrentValue.ShouldBe(5);
+        VersionOf(context, root).CurrentValue.ShouldBe(AggregateVersion.From(5));
     }
 
     [Fact]
@@ -125,14 +125,14 @@ public class AggregateVersionInterceptorTests
         changed.Revisions[0].Label = "edited";
         AggregateVersionInterceptor.BumpVersions(context);
 
-        VersionOf(context, changed).CurrentValue.ShouldBe(5);
-        VersionOf(context, untouched).CurrentValue.ShouldBe(9);
+        VersionOf(context, changed).CurrentValue.ShouldBe(AggregateVersion.From(5));
+        VersionOf(context, untouched).CurrentValue.ShouldBe(AggregateVersion.From(9));
     }
 
     private static TestRoot AttachedRoot(VersionTestContext context, int version)
     {
         TestRoot root = NewRoot();
-        root.Version = version;
+        root.Version = AggregateVersion.From(version);
         context.Attach(root);
 
         return root;

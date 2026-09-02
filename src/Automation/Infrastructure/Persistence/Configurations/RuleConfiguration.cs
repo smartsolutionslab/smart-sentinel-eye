@@ -1,4 +1,5 @@
 using System.Globalization;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.Automation.Domain.Rule;
@@ -94,6 +95,7 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
 
         builder.Property(rule => rule.Version)
             .HasColumnName("version")
+            .HasConversion(version => version.Value, value => AggregateVersion.From(value))
             .IsConcurrencyToken();
 
         // FR-002 belt-and-braces: at most one non-Archived rule per

@@ -26,7 +26,9 @@ public sealed class VersionTestContext(DbContextOptions<VersionTestContext> opti
         {
             root.ToTable("test_roots");
             root.HasKey(entity => entity.Id);
-            root.Property(entity => entity.Version).IsConcurrencyToken();
+            root.Property(entity => entity.Version)
+                .HasConversion(version => version.Value, value => AggregateVersion.From(value))
+                .IsConcurrencyToken();
 
             root.OwnsMany(entity => entity.Revisions, revision =>
             {
@@ -51,7 +53,7 @@ public sealed class TestRoot : IVersionedAggregate
 
     public string Name { get; set; } = string.Empty;
 
-    public int Version { get; set; }
+    public AggregateVersion Version { get; set; } = AggregateVersion.Initial;
 
     public List<TestRevision> Revisions { get; set; } = [];
 }

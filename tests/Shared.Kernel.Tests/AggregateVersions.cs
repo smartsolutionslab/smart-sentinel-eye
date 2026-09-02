@@ -36,7 +36,7 @@ public static class AggregateVersions
     {
         Ensure.That(aggregate).IsNotNull();
 
-        SetTo(aggregate, aggregate.Version + 1);
+        SetTo(aggregate, aggregate.Version.Value + 1);
     }
 
     /// <summary>
@@ -57,6 +57,9 @@ public static class AggregateVersions
             ?? throw new InvalidOperationException(
                 $"{aggregate.GetType().Name}.Version has no setter reachable for an in-memory repository.");
 
-        setter.Invoke(aggregate, [version]);
+        // Boxed as AggregateVersion, not int: reflection does no implicit
+        // conversion, so passing the raw int throws "Object of type
+        // System.Int32 cannot be converted to AggregateVersion" at call time.
+        setter.Invoke(aggregate, [AggregateVersion.From(version)]);
     }
 }

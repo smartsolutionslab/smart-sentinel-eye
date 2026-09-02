@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
@@ -92,6 +93,7 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
 
         builder.Property(camera => camera.Version)
             .HasColumnName("version")
+            .HasConversion(version => version.Value, value => AggregateVersion.From(value))
             .IsConcurrencyToken();
 
         // #1434. The normalised name, computed by Postgres rather than written

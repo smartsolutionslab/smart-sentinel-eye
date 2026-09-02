@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
@@ -91,6 +92,7 @@ public sealed class VariableConfiguration : IEntityTypeConfiguration<Variable>
 
         builder.Property(variable => variable.Version)
             .HasColumnName("version")
+            .HasConversion(version => version.Value, value => AggregateVersion.From(value))
             .IsConcurrencyToken();
 
         // FR-005 belt-and-braces: at most one non-Archived variable

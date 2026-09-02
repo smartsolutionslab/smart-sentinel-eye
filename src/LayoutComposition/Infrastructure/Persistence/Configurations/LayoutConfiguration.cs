@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Kernel;
@@ -62,6 +63,7 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
 
         builder.Property(layout => layout.Version)
             .HasColumnName("version")
+            .HasConversion(version => version.Value, value => AggregateVersion.From(value))
             .IsConcurrencyToken();
 
         // Replaces ix_layouts_name. The name-uniqueness check is enforced in

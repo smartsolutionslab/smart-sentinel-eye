@@ -597,3 +597,103 @@ FR-019 is satisfied for HTTP-arriving input and **not** for bus-arriving input,
 where the existing handler-side re-validation is retained on purpose. Anyone
 reading FR-019 as "every command carries value objects" should read this section
 instead.
+
+---
+
+# Phase 7 — US5: `AggregateVersion` (T042–T045)
+
+## T043's gate cannot be staged, and this is a defect in the plan
+
+T043 says: convert **CameraCatalog only**, prove a stale write is still refused,
+then convert the other nine. That is not achievable, and the reason is
+structural rather than incidental.
+
+`Version` is declared once, on `AggregateRoot<TIdentifier>` in `Shared.Kernel`.
+Changing its type changes it for all ten aggregates in the same edit. Each of
+the ten EF configurations then needs a value converter in the same commit or EF
+refuses the whole model — exactly the failure `WebhookIntegration.RevokedAt`
+produced in Phase 5. There is no intermediate state where one aggregate is
+converted and nine are not.
+
+The plan's severability argument — "if it fights EF, the other five stories are
+already banked" — still holds at the *story* level: Phase 7 can be reverted
+whole. What does not hold is the per-aggregate staging inside it. **Phase 7 is
+all-or-nothing**, and the plan said otherwise.
+
+The gate's *evidence* requirement is still met, just not incrementally: CI's
+integration suite exercises stale writes against a real database across the
+contexts that have such tests, and that run is the gate.
+
+## A runtime defect found by reading, not by CI
+
+`AggregateVersionInterceptor.Bump` is what increments the version on every save:
+
+```csharp
+version.CurrentValue = (int)version.OriginalValue + 1;
+```
+
+`PropertyEntry.OriginalValue` carries the **model** value. Once `Version` became
+a value object that cast is `(int)` applied to a boxed `AggregateVersion` —
+`InvalidCastException`, **on every save of every aggregate in the system**.
+
+It compiles cleanly, because `OriginalValue` is typed `object?`. No unit test
+that fakes a repository executes it. It would have surfaced as a total write
+outage the first time CI ran the integration suite — the same class of failure
+as Phase 4's raw-SQL break, found this time by reading the code the change
+touched rather than by waiting eleven minutes to be told.
+
+Fixed by casting to `AggregateVersion` and rebuilding through `From`.
+
+## `AggregateVersion` is deliberately not `IComparable`
+
+The timestamps needed ordering; this does not. Versions are compared only for
+equality — a write is stale or it is not — and nothing in the codebase orders
+them, confirmed by search. Adding `IComparable` would drag in `CA1036`'s four
+operators and their tests for no caller. Where the timestamps' omission was a
+real defect, here the addition would be the speculative one.
+
+## Schema
+
+All nine contexts probe empty. The `version` column keeps its type; the
+converter maps `AggregateVersion` to the same `integer`.
+
+## Two more failures reflection and boxing hid from the compiler
+
+The Release build was clean and 25 tests failed anyway, in three projects.
+Neither cause is visible at compile time, and both are specific to turning a
+primitive into a reference type.
+
+**Reflection does no implicit conversion.** `AggregateVersions.SetTo` puts a
+test aggregate at a chosen version through a non-public setter:
+
+```csharp
+setter.Invoke(aggregate, [version]);   // version is an int
+```
+
+The implicit `operator int` runs in *either* direction at a call site the
+compiler can see. `MethodBase.Invoke` takes `object[]`, so the int is boxed as
+an int and the runtime refuses it: *"Object of type 'System.Int32' cannot be
+converted to type 'AggregateVersion'."* Sixteen tests across Identity and
+EventIngestion failed on it. The argument is now boxed as `AggregateVersion`.
+
+**`ShouldBe` compares boxed objects, and the message lies.** The interceptor
+tests read `PropertyEntry.CurrentValue`, which is `object?`, and asserted
+against an `int`:
+
+```text
+VersionOf(context, root).CurrentValue
+    should be
+3
+    but was
+3
+```
+
+The values agree; the *types* do not, and Shouldly renders both with
+`ToString()`. Nine tests failed showing a value equal to itself. Fixed by
+comparing against `AggregateVersion.From(3)`.
+
+Both belong with the `AggregateVersionInterceptor` cast in the same family:
+**a value object crossing an `object`-typed boundary loses every conversion the
+compiler would have applied.** There are three such boundaries in this
+codebase — raw SQL parameters, `PropertyEntry` values, and reflection — and
+this feature has now been bitten at all three.

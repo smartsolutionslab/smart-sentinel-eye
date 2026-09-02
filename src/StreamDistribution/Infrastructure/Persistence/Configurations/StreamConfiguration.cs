@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
@@ -91,6 +92,7 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
 
         builder.Property(stream => stream.Version)
             .HasColumnName("version")
+            .HasConversion(version => version.Value, value => AggregateVersion.From(value))
             .IsConcurrencyToken();
 
         // One stream per camera (FR-011 idempotency enforced at the DB layer too).

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.Shared.Kernel;
@@ -75,6 +76,7 @@ public sealed class EventConfiguration : IEntityTypeConfiguration<EventAggregate
 
         builder.Property(eventEntity => eventEntity.Version)
             .HasColumnName("version")
+            .HasConversion(version => version.Value, value => AggregateVersion.From(value))
             .IsConcurrencyToken();
 
         builder.Ignore(eventEntity => eventEntity.PendingEvents);
