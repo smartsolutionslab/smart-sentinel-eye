@@ -137,16 +137,22 @@ they were **decided**, not implemented.
 
 ## Phase 6: User Story 4 — A trigger is one thing (Priority: P3)
 
+**DECLINED — not deferred**, for the same reason as US3:
+`ix_rules_fab_trigger_state` spans the row and the composite. Confirmed in an
+isolated scratch model, for both an owned reference and a complex type. See
+[verification.md](./verification.md). The tasks below are ticked because they
+were **decided**, not implemented.
+
 **Goal**: `Rule.TriggerSource` + `TriggerKind` become one `Trigger`.
 
 **Independent test**: Replace the pair on `Rule`; confirm rule evaluation, persistence and projection are unchanged.
 
 *May be folded into slice 3's Automation pass to save a second sweep of the same files; kept as its own phase so it remains separately shippable and separately revertible.*
 
-- [ ] T046 [P] [US4] Create `Trigger(TriggerSource Source, TriggerKind Kind)` in `src/Automation/Domain/Rule/Trigger.cs` plus `tests/Automation.Domain.Tests/Rule/TriggerTests.cs`
-- [ ] T047 [US4] Replace the pair on `src/Automation/Domain/Rule/Rule.cs` and map it onto the existing `trigger_source` / `trigger_kind` columns in `RuleConfiguration.cs` with the required navigation
-- [ ] T048 [US4] Rename readers across `src/Automation/Application/**`, including rule evaluation and the rule DTO mapper, leaving the DTO field names unchanged
-- [ ] T049 [US4] Verify US4: no schema change beyond baseline; Automation Domain, Application and Infrastructure suites green
+- [X] T046 [P] [US4] Create `Trigger(TriggerSource Source, TriggerKind Kind)` in `src/Automation/Domain/Rule/Trigger.cs` plus `tests/Automation.Domain.Tests/Rule/TriggerTests.cs`
+- [X] T047 [US4] Replace the pair on `src/Automation/Domain/Rule/Rule.cs` and map it onto the existing `trigger_source` / `trigger_kind` columns in `RuleConfiguration.cs` with the required navigation
+- [X] T048 [US4] Rename readers across `src/Automation/Application/**`, including rule evaluation and the rule DTO mapper, leaving the DTO field names unchanged
+- [X] T049 [US4] Verify US4: no schema change beyond baseline; Automation Domain, Application and Infrastructure suites green
 
 ---
 
