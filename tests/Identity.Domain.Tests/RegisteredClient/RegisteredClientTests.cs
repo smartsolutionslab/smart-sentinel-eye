@@ -1,4 +1,5 @@
 using System.Globalization;
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Identity.Domain.RegisteredClient.Events;
 using SmartSentinelEye.Identity.Domain.Tests.RegisteredClient.Fakes;
@@ -18,12 +19,26 @@ public class RegisteredClientTests
 
         client.DisabledAt.ShouldBeNull();
         client.LastRotatedAt.ShouldBeNull();
-        client.RegisteredAt.Value.ShouldBe(Created);
+        client.Registration.At.Value.ShouldBe(Created);
         client.ClientId.Value.ShouldBe("plc-station-4");
         client.Kind.ShouldBe(ClientKind.Device);
         client.Fab.Value.ShouldBe("munich");
 
         client.PendingEvents.OfType<ClientRegisteredDomainEvent>().ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public void Register_records_when_it_happened_and_who_did_it()
+    {
+        OperatorIdentifier registeredBy = OperatorIdentifier.From(Guid.CreateVersion7());
+
+        RegisteredClientAggregate client = new RegisteredClientBuilder()
+            .WithClock(Created)
+            .WithRegisteredBy(registeredBy)
+            .Build();
+
+        client.Registration.At.Value.ShouldBe(Created);
+        client.Registration.By.ShouldBe(registeredBy);
     }
 
     [Fact]

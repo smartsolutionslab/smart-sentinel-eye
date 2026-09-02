@@ -29,9 +29,7 @@ public sealed class Camera : AggregateRoot<CameraIdentifier>
 
     public CameraStatus Status { get; private set; } = null!;
 
-    public RegisteredAt RegisteredAt { get; private set; } = null!;
-
-    public OperatorIdentifier RegisteredBy { get; private set; }
+    public Registration Registration { get; private set; } = null!;
 
     // EF Core / Marten construction.
     private Camera() { }
@@ -51,8 +49,7 @@ public sealed class Camera : AggregateRoot<CameraIdentifier>
             Name = name,
             Url = url,
             Status = CameraStatus.Registered,
-            RegisteredAt = RegisteredAt.From(clock.UtcNow),
-            RegisteredBy = registeredBy,
+            Registration = Registration.From(RegisteredAt.From(clock.UtcNow), registeredBy),
         };
 
         camera.Raise(new CameraRegisteredDomainEvent(
@@ -60,7 +57,7 @@ public sealed class Camera : AggregateRoot<CameraIdentifier>
             Fab: fab,
             Name: name,
             Url: url,
-            RegisteredAt: camera.RegisteredAt,
+            RegisteredAt: camera.Registration.At,
             RegisteredBy: registeredBy));
 
         return camera;

@@ -24,9 +24,7 @@ public sealed class RegisteredClient : AggregateRoot<RegisteredClientIdentifier>
 
     public FabIdentifier Fab { get; private set; } = null!;
 
-    public RegisteredAt RegisteredAt { get; private set; } = null!;
-
-    public OperatorIdentifier RegisteredBy { get; private set; }
+    public Registration Registration { get; private set; } = null!;
 
     public DisabledAt? DisabledAt { get; private set; }
 
@@ -57,8 +55,7 @@ public sealed class RegisteredClient : AggregateRoot<RegisteredClientIdentifier>
             ClientId = clientId,
             Kind = kind,
             Fab = fab,
-            RegisteredAt = RegisteredAt.From(now),
-            RegisteredBy = registeredBy,
+            Registration = Registration.From(RegisteredAt.From(now), registeredBy),
         };
         registered.Raise(new ClientRegisteredDomainEvent(
             registered.Id, clientId, kind, fab, now, registeredBy));

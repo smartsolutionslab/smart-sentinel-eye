@@ -97,7 +97,7 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
                 camera.Fab.Value,
                 camera.Name.Value,
                 camera.Url.Value,
-                camera.RegisteredAt,
+                camera.Registration.At,
                 camera.Status.Value))
             .ToListAsync(cancellationToken);
 
@@ -119,8 +119,8 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
             ("name", false) => source.OrderBy(camera => camera.Name).ThenBy(camera => camera.Fab),
             ("name", true) => source.OrderByDescending(camera => camera.Name).ThenBy(camera => camera.Fab),
             // Same reason: two cameras can share a registration instant.
-            ("registeredAt", false) => source.OrderBy(camera => camera.RegisteredAt).ThenBy(camera => camera.Fab),
-            ("registeredAt", true) => source.OrderByDescending(camera => camera.RegisteredAt).ThenBy(camera => camera.Fab),
+            ("registeredAt", false) => source.OrderBy(camera => camera.Registration.At).ThenBy(camera => camera.Fab),
+            ("registeredAt", true) => source.OrderByDescending(camera => camera.Registration.At).ThenBy(camera => camera.Fab),
             _ => throw new InvalidOperationException($"Unhandled sort field '{field}'."),
         };
 }

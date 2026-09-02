@@ -81,15 +81,23 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
             .HasConversion(status => status.Value, value => CameraStatus.From(value))
             .IsRequired();
 
-        builder.Property(camera => camera.RegisteredAt)
-            .HasColumnName("registered_at")
-            .HasConversion(v => v.Value, value => RegisteredAt.From(value))
-            .IsRequired();
+        // Owned reference onto the two columns the pair occupied. The
+        // Navigation(...).IsRequired() line keeps them NOT NULL; without it EF
+        // treats the reference as optional and the model silently diverges
+        // from the schema (#2022).
+        builder.OwnsOne(camera => camera.Registration, registration =>
+        {
+            registration.Property(value => value.At)
+                .HasColumnName("registered_at")
+                .HasConversion(at => at.Value, value => RegisteredAt.From(value))
+                .IsRequired();
 
-        builder.Property(camera => camera.RegisteredBy)
-            .HasColumnName("registered_by")
-            .HasConversion(operatorIdentifier => operatorIdentifier.Value, value => OperatorIdentifier.From(value))
-            .IsRequired();
+            registration.Property(value => value.By)
+                .HasColumnName("registered_by")
+                .HasConversion(by => by.Value, value => OperatorIdentifier.From(value))
+                .IsRequired();
+        });
+        builder.Navigation(camera => camera.Registration).IsRequired();
 
         builder.Property(camera => camera.Version)
             .HasColumnName("version")

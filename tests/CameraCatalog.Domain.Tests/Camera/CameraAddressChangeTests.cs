@@ -111,8 +111,8 @@ public class CameraAddressChangeTests
             .Build();
 
         CameraIdentifier identifier = camera.Id;
-        DateTimeOffset registeredAt = camera.RegisteredAt;
-        OperatorIdentifier registeredBy = camera.RegisteredBy;
+        DateTimeOffset registeredAt = camera.Registration.At;
+        OperatorIdentifier registeredBy = camera.Registration.By;
 
         camera.ChangeAddress(RtspUrl.From(CorrectedUrl), Operator, new FixedClock(ChangedAt));
 
@@ -122,8 +122,8 @@ public class CameraAddressChangeTests
         camera.Id.ShouldBe(identifier);
         camera.Fab.Value.ShouldBe("munich");
         camera.Name.Value.ShouldBe("line-3-inlet");
-        camera.RegisteredAt.Value.ShouldBe(registeredAt);
-        camera.RegisteredBy.ShouldBe(registeredBy);
+        camera.Registration.At.Value.ShouldBe(registeredAt);
+        camera.Registration.By.ShouldBe(registeredBy);
         camera.Status.ShouldBe(CameraStatus.Registered);
     }
 

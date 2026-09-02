@@ -149,7 +149,7 @@ public class ListCamerasQueryHandlerTests
         summary.CameraIdentifier.ShouldBe(camera.Id.Value);
         summary.Name.ShouldBe("Line-7");
         summary.RtspUrl.ShouldBe("rtsp://10.0.5.77/h264");
-        summary.RegisteredAt.ShouldBe(camera.RegisteredAt);
+        summary.RegisteredAt.ShouldBe(camera.Registration.At);
 
         // Spec 029 T007. Every listed row carries a version, so an operator can
         // correct a camera straight from the listing without a read-one

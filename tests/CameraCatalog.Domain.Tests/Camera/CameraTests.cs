@@ -33,7 +33,7 @@ public class CameraTests
 
         Domain.Camera.Camera camera = new CameraBuilder().At(moment).Build();
 
-        camera.RegisteredAt.Value.ShouldBe(moment);
+        camera.Registration.At.Value.ShouldBe(moment);
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class CameraTests
         raised.Name.Value.ShouldBe("Line-3-South");
         raised.Url.Value.ShouldBe("rtsp://10.0.5.30/h264");
         raised.RegisteredAt.ShouldBe(moment);
-        raised.RegisteredBy.ShouldBe(camera.RegisteredBy);
+        raised.RegisteredBy.ShouldBe(camera.Registration.By);
     }
 
     [Fact]
