@@ -57,11 +57,11 @@ public sealed class HttpKeycloakAdminClient(
             throw new KeycloakClientAlreadyExistsException(representation.ClientId);
         }
 
-        HttpRequestMessage create = new(HttpMethod.Post, $"admin/realms/{realm}/clients")
+        using HttpRequestMessage create = new(HttpMethod.Post, $"admin/realms/{realm}/clients")
         {
             Content = JsonContent.Create(representation, options: JsonOptions),
         };
-        HttpResponseMessage createResponse = await httpClient.SendAsync(create, cancellationToken);
+        using HttpResponseMessage createResponse = await httpClient.SendAsync(create, cancellationToken);
         if (createResponse.StatusCode == HttpStatusCode.Conflict)
         {
             throw new KeycloakClientAlreadyExistsException(representation.ClientId);
@@ -111,7 +111,7 @@ public sealed class HttpKeycloakAdminClient(
         string clientUuid = await TryGetClientUuidAsync(realm, clientId, cancellationToken)
             ?? throw new KeycloakClientNotFoundException(clientId);
 
-        HttpResponseMessage response = await httpClient
+        using HttpResponseMessage response = await httpClient
             .PostAsync($"admin/realms/{realm}/clients/{clientUuid}/client-secret",
                 content: null, cancellationToken);
         response.EnsureSuccessStatusCode();
@@ -136,11 +136,11 @@ public sealed class HttpKeycloakAdminClient(
             return;
         }
 
-        HttpRequestMessage update = new(HttpMethod.Put, $"admin/realms/{realm}/clients/{clientUuid}")
+        using HttpRequestMessage update = new(HttpMethod.Put, $"admin/realms/{realm}/clients/{clientUuid}")
         {
             Content = JsonContent.Create(new { enabled = false }, options: JsonOptions),
         };
-        HttpResponseMessage response = await httpClient.SendAsync(update, cancellationToken);
+        using HttpResponseMessage response = await httpClient.SendAsync(update, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 
@@ -154,7 +154,7 @@ public sealed class HttpKeycloakAdminClient(
         string realm, string clientId, CancellationToken cancellationToken)
     {
         string url = $"admin/realms/{realm}/clients?clientId={Uri.EscapeDataString(clientId)}";
-        HttpResponseMessage response = await httpClient.GetAsync(url, cancellationToken);
+        using HttpResponseMessage response = await httpClient.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
         ClientRow[] rows = await response.Content
             .ReadFromJsonAsync<ClientRow[]>(JsonOptions, cancellationToken)
@@ -166,7 +166,7 @@ public sealed class HttpKeycloakAdminClient(
         string realm, string clientUuid, string groupPath, CancellationToken cancellationToken)
     {
         // Fetch the service-account user behind the client.
-        HttpResponseMessage saResponse = await httpClient
+        using HttpResponseMessage saResponse = await httpClient
             .GetAsync($"admin/realms/{realm}/clients/{clientUuid}/service-account-user", cancellationToken);
         saResponse.EnsureSuccessStatusCode();
         ServiceAccountUser? user = await saResponse.Content
@@ -176,14 +176,14 @@ public sealed class HttpKeycloakAdminClient(
 
         // Resolve the group id by path.
         string lookupUrl = $"admin/realms/{realm}/group-by-path/{groupPath.TrimStart('/')}";
-        HttpResponseMessage groupResponse = await httpClient.GetAsync(lookupUrl, cancellationToken);
+        using HttpResponseMessage groupResponse = await httpClient.GetAsync(lookupUrl, cancellationToken);
         groupResponse.EnsureSuccessStatusCode();
         GroupRow? group = await groupResponse.Content
             .ReadFromJsonAsync<GroupRow>(JsonOptions, cancellationToken)
             ?? throw new InvalidOperationException(
                 $"Keycloak group '{groupPath}' not found; create it before registering clients in this fab.");
 
-        HttpResponseMessage joinResponse = await httpClient.PutAsync(
+        using HttpResponseMessage joinResponse = await httpClient.PutAsync(
             $"admin/realms/{realm}/users/{user.Id}/groups/{group.Id}",
             content: null, cancellationToken);
         joinResponse.EnsureSuccessStatusCode();
@@ -192,7 +192,7 @@ public sealed class HttpKeycloakAdminClient(
     private async Task<KeycloakClientCredentials> ReadClientSecretAsync(
         string realm, string clientUuid, CancellationToken cancellationToken)
     {
-        HttpResponseMessage response = await httpClient
+        using HttpResponseMessage response = await httpClient
             .GetAsync($"admin/realms/{realm}/clients/{clientUuid}/client-secret", cancellationToken);
         response.EnsureSuccessStatusCode();
         ClientCredentialPayload payload = await response.Content
@@ -222,7 +222,7 @@ public sealed class HttpKeycloakAdminClient(
         string realm = options.Value.Realm;
         await AuthorizeAsync(cancellationToken);
 
-        HttpResponseMessage response = await httpClient.GetAsync(
+        using HttpResponseMessage response = await httpClient.GetAsync(
             $"admin/realms/{realm}/group-by-path/{parentPath.TrimStart('/')}", cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
@@ -252,7 +252,7 @@ public sealed class HttpKeycloakAdminClient(
         bool lastPageReached = false;
         while (!lastPageReached)
         {
-            HttpResponseMessage children = await httpClient.GetAsync(
+            using HttpResponseMessage children = await httpClient.GetAsync(
                 $"admin/realms/{realm}/groups/{parent.Id}/children?first={names.Count}&max={pageSize}",
                 cancellationToken);
             children.EnsureSuccessStatusCode();
@@ -273,7 +273,7 @@ public sealed class HttpKeycloakAdminClient(
         string realm = options.Value.Realm;
         await AuthorizeAsync(cancellationToken);
 
-        HttpResponseMessage response = await httpClient
+        using HttpResponseMessage response = await httpClient
             .GetAsync($"admin/realms/{realm}/clients", cancellationToken);
         response.EnsureSuccessStatusCode();
 
@@ -320,7 +320,7 @@ public sealed class HttpKeycloakAdminClient(
     private async Task StripInheritedRealmRolesAsync(
         string realm, string clientUuid, CancellationToken cancellationToken)
     {
-        HttpResponseMessage saResponse = await httpClient
+        using HttpResponseMessage saResponse = await httpClient
             .GetAsync($"admin/realms/{realm}/clients/{clientUuid}/service-account-user", cancellationToken);
         saResponse.EnsureSuccessStatusCode();
         ServiceAccountUser? user = await saResponse.Content
@@ -328,7 +328,7 @@ public sealed class HttpKeycloakAdminClient(
             ?? throw new InvalidOperationException(
                 $"No service-account-user for Keycloak client {clientUuid}.");
 
-        HttpResponseMessage assignedResponse = await httpClient
+        using HttpResponseMessage assignedResponse = await httpClient
             .GetAsync($"admin/realms/{realm}/users/{user.Id}/role-mappings/realm", cancellationToken);
         assignedResponse.EnsureSuccessStatusCode();
         RealmRoleRow[] assigned = await assignedResponse.Content
@@ -341,13 +341,13 @@ public sealed class HttpKeycloakAdminClient(
             return;
         }
 
-        HttpRequestMessage remove = new(
+        using HttpRequestMessage remove = new(
             HttpMethod.Delete,
             $"admin/realms/{realm}/users/{user.Id}/role-mappings/realm")
         {
             Content = JsonContent.Create(assigned, options: JsonOptions),
         };
-        HttpResponseMessage removeResponse = await httpClient.SendAsync(remove, cancellationToken);
+        using HttpResponseMessage removeResponse = await httpClient.SendAsync(remove, cancellationToken);
         removeResponse.EnsureSuccessStatusCode();
     }
 
@@ -356,7 +356,8 @@ public sealed class HttpKeycloakAdminClient(
     {
         try
         {
-            await httpClient.DeleteAsync($"admin/realms/{realm}/clients/{clientUuid}", cancellationToken);
+            using HttpResponseMessage response = await httpClient
+                .DeleteAsync($"admin/realms/{realm}/clients/{clientUuid}", cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
