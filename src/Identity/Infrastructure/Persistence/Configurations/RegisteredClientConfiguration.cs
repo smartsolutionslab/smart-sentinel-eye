@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.Kernel;
@@ -63,6 +64,7 @@ public sealed class RegisteredClientConfiguration : IEntityTypeConfiguration<Reg
 
         builder.Property(client => client.Version)
             .HasColumnName("version")
+            .HasConversion(version => version.Value, value => AggregateVersion.From(value))
             .IsConcurrencyToken();
 
         // Active row uniqueness on client_id (FR-002 mirrors

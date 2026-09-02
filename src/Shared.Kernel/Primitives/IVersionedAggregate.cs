@@ -9,5 +9,5 @@ namespace SmartSentinelEye.Shared.Kernel.Primitives;
 /// </summary>
 public interface IVersionedAggregate
 {
-    int Version { get; }
+    AggregateVersion Version { get; }
 }

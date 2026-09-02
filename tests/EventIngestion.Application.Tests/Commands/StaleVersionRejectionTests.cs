@@ -113,7 +113,7 @@ public class StaleVersionRejectionTests
         await Revoker(integrations).HandleAsync(
             new RevokeWebhookIntegrationCommand([Munich], seeded.Name, 3), CancellationToken.None);
 
-        integrations.Integrations.ShouldHaveSingleItem().Version.ShouldBe(4);
+        integrations.Integrations.ShouldHaveSingleItem().Version.Value.ShouldBe(4);
     }
 
     /// <summary>
@@ -137,7 +137,7 @@ public class StaleVersionRejectionTests
         // revoke has now moved past. That is a genuinely stale request by the
         // gate's own definition — the assertion is that idempotency outranks
         // it, not that the version happened not to move.
-        integrations.Integrations[0].Version.ShouldBeGreaterThan(heldByTheCaller);
+        integrations.Integrations[0].Version.Value.ShouldBeGreaterThan(heldByTheCaller);
 
         Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> retry =
             await Revoker(integrations).HandleAsync(

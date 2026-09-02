@@ -92,7 +92,14 @@ public sealed class AggregateVersionInterceptor : SaveChangesInterceptor
     private static void Bump(EntityEntry root)
     {
         PropertyEntry version = root.Property(nameof(IVersionedAggregate.Version));
-        version.CurrentValue = (int)version.OriginalValue + 1;
+
+        // OriginalValue carries the *model* value, so this casts to
+        // AggregateVersion rather than to int. Casting to int compiled fine while
+        // Version was an int and would have thrown InvalidCastException on every
+        // save the moment it became a value object -- a runtime failure the
+        // compiler cannot see.
+        AggregateVersion original = (AggregateVersion)version.OriginalValue;
+        version.CurrentValue = AggregateVersion.From(original.Value + 1);
     }
 
     /// <summary>

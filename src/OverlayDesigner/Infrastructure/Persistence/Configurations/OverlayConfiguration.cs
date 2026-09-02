@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 using SmartSentinelEye.Shared.Kernel;
@@ -54,6 +55,7 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
 
         builder.Property(overlay => overlay.Version)
             .HasColumnName("version")
+            .HasConversion(version => version.Value, value => AggregateVersion.From(value))
             .IsConcurrencyToken();
 
         builder.HasIndex(overlay => overlay.Name)

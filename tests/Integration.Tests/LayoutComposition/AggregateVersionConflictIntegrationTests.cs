@@ -71,7 +71,7 @@ public class AggregateVersionConflictIntegrationTests(AspireFixture aspire) : IA
         await using LayoutCompositionDbContext reader = await VersionedContextAsync();
         Layout reloaded = await LoadAsync(reader, layoutIdentifier);
 
-        reloaded.Version.ShouldBe(loaded + 1);
+        reloaded.Version.Value.ShouldBe(loaded + 1);
     }
 
     /// <summary>
@@ -99,7 +99,7 @@ public class AggregateVersionConflictIntegrationTests(AspireFixture aspire) : IA
 
         await using LayoutCompositionDbContext reader = await PlainContextAsync();
         Layout reloaded = await LoadAsync(reader, layoutIdentifier);
-        reloaded.Version.ShouldBe(0);
+        reloaded.Version.Value.ShouldBe(0);
     }
 
     private async Task<Guid> SeedDraftAsync()

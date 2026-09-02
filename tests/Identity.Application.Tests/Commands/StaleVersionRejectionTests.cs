@@ -149,7 +149,7 @@ public class StaleVersionRejectionTests
             await handler.HandleAsync(Update(3), CancellationToken.None);
 
         rotated.IsSuccess.ShouldBeTrue();
-        clients.Clients.ShouldHaveSingleItem().Version.ShouldBe(4);
+        clients.Clients.ShouldHaveSingleItem().Version.Value.ShouldBe(4);
         rotated.Value.Version.ShouldBe(4);
     }
 

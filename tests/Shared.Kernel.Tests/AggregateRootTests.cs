@@ -17,7 +17,7 @@ public class AggregateRootTests
 
         public void DoSomething(string tag) => Raise(new SampleEvent(tag));
 
-        public void BumpVersion() => Version++;
+        public void BumpVersion() => Version = AggregateVersion.From(Version.Value + 1);
     }
 
     [Fact]
@@ -26,7 +26,7 @@ public class AggregateRootTests
         SampleAggregate aggregate = new();
 
         aggregate.PendingEvents.ShouldBeEmpty();
-        aggregate.Version.ShouldBe(0);
+        aggregate.Version.Value.ShouldBe(0);
     }
 
     [Fact]
@@ -60,6 +60,6 @@ public class AggregateRootTests
 
         aggregate.BumpVersion();
 
-        aggregate.Version.ShouldBe(1);
+        aggregate.Version.Value.ShouldBe(1);
     }
 }

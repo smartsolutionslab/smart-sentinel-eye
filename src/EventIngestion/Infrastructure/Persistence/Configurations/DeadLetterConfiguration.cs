@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
 using SmartSentinelEye.EventIngestion.Domain.Event;
@@ -55,6 +56,7 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
 
         builder.Property(deadLetter => deadLetter.Version)
             .HasColumnName("version")
+            .HasConversion(version => version.Value, value => AggregateVersion.From(value))
             .IsConcurrencyToken();
 
         builder.HasIndex(deadLetter => deadLetter.RejectedAt)
