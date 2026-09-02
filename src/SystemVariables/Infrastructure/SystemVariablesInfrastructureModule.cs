@@ -81,7 +81,18 @@ public static class SystemVariablesInfrastructureModule
 
         // Startup seeder for the reverse-index. Best-effort — the
         // Wolverine subscribers self-heal as overlay V1 events arrive.
-        builder.Services.AddHttpClient("overlay-designer");
+        // Named rather than typed, because the seeder is a hosted service and so
+        // a singleton: a typed client injected into one is held for the process
+        // lifetime, which pins a single HttpMessageHandler and defeats the
+        // factory's rotation. The base address belongs here rather than at the
+        // call site — S1075 flags the literal URI and S5332 the clear-text
+        // scheme, and neither applies: Aspire service discovery treats
+        // "overlay-designer" as a logical resource name and rewrites the whole
+        // URI, scheme included, in dev and on k3s alike.
+#pragma warning disable S1075, S5332
+        builder.Services.AddHttpClient("overlay-designer", client =>
+            client.BaseAddress = new Uri("http://overlay-designer"));
+#pragma warning restore S1075, S5332
         builder.Services.AddHostedService<ReverseIndexSeederHostedService>();
 
         builder.AddWolverineForContext<SystemVariablesDbContext>(
