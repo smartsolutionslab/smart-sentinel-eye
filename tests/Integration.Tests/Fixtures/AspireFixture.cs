@@ -400,15 +400,20 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         return report.ToString();
     }
 
-    private static async Task<string> CaptureOneResourceLogAsync(
+    private async Task<string> CaptureOneResourceLogAsync(
         Aspire.Hosting.ApplicationModel.ResourceLoggerService loggers, string name)
     {
+        if (!TryResolveResourceId(name, out string resourceId))
+        {
+            return "(no DCP instance for this resource — it has published no snapshot)";
+        }
+
         List<string> lines = [];
         using CancellationTokenSource perResource = new(TimeSpan.FromSeconds(5));
         try
         {
             await foreach (IReadOnlyList<LogLine> batch in
-                loggers.WatchAsync(name).WithCancellation(perResource.Token))
+                loggers.WatchAsync(resourceId).WithCancellation(perResource.Token))
             {
                 foreach (LogLine line in batch)
                 {
@@ -449,6 +454,51 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             : "(tail subscribed but the resource emitted nothing)";
     }
 
+    /// <summary>
+    /// The DCP instance id behind an app-model name — <c>camera-catalog</c>
+    /// resolves to something like <c>camera-catalog-thwaubpm</c>.
+    ///
+    /// <para>
+    /// <c>ResourceLoggerService.WatchAsync</c> keys on that id, not on the name.
+    /// Passing the name yields a stream that carries nothing and throws nothing,
+    /// which is why every tail in this fixture had been silently empty since it
+    /// was written, and why the seven <c>RecentLogs</c> call sites of #2053
+    /// printed "(tail subscribed but the resource emitted nothing)" for services
+    /// that had plainly emitted something (#2054).
+    /// </para>
+    ///
+    /// <para>
+    /// <b>One resolver, both capture paths.</b> <c>CaptureOneResourceLogAsync</c>
+    /// runs only on a startup timeout, which no test can provoke, so its
+    /// correctness rests entirely on sharing this code with the tail loop that
+    /// <c>LogTailDeliversIntegrationTests</c> does observe. A second copy would
+    /// make that claim false.
+    /// </para>
+    ///
+    /// <para>
+    /// Returns <see langword="false"/> when the resource has published no
+    /// snapshot yet. That is a wait, not a fault — callers must not record it.
+    /// </para>
+    /// </summary>
+    private bool TryResolveResourceId(string resourceName, out string resourceId)
+    {
+        resourceId = string.Empty;
+
+        if (_app is null)
+        {
+            return false;
+        }
+
+        if (!_app.ResourceNotifications.TryGetCurrentState(resourceName, out ResourceEvent? snapshot))
+        {
+            return false;
+        }
+
+        resourceId = snapshot.ResourceId;
+
+        return !string.IsNullOrEmpty(resourceId);
+    }
+
     private async Task TailResourceLogsAsync(string resourceName, CancellationToken cancellationToken)
     {
         if (_app is null)
@@ -472,8 +522,26 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             // lost was the subscription.
             while (!cancellationToken.IsCancellationRequested)
             {
+                // **Resolved on every turn of the loop, and never hoisted out of
+                // it.** The instance id changes on every restart as well as on
+                // every boot, so a resolve lifted above the loop re-subscribes to
+                // the process that just died and the resource goes permanently
+                // quiet — #2038's symptom, reintroduced by the fix for #2054.
+                // The position of these three lines is the whole correctness
+                // argument, and it looks exactly like something to hoist.
+                if (!TryResolveResourceId(resourceName, out string resourceId))
+                {
+                    // Not a failure: the tails are launched before the
+                    // WaitForResourceAsync calls, so a resource may simply not
+                    // have published a snapshot yet. A queue that is still
+                    // filling must not be reported as broken — that is the same
+                    // misleading diagnostic this whole change exists to remove.
+                    await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
+                    continue;
+                }
+
                 await foreach (IReadOnlyList<LogLine> batch in
-                    loggers.WatchAsync(resourceName).WithCancellation(cancellationToken))
+                    loggers.WatchAsync(resourceId).WithCancellation(cancellationToken))
                 {
                     foreach (LogLine line in batch)
                     {
@@ -485,9 +553,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                     }
                 }
 
-                // The stream ended without cancellation: the process went away.
-                // Wait for its replacement rather than spinning on a resource
-                // that is between lives.
+                // The stream ended without cancellation: the process went away,
+                // or the id we resolved was already stale when we watched it.
+                // Wait, then go round and re-resolve — the delay is what bounds
+                // the spin, so it has to stay on the re-resolving path.
                 await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
             }
         }
