@@ -14,6 +14,7 @@ using SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 using SmartSentinelEye.Identity.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
+using SmartSentinelEye.ServiceDefaults.Resilience;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -137,7 +138,12 @@ public static class IdentityInfrastructureModule
         // provider's own client: the provider is what mints the token the handler
         // attaches, so applying it to both would have the mint authorise itself.
         builder.Services.AddTransient<KeycloakAdminAuthorizationHandler>();
-        builder.Services.AddHttpClient(KeycloakAdminTokenProvider.HttpClientName, ConfigureHttpClient);
+        // The mint is an idempotent POST — a second token supersedes the first —
+        // so it keeps its retries (ADR-0143). The admin client below does not:
+        // creating a Keycloak client and rotating a secret are both POSTs that a
+        // retry would duplicate, which is what ADR-0142 exists to handle.
+        builder.Services.AddHttpClient(KeycloakAdminTokenProvider.HttpClientName, ConfigureHttpClient)
+            .RetryEveryMethod();
         builder.Services.AddSingleton<KeycloakAdminTokenProvider>();
         builder.Services.AddHttpClient<HttpKeycloakAdminClient>(ConfigureHttpClient)
             .AddHttpMessageHandler<KeycloakAdminAuthorizationHandler>();

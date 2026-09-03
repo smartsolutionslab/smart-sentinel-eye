@@ -14,6 +14,7 @@ using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 using SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Resilience;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -117,7 +118,10 @@ public static class EventIngestionInfrastructureModule
         // Singleton over a named client (#2037): the cache is only worth having if
         // the provider outlives a request, and asking the factory per mint keeps
         // handler rotation that a captive typed client would have pinned.
-        builder.Services.AddHttpClient(MqttTokenProvider.HttpClientName);
+        // A token mint is a POST, but an idempotent one: a second token simply
+        // supersedes the first. Losing its retries would make a transient
+        // Keycloak blip at startup fail the broker connection outright (ADR-0143).
+        builder.Services.AddHttpClient(MqttTokenProvider.HttpClientName).RetryEveryMethod();
         builder.Services.AddSingleton<MqttTokenProvider>();
         builder.Services.AddSingleton<MosquittoConnectionFactory>();
         builder.Services.AddHostedService<MqttSubscriberHostedService>();

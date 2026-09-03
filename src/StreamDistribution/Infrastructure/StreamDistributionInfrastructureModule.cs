@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Resilience;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
@@ -92,7 +93,15 @@ public static class StreamDistributionInfrastructureModule
         {
             MediaMtxOptions options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MediaMtxOptions>>().Value;
             client.BaseAddress = new Uri(options.ManagementUrl);
-        });
+        })
+            // Its two non-idempotent methods are idempotent in fact (ADR-0143).
+            // add/ sets a path to a source and answers 4xx if it already exists,
+            // which is not retried anyway; patch/ sets the source to a fixed
+            // value, so applying it twice lands in the same place. Without this
+            // a MediaMTX blip during provisioning would leave a stream
+            // unprovisioned on the first attempt and never try again, which the
+            // two-second health sweep would then report as a broken camera.
+            .RetryEveryMethod();
 
         builder.Services.AddHostedService<StreamHealthWatcher>();
         builder.Services.AddHostedService<MediaMtxReconciler>();
@@ -149,7 +158,8 @@ public static class StreamDistributionInfrastructureModule
             options.Realm = builder.Configuration["Keycloak:Realm"] ?? options.Realm;
         });
 
-        builder.Services.AddHttpClient(CameraCatalogTokenProvider.HttpClientName);
+        // Idempotent POST — see ADR-0143; a second token supersedes the first.
+        builder.Services.AddHttpClient(CameraCatalogTokenProvider.HttpClientName).RetryEveryMethod();
         builder.Services.AddSingleton<CameraCatalogTokenProvider>();
 
         // On the lookup only. The token provider's own client mints the token
