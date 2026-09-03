@@ -396,17 +396,32 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             Aspire.Hosting.ApplicationModel.ResourceLoggerService loggers =
                 _app.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
 
-            await foreach (IReadOnlyList<LogLine> batch in
-                loggers.WatchAsync(resourceName).WithCancellation(cancellationToken))
+            // **Re-subscribed in a loop, because a watch ends when its process
+            // does.** A restarted resource is a new process, and the first
+            // subscription completes the moment the old one exits — so a single
+            // `await foreach` stops tailing at exactly the event worth tailing.
+            // #2038's failure reported "the resource emitted nothing" for a
+            // service that had plainly emitted something; what it had really
+            // lost was the subscription.
+            while (!cancellationToken.IsCancellationRequested)
             {
-                foreach (LogLine line in batch)
+                await foreach (IReadOnlyList<LogLine> batch in
+                    loggers.WatchAsync(resourceName).WithCancellation(cancellationToken))
                 {
-                    tail.Enqueue(line.Content);
-                    while (tail.Count > 400)
+                    foreach (LogLine line in batch)
                     {
-                        tail.TryDequeue(out _);
+                        tail.Enqueue(line.Content);
+                        while (tail.Count > 400)
+                        {
+                            tail.TryDequeue(out _);
+                        }
                     }
                 }
+
+                // The stream ended without cancellation: the process went away.
+                // Wait for its replacement rather than spinning on a resource
+                // that is between lives.
+                await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
             }
         }
         catch (OperationCanceledException)
