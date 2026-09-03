@@ -40,15 +40,15 @@ shapes on the event→overlay-state leg are byte-identical.
 produce a figure that later verification is compared against, so a pre-existing
 problem is never read as this feature's doing.
 
-- [ ] T001 Record the baseline for `OverlayDesigner`: run
+- [x] T001 Record the baseline for `OverlayDesigner`: run
   `dotnet ef migrations has-pending-model-changes` and note whether the
   `version` nullability drift of issue #2022 is already reported, so SC-004
   compares against the right starting point
-- [ ] T002 [P] Record the baseline `PrimitiveBoundaryTests` figures — the type
+- [x] T002 [P] Record the baseline `PrimitiveBoundaryTests` figures — the type
   count `The_walk_reaches_every_aggregate_and_a_useful_amount_of_state`
   reaches, and the current contents of the `exempted` list for `Label`. This is
   the before-figure FR-012 requires in the PR
-- [ ] T003 [P] Record the baseline test counts for
+- [x] T003 [P] Record the baseline test counts for
   `OverlayDesigner.Domain.Tests` and `OverlayDesigner.Application.Tests`, so a
   silently dropped `[InlineData]` row is visible as a falling number
 
@@ -59,7 +59,7 @@ problem is never read as this feature's doing.
 **Purpose**: The single technical risk, settled by experiment before any
 production edit. Blocks Phase 5 only; Phase 3 does not depend on it.
 
-- [ ] T101 Run research R1's experiment: build the `OverlayDesignerDbContext`
+- [x] T101 Run research R1's experiment: build the `OverlayDesignerDbContext`
   model in a scratch harness with `Label` nested as
   `OwnsMany(Revisions) → OwnsOne(Label) → OwnsOne(Position)` and read the
   relational model — table, column name, CLR type, nullability for all four.
@@ -84,7 +84,7 @@ green.
 code**. A red one is a pre-existing defect — stop, report it, and file it as
 its own issue. A refactor and a bug fix do not travel together (ADR-0144).
 
-- [ ] T301 [US1] **G1 — the `400` that does not exist yet.** Add integration
+- [x] T301 [US1] **G1 — the `400` that does not exist yet.** Add integration
   coverage that `POST /overlays` and `PATCH /overlays/{id}/revisions/{n}`
   each answer `400` with title `OVERLAY_INVALID_INPUT` for a coordinate
   outside `[0, 1]` and for an extent outside `(0, 1]`, in
@@ -92,32 +92,32 @@ its own issue. A refactor and a bug fix do not travel together (ADR-0144).
   feature**: both endpoints catch `ArgumentException` around `Label.From`, and
   constructing the new value objects one statement above that `try` turns every
   such request into a `500` with nothing failing
-- [ ] T302 [P] [US1] **G2 — the query projection.** In
+- [x] T302 [P] [US1] **G2 — the query projection.** In
   `tests/OverlayDesigner.Application.Tests/Queries/GetOverlayQueryHandlerTests.cs`,
   assert all four numbers on the projected `OverlayDto`, each against its own
   field. Today it asserts `Text` and `Version` only, so a transposition in
   `GetOverlayQueryHandler` — one of the sites this feature rewrites — is
   currently invisible
-- [ ] T303 [P] [US1] **G3 — the Postgres round trip.** In
+- [x] T303 [P] [US1] **G3 — the Postgres round trip.** In
   `tests/Integration.Tests/OverlayDesigner/OverlayPushIntegrationTests.cs`,
   assert the four numbers the test already parses off the SignalR frame (lines
   190–193) and currently discards. This is the only end-to-end net over the EF
   mapping, which is where a `label_x`/`label_y` transposition would land
-- [ ] T304 [P] [US1] **G4 — `BranchDraft` recovery.** In
+- [x] T304 [P] [US1] **G4 — `BranchDraft` recovery.** In
   `tests/OverlayDesigner.Domain.Tests/Overlay/OverlayTests.cs`, add width and
   height assertions to `BranchDraft_on_a_fully_archived_chain_recovers_the_label`
   beside the X, Y and font size it already asserts. Adding to a passing test,
   not changing one
-- [ ] T305 [P] [US1] **G5 — the integration event.** In
+- [x] T305 [P] [US1] **G5 — the integration event.** In
   `tests/OverlayDesigner.Application.Tests/EventHandlers/OverlayRevisionPublishedDomainEventHandlerTests.cs`,
   add the `NormalizedY` and `NormalizedWidth` assertions beside the
   `NormalizedX` and `NormalizedHeight` already there
-- [ ] T306 [US1] Run the full `OverlayDesigner` domain + application +
+- [x] T306 [US1] Run the full `OverlayDesigner` domain + application +
   architecture suites and the `OverlayDesigner` integration suite. **Capture
   the passing output verbatim** — this is ADR-0144's transported artifact and
   goes in the PR body in the slot a red output would occupy. Record the case
   counts against T003's baseline
-- [ ] T307 [US1] Commit Phase 3 alone. It builds and is green with no
+- [x] T307 [US1] Commit Phase 3 alone. It builds and is green with no
   production change, and is worth having on `develop` even if the rest is
   abandoned
 
@@ -147,7 +147,7 @@ no asserted literal changed.
 
 ### Slice 1 — the two types, referenced by nothing
 
-- [ ] T501 [P] [US2] Create
+- [x] T501 [P] [US2] Create
   `src/OverlayDesigner/Domain/Overlay/NormalizedPosition.cs`:
   `record NormalizedPosition(decimal X, decimal Y) : IValueObject` with
   `From(decimal normalizedX, decimal normalizedY)` guarding each with
@@ -155,25 +155,25 @@ no asserted literal changed.
   — FR-007: the message is copied into the API's `400` detail and `InRange`
   reproduces the current text character-for-character only with those names.
   XML doc states that, so it is not "cleaned up" later
-- [ ] T502 [P] [US2] Create
+- [x] T502 [P] [US2] Create
   `src/OverlayDesigner/Domain/Overlay/NormalizedSize.cs`:
   `record NormalizedSize(decimal Width, decimal Height) : IValueObject` with
   `From(decimal normalizedWidth, decimal normalizedHeight)` guarding each with
   `Ensure.That(…).Satisfies(v => v is > 0m and <= 1m, "must be in (0, 1].")`,
   mirroring `GridDimensions`' use of `Satisfies` for its cell cap. XML doc
   records that zero is refused because a label with no area is not a label
-- [ ] T503 [P] [US2] Create
+- [x] T503 [P] [US2] Create
   `tests/OverlayDesigner.Domain.Tests/Overlay/NormalizedPositionTests.cs` —
   **relocating** `LabelTests`' `From_rejects_normalizedX_outside_0_to_1` and
   `From_rejects_normalizedY_outside_0_to_1` with every `[InlineData]` row and
   the `ArgumentException` expectation **verbatim**, plus acceptance of the
   bounds and value equality (ADR-0065's 90% gate)
-- [ ] T504 [P] [US2] Create
+- [x] T504 [P] [US2] Create
   `tests/OverlayDesigner.Domain.Tests/Overlay/NormalizedSizeTests.cs` the same
   way from `From_rejects_normalizedWidth_outside_0_exclusive_to_1` and
   `From_rejects_normalizedHeight_outside_0_exclusive_to_1`, carrying the
   `[InlineData(0)]` rows that pin zero as refused
-- [ ] T505 [US2] Commit slice 1. It builds and is green on its own; nothing
+- [x] T505 [US2] Commit slice 1. It builds and is green on its own; nothing
   references the two new types yet
 
 ### Slice 2 — the shape moves (one commit; it cannot be split)
@@ -183,71 +183,71 @@ The moment `Label`'s constructor changes, `Api`, `Application`,
 produce a commit that only builds with its successor, which rebase-merge
 (ADR-0087) makes permanent.
 
-- [ ] T506 [US2] Change `src/OverlayDesigner/Domain/Overlay/Label.cs` to
+- [x] T506 [US2] Change `src/OverlayDesigner/Domain/Overlay/Label.cs` to
   `Label(string Text, NormalizedPosition Position, NormalizedSize Size, int FontSizePx)`;
   `From` takes the two value objects with `Ensure.That(…).IsNotNull()` on each;
   **delete** `EnsureNormalized` and `EnsurePositiveNormalized` (ADR-0105 —
   neither is one of its three exemptions). Text and font-size guards unchanged
-- [ ] T507 [US2] Update
+- [x] T507 [US2] Update
   `src/OverlayDesigner/Infrastructure/Persistence/Configurations/OverlayConfiguration.cs`
   per the shape T101 selected, pinning `label_x`, `label_y`, `label_width`,
   `label_height` and **including `label.Navigation(l => l.Position).IsRequired()`
   and `label.Navigation(l => l.Size).IsRequired()`**. Spec 058's research names
   these as load-bearing: without them all four columns silently become nullable
   against a `NOT NULL` schema and nothing fails
-- [ ] T508 [US2] Update both `Label.From` call sites in
+- [x] T508 [US2] Update both `Label.From` call sites in
   `src/OverlayDesigner/Api/OverlayEndpoints.Commands.cs`. **Construct
   `NormalizedPosition.From(...)` and `NormalizedSize.From(...)` inside the
   existing `try { … } catch (ArgumentException ex) { 400 }` block** — above it,
   every out-of-range coordinate becomes a `500`. T301 is the test that catches
   this
-- [ ] T509 [US2] Update the member paths in
+- [x] T509 [US2] Update the member paths in
   `src/OverlayDesigner/Application/Queries/Handlers/GetOverlayQueryHandler.cs`
   and
   `src/OverlayDesigner/Application/EventHandlers/OverlayRevisionPublishedDomainEventHandler.cs`
   (`label.NormalizedX` → `label.Position.X`, and so on). **Field names on
   `OverlayDto` and `OverlayRevisionPublishedV1` do not change** (FR-009)
-- [ ] T510 [US2] Follow the compiler through the 36 `Label.From(...)`
+- [x] T510 [US2] Follow the compiler through the 36 `Label.From(...)`
   construction sites in `tests/OverlayDesigner.Domain.Tests/**` and
   `tests/OverlayDesigner.Application.Tests/**`, wrapping the four decimals in
   the two factories. **Every literal is carried unchanged** — `0.5m` stays
   `0.5m`. Any urge to change one means the refactor changed behaviour: stop
-- [ ] T511 [US2] Verify slice 2 with the three checks that would each catch a
+- [x] T511 [US2] Verify slice 2 with the three checks that would each catch a
   different silent failure: (a) every Phase 3 test green with no asserted
   literal, exception type, status code or `[InlineData]` row changed; (b)
   `has-pending-model-changes` reports nothing beyond T001's baseline and no
   migration file is added (SC-004); (c) `dotnet build -c Release` clean,
   SonarAnalyzer included (SC-005)
-- [ ] T512 [US2] Commit slice 2
+- [x] T512 [US2] Commit slice 2
 
 ### Slice 3 — the guard assertion
 
-- [ ] T513 [US2] Repoint `exempted.ShouldContain("Label.NormalizedX")` to
+- [x] T513 [US2] Repoint `exempted.ShouldContain("Label.NormalizedX")` to
   `exempted.ShouldContain("NormalizedPosition.X")` in
   `tests/Architecture.Tests/PrimitiveBoundaryTests.cs`. **Change nothing else
   in that file** — not `roots.Count.ShouldBe(11)`, not
   `reached.ShouldBeGreaterThan(100)`, not the `CameraName.NormalizedValue` or
   `GridPosition.Row` siblings
-- [ ] T514 [US2] Record the walk's `reached` figure and compare against T002's
+- [x] T514 [US2] Record the walk's `reached` figure and compare against T002's
   baseline. It must **rise by two** (the two new value-object types), and the
   offender list must stay empty. **If it falls, something stopped being walked
   — that is a weakened gate; stop and block** (FR-012)
-- [ ] T515 [US2] Commit slice 3 separately, so the guard change is
+- [x] T515 [US2] Commit slice 3 separately, so the guard change is
   individually reviewable and individually revertable
 
 ---
 
 ## Phase 6: Cross-cutting
 
-- [ ] T601 [P] Add one sentence to
+- [x] T601 [P] Add one sentence to
   `src/LayoutComposition/Domain/Layout/ILayoutLifecycleBroadcaster.cs`'s
   `OverlayLifecyclePublishedNotification` XML doc recording that the value
   objects `OverlayDesigner` introduced for these same four numbers were
   considered and declined here, because taking them would be a cross-context
   project reference. Prevents a third sweep re-raising it. **No issue number in
   the comment** (ADR-0036)
-- [ ] T602 Confirm `git status` shows no file under `apps/` modified (SC-008)
-- [ ] T603 Confirm `OverlayDesigner.Domain` coverage is at or above 90%
+- [x] T602 Confirm `git status` shows no file under `apps/` modified (SC-008)
+- [x] T603 Confirm `OverlayDesigner.Domain` coverage is at or above 90%
   (ADR-0065, SC-007)
 
 ---
