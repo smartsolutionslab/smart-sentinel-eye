@@ -136,8 +136,8 @@ jobs:
         run: dotnet build tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj -c Release --no-restore
 
       - name: Run integration tests
-        # Two categories are excluded, both spec 020, both for the same reason:
-        # they measure or disturb the runner rather than the code.
+        # Three categories are excluded. The first two are spec 020, and share a
+        # reason: they measure or disturb the runner rather than the code.
         #
         # Measurement — a thirty-second saturating burst on a shared runner
         # measures the runner, and that number would later be quoted as if it
@@ -148,11 +148,15 @@ jobs:
         # platform limitation rather than a defect teaches people to ignore red
         # CI. The cost is real: SC-002 has no CI coverage and is verified by
         # hand instead (specs/020-durable-ingest-ack/verification.md).
+        #
+        # Maintenance — a sweep that operates on a long-lived run-mode stack it
+        # did not start (#2004). It refuses without one, so in CI it would be a
+        # guaranteed red that says nothing about the code.
         run: |
           dotnet test tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj \
             -c Release \
             --no-build \
-            --filter "Category!=Measurement&Category!=Disruptive" \
+            --filter "Category!=Measurement&Category!=Disruptive&Category!=Maintenance" \
             --logger "trx;LogFileName=integration.trx"
 
       - name: Upload integration test results

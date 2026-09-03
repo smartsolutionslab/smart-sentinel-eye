@@ -51,4 +51,44 @@ internal static class VariableRequests
         return await variables.SendAsync(
             Conditional(HttpMethod.Post, name, "archive", await VersionAsync(variables, name)));
     }
+
+    /// <summary>
+    /// Archives every one of <paramref name="names"/>, and answers how many it
+    /// archived (#2004).
+    ///
+    /// <para>
+    /// <b>Two requests per variable, not one.</b> Archiving carries an
+    /// <c>If-Match</c> (ADR-0113), and a caller that drove a variable to an
+    /// unknown version — a measurement run whose last write may or may not have
+    /// landed — cannot supply it from memory. Reading first costs a round trip
+    /// and removes a whole class of 409 that would leave residue behind while
+    /// reporting success.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Nothing is swallowed.</b> A failure to archive throws, because the
+    /// caller asked for these variables to be gone and a silent partial sweep is
+    /// how the residue accumulated in the first place.
+    /// </para>
+    /// </summary>
+    internal static async Task<int> ArchiveAllAsync(
+        HttpClient variables, IReadOnlyList<string> names, CancellationToken cancellationToken)
+    {
+        int archived = 0;
+        foreach (string name in names)
+        {
+            HttpResponseMessage fetched = await variables.GetAsync($"/system-variables/{name}", cancellationToken);
+            fetched.EnsureSuccessStatusCode();
+            JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+            using HttpRequestMessage request =
+                Conditional(HttpMethod.Post, name, "archive", payload.GetProperty("version").GetInt32());
+            using HttpResponseMessage response = await variables.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            archived++;
+        }
+
+        return archived;
+    }
 }

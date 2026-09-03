@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
+using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Integration.Tests.AuditObservability;
@@ -47,6 +48,13 @@ public static class IngestSpanMeasurement
 {
     /// <summary>How long to wait for the last measured row to reach the store.</summary>
     internal static readonly TimeSpan IngestDeadline = TimeSpan.FromMinutes(3);
+
+    /// <summary>
+    /// The prefix every variable a run defines carries, so that a sweep of the
+    /// residue can be sure it is matching what a run creates rather than a
+    /// spelling somebody copied (#2004).
+    /// </summary>
+    internal const string VariablePrefix = "nfr";
 
     /// <summary>
     /// The gate for runs that are not rate-controlled: the warm-up, and the
@@ -139,6 +147,24 @@ public static class IngestSpanMeasurement
             RowsMeasured: landed,
             RowsMissingStamps: typical.RowsMissingStamps);
 
+        // **The run takes its own variables away again** (#2004). Fifty-one per
+        // run, kept forever by a run-mode stack, and 94% of that table was this.
+        //
+        // After every query above, so nothing measured here is measured with
+        // these writes in flight. They are 51 more events on top of the 1100 the
+        // run just published — under 5%, and none of them inside the window any
+        // percentile is taken over.
+        //
+        // Archiving rather than deleting because archiving is the only removal
+        // the domain offers, and since #2015 it is enough: an archived variable
+        // leaves the listing an operator sees.
+        //
+        // **A run that throws still leaves its variables behind.** Wrapping the
+        // drive to catch that would re-indent the whole body and mix a refactor
+        // into a fix; the residue this issue is about is the one successful runs
+        // deposit, over and over.
+        await VariableRequests.ArchiveAllAsync(variables, [warmName, .. measureNames], cancellationToken);
+
         return new IngestSpanResult(typical, tail, offset, verdict, conditions);
     }
 
@@ -162,7 +188,7 @@ public static class IngestSpanMeasurement
 
     internal static async Task<string> DefineAsync(HttpClient variables, CancellationToken cancellationToken)
     {
-        string name = $"nfr{Guid.NewGuid():N}"[..16];
+        string name = $"{VariablePrefix}{Guid.NewGuid():N}"[..16];
 
         // Deliberately no initialValue. Setting a variable to the value it
         // already holds is a no-op: it answers 200, raises nothing, and leaves
