@@ -210,4 +210,46 @@ public class EnsureTests
 
         act.ShouldThrow<ArgumentException>();
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0.5)]
+    [InlineData(1)]
+    public void Decimal_InRange_accepts_values_within_the_inclusive_bounds(double value)
+    {
+        Should.NotThrow(() => Ensure.That((decimal)value).InRange(0m, 1m));
+    }
+
+    [Theory]
+    [InlineData(-0.01)]
+    [InlineData(1.01)]
+    public void Decimal_InRange_throws_outside_the_bounds(double value)
+    {
+        Action act = () => Ensure.That((decimal)value).InRange(0m, 1m);
+
+        act.ShouldThrow<ArgumentException>();
+    }
+
+    /// <summary>
+    /// The wording is contract-visible: OverlayDesigner copies this message into
+    /// the <c>detail</c> of a <c>400</c>, so a reworded guard is an API change.
+    /// </summary>
+    [Fact]
+    public void Decimal_InRange_names_the_parameter_and_the_interval()
+    {
+        decimal normalizedY = 2m;
+
+        Action act = () => Ensure.That(normalizedY).InRange(0m, 1m);
+
+        act.ShouldThrow<ArgumentException>()
+            .Message.ShouldBe("normalizedY must be in [0, 1]; got 2. (Parameter 'normalizedY')");
+    }
+
+    [Fact]
+    public void Decimal_Satisfies_throws_when_the_predicate_fails()
+    {
+        Action act = () => Ensure.That(0m).Satisfies(value => value is > 0m and <= 1m, "must be in (0, 1].");
+
+        act.ShouldThrow<ArgumentException>();
+    }
 }
