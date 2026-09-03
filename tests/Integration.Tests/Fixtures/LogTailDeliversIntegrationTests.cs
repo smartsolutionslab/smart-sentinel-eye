@@ -28,8 +28,16 @@ namespace SmartSentinelEye.Integration.Tests.Fixtures;
 /// All three placeholder strings satisfy it, which is the entire trap. The
 /// load-bearing assertion is that the tail contains a token the test invented
 /// seconds earlier; that rules out "not tailed", "empty subscription", "faulted
-/// tail", "stale rather than live" and "another resource's stream" at once. The
-/// three negative assertions only make a failure legible.
+/// tail", "stale rather than live" and "another resource's stream" at once.
+/// </para>
+///
+/// <para>
+/// <b>The three placeholder checks therefore run <i>before</i> it, not after.</b>
+/// A tail carrying the token cannot also be a placeholder, so ordered the other
+/// way round they were unreachable: the token assertion threw first on every
+/// input that could have reached them. They exist to name which placeholder came
+/// back, which is a better message than "the token is missing, here is the
+/// string" — but only if they are reached.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
@@ -83,37 +91,69 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
     /// stay silent and A would not notice. This test cannot say <i>whose</i>
     /// logs it read, which is why A exists.
     /// </summary>
+    /// <remarks>
+    /// <b>Polls, for the same reason A and C do.</b> It asserts on eight
+    /// resources that started concurrently and it drives none of them, so the
+    /// only thing making the first read succeed is that each has already written
+    /// a line. A single read here would be a race, and this test runs in the
+    /// <b>blocking</b> <c>integration</c> job — a flake there teaches people to
+    /// re-run red CI rather than read it.
+    /// </remarks>
     [Fact]
-    public void Every_tailed_resource_has_delivered_log_content()
+    public async Task Every_tailed_resource_has_delivered_log_content()
     {
         string[] tailed = TailedResourceNames();
         tailed.ShouldNotBeEmpty("AspireFixture.TailedResources is empty; this test would prove nothing.");
 
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + DeliveryTimeout;
+        List<string> placeholders = PlaceholdersAmong(tailed);
+
+        while (placeholders.Count > 0 && DateTimeOffset.UtcNow < deadline)
+        {
+            await Task.Delay(PollInterval);
+            placeholders = PlaceholdersAmong(tailed);
+        }
+
+        placeholders.ShouldBeEmpty(
+            $"{placeholders.Count} of {tailed.Length} tailed resources still answered with a placeholder "
+            + $"after {DeliveryTimeoutSeconds}s instead of log content:{Environment.NewLine}"
+            + string.Join(Environment.NewLine, placeholders));
+    }
+
+    private List<string> PlaceholdersAmong(string[] tailed)
+    {
         List<string> placeholders = [];
         foreach (string resourceName in tailed)
         {
-            string tail = aspire.RecentLogs(resourceName);
-            if (PlaceholderIn(tail) is string placeholder)
+            if (PlaceholderIn(aspire.RecentLogs(resourceName)) is string placeholder)
             {
                 placeholders.Add($"{resourceName}: {placeholder}");
             }
         }
 
-        placeholders.ShouldBeEmpty(
-            $"{placeholders.Count} of {tailed.Length} tailed resources answered with a placeholder "
-            + $"instead of log content:{Environment.NewLine}"
-            + string.Join(Environment.NewLine, placeholders));
+        return placeholders;
     }
 
     /// <summary>
-    /// <b>The only test that fails against an implementation that resolves the
-    /// DCP id once.</b> The id changes on every restart as well as every boot, so
-    /// a resolve-once fix passes the two tests above, re-subscribes to the dead
-    /// instance after a restart, and leaves the resource permanently quiet —
-    /// #2038's symptom, reintroduced by the fix for #2054. Do not fold this into
-    /// the other two: the token is invented <i>after</i> the restart, and that is
-    /// the whole assertion.
+    /// <b>The regression test for #2038: the subscription survives a restart.</b>
+    /// Nothing else covers that. A and B both read tails whose process has run
+    /// undisturbed since <c>StartAsync</c>, so a tail that dies at the one event
+    /// it exists to survive passes both. The token is invented <i>after</i> the
+    /// restart, and that is the whole assertion — do not fold this into the other
+    /// two.
     /// </summary>
+    /// <remarks>
+    /// <b>It does not discriminate a resolve-once implementation, despite
+    /// looking as though it should.</b> The DCP instance id was observed
+    /// <i>stable</i> across a full restart on Aspire 13.5.3 (Windows) — one
+    /// <c>event-ingestion-gxkpyqjx</c> through
+    /// <c>Running → Stopping → Finished → Starting → Running</c> — so a resolve
+    /// hoisted above the fixture's re-subscribe loop passes this test too. The
+    /// re-resolution is still the right shape, because id stability is a property
+    /// of this DCP build rather than a contract; it is simply defensive code that
+    /// no test here exercises, and a green run must not be read as evidence
+    /// otherwise. Linux is unverified.
+    /// </remarks>
     /// <remarks>
     /// <b>Disruptive</b>, like every other test that restarts a resource through
     /// Aspire: the restart command fails outright on the CI runner ("Failed to
@@ -163,10 +203,6 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
 
     private static void ShouldCarry(string resourceName, string token, string tail)
     {
-        tail.Contains(token, StringComparison.Ordinal).ShouldBeTrue(
-            $"{resourceName} logged '{token}', but it never reached the tail within "
-            + $"{DeliveryTimeoutSeconds}s. Last value read from RecentLogs:{Environment.NewLine}{tail}");
-
         tail.StartsWith(NotTailedPrefix, StringComparison.Ordinal).ShouldBeFalse(
             $"'{resourceName}' is not in AspireFixture.TailedResources: {tail}");
 
@@ -176,6 +212,10 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
 
         tail.StartsWith(TailFailedPrefix, StringComparison.Ordinal).ShouldBeFalse(
             $"{resourceName}'s tail faulted: {tail}");
+
+        tail.Contains(token, StringComparison.Ordinal).ShouldBeTrue(
+            $"{resourceName} logged '{token}', but it never reached the tail within "
+            + $"{DeliveryTimeoutSeconds}s. Last value read from RecentLogs:{Environment.NewLine}{tail}");
     }
 
     private static string? PlaceholderIn(string tail) =>
