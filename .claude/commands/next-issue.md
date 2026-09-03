@@ -133,9 +133,15 @@ regression.
 
 ## 6. Review — reviewer agent, then `/code-review`
 
-`backend-reviewer` or `frontend-reviewer` on the diff, then
-`/code-review`. Add `/security-review` if the change touches auth,
-tokens, scopes or a trust boundary.
+The reviewer matching the change — `backend-reviewer`,
+`frontend-reviewer` or `infra-reviewer` — on the diff, then
+`/code-review`.
+
+Add **`security-reviewer`** whenever the change touches auth, tokens,
+scopes, fab resolution, idempotency, a new endpoint, or anything
+reachable without a bearer token. It reads this repo's authorization
+model; the `/security-review` skill does not, so run the skill *as well*
+rather than instead.
 
 Every finding is fixed by the **engineer** subagent, or refused in
 writing in the PR body. Never by you, and never by editing a test.

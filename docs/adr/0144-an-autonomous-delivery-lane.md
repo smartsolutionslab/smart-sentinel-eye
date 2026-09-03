@@ -90,7 +90,7 @@ survive a whole issue and then start the next one clean.
 | 4a | Red tests | `test-writer` (+ `test-adversary` where the issue is about a failure mode) | **the failing test output, verbatim** |
 | 4b | Implement | `backend-engineer` / `frontend-engineer` / `infra-engineer` | commits, green test output |
 | 5 | Verify | the same engineer, or the orchestrator | observed behaviour; latency figure if on the §IV path |
-| 6 | Review | `backend-reviewer` / `frontend-reviewer`, then `/code-review` | findings, each fixed or refused in writing |
+| 6 | Review | `backend-reviewer` / `frontend-reviewer` / `infra-reviewer`, plus `security-reviewer` where the change touches a trust boundary, then `/code-review` | findings, each fixed or refused in writing |
 | 7 | PR + merge | orchestrator | the PR, then the merge |
 
 Phase 4 is **two agents, in order, and the split is the point**. The
@@ -212,3 +212,16 @@ constraint over a long run.
   said "NRT disabled" long after ADR-0141 enabled it. Corrected as part
   of this work: a subagent brief is now load-bearing, and a stale one
   writes stale code without a human present to catch it.
+- **Two reviewer roles are added**, because phase 6 previously had
+  reviewers for backend and frontend only:
+  - **`infra-reviewer`** — the layer every integration test stands on
+    had no reviewer at all. An infra defect does not fail like a code
+    defect; it fails as everything failing, or as everything passing for
+    the wrong reason.
+  - **`security-reviewer`** — `/security-review` is a skill with no
+    repo-specific brief, so it cannot tell a correct `RequireScope` from
+    a plausible-looking wrong one, and it does not know that
+    `sse.management` grandfathers every granular policy or that an
+    idempotency key scoped without the caller is a cross-tenant leak.
+    The skill still runs; this role is what reads the authorization
+    model.
