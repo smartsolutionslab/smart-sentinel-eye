@@ -6,6 +6,7 @@ using SmartSentinelEye.OverlayDesigner.Application.Commands;
 using SmartSentinelEye.OverlayDesigner.Application.Commands.Handlers;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.OverlayDesigner.Api;
@@ -15,12 +16,21 @@ public static partial class OverlayEndpoints
 {
     private static async Task<IResult> CreateDraft(
         [FromBody] CreateOverlayRequest body,
-        [FromServices] CreateOverlayDraftCommandHandler handler,
+        [AsParameters] CreateOverlayServices services,
+        HttpContext http,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         Ensure.That(body).IsNotNull();
         Ensure.That(body.Label).IsNotNull();
+        Ensure.That(http).IsNotNull();
+
+        CreateOverlayDraftCommandHandler handler = services.Handler;
+
+        if (!IdempotencyHeaders.TryRead(http.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        {
+            return keyProblem;
+        }
 
         OverlayName name;
         Label label;
@@ -44,13 +54,28 @@ public static partial class OverlayEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<OverlayIdentifier, CreateOverlayDraftError> result = await handler
-            .HandleAsync(new CreateOverlayDraftCommand(name, label, actingOperator), cancellationToken);
 
-        return result.Match<IResult>(
-            onSuccess: identifier => Results.Created($"/overlays/{identifier}", identifier.Value),
-            onFailure: error => error.ToProblem());
+        return await IdempotentRequest.ExecuteCreateAsync(
+            new IdempotentExecution(
+                key.Map(supplied => IdempotencyScope.For(supplied, CreateEndpoint, actingOperator.Value.ToString())),
+                services.Idempotency,
+                services.Clock),
+            identifier => $"/overlays/{identifier}",
+            async token => (await handler.HandleAsync(
+                    new CreateOverlayDraftCommand(name, label, actingOperator), token)).Match(
+                onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
+                onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem())),
+            cancellationToken);
     }
+
+    /// <summary>
+    /// Bundled with <c>[AsParameters]</c> so the handler keeps a readable
+    /// signature (ADR-0084).
+    /// </summary>
+    private sealed record CreateOverlayServices(
+        [FromServices] CreateOverlayDraftCommandHandler Handler,
+        [FromServices] IIdempotencyStore Idempotency,
+        [FromServices] TimeProvider Clock);
 
     private static async Task<IResult> Publish(
         Guid overlayIdentifier,

@@ -7,6 +7,7 @@ using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
+using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Api;
@@ -116,13 +117,22 @@ public static partial class LayoutEndpoints
 
     private static async Task<IResult> CreateDraft(
         [FromBody] CreateLayoutRequest body,
-        [FromServices] CreateLayoutDraftCommandHandler handler,
-        [FromServices] IFabAuthorizationGuard fabGuard,
+        [AsParameters] CreateLayoutServices services,
+        HttpContext http,
         ClaimsPrincipal user,
         CancellationToken cancellationToken,
         [FromQuery] string fabId = "")
     {
         Ensure.That(body).IsNotNull();
+        Ensure.That(http).IsNotNull();
+
+        CreateLayoutDraftCommandHandler handler = services.Handler;
+        IFabAuthorizationGuard fabGuard = services.FabGuard;
+
+        if (!IdempotencyHeaders.TryRead(http.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        {
+            return keyProblem;
+        }
 
         LayoutName name;
         GridDimensions grid;
@@ -151,13 +161,29 @@ public static partial class LayoutEndpoints
         FabIdentifier fab = fabResolution.Value;
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler
-            .HandleAsync(new CreateLayoutDraftCommand(fab, name, grid, tiles, actingOperator), cancellationToken);
 
-        return result.Match<IResult>(
-            onSuccess: identifier => Results.Created($"/layouts/{identifier.Value}", identifier.Value),
-            onFailure: error => error.ToProblem());
+        return await IdempotentRequest.ExecuteCreateAsync(
+            new IdempotentExecution(
+                key.Map(supplied => IdempotencyScope.For(supplied, CreateEndpoint, actingOperator.Value.ToString())),
+                services.Idempotency,
+                services.Clock),
+            identifier => $"/layouts/{identifier}",
+            async token => (await handler.HandleAsync(
+                    new CreateLayoutDraftCommand(fab, name, grid, tiles, actingOperator), token)).Match(
+                onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
+                onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem())),
+            cancellationToken);
     }
+
+    /// <summary>
+    /// Bundled with <c>[AsParameters]</c> so the handler keeps a readable
+    /// signature (ADR-0084).
+    /// </summary>
+    private sealed record CreateLayoutServices(
+        [FromServices] CreateLayoutDraftCommandHandler Handler,
+        [FromServices] IFabAuthorizationGuard FabGuard,
+        [FromServices] IIdempotencyStore Idempotency,
+        [FromServices] TimeProvider Clock);
 
     private static async Task<IResult> Publish(
         Guid layoutIdentifier,

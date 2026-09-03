@@ -101,6 +101,42 @@ public static class IdempotentRequest
     }
 
     /// <summary>
+    /// The common case: a create whose whole answer is <c>201 Created</c> with
+    /// the new identifier, so a replay needs nothing but the identifier the store
+    /// already holds.
+    ///
+    /// <para>
+    /// Six of the seven creates in #2042 are exactly this shape, and writing the
+    /// replay out at each of them would be six copies of one lambda. The seventh
+    /// — <c>POST /webhook-integrations</c> — is not, because its answer carries a
+    /// bearer token stored only as a hash, and no helper can rebuild something
+    /// the server did not keep.
+    /// </para>
+    /// </summary>
+    /// <param name="location">Builds the <c>Location</c> header from the identifier.</param>
+    /// <param name="work">
+    /// The operation, yielding the created identifier or a problem to return as-is.
+    /// </param>
+    public static Task<IResult> ExecuteCreateAsync(
+        IdempotentExecution execution,
+        Func<Guid, string> location,
+        Func<CancellationToken, Task<Result<Guid, IResult>>> work,
+        CancellationToken cancellationToken)
+    {
+        Ensure.That(location).IsNotNull();
+        Ensure.That(work).IsNotNull();
+
+        return ExecuteAsync(
+            execution,
+            async token => (await work(token)).Match(
+                onSuccess: identifier => IdempotentOutcome.Created(
+                    identifier, Results.Created(location(identifier), identifier)),
+                onFailure: IdempotentOutcome.NothingCreated),
+            (identifier, _) => Task.FromResult(Results.Created(location(identifier), identifier)),
+            cancellationToken);
+    }
+
+    /// <summary>
     /// Claims the key, waiting out an unfinished attempt rather than refusing it
     /// immediately.
     /// </summary>

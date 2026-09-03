@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Commands;
@@ -45,6 +46,11 @@ public static class SystemVariablesInfrastructureModule
         builder.Services.AddScoped<IVariableQuerySource, VariableQuerySource>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
+        builder.Services.AddSingleton(TimeProvider.System);
+
+        // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
+        // above drives the executor's wait for an in-flight attempt.
+        builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<SystemVariablesDbContext>>();
 
         // Reverse-index + resolver are process-wide singletons (the
         // index is mutated concurrently; the resolver is stateless).

@@ -11,6 +11,7 @@ using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -21,17 +22,29 @@ public static partial class EventsEndpoints
 {
     private const string BearerPrefix = "Bearer ";
 
+    /// <summary>Route identity an idempotency key is scoped to (ADR-0142).</summary>
+    private const string IngestManualEndpoint = "POST /events/manual";
+
     private static async Task<IResult> IngestManual(
         [FromBody] IngestManualEventRequest body,
-        [FromServices] IngestWriteLimiter limiter,
-        [FromServices] IServiceScopeFactory scopeFactory,
-        [FromServices] IFabAuthorizationGuard fabGuard,
-        [FromServices] IFabStorageReadiness storage,
+        [AsParameters] IngestManualServices services,
+        HttpContext http,
         ClaimsPrincipal user,
         [FromQuery] string? fabId,
         CancellationToken cancellationToken)
     {
         Ensure.That(body).IsNotNull();
+        Ensure.That(http).IsNotNull();
+
+        IngestWriteLimiter limiter = services.Limiter;
+        IServiceScopeFactory scopeFactory = services.ScopeFactory;
+        IFabAuthorizationGuard fabGuard = services.FabGuard;
+        IFabStorageReadiness storage = services.Storage;
+
+        if (!IdempotencyHeaders.TryRead(http.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        {
+            return keyProblem;
+        }
 
         // Resolved from the caller, never from the request (spec 018 FR-006).
         // Before this, `fabId` went straight into the envelope unchecked, so an
@@ -78,8 +91,32 @@ public static partial class EventsEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        return await StoreOrRefuseAsync(limiter, scopeFactory, envelope, cancellationToken);
+        // The envelope already carries a fresh EventIdentifier, so a retry without
+        // a key would file a second event under a second identifier — no conflict
+        // to notice, just a duplicate. With a key the caller gets the first
+        // event's identifier back instead.
+        return await IdempotentRequest.ExecuteCreateAsync(
+            new IdempotentExecution(
+                key.Map(supplied => IdempotencyScope.For(
+                    supplied, IngestManualEndpoint, user.ToOperatorIdentifier().Value.ToString())),
+                services.Idempotency,
+                services.Clock),
+            identifier => $"/events/{identifier}",
+            token => StoreOrRefuseAsync(limiter, scopeFactory, envelope, token),
+            cancellationToken);
     }
+
+    /// <summary>
+    /// Bundled with <c>[AsParameters]</c> so the handler keeps a readable
+    /// signature (ADR-0084); idempotency added two more collaborators.
+    /// </summary>
+    private sealed record IngestManualServices(
+        [FromServices] IngestWriteLimiter Limiter,
+        [FromServices] IServiceScopeFactory ScopeFactory,
+        [FromServices] IFabAuthorizationGuard FabGuard,
+        [FromServices] IFabStorageReadiness Storage,
+        [FromServices] IIdempotencyStore Idempotency,
+        [FromServices] TimeProvider Clock);
 
     private static async Task<IResult> IngestWebhook(
         string integrationName,
@@ -131,7 +168,9 @@ public static partial class EventsEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        return await StoreOrRefuseAsync(limiter, scopeFactory, envelope, cancellationToken);
+        return (await StoreOrRefuseAsync(limiter, scopeFactory, envelope, cancellationToken)).Match(
+            onSuccess: identifier => Results.Created($"/events/{identifier}", identifier),
+            onFailure: problem => problem);
     }
 
     /// <summary>
@@ -286,7 +325,17 @@ public static partial class EventsEndpoints
     /// to overload than a fast refusal, arrived at by omission (FR-013).
     /// </para>
     /// </summary>
-    private static async Task<IResult> StoreOrRefuseAsync(
+    /// <summary>
+    /// Yields the stored event's identifier, or the problem to answer with.
+    ///
+    /// <para>
+    /// Returns the identifier rather than a finished <c>IResult</c> so the manual
+    /// path can hand it to <c>IdempotentRequest.ExecuteCreateAsync</c>, which
+    /// needs to record what was created (ADR-0142). The webhook path maps it
+    /// straight back to a 201 and is otherwise unchanged.
+    /// </para>
+    /// </summary>
+    private static async Task<Result<Guid, IResult>> StoreOrRefuseAsync(
         IngestWriteLimiter limiter,
         IServiceScopeFactory scopeFactory,
         EventEnvelope envelope,
@@ -295,10 +344,10 @@ public static partial class EventsEndpoints
         using IngestWriteLease lease = limiter.TryAcquire();
         if (!lease.Acquired)
         {
-            return Results.Problem(
+            return Result<Guid, IResult>.Failure(Results.Problem(
                 title: "EVENT_INGEST_BACKPRESSURE",
                 detail: "Too many events are being stored at once; please retry.",
-                statusCode: StatusCodes.Status429TooManyRequests);
+                statusCode: StatusCodes.Status429TooManyRequests));
         }
 
         await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
@@ -310,10 +359,9 @@ public static partial class EventsEndpoints
             Result<EventIdentifier, IngestEventError> result =
                 await handler.HandleAsync(new IngestEventCommand(envelope), cancellationToken);
 
-            return result.Match<IResult>(
-                onSuccess: identifier => Results.Created(
-                    $"/events/{identifier.Value}", identifier.Value),
-                onFailure: error => error.ToProblem());
+            return result.Match(
+                onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
+                onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem()));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -321,10 +369,10 @@ public static partial class EventsEndpoints
             // silence is what this replaces. Nothing has been stored and
             // nothing has been buffered, so retrying is safe and is the
             // caller's to decide.
-            return Results.Problem(
+            return Result<Guid, IResult>.Failure(Results.Problem(
                 title: "EVENT_NOT_STORED",
                 detail: "The event could not be stored and has not been accepted. Retry.",
-                statusCode: StatusCodes.Status503ServiceUnavailable);
+                statusCode: StatusCodes.Status503ServiceUnavailable));
         }
     }
 }

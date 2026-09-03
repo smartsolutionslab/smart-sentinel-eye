@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore.Migrations;
+using SmartSentinelEye.ServiceDefaults.Idempotency;
 
 #nullable disable
 
@@ -36,28 +37,14 @@ namespace SmartSentinelEye.Identity.Infrastructure.Persistence.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             ArgumentNullException.ThrowIfNull(migrationBuilder);
-            migrationBuilder.Sql("""
-                CREATE TABLE idempotency_key (
-                    key                  VARCHAR(128) NOT NULL,
-                    endpoint             VARCHAR(128) NOT NULL,
-                    caller               VARCHAR(256) NOT NULL,
-                    resource_identifier  UUID         NULL,
-                    reserved_at          TIMESTAMPTZ  NOT NULL,
-                    completed_at         TIMESTAMPTZ  NULL,
-                    PRIMARY KEY (key, endpoint, caller)
-                );
-                """);
-            migrationBuilder.Sql("""
-                CREATE INDEX ix_idempotency_key_reserved_at
-                    ON idempotency_key (reserved_at);
-                """);
+            IdempotencyKeyTable.Create(migrationBuilder);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             ArgumentNullException.ThrowIfNull(migrationBuilder);
-            migrationBuilder.Sql("DROP TABLE IF EXISTS idempotency_key;");
+            IdempotencyKeyTable.Drop(migrationBuilder);
         }
     }
 }

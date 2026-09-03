@@ -2,18 +2,21 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
+using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 
 #nullable disable
 
-namespace SmartSentinelEye.LayoutComposition.Infrastructure.Persistence.Migrations
+namespace SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence.Migrations
 {
-    [DbContext(typeof(LayoutCompositionDbContext))]
-    partial class LayoutCompositionDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(OverlayDesignerDbContext))]
+    [Migration("20260903094843_AddIdempotencyKey")]
+    partial class AddIdempotencyKey
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -22,17 +25,11 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Persistence.Migratio
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("SmartSentinelEye.LayoutComposition.Domain.Layout.Layout", b =>
+            modelBuilder.Entity("SmartSentinelEye.OverlayDesigner.Domain.Overlay.Overlay", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
-                        .HasColumnName("layout_id");
-
-                    b.Property<string>("Fab")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("fab");
+                        .HasColumnName("overlay_id");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -47,20 +44,17 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Persistence.Migratio
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Fab")
-                        .HasDatabaseName("ix_layouts_fab");
+                    b.HasIndex("Name")
+                        .HasDatabaseName("ix_overlays_name");
 
-                    b.HasIndex("Fab", "Name")
-                        .HasDatabaseName("ix_layouts_fab_name");
-
-                    b.ToTable("layouts", (string)null);
+                    b.ToTable("overlays", (string)null);
                 });
 
-            modelBuilder.Entity("SmartSentinelEye.LayoutComposition.Domain.Layout.Layout", b =>
+            modelBuilder.Entity("SmartSentinelEye.OverlayDesigner.Domain.Overlay.Overlay", b =>
                 {
-                    b.OwnsOne("SmartSentinelEye.LayoutComposition.Domain.Layout.Creation", "Creation", b1 =>
+                    b.OwnsOne("SmartSentinelEye.OverlayDesigner.Domain.Overlay.Creation", "Creation", b1 =>
                         {
-                            b1.Property<Guid>("LayoutId")
+                            b1.Property<Guid>("OverlayId")
                                 .HasColumnType("uuid");
 
                             b1.Property<DateTimeOffset>("At")
@@ -71,15 +65,15 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Persistence.Migratio
                                 .HasColumnType("uuid")
                                 .HasColumnName("created_by");
 
-                            b1.HasKey("LayoutId");
+                            b1.HasKey("OverlayId");
 
-                            b1.ToTable("layouts");
+                            b1.ToTable("overlays");
 
                             b1.WithOwner()
-                                .HasForeignKey("LayoutId");
+                                .HasForeignKey("OverlayId");
                         });
 
-                    b.OwnsMany("SmartSentinelEye.LayoutComposition.Domain.Layout.Revision", "Revisions", b1 =>
+                    b.OwnsMany("SmartSentinelEye.OverlayDesigner.Domain.Overlay.Revision", "Revisions", b1 =>
                         {
                             b1.Property<Guid>("Id")
                                 .HasColumnType("uuid")
@@ -103,47 +97,65 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Persistence.Migratio
                                 .HasColumnType("character varying(16)")
                                 .HasColumnName("state");
 
-                            b1.Property<Guid>("layout_id")
+                            b1.Property<Guid>("overlay_id")
                                 .HasColumnType("uuid");
 
                             b1.HasKey("Id");
 
-                            b1.HasIndex("layout_id")
+                            b1.HasIndex("overlay_id")
                                 .IsUnique()
-                                .HasDatabaseName("ux_layout_revisions_one_published")
+                                .HasDatabaseName("ux_overlay_revisions_one_published")
                                 .HasFilter("state = 'Published'");
 
-                            b1.HasIndex("layout_id", "Number")
+                            b1.HasIndex("overlay_id", "Number")
                                 .IsUnique()
-                                .HasDatabaseName("ux_layout_revisions_number");
+                                .HasDatabaseName("ux_overlay_revisions_number");
 
-                            b1.ToTable("layout_revisions", (string)null);
+                            b1.ToTable("overlay_revisions", (string)null);
 
                             b1.WithOwner()
-                                .HasForeignKey("layout_id");
+                                .HasForeignKey("overlay_id");
 
-                            b1.OwnsOne("SmartSentinelEye.LayoutComposition.Domain.Layout.GridDimensions", "Grid", b2 =>
+                            b1.OwnsOne("SmartSentinelEye.OverlayDesigner.Domain.Overlay.Label", "Label", b2 =>
                                 {
                                     b2.Property<Guid>("RevisionId")
                                         .HasColumnType("uuid");
 
-                                    b2.Property<int>("Cols")
+                                    b2.Property<int>("FontSizePx")
                                         .HasColumnType("integer")
-                                        .HasColumnName("grid_cols");
+                                        .HasColumnName("label_font_size_px");
 
-                                    b2.Property<int>("Rows")
-                                        .HasColumnType("integer")
-                                        .HasColumnName("grid_rows");
+                                    b2.Property<decimal>("NormalizedHeight")
+                                        .HasColumnType("numeric")
+                                        .HasColumnName("label_height");
+
+                                    b2.Property<decimal>("NormalizedWidth")
+                                        .HasColumnType("numeric")
+                                        .HasColumnName("label_width");
+
+                                    b2.Property<decimal>("NormalizedX")
+                                        .HasColumnType("numeric")
+                                        .HasColumnName("label_x");
+
+                                    b2.Property<decimal>("NormalizedY")
+                                        .HasColumnType("numeric")
+                                        .HasColumnName("label_y");
+
+                                    b2.Property<string>("Text")
+                                        .IsRequired()
+                                        .HasMaxLength(256)
+                                        .HasColumnType("character varying(256)")
+                                        .HasColumnName("label_text");
 
                                     b2.HasKey("RevisionId");
 
-                                    b2.ToTable("layout_revisions");
+                                    b2.ToTable("overlay_revisions");
 
                                     b2.WithOwner()
                                         .HasForeignKey("RevisionId");
                                 });
 
-                            b1.OwnsOne("SmartSentinelEye.LayoutComposition.Domain.Layout.Creation", "Creation", b2 =>
+                            b1.OwnsOne("SmartSentinelEye.OverlayDesigner.Domain.Overlay.Creation", "Creation", b2 =>
                                 {
                                     b2.Property<Guid>("RevisionId")
                                         .HasColumnType("uuid");
@@ -158,51 +170,17 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Persistence.Migratio
 
                                     b2.HasKey("RevisionId");
 
-                                    b2.ToTable("layout_revisions");
+                                    b2.ToTable("overlay_revisions");
 
                                     b2.WithOwner()
                                         .HasForeignKey("RevisionId");
                                 });
 
-                            b1.OwnsMany("SmartSentinelEye.LayoutComposition.Domain.Layout.Tile", "Tiles", b2 =>
-                                {
-                                    b2.Property<Guid>("revision_id")
-                                        .HasColumnType("uuid");
-
-                                    b2.Property<int>("row")
-                                        .HasColumnType("integer")
-                                        .HasColumnName("row");
-
-                                    b2.Property<int>("col")
-                                        .HasColumnType("integer")
-                                        .HasColumnName("col");
-
-                                    b2.Property<Guid>("Camera")
-                                        .HasColumnType("uuid")
-                                        .HasColumnName("camera_id");
-
-                                    b2.Property<Guid?>("OverlayValue")
-                                        .HasColumnType("uuid")
-                                        .HasColumnName("overlay_id");
-
-                                    b2.HasKey("revision_id", "row", "col");
-
-                                    b2.HasIndex("OverlayValue")
-                                        .HasDatabaseName("ix_layout_revision_tiles_overlay_id");
-
-                                    b2.ToTable("layout_revision_tiles", (string)null);
-
-                                    b2.WithOwner()
-                                        .HasForeignKey("revision_id");
-                                });
-
                             b1.Navigation("Creation")
                                 .IsRequired();
 
-                            b1.Navigation("Grid")
+                            b1.Navigation("Label")
                                 .IsRequired();
-
-                            b1.Navigation("Tiles");
                         });
 
                     b.Navigation("Creation")

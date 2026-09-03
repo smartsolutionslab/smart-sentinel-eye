@@ -17,6 +17,9 @@ namespace SmartSentinelEye.OverlayDesigner.Api;
 /// </summary>
 public static partial class OverlayEndpoints
 {
+    /// <summary>Route identity an idempotency key is scoped to (ADR-0142).</summary>
+    private const string CreateEndpoint = "POST /overlays";
+
     public static IEndpointRouteBuilder MapOverlayEndpoints(this IEndpointRouteBuilder app)
     {
         Ensure.That(app).IsNotNull();

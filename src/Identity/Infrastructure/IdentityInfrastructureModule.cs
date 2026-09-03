@@ -80,7 +80,7 @@ public static class IdentityInfrastructureModule
 
         // ADR-0142. Scoped alongside the DbContext it writes through; the store is
         // per context because there is no shared database to hold one table in.
-        builder.Services.AddScoped<IIdempotencyStore, IdentityIdempotencyStore>();
+        builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<IdentityDbContext>>();
         builder.Services.AddScoped<ReplayRegisteredClientQueryHandler>();
         builder.Services.AddScoped<
             IQueryHandler<ListDevicesQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,

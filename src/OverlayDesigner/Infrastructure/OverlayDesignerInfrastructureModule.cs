@@ -8,6 +8,7 @@ using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay.Events;
 using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -43,6 +44,11 @@ public static class OverlayDesignerInfrastructureModule
         builder.Services.AddScoped<IDomainEventHandler<OverlayRevisionArchivedDomainEvent>, OverlayRevisionArchivedDomainEventHandler>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
+        builder.Services.AddSingleton(TimeProvider.System);
+
+        // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
+        // above drives the executor's wait for an in-flight attempt.
+        builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<OverlayDesignerDbContext>>();
 
         builder.Services.AddScoped<
             ICommandHandler<CreateOverlayDraftCommand, Result<OverlayIdentifier, CreateOverlayDraftError>>,
