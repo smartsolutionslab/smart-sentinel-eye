@@ -33,6 +33,8 @@ public class OverlayRevisionPublishedDomainEventHandlerTests
         v1.RevisionNumber.ShouldBe(1);
         v1.Text.ShouldBe(label.Text);
         v1.NormalizedX.ShouldBe(label.NormalizedX);
+        v1.NormalizedY.ShouldBe(label.NormalizedY);
+        v1.NormalizedWidth.ShouldBe(label.NormalizedWidth);
         v1.NormalizedHeight.ShouldBe(label.NormalizedHeight);
         v1.FontSizePx.ShouldBe(label.FontSizePx);
         v1.PublishedBy.ShouldBe(by.Value);

@@ -117,6 +117,14 @@ public class OverlayPushIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
         both[0].Overlay.ShouldBe(siblingIdentifier);
         both[0].Text.ShouldBe("Production Line 1");
+        // The frame is parsed off all four geometry fields above and, until
+        // now, only Text and FontSizePx were read back. This is the only
+        // end-to-end net over the EF column mapping, so a label_x/label_y
+        // transposition in the persistence configuration lands here.
+        both[0].NormalizedX.ShouldBe(0.5m);
+        both[0].NormalizedY.ShouldBe(0.05m);
+        both[0].NormalizedWidth.ShouldBe(0.3m);
+        both[0].NormalizedHeight.ShouldBe(0.08m);
         both[0].FontSizePx.ShouldBe(48);
         both[1].Overlay.ShouldBe(siblingIdentifier);
     }

@@ -235,6 +235,8 @@ public class OverlayTests
         recovered.Label.Text.ShouldBe("Rolling Mill A");
         recovered.Label.NormalizedX.ShouldBe(0.25m);
         recovered.Label.NormalizedY.ShouldBe(0.8m);
+        recovered.Label.NormalizedWidth.ShouldBe(0.4m);
+        recovered.Label.NormalizedHeight.ShouldBe(0.1m);
         recovered.Label.FontSizePx.ShouldBe(64);
     }
 
