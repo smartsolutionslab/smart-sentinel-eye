@@ -1,4 +1,5 @@
 using System.Text;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MQTTnet;
 using MQTTnet.Client;
@@ -24,13 +25,34 @@ namespace SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 /// </summary>
 public sealed class MosquittoConnectionFactory(
     IOptions<MosquittoOptions> options,
-    MqttTokenProvider tokens)
+    MqttTokenProvider tokens,
+    ILogger<MosquittoConnectionFactory> logger)
 {
     public async Task<MqttConnection> CreateAsync(CancellationToken cancellationToken)
     {
         MosquittoOptions opts = options.Value;
 
-        TokenHolder token = new() { Value = await tokens.GetAccessTokenAsync(cancellationToken) };
+        TokenHolder token = new();
+
+        // **Minted here when it can be, but never fatally.** This runs on
+        // IHostedService.StartAsync, so an exception escaping it does not fail a
+        // connection — it fails the whole host, and event-ingestion enters
+        // FailedToStart because Keycloak was briefly slow. A service that cannot
+        // start while its identity provider blinks is a worse property than a
+        // subscriber that connects a few seconds late, and the machinery to
+        // connect late already exists: the managed client retries every five
+        // seconds and the token is re-minted on each failed attempt.
+        //
+        // Found while investigating #2038, where a restart under load left
+        // event-ingestion down.
+        try
+        {
+            token.Value = await tokens.GetAccessTokenAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.InitialMqttTokenFailed(exception.Message);
+        }
 
         MqttClientOptionsBuilder clientOptions = new MqttClientOptionsBuilder()
             .WithClientId(opts.ClientId)

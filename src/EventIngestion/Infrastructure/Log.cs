@@ -37,6 +37,15 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Error, Message = "Could not refresh the MQTT token before reconnect: {Error}.")]
     public static partial void MqttReconnectTokenFailed(this ILogger logger, string error);
 
+    // Warning, not Error: the subscriber is degraded rather than broken — it
+    // starts, the managed client retries every five seconds, and the token is
+    // re-minted on each failed attempt. An Error here would page someone for a
+    // condition that resolves itself as soon as Keycloak answers.
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Could not mint the MQTT token at startup: {Error}. "
+            + "Starting anyway; the subscriber will connect once Keycloak answers.")]
+    public static partial void InitialMqttTokenFailed(this ILogger logger, string error);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Rejecting MQTT delivery on '{Topic}': {Error}.")]
     public static partial void RejectingMqttDelivery(this ILogger logger, string topic, string error);
 
