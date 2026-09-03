@@ -15,7 +15,7 @@ public class CreateOverlayDraftCommandHandlerTests
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture);
 
     private static Label SampleLabel() =>
-        Label.From("Line-1", 0.1m, 0.1m, 0.3m, 0.08m, 32);
+        Label.From("Line-1", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), 32);
 
     [Fact]
     public async Task First_creation_with_a_unique_name_returns_a_new_OverlayIdentifier()

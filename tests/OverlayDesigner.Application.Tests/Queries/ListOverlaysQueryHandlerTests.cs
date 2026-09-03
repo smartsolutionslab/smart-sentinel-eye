@@ -24,7 +24,7 @@ public class ListOverlaysQueryHandlerTests
         Overlay overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named(name)
-            .WithLabel(Label.From("Hello", 0.1m, 0.1m, 0.3m, 0.08m, 32))
+            .WithLabel(Label.From("Hello", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), 32))
             .Build();
         overlays.Add(overlay);
         return overlay;

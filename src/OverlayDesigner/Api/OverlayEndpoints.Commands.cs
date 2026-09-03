@@ -39,10 +39,8 @@ public static partial class OverlayEndpoints
             name = OverlayName.From(body.Name);
             label = Label.From(
                 body.Label.Text,
-                body.Label.NormalizedX,
-                body.Label.NormalizedY,
-                body.Label.NormalizedWidth,
-                body.Label.NormalizedHeight,
+                NormalizedPosition.From(body.Label.NormalizedX, body.Label.NormalizedY),
+                NormalizedSize.From(body.Label.NormalizedWidth, body.Label.NormalizedHeight),
                 body.Label.FontSizePx);
         }
         catch (ArgumentException ex)
@@ -213,10 +211,8 @@ public static partial class OverlayEndpoints
             number = OverlayRevisionNumber.From(revisionNumber);
             label = Label.From(
                 body.Label.Text,
-                body.Label.NormalizedX,
-                body.Label.NormalizedY,
-                body.Label.NormalizedWidth,
-                body.Label.NormalizedHeight,
+                NormalizedPosition.From(body.Label.NormalizedX, body.Label.NormalizedY),
+                NormalizedSize.From(body.Label.NormalizedWidth, body.Label.NormalizedHeight),
                 body.Label.FontSizePx);
         }
         catch (ArgumentException ex)

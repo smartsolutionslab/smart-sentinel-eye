@@ -106,7 +106,7 @@ public class PrimitiveBoundaryTests
         // applying, the rule above starts failing on ~79 legitimate types.
         exempted.ShouldContain("CameraName.NormalizedValue");
         exempted.ShouldContain("GridPosition.Row");
-        exempted.ShouldContain("Label.NormalizedX");
+        exempted.ShouldContain("NormalizedPosition.X");
     }
 
     private static (IReadOnlyList<Type> Roots, int Reached) WalkFootprint()

@@ -96,7 +96,7 @@ public class StaleVersionRejectionTests
             new EditDraftRevisionCommand(
                 overlay.Id,
                 OverlayRevisionNumber.One,
-                Label.From("Replaced", 0.2m, 0.2m, 0.4m, 0.1m, 64),
+                Label.From("Replaced", NormalizedPosition.From(0.2m, 0.2m), NormalizedSize.From(0.4m, 0.1m), 64),
                 Stale),
             CancellationToken.None);
 

@@ -15,7 +15,7 @@ public class EditDraftRevisionCommandHandlerTests
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture);
 
     private static Label OtherLabel() =>
-        Label.From("Updated", 0.2m, 0.3m, 0.4m, 0.5m, 64);
+        Label.From("Updated", NormalizedPosition.From(0.2m, 0.3m), NormalizedSize.From(0.4m, 0.5m), 64);
 
     [Fact]
     public async Task Editing_a_Draft_updates_the_Label()
@@ -25,7 +25,7 @@ public class EditDraftRevisionCommandHandlerTests
         Overlay overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
-            .WithLabel(Label.From("Initial", 0.1m, 0.1m, 0.3m, 0.08m, 32))
+            .WithLabel(Label.From("Initial", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), 32))
             .Build();
         overlays.Add(overlay);
         Label replacement = OtherLabel();
@@ -64,7 +64,7 @@ public class EditDraftRevisionCommandHandlerTests
         Overlay overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
-            .WithLabel(Label.From("Initial", 0.1m, 0.1m, 0.3m, 0.08m, 32))
+            .WithLabel(Label.From("Initial", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), 32))
             .Build();
         overlays.Add(overlay);
 
@@ -87,7 +87,7 @@ public class EditDraftRevisionCommandHandlerTests
         Overlay overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
-            .WithLabel(Label.From("Initial", 0.1m, 0.1m, 0.3m, 0.08m, 32))
+            .WithLabel(Label.From("Initial", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), 32))
             .Build();
         overlays.Add(overlay);
         overlay.Publish(OverlayRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), clock);
