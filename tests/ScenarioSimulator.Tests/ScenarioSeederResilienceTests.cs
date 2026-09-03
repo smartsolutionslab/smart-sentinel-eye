@@ -8,6 +8,7 @@ using SmartSentinelEye.ScenarioSimulator.Configuration;
 using SmartSentinelEye.ScenarioSimulator.Keycloak;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
 using SmartSentinelEye.ScenarioSimulator.Seeding;
+using SmartSentinelEye.ScenarioSimulator.Tests.Fakes;
 
 namespace SmartSentinelEye.ScenarioSimulator.Tests;
 
@@ -144,7 +145,7 @@ public sealed class ScenarioSeederResilienceTests
 
     private static KeycloakTokenProvider Tokens() =>
         new(
-            new HttpClient(new StubTokenHandler()),
+            new FakeHttpClientFactory(new HttpClient(new StubTokenHandler())),
             Simulator(),
             TimeProvider.System,
             NullLogger<KeycloakTokenProvider>.Instance);

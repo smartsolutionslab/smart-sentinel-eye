@@ -19,14 +19,18 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Attribution;
 /// </para>
 /// </summary>
 public sealed class CameraCatalogTokenProvider(
-    HttpClient httpClient,
+    IHttpClientFactory httpClientFactory,
     IOptions<StreamFabAttributionOptions> options,
     TimeProvider clock,
     ILogger<CameraCatalogTokenProvider> logger)
     : IDisposable
 {
+    /// <summary>Named client this provider mints through.</summary>
+    public const string HttpClientName = "stream-distribution-attribution-token";
+
     private readonly ClientCredentialsTokenProvider tokens = new(
-        httpClient,
+        httpClientFactory,
+        HttpClientName,
         () => Credentials(options),
         clock,
         logger);

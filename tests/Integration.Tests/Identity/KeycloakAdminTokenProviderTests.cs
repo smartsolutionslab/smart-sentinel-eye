@@ -62,7 +62,7 @@ public class KeycloakAdminTokenProviderTests
             AdminClientSecret = AdminClientSecret,
         };
         return new KeycloakAdminTokenProvider(
-            http,
+            new FakeHttpClientFactory(http),
             Options.Create(options),
             TimeProvider.System,
             NullLogger<KeycloakAdminTokenProvider>.Instance);

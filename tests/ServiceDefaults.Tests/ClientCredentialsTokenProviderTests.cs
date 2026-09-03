@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.ServiceDefaults.Authentication;
+using SmartSentinelEye.ServiceDefaults.Tests.Fakes;
 
 namespace SmartSentinelEye.ServiceDefaults.Tests;
 
@@ -12,6 +13,8 @@ namespace SmartSentinelEye.ServiceDefaults.Tests;
 /// </summary>
 public class ClientCredentialsTokenProviderTests
 {
+    private const string ClientName = "a-named-client";
+
     private static readonly ClientCredentials Credentials =
         new("https://keycloak.test/", "smart-sentinel-eye", "a-service-account", "a-secret");
 
@@ -120,11 +123,54 @@ public class ClientCredentialsTokenProviderTests
             () => provider.GetAccessTokenAsync(CancellationToken.None));
     }
 
-    private static ClientCredentialsTokenProvider Create(MintingHandler keycloak, out AdvanceableClock clock)
+    /// <summary>
+    /// The reason this takes the factory rather than an <see cref="HttpClient"/>
+    /// (#2037). A provider that resolved its client once could not be a singleton
+    /// without pinning a handler for the process lifetime, and not being a
+    /// singleton is what made every one of these caches nearly useless. Asking
+    /// per mint is what buys both.
+    /// </summary>
+    [Fact]
+    public async Task Every_mint_asks_the_factory_for_the_named_client()
+    {
+        MintingHandler keycloak = new(expiresIn: 300);
+        FakeHttpClientFactory factory = new(new HttpClient(keycloak));
+        using ClientCredentialsTokenProvider provider = Create(factory, out AdvanceableClock clock);
+
+        await provider.GetAccessTokenAsync(CancellationToken.None);
+        clock.Advance(TimeSpan.FromSeconds(241));
+        await provider.GetAccessTokenAsync(CancellationToken.None);
+
+        factory.RequestedNames.ShouldBe([ClientName, ClientName]);
+    }
+
+    /// <summary>
+    /// A cached read must not reach the factory at all — otherwise the provider
+    /// would hold a handler open for a call it never makes.
+    /// </summary>
+    [Fact]
+    public async Task A_cached_read_does_not_ask_the_factory_for_anything()
+    {
+        MintingHandler keycloak = new(expiresIn: 300);
+        FakeHttpClientFactory factory = new(new HttpClient(keycloak));
+        using ClientCredentialsTokenProvider provider = Create(factory, out _);
+
+        await provider.GetAccessTokenAsync(CancellationToken.None);
+        await provider.GetAccessTokenAsync(CancellationToken.None);
+
+        factory.RequestedNames.ShouldHaveSingleItem();
+    }
+
+    private static ClientCredentialsTokenProvider Create(MintingHandler keycloak, out AdvanceableClock clock) =>
+        Create(new FakeHttpClientFactory(new HttpClient(keycloak)), out clock);
+
+    private static ClientCredentialsTokenProvider Create(
+        FakeHttpClientFactory factory, out AdvanceableClock clock)
     {
         clock = new AdvanceableClock(new DateTimeOffset(2026, 9, 2, 8, 0, 0, TimeSpan.Zero));
         return new ClientCredentialsTokenProvider(
-            new HttpClient(keycloak),
+            factory,
+            ClientName,
             () => Credentials,
             clock,
             NullLogger.Instance);

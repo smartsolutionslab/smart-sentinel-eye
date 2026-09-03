@@ -15,14 +15,18 @@ namespace SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 /// </para>
 /// </summary>
 public sealed class KeycloakAdminTokenProvider(
-    HttpClient httpClient,
+    IHttpClientFactory httpClientFactory,
     IOptions<KeycloakAdminOptions> options,
     TimeProvider clock,
     ILogger<KeycloakAdminTokenProvider> logger)
     : IDisposable
 {
+    /// <summary>Named client this provider mints through.</summary>
+    public const string HttpClientName = "identity-admin-token";
+
     private readonly ClientCredentialsTokenProvider tokens = new(
-        httpClient,
+        httpClientFactory,
+        HttpClientName,
         () => Credentials(options),
         clock,
         logger);

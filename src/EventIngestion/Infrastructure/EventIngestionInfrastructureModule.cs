@@ -114,7 +114,11 @@ public static class EventIngestionInfrastructureModule
                 opts.Port = mqttPort;
                 opts.KeycloakUrl = keycloakUrl;
             });
-        builder.Services.AddHttpClient<MqttTokenProvider>();
+        // Singleton over a named client (#2037): the cache is only worth having if
+        // the provider outlives a request, and asking the factory per mint keeps
+        // handler rotation that a captive typed client would have pinned.
+        builder.Services.AddHttpClient(MqttTokenProvider.HttpClientName);
+        builder.Services.AddSingleton<MqttTokenProvider>();
         builder.Services.AddSingleton<MosquittoConnectionFactory>();
         builder.Services.AddHostedService<MqttSubscriberHostedService>();
         builder.Services.AddHostedService<PersistenceLoopHostedService>();

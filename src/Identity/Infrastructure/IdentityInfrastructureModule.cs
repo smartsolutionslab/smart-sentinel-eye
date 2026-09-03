@@ -131,7 +131,8 @@ public static class IdentityInfrastructureModule
         // provider's own client: the provider is what mints the token the handler
         // attaches, so applying it to both would have the mint authorise itself.
         builder.Services.AddTransient<KeycloakAdminAuthorizationHandler>();
-        builder.Services.AddHttpClient<KeycloakAdminTokenProvider>(ConfigureHttpClient);
+        builder.Services.AddHttpClient(KeycloakAdminTokenProvider.HttpClientName, ConfigureHttpClient);
+        builder.Services.AddSingleton<KeycloakAdminTokenProvider>();
         builder.Services.AddHttpClient<HttpKeycloakAdminClient>(ConfigureHttpClient)
             .AddHttpMessageHandler<KeycloakAdminAuthorizationHandler>();
         builder.Services.AddScoped<IKeycloakAdminClient>(sp => sp.GetRequiredService<HttpKeycloakAdminClient>());

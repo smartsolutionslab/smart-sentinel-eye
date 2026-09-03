@@ -37,7 +37,8 @@ builder.Services
 builder.Services.AddSingleton(TimeProvider.System);
 
 // Keycloak client_credentials token provider (scope sse.cameras.write).
-builder.Services.AddHttpClient<KeycloakTokenProvider>();
+builder.Services.AddHttpClient(KeycloakTokenProvider.HttpClientName);
+builder.Services.AddSingleton<KeycloakTokenProvider>();
 
 // Camera-catalog REST client (POST /cameras), bearer-authenticated.
 builder.Services.AddHttpClient<CameraCatalogClient>((sp, client) =>
