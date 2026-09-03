@@ -13,6 +13,7 @@ using SmartSentinelEye.Identity.Domain.RegisteredClient.Events;
 using SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 using SmartSentinelEye.Identity.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -75,6 +76,11 @@ public static class IdentityInfrastructureModule
 
         // Hand-rolled query handler registrations (read side; issues #826/#827).
         builder.Services.AddScoped<ListDevicesQueryHandler>();
+
+        // ADR-0142. Scoped alongside the DbContext it writes through; the store is
+        // per context because there is no shared database to hold one table in.
+        builder.Services.AddScoped<IIdempotencyStore, IdentityIdempotencyStore>();
+        builder.Services.AddScoped<ReplayDeviceRegistrationQueryHandler>();
         builder.Services.AddScoped<
             IQueryHandler<ListDevicesQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
             ListDevicesQueryHandler>();

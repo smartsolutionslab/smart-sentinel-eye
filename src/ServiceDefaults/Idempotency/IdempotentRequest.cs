@@ -3,10 +3,31 @@ using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults.Idempotency;
 
-/// <summary>What an idempotent operation produced: the identifier to remember, and the answer to send.</summary>
-/// <param name="ResourceIdentifier">Recorded against the key, and all a replay needs to rebuild the answer.</param>
+/// <summary>
+/// What an idempotent operation produced: the identifier to remember, and the
+/// answer to send.
+///
+/// <para>
+/// <see cref="ResourceIdentifier"/> is an <see cref="Option{T}"/> because an
+/// operation can legitimately succeed at creating nothing — a validation
+/// refusal, a genuine duplicate. Such a key is <b>released</b> rather than
+/// completed: there is no answer to replay, and a caller that fixes its request
+/// must be able to retry with the same key. Completing it with a placeholder
+/// identifier would make the next retry replay a resource that never existed.
+/// </para>
+/// </summary>
+/// <param name="ResourceIdentifier">What a replay rebuilds its answer from, when anything was created.</param>
 /// <param name="Response">What this first caller receives.</param>
-public sealed record IdempotentOutcome(Guid ResourceIdentifier, IResult Response);
+public sealed record IdempotentOutcome(Option<Guid> ResourceIdentifier, IResult Response)
+{
+    /// <summary>The operation created something a replay can rebuild.</summary>
+    public static IdempotentOutcome Created(Guid resourceIdentifier, IResult response) =>
+        new(Option<Guid>.Some(resourceIdentifier), response);
+
+    /// <summary>The operation created nothing, so its key is freed for a retry.</summary>
+    public static IdempotentOutcome NothingCreated(IResult response) =>
+        new(Option<Guid>.None, response);
+}
 
 /// <summary>
 /// The collaborators an idempotent execution needs. Bundled so
@@ -123,7 +144,14 @@ public static class IdempotentRequest
             throw;
         }
 
-        await execution.Store.CompleteAsync(scope, outcome.ResourceIdentifier, CancellationToken.None);
+        if (outcome.ResourceIdentifier.HasValue)
+        {
+            await execution.Store.CompleteAsync(scope, outcome.ResourceIdentifier.Value, CancellationToken.None);
+        }
+        else
+        {
+            await execution.Store.ReleaseAsync(scope, CancellationToken.None);
+        }
 
         return outcome.Response;
     }

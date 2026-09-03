@@ -120,6 +120,18 @@ public sealed class HttpKeycloakAdminClient(
         return new KeycloakClientCredentials(payload.Value);
     }
 
+    public async Task<KeycloakClientCredentials> ReadClientSecretAsync(
+        string clientId, CancellationToken cancellationToken)
+    {
+        Ensure.That(clientId).IsNotNull().IsNotNullOrWhiteSpace();
+        string realm = options.Value.Realm;
+
+        string clientUuid = await TryGetClientUuidAsync(realm, clientId, cancellationToken)
+            ?? throw new KeycloakClientNotFoundException(clientId);
+
+        return await ReadClientSecretAsync(realm, clientUuid, cancellationToken);
+    }
+
     public async Task DisableClientAsync(string clientId, CancellationToken cancellationToken)
     {
         Ensure.That(clientId).IsNotNull().IsNotNullOrWhiteSpace();
