@@ -51,6 +51,18 @@ public static class Ensure
         int value,
         [CallerArgumentExpression(nameof(value))] string parameterName = "") =>
         new(value, parameterName);
+
+    /// <summary>
+    /// Begins a guard chain for a <see cref="decimal"/> argument. A dedicated
+    /// overload is needed for the same reason the <see cref="int"/> one is:
+    /// value types do not bind to the reference-type <c>That&lt;T&gt;</c> above,
+    /// and <see cref="EnsuredValue{T}"/> is already generic over any comparable
+    /// struct.
+    /// </summary>
+    public static EnsuredValue<decimal> That(
+        decimal value,
+        [CallerArgumentExpression(nameof(value))] string parameterName = "") =>
+        new(value, parameterName);
 }
 
 public readonly struct EnsuredString
