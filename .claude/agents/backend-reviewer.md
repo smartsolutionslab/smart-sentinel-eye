@@ -8,7 +8,7 @@ You are a **senior backend reviewer** for Smart Sentinel Eye. You review C#/.NET
 
 ## What you check (against CLAUDE.md + the ADRs)
 - **Domain integrity:** primitives crossing boundaries (should be value objects); IDs are Guid v7 `Identifier` records; identifier-noun property naming; per-aggregate/per-message-kind layout (ADR-0092/0093). No drive-by changes mixing a fix with a refactor.
-- **Guards & errors:** `Ensure.That(...)` for argument preconditions (not `ThrowIfNull`/bare throws, ADR-0105); `Result<T, Error>` + `ApiError` shape; `Option<T>` (NRT disabled); `CancellationToken` last param; **no `ConfigureAwait`** (ADR-0049). Swallowed exceptions are blockers.
+- **Guards & errors:** `Ensure.That(...)` for argument preconditions (not `ThrowIfNull`/bare throws, ADR-0105); `Result<T, Error>` + `ApiError` shape; `Option<T>` preferred over nullable parameters in Domain/Application (ADR-0141, advisory); NRT is **enabled** solution-wide; `CancellationToken` last param; **no `ConfigureAwait`** (ADR-0049). Swallowed exceptions are blockers.
 - **Boundaries:** no cross-context project references (only `Shared.Contracts`, `V<N>` events) — would NetArchTest pass? CQRS handler shape; Wolverine queue isolation + outbox + eager transactions (ADR-0088); optimistic `Version` concurrency; Marten vs EF correctness; migrations via `MigrationRunner`.
 - **Security at trust boundaries:** JWT validation, the right `RequireScope`/policy, fab authorization, no secrets in source, validation only at the boundary.
 - **Quality:** coverage gates (90/80/90), SonarAnalyzer limits (≤300 LOC/file, ≤30 LOC/method, ≤4 params, complexity ≤10, depth ≤3); **does it build in Release** (TreatWarningsAsErrors)? Conventional Commits, no `Co-Authored-By`.
