@@ -101,7 +101,7 @@ public class OverlayRevisionStateMachineTests
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
         overlay.Publish(OverlayRevisionNumber.One, by, clock);
 
-        Label newLabel = Label.From("Different", 0.1m, 0.1m, 0.2m, 0.2m, 20);
+        Label newLabel = Label.From("Different", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.2m, 0.2m), 20);
         Action act = () => overlay.EditDraft(OverlayRevisionNumber.One, newLabel, clock);
         act.ShouldThrow<InvalidOperationException>();
     }

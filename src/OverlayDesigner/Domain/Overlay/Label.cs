@@ -5,9 +5,9 @@ namespace SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 
 /// <summary>
 /// Single text label rendered over a camera cell (spec 004 FR-005).
-/// Carries text + normalized (0..1) position + size + font size in
-/// pixels. Coordinates are resolution-independent so the kiosk-side
-/// composite scales to any viewport.
+/// Carries text + a normalized <see cref="NormalizedPosition"/> and
+/// <see cref="NormalizedSize"/> + font size in pixels. Coordinates are
+/// resolution-independent so the kiosk-side composite scales to any viewport.
 ///
 /// <para>
 /// Placeholder syntax (``{{name}}``) is accepted verbatim in v1; the
@@ -17,59 +17,41 @@ namespace SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 /// </summary>
 public sealed record Label(
     string Text,
-    decimal NormalizedX,
-    decimal NormalizedY,
-    decimal NormalizedWidth,
-    decimal NormalizedHeight,
+    NormalizedPosition Position,
+    NormalizedSize Size,
     int FontSizePx) : IValueObject
 {
     public const int MaximumTextLength = 256;
     public const int MinimumFontSizePx = 8;
     public const int MaximumFontSizePx = 256;
 
+    /// <summary>
+    /// EF's materialization constructor. A constructor parameter can only bind
+    /// to a mapped scalar, never to a navigation, so EF refuses the primary
+    /// constructor outright — <c>Position</c> and <c>Size</c> are owned
+    /// references. It binds the two scalars here and sets the two navigations
+    /// afterwards, which is why they are handed nulls it immediately replaces.
+    /// </summary>
+    private Label(string text, int fontSizePx)
+        : this(text, null!, null!, fontSizePx)
+    {
+    }
+
     public static Label From(
         string text,
-        decimal normalizedX,
-        decimal normalizedY,
-        decimal normalizedWidth,
-        decimal normalizedHeight,
+        NormalizedPosition position,
+        NormalizedSize size,
         int fontSizePx)
     {
         Ensure.That(text, nameof(text))
             .IsNotNullOrWhiteSpace()
             .HasMaxLength(MaximumTextLength);
 
-        EnsureNormalized(normalizedX, nameof(normalizedX));
-        EnsureNormalized(normalizedY, nameof(normalizedY));
-        EnsurePositiveNormalized(normalizedWidth, nameof(normalizedWidth));
-        EnsurePositiveNormalized(normalizedHeight, nameof(normalizedHeight));
+        Ensure.That(position).IsNotNull();
+        Ensure.That(size).IsNotNull();
 
         Ensure.That(fontSizePx).InRange(MinimumFontSizePx, MaximumFontSizePx);
 
-        return new Label(
-            text.Trim(),
-            normalizedX,
-            normalizedY,
-            normalizedWidth,
-            normalizedHeight,
-            fontSizePx);
-    }
-
-    private static void EnsureNormalized(decimal value, string parameter)
-    {
-        if (value is < 0m or > 1m)
-        {
-            throw new ArgumentException(
-                $"{parameter} must be in [0, 1]; got {value}.", parameter);
-        }
-    }
-
-    private static void EnsurePositiveNormalized(decimal value, string parameter)
-    {
-        if (value is <= 0m or > 1m)
-        {
-            throw new ArgumentException(
-                $"{parameter} must be in (0, 1]; got {value}.", parameter);
-        }
+        return new Label(text.Trim(), position, size, fontSizePx);
     }
 }

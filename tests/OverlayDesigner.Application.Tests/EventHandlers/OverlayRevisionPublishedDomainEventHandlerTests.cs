@@ -19,7 +19,7 @@ public class OverlayRevisionPublishedDomainEventHandlerTests
         FakeEventBus bus = new();
         OverlayRevisionPublishedDomainEventHandler handler = new(bus);
 
-        Label label = Label.From("Hello", 0.2m, 0.3m, 0.4m, 0.5m, 32);
+        Label label = Label.From("Hello", NormalizedPosition.From(0.2m, 0.3m), NormalizedSize.From(0.4m, 0.5m), 32);
         OverlayIdentifier overlayId = OverlayIdentifier.From(Guid.CreateVersion7());
         OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
         OverlayRevisionPublishedDomainEvent domainEvent = new(
@@ -32,10 +32,10 @@ public class OverlayRevisionPublishedDomainEventHandlerTests
         v1.Overlay.ShouldBe(overlayId.Value);
         v1.RevisionNumber.ShouldBe(1);
         v1.Text.ShouldBe(label.Text);
-        v1.NormalizedX.ShouldBe(label.NormalizedX);
-        v1.NormalizedY.ShouldBe(label.NormalizedY);
-        v1.NormalizedWidth.ShouldBe(label.NormalizedWidth);
-        v1.NormalizedHeight.ShouldBe(label.NormalizedHeight);
+        v1.NormalizedX.ShouldBe(label.Position.X);
+        v1.NormalizedY.ShouldBe(label.Position.Y);
+        v1.NormalizedWidth.ShouldBe(label.Size.Width);
+        v1.NormalizedHeight.ShouldBe(label.Size.Height);
         v1.FontSizePx.ShouldBe(label.FontSizePx);
         v1.PublishedBy.ShouldBe(by.Value);
     }

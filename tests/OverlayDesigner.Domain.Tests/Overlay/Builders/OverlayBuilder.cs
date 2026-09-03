@@ -12,7 +12,7 @@ namespace SmartSentinelEye.OverlayDesigner.Domain.Tests.Overlay.Builders;
 public sealed class OverlayBuilder
 {
     private OverlayName _name = OverlayName.From("Line-1 Title");
-    private Label _label = Label.From("Production Line 1", 0.5m, 0.05m, 0.3m, 0.08m, 48);
+    private Label _label = Label.From("Production Line 1", NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), 48);
     private OperatorIdentifier _createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
     private IClock _clock = new TestClock(
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture));

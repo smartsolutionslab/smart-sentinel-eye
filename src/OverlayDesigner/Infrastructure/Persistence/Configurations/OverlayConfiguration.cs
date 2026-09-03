@@ -96,10 +96,27 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
                     .HasColumnName("label_text")
                     .HasMaxLength(Label.MaximumTextLength)
                     .IsRequired();
-                label.Property(labelValue => labelValue.NormalizedX).HasColumnName("label_x").IsRequired();
-                label.Property(labelValue => labelValue.NormalizedY).HasColumnName("label_y").IsRequired();
-                label.Property(labelValue => labelValue.NormalizedWidth).HasColumnName("label_width").IsRequired();
-                label.Property(labelValue => labelValue.NormalizedHeight).HasColumnName("label_height").IsRequired();
+
+                // One level deeper than anything else here: a composite value
+                // object owned by a composite value object owned by an owned
+                // collection. The four columns stay where they were — the
+                // owned-reference default would name them Position_X and make
+                // them nullable, which is #2022's shape, so both the column name
+                // and the Navigation(...).IsRequired() below are load-bearing.
+                label.OwnsOne(labelValue => labelValue.Position, position =>
+                {
+                    position.Property(value => value.X).HasColumnName("label_x").IsRequired();
+                    position.Property(value => value.Y).HasColumnName("label_y").IsRequired();
+                });
+                label.Navigation(labelValue => labelValue.Position).IsRequired();
+
+                label.OwnsOne(labelValue => labelValue.Size, size =>
+                {
+                    size.Property(value => value.Width).HasColumnName("label_width").IsRequired();
+                    size.Property(value => value.Height).HasColumnName("label_height").IsRequired();
+                });
+                label.Navigation(labelValue => labelValue.Size).IsRequired();
+
                 label.Property(labelValue => labelValue.FontSizePx).HasColumnName("label_font_size_px").IsRequired();
             });
 

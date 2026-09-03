@@ -49,7 +49,16 @@ public sealed class Revision
         // keyed on its owner revision, so the branched revision must own its
         // own instance. Sharing the same CLR Label across two revisions makes
         // EF try to re-key the owned entity onto a new principal and throws.
-        NewDraft(number, label with { }, createdAt, createdBy);
+        //
+        // The copy reaches Position and Size too. A `with` expression is
+        // shallow, and since spec 060 those are themselves owned entities keyed
+        // on the Label — so a shallow copy hands the new Label the old one's two
+        // instances and reproduces the same re-keying failure one level down.
+        NewDraft(
+            number,
+            label with { Position = label.Position with { }, Size = label.Size with { } },
+            createdAt,
+            createdBy);
 
     internal void Publish(DateTimeOffset publishedAt)
     {
