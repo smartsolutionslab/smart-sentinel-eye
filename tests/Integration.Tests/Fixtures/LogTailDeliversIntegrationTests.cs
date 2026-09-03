@@ -143,6 +143,7 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
     /// two.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>It does not discriminate a resolve-once implementation, despite
     /// looking as though it should.</b> The DCP instance id was observed
     /// <i>stable</i> across a full restart on Aspire 13.5.3 (Windows) — one
@@ -153,12 +154,14 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
     /// of this DCP build rather than a contract; it is simply defensive code that
     /// no test here exercises, and a green run must not be read as evidence
     /// otherwise. Linux is unverified.
-    /// </remarks>
-    /// <remarks>
+    /// </para>
+    ///
+    /// <para>
     /// <b>Disruptive</b>, like every other test that restarts a resource through
     /// Aspire: the restart command fails outright on the CI runner ("Failed to
     /// stop resource"), so this is excluded there by category and observed by
     /// hand, exactly as <c>RestartLosesNothingIntegrationTests</c> is.
+    /// </para>
     /// </remarks>
     [Fact]
     [Trait("Category", "Disruptive")]
