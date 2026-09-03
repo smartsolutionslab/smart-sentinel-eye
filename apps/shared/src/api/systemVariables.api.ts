@@ -59,7 +59,16 @@ export interface VariableReadInput {
 }
 
 export interface ListVariablesInput {
+  /**
+   * An exact state to list. When given it wins outright, so `Archived` reads
+   * the archived ones back and `includeArchived` does not enter into it.
+   */
   state?: VariableState;
+  /**
+   * Widens the default listing to every state. Archived variables are excluded
+   * otherwise (#2015) — the same shape `GET /cameras` uses for retired ones.
+   */
+  includeArchived?: boolean;
   /** Omit to span every fab the caller holds; name one to narrow to it. */
   fabId?: string;
 }
@@ -107,6 +116,7 @@ export const systemVariablesApi = createApi({
         method: 'GET',
         params: {
           ...(input?.state === undefined ? {} : { state: input.state }),
+          ...(input?.includeArchived === undefined ? {} : { includeArchived: input.includeArchived }),
           ...(input?.fabId === undefined || input?.fabId === '' ? {} : { fabId: input.fabId }),
         },
       }),

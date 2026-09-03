@@ -42,7 +42,10 @@ public static class SystemVariableEndpoints
         // from claiming they cannot happen.
         group.MapGet("/", List)
             .WithName("ListSystemVariables")
-            .WithSummary("List variables in your fabs. Omit fabId to span all of them; name one to narrow. Spec 014.")
+            .WithSummary(
+                "List variables in your fabs. Omit fabId to span all of them; name one to narrow (spec 014). "
+                + "Archived variables are excluded unless includeArchived=true, or state=Archived asks for them "
+                + "outright — the same shape GET /cameras uses for retired ones. Every row carries its state.")
             .Produces<IReadOnlyList<VariableDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
@@ -263,7 +266,11 @@ public static class SystemVariableEndpoints
         [FromServices] IFabAuthorizationGuard fabGuard,
         ClaimsPrincipal user,
         CancellationToken cancellationToken,
-        [FromQuery] string fabId = "")
+        [FromQuery] string fabId = "",
+        // Defaulted, not merely optional: a non-nullable value type with no
+        // default is a *required* query parameter to minimal APIs, and the
+        // listing this endpoint exists to serve sends no query string at all.
+        [FromQuery] bool includeArchived = false)
     {
         VariableState? filter = null;
         if (!string.IsNullOrWhiteSpace(state))
@@ -291,7 +298,7 @@ public static class SystemVariableEndpoints
         IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
-            new ListVariablesQuery(fabs, filter), cancellationToken);
+            new ListVariablesQuery(fabs, filter, includeArchived), cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
