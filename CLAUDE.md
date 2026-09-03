@@ -212,6 +212,38 @@ deploy/helm/            One hand-written Mosquitto chart. The Aspire k8s
   event-to-overlay path cites which leg it affects.
 - **Aspire is the composition root.** New runtime resources go in
   `AppHost`. Don't wire connection strings by hand.
+- **A retried `POST` must not apply twice.** Two mechanisms, and they
+  cover different populations — neither replaces the other.
+
+  **The default protects everything** (ADR-0143): the standard resilience
+  handler retries only methods RFC 9110 calls idempotent, so `POST` and
+  `PATCH` get one attempt. A client whose non-idempotent calls are
+  idempotent *in fact* opts back in with `RetryEveryMethod()` **and says
+  why at the call site** — five do today: the four token mints, where a
+  second token supersedes the first, and the MediaMTX gateway, whose
+  `add/` answers 4xx for an existing path and whose `patch/` sets a fixed
+  value. Retrying is the thing that needs justifying.
+
+  **A caller may ask for more** (ADR-0142): an `Idempotency-Key` header
+  makes the operation apply at most once and the same key return the same
+  answer. Opt-in — no key, no change, including the 409 a genuine
+  duplicate has always earned. Wire it with
+  `IdempotencyHeaders.TryRead` plus `IdempotentRequest.ExecuteCreateAsync`
+  (or `ExecuteAsync` where the answer is more than an identifier), an
+  `IdempotencyStore<TDbContext>` registration, and
+  `IdempotencyKeyTable.Create` in a migration.
+
+  **Nine of the ten creates and rotations have a key. The tenth cannot**:
+  `POST /webhook-integrations` returns a bearer token persisted only as a
+  hash, so nothing on the server can rebuild it — unlike Identity's
+  secrets, which Keycloak still holds and a replay reads back. Recorded
+  because "all of them" is the kind of summary this file has had to
+  correct before, and because the next person to reach for the pattern
+  should meet the exception rather than discover it.
+
+  **The scope includes the authenticated caller.** Keys are strings
+  callers invent, so `"1"` and `"retry"` will collide; keyed on the string
+  alone the second caller is handed the first caller's resource.
 - **Prefer `Option<T>` to a nullable parameter, in Domain and
   Application** (ADR-0141). A nullable parameter says a value may be
   absent; `Option<T>` says what absent *means* and forces the caller to
@@ -359,6 +391,7 @@ claims a discharge nobody earned.
 | Async | `CancellationToken` mandatory last param; no `ConfigureAwait` | 0049 |
 | Persistence | PostgreSQL. **Marten is permitted and unused** — no context has justified it (ADR-0130) | 0009, 0071, **0130** |
 | Concurrency | Two-layer optimistic: `If-Match` expected version (cross-request) + EF token (in-transaction); no retry-on-conflict | 0043, **0113** |
+| Retry safety | `POST`/`PATCH` not retried by default; five clients opt back in with a stated reason. Caller-supplied `Idempotency-Key` replays the original answer — opt-in, on 9 of the 10 creates and rotations | **0142**, **0143** |
 | Object store | MinIO (future) | 0009 |
 | Messaging | RabbitMQ (via Wolverine) | 0010, 0042 |
 | Sagas | Wolverine state machines + compensating actions | 0072 |
