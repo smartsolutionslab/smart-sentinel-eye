@@ -358,6 +358,14 @@ constituency, but the groups-based design assumes this works.
   Returns: `{ clientId, clientSecret }` — the secret is shown
   exactly once. Idempotent on
   `(deviceType, deviceId)` — re-registering returns 409.
+  **Amended by ADR-0142:** a request may carry an `Idempotency-Key`
+  header, and a repeat of the *same key* replays the original answer —
+  secret included, read back from Keycloak — instead of 409. The 409
+  is unchanged for a repeat without a key, which is what a genuine
+  second registration looks like. The distinction is the whole point:
+  a transparent retry cannot be told from a first attempt any other
+  way, and the 409 was reaching callers whose own earlier attempt had
+  created the device.
 - **FR-011** `DELETE /devices/{clientId}` (admin only,
   `sse.identity.devices.write`) disables the Keycloak client. The
   next time the device's JWT expires, the device can no longer
@@ -368,6 +376,8 @@ constituency, but the groups-based design assumes this works.
   `{ clientId, clientSecret, enrollmentToken }`. The
   `enrollmentToken` is a one-time-use JWT (15 min TTL) the kiosk
   presents to exchange for a refresh+access pair.
+  **Amended by ADR-0142:** as FR-010 — an `Idempotency-Key` makes a
+  repeat of the same key replay the original answer rather than fail.
 - **FR-013** `DELETE /kiosks/{clientId}` (admin only) disables
   the kiosk client.
 - **FR-014** `POST /webhook-integrations/{name}/rotate` (admin
