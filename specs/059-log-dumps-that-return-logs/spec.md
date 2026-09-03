@@ -4,15 +4,20 @@
 
 **Created**: 2026-09-03
 
-**Status**: Draft
+**Status**: Draft — **scope grown 2026-09-03, see "The scope grew" below**
 
-**Issue**: #2053
+**Issues**: #2053 (original), **#2054 (added 2026-09-03)**
 
-**Input**: "Four services' diagnostic log dumps return a placeholder instead of
-logs. `AspireFixture.RecentLogs(resourceName)` answers with
-`(not tailed — add '<name>' to AspireFixture.TailedResources)` for any resource
-absent from a hand-maintained four-element array, and seven call sites ask for a
-resource that is not in it."
+**Input (original, #2053)**: "Four services' diagnostic log dumps return a
+placeholder instead of logs. `AspireFixture.RecentLogs(resourceName)` answers
+with `(not tailed — add '<name>' to AspireFixture.TailedResources)` for any
+resource absent from a hand-maintained four-element array, and seven call sites
+ask for a resource that is not in it."
+
+**Input (added, #2054)**: "Every log tail in `AspireFixture` subscribes to an
+empty stream. `ResourceLoggerService.WatchAsync` is keyed by the DCP resource id
+(`stream-distribution-jewwwgxq`), not the app-model name, and both capture paths
+pass the name. Watching by name returns nothing and throws nothing."
 
 ## Context
 
@@ -69,6 +74,74 @@ is lost is the diagnostic on the day it is needed — and the fab-scoping tests
 are where that bites hardest, because a fab-resolution `403` is exactly a status
 that tells you nothing on its own.
 
+## The scope grew — 2026-09-03
+
+**This section is the record of a spec that was wrong, and it is kept as one.**
+Everything above was written before phase 5, and everything above is still true;
+it was just not the whole reason a log dump returns no log.
+
+Phases 1–4 shipped what this spec asked for: `TailedResources` went 4 → 8 and
+`LogTailCoverageTests` went red → green. **Phase 5 then booted the real fixture
+and the dump still carried no logs** — a *different* placeholder:
+
+```
+stream-distribution log:
+(tail subscribed but the resource emitted nothing)
+```
+
+### The second mechanism, which this spec did not know about
+
+`ResourceLoggerService.WatchAsync` is keyed by the **DCP resource id**
+(`stream-distribution-jewwwgxq`), not by the app-model **resource name**
+(`stream-distribution`). Both of the fixture's capture paths pass the name:
+
+- `tests/Integration.Tests/Fixtures/AspireFixture.cs:476` — `loggers.WatchAsync(resourceName)`
+  in `TailResourceLogsAsync`, which feeds `RecentLogs`
+- `tests/Integration.Tests/Fixtures/AspireFixture.cs:411` — `loggers.WatchAsync(name)`
+  in `CaptureOneResourceLogAsync`, which feeds the startup-timeout report
+
+**Watching by name returns an empty stream and throws nothing.** That is why it
+was invisible for as long as it was: the tail records no failure, so `RecentLogs`
+answers *"(tail subscribed but the resource emitted nothing)"* — which reads like
+a quiet service, not a broken subscription.
+
+Direct probe, two separate boots (differing DCP suffixes, so not a one-off):
+
+```
+SCRATCH-DIRECT[stream-distribution]: ids=[stream-distribution-jewwwgxq] byName=(no logs captured) byId=60 line(s)
+SCRATCH-DIRECT[camera-catalog]:      ids=[camera-catalog-thwaubpm]      byName=(no logs captured) byId=60 line(s)
+SCRATCH-DIRECT[stream-distribution]: ids=[stream-distribution-duxwbenb] byName=(no logs captured) byId=60 line(s)
+SCRATCH-DIRECT[camera-catalog]:      ids=[camera-catalog-wazgehsy]      byName=(no logs captured) byId=60 line(s)
+```
+
+**It is pre-existing on `develop` and affects all eight tails**, including the
+four — `camera-catalog`, `automation`, `identity`, `event-ingestion` — that were
+tailed long before this branch. So `RecentLogs`' own promise, *"CI has no other
+route to the service's stack trace"*, has never once been kept.
+
+### What a human decided
+
+Grow #2053 to include #2054, rather than merge the narrow fix under a narrower
+title. This spec now closes only when **a log dump returns logs**. Both issues
+stay open until the one PR closes both.
+
+### What that costs this spec, honestly
+
+- **US-1 as written was not achievable by US-2's fix.** AS-1 asserted the
+  returned string "is the service's recent console output"; the commit that made
+  the guard green does not make AS-1 true. AS-1 is kept and is now served by
+  US-3.
+- **The commits already on the branch stay.** `1217c32` (the guard, observed
+  red) and `5ff65d0` (the array) are correct and necessary — a resolved DCP id
+  is no use for a resource nobody subscribes to. They are just not sufficient.
+- **`LogTailCoverageTests` is green today while every tail is empty.** It is a
+  true statement about the source that says nothing about delivery — a live
+  instance of the failure this repo keeps recording: a guard that reads the
+  design artefact instead of asking the running system. It is not deleted; it
+  guards what it guards. It **cannot** be this scope's red test, and no
+  source-scanning replacement can be either (see US-3 and AS-6).
+- **Assumption A1 became untestable and was measured anyway.** See A1 below.
+
 ## User Stories
 
 ### US-1 (P1) — An engineer reading a CI failure gets the service's logs
@@ -92,6 +165,22 @@ re-occurs invisibly; the repo already answers this class of problem with a
 source-scanning guard (`HandlerDeconstructionTests`, `StaleCodeConventionTests`,
 `GuardBanWiringTests`, `PrimitiveBoundaryTests`).
 
+### US-3 (P1) — the tail actually delivers, and keeps delivering across a restart
+
+**Added 2026-09-03 with the grown scope (#2054).**
+
+As an engineer reading a failed integration-test run, when I read the log
+section of an assertion message, I want it to contain the service's real log
+lines rather than a placeholder — including after that service has been
+restarted mid-run, which is precisely when the diagnostic is most likely to be
+the only account of what happened.
+
+US-3 is what makes US-1 true. US-1 names the *four resources* that could not be
+asked; US-3 is that asking any of the eight returns an answer. They are separate
+stories because they have separate defects, separate fixes and separate
+evidence — collapsing them would hide that the first fix shipped and did not
+deliver the feature.
+
 ## Acceptance Scenarios
 
 Written against the guard and the fixture. **Auth and bad-request scenarios are
@@ -107,6 +196,12 @@ When a test calls RecentLogs("stream-distribution")
 Then the returned string is the service's recent console output
 And it is not the "(not tailed — …)" placeholder
 ```
+
+**AS-1 was not satisfied by the US-2 fix.** It removed the `(not tailed — …)`
+line and left `(tail subscribed but the resource emitted nothing)` — which is
+still not "the service's recent console output". AS-6 is the scenario that makes
+AS-1 true, and states the distinction the original wording was too loose to
+force.
 
 **AS-2 — the guard names the violations (US-2, the red artifact)**
 
@@ -149,6 +244,79 @@ Then that call site is not reported as a violation
 The guard checks literals. A variable argument cannot be checked by reading
 source, and failing it would force a rewrite of correct code.
 
+**AS-6 — the tail delivers a line the test itself caused (US-3, the red artifact)**
+
+```gherkin
+Given the Aspire fixture has started
+And the test has invented a camera name no other test uses
+When it registers that camera against camera-catalog over real HTTP
+And it re-reads RecentLogs("camera-catalog") until the line arrives or 30 s elapse
+Then the returned string contains that invented camera name
+And it is not "(not tailed — …)", "(tail subscribed but the resource emitted nothing)" or "(log tail failed: …)"
+```
+
+**"Contains real log content" is defined by the positive half of that
+assertion, not the negative half.** All three placeholders are non-empty
+strings, so `ShouldNotBeNullOrEmpty` passes on every one of them — that is the
+trap, and it is the assertion an unwary test would write. The load-bearing
+assertion is that the tail contains **a token the test invented seconds earlier
+and caused this specific service to log**. That single check rules out, at once:
+the resource not being tailed; the subscription being empty; the tail having
+faulted; content that is stale rather than live; and content that came from a
+different resource's stream. The three negative assertions are kept anyway,
+because they turn a failure into a diagnosis instead of a diff of two long
+strings.
+
+`camera-catalog` writes `Registered camera {CameraIdentifier} with name
+{CameraName}.` at `Information`
+(`src/CameraCatalog/Application/Log.cs`), and `Logging:LogLevel:Default` is
+`Information`. **A request alone is not enough**: `Microsoft.AspNetCore` is
+pinned to `Warning` in `appsettings.json`, so ASP.NET's own per-request lines are
+never written — the marker has to be a line the application code emits
+deliberately.
+
+**AS-7 — every tailed resource delivers, not just the one that was driven (US-3)**
+
+```gherkin
+Given the Aspire fixture has started and every resource is running
+When a test calls RecentLogs(name) for each of the eight names in TailedResources
+Then no returned string is any of the three placeholders
+```
+
+The id is resolved **per resource**, so a resolution that works for
+`camera-catalog` does not prove one for a name whose snapshot never appears
+under that spelling. AS-7 is the cheap generalisation — no request, no extra
+boot; AS-6 is the expensive proof of identity. Each covers what the other
+cannot: AS-7 cannot tell whose logs it is reading, AS-6 reads only one.
+
+**AS-8 — a restarted resource is still tailed (US-3)**
+
+```gherkin
+Given the fixture is running and event-ingestion has been tailed since startup
+When event-ingestion is restarted
+And the test registers a webhook integration with an invented name against the restarted service
+Then RecentLogs("event-ingestion") contains that invented name
+```
+
+**This is the scenario the whole re-subscribe loop exists for.** The DCP id
+changes on every restart as well as every boot, so an implementation that
+resolves the id once and reuses it re-subscribes to a dead instance and the
+service goes permanently quiet — reproducing #2038's original symptom while
+appearing to fix it. Nothing else in this spec distinguishes that implementation
+from the correct one.
+
+**AS-9 — the guard from US-2 is not the evidence for US-3 (US-3)**
+
+```gherkin
+Given LogTailCoverageTests passes
+When every tail in the fixture is subscribed to an empty stream
+Then LogTailCoverageTests still passes
+```
+
+Stated as a scenario because it is a fact about today's `develop` and the reason
+AS-6 must be a runtime observation. A source scan cannot fail here, so a source
+scan cannot be the red test.
+
 ## Independent end-to-end test procedure
 
 Executable by a human who did not write the change, without reading the diff.
@@ -168,7 +336,27 @@ Executable by a human who did not write the change, without reading the diff.
    tailing-cost decision in `plan.md` — this is the measurement that turns
    "probably fine" into an observation. Per the standing note that a first run
    after machine churn looks like a regression, run each side twice and take the
-   second.
+   second. **Done, 2026-09-03; the answer is "no signal at this resolution" —
+   see A1.**
+
+### Steps added with the grown scope
+
+Steps 1–3 were executed at phase 5 and step 3 **failed**, which is how #2054 was
+found. Re-run step 3 after the id fix; it is expected to pass this time. Then:
+
+5. On `develop`, run the new delivery test alone
+   (`dotnet test tests/Integration.Tests --filter LogTailDelivers`). It must
+   **fail**, and the failure message must show the placeholder it got instead of
+   the invented camera name. Capture that output verbatim (ADR-0139) — it is the
+   red artifact, and it is a *runtime* one.
+6. Apply the id-resolution commit and re-run the same filter unmodified: all
+   three tests pass.
+7. Read the restart test's own output: it must show the tail carrying a line
+   written **after** the restart, not merely a non-empty tail.
+8. Confirm `dotnet test tests/Architecture.Tests --filter LogTailCoverage` still
+   passes, unmodified. The guard is untouched by this scope and must stay that
+   way — if it needed changing, something in the fixture's shape moved that
+   nobody asked to move.
 
 ## Locked tech choices
 
@@ -203,9 +391,14 @@ settled silently here.
 ## Latency budget impact (constitution §IV)
 
 **N/A — the change is confined to the integration-test harness
-(`tests/Integration.Tests/Fixtures/AspireFixture.cs`) and a new guard in
-`tests/Architecture.Tests`. No production code path is touched, so no leg of the
-event→overlay budget is affected.**
+(`tests/Integration.Tests/Fixtures/AspireFixture.cs`, plus a new test class
+beside it) and a new guard in `tests/Architecture.Tests`. No production code path
+is touched, so no leg of the event→overlay budget is affected.**
+
+**Still N/A after the scope grew.** The id resolution lives in the fixture; the
+grown scope adds test files and touches no `src/` project. It does, however,
+change what a *future* latency measurement can be trusted on: a run whose
+service logs were unreadable is a run whose anomalies could not be explained.
 
 ## Out of scope
 
@@ -218,13 +411,66 @@ event→overlay budget is affected.**
   right to: removing a diagnostic someone deliberately reached for is the
   opposite of the fix.
 
+### Out of scope, added with the grown scope
+
+- **Observing `CaptureOneResourceLogAsync` (`:411`) through a real startup
+  timeout.** It carries the same defective call and gets the same fix, but
+  provoking a genuine eight-minute startup timeout in a test is not something to
+  build for this. It is covered **by construction** instead: both call sites are
+  required to go through one shared resolver (`plan.md`, design decision 3), so
+  the runtime test on `:476` exercises the code `:411` depends on. What stays
+  unobserved is the five-second bounded read around it, and this spec says so
+  rather than implying coverage it does not have.
+- **Linux/CI observation.** The delivery tests will run in CI's `integration`
+  job, but the phase-5 evidence and the phase-5 re-run are Windows. The DCP
+  suffix scheme is not platform-specific; nobody has watched it on Linux.
+- **Deleting or weakening `LogTailCoverageTests`.** It stays exactly as
+  committed at `1217c32`.
+- **Replaying a backlog on subscribe.** Whether Aspire hands a late subscriber
+  earlier lines is not relied on and not investigated; every delivery assertion
+  is about a line written *after* the subscription exists.
+
 ## Assumptions
 
 - **A1.** `ResourceLoggerService.WatchAsync` is a subscription over log output
   the Aspire host already produces, so the marginal cost of a tail is a
   subscription plus a bounded queue, not extra log production. Reasoned from
-  `AspireFixture.TailResourceLogsAsync` (`:437-489`), **not measured** — step 4
-  of the test procedure is what measures it.
+  `AspireFixture.TailResourceLogsAsync` (`:437-489`).
+
+  **Status: measured, no signal — and not yet testable as written.** Phase 5 ran
+  `InitializeAsync` four times with 8 tails and twice with 4:
+
+  | Tails | Runs (s) |
+  |---|---|
+  | 8 | 137.87, 166.60, 154.29, 135.95 |
+  | 4 | 140.26, 143.00 |
+
+  The 8-tail spread alone is 30.7 s — 22% of its own minimum — and both 4-tail
+  figures sit inside it. **Not measurable at this resolution.** Worse, the
+  comparison was not of the thing A1 is about: with every tail subscribed to an
+  empty stream, this measured *eight idle loops against four*, not eight live
+  subscriptions against four. **A1 only becomes testable once the tails
+  deliver**, so re-measuring after the id fix is the first honest reading — and
+  A1 stays *reasoned, not measured* until then. Recorded rather than dropped,
+  because a figure that says nothing is worth more written down than a figure
+  nobody took.
+
+- **A2 (added with the grown scope).** `ResourceNotificationService.TryGetCurrentState(name, out ResourceEvent)`
+  resolves an app-model name to the current DCP instance's `ResourceId`. The
+  Aspire 13.5.3 XML doc states the contract directly: *"A resource id can be
+  either the unique id of the resource or the displayed resource name … The
+  resource name can also be used … but it must be unique. If there are multiple
+  resources with the same name, then this method will not return a match."*
+  **No resource in `TailedResources` is replicated**, so every one of the eight
+  resolves. Reasoned from the published contract plus the phase-5 probe, which
+  read exactly one id per name; **not yet exercised through this API** — the
+  probe read ids by watching `ResourceNotifications` directly.
+
+- **A3 (added with the grown scope).** A log line the service writes reaches the
+  fixture's queue with some delay — DCP is between them. The delivery tests
+  therefore **poll to a timeout** rather than assert immediately; an immediate
+  assertion would be flaky in exactly the direction that reads as "the fix does
+  not work".
 
 ## Artifacts deliberately not produced
 
