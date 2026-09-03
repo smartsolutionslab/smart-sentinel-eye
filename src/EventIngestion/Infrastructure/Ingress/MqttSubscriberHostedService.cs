@@ -115,12 +115,48 @@ public sealed class MqttSubscriberHostedService(
         }
     }
 
-    private Task OnConnectingFailedAsync(ConnectingFailedEventArgs args)
+    /// <summary>
+    /// Re-mints the JWT after a failed connect attempt, for the same reason
+    /// <see cref="OnDisconnectedAsync"/> does after a dropped one.
+    ///
+    /// <para>
+    /// <b>These are different events and only one of them was covered.</b>
+    /// <c>DisconnectedAsync</c> fires when an established connection drops;
+    /// a CONNECT the broker refuses — an expired or absent token — raises this
+    /// instead. So a subscriber that never managed a first connection re-presented
+    /// the same dead credential every five seconds, forever, and the log said
+    /// only that connecting had failed. Nothing recovered it but a restart.
+    /// </para>
+    ///
+    /// <para>
+    /// That path became reachable on purpose when the startup mint stopped being
+    /// fatal (see <see cref="MosquittoConnectionFactory"/>): the client may now
+    /// legitimately start with no token at all, and this is what turns that into
+    /// a connection rather than a loop.
+    /// </para>
+    /// </summary>
+    private async Task OnConnectingFailedAsync(ConnectingFailedEventArgs args)
     {
         MosquittoOptions opts = options.Value;
         logger.MqttSubscriberConnectFailed(
             $"{opts.Host}:{opts.Port}", args.Exception?.Message ?? "connect failed");
-        return Task.CompletedTask;
+
+        if (connection is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await connection.RefreshTokenAsync(CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Keycloak is still away. The next attempt is five seconds off and
+            // will try again; failing here would only replace a retry with a
+            // crash.
+            logger.MqttReconnectTokenFailed(ex.Message);
+        }
     }
 
     private async Task OnMessageReceived(MqttApplicationMessageReceivedEventArgs args)
