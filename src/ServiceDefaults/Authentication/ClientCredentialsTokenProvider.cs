@@ -32,6 +32,16 @@ namespace SmartSentinelEye.ServiceDefaults.Authentication;
 /// </para>
 ///
 /// <para>
+/// <b>Every wrapper is registered as a singleton</b>, which is what makes the
+/// cache mean anything (#2037). Registered through <c>AddHttpClient&lt;T&gt;</c>
+/// the providers were transient, so each cache lived as long as whatever
+/// happened to hold it: one HTTP request for Identity's, one handler chain for
+/// StreamDistribution's, and in the Scenario Simulator five separate caches of a
+/// single credential. The caching was real code with tests and, nearly
+/// everywhere, no effect.
+/// </para>
+///
+/// <para>
 /// Credentials arrive through a delegate rather than a bound options type,
 /// because the four contexts spell the same four values four different ways
 /// (<c>Username</c>, <c>ClientId</c>, <c>AdminClientId</c>,
@@ -51,7 +61,8 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
     };
 
-    private readonly HttpClient httpClient;
+    private readonly IHttpClientFactory httpClientFactory;
+    private readonly string httpClientName;
     private readonly Func<ClientCredentials> credentials;
     private readonly TimeProvider clock;
     private readonly ILogger logger;
@@ -60,18 +71,35 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
     private string? cachedToken;
     private DateTimeOffset refreshAfter = DateTimeOffset.MinValue;
 
+    /// <summary>
+    /// Takes the factory rather than an <see cref="HttpClient"/> so that a
+    /// provider can be a singleton without pinning a handler.
+    ///
+    /// <para>
+    /// The two properties wanted here are ordinarily mutually exclusive. A cache
+    /// is only worth having if the object holding it outlives a request, which
+    /// means a singleton; a singleton holding a typed <c>HttpClient</c> pins one
+    /// <c>HttpMessageHandler</c> for the process lifetime and defeats the
+    /// factory's rotation. Asking the factory per mint gets both: the cache
+    /// spans the process, and each mint uses whatever handler the factory
+    /// currently considers live.
+    /// </para>
+    /// </summary>
     public ClientCredentialsTokenProvider(
-        HttpClient httpClient,
+        IHttpClientFactory httpClientFactory,
+        string httpClientName,
         Func<ClientCredentials> credentials,
         TimeProvider clock,
         ILogger logger)
     {
-        Ensure.That(httpClient).IsNotNull();
+        Ensure.That(httpClientFactory).IsNotNull();
+        Ensure.That(httpClientName).IsNotNull().IsNotNullOrWhiteSpace();
         Ensure.That(credentials).IsNotNull();
         Ensure.That(clock).IsNotNull();
         Ensure.That(logger).IsNotNull();
 
-        this.httpClient = httpClient;
+        this.httpClientFactory = httpClientFactory;
+        this.httpClientName = httpClientName;
         this.credentials = credentials;
         this.clock = clock;
         this.logger = logger;
@@ -116,6 +144,12 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
             ["client_id"] = client.ClientIdentifier,
             ["client_secret"] = client.ClientSecret,
         });
+
+        // Not disposed. A client from the factory is a thin wrapper over a
+        // pooled handler it does not own, so disposing it frees nothing and
+        // would make a test double that hands back one client fail on the
+        // second mint rather than on the first.
+        HttpClient httpClient = httpClientFactory.CreateClient(httpClientName);
 
         using HttpResponseMessage response = await httpClient.PostAsync(url, form, cancellationToken);
         response.EnsureSuccessStatusCode();

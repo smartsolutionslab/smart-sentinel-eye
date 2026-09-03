@@ -149,7 +149,8 @@ public static class StreamDistributionInfrastructureModule
             options.Realm = builder.Configuration["Keycloak:Realm"] ?? options.Realm;
         });
 
-        builder.Services.AddHttpClient<CameraCatalogTokenProvider>();
+        builder.Services.AddHttpClient(CameraCatalogTokenProvider.HttpClientName);
+        builder.Services.AddSingleton<CameraCatalogTokenProvider>();
 
         // On the lookup only. The token provider's own client mints the token
         // this handler attaches, so authorising it would make the mint depend on

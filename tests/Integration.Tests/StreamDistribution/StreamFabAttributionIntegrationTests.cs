@@ -225,7 +225,7 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
         };
 
         CameraCatalogTokenProvider tokens = new(
-            new HttpClient(acceptsDevCert),
+            new FakeHttpClientFactory(new HttpClient(acceptsDevCert)),
             options,
             TimeProvider.System,
             NullLogger<CameraCatalogTokenProvider>.Instance);

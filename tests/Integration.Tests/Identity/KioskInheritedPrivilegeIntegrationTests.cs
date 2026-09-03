@@ -155,7 +155,7 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
             AdminClientSecret = AdminClientSecret,
         };
         KeycloakAdminTokenProvider tokens = new(
-            aspire.CreateKeycloakClient(),
+            new FakeHttpClientFactory(aspire.CreateKeycloakClient()),
             Options.Create(options),
             TimeProvider.System,
             NullLogger<KeycloakAdminTokenProvider>.Instance);
@@ -191,7 +191,7 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
             AdminClientSecret = AdminClientSecret,
         };
         KeycloakAdminTokenProvider tokens = new(
-            aspire.CreateKeycloakClient(),
+            new FakeHttpClientFactory(aspire.CreateKeycloakClient()),
             Options.Create(options),
             TimeProvider.System,
             NullLogger<KeycloakAdminTokenProvider>.Instance);

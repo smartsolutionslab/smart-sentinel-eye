@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator.Configuration;
 using SmartSentinelEye.ScenarioSimulator.Keycloak;
 using SmartSentinelEye.ScenarioSimulator.Seeding;
+using SmartSentinelEye.ScenarioSimulator.Tests.Fakes;
 
 namespace SmartSentinelEye.ScenarioSimulator.Tests;
 
@@ -120,7 +121,7 @@ public class AutomationRulesClientTests
             RespondJson("""{"access_token":"stub-token","expires_in":300,"token_type":"Bearer"}""")));
 
         KeycloakTokenProvider provider = new(
-            tokens,
+            new FakeHttpClientFactory(tokens),
             Options.Create(new SimulatorOptions
             {
                 KeycloakUrl = "https://keycloak.test",

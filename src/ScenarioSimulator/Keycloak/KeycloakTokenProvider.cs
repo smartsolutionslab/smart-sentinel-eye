@@ -15,14 +15,18 @@ namespace SmartSentinelEye.ScenarioSimulator.Keycloak;
 /// </para>
 /// </summary>
 public sealed class KeycloakTokenProvider(
-    HttpClient httpClient,
+    IHttpClientFactory httpClientFactory,
     IOptions<SimulatorOptions> options,
     TimeProvider clock,
     ILogger<KeycloakTokenProvider> logger)
     : IDisposable
 {
+    /// <summary>Named client this provider mints through.</summary>
+    public const string HttpClientName = "scenario-simulator-token";
+
     private readonly ClientCredentialsTokenProvider tokens = new(
-        httpClient,
+        httpClientFactory,
+        HttpClientName,
         () => Credentials(options),
         clock,
         logger);

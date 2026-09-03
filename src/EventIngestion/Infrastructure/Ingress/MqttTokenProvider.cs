@@ -16,14 +16,18 @@ namespace SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 /// </para>
 /// </summary>
 public sealed class MqttTokenProvider(
-    HttpClient httpClient,
+    IHttpClientFactory httpClientFactory,
     IOptions<MosquittoOptions> options,
     TimeProvider clock,
     ILogger<MqttTokenProvider> logger)
     : IDisposable
 {
+    /// <summary>Named client this provider mints through.</summary>
+    public const string HttpClientName = "event-ingestion-token";
+
     private readonly ClientCredentialsTokenProvider tokens = new(
-        httpClient,
+        httpClientFactory,
+        HttpClientName,
         () => Credentials(options),
         clock,
         logger);
