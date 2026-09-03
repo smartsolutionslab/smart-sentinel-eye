@@ -3,6 +3,9 @@
 **Status:** **Accepted**
 **Date:** 2026-09-03
 **Amends:** ADR-0037 — the gate rule, for opted-in issues only
+**Amended:** 2026-09-03 — phase 4a gained its characterisation path
+(see *Phase 4a has two colours*), in place, on the day of acceptance and
+before the lane had delivered anything
 
 **Supersedes:** —
 **Superseded by:** —
@@ -87,7 +90,7 @@ survive a whole issue and then start the next one clean.
 | 1 | Specify | `architect` | `specs/NNN-x/spec.md` |
 | 2 | Plan | `architect` | `plan.md` |
 | 3 | Tasks | `architect` | `tasks.md` |
-| 4a | Red tests | `test-writer` (+ `test-adversary` where the issue is about a failure mode) | **the failing test output, verbatim** |
+| 4a | Red tests, or characterisation | `test-writer` (+ `test-adversary` where the issue is about a failure mode) | **the test output, verbatim** — failing for new behaviour, passing for a refactor |
 | 4b | Implement | `backend-engineer` / `frontend-engineer` / `infra-engineer` | commits, green test output |
 | 5 | Verify | the same engineer, or the orchestrator | observed behaviour; latency figure if on the §IV path |
 | 6 | Review | `backend-reviewer` / `frontend-reviewer` / `infra-reviewer`, plus `security-reviewer` where the change touches a trust boundary, then `/code-review` | findings, each fixed or refused in writing |
@@ -102,6 +105,60 @@ phase-4 failure, not a shortcut — the run is retried, once, from 4a.
 
 The verbatim red output is quoted in the PR body, which is what ADR-0139
 asks for and what a later reader can check.
+
+### Phase 4a has two colours, because the constitution has two obligations
+
+**Amended 2026-09-03, the day this ADR was accepted, before the lane had
+delivered anything.** As first written this section said only "red
+first", which is unsatisfiable for half the board. The constitution
+states **two** obligations, not one rule with an exception: *new
+behaviour starts red* **and** *refactors stay green*. A red test during a
+behaviour-preserving change is a regression, not a step — ADR-0139 says
+so explicitly. A lane that demanded red from a refactor would force the
+agent to break something to satisfy a gate, which is the precise failure
+mode the gate exists to prevent.
+
+So **the architect declares, at phase 3, which kind of change the issue
+is**, and phase 4a follows.
+
+**Behaviour-changing → red.** As above. The failing output is the
+artifact.
+
+**Behaviour-preserving → characterisation, observed green.**
+
+1. `test-writer` identifies the tests that already cover the behaviour
+   being preserved. **If none exist, it writes them and observes them
+   green.** A refactor with no covering test is not a refactor, it is a
+   rewrite; the characterisation suite is the safety net and must exist
+   *before* the change, not after it.
+2. The **green** output is captured verbatim. That is the transported
+   artifact, and it goes in the same PR slot the red output would.
+3. The engineer refactors. **The same tests must pass unmodified.**
+4. **A test whose assertions must be edited to accommodate the refactor
+   is evidence the refactor changed behaviour.** Stop and block. Renaming
+   a test, or updating a type name at a construction site, is mechanical
+   and allowed; changing an asserted *value* is not.
+
+Same evidence discipline, opposite colour. What is forbidden in both is
+the same thing: an agent deciding for itself what the test should say
+after seeing what the code does.
+
+**When the guarantee is a compile error, no runtime test can express
+it.** A refactor whose point is that a wrong call stops compiling —
+grouping two loose coordinates into a value object, say — is verified by
+the type system plus whichever architecture guard asserts the shape, not
+by a test that can be run red. Say so in the PR and name the guard.
+Do not manufacture a runtime test to satisfy the ritual.
+
+**If an issue is a refactor *and* a bug fix, it is two issues.**
+Characterisation locks in current behaviour including its defects, so
+mixing the two encodes the bug in a test and calls it a safety net. This
+is also just ADR-0036's smallest-change rule: a fix changes the bug, a
+refactor changes shape, and they do not travel together.
+
+**Ambiguity resolves to behaviour-changing**, because that path demands a
+red test and therefore fails loudly, while a wrongly-chosen
+characterisation path passes quietly.
 
 ### Merging
 
@@ -140,8 +197,12 @@ has earned a human, and says so on itself.
   a coverage threshold, adding a suppression, or narrowing an analyzer to
   get green is a blocked outcome, not a fix.
 - **It may not skip phase 4a.** Every other phase has ADR-0037's skip
-  mechanism for trivial changes; red-first does not, because a change too
-  trivial to test is too trivial to need this lane.
+  mechanism for trivial changes; 4a does not, because a change too
+  trivial to test is too trivial to need this lane. It has **two
+  colours**, not an exemption: red for new behaviour, characterisation
+  observed green for a refactor. Neither is optional, and the choice
+  between them is the architect's at phase 3 — never the engineer's after
+  seeing the code.
 
 ## Consequences
 
@@ -189,6 +250,16 @@ would block immediately and repeatedly.
 reason, plus one worse: a newly-filed issue would be eligible the moment
 it lands, including one filed to record a problem rather than to request
 a fix.
+
+**Recording the refactor path as a separate ADR-0145**, the way ADR-0140
+amends ADR-0139. Rejected *for this case only*. That convention is right
+when experience changes a decision: the original reasoning was sound when
+written and the reader needs both halves. Here the rule was incomplete on
+the day it was written, had governed nothing, and splitting it would
+leave phase 4a's authority in two files — the failure mode this
+repository has already recorded twice, as §II's drift and as two ADRs
+amending one constitution section in disagreement. The amendment is
+dated and named in the header instead, so nothing is erased.
 
 **A headless driver script (`claude -p` per issue).** This gives a
 genuinely new process per issue and is the strictest reading of "fresh

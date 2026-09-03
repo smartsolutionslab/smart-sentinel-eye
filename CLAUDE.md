@@ -159,18 +159,30 @@ said "NRT disabled" for the eleven days after ADR-0141 enabled it.
 
 **Phase 4 is two agents in order, and that split is the point.**
 `test-writer` writes tests only, runs them, and returns the **verbatim
-failing output**; the engineer receives that output as its brief and may
-not edit the tests to pass. The red output is quoted in the PR body,
-which is what ADR-0139 asks for and the only form of it a later reader
-can check. A test that arrives green is a phase-4 failure, not a
-shortcut.
+output**; the engineer receives that output as its brief and may not edit
+the tests to pass. The output is quoted in the PR body — the only form of
+the evidence a later reader can check.
+
+**Phase 4a has two colours, because §Testing has two obligations.** The
+architect declares at phase 3 which applies, and ambiguity resolves to
+red — that path fails loudly, the other passes quietly.
+
+- **Behaviour-changing → red.** A test arriving green is a phase-4
+  failure, not a shortcut.
+- **Behaviour-preserving → characterisation, observed green.** The
+  covering tests are captured passing *before* the change (written first
+  if they don't exist — a refactor with no covering test is a rewrite),
+  and must pass **unmodified** after. An assertion that has to be edited
+  is evidence the behaviour moved: block, don't adjust. A refactor that
+  is also a bug fix is two issues, because characterisation would
+  otherwise encode the bug as the safety net.
 
 **Three things the lane may not do**, each a blocked outcome rather than
 a judgement call: write an ADR or amend the constitution (it implements
 decisions, it does not make them); weaken a gate to reach green (a
 deleted test, a lowered threshold, a new suppression, a narrowed
 analyzer); or skip phase 4a — every other phase has the skip mechanism
-above, red-first does not.
+above, 4a has two colours instead of an exemption.
 
 **On failure: retry once, then park.** A phase that fails twice gets a
 comment with the verbatim failure, the `agent:blocked` label, and its

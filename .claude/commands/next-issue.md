@@ -1,5 +1,5 @@
 ---
-description: Deliver one eligible board issue end to end — spec, red tests, implement, verify, review, PR, merge (ADR-0144 autonomous lane).
+description: Deliver one eligible board issue end to end — spec, tests first (red for new behaviour, characterisation for a refactor), implement, verify, review, PR, merge (ADR-0144 autonomous lane).
 argument-hint: "[issue-number]  (omit to take the next eligible issue)"
 ---
 
@@ -21,8 +21,9 @@ run the test suite yourself, and you do not review the diff yourself —
 those are phases, and phases are subagents. Your context must still be
 small enough to start the next issue clean.
 
-The one thing you carry verbatim is the **red test output** from phase
-4a. It is evidence, and it goes in the PR body.
+The one thing you carry verbatim is the **test output** from phase 4a —
+failing for new behaviour, passing for a refactor. It is evidence, and it
+goes in the PR body.
 
 ## 0. Pick and claim
 
@@ -64,8 +65,14 @@ git fetch origin && git switch -c <type>/<N>-<slug> origin/develop
 One `architect` subagent, given the issue title and body verbatim.
 
 Ask it for: `specs/NNN-x/spec.md`, `plan.md`, `tasks.md`, and — in its
-report to you — **which engineer the work needs** (backend / frontend /
-infra) and **whether the issue's honest answer is a new ADR**.
+report to you — three declarations:
+
+1. **which engineer the work needs** (backend / frontend / infra);
+2. **whether the issue's honest answer is a new ADR**;
+3. **behaviour-changing or behaviour-preserving** — this picks phase 4a's
+   colour, and phase 3 is where it must be decided. A refactor that also
+   fixes a bug is **two issues**, not one declaration; say so instead of
+   picking.
 
 **If the answer is a new ADR, the run is blocked.** ADR-0144 forbids this
 lane from making architectural decisions. Go to *Blocked*, with that as
@@ -78,37 +85,74 @@ architect may return "no spec — <one line>"; you then record
 
 Do not read the artifacts. The report is what you carry.
 
-## 4a. Red tests — `test-writer`
+## 4a. Tests first — `test-writer`
 
 A **separate** subagent, and this order is the point of the whole lane.
 
-Brief it with: the intended behaviour from the spec, the files it may
-create, and this constraint, stated plainly —
+**First read the architect's declaration from phase 3: is this change
+behaviour-changing or behaviour-preserving?** It picks the colour, and it
+is not the engineer's call after seeing the code. If phase 3 did not say,
+treat it as behaviour-changing — that path fails loudly, the other passes
+quietly.
+
+### Behaviour-changing → red
 
 > Write only tests. Do not create or modify any implementation code.
 > Run them. They **must fail**, and for the right reason — a missing
 > behaviour, not a compile error in your own test. Return the failing
 > output verbatim.
 
-Where the issue is about a failure mode — a race, an outage, a retry, a
-leak, an auth gap — run `test-adversary` **as well**, and give the
-engineer both reports.
-
 **Verify the claim yourself, cheaply:** the report must contain actual
 runner output with a real assertion failure. A report that says the test
 failed without showing it, or that shows a build error in the test
 project, has not satisfied 4a. Retry once, then block.
 
-Keep this output. It goes in the PR body verbatim. ADR-0139 requires it.
+### Behaviour-preserving → characterisation, green
+
+> Find the tests that already cover the behaviour this refactor must
+> preserve. If none exist, write them and observe them **green** — a
+> refactor with no covering test is a rewrite. Change no implementation
+> code. Return the passing output verbatim, and name every test the
+> engineer must leave untouched.
+
+Then brief the engineer that those tests must pass **unmodified**, and
+hold it to this: **a test whose assertions must be edited to accommodate
+the refactor is evidence the refactor changed behaviour.** Renaming a
+test or updating a type name at a construction site is mechanical and
+fine; a changed asserted *value* is a block.
+
+**Where the guarantee is a compile error** — a wrong call no longer
+compiles — no runtime test expresses it. Name the type change and the
+architecture guard that asserts the shape, say so in the PR, and do not
+manufacture a runtime test to satisfy the ritual.
+
+**A refactor that is also a bug fix is two issues.** Characterisation
+locks in current behaviour including its defects. Block and say so.
+
+### Both paths
+
+Where the issue is about a failure mode — a race, an outage, a retry, a
+leak, an auth gap — run `test-adversary` **as well**, and give the
+engineer both reports.
+
+Keep the output, whichever colour. It goes in the PR body verbatim, in
+the same slot. ADR-0139 requires the red case; ADR-0144 requires the
+green one.
 
 ## 4b. Implement — `backend-engineer` / `frontend-engineer` / `infra-engineer`
 
 A fresh subagent of the type the architect named. Brief it with the plan,
-the tasks, and the **red output from 4a** as its target.
+the tasks, and the **output from 4a** as its target.
 
 > Make these failing tests pass. You may not edit, delete, skip or
 > relax the tests you were given. If a test is wrong, stop and say so —
 > do not change it.
+
+For a refactor, the same constraint with the colour inverted:
+
+> These tests pass today and must still pass, **unmodified**, when you
+> are done. Change shape, not behaviour. If making them pass requires
+> editing an assertion, stop — that is proof the behaviour moved.
 
 Also state, because a subagent brief is load-bearing when no human is
 watching:
@@ -160,7 +204,9 @@ Fill the template completely. The PR body must contain:
 
 - `Closes #<N>` — a bare mention closes the issue about one time in
   three, so use the keyword and check the state after merging;
-- the **verbatim red output from 4a**, in a fenced block (ADR-0139);
+- the **verbatim output from 4a**, in a fenced block — the failing run
+  (ADR-0139) or, for a refactor, the characterisation run captured green
+  before the change, with the tests that had to stay unmodified named;
 - the latency-budget section, with a leg and a figure or an explicit
   `N/A — <reason>`;
 - any finding refused at phase 6, with its rationale;
