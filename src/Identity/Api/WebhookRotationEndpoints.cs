@@ -12,6 +12,7 @@ using SmartSentinelEye.Identity.Application.Queries.Handlers;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
+using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Api;
@@ -24,6 +25,9 @@ namespace SmartSentinelEye.Identity.Api;
 /// </summary>
 public static class WebhookRotationEndpoints
 {
+    /// <summary>Route identity an idempotency key is scoped to (ADR-0142).</summary>
+    private const string RotateEndpoint = "POST /webhook-integrations/{name}/rotate";
+
     public static IEndpointRouteBuilder MapWebhookRotationEndpoints(this IEndpointRouteBuilder app)
     {
         Ensure.That(app).IsNotNull();
@@ -98,12 +102,20 @@ public static class WebhookRotationEndpoints
         string name,
         [FromBody] RotateWebhookClientRequest body,
         HttpRequest request,
-        [FromServices] IFabAuthorizationGuard fabGuard,
-        [FromServices] RotateWebhookClientCommandHandler handler,
+        [AsParameters] RotateWebhookServices services,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         Ensure.That(body).IsNotNull();
+        Ensure.That(request).IsNotNull();
+
+        IFabAuthorizationGuard fabGuard = services.FabGuard;
+        RotateWebhookClientCommandHandler handler = services.Handler;
+
+        if (!IdempotencyHeaders.TryRead(request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        {
+            return keyProblem;
+        }
 
         FabIdentifier fab;
         try
@@ -134,11 +146,67 @@ public static class WebhookRotationEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler.HandleAsync(
-            new RotateWebhookClientCommand(name, fab, actingOperator, expectedVersion), cancellationToken);
 
-        return result.Match<IResult>(
-            onSuccess: Results.Ok,
-            onFailure: error => error.ToProblem());
+        // **A replay never reaches the precondition, and that is the point of
+        // applying idempotency here.** The header is still parsed above — a
+        // malformed or missing one is a 400 or 428 either way — but it is
+        // *enforced* by the command handler, comparing the expected version to
+        // the aggregate's, and a replay returns without calling the handler at
+        // all. That matters because a retry carries the same If-Match it sent
+        // the first time, while the first attempt already bumped the version:
+        // re-running the command would answer 412 for a rotation that succeeded,
+        // and the caller would have lost a secret it can no longer obtain. The
+        // key proves this is the same request, which is a stronger statement
+        // than the version it was written against.
+        //
+        // Rotation is also where a blind retry does real damage rather than
+        // merely reporting badly: rotating twice invalidates the secret the
+        // first attempt already delivered. If-Match happens to prevent that
+        // today, but only because the version moved — it guards against
+        // concurrent writers, not against a duplicate of one writer's request.
+        return await IdempotentRequest.ExecuteAsync(
+            new IdempotentExecution(
+                key.Map(supplied => IdempotencyScope.For(supplied, RotateEndpoint, actingOperator.Value.ToString())),
+                services.Idempotency,
+                services.Clock),
+            async token =>
+            {
+                Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler.HandleAsync(
+                    new RotateWebhookClientCommand(name, fab, actingOperator, expectedVersion), token);
+
+                return result.Match(
+                    onSuccess: dto => IdempotentOutcome.Created(dto.RegisteredClientIdentifier, Results.Ok(dto)),
+                    onFailure: error => IdempotentOutcome.NothingCreated(error.ToProblem()));
+            },
+            async (rotated, token) =>
+            {
+                Result<ReplayedClientDto, ReplayRegistrationError> replayed =
+                    await services.Replay.HandleAsync(
+                        new ReplayRegisteredClientQuery(RegisteredClientIdentifier.From(rotated)), token);
+
+                // The integration name comes from the route the retry repeated.
+                return replayed.Match<IResult>(
+                    onSuccess: replay => Results.Ok(
+                        new WebhookClientCredentialsDto(
+                            replay.RegisteredClientIdentifier,
+                            replay.Version,
+                            replay.ClientId,
+                            name,
+                            replay.Fab,
+                            replay.ClientSecret)),
+                    onFailure: error => error.ToProblem());
+            },
+            cancellationToken);
     }
+
+    /// <summary>
+    /// The rotation endpoint's collaborators, bundled with
+    /// <c>[AsParameters]</c> so the handler keeps a readable signature (ADR-0084).
+    /// </summary>
+    private sealed record RotateWebhookServices(
+        [FromServices] IFabAuthorizationGuard FabGuard,
+        [FromServices] RotateWebhookClientCommandHandler Handler,
+        [FromServices] ReplayRegisteredClientQueryHandler Replay,
+        [FromServices] IIdempotencyStore Idempotency,
+        [FromServices] TimeProvider Clock);
 }

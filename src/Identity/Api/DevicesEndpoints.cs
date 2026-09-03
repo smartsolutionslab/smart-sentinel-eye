@@ -149,14 +149,22 @@ public static class DevicesEndpoints
             },
             async (client, token) =>
             {
-                Result<DeviceCredentialsDto, ReplayRegistrationError> replayed =
+                Result<ReplayedClientDto, ReplayRegistrationError> replayed =
                     await services.Replay.HandleAsync(
-                        new ReplayDeviceRegistrationQuery(
-                            RegisteredClientIdentifier.From(client), body.DeviceType, body.DeviceIdentifier),
-                        token);
+                        new ReplayRegisteredClientQuery(RegisteredClientIdentifier.From(client)), token);
 
+                // The device type and identifier come from the retry's own body:
+                // a transparent retry is the same request, so it carries them.
                 return replayed.Match<IResult>(
-                    onSuccess: dto => Results.Created($"/devices/{dto.ClientId}", dto),
+                    onSuccess: replay => Results.Created(
+                        $"/devices/{replay.ClientId}",
+                        new DeviceCredentialsDto(
+                            replay.RegisteredClientIdentifier,
+                            replay.ClientId,
+                            body.DeviceType,
+                            body.DeviceIdentifier,
+                            replay.Fab,
+                            replay.ClientSecret)),
                     onFailure: error => error.ToProblem());
             },
             cancellationToken);
@@ -170,7 +178,7 @@ public static class DevicesEndpoints
     private sealed record RegisterDeviceServices(
         [FromServices] IFabAuthorizationGuard FabGuard,
         [FromServices] RegisterDeviceCommandHandler Handler,
-        [FromServices] ReplayDeviceRegistrationQueryHandler Replay,
+        [FromServices] ReplayRegisteredClientQueryHandler Replay,
         [FromServices] IIdempotencyStore Idempotency,
         [FromServices] TimeProvider Clock);
 
