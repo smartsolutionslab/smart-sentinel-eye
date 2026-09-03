@@ -13,7 +13,86 @@ compiles, passes every unit test, and silently moves or nulls a column.
 
 ## R1 — Can an owned reference nest three levels deep onto pinned columns?
 
-**Status**: Open. Settled by task T101 before any production edit.
+**Status**: **Settled 2026-09-04 (T101). Yes — the preferred branch is taken.**
+The nesting is fine; what EF refused was something this section did not ask
+about, and the answer is recorded below the original question rather than in
+place of it.
+
+### The answer
+
+Built the model and read the relational shape off it — first in a scratch
+harness with an equivalent three-deep model, then on the real
+`OverlayDesignerDbContext` after the change:
+
+```
+NormalizedPosition.X       col=label_x       clr=Decimal  nullable=False  type=numeric
+NormalizedPosition.Y       col=label_y       clr=Decimal  nullable=False  type=numeric
+NormalizedSize.Width       col=label_width   clr=Decimal  nullable=False  type=numeric
+NormalizedSize.Height      col=label_height  clr=Decimal  nullable=False  type=numeric
+```
+
+All four on `overlay_revisions`, all `NOT NULL`, all `numeric` — identical to
+what the four loose properties produced. `dotnet ef migrations
+has-pending-model-changes` reports *"No changes have been made to the model
+since the last migration"*, the same answer it gave before the change, so **no
+migration and no snapshot edit**, as SC-004 requires.
+
+### What EF actually refused, and the one line that fixes it
+
+The nesting was never the obstacle. The obstacle is `Label` being a
+**positional record**:
+
+```
+No suitable constructor was found for the type 'Label'.
+    Cannot bind 'Position', 'Size' in
+    'Label(string Text, NormalizedPosition Position, NormalizedSize Size, int FontSizePx)'
+Note that only mapped properties can be bound to constructor parameters.
+Navigations to related entities, including references to owned types, cannot be bound.
+```
+
+A constructor parameter binds to a mapped **scalar**; an owned reference is a
+navigation and can never be constructor-bound. Today's `Label` binds cleanly
+only because all six parameters are scalars. So the fix is a private
+scalar-only constructor EF can bind `Text` and `FontSizePx` through, after
+which it sets the two navigations itself:
+
+```csharp
+private Label(string text, int fontSizePx) : this(text, null!, null!, fontSizePx) { }
+```
+
+This is not the "third shape" the decision procedure below warns against. It is
+the preferred branch plus EF's standard materialization constructor — the same
+accommodation `Tile` already carries, and the fallback branch would have needed
+one too.
+
+**`Tile`'s private-scalar fallback was therefore not taken**, and the constraint
+spec 057 found (a field-only property's name must match its field) never came
+into play.
+
+### One thing neither branch predicted
+
+`Revision.Branch` copies the base revision's `Label` with `label with { }`,
+because sharing one CLR instance across two revisions makes EF re-key an owned
+entity onto a new principal and throw. **A `with` expression is shallow.** Once
+`Position` and `Size` are themselves owned entities keyed on the `Label`, the
+shallow copy hands the new `Label` the old one's two instances and reproduces
+that failure one level down. The copy now reaches both. Exercised over real SQL
+by `An_archived_overlay_can_be_branched_edited_and_published_again`.
+
+### The two `Navigation(...).IsRequired()` lines
+
+Kept, and mapped as the plan specifies. Worth recording precisely: with
+`.IsRequired()` already set on each of the four **properties**, removing the two
+navigation lines did **not** make the columns nullable in this EF version. They
+stay because they say the owned reference itself is mandatory, and because the
+sibling `Creation` mapping carries them — not because a measurement here showed
+them changing the column.
+
+---
+
+<details>
+<summary>The question as it stood before T101 ran</summary>
+
 
 **The question**: `Label` is mapped today as
 
@@ -78,6 +157,8 @@ Either branch satisfies FR-004, FR-005 and FR-010. Neither is a guess: both are
 in-repo shapes with a worked precedent. What must not happen is the engineer
 discovering the problem mid-refactor and inventing a third shape.
 
+</details>
+
 ---
 
 ## R2 — Does the guard message survive the move? (settled by reading)
@@ -120,6 +201,19 @@ is not new.
 editing, and under ADR-0144 an edited assertion stops the work. It does not,
 and `GridPositionTests` — which asserts `ShouldThrow<ArgumentException>()`
 against `Ensure.That(row).AtLeast(0)` — is the standing proof.
+
+**Amended 2026-09-04 (phase 4b): `Ensure.That(decimal)` did not exist.** This
+section read the guard *chain* — `EnsuredValue<T>.InRange` is generic over any
+comparable struct — and did not check the *entry point*. `Ensure.That` had
+overloads for `string`, `Guid`, `int` and any reference type, and none for
+`decimal`, so `Ensure.That(normalizedX)` did not compile and no value object in
+the repository had ever guarded a decimal. Closed by adding the one overload,
+mirroring the `int` one added in `3f2c234` for exactly this reason.
+
+The character-for-character claim above is now a test rather than a reading:
+`EnsureTests.Decimal_InRange_names_the_parameter_and_the_interval` pins
+`"normalizedY must be in [0, 1]; got 2. (Parameter 'normalizedY')"`, which is
+the string `OverlayGeometryValidationIntegrationTests` asserts off the `400`.
 
 ---
 
