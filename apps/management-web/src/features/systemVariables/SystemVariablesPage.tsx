@@ -15,7 +15,10 @@ const STATE_FILTERS: ReadonlyArray<VariableState | 'All'> = ['All', 'Defined', '
 
 export function SystemVariablesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [filter, setFilter] = useState<VariableState | 'All'>('All');
+  // Defaults to Defined, matching what the server now returns without asking
+  // (#2015). 'All' was the default when archiving hid nothing, so the tab and
+  // the listing agreed by doing nothing.
+  const [filter, setFilter] = useState<VariableState | 'All'>('Defined');
   // Keyed on the identifier, not the name. Two fabs may hold the same name
   // (spec 014), and a name-keyed buffer would show one row's typing in the
   // other and submit it against the wrong fab.
@@ -24,7 +27,14 @@ export function SystemVariablesPage() {
   // and per-row edit state, and the subject carries what the wording needs.
   const [archiveFor, setArchiveFor] = useState<{ name: string; version: number; fab: string } | null>(null);
 
-  const { data, isLoading, isFetching, error, refetch } = useListVariablesQuery(undefined);
+  // Asked of the server rather than filtered here (#2015). Archived variables
+  // no longer come back by default, so a client-side filter over an unfiltered
+  // fetch would leave the Archived and All tabs permanently empty — and it was
+  // pulling every row to the browser to do it, which against 1618 of them is
+  // its own problem.
+  const { data, isLoading, isFetching, error, refetch } = useListVariablesQuery(
+    filter === 'All' ? { includeArchived: true } : { state: filter },
+  );
   const [setVariableValue, setValueState] = useSetVariableValueMutation();
   const [archiveVariable, archiveState] = useArchiveVariableMutation();
 
@@ -33,7 +43,6 @@ export function SystemVariablesPage() {
   const mutationError = setValueState.error ?? archiveState.error;
 
   const variables = data ?? [];
-  const visible = filter === 'All' ? variables : variables.filter((v) => v.state === filter);
 
   const onValueSubmit = async (variable: Variable) => {
     const raw = pendingEdit[variable.variableIdentifier];
@@ -114,10 +123,10 @@ export function SystemVariablesPage() {
 
       {(isLoading || isFetching) && <p className="text-sm text-fg-muted">Loading…</p>}
 
-      {!isLoading && visible.length === 0 && <p className="text-sm text-fg-muted">No system variables to show.</p>}
+      {!isLoading && variables.length === 0 && <p className="text-sm text-fg-muted">No system variables to show.</p>}
 
       <ul className="flex flex-col gap-2">
-        {visible.map((variable) => {
+        {variables.map((variable) => {
           const inProgress = saving;
           const editValue = pendingEdit[variable.variableIdentifier];
           return (

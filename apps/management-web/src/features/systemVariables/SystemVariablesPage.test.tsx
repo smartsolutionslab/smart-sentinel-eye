@@ -305,3 +305,47 @@ describe('SystemVariablesPage — archive confirmation', () => {
     expect(confirmation).not.toHaveTextContent(/are you sure/i);
   });
 });
+
+// #2015. Archived variables no longer come back by default, so the page has to
+// ask the server for each tab rather than filter a full fetch in the browser.
+// Without these the tabs could silently show nothing and every existing test
+// would still pass: they mock the query hook and ignore what it is called with.
+describe('SystemVariablesPage — the state filter is asked of the server', () => {
+  beforeEach(() => {
+    listMock.mockReset();
+    listMock.mockReturnValue({
+      data: [variable()],
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+  });
+
+  // Names the state rather than leaning on the server's default. Both would
+  // show the same rows today, because Defined and Archived are the only two
+  // states; a third would make the tab and its request disagree in silence.
+  it('Asks for the Defined state, which excludes archived variables', () => {
+    renderPage();
+
+    expect(listMock).toHaveBeenCalledWith({ state: 'Defined' });
+  });
+
+  it('Asks for archived variables only when the Archived tab is chosen', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /^archived$/i }));
+
+    expect(listMock).toHaveBeenLastCalledWith({ state: 'Archived' });
+  });
+
+  it('Widens the listing rather than filtering one when All is chosen', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /^all$/i }));
+
+    expect(listMock).toHaveBeenLastCalledWith({ includeArchived: true });
+  });
+});

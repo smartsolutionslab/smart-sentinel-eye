@@ -16,9 +16,21 @@ public sealed class ListVariablesQueryHandler(IVariableQuerySource variables)
 
         IQueryable<Variable> source = variables.Variables
             .Where(variable => query.Fabs.Contains(variable.Fab));
+
         if (query.State is not null)
         {
+            // An exact state wins outright: a caller asking for Archived has
+            // been specific, and making that also depend on IncludeArchived
+            // would mean two flags to say one thing.
             source = source.Where(variable => variable.State == query.State);
+        }
+        else if (!query.IncludeArchived)
+        {
+            // The default, and the whole of #2015: without this the archive
+            // flow hid nothing. A variable could be archived and the listing
+            // came back identical, so the one remedy for a mistaken or
+            // decommissioned variable changed nothing an operator could see.
+            source = source.Where(variable => variable.State != VariableState.Archived);
         }
 
         List<Variable> rows = await source.ToListAsync(cancellationToken);

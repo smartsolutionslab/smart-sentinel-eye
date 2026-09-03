@@ -34,7 +34,7 @@ public class ListVariablesQueryHandlerTests
     }
 
     [Fact]
-    public async Task Returns_all_variables_sorted_by_name_when_no_state_filter_is_given()
+    public async Task Returns_variables_sorted_by_name_when_no_state_filter_is_given()
     {
         Variable[] seeded =
         [
@@ -106,5 +106,67 @@ public class ListVariablesQueryHandlerTests
         // Ordered by name then fab, so the pair has a stable order rather than
         // whatever the database returned.
         result.Value.Select(dto => dto.Fab).ShouldBe(["dresden", "munich"]);
+    }
+
+    // ---- #2015: archiving has to hide something ----
+
+    /// <summary>
+    /// The point of the archive flow, and what it did not do for three months.
+    /// A variable could be archived and the listing came back identical, so the
+    /// one remedy an operator had for a mistaken or decommissioned variable
+    /// changed nothing they could see — 1618 accumulated against the dev
+    /// database while every one of them stayed on the page.
+    /// </summary>
+    [Fact]
+    public async Task An_archived_variable_leaves_the_default_listing()
+    {
+        (Variable defined, Variable archived) = OneOfEach();
+        ListVariablesQueryHandler handler = new(new TestVariableQuerySource([defined, archived]));
+
+        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
+            new ListVariablesQuery([FabIdentifier.From("munich")], State: null), CancellationToken.None);
+
+        result.Value.Select(dto => dto.Name).ShouldBe(["active"]);
+    }
+
+    [Fact]
+    public async Task An_archived_variable_comes_back_when_the_caller_asks_for_it()
+    {
+        (Variable defined, Variable archived) = OneOfEach();
+        ListVariablesQueryHandler handler = new(new TestVariableQuerySource([defined, archived]));
+
+        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
+            new ListVariablesQuery([FabIdentifier.From("munich")], State: null, IncludeArchived: true),
+            CancellationToken.None);
+
+        result.Value.Select(dto => dto.Name).ShouldBe(["active", "oldVar"]);
+    }
+
+    /// <summary>
+    /// Naming a state is already specific, so it does not also need the widening
+    /// flag. Requiring both would mean two ways of saying one thing, and the
+    /// obvious call — <c>state=Archived</c> alone — would silently return
+    /// nothing.
+    /// </summary>
+    [Fact]
+    public async Task Asking_for_the_archived_state_needs_no_second_flag()
+    {
+        (Variable defined, Variable archived) = OneOfEach();
+        ListVariablesQueryHandler handler = new(new TestVariableQuerySource([defined, archived]));
+
+        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
+            new ListVariablesQuery([FabIdentifier.From("munich")], State: VariableState.Archived),
+            CancellationToken.None);
+
+        result.Value.ShouldHaveSingleItem().Name.ShouldBe("oldVar");
+    }
+
+    private static (Variable Defined, Variable Archived) OneOfEach()
+    {
+        VariableBuilder archivedBuilder = new VariableBuilder().Named("oldVar").OfType(VariableType.String);
+        Variable archived = archivedBuilder.Build();
+        archived.Archive(archivedBuilder.Operator, archivedBuilder.Clock);
+
+        return (Define("active", VariableType.String), archived);
     }
 }

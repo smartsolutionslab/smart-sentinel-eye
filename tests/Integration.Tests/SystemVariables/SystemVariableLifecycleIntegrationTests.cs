@@ -124,6 +124,23 @@ public class SystemVariableLifecycleIntegrationTests(AspireFixture aspire) : IAs
             .ShouldContain(name);
     }
 
+    // #2015. The point of archiving: the row leaves the listing an operator
+    // sees by default, and comes back only when they ask. Also pins the
+    // endpoint's contract — includeArchived has to stay optional, because the
+    // request this test makes carries no query string at all.
+    [Fact]
+    public async Task An_archived_variable_leaves_the_default_listing()
+    {
+        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+        string name = UniqueName();
+        (await DefineNumberAsync(variables, name, "1")).EnsureSuccessStatusCode();
+        (await VariableRequests.ArchiveAsync(variables, name)).EnsureSuccessStatusCode();
+
+        (await NamesAsync(variables, "/system-variables")).ShouldNotContain(name);
+        (await NamesAsync(variables, "/system-variables?includeArchived=true")).ShouldContain(name);
+        (await NamesAsync(variables, "/system-variables?state=Archived")).ShouldContain(name);
+    }
+
     [Fact]
     public async Task A_mutation_without_If_Match_is_refused_with_428()
     {
@@ -187,6 +204,16 @@ public class SystemVariableLifecycleIntegrationTests(AspireFixture aspire) : IAs
             truthyLabel = (string?)null,
             falsyLabel = (string?)null,
         });
+
+    private static async Task<IReadOnlyList<string?>> NamesAsync(HttpClient variables, string url)
+    {
+        HttpResponseMessage listed = await variables.GetAsync(url);
+        listed.EnsureSuccessStatusCode();
+
+        JsonElement payload = await listed.Content.ReadFromJsonAsync<JsonElement>();
+
+        return payload.EnumerateArray().Select(row => row.GetProperty("name").GetString()).ToArray();
+    }
 
     private static async Task<JsonElement> ReadAsync(HttpClient variables, string name)
     {
