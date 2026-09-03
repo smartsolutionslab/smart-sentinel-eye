@@ -98,9 +98,44 @@ public class RestartLosesNothingIntegrationTests(AspireFixture aspire, ITestOutp
             // a restart that worked and is the repair after one that did not.
             await commands.ExecuteCommandAsync(
                 resourceName, KnownResourceCommands.StartCommand, CancellationToken.None);
+
+            await WaitForHealthyAsync(resourceName);
+        }
+    }
+
+    /// <summary>
+    /// Waits for the resource, and on failure prints <b>its own account</b> of
+    /// why it did not come back.
+    ///
+    /// <para>
+    /// Without this the failure is "event-ingestion failed to start" and nothing
+    /// more, which is where #2038 sat: two plausible causes and no way to choose
+    /// between them. The fixture is already tailing this resource; the tail was
+    /// simply never read on this path.
+    /// </para>
+    ///
+    /// <para>
+    /// A separate method rather than a <c>try</c> in the caller's <c>finally</c>,
+    /// because CA2219 forbids raising from a finally block — and the rethrow is
+    /// the point: swallowing here would turn a service that never came back into
+    /// a passing test.
+    /// </para>
+    /// </summary>
+    private async Task WaitForHealthyAsync(string resourceName)
+    {
+        try
+        {
             await aspire.App.ResourceNotifications
                 .WaitForResourceHealthyAsync(resourceName, CancellationToken.None)
                 .WaitAsync(TimeSpan.FromMinutes(2));
+        }
+        catch (Exception exception)
+        {
+            output.WriteLine($"{resourceName} did not become healthy: {exception.Message}");
+            output.WriteLine($"---- {resourceName} log tail ----");
+            output.WriteLine(aspire.RecentLogs(resourceName));
+
+            throw;
         }
     }
 
