@@ -100,8 +100,15 @@ public class OutboxSurvivesAKillTests(AspireFixture aspire, ITestOutputHelper ou
         {
             await commands.ExecuteCommandAsync(
                 resourceName, KnownResourceCommands.StartCommand, CancellationToken.None);
+
+            // WaitOnResourceUnavailable, for the reason set out in
+            // RestartLosesNothingIntegrationTests: a restart passes through an
+            // unavailable state, and the default treats reaching one as a reason
+            // to stop waiting — abandoning the resource for the very transition
+            // the wait exists to watch (#2038).
             await aspire.App.ResourceNotifications
-                .WaitForResourceHealthyAsync(resourceName, CancellationToken.None)
+                .WaitForResourceHealthyAsync(
+                    resourceName, WaitBehavior.WaitOnResourceUnavailable, CancellationToken.None)
                 .WaitAsync(TimeSpan.FromMinutes(2));
         }
     }

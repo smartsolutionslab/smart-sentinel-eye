@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Text;
 using Aspire.Hosting;
 using Microsoft.Extensions.Logging;
@@ -216,6 +217,57 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             await _app.StopAsync(CancellationToken.None).ConfigureAwait(false);
             await ((IAsyncDisposable)_app).DisposeAsync().ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// One resource's snapshot: state, exit code, and every health report with
+    /// its description.
+    ///
+    /// <para>
+    /// <b>The console tail is the wrong instrument for a resource that failed to
+    /// start</b> (#2038). A process that never launched has no stdout, so an
+    /// empty tail is indistinguishable from a silent crash. The snapshot is
+    /// where the orchestrator records what it observed, and the exit code is the
+    /// datum that separates the two: present means the process ran and died,
+    /// absent means it never ran at all.
+    /// </para>
+    /// </summary>
+    public async Task<string> ResourceDiagnosticsAsync(string resourceName)
+    {
+        if (_app is null)
+        {
+            return "(no application)";
+        }
+
+        List<string> lines = [];
+        using CancellationTokenSource snapshot = new(TimeSpan.FromSeconds(3));
+
+        try
+        {
+            await foreach (ResourceEvent evt in _app.ResourceNotifications.WatchAsync(snapshot.Token))
+            {
+                if (!string.Equals(evt.Resource.Name, resourceName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                lines.Add(
+                    $"state={evt.Snapshot.State?.Text ?? "(unknown)"} "
+                    + $"exitCode={(evt.Snapshot.ExitCode is { } code ? code.ToString(CultureInfo.InvariantCulture) : "(none)")} "
+                    + $"started={evt.Snapshot.StartTimeStamp?.ToString("O", CultureInfo.InvariantCulture) ?? "(never)"} "
+                    + $"stopped={evt.Snapshot.StopTimeStamp?.ToString("O", CultureInfo.InvariantCulture) ?? "(none)"}");
+
+                foreach (HealthReportSnapshot report in evt.Snapshot.HealthReports)
+                {
+                    lines.Add(
+                        $"  health {report.Name}={report.Status}: "
+                        + $"{report.Description ?? "(no description)"} {report.ExceptionText ?? string.Empty}".TrimEnd());
+                }
+            }
+        }
+        catch (OperationCanceledException) { /* expected — the watch is bounded above */ }
+
+        return lines.Count > 0 ? string.Join(Environment.NewLine, lines) : "(no snapshot observed)";
     }
 
     private async Task<Dictionary<string, string>> CaptureResourceStateMapAsync()

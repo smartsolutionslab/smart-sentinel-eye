@@ -120,18 +120,36 @@ public class RestartLosesNothingIntegrationTests(AspireFixture aspire, ITestOutp
     /// the point: swallowing here would turn a service that never came back into
     /// a passing test.
     /// </para>
+    ///
+    /// <para>
+    /// <b><c>WaitOnResourceUnavailable</c>, and that is the whole of #2038.</b> A
+    /// restart passes <i>through</i> an unavailable state on its way back up, and
+    /// the default behaviour treats reaching one as a reason to stop waiting —
+    /// so the wait abandoned the resource for the transition it exists to watch.
+    /// Under load the window is wider and the wait lands inside it, which is why
+    /// this failed on a busy machine and passed on an idle one for the same code.
+    /// </para>
+    ///
+    /// <para>
+    /// The evidence was the snapshot rather than the logs: <c>state=Running</c>,
+    /// no exit code, no stop timestamp, and nothing on stdout. The service never
+    /// crashed and never failed to start — the assertion about it did.
+    /// </para>
     /// </summary>
     private async Task WaitForHealthyAsync(string resourceName)
     {
         try
         {
             await aspire.App.ResourceNotifications
-                .WaitForResourceHealthyAsync(resourceName, CancellationToken.None)
+                .WaitForResourceHealthyAsync(
+                    resourceName, WaitBehavior.WaitOnResourceUnavailable, CancellationToken.None)
                 .WaitAsync(TimeSpan.FromMinutes(2));
         }
         catch (Exception exception)
         {
             output.WriteLine($"{resourceName} did not become healthy: {exception.Message}");
+            output.WriteLine($"---- {resourceName} snapshot ----");
+            output.WriteLine(await aspire.ResourceDiagnosticsAsync(resourceName));
             output.WriteLine($"---- {resourceName} log tail ----");
             output.WriteLine(aspire.RecentLogs(resourceName));
 
