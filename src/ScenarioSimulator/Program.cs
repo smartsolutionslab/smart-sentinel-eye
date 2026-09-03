@@ -11,6 +11,7 @@ using SmartSentinelEye.ScenarioSimulator.Scenario;
 using SmartSentinelEye.ScenarioSimulator.Seeding;
 using SmartSentinelEye.ScenarioSimulator.Timeline;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Resilience;
 using Wolverine;
 using Wolverine.RabbitMQ;
 
@@ -37,7 +38,7 @@ builder.Services
 builder.Services.AddSingleton(TimeProvider.System);
 
 // Keycloak client_credentials token provider (scope sse.cameras.write).
-builder.Services.AddHttpClient(KeycloakTokenProvider.HttpClientName);
+builder.Services.AddHttpClient(KeycloakTokenProvider.HttpClientName).RetryEveryMethod();
 builder.Services.AddSingleton<KeycloakTokenProvider>();
 
 // Camera-catalog REST client (POST /cameras), bearer-authenticated.

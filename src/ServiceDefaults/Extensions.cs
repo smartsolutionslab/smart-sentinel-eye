@@ -8,6 +8,7 @@ using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Resilience;
 using Wolverine.Runtime;
 
 namespace Microsoft.Extensions.Hosting;
@@ -42,8 +43,13 @@ public static class Extensions
 
         builder.Services.ConfigureHttpClientDefaults(http =>
         {
-            // Turn on resilience by default
-            http.AddStandardResilienceHandler();
+            // Turn on resilience by default, retrying only methods a retry
+            // cannot damage (ADR-0143). The handler's own predicate reads the
+            // outcome and never the method, so a POST was retried exactly like a
+            // GET — and a POST whose response was lost is indistinguishable from
+            // one that never arrived, which is how a caller came to be told its
+            // own successful registration was a conflict (#2039).
+            http.AddStandardResilienceHandler(IdempotentRetry.RetryIdempotentMethodsOnly);
 
             // Turn on service discovery by default
             http.AddServiceDiscovery();
