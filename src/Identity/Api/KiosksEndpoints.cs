@@ -12,12 +12,16 @@ using SmartSentinelEye.Identity.Application.Queries.Handlers;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
+using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Api;
 
 public static class KiosksEndpoints
 {
+    /// <summary>Route identity an idempotency key is scoped to (ADR-0142).</summary>
+    private const string EnrollEndpoint = "POST /kiosks/enroll";
+
     public static IEndpointRouteBuilder MapKiosksEndpoints(this IEndpointRouteBuilder app)
     {
         Ensure.That(app).IsNotNull();
@@ -93,12 +97,21 @@ public static class KiosksEndpoints
     private static async Task<IResult> Enroll(
         [FromBody] EnrollKioskRequest body,
         [FromQuery] string fabId,
-        [FromServices] IFabAuthorizationGuard fabGuard,
-        [FromServices] EnrollKioskCommandHandler handler,
+        [AsParameters] EnrollKioskServices services,
+        HttpContext http,
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         Ensure.That(body).IsNotNull();
+        Ensure.That(http).IsNotNull();
+
+        IFabAuthorizationGuard fabGuard = services.FabGuard;
+        EnrollKioskCommandHandler handler = services.Handler;
+
+        if (!IdempotencyHeaders.TryRead(http.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        {
+            return keyProblem;
+        }
 
         ClientId clientId;
         FabIdentifier fab;
@@ -117,13 +130,53 @@ public static class KiosksEndpoints
         await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken);
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<KioskCredentialsDto, EnrollKioskError> result = await handler.HandleAsync(
-            new EnrollKioskCommand(clientId, fab, actingOperator), cancellationToken);
 
-        return result.Match<IResult>(
-            onSuccess: dto => Results.Created($"/kiosks/{dto.ClientId}", dto),
-            onFailure: error => error.ToProblem());
+        return await IdempotentRequest.ExecuteAsync(
+            new IdempotentExecution(
+                key.Map(supplied => IdempotencyScope.For(supplied, EnrollEndpoint, actingOperator.Value.ToString())),
+                services.Idempotency,
+                services.Clock),
+            async token =>
+            {
+                Result<KioskCredentialsDto, EnrollKioskError> result = await handler.HandleAsync(
+                    new EnrollKioskCommand(clientId, fab, actingOperator), token);
+
+                return result.Match(
+                    onSuccess: dto => IdempotentOutcome.Created(
+                        dto.RegisteredClientIdentifier, Results.Created($"/kiosks/{dto.ClientId}", dto)),
+                    onFailure: error => IdempotentOutcome.NothingCreated(error.ToProblem()));
+            },
+            async (enrolled, token) =>
+            {
+                Result<ReplayedClientDto, ReplayRegistrationError> replayed =
+                    await services.Replay.HandleAsync(
+                        new ReplayRegisteredClientQuery(RegisteredClientIdentifier.From(enrolled)), token);
+
+                // Every field of a kiosk's answer is server-held, so unlike the
+                // device endpoint this one needs nothing from the replayed body.
+                return replayed.Match<IResult>(
+                    onSuccess: replay => Results.Created(
+                        $"/kiosks/{replay.ClientId}",
+                        new KioskCredentialsDto(
+                            replay.RegisteredClientIdentifier,
+                            replay.ClientId,
+                            replay.Fab,
+                            replay.ClientSecret)),
+                    onFailure: error => error.ToProblem());
+            },
+            cancellationToken);
     }
+
+    /// <summary>
+    /// The enrolment endpoint's collaborators, bundled with
+    /// <c>[AsParameters]</c> so the handler keeps a readable signature (ADR-0084).
+    /// </summary>
+    private sealed record EnrollKioskServices(
+        [FromServices] IFabAuthorizationGuard FabGuard,
+        [FromServices] EnrollKioskCommandHandler Handler,
+        [FromServices] ReplayRegisteredClientQueryHandler Replay,
+        [FromServices] IIdempotencyStore Idempotency,
+        [FromServices] TimeProvider Clock);
 
     private static async Task<IResult> Disable(
         string clientId,
