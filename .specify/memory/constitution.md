@@ -322,7 +322,10 @@ OpenTelemetry (provided by Aspire defaults).
   today**.
 - **Kiosks.** Device-bound credentials **exist** — `POST /kiosks/enroll`
   mints a per-kiosk confidential client with a service account and a
-  single-reveal secret. **The kiosk app does not use them**: it signs in
+  secret revealed **once per idempotency key** (ADR-0142): exactly once
+  for a request that carries no `Idempotency-Key`, which is every request
+  today, and once more only to a caller replaying its own key after a
+  transparent retry. **The kiosk app does not use them**: it signs in
   as the shared public client through the authorization-code flow, with
   view-only scopes (ADR-008, ADR-0130, issue 1976). Kiosk-bound operator
   elevation is not built, and PTZ is not built, so that constraint has
@@ -608,9 +611,16 @@ contradicting tribal knowledge.
 
 ---
 
-**Version:** 1.7.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-09-02
+**Version:** 1.8.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-09-03
 
 **Amendment history.**
+1.8.0 — the kiosk bullet's *single-reveal secret* becomes *revealed once
+per idempotency key* (ADR-0142). A transparent retry is indistinguishable
+from the original request by construction, so a secret that may never
+cross the wire twice cannot coexist with a retrying client; the caller
+otherwise receives a 409 for a device it created and can neither use nor
+re-register. Unchanged for every request that carries no key, which is
+all of them today.
 1.7.0 — §II's banned set becomes a **category** rather than an
 enumeration (ADR-0140). The nine-type list 1.6.x introduced had a hole on
 the day it was written: it banned `int` and `long` and omitted `short`,
