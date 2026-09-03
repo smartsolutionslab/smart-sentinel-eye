@@ -134,6 +134,49 @@ No code is written outside this loop. Every PR references at least one
 task ID. Every spec references at least one ADR. Other meta-commands
 exist for amendments — `/speckit-constitution` (rare; requires ADR).
 
+### The autonomous lane (ADR-0144)
+
+**There are two lanes, and the difference is a label.** Everything above
+is the **supervised lane**: the default, all seven gates, unchanged. It
+applies to anything a human starts in a session.
+
+The **autonomous lane** runs phases 1–6 without stopping and merges at
+phase 7 on green CI. An issue enters it **only** by carrying
+`agent:ready` — on Project #13, status Todo, without `agent:blocked`.
+Absence of the label is a hold, so nothing is picked up by accident.
+
+- `/next-issue` — deliver one eligible issue end to end.
+- `/deliver-board` — repeat until none remain.
+- `/verify` — phase 5, callable in either lane. It existed only as a
+  reference in this file and in ADR-0037 from 2026-05-25 until
+  2026-09-03; if you reached for it before then, it was not there.
+
+**Each phase runs in its own subagent**, so phase 6 reviews the code
+rather than a summary of it and issue N+1 starts clean. The phase↔role
+binding is the table in ADR-0144; `.claude/agents/` holds the briefs.
+Those briefs are load-bearing when no human is watching — two of them
+said "NRT disabled" for the eleven days after ADR-0141 enabled it.
+
+**Phase 4 is two agents in order, and that split is the point.**
+`test-writer` writes tests only, runs them, and returns the **verbatim
+failing output**; the engineer receives that output as its brief and may
+not edit the tests to pass. The red output is quoted in the PR body,
+which is what ADR-0139 asks for and the only form of it a later reader
+can check. A test that arrives green is a phase-4 failure, not a
+shortcut.
+
+**Three things the lane may not do**, each a blocked outcome rather than
+a judgement call: write an ADR or amend the constitution (it implements
+decisions, it does not make them); weaken a gate to reach green (a
+deleted test, a lowered threshold, a new suppression, a narrowed
+analyzer); or skip phase 4a — every other phase has the skip mechanism
+above, red-first does not.
+
+**On failure: retry once, then park.** A phase that fails twice gets a
+comment with the verbatim failure, the `agent:blocked` label, and its
+card back in Todo — and the loop **continues to the next issue**. One
+bad issue must not end an overnight run.
+
 ## Coding behavior — Karpathy guidelines (ADR-0036)
 
 The `andrej-karpathy-skills:karpathy-guidelines` skill is **baseline
