@@ -40,6 +40,33 @@ public interface IKeycloakAdminClient
         string clientId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Reads the client's existing secret without changing it — what an
+    /// idempotent replay needs (ADR-0142).
+    ///
+    /// <para>
+    /// <b>Reading rather than storing is the whole point.</b> Replaying a
+    /// registration means returning the secret again, and the alternative was to
+    /// persist the plaintext in our own database so it could be replayed from
+    /// there. Keycloak is already the system of record for it, so this hands
+    /// back what Keycloak holds and adds no second place for a secret to live.
+    /// </para>
+    ///
+    /// <para>
+    /// Distinct from <see cref="RotateClientSecretAsync"/>, and the distinction
+    /// is load-bearing: rotating on a replay would hand the retry a *different*
+    /// secret and silently invalidate the one the first attempt already
+    /// delivered.
+    /// </para>
+    ///
+    /// <para>
+    /// Throws <see cref="KeycloakClientNotFoundException"/> when the client does
+    /// not exist.
+    /// </para>
+    /// </summary>
+    Task<KeycloakClientCredentials> ReadClientSecretAsync(
+        string clientId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Marks the Keycloak client as disabled. Idempotent — calling
     /// on an already-disabled client is a no-op.
     /// </summary>

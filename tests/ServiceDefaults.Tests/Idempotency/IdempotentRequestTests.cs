@@ -113,6 +113,23 @@ public class IdempotentRequestTests
         store.Released.ShouldBe(1);
     }
 
+    /// <summary>
+    /// A refusal is a successful call that created nothing. Completing its key
+    /// would make the next retry replay a resource that never existed; releasing
+    /// it lets a caller fix the request and retry with the same key.
+    /// </summary>
+    [Fact]
+    public async Task An_operation_that_creates_nothing_releases_its_key_rather_than_completing_it()
+    {
+        RecordingStore store = new() { CreatesNothing = true };
+
+        IResult result = await Run(store);
+
+        ShouldBeOk(result, "refused");
+        store.Completed.ShouldBeNull();
+        store.Released.ShouldBe(1);
+    }
+
     private static Task<IResult> Run(RecordingStore store) => Run(store, TimeProvider.System);
 
     private static Task<IResult> Run(RecordingStore store, TimeProvider clock) =>
@@ -156,6 +173,9 @@ public class IdempotentRequestTests
 
         public Exception? Throws { get; set; }
 
+        /// <summary>Answer the call successfully, having created nothing.</summary>
+        public bool CreatesNothing { get; set; }
+
         /// <summary>After this many in-progress reads, report the key as landed.</summary>
         public int LandsAfter { get; set; } = int.MaxValue;
 
@@ -164,9 +184,15 @@ public class IdempotentRequestTests
             cancellationToken.ThrowIfCancellationRequested();
             WorkRuns++;
 
-            return Throws is null
-                ? Task.FromResult(new IdempotentOutcome(Created, TypedResults.Ok("done")))
-                : Task.FromException<IdempotentOutcome>(Throws);
+            if (Throws is not null)
+            {
+                return Task.FromException<IdempotentOutcome>(Throws);
+            }
+
+            return Task.FromResult(
+                CreatesNothing
+                    ? IdempotentOutcome.NothingCreated(TypedResults.Ok("refused"))
+                    : IdempotentOutcome.Created(Created, TypedResults.Ok("done")));
         }
 
         public Task<IdempotencyReservation> BeginAsync(IdempotencyScope scope, CancellationToken cancellationToken)

@@ -95,6 +95,10 @@ public class KeycloakProvisionedFabSourceTests
             KeycloakClientRepresentation representation, string fabGroupPath, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<KeycloakClientCredentials> ReadClientSecretAsync(
+            string clientId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<IReadOnlyList<string>> GetEnrolledKioskClientIdsAsync(
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
@@ -128,6 +132,10 @@ public class KeycloakProvisionedFabSourceTests
 
         public Task<KeycloakClientCredentials> CreateClientAsync(
             KeycloakClientRepresentation representation, string fabGroupPath, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<KeycloakClientCredentials> ReadClientSecretAsync(
+            string clientId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
         public Task<KeycloakClientCredentials> RotateClientSecretAsync(

@@ -92,6 +92,29 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
         return Task.FromResult(new KeycloakClientCredentials(secret));
     }
 
+    /// <summary>
+    /// Hands back the secret the client already has, without changing it — the
+    /// distinction from <see cref="RotateClientSecretAsync"/> that ADR-0142's
+    /// replay depends on. A fake that rotated here would let a broken replay
+    /// pass, because the caller would still receive *a* working secret.
+    /// </summary>
+    public Task<KeycloakClientCredentials> ReadClientSecretAsync(
+        string clientId, CancellationToken cancellationToken)
+    {
+        CallCount++;
+        if (FailNextCall is not null)
+        {
+            ThrowAndClear();
+        }
+
+        if (!_clients.ContainsKey(clientId))
+        {
+            throw new KeycloakClientNotFoundException(clientId);
+        }
+
+        return Task.FromResult(new KeycloakClientCredentials(CurrentSecrets[clientId]));
+    }
+
     public Task DisableClientAsync(string clientId, CancellationToken cancellationToken)
     {
         CallCount++;
