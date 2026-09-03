@@ -140,7 +140,8 @@ stay open until the one PR closes both.
   design artefact instead of asking the running system. It is not deleted; it
   guards what it guards. It **cannot** be this scope's red test, and no
   source-scanning replacement can be either (see US-3 and AS-6).
-- **Assumption A1 became untestable and was measured anyway.** See A1 below.
+- **Assumption A1 is not measured**, and two attempts to measure it measured
+  something else. See A1 below.
 
 ## User Stories
 
@@ -298,12 +299,20 @@ And the test registers a webhook integration with an invented name against the r
 Then RecentLogs("event-ingestion") contains that invented name
 ```
 
-**This is the scenario the whole re-subscribe loop exists for.** The DCP id
-changes on every restart as well as every boot, so an implementation that
-resolves the id once and reuses it re-subscribes to a dead instance and the
-service goes permanently quiet — reproducing #2038's original symptom while
-appearing to fix it. Nothing else in this spec distinguishes that implementation
-from the correct one.
+**This is the scenario the whole re-subscribe loop exists for**, and it is the
+regression test for #2038. AS-6 and AS-7 both read a tail whose process has run
+undisturbed since `StartAsync`, so a subscription that dies at the one event it
+exists to survive satisfies both. Nothing else here covers a restart.
+
+**It does not discriminate a resolve-once implementation, and this paragraph
+used to claim it did.** The DCP instance id was *observed stable* across a full
+restart on Aspire 13.5.3 (Windows) — one `event-ingestion-gxkpyqjx` through
+`Running → Stopping → Finished → Starting → Running`, seen independently at
+phase 5 and at phase 6 — so a resolve hoisted above the loop passes AS-6, AS-7
+and AS-8 alike. Re-resolving every turn is still the right shape, because id
+stability is a property of that DCP build and not a published contract; it is
+defensive code **this spec does not exercise**, and a green suite is not
+evidence that hoisting would fail. Linux is unverified.
 
 **AS-9 — the guard from US-2 is not the evidence for US-3 (US-3)**
 
@@ -336,8 +345,8 @@ Executable by a human who did not write the change, without reading the diff.
    tailing-cost decision in `plan.md` — this is the measurement that turns
    "probably fine" into an observation. Per the standing note that a first run
    after machine churn looks like a regression, run each side twice and take the
-   second. **Done, 2026-09-03; the answer is "no signal at this resolution" —
-   see A1.**
+   second. **Attempted 2026-09-03 and again after the id fix; neither attempt is
+   a measurement of A1, which stays *not measured*. See A1.**
 
 ### Steps added with the grown scope
 
@@ -437,8 +446,10 @@ service logs were unreadable is a run whose anomalies could not be explained.
   subscription plus a bounded queue, not extra log production. Reasoned from
   `AspireFixture.TailResourceLogsAsync` (`:437-489`).
 
-  **Status: measured, no signal — and not yet testable as written.** Phase 5 ran
-  `InitializeAsync` four times with 8 tails and twice with 4:
+  **Status: NOT MEASURED.** Two attempts, and neither of them measured A1.
+
+  *First attempt (phase 5, before the id fix.)* `InitializeAsync` timed four
+  times with 8 tails and twice with 4:
 
   | Tails | Runs (s) |
   |---|---|
@@ -446,14 +457,24 @@ service logs were unreadable is a run whose anomalies could not be explained.
   | 4 | 140.26, 143.00 |
 
   The 8-tail spread alone is 30.7 s — 22% of its own minimum — and both 4-tail
-  figures sit inside it. **Not measurable at this resolution.** Worse, the
-  comparison was not of the thing A1 is about: with every tail subscribed to an
-  empty stream, this measured *eight idle loops against four*, not eight live
-  subscriptions against four. **A1 only becomes testable once the tails
-  deliver**, so re-measuring after the id fix is the first honest reading — and
-  A1 stays *reasoned, not measured* until then. Recorded rather than dropped,
-  because a figure that says nothing is worth more written down than a figure
-  nobody took.
+  figures sit inside it. **No signal at this resolution.** And it was not the
+  comparison A1 is about: with every tail subscribed to an empty stream, this
+  timed *eight idle loops against four*, not eight live subscriptions against
+  four. Kept here because it is the record of work actually done, and it is
+  labelled for what it is.
+
+  *Second attempt (after the id fix.)* **Confounded, and its figures are
+  deliberately not recorded.** The 4-tail side was timed before the fix, when
+  the tails enqueued nothing; the 8-tail side after, when they carry real
+  traffic. That is "4 versus 8" confounded with "0 delivering versus 8
+  delivering", and the drift between boots on one side is the same order as the
+  difference between the sides. A number written down here is a number someone
+  will later quote as clearance, so none is.
+
+  **What an honest measurement would take**, if it is ever wanted: roughly eight
+  interleaved boots per side, alternating, against a bring-up of two to three
+  minutes each — with both sides on the *same* build, after the fix. It was not
+  done, and nothing in this feature depends on the answer.
 
 - **A2 (added with the grown scope).** `ResourceNotificationService.TryGetCurrentState(name, out ResourceEvent)`
   resolves an app-model name to the current DCP instance's `ResourceId`. The

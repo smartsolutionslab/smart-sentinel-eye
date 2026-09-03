@@ -115,17 +115,23 @@ The issue asks for this to be decided rather than assumed.
 
 The log lines are produced whether or not anyone watches; `WatchAsync` is a
 subscription over output the host already has. That is assumption **A1** in the
-spec, reasoned from the code and **not yet measured**, which is why the spec's
-test procedure step 4 measures fixture bring-up on both sides.
+spec, reasoned from the code and **not measured**.
 
-**Measured at phase 5, and it said nothing** — 8 tails ran 137.87/166.60/154.29/135.95 s
-against 4 tails at 140.26/143.00 s, a spread wider than any effect. The figures
-are in the spec under A1. They also measured the wrong thing: with every tail on
-an empty stream, this compared eight *idle* loops with four. **The reading that
-matters can only be taken after the id fix**, when eight tails are actually
-carrying lines — which is the one direction in which the cost could turn out to
-be real. That does not change the recommendation; it does mean nobody should
-cite these numbers as clearance.
+**Two attempts, neither of them a measurement of A1.** The phase-5 timing (in
+the spec under A1) ran with every tail subscribed to an empty stream, so it
+compared eight *idle* loops with four, and its 8-tail spread was wider than any
+effect it could have shown. The re-take after the id fix is worse rather than
+better: its 4-tail side was timed **before** the fix, when the tails enqueued
+nothing, and its 8-tail side **after**, when they carry real traffic. That is
+"4 versus 8" confounded with "0 delivering versus 8 delivering", and the drift
+between boots within one side is the same order as the difference between the
+sides. **Its figures are deliberately not written down here or in the spec** —
+a number in a plan is a number someone later quotes as clearance.
+
+**A1 is therefore recorded as not measured.** Measuring it honestly needs
+roughly eight interleaved boots per side, alternating, both sides on the same
+build, against a bring-up of two to three minutes each. Not worth doing now, and
+the recommendation below does not depend on it.
 
 **Recommendation: add the four names. 8 tails.**
 
@@ -177,7 +183,7 @@ probe found no path from a name to logs. Not tried, not relied on.
 **Rejected: caching the id at fixture start.** This is the bug the next
 paragraph exists to prevent.
 
-### The wrinkle: the id changes on every restart, not just every boot
+### The wrinkle: nothing guarantees the id survives a restart
 
 `TailResourceLogsAsync` re-subscribes in a loop, added for #2038 because a watch
 ends when its process does. **The id must be re-resolved inside that loop, on
@@ -191,13 +197,25 @@ while not cancelled:
     delay 250 ms                    # ← the process went away
 ```
 
-Resolve-once is the failure worth naming explicitly, because it *looks* correct
-and passes AS-6 and AS-7: the first subscription works, the boot-time id is
-right, and the tail delivers. It breaks only after a restart — the new instance
-carries a new id, the loop re-subscribes to the dead one, the stream completes
-immediately, and the resource goes **permanently quiet**. That is #2038's exact
-symptom, reintroduced by the fix for #2054, in the one scenario the #2038
-diagnostic was built to explain. **AS-8 exists solely to make resolve-once fail.**
+Resolve-once is the failure worth naming explicitly, because *if* the id ever
+stops surviving a restart the loop re-subscribes to the instance that just died,
+the stream completes immediately, and the resource goes **permanently quiet** —
+#2038's exact symptom, reintroduced by the fix for #2054, in the one scenario
+the #2038 diagnostic was built to explain.
+
+**Corrected at phase 6: on this build it does not change.** A single id,
+`event-ingestion-gxkpyqjx`, was observed across
+`Running → Stopping → Finished → Starting → Running` on Aspire 13.5.3
+(Windows) — independently at phase 5 and by the phase-6 reviewer. So a resolve
+hoisted above the loop passes AS-6, AS-7 **and AS-8**, and this section's
+earlier claim that "AS-8 exists solely to make resolve-once fail" was false.
+AS-8 earns its place on different and stronger ground: it is the regression test
+for #2038, the only scenario in which the subscription itself is destroyed.
+
+The resolve stays inside the loop as **defensive code that nothing here
+exercises** — id stability is a property of this DCP build, not a published
+contract — and a green suite must not be read as evidence that hoisting would
+fail. Linux is unverified.
 
 Two consequences for the loop's shape:
 
@@ -257,14 +275,17 @@ this one is its runtime counterpart, and the contrast is the point.
 | Test | Drives | Proves | Cost |
 |---|---|---|---|
 | **A. delivery** | `POST /cameras` with an invented name on `camera-catalog`, poll `RecentLogs` up to 30 s | the tail carries a line **this test caused**, from **this resource**, **now** | one HTTP call |
-| **B. breadth** | nothing | none of the eight names returns a placeholder | one dictionary read each |
-| **C. restart** | restart `event-ingestion`, then `POST /webhook-integrations` with an invented name | the id is **re-resolved**, not captured | one restart |
+| **B. breadth** | nothing | none of the eight names returns a placeholder | one dictionary read each, polled up to 30 s |
+| **C. restart** | restart `event-ingestion`, then `POST /webhook-integrations` with an invented name | the **subscription survives a restart** (#2038) | one restart |
 
 **Why one is not enough.** A alone proves the mechanism for one resource; the id
 is resolved per name, so a name whose snapshot never appears under that spelling
-would still be silent and A would not notice — B costs nothing and covers it. And
-neither A nor B can fail against a resolve-once implementation, which is the most
-likely wrong way to write this fix — C is the only thing that separates them.
+would still be silent and A would not notice — B covers it for a dictionary read
+each. And neither A nor B watches a subscription across the event that destroys
+one: both read tails whose process has run undisturbed since `StartAsync`, so a
+tail that dies at a restart passes both. C is the regression test for #2038.
+**C does not separate a resolve-once implementation from this one** — see the
+correction under "the wrinkle" above.
 
 **Why not more than three.** Driving a request through all eight would multiply
 A's cost by eight to re-prove one mechanism; B already covers breadth at the

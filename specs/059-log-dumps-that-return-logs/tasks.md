@@ -257,12 +257,17 @@ returning `evt.ResourceId`, and use it at **both** capture sites:
 **One resolver, used twice.** Two copies make the spec's claim that `:411` is
 covered by construction false (`plan.md`, decision 3).
 
-**Resolve inside the re-subscribe loop, every turn.** Not once before it. The id
-changes on every restart as well as every boot; resolve-once re-subscribes to a
-dead instance and the resource goes permanently quiet — #2038's symptom,
-reintroduced by this fix. A comment at the loop must say why the resolve is
-where it is, because its position is the whole correctness argument and looks
-like something to hoist.
+**Resolve inside the re-subscribe loop, every turn.** Not once before it.
+Nothing guarantees the id survives a restart, and if it ever stops doing so a
+resolve-once implementation re-subscribes to a dead instance and the resource
+goes permanently quiet — #2038's symptom, reintroduced by this fix. A comment at
+the loop must say why the resolve is where it is.
+
+**Corrected at phase 6:** the id *was* observed stable across a full restart on
+Aspire 13.5.3 (Windows), so the re-resolution is **defensive code that T004's
+tests do not exercise** — a hoisted resolve passes all three. The comment must
+say that, rather than calling the position "the whole correctness argument". A
+green suite is not evidence that hoisting would fail.
 
 Handle "not resolvable yet" as a **wait, not a failure**: the tails start at
 `:116`, before the `WaitForResourceAsync` calls, so a snapshot may not exist. Do
@@ -294,6 +299,11 @@ Execute `spec.md` "Independent end-to-end test procedure" steps 3 and 5–8:
   tails are actually carrying lines — the phase-5 figures measured idle loops and
   clear nothing (spec A1). Write the figures down whatever they say, including
   "still no signal".
+
+  **This instruction produced a confounded figure and was withdrawn at phase 6.**
+  Taking the 4-tail side before the fix and the 8-tail side after confounds
+  "4 versus 8" with "0 delivering versus 8 delivering". A1 is recorded as **not
+  measured**, and no number from that re-take is kept anywhere.
 - Record what was **not** observed: `CaptureOneResourceLogAsync` through a real
   startup timeout, and any of this on Linux/CI. Do not let one green run imply
   either.
