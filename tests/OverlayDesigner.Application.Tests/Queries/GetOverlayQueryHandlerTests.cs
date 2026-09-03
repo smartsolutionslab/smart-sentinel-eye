@@ -59,6 +59,35 @@ public class GetOverlayQueryHandlerTests
         result.Value.Version.ShouldBe(overlay.Version);
     }
 
+    // The projection copies four same-typed decimals across and nothing
+    // asserted any of them, so transposing the width and height projections
+    // left the whole suite green. Four distinct values, each read back off its
+    // own field, so a swap of any pair fails.
+    [Fact]
+    public async Task The_dto_carries_the_labels_position_and_size()
+    {
+        InMemoryOverlayRepository overlays = new();
+        FakeClock clock = new(FixedMoment);
+        Overlay overlay = new OverlayBuilder()
+            .At(clock.UtcNow)
+            .Named("Line-3")
+            .WithLabel(Label.From("Hello", 0.11m, 0.22m, 0.33m, 0.44m, 32))
+            .Build();
+        overlays.Add(overlay);
+
+        GetOverlayQueryHandler handler = new(new InMemoryOverlayQuerySource(overlays));
+        Result<OverlayDto, GetOverlayError> result = await handler.HandleAsync(
+            new GetOverlayQuery(overlay.Id), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        OverlayRevisionDto revision = result.Value.Revisions.Single();
+        revision.NormalizedX.ShouldBe(0.11m);
+        revision.NormalizedY.ShouldBe(0.22m);
+        revision.NormalizedWidth.ShouldBe(0.33m);
+        revision.NormalizedHeight.ShouldBe(0.44m);
+        revision.FontSizePx.ShouldBe(32);
+    }
+
     [Fact]
     public async Task Returns_OverlayNotFound_when_the_chain_does_not_exist()
     {
