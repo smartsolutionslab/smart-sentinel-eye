@@ -1,14 +1,22 @@
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.Kernel;
 
-namespace SmartSentinelEye.Identity.Infrastructure.Persistence;
+namespace SmartSentinelEye.ServiceDefaults.Idempotency;
 
 /// <summary>
-/// Postgres-backed <see cref="IIdempotencyStore"/> for Identity (ADR-0142), in
-/// Identity's own schema for the same reason the Wolverine outbox is — there is
-/// no shared database, and inventing one for this would be a larger deviation
-/// than the problem warrants.
+/// Postgres-backed <see cref="IIdempotencyStore"/> against a context's own
+/// schema (ADR-0142), for the same reason the Wolverine outbox lives there —
+/// there is no shared database, and inventing one for this would be a larger
+/// deviation than the problem warrants.
+///
+/// <para>
+/// Generic over the <see cref="DbContext"/> because the SQL is the only thing
+/// this class contains and none of it is context-specific. Identity wrote the
+/// first copy; six more were about to be written by hand before it was clear
+/// they would differ in nothing but a type parameter. Register it as
+/// <c>AddScoped&lt;IIdempotencyStore, IdempotencyStore&lt;XDbContext&gt;&gt;()</c>
+/// and add <see cref="IdempotencyKeyTable"/>'s DDL in a migration.
+/// </para>
 ///
 /// <para>
 /// Raw SQL rather than the change tracker, following
@@ -18,7 +26,8 @@ namespace SmartSentinelEye.Identity.Infrastructure.Persistence;
 /// exactly the request pair this mechanism exists for.
 /// </para>
 /// </summary>
-public sealed class IdentityIdempotencyStore(IdentityDbContext dbContext) : IIdempotencyStore
+public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempotencyStore
+    where TDbContext : DbContext
 {
     public async Task<IdempotencyReservation> BeginAsync(
         IdempotencyScope scope, CancellationToken cancellationToken)

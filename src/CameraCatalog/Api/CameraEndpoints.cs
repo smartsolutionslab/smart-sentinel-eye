@@ -11,6 +11,7 @@ using SmartSentinelEye.CameraCatalog.Application.Queries.Handlers;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
+using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.CameraCatalog.Api;
@@ -21,6 +22,9 @@ namespace SmartSentinelEye.CameraCatalog.Api;
 /// </summary>
 public static class CameraEndpoints
 {
+    /// <summary>Route identity an idempotency key is scoped to (ADR-0142).</summary>
+    private const string RegisterEndpoint = "POST /cameras";
+
     public static IEndpointRouteBuilder MapCameraCatalogEndpoints(this IEndpointRouteBuilder app)
     {
         Ensure.That(app).IsNotNull();
@@ -120,13 +124,21 @@ public static class CameraEndpoints
 
     private static async Task<IResult> Register(
         [FromBody] RegisterCameraRequest request,
-        [FromServices] RegisterCameraCommandHandler handler,
-        [FromServices] IFabAuthorizationGuard fabGuard,
+        [AsParameters] RegisterCameraServices services,
         HttpContext httpContext,
         CancellationToken cancellationToken,
         [FromQuery] string fabId = "")
     {
         Ensure.That(request).IsNotNull();
+        Ensure.That(httpContext).IsNotNull();
+
+        RegisterCameraCommandHandler handler = services.Handler;
+        IFabAuthorizationGuard fabGuard = services.FabGuard;
+
+        if (!IdempotencyHeaders.TryRead(httpContext.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        {
+            return keyProblem;
+        }
 
         CameraName name;
         RtspUrl url;
@@ -155,15 +167,27 @@ public static class CameraEndpoints
 
         RegisterCameraCommand command = new(fab, name, url, registeredBy);
 
-        Result<CameraIdentifier, RegisterCameraError> result =
-            await handler.HandleAsync(command, cancellationToken);
-
-        return result.Match<IResult>(
-            onSuccess: identifier => Results.Created(
-                $"/cameras/{identifier.Value}",
-                identifier.Value),
-            onFailure: error => error.ToProblem());
+        return await IdempotentRequest.ExecuteCreateAsync(
+            new IdempotentExecution(
+                key.Map(supplied => IdempotencyScope.For(supplied, RegisterEndpoint, registeredBy.Value.ToString())),
+                services.Idempotency,
+                services.Clock),
+            identifier => $"/cameras/{identifier}",
+            async token => (await handler.HandleAsync(command, token)).Match(
+                onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
+                onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem())),
+            cancellationToken);
     }
+
+    /// <summary>
+    /// The registration endpoint's collaborators, bundled with
+    /// <c>[AsParameters]</c> so the handler keeps a readable signature (ADR-0084).
+    /// </summary>
+    private sealed record RegisterCameraServices(
+        [FromServices] RegisterCameraCommandHandler Handler,
+        [FromServices] IFabAuthorizationGuard FabGuard,
+        [FromServices] IIdempotencyStore Idempotency,
+        [FromServices] TimeProvider Clock);
 
     private static async Task<IResult> Retire(
         [FromRoute] Guid camera,

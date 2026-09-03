@@ -17,7 +17,7 @@ namespace SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.8")
+                .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -27,14 +27,6 @@ namespace SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("overlay_id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -57,6 +49,27 @@ namespace SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("SmartSentinelEye.OverlayDesigner.Domain.Overlay.Overlay", b =>
                 {
+                    b.OwnsOne("SmartSentinelEye.OverlayDesigner.Domain.Overlay.Creation", "Creation", b1 =>
+                        {
+                            b1.Property<Guid>("OverlayId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<DateTimeOffset>("At")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("created_at");
+
+                            b1.Property<Guid>("By")
+                                .HasColumnType("uuid")
+                                .HasColumnName("created_by");
+
+                            b1.HasKey("OverlayId");
+
+                            b1.ToTable("overlays");
+
+                            b1.WithOwner()
+                                .HasForeignKey("OverlayId");
+                        });
+
                     b.OwnsMany("SmartSentinelEye.OverlayDesigner.Domain.Overlay.Revision", "Revisions", b1 =>
                         {
                             b1.Property<Guid>("Id")
@@ -66,14 +79,6 @@ namespace SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence.Migrations
                             b1.Property<DateTimeOffset?>("ArchivedAt")
                                 .HasColumnType("timestamp with time zone")
                                 .HasColumnName("archived_at");
-
-                            b1.Property<DateTimeOffset>("CreatedAt")
-                                .HasColumnType("timestamp with time zone")
-                                .HasColumnName("created_at");
-
-                            b1.Property<Guid>("CreatedBy")
-                                .HasColumnType("uuid")
-                                .HasColumnName("created_by");
 
                             b1.Property<int>("Number")
                                 .HasColumnType("integer")
@@ -147,9 +152,36 @@ namespace SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence.Migrations
                                         .HasForeignKey("RevisionId");
                                 });
 
+                            b1.OwnsOne("SmartSentinelEye.OverlayDesigner.Domain.Overlay.Creation", "Creation", b2 =>
+                                {
+                                    b2.Property<Guid>("RevisionId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<DateTimeOffset>("At")
+                                        .HasColumnType("timestamp with time zone")
+                                        .HasColumnName("created_at");
+
+                                    b2.Property<Guid>("By")
+                                        .HasColumnType("uuid")
+                                        .HasColumnName("created_by");
+
+                                    b2.HasKey("RevisionId");
+
+                                    b2.ToTable("overlay_revisions");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("RevisionId");
+                                });
+
+                            b1.Navigation("Creation")
+                                .IsRequired();
+
                             b1.Navigation("Label")
                                 .IsRequired();
                         });
+
+                    b.Navigation("Creation")
+                        .IsRequired();
 
                     b.Navigation("Revisions");
                 });

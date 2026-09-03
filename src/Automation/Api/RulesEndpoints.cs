@@ -12,6 +12,7 @@ using SmartSentinelEye.Automation.Application.Queries.Handlers;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
+using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Automation.Api;
@@ -23,6 +24,9 @@ namespace SmartSentinelEye.Automation.Api;
 /// </summary>
 public static class RulesEndpoints
 {
+    /// <summary>Route identity an idempotency key is scoped to (ADR-0142).</summary>
+    private const string CreateEndpoint = "POST /rules";
+
     private const string SetVariableValue = "SetVariableValue";
     private const string HighlightOverlay = "HighlightOverlay";
 
@@ -254,13 +258,22 @@ public static class RulesEndpoints
 
     private static async Task<IResult> Create(
         [FromBody] CreateRuleRequest body,
-        [FromServices] IFabAuthorizationGuard fabGuard,
-        [FromServices] CreateRuleCommandHandler handler,
+        [AsParameters] CreateRuleServices services,
+        HttpContext http,
         ClaimsPrincipal user,
         CancellationToken cancellationToken,
         [FromQuery] string fabId = "")
     {
         Ensure.That(body).IsNotNull();
+        Ensure.That(http).IsNotNull();
+
+        IFabAuthorizationGuard fabGuard = services.FabGuard;
+        CreateRuleCommandHandler handler = services.Handler;
+
+        if (!IdempotencyHeaders.TryRead(http.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        {
+            return keyProblem;
+        }
 
         Result<FabIdentifier, IResult> fabResolution =
             await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
@@ -292,14 +305,33 @@ public static class RulesEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
-            new CreateRuleCommand(fab, name, triggerSource, triggerKind, predicate, action, actingOperator),
-            cancellationToken);
 
-        return result.Match<IResult>(
-            onSuccess: id => Results.Created($"/rules/{name.Value}", id.Value),
-            onFailure: error => error.ToProblem());
+        // The location names the rule rather than its identifier, so the helper's
+        // identifier argument is unused here — the route is stable across a replay
+        // either way.
+        return await IdempotentRequest.ExecuteCreateAsync(
+            new IdempotentExecution(
+                key.Map(supplied => IdempotencyScope.For(supplied, CreateEndpoint, actingOperator.Value.ToString())),
+                services.Idempotency,
+                services.Clock),
+            _ => $"/rules/{name.Value}",
+            async token => (await handler.HandleAsync(
+                    new CreateRuleCommand(fab, name, triggerSource, triggerKind, predicate, action, actingOperator),
+                    token)).Match(
+                onSuccess: id => Result<Guid, IResult>.Success(id.Value),
+                onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem())),
+            cancellationToken);
     }
+
+    /// <summary>
+    /// Bundled with <c>[AsParameters]</c> so the handler keeps a readable
+    /// signature (ADR-0084).
+    /// </summary>
+    private sealed record CreateRuleServices(
+        [FromServices] IFabAuthorizationGuard FabGuard,
+        [FromServices] CreateRuleCommandHandler Handler,
+        [FromServices] IIdempotencyStore Idempotency,
+        [FromServices] TimeProvider Clock);
 
     private static async Task<IResult> Publish(
         string name,

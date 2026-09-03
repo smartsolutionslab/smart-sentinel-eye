@@ -14,6 +14,7 @@ using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 using SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.ServiceDefaults.Resilience;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -44,6 +45,9 @@ public static class EventIngestionInfrastructureModule
         builder.Services.AddScoped<IWebhookIntegrationQuerySource, WebhookIntegrationQuerySource>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
+
+        // ADR-0142. Scoped alongside the DbContext it writes through.
+        builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<EventIngestionDbContext>>();
         builder.Services.AddSingleton(TimeProvider.System);
 
         // Spec 019: the write paths ask whether a fab can store anything before

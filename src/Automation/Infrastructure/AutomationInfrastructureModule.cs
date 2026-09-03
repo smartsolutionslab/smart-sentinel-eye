@@ -11,6 +11,7 @@ using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Infrastructure.Cache;
 using SmartSentinelEye.Automation.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -37,6 +38,11 @@ public static class AutomationInfrastructureModule
         builder.Services.AddScoped<IRuleRepository, RuleRepository>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
+        builder.Services.AddSingleton(TimeProvider.System);
+
+        // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
+        // above drives the executor's wait for an in-flight attempt.
+        builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<AutomationDbContext>>();
 
         // Rule cache + evaluator + cold-start seeder.
         builder.Services.AddSingleton<IRuleCache, InMemoryRuleCache>();

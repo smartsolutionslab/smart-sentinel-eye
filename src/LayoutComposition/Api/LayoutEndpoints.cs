@@ -17,6 +17,9 @@ namespace SmartSentinelEye.LayoutComposition.Api;
 /// </summary>
 public static partial class LayoutEndpoints
 {
+    /// <summary>Route identity an idempotency key is scoped to (ADR-0142).</summary>
+    private const string CreateEndpoint = "POST /layouts";
+
     public static IEndpointRouteBuilder MapLayoutEndpoints(this IEndpointRouteBuilder app)
     {
         Ensure.That(app).IsNotNull();

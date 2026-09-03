@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
+using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Api.Requests;
 using SmartSentinelEye.SystemVariables.Application.Commands;
@@ -23,6 +24,9 @@ namespace SmartSentinelEye.SystemVariables.Api;
 /// </summary>
 public static class SystemVariableEndpoints
 {
+    /// <summary>Route identity an idempotency key is scoped to (ADR-0142).</summary>
+    private const string DefineEndpoint = "POST /system-variables";
+
     public static IEndpointRouteBuilder MapSystemVariableEndpoints(this IEndpointRouteBuilder app)
     {
         Ensure.That(app).IsNotNull();
@@ -90,13 +94,22 @@ public static class SystemVariableEndpoints
 
     private static async Task<IResult> Define(
         [FromBody] DefineVariableRequest body,
-        [FromServices] DefineVariableCommandHandler handler,
-        [FromServices] IFabAuthorizationGuard fabGuard,
+        [AsParameters] DefineVariableServices services,
+        HttpContext http,
         ClaimsPrincipal user,
         CancellationToken cancellationToken,
         [FromQuery] string fabId = "")
     {
         Ensure.That(body).IsNotNull();
+        Ensure.That(http).IsNotNull();
+
+        DefineVariableCommandHandler handler = services.Handler;
+        IFabAuthorizationGuard fabGuard = services.FabGuard;
+
+        if (!IdempotencyHeaders.TryRead(http.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        {
+            return keyProblem;
+        }
 
         VariableName name;
         VariableType type;
@@ -136,12 +149,28 @@ public static class SystemVariableEndpoints
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
         DefineVariableCommand command = new(fab, name, type, initialValue, booleanLabels, actingOperator);
-        Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(command, cancellationToken);
 
-        return result.Match<IResult>(
-            onSuccess: identifier => Results.Created($"/system-variables/{name.Value}", identifier.Value),
-            onFailure: error => error.ToProblem());
+        return await IdempotentRequest.ExecuteCreateAsync(
+            new IdempotentExecution(
+                key.Map(supplied => IdempotencyScope.For(supplied, DefineEndpoint, actingOperator.Value.ToString())),
+                services.Idempotency,
+                services.Clock),
+            _ => $"/system-variables/{name.Value}",
+            async token => (await handler.HandleAsync(command, token)).Match(
+                onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
+                onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem())),
+            cancellationToken);
     }
+
+    /// <summary>
+    /// Bundled with <c>[AsParameters]</c> so the handler keeps a readable
+    /// signature (ADR-0084).
+    /// </summary>
+    private sealed record DefineVariableServices(
+        [FromServices] DefineVariableCommandHandler Handler,
+        [FromServices] IFabAuthorizationGuard FabGuard,
+        [FromServices] IIdempotencyStore Idempotency,
+        [FromServices] TimeProvider Clock);
 
     private static async Task<IResult> SetValue(
         string name,
