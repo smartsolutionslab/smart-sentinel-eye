@@ -26,8 +26,23 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// be <c>Running</c> and still fault every request, and the client-side
     /// <see cref="HttpRequestException"/> a test sees carries only "500" — the
     /// server's exception lives here.
+    ///
+    /// A resource earns its place by having a <c>RecentLogs</c> call site, and
+    /// <c>LogTailCoverageTests</c> fails the build when the two disagree — the
+    /// list is hand-maintained, which is how four names stayed missing while
+    /// seven call sites returned a placeholder instead of a log (issue #2053).
     /// </summary>
-    private static readonly string[] TailedResources = ["camera-catalog", "automation", "identity", "event-ingestion"];
+    private static readonly string[] TailedResources =
+    [
+        "camera-catalog",
+        "automation",
+        "identity",
+        "event-ingestion",
+        "stream-distribution",
+        "overlay-designer",
+        "layout-composition",
+        "system-variables",
+    ];
 
     private readonly ConcurrentDictionary<string, ConcurrentQueue<string>> _logTails = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, string> _logTailFailures = new(StringComparer.Ordinal);
