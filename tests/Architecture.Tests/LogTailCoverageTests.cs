@@ -14,6 +14,18 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// </para>
 ///
 /// <para>
+/// <b>It checks one direction only: <c>requested ⊆ tailed</c>.</b> Two gaps
+/// follow, and neither is covered anywhere else in this project. The reverse
+/// containment — <c>tailed ⊆ app-model names</c> — is unchecked, so a misspelled
+/// entry in <c>TailedResources</c> spins the fixture's resolve loop forever,
+/// records no failure, and yields exactly the placeholder this guard exists to
+/// remove; only <c>LogTailDeliversIntegrationTests</c> test B catches that, and
+/// it needs Docker. And <c>tailed ⊆ requested</c> is unchecked too, so a name
+/// nobody asks about keeps its subscription — an unpriced cost while assumption
+/// A1 (the marginal cost of a tail) is still unmeasured.
+/// </para>
+///
+/// <para>
 /// Reads source from disk rather than referencing <c>Integration.Tests</c>.
 /// <c>TailedResources</c> is <c>private static</c>, so reflection cannot see it
 /// without widening its accessibility, and a project reference would drag the
