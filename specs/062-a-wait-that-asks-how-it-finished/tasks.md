@@ -42,7 +42,24 @@ provoked":
 
 1. Confirm the tree is clean (`git status --short` empty).
 2. Add the scratch throw to `src/MigrationRunner/Program.cs` immediately after
-   `await host.StartAsync();`, marked `SCRATCH … REVERT`.
+   `await host.StartAsync();`, marked `SCRATCH … REVERT`:
+
+   ```csharp
+   // SCRATCH (#2064 phase 4a/5) — provoke a non-zero exit from `migrations`.
+   // REVERT.
+   if (Environment.GetEnvironmentVariable("PATH") is not null)
+   {
+       throw new InvalidOperationException("SCRATCH: deliberate migration failure.");
+   }
+   ```
+
+   **Not #2061's `if (args.Length >= 0)`.** That spelling was run in Debug and
+   does not survive the `-c Release` this task uses: `MigrationRunner` is a
+   production project, so SonarAnalyzer + `TreatWarningsAsErrors` turn it into
+   `error S3981: The 'Length' of 'Array' always evaluates as 'True' regardless
+   the size.` and the build fails before anything boots. Verified both ways on
+   2026-09-04 (phase 4b): the `args.Length` form errors, the `PATH` form builds
+   clean — the analyzer cannot fold an environment read.
 3. Run, timed, capturing everything:
    ```sh
    dotnet test tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj -c Release \
@@ -58,12 +75,21 @@ provoked":
 - the **exception type and the wait that raised it** — expected
   `System.TimeoutException : Aspire AppHost did not start within 8 minutes.`,
   from the `camera-catalog` wait;
-- the runner's own `Duration:` line;
+- the **`[xUnit.net HH:MM:SS.ss]` elapsed marker on the `[FAIL]` line** — *not*
+  the runner's `Duration:` line. On a run where `InitializeAsync` throws, xUnit
+  attributes the collection fixture's time to neither the test nor the assembly
+  summary, so with a single `--filter`ed test `Duration:` reads a few
+  milliseconds while the boot actually burned eight minutes. Phase 4a's two
+  provocations read `00:08:53.82` and `00:08:55.10` on that marker against a
+  `Duration:` of `6 ms`. The marker is the figure; `Duration:` is a trap.
+  (A *passing* run does not have this problem — `LogTailDeliversIntegrationTests`
+  reports `Duration: 45 s`, fixture time included — which is why the trap is
+  easy to walk into.)
 - the observed exit code, which on Windows will be a large negative number, not
   CI's `134` (#2061 saw `-532462766`).
 
-**Done when**: the pre-fix duration and exception are recorded verbatim, the
-scratch line is reverted, and the tree is clean.
+**Done when**: the pre-fix elapsed marker and exception are recorded verbatim,
+the scratch line is reverted, and the tree is clean.
 
 **If the provocation no longer works** — the runner exits 0, or the boot
 succeeds — **stop and block**. Tier 1 alone does not evidence this change, and
@@ -198,8 +224,10 @@ green.
    ```
    Expected `Passed! - Failed: 0, Passed: 3`.
 4. Write the note with:
-   - **the figure the issue asked for**: pre-fix duration, post-fix duration,
-     the difference in seconds, and the machine named;
+   - **the figure the issue asked for**: pre-fix elapsed, post-fix elapsed, the
+     difference in seconds, and the machine named. Both figures come from the
+     **`[xUnit.net HH:MM:SS.ss]` marker on the `[FAIL]` line**, not from
+     `Duration:` — see T001, where the same correction is spelled out;
    - the post-fix exception verbatim, showing it names `migrations` and the
      code;
    - the CI saving stated as a **bound** — *at most* the 8-minute
