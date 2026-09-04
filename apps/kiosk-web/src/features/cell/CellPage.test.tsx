@@ -116,6 +116,10 @@ function chain(overrides: Partial<Layout> = {}): Layout {
     layoutIdentifier: 'cam-1',
     version: 0,
     name: 'Line-1',
+    // The wall's fab, which it derives rather than chooses (ADR-0145). Every
+    // test in this file renders a munich wall, so 'dresden' below always means
+    // "somebody else's plant".
+    fab: 'munich',
     createdAt: '2026-05-26T10:00:00Z',
     createdBy: '00000000-0000-0000-0000-000000000001',
     revisions: [
@@ -419,7 +423,7 @@ describe('CellPage', () => {
       renderPage();
 
       act(() => {
-        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', durationMs: 1000 });
+        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', fab: 'munich', durationMs: 1000 });
       });
 
       const lit = highlightedTiles();
@@ -445,7 +449,7 @@ describe('CellPage', () => {
       renderPage();
 
       act(() => {
-        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', durationMs: 1000 });
+        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', fab: 'munich', durationMs: 1000 });
       });
 
       const lit = highlightedTiles();
@@ -462,12 +466,12 @@ describe('CellPage', () => {
       renderPage();
 
       act(() => {
-        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', durationMs: 1000 });
+        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', fab: 'munich', durationMs: 1000 });
       });
       // A second highlight lands 500ms in with a fresh 1000ms duration.
       act(() => {
         vi.advanceTimersByTime(500);
-        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', durationMs: 1000 });
+        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', fab: 'munich', durationMs: 1000 });
       });
 
       // The first timer (at t=1000) must NOT revert — the later expiry is t=1500.
@@ -493,7 +497,7 @@ describe('CellPage', () => {
       renderPage();
 
       act(() => {
-        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-absent', durationMs: 1000 });
+        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-absent', fab: 'munich', durationMs: 1000 });
       });
 
       expect(highlightedTiles()).toHaveLength(0);
@@ -506,7 +510,7 @@ describe('CellPage', () => {
       renderPage();
 
       act(() => {
-        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', durationMs: 1000 });
+        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', fab: 'munich', durationMs: 1000 });
       });
       // A PTP step forward moves Date, not the monotonic clock; the timer
       // has not fired yet, so the highlight must still be lit.
@@ -528,7 +532,7 @@ describe('CellPage', () => {
       const view = renderPage();
 
       act(() => {
-        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', durationMs: 1000 });
+        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', fab: 'munich', durationMs: 1000 });
       });
       view.unmount();
 
@@ -567,7 +571,7 @@ describe('CellPage', () => {
      */
     function rerenderTiles() {
       act(() => {
-        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', durationMs: 1_000 });
+        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-x', fab: 'munich', durationMs: 1_000 });
       });
     }
 
@@ -699,6 +703,11 @@ describe('CellPage', () => {
       await act(async () => {
         capturedCallbacks?.onResolvedOverlayTextChanged?.({
           overlay: 'ovl-x',
+          // Spec 067: the wall's own fab, so this frame stays one the wall
+          // accepts. Arrangement only — the two assertions here are the
+          // declared characterisation control and must not move (plan.md
+          // declaration 3).
+          fab: 'munich',
           resolvedText: 'OEE 82.5',
           version: 2,
         });

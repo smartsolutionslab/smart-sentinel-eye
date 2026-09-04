@@ -44,6 +44,7 @@ function chain(overrides: Partial<Layout> = {}): Layout {
   return {
     layoutIdentifier: '11111111-1111-1111-1111-111111111111',
     version: 0,
+    fab: 'munich',
     name: 'Line-1',
     createdAt: '2026-05-26T10:00:00Z',
     createdBy: '22222222-2222-2222-2222-222222222222',

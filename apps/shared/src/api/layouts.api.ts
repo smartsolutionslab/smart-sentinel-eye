@@ -36,6 +36,12 @@ export interface Layout {
   layoutIdentifier: string;
   /** Optimistic-concurrency version; echo it back via If-Match to mutate (ADR-0113). */
   version: number;
+  /**
+   * The fab this layout belongs to (spec 017). `LayoutDto` has always sent it;
+   * only this interface never declared it. The kiosk derives the displayed
+   * wall's fab from here rather than choosing or inferring one (ADR-0145).
+   */
+  fab: string;
   name: string;
   createdAt: string;
   createdBy: string;
