@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { Provider } from 'react-redux';
+import { Provider, useSelector } from 'react-redux';
 import type { Layout, LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
 import type { LayoutHubCallbacks } from '@smart-sentinel-eye/shared/realtime/layoutHub';
+import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { store } from '../../app/store.js';
 
 const getLayoutMock = vi.fn();
@@ -31,13 +32,16 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
   };
 });
 
+const getSnapshotMock = vi.fn();
+
 vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/systemVariables.api')>();
   return {
     ...actual,
-    // Default: no resolved snapshot. Specific tests can re-mock to
-    // assert the resolved-text rendering path.
-    useGetOverlaySnapshotQuery: () => ({ data: undefined, isLoading: false }),
+    // Default: no resolved snapshot. Specific tests re-mock to assert the
+    // resolved-text rendering path — which the fixed arrow this replaced
+    // promised in a comment but made impossible.
+    useGetOverlaySnapshotQuery: (...args: unknown[]) => getSnapshotMock(...args),
   };
 });
 
@@ -204,6 +208,8 @@ describe('CellPage', () => {
     getLayoutMock.mockReset();
     getOverlayMock.mockReset();
     getOverlayMock.mockReturnValue({ data: undefined });
+    getSnapshotMock.mockReset();
+    getSnapshotMock.mockReturnValue({ data: undefined, isLoading: false });
     navigateMock.mockReset();
     capturedCallbacks = undefined;
     reportLag = undefined;
@@ -614,6 +620,78 @@ describe('CellPage', () => {
       rerenderTiles();
 
       expect(label()).toBe('second');
+    });
+  });
+
+  /**
+   * Spec 063 T003 (#2012) — the frontend hop nothing had ever executed.
+   *
+   * <p>
+   * The push travels `useLayoutLifecycle` → this page's
+   * `onResolvedOverlayTextChanged` → `upsertQueryData` → the tile's snapshot
+   * query → `useLabelDelay` → the label. Every hop of that was plausible on
+   * reading and none of it had ever been run: this file's other tests never
+   * mention resolved text, and `useLayoutLifecycle.test.tsx` proves only that
+   * the hook forwards its callback.
+   * </p>
+   *
+   * <p>
+   * <b>Expected green, declared in advance.</b> This covers a path believed
+   * correct, not new behaviour — it is not the red artifact #2012's server-side
+   * defect owes, and must not be read as one. Its value is that it makes the
+   * belief checkable: if it is red, there is a second, independent defect in
+   * front of the one being fixed.
+   * </p>
+   *
+   * <p>
+   * <b>What it does not prove.</b> Anything about a real frame, a real hub,
+   * real video or a real clock — all stubbed in jsdom. The snapshot hook here
+   * reads the real RTK cache rather than a canned value, so the dispatch is
+   * genuinely exercised, but RTK's own `useQuery` subscription is not.
+   * </p>
+   */
+  describe('A pushed resolved text reaching the tile that binds the overlay (#2012)', () => {
+    /**
+     * The one substitution that would make this test vacuous is a snapshot
+     * hook that returns a canned value: it would assert the mock, not the
+     * dispatch. This reads the same store the page dispatches into.
+     */
+    function useSnapshotFromTheRealCache(overlayIdentifier: string) {
+      return useSelector(systemVariablesApi.endpoints.getOverlaySnapshot.select(overlayIdentifier));
+    }
+
+    it('Renders the text a ResolvedOverlayTextChanged frame carries, without a re-fetch', async () => {
+      getSnapshotMock.mockImplementation(useSnapshotFromTheRealCache);
+      mockLayout(
+        publishedRevision(1, 1, [tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-x', row: 0, col: 0 })]),
+      );
+      // The `{{…}}` is load-bearing: without a placeholder the page's
+      // `hasPlaceholder` gate skips the snapshot query outright.
+      getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
+
+      await act(async () => {
+        await store.dispatch(
+          systemVariablesApi.util.upsertQueryData('getOverlaySnapshot', 'ovl-x', {
+            overlayIdentifier: 'ovl-x',
+            resolvedText: 'OEE 41.0',
+            version: 1,
+          }),
+        );
+      });
+
+      renderPage();
+      const label = () => screen.getByTestId('camera-viewer').getAttribute('data-overlay-text');
+      expect(label()).toBe('OEE 41.0');
+
+      await act(async () => {
+        capturedCallbacks?.onResolvedOverlayTextChanged?.({
+          overlay: 'ovl-x',
+          resolvedText: 'OEE 82.5',
+          version: 2,
+        });
+      });
+
+      expect(label(), 'the tile kept its old text after a higher-versioned push').toBe('OEE 82.5');
     });
   });
 });
