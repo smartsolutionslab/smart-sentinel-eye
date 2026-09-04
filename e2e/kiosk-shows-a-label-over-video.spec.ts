@@ -319,21 +319,12 @@ async function setValue(operatorPage: Page, variableName: string, value: string)
 }
 
 /**
- * **Held back for the same reason as the label-follows check**, and marked here
- * rather than dressed up as a passing refusal.
+ * The span from an operator submitting a value to a kiosk tile showing it.
  *
  * <para>
- * It fails today because no iteration completes: the value never reaches the
- * already-open tile. That is a defect, not FR-009's refusal — FR-009 is about
- * two ends that cannot be shown to share a clock, which is checked before
- * anything is timed and is not what happens here. Reporting a product failure
- * as "the span is honestly unmeasured" would let a bug pass as a design
- * success, and would make a total regression indistinguishable from today.
- * </para>
- *
- * <para>
- * The refusal path itself stays implemented and reachable, for the case it was
- * written for.
+ * The refusal path stays implemented and reachable, for the case it was
+ * written for: FR-009 is about two ends that cannot be shown to share a clock,
+ * checked before anything is timed.
  * </para>
  */
 test('the span from a value being submitted to it being visible', async ({ page, context }) => {
