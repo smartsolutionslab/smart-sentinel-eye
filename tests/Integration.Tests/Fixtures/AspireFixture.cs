@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using Aspire.Hosting;
@@ -133,10 +134,20 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             // before, while a known-bad code merely postpones the same shared
             // `cts` timeout to the same instant. Read after, decide after,
             // throw here.
+            //
+            // OrdinalIgnoreCase, not `==`: the string overload it replaces
+            // generates its predicate with `Aspire.StringComparers.ResourceState`,
+            // which is case-insensitive. `ToSnapshot(Executable, …)` passes the
+            // state text through unmodified so the two cannot differ in fact —
+            // but matching the comparer makes "the same condition" exact rather
+            // than true-by-inspection.
             ResourceEvent migrations = await _app.ResourceNotifications
                 .WaitForResourceAsync(
                     "migrations",
-                    migration => migration.Snapshot.State?.Text == KnownResourceStates.Finished,
+                    migration => string.Equals(
+                        migration.Snapshot.State?.Text,
+                        KnownResourceStates.Finished,
+                        StringComparison.OrdinalIgnoreCase),
                     cts.Token)
                 .ConfigureAwait(false);
 
@@ -151,10 +162,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                     await CaptureOneResourceLogAsync(migrationLoggers, "migrations").ConfigureAwait(false);
 
                 // Not a TimeoutException, and not any OperationCanceledException:
-                // the catch below would reclassify a 40-second failure as "did
-                // not start within 8 minutes".
+                // the catch below would reclassify this as "did not start within
+                // 8 minutes" — a failure phase 5 measured at 1m38s.
                 throw new InvalidOperationException(
-                    FormatMigrationFailureMessage(migrations.Snapshot.ExitCode, migrationsLog));
+                    FormatMigrationFailureMessage(migrations.Snapshot.ExitCode.Value, migrationsLog));
             }
 
             await _app.ResourceNotifications
@@ -397,7 +408,9 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     // One copy of the rule, reached two ways: the timeout report looks the code
     // up in the captured state map, the migrations wait reads it straight off
     // the snapshot it matched (#2064).
-    internal static bool ExitedNonZero(int? exitCode) => exitCode is not null and not 0;
+    // [NotNullWhen] so the caller that throws can read `.Value` without a
+    // second null check restating half the rule — a true answer is the proof.
+    internal static bool ExitedNonZero([NotNullWhen(true)] int? exitCode) => exitCode is not null and not 0;
 
     private static bool ExitedNonZero(string name, Dictionary<string, int?> exitCodes) =>
         exitCodes.TryGetValue(name, out int? exit) && ExitedNonZero(exit);
@@ -499,8 +512,15 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// formatters are: the ordering claim — the code before the log — is only
     /// holdable by a test over the assembled string.
     /// </para>
+    ///
+    /// <para>
+    /// Takes <c>int</c>, not <c>int?</c>: <see cref="ExitedNonZero(int?)"/> has
+    /// already proven the code non-null at the only call site, and an <c>int?</c>
+    /// parameter invites a null this method would render as
+    /// <c>"exited with code  — …"</c>.
+    /// </para>
     /// </summary>
-    internal static string FormatMigrationFailureMessage(int? exitCode, string migrationsLog) =>
+    internal static string FormatMigrationFailureMessage(int exitCode, string migrationsLog) =>
         $"migrations exited with code {exitCode} — a non-zero exit is a failure, not a clean finish.\n" +
         "The startup wait stopped here rather than spending the remaining budget on services that wait for it.\n" +
         $"migrations log:\n{migrationsLog}";
