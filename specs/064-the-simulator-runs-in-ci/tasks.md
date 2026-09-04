@@ -206,6 +206,19 @@ making the spec seed its own data, as every other spec already does, and record
 it in the verification note. **Do not restore the simulator to CI to make it
 pass**: that is weakening a gate to reach green (ADR-0144).
 
+**Boot step 2 with the workflow's exact command line**, not a shortened one:
+
+```
+dotnet run --project src/AppHost/SmartSentinelEye.AppHost.csproj -c Release --no-build -- ScenarioSimulator=false
+```
+
+R2 is a question about *that* argument vector — whether `--` forwards past
+`dotnet run`'s own options — so a boot that drops `-c Release --no-build` tests a
+vector CI never uses. Nothing CI itself prints answers the question: the e2e job
+enumerates no resources (`scripts/wait-for-e2e-stack.sh` polls three ports and
+the gateway), and `apphost.log` is tailed only `if: failure()`. A green e2e run
+is not evidence.
+
 **Also run step 6** — a no-argument boot, confirming the developer stack is
 unchanged. Cheap, and it is the invariant most likely to be assumed rather than
 checked.
