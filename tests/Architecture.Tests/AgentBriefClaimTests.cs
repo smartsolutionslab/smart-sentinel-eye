@@ -44,14 +44,29 @@ namespace SmartSentinelEye.Architecture.Tests;
 ///
 /// <para>
 /// <i>Paths.</i> A path claim is an inline-code span containing <c>/</c> whose
-/// first segment is an existing top-level entry of the repository. That single
-/// anchoring rule is both the recogniser and the entire false-positive story:
-/// a route (<c>camera-catalog/cameras</c>), a slash-command
-/// (<c>/speckit-plan</c>), a folder convention (<c>Commands/</c>) and an
-/// interpolated URL are all naturally unanchored, and real repository paths are
-/// naturally anchored. A span carrying a glob metacharacter must match at least
-/// one entry — stricter than skipping it, and it is how a brief legitimately
-/// names a <em>class</em> of file.
+/// first segment — <b>after a leading <c>/</c> is trimmed</b> — is an existing
+/// top-level entry of the repository. That single anchoring rule is both the
+/// recogniser and the entire false-positive story: a route
+/// (<c>camera-catalog/cameras</c>), a slash-command (<c>/speckit-plan</c>), a
+/// folder convention (<c>Commands/</c>) and an interpolated URL are all naturally
+/// unanchored, and real repository paths are naturally anchored. A span carrying a
+/// glob metacharacter must match at least one entry — stricter than skipping it,
+/// and it is how a brief legitimately names a <em>class</em> of file.
+/// </para>
+///
+/// <para>
+/// <b>The leading slash is trimmed rather than read as unanchored</b>, and the
+/// census is the argument. The corpus carries 18 spans beginning <c>/</c>. Fifteen
+/// are slash-commands or routes — <c>/speckit-plan</c>, <c>/verify</c>,
+/// <c>/code-review</c>, <c>/cameras</c>, <c>/&lt;context&gt;</c> — whose first
+/// segment is not a root entry with or without the slash, so trimming changes
+/// nothing about them. The other three are the repo-root Playwright directory,
+/// written <c>/e2e</c>, at <c>frontend-engineer.md:13</c>,
+/// <c>test-writer.md:10</c> and <c>test-adversary.md:19</c>. Untrimmed, those
+/// three are claims the guard cannot see — and so is
+/// <c>/e2e/support/does-not-exist.ts</c>, a wrong path written in exactly the
+/// spelling the briefs already use. Trimming moves three real claims from
+/// invisible to checked and adds no false positive.
 /// </para>
 ///
 /// <para>
@@ -62,11 +77,37 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// masking a real failure" as a review <em>hypothetical</em>, which a
 /// presence rule turns red; <c>infra-engineer.md</c> correctly states that
 /// "there is no <c>continue-on-error</c> anywhere in the file", which the
-/// inverse rule turns red instead. Reading polarity out of prose needs a
-/// negation vocabulary applied per sentence and is wrong the first time someone
-/// writes "not without". Binding the claim to a job named in an attribute
-/// position removes the polarity problem, and it is the shape the error that
-/// actually happened had.
+/// inverse rule turns red instead. Binding the claim to a job named in an
+/// attribute position removes most of the polarity problem, and it is the shape
+/// the error that actually happened had.
+/// </para>
+///
+/// <para>
+/// <b>What is left of the polarity problem is read with a negation vocabulary,
+/// because it has to be.</b> The rule that an explicit "blocking" wins over a
+/// <c>continue-on-error</c> mentioned beside it <em>is</em> a polarity read, and
+/// a rule that only knows the prefix <c>non-</c> is wrong the first time someone
+/// writes "not blocking" — a sentence false in precisely the way #2055's was,
+/// and one that would satisfy the precedence rule and suppress the check.
+/// So "blocking" negated by <c>non-</c>, "not", "never" or "no longer" is read
+/// as a <em>non-blocking</em> claim rather than as no claim at all, and markdown
+/// emphasis is stripped first so <c>**not blocking**</c> reads the same as
+/// <c>not blocking</c>. The vocabulary is finite and an author who negates in a
+/// word outside it walks past — that is the same declared price the rest of this
+/// guard pays, and it is bounded by the fact that the un-negated word is the one
+/// that stays checked.
+/// </para>
+///
+/// <para>
+/// <b>An attribute claim is not confined to an enumeration.</b> Three live
+/// sentences say "the blocking CI <c>e2e</c> job" — a named job, an attribute,
+/// in this arm's own vocabulary — outside any block that names <c>ci.yml</c> and
+/// says "jobs". A rule that read attributes only from enumerations left all
+/// three unchecked, so a brief could say <c>e2e</c> is non-blocking in three
+/// files while the two enumerating bullets went red on the same fact. A block
+/// that does not enumerate is therefore read sentence by sentence, and a
+/// sentence naming exactly one workflow job key in an inline-code span makes an
+/// attribute claim about that job.
 /// </para>
 ///
 /// <para>
@@ -78,6 +119,16 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// 6) — the corpus is asserted <b>per file</b> rather than in aggregate
 /// (assertion 7), and a floor guards against every file being read while the
 /// recognisers return nothing (assertion 8).
+/// </para>
+///
+/// <para>
+/// <b>That floor is per class, and the aggregate alone would not have been
+/// one.</b> Three recognisers feed it, and summing them lets two of the three
+/// die in silence: with the path recogniser broken the corpus loses every path
+/// claim, assertion 3 passes vacuously for all 13 briefs, and a single total
+/// still clears a single threshold on the citations alone. So each class carries
+/// its own floor, and the total carries a fourth — a recogniser that stops
+/// matching now falls through the floor belonging to it.
 /// </para>
 ///
 /// <para>
@@ -111,12 +162,54 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// </para>
 ///
 /// <para>
+/// <i>A symbol name in an inline span is not a path claim.</i>
+/// <c>IdempotentRequest.ExecuteCreateAsync</c>, <c>RetryEveryMethod()</c> and
+/// <c>WaitOnResourceUnavailable</c> name things in the source rather than files,
+/// carry no <c>/</c>, and are never anchored. Swept by hand on 2026-09-05: every
+/// such span in the corpus resolves to something that exists, so this is a
+/// latent gap rather than a live defect — recorded here because a gap nobody
+/// wrote down is the one the next reader assumes is covered.
+/// </para>
+///
+/// <para>
+/// <i>A path inside a fenced code block is not read.</i> The recogniser is the
+/// inline-code span, and a fenced block's lines carry no backticks —
+/// <c>commands/verify.md</c> tells an agent to run
+/// <c>pwsh scripts/coverage-check.ps1</c> and
+/// <c>dotnet test tests/Integration.Tests/…</c> inside fences, which is the very
+/// place a wrong path costs an agent a run. Both resolve today, swept on the
+/// same date. Reading fences means splitting a command line into paths and flags
+/// and is a larger recogniser than this issue; declared rather than half-built.
+/// </para>
+///
+/// <para>
+/// <i><c>.claude/skills/</c> is deliberately outside the sweep.</i> The briefs
+/// are <c>agents</c> and <c>commands</c>; <c>skills/*/SKILL.md</c> is vendored
+/// Spec-Kit prose full of shell that a path recogniser would immediately
+/// misread as repository claims. Including it would buy false positives, not
+/// coverage. Assertion 7 discovers <c>agents</c> and <c>commands</c> directories
+/// at any depth, so a brief filed under a restructured tree is still named.
+/// </para>
+///
+/// <para>
 /// <i>CI attributes are read at job level.</i> A <c>continue-on-error</c> on a
-/// single <em>step</em> is not this arm's subject, and an explicit "blocking"
-/// in a job's attribute clause takes precedence over a <c>continue-on-error</c>
+/// single <em>step</em> is not this arm's subject, and an explicit un-negated
+/// "blocking" in a job's clause takes precedence over a <c>continue-on-error</c>
 /// mentioned inside it — which is exactly how <c>infra-engineer.md</c>'s
 /// correct negative claim stays green. A job for which a brief states no
 /// attribute makes no claim, so silence is not checkable.
+/// </para>
+///
+/// <para>
+/// <i>A <c>needs</c> claim is read only from an enumeration.</i> Inside an
+/// enumeration "needs" sits in a job's parenthesised attribute clause and is a
+/// claim; outside one it is ordinary English — <c>commands/verify.md</c>'s
+/// "Playwright needs the stack up" sits in the same sentence as
+/// <c>e2e</c> and means nothing about the workflow's <c>needs:</c> key. So an
+/// attribute sentence outside an enumeration is read for polarity only. A
+/// sentence naming two or more jobs outside an enumeration is likewise not
+/// attributed to either, because the guard cannot tell which one the attribute
+/// belongs to; there is no such sentence today.
 /// </para>
 ///
 /// <para>
@@ -151,12 +244,45 @@ public class AgentBriefClaimTests
     private const string AdrDirectory = "docs/adr";
 
     /// <summary>
-    /// The corpus carried 80 ADR citation sites, 27 anchored path spans and 8
-    /// enumerated CI job names on 2026-09-04 — 115 recognised claims. The floor
-    /// is roughly half of that: ordinary churn cannot reach it, while a
-    /// recogniser that stops matching falls straight through it.
+    /// <b>What the corpus actually carries, measured with this guard's own
+    /// definitions on 2026-09-05.</b>
+    ///
+    /// <para>
+    /// <b>80 ADR citation sites → 104 citation claims.</b> The site count is
+    /// what <c>grep -o ADR-\d{4}</c> reports; a claim is a decision number, and
+    /// the compound continuation the briefs already use adds 23 —
+    /// <c>ADR-0038/0046/0066/0039/0090/0091/0094</c> is one site and seven
+    /// claims — plus the single <c>adr/0144-</c> path citation. The floor is a
+    /// floor on claims, so it is claims that are counted here.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>37 anchored path spans</b>, counted per occurrence — 22 distinct
+    /// spellings, 33 distinct within a file — because an occurrence is what the
+    /// recogniser yields and what a floor on it measures. <b>11 CI job
+    /// claims</b>: 4 jobs in each of the two enumerating bullets, plus the 3
+    /// sentences that describe <c>e2e</c> outside an enumeration.
+    /// <b>152 recognised claims</b> in total.
+    /// </para>
+    ///
+    /// <para>
+    /// The floors below are half of each, rounded down. This class doc has
+    /// carried three wrong figures already — 27 path spans matched no
+    /// reproducible definition at all — which is precisely the defect the guard
+    /// exists to catch, so re-measure before editing rather than adjusting a
+    /// number until it looks right.
+    /// </para>
     /// </summary>
-    private const int SmallestPlausibleClaimCount = 60;
+    private const int SmallestPlausibleClaimCount = 76;
+
+    /// <summary>Half of the 104 decision claims. See <see cref="SmallestPlausibleClaimCount"/>.</summary>
+    private const int SmallestPlausibleDecisionCount = 52;
+
+    /// <summary>Half of the 37 anchored path spans.</summary>
+    private const int SmallestPlausiblePathCount = 18;
+
+    /// <summary>Half of the 11 CI job claims.</summary>
+    private const int SmallestPlausibleJobCount = 5;
 
     /// <summary>
     /// The directory names that hold briefs. Used twice, on purpose and by two
@@ -195,9 +321,16 @@ public class AgentBriefClaimTests
     /// Anything ADR-shaped. Deliberately looser than <see cref="AdrCitation"/>:
     /// what it finds and the strict pattern does not is an unparseable claim,
     /// reported by assertion 2 instead of slipping past into silence.
+    ///
+    /// <para>
+    /// The plural is part of the shape. <c>ADRs 0105-0106</c> matches neither
+    /// this pattern nor the strict one without it, so it is neither checked nor
+    /// reported — the silent direction — and it is the spelling CLAUDE.md itself
+    /// uses.
+    /// </para>
     /// </summary>
     private static readonly Regex AdrShaped = new(
-        @"\bADR[ \-]?\d{1,4}\b",
+        @"\bADRs?[ \-]?\d{1,4}\b",
         RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
@@ -230,14 +363,36 @@ public class AgentBriefClaimTests
         RegexOptions.IgnoreCase,
         TimeSpan.FromSeconds(5));
 
+    /// <summary>
+    /// A job described as blocking. Every negation this guard knows is excluded
+    /// here and recognised as its opposite by <see cref="NegatedBlockingWord"/>:
+    /// a rule that knew only <c>non-</c> read "not blocking" as a positive
+    /// blocking claim and suppressed the check that sentence most needed.
+    /// </summary>
     private static readonly Regex BlockingWord = new(
-        @"(?<!non-)\bblocking\b",
+        @"(?<!non-)(?<!not )(?<!never )(?<!no longer )\bblocking\b",
         RegexOptions.IgnoreCase,
         TimeSpan.FromSeconds(5));
 
     private static readonly Regex NonBlockingWord = new(
         @"\bnon-blocking\b",
         RegexOptions.IgnoreCase,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>The negation vocabulary, spelled out rather than left to a lookbehind alone.</summary>
+    private static readonly Regex NegatedBlockingWord = new(
+        @"\b(?:not|never|no longer)\s+blocking\b",
+        RegexOptions.IgnoreCase,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// Markdown emphasis, removed before polarity is read. The briefs write
+    /// <c>**blocking**</c>, so a negation lands two asterisks away from the word
+    /// it negates and no lookbehind reaches it.
+    /// </summary>
+    private static readonly Regex Emphasis = new(
+        @"\*+",
+        RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
     private static readonly Regex NeedsWord = new(
@@ -394,7 +549,9 @@ public class AgentBriefClaimTests
     /// <para>
     /// The arm that catches the error that actually happened. Bound to a job
     /// named in an attribute position, which is what lets a hypothetical and a
-    /// correct negative claim about the same key both stay green.
+    /// correct negative claim about the same key both stay green. Read from
+    /// every block, not only from the ones that enumerate: three live sentences
+    /// describe the <c>e2e</c> job's polarity outside any enumeration.
     /// </para>
     /// </summary>
     [Fact]
@@ -402,7 +559,7 @@ public class AgentBriefClaimTests
     {
         Dictionary<string, WorkflowJob> jobs = WorkflowJobs();
 
-        string[] wrong = EnumeratingBlocks()
+        string[] wrong = BriefBlocks()
             .SelectMany(JobClaims)
             .Where(claim => jobs.ContainsKey(claim.Job))
             .SelectMany(claim => Disagreements(claim, jobs[claim.Job]))
@@ -415,6 +572,69 @@ public class AgentBriefClaimTests
             + "subagent reading it to shrug at a red check that actually stops the merge — and #2055 fixed "
             + "exactly this sentence in one of the two files carrying it and left the other, which is the "
             + "argument for checking rather than remembering.");
+    }
+
+    /// <summary>
+    /// <b>Assertion 5a — a negated "blocking" is read as the claim it is.</b>
+    ///
+    /// <para>
+    /// Assertion 5's precedence rule — an explicit "blocking" wins over a
+    /// <c>continue-on-error</c> beside it — <em>is</em> a polarity read, and a
+    /// polarity read that knows only the prefix <c>non-</c> is wrong the first
+    /// time someone writes "not blocking" about a job that blocks the merge.
+    /// That sentence is false in exactly the way the one #2055 fixed was, and
+    /// under the prefix-only rule the word "blocking" inside it satisfied the
+    /// precedence and suppressed the very check it needed.
+    /// </para>
+    ///
+    /// <para>
+    /// Asserted against a written clause rather than against the corpus,
+    /// because the corpus is — correctly — free of these sentences. The job it
+    /// is read against is the real <c>integration</c>: needed by nothing,
+    /// carrying no <c>continue-on-error</c>, so it blocks the merge.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData("(needs backend; not blocking — a flake there is cheap, `continue-on-error`)")]
+    [InlineData("(needs backend; **not blocking**)")]
+    [InlineData("(needs backend; never blocking)")]
+    [InlineData("(needs backend; no longer blocking)")]
+    [InlineData("(needs backend; non-blocking)")]
+    [InlineData("(needs backend; `continue-on-error`)")]
+    public void A_clause_denying_that_a_merge_blocking_job_blocks_disagrees_with_the_workflow(string clause)
+    {
+        WorkflowJob integration = new("integration", ["backend"], false);
+        JobClaim claim = new(new Block("written-here", 1, clause), integration.Name, clause);
+
+        Disagreements(claim, integration).ShouldNotBeEmpty(
+            $"'{clause}' says the job does not block the merge, and {Workflow} gives it no "
+            + "continue-on-error key. A polarity rule that knows only the prefix 'non-' reads the word "
+            + "'blocking' inside 'not blocking' as a positive claim, lets it win the precedence, and says "
+            + "nothing at all about a sentence that is false the way #2055's was.");
+    }
+
+    /// <summary>
+    /// <b>Assertion 5b — the negation vocabulary did not eat the positive claim.</b>
+    ///
+    /// <para>
+    /// The companion to 5a, and the reason it is not enough to widen the
+    /// negation pattern and stop. Both clauses are live sentences of the
+    /// corpus, both are true, and both must stay green — the second is the one
+    /// that mentions <c>continue-on-error</c> in order to deny it.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData("(needs backend; **blocking** — there is no `continue-on-error` anywhere in the file)")]
+    [InlineData("the blocking CI `e2e` job verifies behaviour on a fresh stack.")]
+    public void A_clause_saying_a_merge_blocking_job_blocks_agrees_with_the_workflow(string clause)
+    {
+        WorkflowJob integration = new("integration", ["backend"], false);
+        JobClaim claim = new(new Block("written-here", 1, clause), integration.Name, clause);
+
+        Disagreements(claim, integration).ShouldBeEmpty(
+            $"'{clause}' says the job blocks the merge, which is what {Workflow} does. A negation "
+            + "vocabulary wide enough to read 'not blocking' must not turn an ordinary 'blocking' into "
+            + "no claim, or assertion 5 stops reading the sentences it was written for.");
     }
 
     /// <summary>
@@ -484,12 +704,19 @@ public class AgentBriefClaimTests
     /// still collapse to nothing if a recogniser stops matching. Every arm above
     /// would then be green because it looked at nothing.
     /// </para>
+    ///
+    /// <para>
+    /// The total alone was not a floor on the recognisers, only on the largest
+    /// of them. With the path recogniser broken the corpus loses all 37 path
+    /// claims and assertion 3 passes vacuously for every brief, while the
+    /// remaining citations still clear any aggregate threshold worth setting.
+    /// So the total is asserted <em>after</em> each class clears its own.
+    /// </para>
     /// </summary>
     [Fact]
     public void The_briefs_yield_a_claim_count_large_enough_to_hold_a_violation()
     {
-        int claims = BriefFiles().Sum(brief => AdrClaims(brief).Length + PathClaims(brief).Length)
-            + EnumeratingBlocks().Sum(block => EnumeratedJobs(block).Length);
+        int claims = DecisionClaimCount() + PathClaimCount() + JobClaimCount();
 
         claims.ShouldBeGreaterThanOrEqualTo(
             SmallestPlausibleClaimCount,
@@ -498,6 +725,58 @@ public class AgentBriefClaimTests
             + "they read almost nothing, not because the briefs are correct. A recogniser stopped matching "
             + "— fix it before trusting any arm above.");
     }
+
+    /// <summary>
+    /// <b>Assertion 8a — the decision recogniser is still recognising.</b>
+    /// </summary>
+    [Fact]
+    public void The_briefs_yield_enough_decision_citations_to_hold_a_violation()
+    {
+        int claims = DecisionClaimCount();
+
+        claims.ShouldBeGreaterThanOrEqualTo(
+            SmallestPlausibleDecisionCount,
+            $"the guard recognised {claims} ADR citation claims across the briefs, fewer than the "
+            + $"{SmallestPlausibleDecisionCount} a real corpus carries. Assertions 1 and 2 are then green "
+            + "on almost nothing. The citation recogniser stopped matching — fix it rather than the floor.");
+    }
+
+    /// <summary>
+    /// <b>Assertion 8b — the path recogniser is still recognising.</b>
+    /// </summary>
+    [Fact]
+    public void The_briefs_yield_enough_anchored_paths_to_hold_a_violation()
+    {
+        int claims = PathClaimCount();
+
+        claims.ShouldBeGreaterThanOrEqualTo(
+            SmallestPlausiblePathCount,
+            $"the guard recognised {claims} anchored path spans across the briefs, fewer than the "
+            + $"{SmallestPlausiblePathCount} a real corpus carries. Assertion 3 is then green for every "
+            + "brief because it read no path at all — which is exactly what a broken anchor rule looks "
+            + "like from a passing build. Fix the recogniser rather than the floor.");
+    }
+
+    /// <summary>
+    /// <b>Assertion 8c — the CI recogniser is still recognising.</b>
+    /// </summary>
+    [Fact]
+    public void The_briefs_yield_enough_CI_job_claims_to_hold_a_violation()
+    {
+        int claims = JobClaimCount();
+
+        claims.ShouldBeGreaterThanOrEqualTo(
+            SmallestPlausibleJobCount,
+            $"the guard recognised {claims} CI job claims across the briefs, fewer than the "
+            + $"{SmallestPlausibleJobCount} a real corpus carries. Assertions 4 and 5 are then green "
+            + "because no block parsed as a claim about a job. Fix the recogniser rather than the floor.");
+    }
+
+    private static int DecisionClaimCount() => BriefFiles().Sum(brief => AdrClaims(brief).Length);
+
+    private static int PathClaimCount() => BriefFiles().Sum(brief => PathClaims(brief).Length);
+
+    private static int JobClaimCount() => BriefBlocks().Sum(block => JobClaims(block).Length);
 
     /// <summary>
     /// <b>Assertion 9 — the gate has no soft edge.</b>
@@ -648,8 +927,15 @@ public class AgentBriefClaimTests
             .ToArray();
     }
 
+    /// <summary>
+    /// Whether a span reads as a claim about this repository. The leading
+    /// <c>/</c> is trimmed first: the briefs write the repo-root Playwright
+    /// directory as <c>/e2e</c>, and leaving the slash on made those three spans
+    /// — and a wrong path written the same way — invisible. See the class
+    /// remarks for the census that shows the trim adds no false positive.
+    /// </summary>
     private static bool IsAnchored(HashSet<string> anchors, string span) =>
-        span.Contains('/') && anchors.Contains(span.Split('/')[0]);
+        span.Contains('/') && anchors.Contains(span.TrimStart('/').Split('/')[0]);
 
     private static HashSet<string> RootEntries()
     {
@@ -711,11 +997,14 @@ public class AgentBriefClaimTests
     /// makes no enumerable claim and is not read as one.
     /// </summary>
     private static Block[] EnumeratingBlocks() =>
-        BriefFiles()
-            .SelectMany(brief => Blocks(brief, ReadRepositoryFile(brief)))
-            .Where(block => block.Text.Contains("ci.yml", StringComparison.Ordinal))
-            .Where(block => JobsWord.IsMatch(block.Text))
-            .ToArray();
+        [.. BriefBlocks().Where(Enumerates)];
+
+    /// <summary>Every block of every brief — the unit a claim is read in.</summary>
+    private static Block[] BriefBlocks() =>
+        [.. BriefFiles().SelectMany(brief => Blocks(brief, ReadRepositoryFile(brief)))];
+
+    private static bool Enumerates(Block block) =>
+        block.Text.Contains("ci.yml", StringComparison.Ordinal) && JobsWord.IsMatch(block.Text);
 
     /// <summary>
     /// The job names one block enumerates, in ordinal order: the inline-code
@@ -732,20 +1021,53 @@ public class AgentBriefClaimTests
             .Order(StringComparer.Ordinal)];
 
     /// <summary>
-    /// The part of a block that enumerates: everything from the word "jobs"
-    /// onward.
+    /// The part of a block that enumerates: from the word "jobs" to the end of
+    /// the <b>sentence</b> carrying it, not the end of the block.
+    ///
+    /// <para>
+    /// The block is the wrong bound. <c>infra-reviewer.md:18</c> continues past
+    /// its enumeration into "Actions pinned to commit SHAs" and "the existing
+    /// NuGet/pnpm caches"; running to the end of the block makes every later
+    /// lower-case inline span an enumerated job, so backticking
+    /// <c>nuget</c>/<c>pnpm</c> — ordinary style here — reddens assertion 4 on a
+    /// sentence that is entirely true. A guard that fails on correct editing is
+    /// one that gets deleted.
+    /// </para>
     /// </summary>
     private static string Enumeration(Block block)
     {
         Match jobs = JobsWord.Match(block.Text);
-        return jobs.Success ? block.Text[jobs.Index..] : block.Text;
+        if (!jobs.Success)
+        {
+            return block.Text;
+        }
+
+        int end = 0;
+        foreach (string sentence in Sentences(block.Text))
+        {
+            end += sentence.Length;
+            if (end > jobs.Index)
+            {
+                return block.Text[jobs.Index..end];
+            }
+        }
+
+        return block.Text[jobs.Index..];
     }
+
+    /// <summary>
+    /// One claim per job a block describes. A block that enumerates yields the
+    /// enumeration's claims; any other block is read sentence by sentence, so
+    /// "the blocking CI <c>e2e</c> job" is a claim wherever it is written.
+    /// </summary>
+    private static JobClaim[] JobClaims(Block block) =>
+        Enumerates(block) ? EnumerationClaims(block) : AttributeSentenceClaims(block);
 
     /// <summary>
     /// One claim per enumerated job: the job, and the text between its span and
     /// the next job's — its attribute clause.
     /// </summary>
-    private static JobClaim[] JobClaims(Block block)
+    private static JobClaim[] EnumerationClaims(Block block)
     {
         string enumeration = Enumeration(block);
         Span[] spans = [.. SpansByDepth(enumeration).Where(span => span.Depth == 0 && JobName.IsMatch(span.Text))];
@@ -754,6 +1076,63 @@ public class AgentBriefClaimTests
             block,
             span.Text,
             enumeration[span.End..(position + 1 < spans.Length ? spans[position + 1].Start : enumeration.Length)]))];
+    }
+
+    /// <summary>
+    /// The attribute claims of a block that does not enumerate: one per sentence
+    /// naming exactly one workflow job key in a depth-zero inline-code span, the
+    /// whole sentence being the clause because the attribute may sit on either
+    /// side of the job — "the blocking CI <c>e2e</c> job" puts it before. A
+    /// sentence naming two jobs is not attributed to either.
+    /// </summary>
+    private static JobClaim[] AttributeSentenceClaims(Block block)
+    {
+        HashSet<string> jobs = [.. WorkflowJobs().Keys];
+
+        return [.. Sentences(block.Text)
+            .Select(sentence => (Sentence: sentence, Jobs: NamedJobs(sentence, jobs)))
+            .Where(sentence => sentence.Jobs.Length == 1)
+            .Select(sentence => new JobClaim(block, sentence.Jobs[0], sentence.Sentence))];
+    }
+
+    private static string[] NamedJobs(string sentence, HashSet<string> jobs) =>
+        [.. SpansByDepth(sentence)
+            .Where(span => span.Depth == 0 && jobs.Contains(span.Text))
+            .Select(span => span.Text)
+            .Distinct(StringComparer.Ordinal)];
+
+    /// <summary>
+    /// A text split into sentences, contiguously and in order. A terminator
+    /// inside an inline-code span does not end a sentence — <c>global.json</c>
+    /// and <c>scripts/wait-for-e2e-stack.sh</c> both carry one, and both sit
+    /// inside the enumeration they would otherwise cut in half.
+    /// </summary>
+    private static IEnumerable<string> Sentences(string text)
+    {
+        const string terminators = ".!?";
+        int start = 0;
+        bool inSpan = false;
+
+        for (int index = 0; index < text.Length; index++)
+        {
+            char character = text[index];
+            if (character == '`')
+            {
+                inSpan = !inSpan;
+            }
+            else if (!inSpan
+                && terminators.Contains(character, StringComparison.Ordinal)
+                && (index + 1 == text.Length || char.IsWhiteSpace(text[index + 1])))
+            {
+                yield return text[start..(index + 1)];
+                start = index + 1;
+            }
+        }
+
+        if (start < text.Length)
+        {
+            yield return text[start..];
+        }
     }
 
     /// <summary>
@@ -769,24 +1148,21 @@ public class AgentBriefClaimTests
     /// </summary>
     private static IEnumerable<string> Disagreements(JobClaim claim, WorkflowJob job)
     {
-        string clause = claim.Clause;
+        string clause = Emphasis.Replace(claim.Clause, string.Empty);
         string where = $"{claim.Block.File}:{claim.Block.Line} '{claim.Job}'";
 
-        if (!BlockingWord.IsMatch(clause)
-            && (NonBlockingWord.IsMatch(clause)
-                || clause.Contains("continue-on-error", StringComparison.Ordinal))
-            && !job.ContinueOnError)
+        if (!ClaimsBlocking(clause) && ClaimsNonBlocking(clause) && !job.ContinueOnError)
         {
             yield return $"{where} is described as non-blocking, but {Workflow} gives it no "
                 + "continue-on-error key, so it blocks the merge and a flake there is not cheap";
         }
 
-        if (BlockingWord.IsMatch(clause) && job.ContinueOnError)
+        if (ClaimsBlocking(clause) && job.ContinueOnError)
         {
             yield return $"{where} is described as blocking, but {Workflow} marks it continue-on-error";
         }
 
-        if (NeedsWord.IsMatch(clause))
+        if (Enumerates(claim.Block) && NeedsWord.IsMatch(clause))
         {
             string[] claimed = ClaimedNeeds(clause);
             if (!claimed.SequenceEqual(job.Needs, StringComparer.Ordinal))
@@ -796,6 +1172,19 @@ public class AgentBriefClaimTests
             }
         }
     }
+
+    /// <summary>Whether a clause says the job blocks the merge, un-negated.</summary>
+    private static bool ClaimsBlocking(string clause) => BlockingWord.IsMatch(clause);
+
+    /// <summary>
+    /// Whether a clause says the job does not block: the <c>non-</c> prefix, one
+    /// of the negation words in front of "blocking", or a bare
+    /// <c>continue-on-error</c> mentioned about it.
+    /// </summary>
+    private static bool ClaimsNonBlocking(string clause) =>
+        NonBlockingWord.IsMatch(clause)
+        || NegatedBlockingWord.IsMatch(clause)
+        || clause.Contains("continue-on-error", StringComparison.Ordinal);
 
     /// <summary>
     /// The jobs a clause says another job needs: the workflow job names that

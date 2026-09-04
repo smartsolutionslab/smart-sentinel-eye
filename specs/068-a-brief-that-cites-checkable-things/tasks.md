@@ -70,10 +70,11 @@ orchestrator should not expect to fan this out.**
   > a third meant over-recognition. There are three, and the third is not
   > over-recognition: `specs/NNN-x/` in `architect.md:11` is anchored at a real
   > top-level entry and resolves to nothing — the same defect class as the other
-  > two. `spec.md`'s assumption A2 already recorded "21 anchored spans, 3
-  > unresolvable, all three genuine defects"; this line was the one that
-  > disagreed with it. A task list that contradicts its own spec is precisely the
-  > drift this issue exists to catch.
+  > two. `spec.md`'s assumption A2 already recorded three unresolvable spans, all
+  > three genuine defects; this line was the one that disagreed with it. A task
+  > list that contradicts its own spec is precisely the drift this issue exists to
+  > catch. (A2's *span total* was itself wrong and has since been re-measured — see
+  > FR-006 — but the three defects it named were right.)
 
 - **[T006] [US-1]** **A4 + A5 + A6** — CI blocks: job-set equality with `ci.yml`'s
   `jobs:` keys, per-job attribute agreement (`continue-on-error` / blocking,
