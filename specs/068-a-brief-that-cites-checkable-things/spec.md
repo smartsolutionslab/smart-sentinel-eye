@@ -152,12 +152,25 @@ green by weakening a gate.
 `.claude/agents/` and `.claude/commands/` must appear in the scanned set —
 asserted **per file**, naming the ones missing, not as an aggregate count and not
 by asserting that the directory exists. A separate floor asserts the total
-recognised-claim count is not a rounding error.
+recognised-claim count is not a rounding error — **one floor per claim class**,
+because a single total lets two of the three recognisers die in silence while the
+largest one carries the sum over the line on its own.
 
-> Today (measured 2026-09-04 on `d0faa47`): 13 brief files, **39 distinct ADR
-> numbers over 80 citation sites**, 21 anchored path spans. The floor sits well
-> below that, so ordinary churn cannot reach it while a broken recogniser falls
-> straight through it.
+> Today (measured 2026-09-05, by the guard's own recognisers, with the leading
+> slash trimmed before anchoring): 13 brief files; **80 ADR citation
+> sites carrying 104 citation claims** across 54 distinct decision numbers; **37
+> anchored path spans** (22 distinct spellings, 33 distinct per file); **11 CI job
+> claims** — 4 jobs in each of the two enumerating bullets plus the 3 sentences
+> describing `e2e` outside an enumeration. **152 claims in total.** Each floor is
+> half its class, rounded down.
+>
+> The earlier figures in this paragraph — "39 distinct ADR numbers over 80
+> citation sites, 21 anchored path spans" — counted **citation heads** rather than
+> claims (`ADR-0038/0046/0066/…` is one head and seven claims) and used a
+> span-distinctness rule the guard does not apply. They are corrected here rather
+> than left standing: a record nobody checks against the thing it describes is the
+> defect this whole spec exists to fix, and it does not get an exemption for being
+> the spec's own paragraph.
 
 **FR-007 — Unrecognised shapes are reported, not skipped.** A token that looks
 like a claim but does not parse fails the build naming the file, the line and the
@@ -271,7 +284,7 @@ No Aspire stack, no Docker, no network. From the repository root:
 **Behaviour-changing → red** (constitution §Testing, ADR-0144). Two of the arms
 are red on arrival against real defects; the rest need a demonstration.
 
-**Red on arrival — three live findings, verified 2026-09-04 on `d0faa47`:**
+**Red on arrival — four live findings, verified 2026-09-04 on `d0faa47`:**
 
 1. **`.claude/agents/infra-reviewer.md:18`** — "`integration` (needs backend,
    `continue-on-error`)". `grep -c continue-on-error .github/workflows/ci.yml`
@@ -285,12 +298,18 @@ are red on arrival against real defects; the rest need a demonstration.
 2. **`.claude/agents/frontend-engineer.md:11`** — `` `src/app/auth.ts` ``. The
    real paths are `apps/kiosk-web/src/app/auth.ts` and
    `apps/management-web/src/app/auth.ts`.
-3. **`.claude/commands/next-issue.md`** — `` `specs/NNN-x/spec.md` ``, a template
-   spelling that resolves to nothing.
+3. **`.claude/commands/next-issue.md:67`** — `` `specs/NNN-x/spec.md` ``, a
+   template spelling that resolves to nothing.
+4. **`.claude/agents/architect.md:11`** — `` `specs/NNN-x/` ``, the same
+   placeholder in the brief that *writes* the specs. Recorded here because this
+   paragraph said "three" while the run that produced the red named four and the
+   fix commit is titled "the four claims" — a count in the artefact a later reader
+   opens first, disagreeing with the run it describes, is this spec's own subject.
 
-Findings 2 and 3 are fixed by making the spelling a glob (`apps/*/src/app/auth.ts`,
-`specs/*/spec.md`) — a brief edit the guard requires in order to read the claim,
-and nothing more. Finding 1 is fixed by correcting the false claim.
+Findings 2, 3 and 4 are fixed by making the spelling a glob
+(`apps/*/src/app/auth.ts`, `specs/*/spec.md`) — a brief edit the guard requires in
+order to read the claim, and nothing more. Finding 1 is fixed by correcting the
+false claim.
 
 **Demonstrated red — the ADR arm.** FR-001 is green on arrival, so its red is
 obtained as #1982 did: a **temporary, uncommitted** reversion. Precisely:
@@ -327,9 +346,13 @@ which is minutes, not the 30-minute Docker job.
 - **A1.** The founding-document register is the 27 decision rows matching the
   table's `| NNN |` shape. Verified: 27 rows, 001–027; files resume at 0028.
 - **A2.** No brief legitimately needs to name a repo-rooted path that does not
-  exist. Verified against today's corpus: 21 anchored spans, 3 unresolvable, all
-  three genuine defects. If a fourth case appears that is genuinely legitimate, it
-  is a blocked outcome for a human under FR-005, not an allow-list entry.
+  exist. Verified against the corpus as it stood on `d0faa47`: **34 anchored spans
+  by the guard's own recogniser**, 3 unresolvable, all three genuine defects, all
+  three since corrected. The "21" this assumption used to quote was a
+  distinct-spelling count, which is not the unit assertion 3 reports; with the
+  leading slash trimmed the recogniser now reads **37** spans, all resolving. If a
+  case appears that is genuinely legitimate, it is a blocked outcome for a human
+  under FR-005, not an allow-list entry.
 - **A3.** The `[src/AppHost/**.cs]` editorconfig section header in
   `infra-engineer.md` is not recognised as a path claim, because the span begins
   `[`. Accepted as a recall limit rather than special-cased.
