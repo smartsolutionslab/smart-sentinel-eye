@@ -52,4 +52,19 @@ public class AspireFixtureMigrationGateTests
         message.IndexOf("134", StringComparison.Ordinal)
             .ShouldBeLessThan(message.IndexOf("Unhandled exception. System.InvalidOperationException", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void The_failure_message_still_leads_with_the_code_when_no_log_was_served()
+    {
+        // FR-003's second clause, and the one CI exercises: #2061 saw 2,628
+        // `(no logs captured)` placeholders on the Linux runner while Windows
+        // served a log for every resource. The message has to carry the verdict
+        // on its own when the log is a placeholder.
+        string message = AspireFixture.FormatMigrationFailureMessage(134, "(no logs captured)");
+
+        message.ShouldContain("134");
+        message.ShouldContain("a non-zero exit is a failure, not a clean finish.");
+        message.IndexOf("134", StringComparison.Ordinal)
+            .ShouldBeLessThan(message.IndexOf("(no logs captured)", StringComparison.Ordinal));
+    }
 }
