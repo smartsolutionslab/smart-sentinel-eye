@@ -26,12 +26,13 @@ namespace SmartSentinelEye.Integration.Tests.OverlayDesigner;
 /// </para>
 ///
 /// <para>
-/// The coordinate cases assert the <c>detail</c> exactly, because the
-/// <c>[0, 1]</c> wording is contract-visible and must survive unchanged. The
-/// extent cases assert the parameter name and the <c>(0, 1]</c> interval rather
-/// than the whole sentence: spec 060 research R2 declares the extent message's
-/// remaining wording as the one accepted difference, so pinning it
-/// character-for-character here would pin a string the spec says may move.
+/// All four cases assert the <c>detail</c> exactly, because the wording is
+/// contract-visible (spec 060 FR-007) and must survive unchanged. The one
+/// accepted difference research R2 declares for the extents is the colon after
+/// the parameter name — nothing else, and in particular not the offending value
+/// the message echoes back. Asserting only the parameter name and the interval
+/// is what let that value silently disappear from both extent messages once
+/// already.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
@@ -94,9 +95,8 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
-        string detail = problem.GetProperty("detail").GetString()!;
-        detail.ShouldContain("normalizedWidth");
-        detail.ShouldContain("(0, 1]");
+        problem.GetProperty("detail").GetString()
+            .ShouldBe("normalizedWidth: must be in (0, 1]; got 0. (Parameter 'normalizedWidth')");
     }
 
     [Fact]
@@ -129,9 +129,8 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
-        string detail = problem.GetProperty("detail").GetString()!;
-        detail.ShouldContain("normalizedHeight");
-        detail.ShouldContain("(0, 1]");
+        problem.GetProperty("detail").GetString()
+            .ShouldBe("normalizedHeight: must be in (0, 1]; got 2. (Parameter 'normalizedHeight')");
     }
 
     /// <summary>

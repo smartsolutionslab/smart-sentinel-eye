@@ -21,13 +21,24 @@ namespace SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 /// on <see cref="NormalizedPosition"/>: the guard message reaches the caller as
 /// the <c>detail</c> of a <c>400</c> and names the request field.
 /// </para>
+///
+/// <para>
+/// <b>The message spells out the offending value</b>, because
+/// <c>Satisfies</c> — unlike <c>InRange</c> — appends nothing of its own. Spec
+/// 060 FR-007 keeps this text, and research R2 accepts exactly one difference
+/// from the message it replaces: the colon <c>Satisfies</c> puts after the
+/// parameter name. Dropping the <c>; got …</c> tail leaves a caller who sent
+/// <c>1.4</c> told the valid interval but not what they sent.
+/// </para>
 /// </summary>
 public sealed record NormalizedSize(decimal Width, decimal Height) : IValueObject
 {
     public static NormalizedSize From(decimal normalizedWidth, decimal normalizedHeight)
     {
-        Ensure.That(normalizedWidth).Satisfies(value => value is > 0m and <= 1m, "must be in (0, 1].");
-        Ensure.That(normalizedHeight).Satisfies(value => value is > 0m and <= 1m, "must be in (0, 1].");
+        Ensure.That(normalizedWidth).Satisfies(
+            value => value is > 0m and <= 1m, $"must be in (0, 1]; got {normalizedWidth}.");
+        Ensure.That(normalizedHeight).Satisfies(
+            value => value is > 0m and <= 1m, $"must be in (0, 1]; got {normalizedHeight}.");
         return new(normalizedWidth, normalizedHeight);
     }
 
