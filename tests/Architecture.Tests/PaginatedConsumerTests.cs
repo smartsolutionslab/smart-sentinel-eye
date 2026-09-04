@@ -7,7 +7,7 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// not the list</b> (issue 1982, spec 065).
 ///
 /// <para>
-/// Three response types in <c>apps/shared/src/api</c> answer with as much as the
+/// Three response types in the front-end API clients answer with as much as the
 /// source could gather rather than with everything, and each carries a field
 /// saying so — <c>count</c>, <c>complete</c>, <c>nextCursor</c>. A view that
 /// renders the items and never reads that field presents a truncated answer as
@@ -35,6 +35,16 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// </para>
 ///
 /// <para>
+/// <b>Producers are found, not named.</b> Every <c>*.api.ts</c> under
+/// <c>apps/*/src</c> is read, not only those under <c>apps/shared/src/api</c>.
+/// A client filed beside the app that uses it would otherwise declare a bounded
+/// response the completeness check never scanned, and — not being under the
+/// excluded prefix — would then be swept as a consumer of its own hook, which
+/// it passes by construction. A contract arriving entirely unguarded, with no
+/// signal, is the outcome this guard exists to make impossible.
+/// </para>
+///
+/// <para>
 /// <b>Declared limitations, in both directions.</b>
 /// </para>
 ///
@@ -59,7 +69,7 @@ namespace SmartSentinelEye.Architecture.Tests;
 public class PaginatedConsumerTests
 {
     private const string GuardSource = "tests/Architecture.Tests/PaginatedConsumerTests.cs";
-    private const string ApiClients = "apps/shared/src/api";
+    private const string ApiClients = "apps/*/src/**/*.api.ts";
 
     /// <summary>
     /// What the completeness check reports for a bounded response that no
@@ -99,22 +109,49 @@ public class PaginatedConsumerTests
     /// An exported object shape — <c>export interface X {</c> or
     /// <c>export type X = {</c>, the second having precedent at
     /// <c>rules.api.ts:84</c>. The head is confined to its own line and the body
-    /// admits one level of nesting, so a declaration can neither borrow the next
-    /// one's brace nor run away to the end of the file.
+    /// is matched by counting braces, so a nesting of any depth is read rather
+    /// than dropped, and a declaration can neither borrow the next one's brace
+    /// nor run away to the end of the file.
     /// </summary>
     private static readonly Regex ExportedShape = new(
-        @"^export (?:interface|type) (?<name>\w+)[^{\r\n]*\{(?<body>(?:[^{}]|\{[^{}]*\})*)\}",
+        @"^export (?:interface|type) (?<name>\w+)[^{\r\n]*\{(?<body>(?>[^{}]+|\{(?<depth>)|\}(?<-depth>))*(?(depth)(?!)))\}",
+        RegexOptions.Multiline,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// The opening line of a named exported shape. A re-export
+    /// (<c>export type { … }</c>) names no shape of its own and does not match.
+    /// </summary>
+    private static readonly Regex ExportedHead = new(
+        @"^export (?:interface|type) (?<name>\w+)",
+        RegexOptions.Multiline,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// Any exported statement, which is where one declaration stops and the
+    /// next begins.
+    /// </summary>
+    private static readonly Regex ExportStatement = new(
+        @"^export ",
         RegexOptions.Multiline,
         TimeSpan.FromSeconds(5));
 
     /// <summary>
     /// An RTK Query read endpoint and the type it answers with. The generated
-    /// hook is <c>use</c> + the endpoint name capitalised + <c>Query</c>, which
-    /// is how a response type and its hook are joined without keeping a second
-    /// list by hand.
+    /// accessors are derived from the endpoint name, which is how a response
+    /// type and its hooks are joined without keeping a second list by hand.
     /// </summary>
     private static readonly Regex QueryDeclaration = new(
         @"(?<endpoint>\w+): build\.query<\s*(?<response>\w+(?:\[\])?)\s*,",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// The content of a string literal, which is data rather than mechanism.
+    /// Assertion 3 reads code, not the prose the code prints.
+    /// </summary>
+    private static readonly Regex StringLiteral = new(
+        @"""(?:[^""\\\r\n]|\\.)*""",
         RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
@@ -137,26 +174,32 @@ public class PaginatedConsumerTests
     ///
     /// <para>
     /// Driven by the register, so a row cannot exist without being swept and a
-    /// hook cannot be swept without a row.
+    /// hook cannot be swept without a row. A file is a consumer if it reaches
+    /// the endpoint by <em>any</em> of the accessors RTK Query generates, not
+    /// only by the plain hook — see <see cref="AccessorsOf"/>.
     /// </para>
     /// </summary>
     [Theory]
     [MemberData(nameof(RegisteredHooks))]
     public void Every_consumer_of_a_bounded_response_names_its_boundary_field(string hook, string boundaryField)
     {
+        Regex accessors = AccessorsOf(hook);
+
         string[] silent = FrontendSources()
-            .Where(file => file.Value.Contains(hook, StringComparison.Ordinal))
+            .Where(file => accessors.IsMatch(file.Value))
             .Where(file => !Mentions(file.Value, boundaryField))
             .Select(file => file.Key)
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
 
         silent.ShouldBeEmpty(
-            $"these files call {hook} and never name '{boundaryField}': {string.Join(", ", silent)}. "
-            + $"A page is not the list — {hook} answers with as much as the source could gather, and a "
-            + $"view that renders the items without reading '{boundaryField}' shows a truncated answer as "
-            + "if it were everything, with nothing on screen to say so (spec 048). Read the field and tell "
-            + "the operator what is missing, as CamerasPage and LayoutEditorDialog do.");
+            $"these files reach {hook} — by that name, by its lazy, state or subscription variant, or "
+            + $"through endpoints.{EndpointOf(hook)} — and never name '{boundaryField}': "
+            + $"{string.Join(", ", silent)}. A page is not the list — {hook} answers with as much as the "
+            + $"source could gather, and a view that renders the items without reading '{boundaryField}' "
+            + "shows a truncated answer as if it were everything, with nothing on screen to say so "
+            + "(spec 048). Read the field and tell the operator what is missing, as CamerasPage and "
+            + "LayoutEditorDialog do.");
     }
 
     /// <summary>
@@ -190,7 +233,7 @@ public class PaginatedConsumerTests
     }
 
     /// <summary>
-    /// <b>Assertion 2b — the sweep has something to sweep.</b>
+    /// <b>Assertion 2b — every app is actually swept.</b>
     ///
     /// <para>
     /// <see cref="FrontendSources"/> globs <c>apps/*/src</c> and keeps whatever
@@ -199,31 +242,43 @@ public class PaginatedConsumerTests
     /// passes vacuously and permanently — the worst failure available to a
     /// guard, because it is indistinguishable from compliance.
     /// </para>
+    ///
+    /// <para>
+    /// The claim is per app, and it is about <em>files</em> rather than
+    /// directories. A <c>src/</c> holding only declarations and tests satisfies
+    /// "the directory exists" while contributing nothing, and the aggregate
+    /// floor below cannot see it: two healthy apps carry the count on their own
+    /// while every consumer in the third quietly leaves the sweep.
+    /// </para>
     /// </summary>
     [Fact]
-    public void Every_app_puts_its_sources_where_the_consumer_sweep_looks()
+    public void Every_app_contributes_its_sources_to_the_consumer_sweep()
     {
+        string[] swept = [.. FrontendSources().Keys];
+
         string[] unswept = AppDirectories()
-            .Where(app => !Directory.Exists(Path.Combine(app, "src")))
             .Select(app => new DirectoryInfo(app).Name)
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .Where(app => !swept.Any(path => path.StartsWith($"apps/{app}/", StringComparison.Ordinal)))
+            .OrderBy(app => app, StringComparer.Ordinal)
             .ToArray();
 
         unswept.ShouldBeEmpty(
-            $"these apps have a package.json but no src/ directory: {string.Join(", ", unswept)}. The "
-            + "consumer sweep globs apps/*/src, so their files are not read at all and every row of "
-            + "assertion 1 passes without looking at them. Teach the sweep the new layout rather than "
-            + "letting the guard go quiet.");
+            "these apps have a package.json but contribute no file to the consumer sweep: "
+            + $"{string.Join(", ", unswept)}. The sweep globs apps/*/src, so an app that keeps its sources "
+            + "elsewhere — or under a src/ holding only declarations and tests — is not read at all, and "
+            + "every row of assertion 1 passes without looking at it. Teach the sweep the new layout "
+            + "rather than letting the guard go quiet.");
     }
 
     /// <summary>
     /// <b>Assertion 2c — the corpus is not a rounding error.</b>
     ///
     /// <para>
-    /// The companion to 2b: three roots can resolve and still yield almost
-    /// nothing if the file filter stops matching. One vacuous row is already
-    /// live and documented — <c>useGetResourceTimelineQuery</c> has no consumer
-    /// today — and a documented vacuity does not detect an undocumented one.
+    /// The companion to 2b: every app can contribute a file and the corpus can
+    /// still be almost nothing if the file filter stops matching. One vacuous
+    /// row is already live and documented — <c>useGetResourceTimelineQuery</c>
+    /// has no consumer today — and a documented vacuity does not detect an
+    /// undocumented one.
     /// </para>
     /// </summary>
     [Fact]
@@ -240,37 +295,83 @@ public class PaginatedConsumerTests
     }
 
     /// <summary>
+    /// <b>Assertion 2d — nothing is dropped for being unreadable.</b>
+    ///
+    /// <para>
+    /// A declaration <see cref="ExportedShape"/> cannot read does not match
+    /// partially — it does not match at all, so it never reaches the
+    /// completeness check and its consumers are never swept. Silently, and in
+    /// the unsafe direction. This arm makes an unreadable shape loud instead:
+    /// the matcher gets taught the shape, rather than the contract being left
+    /// outside the guard because nobody noticed it had fallen out.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Every_exported_shape_in_the_api_clients_is_readable_by_the_matcher()
+    {
+        string[] unreadable = ApiClientSources()
+            .SelectMany(UnreadableShapes)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        unreadable.ShouldBeEmpty(
+            $"these shapes in {ApiClients} open a brace the shape matcher cannot read: "
+            + $"{string.Join(", ", unreadable)}. A declaration it cannot read is not read partially, it is "
+            + "not read at all — so it never reaches the completeness check, gets no register row, and "
+            + "every consumer of its hook goes unswept on a green build. Teach the matcher the shape.");
+    }
+
+    /// <summary>
     /// <b>Assertion 3 — the gate has no soft edge.</b>
     ///
     /// <para>
     /// FR-005 makes a necessary departure a <em>blocked outcome</em> a human
     /// accepts in writing, not a line added here, and the failure ADR-0144 names
-    /// is an agent reaching green by weakening a gate. Comment lines and
-    /// attribute lines are not scanned, so this prose and the rows above are
-    /// free to say what they mean.
+    /// is an agent reaching green by weakening a gate.
+    /// </para>
+    ///
+    /// <para>
+    /// It reads code, not prose: comment lines, attribute lines and the content
+    /// of string literals are all outside the scan. Failure messages are prose,
+    /// and prose about this rule necessarily uses this rule's vocabulary — a
+    /// scan that read them would turn "the register ships with no allow-list",
+    /// which is FR-005's own wording, into a red build for a wording change.
+    /// The price is that a mechanism named <em>only</em> inside a literal — a
+    /// baseline file's path, with no identifier spelling it — is not seen. A
+    /// mechanism needs a name in code; prose does not.
     /// </para>
     ///
     /// <para>
     /// It polices a vocabulary, not a mechanism. It catches the obvious move by
     /// its spelling; an author who names the same thing something else walks
-    /// past it. Three lines is a fair price for making the obvious move loud,
+    /// past it. Ten lines is a fair price for making the obvious move loud,
     /// which is the move an agent under pressure to reach green makes — but it
     /// is not a proof that no soft edge can be added. If it proves awkward in
     /// practice it should be removed by a human with a stated reason, not
     /// quietly.
     /// </para>
+    ///
+    /// <para>
+    /// The rows are distinct under the case-insensitive comparison used here.
+    /// Two of them were not: the camel-cased spellings of the first and third
+    /// were the same cases twice, and have been spent on spellings nothing
+    /// covered. <c>ignore</c> is not among them —
+    /// <c>StringComparison.OrdinalIgnoreCase</c> contains it, so the row would
+    /// be red on arrival and for the wrong reason.
+    /// </para>
     /// </summary>
     [Theory]
     [InlineData("allowlist")]
-    [InlineData("allowList")]
     [InlineData("whitelist")]
     [InlineData("skiplist")]
-    [InlineData("skipList")]
+    [InlineData("baseline")]
     [InlineData("exempt")]
     [InlineData("waiver")]
     [InlineData("waived")]
     [InlineData("knownViolation")]
     [InlineData("suppress")]
+    [InlineData("#pragma warning disable")]
     public void The_guard_offers_no_way_to_excuse_a_consumer(string mechanism)
     {
         string[] offenders = ExecutableLines(ReadRepositoryFile(GuardSource))
@@ -282,6 +383,41 @@ public class PaginatedConsumerTests
             + "way to excuse a consumer from the rule, and a rule with a soft edge is a review convention "
             + "wearing a build failure's clothes. A departure is a blocked outcome a human accepts in "
             + "writing (FR-005); ADR-0144 forbids the lane from reaching green by weakening a gate.");
+    }
+
+    /// <summary>
+    /// Every accessor RTK Query generates for one read endpoint, plus the raw
+    /// endpoint handle. One <c>build.query</c> yields four hooks —
+    /// <c>useXQuery</c>, <c>useLazyXQuery</c>, <c>useXQueryState</c>,
+    /// <c>useXQuerySubscription</c> — and <c>endpoints.x.initiate</c> is always
+    /// available. Matching the plain hook alone let a consumer switch to
+    /// <c>useLazyXQuery</c> and leave the sweep on a green build, because the
+    /// lazy spelling does not contain the plain one as a substring.
+    /// </summary>
+    private static Regex AccessorsOf(string hook)
+    {
+        string endpoint = EndpointOf(hook);
+        string stem = char.ToUpperInvariant(endpoint[0]) + endpoint[1..];
+
+        return new Regex(
+            $@"\buse(?:Lazy)?{stem}Query(?:State|Subscription)?\b|\bendpoints\.{endpoint}\b",
+            RegexOptions.None,
+            TimeSpan.FromSeconds(5));
+    }
+
+    /// <summary>
+    /// The endpoint a register row's hook was generated from — the inverse of
+    /// <see cref="HookFor"/>.
+    /// </summary>
+    private static string EndpointOf(string hook)
+    {
+        hook.ShouldMatch(
+            @"^use\w+Query$",
+            $"'{hook}' is not a generated RTK Query hook name, so no endpoint can be recovered from it. "
+            + "A register row names the hook RTK Query generates: use + the capitalised endpoint + Query.");
+
+        string stem = hook[3..^5];
+        return char.ToLowerInvariant(stem[0]) + stem[1..];
     }
 
     /// <summary>
@@ -345,18 +481,46 @@ public class PaginatedConsumerTests
                 && (Mentions(body, "offset") || Mentions(body, "limit") || Mentions(body, "complete"))));
 
     /// <summary>
-    /// The text of every <c>*.api.ts</c> under <see cref="ApiClients"/>,
-    /// subdirectories included — a client filed one level down is still a
-    /// producer.
+    /// Named exported shapes in one client whose declaration opens a brace but
+    /// which <see cref="ExportedShape"/> did not match. A declaration is taken
+    /// to run from its head to the next exported statement, so a brace-free
+    /// alias — <c>export type RuleState = 'Draft' | 'Active';</c> — is not
+    /// reported, and a shape does not borrow the braces of the code after it.
+    /// </summary>
+    private static string[] UnreadableShapes(string text)
+    {
+        HashSet<string> readable =
+            [.. ExportedShape.Matches(text).Select(declaration => declaration.Groups["name"].Value)];
+        int[] boundaries = [.. ExportStatement.Matches(text).Select(statement => statement.Index)];
+
+        return ExportedHead.Matches(text)
+            .Where(head => !readable.Contains(head.Groups["name"].Value))
+            .Where(head => Declaration(text, head.Index, boundaries).Contains('{', StringComparison.Ordinal))
+            .Select(head => head.Groups["name"].Value)
+            .ToArray();
+    }
+
+    private static string Declaration(string text, int start, int[] boundaries) =>
+        text[start..boundaries.FirstOrDefault(boundary => boundary > start, text.Length)];
+
+    /// <summary>
+    /// The text of every <c>*.api.ts</c> under <c>apps/*/src</c>,
+    /// subdirectories included — a client filed one level down, or beside the
+    /// app that consumes it, is still a producer.
     /// </summary>
     private static string[] ApiClientSources()
     {
-        string directory = Path.Combine(RepositoryRoot().FullName, ApiClients);
-
-        return Directory.EnumerateFiles(directory, "*.api.ts", SearchOption.AllDirectories)
-            .OrderBy(file => file, StringComparer.Ordinal)
-            .Select(File.ReadAllText)
+        string[] clients = FrontendFiles()
+            .Where(IsApiClient)
+            .Select(ReadRepositoryFile)
             .ToArray();
+
+        clients.ShouldNotBeEmpty(
+            $"no file matching {ApiClients} was found, so the completeness check has nothing to compare "
+            + "the register against and passes on an empty list. The API clients moved — point the sweep "
+            + "at where they now live rather than leaving it reading nothing.");
+
+        return clients;
     }
 
     /// <summary>
@@ -370,34 +534,50 @@ public class PaginatedConsumerTests
             .ToArray();
 
     /// <summary>
-    /// Every TypeScript source under <c>apps/*/src</c> that could consume a
-    /// bounded response, keyed by repository-relative path. Test files and the
-    /// producing API clients are left out: the producer names both the hook and
-    /// the field by construction, and a test asserting on a truncated fixture is
-    /// doing its job.
+    /// Every TypeScript file under <c>apps/*/src</c>, by repository-relative
+    /// path, in ordinal order. One enumeration behind both halves of the guard:
+    /// what it yields is either a producer or a consumer candidate, so a new
+    /// client cannot be scanned by neither.
     /// </summary>
-    private static Dictionary<string, string> FrontendSources()
+    private static string[] FrontendFiles()
     {
         DirectoryInfo root = RepositoryRoot();
 
         return AppDirectories()
             .Select(app => Path.Combine(app, "src"))
             .Where(Directory.Exists)
-            .SelectMany(src => Directory.EnumerateFiles(src, "*.ts*", SearchOption.AllDirectories))
+            .SelectMany(source => Directory.EnumerateFiles(source, "*.ts*", SearchOption.AllDirectories))
             .Select(file => RelativePath(root, file))
-            .Where(IsConsumerCandidate)
-            .ToDictionary(
-                path => path,
-                path => File.ReadAllText(Path.Combine(root.FullName, path)),
-                StringComparer.Ordinal);
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
     }
+
+    /// <summary>
+    /// Every source that could consume a bounded response, keyed by
+    /// repository-relative path. Test files and the producing API clients are
+    /// left out: the producer names both the hook and the field by
+    /// construction, and a test asserting on a truncated fixture is doing its
+    /// job.
+    /// </summary>
+    private static Dictionary<string, string> FrontendSources() =>
+        FrontendFiles()
+            .Where(IsConsumerCandidate)
+            .ToDictionary(path => path, ReadRepositoryFile, StringComparer.Ordinal);
+
+    /// <summary>
+    /// A producer, recognised by its name rather than by where it is filed. The
+    /// path prefix this once tested made a client outside
+    /// <c>apps/shared/src/api</c> both unscanned as a producer and swept as a
+    /// consumer of its own hook.
+    /// </summary>
+    private static bool IsApiClient(string path) =>
+        path.EndsWith(".api.ts", StringComparison.Ordinal) && !IsTest(path);
 
     private static bool IsConsumerCandidate(string path) =>
         (path.EndsWith(".ts", StringComparison.Ordinal) || path.EndsWith(".tsx", StringComparison.Ordinal))
         && !path.EndsWith(".d.ts", StringComparison.Ordinal)
         && !IsTest(path)
-        && !(path.StartsWith($"{ApiClients}/", StringComparison.Ordinal)
-            && path.EndsWith(".api.ts", StringComparison.Ordinal));
+        && !IsApiClient(path);
 
     /// <summary>
     /// Both test conventions in the repository, <c>*.test.ts(x)</c> and the
@@ -423,14 +603,16 @@ public class PaginatedConsumerTests
         Path.GetRelativePath(root.FullName, file).Replace(Path.DirectorySeparatorChar, '/');
 
     /// <summary>
-    /// Lines that are neither commentary nor attribute metadata — the ones that
-    /// could actually carry a mechanism.
+    /// Lines that are neither commentary nor attribute metadata, with the
+    /// content of every string literal removed — what is left is the code that
+    /// could actually carry a mechanism, rather than the prose it prints.
     /// </summary>
     private static IEnumerable<string> ExecutableLines(string source) =>
         source.Split('\n')
             .Select(line => line.TrimStart())
             .Where(line => !line.StartsWith("//", StringComparison.Ordinal)
-                && !line.StartsWith('['));
+                && !line.StartsWith('['))
+            .Select(line => StringLiteral.Replace(line, "\"\""));
 
     private static string ReadRepositoryFile(string relativePath)
     {
