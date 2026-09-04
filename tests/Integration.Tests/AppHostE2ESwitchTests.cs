@@ -13,9 +13,22 @@ namespace SmartSentinelEye.Integration.Tests;
 /// the application model only: <c>CreateAsync</c> starts no resources, so
 /// this costs no containers and is safe beside a live <c>aspire run</c>.
 /// </para>
+///
+/// <para>
+/// Also guards the <c>ScenarioSimulator</c> switch (#2013), which is a
+/// <em>different</em> switch on purpose. <c>E2ETests</c> means "this is the
+/// integration fixture" and also removes the Vite apps and
+/// <c>fixture-video</c>; the end-to-end job needs those and needs the
+/// simulator gone, so it cannot use <c>E2ETests</c>. The separation is not a
+/// detail a reader can infer from the guard expression, so it is asserted here.
+/// </para>
 /// </summary>
 public class AppHostE2ESwitchTests
 {
+    private const string Workflow = ".github/workflows/ci.yml";
+    private const string BootCommand = "dotnet run --project src/AppHost";
+    private const string SimulatorArgument = "-- ScenarioSimulator=false";
+
     private static readonly string[] FixtureArguments =
     [
         "Parameters:PostgresUser=postgres",
@@ -23,6 +36,24 @@ public class AppHostE2ESwitchTests
         "Parameters:KeycloakPassword=testkeycloak",
         "Parameters:RabbitMqPassword=testmessaging",
         "E2ETests=true",
+    ];
+
+    /// <summary>
+    /// The shape the end-to-end job boots: parameters only, no <c>E2ETests</c>.
+    /// A developer's <c>aspire run</c> sees the same model.
+    /// </summary>
+    private static readonly string[] RunModeArguments =
+    [
+        "Parameters:PostgresUser=postgres",
+        "Parameters:PostgresPassword=testpassword",
+        "Parameters:KeycloakPassword=testkeycloak",
+        "Parameters:RabbitMqPassword=testmessaging",
+    ];
+
+    private static readonly string[] SimulatorDisabledArguments =
+    [
+        .. RunModeArguments,
+        "ScenarioSimulator=false",
     ];
 
     [Fact]
@@ -51,5 +82,132 @@ public class AppHostE2ESwitchTests
         postgres.Annotations.OfType<ContainerMountAnnotation>()
             .Where(mount => mount.Type == ContainerMountType.Volume)
             .ShouldBeEmpty();
+    }
+
+    /// <summary>
+    /// The end-to-end job boots a run-mode stack and needs the simulator gone,
+    /// because the simulator seeds cameras into the very database the Playwright
+    /// specs assert an empty catalogue against (#2013).
+    /// </summary>
+    [Fact]
+    public async Task ScenarioSimulator_argument_excludes_the_simulator_from_a_run_mode_stack()
+    {
+        IReadOnlyList<string> names = await ResourceNamesAsync(SimulatorDisabledArguments);
+
+        names.ShouldNotContain("camera-sim");
+        names.ShouldNotContain("scenario-simulator");
+    }
+
+    /// <summary>
+    /// A developer types <c>aspire run</c> with no arguments and must keep the
+    /// simulated fab. The switch defaults on; absent is not off.
+    /// </summary>
+    [Fact]
+    public async Task A_run_mode_stack_without_the_argument_still_composes_the_simulator()
+    {
+        IReadOnlyList<string> names = await ResourceNamesAsync(RunModeArguments);
+
+        names.ShouldContain("camera-sim");
+        names.ShouldContain("scenario-simulator");
+    }
+
+    /// <summary>
+    /// The standing proof that this change is not the one the issue proposed.
+    /// Reusing <c>E2ETests</c> to silence the simulator would also delete the
+    /// three Vite apps and <c>fixture-video</c> — the front ends under test and
+    /// the only video source the wall spec has. If someone later folds the
+    /// simulator back onto <c>E2ETests</c>, this is what says why they cannot.
+    /// </summary>
+    [Fact]
+    public async Task The_simulator_argument_leaves_the_web_apps_and_the_fixture_video_in_place()
+    {
+        IReadOnlyList<string> names = await ResourceNamesAsync(SimulatorDisabledArguments);
+
+        names.ShouldContain("management-web");
+        names.ShouldContain("kiosk-web");
+        names.ShouldContain("kiosk-wall");
+        names.ShouldContain("fixture-video");
+    }
+
+    /// <summary>
+    /// Proves the workflow file contains a string, and nothing more. It cannot
+    /// prove the argument reached <c>builder.Configuration</c> — that evidence
+    /// is a dashboard reading in phase 5, not a green suite.
+    ///
+    /// <para>
+    /// It earns its place because the switch fails open: an unparseable or
+    /// misspelled value leaves the simulator running, so a typo here silently
+    /// restores the bug while every test above still passes. A defect in the
+    /// workflow file is the one class of defect a file-reading guard catches.
+    /// </para>
+    ///
+    /// <para>
+    /// Splits at the first <c>&gt;</c> so the argument must sit in the command
+    /// rather than after the redirection, where it would be a filename.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_e2e_boot_line_disables_the_scenario_simulator()
+    {
+        string command = BootLine().Split('>', 2)[0];
+
+        command.ShouldContain(
+            SimulatorArgument,
+            Case.Sensitive,
+            $"{Workflow} boots the end-to-end stack without '{SimulatorArgument}' ahead of the "
+            + "redirection, so the run-mode default applies and the scenario simulator seeds the "
+            + "catalogue the Playwright suite asserts against (#2013).");
+    }
+
+    private static async Task<IReadOnlyList<string>> ResourceNamesAsync(string[] arguments)
+    {
+        using IDistributedApplicationTestingBuilder builder =
+            await DistributedApplicationTestingBuilder
+                .CreateAsync<Projects.SmartSentinelEye_AppHost>(arguments);
+
+        return [.. builder.Resources.Select(resource => resource.Name)];
+    }
+
+    /// <summary>
+    /// A scan that matches nothing passes silently, and a passing guard that
+    /// checked nothing is indistinguishable from one that holds — so the
+    /// absence of the boot line is itself a failure.
+    /// </summary>
+    private static string BootLine()
+    {
+        string[] candidates =
+        [
+            .. System.IO.File
+                .ReadAllLines(WorkflowPath())
+                .Where(line => line.Contains(BootCommand, StringComparison.Ordinal)),
+        ];
+
+        candidates.ShouldHaveSingleItem(
+            $"expected exactly one '{BootCommand}' line in {Workflow}, found {candidates.Length} — "
+            + "the scan is broken, or the boot step moved.");
+
+        return candidates[0];
+    }
+
+    /// <summary>
+    /// Built with <see cref="System.IO.Path.Combine(string[])"/> rather than a
+    /// literal path: a backslash separator is green on Windows and red on Linux
+    /// CI, and this repository has been bitten by exactly that.
+    /// </summary>
+    private static string WorkflowPath() =>
+        System.IO.Path.Combine([RepositoryRoot(), .. Workflow.Split('/')]);
+
+    private static string RepositoryRoot()
+    {
+        System.IO.DirectoryInfo? candidate = new(AppContext.BaseDirectory);
+        while (candidate is not null
+            && !System.IO.File.Exists(System.IO.Path.Combine(candidate.FullName, "SmartSentinelEye.slnx")))
+        {
+            candidate = candidate.Parent;
+        }
+
+        return candidate?.FullName
+            ?? throw new InvalidOperationException(
+                $"could not locate the repository root above {AppContext.BaseDirectory}");
     }
 }
