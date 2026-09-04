@@ -6,4 +6,10 @@
 /// <c>ssE-overlay-highlight</c> CSS class for
 /// <see cref="DurationMs"/> milliseconds, then auto-reverts.
 /// </summary>
-public sealed record OverlayHighlightChangedHubMessage(Guid Overlay, int DurationMs);
+/// <para>
+/// <c>Fab</c> names the plant whose rule asked for the highlight. As with the
+/// resolved-text frame, the fab picks the group but the overlay is shared
+/// across fabs (ADR-0115), so a screen holding two fabs cannot otherwise tell
+/// another plant's highlight from its own (ADR-0145).
+/// </para>
+public sealed record OverlayHighlightChangedHubMessage(Guid Overlay, string Fab, int DurationMs);
