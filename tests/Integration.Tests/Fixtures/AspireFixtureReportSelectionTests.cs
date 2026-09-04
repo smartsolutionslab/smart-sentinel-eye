@@ -44,19 +44,27 @@ public class AspireFixtureReportSelectionTests
     }
 
     [Fact]
-    public void A_running_resource_with_a_captured_null_exit_code_is_not_named_as_a_cause()
+    public void A_resource_with_a_captured_null_exit_code_is_not_named_as_a_cause()
     {
+        // `automation` carries the assertion: it is unhealthy, so the health
+        // filter does not excuse it, and its exit code was never observed, so
+        // there is no non-zero exit to name. Reading the null as non-zero would
+        // print "automation exited with code " — a cause line with no code in
+        // it. The two `Running` entries are the ordinary case alongside it.
         Dictionary<string, string> states = new(StringComparer.Ordinal)
         {
+            ["automation"] = "Finished",
             ["api-gateway"] = "Running",
             ["camera-catalog"] = "Running",
         };
         Dictionary<string, int?> exitCodes = new(StringComparer.Ordinal)
         {
+            ["automation"] = null,
             ["api-gateway"] = null,
             ["camera-catalog"] = null,
         };
 
+        AspireFixture.SelectResourcesToReport(states, exitCodes).ShouldBe(["automation"]);
         AspireFixture.FormatLikelyCause(states, exitCodes).ShouldBeEmpty();
     }
 
