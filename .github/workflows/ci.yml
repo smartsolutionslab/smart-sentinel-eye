@@ -247,7 +247,7 @@ jobs:
 
       - name: Boot the Aspire stack (run mode) in the background
         run: |
-          nohup dotnet run --project src/AppHost/SmartSentinelEye.AppHost.csproj -c Release --no-build > apphost.log 2>&1 &
+          nohup dotnet run --project src/AppHost/SmartSentinelEye.AppHost.csproj -c Release --no-build -- ScenarioSimulator=false > apphost.log 2>&1 &
           echo "$!" > apphost.pid
           echo "AppHost PID $(cat apphost.pid)"
 

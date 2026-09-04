@@ -13,6 +13,15 @@
 var builder = DistributedApplication.CreateBuilder(args);
 bool isRunMode = builder.ExecutionContext.IsRunMode;
 bool isE2ETests = bool.TryParse(builder.Configuration["E2ETests"], out bool e2e) && e2e;
+// ADR-0111 records the Scenario Simulator as dev-only. `E2ETests` alone never
+// delivered that: the end-to-end job boots with a plain `dotnet run` — run
+// mode, flag unset — so the simulator has started there for as long as it has
+// existed (#2013). It cannot simply join the `E2ETests` gate, because that flag
+// also removes the three Vite apps the Playwright suite drives and spec 056's
+// `fixture-video`. Absent or unparseable means a developer's `aspire run`, the
+// only place it is wanted.
+bool isScenarioSimulatorEnabled =
+    !bool.TryParse(builder.Configuration["ScenarioSimulator"], out bool simulator) || simulator;
 
 var postgresUser = builder.AddParameter("PostgresUser", "postgres");
 var postgresPassword = builder.AddParameter("PostgresPassword", "dev-only-postgres-password", secret: true);
@@ -505,8 +514,20 @@ if (isRunMode && !isE2ETests)
         .WithParentRelationship(apiGateway);
 }
 
-// Scenario Simulator (ADR-0111 M1) — dev-only, gated `isRunMode && !isE2ETests`
-// so CI/E2E/prod never see it and the main `mediamtx.yml` stays clean.
+// Scenario Simulator (ADR-0111 M1) — dev-only, and it takes three conjuncts to
+// say that, because no two of them exclude the same thing (#2013):
+//
+// - `isRunMode` — absent from publish mode, so it never reaches prod output.
+// - `!isE2ETests` — absent from the integration fixture, which drives no
+//   browser and would pay for a container, a bind mount and a looping FFmpeg
+//   nothing there reads.
+// - `isScenarioSimulatorEnabled` — absent where `ci.yml` passes
+//   `ScenarioSimulator=false`, which is the end-to-end job. That job boots a
+//   *run-mode* stack, so neither of the other two conjuncts reached it, and the
+//   simulator seeded its cameras into the very catalogue the Playwright specs
+//   assert an empty catalogue against.
+//
+// The main `mediamtx.yml` stays clean in all three cases.
 //
 // - camera-sim: a second, config-clean MediaMTX. Holds NO static paths; the
 //   worker provisions a `runOnDemand` loop path per catalog camera via the HTTP
@@ -515,7 +536,7 @@ if (isRunMode && !isE2ETests)
 //   (client_credentials via Keycloak), then — driven by CameraRegisteredV1 over
 //   RabbitMQ — provisions the looping video on camera-sim. Waits for the things
 //   it calls on startup.
-if (isRunMode && !isE2ETests)
+if (isRunMode && !isE2ETests && isScenarioSimulatorEnabled)
 {
     var cameraSim = builder
         .AddContainer("camera-sim", "bluenviron/mediamtx", "latest-ffmpeg")
