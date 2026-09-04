@@ -1,6 +1,7 @@
 import { test as setup, expect } from '@playwright/test';
 import { signInAsOperator } from './sign-in';
 import { newBoundOverlayWall, writeBoundOverlayWall } from './bound-overlay-wall';
+import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './cold-stack';
 
 /**
  * Issue 1921 — a published wall whose tile binds a published overlay whose
@@ -18,7 +19,7 @@ import { newBoundOverlayWall, writeBoundOverlayWall } from './bound-overlay-wall
  * round-trip, and the UI path gets the contract right for free.
  */
 setup('a published wall exists whose tile binds an overlay bound to a variable', async ({ page }) => {
-  setup.setTimeout(180_000);
+  setup.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
 
   const wall = newBoundOverlayWall();
   writeBoundOverlayWall(wall);
@@ -34,14 +35,10 @@ setup('a published wall exists whose tile binds an overlay bound to a variable',
   await page.locator('#variable-initial-value').fill(wall.variableInitialValue);
   await page.getByRole('button', { name: /^define$/i }).click();
 
-  // The first write of the run, against a service that may still be cold, and
-  // given its own budget for that reason — the shared `expect` timeout is 15 s
-  // locally. Observed failing here twice on a freshly booted stack (spec 056),
-  // once with the dialog still reading "Saving…", and passing on a warm one.
-  // A seed that only succeeds when something else warmed the service first is a
-  // flake waiting for the run where it goes first.
+  // The first write of the run, against a service that may still be cold; the
+  // reasoning for the budget lives once, with the constant.
   await expect(page.getByRole('heading', { name: wall.variableName })).toBeVisible({
-    timeout: 90_000,
+    timeout: FIRST_WRITE_TIMEOUT_MS,
   });
 
   // 2. An overlay whose label is a token (spec 005) so the service holds a

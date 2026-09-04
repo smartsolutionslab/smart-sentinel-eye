@@ -1,6 +1,7 @@
 import { test as setup, expect } from '@playwright/test';
 import { signInAsOperator } from './sign-in';
 import { newLiveVideoWall, writeLiveVideoWall } from './live-video-wall';
+import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './cold-stack';
 
 /**
  * Spec 056 — a wall whose tile has **both** halves: a camera whose video
@@ -23,7 +24,7 @@ import { newLiveVideoWall, writeLiveVideoWall } from './live-video-wall';
  * </para>
  */
 setup('a published wall exists whose tile has both video and a bound overlay', async ({ page }) => {
-  setup.setTimeout(180_000);
+  setup.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
 
   const wall = newLiveVideoWall();
   writeLiveVideoWall(wall);
@@ -40,15 +41,10 @@ setup('a published wall exists whose tile has both video and a bound overlay', a
   await page.locator('#variable-initial-value').fill(wall.variableInitialValue);
   await page.getByRole('button', { name: /^define$/i }).click();
 
-  // **The first write of the run, against a service that may still be cold.**
-  // Given its own budget rather than the shared `expect` timeout, which is 15 s
-  // locally: this failed twice at exactly this line on a freshly booted stack,
-  // with the dialog still showing "Saving…" — a request in flight, not a
-  // rejection — and passed on a warm one. A fixture whose success depends on
-  // something else having warmed the service first is a flake waiting for the
-  // run where it goes first.
+  // The first write of the run, against a service that may still be cold; the
+  // reasoning for the budget lives once, with the constant.
   await expect(page.getByRole('heading', { name: wall.variableName })).toBeVisible({
-    timeout: 90_000,
+    timeout: FIRST_WRITE_TIMEOUT_MS,
   });
 
   // 2. An overlay whose text is a token, so the service holds a resolved

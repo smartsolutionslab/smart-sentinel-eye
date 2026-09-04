@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
+import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // Spec 066 / #2014 — how long the injected-delay test below holds the define
 // `POST`. 20 s is chosen against both `expect` budgets in `playwright.config.ts`:
@@ -23,6 +24,8 @@ test('operator opens system variables and the list loads through the gateway', a
 });
 
 test('operator defines a system variable and it appears in the list', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
   await signInAsOperator(page);
 
   await page.getByRole('link', { name: /^system variables$/i }).click();
@@ -36,10 +39,12 @@ test('operator defines a system variable and it appears in the list', async ({ p
   // Type defaults to String, so the name alone is a valid definition.
   await page.getByRole('button', { name: /^define$/i }).click();
 
-  await expect(page.getByText(name)).toBeVisible();
+  await expect(page.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 });
 
 test('operator defines a Boolean system variable and it appears in the list', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
   await signInAsOperator(page);
 
   await page.getByRole('link', { name: /^system variables$/i }).click();
@@ -55,7 +60,7 @@ test('operator defines a Boolean system variable and it appears in the list', as
   await page.locator('#variable-falsy').fill('Off');
   await page.getByRole('button', { name: /^define$/i }).click();
 
-  await expect(page.getByText(name)).toBeVisible();
+  await expect(page.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 });
 
 // Spec 012 T055 — `setVariableValue` is the cleanest lost update in the system
@@ -67,6 +72,8 @@ test('operator defines a Boolean system variable and it appears in the list', as
 // `systemVariables.api.ts` returns 428 and fails here — which is the point.
 // Nothing else in the suite would notice.
 test('operator sets a variable value and the new value is reflected in the list', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
   await signInAsOperator(page);
 
   await page.getByRole('link', { name: /^system variables$/i }).click();
@@ -80,13 +87,13 @@ test('operator sets a variable value and the new value is reflected in the list'
   // Scope to this variable's row: the list is shared and every row carries the
   // same "New value" / "Set value" controls.
   const row = page.locator('li').filter({ hasText: name });
-  await expect(row).toBeVisible();
+  await expect(row).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
   await expect(row.getByText('(unset)')).toBeVisible();
 
   await row.getByPlaceholder('New value').fill('Line 1 running');
   await row.getByRole('button', { name: /^set value$/i }).click();
 
-  await expect(row.getByText('Line 1 running')).toBeVisible();
+  await expect(row.getByText('Line 1 running')).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
   // A 428 or 409 would render the page-level banner instead of updating.
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
@@ -131,7 +138,7 @@ test('a define the service is slow to answer still appears in the list', async (
   // No explicit timeout — the shape every write assertion in this file uses
   // today, and the reason a late-but-successful write reads as a product
   // failure.
-  await expect(page.getByText(name)).toBeVisible();
+  await expect(page.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 });
 
 // Spec 014 T041 — the fab half of the variables surface.
@@ -144,6 +151,8 @@ test('a define the service is slow to answer still appears in the list', async (
 // resolution.
 test.describe('system variables — fab scoping', () => {
   test('operator defines a variable and it lands in their own fab without naming it', async ({ page }) => {
+    test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
     await signInAsOperator(page);
     await page.getByRole('link', { name: /^system variables$/i }).click();
     await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
@@ -161,7 +170,7 @@ test.describe('system variables — fab scoping', () => {
     // The row carries the fab, so a multi-fab operator could tell two
     // same-named rows apart — the gap #1303 was for rules.
     const row = page.getByRole('listitem').filter({ hasText: name });
-    await expect(row).toBeVisible();
+    await expect(row).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
     await expect(row).toContainText('munich');
   });
 });
