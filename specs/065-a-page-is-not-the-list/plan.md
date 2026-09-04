@@ -76,10 +76,19 @@ consumer must actually consult.
 
 ### Assertion 1 — every consumer reads the boundary
 
-For each register row: find every file under `apps/*/src` and `apps/shared/src`
-that names the hook, excluding tests — **both** conventions, `*.test.ts(x)` and
+For each register row: find every file under `apps/*/src` that reaches the
+endpoint, excluding tests — **both** conventions, `*.test.ts(x)` and
 `*.spec.ts(x)` — and the producing `*.api.ts` itself. Each such file must also
 name that row's boundary field.
+
+**Reaching it means any accessor, not one spelling.** One `build.query` yields
+four hooks — `useXQuery`, `useLazyXQuery`, `useXQueryState`,
+`useXQuerySubscription` — and `endpoints.x.initiate` is always available.
+Matching the plain hook alone was a hole phase 6 found: `useLazyXQuery` does not
+contain `useXQuery` as a substring, so a picker switching to the lazy spelling
+and rendering `data.items` left the sweep on a green build, with the endpoint
+declaration unchanged and assertion 2 none the wiser. The sweep matches the
+endpoint stem across all five forms.
 
 The second test convention was missed at implementation and caught in phase 6:
 `apps/shared/src/realtime/client.spec.ts` sat inside a sweep the spec said
@@ -95,7 +104,7 @@ calling `useListCamerasQuery` and never mentioning `count`.
 
 ### Assertion 2 — the register is complete
 
-Scan `apps/shared/src/api/**/*.api.ts` for exported object shapes — `export
+Scan every `*.api.ts` under `apps/*/src` for exported object shapes — `export
 interface X {` and `export type X = {`, the second having precedent at
 `rules.api.ts:84` — that carry a list field beside a boundary field. **Three
 shapes, not two.** Planning named two; `CameraChoices` fits neither, and the
@@ -128,6 +137,16 @@ A bounded response that no read endpoint produces is reported paired with
 `(nothing declares it)`, which no register row can match — so it arrives red
 rather than sitting outside the sweep.
 
+**Producers are found, not named.** The scan was scoped to
+`apps/shared/src/api` at implementation, and the consumer sweep excluded
+producers by that same hardcoded prefix. A client filed beside the app that uses
+it — `apps/management-web/src/api/reports.api.ts` — would then have been
+scanned by neither: its bounded response never reached the completeness check,
+and, not being under the excluded prefix, it was swept as a consumer of its own
+hook, which it passes by construction. A contract arriving entirely unguarded,
+with no signal, is the outcome this assertion exists to prevent, so a producer
+is now recognised by its name rather than by where it is filed.
+
 Without this the guard is a snapshot with a longer shelf life: it polices the
 three contracts that existed on 2026-09-04 and is blind to the fourth. This is
 the assertion that makes it self-maintaining. It fails loudly on a *new*
@@ -142,8 +161,12 @@ layout, leaves the corpus silently and every row of assertion 1 passes vacuously
 and for ever — a failure indistinguishable from compliance, and the second one
 phase 6 found. Two facts close it:
 
-- every directory under `apps/` carrying a `package.json` has a `src/`, so no
-  app's sources are outside the sweep;
+- every directory under `apps/` carrying a `package.json` contributes at least
+  one file to the corpus. The claim is **per app** and it is about files, not
+  directories: a `src/` holding only `vite-env.d.ts` satisfies "the directory
+  exists" while contributing nothing, and the aggregate floor below cannot see
+  it — two healthy apps carry the count on their own while every consumer in
+  the third quietly leaves the sweep;
 - the corpus holds at least 40 files. It held 84 on 2026-09-04; the bound is
   under half, so ordinary churn cannot reach it and a collapse falls straight
   through it.
@@ -152,10 +175,44 @@ The mode is not hypothetical: `useGetResourceTimelineQuery` has no consumer, so
 one register row is *already* vacuous. A documented vacuity does not detect an
 undocumented one.
 
+### Assertion 2d — nothing is dropped for being unreadable
+
+The shape matcher admitted one level of brace nesting, and a declaration it
+cannot read does not match *partially* — it does not match at all. So
+`export interface EventPage { rows: EventRow[]; paging: { window: { count:
+number; limit: number } }; }` was dropped before the completeness check saw it,
+compared equal, stayed green, and left every consumer of its hook unswept.
+Silent, and in the unsafe direction.
+
+Two changes, because either alone leaves a gap. The body is matched by counting
+braces, so nesting of any depth is read; and a named exported shape whose
+declaration opens a brace the matcher still cannot read is reported by name. A
+guard that silently drops what it cannot parse is the failure mode this whole
+feature argues against.
+
 ### Assertion 3 — no exception mechanism exists
 
 The guard asserts that its own source contains no allowlist, skip-list or
 exception collection.
+
+**It reads code, not prose.** Comment lines, attribute lines and the content of
+string literals are all outside the scan. The vocabulary this rule polices is
+the vocabulary any honest description of the rule must use, so a scan that read
+the failure messages would turn FR-005's own wording — "ships with no
+allowlist" — into a red build for a wording change, and the cheapest way out of
+that red is deleting a row, which is the weakening the assertion exists to
+prevent. The invariant that avoided it before was that the message interpolated
+the mechanism rather than naming it, and nothing recorded that. The price is
+that a mechanism named *only* inside a literal — a baseline file's path, with no
+identifier spelling it — is not seen; a mechanism needs a name in code, prose
+does not.
+
+The rows were also two short of what they looked like: matching is
+case-insensitive, so `allowlist`/`allowList` and `skiplist`/`skipList` were four
+rows buying two checks. The freed pair went to `baseline` and
+`#pragma warning disable`, which nothing covered. `ignore` is deliberately not a
+row — `StringComparison.OrdinalIgnoreCase` contains it, so it would be red on
+arrival and for the wrong reason.
 
 This looks like belt-and-braces and is not. FR-005 says a necessary exception is
 a **blocked outcome requiring human acceptance**, not a line added to the guard —
@@ -203,10 +260,16 @@ that gets trusted past its reach.
    against real consumers. Assertions 2b/2c exist because this vacuity is
    *documented*, and a documented one does not detect an undocumented one.
 
-Limitations 1–3 are all **false negatives** — shapes the guard lets through.
+5. **Assertion 3 does not read string literals.** A soft edge named only inside
+   a literal — a baseline file's path, with no identifier spelling it — is not
+   seen. The alternative was worse: scanning literals makes prose about this
+   rule, in this rule's own vocabulary, fail the build.
+
+Limitations 1–3 and 5 are all **false negatives** — shapes the guard lets
+through.
 Phase 6 noted the list was one-sided, so the other direction is recorded too:
 
-5. **It can also be wrong the other way.** A component that forwards the whole
+6. **It can also be wrong the other way.** A component that forwards the whole
    response to a child — `<CameraTable page={data} />` — reads the boundary in
    the child and will still be asked to name it in the parent; so will a call
    made only to warm the cache, which renders nothing to qualify. Neither shape

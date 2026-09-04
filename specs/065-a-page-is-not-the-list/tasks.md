@@ -44,7 +44,7 @@ inventing more would be a fan-out the orchestrator cannot actually take.
 - **[T002]** `[Story 1]` Implement the consumer sweep: for a given hook name,
   enumerate files under `apps/*/src` and `apps/shared/src` naming that hook,
   excluding tests under both repository conventions — `*.test.ts(x)` **and**
-  `*.spec.ts(x)` — and `apps/shared/src/api/*.api.ts`.
+  `*.spec.ts(x)` — and the `*.api.ts` producers themselves.
 
   *Done when*: for `useListCamerasQuery` it returns exactly
   `apps/management-web/src/features/cameras/CamerasPage.tsx`; for
@@ -63,7 +63,7 @@ inventing more would be a fan-out the orchestrator cannot actually take.
 ### Assertion 2 — the register is complete
 
 - **[T004]** `[Story 1]` Assert that every exported object shape in
-  `apps/shared/src/api/**/*.api.ts` carrying a bounded shape appears in the
+  every `*.api.ts` under `apps/*/src` carrying a bounded shape appears in the
   register, **paired with the hook that produces it**.
 
   Bounded means a list field beside a boundary field, in one of **three** shapes:
