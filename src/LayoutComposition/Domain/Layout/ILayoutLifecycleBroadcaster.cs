@@ -52,14 +52,9 @@ public sealed record LayoutRevisionArchivedNotification(
 /// cross-context bridge from OverlayDesigner.Application
 /// (spec 004 plan.md — single documented allow-rule); primitive types
 /// only so the broadcaster contract does not need to reference
-/// OverlayDesigner.Domain.
-///
-/// <para>
-/// The four coordinates stay loose decimals here on purpose. OverlayDesigner
-/// groups the same four into a NormalizedPosition and a NormalizedSize; taking
-/// those types would be a cross-context project reference, which NetArchTest
-/// fails outright. Recorded so a later sweep does not re-raise it.
-/// </para>
+/// OverlayDesigner.Domain — including its NormalizedPosition and
+/// NormalizedSize, which group these same four coordinates and were declined
+/// here for exactly that reason.
 /// </summary>
 public sealed record OverlayLifecyclePublishedNotification(
     IReadOnlyList<FabIdentifier> Fabs,

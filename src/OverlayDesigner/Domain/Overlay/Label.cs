@@ -31,6 +31,14 @@ public sealed record Label(
     /// constructor outright — <c>Position</c> and <c>Size</c> are owned
     /// references. It binds the two scalars here and sets the two navigations
     /// afterwards, which is why they are handed nulls it immediately replaces.
+    ///
+    /// <para>
+    /// <c>Tile</c>'s equivalent needs <c>#pragma warning disable S1144</c> and
+    /// this does not, because SonarAnalyzer's unused-private-member rule does
+    /// not raise on a constructor declared in a <c>record</c> — measured, not
+    /// assumed: an identical unused private constructor errors in a class and
+    /// is silent in a record in this same project.
+    /// </para>
     /// </summary>
     private Label(string text, int fontSizePx)
         : this(text, null!, null!, fontSizePx)
