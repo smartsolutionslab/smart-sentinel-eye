@@ -23,12 +23,37 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// </para>
 ///
 /// <para>
-/// <b>Declared limitations.</b> It sees a reference, not a use: a consumer that
-/// names the field in a comment and ignores it passes. It is a source scan, not
-/// a type check, so a bounded response reached through an intermediate helper in
-/// a third file would be judged on the wrong file — no such indirection exists
+/// <b>One register, joined at both ends.</b> A row is a triple — the bounded
+/// response, the hook that produces it, the field a caller must read — and the
+/// same rows drive the consumer sweep and the completeness check. The
+/// response-to-hook half is checked against the <c>build.query</c> declarations
+/// that actually produce those responses, so adding a type name alone cannot
+/// restore green: the smallest edit that satisfies both halves is the one that
+/// names the producing hook and decides what the new contract's boundary field
+/// is. Held as two unjoined lists it guaranteed only that someone had been
+/// told, which is the review convention this guard exists to replace.
+/// </para>
+///
+/// <para>
+/// <b>Declared limitations, in both directions.</b>
+/// </para>
+///
+/// <para>
+/// <i>False negatives.</i> It sees a reference, not a use: a consumer that names
+/// the field in a comment and ignores it passes. It is a source scan, not a type
+/// check, so a bounded response reached through an intermediate helper in a
+/// third file would be judged on the wrong file — no such indirection exists
 /// today. And it polices <c>apps/</c> only; the one backend caller is recorded
 /// in spec 065 as a follow-up.
+/// </para>
+///
+/// <para>
+/// <i>False positives.</i> A component that forwards the whole response to a
+/// child — <c>&lt;CameraTable page={data} /&gt;</c> — reads the boundary in the
+/// child and will still be asked to name it here; so will a call made only to
+/// warm the cache, which renders nothing to qualify. Neither shape exists today.
+/// Recorded so that the first occurrence of either reads as a known limit to be
+/// discussed with a human, not as a broken guard to be worked around.
 /// </para>
 /// </summary>
 public class PaginatedConsumerTests
@@ -37,36 +62,86 @@ public class PaginatedConsumerTests
     private const string ApiClients = "apps/shared/src/api";
 
     /// <summary>
-    /// The bounded response types the register accounts for, in ordinal order.
-    /// Kept beside the hook rows so that
-    /// <see cref="The_register_names_every_bounded_response_the_api_clients_declare"/>
-    /// fails when a fourth contract arrives.
+    /// What the completeness check reports for a bounded response that no
+    /// <c>build.query</c> produces. It can never equal a register row — every
+    /// hook name begins <c>use</c> — so such a type arrives red rather than
+    /// quietly outside the sweep.
     /// </summary>
-    private static readonly string[] RegisteredResponseTypes =
-        ["AuditPage", "CameraChoices", "CameraListPage"];
-
-    private static readonly Regex InterfaceDeclaration = new(
-        @"^export interface (?<name>\w+)[^{]*\{(?<body>.*?)^\}",
-        RegexOptions.Multiline | RegexOptions.Singleline,
-        TimeSpan.FromSeconds(5));
+    private const string Unproduced = "(nothing declares it)";
 
     /// <summary>
-    /// <b>Assertion 1 — every consumer reads the boundary.</b>
+    /// The corpus was 84 files across three apps on 2026-09-04. The bound is
+    /// less than half of that: ordinary churn cannot reach it, and a restructure
+    /// that moves an app's sources out of <c>src/</c> falls straight through it.
+    /// </summary>
+    private const int SmallestPlausibleCorpus = 40;
+
+    /// <summary>
+    /// The register. One row per (bounded response, producing hook, boundary
+    /// field), in ordinal order.
     ///
     /// <para>
-    /// The register: each hook that answers with a bounded response, and the
-    /// field a caller must consult to know whether it got everything.
     /// <c>CameraChoices</c> carries <c>count</c> as well, but <c>complete</c> is
     /// its boundary — <c>count</c> is deliberately a sentinel after a mid-walk
     /// page failure, so a consumer reading it alone would put a fabricated
     /// number in front of an operator.
     /// </para>
     /// </summary>
+    private static readonly BoundedResponse[] Register =
+    [
+        new("AuditPage", "useGetResourceTimelineQuery", "nextCursor"),
+        new("AuditPage", "useSearchAuditQuery", "nextCursor"),
+        new("CameraChoices", "useListAllCameraChoicesQuery", "complete"),
+        new("CameraListPage", "useListCamerasQuery", "count"),
+    ];
+
+    /// <summary>
+    /// An exported object shape — <c>export interface X {</c> or
+    /// <c>export type X = {</c>, the second having precedent at
+    /// <c>rules.api.ts:84</c>. The head is confined to its own line and the body
+    /// admits one level of nesting, so a declaration can neither borrow the next
+    /// one's brace nor run away to the end of the file.
+    /// </summary>
+    private static readonly Regex ExportedShape = new(
+        @"^export (?:interface|type) (?<name>\w+)[^{\r\n]*\{(?<body>(?:[^{}]|\{[^{}]*\})*)\}",
+        RegexOptions.Multiline,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// An RTK Query read endpoint and the type it answers with. The generated
+    /// hook is <c>use</c> + the endpoint name capitalised + <c>Query</c>, which
+    /// is how a response type and its hook are joined without keeping a second
+    /// list by hand.
+    /// </summary>
+    private static readonly Regex QueryDeclaration = new(
+        @"(?<endpoint>\w+): build\.query<\s*(?<response>\w+(?:\[\])?)\s*,",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// The register's hook and boundary field, for the consumer sweep.
+    /// </summary>
+    public static TheoryData<string, string> RegisteredHooks()
+    {
+        TheoryData<string, string> data = [];
+        foreach (BoundedResponse row in Register)
+        {
+            data.Add(row.Hook, row.BoundaryField);
+        }
+
+        return data;
+    }
+
+    /// <summary>
+    /// <b>Assertion 1 — every consumer reads the boundary.</b>
+    ///
+    /// <para>
+    /// Driven by the register, so a row cannot exist without being swept and a
+    /// hook cannot be swept without a row.
+    /// </para>
+    /// </summary>
     [Theory]
-    [InlineData("useListCamerasQuery", "count")]
-    [InlineData("useListAllCameraChoicesQuery", "complete")]
-    [InlineData("useSearchAuditQuery", "nextCursor")]
-    [InlineData("useGetResourceTimelineQuery", "nextCursor")]
+    [MemberData(nameof(RegisteredHooks))]
     public void Every_consumer_of_a_bounded_response_names_its_boundary_field(string hook, string boundaryField)
     {
         string[] silent = FrontendSources()
@@ -85,27 +160,83 @@ public class PaginatedConsumerTests
     }
 
     /// <summary>
-    /// <b>Assertion 2 — the register is complete.</b>
+    /// <b>Assertion 2 — the register is complete, hook and all.</b>
     ///
     /// <para>
-    /// Without this the guard is a snapshot with a longer shelf life: it polices
-    /// the three contracts that existed when it was written and is blind to the
-    /// fourth. It fails on a <em>new</em> bounded contract, which is exactly the
-    /// moment a human should decide what its boundary field is.
+    /// Every bounded response the API clients declare, paired with every
+    /// <c>build.query</c> that answers with it, must appear in the register.
+    /// Without the pairing this compared two unjoined lists, and a new contract
+    /// could be silenced by adding its type name alone: assertion 1 would gain
+    /// no row, and every consumer of its hook would stay unswept.
     /// </para>
     /// </summary>
     [Fact]
-    public void The_register_names_every_bounded_response_the_api_clients_declare()
+    public void The_register_pairs_every_bounded_response_with_the_hook_that_produces_it()
     {
-        string[] declared = BoundedResponseInterfaces();
+        string[] declared = DeclaredBoundedPairs();
+        string[] registered = Register
+            .Select(row => $"{row.ResponseType} -> {row.Hook}")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
 
         declared.ShouldBe(
-            RegisteredResponseTypes,
-            $"{ApiClients} declares [{string.Join(", ", declared)}] as bounded responses — a list field "
-            + "beside a boundary field — but the register holds "
-            + $"[{string.Join(", ", RegisteredResponseTypes)}]. A bounded response with no register row is "
-            + "unguarded: its consumers may render a page as the list and nothing will fail. Add the new "
-            + "type and the hook that produces it, and decide which field a caller must read.");
+            registered,
+            $"{ApiClients} declares [{string.Join(", ", declared)}] — bounded responses, each paired with "
+            + "the read endpoint that answers with it — but the register holds "
+            + $"[{string.Join(", ", registered)}]. A pair with no register row is unguarded: its consumers "
+            + "may render a page as the list and nothing will fail. Add the row, and decide which field a "
+            + $"caller must read. A pair reading '{Unproduced}' is a bounded response no read endpoint "
+            + "produces — say how it reaches a screen before registering it.");
+    }
+
+    /// <summary>
+    /// <b>Assertion 2b — the sweep has something to sweep.</b>
+    ///
+    /// <para>
+    /// <see cref="FrontendSources"/> globs <c>apps/*/src</c> and keeps whatever
+    /// it finds, nothing included. An app restructured to hold its sources
+    /// elsewhere leaves the corpus silently, and every row of assertion 1 then
+    /// passes vacuously and permanently — the worst failure available to a
+    /// guard, because it is indistinguishable from compliance.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Every_app_puts_its_sources_where_the_consumer_sweep_looks()
+    {
+        string[] unswept = AppDirectories()
+            .Where(app => !Directory.Exists(Path.Combine(app, "src")))
+            .Select(app => new DirectoryInfo(app).Name)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        unswept.ShouldBeEmpty(
+            $"these apps have a package.json but no src/ directory: {string.Join(", ", unswept)}. The "
+            + "consumer sweep globs apps/*/src, so their files are not read at all and every row of "
+            + "assertion 1 passes without looking at them. Teach the sweep the new layout rather than "
+            + "letting the guard go quiet.");
+    }
+
+    /// <summary>
+    /// <b>Assertion 2c — the corpus is not a rounding error.</b>
+    ///
+    /// <para>
+    /// The companion to 2b: three roots can resolve and still yield almost
+    /// nothing if the file filter stops matching. One vacuous row is already
+    /// live and documented — <c>useGetResourceTimelineQuery</c> has no consumer
+    /// today — and a documented vacuity does not detect an undocumented one.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_consumer_sweep_reads_a_corpus_large_enough_to_hold_a_violation()
+    {
+        int corpus = FrontendSources().Count;
+
+        corpus.ShouldBeGreaterThanOrEqualTo(
+            SmallestPlausibleCorpus,
+            $"the consumer sweep found {corpus} files under apps/*/src, fewer than the "
+            + $"{SmallestPlausibleCorpus} a real front end has. Assertion 1 is then green because it read "
+            + "almost nothing, not because the consumers are correct. Something moved, or the file filter "
+            + "stopped matching — fix the sweep before trusting any row above it.");
     }
 
     /// <summary>
@@ -120,8 +251,13 @@ public class PaginatedConsumerTests
     /// </para>
     ///
     /// <para>
-    /// If it proves awkward in practice it should be removed by a human with a
-    /// stated reason, not quietly.
+    /// It polices a vocabulary, not a mechanism. It catches the obvious move by
+    /// its spelling; an author who names the same thing something else walks
+    /// past it. Three lines is a fair price for making the obvious move loud,
+    /// which is the move an agent under pressure to reach green makes — but it
+    /// is not a proof that no soft edge can be added. If it proves awkward in
+    /// practice it should be removed by a human with a stated reason, not
+    /// quietly.
     /// </para>
     /// </summary>
     [Theory]
@@ -156,30 +292,82 @@ public class PaginatedConsumerTests
         Regex.IsMatch(source, $@"\b{field}\b", RegexOptions.None, TimeSpan.FromSeconds(5));
 
     /// <summary>
-    /// Exported interfaces in the API clients that carry a list field beside a
+    /// Every bounded response the API clients declare, paired with each
+    /// producing endpoint's generated hook, as <c>Type -&gt; useThingQuery</c>
+    /// in ordinal order. A bounded response no endpoint produces is paired with
+    /// <see cref="Unproduced"/> rather than dropped.
+    /// </summary>
+    private static string[] DeclaredBoundedPairs()
+    {
+        string[] clients = ApiClientSources();
+
+        ILookup<string, string> producers = clients
+            .SelectMany(text => QueryDeclaration.Matches(text).AsEnumerable())
+            .ToLookup(
+                match => match.Groups["response"].Value,
+                match => HookFor(match.Groups["endpoint"].Value),
+                StringComparer.Ordinal);
+
+        return BoundedResponses(clients)
+            .SelectMany(type => producers[type].DefaultIfEmpty(Unproduced).Select(hook => $"{type} -> {hook}"))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// RTK Query generates <c>use</c> + the capitalised endpoint name +
+    /// <c>Query</c>. If that convention ever changes, the derived hook stops
+    /// matching the register and assertion 2 says so.
+    /// </summary>
+    private static string HookFor(string endpoint) =>
+        $"use{char.ToUpperInvariant(endpoint[0])}{endpoint[1..]}Query";
+
+    /// <summary>
+    /// Exported shapes in the API clients that carry a list field beside a
     /// boundary field — the offset shape (<c>count</c> with <c>offset</c> /
     /// <c>limit</c>), the gathered shape (<c>count</c> with <c>complete</c>) or
     /// the cursor shape (<c>nextCursor</c>). A bare <c>count</c> does not trip
     /// it.
     /// </summary>
-    private static string[] BoundedResponseInterfaces()
-    {
-        DirectoryInfo root = RepositoryRoot();
-        string directory = Path.Combine(root.FullName, ApiClients);
-
-        return Directory.EnumerateFiles(directory, "*.api.ts", SearchOption.TopDirectoryOnly)
-            .SelectMany(file => InterfaceDeclaration.Matches(File.ReadAllText(file)).AsEnumerable())
+    private static string[] BoundedResponses(string[] clients) =>
+        clients
+            .SelectMany(text => ExportedShape.Matches(text).AsEnumerable())
             .Where(declaration => IsBounded(declaration.Groups["body"].Value))
             .Select(declaration => declaration.Groups["name"].Value)
-            .OrderBy(name => name, StringComparer.Ordinal)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
             .ToArray();
-    }
 
     private static bool IsBounded(string body) =>
         body.Contains("[]", StringComparison.Ordinal)
         && (Mentions(body, "nextCursor")
             || (Mentions(body, "count")
                 && (Mentions(body, "offset") || Mentions(body, "limit") || Mentions(body, "complete"))));
+
+    /// <summary>
+    /// The text of every <c>*.api.ts</c> under <see cref="ApiClients"/>,
+    /// subdirectories included — a client filed one level down is still a
+    /// producer.
+    /// </summary>
+    private static string[] ApiClientSources()
+    {
+        string directory = Path.Combine(RepositoryRoot().FullName, ApiClients);
+
+        return Directory.EnumerateFiles(directory, "*.api.ts", SearchOption.AllDirectories)
+            .OrderBy(file => file, StringComparer.Ordinal)
+            .Select(File.ReadAllText)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Every directory under <c>apps/</c> that is a workspace package. The
+    /// package manifest is what makes it an app; a bare directory is not one.
+    /// </summary>
+    private static string[] AppDirectories() =>
+        Directory.EnumerateDirectories(Path.Combine(RepositoryRoot().FullName, "apps"))
+            .Where(app => File.Exists(Path.Combine(app, "package.json")))
+            .OrderBy(app => app, StringComparer.Ordinal)
+            .ToArray();
 
     /// <summary>
     /// Every TypeScript source under <c>apps/*/src</c> that could consume a
@@ -192,7 +380,7 @@ public class PaginatedConsumerTests
     {
         DirectoryInfo root = RepositoryRoot();
 
-        return Directory.EnumerateDirectories(Path.Combine(root.FullName, "apps"))
+        return AppDirectories()
             .Select(app => Path.Combine(app, "src"))
             .Where(Directory.Exists)
             .SelectMany(src => Directory.EnumerateFiles(src, "*.ts*", SearchOption.AllDirectories))
@@ -207,10 +395,21 @@ public class PaginatedConsumerTests
     private static bool IsConsumerCandidate(string path) =>
         (path.EndsWith(".ts", StringComparison.Ordinal) || path.EndsWith(".tsx", StringComparison.Ordinal))
         && !path.EndsWith(".d.ts", StringComparison.Ordinal)
-        && !path.EndsWith(".test.ts", StringComparison.Ordinal)
-        && !path.EndsWith(".test.tsx", StringComparison.Ordinal)
+        && !IsTest(path)
         && !(path.StartsWith($"{ApiClients}/", StringComparison.Ordinal)
             && path.EndsWith(".api.ts", StringComparison.Ordinal));
+
+    /// <summary>
+    /// Both test conventions in the repository, <c>*.test.ts(x)</c> and the
+    /// single <c>*.spec.ts</c>. Spec 065 says tests are outside the consumer
+    /// sweep; naming only one convention made the document wrong rather than the
+    /// rule stricter.
+    /// </summary>
+    private static bool IsTest(string path) =>
+        path.EndsWith(".test.ts", StringComparison.Ordinal)
+        || path.EndsWith(".test.tsx", StringComparison.Ordinal)
+        || path.EndsWith(".spec.ts", StringComparison.Ordinal)
+        || path.EndsWith(".spec.tsx", StringComparison.Ordinal);
 
     /// <summary>
     /// Forward slashes throughout, and every path comparison in this file is
@@ -221,7 +420,7 @@ public class PaginatedConsumerTests
     /// looks.
     /// </summary>
     private static string RelativePath(DirectoryInfo root, string file) =>
-        Path.GetRelativePath(root.FullName, file).Replace('\\', '/');
+        Path.GetRelativePath(root.FullName, file).Replace(Path.DirectorySeparatorChar, '/');
 
     /// <summary>
     /// Lines that are neither commentary nor attribute metadata — the ones that
@@ -253,4 +452,10 @@ public class PaginatedConsumerTests
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
     }
+
+    /// <summary>
+    /// One register row: the bounded response, the hook that produces it, and
+    /// the field a caller must read to know whether it got everything.
+    /// </summary>
+    private sealed record BoundedResponse(string ResponseType, string Hook, string BoundaryField);
 }
