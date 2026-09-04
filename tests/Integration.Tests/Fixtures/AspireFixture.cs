@@ -339,7 +339,9 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// their own — are dropped rather than reported as failures with no logs.
     /// </para>
     /// </remarks>
-    internal static string[] SelectResourcesToReport(Dictionary<string, string> states) =>
+    internal static string[] SelectResourcesToReport(
+        Dictionary<string, string> states,
+        Dictionary<string, int?> exitCodes) =>
         states
             .Where(kv => !IsHealthy(kv.Key, kv.Value))
             .Select(kv => kv.Key)
@@ -388,7 +390,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             return "(app not built)";
         }
 
-        string[] failed = SelectResourcesToReport(states);
+        string[] failed = SelectResourcesToReport(states, _exitCodes);
 
         if (failed.Length == 0)
         {

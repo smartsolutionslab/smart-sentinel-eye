@@ -18,7 +18,7 @@ public class AspireFixtureReportSelectionTests
             ["camera-catalog"] = "Running",
         };
 
-        AspireFixture.SelectResourcesToReport(states).ShouldBe(["automation"]);
+        AspireFixture.SelectResourcesToReport(states, new(StringComparer.Ordinal)).ShouldBe(["automation"]);
     }
 
     [Fact]
@@ -26,7 +26,7 @@ public class AspireFixtureReportSelectionTests
     {
         Dictionary<string, string> states = new(StringComparer.Ordinal) { ["migrations"] = "Finished" };
 
-        AspireFixture.SelectResourcesToReport(states).ShouldBeEmpty();
+        AspireFixture.SelectResourcesToReport(states, new(StringComparer.Ordinal)).ShouldBeEmpty();
     }
 
     [Fact]
@@ -38,7 +38,7 @@ public class AspireFixtureReportSelectionTests
             ["automation-rebuilder"] = "NotStarted",
         };
 
-        AspireFixture.SelectResourcesToReport(states).ShouldBeEmpty();
+        AspireFixture.SelectResourcesToReport(states, new(StringComparer.Ordinal)).ShouldBeEmpty();
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class AspireFixtureReportSelectionTests
             ["camera-catalog-rebuilder"] = "NotStarted",
         };
 
-        AspireFixture.SelectResourcesToReport(states).ShouldBe(["automation"]);
+        AspireFixture.SelectResourcesToReport(states, new(StringComparer.Ordinal)).ShouldBe(["automation"]);
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class AspireFixtureReportSelectionTests
             ["keycloak"] = "Running",
         };
 
-        AspireFixture.SelectResourcesToReport(states).ShouldBe(["identity"]);
+        AspireFixture.SelectResourcesToReport(states, new(StringComparer.Ordinal)).ShouldBe(["identity"]);
     }
 
     [Fact]
