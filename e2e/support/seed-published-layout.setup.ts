@@ -5,8 +5,9 @@ import { signInAsOperator } from './sign-in';
  * Spec 041 — a published layout for the kiosk to open.
  *
  * The kiosk cannot show a wall until one exists, and an e2e stack has none:
- * `camera-sim` and `scenario-simulator` both sit inside
- * `if (isRunMode && !isE2ETests)`, so CI boots on an empty catalogue.
+ * `ci.yml` boots the stack with `ScenarioSimulator=false`, so `camera-sim` and
+ * `scenario-simulator` are not composed at all and CI starts on an empty
+ * catalogue (#2013).
  *
  * This runs as its own Playwright project that the `kiosk` project depends on,
  * rather than leaning on `layouts.spec.ts` having happened to publish one

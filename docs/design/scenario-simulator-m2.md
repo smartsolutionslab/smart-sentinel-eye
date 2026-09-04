@@ -34,7 +34,8 @@ constitution §IV (latency budget), §III (bounded-context isolation).
 
 ## 1. Goal and "done"
 
-**Goal.** With zero manual setup, `aspire run` (dev, gated `isRunMode && !isE2ETests`) makes the
+**Goal.** With zero manual setup, `aspire run` (dev, gated
+`isRunMode && !isE2ETests && isScenarioSimulatorEnabled`) makes the
 rolling-mill scenario light up end to end: a simulated **billet** travels the line and, as it
 reaches each station, that station's **tile on the single seeded 2×2 rolling-mill wall** visibly
 highlights on the kiosk (overlay-keyed highlight on one screen). The run loops continuously.
@@ -50,8 +51,8 @@ highlights on the kiosk (overlay-keyed highlight on one screen). The run loops c
    ADR-0112's highlight-all-matching semantic.)
 3. Re-running the simulator (worker restart) produces **no duplicate** cameras / overlays / rules /
    layouts (idempotent seeding).
-4. The simulator remains **invisible to CI/E2E/prod** — nothing added here runs under `E2ETests`
-   or in published Helm output.
+4. The simulator remains **invisible to CI/E2E/prod** — nothing added here runs under `E2ETests`,
+   under the end-to-end job's `ScenarioSimulator=false` (#2013), or in published Helm output.
 
 If any of (1)–(4) fails, M2 is not done.
 
@@ -515,7 +516,8 @@ own ADR, and this doc flags it rather than silently inventing the architecture.
 
 **Phase:** 2 (Plan). Produced after the §-1–15 design refresh resolved O1. No code, no issues —
 stops at the Phase-2 gate. Scope is the **dev-only** `src/ScenarioSimulator` worker; **zero**
-CI/E2E/prod surface (gated `isRunMode && !isE2ETests` in `AppHost.cs`, unchanged).
+CI/E2E/prod surface (gated `isRunMode && !isE2ETests && isScenarioSimulatorEnabled` in
+`AppHost.cs`).
 
 ## P1. Bounded-context posture (no new context; HTTP/MQTT only)
 
