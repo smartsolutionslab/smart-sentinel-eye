@@ -39,9 +39,10 @@ public sealed class GetOverlaySnapshotQueryHandler(IReverseIndex reverseIndex, I
 
             // The viewer's fab, not the overlay's: an overlay is a fab-neutral
             // template and what a placeholder is worth belongs to the plant
-            // looking at the screen (ADR-0115). First by fab name where the
-            // caller holds several — arbitrary but stable, and a kiosk holds
-            // exactly one.
+            // looking at the screen (ADR-0115). Where the query named no fab
+            // and the caller holds several, the first by fab name wins —
+            // arbitrary but stable. A caller who needs one plant's answer says
+            // which; the kiosk does, from the wall it displays (ADR-0145).
             Option<Variable> found = await FindInAnyFabAsync(fabs, parsed, cancellationToken);
             if (!found.HasValue)
             {
@@ -65,11 +66,13 @@ public sealed class GetOverlaySnapshotQueryHandler(IReverseIndex reverseIndex, I
     }
 
     /// <summary>
-    /// The first fab, by name, that defines this variable. A kiosk holds
-    /// exactly one fab so the loop resolves on its first iteration; the
-    /// ordering only matters for a multi-fab operator previewing a snapshot,
-    /// where an arbitrary-but-stable answer beats a refusal on a read that
-    /// returns rendered text rather than a row to act on.
+    /// The first fab, by name, that defines this variable. The list is
+    /// whatever the query resolved to: one fab when the caller named one,
+    /// otherwise every fab in its token — which may be several for any
+    /// caller, kiosk included, since a principal's fabs come from its token
+    /// and not from what it is displaying. The ordering makes that case
+    /// arbitrary-but-stable rather than a refusal, on a read that returns
+    /// rendered text rather than a row to act on.
     /// </summary>
     private async Task<Option<Variable>> FindInAnyFabAsync(
         IReadOnlyList<FabIdentifier> fabs, VariableName name, CancellationToken cancellationToken)

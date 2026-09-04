@@ -105,6 +105,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
         ResolvedOverlayTextChangedHubMessage message = new(
             Overlay: notification.Overlay,
+            Fab: notification.Fab,
             ResolvedText: notification.ResolvedText,
             Version: notification.Version);
 
@@ -123,6 +124,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
 
         OverlayHighlightChangedHubMessage message = new(
             Overlay: notification.Overlay,
+            Fab: notification.Fab,
             DurationMs: notification.DurationMs);
 
         await BroadcastAsync(
