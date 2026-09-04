@@ -395,28 +395,47 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         FormatLikelyCause(states, _exitCodes);
 
     /// <summary>
-    /// The line that will answer "what broke?" before the reader has to scan
+    /// The line that answers "what broke?" before the reader has to scan
     /// forty-five state lines for it.
     ///
     /// <para>
-    /// Empty, and both arguments accepted without being consulted — the same
-    /// prelude shape as the signature widening on
-    /// <see cref="SelectResourcesToReport"/>. Today's report claims no cause,
-    /// so returning nothing is what the current behaviour is; this opens the
-    /// seam the assertion needs and changes not one byte of the report.
+    /// The cause of the run that motivated #2061 was printed — once per state
+    /// list, in the same typeface as the forty-four resources that were fine.
+    /// Prominence is not ordering; it is a sentence at the top that names the
+    /// resource. Empty when nothing exited non-zero, so the report never
+    /// claims a cause it does not have.
     /// </para>
     /// </summary>
     internal static string FormatLikelyCause(
         Dictionary<string, string> states,
-        Dictionary<string, int?> exitCodes) => string.Empty;
+        Dictionary<string, int?> exitCodes)
+    {
+        string[] died = states.Keys
+            .Where(name => ExitedNonZero(name, exitCodes))
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        if (died.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        string named = string.Join("; ", died.Select(name => $"{name} exited with code {exitCodes[name]}"));
+
+        return $"Likely cause: {named} — a non-zero exit is a failure, not a clean finish.\n";
+    }
 
     /// <summary>
-    /// One section per selected resource, assembled away from the log
-    /// retrieval that needs a running AppHost — so the report's text is
-    /// assertable at the same Docker-free seam as the selection.
+    /// One section per selected resource, each header saying <i>why</i> that
+    /// resource was selected: its state, its exit code where one exists, and
+    /// which of the two failures it is.
     ///
     /// <para>
-    /// The section headers are the caller's existing ones, unchanged.
+    /// A process that ran and died and a process that never launched both
+    /// arrive here with an empty log, and only the header can tell them apart.
+    /// The fixture already knows the difference — see the snapshot remarks
+    /// above, from #2038 — and until #2061 it did not say so in the report, so
+    /// nine expected empties read as nine failures to collect evidence.
     /// </para>
     /// </summary>
     internal static string FormatFailedResourceReport(
@@ -427,12 +446,24 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         StringBuilder report = new();
         foreach (string name in SelectResourcesToReport(states, exitCodes))
         {
-            report.Append("---- ").Append(name).AppendLine(" ----");
+            report.Append("---- ").Append(name).Append(" (")
+                .Append(DescribeWhySelected(states[name], ExitCodeOf(name, exitCodes)))
+                .AppendLine(") ----");
             report.AppendLine(logs.TryGetValue(name, out string? captured) ? captured : "(no logs captured)");
         }
 
         return report.ToString();
     }
+
+    private static string DescribeWhySelected(string state, int? exitCode) => (state, exitCode) switch
+    {
+        (_, { } code) when code != 0 => $"{state}, exit code {code} — the process ran and died",
+        ("FailedToStart", _) => $"{state} — never launched, so an empty log is expected",
+        _ => state,
+    };
+
+    private static int? ExitCodeOf(string name, Dictionary<string, int?> exitCodes) =>
+        exitCodes.TryGetValue(name, out int? exit) ? exit : null;
 
     /// <summary>
     /// On a startup timeout, dump recent stdout for every resource that did
