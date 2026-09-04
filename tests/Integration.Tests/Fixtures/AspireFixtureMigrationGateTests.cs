@@ -8,6 +8,7 @@ namespace SmartSentinelEye.Integration.Tests.Fixtures;
 /// it finished. Pure decision logic, so these run without Docker or the
 /// fixture, alongside <see cref="AspireFixtureReportSelectionTests"/>.
 /// </summary>
+[Trait("Category", "FixtureLogic")]
 public class AspireFixtureMigrationGateTests
 {
     [Fact]

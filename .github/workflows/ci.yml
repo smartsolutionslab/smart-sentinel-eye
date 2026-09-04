@@ -51,19 +51,25 @@ jobs:
       - name: Build (Release)
         run: dotnet build SmartSentinelEye.slnx -c Release --no-restore
 
-      # The fixture's report-selection logic is pure and needs no Docker, but
-      # it lives in Integration.Tests, which coverage-check.ps1 excludes by
-      # project name — so this job compiled these tests and never ran them, and
-      # their only execution was the 30-minute `integration` job. Runs here,
-      # against the assembly the Release build above already produced. The
-      # exclusion in coverage-check.ps1 stays: it exists to keep Docker-bound
-      # tests out of the coverage run, not to hide this class.
-      - name: Fixture report-selection tests (no Docker)
+      # The fixture's pure decision logic needs no Docker, but it lives in
+      # Integration.Tests, which coverage-check.ps1 excludes by project name —
+      # so this job compiled these tests and never ran them, and their only
+      # execution was the 30-minute `integration` job. Runs here, against the
+      # assembly the Release build above already produced. The exclusion in
+      # coverage-check.ps1 stays: it exists to keep Docker-bound tests out of
+      # the coverage run, not to hide these classes.
+      #
+      # Selected by trait, not by class name. The name filter this replaced read
+      # `~AspireFixtureReportSelectionTests`, and the very next Docker-free class
+      # — AspireFixtureMigrationGateTests — did not match it, recreating the
+      # omission this step exists to remove (#2064). A trait is the one selector
+      # a new class cannot silently fall outside of.
+      - name: Docker-free fixture logic tests
         run: |
           dotnet test tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj \
             -c Release \
             --no-build \
-            --filter "FullyQualifiedName~AspireFixtureReportSelectionTests"
+            --filter "Category=FixtureLogic"
 
       # Single test pass: coverage-check runs the unit + architecture tests once
       # (with coverage + a .trx), reusing the build above via -NoBuild, and

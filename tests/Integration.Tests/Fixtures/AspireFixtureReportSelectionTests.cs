@@ -6,7 +6,15 @@ namespace SmartSentinelEye.Integration.Tests.Fixtures;
 /// <summary>
 /// #1918 — the startup-timeout report has to name the resource that failed.
 /// Pure decision logic, so these run without Docker or the fixture.
+///
+/// <para>
+/// The trait is how `backend` selects these (ci.yml) rather than leaving them
+/// to the 30-minute `integration` job. It is a trait and not a name filter
+/// because a name filter has to be extended for every new class, and the next
+/// one was missed the day it was written (#2064).
+/// </para>
 /// </summary>
+[Trait("Category", "FixtureLogic")]
 public class AspireFixtureReportSelectionTests
 {
     [Fact]
