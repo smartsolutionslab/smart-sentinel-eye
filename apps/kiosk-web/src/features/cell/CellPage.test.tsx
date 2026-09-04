@@ -656,9 +656,22 @@ describe('CellPage', () => {
      * hook that returns a canned value: it would assert the mock, not the
      * dispatch. This reads the same store the page dispatches into.
      */
-    function useSnapshotFromTheRealCache(overlayIdentifier: string) {
-      return useSelector(systemVariablesApi.endpoints.getOverlaySnapshot.select(overlayIdentifier));
+    function useSnapshotFromTheRealCache(overlayIdentifier: string, options?: { skip?: boolean }) {
+      // Hoisted above the branch: a conditional hook call would be a second
+      // bug, not a fix. `skip` is honoured because the production call site
+      // passes it, and a fake that ignores it cannot tell a skipped query from
+      // a fetched one — which is what made the placeholder comment below a
+      // claim about production rather than about this test.
+      const cached = useSelector(systemVariablesApi.endpoints.getOverlaySnapshot.select(overlayIdentifier));
+      return options?.skip === true ? { data: undefined, isLoading: false } : cached;
     }
+
+    afterEach(() => {
+      // `store` is the imported app singleton, so an upserted cache entry
+      // outlives this describe block. Harmless while this is the last one;
+      // a trap for whoever appends the next.
+      store.dispatch(systemVariablesApi.util.resetApiState());
+    });
 
     it('Renders the text a ResolvedOverlayTextChanged frame carries, without a re-fetch', async () => {
       getSnapshotMock.mockImplementation(useSnapshotFromTheRealCache);
