@@ -31,7 +31,14 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 /// carries the new value. That spans the value write, the domain event, the
 /// reverse-index lookup and the resolve — the whole of the leg that lives in
 /// this context. It excludes the SignalR hop to the kiosk, which
-/// <c>OverlayPushIntegrationTests</c> covers separately.
+/// <c>ResolvedTextReachesItsFabTests</c> covers separately.
+/// </para>
+///
+/// <para>
+/// That sentence used to name <c>OverlayPushIntegrationTests</c>, which covers
+/// a different frame, from a different context, on a different trigger. The
+/// resolved-text hop was covered by nothing at all, and a cross-reference that
+/// made a gap look closed is part of why #2012 survived (spec 063 FR-008).
 /// </para>
 ///
 /// <para>
