@@ -150,4 +150,120 @@ public class AspireFixtureReportSelectionTests
 
         AspireFixture.SelectResourcesToReport(states, exitCodes).ShouldContain("migrations");
     }
+
+    [Fact]
+    public void The_report_names_the_one_shot_that_exited_and_its_code()
+    {
+        // Run 33623647778's failed-resource section listed nine services and
+        // omitted `migrations`, which had exited 134. The section whose whole
+        // job is to say which resource broke did not contain the one that did.
+        string report = AspireFixture.FormatFailedResourceReport(
+            StatesFromTheRunThatMotivatedThis(),
+            ExitCodesFromTheRunThatMotivatedThis(),
+            new(StringComparer.Ordinal));
+
+        report.ShouldContain("migrations (Finished, exit code 134");
+    }
+
+    [Fact]
+    public void A_resource_that_ran_and_died_is_distinguishable_from_one_that_never_launched()
+    {
+        string report = AspireFixture.FormatFailedResourceReport(
+            StatesFromTheRunThatMotivatedThis(),
+            ExitCodesFromTheRunThatMotivatedThis(),
+            new(StringComparer.Ordinal));
+
+        report.ShouldContain("ran and died");
+        report.ShouldContain("audit-observability (FailedToStart");
+        report.ShouldContain("never launched");
+        report.ShouldNotContain("audit-observability (FailedToStart, exit code");
+    }
+
+    [Fact]
+    public void The_report_names_a_likely_cause_when_a_resource_exited_non_zero()
+    {
+        string cause = AspireFixture.FormatLikelyCause(
+            StatesFromTheRunThatMotivatedThis(),
+            ExitCodesFromTheRunThatMotivatedThis());
+
+        cause.ShouldContain("migrations");
+        cause.ShouldContain("exited");
+        cause.ShouldContain("134");
+    }
+
+    [Fact]
+    public void No_cause_is_claimed_when_the_one_shot_exited_cleanly()
+    {
+        // #1918's case. Finishing with 0 is how a one-shot succeeds, so there
+        // is nothing to name and the report must not invent a suspect.
+        Dictionary<string, int?> exitCodes = new(StringComparer.Ordinal) { ["migrations"] = 0 };
+
+        AspireFixture.FormatLikelyCause(StatesFromTheRunThatMotivatedThis(), exitCodes).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void No_cause_is_claimed_when_no_resource_states_were_captured()
+    {
+        AspireFixture.FormatLikelyCause(
+            new(StringComparer.Ordinal),
+            new(StringComparer.Ordinal)).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Idle_rebuilders_stay_out_of_the_failed_resource_report()
+    {
+        string report = AspireFixture.FormatFailedResourceReport(
+            StatesFromTheRunThatMotivatedThis(),
+            ExitCodesFromTheRunThatMotivatedThis(),
+            new(StringComparer.Ordinal));
+
+        report.ShouldNotContain("-rebuilder");
+    }
+
+    private static Dictionary<string, string> StatesFromTheRunThatMotivatedThis() =>
+        new(StringComparer.Ordinal)
+        {
+            ["audit-observability"] = "FailedToStart",
+            ["automation"] = "FailedToStart",
+            ["camera-catalog"] = "FailedToStart",
+            ["event-ingestion"] = "FailedToStart",
+            ["identity"] = "FailedToStart",
+            ["layout-composition"] = "FailedToStart",
+            ["overlay-designer"] = "FailedToStart",
+            ["stream-distribution"] = "FailedToStart",
+            ["system-variables"] = "FailedToStart",
+
+            ["migrations"] = "Finished",
+
+            ["api-gateway-rebuilder"] = "NotStarted",
+            ["audit-observability-rebuilder"] = "NotStarted",
+            ["automation-rebuilder"] = "NotStarted",
+            ["camera-catalog-rebuilder"] = "NotStarted",
+            ["event-ingestion-rebuilder"] = "NotStarted",
+            ["identity-rebuilder"] = "NotStarted",
+            ["layout-composition-rebuilder"] = "NotStarted",
+            ["migrations-rebuilder"] = "NotStarted",
+            ["overlay-designer-rebuilder"] = "NotStarted",
+            ["stream-distribution-rebuilder"] = "NotStarted",
+            ["system-variables-rebuilder"] = "NotStarted",
+
+            ["api-gateway"] = "Running",
+            ["audit-db"] = "Running",
+            ["automation-db"] = "Running",
+            ["camera-catalog-db"] = "Running",
+            ["event-ingestion-db"] = "Running",
+            ["fixture-video"] = "Running",
+            ["identity-db"] = "Running",
+            ["keycloak"] = "Running",
+            ["layout-composition-db"] = "Running",
+            ["mediamtx"] = "Running",
+            ["overlay-designer-db"] = "Running",
+            ["postgres"] = "Running",
+            ["rabbitmq"] = "Running",
+            ["stream-distribution-db"] = "Running",
+            ["system-variables-db"] = "Running",
+        };
+
+    private static Dictionary<string, int?> ExitCodesFromTheRunThatMotivatedThis() =>
+        new(StringComparer.Ordinal) { ["migrations"] = 134 };
 }
