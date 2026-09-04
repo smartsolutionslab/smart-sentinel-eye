@@ -186,11 +186,26 @@ parameter names on the new factories even though the properties are `X`/`Y`.
 {value}."`. `InRange` cannot express an exclusive lower bound, so this becomes
 `Satisfies`, whose format is `$"{parameter}: {message}"` — a colon where the
 original had a space. The message therefore changes for the two extents unless
-the engineer accepts the colon. **Ruling: accept the colon.** Nothing asserts
-the string; it reaches a caller only as the `detail` of a `400` whose `title`
+the engineer accepts the colon. **Ruling: accept the colon, and nothing else.**
+It reaches a caller only as the `detail` of a `400` whose `title`
 (`OVERLAY_INVALID_INPUT`) and status are the contract. This is declared here
-rather than discovered at review, and it is the single observable difference
-this feature produces.
+rather than discovered at review.
+
+**The colon is the whole of the licence.** `Satisfies` appends nothing of its
+own, so the `; got {value}.` tail `InRange` supplies must be written into the
+`message` argument by hand:
+
+```csharp
+Ensure.That(normalizedWidth).Satisfies(
+    value => value is > 0m and <= 1m, $"must be in (0, 1]; got {normalizedWidth}.");
+```
+
+Spelling it out because the first implementation did not, and passed
+`"must be in (0, 1]."`. A caller who sent `1.4` was then told the valid
+interval but not what they sent — a second, undeclared difference, caught in
+phase 5 by asking the running system rather than by any test: the extent cases
+asserted only the parameter name and the interval, which the degraded message
+still satisfied. Both are now pinned character-for-character.
 
 `GridDimensions.From` already uses `Satisfies` for its cell cap, so the shape
 is not new.
@@ -214,6 +229,21 @@ The character-for-character claim above is now a test rather than a reading:
 `EnsureTests.Decimal_InRange_names_the_parameter_and_the_interval` pins
 `"normalizedY must be in [0, 1]; got 2. (Parameter 'normalizedY')"`, which is
 the string `OverlayGeometryValidationIntegrationTests` asserts off the `400`.
+
+**Amended 2026-09-04 (phase 6): guard order changes, and stays changed.** This
+section asked what each message says and never asked which one a
+multiply-invalid request gets. `NormalizedPosition.From(...)` and
+`NormalizedSize.From(...)` are argument expressions to `Label.From`, so they
+run before its body: text → X → Y → W → H → font size becomes X → Y → W → H →
+text → font size. A body with a blank `text` **and** `normalizedX: 2` now
+reports the coordinate rather than the text.
+
+**Ruling: accept the new order.** Restoring the old one means validating the
+text outside `Label.From` — duplicating an aggregate guard in two endpoints to
+preserve which of two simultaneous errors is reported first. Each individual
+verdict and message is unchanged; only the tie-break moves. Recorded in
+spec.md's US2 preamble and FR-007a so it is a declared difference like the
+colon, not an undeclared one.
 
 ---
 
