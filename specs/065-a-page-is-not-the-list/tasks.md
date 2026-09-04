@@ -23,8 +23,13 @@ inventing more would be a fan-out the orchestrator cannot actually take.
 
 - **[T001]** `[Story 1]` Create `tests/Architecture.Tests/PaginatedConsumerTests.cs`
   with the class, the file-reading helper (mirroring the relative-path helper in
-  `OverlayFrameClaimTests`), and the register as `[Theory]` `InlineData` — the
-  three rows in plan.md §The register. No assertions yet.
+  `OverlayFrameClaimTests`), and the register — the rows in plan.md §The
+  register. No assertions yet.
+
+  The register is one array of *(response type, hook, boundary field)* triples,
+  fed to the consumer sweep through `[MemberData]`. It was `[InlineData]` rows
+  plus a separate array of type names until phase 6 found the two halves were
+  never joined; see T004.
 
   *Done when*: the file compiles and the suite runs with the new class present and
   no test bodies. Establishes the shared surface every later task edits, so
@@ -38,7 +43,8 @@ inventing more would be a fan-out the orchestrator cannot actually take.
 
 - **[T002]** `[Story 1]` Implement the consumer sweep: for a given hook name,
   enumerate files under `apps/*/src` and `apps/shared/src` naming that hook,
-  excluding `*.test.ts`, `*.test.tsx`, and `apps/shared/src/api/*.api.ts`.
+  excluding tests under both repository conventions — `*.test.ts(x)` **and**
+  `*.spec.ts(x)` — and `apps/shared/src/api/*.api.ts`.
 
   *Done when*: for `useListCamerasQuery` it returns exactly
   `apps/management-web/src/features/cameras/CamerasPage.tsx`; for
@@ -56,17 +62,45 @@ inventing more would be a fan-out the orchestrator cannot actually take.
 
 ### Assertion 2 — the register is complete
 
-- **[T004]** `[Story 1]` Assert that every exported interface in
-  `apps/shared/src/api/*.api.ts` carrying a bounded shape — a list field with
-  `count` **and** `offset`/`limit`, or a list field with `nextCursor` — appears in
-  the register.
+- **[T004]** `[Story 1]` Assert that every exported object shape in
+  `apps/shared/src/api/**/*.api.ts` carrying a bounded shape appears in the
+  register, **paired with the hook that produces it**.
 
-  *Done when*: green today (finds exactly `CameraListPage`, `CameraChoices`,
-  `AuditPage`); and, with a throwaway fourth interface pasted into a scratch
-  `*.api.ts`, red — then the scratch file is deleted.
+  Bounded means a list field beside a boundary field, in one of **three** shapes:
+  `count` with `offset`/`limit` (offset), `count` with `complete` (gathered), or
+  `nextCursor` (cursor). The gathered arm was **added at implementation**: this
+  task originally stated a two-shape rule that excluded `CameraChoices` while its
+  own *Done when* required `CameraChoices` be found. Both `export interface X {`
+  and `export type X = {` are read, and subdirectories are searched.
+
+  The pairing was **added in phase 6**. Comparing bare type names left the
+  register's two halves unjoined: a new bounded contract could be silenced by
+  adding its type name alone, gaining no consumer-sweep row and leaving every
+  caller of its hook unchecked while the build went green. The hook is derived
+  from the producing `build.query<TResponse, …>` declaration by RTK Query's own
+  convention, so it cannot be supplied by hand to make the comparison agree.
+
+  *Done when*: green today (finds exactly `AuditPage -> useGetResourceTimelineQuery`,
+  `AuditPage -> useSearchAuditQuery`, `CameraChoices -> useListAllCameraChoicesQuery`,
+  `CameraListPage -> useListCamerasQuery`); and, with a throwaway bounded type and
+  its endpoint pasted into a scratch `*.api.ts`, red — then the scratch file is
+  deleted.
 
   *Depends on*: T001. Independent of T002/T003 in logic but shares the file, so
   **not** `[P]`.
+
+- **[T004a]** `[Story 1]` Assert the consumer sweep has a corpus: every directory
+  under `apps/` with a `package.json` has a `src/`, and the corpus holds at least
+  40 files.
+
+  Added in phase 6. Without it the sweep enumerates `apps/*/src`, keeps whatever
+  it finds including nothing, and every row of T003 passes vacuously and
+  permanently if an app is restructured — a green suite guarding an empty set.
+
+  *Done when*: green today (three apps resolve; corpus is 84 files); and red with
+  the bound raised above the real count.
+
+  *Depends on*: T001. Shares the file, so **not** `[P]`.
 
 ### Assertion 3 — no exception mechanism
 
