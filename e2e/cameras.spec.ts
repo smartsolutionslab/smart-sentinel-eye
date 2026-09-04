@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
+import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // ADR-0108 — cameras vertical slice against the live Aspire stack. An operator
 // signs in through the real Keycloak login, then the management Cameras page
@@ -16,6 +17,8 @@ test('operator signs in and the cameras list loads through the gateway', async (
 });
 
 test('operator registers a camera and it appears in the list', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
   await signInAsOperator(page);
 
   // POST /camera-catalog/cameras (Bearer; sse.management grandfathers
@@ -28,7 +31,7 @@ test('operator registers a camera and it appears in the list', async ({ page }) 
   await page.getByRole('button', { name: /^register$/i }).click();
 
   // The dialog closes and the newly registered camera shows up in the table.
-  await expect(page.getByRole('cell', { name })).toBeVisible();
+  await expect(page.getByRole('cell', { name })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 });
 
 // Spec 015 T029 — the fab half of the cameras surface.
@@ -41,6 +44,8 @@ test('operator registers a camera and it appears in the list', async ({ page }) 
 // resolution.
 test.describe('cameras — fab scoping', () => {
   test('operator registers a camera and it lands in their own fab without naming it', async ({ page }) => {
+    test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
     await signInAsOperator(page);
 
     await page.getByRole('button', { name: /register camera/i }).click();
@@ -57,7 +62,7 @@ test.describe('cameras — fab scoping', () => {
     // The row carries the fab, so a multi-fab operator could tell two
     // same-named rows apart — the gap #1303 was for rules.
     const row = page.getByRole('row').filter({ hasText: name });
-    await expect(row).toBeVisible();
+    await expect(row).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
     await expect(row).toContainText('munich');
   });
 });

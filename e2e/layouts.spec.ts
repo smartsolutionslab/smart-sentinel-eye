@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
+import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // ADR-0108 — layouts "read" vertical slice. An operator signs in, opens the
 // Layouts surface, and the list loads from the layout-composition service
@@ -28,6 +29,8 @@ test('operator opens layouts and the list loads through the gateway', async ({ p
 // sse.management grandfathers sse.layouts.write), plus the
 // cross-context reads the dialog depends on.
 test('operator authors a 2×2 wall referencing a camera and overlay and it appears in the list', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
   await signInAsOperator(page);
 
   const stamp = Date.now();
@@ -41,7 +44,7 @@ test('operator authors a 2×2 wall referencing a camera and overlay and it appea
   await page.locator('#register-camera-name').fill(cameraName);
   await page.locator('#register-camera-url').fill('rtsp://10.0.5.50/stream');
   await page.getByRole('button', { name: /^register$/i }).click();
-  await expect(page.getByRole('cell', { name: cameraName })).toBeVisible();
+  await expect(page.getByRole('cell', { name: cameraName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
   // (2) Create an overlay draft, then publish it: the layout dialog only lists
   // *published* overlays (useListOverlaysQuery('Published')).
@@ -53,9 +56,11 @@ test('operator authors a 2×2 wall referencing a camera and overlay and it appea
 
   // Publish from the newly created overlay's card so it becomes selectable.
   const overlayCard = page.getByRole('listitem').filter({ hasText: overlayName });
-  await expect(overlayCard.getByRole('heading', { name: overlayName })).toBeVisible();
+  await expect(overlayCard.getByRole('heading', { name: overlayName })).toBeVisible({
+    timeout: FIRST_WRITE_TIMEOUT_MS,
+  });
   await overlayCard.getByRole('button', { name: /^publish$/i }).click();
-  await expect(overlayCard.getByText(/Published/)).toBeVisible();
+  await expect(overlayCard.getByText(/Published/)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
   // (3) Open Layouts and create a draft referencing the camera and overlay.
   await page.getByRole('link', { name: /^layouts$/i }).click();
@@ -74,7 +79,7 @@ test('operator authors a 2×2 wall referencing a camera and overlay and it appea
   await page.getByRole('button', { name: /save as draft/i }).click();
 
   // The dialog closes and the new layout chain renders as an <h2>.
-  await expect(page.getByRole('heading', { name: layoutName })).toBeVisible();
+  await expect(page.getByRole('heading', { name: layoutName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 });
 
 // Spec 012 T054 — the lost update, end to end, against the real stack.
@@ -90,6 +95,8 @@ test('operator authors a 2×2 wall referencing a camera and overlay and it appea
 // guards: an assertion on the *absence* of a conflict here would have passed
 // on the broken build, so the test asserts the conflict is surfaced.
 test('a second operator publishing the same revision is refused, not silently applied', async ({ browser }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
   const stamp = Date.now();
   const cameraName = `E2E Race Cam ${stamp}`;
   const layoutName = `E2E Race Layout ${stamp}`;
@@ -106,14 +113,14 @@ test('a second operator publishing the same revision is refused, not silently ap
     await pageOne.locator('#register-camera-name').fill(cameraName);
     await pageOne.locator('#register-camera-url').fill('rtsp://10.0.5.60/stream');
     await pageOne.getByRole('button', { name: /^register$/i }).click();
-    await expect(pageOne.getByRole('cell', { name: cameraName })).toBeVisible();
+    await expect(pageOne.getByRole('cell', { name: cameraName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
     await pageOne.getByRole('link', { name: /^layouts$/i }).click();
     await pageOne.getByRole('button', { name: /new layout/i }).click();
     await pageOne.locator('#layout-name').fill(layoutName);
     await pageOne.locator('#tile-0-camera').selectOption({ label: cameraName });
     await pageOne.getByRole('button', { name: /save as draft/i }).click();
-    await expect(pageOne.getByRole('heading', { name: layoutName })).toBeVisible();
+    await expect(pageOne.getByRole('heading', { name: layoutName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
     // The second context loads the list *now*, so it holds the same version the
     // first one does. This ordering is the whole test — loading it after the
@@ -127,7 +134,7 @@ test('a second operator publishing the same revision is refused, not silently ap
     // First writer wins.
     const rowOne = pageOne.getByRole('listitem').filter({ hasText: layoutName });
     await rowOne.getByRole('button', { name: /^publish$/i }).click();
-    await expect(rowOne.getByText(/Published/)).toBeVisible();
+    await expect(rowOne.getByText(/Published/)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
     // Second writer is acting on the version it read before that publish.
     await rowTwo.getByRole('button', { name: /^publish$/i }).click();
