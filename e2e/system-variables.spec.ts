@@ -5,8 +5,10 @@ import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/c
 // Spec 066 / #2014 — how long the injected-delay test below holds the define
 // `POST`. 20 s is chosen against both `expect` budgets in `playwright.config.ts`:
 // above the 15 s local default and below CI's 30 s, so the same test says the
-// same thing in both places, and well below the 60 s per-test timeout so the
-// failure is an *assertion* timeout rather than a test timeout.
+// same thing in both places. The red it produced was an *assertion* timeout, not
+// a test timeout, and it stays that way: 20 s sits far inside the test's
+// ceiling, whether that is the config's 60 s (as when the red was observed) or
+// FIRST_WRITE_TEST_TIMEOUT_MS (as now).
 const SLOW_WRITE_DELAY_MS = 20_000;
 
 // ADR-0108 — system-variables "read" vertical slice. An operator signs in, opens
@@ -106,6 +108,8 @@ test('operator sets a variable value and the new value is reflected in the list'
 // SLOW_WRITE_DELAY_MS: the write succeeds, it is merely late, and the assertion
 // gives up before it lands.
 test('a define the service is slow to answer still appears in the list', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
   await signInAsOperator(page);
 
   // **Only the POST.** The list `GET` is the *same* URL — `systemVariables.api.ts`
@@ -135,9 +139,10 @@ test('a define the service is slow to answer still appears in the list', async (
   await page.locator('#variable-name').fill(name);
   await page.getByRole('button', { name: /^define$/i }).click();
 
-  // No explicit timeout — the shape every write assertion in this file uses
-  // today, and the reason a late-but-successful write reads as a product
-  // failure.
+  // The budget, and above it the ceiling without which the budget is decoration.
+  // Before the fix this assertion carried no timeout — the shape every write
+  // assertion in this file had — and gave up at 15 s on a write that was merely
+  // 20 s late, which is a successful write reported as a product failure.
   await expect(page.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 });
 
