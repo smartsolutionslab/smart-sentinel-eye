@@ -31,7 +31,9 @@ describe('getOverlaySnapshot cache tags (spec 011 FR-008)', () => {
     vi.stubGlobal('fetch', fetchMock);
     const store = createStore();
 
-    await store.dispatch(systemVariablesApi.endpoints.getOverlaySnapshot.initiate('ovl-1'));
+    await store.dispatch(
+      systemVariablesApi.endpoints.getOverlaySnapshot.initiate({ overlayIdentifier: 'ovl-1', fabId: 'munich' }),
+    );
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     store.dispatch(systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: 'ALL' }]));
@@ -46,7 +48,9 @@ describe('getOverlaySnapshot cache tags (spec 011 FR-008)', () => {
     vi.stubGlobal('fetch', fetchMock);
     const store = createStore();
 
-    await store.dispatch(systemVariablesApi.endpoints.getOverlaySnapshot.initiate('ovl-1'));
+    await store.dispatch(
+      systemVariablesApi.endpoints.getOverlaySnapshot.initiate({ overlayIdentifier: 'ovl-1', fabId: 'munich' }),
+    );
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     store.dispatch(systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: 'ovl-1' }]));

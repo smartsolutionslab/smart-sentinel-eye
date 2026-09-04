@@ -58,6 +58,13 @@ export function CellPage() {
   const published = data?.revisions.find((revision) => revision.state === 'Published');
   const tiles = published?.tiles ?? [];
 
+  // ADR-0145: the wall's fab is *derived* from the layout it displays — never
+  // chosen, never inferred from the token, never held as session state. It is
+  // both the fab the opening label resolves in and the fab a pushed frame has
+  // to carry to be applied. `''` only while the layout is still loading, when
+  // no tile is rendered and nothing reads it.
+  const wallFab = data?.fab ?? '';
+
   // Spec 045: the wall's playout control loop. Only this page sees every tile,
   // which is why the decision lives here and the actuation lives in the tile.
   // Below two tiles it does nothing and sets nothing (FR-004).
@@ -144,12 +151,21 @@ export function CellPage() {
       versions.set(message.overlay, message.version);
       // Patch the snapshot cache in place so the bound tile re-renders
       // without a full re-fetch (spec 005 variable push).
+      //
+      // The first argument is the endpoint's cache key and must be identical
+      // to the one the tile queries with below, `wallFab` included: disagree
+      // and this writes an entry nothing reads, leaving the tile silently
+      // stale instead of wrong (spec 067 plan, Risk 1).
       dispatch(
-        systemVariablesApi.util.upsertQueryData('getOverlaySnapshot', message.overlay, {
-          overlayIdentifier: message.overlay,
-          resolvedText: message.resolvedText,
-          version: message.version,
-        }),
+        systemVariablesApi.util.upsertQueryData(
+          'getOverlaySnapshot',
+          { overlayIdentifier: message.overlay, fabId: wallFab },
+          {
+            overlayIdentifier: message.overlay,
+            resolvedText: message.resolvedText,
+            version: message.version,
+          },
+        ),
       );
     },
     onOverlayHighlightChanged: (message) => {
@@ -211,6 +227,7 @@ export function CellPage() {
             <Tile
               key={cell.key}
               tile={cell.tile}
+              fab={wallFab}
               getToken={getToken}
               unavailable={cell.tile.overlayIdentifier !== null && unavailableOverlays.has(cell.tile.overlayIdentifier)}
               highlighted={cell.tile.overlayIdentifier !== null && highlightedOverlays.has(cell.tile.overlayIdentifier)}
@@ -229,6 +246,8 @@ export function CellPage() {
 
 interface TileProps {
   tile: LayoutTile;
+  /** The wall's fab, so this tile's label resolves in that plant (ADR-0145). */
+  fab: string;
   getToken: () => Promise<string | null>;
   /** The bound overlay went Archived (spec 004 path, applied per tile). */
   unavailable: boolean;
@@ -256,6 +275,7 @@ interface TileProps {
  */
 function Tile({
   tile,
+  fab,
   getToken,
   unavailable,
   highlighted,
@@ -280,9 +300,14 @@ function Tile({
   // (avoids the console noise + a pointless round-trip); the resolved-text
   // SignalR push still upserts the cache for overlays that do use variables.
   const hasPlaceholder = publishedOverlay?.text?.includes('{{') ?? false;
-  const { data: snapshot } = useGetOverlaySnapshotQuery(overlayIdentifier ?? '', {
-    skip: overlayIdentifier === null || !hasPlaceholder,
-  });
+  // Naming the fab is what makes the opening label resolve in the plant this
+  // wall shows rather than in whichever of the caller's fabs sorts first
+  // (ADR-0145 §2). Same object shape as the push's `upsertQueryData` above —
+  // it is the cache key they share.
+  const { data: snapshot } = useGetOverlaySnapshotQuery(
+    { overlayIdentifier: overlayIdentifier ?? '', fabId: fab },
+    { skip: overlayIdentifier === null || !hasPlaceholder },
+  );
 
   // Prefer the SystemVariables-resolved text over the raw label so any
   // `{{name}}` placeholders show their live values; fall back to the raw
