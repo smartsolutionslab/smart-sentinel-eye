@@ -42,18 +42,36 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 /// </para>
 ///
 /// <para>
-/// <b>Which test is red before the fix, and which is not.</b> Only
-/// <see cref="A_value_change_reaches_a_hub_client_in_the_fab_it_changed_in"/>
-/// is red today. The two negative tests
-/// (<see cref="A_munich_value_change_reaches_no_dresden_connection"/> and
-/// <see cref="A_refused_value_change_pushes_no_frame_to_anyone"/>) <b>pass
-/// today for the wrong reason</b>: nothing is sent to anyone at all, so "not to
-/// dresden" and "not to anybody" are trivially true. They are written down
-/// anyway, and this paragraph with them, so that a later reader does not
-/// mistake their green for coverage that existed before the fix. They become
-/// real assertions the moment the producer starts stamping the fab — and they
-/// are the assertions that would catch the wrong fix, which is broadcasting to
-/// everyone when the fab is missing (ADR-0115, spec 017 FR-015).
+/// <b>Which tests were red before the fix.</b> Every test here that awaits a
+/// frame, because before the fix no frame was sent at all:
+/// <see cref="A_value_change_reaches_a_hub_client_in_the_fab_it_changed_in"/>,
+/// <see cref="Successive_value_changes_carry_strictly_increasing_versions"/>,
+/// and the positive half of
+/// <see cref="A_munich_value_change_reaches_munich_and_not_dresden"/>.
+/// </para>
+///
+/// <para>
+/// <b>Why the fab assertion is not its own test.</b> On a trigger of its own,
+/// "no dresden frame" is trivially true whenever nothing is sent to anyone —
+/// it would pass against the defect, and against a broadcaster that had
+/// stopped working entirely. Holding both connections over <b>one</b> write
+/// makes the munich arrival the positive control for the dresden silence, so
+/// the two cannot disagree about timing. That is the shape
+/// <c>OverlayFrameFabScopingIntegrationTests</c> uses, and citing that file as
+/// precedent while splitting the directions across two triggers was the defect
+/// this file carried.
+/// </para>
+///
+/// <para>
+/// <see cref="A_refused_value_change_pushes_no_frame_to_anyone"/> keeps that
+/// weakness by necessity: a refused write produces no frame anywhere, so there
+/// is nothing to control against and its 400 is the only positive signal
+/// available. It was green before the fix for the wrong reason — nothing was
+/// sent to anyone, so "not to anybody" was free — and is written down anyway,
+/// so a later reader does not mistake its green for coverage that predates the
+/// fix. It, with the scoping test above, is what would catch the wrong fix:
+/// broadcasting to everyone when the fab is missing (ADR-0115, spec 017
+/// FR-015).
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
@@ -68,6 +86,20 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     /// slow rather than as a dropped frame.
     /// </summary>
     private static readonly TimeSpan FrameWindow = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    /// The ceiling the push leg is asserted against — <b>not</b> the 200 ms
+    /// budget, which this instrument cannot read (cold JIT, container
+    /// scheduling, shared CI). Phase 5 measured this exact server-side leg at
+    /// <b>555 ms and 758 ms on a cold stack</b>, so 5 s sits roughly 6.6x above
+    /// the worst figure anyone has observed and four times below
+    /// <see cref="FrameWindow"/>. Both margins are deliberate: a bound at
+    /// <see cref="FrameWindow"/> would assert nothing at all, because the wait
+    /// has already ended by then, and a bound near the observed figures
+    /// (800 ms, as the sibling NFR test uses for a different instrument) would
+    /// flake on a cold stack and be deleted by the next person.
+    /// </summary>
+    private const long PushCeilingMs = 5_000;
 
     /// <summary>
     /// How long to wait before concluding a frame is not coming. Same constant
@@ -120,27 +152,35 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
             (await VariableRequests.SetValueAsync(variables, variableName, "82.5")).EnsureSuccessStatusCode();
 
             // The clock starts when the write returns, so the figure is the
-            // push leg and not the write.
+            // push leg and not the write. The window is cancelled as soon as
+            // the race is decided, so a won race does not leave a 20 s timer
+            // ticking behind every run of this file.
+            using CancellationTokenSource window = new();
             Stopwatch stopwatch = Stopwatch.StartNew();
-            await Task.WhenAny(arrival, Task.Delay(FrameWindow));
+            await Task.WhenAny(arrival, Task.Delay(FrameWindow, window.Token));
             stopwatch.Stop();
+            await window.CancelAsync();
 
             arrival.IsCompletedSuccessfully.ShouldBeTrue(NoFrameDiagnostic);
 
             ResolvedFrame frame = await arrival;
             frame.ResolvedText.ShouldBe("Line 1: 82.5");
 
-            // The artefact. The assertion below is an order-of-magnitude
-            // regression guard, not the budget: this instrument includes a cold
-            // JIT and container scheduling on shared CI, so a bound at 200 ms
-            // would police the budget with a ruler that cannot read it.
+            // A frame the kiosk would discard is not a delivered frame: the
+            // drop guard in `CellPage.tsx` compares against `?? 0`, so a
+            // version 0 never reaches a tile. Monotonicity across writes is
+            // asserted by Successive_value_changes_carry_strictly_increasing_versions.
+            frame.Version.ShouldBeGreaterThan(0);
+
+            // The artefact. See PushCeilingMs for why the assertion below is a
+            // regression ceiling rather than the budget.
             Console.WriteLine(
                 $"[#2012 §IV event -> overlay state] value write returned -> ResolvedOverlayTextChanged "
                 + $"frame on a subscribed munich hub client: {stopwatch.ElapsedMilliseconds} ms "
-                + $"(budget 200 ms; server-side only — excludes the browser, the React re-render "
-                + $"and the ADR-0129 label hold)");
+                + $"(budget 200 ms; asserted ceiling {PushCeilingMs} ms; server-side only — excludes "
+                + $"the browser, the React re-render and the ADR-0129 label hold)");
 
-            stopwatch.ElapsedMilliseconds.ShouldBeLessThan((long)FrameWindow.TotalMilliseconds);
+            stopwatch.ElapsedMilliseconds.ShouldBeLessThan(PushCeilingMs);
         }
     }
 
@@ -150,28 +190,68 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     /// production figure on another plant's screens.
     ///
     /// <para>
-    /// Green today for the wrong reason — see the class remarks. The fix this
-    /// spec forbids (broadcast to all when the fab is missing) is the one that
-    /// would turn this red.
+    /// Both directions on <b>one</b> write, holding both connections, so the
+    /// munich arrival is the positive control for the dresden silence and the
+    /// two cannot disagree about timing. See the class remarks for why the
+    /// dresden half asserts nothing on its own.
     /// </para>
     /// </summary>
     [Fact]
-    public async Task A_munich_value_change_reaches_no_dresden_connection()
+    public async Task A_munich_value_change_reaches_munich_and_not_dresden()
     {
         (string variableName, Guid overlay) = await AMunichOverlayBoundToAVariableAsync();
 
+        (HubConnection munich, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> munichFrames) =
+            await ListenAsync(await AdminTokenAsync());
         (HubConnection dresden, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> dresdenFrames) =
             await ListenAsync(await aspire.GetAccessTokenAsync(DresdenOperator, OperatorPassword));
 
+        await using (munich)
         await using (dresden)
         {
             using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
             (await VariableRequests.SetValueAsync(variables, variableName, "82.5")).EnsureSuccessStatusCode();
 
-            await Task.Delay(SilenceWindow);
+            // Munich's published layout shows the overlay, so munich is told.
+            // Awaiting it here is what makes the line below an assertion: with
+            // no frame proven to have been sent, "not to dresden" is free.
+            ResolvedFrame frame = await munichFrames.GetOrAdd(overlay, _ => new()).Task
+                .WaitAsync(FrameWindow);
+            frame.ResolvedText.ShouldBe("Line 1: 82.5");
 
             dresdenFrames.GetOrAdd(overlay, _ => new()).Task.IsCompleted.ShouldBeFalse(
                 "a dresden screen was told a munich variable's value");
+        }
+    }
+
+    /// <summary>
+    /// FR-006, and the property the kiosk silently depends on. The tile's drop
+    /// guard (<c>onResolvedOverlayTextChanged</c> in <c>CellPage.tsx</c>)
+    /// discards any frame whose version is not strictly higher than the last it
+    /// applied. A producer that repeated or lowered a version would leave every
+    /// wall frozen on its first value while every server-side assertion above
+    /// stayed green — the frames arrive, they are simply thrown away on receipt.
+    /// </summary>
+    [Fact]
+    public async Task Successive_value_changes_carry_strictly_increasing_versions()
+    {
+        (string variableName, Guid overlay) = await AMunichOverlayBoundToAVariableAsync();
+
+        (HubConnection munich, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> munichFrames) =
+            await ListenAsync(await AdminTokenAsync());
+
+        await using (munich)
+        {
+            using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+
+            ResolvedFrame first = await WriteAndAwaitFrameAsync(
+                variables, munichFrames, variableName, overlay, "82.5");
+            ResolvedFrame second = await WriteAndAwaitFrameAsync(
+                variables, munichFrames, variableName, overlay, "91.5");
+
+            first.ResolvedText.ShouldBe("Line 1: 82.5");
+            second.ResolvedText.ShouldBe("Line 1: 91.5");
+            second.Version.ShouldBeGreaterThan(first.Version);
         }
     }
 
@@ -181,7 +261,8 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     /// not move a label on any wall.
     ///
     /// <para>
-    /// Green today for the wrong reason, exactly as the sibling negative is.
+    /// The one test here with no positive control, because a refused write
+    /// produces no frame to control against — see the class remarks.
     /// </para>
     /// </summary>
     [Fact]
@@ -215,6 +296,27 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     // ---- helpers ------------------------------------------------------------
 
     private sealed record ResolvedFrame(Guid Overlay, string ResolvedText, long Version);
+
+    /// <summary>
+    /// Writes a value and returns the frame it produced. The completion source
+    /// is replaced before the write because it fires once: without the swap the
+    /// second write would be answered by the first write's frame, and a version
+    /// comparison against a repeated frame proves nothing.
+    /// </summary>
+    private static async Task<ResolvedFrame> WriteAndAwaitFrameAsync(
+        HttpClient variables,
+        ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> frames,
+        string variableName,
+        Guid overlay,
+        string value)
+    {
+        TaskCompletionSource<ResolvedFrame> next = new();
+        frames[overlay] = next;
+
+        (await VariableRequests.SetValueAsync(variables, variableName, value)).EnsureSuccessStatusCode();
+
+        return await next.Task.WaitAsync(FrameWindow);
+    }
 
     private async Task<(HubConnection Connection, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> Frames)>
         ListenAsync(string accessToken)
