@@ -95,4 +95,59 @@ public class AspireFixtureReportSelectionTests
         report.ShouldContain("camera-catalog: Running");
         report.ShouldNotContain("camera-catalog: Running (exit");
     }
+
+    [Fact]
+    public void A_one_shot_that_died_is_reported()
+    {
+        // Run 33623647778: the AppHost never came up, nine services were
+        // `FailedToStart`, and the report named all nine and none of them was
+        // the cause. `migrations` had exited 134 (SIGABRT) — printed in the
+        // state list two inches above, and excluded from the failure section
+        // because finishing is how a one-shot succeeds, whatever the code.
+        Dictionary<string, string> states = new(StringComparer.Ordinal)
+        {
+            ["audit-observability"] = "FailedToStart",
+            ["automation"] = "FailedToStart",
+            ["camera-catalog"] = "FailedToStart",
+            ["event-ingestion"] = "FailedToStart",
+            ["identity"] = "FailedToStart",
+            ["layout-composition"] = "FailedToStart",
+            ["overlay-designer"] = "FailedToStart",
+            ["stream-distribution"] = "FailedToStart",
+            ["system-variables"] = "FailedToStart",
+
+            ["migrations"] = "Finished",
+
+            ["api-gateway-rebuilder"] = "NotStarted",
+            ["audit-observability-rebuilder"] = "NotStarted",
+            ["automation-rebuilder"] = "NotStarted",
+            ["camera-catalog-rebuilder"] = "NotStarted",
+            ["event-ingestion-rebuilder"] = "NotStarted",
+            ["identity-rebuilder"] = "NotStarted",
+            ["layout-composition-rebuilder"] = "NotStarted",
+            ["migrations-rebuilder"] = "NotStarted",
+            ["overlay-designer-rebuilder"] = "NotStarted",
+            ["stream-distribution-rebuilder"] = "NotStarted",
+            ["system-variables-rebuilder"] = "NotStarted",
+
+            ["api-gateway"] = "Running",
+            ["audit-db"] = "Running",
+            ["automation-db"] = "Running",
+            ["camera-catalog-db"] = "Running",
+            ["event-ingestion-db"] = "Running",
+            ["fixture-video"] = "Running",
+            ["identity-db"] = "Running",
+            ["keycloak"] = "Running",
+            ["layout-composition-db"] = "Running",
+            ["mediamtx"] = "Running",
+            ["overlay-designer-db"] = "Running",
+            ["postgres"] = "Running",
+            ["rabbitmq"] = "Running",
+            ["stream-distribution-db"] = "Running",
+            ["system-variables-db"] = "Running",
+        };
+        Dictionary<string, int?> exitCodes = new(StringComparer.Ordinal) { ["migrations"] = 134 };
+
+        AspireFixture.SelectResourcesToReport(states, exitCodes).ShouldContain("migrations");
+    }
 }
