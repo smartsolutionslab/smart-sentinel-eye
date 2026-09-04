@@ -253,7 +253,8 @@ guard rather than to the notice.
    module, the hook, and the field that was not read.
 3. **Given** a module that calls a bounded-list hook and does reference its
    boundary field, **When** the suite runs, **Then** it passes.
-4. **Given** a new bounded response type added to `apps/shared/src/api/` and a
+4. **Given** a new bounded response type added to an API client under
+   `apps/*/src` and a
    `build.query` that answers with it, **When** the suite runs and that
    *(type, hook)* pair is not in the guard's register, **Then** it fails, saying
    that a new paginated contract was added and its consumers are therefore
@@ -321,10 +322,17 @@ excluded — without reading any source.
 - **FR-002**: The audit MUST record the lists where the boundary does not apply
   and state why, so a later audit does not re-derive them.
 - **FR-003**: A build-failing guard MUST assert that every consumer of a bounded
-  response references that response's boundary field.
+  response references that response's boundary field. A consumer is one that
+  reaches the endpoint by **any** accessor RTK Query generates — `useXQuery`,
+  `useLazyXQuery`, `useXQueryState`, `useXQuerySubscription` or
+  `endpoints.x.initiate` — not by one spelling of the hook.
 - **FR-004**: The guard MUST assert that its own register is complete against
-  `apps/shared/src/api/`, so that a newly added paginated contract cannot arrive
-  unguarded. **Completeness is of the (response type, producing hook) pair, not
+  every `*.api.ts` under `apps/*/src` — not one hardcoded directory, or a client
+  filed beside the app that consumes it is scanned as neither producer nor
+  consumer — so that a newly added paginated contract cannot arrive unguarded.
+  An exported shape the matcher cannot read MUST be reported by name rather than
+  dropped, because a dropped shape is a contract that arrives unguarded on a
+  green build. **Completeness is of the (response type, producing hook) pair, not
   of the type name alone**: a register whose type list and hook list are
   independent guarantees only that someone was *told* about the new contract,
   because adding the type name is then a green-restoring edit that leaves the
