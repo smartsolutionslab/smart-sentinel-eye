@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
 
+// Spec 066 / #2014 — how long the injected-delay test below holds the define
+// `POST`. 20 s is chosen against both `expect` budgets in `playwright.config.ts`:
+// above the 15 s local default and below CI's 30 s, so the same test says the
+// same thing in both places, and well below the 60 s per-test timeout so the
+// failure is an *assertion* timeout rather than a test timeout.
+const SLOW_WRITE_DELAY_MS = 20_000;
+
 // ADR-0108 — system-variables "read" vertical slice. An operator signs in, opens
 // the System variables surface, and the list loads from the system-variables
 // service *through the API gateway* (ADR-0106). A 401 / 404 / CORS / scope
@@ -82,6 +89,49 @@ test('operator sets a variable value and the new value is reflected in the list'
   await expect(row.getByText('Line 1 running')).toBeVisible();
   // A 428 or 409 would render the page-level banner instead of updating.
   await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+// Spec 066 / #2014 — the first write of a run against a cold service is served
+// slowly (specs/023-first-event-cold-start/verification.md §3 measured ~5 s per
+// message type, still unexplained), and every write assertion in this file
+// waits at the shared `expect` budget — 15 s locally. This test makes that
+// arrangement observable on a warm stack by holding the define `POST` for
+// SLOW_WRITE_DELAY_MS: the write succeeds, it is merely late, and the assertion
+// gives up before it lands.
+test('a define the service is slow to answer still appears in the list', async ({ page }) => {
+  await signInAsOperator(page);
+
+  // **Only the POST.** The list `GET` is the *same* URL — `systemVariables.api.ts`
+  // gives both `url: ''` against the `system-variables/system-variables` base —
+  // so a route that did not discriminate by method would delay the read as well,
+  // and the test would be red for the wrong reason and stay red after the fix.
+  // A URL predicate rather than a glob, because the `GET` carries query
+  // parameters and the `POST` may carry `?fabId=`.
+  await page.route(
+    (url) => url.pathname.endsWith('/system-variables/system-variables'),
+    async (route) => {
+      if (route.request().method() !== 'POST') {
+        return route.fallback();
+      }
+      await new Promise((resolve) => setTimeout(resolve, SLOW_WRITE_DELAY_MS));
+      await route.continue();
+    },
+  );
+
+  await page.getByRole('link', { name: /^system variables$/i }).click();
+  // The read is NOT delayed: this heading follows the list `GET` through the
+  // same route handler and still resolves at the default budget.
+  await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: /new variable/i }).click();
+  const name = `E2E_Slow_${Date.now()}`;
+  await page.locator('#variable-name').fill(name);
+  await page.getByRole('button', { name: /^define$/i }).click();
+
+  // No explicit timeout — the shape every write assertion in this file uses
+  // today, and the reason a late-but-successful write reads as a product
+  // failure.
+  await expect(page.getByText(name)).toBeVisible();
 });
 
 // Spec 014 T041 — the fab half of the variables surface.
