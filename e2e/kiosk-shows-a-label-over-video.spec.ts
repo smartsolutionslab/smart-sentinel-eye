@@ -336,7 +336,7 @@ async function setValue(operatorPage: Page, variableName: string, value: string)
  * written for.
  * </para>
  */
-test.fixme('the span from a value being submitted to it being visible', async ({ page, context }) => {
+test('the span from a value being submitted to it being visible', async ({ page, context }) => {
   test.setTimeout(300_000);
 
   const wall = readLiveVideoWall();
