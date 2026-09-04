@@ -190,6 +190,58 @@ report
 "---- audit-observability (FailedToStart …
 ```
 
+### Correction (2026-09-04, during 4b): that second red had nowhere to happen
+
+**The paragraph above names a red the plan gave no tree to observe it in, and
+its own worked example gives the mistake away.** The "Actual" it predicts —
+`---- audit-observability (FailedToStart …` — is a header only the T005 *fix*
+produces. Before that fix the header is `---- audit-observability ----`. A
+predicted failure whose actual value already contains the fix is a failure
+that cannot occur.
+
+The cause is that **T005 bundled a new seam with the new behaviour through
+it**. `FormatFailedResourceReport` and `FormatLikelyCause` did not exist
+before T005 and were correct after it, so at no commit could a test call them
+and fail. Against T003's tree the test does not fail, it does not compile:
+`CS0117: 'AspireFixture' does not contain a definition for
+'FormatFailedResourceReport'` — the exact outcome *The red output* rejects
+three paragraphs earlier for T002.
+
+**The remedy was already in this document and was applied to one of the two
+tasks that needed it.** T001 exists because a widened signature is a seam
+change that must precede the behaviour that uses it. That is the same
+argument, and it was not carried to T005 — the reasoning was pinned to the
+narrow case (*"the absence of the exit code from the signature is the defect,
+expressed as a type"*) rather than to the general one.
+
+**Generalised, for the next plan**: a behaviour-preserving prelude is required
+wherever the fix introduces **a seam the test must reach through**, not merely
+where a signature widens. Adding a method counts. Extracting one counts.
+If the test's target symbol does not exist on the tree before the fix, the
+red is a compile error and the gate is unmet.
+
+T005 is therefore split into **T005a** (extraction only, output byte-identical,
+seven pre-existing tests green) and **T005b** (the `Likely cause:` line and the
+explanatory headers). `tasks.md` carries the task-level record. The red T006
+actually produces at T005a is three assertion failures, quoted in the PR body;
+the corrected shape of the one predicted above is:
+
+```
+Shouldly.ShouldAssertException : report
+    should contain (case insensitive comparison)
+"migrations (Finished, exit code 134"
+    but was actually
+"---- audit-observability ----
+(no logs captured)
+---- automation ----
+(no logs captured)
+---- ca..."
+```
+
+**Found by running T006 at the commit before its fix** — which is the check
+that should be routine, and is the only reason this was caught rather than
+asserted. Nothing was pushed; the branch was re-sliced in place.
+
 ### The honest limits — three, stated plainly
 
 1. **The unit seam proves selection and formatting. It does not prove log
@@ -358,6 +410,7 @@ green. Raise it and block.
 | The one-shot exemption is loosened too far and #1918 regresses | FR-002 plus two tests: exit code 0 not selected, absent exit code not selected. The second already exists and its assertion must not be edited. |
 | `ExitCode` is `null` on a successful run and the null branch is wrong | Both null and 0 are treated as healthy, so the behaviour is identical either way. Assumption A1. |
 | The engineer folds T001 into T003 and the red is a compile error | T001 and T003 are separate tasks with separate commits and separate evidence. ADR-0087 requires each to build alone anyway. |
+| ~~The same for T005~~ **— this one happened.** The row above was written for the signature seam and not asked of the extraction seam, so T005 shipped both in one commit and T006 had no tree to fail on. | Split into T005a/T005b during 4b, before any push. See *Correction* above. The general form of the mitigation is: **for every task whose test names a symbol the previous commit lacks, there must be a prelude commit.** |
 | A test is written that would pass unfixed | T004 is `test-adversary`'s explicit job: try it, and report if it succeeds. |
 | Phase 5 overclaims log retrieval | Stated as an honest limit in three places. The verification note must say "names migrations and its exit code", not "shows migrations' logs". |
 | `AspireFixture.cs` trips SonarAnalyzer at Release | Block, do not suppress. |
