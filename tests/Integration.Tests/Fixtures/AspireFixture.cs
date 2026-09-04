@@ -356,12 +356,19 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         || (state is "Finished" && IsOneShot(name) && !ExitedNonZero(name, exitCodes))
         || (state is "NotStarted" && name.EndsWith("-rebuilder", StringComparison.Ordinal));
 
-    // "Did not exit non-zero", not "exited zero". An absent code means the exit
-    // was never observed — the state map keeps whichever watch event arrived
-    // last — so reading unknown as failure would report a `migrations` that is
-    // perfectly fine, which is #1918 coming back from the other side.
+    // "Did not exit non-zero", not "exited zero". An unobserved code means the
+    // exit was never seen — the state map keeps whichever watch event arrived
+    // last, and a snapshot can carry a present null — so reading unknown as
+    // failure would report a `migrations` that is perfectly fine, which is
+    // #1918 coming back from the other side.
+    //
+    // One copy of the rule, reached two ways: the timeout report looks the code
+    // up in the captured state map, the migrations wait reads it straight off
+    // the snapshot it matched (#2064).
+    internal static bool ExitedNonZero(int? exitCode) => exitCode is not null and not 0;
+
     private static bool ExitedNonZero(string name, Dictionary<string, int?> exitCodes) =>
-        exitCodes.TryGetValue(name, out int? exit) && exit is not null and not 0;
+        exitCodes.TryGetValue(name, out int? exit) && ExitedNonZero(exit);
 
     // Resources that run once and stop; finishing is how they succeed.
     private static bool IsOneShot(string name) =>
@@ -442,6 +449,29 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
         return $"Likely cause: {named} — a non-zero exit is a failure, not a clean finish.\n";
     }
+
+    /// <summary>
+    /// What the fixture says when the migration runner finished by dying.
+    ///
+    /// <para>
+    /// Scoped to <c>migrations</c> on purpose. At that instant the nine services
+    /// that wait for it are still <c>Waiting</c>, so the full timeout report
+    /// would print nine sections with nothing in them about the failure — the
+    /// noise #2061 removed. The cause sentence is worded like
+    /// <see cref="FormatLikelyCause"/>'s so a reader who has seen a timeout
+    /// report recognises it.
+    /// </para>
+    ///
+    /// <para>
+    /// Assembled here rather than at the throw for the reason the other three
+    /// formatters are: the ordering claim — the code before the log — is only
+    /// holdable by a test over the assembled string.
+    /// </para>
+    /// </summary>
+    internal static string FormatMigrationFailureMessage(int? exitCode, string migrationsLog) =>
+        $"migrations exited with code {exitCode} — a non-zero exit is a failure, not a clean finish.\n" +
+        "The startup wait stopped here rather than spending the remaining budget on services that wait for it.\n" +
+        $"migrations log:\n{migrationsLog}";
 
     /// <summary>
     /// One section per selected resource, each header saying <i>why</i> that
