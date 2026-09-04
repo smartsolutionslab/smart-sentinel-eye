@@ -505,8 +505,20 @@ for implemented legs is likewise not engaged.
 - **A1 — `ExitCode` is `0` for a successful `migrations` run**, not `null`.
   FR-002 is written to be correct either way (both are treated as healthy), so
   A1 being wrong costs nothing. Stated because a reviewer will want to know
-  whether the null branch is defensive or load-bearing: it is load-bearing, and
-  `A_one_shot_job_that_finished_is_not_reported` pins it today.
+  whether the null branch is defensive or load-bearing: it is load-bearing.
+
+  **Corrected in phase 6.** This bullet named
+  `A_one_shot_job_that_finished_is_not_reported` as the test that pinned it,
+  and that test passes an **empty** dictionary — it pins the *absent-key*
+  guard and says nothing about a present null. Nothing pinned the null branch
+  at all: dropping `is not null` from `ExitedNonZero` built clean in Release
+  with all thirteen tests green. It is now pinned by
+  `A_one_shot_that_finished_with_a_captured_null_exit_code_is_not_reported`
+  (selection) and
+  `A_running_resource_with_a_captured_null_exit_code_is_not_named_as_a_cause`
+  (the cause line), one per caller of the predicate, and that mutant now
+  fails. Worth recording rather than editing away: the claim was written from
+  the test's *name*, and a name is not an assertion.
 - **A2 — the last watch event wins.** `CaptureResourceStateMapAsync`
   assigns into the dictionary on every event, so the recorded state and exit
   code are those of the final observation within its 3-second window. Unchanged
