@@ -9,9 +9,10 @@ frontend, no infra: the CI workflow is **read** by the guard, never edited.
 
 **Parallelism:** almost none, and that is honest rather than a missed
 opportunity. ADR-0109 marks `[P]` for tasks owning **disjoint files**; T002–T007
-all edit the same single file, `AgentBriefClaimTests.cs`. Only the three brief
-corrections (T008–T010) touch disjoint files and are genuinely parallel — and they
-are one line each, so the marker is bookkeeping, not a fan-out opportunity. **The
+all edit the same single file, `AgentBriefClaimTests.cs`. Only the four brief
+corrections (T008–T010a) touch disjoint files and are genuinely parallel — and
+they are one line each, so the marker is bookkeeping, not a fan-out
+opportunity. **The
 orchestrator should not expect to fan this out.**
 
 ## Foundational — blocks everything
@@ -60,9 +61,19 @@ orchestrator should not expect to fan this out.**
   *Depends on: T003.*
 
   **Done when:** **red**, naming exactly `src/app/auth.ts`
-  (`frontend-engineer.md`) and `specs/NNN-x/spec.md` (`next-issue.md`), and
-  nothing else. If it names a third span, the anchoring rule is over-recognising —
-  fix the recogniser before touching any brief.
+  (`frontend-engineer.md:11`), `specs/NNN-x/spec.md` (`next-issue.md:67`) and
+  `specs/NNN-x/` (`architect.md:11`), and nothing else. If it names a **fourth**
+  span, the anchoring rule is over-recognising — fix the recogniser before
+  touching any brief.
+
+  > **Corrected during phase 4a.** This done-when said two spans and warned that
+  > a third meant over-recognition. There are three, and the third is not
+  > over-recognition: `specs/NNN-x/` in `architect.md:11` is anchored at a real
+  > top-level entry and resolves to nothing — the same defect class as the other
+  > two. `spec.md`'s assumption A2 already recorded "21 anchored spans, 3
+  > unresolvable, all three genuine defects"; this line was the one that
+  > disagreed with it. A task list that contradicts its own spec is precisely the
+  > drift this issue exists to catch.
 
 - **[T006] [US-1]** **A4 + A5 + A6** — CI blocks: job-set equality with `ci.yml`'s
   `jobs:` keys, per-job attribute agreement (`continue-on-error` / blocking,
@@ -96,16 +107,21 @@ scope is (1) only, and brief content is otherwise out of scope.
 - **[T009] [P] [US-1]** `.claude/agents/frontend-engineer.md:11` —
   `src/app/auth.ts` → `apps/*/src/app/auth.ts`.
   *Depends on: T005. Disjoint file.*
-- **[T010] [P] [US-1]** `.claude/commands/next-issue.md` — `specs/NNN-x/spec.md`
-  → `specs/*/spec.md` (and the bare `specs/NNN-x/` if the guard reports it).
+- **[T010] [P] [US-1]** `.claude/commands/next-issue.md:67` —
+  `specs/NNN-x/spec.md` → `specs/*/spec.md`.
+  *Depends on: T005. Disjoint file.*
+- **[T010a] [P] [US-1]** `.claude/agents/architect.md:11` — `specs/NNN-x/` →
+  `specs/*/`. Added during phase 4a: the guard reports this span, T005 above did
+  not list it, and T010's parenthetical filed it under the wrong file. **Four
+  briefs are corrected in phase 4b, not three.**
   *Depends on: T005. Disjoint file.*
 
 ## Phase 4a evidence
 
 - **[T011] [US-1]** Capture the **red** output of T005 and T006 against the
-  uncorrected briefs, verbatim, before T008–T010. This is real red against real
+  uncorrected briefs, verbatim, before T008–T010a. This is real red against real
   defects — no reversion needed for these two arms.
-  *Depends on: T005, T006. Must precede T008–T010.*
+  *Depends on: T005, T006. Must precede T008–T010a.*
 
 - **[T012] [US-1]** Demonstrate red for the **A1** arm, which is green on arrival.
   Temporarily edit `.claude/agents/backend-engineer.md`, changing one existing
@@ -122,7 +138,7 @@ scope is (1) only, and brief content is otherwise out of scope.
 - **[T013] [US-1]** Commit. Conventional Commits, **no `Co-Authored-By`**
   (ADR-0086). Each commit builds on its own (rebase-merge lands them individually
   on `develop`).
-  *Depends on: T008, T009, T010, T011, T012.*
+  *Depends on: T008, T009, T010, T010a, T011, T012.*
 
 - **[T014] [US-1]** Run the spec's independent end-to-end procedure, all six
   steps, and record the result. `git status` clean at the end.
