@@ -449,11 +449,12 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// which of the two failures it is.
     ///
     /// <para>
-    /// A process that ran and died and a process that never launched both
-    /// arrive here with an empty log, and only the header can tell them apart.
-    /// The fixture already knows the difference — see the snapshot remarks
-    /// above, from #2038 — and until #2061 it did not say so in the report, so
-    /// nine expected empties read as nine failures to collect evidence.
+    /// A process that ran and died and a process that never reached a running
+    /// state can both arrive here with nothing to show, and only the header can
+    /// tell them apart. The fixture already knows the difference — see the
+    /// snapshot remarks above, from #2038 — and until #2061 it did not say so in
+    /// the report, so nine expected empties read as nine failures to collect
+    /// evidence.
     /// </para>
     /// </summary>
     internal static string FormatFailedResourceReport(
@@ -476,7 +477,13 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     private static string DescribeWhySelected(string state, int? exitCode) => (state, exitCode) switch
     {
         (_, { } code) when code != 0 => $"{state}, exit code {code} — the process ran and died",
-        ("FailedToStart", _) => $"{state} — never launched, so an empty log is expected",
+        // States the state, and stops there. The clause that used to follow —
+        // "so an empty log is expected" — was written from CI, where those
+        // sections are empty, and phase 5 printed it directly above 14 to 25
+        // lines of real orchestration log. A header that predicts what the
+        // section below it contains is a header that can be contradicted two
+        // lines later.
+        ("FailedToStart", _) => $"{state} — never reached a running state",
         _ => state,
     };
 

@@ -206,7 +206,7 @@ public class AspireFixtureReportSelectionTests
 
         report.ShouldContain("ran and died");
         report.ShouldContain("audit-observability (FailedToStart");
-        report.ShouldContain("never launched");
+        report.ShouldContain("never reached a running state");
         report.ShouldNotContain("audit-observability (FailedToStart, exit code");
     }
 
