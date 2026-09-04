@@ -235,6 +235,28 @@ assertion budget is added.
 Two files in one task because each is a single line and they are the same edit;
 split if the orchestrator would rather fan out.
 
+**Delivered as one file, not two — and the deviation is deliberate, so the next
+agent must not redo it.**
+
+- `kiosk-reconciliation.spec.ts` took the budget at the set value, and at phase 6
+  also at the **overlay archive**: nothing earlier in the `kiosk` project
+  archives an overlay, so it is a first-of-kind write of a different message
+  type and qualifies under the same rule. Its ceiling went 300 s → 360 s in the
+  same edit, because the archive's 90 s lands one second past 300 s on a
+  pessimistic-but-passing arrival.
+- `kiosk-shows-a-label-over-video.spec.ts` is **excluded**, and stays excluded.
+  It is a *measurement*: its loop polls for the label and calls
+  `report(measurements)` after the loop. What a wider budget changes is not the
+  figures — a polling assertion resolves the moment the text appears, so a
+  successful iteration records the same elapsed value whatever the ceiling — it
+  is the **classification**: a value arriving at 75 s would be printed inside the
+  reported range instead of refused, which against an 800 ms budget is a cold
+  stack wearing a measurement's clothes. The stronger half: a per-iteration
+  refusal at 60 s breaks the loop and still reaches `report`, printing
+  `[span] UNMEASURED` and the legs it did cover. A test timeout kills the test
+  before that line and the run learns nothing. The refusal is a *reported
+  result*, not merely a faster failure.
+
 **Depends on**: T002.
 
 ---

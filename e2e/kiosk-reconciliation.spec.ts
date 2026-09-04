@@ -41,7 +41,13 @@ async function withKioskOffline(kiosk: Page, whileOffline: () => Promise<void>):
 }
 
 test('kiosk reconciles the overlay state it missed while the hub was down', async ({ page, browser }) => {
-  test.setTimeout(300_000);
+  // Two budgeted writes, two 60 s outage detections and two 45 s recoveries, so
+  // this sizes its own ceiling instead of taking `FIRST_WRITE_TEST_TIMEOUT_MS`
+  // (see `cold-stack.ts`). 360 s rather than 300 s because the archive below
+  // arrives at ~212 s on a pessimistic-but-passing run, and a budget it then
+  // spends to failure lands one second past 300 s — at which point the failure
+  // stops naming the locator.
+  test.setTimeout(360_000);
 
   const wall = readBoundOverlayWall();
 
@@ -86,7 +92,11 @@ test('kiosk reconciles the overlay state it missed while the hub was down', asyn
         .getByRole('alertdialog')
         .getByRole('button', { name: /^archive$/i })
         .click();
-      await expect(row.getByText(/Archived/)).toBeVisible();
+      // Budgeted for the same reason as the set value above, and it is not an
+      // oversight that both are: nothing earlier in the `kiosk` project
+      // archives an overlay, so this is the run's first write of *that* message
+      // type and pays the cold cost independently.
+      await expect(row.getByText(/Archived/)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
     });
 
     await expect(page.getByText('Overlay unavailable')).toBeVisible({ timeout: 10_000 });
