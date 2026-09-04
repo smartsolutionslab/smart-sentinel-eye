@@ -1,17 +1,27 @@
 # AppHost dev resources
 
-## `clips/` — Scenario Simulator loop clips (ADR-0111, spec 044, dev-only)
+## `clips/` — loop clips for `camera-sim` and `fixture-video` (ADR-0111, spec 044, spec 056)
 
-`camera-sim` (the second, config-clean MediaMTX) bind-mounts this **directory**
-at `/media` and loops one clip per path via the per-path `runOnDemand` FFmpeg
-hook the `scenario-simulator` worker provisions. Each scenario asset names the
-clip it plays (`Camera.Clip` in `Scenarios/*.json`); a camera belonging to no
-asset gets `sim-loop.mp4` with its name drawn on it.
+**Two resources mount this directory, and only one of them is dev-only.**
 
-All **dev-only** — never used by CI/E2E/prod, because the camera-sim container
-and the worker are both gated
-`isRunMode && !isE2ETests && isScenarioSimulatorEnabled` in `AppHost.cs`, and
-the end-to-end job boots with `ScenarioSimulator=false` (#2013).
+**Scenario Simulator — dev-only.** `camera-sim` (the second, config-clean
+MediaMTX) bind-mounts this **directory** at `/media` and loops one clip per
+path via the per-path `runOnDemand` FFmpeg hook the `scenario-simulator` worker
+provisions. Each scenario asset names the clip it plays (`Camera.Clip` in
+`Scenarios/*.json`); a camera belonging to no asset gets `sim-loop.mp4` with
+its name drawn on it. Never reached by CI/E2E/prod: the container and the
+worker are both gated `isRunMode && !isE2ETests && isScenarioSimulatorEnabled`
+in `AppHost.cs`, and the end-to-end job boots with `ScenarioSimulator=false`
+(#2013).
+
+**`fixture-video` — not dev-only.** It is gated `isRunMode && !isE2ETests`,
+deliberately *without* that third conjunct, and bind-mounts the same directory
+at `/media`; `Resources/fixture-video.yml` publishes `/media/sim-loop.mp4` on
+start via `runOnInit`. So `sim-loop.mp4` **is** the video source the CI
+end-to-end job serves, and the only picture
+`kiosk-shows-a-label-over-video.spec.ts` has to assert over. Do not prune this
+directory as dev-only cruft, and do not skip `generate-sim-clips.sh` on the
+grounds that CI has no video — since spec 056 it does, from here.
 
 The host has no FFmpeg, so clips are generated from the MediaMTX
 `latest-ffmpeg` image. Run once and commit the results:
@@ -25,8 +35,9 @@ Each writes a 1280x720, ~20 s, H.264 baseline, 25 fps excerpt. Two are shorter
 than 20 s because their sources are (`electronics-smd-line` 16.5 s,
 `electronics-conveyor` 18 s); they loop regardless.
 
-If the directory is missing, `aspire run` fails the `camera-sim` bind mount;
-generate it first.
+If the directory is missing, `aspire run` fails a bind mount before the stack
+comes up: `fixture-video`'s in any run-mode boot, and `camera-sim`'s as well
+when the simulator is enabled. Generate it first.
 
 ### Licensing
 
