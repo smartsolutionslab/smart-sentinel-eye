@@ -57,7 +57,10 @@ This is deliberate and it is the one design decision here worth arguing. A guard
 that reads its expectations out of a document proves that the document was
 written, not that the code obeys it; the two look identical from a green test
 and diverge the first time someone edits the document to make the build pass.
-The register is three rows and belongs where it is enforced.
+The register is a handful of rows and belongs where it is enforced. In code it
+is one row per *(response type, producing hook, boundary field)* triple — three
+response types, four rows, because `AuditPage` has two producers — and both
+assertions read the same rows.
 
 | Response type | Produced by | List field | Boundary field |
 |---|---|---|---|
@@ -74,8 +77,15 @@ consumer must actually consult.
 ### Assertion 1 — every consumer reads the boundary
 
 For each register row: find every file under `apps/*/src` and `apps/shared/src`
-that names the hook, excluding `*.test.ts`/`*.test.tsx` and the producing
-`*.api.ts` itself. Each such file must also name that row's boundary field.
+that names the hook, excluding tests — **both** conventions, `*.test.ts(x)` and
+`*.spec.ts(x)` — and the producing `*.api.ts` itself. Each such file must also
+name that row's boundary field.
+
+The second test convention was missed at implementation and caught in phase 6:
+`apps/shared/src/realtime/client.spec.ts` sat inside a sweep the spec said
+excluded tests. One file, no live consequence, and fixed in the code rather than
+by narrowing the claim — a test fixture rendering `items` is a fixture, not a
+screen, whichever suffix it carries.
 
 Failure message names the file, the hook, and the missing field, plus a sentence
 on why — enough to act on without opening the guard.
@@ -85,15 +95,62 @@ calling `useListCamerasQuery` and never mentioning `count`.
 
 ### Assertion 2 — the register is complete
 
-Scan `apps/shared/src/api/*.api.ts` for exported interfaces that carry a list
-field beside a boundary field — the offset shape (`count` with `offset`/`limit`)
-or the cursor shape (`nextCursor`). Every one found must be in the register.
+Scan `apps/shared/src/api/**/*.api.ts` for exported object shapes — `export
+interface X {` and `export type X = {`, the second having precedent at
+`rules.api.ts:84` — that carry a list field beside a boundary field. **Three
+shapes, not two.** Planning named two; `CameraChoices` fits neither, and the
+third arm was added at implementation:
+
+| Shape | Boundary | Example |
+|---|---|---|
+| Offset | `count` with `offset` / `limit` | `CameraListPage` |
+| Gathered | `count` with `complete`, no `offset` / `limit` | `CameraChoices` |
+| Cursor | `nextCursor` | `AuditPage` |
+
+Recorded rather than quietly implemented: the two-shape rule stated here
+originally excluded `CameraChoices`, which the same plan required the assertion
+to find. That contradiction is the documentation-drift class CLAUDE.md has had
+to correct repeatedly, and it is cheaper to write the third row down than to
+leave the next reader reconciling a rule against a guard that disagrees with it.
+
+**Every pair found must be in the register — the type *and* the hook.** Each
+bounded response is paired with each `build.query` that answers with it, the
+hook name derived from the endpoint by RTK Query's own convention (`use` +
+capitalised endpoint + `Query`). This closes the hole phase 6 found: held as two
+independent lists — response types here, hook rows there — a new contract could
+be silenced by adding its type name alone. Assertion 1 would gain no row, every
+consumer of its hook would go unswept, and the build would be green. The
+register guaranteed only that someone had been *told*, which is the review
+convention this whole feature argues against. As pairs, the smallest edit that
+restores green is the one that names the hook and decides the boundary field.
+
+A bounded response that no read endpoint produces is reported paired with
+`(nothing declares it)`, which no register row can match — so it arrives red
+rather than sitting outside the sweep.
 
 Without this the guard is a snapshot with a longer shelf life: it polices the
 three contracts that existed on 2026-09-04 and is blind to the fourth. This is
 the assertion that makes it self-maintaining. It fails loudly on a *new*
 paginated contract, which is precisely the moment a human should decide what its
 boundary field is.
+
+### Assertion 2b/2c — the sweep has a corpus
+
+Assertion 1 reads whatever `apps/*/src` yields, **including nothing**. An app
+restructured to hold its sources elsewhere, or a fourth app with a different
+layout, leaves the corpus silently and every row of assertion 1 passes vacuously
+and for ever — a failure indistinguishable from compliance, and the second one
+phase 6 found. Two facts close it:
+
+- every directory under `apps/` carrying a `package.json` has a `src/`, so no
+  app's sources are outside the sweep;
+- the corpus holds at least 40 files. It held 84 on 2026-09-04; the bound is
+  under half, so ordinary churn cannot reach it and a collapse falls straight
+  through it.
+
+The mode is not hypothetical: `useGetResourceTimelineQuery` has no consumer, so
+one register row is *already* vacuous. A documented vacuity does not detect an
+undocumented one.
 
 ### Assertion 3 — no exception mechanism exists
 
@@ -103,9 +160,15 @@ exception collection.
 This looks like belt-and-braces and is not. FR-005 says a necessary exception is
 a **blocked outcome requiring human acceptance**, not a line added to the guard —
 and the failure mode ADR-0144 names is precisely an agent reaching green by
-weakening a gate. An assertion that the gate has no soft edge is cheap, and it
-turns "someone quietly added an allowlist" from a review catch into a build
-failure.
+weakening a gate. An assertion that the gate has no soft edge is cheap.
+
+**It polices a vocabulary, not the mechanism**, and the earlier wording here
+oversold it: it does not turn "someone quietly added an allowlist" into a build
+failure, it turns *an allowlist called an allowlist* into one. Anyone who names
+the same collection something else walks past it. That is still worth three
+lines — the obvious move is the one an agent under pressure to reach green
+makes, and this makes the obvious move loud — but it is a spelling check, not a
+proof that no soft edge can be added.
 
 If this proves awkward in practice it should be removed by a human with a
 reason, not silently.
@@ -137,7 +200,20 @@ that gets trusted past its reach.
 4. **`getResourceTimeline` has no consumer**, so assertion 1 is vacuously true
    for it today. That is correct behaviour — an unconsumed endpoint cannot
    mislead — but it means one third of the register is currently unexercised
-   against real consumers.
+   against real consumers. Assertions 2b/2c exist because this vacuity is
+   *documented*, and a documented one does not detect an undocumented one.
+
+Limitations 1–3 are all **false negatives** — shapes the guard lets through.
+Phase 6 noted the list was one-sided, so the other direction is recorded too:
+
+5. **It can also be wrong the other way.** A component that forwards the whole
+   response to a child — `<CameraTable page={data} />` — reads the boundary in
+   the child and will still be asked to name it in the parent; so will a call
+   made only to warm the cache, which renders nothing to qualify. Neither shape
+   exists in `apps/` today. It is written down so the first occurrence reads as
+   a known limit to be discussed with a human, per FR-005, rather than as a
+   broken guard to be worked around — which is exactly how an undeclared false
+   positive gets a rule quietly weakened.
 
 ---
 

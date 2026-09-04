@@ -253,10 +253,11 @@ guard rather than to the notice.
    module, the hook, and the field that was not read.
 3. **Given** a module that calls a bounded-list hook and does reference its
    boundary field, **When** the suite runs, **Then** it passes.
-4. **Given** a new bounded response type added to `apps/shared/src/api/`,
-   **When** the suite runs and the type is not in the guard's register, **Then**
-   it fails, saying that a new paginated contract was added and its consumers are
-   therefore unguarded.
+4. **Given** a new bounded response type added to `apps/shared/src/api/` and a
+   `build.query` that answers with it, **When** the suite runs and that
+   *(type, hook)* pair is not in the guard's register, **Then** it fails, saying
+   that a new paginated contract was added and its consumers are therefore
+   unguarded. Registering the type name without its hook does not restore green.
 5. **Given** a bounded-list hook with no consumer at all (`getResourceTimeline`
    today), **When** the suite runs, **Then** it passes — an unconsumed endpoint
    cannot mislead anyone.
@@ -295,12 +296,19 @@ excluded — without reading any source.
   oversight — see `plan.md` §Declared limitations. The guard makes the omission
   loud; it does not make misuse impossible.
 - **A test file calling a bounded hook.** Tests are excluded from the consumer
-  sweep; a fixture that renders `items` alone is a fixture, not a screen.
+  sweep — both repository conventions, `*.test.ts(x)` and `*.spec.ts(x)`; a
+  fixture that renders `items` alone is a fixture, not a screen. Only the first
+  suffix was excluded as first implemented, which left `client.spec.ts` inside a
+  sweep this line said it was outside; corrected in phase 6.
 - **The producer module itself.** `cameras.api.ts` calls the endpoint through
   `baseQuery` inside `listAllCameraChoices` and is the thing that computes the
   boundary. It is excluded by path, not by exception.
 - **A new app directory.** The guard globs `apps/*/src` and `apps/shared/src`
-  rather than naming the two apps, so a third app is covered on the day it exists.
+  rather than naming the two apps, so a third app is covered on the day it
+  exists — *provided it puts its sources in `src/`*. One that does not is not
+  quietly skipped: the corpus assertion (FR-008) requires every `apps/*` package
+  to contribute, so a different layout fails the build and is taught to the
+  sweep rather than left outside it.
 
 ---
 
@@ -314,9 +322,14 @@ excluded — without reading any source.
   and state why, so a later audit does not re-derive them.
 - **FR-003**: A build-failing guard MUST assert that every consumer of a bounded
   response references that response's boundary field.
-- **FR-004**: The guard MUST assert that its own register of bounded response
-  types is complete against `apps/shared/src/api/`, so that a newly added
-  paginated contract cannot arrive unguarded.
+- **FR-004**: The guard MUST assert that its own register is complete against
+  `apps/shared/src/api/`, so that a newly added paginated contract cannot arrive
+  unguarded. **Completeness is of the (response type, producing hook) pair, not
+  of the type name alone**: a register whose type list and hook list are
+  independent guarantees only that someone was *told* about the new contract,
+  because adding the type name is then a green-restoring edit that leaves the
+  hook unswept. The producing hook MUST be derived from the `build.query`
+  declaration rather than supplied alongside the type.
 - **FR-005**: The guard MUST ship with **no allowlist, no baseline and no
   recorded exception**. If one becomes necessary, that is a blocked outcome
   requiring human acceptance, not a line added to the guard.
@@ -325,6 +338,11 @@ excluded — without reading any source.
 - **FR-007**: The guard MUST be observed failing against a deliberately
   reintroduced instance of the defect before the feature is considered done, and
   that failure MUST be quoted in the PR body (ADR-0139, constitution §Testing).
+- **FR-008**: The guard MUST assert that the corpus it sweeps is non-empty and
+  structurally intact — every app under `apps/` contributes its sources, and the
+  file count is above a floor. A sweep that finds nothing passes every consumer
+  assertion vacuously and permanently, and that outcome is indistinguishable
+  from compliance. Added in phase 6.
 
 ### Key entities
 
