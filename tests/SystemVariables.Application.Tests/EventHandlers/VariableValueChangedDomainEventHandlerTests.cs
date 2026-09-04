@@ -48,6 +48,9 @@ public class VariableValueChangedDomainEventHandlerTests
         push.Overlay.ShouldBe(overlay);
         push.ResolvedText.ShouldBe("OEE: 82.5%");
         push.Version.ShouldBe(1);
+        // The fab decides which plant's wall the push reaches (ADR-0115). Asserting
+        // the value, not its presence: a null here is what the consumer drops.
+        push.Metadata.Fab.ShouldBe("munich");
     }
 
     [Fact]

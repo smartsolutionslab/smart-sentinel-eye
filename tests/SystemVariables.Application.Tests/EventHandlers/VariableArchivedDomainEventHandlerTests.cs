@@ -71,6 +71,9 @@ public class VariableArchivedDomainEventHandlerTests
         push.Overlay.ShouldBe(overlay);
         // 'shift' renders, 'oeeLine1' reverts to its literal placeholder.
         push.ResolvedText.ShouldBe("A - OEE: {{oeeLine1}}%");
+        // The fab decides which plant's wall the push reaches (ADR-0115). Asserting
+        // the value, not its presence: a null here is what the consumer drops.
+        push.Metadata.Fab.ShouldBe("munich");
     }
 
     [Fact]
@@ -101,6 +104,9 @@ public class VariableArchivedDomainEventHandlerTests
             bus.Published.OfType<ResolvedOverlayTextChangedV1>().ShouldHaveSingleItem();
         // Both placeholders revert to literal: shift is Unset, target is the one archived.
         push.ResolvedText.ShouldBe("{{shift}}-{{target}}");
+        // The fab decides which plant's wall the push reaches (ADR-0115). Asserting
+        // the value, not its presence: a null here is what the consumer drops.
+        push.Metadata.Fab.ShouldBe("munich");
     }
 
     [Fact]
