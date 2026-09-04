@@ -186,6 +186,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             string failedLogs = await CaptureFailedResourceLogsAsync(states).ConfigureAwait(false);
             throw new TimeoutException(
                 $"Aspire AppHost did not start within {StartupTimeout.TotalMinutes} minutes.\n" +
+                FormatLikelyCause(states) +
                 $"Resource states:\n{FormatResourceStates(states)}\n" +
                 $"Failed-resource logs:\n{failedLogs}\n" +
                 $"Last camera-catalog logs:\n{logTail}",
@@ -390,6 +391,49 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                         ? $"  {kv.Key}: {kv.Value} (exit code {exit})"
                         : $"  {kv.Key}: {kv.Value}"));
 
+    private string FormatLikelyCause(Dictionary<string, string> states) =>
+        FormatLikelyCause(states, _exitCodes);
+
+    /// <summary>
+    /// The line that will answer "what broke?" before the reader has to scan
+    /// forty-five state lines for it.
+    ///
+    /// <para>
+    /// Empty, and both arguments accepted without being consulted — the same
+    /// prelude shape as the signature widening on
+    /// <see cref="SelectResourcesToReport"/>. Today's report claims no cause,
+    /// so returning nothing is what the current behaviour is; this opens the
+    /// seam the assertion needs and changes not one byte of the report.
+    /// </para>
+    /// </summary>
+    internal static string FormatLikelyCause(
+        Dictionary<string, string> states,
+        Dictionary<string, int?> exitCodes) => string.Empty;
+
+    /// <summary>
+    /// One section per selected resource, assembled away from the log
+    /// retrieval that needs a running AppHost — so the report's text is
+    /// assertable at the same Docker-free seam as the selection.
+    ///
+    /// <para>
+    /// The section headers are the caller's existing ones, unchanged.
+    /// </para>
+    /// </summary>
+    internal static string FormatFailedResourceReport(
+        Dictionary<string, string> states,
+        Dictionary<string, int?> exitCodes,
+        Dictionary<string, string> logs)
+    {
+        StringBuilder report = new();
+        foreach (string name in SelectResourcesToReport(states, exitCodes))
+        {
+            report.Append("---- ").Append(name).AppendLine(" ----");
+            report.AppendLine(logs.TryGetValue(name, out string? captured) ? captured : "(no logs captured)");
+        }
+
+        return report.ToString();
+    }
+
     /// <summary>
     /// On a startup timeout, dump recent stdout for every resource that did
     /// not end up healthy. The CI Linux boot failures (#423) don't repro on
@@ -413,14 +457,13 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         Aspire.Hosting.ApplicationModel.ResourceLoggerService loggers =
             _app.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
 
-        StringBuilder report = new();
+        Dictionary<string, string> logs = new(StringComparer.Ordinal);
         foreach (string name in failed)
         {
-            report.Append("---- ").Append(name).AppendLine(" ----");
-            report.AppendLine(await CaptureOneResourceLogAsync(loggers, name).ConfigureAwait(false));
+            logs[name] = await CaptureOneResourceLogAsync(loggers, name).ConfigureAwait(false);
         }
 
-        return report.ToString();
+        return FormatFailedResourceReport(states, _exitCodes, logs);
     }
 
     private async Task<string> CaptureOneResourceLogAsync(
