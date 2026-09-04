@@ -222,3 +222,28 @@ resource and the exit code, carries the runner's own log, throws a type the
 existing catch does not reclassify, and does none of it on a healthy boot. The
 measured saving is **7 m 16.6 s** on the second of two runs, against a pre-fix
 `00:08:55.10` from the same machine.
+
+---
+
+## Addendum — what phase 6 changed underneath this note
+
+The observations above are left exactly as they were made. Two things they say
+have since moved, and are recorded here rather than edited into the record:
+
+- **The Docker-free count is now 24, not 23.** Phase 6 added a sixth gate test
+  for FR-003's unavailable-log clause. The 18 report-selection tests are still
+  unmodified in their assertions; they gained a class-level
+  `[Trait("Category", "FixtureLogic")]`, which is how `ci.yml`'s `backend` job
+  now selects both classes (`--filter "Category=FixtureLogic"`). The
+  demonstration: the old name filter selects 18, the gate class 6, the trait
+  filter 24.
+- **The line numbers cited above have drifted**, and `spec.md`/`plan.md` no
+  longer cite any. FR-006's reference to `:182` was re-anchored to "the catch in
+  `InitializeAsync`". This note keeps its numbers because they describe what was
+  read on the day.
+
+One claim in `plan.md` that this phase relied on was also **found false and
+corrected**: a throw from `InitializeAsync` does *not* skip `DisposeAsync` for a
+collection fixture — `ExceptionAggregator.RunAsync` captures the exception, so
+`BeforeTestCollectionFinishedAsync` still disposes and the containers are torn
+down. See `plan.md` R2.

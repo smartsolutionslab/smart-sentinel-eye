@@ -66,7 +66,7 @@ await foreach (ResourceEvent item in WatchAsync(token))
 ```
 
 That is the *identical* stream `AspireFixture.CaptureResourceStateMapAsync`
-already consumes at `AspireFixture.cs:305–312`, where it assigns
+already consumes in `CaptureResourceStateMapAsync`, where it assigns
 `_exitCodes[evt.Resource.Name] = evt.Snapshot.ExitCode` for every event. So the
 snapshot type a predicate receives is the same type from which #2061 already
 reads exit codes successfully. **The question was never about the type.**
@@ -146,7 +146,7 @@ And that second branch is the one that matters, because of the second finding:
 ### Timing out at the migrations wait saves **no** wall-clock time
 
 Every wait in `InitializeAsync` shares **one** budget, created before
-`CreateAsync` at `AspireFixture.cs:88`:
+`CreateAsync` at the top of `InitializeAsync`:
 
 ```csharp
 using CancellationTokenSource cts = new(StartupTimeout);   // 8 minutes, once
@@ -345,6 +345,8 @@ figure is an upper bound of 8 m, stated as a bound.
 - **FR-003** — That exception MUST include `migrations`' own recent output where
   it is available, and MUST remain useful when it is not. (#2061 proved the log
   is served on Windows for an exited resource and proved nothing about Linux.)
+  **Both clauses have a test** — the second was added in phase 6, and it is the
+  clause CI exercises.
 - **FR-004** — When the exit code is **null or 0**, the fixture MUST behave
   exactly as it does today: no exception, no extra wait, no change to timing on
   the healthy path.
@@ -353,10 +355,12 @@ figure is an upper bound of 8 m, stated as a bound.
   copy of `ExitedNonZero`'s rule.
 - **FR-006** — The exception type MUST NOT be `TimeoutException`. Nothing timed
   out; the fixture learned an answer. It must also not be an
-  `OperationCanceledException` subtype, or the existing catch at
-  `AspireFixture.cs:182` would reclassify it as a startup timeout and the report
-  would say "did not start within 8 minutes" about a boot that failed in 40
-  seconds.
+  `OperationCanceledException` subtype, or the existing catch in
+  `InitializeAsync` (the `when (ex is OperationCanceledException or
+  TaskCanceledException)` clause) would reclassify it as a startup timeout and
+  the report would say "did not start within 8 minutes" about a boot that
+  failed in well under two. Phase 5 measured the post-fix failure at **1m38s**
+  and **2m28s** across two runs.
 
 ### Out of scope, each with its reason
 
@@ -370,6 +374,14 @@ figure is an upper bound of 8 m, stated as a bound.
   production `MigrationRunner` code. ADR-0036 forbids a config knob for a need
   that does not exist outside the test, and a production migration runner with a
   "die now" flag is a worse artefact than an unautomated tier-2 check.
+- **A `migrations` that lands in `FailedToStart` or `Terminated`.** The
+  predicate here matches `Finished` only, so those two states still burn the
+  full 8-minute budget. Phase 6 confirmed from the Aspire 13.5.3 decompile that
+  both are reachable and neither matches. **Deliberately not widened here**:
+  widening the predicate would change which snapshot the wait returns on a
+  healthy boot, breaking the matching-behaviour property that makes this change
+  cheap and forcing the healthy-path evidence to be re-earned. It is named in
+  the scope of the follow-up issue covering the eleven `Running` waits.
 - **Explaining CI's empty logs.** #2061's "not covered" item 1, still open,
   still not this.
 
@@ -406,8 +418,8 @@ The issue says only this wait was examined. All of them were, here.
 
 | Call site | Shape | Comparable gap? |
 |---|---|---|
-| `:125` `migrations` → `Finished` | one-shot | **Yes — this issue.** `Finished` is reached by success *and* by death. |
-| `:121,129,133,137,141,145,149,153,157,161,169` → `Running` (11 waits: keycloak, camera-catalog, mediamtx, stream-distribution, layout-composition, overlay-designer, audit-observability, event-ingestion, system-variables, automation, identity) | long-running | **Yes, and a different shape.** A service that dies during startup lands in `Finished`/`FailedToStart`, so a `Running` wait never matches and the shared 8-minute budget is burned. That is literally #1918 (`automation` exiting during startup). |
+| the `migrations` wait in `InitializeAsync` → `Finished` | one-shot | **Yes — this issue.** `Finished` is reached by success *and* by death. |
+| the eleven `WaitForResourceAsync(…, Running, …)` calls in `InitializeAsync` (keycloak, camera-catalog, mediamtx, stream-distribution, layout-composition, overlay-designer, audit-observability, event-ingestion, system-variables, automation, identity) | long-running | **Yes, and a different shape.** A service that dies during startup lands in `Finished`/`FailedToStart`, so a `Running` wait never matches and the shared 8-minute budget is burned. That is literally #1918 (`automation` exiting during startup). |
 | `WaitForKeycloakRealmAsync` / `WaitForMediaMtxAsync` / `WaitForServiceHealthAsync` | HTTP poll, 60 × 1 s | **No.** Each is bounded independently of the shared budget and already throws a named `TimeoutException` inside ~60 s. |
 | `AppHost.cs:396` `dependent.WaitForCompletion(migrations)` | Aspire's own | **No.** `WaitForCompletion` already checks the expected exit code — it is *why* the nine went to `FailedToStart`. The gap was only on the fixture side. |
 
