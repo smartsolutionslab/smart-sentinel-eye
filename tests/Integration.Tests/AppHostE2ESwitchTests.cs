@@ -23,6 +23,7 @@ namespace SmartSentinelEye.Integration.Tests;
 /// detail a reader can infer from the guard expression, so it is asserted here.
 /// </para>
 /// </summary>
+[Trait("Category", "FixtureLogic")]
 public class AppHostE2ESwitchTests
 {
     private const string Workflow = ".github/workflows/ci.yml";
@@ -86,8 +87,9 @@ public class AppHostE2ESwitchTests
 
     /// <summary>
     /// The end-to-end job boots a run-mode stack and needs the simulator gone,
-    /// because the simulator seeds cameras into the very database the Playwright
-    /// specs assert an empty catalogue against (#2013).
+    /// because the simulator seeds twelve cameras and three walls into the
+    /// catalogue the Playwright specs share, so the kiosk picker's first entry
+    /// and every camera dropdown carried data no spec put there (#2013).
     /// </summary>
     [Fact]
     public async Task ScenarioSimulator_argument_excludes_the_simulator_from_a_run_mode_stack()
