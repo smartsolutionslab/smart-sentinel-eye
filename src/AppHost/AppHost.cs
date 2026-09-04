@@ -145,7 +145,15 @@ var mediamtx = builder
 // address nothing served, so the tiles rendered `WHEP returned 404` and a tile
 // that drew its label ONLY when the video failed passed the whole suite.
 //
-// **Gated exactly as `camera-sim` is**, and the Playwright stack still gets it:
+// **Gated `isRunMode && !isE2ETests` — deliberately NOT `camera-sim`'s gate**,
+// which since #2013 carries a third conjunct (`isScenarioSimulatorEnabled`).
+// The end-to-end job needs a picture and does not need a simulator, so the two
+// blocks must not be folded together: adding that conjunct here would delete
+// spec 056's video source from CI, which is exactly what
+// `The_simulator_argument_leaves_the_web_apps_and_the_fixture_video_in_place`
+// exists to prevent.
+//
+// The Playwright stack still gets this:
 // `E2ETests` is set by the *integration* fixture (`AspireFixture`) and by
 // `AppHostE2ESwitchTests`, but **not** by the end-to-end stack boot, which is a
 // plain `dotnet run` in `ci.yml`. So this is present where a browser needs a
@@ -524,8 +532,9 @@ if (isRunMode && !isE2ETests)
 // - `isScenarioSimulatorEnabled` — absent where `ci.yml` passes
 //   `ScenarioSimulator=false`, which is the end-to-end job. That job boots a
 //   *run-mode* stack, so neither of the other two conjuncts reached it, and the
-//   simulator seeded its cameras into the very catalogue the Playwright specs
-//   assert an empty catalogue against.
+//   simulator seeded twelve cameras (3 scenarios x 4 assets) and three walls
+//   into the catalogue the Playwright specs share — so the kiosk picker's first
+//   entry and every camera dropdown carried data no spec put there.
 //
 // The main `mediamtx.yml` stays clean in all three cases.
 //
