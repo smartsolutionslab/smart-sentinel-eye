@@ -5,8 +5,9 @@
 **Issue**: #2061 — feature-level, on Project #13 (status *In Progress*)
 **Branch**: `fix/2061-a-boot-failure-names-its-cause`
 
-**Phase 4a colour: RED** (behaviour-changing — plan Declaration 3), with one
-declared behaviour-preserving prelude (T001).
+**Phase 4a colour: RED** (behaviour-changing — plan Declaration 3), with **two**
+declared behaviour-preserving preludes: T001, and T005a — the second added
+retroactively during 4b. See *T005 was one task and had to be two*, below.
 
 ---
 
@@ -145,9 +146,58 @@ already has one is noise, and this file is small and readable today.
 
 ---
 
+### T005 was one task and had to be two
+
+**Amended 2026-09-04, during 4b, before anything was pushed.**
+
+T005 as written below bundled a **behaviour-preserving extraction** — moving
+report assembly into `internal static FormatFailedResourceReport(states,
+exitCodes, logs)` and `FormatLikelyCause(states, exitCodes)` — with the
+**behaviour change** those functions then carried. One commit, both things.
+
+That leaves **no tree in this branch's history where the seam exists and the
+new behaviour does not**, so T006's tests cannot be observed red anywhere.
+Run them against T003's tree (`0fe0c8d`) and you get `CS0117: 'AspireFixture'
+does not contain a definition for 'FormatFailedResourceReport'` — and
+`plan.md` has already ruled, for T002, that **a compile error is not a red
+test**. T006's original commit message claimed red was "demonstrated
+retrospectively against 0fe0c8d". It could not have been.
+
+**This is the same hazard `plan.md` diagnosed for T002 and solved with T001.**
+The remedy was written down, argued for over three alternatives, and then
+applied to one of the two tasks that needed it. The second went unnoticed
+because the plan's own note under T006 said the seam was "part of T005" —
+guarding against T005 landing an *untestable* method while creating the
+different defect of one that could not be seen *failing*.
+
+Split into:
+
+- **T005a** — the extraction alone. Both `internal static` functions exist and
+  are called; `FormatFailedResourceReport` keeps the old `---- name ----`
+  header, `FormatLikelyCause` returns empty and consults neither argument.
+  Byte-identical report output to `0fe0c8d`. Covering evidence: the seven
+  pre-existing tests, green.
+- **T005b** — the behaviour: the `Likely cause:` line and the explanatory
+  section headers. Turns T006 green.
+
+With T005a between them, T006 fails on assertions naming the three missing
+strings. That output is in the PR body.
+
+**The lesson, which is about the plan and not about clerical tidiness**: a
+prelude is needed wherever a *new seam* and *new behaviour through it* would
+otherwise arrive together, not only where a *signature* has to widen. The
+plan reasoned about the signature case, generalised it to nothing, and the
+gap surfaced only because T006 was written honestly enough to be run at the
+commit before its fix. Had it not been, the branch would have shipped a
+red-first claim with no red behind it.
+
+---
+
 ### T005 — the report says why each resource was selected
 
-**Agent**: `infra-engineer` · **Depends on**: T003
+**Agent**: `infra-engineer` · **Depends on**: T003 · **Split into T005a/T005b —
+see above.** The requirements below are unchanged and are landed by T005b,
+except the seam extraction, which is T005a.
 
 Three edits in `AspireFixture.cs`, satisfying FR-003, FR-004 and FR-005. The
 target report shape is specified in `plan.md` — **follow it, do not invent
@@ -184,9 +234,11 @@ Red first, output captured verbatim.
 **Note for whoever writes this**: `CaptureFailedResourceLogsAsync` is an
 instance method needing a live `_app`, so the formatting must be factored into
 an `internal static` pure function to be testable at this seam — the same shape
-`FormatResourceStates` already has. Doing so is part of T005, and this note
-exists so T005 does not land an untestable method that T006 then has to
-retro-fit.
+`FormatResourceStates` already has. ~~Doing so is part of T005~~ **— corrected:
+doing so is T005a, and it must land in its own commit *before* this test.**
+This note anticipated T005 landing an untestable method; what it did not
+anticipate was T005 landing a testable one alongside the behaviour that makes
+it pass, which is how a seam ends up with no tree in which it can fail.
 
 ---
 
