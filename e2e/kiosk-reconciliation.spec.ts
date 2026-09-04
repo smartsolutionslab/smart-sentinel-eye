@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { signInToKiosk } from './support/kiosk-session';
 import { readBoundOverlayWall } from './support/bound-overlay-wall';
+import { FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 /**
  * Issue 1921 — SC-004's reconciliation half: a kiosk that missed events while
@@ -71,7 +72,7 @@ test('kiosk reconciles the overlay state it missed while the hub was down', asyn
       const row = admin.getByRole('listitem').filter({ hasText: wall.variableName });
       await row.getByPlaceholder('New value').fill(wall.variableChangedValue);
       await row.getByRole('button', { name: /^set value$/i }).click();
-      await expect(row.getByText(wall.variableChangedValue)).toBeVisible();
+      await expect(row.getByText(wall.variableChangedValue)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
     });
 
     await expect(tile).toContainText(wall.variableChangedValue, { timeout: 10_000 });

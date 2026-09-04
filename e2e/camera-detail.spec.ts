@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
+import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // Spec 030 T033–T036 — opening one camera and correcting it, against the live
 // Aspire stack. Spec 029 built GET /cameras/{camera} and PATCH /cameras/{camera}
@@ -16,12 +17,14 @@ async function registerCamera(page: import('@playwright/test').Page): Promise<st
   await page.locator('#register-camera-url').fill('rtsp://10.0.5.98/stream');
   await page.getByRole('button', { name: /^register$/i }).click();
 
-  await expect(page.getByRole('link', { name })).toBeVisible();
+  await expect(page.getByRole('link', { name })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
   return name;
 }
 
 test('operator opens one camera from the list, and its location can be reloaded', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
   await signInAsOperator(page);
   const name = await registerCamera(page);
 
@@ -44,6 +47,8 @@ test('operator opens one camera from the list, and its location can be reloaded'
 });
 
 test('operator corrects a camera address and sees the stored value', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
   await signInAsOperator(page);
   const name = await registerCamera(page);
 
@@ -56,7 +61,7 @@ test('operator corrects a camera address and sees the stored value', async ({ pa
 
   // The PATCH carried If-Match with the version the read handed over; what is
   // shown afterwards is what came back from the server, not what was typed.
-  await expect(page.getByText('rtsp://10.0.5.77/corrected')).toBeVisible();
+  await expect(page.getByText('rtsp://10.0.5.77/corrected')).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
@@ -79,6 +84,8 @@ test('operator corrects a camera address and sees the stored value', async ({ pa
  * it leaves the default listing, and its record survives at its own address.
  */
 test('operator retires a camera, and it leaves the listing but keeps its record', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
   await signInAsOperator(page);
   const name = await registerCamera(page);
 
@@ -100,7 +107,9 @@ test('operator retires a camera, and it leaves the listing but keeps its record'
 
   // FR-009 — the page reflects it without a reload, and FR-004: the control is
   // gone rather than disabled.
-  await expect(page.getByRole('status')).toContainText(/retired/i);
+  await expect(page.getByRole('status')).toContainText(/retired/i, {
+    timeout: FIRST_WRITE_TIMEOUT_MS,
+  });
   await expect(page.getByRole('button', { name: /retire camera/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /correct the address/i })).toHaveCount(0);
 
@@ -141,6 +150,8 @@ test('operator retires a camera, and it leaves the listing but keeps its record'
  * retire test above was written after that lesson, and this follows it.
  */
 test('operator renames a camera and the new name follows it into the listing', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
   await signInAsOperator(page);
   const original = await registerCamera(page);
 
@@ -159,7 +170,7 @@ test('operator renames a camera and the new name follows it into the listing', a
   await page.getByRole('button', { name: /^save$/i }).click();
 
   // FR-012: the page reflects it without a reload, and no refusal appears.
-  await expect(page.getByRole('heading', { name: corrected })).toBeVisible();
+  await expect(page.getByRole('heading', { name: corrected })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
   await expect(page.getByRole('alert')).toHaveCount(0);
 
   const location = page.url();
@@ -214,6 +225,8 @@ test('a camera the operator may not see reads exactly as one that does not exist
  * A person proves the picture (quickstart §5).
  */
 test('an opened camera has a viewer, and a retired one explains why it does not', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
   await signInAsOperator(page);
   const name = await registerCamera(page);
 

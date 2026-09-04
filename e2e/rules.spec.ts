@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
+import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // Spec 013 T040 — Automation's e2e coverage for fab scoping.
 //
@@ -16,6 +17,8 @@ import { signInAsOperator } from './support/sign-in';
 // resolution.
 test.describe('rules — fab scoping', () => {
   test('operator authors a rule and it lands in their own fab without naming it', async ({ page }) => {
+    test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
     await openRules(page);
 
     const name = `e2e-rule-${Date.now()}`;
@@ -29,11 +32,13 @@ test.describe('rules — fab scoping', () => {
     await page.getByRole('button', { name: /^create draft$/i }).click();
 
     const row = page.getByRole('row').filter({ hasText: name });
-    await expect(row).toBeVisible();
+    await expect(row).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
     await expect(row.getByTestId('rule-fab')).toHaveText('munich');
   });
 
   test('every listed rule shows a fab the operator holds', async ({ page }) => {
+    test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
     await openRules(page);
 
     // Authors its own rule rather than relying on the test above: an empty
@@ -42,7 +47,7 @@ test.describe('rules — fab scoping', () => {
     await page.getByRole('button', { name: /new rule/i }).click();
     await fillRuleForm(page, name);
     await page.getByRole('button', { name: /^create draft$/i }).click();
-    await expect(page.getByRole('row').filter({ hasText: name })).toBeVisible();
+    await expect(page.getByRole('row').filter({ hasText: name })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
     // The seeded operator is in munich only, so anything else on screen is a
     // scoping failure — the server filtering by fab and the row rendering it,
@@ -83,6 +88,8 @@ async function fillRuleForm(page: Page, name: string) {
 // conflict would have passed on the broken build, so this asserts the conflict
 // is surfaced.
 test('a second operator publishing the same rule is refused, not silently applied', async ({ browser }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
   const name = `e2e-race-rule-${Date.now()}`;
 
   const first = await browser.newContext();
@@ -97,7 +104,7 @@ test('a second operator publishing the same rule is refused, not silently applie
     await pageOne.getByRole('button', { name: /^create draft$/i }).click();
 
     const rowOne = pageOne.getByRole('row').filter({ hasText: name });
-    await expect(rowOne).toBeVisible();
+    await expect(rowOne).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
     // The second context loads the list *now*, so it holds the same version the
     // first one does. Loading it after the publish below would hand it the
@@ -109,7 +116,7 @@ test('a second operator publishing the same rule is refused, not silently applie
 
     // First writer wins.
     await rowOne.getByRole('button', { name: /^publish$/i }).click();
-    await expect(rowOne.getByText('Active')).toBeVisible();
+    await expect(rowOne.getByText('Active')).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
     // Second writer is acting on the version it read before that publish.
     await rowTwo.getByRole('button', { name: /^publish$/i }).click();

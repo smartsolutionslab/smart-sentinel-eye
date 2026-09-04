@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
+import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // ADR-0108 — overlays "read" vertical slice. An operator signs in, opens the
 // Overlays surface, and the list loads from the overlay-designer service
@@ -16,6 +17,8 @@ test('operator opens overlays and the list loads through the gateway', async ({ 
 });
 
 test('operator creates an overlay draft and it appears in the list', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
   await signInAsOperator(page);
 
   await page.getByRole('link', { name: /^overlays$/i }).click();
@@ -28,5 +31,5 @@ test('operator creates an overlay draft and it appears in the list', async ({ pa
   await page.locator('#overlay-name').fill(name);
   await page.getByRole('button', { name: /save as draft/i }).click();
 
-  await expect(page.getByText(name)).toBeVisible();
+  await expect(page.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 });
