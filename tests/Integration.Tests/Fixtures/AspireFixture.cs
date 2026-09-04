@@ -121,9 +121,41 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 .WaitForResourceAsync("keycloak", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
-            await _app.ResourceNotifications
-                .WaitForResourceAsync("migrations", KnownResourceStates.Finished, cts.Token)
+            // Nine services wait for migrations, so a migration runner that
+            // died takes the whole startup budget with it: the wait succeeded
+            // on `Finished` without asking how, and the fixture then spent the
+            // remaining ~7½ minutes on services that could never start (#2064).
+            //
+            // The predicate overload is used for its *return value* — it hands
+            // back the snapshot that matched — and it filters on state alone.
+            // Judging the exit code inside the predicate would fail open: an
+            // unobserved code satisfies `is null or 0` and the wait proceeds as
+            // before, while a known-bad code merely postpones the same shared
+            // `cts` timeout to the same instant. Read after, decide after,
+            // throw here.
+            ResourceEvent migrations = await _app.ResourceNotifications
+                .WaitForResourceAsync(
+                    "migrations",
+                    migration => migration.Snapshot.State?.Text == KnownResourceStates.Finished,
+                    cts.Token)
                 .ConfigureAwait(false);
+
+            if (ExitedNonZero(migrations.Snapshot.ExitCode))
+            {
+                // Only on this branch: a healthy boot must not pay the bounded
+                // five-second log read.
+                Aspire.Hosting.ApplicationModel.ResourceLoggerService migrationLoggers =
+                    _app.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
+
+                string migrationsLog =
+                    await CaptureOneResourceLogAsync(migrationLoggers, "migrations").ConfigureAwait(false);
+
+                // Not a TimeoutException, and not any OperationCanceledException:
+                // the catch below would reclassify a 40-second failure as "did
+                // not start within 8 minutes".
+                throw new InvalidOperationException(
+                    FormatMigrationFailureMessage(migrations.Snapshot.ExitCode, migrationsLog));
+            }
 
             await _app.ResourceNotifications
                 .WaitForResourceAsync("camera-catalog", KnownResourceStates.Running, cts.Token)
