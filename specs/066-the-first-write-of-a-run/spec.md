@@ -138,12 +138,25 @@ therefore runs on the shared `expect` budget (15 s locally, 30 s in CI).
 | `e2e/support/seed-published-layout.setup.ts` | 3 (`:39`, `:49`, `:54`) | camera-catalog + layout-composition | **no** |
 | `e2e/kiosk-reconciliation.spec.ts` | 1 (`:74` set value) | system-variables | **no** |
 | `e2e/kiosk-shows-a-label-over-video.spec.ts` | 1 (`:318` set value) | system-variables | **no** |
-| `e2e/support/seed-live-video-wall.setup.ts` | 1 (`:44`) | system-variables | **yes — 90 s** |
-| `e2e/support/seed-bound-overlay-wall.setup.ts` | 1 (`:44`) | system-variables | **yes — 90 s** |
+| `e2e/support/seed-live-video-wall.setup.ts` | 6 (define, overlay draft, overlay publish, camera register, layout draft, layout publish) | system-variables + overlay-designer + camera-catalog + layout-composition | **1 of 6 — the define only** |
+| `e2e/support/seed-bound-overlay-wall.setup.ts` | 6 (define, overlay draft, overlay publish, camera register, layout draft, layout publish) | system-variables + overlay-designer + camera-catalog + layout-composition | **1 of 6 — the define only** |
 
-**Nine files are exposed; two are guarded.** They span **five services** —
+**Every file is exposed, the two seeds included.** They span **five services** —
 camera-catalog, overlay-designer, layout-composition, automation,
 system-variables — and at least eight distinct integration message types.
+
+**The last two rows read "1 site each, guarded" until phase 6 (#2014 review),
+and that under-count is why no task pointed at them.** Each seed makes six
+distinct kinds of write across four services; only the define carried a budget.
+The correction matters more here than anywhere else in the table: the `seed`
+project is a *dependency* of `kiosk` and `wall`, so under
+`pnpm test:e2e --project=kiosk` these are the **first writes of the entire run**
+— and a seed failure fails every dependent project. (In a full CI run
+`chromium` is declared first and warms those types, which is the same local/CI
+asymmetry FR-008 raises.) `seed-published-layout.setup.ts` had all three of its
+sites treated, which is what makes the inconsistency visible. These two rows name
+the writes instead of their lines because both files moved within this feature's
+own branch.
 
 **Two facts make the exposure wider than "whichever file happens to be first".**
 
@@ -326,8 +339,9 @@ Declaration 3.
   023 §3.
 - **FR-002** — Every first-of-kind write assertion in `e2e/system-variables.spec.ts`
   uses that budget, and each such test raises its own timeout to contain it.
-- **FR-003** — The two already-guarded seeds import the constant instead of
-  restating the literal. Same value, no behaviour change.
+- **FR-003** — The two spec-056 seeds import the constant instead of restating
+  the literal — same value on the define — **and adopt it at their other five
+  write sites too**, which §Exposure originally recorded as not existing.
 - **FR-004** — The remaining exposed files in §Exposure adopt the same budget at
   their first-of-kind write sites (US2).
 - **FR-005** — Assertions on *error* surfaces (`getByRole('alert')`,

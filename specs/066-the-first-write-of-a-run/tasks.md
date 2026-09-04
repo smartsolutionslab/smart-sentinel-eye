@@ -134,6 +134,15 @@ transcribed wrong.
 Not `[P]` with T003 only because it is the same commit's argument; the files are
 disjoint and it may be done alongside if the engineer prefers.
 
+**Corrected at phase 6 (#2014 review): each seed has six budgeted sites, not
+one.** §Exposure recorded these two files as "1 site each — guarded", so this
+task saw only the define. Both seeds also draft and publish an overlay, register
+a camera, and draft and publish a layout — four services, six message types, and
+the `seed` project is a dependency of `kiosk` and `wall`, so under a partial
+run these are the first writes of the entire run. Six budgeted sites do not fit
+`FIRST_WRITE_TEST_TIMEOUT_MS`, so both seeds now size their own ceiling
+(360 s) with the arithmetic at the site.
+
 **Depends on**: T002.
 
 ---
