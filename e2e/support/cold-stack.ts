@@ -5,10 +5,11 @@
  * A freshly booted stack pays a near-constant cost the first time a given
  * integration message type is published — about 5 s, measured and confirmed by
  * intervention in `specs/023-first-event-cold-start/verification.md` §3, and
- * <b>still unexplained</b>: eight candidate mechanisms were refuted there and
- * none is standing. The cost attaches to the message <i>type</i>, not to the
- * process, so a file being second in the run does not make it safe — and no
- * single readiness write could warm the eight types the suite touches.
+ * <b>still unexplained</b>: every candidate mechanism spec 023 tried was
+ * refuted, and none is standing. The cost attaches to the message <i>type</i>,
+ * not to the process, so a file being second in the run does not make it safe —
+ * and no single readiness write could warm the <i>at least</i> eight types the
+ * suite touches.
  * </para>
  *
  * <para>

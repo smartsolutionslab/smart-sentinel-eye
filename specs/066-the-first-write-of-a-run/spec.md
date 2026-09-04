@@ -361,10 +361,11 @@ Declaration 3.
 - **Any change to `retries` or `expect.timeout` in `playwright.config.ts`.**
   Lowering retries weakens a gate (ADR-0144); raising the shared local budget to
   30 s would hide real slowness everywhere to fix it at nine known places.
-- **Naming the mechanism.** Spec 023 tried, refuted eight candidates and left it
-  open. Re-opening it is a measurement feature, not a flake fix, and pretending
-  otherwise here would repeat spec 023's §4 warning about publishable wrong
-  answers.
+- **Naming the mechanism.** Spec 023 tried, gave every candidate a verdict and
+  left it open — `verification.md` SC-003 records eight candidates with none
+  standing, while §4 and §5 name six of them in prose. Re-opening it is a
+  measurement feature, not a flake fix, and pretending otherwise here would
+  repeat spec 023's §4 warning about publishable wrong answers.
 - **Deleting accumulated E2E variables.** The product has no such endpoint (spec
   056 §6). Not created by this feature either.
 - **A source-scanning guard test** that asserts no exposed site still uses the
