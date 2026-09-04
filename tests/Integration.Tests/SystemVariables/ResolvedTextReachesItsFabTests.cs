@@ -73,11 +73,42 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 /// broadcasting to everyone when the fab is missing (ADR-0115, spec 017
 /// FR-015).
 /// </para>
+///
+/// <para>
+/// <b>Spec 067 T002 (#2069) — the group is not the whole answer.</b> Every
+/// assertion above is about <i>who</i> a frame is sent to, and all of them hold.
+/// What none of them looks at is whether the frame says <i>whose</i> it is. An
+/// overlay is a fab-neutral template (ADR-0115), so the same overlay identifier
+/// is legitimately pushed by every fab, and a principal holding two fabs joins
+/// two groups and correctly receives both plants' frames — with nothing on the
+/// wire to tell them apart.
+/// <see cref="A_frame_a_two_fab_screen_receives_names_the_fab_it_belongs_to"/>
+/// is that gap, and it is the one test here that is red today.
+/// </para>
+///
+/// <para>
+/// <b>The fix does not stop that frame arriving, and this file must not be read
+/// as if it did.</b> A console holding two fabs receiving both fabs' frames is
+/// correct group behaviour, green today and green afterwards. What the fix
+/// changes is that the frame becomes self-describing, so a wall can refuse what
+/// is not its own. <b>The refusal is asserted in the kiosk's
+/// <c>CellPage.test.tsx</c> and nowhere at this level</b> — a reader who expects
+/// the arrival below to go silent after the fix will read a correct green as a
+/// regression.
+/// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
 public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string DresdenOperator = "op-dresden@dresden.test";
+
+    /// <summary>
+    /// The seeded principal holding <c>/fabs/munich</c> <b>and</b>
+    /// <c>/fabs/dresden</c> — the screen the missing fab on the wire is
+    /// invisible to.
+    /// </summary>
+    private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
+
     private const string OperatorPassword = "Operator1234";
 
     /// <summary>
@@ -293,9 +324,80 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
         }
     }
 
+    /// <summary>
+    /// Spec 067 T002 (#2069), FR-004 — the frame names the fab it belongs to.
+    ///
+    /// <para>
+    /// <b>One write, three connections</b>, for the reason in the class
+    /// remarks: the two arrivals are the positive control for the munich
+    /// silence, so the three cannot disagree about timing.
+    /// </para>
+    ///
+    /// <para>
+    /// The first three assertions are the existing, correct behaviour and are
+    /// green on both sides of the fix — including the <c>op-multi</c> arrival,
+    /// which is the hazard rather than a bug: a console holding both fabs is
+    /// <i>meant</i> to receive both. The last is the red. Ordered so that a
+    /// broken stack fails on an arrival, visibly, rather than on a missing
+    /// field.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_frame_a_two_fab_screen_receives_names_the_fab_it_belongs_to()
+    {
+        (string variableName, Guid overlay) = await AMunichOverlayBoundToAVariableAsync();
+        await AlsoDefinedInDresdenAsync(variableName);
+
+        (HubConnection munich, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> munichFrames) =
+            await ListenAsync(await AdminTokenAsync());
+        (HubConnection dresden, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> dresdenFrames) =
+            await ListenAsync(await aspire.GetAccessTokenAsync(DresdenOperator, OperatorPassword));
+        (HubConnection bothFabs, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> bothFabsFrames) =
+            await ListenAsync(await aspire.GetAccessTokenAsync(MultiFabOperator, OperatorPassword));
+
+        await using (munich)
+        await using (dresden)
+        await using (bothFabs)
+        {
+            using HttpClient variables = await aspire.CreateAuthenticatedClientAsync(
+                "system-variables", MultiFabOperator, OperatorPassword);
+            (await SetDresdenValueAsync(variables, variableName, "63.5")).EnsureSuccessStatusCode();
+
+            // The dresden-only screen is told. Awaiting it first is what makes
+            // the munich silence below an assertion rather than a free pass.
+            ResolvedFrame toDresden = await dresdenFrames.GetOrAdd(overlay, _ => new()).Task
+                .WaitAsync(FrameWindow);
+            toDresden.ResolvedText.ShouldBe("Line 1: 63.5");
+
+            // And so is the screen holding both fabs — correctly, because it
+            // joined the dresden group. This does not change with the fix.
+            ResolvedFrame toBothFabs = await bothFabsFrames.GetOrAdd(overlay, _ => new()).Task
+                .WaitAsync(FrameWindow);
+            toBothFabs.ResolvedText.ShouldBe("Line 1: 63.5");
+
+            munichFrames.GetOrAdd(overlay, _ => new()).Task.IsCompleted.ShouldBeFalse(
+                "a munich-only screen was told a dresden variable's value");
+
+            // The red. The frame op-multi received is indistinguishable from
+            // the munich frame it would have received for the same overlay, so
+            // a wall bound to that overlay applies whichever arrives.
+            toBothFabs.Fab.ShouldBe(
+                "dresden",
+                "the frame carries no fab, so a screen holding two fabs cannot tell "
+                + "dresden's production figure from its own plant's (#2069)");
+        }
+    }
+
     // ---- helpers ------------------------------------------------------------
 
-    private sealed record ResolvedFrame(Guid Overlay, string ResolvedText, long Version);
+    /// <summary>
+    /// What a client reads off the wire. <c>Fab</c> is nullable and read with
+    /// <c>TryGetProperty</c> on purpose: there is no such property today
+    /// (#2069), and a hard <c>GetProperty</c> would throw inside the listener
+    /// every other test in this file shares, turning three unrelated passes
+    /// into mystery timeouts. The absence must fail one assertion, not four.
+    /// </summary>
+    private sealed record ResolvedFrame(Guid Overlay, string? Fab, string ResolvedText, long Version);
 
     /// <summary>
     /// Writes a value and returns the frame it produced. The completion source
@@ -335,6 +437,7 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
             {
                 ResolvedFrame frame = new(
                     payload.GetProperty("overlay").GetGuid(),
+                    payload.TryGetProperty("fab", out JsonElement fab) ? fab.GetString() : null,
                     payload.GetProperty("resolvedText").GetString() ?? string.Empty,
                     payload.GetProperty("version").GetInt64());
                 frames.GetOrAdd(frame.Overlay, _ => new()).TrySetResult(frame);
@@ -343,6 +446,54 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
         await connection.StartAsync();
 
         return (connection, frames);
+    }
+
+    /// <summary>
+    /// Defines the same name a second time, in dresden, so one variable name
+    /// exists in two fabs — the arrangement under which the missing fab on the
+    /// wire is observable at all.
+    ///
+    /// <para>
+    /// Written as <c>op-multi</c> because the seeded admin holds munich only,
+    /// and the fab is named explicitly because ADR-0114 refuses a write from a
+    /// caller who holds several and names none.
+    /// </para>
+    /// </summary>
+    private async Task AlsoDefinedInDresdenAsync(string variableName)
+    {
+        using HttpClient variables = await aspire.CreateAuthenticatedClientAsync(
+            "system-variables", MultiFabOperator, OperatorPassword);
+
+        (await variables.PostAsJsonAsync("/system-variables?fabId=dresden", new
+        {
+            name = variableName,
+            type = "Number",
+            initialValue = "0",
+            truthyLabel = (string?)null,
+            falsyLabel = (string?)null,
+        })).EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// <see cref="VariableRequests.SetValueAsync"/> for a named fab. Kept local
+    /// rather than widening the shared helper: this is the only caller, and
+    /// ADR-0036 has nothing good to say about an abstraction with one user.
+    /// </summary>
+    private static async Task<HttpResponseMessage> SetDresdenValueAsync(
+        HttpClient variables, string name, string value)
+    {
+        HttpResponseMessage fetched = await variables.GetAsync($"/system-variables/{name}?fabId=dresden");
+        fetched.EnsureSuccessStatusCode();
+        JsonElement current = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+
+        using HttpRequestMessage request = new(HttpMethod.Put, $"/system-variables/{name}/value?fabId=dresden")
+        {
+            Content = JsonContent.Create(new { value }),
+        };
+        request.Headers.TryAddWithoutValidation(
+            "If-Match", $"\"{current.GetProperty("version").GetInt32()}\"");
+
+        return await variables.SendAsync(request);
     }
 
     private Task<string> AdminTokenAsync() =>
