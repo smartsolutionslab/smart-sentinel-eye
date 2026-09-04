@@ -233,6 +233,22 @@ public class AspireFixtureReportSelectionTests
     }
 
     [Fact]
+    public void A_resource_that_crashed_and_came_back_is_not_named_as_a_cause()
+    {
+        // The cause line and the failure section have to agree. A resource
+        // that died and restarted inside the watch window ends the window
+        // `Running` — healthy, so the failure section leaves it out — while
+        // still carrying the non-zero code from the earlier observation.
+        // Naming it at the top of a report that then never mentions it again
+        // sends the reader looking for a section that is not there.
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["camera-catalog"] = "Running" };
+        Dictionary<string, int?> exitCodes = new(StringComparer.Ordinal) { ["camera-catalog"] = 137 };
+
+        AspireFixture.SelectResourcesToReport(states, exitCodes).ShouldBeEmpty();
+        AspireFixture.FormatLikelyCause(states, exitCodes).ShouldBeEmpty();
+    }
+
+    [Fact]
     public void No_cause_is_claimed_when_no_resource_states_were_captured()
     {
         AspireFixture.FormatLikelyCause(
