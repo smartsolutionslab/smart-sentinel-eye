@@ -61,13 +61,15 @@ public class NormalizedPositionTests
     }
 
     /// <summary>
-    /// Whole numbers on purpose: decimal formatting follows the current culture,
-    /// so an assertion on a fractional value passes on an invariant host and
-    /// fails on a comma-decimal one.
+    /// Fractional on purpose. Decimal formatting follows the current culture, so
+    /// a comma-decimal host renders this pair as <c>(0,5,0,75)</c> — separator
+    /// and decimal point the same character — unless the override formats
+    /// invariantly. Asserting whole numbers would pass either way and prove
+    /// nothing about the case that goes wrong.
     /// </summary>
     [Fact]
-    public void ToString_reads_as_a_coordinate_pair()
+    public void ToString_reads_as_a_coordinate_pair_in_any_culture()
     {
-        NormalizedPosition.From(0m, 1m).ToString().ShouldBe("(0,1)");
+        NormalizedPosition.From(0.5m, 0.75m).ToString().ShouldBe("(0.5,0.75)");
     }
 }

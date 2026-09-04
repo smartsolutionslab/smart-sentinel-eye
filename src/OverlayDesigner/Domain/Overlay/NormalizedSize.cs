@@ -1,3 +1,4 @@
+using System.Globalization;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
@@ -42,5 +43,13 @@ public sealed record NormalizedSize(decimal Width, decimal Height) : IValueObjec
         return new(normalizedWidth, normalizedHeight);
     }
 
-    public override string ToString() => $"{Width}x{Height}";
+    /// <summary>
+    /// Invariant-culture on purpose: a comma-decimal host would otherwise
+    /// render <c>0.5</c> by <c>0.75</c> as <c>0,5x0,75</c>. The guard messages
+    /// above are deliberately <em>not</em> invariant — they reproduce
+    /// <c>InRange</c>'s culture-following interpolation character for
+    /// character, which is what FR-007 preserves.
+    /// </summary>
+    public override string ToString() =>
+        string.Create(CultureInfo.InvariantCulture, $"{Width}x{Height}");
 }

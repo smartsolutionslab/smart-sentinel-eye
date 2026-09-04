@@ -62,12 +62,12 @@ public class NormalizedSizeTests
     }
 
     /// <summary>
-    /// Whole numbers on purpose, for the reason given on
-    /// <c>NormalizedPositionTests.ToString_reads_as_a_coordinate_pair</c>.
+    /// Fractional on purpose, for the reason given on
+    /// <c>NormalizedPositionTests.ToString_reads_as_a_coordinate_pair_in_any_culture</c>.
     /// </summary>
     [Fact]
-    public void ToString_reads_as_width_by_height()
+    public void ToString_reads_as_width_by_height_in_any_culture()
     {
-        NormalizedSize.From(1m, 1m).ToString().ShouldBe("1x1");
+        NormalizedSize.From(0.5m, 0.75m).ToString().ShouldBe("0.5x0.75");
     }
 }

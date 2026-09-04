@@ -1,3 +1,4 @@
+using System.Globalization;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
@@ -34,5 +35,11 @@ public sealed record NormalizedPosition(decimal X, decimal Y) : IValueObject
         return new(normalizedX, normalizedY);
     }
 
-    public override string ToString() => $"({X},{Y})";
+    /// <summary>
+    /// Invariant-culture on purpose: a comma-decimal host would otherwise
+    /// render <c>0.5</c>, <c>0.75</c> as <c>(0,5,0,75)</c>, where the separator
+    /// and the decimal point are the same character.
+    /// </summary>
+    public override string ToString() =>
+        string.Create(CultureInfo.InvariantCulture, $"({X},{Y})");
 }
