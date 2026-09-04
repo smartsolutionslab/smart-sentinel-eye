@@ -227,6 +227,12 @@ failed to boot.`
    expected" reads badly directly above a non-empty log. Not fixed here — this
    is phase 5, and the change is not wrong, only over-committed in its wording.
 
+   **Closed in phase 6.** The header now reads `(FailedToStart — never reached
+   a running state)`: the state, and no prediction about the section beneath
+   it. `A_resource_that_ran_and_died_is_distinguishable_from_one_that_never_launched`
+   asserts the new clause, so the distinction the header exists to draw is
+   still pinned.
+
 4. **One test, not the suite.** Each provoked run executed a single test filter;
    the fixture fails before any test body runs, so the report is what was under
    observation, not the suite's own greenness. The full integration suite was
