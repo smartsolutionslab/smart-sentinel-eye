@@ -269,17 +269,27 @@ scratch line in `src/MigrationRunner/Program.cs` and the fix *not yet applied*,
 the run ends:
 
 ```
+  [xUnit.net 00:08:53.82]     …A_camera_registration_reaches_the_camera_catalog_log_tail [FAIL]
 System.TimeoutException : Aspire AppHost did not start within 8 minutes.
 Likely cause: migrations exited with code <n> — a non-zero exit is a failure, not a clean finish.
 …
-Failed!  - Failed: 1, …, Duration: 8 m NN s
+Failed!  - Failed: 1, …
 ```
 
 Two facts are transported verbatim from that run: **the exception type and site**
-(a `TimeoutException` from the `camera-catalog` wait) and **the duration**. The
-first is what the fix changes; the second is what the fix is worth. Post-fix,
+(a `TimeoutException` from the `camera-catalog` wait) and **the elapsed time**.
+The first is what the fix changes; the second is what the fix is worth. Post-fix,
 the same command must produce a different exception in a materially shorter
 time.
+
+**The elapsed time is the `[xUnit.net HH:MM:SS.ss]` marker on the `[FAIL]` line,
+not the runner's `Duration:` line.** Phase 4a found this the expensive way: when
+`InitializeAsync` throws, xUnit attributes the collection fixture's time to
+neither the test nor the assembly summary, so a single `--filter`ed test reports
+`Duration: 6 ms` for a run that burned nearly nine minutes. The marker read
+`00:08:53.82` and `00:08:55.10` across two provocations. A passing run does not
+behave this way — fixture time lands in `Duration:` there — which is exactly why
+the wrong figure looks trustworthy.
 
 ### The honest limits — three, stated before phase 5 rather than after
 
