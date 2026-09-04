@@ -200,12 +200,12 @@ test('a camera the operator may not see reads exactly as one that does not exist
  * Spec 043 T011 / FR-001 — the camera's page reaches the viewer, against the
  * live stack.
  *
- * **What this does NOT prove: that a picture appears.** `camera-sim` and
- * `scenario-simulator` sit inside `if (isRunMode && !isE2ETests)`, so a
- * Playwright run produces no video at all — the `<video>` element is mounted
- * whether or not a frame ever arrives, and `CameraViewer` will be sitting in
- * Connecting… or Stream is offline the whole time. A `<video>` is a viewer,
- * not a picture.
+ * **What this does NOT prove: that a picture appears.** `registerCamera` above
+ * points the camera at `rtsp://10.0.5.98/stream`, an address nothing in the
+ * stack serves — this spec gets no picture because it never asked for one. The
+ * `<video>` element is mounted whether or not a frame ever arrives, and
+ * `CameraViewer` will be sitting in Connecting… or Stream is offline the whole
+ * time. A `<video>` is a viewer, not a picture.
  *
  * It is still worth having, and for a specific reason: it is the only check
  * that fails if the page stops mounting the viewer *in the real app*. The unit

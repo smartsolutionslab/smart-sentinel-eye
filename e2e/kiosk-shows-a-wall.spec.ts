@@ -12,12 +12,15 @@ import { openFirstLayout, signInToKiosk } from './support/kiosk-session';
  * token carries no fab gets an empty picker and no error at all, so "no error"
  * is satisfied by exactly the failure this feature fixes.
  *
- * **What this does NOT prove: that the tiles show a picture.** `camera-sim`,
- * `scenario-simulator` and the ICE host-publishing all sit inside
- * `if (isRunMode && !isE2ETests)`, so a Playwright kiosk gets no video, and a
- * tile renders whether or not one arrives. Both of the blockers spec 041 fixed
- * — the missing `sub` claim and the WHEP gate — are invisible here in either
- * direction. They are verified by a person, per the feature's quickstart.
+ * **What this does NOT prove: that the tiles show a picture.** The wall opened
+ * here is the one `seed-published-layout.setup.ts` publishes, and its camera is
+ * registered at `rtsp://10.0.5.70/stream` — an address nothing serves — so no
+ * frame can arrive for this tile, and a tile renders whether or not one does.
+ * (That is a fact about this wall, not about the stack: spec 056 stands up
+ * `fixture-video`, and `kiosk-shows-a-label-over-video.spec.ts` points a camera
+ * at it.) Both of the blockers spec 041 fixed — the missing `sub` claim and the
+ * WHEP gate — are invisible here in either direction. They are verified by a
+ * person, per the feature's quickstart.
  */
 test('a kiosk opens a published wall and its tiles render', async ({ page }) => {
   await signInToKiosk(page);

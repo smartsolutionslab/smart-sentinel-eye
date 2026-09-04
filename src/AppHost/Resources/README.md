@@ -9,7 +9,9 @@ clip it plays (`Camera.Clip` in `Scenarios/*.json`); a camera belonging to no
 asset gets `sim-loop.mp4` with its name drawn on it.
 
 All **dev-only** — never used by CI/E2E/prod, because the camera-sim container
-and the worker are both gated `isRunMode && !isE2ETests` in `AppHost.cs`.
+and the worker are both gated
+`isRunMode && !isE2ETests && isScenarioSimulatorEnabled` in `AppHost.cs`, and
+the end-to-end job boots with `ScenarioSimulator=false` (#2013).
 
 The host has no FFmpeg, so clips are generated from the MediaMTX
 `latest-ffmpeg` image. Run once and commit the results:

@@ -5,12 +5,12 @@ import { decodeElapsedBetween, decodeSampleFrom, reportKioskLatency, type Decode
  * Spec 040. The guards and the shape of a report.
  *
  * <p>
- * <b>Nothing here proves a number came from a frame.</b> CI has no video —
- * `camera-sim`, `scenario-simulator` and the ICE host-publishing all sit inside
- * `if (isRunMode && !isE2ETests)` — so these cover what happens to a figure once
- * it exists, and the figures themselves are read by a person against the
- * run-mode stack. A green suite standing in for an unexercised claim is the same
- * class of error that produced issue 1714.
+ * <b>Nothing here proves a number came from a frame.</b> This is a vitest unit
+ * test running in Node: no browser, no peer connection, no stack of any kind, so
+ * there is no frame here to have come from — these cover what happens to a
+ * figure once it exists, and the figures themselves are read by a person against
+ * the run-mode stack. A green suite standing in for an unexercised claim is the
+ * same class of error that produced issue 1714.
  * </p>
  */
 const token = () => Promise.resolve('a-token');

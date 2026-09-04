@@ -19,11 +19,13 @@ test('operator opens layouts and the list loads through the gateway', async ({ p
 });
 
 // ADR-0108 — layouts "create" write slice against the live Aspire stack. CI runs
-// on a fresh, empty DB, so the layout dialog's camera picker and overlay select
-// are empty until we seed them. This test therefore registers a camera and
-// publishes an overlay first, then creates a layout that references both. A
-// passing run proves the authenticated POST /layout-composition/layouts path end
-// to end (Bearer; sse.management grandfathers sse.layouts.write), plus the
+// on a fresh, empty DB — the containers are new every run, and `ci.yml` boots
+// with `ScenarioSimulator=false` so nothing seeds a catalogue behind us (#2013)
+// — so the layout dialog's camera picker and overlay select are empty until we
+// seed them. This test therefore registers a camera and publishes an overlay
+// first, then creates a layout that references both. A passing run proves the
+// authenticated POST /layout-composition/layouts path end to end (Bearer;
+// sse.management grandfathers sse.layouts.write), plus the
 // cross-context reads the dialog depends on.
 test('operator authors a 2×2 wall referencing a camera and overlay and it appears in the list', async ({ page }) => {
   await signInAsOperator(page);
