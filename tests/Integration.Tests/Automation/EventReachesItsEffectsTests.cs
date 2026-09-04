@@ -100,6 +100,15 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     /// identifier and the duration the rule named, which is what distinguishes
     /// it from any other highlight the fixture happens to be carrying.
     /// </para>
+    ///
+    /// <para>
+    /// <b>Spec 067 T003 (#2069) adds one assertion here rather than a fixture
+    /// of its own:</b> that the frame names the fab whose rule produced it.
+    /// Without it, the highlight's new field would be asserted only by a
+    /// TypeScript interface, which proves nothing about what the server sends —
+    /// and this is the only place in the suite where a real rule fires and a
+    /// real highlight frame is read off a real hub.
+    /// </para>
     /// </summary>
     [Fact]
     public async Task An_event_from_the_plant_floor_highlights_the_overlay_a_rule_names()
@@ -110,7 +119,7 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
         string rule = await ActivateHighlightRuleAsync(rules, overlay);
         output.WriteLine($"activated highlight rule {rule} for overlay {overlay}");
 
-        TaskCompletionSource<int> highlighted = new();
+        TaskCompletionSource<HighlightFrame> highlighted = new();
         await using HubConnection kiosk = await ListenForHighlightAsync(overlay, highlighted);
 
         // Connected before the event, not after: the frame is pushed once and
@@ -122,11 +131,11 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
         DateTimeOffset started = DateTimeOffset.UtcNow;
         using CancellationTokenSource budget = new(EffectDeadline);
 
-        int durationMs = 0;
+        HighlightFrame frame = new(null, 0);
         bool arrived = true;
         try
         {
-            durationMs = await highlighted.Task.WaitAsync(budget.Token);
+            frame = await highlighted.Task.WaitAsync(budget.Token);
         }
         catch (OperationCanceledException)
         {
@@ -142,8 +151,18 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
         output.WriteLine(
             $"overlay {overlay} highlighted after {(DateTimeOffset.UtcNow - started).TotalMilliseconds:F0} ms");
 
-        durationMs.ShouldBe(
+        frame.DurationMs.ShouldBe(
             HighlightMs, "the frame arrived carrying a duration no rule in this test asked for");
+
+        // Spec 067 T003 (#2069). The rule fired in munich and the frame was
+        // addressed to munich's group — and then said so nowhere. A screen
+        // holding two fabs joins two groups, so without this field it cannot
+        // tell this highlight from the other plant's, and lights a tile for an
+        // event that happened 500 km away.
+        frame.NamedFab.ShouldBe(
+            Fab,
+            "the highlight frame does not name the fab whose rule produced it, so a screen "
+            + "holding more than one fab cannot refuse another plant's highlight (#2069)");
     }
 
     /// <summary>
@@ -374,7 +393,7 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     /// see nothing and read exactly like a broken journey.
     /// </summary>
     private async Task<HubConnection> ListenForHighlightAsync(
-        Guid overlay, TaskCompletionSource<int> highlighted)
+        Guid overlay, TaskCompletionSource<HighlightFrame> highlighted)
     {
         string token = await aspire.GetAccessTokenAsync(
             AspireFixture.AdminUsername, AspireFixture.AdminPassword);
@@ -391,13 +410,30 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
             {
                 if (frame.GetProperty("overlay").GetGuid() == overlay)
                 {
-                    highlighted.TrySetResult(frame.GetProperty("durationMs").GetInt32());
+                    highlighted.TrySetResult(new HighlightFrame(
+                        frame.TryGetProperty("fab", out JsonElement fab) ? fab.GetString() : null,
+                        frame.GetProperty("durationMs").GetInt32()));
                 }
             });
 
         await kiosk.StartAsync();
         return kiosk;
     }
+
+    /// <summary>
+    /// What a kiosk reads off an <c>OverlayHighlightChanged</c> frame.
+    ///
+    /// <para>
+    /// A record rather than a second listener, because the arrangement above is
+    /// already a real rule firing over a real broker and duplicating it to read
+    /// one more field would double this file's slowest test. <c>NamedFab</c> is
+    /// nullable and read with <c>TryGetProperty</c> deliberately: the property
+    /// does not exist today (#2069), and a hard <c>GetProperty</c> would throw
+    /// inside the listener, leaving the completion source unset and reporting a
+    /// missing field as a journey that never finished.
+    /// </para>
+    /// </summary>
+    private sealed record HighlightFrame(string? NamedFab, int DurationMs);
 
     private static async Task<string?> ReadValueAsync(HttpClient variables, string name)
     {
