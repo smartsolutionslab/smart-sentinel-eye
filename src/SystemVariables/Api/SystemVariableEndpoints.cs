@@ -54,6 +54,7 @@ public static class SystemVariableEndpoints
             .WithName("GetOverlaySnapshot")
             .Produces<ResolvedOverlaySnapshotDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/{name}", GetOne)
