@@ -338,20 +338,33 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// for, and `NotStarted` rebuilders — dev-time helpers that never run on
     /// their own — are dropped rather than reported as failures with no logs.
     /// </para>
+    /// <para>
+    /// That exemption was unconditional, and it over-corrected (#2061): a
+    /// `migrations` that aborted with exit code 134 was pronounced healthy and
+    /// left out of the failure section while the state list two inches above
+    /// printed the code. The exemption now ends where a non-zero exit begins.
+    /// </para>
     /// </remarks>
     internal static string[] SelectResourcesToReport(
         Dictionary<string, string> states,
         Dictionary<string, int?> exitCodes) =>
         states
-            .Where(kv => !IsHealthy(kv.Key, kv.Value))
+            .Where(kv => !IsHealthy(kv.Key, kv.Value, exitCodes))
             .Select(kv => kv.Key)
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
-    private static bool IsHealthy(string name, string state) =>
+    private static bool IsHealthy(string name, string state, Dictionary<string, int?> exitCodes) =>
         state is "Running"
-        || (state is "Finished" && IsOneShot(name))
+        || (state is "Finished" && IsOneShot(name) && !ExitedNonZero(name, exitCodes))
         || (state is "NotStarted" && name.EndsWith("-rebuilder", StringComparison.Ordinal));
+
+    // "Did not exit non-zero", not "exited zero". An absent code means the exit
+    // was never observed — the state map keeps whichever watch event arrived
+    // last — so reading unknown as failure would report a `migrations` that is
+    // perfectly fine, which is #1918 coming back from the other side.
+    private static bool ExitedNonZero(string name, Dictionary<string, int?> exitCodes) =>
+        exitCodes.TryGetValue(name, out int? exit) && exit is not null and not 0;
 
     // Resources that run once and stop; finishing is how they succeed.
     private static bool IsOneShot(string name) =>
