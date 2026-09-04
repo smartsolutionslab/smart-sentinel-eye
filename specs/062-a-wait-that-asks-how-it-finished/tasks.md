@@ -166,10 +166,11 @@ report names the gaps it chose not to fill.
 
 Per `plan.md` §"Phase 4a design":
 
-- Factor `ExitedNonZero`'s rule into `internal static bool ExitedNonZero(int? exitCode)`
+- Factor `ExitedNonZero`'s rule into
+  `internal static bool ExitedNonZero([NotNullWhen(true)] int? exitCode)`
   and make the existing dictionary overload call it. Move #2061's comment onto
   the rule, where it now lives.
-- Add `internal static string FormatMigrationFailureMessage(int? exitCode, string migrationsLog)`,
+- Add `internal static string FormatMigrationFailureMessage(int exitCode, string migrationsLog)`,
   cause sentence first, log last, wording aligned with `FormatLikelyCause`.
 
 **Done when**: the five new tests pass **and** the 18 existing
@@ -184,7 +185,7 @@ Do **not** wire the call site here. This commit builds and is green on its own.
 
 ### T005 [US1] — the wait asks how it finished (phase 4b)
 
-**Agent**: `infra-engineer`. **Touches**: `AspireFixture.cs:124–126`.
+**Agent**: `infra-engineer`. **Touches**: the `migrations` wait in `AspireFixture.InitializeAsync`.
 
 Replace the string-overload wait with the predicate overload for its **return
 value**, read the exit code off the returned snapshot, and throw
@@ -197,8 +198,8 @@ The four rulings that are not the engineer's to revisit:
 - the predicate filters on **state only** — `ExitCode is null or 0` inside a
   predicate fails open (`spec.md`);
 - `InvalidOperationException`, never `TimeoutException` and never an
-  `OperationCanceledException` subtype (FR-006 — the catch at `:182` would
-  swallow it);
+  `OperationCanceledException` subtype (FR-006 — the catch at the end of
+  `InitializeAsync` would swallow it);
 - no log capture on the healthy path (FR-004);
 - the message is scoped to `migrations`, not the whole timeout report.
 
@@ -295,3 +296,28 @@ board exists to show.
 waits — is **recommended, not filed**. Phases 1–3 do not file issues; that is
 the orchestrator's call, and it should carry `agent:ready` only after a human
 has read it.
+
+---
+
+## Phase 6 additions (review findings, #2064)
+
+Recorded here rather than by rewriting the task text above, which describes what
+phases 4a/4b were actually asked to do.
+
+- **A sixth tier-1 test.** FR-003 has two clauses and phase 4a's five tests
+  covered only the first. The unavailable-log clause is the *CI* clause — #2061
+  saw 2,628 `(no logs captured)` placeholders on the Linux runner — so
+  `The_failure_message_still_leads_with_the_code_when_no_log_was_served` pins
+  it. Tier 1 is now **6**; the Docker-free total is **24**.
+- **`[Trait("Category", "FixtureLogic")]` on both Docker-free classes**, and
+  `ci.yml`'s `backend` filter changed from
+  `FullyQualifiedName~AspireFixtureReportSelectionTests` to
+  `Category=FixtureLogic`. The name filter did not match
+  `AspireFixtureMigrationGateTests`, so `backend` compiled the five gate tests
+  and never ran them — verbatim the condition that step exists to remove.
+- **`FormatMigrationFailureMessage` takes `int`, not `int?`.** The
+  `ExitedNonZero` guard has already proven it non-null; `[NotNullWhen(true)]`
+  on the rule lets the compiler see that, so no null check is restated at the
+  call site.
+- **The predicate compares with `OrdinalIgnoreCase`** — the comparer the string
+  overload it replaces uses. See `plan.md`.

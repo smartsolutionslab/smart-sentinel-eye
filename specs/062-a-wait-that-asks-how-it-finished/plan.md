@@ -69,7 +69,7 @@ present-null test, not by a characterisation harness.
 Specified here so the engineer does not invent it at 4b and so the reviewer has
 something to review the code *against*.
 
-### The call site — `AspireFixture.cs:124–126`
+### The call site — the `migrations` wait in `InitializeAsync`
 
 Today:
 
@@ -85,7 +85,10 @@ After:
 ResourceEvent migrations = await _app.ResourceNotifications
     .WaitForResourceAsync(
         "migrations",
-        migration => migration.Snapshot.State?.Text == KnownResourceStates.Finished,
+        migration => string.Equals(
+            migration.Snapshot.State?.Text,
+            KnownResourceStates.Finished,
+            StringComparison.OrdinalIgnoreCase),
         cts.Token)
     .ConfigureAwait(false);
 
@@ -96,8 +99,17 @@ if (ExitedNonZero(migrations.Snapshot.ExitCode))
 ```
 
 **The predicate is deliberately *not* the one in the issue.** It filters on
-state only — exactly the condition the string overload already applies. The
-overload is swapped for one reason: **it returns the `ResourceEvent` that
+state only — exactly the condition the string overload already applies, down to
+the comparer. That last clause was checked rather than assumed: the string
+overload's generated predicate uses `Aspire.StringComparers.ResourceState`,
+which is `OrdinalIgnoreCase`, so `==` would have been case-*sensitive* and the
+equivalence claim would have been stronger than the code. It could not differ in
+fact — `ExecutableState.Finished` is the literal `"Finished"` and
+`ToSnapshot(Executable, …)` passes the state text through unmodified — but
+matching the comparer costs one call and makes the claim exact instead of
+true-by-inspection (#2064 phase 6).
+
+The overload is swapped for one reason: **it returns the `ResourceEvent` that
 matched**, and the string overload returns only the state text. The exit code is
 then read from that returned snapshot and decided on *outside* the predicate.
 
@@ -110,13 +122,15 @@ code after the wait has neither property.
 
 ### The decision — one rule, one extra overload
 
-`ExitedNonZero(string, Dictionary<string, int?>)` already exists at
-`AspireFixture.cs:363` and already carries the rule, with #2061's comment
+`ExitedNonZero(string, Dictionary<string, int?>)` already exists in
+`AspireFixture` and already carries the rule, with #2061's comment
 explaining it. Split the rule out rather than restate it:
 
 ```csharp
 // #2061's rule, and now the only copy of it.
-internal static bool ExitedNonZero(int? exitCode) => exitCode is not null and not 0;
+// [NotNullWhen] so the caller that throws can read `.Value` without a second
+// null check restating half the rule — a true answer is the proof.
+internal static bool ExitedNonZero([NotNullWhen(true)] int? exitCode) => exitCode is not null and not 0;
 
 private static bool ExitedNonZero(string name, Dictionary<string, int?> exitCodes) =>
     exitCodes.TryGetValue(name, out int? exit) && ExitedNonZero(exit);
@@ -126,7 +140,10 @@ The existing comment above the dictionary overload moves with the rule. FR-005
 is satisfied by construction: there is one predicate, two call shapes, and
 `SelectResourcesToReport` / `FormatLikelyCause` keep behaving identically —
 which is what `AspireFixtureReportSelectionTests`' 18 existing tests assert, and
-they must stay green **unmodified**.
+they must stay green with **no assertion changed**. (Phase 6 added a
+class-level `[Trait("Category", "FixtureLogic")]` so `backend` selects them by
+trait rather than by class name — an attribute on the class, not a change to a
+test.)
 
 **The 18 was counted, not inherited.** #2061's verification note records 13
 passing in that class; phase 6 added five more and the note was not revisited.
@@ -138,7 +155,7 @@ fewer things than it claimed.
 ### The message — assembled where a test can read it
 
 ```csharp
-internal static string FormatMigrationFailureMessage(int? exitCode, string migrationsLog) =>
+internal static string FormatMigrationFailureMessage(int exitCode, string migrationsLog) =>
     $"migrations exited with code {exitCode} — a non-zero exit is a failure, not a clean finish.\n" +
     $"The startup wait stopped here rather than spending the remaining budget on services that wait for it.\n" +
     $"migrations log:\n{migrationsLog}";
@@ -168,10 +185,11 @@ Four rulings inside those four lines:
 1. **`InvalidOperationException`, not `TimeoutException`** (FR-006). Nothing
    timed out. More sharply: it must not be an `OperationCanceledException`
    subtype either, or the `catch (Exception ex) when (ex is
-   OperationCanceledException or TaskCanceledException)` at
-   `AspireFixture.cs:182` would swallow it and re-report a 40-second failure as
-   *"Aspire AppHost did not start within 8 minutes"* — the exact species of
-   misleading diagnostic this family of issues exists to remove.
+   OperationCanceledException or TaskCanceledException)` at the end of
+   `InitializeAsync` would swallow it and re-report a failure phase 5 measured
+   at **1m38s** as *"Aspire AppHost did not start within 8 minutes"* — the
+   exact species of misleading diagnostic this family of issues exists to
+   remove.
 2. **The log is captured only on the failure branch.** A healthy boot must not
    pay `CaptureOneResourceLogAsync`'s 5-second bounded read (FR-004).
 3. **`CaptureOneResourceLogAsync` is reused, not reimplemented.** It resolves
@@ -294,9 +312,10 @@ the wrong figure looks trustworthy.
 ### The honest limits — three, stated before phase 5 rather than after
 
 1. **No committed test observes the wiring.** Tier 1 tests two pure functions;
-   deleting the call site at `:124` would leave all five green — the precise
-   defect #2061's phase 6 found in its own branch, and #2054's whole story. The
-   wiring is evidenced only by tier 2, which is manual and unrepeatable in CI.
+   deleting the exit-code branch of the `migrations` wait would leave all six
+   green — the precise defect #2061's phase 6 found in its own branch, and
+   #2054's whole story. The wiring is evidenced only by tier 2, which is
+   manual and unrepeatable in CI.
    **Not papered over with a source-scanning guard**: a test asserting that the
    file contains a call proves the design was written down, not that it works.
 2. **Tier 2 needs a production-source scratch edit** that is reverted before
@@ -408,12 +427,20 @@ behaviour rather than throwing. That is fail-safe (it can never hang a healthy
 boot) and bounded. **It is not built now**, because Finding C says it is
 unnecessary and ADR-0036 forbids building for a need that does not exist.
 
-**R2 — a throw from `InitializeAsync` skips `DisposeAsync`.** xUnit 2.9.3 does
-not invoke `DisposeAsync` on a fixture whose `InitializeAsync` threw, so the
-`DistributedApplication` is not explicitly disposed. **Pre-existing** — today's
-`TimeoutException` has the identical shape — and under `isE2ETests` the
-containers are ephemeral and die with the test process. Named so the reviewer
-does not read it as new; fixing it is a different issue.
+**R2 — ~~a throw from `InitializeAsync` skips `DisposeAsync`~~. It does not, on
+this path.** The plan originally recorded that xUnit 2.9.3 leaves a fixture
+whose `InitializeAsync` threw undisposed, so the `DistributedApplication` would
+leak. **Phase 6 decompiled xunit and found that false for a *collection*
+fixture**, which is what `AspireFixture` is:
+`XunitTestCollectionRunner.CreateCollectionFixturesAsync` invokes
+`InitializeAsync` through `Aggregator.RunAsync`, and `ExceptionAggregator.RunAsync`
+**captures** the exception rather than propagating it. `TestCollectionRunner<T>`
+therefore still reaches `BeforeTestCollectionFinishedAsync`, which awaits
+`DisposeAsync` on every `IAsyncLifetime` fixture. **Disposal happens and the
+containers are torn down.** The undisposed behaviour people cite is the
+*class*-fixture path, which this is not. Recorded rather than deleted because
+"the stack leaks here" is exactly the kind of unverified claim the next spec
+inherits.
 
 **R3 — the healthy path regresses.** The worst outcome available: a mutant or a
 mistake that treats null as failure would abort *every* boot in the repository.
@@ -424,6 +451,15 @@ Held by tier-1 test 3 (present null) and tier-2 step 4
 collection members, just sooner. Recorded because a reviewer comparing failure
 counts pre/post will see no difference and could read that as "nothing
 happened". The difference is in the clock and in the exception, not the count.
+
+**R5 — the wait returns the *first* matching event.** `WaitForResourceCoreAsync`
+returns as soon as the predicate is satisfied, so if DCP ever published
+`Finished` before `ExitCode` had been attached, the gate would read a null code
+and pass silently. Near-zero here — `ToSnapshot` builds both fields from one
+`Status` (`spec.md` Finding C), `WatchAsync` replays the latest snapshot
+(Finding D), and the `keycloak` wait precedes this one — and if it ever did
+happen it degrades to exactly today's behaviour rather than to a false failure.
+**Recorded, not coded around**, for the reason R1's contingency is not built.
 
 ---
 
@@ -436,4 +472,4 @@ happened". The difference is in the clock and in the exception, not the count.
 - Any change to `FormatTimeoutMessage`, `FormatLikelyCause`,
   `SelectResourcesToReport` or `FormatFailedResourceReport` behaviour. The only
   edit near them is factoring `ExitedNonZero`'s rule into an overload, which
-  their 18 existing tests must keep passing **unmodified**.
+  their 18 existing tests must keep passing with no assertion changed.
