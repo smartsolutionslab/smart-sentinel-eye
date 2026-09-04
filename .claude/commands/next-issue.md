@@ -64,8 +64,8 @@ git fetch origin && git switch -c <type>/<N>-<slug> origin/develop
 
 One `architect` subagent, given the issue title and body verbatim.
 
-Ask it for: `specs/NNN-x/spec.md`, `plan.md`, `tasks.md`, and — in its
-report to you — three declarations:
+Ask it for the feature's `specs/*/spec.md`, `plan.md` and `tasks.md`, and
+— in its report to you — three declarations:
 
 1. **which engineer the work needs** (backend / frontend / infra);
 2. **whether the issue's honest answer is a new ADR**;
