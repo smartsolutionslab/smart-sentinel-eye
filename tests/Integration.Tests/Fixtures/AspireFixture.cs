@@ -410,8 +410,12 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         Dictionary<string, string> states,
         Dictionary<string, int?> exitCodes)
     {
+        // Both halves of the predicate: a resource that crashed and restarted
+        // inside the watch window ends it `Running` and is left out of the
+        // failure section, so naming it here would point the reader at a
+        // section that does not exist.
         string[] died = states.Keys
-            .Where(name => ExitedNonZero(name, exitCodes))
+            .Where(name => !IsHealthy(name, states[name], exitCodes) && ExitedNonZero(name, exitCodes))
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
