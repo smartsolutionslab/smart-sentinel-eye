@@ -12,13 +12,16 @@ import { openFirstLayout, signInToKiosk } from './support/kiosk-session';
  * token carries no fab gets an empty picker and no error at all, so "no error"
  * is satisfied by exactly the failure this feature fixes.
  *
- * **What this does NOT prove: that the tiles show a picture.** The wall opened
- * here is the one `seed-published-layout.setup.ts` publishes, and its camera is
- * registered at `rtsp://10.0.5.70/stream` — an address nothing serves — so no
- * frame can arrive for this tile, and a tile renders whether or not one does.
- * (That is a fact about this wall, not about the stack: spec 056 stands up
- * `fixture-video`, and `kiosk-shows-a-label-over-video.spec.ts` points a camera
- * at it.) Both of the blockers spec 041 fixed — the missing `sub` claim and the
+ * **What this does NOT prove: that the tiles show a picture.** `openFirstLayout`
+ * opens whichever published layout sorts first by name
+ * (`ListLayoutsQueryHandler` orders `OrdinalIgnoreCase`), so *which* wall this
+ * is depends on what the run has seeded — it is not `seed-published-layout`'s
+ * wall by design. What is invariant: every wall this suite seeds **except spec
+ * 056's** points its camera at an unserved `10.0.5.x` address, so no frame can
+ * arrive, and a tile renders whether or not one does. Spec 056's wall is the
+ * one exception and it is never reached from here — it is opened **by name** in
+ * `kiosk-shows-a-label-over-video.spec.ts`, which is where a picture is
+ * asserted. Both of the blockers spec 041 fixed — the missing `sub` claim and the
  * WHEP gate — are invisible here in either direction. They are verified by a
  * person, per the feature's quickstart.
  */
