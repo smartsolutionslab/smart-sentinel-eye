@@ -78,6 +78,14 @@ do not have is how spec 023's §4 warning gets repeated.
 
 No env var, no override, no config surface (ADR-0036).
 
+**Revised at phase 6 (#2014 review): `FIRST_WRITE_TEST_TIMEOUT_MS` is
+`300_000`, not `180_000`.** 180 s was taken from precedent set by a test with
+*one* budgeted site; eight tests in this feature have two or more, and
+`layouts.spec.ts:31` has four. A ceiling that cannot hold the budgets inside it
+converts an assertion timeout naming a locator into a bare test timeout naming
+nothing — the diagnostic the whole change exists to deliver. The doc comment now
+carries the sizing rule so the next author sizes it rather than copying it.
+
 **Depends on**: T001 (the red must be observed first).
 **Blocks**: T003–T011.
 
@@ -208,6 +216,10 @@ that is the conflict path and it must fail fast.
 `setup.setTimeout(120_000)` at `:22` to `FIRST_WRITE_TEST_TIMEOUT_MS` — 120 s
 does not contain three 90 s budgets plus a sign-in, so this file would otherwise
 carry budgets it cannot honour.
+
+**This task stated the requirement and then named a constant that did not meet
+it** (180 s does not contain three 90 s budgets plus a sign-in either). Settled
+at phase 6 by raising the constant itself to 300 s; see T002.
 
 **Depends on**: T002.
 

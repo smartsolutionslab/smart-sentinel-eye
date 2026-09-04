@@ -33,10 +33,28 @@ export const FIRST_WRITE_TIMEOUT_MS = 90_000;
  * <para>
  * `playwright.config.ts` sets `timeout: 60_000`, so a 90 s assertion budget
  * inside a default test is capped at 60 s minus everything already elapsed and
- * the number in the source is decoration. The two spec-056 seeds escape that
- * only because they also call `setTimeout(180_000)`; none of the nine exposed
- * spec files did. <b>The two constants travel as a pair</b> — a site that takes
- * one without the other reads as fixed and is not.
+ * the number in the source is decoration. <b>The two constants travel as a
+ * pair</b> — a site that takes one without the other reads as fixed and is not.
+ * </para>
+ *
+ * <para>
+ * <b>Size this one; do not copy it.</b> A ceiling has to hold the preamble
+ * (sign-in, navigation), every <i>earlier</i> budgeted site's actual time, and
+ * one whole {@link FIRST_WRITE_TIMEOUT_MS} for the site that fails. Miss that
+ * and the test dies reporting `Test timeout of Nms exceeded` <b>naming no
+ * locator</b> — losing exactly the diagnostic the budget exists to deliver.
+ * The pessimistic bound is N × 90 s plus the preamble; in practice a cold write
+ * that succeeds lands well inside its budget, so 300 s covers the widest test
+ * that uses this constant — `layouts.spec.ts`'s four sites, three of them
+ * arriving cold at ~40 s, plus a sign-in and a fourth full budget spent to
+ * failure. A test with more than that states its own number with the
+ * arithmetic at the site: both spec-056 seeds carry six sites, and
+ * `kiosk-reconciliation.spec.ts` two plus two outage recoveries.
+ * </para>
+ *
+ * <para>
+ * Raising it costs a passing run nothing — a per-test timeout is a ceiling,
+ * never a delay.
  * </para>
  */
-export const FIRST_WRITE_TEST_TIMEOUT_MS = 180_000;
+export const FIRST_WRITE_TEST_TIMEOUT_MS = 300_000;
