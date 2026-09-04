@@ -146,6 +146,12 @@ export function CellPage() {
     },
     onResolvedOverlayTextChanged: (message) => {
       if (!boundOverlays.has(message.overlay)) return;
+      // Before the version mark, never after (ADR-0145 §1, FR-005). A foreign
+      // frame allowed to move the mark first would suppress the wall's own
+      // next, legitimately lower-versioned update for the rest of the session —
+      // and a frozen wall looks like a working one. Fails closed: a frame
+      // carrying no fab is `undefined` and matches nothing.
+      if (message.fab !== wallFab) return;
       const versions = overlayTextVersionsRef.current;
       if (message.version <= (versions.get(message.overlay) ?? 0)) return;
       versions.set(message.overlay, message.version);
@@ -169,6 +175,9 @@ export function CellPage() {
       );
     },
     onOverlayHighlightChanged: (message) => {
+      // A rule that fired in another plant must not light this wall's tiles
+      // (ADR-0145 §1).
+      if (message.fab !== wallFab) return;
       startHighlight(message.overlay, message.durationMs);
     },
     onReconnected: () => {
