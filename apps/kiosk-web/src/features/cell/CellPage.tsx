@@ -61,8 +61,11 @@ export function CellPage() {
   // ADR-0145: the wall's fab is *derived* from the layout it displays — never
   // chosen, never inferred from the token, never held as session state. It is
   // both the fab the opening label resolves in and the fab a pushed frame has
-  // to carry to be applied. `''` only while the layout is still loading, when
-  // no tile is rendered and nothing reads it.
+  // to carry to be applied. `''` only while the layout is still loading — and
+  // both hub handlers below do read it in that window. It is safe because `''`
+  // is not a legal fab (`FabIdentifier`: minimum length 2, must start with a
+  // lowercase letter), so it can never equal a frame's fab and every frame is
+  // dropped. Any future default has to keep that unmatchability.
   const wallFab = data?.fab ?? '';
 
   // Spec 045: the wall's playout control loop. Only this page sees every tile,
