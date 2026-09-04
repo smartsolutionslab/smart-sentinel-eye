@@ -217,9 +217,51 @@ public class AspireFixtureReportSelectionTests
             StatesFromTheRunThatMotivatedThis(),
             ExitCodesFromTheRunThatMotivatedThis());
 
+        // The label as well as the facts: "migrations 134" would satisfy the
+        // three assertions below and would not be a sentence naming a cause.
+        cause.ShouldStartWith("Likely cause: ");
         cause.ShouldContain("migrations");
         cause.ShouldContain("exited");
         cause.ShouldContain("134");
+    }
+
+    [Fact]
+    public void The_timeout_message_names_the_cause_before_it_lists_the_states()
+    {
+        // FR-005: the cause comes first, so the reader is not asked to scan
+        // forty-five state lines before learning what broke. Ordering is a
+        // property of the assembled message, and until it was assembled in one
+        // place, deleting the cause line from the `throw` left every test green
+        // while the line disappeared from the report a human reads.
+        string message = AspireFixture.FormatTimeoutMessage(
+            TimeSpan.FromMinutes(8),
+            StatesFromTheRunThatMotivatedThis(),
+            ExitCodesFromTheRunThatMotivatedThis(),
+            "(no failed resources)",
+            "(no logs captured)");
+
+        message.ShouldContain("Likely cause:");
+        message.IndexOf("Likely cause:", StringComparison.Ordinal)
+            .ShouldBeLessThan(message.IndexOf("Resource states:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_timeout_message_carries_every_section_of_the_report()
+    {
+        string message = AspireFixture.FormatTimeoutMessage(
+            TimeSpan.FromMinutes(8),
+            StatesFromTheRunThatMotivatedThis(),
+            ExitCodesFromTheRunThatMotivatedThis(),
+            "---- migrations (Finished, exit code 134 — the process ran and died) ----",
+            "the last camera-catalog line");
+
+        message.ShouldContain("did not start within 8 minutes");
+        message.ShouldContain("Resource states:");
+        message.ShouldContain("migrations: Finished (exit code 134)");
+        message.ShouldContain("Failed-resource logs:");
+        message.ShouldContain("---- migrations (Finished, exit code 134 — the process ran and died) ----");
+        message.ShouldContain("Last camera-catalog logs:");
+        message.ShouldContain("the last camera-catalog line");
     }
 
     [Fact]
