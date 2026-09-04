@@ -159,9 +159,11 @@ no asserted literal changed.
   `src/OverlayDesigner/Domain/Overlay/NormalizedSize.cs`:
   `record NormalizedSize(decimal Width, decimal Height) : IValueObject` with
   `From(decimal normalizedWidth, decimal normalizedHeight)` guarding each with
-  `Ensure.That(…).Satisfies(v => v is > 0m and <= 1m, "must be in (0, 1].")`,
-  mirroring `GridDimensions`' use of `Satisfies` for its cell cap. XML doc
-  records that zero is refused because a label with no area is not a label
+  `Ensure.That(…).Satisfies(v => v is > 0m and <= 1m, $"must be in (0, 1]; got
+  {normalizedWidth}.")`, mirroring `GridDimensions`' use of `Satisfies` for its
+  cell cap. **The `; got …` tail is part of the message** — `Satisfies` appends
+  nothing, and FR-007 keeps the offending value in the `400`. XML doc records
+  that zero is refused because a label with no area is not a label
 - [x] T503 [P] [US2] Create
   `tests/OverlayDesigner.Domain.Tests/Overlay/NormalizedPositionTests.cs` —
   **relocating** `LabelTests`' `From_rejects_normalizedX_outside_0_to_1` and
@@ -232,8 +234,13 @@ produce a commit that only builds with its successor, which rebase-merge
   baseline. It must **rise by two** (the two new value-object types), and the
   offender list must stay empty. **If it falls, something stopped being walked
   — that is a weakened gate; stop and block** (FR-012)
-- [x] T515 [US2] Commit slice 3 separately, so the guard change is
-  individually reviewable and individually revertable
+- [~] T515 [US2] **Superseded — folded into slice 2 (`2478418`).** The task
+  asked for slice 3 as its own commit, for individual review and revert.
+  Neither ordering yields two commits that each build: the repointed
+  `Architecture.Tests` assertion and the `Label` reshape it asserts are the
+  same change seen from two projects, so whichever lands first is red on its
+  own. Under rebase-merge that red commit reaches `develop` and stays there for
+  `git bisect`. Confirmed at review — both orderings checked
 
 ---
 
@@ -241,7 +248,8 @@ produce a commit that only builds with its successor, which rebase-merge
 
 - [x] T601 [P] Add one sentence to
   `src/LayoutComposition/Domain/Layout/ILayoutLifecycleBroadcaster.cs`'s
-  `OverlayLifecyclePublishedNotification` XML doc recording that the value
+  `OverlayLifecyclePublishedNotification` XML doc — folded into the existing
+  sentence at review, which already gave the reason — recording that the value
   objects `OverlayDesigner` introduced for these same four numbers were
   considered and declined here, because taking them would be a cross-context
   project reference. Prevents a third sweep re-raising it. **No issue number in

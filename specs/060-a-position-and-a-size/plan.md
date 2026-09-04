@@ -122,7 +122,9 @@ NormalizedPosition(decimal X, decimal Y) : IValueObject
 - **Why the parameter names differ from the properties**: FR-007. The message
   is copied into the API's `400` detail; keeping `normalizedX` keeps the detail
   byte-identical. Deliberate asymmetry, recorded so it is not "cleaned up".
-- **`ToString()`**: `$"({X},{Y})"`, mirroring `GridPosition`.
+- **`ToString()`**: `$"({X},{Y})"` under `CultureInfo.InvariantCulture`,
+  mirroring `GridPosition` — invariant because a comma-decimal host would
+  render `(0,5,0,75)`, separator and decimal point the same character.
 
 ### `NormalizedSize`
 
@@ -134,9 +136,17 @@ NormalizedSize(decimal Width, decimal Height) : IValueObject
 - **Invariant**: `Width ∈ (0, 1]` and `Height ∈ (0, 1]`. Zero refused — a label
   with no area is not a label. `InRange` has no exclusive-lower overload, so
   this is `Ensure.That(normalizedWidth).Satisfies(v => v is > 0m and <= 1m,
-  "must be in (0, 1].")`, as `GridDimensions` already does for its cell cap.
-- **Declared behaviour change**: the message gains a colon. Research R2, §"Ruling".
-- **`ToString()`**: `$"{Width}x{Height}"`, mirroring `GridDimensions`.
+  $"must be in (0, 1]; got {normalizedWidth}.")`, as `GridDimensions` already
+  does for its cell cap. **The `; got …` tail is written by hand** —
+  `Satisfies` appends nothing, so omitting it silently drops the offending
+  value from the `400`.
+- **Declared behaviour changes**, both in a `400`'s `detail` and both in
+  research R2: the extent message gains a colon, and guard order becomes
+  X → Y → W → H → text → font size, because the value objects are argument
+  expressions to `Label.From`.
+- **`ToString()`**: `$"{Width}x{Height}"` under `CultureInfo.InvariantCulture`,
+  mirroring `GridDimensions` — invariant because a comma-decimal host would
+  render `0,5x0,75`, which `GridDimensions`' ints cannot do.
 
 Neither type validates against the other. A position plus a size can describe a
 rectangle running off the right edge, and that is true today too — the label is

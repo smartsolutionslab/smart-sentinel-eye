@@ -164,9 +164,24 @@ coordinate where an extent is expected, or an extent where a coordinate is
 expected, becomes a compile error. The range guards move into the two new
 factories and are expressed with `Ensure.That(...)`.
 
-Nothing an operator, a kiosk, or an HTTP client can observe changes: the
-request body, the response body, the integration event, the SignalR frame and
-the four database columns are all untouched.
+The request body, the response body, the integration event, the SignalR frame
+and the four database columns are all untouched. **Two things about a rejected
+request do change, both confined to the `400`'s `detail`, and both are declared
+rather than discovered** — see FR-007:
+
+1. The extent messages gain a colon after the parameter name, because
+   `Satisfies` formats as `$"{parameter}: {message}"` (research R2).
+2. A request that is wrong in more than one way can now name a different field
+   first. `NormalizedPosition.From(...)` and `NormalizedSize.From(...)` are
+   argument expressions, so they run before `Label.From`'s body: the order was
+   text → X → Y → W → H → font size and is now X → Y → W → H → text → font
+   size. A body with both a blank `text` and `normalizedX: 2` used to be told
+   about the text and is now told about the coordinate. Each individual
+   rejection is unchanged; only which one wins a race between two is.
+
+Restoring the old order is **not** wanted. The value objects are constructed by
+the caller, so it would mean duplicating the text guard outside `Label.From` —
+a worse shape than the reordering it undoes.
 
 **Why this priority**: It is the issue. It is second only because it must be
 performed over Story 1's net.
@@ -187,7 +202,8 @@ Story 1 unchanged in what it asserts, and confirm all still pass.
    `ArgumentException`.
 4. **Given** a create or edit request with an out-of-range coordinate,
    **When** it is submitted, **Then** the response is still `400` with title
-   `OVERLAY_INVALID_INPUT` and the same detail text as before.
+   `OVERLAY_INVALID_INPUT` and the same detail text as before — for an
+   out-of-range **extent**, the same text plus the colon FR-007 declares.
 5. **Given** an overlay stored under the old shape, **When** it is read back
    under the new shape, **Then** the four numbers are unchanged and in the same
    four columns.
@@ -252,9 +268,18 @@ Story 1 unchanged in what it asserts, and confirm all still pass.
 - **FR-006**: The `[0, 1]` and `(0, 1]` range guards MUST live in the two new
   value objects' `From(...)` and MUST use `Ensure.That(...)` (ADR-0105). The
   two bare `throw new ArgumentException` helpers MUST be gone.
-- **FR-007**: The `ArgumentException` type, `paramName` and message text
-  produced for each of the four out-of-range cases MUST be unchanged, because
-  the message is copied into the API's `400` detail.
+- **FR-007**: The `ArgumentException` type and `paramName` produced for each of
+  the four out-of-range cases MUST be unchanged, because the message is copied
+  verbatim into the API's `400` detail. The **message text** MUST be unchanged
+  for the two coordinates, and for the two extents MUST differ only by the
+  colon `Satisfies` puts after the parameter name (research R2). In particular
+  the offending value MUST still be echoed: `normalizedWidth: must be in
+  (0, 1]; got 0.`, not `normalizedWidth: must be in (0, 1].`. All four are
+  asserted character-for-character by
+  `OverlayGeometryValidationIntegrationTests`.
+- **FR-007a**: Guard **order** within a rejected request MAY change, and does:
+  see the US2 preamble. What MUST NOT change is any individual guard's verdict
+  or its message.
 - **FR-008**: Both new types MUST implement `IValueObject` (ADR-0066), so
   their backing decimals are exempt under §II by the same mechanism as
   `GridPosition.Row`.
@@ -309,7 +334,7 @@ Story 1 unchanged in what it asserts, and confirm all still pass.
   #2022, and no migration file is added.
 - **SC-005**: `dotnet build -c Release` is clean — SonarAnalyzer metrics
   (ADR-0084) and the collection-expression warning included.
-- **SC-006**: `PrimitiveBoundaryTests` is green with all four of its tests, and
+- **SC-006**: `PrimitiveBoundaryTests` is green with all three of its tests, and
   the type count its walk reaches is greater than or equal to the count before.
 - **SC-007**: Domain coverage for `OverlayDesigner.Domain` stays at or above
   ADR-0065's 90%.
@@ -369,7 +394,9 @@ Story 1 unchanged in what it asserts, and confirm all still pass.
   category of finding, not a position or a size. Separate issue.
 - **`GridPosition.Col` / `GridDimensions.Cols`.** ADR-0091 bans the shortcut,
   but renaming touches the EF column mapping. Separate issue.
-- **Any behaviour an operator, a kiosk or an HTTP client can observe.**
+- **Any behaviour an operator, a kiosk or an HTTP client can observe**, with
+  the two declared exceptions inside a `400`'s `detail` — the extents' colon
+  and the guard order — set out in the US2 preamble and FR-007/FR-007a.
 - **The React apps.**
 - **A new ADR.** None is needed — see the note below, which is a declaration
   the lane is required to make.
