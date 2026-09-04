@@ -59,6 +59,7 @@ describe('useLayoutLifecycle', () => {
 
     const message: ResolvedOverlayTextChangedMessage = {
       overlay: 'ovl-1',
+      fab: 'munich',
       resolvedText: 'Live value',
       version: 2,
     };
@@ -80,7 +81,7 @@ describe('useLayoutLifecycle', () => {
       { wrapper, initialProps: { onChanged: onHighlight } },
     );
 
-    const message: OverlayHighlightChangedMessage = { overlay: 'ovl-1', durationMs: 1500 };
+    const message: OverlayHighlightChangedMessage = { overlay: 'ovl-1', fab: 'munich', durationMs: 1500 };
     capturedCallbacks?.onOverlayHighlightChanged?.(message);
 
     expect(onHighlight).toHaveBeenCalledWith(message);

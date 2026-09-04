@@ -51,9 +51,15 @@ export interface OverlayRevisionArchivedMessage {
  * gets archived, or the overlay itself republishes. `version` is a
  * monotonic per-overlay counter so the kiosk can discard out-of-order
  * frames.
+ *
+ * `fab` names the plant the frame belongs to (spec 067). A connection holding
+ * two fabs joins both groups and correctly receives both plants' frames; only
+ * the client knows which wall it is showing, so only the client can refuse
+ * what is not its own (ADR-0145).
  */
 export interface ResolvedOverlayTextChangedMessage {
   overlay: string;
+  fab: string;
   resolvedText: string;
   version: number;
 }
@@ -64,9 +70,12 @@ export interface ResolvedOverlayTextChangedMessage {
  * The kiosk applies the `ssE-overlay-highlight` class to *every* tile
  * bound to `overlay` for `durationMs` ms, then auto-reverts (overlay
  * reuse → highlight-all-matching, ADR-0112 §5).
+ *
+ * `fab` names the plant whose rule fired (spec 067), for the reason above.
  */
 export interface OverlayHighlightChangedMessage {
   overlay: string;
+  fab: string;
   durationMs: number;
 }
 
