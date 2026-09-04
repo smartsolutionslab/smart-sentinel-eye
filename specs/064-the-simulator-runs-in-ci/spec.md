@@ -26,7 +26,14 @@ The issue offers two resolutions and the lane can only take one of them:
 implementing ADR-0111's recorded decision is in scope; amending ADR-0111 is
 forbidden outright (ADR-0144). So the branch had to be chosen on evidence, and
 the deciding question was: **do the e2e tests actually depend on the simulator's
-video and its 23 seeded cameras?**
+video and its 12 seeded cameras?**
+
+(**12**, not 23. The three active scenarios — `rolling-mill`, `paper-mill`,
+`electronics`, all listed in `src/ScenarioSimulator/appsettings.json` — hold
+four assets each and one camera per asset; `ScenarioSeeder.cs` says so in its
+own comment, *"seeded eight of twelve assets"*. The 23 was inherited from
+`specs/056-.../research.md:69`, an observation of a long-lived **developer**
+database: it measured accumulation, not what a fresh runner gets.)
 
 They do not. But the answer that matters more is one the issue does not
 contain: **its first option cannot be built as worded.** Both findings below,
@@ -63,7 +70,7 @@ collection is `e2e/rules.spec.ts:52`, which counts **fabs** (realm data, not
 catalogue data), and `e2e/kiosk-shows-a-wall.spec.ts:27`, which counts tiles on
 the wall its own setup published.
 
-**So the 23 simulator cameras are read by nothing, and its video is consumed by
+**So the 12 simulator cameras are read by nothing, and its video is consumed by
 nothing.** Removing them from CI breaks no assertion that exists today.
 
 ### Finding B — `E2ETests=true` cannot be set on the CI boot, and the issue does not know this
@@ -72,7 +79,7 @@ The issue's first option is *"set the flag in CI"*. That flag does not gate the
 simulator. It gates a **set** of resources, and three of them are the ones the
 Playwright suite drives:
 
-`src/AppHost/AppHost.cs:435` — the same `if (isRunMode && !isE2ETests)` block
+`src/AppHost/AppHost.cs:452` — the same `if (isRunMode && !isE2ETests)` block
 adds `management-web` (:5173), `kiosk-web` (:5174) and `kiosk-wall` (:5175),
 under the comment *"Skipped in test mode so the integration suite doesn't start
 two Node dev servers."*
@@ -90,14 +97,19 @@ for port in 5174 5175; do
   echo "::error::nothing served on :$port"
 ```
 
-And `src/AppHost/AppHost.cs:146` puts `fixture-video` behind the same guard,
-with a comment that states the dependency in as many words:
+And `src/AppHost/AppHost.cs:163` puts `fixture-video` behind the same
+`isRunMode && !isE2ETests` guard, with a comment that states the dependency in
+as many words:
 
-> **Gated exactly as `camera-sim` is**, and the Playwright stack still gets it:
-> `E2ETests` is set by the *integration* fixture (`AspireFixture`) and by
-> `AppHostE2ESwitchTests`, but **not** by the end-to-end stack boot […] So this
-> is present where a browser needs a picture and absent where nothing consumes
-> one.
+> The Playwright stack still gets this: `E2ETests` is set by the *integration*
+> fixture (`AspireFixture`) and by `AppHostE2ESwitchTests`, but **not** by the
+> end-to-end stack boot […] So this is present where a browser needs a picture
+> and absent where nothing consumes one.
+
+(Before this change that comment opened *"Gated exactly as `camera-sim` is"* —
+true then, false the moment `camera-sim` gained its third conjunct, and a
+standing invitation to fold the two blocks together and delete spec 056's video
+source from CI. It now says the two gates differ, and why.)
 
 **Setting `E2ETests=true` on the e2e boot would not tidy the simulator away. It
 would delete the three front ends under test, fail the wait script before
@@ -256,16 +268,27 @@ and this change means CI stops minting a token with it — strictly a reduction.
 
 Runnable by someone who has read nothing above.
 
-1. Build the solution.
-2. Boot the stack the way CI does, with the new argument:
-   `dotnet run --project src/AppHost/SmartSentinelEye.AppHost.csproj -- ScenarioSimulator=false`
-3. In the Aspire dashboard, confirm **`camera-sim` and `scenario-simulator` are
-   absent**, and that `management-web`, `kiosk-web`, `kiosk-wall`,
-   `fixture-video` and `mediamtx` are all present and healthy.
-4. Get an operator token and read the catalogue:
-   `GET {gateway}/camera-catalog/cameras`. **Expect zero cameras**, not 23.
-   (The pre-change control: boot without the argument and see 23 at
-   `rtsp://camera-sim:8554/...`.)
+1. Build the solution: `dotnet build -c Release`.
+2. Boot the stack with the workflow's **exact** argument vector — not a
+   shortened one, because R2 is a question about that vector:
+   `dotnet run --project src/AppHost/SmartSentinelEye.AppHost.csproj -c Release --no-build -- ScenarioSimulator=false`
+3. **This step is the evidence.** In the Aspire dashboard, confirm
+   **`camera-sim` and `scenario-simulator` are absent**, and that
+   `management-web`, `kiosk-web`, `kiosk-wall`, `fixture-video` and `mediamtx`
+   are all present and healthy.
+4. Corroboration, and it must be read as a statement about **new** state, not
+   total state. Get an operator token and read the catalogue:
+   `GET {gateway}/camera-catalog/cameras`. **Expect no camera at
+   `rtsp://camera-sim:8554/...` registered during this boot**, and no
+   `Registered camera` line in the `scenario-simulator` logs (there is no such
+   resource to log one). **Do not expect a total of zero.** Run mode pins
+   `ContainerLifetime.Persistent` + `WithDataVolume()` on postgres, so a
+   developer booting against an existing `postgres-data` volume sees every
+   camera the simulator and every past e2e run ever registered — a populated
+   catalogue there is the volume, not a failed switch. A zero reading requires
+   `docker volume rm postgres-data` first; step 3 does not.
+   (The pre-change control: boot without the argument and watch **12** cameras
+   appear at `rtsp://camera-sim:8554/...` — 3 active scenarios x 4 assets.)
 5. Run the full Playwright suite against that stack: `pnpm test:e2e`.
    **Every spec that passed before must still pass** — including
    `kiosk-shows-a-label-over-video.spec.ts`, which is the one that genuinely
@@ -318,7 +341,7 @@ inference:
   simply true, rather than believed-true-and-wasn't.
 
 Indirectly, CI loses a MediaMTX container, a .NET worker that waits on eight
-resources, and 23 RTSP path provisions during the warm-up window the wait script
+resources, and 12 RTSP path provisions during the warm-up window the wait script
 already stretches to 12.5 minutes. That should make the e2e job faster and less
 contended. **It is not claimed as a result** — no one has measured it, and a
 speed-up asserted without a figure is the same error as a measured leg nobody

@@ -195,7 +195,13 @@ steps are not optional:
   present and healthy. This is the only check that catches R2, the `--`
   forwarding risk, and **a green suite is explicitly not accepted in its place**
   — if the argument were silently dropped, every test would still pass.
-- **Step 4 — count the cameras.** Zero, not 23.
+- **Step 4 — read the catalogue, as a statement about *new* state.** No camera
+  at `rtsp://camera-sim:8554/...` registered during this boot. **Not** a total
+  of zero: run mode keeps a persistent `postgres-data` volume, so a developer's
+  catalogue holds everything past runs registered. A zero total needs
+  `docker volume rm postgres-data` first. Step 3 is the evidence; this
+  corroborates it. (The pre-change control is **12** cameras — 3 active
+  scenarios x 4 assets — not 23, which was a developer database's accumulation.)
 - **Step 5 — the full Playwright suite**, against that stack. This is the only
   thing that can contradict Finding A. `kiosk-shows-a-label-over-video.spec.ts`
   passing is what proves `fixture-video` survived.

@@ -47,7 +47,7 @@ The short form:
   gains no new words.
 - The defect is that `E2ETests` was the wrong *mechanism* for delivering that
   decision, because it also gates the three Vite apps the Playwright suite
-  drives (`AppHost.cs:435`) and spec 056's `fixture-video` (`AppHost.cs:146`).
+  drives (`AppHost.cs:452`) and spec 056's `fixture-video` (`AppHost.cs:163`).
   Choosing a correct mechanism for an already-recorded decision is
   implementation, not architecture.
 - ADR-0138 already recorded the discrepancy as an **open finding**, in the
@@ -58,7 +58,7 @@ The short form:
 amend ADR-0111 to say CI legitimately runs the simulator. It was rejected on
 evidence, not preference: nothing in CI reads the simulator's cameras or its
 video (spec.md, Finding A), so there is nothing to acknowledge. Had a single
-e2e assertion depended on those 23 cameras, that branch would have become the
+e2e assertion depended on those 12 cameras, that branch would have become the
 honest answer and this plan would say **blocked** instead.
 
 **The one thing that could still block it at phase 6.** If a reviewer concludes
@@ -130,7 +130,7 @@ that needs its own proof. One mechanism.
 
 ### The guard — one conjunct added, one comment corrected
 
-`src/AppHost/AppHost.cs:518`:
+`src/AppHost/AppHost.cs:548` (`:518` before this change):
 
 ```csharp
 if (isRunMode && !isE2ETests && isScenarioSimulatorEnabled)
@@ -197,12 +197,23 @@ rule for all six:
 - `apps/shared/src/observability/kioskLatency.test.ts` — a vitest unit test in
   Node. It has no browser, no WebRTC and no stack at all; *"CI has no video"*
   was never the reason it cannot prove a number came from a frame.
-- `e2e/kiosk-shows-a-wall.spec.ts` — after this change the claim holds for *this
-  wall*, whose seeded camera has no source. It must not say CI has no video:
-  `fixture-video` exists and spec 056 uses it.
+- `e2e/kiosk-shows-a-wall.spec.ts` — it must not say CI has no video:
+  `fixture-video` exists and spec 056 uses it. Nor may it name *which* wall it
+  opens: `openFirstLayout` takes whichever published layout sorts first by name
+  (`ListLayoutsQueryHandler`, `OrdinalIgnoreCase`), and by the time the `kiosk`
+  project runs, `layouts.spec.ts` has already published `E2E Race Layout
+  <stamp>`, which sorts ahead of `Kiosk Seed Wall`. The invariant is that every
+  wall this suite seeds *except spec 056's* points at an unserved `10.0.5.x`
+  address — so no frame can arrive whichever one wins the sort.
 - `e2e/support/seed-published-layout.setup.ts`, `e2e/layouts.spec.ts` — the
   empty-catalogue claim becomes true and the citation should be the new guard.
-- `src/AppHost/AppHost.cs:508` — the guard describes itself accurately.
+- `src/AppHost/AppHost.cs:525` (`:508` before this change) — the guard describes
+  itself accurately.
+- **A seventh, created by the change itself:** `src/AppHost/AppHost.cs:148`
+  said `fixture-video` was *"gated exactly as `camera-sim` is"* — true until
+  `camera-sim` gained its third conjunct, false after. It now records that the
+  two gates deliberately differ, because folding them together would delete
+  spec 056's video source from CI.
 
 **No assertion, locator, timeout or import may change in these files.** If a
 diff in `e2e/` or `apps/shared/` contains anything but comment lines, the change
