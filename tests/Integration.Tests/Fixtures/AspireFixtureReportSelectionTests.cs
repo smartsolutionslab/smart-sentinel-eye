@@ -30,6 +30,37 @@ public class AspireFixtureReportSelectionTests
     }
 
     [Fact]
+    public void A_one_shot_that_finished_with_a_captured_null_exit_code_is_not_reported()
+    {
+        // The dominant shape, not an edge case: the state capture assigns
+        // `_exitCodes[name] = evt.Snapshot.ExitCode` for every resource it
+        // observes, so a resource with no exit code has a *present null*, not
+        // an absent key. Reading that as a non-zero exit would report every
+        // healthy resource and drop `migrations` from the failure section.
+        Dictionary<string, string> states = new(StringComparer.Ordinal) { ["migrations"] = "Finished" };
+        Dictionary<string, int?> exitCodes = new(StringComparer.Ordinal) { ["migrations"] = null };
+
+        AspireFixture.SelectResourcesToReport(states, exitCodes).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void A_running_resource_with_a_captured_null_exit_code_is_not_named_as_a_cause()
+    {
+        Dictionary<string, string> states = new(StringComparer.Ordinal)
+        {
+            ["api-gateway"] = "Running",
+            ["camera-catalog"] = "Running",
+        };
+        Dictionary<string, int?> exitCodes = new(StringComparer.Ordinal)
+        {
+            ["api-gateway"] = null,
+            ["camera-catalog"] = null,
+        };
+
+        AspireFixture.FormatLikelyCause(states, exitCodes).ShouldBeEmpty();
+    }
+
+    [Fact]
     public void Rebuilders_that_never_started_are_not_reported()
     {
         Dictionary<string, string> states = new(StringComparer.Ordinal)
