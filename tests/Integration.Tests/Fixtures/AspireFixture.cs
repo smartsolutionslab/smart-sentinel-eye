@@ -185,11 +185,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             Dictionary<string, string> states = await CaptureResourceStateMapAsync().ConfigureAwait(false);
             string failedLogs = await CaptureFailedResourceLogsAsync(states).ConfigureAwait(false);
             throw new TimeoutException(
-                $"Aspire AppHost did not start within {StartupTimeout.TotalMinutes} minutes.\n" +
-                FormatLikelyCause(states) +
-                $"Resource states:\n{FormatResourceStates(states)}\n" +
-                $"Failed-resource logs:\n{failedLogs}\n" +
-                $"Last camera-catalog logs:\n{logTail}",
+                FormatTimeoutMessage(StartupTimeout, states, _exitCodes, failedLogs, logTail),
                 ex);
         }
 
@@ -371,8 +367,29 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     private static bool IsOneShot(string name) =>
         name is "migrations" || name.StartsWith("migrations-", StringComparison.Ordinal);
 
-    private string FormatResourceStates(Dictionary<string, string> states) =>
-        FormatResourceStates(states, _exitCodes);
+    /// <summary>
+    /// The whole message a startup timeout throws, assembled where a test can
+    /// read it.
+    ///
+    /// <para>
+    /// The three sections had tests; the assembly that orders them did not, so
+    /// deleting the cause line from the `throw` left every test green while the
+    /// line vanished from the report a human reads. FR-005 puts the cause
+    /// first — before the state list — and that is an ordering claim, which
+    /// only a test over the assembled string can hold.
+    /// </para>
+    /// </summary>
+    internal static string FormatTimeoutMessage(
+        TimeSpan timeout,
+        Dictionary<string, string> states,
+        Dictionary<string, int?> exitCodes,
+        string failedLogs,
+        string logTail) =>
+        $"Aspire AppHost did not start within {timeout.TotalMinutes} minutes.\n" +
+        FormatLikelyCause(states, exitCodes) +
+        $"Resource states:\n{FormatResourceStates(states, exitCodes)}\n" +
+        $"Failed-resource logs:\n{failedLogs}\n" +
+        $"Last camera-catalog logs:\n{logTail}";
 
     /// <summary>
     /// One line per resource. A resource that exited carries its exit code,
@@ -390,9 +407,6 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                     exitCodes.TryGetValue(kv.Key, out int? exit) && exit is not null
                         ? $"  {kv.Key}: {kv.Value} (exit code {exit})"
                         : $"  {kv.Key}: {kv.Value}"));
-
-    private string FormatLikelyCause(Dictionary<string, string> states) =>
-        FormatLikelyCause(states, _exitCodes);
 
     /// <summary>
     /// The line that answers "what broke?" before the reader has to scan
