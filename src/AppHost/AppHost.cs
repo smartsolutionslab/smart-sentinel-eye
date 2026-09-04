@@ -527,8 +527,9 @@ if (isRunMode && !isE2ETests)
 //
 // - `isRunMode` — absent from publish mode, so it never reaches prod output.
 // - `!isE2ETests` — absent from the integration fixture, which drives no
-//   browser and would pay for a container, a bind mount and a looping FFmpeg
-//   nothing there reads.
+//   browser and would pay for a container and a bind mount nothing there
+//   reads. No FFmpeg is wasted: camera-sim's paths are `runOnDemand`, so one
+//   starts only when a reader connects, and no reader ever does.
 // - `isScenarioSimulatorEnabled` — absent where `ci.yml` passes
 //   `ScenarioSimulator=false`, which is the end-to-end job. That job boots a
 //   *run-mode* stack, so neither of the other two conjuncts reached it, and the
