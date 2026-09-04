@@ -228,6 +228,18 @@ was **read from source** (`git show origin/develop:…/Label.cs`), not observed
 from a running `develop` stack. It is a literal interpolation with no branching,
 so the reading is unambiguous — but it is a reading.
 
+**Resolved 2026-09-04 (phase 6).** The code was brought back to the declared
+deviation rather than the prose brought down to the code: `Satisfies` now
+carries `$"must be in (0, 1]; got {normalizedWidth}."`, so the colon is again
+the only difference. `OverlayGeometryValidationIntegrationTests` asserts all
+four `detail` strings character-for-character — the extent cases previously
+asserted the parameter name and the interval, both of which the degraded
+message satisfied, which is why nothing caught this. The assertions were
+observed failing against the degraded message before the fix. Every row of the
+table above is corrected in its own artefact, and a second undeclared
+difference the table does not list — validation **order** — is recorded in the
+US2 preamble, FR-007a and R2.
+
 ## 4. The SignalR frame still carries all four
 
 Observed by hand, not through the test's `HubConnection`: a camera was
