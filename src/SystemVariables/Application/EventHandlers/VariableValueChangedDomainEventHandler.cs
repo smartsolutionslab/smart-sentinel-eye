@@ -69,7 +69,7 @@ public sealed class VariableValueChangedDomainEventHandler(
                 Metadata: new(
                     Guid.CreateVersion7(),
                     changedAt,
-                    null,
+                    fab.Value,
                     changedBy.Value));
             await events.PublishAsync(@event, cancellationToken);
         }
