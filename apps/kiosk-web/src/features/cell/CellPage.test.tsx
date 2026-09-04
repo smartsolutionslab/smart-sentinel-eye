@@ -5,6 +5,7 @@ import { Provider, useSelector } from 'react-redux';
 import type { Layout, LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
 import type { LayoutHubCallbacks } from '@smart-sentinel-eye/shared/realtime/layoutHub';
 import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+import type { OverlaySnapshotInput } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { store } from '../../app/store.js';
 
 const getLayoutMock = vi.fn();
@@ -115,13 +116,16 @@ const { CellPage } = await import('./CellPage.js');
  * drift apart while both suites stayed green (plan.md, Risk 1).
  * </p>
  */
-function useSnapshotFromTheRealCache(overlayIdentifier: string, options?: { skip?: boolean }) {
+function useSnapshotFromTheRealCache(input: OverlaySnapshotInput, options?: { skip?: boolean }) {
   // Hoisted above the branch: a conditional hook call would be a second
   // bug, not a fix. `skip` is honoured because the production call site
   // passes it, and a fake that ignores it cannot tell a skipped query from
   // a fetched one — which is what made the placeholder comment below a
   // claim about production rather than about this test.
-  const cached = useSelector(systemVariablesApi.endpoints.getOverlaySnapshot.select(overlayIdentifier));
+  //
+  // `input` is passed through untouched: it is the cache key the page chose,
+  // and reconstructing it here would be a second copy free to drift.
+  const cached = useSelector(systemVariablesApi.endpoints.getOverlaySnapshot.select(input));
   return options?.skip === true ? { data: undefined, isLoading: false } : cached;
 }
 
@@ -697,11 +701,19 @@ describe('CellPage', () => {
 
       await act(async () => {
         await store.dispatch(
-          systemVariablesApi.util.upsertQueryData('getOverlaySnapshot', 'ovl-x', {
-            overlayIdentifier: 'ovl-x',
-            resolvedText: 'OEE 41.0',
-            version: 1,
-          }),
+          systemVariablesApi.util.upsertQueryData(
+            'getOverlaySnapshot',
+            // Spec 067: the cache key is now the page's `{ overlayIdentifier,
+            // fabId }`, so the seeded entry has to be keyed the same way or the
+            // tile reads nothing. Arrangement only — the assertions below are
+            // the declared characterisation control (plan.md declaration 3).
+            { overlayIdentifier: 'ovl-x', fabId: 'munich' },
+            {
+              overlayIdentifier: 'ovl-x',
+              resolvedText: 'OEE 41.0',
+              version: 1,
+            },
+          ),
         );
       });
 
@@ -780,11 +792,17 @@ describe('CellPage', () => {
 
       await act(async () => {
         await store.dispatch(
-          systemVariablesApi.util.upsertQueryData('getOverlaySnapshot', overlay, {
-            overlayIdentifier: overlay,
-            resolvedText: text,
-            version: 1,
-          }),
+          systemVariablesApi.util.upsertQueryData(
+            'getOverlaySnapshot',
+            // The munich wall's own cache key, matching what the page queries
+            // with (spec 067, plan.md Risk 1).
+            { overlayIdentifier: overlay, fabId: 'munich' },
+            {
+              overlayIdentifier: overlay,
+              resolvedText: text,
+              version: 1,
+            },
+          ),
         );
       });
 

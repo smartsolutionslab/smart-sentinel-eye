@@ -79,6 +79,21 @@ export interface ResolvedOverlaySnapshot {
   version: number;
 }
 
+/**
+ * An overlay is a fab-neutral template (ADR-0115), so resolving its label means
+ * naming the fab to resolve it *in*. Left unnamed the server resolves across
+ * every fab the caller holds and returns whichever sorts first — right for a
+ * console, wrong for a wall, which shows one plant (ADR-0145).
+ *
+ * <b>This object is the endpoint's RTK Query cache key.</b> A push that upserts
+ * the cache must pass an identical one, or it writes an entry nothing reads and
+ * the tile goes quiet rather than wrong (spec 067 plan, Risk 1).
+ */
+export interface OverlaySnapshotInput {
+  overlayIdentifier: string;
+  fabId: string;
+}
+
 export const systemVariablesApi = createApi({
   reducerPath: 'systemVariablesApi',
   baseQuery: gatewayBaseQuery('system-variables/system-variables'),
@@ -139,17 +154,22 @@ export const systemVariablesApi = createApi({
         { type: 'OverlaySnapshot', id: 'ALL' },
       ],
     }),
-    getOverlaySnapshot: build.query<ResolvedOverlaySnapshot, string>({
-      query: (overlayIdentifier) => ({
+    getOverlaySnapshot: build.query<ResolvedOverlaySnapshot, OverlaySnapshotInput>({
+      query: ({ overlayIdentifier, fabId }) => ({
         url: '/snapshot',
         method: 'GET',
-        params: { overlayIdentifier },
+        params: { overlayIdentifier, fabId },
       }),
       // The 'ALL' sentinel mirrors the *List tag pattern: without it the
       // id:'ALL' invalidations (mutations + reconnect reconciliation,
       // spec 011 FR-008) never match a mounted snapshot query.
-      providesTags: (_r, _e, id) => [
-        { type: 'OverlaySnapshot', id },
+      //
+      // The tag id stays the bare overlay identifier even though the cache key
+      // is now an object, so the existing per-overlay
+      // `invalidateTags([{ type: 'OverlaySnapshot', id: overlay }])` calls keep
+      // matching (spec 067).
+      providesTags: (_r, _e, arg) => [
+        { type: 'OverlaySnapshot', id: arg.overlayIdentifier },
         { type: 'OverlaySnapshot', id: 'ALL' },
       ],
     }),
