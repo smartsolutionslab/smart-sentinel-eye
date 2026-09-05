@@ -38,20 +38,22 @@ public static class WebhookIntegrationsEndpoints
             .WithSummary(
                 "Register a webhook integration for the resolved fab. Omit fabId when you belong "
                 + "to exactly one; name it when you belong to several (ADR-0114). The integration's "
-                + "fab decides which plant its deliveries may name.")
+                + "fab decides which plant its deliveries may name. Required scope: sse.webhooks.write")
             .Produces<RegisteredWebhookResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapGet("/", List)
-            .WithSummary("List the webhook integrations of the fabs you hold.")
+            .WithSummary("List the webhook integrations of the fabs you hold. Required scope: sse.webhooks.write")
             .Produces<IReadOnlyList<WebhookIntegrationDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapDelete("/{name}", Revoke)
-            .WithSummary("Revoke a webhook integration. Requires If-Match with the version from GET /webhook-integrations.")
+            .WithSummary(
+                "Revoke a webhook integration. Requires If-Match with the version from "
+                + "GET /webhook-integrations. Required scope: sse.webhooks.write")
             .Produces<Guid>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
