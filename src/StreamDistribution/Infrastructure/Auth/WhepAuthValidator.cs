@@ -36,18 +36,20 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
             new OpenIdConnectConfigurationRetriever(),
             new HttpDocumentRetriever { RequireHttps = false });
 
-        parameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuer = authority,
-            ValidateAudience = false, // mirrors JwtBearerOptions in AuthenticationDefaults
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            NameClaimType = "preferred_username",
-        };
+        parameters = CreateParameters(authority);
 
         handler.MapInboundClaims = false;
     }
+
+    internal static TokenValidationParameters CreateParameters(string authority) => new()
+    {
+        ValidateIssuer = true,
+        ValidIssuer = authority,
+        ValidateAudience = false, // mirrors JwtBearerOptions in AuthenticationDefaults
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        NameClaimType = "preferred_username",
+    };
 
     public async Task<Option<WhepAuthSubject>> ValidateAsync(string bearerToken, CancellationToken cancellationToken)
     {
