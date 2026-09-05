@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
 
@@ -45,7 +46,10 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
     {
         ValidateIssuer = true,
         ValidIssuer = authority,
-        ValidateAudience = false, // mirrors JwtBearerOptions in AuthenticationDefaults
+        // The audience arrives on the sse-audience client scope (spec 069). Read from
+        // the constant the bearer pipeline reads, so this hook cannot accept a token
+        // the nine APIs would refuse; WhepAudienceTests holds the pairing.
+        ValidAudiences = [AuthenticationDefaults.ApiAudience],
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
         NameClaimType = "preferred_username",
