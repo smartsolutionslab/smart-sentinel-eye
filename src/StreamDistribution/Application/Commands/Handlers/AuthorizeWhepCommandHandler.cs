@@ -34,7 +34,7 @@ public sealed class AuthorizeWhepCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        (MediaMtxPath? path, string? bearerToken) = command;
+        (MediaMtxPath? path, string? bearerToken, _) = command;
 
         if (string.IsNullOrWhiteSpace(bearerToken))
         {
