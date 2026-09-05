@@ -68,7 +68,10 @@ public static class StreamEndpoints
                 + "audience, then requires sse.streams.read on it — or the grandfathered sse.management "
                 + "bundle, named here because this check is hand-rolled; every scoped endpoint accepts "
                 + "the bundle too, through its policy. A missing or invalid token is 401; a valid one "
-                + "without the scope is 403.")
+                + "without the scope is 403. The hook also answers on the action MediaMTX names: read "
+                + "and playback are admitted on that same scope, publish is refused outright because "
+                + "nothing in this product publishes through this hook, and an absent or unrecognised "
+                + "action is refused too — both of those are 403, never 401.")
             .Produces(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden);
