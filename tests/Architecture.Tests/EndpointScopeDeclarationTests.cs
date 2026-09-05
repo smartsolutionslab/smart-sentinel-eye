@@ -237,12 +237,7 @@ public class EndpointScopeDeclarationTests
     /// 2070 deletes these rows; the completeness half fails if it does not.
     /// </para>
     /// </summary>
-    private static readonly UnenforcedRoute[] UnenforcedByDesign =
-    [
-        new("GET", "/system-variables", 2070),
-        new("GET", "/system-variables/snapshot", 2070),
-        new("GET", "/system-variables/{name}", 2070),
-    ];
+    private static readonly UnenforcedRoute[] UnenforcedByDesign = [];
 
     /// <summary>
     /// The routes registered by a <c>Map*</c> call this reader does not parse as
