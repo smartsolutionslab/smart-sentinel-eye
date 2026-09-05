@@ -226,15 +226,18 @@ public class EndpointScopeDeclarationTests
 
     /// <summary>
     /// The routes that enforce no scope at all, each against the open issue that
-    /// will fix it. <b>Read in both directions</b> — see the class doc. These
-    /// three are issue 2070: <c>sse.variables.read</c> exists, is granted, and
-    /// is required by nothing.
+    /// will fix it. <b>Read in both directions</b> — see the class doc: an
+    /// unregistered scopeless route fails, and a row naming a route that now
+    /// enforces a scope fails too.
     ///
     /// <para>
-    /// They are here rather than fixed because adding the missing
-    /// <c>RequireAuthorization</c> is a change to runtime authorization, and
-    /// spec 070 declares itself behaviour-preserving in <c>src/</c>. Fixing
-    /// 2070 deletes these rows; the completeness half fails if it does not.
+    /// <b>Empty today</b>, which is the honest record that nothing is currently
+    /// deferred rather than a dormant mechanism. A row is an excuse checked
+    /// against an open issue, not a permanent exemption: the day the scope lands
+    /// the completeness half turns the row red, so the row is deleted in the same
+    /// diff as the fix. That is what happened to the three <c>#2070</c> rows —
+    /// <c>sse.variables.read</c> is now required by the three
+    /// <c>/system-variables</c> reads (spec 073).
     /// </para>
     /// </summary>
     private static readonly UnenforcedRoute[] UnenforcedByDesign = [];

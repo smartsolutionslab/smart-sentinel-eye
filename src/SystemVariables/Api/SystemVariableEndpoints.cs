@@ -20,7 +20,9 @@ namespace SmartSentinelEye.SystemVariables.Api;
 /// <summary>
 /// Minimal-API endpoint group for SystemVariables (ADR-0070). Spec 005
 /// US1/US2/US3 — Define / SetValue / GetSnapshot. Archive lands in PR F.
-/// Writes require admin policy; reads require any authenticated user.
+/// Writes require <c>sse.variables.write</c>; reads require
+/// <c>sse.variables.read</c> (spec 073, issue 2070 — which retires spec 005
+/// FR-021's "reads require any authenticated user").
 /// </summary>
 public static class SystemVariableEndpoints
 {
@@ -35,31 +37,42 @@ public static class SystemVariableEndpoints
             .RequireAuthorization()
             .WithTags("SystemVariables");
 
-        // Reads — any authenticated user. 400 and 403 became reachable on every
+        // Reads — the read scope. 400 and 403 became reachable on every
         // one of these when fab resolution landed (spec 014 T029): 403 when the
         // caller names a fab they lack or holds none, 400 when their groups
         // yield no usable fab name. Declaring them keeps the generated OpenAPI
         // from claiming they cannot happen.
         group.MapGet("/", List)
+            .RequireAuthorization(Scope.Sse.Variables.Read)
             .WithName("ListSystemVariables")
             .WithSummary(
                 "List variables in your fabs. Omit fabId to span all of them; name one to narrow (spec 014). "
                 + "Archived variables are excluded unless includeArchived=true, or state=Archived asks for them "
-                + "outright — the same shape GET /cameras uses for retired ones. Every row carries its state.")
+                + "outright — the same shape GET /cameras uses for retired ones. Every row carries its state. "
+                + "Required scope: sse.variables.read")
             .Produces<IReadOnlyList<VariableDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapGet("/snapshot", GetSnapshot)
+            .RequireAuthorization(Scope.Sse.Variables.Read)
             .WithName("GetOverlaySnapshot")
+            .WithSummary(
+                "Read one overlay's label text with every variable placeholder already resolved to the value "
+                + "current in your fabs — the opening label a kiosk tile renders when it attaches, before any "
+                + "live update arrives. 404 if the overlay is unknown to your fabs. "
+                + "Required scope: sse.variables.read")
             .Produces<ResolvedOverlaySnapshotDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/{name}", GetOne)
+            .RequireAuthorization(Scope.Sse.Variables.Read)
             .WithName("GetSystemVariable")
-            .WithSummary("Read one variable within your fabs. 400 if the name is held in more than one and none is named.")
+            .WithSummary(
+                "Read one variable within your fabs. 400 if the name is held in more than one and none is named. "
+                + "Required scope: sse.variables.read")
             .Produces<VariableDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
