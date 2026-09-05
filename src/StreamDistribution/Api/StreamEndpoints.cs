@@ -36,7 +36,8 @@ public static class StreamEndpoints
             .WithName("GetStream")
             .WithSummary(
                 "Get one camera's stream, within your fabs. A stream in a fab you do not hold "
-                + "is reported exactly as a camera with no stream (spec 016 FR-006).")
+                + "is reported exactly as a camera with no stream (spec 016 FR-006). "
+                + "Required scope: sse.streams.read")
             .Produces<StreamHealthDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -46,7 +47,7 @@ public static class StreamEndpoints
             .WithName("ListStreams")
             .WithSummary(
                 "Batch-read stream health within your fabs. Omit fabId to span all of them; "
-                + "name one to narrow.")
+                + "name one to narrow. Required scope: sse.streams.read")
             .Produces<IReadOnlyList<StreamHealthDto>>(StatusCodes.Status200OK)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
@@ -59,6 +60,13 @@ public static class StreamEndpoints
         group.MapPost("/authorize", AuthorizeWhep)
             .AllowAnonymous()
             .WithName("AuthorizeWhep")
+            .WithSummary(
+                "Answer MediaMTX's external-auth hook for a WHEP viewer. No OIDC scope: MediaMTX posts "
+                + "the stream path and the viewer's bearer in the JSON body rather than as an "
+                + "Authorization header, so the route is anonymous and the handler validates that token "
+                + "itself against the same Keycloak realm as the standard bearer pipeline, then requires "
+                + "sse.streams.read on it — or the grandfathered sse.management bundle. A missing or "
+                + "invalid token is 401; a valid one without the scope is 403.")
             .Produces(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden);
@@ -77,7 +85,8 @@ public static class StreamEndpoints
             .WithName("RecordKioskLatency")
             .WithSummary(
                 "Record a latency measurement taken in a kiosk browser. The caller sends the "
-                + "elapsed time it already computed, never a start (ADR-0122).")
+                + "elapsed time it already computed, never a start (ADR-0122). "
+                + "Required scope: sse.streams.read")
             .Produces(StatusCodes.Status202Accepted)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
