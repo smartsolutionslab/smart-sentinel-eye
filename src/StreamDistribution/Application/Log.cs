@@ -55,4 +55,10 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Stream {Stream} provisioned for camera {Camera} at path {Path} by {Operator}.")]
     public static partial void StreamProvisioned(this ILogger logger, StreamIdentifier stream, CameraIdentifier camera, MediaMtxPath path, OperatorIdentifier @operator);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Refused a WHEP {Action} on path {Path}: nothing in this product publishes through the external-auth hook, so no token admits this action.")]
+    public static partial void RefusedWhepAction(this ILogger logger, MediaMtxAction action, MediaMtxPath path);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Refused a WHEP request on path {Path}: MediaMTX named no action this build recognises — the field was absent, or held a value other than read, publish or playback. Check for MediaMTX version skew first: the broker image tracks a floating latest tag, so an upgrade that renames, moves or drops the action field arrives here as unknown and every viewer is refused closed until this build learns the new vocabulary.")]
+    public static partial void RefusedUnknownWhepAction(this ILogger logger, MediaMtxPath path);
 }

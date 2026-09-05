@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
 using SmartSentinelEye.StreamDistribution.Application.Commands;
@@ -48,7 +49,7 @@ public class AuthorizeWhepCommandHandlerTests
             Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", ["openid", "sse.management"])),
         };
         InMemoryStreamRepository streams = new();
-        AuthorizeWhepCommandHandler handler = new(validator, streams);
+        AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
@@ -73,7 +74,7 @@ public class AuthorizeWhepCommandHandlerTests
         {
             Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
         };
-        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
@@ -88,7 +89,7 @@ public class AuthorizeWhepCommandHandlerTests
     [Fact]
     public async Task Authorize_with_an_empty_token_returns_Unauthorized()
     {
-        AuthorizeWhepCommandHandler handler = new(new FakeWhepAuthValidator(), new InMemoryStreamRepository());
+        AuthorizeWhepCommandHandler handler = new(new FakeWhepAuthValidator(), new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
@@ -111,7 +112,7 @@ public class AuthorizeWhepCommandHandlerTests
     public async Task Authorize_with_an_invalid_token_returns_Unauthorized()
     {
         FakeWhepAuthValidator validator = new() { Subject = Option<WhepAuthSubject>.None };
-        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
@@ -131,7 +132,7 @@ public class AuthorizeWhepCommandHandlerTests
         {
             Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("user-id", ["openid", "profile"])),
         };
-        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
@@ -164,7 +165,7 @@ public class AuthorizeWhepCommandHandlerTests
         {
             Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", ["sse.management"])),
         };
-        AuthorizeWhepCommandHandler handler = new(validator, streams);
+        AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
@@ -189,7 +190,7 @@ public class AuthorizeWhepCommandHandlerTests
         {
             Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
         };
-        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
@@ -214,7 +215,7 @@ public class AuthorizeWhepCommandHandlerTests
         {
             Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", ["openid", "sse.management"])),
         };
-        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
@@ -237,7 +238,7 @@ public class AuthorizeWhepCommandHandlerTests
     [Fact]
     public async Task Authorize_a_publish_with_no_token_is_refused_on_the_action_not_the_token()
     {
-        AuthorizeWhepCommandHandler handler = new(new FakeWhepAuthValidator(), new InMemoryStreamRepository());
+        AuthorizeWhepCommandHandler handler = new(new FakeWhepAuthValidator(), new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
@@ -262,7 +263,7 @@ public class AuthorizeWhepCommandHandlerTests
         {
             Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
         };
-        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
@@ -287,7 +288,7 @@ public class AuthorizeWhepCommandHandlerTests
         {
             Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
         };
-        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
@@ -311,7 +312,7 @@ public class AuthorizeWhepCommandHandlerTests
         {
             Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
         };
-        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
@@ -337,7 +338,7 @@ public class AuthorizeWhepCommandHandlerTests
         {
             Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
         };
-        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
         MediaMtxPath path = MediaMtxPath.For(SomeCamera());
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(

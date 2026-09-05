@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
@@ -7,7 +8,8 @@ namespace SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 
 public sealed class AuthorizeWhepCommandHandler(
     IWhepAuthValidator whepAuth,
-    IStreamRepository streams)
+    IStreamRepository streams,
+    ILogger<AuthorizeWhepCommandHandler> logger)
     : ICommandHandler<AuthorizeWhepCommand, Result<MediaMtxPath, AuthorizeWhepError>>
 {
     /// <summary>
@@ -34,7 +36,30 @@ public sealed class AuthorizeWhepCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        (MediaMtxPath? path, string? bearerToken, _) = command;
+        (MediaMtxPath? path, string? bearerToken, Option<MediaMtxAction> action) = command;
+
+        // The action is answered before the token, and that order is the point:
+        // an absent or unpermitted action is refused whatever the caller holds,
+        // so answering the token first would hand a publish a 401 — the status
+        // that invites the client back with credentials, when no credential can
+        // make this request acceptable.
+        if (!action.HasValue)
+        {
+            logger.RefusedUnknownWhepAction(path);
+            return Failure(AuthorizeWhepFailures.ActionUnknown());
+        }
+
+        // Nothing in this product publishes through this hook: every path is fed
+        // by MediaMTX pulling the camera's RTSP source. Until now the only thing
+        // refusing a publisher was MediaMTX itself declining them on a path with
+        // a static `source` (MediaMtxRtspGateway.cs:32) — another component's
+        // configuration file rather than this code, and one nobody here would
+        // notice losing.
+        if (action.Value == MediaMtxAction.Publish)
+        {
+            logger.RefusedWhepAction(action.Value, path);
+            return Failure(AuthorizeWhepFailures.ActionNotPermitted());
+        }
 
         if (string.IsNullOrWhiteSpace(bearerToken))
         {
