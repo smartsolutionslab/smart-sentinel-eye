@@ -39,6 +39,9 @@ public static partial class LayoutEndpoints
         group.MapPost("/", CreateDraft)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("CreateLayoutDraft")
+            .WithSummary(
+                "Create a new layout chain in the resolved fab, with its first revision in Draft. "
+                + "Required scope: sse.layouts.write")
             .Produces<Guid>(StatusCodes.Status201Created)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status409Conflict)
@@ -47,6 +50,9 @@ public static partial class LayoutEndpoints
         group.MapGet("/{layoutIdentifier:guid}", GetOne)
             .RequireAuthorization(Scope.Sse.Layouts.Read)
             .WithName("GetLayout")
+            .WithSummary(
+                "Read one layout chain by its identifier, within your fabs. "
+                + "Required scope: sse.layouts.read")
             .Produces<LayoutDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status403Forbidden);
@@ -54,6 +60,7 @@ public static partial class LayoutEndpoints
         group.MapGet("/", List)
             .RequireAuthorization(Scope.Sse.Layouts.Read)
             .WithName("ListLayouts")
+            .WithSummary("List layout chains in your fabs. Required scope: sse.layouts.read")
             .Produces<ListLayoutsResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
@@ -61,6 +68,9 @@ public static partial class LayoutEndpoints
         group.MapPost("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}/publish", Publish)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("PublishRevision")
+            .WithSummary(
+                "Publish a Draft revision of a layout, archiving the previously published one in the "
+                + "same unit of work. Required scope: sse.layouts.write")
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
@@ -71,6 +81,7 @@ public static partial class LayoutEndpoints
         group.MapPost("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}/archive", Archive)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("ArchiveRevision")
+            .WithSummary("Archive a revision of a layout. Required scope: sse.layouts.write")
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
@@ -81,6 +92,9 @@ public static partial class LayoutEndpoints
         group.MapPost("/{layoutIdentifier:guid}/draft", BranchDraft)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("BranchDraftRevision")
+            .WithSummary(
+                "Branch a new Draft revision off the layout chain's current Published revision. "
+                + "Required scope: sse.layouts.write")
             .Produces<int>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
@@ -91,6 +105,9 @@ public static partial class LayoutEndpoints
         group.MapPatch("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}", EditDraft)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("EditDraftRevision")
+            .WithSummary(
+                "Replace a Draft revision's grid and tile set in place. "
+                + "Required scope: sse.layouts.write")
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
@@ -101,6 +118,9 @@ public static partial class LayoutEndpoints
         group.MapPost("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}/revert", Revert)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("RevertRevision")
+            .WithSummary(
+                "Revert a Published layout revision to Draft. "
+                + "Required scope: sse.layouts.write")
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
