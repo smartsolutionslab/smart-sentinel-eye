@@ -36,6 +36,19 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
     public string? FailNextCall { get; set; }
     public int CallCount { get; private set; }
 
+    /// <summary>
+    /// Every representation handed to <see cref="CreateClientAsync"/>, in order.
+    ///
+    /// <para>
+    /// Recorded separately from the created-client map because this is what was
+    /// <em>asked for</em>: a create whose strip fails removes the client again,
+    /// and the request the handler composed is still the thing under test.
+    /// <c>RuntimeClientAudienceTests</c> (spec 069) reads it — nothing else can
+    /// see the scopes a runtime-created client is born with.
+    /// </para>
+    /// </summary>
+    public List<KeycloakClientRepresentation> Created { get; } = [];
+
     public Task<KeycloakClientCredentials> CreateClientAsync(
         KeycloakClientRepresentation representation,
         string fabGroupPath,
@@ -48,6 +61,7 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
         }
 
         Ensure.That(representation).IsNotNull();
+        Created.Add(representation);
         if (_clients.ContainsKey(representation.ClientId))
         {
             throw new KeycloakClientAlreadyExistsException(representation.ClientId);
