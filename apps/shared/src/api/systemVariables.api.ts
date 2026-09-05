@@ -91,6 +91,14 @@ export interface ResolvedOverlaySnapshot {
  */
 export interface OverlaySnapshotInput {
   overlayIdentifier: string;
+  /**
+   * Required, and a real fab. `''` is not "no fab named" — on the wire it *is*
+   * the cross-fab resolution above, because the server reads an empty or blank
+   * `fabId` as "every fab I hold". That is why the optional siblings in this
+   * file drop an empty one and this endpoint must not: for a console, spanning
+   * every fab is a reasonable default; for a wall it is the defect. The query
+   * is simply not issued until a fab is known.
+   */
   fabId: string;
 }
 
@@ -158,6 +166,10 @@ export const systemVariablesApi = createApi({
       query: ({ overlayIdentifier, fabId }) => ({
         url: '/snapshot',
         method: 'GET',
+        // Sent unconditionally, where every sibling above omits an empty
+        // `fabId`: here there is no empty case to omit, and omitting one would
+        // ask for the cross-fab answer rather than for none (see
+        // {@link OverlaySnapshotInput}).
         params: { overlayIdentifier, fabId },
       }),
       // The 'ALL' sentinel mirrors the *List tag pattern: without it the
