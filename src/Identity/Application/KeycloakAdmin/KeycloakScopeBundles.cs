@@ -23,6 +23,23 @@ namespace SmartSentinelEye.Identity.Application.KeycloakAdmin;
 /// </summary>
 public static class KeycloakScopeBundles
 {
+    /// <summary>
+    /// The client scope that puts this product's API in a token's <c>aud</c>
+    /// claim (spec 069). Appended at the call sites rather than added to a
+    /// bundle: the bundles are permission sets, and
+    /// <c>KioskScopeParityTests</c> compares <see cref="Kiosk"/> against the
+    /// realm's <c>kiosk-web</c> client without filtering the bundle side.
+    /// </summary>
+    /// <remarks>
+    /// A second spelling of a string <c>ServiceDefaults</c> also holds, for the
+    /// same reason every <c>sse.*</c> string in this file is re-spelt rather
+    /// than imported: ADR-0051 keeps this layer ASP.NET-free. Do not add a
+    /// project reference to remove the duplication — that reference is the
+    /// thing ADR-0051 forbids. <c>Architecture.Tests</c> reads both assemblies
+    /// and holds the pairing.
+    /// </remarks>
+    public const string AudienceScope = "sse-audience";
+
     public static IReadOnlyList<string> Kiosk { get; } =
     [
         "sse.cameras.read",
