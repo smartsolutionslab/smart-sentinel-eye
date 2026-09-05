@@ -60,6 +60,7 @@ public static partial class OverlayEndpoints
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
         group.MapPost("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}/archive", Archive)
@@ -69,6 +70,7 @@ public static partial class OverlayEndpoints
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
         group.MapPost("/{overlayIdentifier:guid}/draft", BranchDraft)
@@ -80,6 +82,7 @@ public static partial class OverlayEndpoints
             .Produces<int>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
         group.MapPatch("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}", EditDraft)
@@ -91,6 +94,7 @@ public static partial class OverlayEndpoints
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
         group.MapPost("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}/revert", Revert)
@@ -102,6 +106,7 @@ public static partial class OverlayEndpoints
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
         return app;
