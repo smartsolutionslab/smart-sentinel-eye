@@ -114,7 +114,8 @@ public static class CameraEndpoints
             .WithSummary(
                 "List cameras in your fabs. Omit fabId to span all of them; name one to narrow. "
                 + "A read does not have to choose (spec 015 FR-005). Retired cameras are excluded "
-                + "unless includeRetired=true; every row carries its status.")
+                + "unless includeRetired=true; every row carries its status. "
+                + "Required scope: sse.cameras.read")
             .Produces<CameraListPageDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
