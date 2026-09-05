@@ -144,12 +144,29 @@ later is trusted for more than it does.
   in the `*Endpoints.cs` file. An endpoint mapped from a helper method in
   another file, or a scope chosen at run time from configuration, would be
   judged on the wrong text or not at all. **No such indirection exists today** —
-  all 56 mappings are literal chains in 12 files, and FR-010 fails the build if
-  a mapping appears outside them.
-- **It cannot see policy composition.** `RequireAuthorization(scope)` is taken
-  at face value as "requires that scope". If `AddScopePolicies` were changed to
-  map a policy name onto different claims, the guard would still pass. That is
-  `KioskScopeParityTests`' territory, not this one.
+  all 56 mappings are literal chains in 12 files.
+- **The sweep is rooted at `src/*/Api`, and a route mapped outside it is not
+  seen.** FR-010's denominator computes *both* of its numbers from those
+  directories, so moving a file out shrinks both sides together: a reviewer
+  moved `OverlayEndpoints.cs` to `src/OverlayDesigner/Web/` and the suite
+  reported `Failed: 0, Passed: 59` with eight endpoints unguarded. What catches
+  that is FR-012's pinned counts, not FR-010.
+- **Only `MapGet`, `MapPost`, `MapPut`, `MapPatch` and `MapDelete` are read as
+  endpoints.** `MapHub`, `MapMethods`, `MapFallback` and the bare `Map` overload
+  register live routes the chain reader does not parse, and FR-010 cannot see
+  them either — it counts the same regex on both sides, so it catches "right
+  shape, wrong file" and never "wrong shape, any file". `MapMethods` inserted
+  into `CameraEndpoints` gave `Failed: 0, Passed: 63`. FR-013's second register
+  covers them.
+- **It cannot see policy composition, and that is not hypothetical.**
+  `RequireAuthorization(scope)` is taken at face value as "requires that scope".
+  `AddScopePolicies` **does** grant every `sse.*` policy to a token carrying
+  `sse.management` — the sole exception is `sse.events.publish` — so the bundle
+  alone satisfies all 51 `Required scope:` sentences this spec demands, and each
+  of them is true but not the whole truth. Only `POST /streams/authorize` says
+  so, because only there is the check hand-rolled in the handler instead of
+  delegated to the policy. That is `KioskScopeParityTests`' territory, not this
+  one.
 - **It checks that the sentence is present and consistent, not that it is
   true in prose.** A summary reading `Required scope: sse.cameras.read` on an
   endpoint enforcing `sse.cameras.read` passes even if the rest of the sentence
@@ -229,10 +246,12 @@ because it excludes most of the endpoints it exists to police.
   A message a reader must open the file to act on has not done its job.
 
 - **FR-010** — The guard asserts its own denominator: the count of mappings it
-  found equals the count of `Map*` mappings under `src/*/Api`. A mapping added
-  in a file the glob misses fails the build rather than escaping the sweep. This
-  is `PaginatedConsumerTests`' "producers are found, not named" property.
-
+  found equals the count of verb-method mappings under `src/*/Api`. A mapping
+  added in a file the glob misses — *within* those directories — fails the build
+  rather than escaping the sweep. This is `PaginatedConsumerTests`' "producers
+  are found, not named" property. **It does not cover a file that leaves
+  `src/*/Api`, nor a mapping written in a shape the reader does not recognise**;
+  FR-012 and FR-013 do.
 - **FR-011** — 35 metadata edits land with the guard: **26 summaries added**
   (Rules ×4, Events ×3, Layouts ×8, Overlays ×8, Streams ×1, SystemVariables ×2)
   and **9 amended** to append the scope sentence (Cameras ×1, Events ×2,
@@ -247,6 +266,30 @@ because it excludes most of the endpoints it exists to police.
   /system-variables/snapshot` therefore ends this spec still carrying no summary
   at all: it is one of the three, and writing it one would mean deciding what
   its scope is, which is #2070's job and not this spec's.
+
+- **FR-012** — The size of the corpus is pinned exactly: **12 files, 56
+  mappings**. Adding or moving an endpoint edits one of those numbers in the
+  same diff. Without this, a file moved out of `src/*/Api` shrinks both sides of
+  FR-010's comparison at once and the suite stays green while the endpoints in
+  it go unchecked — demonstrated at review, `Failed: 0, Passed: 59`.
+
+- **FR-013** — Every route registered by a `Map*` call the chain reader does not
+  parse — `MapHub`, `MapMethods`, `MapFallback`, the bare `Map` — is listed in a
+  second register, read in both directions like FR-007's. A row names the file,
+  the call, the route and the **handler type**, and the guard asserts by
+  reflection that the type still carries `[Authorize(Policy = …)]` naming a
+  scope from the catalogue, and still publishes the route the row claims. The
+  register cannot describe a route whose authorization is not an attribute on a
+  type, so any other shape stays red until the reader is taught it.
+
+  **One row today: `/hubs/layouts`.**
+  `app.MapHub<LayoutLifecycleHub>(LayoutLifecycleHub.Path)` in
+  `src/LayoutComposition/Api/Program.cs` is a live authorized route enforcing
+  `sse.layouts.read` through `[Authorize]` on the hub class. It is in neither
+  the 56 nor the OpenAPI surface, and until FR-013 the guard walked past it —
+  the exact #2070 shape this spec exists to make visible. It is registered
+  rather than fixed because a SignalR hub has no `.WithSummary` to append to and
+  changing how it authorizes is not behaviour-preserving.
 
 ## Acceptance scenarios
 

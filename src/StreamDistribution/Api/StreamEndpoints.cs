@@ -64,8 +64,9 @@ public static class StreamEndpoints
                 "Answer MediaMTX's external-auth hook for a WHEP viewer. No OIDC scope: MediaMTX posts "
                 + "the stream path and the viewer's bearer in the JSON body rather than as an "
                 + "Authorization header, so the route is anonymous and the handler validates that token "
-                + "itself against the same Keycloak realm as the standard bearer pipeline, then requires "
-                + "sse.streams.read on it — or the grandfathered sse.management bundle. A missing or "
+                + "itself against the same Keycloak realm, then requires sse.streams.read on it — or the "
+                + "grandfathered sse.management bundle, named here because this check is hand-rolled; "
+                + "every scoped endpoint accepts the bundle too, through its policy. A missing or "
                 + "invalid token is 401; a valid one without the scope is 403.")
             .Produces(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)

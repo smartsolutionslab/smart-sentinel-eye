@@ -1,7 +1,10 @@
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
+using SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 using SmartSentinelEye.ServiceDefaults.Authorization;
+using SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 
 namespace SmartSentinelEye.Architecture.Tests;
 
@@ -37,8 +40,23 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// a guard checked against it would agree with a list rather than with the
 /// constants the endpoints actually cite. The endpoints come from a glob, never
 /// from a list of names, and the count is checked against a sweep of every
-/// <c>.cs</c> file under <c>src/*/Api</c>, so a mapping in a file the glob does
-/// not match is red rather than silent.
+/// <c>.cs</c> file under <c>src/*/Api</c>, so a mapping in a file <em>within
+/// those directories</em> that the glob does not match is red rather than
+/// silent.
+/// </para>
+///
+/// <para>
+/// <b>The size of the corpus is pinned, because the denominator alone does not
+/// pin it.</b> <see cref="EndpointFileCount"/> and
+/// <see cref="RouteHandlerMappingCount"/> are asserted exactly. The denominator
+/// compares two numbers that are both computed from
+/// <see cref="ContextApiDirectories"/>, so moving an endpoint file <em>out</em>
+/// of <c>src/*/Api</c> shrinks both sides equally and stays green: a reviewer
+/// moved <c>OverlayEndpoints.cs</c> to <c>src/OverlayDesigner/Web/</c> and the
+/// suite reported <c>Failed: 0, Passed: 59</c> with eight endpoints no longer
+/// checked. The two counts are the thing that turns that red. Adding an endpoint
+/// therefore edits a number here, in the same diff — which is the point, not the
+/// cost.
 /// </para>
 ///
 /// <para>
@@ -78,15 +96,52 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// <i>It is a source scan, not a running application.</i> It reads the fluent
 /// chain in the file. An endpoint mapped from a helper in another file, or a
 /// scope chosen at run time from configuration, would be judged on the wrong
-/// text or not at all. No such indirection exists today, and the denominator
-/// assertion fails the build if a mapping appears outside the files swept.
+/// text or not at all. No such indirection exists today.
 /// </para>
 ///
 /// <para>
-/// <i>It cannot see policy composition.</i> <c>RequireAuthorization(scope)</c>
-/// is taken at face value as "requires that scope". If <c>AddScopePolicies</c>
-/// were changed to map a policy name onto different claims, this guard would
-/// still pass; that is <c>KioskScopeParityTests</c>' territory, not this one.
+/// <i>The sweep is rooted at <c>src/*/Api</c>, so a route mapped anywhere else
+/// is not seen at all.</i> This is a limit of where it looks, not of what it
+/// reads, and the denominator assertion does not cover it — both of that
+/// assertion's numbers come from the same roots. What covers it is the pinned
+/// <see cref="EndpointFileCount"/> and <see cref="RouteHandlerMappingCount"/>:
+/// a file that leaves the sweep makes the corpus smaller than the number
+/// written here, which is red. A route mapped from a project that has no
+/// <c>Api</c> directory at all is outside both, and nothing here would notice
+/// it.
+/// </para>
+///
+/// <para>
+/// <i>Only <c>MapGet</c>, <c>MapPost</c>, <c>MapPut</c>, <c>MapPatch</c> and
+/// <c>MapDelete</c> are read as endpoints.</i> <c>MapHub</c>,
+/// <c>MapMethods</c>, <c>MapFallback</c> and the bare <c>Map</c> overload
+/// register live routes and carry no chain this reader understands — a reviewer
+/// inserted <c>reads.MapMethods("/sneaky", ["GET"], List)</c> into
+/// <c>CameraEndpoints</c> and got <c>Failed: 0, Passed: 63</c>, because the
+/// denominator counts the same regex on both sides and so can only catch "right
+/// shape, wrong file", never "wrong shape, any file". They are covered instead
+/// by <see cref="MappedOutsideTheChain"/>, a second register read in both
+/// directions: an unregistered one fails
+/// (<see cref="Every_route_mapped_outside_the_readable_shapes_is_registered"/>)
+/// and a row matching nothing fails
+/// (<see cref="Every_route_mapped_outside_the_readable_shapes_still_exists"/>).
+/// The register can only describe a route whose authorization is an attribute on
+/// a handler type, so any other shape is red until someone teaches the reader
+/// it — which is the intended answer, not a gap.
+/// </para>
+///
+/// <para>
+/// <i>It cannot see policy composition, and today that is not hypothetical.</i>
+/// <c>RequireAuthorization(scope)</c> is taken at face value as "requires that
+/// scope". <c>AddScopePolicies</c> <em>does</em> map every <c>sse.*</c> policy
+/// onto two acceptable claims — the scope itself <em>or</em>
+/// <see cref="RequireScopeExtensions.LegacyManagementBundle"/>, the sole
+/// exception being <see cref="Scope.Sse.Events.Publish"/>. So a token carrying
+/// the bundle alone satisfies every scoped endpoint this guard checks, and every
+/// <c>Required scope:</c> sentence it demands is true but not the whole truth.
+/// Only <c>POST /streams/authorize</c> says so, because only there is the check
+/// hand-rolled in the handler rather than delegated to the policy. That is
+/// <c>KioskScopeParityTests</c>' territory, not this one.
 /// </para>
 ///
 /// <para>
@@ -109,8 +164,21 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// file, by variable name.</i> Two files declare two groups on the same route
 /// prefix with different scopes — <c>RulesEndpoints</c> and
 /// <c>CameraEndpoints</c> — so binding by prefix would be green and wrong. A
-/// group assigned across files, or reassigned, is not read and reports as
-/// unreadable.
+/// group assigned across files is not read and reports as unreadable.
+/// </para>
+///
+/// <para>
+/// <i>Binding is by name across the whole file, not per method body, so a name
+/// declared twice is refused outright.</i> A bare reassignment was always
+/// caught; a second <em>declaration</em> of the same name in a second method —
+/// legal C#, and the obvious shape the day a file splits into <c>MapReads</c>
+/// and <c>MapWrites</c> — was not, and the last declaration won for every
+/// mapping in the file including those written above it. A reviewer added a
+/// second <c>reads</c> group requiring <c>sse.events.write</c> and the three
+/// real <c>/events</c> reads, which enforce <c>sse.events.read</c>, passed while
+/// documented as writes: <c>Failed: 0, Passed: 63</c>. A duplicate declaration
+/// is now an unreadable mapping rather than a silent rebind, so the file is red
+/// until the second group is given its own name.
 /// </para>
 ///
 /// <para>
@@ -142,6 +210,21 @@ public class EndpointScopeDeclarationTests
     private const string NoSummary = "(no .WithSummary in the chain)";
 
     /// <summary>
+    /// How many files match <see cref="EndpointGlob"/>, and how many route
+    /// handlers they register between them. Pinned rather than merely compared,
+    /// because <see cref="Every_route_handler_mapping_under_the_api_projects_is_enumerated"/>
+    /// computes both of its numbers from <see cref="ContextApiDirectories"/> and
+    /// so cannot see a file that leaves those directories: moving
+    /// <c>OverlayEndpoints.cs</c> out of <c>src/OverlayDesigner/Api</c> shrinks
+    /// both sides together and stays green while eight endpoints go unchecked.
+    /// Adding or removing an endpoint edits one of these numbers in the same
+    /// diff as the endpoint.
+    /// </summary>
+    private const int EndpointFileCount = 12;
+
+    private const int RouteHandlerMappingCount = 56;
+
+    /// <summary>
     /// The routes that enforce no scope at all, each against the open issue that
     /// will fix it. <b>Read in both directions</b> — see the class doc. These
     /// three are issue 2070: <c>sse.variables.read</c> exists, is granted, and
@@ -162,8 +245,37 @@ public class EndpointScopeDeclarationTests
     ];
 
     /// <summary>
-    /// Every scope constant, by its full path and by every unambiguous tail of
-    /// it. Built by reflection, so no scope string is typed into this file.
+    /// The routes registered by a <c>Map*</c> call this reader does not parse as
+    /// a chain, each with the handler type whose attribute declares its scope.
+    /// <b>Read in both directions</b>, like <see cref="UnenforcedByDesign"/>: an
+    /// unregistered one fails, and a row matching no call fails.
+    ///
+    /// <para>
+    /// One row today. <c>app.MapHub&lt;LayoutLifecycleHub&gt;(…)</c> in
+    /// <c>src/LayoutComposition/Api/Program.cs</c> registers <c>/hubs/layouts</c>
+    /// — a live, authorized route whose scope is enforced by
+    /// <c>[Authorize(Policy = …)]</c> on the hub class rather than by a fluent
+    /// chain, and which appears in neither the 56 nor the OpenAPI surface. It is
+    /// the #2070 shape this guard exists to make visible, and until this register
+    /// existed the guard walked past it. It is registered rather than fixed
+    /// because giving a SignalR hub a <c>.WithSummary</c> is not possible and
+    /// changing how it authorizes is not behaviour-preserving; what this buys is
+    /// that the route, its handler and its scope are now asserted rather than
+    /// unmentioned.
+    /// </para>
+    /// </summary>
+    private static readonly RouteOutsideTheChain[] MappedOutsideTheChain =
+    [
+        new(
+            "src/LayoutComposition/Api/Program.cs",
+            "MapHub",
+            "/hubs/layouts",
+            typeof(LayoutLifecycleHub)),
+    ];
+
+    /// <summary>
+    /// Every scope constant, by its full path and by its <c>Sse.</c>-prefixed
+    /// tail. Built by reflection, so no scope string is typed into this file.
     /// </summary>
     private static readonly IReadOnlyDictionary<string, string> ScopeLiterals = BuildScopeCatalogue();
 
@@ -174,6 +286,37 @@ public class EndpointScopeDeclarationTests
     /// </summary>
     private static readonly Regex MappingSite = new(
         @"\b(?<receiver>\w+)\s*\.Map(?<verb>Get|Post|Put|Patch|Delete)\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// A route registration written in a shape <see cref="MappingSite"/> does
+    /// not read: the ASP.NET routing primitives that are not verb methods, and
+    /// the bare <c>Map</c> overload. Named exhaustively rather than matched
+    /// loosely, because <c>Map*</c> is also how a bounded context's own
+    /// registration extension is spelled — <c>app.MapCameraCatalogEndpoints()</c>
+    /// maps nothing itself, and flagging ten of those would bury the one call
+    /// that does.
+    ///
+    /// <para>
+    /// The bare overload needs a receiver test as well: <c>Option&lt;T&gt;.Map</c>
+    /// is spelled identically and is used nine times in these same files.
+    /// <see cref="RouteBuilderNames"/> decides, so <c>key.Map(supplied =&gt; …)</c>
+    /// is not a route and <c>reads.Map("/sneaky", List)</c> is.
+    /// </para>
+    /// </summary>
+    private static readonly Regex OutsideTheChainSite = new(
+        @"\b(?<receiver>\w+)\s*\.Map(?<kind>FallbackToFile|Fallback|Hub|Methods|GrpcService|HealthChecks|StaticAssets|RazorPages|RazorComponents)?\s*(?:<[^<>;]*>)?\s*\(",
+        RegexOptions.None,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// A local or parameter whose declared type makes it a thing routes can be
+    /// mapped on. Group locals declared with <c>var</c> are added separately,
+    /// from the declarations <see cref="LocalDeclaration"/> already finds.
+    /// </summary>
+    private static readonly Regex RouteBuilderDeclaration = new(
+        @"\b(?:IEndpointRouteBuilder|WebApplication|RouteGroupBuilder)\s+(?<name>\w+)\b",
         RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
@@ -237,21 +380,50 @@ public class EndpointScopeDeclarationTests
     }
 
     /// <summary>
-    /// <b>A1 — the denominator is not chosen by the guard.</b>
+    /// <b>A1 — the denominator is not chosen by the guard, and the corpus does
+    /// not shrink quietly.</b>
     ///
     /// <para>
     /// The mappings enumerated from <see cref="EndpointGlob"/> must account for
     /// every <c>Map*</c> registration in every <c>.cs</c> file under
     /// <c>src/*/Api</c>. An endpoint moved into a file the glob does not match
-    /// is then red rather than quietly outside the sweep, which is the only
-    /// failure a guard cannot recover from on its own.
+    /// is then red rather than quietly outside the sweep.
+    /// </para>
+    ///
+    /// <para>
+    /// That comparison alone is not enough, and this was demonstrated rather
+    /// than reasoned about: both of its numbers are computed from
+    /// <see cref="ContextApiDirectories"/>, so a file moved <em>out</em> of
+    /// <c>src/*/Api</c> shrinks both together. <c>OverlayEndpoints.cs</c> moved
+    /// to <c>src/OverlayDesigner/Web/</c> gave <c>Failed: 0, Passed: 59</c> —
+    /// eight endpoints silently unguarded, four theory cases silently gone.
+    /// <see cref="EndpointFileCount"/> and <see cref="RouteHandlerMappingCount"/>
+    /// are the assertions that see it.
     /// </para>
     /// </summary>
     [Fact]
     public void Every_route_handler_mapping_under_the_api_projects_is_enumerated()
     {
+        string[] endpointFiles = EndpointSourceFiles();
         int swept = ApiSourceFiles().Sum(file => MappingSite.Count(Masked(ReadRepositoryFile(file))));
-        int enumerated = EndpointSourceFiles().Sum(file => Read(file).Mappings.Length);
+        int enumerated = endpointFiles.Sum(file => Read(file).Mappings.Length);
+
+        endpointFiles.Length.ShouldBe(
+            EndpointFileCount,
+            $"{EndpointGlob} matched {endpointFiles.Length} files, not the {EndpointFileCount} this guard "
+            + $"is pinned to:{Environment.NewLine}{string.Join(Environment.NewLine, endpointFiles)}"
+            + $"{Environment.NewLine}Fewer means a file left the sweep — moved out of src/*/Api, or "
+            + "renamed away from *Endpoints.cs — and every endpoint in it is now unchecked on a green "
+            + "build, because the denominator below counts both of its numbers from the same directories "
+            + "and shrinks with it. More means a new endpoint file the register and the counts have not "
+            + "been told about. Either way, edit the number here in the same diff as the file.");
+
+        swept.ShouldBe(
+            RouteHandlerMappingCount,
+            $"the sweep over {ApiGlob} found {swept} route handlers, not the {RouteHandlerMappingCount} "
+            + "this guard is pinned to. An endpoint was added, removed or moved out of the swept "
+            + "directories; the last of those is invisible to every other assertion here. Confirm the "
+            + "corpus is what you meant it to be, then edit the number.");
 
         swept.ShouldBeGreaterThan(
             0,
@@ -492,6 +664,182 @@ public class EndpointScopeDeclarationTests
     }
 
     /// <summary>
+    /// <b>A8b — the WHEP hook's sentence is pinned to the constants it is about.</b>
+    ///
+    /// <para>
+    /// <see cref="Every_anonymous_endpoint_says_what_authenticates_it_instead"/>
+    /// asks only whether the label is present, so <c>"No OIDC scope: trust me"</c>
+    /// would satisfy it. This endpoint's sentence names two scopes the handler
+    /// hand-rolls, and both are read here as constants rather than typed, so the
+    /// day either moves the sentence is red instead of quietly false.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_whep_hook_summary_names_the_two_scopes_its_handler_accepts()
+    {
+        string required = PrivateConstant(typeof(AuthorizeWhepCommandHandler), "RequiredScope");
+        string bundle = RequireScopeExtensions.LegacyManagementBundle;
+        EndpointMapping hook = AnonymousMapping("POST", "/streams/authorize");
+        string summary = SummaryOf(hook);
+
+        summary.ShouldContain(
+            required,
+            Case.Sensitive,
+            $"AuthorizeWhepCommandHandler requires '{required}', and the summary that tells a reader what "
+            + $"admits them does not name it: {Quoted(summary)}. The endpoint is anonymous, so this "
+            + "sentence is the only place the surface says what the call is checked against.");
+
+        summary.ShouldContain(
+            bundle,
+            Case.Sensitive,
+            $"the handler also accepts '{bundle}' and the summary no longer names it: "
+            + $"{Quoted(summary)}. If the bundle was withdrawn, delete the clause with it; "
+            + "AuthenticationDefaults.AdminPolicy is already marked obsolete, so this sentence is on a "
+            + "path to becoming false without anything failing.");
+    }
+
+    /// <summary>
+    /// <b>A8c — the webhook sentence's "by default" is pinned to the default.</b>
+    ///
+    /// <para>
+    /// The summary tells a reader that an unrotated integration is validated by
+    /// SHA-256 against a stored hash. That is true only while
+    /// <see cref="BearerValidationMode.StaticHash"/> is the enum's zero value and
+    /// so the persisted default. Flip the enum and the sentence is false with
+    /// nothing red, which is the rot this pins.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_webhook_ingest_summary_describes_the_validation_mode_that_is_actually_the_default()
+    {
+        EndpointMapping ingest = AnonymousMapping("POST", "/events/webhook/{integrationName}");
+        string summary = SummaryOf(ingest);
+
+        default(BearerValidationMode).ShouldBe(
+            BearerValidationMode.StaticHash,
+            "the webhook ingest summary says the token is validated 'by default' as a SHA-256 match "
+            + "against the stored hash. That is the summary describing BearerValidationMode's zero "
+            + "value, which is what an integration has until it is rotated. It is no longer the zero "
+            + "value, so the sentence now describes the wrong branch — amend it with the enum.");
+
+        summary.ShouldContain(
+            "by default",
+            Case.Sensitive,
+            "the summary no longer distinguishes the default validation mode from the rotated one: "
+            + $"{Quoted(summary)}. Both branches are live and they check entirely different things; a "
+            + "reader who cannot tell which one applies to their integration has been told nothing "
+            + "useful.");
+
+        summary.ShouldContain(
+            ScopeLiterals[$"{nameof(Scope)}.{nameof(Scope.Sse)}.{nameof(Scope.Sse.Events)}."
+                + nameof(Scope.Sse.Events.Write)],
+            Case.Sensitive,
+            "the summary no longer names the scope the rotated, JWT branch demands: "
+            + $"{Quoted(summary)}. The literal is read from the catalogue here, so this fails when the "
+            + "constant moves rather than when someone remembers to check.");
+    }
+
+    /// <summary>
+    /// <b>A10 — a route mapped in a shape the reader does not parse is registered.</b>
+    ///
+    /// <para>
+    /// The other half of the denominator, and the half that was missing. A1
+    /// compares <see cref="MappingSite"/> against itself, so it catches "right
+    /// shape, wrong file" and never "wrong shape, any file" — a reviewer added a
+    /// live <c>MapMethods</c> endpoint to <c>CameraEndpoints</c> and the suite
+    /// stayed green at 63. Every <c>MapHub</c>, <c>MapMethods</c>,
+    /// <c>MapFallback</c> and bare <c>Map</c> under <c>src/*/Api</c> must now
+    /// appear in <see cref="MappedOutsideTheChain"/>.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Every_route_mapped_outside_the_readable_shapes_is_registered()
+    {
+        string[] unregistered = OutsideTheChainSites()
+            .Where(site => !MappedOutsideTheChain.Any(row => Matches(row, site)))
+            .Select(site => $"{site.File}:{site.Line}  .{site.Call}(…)")
+            .ToArray();
+
+        unregistered.ShouldBeEmpty(
+            "these calls register a route this guard's chain reader does not parse: "
+            + $"{Environment.NewLine}{string.Join(Environment.NewLine, unregistered)}{Environment.NewLine}"
+            + "They are live routes with live authorization, and A1's denominator cannot see them — it "
+            + "counts the verb-method regex on both sides, so a shape that regex does not know is absent "
+            + "from both. Write the endpoint as one of the five verb methods so the rest of this guard "
+            + "reads it, or add a row to the register above naming the handler type whose attribute "
+            + "declares its scope. The register is read in both directions and cannot describe a route "
+            + "whose authorization is not an attribute on a type, which is deliberate: any other shape "
+            + "stays red until someone teaches this reader it.");
+    }
+
+    /// <summary>
+    /// <b>A11 — that register is read the other way too.</b>
+    /// </summary>
+    [Fact]
+    public void Every_route_mapped_outside_the_readable_shapes_still_exists()
+    {
+        OutsideTheChainMapping[] sites = OutsideTheChainSites();
+
+        string[] stale = MappedOutsideTheChain
+            .Where(row => !sites.Any(site => Matches(row, site)))
+            .Select(row => $"{row.File}  .{row.Call}(…)  {row.Route}")
+            .ToArray();
+
+        stale.ShouldBeEmpty(
+            "these register rows no longer match a route mapped in this file: "
+            + $"{Environment.NewLine}{string.Join(Environment.NewLine, stale)}{Environment.NewLine}"
+            + "Either the route was deleted — delete the row with it — or it moved, and the row is now "
+            + "pointing at nothing while the route it described is covered by neither half.");
+
+        sites.Length.ShouldBe(
+            MappedOutsideTheChain.Length,
+            $"{sites.Length} routes are mapped outside the readable shapes and "
+            + $"{MappedOutsideTheChain.Length} are registered. The two lists agree file by file, so the "
+            + "difference is a second call in a file that already has a row — which the row would "
+            + "silently cover. Give it its own row.");
+    }
+
+    /// <summary>
+    /// <b>A12 — a registered route still enforces a scope from the catalogue.</b>
+    ///
+    /// <para>
+    /// A row is a claim that the route's scope is declared somewhere this guard
+    /// can check, not a place to record that it is not. The policy is read off
+    /// the handler type by reflection and looked up in the same catalogue every
+    /// scoped endpoint is measured against, so a hub that loses its attribute —
+    /// or gains a policy name that is not a scope — is red.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Every_route_mapped_outside_the_readable_shapes_declares_a_catalogue_scope()
+    {
+        foreach (RouteOutsideTheChain row in MappedOutsideTheChain)
+        {
+            string policy = DeclaredPolicy(row.Handler);
+
+            policy.ShouldNotBeNullOrEmpty(
+                $"{row.Route} is mapped by {row.Handler.Name}, and that type carries no "
+                + "[Authorize(Policy = …)]. The route has no chain to read, so the attribute is the "
+                + "only place its scope is declared — without it the route is reachable by any "
+                + "authenticated caller and says so nowhere.");
+
+            ScopeLiterals.Values.ShouldContain(
+                policy,
+                $"{row.Handler.Name} requires policy '{policy}', which is not a constant of "
+                + "ServiceDefaults.Authorization.Scope. A policy name that is not a scope in the "
+                + "catalogue is the #2070 shape: granted somewhere, required here, and reconciled "
+                + "nowhere.");
+
+            DeclaredPath(row.Handler).ShouldBe(
+                row.Route,
+                $"the register says {row.Handler.Name} is mapped at {row.Route}, and the constant on the "
+                + "type says otherwise. The route in the register is the only part of the row a reader "
+                + "can use without opening the file, so it is checked against the type rather than "
+                + "trusted.");
+        }
+    }
+
+    /// <summary>
     /// <b>A9 — the gate has no soft edge.</b>
     ///
     /// <para>
@@ -581,6 +929,29 @@ public class EndpointScopeDeclarationTests
 
             string name = declaration.Groups["name"].Value;
             declarations.Add((declaration.Index, end));
+
+            // Binding is by name across the whole file, so a name declared a
+            // second time — in a second method, which is legal C# — would rebind
+            // every mapping written on it, including the ones above. Reached in
+            // review: three /events reads enforcing sse.events.read passed while
+            // documented as sse.events.write. Refused rather than resolved.
+            if (groups.ContainsKey(name))
+            {
+                unread.Add($"{file}:{LineAt(text, declaration.Index)} — '{name}' is declared as a route "
+                    + "group a second time in this file. A mapping is bound to its group by name across "
+                    + "the whole file, not per method, so this declaration would rebind every mapping "
+                    + "written on that name — including the ones above it, whose scope would then be "
+                    + "read from a group they never touched. Give this group its own name.");
+                groups[name] = new RouteGroup(
+                    name,
+                    string.Empty,
+                    new EnforcedAuthorization(
+                        AuthorizationKind.Unreadable,
+                        $"its receiver '{name}' names more than one route group in this file, so which "
+                            + "group's authorization it inherits cannot be established"));
+                continue;
+            }
+
             groups[name] = new RouteGroup(
                 name,
                 FirstLiteral(text, masked, declaration.Index, end),
@@ -667,12 +1038,36 @@ public class EndpointScopeDeclarationTests
     /// and must inherit. An endpoint-level <c>RequireAuthorization</c> wins over
     /// the group's, which is how <c>SystemVariableEndpoints</c>' three writes
     /// override a group that names no scope.
+    ///
+    /// <para>
+    /// <c>RequireScope</c> is read as the same call, because it is one — the
+    /// extension in <c>RequireScopeExtensions</c> forwards to
+    /// <c>RequireAuthorization</c>. Nothing in <c>src/</c> uses it today, and a
+    /// reader that did not know it would take the group's scope for the
+    /// endpoint's.
+    /// </para>
+    ///
+    /// <para>
+    /// More than one such call in a chain is unreadable rather than resolved to
+    /// the first. ASP.NET requires <em>all</em> of them, so a chain carrying both
+    /// a bare call and a scoped one enforces the scope, while reading the first
+    /// alone would report it as naming none and demand a register row it must
+    /// not have.
+    /// </para>
     /// </summary>
     private static EnforcedAuthorization? DeclaredAuthorization(string text, string masked, int start, int end)
     {
-        int require = IndexOfCall(masked, ".RequireAuthorization", start, end);
+        int require = FirstAuthorizationCall(masked, start, end);
         if (require >= 0)
         {
+            if (FirstAuthorizationCall(masked, require + 1, end) >= 0)
+            {
+                return new EnforcedAuthorization(
+                    AuthorizationKind.Unreadable,
+                    "its chain declares authorization more than once and ASP.NET applies all of them, "
+                        + "so no single call names what the endpoint enforces");
+            }
+
             int open = masked.IndexOf('(', require);
             (int from, int to) = ArgumentSpan(masked, open);
             string argument = text[from..to].Trim();
@@ -686,13 +1081,30 @@ public class EndpointScopeDeclarationTests
                 ? new EnforcedAuthorization(AuthorizationKind.Scoped, Compact(argument))
                 : new EnforcedAuthorization(
                     AuthorizationKind.Unreadable,
-                    $"its .RequireAuthorization argument '{argument}' is not a constant path, so the "
+                    $"its authorization argument '{argument}' is not a constant path, so the "
                         + "scope it enforces cannot be resolved");
         }
 
         return IndexOfCall(masked, ".AllowAnonymous", start, end) >= 0
             ? new EnforcedAuthorization(AuthorizationKind.Anonymous, string.Empty)
             : null;
+    }
+
+    /// <summary>
+    /// The first call in a span that declares authorization, whichever of the
+    /// two spellings it uses.
+    /// </summary>
+    private static int FirstAuthorizationCall(string masked, int start, int end)
+    {
+        int authorization = IndexOfCall(masked, ".RequireAuthorization", start, end);
+        int scope = IndexOfCall(masked, ".RequireScope", start, end);
+
+        if (authorization < 0)
+        {
+            return scope;
+        }
+
+        return scope < 0 ? authorization : Math.Min(authorization, scope);
     }
 
     /// <summary>
@@ -757,6 +1169,150 @@ public class EndpointScopeDeclarationTests
         string.Equals(row.Verb, mapping.Verb, StringComparison.Ordinal)
         && string.Equals(row.Route, mapping.Route, StringComparison.Ordinal);
 
+    private static bool Matches(RouteOutsideTheChain row, OutsideTheChainMapping site) =>
+        string.Equals(row.File, site.File, StringComparison.Ordinal)
+        && string.Equals(row.Call, site.Call, StringComparison.Ordinal);
+
+    /// <summary>
+    /// The one anonymous mapping at a verb and route, asserted to be exactly one
+    /// so a sentence is never checked against a mapping that has moved.
+    /// </summary>
+    private static EndpointMapping AnonymousMapping(string verb, string route)
+    {
+        EndpointMapping[] found = AllMappings()
+            .Where(mapping => mapping.Kind == AuthorizationKind.Anonymous)
+            .Where(mapping => string.Equals(mapping.Verb, verb, StringComparison.Ordinal)
+                && string.Equals(mapping.Route, route, StringComparison.Ordinal))
+            .ToArray();
+
+        found.Length.ShouldBe(
+            1,
+            $"expected exactly one .AllowAnonymous() mapping at {verb} {route}, found {found.Length}. "
+            + "The endpoint moved, changed route, or stopped being anonymous — and the sentence this "
+            + "test pins to its handler's constants is now describing something else.");
+
+        return found[0];
+    }
+
+    private static string SummaryOf(EndpointMapping mapping)
+    {
+        string? summary = mapping.Summary;
+
+        summary.ShouldNotBeNull(
+            $"{Where(mapping)} declares no .WithSummary, so the sentence this asserts about does not "
+            + "exist at all.");
+
+        return summary ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Every route registered by a call <see cref="MappingSite"/> does not read.
+    /// The bare <c>Map</c> overload is only a route when its receiver is
+    /// something routes can be mapped on — <c>Option&lt;T&gt;.Map</c> is spelled
+    /// the same and appears nine times in these files.
+    /// </summary>
+    private static OutsideTheChainMapping[] OutsideTheChainSites()
+    {
+        List<OutsideTheChainMapping> found = [];
+
+        foreach (string file in ApiSourceFiles())
+        {
+            string text = WithoutComments(ReadRepositoryFile(file));
+            string masked = MaskLiterals(text);
+            HashSet<string> builders = RouteBuilderNames(masked);
+
+            foreach (Match site in OutsideTheChainSite.Matches(masked))
+            {
+                string kind = site.Groups["kind"].Value;
+                if (kind.Length == 0 && !builders.Contains(site.Groups["receiver"].Value))
+                {
+                    continue;
+                }
+
+                found.Add(new OutsideTheChainMapping(file, LineAt(text, site.Index), $"Map{kind}"));
+            }
+        }
+
+        return [.. found];
+    }
+
+    private static HashSet<string> RouteBuilderNames(string masked)
+    {
+        HashSet<string> names = new(StringComparer.Ordinal);
+
+        foreach (Match declaration in RouteBuilderDeclaration.Matches(masked))
+        {
+            names.Add(declaration.Groups["name"].Value);
+        }
+
+        foreach (Match declaration in LocalDeclaration.Matches(masked))
+        {
+            int end = StatementEnd(masked, declaration.Index);
+            if (GroupSite.IsMatch(masked[declaration.Index..end]))
+            {
+                names.Add(declaration.Groups["name"].Value);
+            }
+        }
+
+        return names;
+    }
+
+    /// <summary>
+    /// The policy an <c>[Authorize]</c> attribute names, read as attribute data
+    /// so no ASP.NET type needs to be referenced here. Both spellings are read:
+    /// the named <c>Policy</c> property and the constructor argument.
+    /// </summary>
+    private static string DeclaredPolicy(Type handler)
+    {
+        CustomAttributeData[] authorize = handler.GetCustomAttributesData()
+            .Where(attribute => string.Equals(
+                attribute.AttributeType.Name,
+                "AuthorizeAttribute",
+                StringComparison.Ordinal))
+            .ToArray();
+
+        string named = authorize
+            .SelectMany(attribute => attribute.NamedArguments)
+            .Where(argument => string.Equals(argument.MemberName, "Policy", StringComparison.Ordinal))
+            .Select(argument => argument.TypedValue.Value as string ?? string.Empty)
+            .FirstOrDefault(string.Empty);
+
+        return named.Length > 0
+            ? named
+            : authorize
+                .SelectMany(attribute => attribute.ConstructorArguments)
+                .Select(argument => argument.Value as string ?? string.Empty)
+                .FirstOrDefault(string.Empty);
+    }
+
+    /// <summary>
+    /// The route constant a registered handler type publishes, so the register's
+    /// route is checked against the type rather than taken on trust.
+    /// </summary>
+    private static string DeclaredPath(Type handler)
+    {
+        FieldInfo? path = handler.GetField("Path", BindingFlags.Public | BindingFlags.Static);
+
+        return path is { IsLiteral: true }
+            ? (string?)path.GetRawConstantValue() ?? string.Empty
+            : string.Empty;
+    }
+
+    /// <summary>
+    /// A private constant's value, so a sentence about what a handler enforces
+    /// is pinned to the handler rather than retyped beside it.
+    /// </summary>
+    private static string PrivateConstant(Type type, string name)
+    {
+        FieldInfo? constant = type.GetField(name, BindingFlags.NonPublic | BindingFlags.Static);
+
+        constant.ShouldNotBeNull(
+            $"{type.Name} no longer declares a constant named {name}, so what this endpoint requires "
+            + "cannot be read from the handler and the summary is pinned to nothing.");
+
+        return (string?)constant?.GetRawConstantValue() ?? string.Empty;
+    }
+
     // ---- reporting ---------------------------------------------------------
 
     private static string Where(EndpointMapping mapping) =>
@@ -815,7 +1371,7 @@ public class EndpointScopeDeclarationTests
             }
 
             string literal = (string)field.GetRawConstantValue()!;
-            foreach (string key in Tails($"{path}.{field.Name}"))
+            foreach (string key in CatalogueKeys($"{path}.{field.Name}"))
             {
                 if (!candidates.TryGetValue(key, out List<string>? found))
                 {
@@ -834,18 +1390,26 @@ public class EndpointScopeDeclarationTests
     }
 
     /// <summary>
-    /// A constant path and every tail of it. Call sites write the full
-    /// <c>Scope.Sse.…</c> form today; indexing the tails costs nothing and
-    /// removes a false failure the first time someone shortens one with a
-    /// <c>using static</c>. A tail that names two different literals is dropped
-    /// by <see cref="BuildScopeCatalogue"/> rather than resolved arbitrarily.
+    /// A constant path, and the one shortening a <c>using static</c> can produce
+    /// — <c>Sse.Cameras.Read</c> for <c>Scope.Sse.Cameras.Read</c>.
+    ///
+    /// <para>
+    /// It used to index <em>every</em> tail, which no call site needs and which
+    /// made a false green reachable: <c>.RequireAuthorization(Overlays.Read)</c>
+    /// against some other catalogue's <c>Overlays</c> would resolve by name to
+    /// <c>sse.overlays.read</c> while the constant held something else, and the
+    /// summary naming the wrong scope would pass. Nothing used the generality
+    /// (ADR-0036), and it was the only thing making that reachable.
+    /// </para>
     /// </summary>
-    private static IEnumerable<string> Tails(string path)
+    private static IEnumerable<string> CatalogueKeys(string path)
     {
-        string[] parts = path.Split('.');
-        for (int index = 0; index < parts.Length; index++)
+        yield return path;
+
+        int shortened = path.IndexOf($"{nameof(Scope.Sse)}.", StringComparison.Ordinal);
+        if (shortened > 0)
         {
-            yield return string.Join('.', parts[index..]);
+            yield return path[shortened..];
         }
     }
 
@@ -934,9 +1498,12 @@ public class EndpointScopeDeclarationTests
     /// <summary>
     /// The source with every comment replaced by spaces, newlines kept, length
     /// preserved — so every offset still names the same line. A semicolon in a
-    /// comment would otherwise end a statement early, and the <c>Map*</c> sample
-    /// inside <c>RequireScopeExtensions</c>' own XML doc is exactly the shape
-    /// that would be miscounted.
+    /// comment would otherwise end a chain early, and three sit inside
+    /// <c>StreamEndpoints.MapStreamEndpoints</c> between the chains they explain
+    /// — lines 31, 58 and 76. An earlier draft of this sentence cited the
+    /// <c>Map*</c> sample in <c>RequireScopeExtensions</c>' XML doc instead,
+    /// which is in <c>src/ServiceDefaults</c>: outside <c>src/*/Api</c>, and so
+    /// never read by this guard at all.
     /// </summary>
     private static string WithoutComments(string source)
     {
@@ -1223,6 +1790,14 @@ public class EndpointScopeDeclarationTests
     /// A route that enforces no scope, and the open issue that will give it one.
     /// </summary>
     private sealed record UnenforcedRoute(string Verb, string Route, int Issue);
+
+    /// <summary>
+    /// A route registered by a call this reader does not parse, and the type
+    /// whose <c>[Authorize]</c> attribute declares the scope it enforces.
+    /// </summary>
+    private sealed record RouteOutsideTheChain(string File, string Call, string Route, Type Handler);
+
+    private sealed record OutsideTheChainMapping(string File, int Line, string Call);
 
     /// <summary>
     /// The authorization a chain declares. <see cref="Detail"/> carries the
