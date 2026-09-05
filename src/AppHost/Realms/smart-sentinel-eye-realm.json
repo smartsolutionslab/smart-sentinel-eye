@@ -99,6 +99,26 @@
           }
         }
       ]
+    },
+    {
+      "name": "sse-audience",
+      "description": "Names the API a token is for, in the access token's aud claim. Carries no permission (spec 069).",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "false", "display.on.consent.screen": "false" },
+      "protocolMappers": [
+        {
+          "name": "api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "smart-sentinel-eye-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "clients": [    {
@@ -120,6 +140,7 @@
       },
       "defaultClientScopes": [
         "sse-identity",
+        "sse-audience",
         "sse-groups",
         "sse.management",
         "sse.audit.read"
@@ -144,6 +165,7 @@
       },
       "defaultClientScopes": [
         "sse-identity",
+        "sse-audience",
         "sse-groups",
         "sse.cameras.read",
         "sse.cameras.write",
@@ -186,6 +208,7 @@
       },
       "defaultClientScopes": [
         "sse-identity",
+        "sse-audience",
         "sse-groups",
         "sse.cameras.read",
         "sse.streams.read",
@@ -214,6 +237,7 @@
       },
       "defaultClientScopes": [
         "sse-identity",
+        "sse-audience",
         "sse-groups",
         "sse.cameras.read",
         "sse.streams.read",
@@ -237,7 +261,8 @@
       "secret": "dev-only-identity-admin-secret",
       "protocol": "openid-connect",
       "defaultClientScopes": [
-        "sse-identity"
+        "sse-identity",
+        "sse-audience"
       ]
     },
     {
@@ -252,7 +277,8 @@
       "secret": "dev-only-migration-runner-secret",
       "protocol": "openid-connect",
       "defaultClientScopes": [
-        "sse-identity"
+        "sse-identity",
+        "sse-audience"
       ]
     },
     {
@@ -268,6 +294,7 @@
       "protocol": "openid-connect",
       "defaultClientScopes": [
         "sse-identity",
+        "sse-audience",
         "sse-groups",
         "sse.cameras.read"
       ]
@@ -285,6 +312,7 @@
       "protocol": "openid-connect",
       "defaultClientScopes": [
         "sse-identity",
+        "sse-audience",
         "sse-groups",
         "sse.cameras.write",
         "sse.cameras.read",
@@ -308,7 +336,8 @@
       "secret": "dev-only-event-ingestion-secret",
       "protocol": "openid-connect",
       "defaultClientScopes": [
-        "sse-identity"
+        "sse-identity",
+        "sse-audience"
       ]
     }
   ],

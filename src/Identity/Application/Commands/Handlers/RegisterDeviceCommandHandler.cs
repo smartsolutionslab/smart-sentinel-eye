@@ -52,7 +52,7 @@ public sealed class RegisterDeviceCommandHandler(
             StandardFlowEnabled: false,
             DirectAccessGrantsEnabled: false,
             PublicClient: false,
-            DefaultClientScopes: KeycloakScopeBundles.Device,
+            DefaultClientScopes: [.. KeycloakScopeBundles.Device, KeycloakScopeBundles.AudienceScope],
             OptionalClientScopes: Array.Empty<string>(),
             Attributes: new Dictionary<string, string>
             {

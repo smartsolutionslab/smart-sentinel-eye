@@ -56,10 +56,15 @@ public static class AuthenticationDefaults
             {
                 options.Authority = authority;
                 options.RequireHttpsMetadata = false; // dev/test; Helm overlay enforces in prod
-                // Audience validation is delegated to the scope policy below.
-                // A dedicated bearer-only Keycloak client + audience mapper
-                // lands when the Identity context is built out (spec TBD).
-                options.TokenValidationParameters.ValidateAudience = false;
+                // The audience arrives on the sse-audience client scope, which
+                // every client in the realm carries as a default scope; clients
+                // created at runtime get it from
+                // KeycloakScopeBundles.AudienceScope, the only route open to
+                // them because their representation has no mapper field.
+                // Set on the collection, not on options.Audience: that one only
+                // seeds the singular ValidAudience, and every later reader of
+                // these options asks ValidAudiences.
+                options.TokenValidationParameters.ValidAudiences = [ApiAudience];
                 // Preserve original JWT claim types (`sub`, `scope`, …) instead
                 // of remapping them to legacy WS-* URIs. Endpoints read `sub`
                 // directly to build OperatorIdentifier.
@@ -114,4 +119,17 @@ public static class AuthenticationDefaults
     /// option through a context that needs nothing else from configuration.
     /// </remarks>
     public const string KioskClientId = "kiosk-web";
+
+    /// <summary>
+    /// The API every token in this realm is minted for, checked against the
+    /// access token's <c>aud</c> claim.
+    /// </summary>
+    /// <remarks>
+    /// The realm emits it from the <c>sse-audience</c> client scope. The literal
+    /// is spelt out a second time in <c>RealmAudienceTests</c>, which reads the
+    /// realm file, and a third in <c>BearerAudienceTests</c>, which reads these
+    /// options — so the realm and the services cannot drift apart in silence
+    /// (spec 069 FR-009).
+    /// </remarks>
+    public const string ApiAudience = "smart-sentinel-eye-api";
 }
