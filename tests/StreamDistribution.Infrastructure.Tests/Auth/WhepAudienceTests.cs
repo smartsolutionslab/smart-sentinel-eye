@@ -32,8 +32,19 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Auth;
 /// <para>
 /// <b>The pairing, not a comment.</b> A comment was the only thing binding the hook
 /// to the pipeline and it did not survive one change. The parity tests below compare
-/// the two sides directly, so either one moving is a failure here rather than a
-/// discovery in production (spec 071 FR-005).
+/// <see cref="WhepAuthValidator.CreateParameters"/> against the pipeline directly, so
+/// either side moving is a failure here rather than a discovery in production
+/// (spec 071 FR-005).
+/// </para>
+///
+/// <para>
+/// <b>What they do not cover, and where that lives</b> (#2093). They compare the
+/// <em>factory</em>. <c>ValidateAsync</c> clones its parameters and mutates the clone
+/// before validating, and nothing here reaches that clone: setting
+/// <c>ValidateAudience = false</c> on it leaves all four tests below green. Saying
+/// otherwise would be the same overstatement — a claim about coverage that nothing
+/// checks — that caused #2090. <see cref="WhepValidatorAudienceTests"/> closes it by
+/// driving the real <c>ValidateAsync</c>; keep the two files together.
 /// </para>
 /// </summary>
 public class WhepAudienceTests
