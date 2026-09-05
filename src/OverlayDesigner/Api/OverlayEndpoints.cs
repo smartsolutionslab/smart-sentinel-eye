@@ -30,6 +30,9 @@ public static partial class OverlayEndpoints
         group.MapPost("/", CreateDraft)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
             .WithName("CreateOverlayDraft")
+            .WithSummary(
+                "Create a new overlay chain, with its first revision in Draft. "
+                + "Required scope: sse.overlays.write")
             .Produces<Guid>(StatusCodes.Status201Created)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status409Conflict);
@@ -37,18 +40,23 @@ public static partial class OverlayEndpoints
         group.MapGet("/{overlayIdentifier:guid}", GetOne)
             .RequireAuthorization(Scope.Sse.Overlays.Read)
             .WithName("GetOverlay")
+            .WithSummary("Read one overlay chain by its identifier. Required scope: sse.overlays.read")
             .Produces<OverlayDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/", List)
             .RequireAuthorization(Scope.Sse.Overlays.Read)
             .WithName("ListOverlays")
+            .WithSummary("List overlay chains. Required scope: sse.overlays.read")
             .Produces<ListOverlaysResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest);
 
         group.MapPost("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}/publish", Publish)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
             .WithName("PublishOverlayRevision")
+            .WithSummary(
+                "Publish a Draft revision of an overlay, archiving the previously published one in "
+                + "the same unit of work. Required scope: sse.overlays.write")
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
@@ -56,12 +64,16 @@ public static partial class OverlayEndpoints
         group.MapPost("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}/archive", Archive)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
             .WithName("ArchiveOverlayRevision")
+            .WithSummary("Archive a revision of an overlay. Required scope: sse.overlays.write")
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapPost("/{overlayIdentifier:guid}/draft", BranchDraft)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
             .WithName("BranchDraftOverlayRevision")
+            .WithSummary(
+                "Branch a new Draft revision off the overlay chain's current Published revision. "
+                + "Required scope: sse.overlays.write")
             .Produces<int>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
@@ -69,6 +81,9 @@ public static partial class OverlayEndpoints
         group.MapPatch("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}", EditDraft)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
             .WithName("EditDraftOverlayRevision")
+            .WithSummary(
+                "Edit a Draft revision's label in place. "
+                + "Required scope: sse.overlays.write")
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
@@ -76,6 +91,9 @@ public static partial class OverlayEndpoints
         group.MapPost("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}/revert", Revert)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
             .WithName("RevertOverlayRevision")
+            .WithSummary(
+                "Revert a Published overlay revision to Draft. "
+                + "Required scope: sse.overlays.write")
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
