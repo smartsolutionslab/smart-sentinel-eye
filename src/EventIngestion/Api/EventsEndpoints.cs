@@ -34,7 +34,8 @@ public static partial class EventsEndpoints
                 "Ingest an event into the resolved fab. Omit fabId when you belong to exactly one; "
                 + "name it when you belong to several (ADR-0114). The fab is never taken from the "
                 + "request unchecked (spec 018 FR-006). Stores the event before answering, so a 201 "
-                + "means it is readable at the Location (spec 020 FR-001).")
+                + "means it is readable at the Location (spec 020 FR-001). "
+                + "Required scope: sse.events.write")
             .Produces<Guid>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -50,6 +51,14 @@ public static partial class EventsEndpoints
         writes.MapPost("/webhook/{integrationName}", IngestWebhook)
             .AllowAnonymous() // auth is the static bearer token, not OIDC
             .WithName("IngestWebhookEvent")
+            .WithSummary(
+                "Ingest an event delivered by a registered webhook integration. No OIDC scope: the "
+                + "caller presents the integration's own Authorization: Bearer token and the handler "
+                + "validates it — by default a SHA-256 match against the stored hash, or, once the "
+                + "integration is rotated, a Keycloak JWT that must carry sse.events.write, an azp "
+                + "matching the integration's client and the group /fabs/{fabId}. In both modes the "
+                + "delivery's fabId must be the integration's own, and every refusal collapses to one "
+                + "401 so the answer never reveals which integrations exist.")
             .Produces<Guid>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -62,12 +71,14 @@ public static partial class EventsEndpoints
 
         reads.MapGet("/", ListEvents)
             .WithName("ListEvents")
+            .WithSummary("List events from the fabs you hold. Required scope: sse.events.read")
             .Produces<EventPageDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
         reads.MapGet("/{eventId:guid}", GetEvent)
             .WithName("GetEvent")
+            .WithSummary("Read one event by its identifier, within the fabs you hold. Required scope: sse.events.read")
             .Produces<EventDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -77,7 +88,8 @@ public static partial class EventsEndpoints
             .WithName("ListDeadLetters")
             .WithSummary(
                 "List rejected deliveries from the fabs you hold. A delivery whose plant could "
-                + "not be established from its address is returned to nobody (spec 018 FR-011).")
+                + "not be established from its address is returned to nobody (spec 018 FR-011). "
+                + "Required scope: sse.events.read")
             .Produces<IReadOnlyList<DeadLetterDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
