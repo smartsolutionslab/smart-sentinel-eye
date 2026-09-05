@@ -1,6 +1,6 @@
 # Plan — Spec 070, an endpoint names the scope it needs
 
-**Phase:** 2 (Plan) · **Spec:** `spec.md` · **Issue:** #850 · **Date:** 2026-09-05
+**Phase:** 2 (Plan) · **Spec:** `spec.md` · **Issue:** #2087 · **Date:** 2026-09-05
 
 ## Shape of the change
 
@@ -34,8 +34,8 @@ src/SystemVariables/Api/SystemVariableEndpoints.cs        (+2 — 3 #2070 GETs u
 
 `+` adds a `.WithSummary`; `~` amends one. **26 added, 9 amended, 35 edits across
 eight files.** Four files are already fully conformant and appear above only to
-record that they were checked — three of them are Identity, which is why #850's
-label reads as delivered.
+record that they were checked — three of them are Identity, which is why #850,
+this spec's original issue, was closed as delivered for its label.
 
 ## Where the guard lives, and why
 
