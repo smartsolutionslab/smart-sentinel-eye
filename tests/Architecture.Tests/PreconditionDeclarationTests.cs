@@ -56,10 +56,11 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// <para>
 /// <b>There is deliberately no 400 mirror.</b> 428 is answered from exactly one
 /// place in the product, so declaring it without reading the header is always
-/// wrong. 400 is not: forty-four chains declare it and only seventeen read
-/// <c>If-Match</c>, because a malformed body, an unparseable route value and a
-/// rejected filter all answer 400 too. A mirror there would fail on
-/// twenty-seven correct endpoints, so the rule runs one way only.
+/// wrong. 400 is not: forty-four chains declare one, at most one declaration
+/// each, and only twelve of those also read <c>If-Match</c> — a malformed body,
+/// an unparseable route value and a rejected filter all answer 400 too. A
+/// mirror there would fail on the other thirty-two, every one of them correct,
+/// so the rule runs one way only.
 /// </para>
 ///
 /// <para>
