@@ -61,12 +61,20 @@ export function CellPage() {
   // ADR-0145: the wall's fab is *derived* from the layout it displays — never
   // chosen, never inferred from the token, never held as session state. It is
   // both the fab the opening label resolves in and the fab a pushed frame has
-  // to carry to be applied. `''` only while the layout is still loading — and
-  // both hub handlers below do read it in that window. It is safe because `''`
-  // is not a legal fab (`FabIdentifier`: minimum length 2, must start with a
-  // lowercase letter), so it can never equal a frame's fab and every frame is
-  // dropped. Any future default has to keep that unmatchability.
-  const wallFab = data?.fab ?? '';
+  // to carry to be applied. `undefined` while the layout is still loading — and
+  // both hub handlers below do read it in that window, where it equals no
+  // frame's fab and every frame is dropped.
+  //
+  // `undefined` rather than a `''` sentinel, because unmatchability has to hold
+  // on both halves of this and `''` only holds on one. No legal fab is empty
+  // (`FabIdentifier`: minimum length 2, lowercase first letter), so `''` never
+  // matches a `!==` — but on the snapshot query's *query string* an empty fab is
+  // maximally permissive: the server reads it as "resolve across every fab I
+  // hold" and answers with whichever sorts first, which is the defect this
+  // filter exists to close. `undefined` cannot reach that query at all, since
+  // `OverlaySnapshotInput.fabId` is a required `string`. Any future default has
+  // to keep that unmatchability on both halves.
+  const wallFab = data?.fab;
 
   // Spec 045: the wall's playout control loop. Only this page sees every tile,
   // which is why the decision lives here and the actuation lives in the tile.
@@ -162,13 +170,15 @@ export function CellPage() {
       // without a full re-fetch (spec 005 variable push).
       //
       // The first argument is the endpoint's cache key and must be identical
-      // to the one the tile queries with below, `wallFab` included: disagree
-      // and this writes an entry nothing reads, leaving the tile silently
-      // stale instead of wrong (spec 067 plan, Risk 1).
+      // to the one the tile queries with below, the fab included: disagree and
+      // this writes an entry nothing reads, leaving the tile silently stale
+      // instead of wrong (spec 067 plan, Risk 1). `message.fab` is that fab —
+      // the guard above has already established it equals `wallFab`, and it is
+      // the `string` the key needs where `wallFab` is `string | undefined`.
       dispatch(
         systemVariablesApi.util.upsertQueryData(
           'getOverlaySnapshot',
-          { overlayIdentifier: message.overlay, fabId: wallFab },
+          { overlayIdentifier: message.overlay, fabId: message.fab },
           {
             overlayIdentifier: message.overlay,
             resolvedText: message.resolvedText,
@@ -239,7 +249,7 @@ export function CellPage() {
             <Tile
               key={cell.key}
               tile={cell.tile}
-              fab={wallFab}
+              fab={data.fab}
               getToken={getToken}
               unavailable={cell.tile.overlayIdentifier !== null && unavailableOverlays.has(cell.tile.overlayIdentifier)}
               highlighted={cell.tile.overlayIdentifier !== null && highlightedOverlays.has(cell.tile.overlayIdentifier)}
@@ -258,7 +268,11 @@ export function CellPage() {
 
 interface TileProps {
   tile: LayoutTile;
-  /** The wall's fab, so this tile's label resolves in that plant (ADR-0145). */
+  /**
+   * The wall's fab, so this tile's label resolves in that plant (ADR-0145).
+   * Taken from the loaded layout, so it is present by the time a tile renders;
+   * an empty one would mean "any fab" on the query string and is skipped below.
+   */
   fab: string;
   getToken: () => Promise<string | null>;
   /** The bound overlay went Archived (spec 004 path, applied per tile). */
@@ -316,9 +330,13 @@ function Tile({
   // wall shows rather than in whichever of the caller's fabs sorts first
   // (ADR-0145 §2). Same object shape as the push's `upsertQueryData` above —
   // it is the cache key they share.
+  //
+  // Skipped on an empty fab rather than sent as one: an empty `fabId` on the
+  // query string is not a narrower request, it is the cross-fab request this
+  // exists to avoid. No fab, no query.
   const { data: snapshot } = useGetOverlaySnapshotQuery(
     { overlayIdentifier: overlayIdentifier ?? '', fabId: fab },
-    { skip: overlayIdentifier === null || !hasPlaceholder },
+    { skip: overlayIdentifier === null || !hasPlaceholder || fab === '' },
   );
 
   // Prefer the SystemVariables-resolved text over the raw label so any
