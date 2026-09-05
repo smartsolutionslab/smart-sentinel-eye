@@ -4,42 +4,86 @@ namespace SmartSentinelEye.Architecture.Tests;
 
 /// <summary>
 /// Guards the half of ADR-0113 that lives in the contract rather than in the
-/// handler: <b>an endpoint that requires <c>If-Match</c> declares the
-/// <c>428</c> it answers when the header is absent</b> (issue #2088, spec 072).
+/// handler: <b>an endpoint whose handler reads <c>If-Match</c> declares both
+/// answers that handler can give to the header itself</b> — the <c>428</c> when
+/// the header is absent (issue #2088, spec 072) and the <c>400</c> when it is
+/// present but malformed (issue #2101).
 ///
 /// <para>
 /// <c>ConcurrencyHeaders.Missing()</c> and <c>MissingUpsert()</c> answer
-/// <c>428 IF_MATCH_REQUIRED</c> from one place in ServiceDefaults, and every
-/// endpoint that reads the header returns that result unchanged. So 428 is
-/// reachable on all of them and is not a matter of taste. Nine of seventeen did
-/// not say so, across three contexts, from the day ADR-0113 landed until this
-/// guard: the generated OpenAPI asserted that a status those routes routinely
-/// return cannot happen. Nothing noticed, because the only thing that could
-/// have noticed was a reviewer remembering a convention.
+/// <c>428 IF_MATCH_REQUIRED</c>; <c>ConcurrencyHeaders.Malformed()</c> answers
+/// <c>400 IF_MATCH_MALFORMED</c> for a wildcard, a weak tag, a multi-valued or
+/// an unparseable header. All three live in one place in ServiceDefaults, and
+/// every one of the seventeen endpoints that reads the header returns their
+/// result unchanged — verified call site by call site, not assumed. So both
+/// statuses are reachable on all seventeen, and neither is a matter of taste.
+/// </para>
+///
+/// <para>
+/// Nine of the seventeen did not declare the 428, across three contexts, from
+/// the day ADR-0113 landed until this guard. Five of the seventeen —
+/// OverlayDesigner's entire write surface — did not declare the 400, and were
+/// still missing it after spec 072 added the 428 beside it, because the
+/// instruction was to place the new line next to the 400 that in that one file
+/// was not there. In both cases the generated OpenAPI asserted that a status
+/// those routes routinely return cannot happen, so a client generated from it
+/// has no branch for it. Nothing noticed either time, because the only thing
+/// that could have noticed was a reviewer remembering a convention.
+/// </para>
+///
+/// <para>
+/// <b>Why the 400 is mechanically checkable and the stale 409 is not.</b> The
+/// malformed answer comes off the <em>same call site</em> as the missing one:
+/// the handler that reads the header is the handler that can answer either, so
+/// one body scan settles both and the reachability argument is identical. The
+/// stale answer is produced four hops away, in a command handler across the
+/// Application boundary, at a status ADR-0119 leaves legally variable — which is
+/// why it stays out, and stays named as a residual below.
 /// </para>
 ///
 /// <para>
 /// <b>What it asserts.</b> Every route-handler mapping under <c>src/*/Api</c>
 /// resolves to exactly one handler body; a mapping whose handler body calls
 /// <c>ConcurrencyHeaders.TryReadExpectedVersion</c> or
-/// <c>TryReadUpsertPrecondition</c> declares
-/// <c>Status428PreconditionRequired</c> in its own fluent chain; and the mirror
-/// — a chain declaring 428 whose handler reads neither helper — fails with a
-/// different message. The mirror is zero today and exists so it stays zero: a
-/// declared precondition no handler enforces tells a caller to send a header
-/// that will be ignored.
+/// <c>TryReadUpsertPrecondition</c> declares <em>both</em>
+/// <c>Status428PreconditionRequired</c> and <c>Status400BadRequest</c> in its
+/// own fluent chain; and — for the 428 only — the mirror, a chain declaring 428
+/// whose handler reads neither helper, fails with a different message. The
+/// mirror is zero today and exists so it stays zero: a declared precondition no
+/// handler enforces tells a caller to send a header that will be ignored.
 /// </para>
 ///
 /// <para>
-/// <b>Both denominators are checked against an independent sweep.</b> The
-/// mapping walk reports how many helper calls and how many 428 declarations it
-/// found; a flat file sweep over the same directories reports the same two
-/// numbers, and the two must agree. That is what keeps the lexical body scan
-/// honest — hoist a helper call out of a mapped handler into a private method
-/// it calls and the walk finds one fewer than the sweep, so the build fails
-/// instead of the reader quietly answering "requires nothing". Without it the
-/// guard's sharpest edge would be silent, which is the property
-/// <c>PaginatedConsumerTests</c> established and this file borrows.
+/// <b>There is deliberately no 400 mirror.</b> 428 is answered from exactly one
+/// place in the product, so declaring it without reading the header is always
+/// wrong. 400 is not: forty-four chains declare it and only seventeen read
+/// <c>If-Match</c>, because a malformed body, an unparseable route value and a
+/// rejected filter all answer 400 too. A mirror there would fail on
+/// twenty-seven correct endpoints, so the rule runs one way only.
+/// </para>
+///
+/// <para>
+/// <b>Every denominator is checked against an independent sweep.</b> The
+/// mapping walk reports how many helper calls, how many 428 declarations and how
+/// many 400 declarations it found; a flat file sweep over the same directories
+/// reports the same three numbers, and each pair must agree. That is what keeps
+/// the lexical body scan honest — hoist a helper call out of a mapped handler
+/// into a private method it calls and the walk finds one fewer than the sweep,
+/// so the build fails instead of the reader quietly answering "requires
+/// nothing". Without it the guard's sharpest edge would be silent, which is the
+/// property <c>PaginatedConsumerTests</c> established and this file borrows.
+/// </para>
+///
+/// <para>
+/// The 400 sweep matches the declaration shape —
+/// <c>.ProducesProblem(...)</c> or <c>.ProducesValidationProblem(...)</c> — and
+/// not the bare status name, which is the one place the two rules cannot share
+/// machinery. <c>Status428PreconditionRequired</c> appears in these directories
+/// only in chains, because nothing here writes a 428 by hand;
+/// <c>Status400BadRequest</c> appears fifty-seven further times inside handler
+/// bodies, in the <c>Results.Problem(statusCode: ...)</c> calls that return one.
+/// Sweeping the bare name would compare 101 against 44 and fail on the first
+/// run.
 /// </para>
 ///
 /// <para>
@@ -77,7 +121,7 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// is <em>unreadable</em> and fails; nothing resolves to a pass by default.
 /// </item>
 /// <item>
-/// It checks that 428 is declared, not that it is reachable at run time. A
+/// It checks that a status is declared, not that it is reachable at run time. A
 /// future filter short-circuiting ahead of the handler would leave the chain
 /// judged correct. It reads presence and not order, and blesses neither: the
 /// fab check deliberately precedes the header read on
@@ -85,13 +129,23 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// camera would confirm it exists.
 /// </item>
 /// <item>
+/// <b>It reads the status, not the schema.</b> A chain that declared its 400
+/// only as <c>.ProducesValidationProblem(...)</c> would pass, though
+/// <c>Malformed()</c> returns a plain <c>ProblemDetails</c> rather than a
+/// validation one. No precondition endpoint is in that shape today — all twelve
+/// that declare the 400 use <c>.ProducesProblem(...)</c> — so tightening this
+/// would police a case that does not exist, and the looser reading is the one
+/// that matches the defect being fixed: the OpenAPI claiming 400 cannot happen.
+/// </item>
+/// <item>
 /// <b>It says nothing about the stale half of the pair.</b> ADR-0119 leaves
 /// <c>409</c> and <c>412</c> both legal and keys a lost update off the
 /// <c>_STALE</c> code suffix instead, so the status varies legally by context;
 /// linking a mapping to the status its command handler returns is a four-hop
 /// inference across the Application boundary. Spec 072 fixes three missing
-/// <c>409</c>s by hand and leaves them unguarded. That is the honest residual:
-/// if they regress, nothing here catches it.
+/// <c>409</c>s by hand and leaves them unguarded, and issue #2101 leaves that
+/// exactly as it found it. That is the honest residual: if they regress, nothing
+/// here catches it.
 /// </item>
 /// <item>
 /// The route it reports is the literal written at the mapping, not the path a
@@ -151,6 +205,18 @@ public class PreconditionDeclarationTests
     /// </summary>
     private static readonly Regex HelperCall = new(
         @"ConcurrencyHeaders\.TryRead(?<helper>ExpectedVersion|UpsertPrecondition)",
+        RegexOptions.Compiled,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// A declaration of <c>400</c> on a fluent chain, in either spelling. Unlike
+    /// the 428 this is matched by shape rather than by the bare status name:
+    /// <c>StatusCodes.Status400BadRequest</c> also appears in the handler bodies
+    /// that return one, so the name alone counts 101 things of which 57 are not
+    /// declarations at all.
+    /// </summary>
+    private static readonly Regex MalformedDeclaration = new(
+        @"\.Produces(?:Validation)?Problem\(\s*StatusCodes\.Status400BadRequest\s*\)",
         RegexOptions.Compiled,
         TimeSpan.FromSeconds(5));
 
@@ -311,6 +377,46 @@ public class PreconditionDeclarationTests
             + "428 for a missing precondition, 409 or 412 for a failed one).");
     }
 
+    /// <summary>
+    /// <b>B1 / issue #2101 — an endpoint that reads <c>If-Match</c> declares the
+    /// 400 it answers for a malformed one.</b>
+    ///
+    /// <para>
+    /// Same corpus, same handler resolution, same reachability argument as A3:
+    /// <c>ConcurrencyHeaders.Malformed()</c> is returned from the very call site
+    /// A3 already finds. Twelve of the seventeen declare it; the five in
+    /// OverlayDesigner do not, which is what this assertion is here to stop being
+    /// discovered by accident a fourth time.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Every_endpoint_that_reads_If_Match_declares_the_400_it_answers_for_a_malformed_one()
+    {
+        ResolvedMapping[] requiring = TheSurface.Value.Routes.Where(RequiresPrecondition).ToArray();
+
+        requiring.Length.ShouldBeGreaterThan(
+            0,
+            "no endpoint under src/*/Api was read as requiring If-Match, which cannot be true while "
+            + "ConcurrencyHeaders exists. The body reader has stopped finding the helper calls.");
+
+        string[] offenders = requiring
+            .Where(m => !DeclaresMalformed(m.Mapping))
+            .Select(m => $"{Describe(m.Mapping)} -> {m.Mapping.ContainingClass}.{m.Mapping.HandlerArgument} "
+                + $"[{string.Join(", ", m.Calls.Select(c => $"{c.File}:{c.Line} ConcurrencyHeaders.TryRead{c.Helper}"))}]")
+            .ToArray();
+
+        offenders.ShouldBeEmpty(
+            $"{offenders.Length} endpoint(s) read If-Match and do not declare 400:"
+            + Environment.NewLine + string.Join(Environment.NewLine, offenders) + Environment.NewLine
+            + "ConcurrencyHeaders.Malformed() answers 400 IF_MATCH_MALFORMED for a wildcard, a weak tag, a "
+            + "multi-valued or an unparseable If-Match, and each of these handlers returns that result "
+            + "unchanged — off the same call site as the 428 the chain already declares. Without the "
+            + "declaration the generated OpenAPI asserts that a status the endpoint routinely returns "
+            + "cannot happen, so a client generated from it has no branch for it. Add "
+            + "'.ProducesProblem(StatusCodes.Status400BadRequest)' to the chain above (ADR-0113 Layer 1: "
+            + "400 for an unreadable precondition, 428 for a missing one, 409 or 412 for a failed one).");
+    }
+
     // ---- A4: the mirror ----------------------------------------------------
 
     /// <summary>
@@ -409,6 +515,38 @@ public class PreconditionDeclarationTests
             + "captures — in a shared convention, an endpoint filter, a metadata helper — and the mirror "
             + "assertion above would report its endpoint as declaring nothing. Put it in the mapping's own "
             + "chain, or teach the reader the shape.");
+    }
+
+    /// <summary>
+    /// <b>B2 / issue #2101 — every 400 declaration under the api directories
+    /// sits in a mapping's own chain.</b> The same cross-check A6 makes for the
+    /// 428, for the same reason: B1 credits a declaration only where the chain
+    /// reader can see it, so a declaration that has moved into a shared
+    /// convention or an endpoint filter would make B1 report its endpoint as
+    /// declaring nothing. Neither number is pinned, because both move with any
+    /// endpoint's validation surface and legitimately — the precondition
+    /// population is pinned instead, in A5 and A7.
+    /// </summary>
+    [Fact]
+    public void Every_400_declaration_under_the_api_directories_sits_in_a_mapping_chain()
+    {
+        Surface surface = TheSurface.Value;
+        int swept = surface.Files.Sum(file => MalformedDeclaration.Count(surface.Masked[file]));
+        int walked = surface.Routes.Sum(m => MalformedDeclaration.Count(m.Mapping.Chain));
+
+        swept.ShouldBeGreaterThan(
+            0,
+            "no 400 declaration was found anywhere under src/*/Api. Forty-four chains declared one when "
+            + "this assertion was written, so zero means the sweep is reading nothing — most likely the "
+            + "declaration shape it matches has been spelled some other way.");
+
+        walked.ShouldBe(
+            swept,
+            $"the mapping walk found {walked} 400 declarations inside mapping chains; a flat sweep of "
+            + $"src/*/Api found {swept}. A declaration the walk cannot see is a declaration this guard does "
+            + "not credit: it sits outside the fluent chain the reader captures — in a shared convention, "
+            + "an endpoint filter, a metadata helper — and the assertion above would report its endpoint as "
+            + "declaring nothing. Put it in the mapping's own chain, or teach the reader the shape.");
     }
 
     // ---- A7: the pinned corpus ---------------------------------------------
@@ -533,6 +671,9 @@ public class PreconditionDeclarationTests
 
     private static bool Declares428(RouteMapping mapping) =>
         mapping.Chain.Contains(DeclarationToken, StringComparison.Ordinal);
+
+    private static bool DeclaresMalformed(RouteMapping mapping) =>
+        MalformedDeclaration.IsMatch(mapping.Chain);
 
     private static string Describe(RouteMapping mapping) =>
         $"{mapping.File}:{mapping.Line} {mapping.Verb} {mapping.Route}";
