@@ -4,6 +4,7 @@ import { overlaysApi, useGetOverlayQuery } from '@smart-sentinel-eye/shared/api/
 import { systemVariablesApi, useGetOverlaySnapshotQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 import { measureOverlayDraw, reportKioskLatency } from '@smart-sentinel-eye/shared/observability/kioskLatency';
+import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import clsx from 'clsx';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useDispatch } from 'react-redux';
@@ -96,6 +97,12 @@ export function CellPage() {
   // (spec 011 edge case).
   const highlightExpiryRef = useRef<Map<string, number>>(new Map());
   const highlightTimersRef = useRef<Set<number>>(new Set());
+  // How many fab-less frames each route has dropped this session (#2084).
+  // Counted per route, never shared: a server that carries `fab` on one frame
+  // type and not the other is exactly the skew this reports, and one counter
+  // would hide it.
+  const textWithoutFabCountRef = useRef(0);
+  const highlightWithoutFabCountRef = useRef(0);
 
   useEffect(() => {
     const timers = highlightTimersRef.current;
@@ -178,6 +185,15 @@ export function CellPage() {
       //
       // Fails closed: a frame carrying no fab is `undefined` and matches
       // nothing.
+      //
+      // Which is silent, and a silently frozen wall looks like a working one
+      // (#2084). So report the one drop that is a fault before taking it:
+      // `fab` is declared `string`, and a frame carrying none is a server
+      // older than the field, not another plant.
+      const textSkewCount = countReportableSkew(textWithoutFabCountRef, message.fab, wallFab);
+      if (textSkewCount !== null) {
+        logResilienceEvent('hub', 'resolved-text-without-fab', { overlay: message.overlay, count: textSkewCount });
+      }
       if (message.fab !== wallFab) return;
       const versions = overlayTextVersionsRef.current;
       if (message.version <= (versions.get(message.overlay) ?? 0)) return;
@@ -206,6 +222,14 @@ export function CellPage() {
     onOverlayHighlightChanged: (message) => {
       // A rule that fired in another plant must not light this wall's tiles
       // (ADR-0145 §1).
+      //
+      // A highlight that never fires leaves nothing stale behind to notice —
+      // just a tile that never lights — and this route has no version guard
+      // behind it either, so the fab-less frame is reported here too (#2084).
+      const highlightSkewCount = countReportableSkew(highlightWithoutFabCountRef, message.fab, wallFab);
+      if (highlightSkewCount !== null) {
+        logResilienceEvent('hub', 'highlight-without-fab', { overlay: message.overlay, count: highlightSkewCount });
+      }
       if (message.fab !== wallFab) return;
       startHighlight(message.overlay, message.durationMs);
     },
@@ -465,6 +489,39 @@ function buildGridCells(rows: number, cols: number, tiles: LayoutTile[]): GridCe
     }
   }
   return cells;
+}
+
+/**
+ * Counts a fab-less frame against `counter` and answers the running count when
+ * this one is worth a line, or null (#2084).
+ *
+ * Keyed on the frame carrying no fab — never on the mismatch. A frame naming
+ * another plant is the filter working as designed, and reporting that would
+ * announce a permanent skew on every healthy two-fab principal, every day. A
+ * frame naming no plant at all violates the `fab: string` the message declares,
+ * and means a server older than the field: every update dropped for the whole
+ * session while the hub, and so `LiveUpdatesBadge`, stays perfectly healthy.
+ *
+ * Silent until the layout lands, because `wallFab` is `undefined` in that
+ * window and nothing dropped there is yet evidence of anything.
+ *
+ * Bounded at the first occurrence and every power of ten thereafter: a wall
+ * runs for weeks, so a line per frame evicts the first — the diagnostically
+ * valuable — occurrence, and a line per session is emitted before anyone is
+ * looking.
+ */
+function countReportableSkew(
+  counter: { current: number },
+  frameFab: string | undefined,
+  wallFab: string | undefined,
+): number | null {
+  if (wallFab === undefined) return null;
+  if (typeof frameFab === 'string' && frameFab !== '') return null;
+  counter.current += 1;
+  const count = counter.current;
+  let decade = 1;
+  while (decade < count) decade *= 10;
+  return decade === count ? count : null;
 }
 
 function tilesToBoundOverlays(tiles: LayoutTile[]): ReadonlySet<string> {
