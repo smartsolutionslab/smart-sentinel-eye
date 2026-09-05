@@ -361,13 +361,15 @@ public static class StreamEndpoints
                 statusCode: StatusCodes.Status403Forbidden);
         }
 
+        Option<MediaMtxAction> parsedAction = MediaMtxAction.TryFrom(body.Action);
+
         string bearer = body.Token ?? string.Empty;
         if (bearer.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         {
             bearer = bearer["Bearer ".Length..].Trim();
         }
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(new AuthorizeWhepCommand(parsedPath, bearer), cancellationToken);
+        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(new AuthorizeWhepCommand(parsedPath, bearer, parsedAction), cancellationToken);
 
         return result.Match<IResult>(onSuccess: _ => Results.Ok(), onFailure: error => error.ToProblem());
     }
@@ -396,7 +398,8 @@ public static class StreamEndpoints
 /// <summary>
 /// MediaMTX's external-auth POST body. Fields match MediaMTX v1.x
 /// (<c>user</c>, <c>password</c>, <c>token</c>, <c>action</c>, <c>path</c>).
-/// We consume <c>path</c> (the stream being opened) and <c>token</c> (the
-/// forwarded bearer); other fields are accepted but ignored.
+/// We consume <c>path</c> (the stream being opened), <c>token</c> (the
+/// forwarded bearer) and <c>action</c> (the operation being asked about);
+/// <c>user</c> and <c>password</c> are accepted but ignored.
 /// </summary>
-public sealed record MediaMtxAuthorizeRequest(string? Token, string? Path);
+public sealed record MediaMtxAuthorizeRequest(string? Token, string? Path, string? Action);

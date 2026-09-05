@@ -51,7 +51,10 @@ public class AuthorizeWhepCommandHandlerTests
         AuthorizeWhepCommandHandler handler = new(validator, streams);
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
-            new AuthorizeWhepCommand(MediaMtxPath.For(SomeCamera()), "Bearer.xyz"),
+            new AuthorizeWhepCommand(
+                MediaMtxPath.For(SomeCamera()),
+                "Bearer.xyz",
+                Option<MediaMtxAction>.Some(MediaMtxAction.Read)),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -73,7 +76,10 @@ public class AuthorizeWhepCommandHandlerTests
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
-            new AuthorizeWhepCommand(MediaMtxPath.For(SomeCamera()), "Bearer.kiosk"),
+            new AuthorizeWhepCommand(
+                MediaMtxPath.For(SomeCamera()),
+                "Bearer.kiosk",
+                Option<MediaMtxAction>.Some(MediaMtxAction.Read)),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -85,7 +91,10 @@ public class AuthorizeWhepCommandHandlerTests
         AuthorizeWhepCommandHandler handler = new(new FakeWhepAuthValidator(), new InMemoryStreamRepository());
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
-            new AuthorizeWhepCommand(MediaMtxPath.For(SomeCamera()), ""),
+            new AuthorizeWhepCommand(
+                MediaMtxPath.For(SomeCamera()),
+                "",
+                Option<MediaMtxAction>.Some(MediaMtxAction.Read)),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -105,7 +114,10 @@ public class AuthorizeWhepCommandHandlerTests
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
-            new AuthorizeWhepCommand(MediaMtxPath.For(SomeCamera()), "Bearer.invalid"),
+            new AuthorizeWhepCommand(
+                MediaMtxPath.For(SomeCamera()),
+                "Bearer.invalid",
+                Option<MediaMtxAction>.Some(MediaMtxAction.Read)),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -122,7 +134,10 @@ public class AuthorizeWhepCommandHandlerTests
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
-            new AuthorizeWhepCommand(MediaMtxPath.For(SomeCamera()), "Bearer.scoped-wrong"),
+            new AuthorizeWhepCommand(
+                MediaMtxPath.For(SomeCamera()),
+                "Bearer.scoped-wrong",
+                Option<MediaMtxAction>.Some(MediaMtxAction.Read)),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -152,11 +167,184 @@ public class AuthorizeWhepCommandHandlerTests
         AuthorizeWhepCommandHandler handler = new(validator, streams);
 
         Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
-            new AuthorizeWhepCommand(MediaMtxPath.For(camera), "Bearer.xyz"),
+            new AuthorizeWhepCommand(
+                MediaMtxPath.For(camera),
+                "Bearer.xyz",
+                Option<MediaMtxAction>.Some(MediaMtxAction.Read)),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBeOfType<AuthorizeWhepError.StreamUnavailable>();
+    }
+
+    /// <summary>
+    /// A kiosk's own token, on the action a kiosk never asks for. The read scope
+    /// is the scope a viewer holds; nothing in this product publishes through
+    /// this hook, so holding it must not admit a publish.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_a_publish_with_the_read_scope_is_refused()
+    {
+        FakeWhepAuthValidator validator = new()
+        {
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
+        };
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+
+        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+            new AuthorizeWhepCommand(
+                MediaMtxPath.For(SomeCamera()),
+                "Bearer.kiosk",
+                Option<MediaMtxAction>.Some(MediaMtxAction.Publish)),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<AuthorizeWhepError.ActionNotPermitted>();
+    }
+
+    /// <summary>
+    /// The grandfathered bundle is the broadest token that reaches this hook.
+    /// Breadth of scope is not the question a publish asks — the action is
+    /// refused for everyone, so an admin token is refused too.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_a_publish_with_the_grandfathered_bundle_is_refused()
+    {
+        FakeWhepAuthValidator validator = new()
+        {
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", ["openid", "sse.management"])),
+        };
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+
+        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+            new AuthorizeWhepCommand(
+                MediaMtxPath.For(SomeCamera()),
+                "Bearer.xyz",
+                Option<MediaMtxAction>.Some(MediaMtxAction.Publish)),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<AuthorizeWhepError.ActionNotPermitted>();
+    }
+
+    /// <summary>
+    /// The ordering assertion. An empty token would otherwise answer
+    /// <c>401</c> — and a <c>401</c> is how an auth server asks the client to
+    /// come back with credentials, an invitation no credential can satisfy for
+    /// an action this hook never grants. So the action is answered first and the
+    /// refusal is <c>403</c>, terminal.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_a_publish_with_no_token_is_refused_on_the_action_not_the_token()
+    {
+        AuthorizeWhepCommandHandler handler = new(new FakeWhepAuthValidator(), new InMemoryStreamRepository());
+
+        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+            new AuthorizeWhepCommand(
+                MediaMtxPath.For(SomeCamera()),
+                "",
+                Option<MediaMtxAction>.Some(MediaMtxAction.Publish)),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<AuthorizeWhepError.ActionNotPermitted>();
+    }
+
+    /// <summary>
+    /// No action named at all — what a MediaMTX that stopped sending the field
+    /// would post. Fail closed: an absent action is refused, not assumed to be
+    /// the read it usually is.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_with_no_action_is_refused()
+    {
+        FakeWhepAuthValidator validator = new()
+        {
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
+        };
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+
+        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+            new AuthorizeWhepCommand(
+                MediaMtxPath.For(SomeCamera()),
+                "Bearer.kiosk",
+                Option<MediaMtxAction>.None),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<AuthorizeWhepError.ActionUnknown>();
+    }
+
+    /// <summary>
+    /// <c>api</c> is excluded from the hook by <c>mediamtx.yml:46-49</c>, so it
+    /// reaches the command as absent. This is the shape the day an exclusion is
+    /// deleted takes, and it is refused.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_with_an_unrecognised_action_is_refused()
+    {
+        FakeWhepAuthValidator validator = new()
+        {
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
+        };
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+
+        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+            new AuthorizeWhepCommand(
+                MediaMtxPath.For(SomeCamera()),
+                "Bearer.kiosk",
+                MediaMtxAction.TryFrom("api")),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<AuthorizeWhepError.ActionUnknown>();
+    }
+
+    /// <summary>
+    /// Reading a recording is a read. Admitted on the same scope, so narrowing
+    /// the hook to <c>read</c> alone would be a regression rather than a fix.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_a_playback_with_the_read_scope_returns_success()
+    {
+        FakeWhepAuthValidator validator = new()
+        {
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
+        };
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+
+        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+            new AuthorizeWhepCommand(
+                MediaMtxPath.For(SomeCamera()),
+                "Bearer.kiosk",
+                Option<MediaMtxAction>.Some(MediaMtxAction.Playback)),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+    }
+
+    /// <summary>
+    /// The over-correction guard, and the only action a wall actually sends. It
+    /// passes today and must still pass afterwards: a hook that refuses
+    /// everything satisfies every refusal test above and takes every wall dark.
+    /// The answer names the path it was asked about, so an admission cannot be
+    /// mistaken for an admission of something else.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_a_read_with_the_read_scope_returns_success()
+    {
+        FakeWhepAuthValidator validator = new()
+        {
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
+        };
+        AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository());
+        MediaMtxPath path = MediaMtxPath.For(SomeCamera());
+
+        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+            new AuthorizeWhepCommand(path, "Bearer.kiosk", Option<MediaMtxAction>.Some(MediaMtxAction.Read)),
+            CancellationToken.None);
+
+        result.Value.ShouldBe(path);
     }
 
     private static CameraIdentifier SomeCamera() => CameraIdentifier.From(Guid.CreateVersion7());

@@ -25,7 +25,7 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     {
         HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
             "/streams/authorize",
-            new { token = (string?)null, path = $"cam-{Guid.CreateVersion7()}" });
+            new { token = (string?)null, path = $"cam-{Guid.CreateVersion7()}", action = "read" });
 
         await AssertStatusAsync(response, HttpStatusCode.Unauthorized);
     }
@@ -38,7 +38,7 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
         HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
             "/streams/authorize",
-            new { token, path = "not-a-cam-guid" });
+            new { token, path = "not-a-cam-guid", action = "read" });
 
         await AssertStatusAsync(response, HttpStatusCode.Forbidden);
     }
@@ -54,7 +54,7 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         // "allow because the WHEP path will 404 later anyway".
         HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
             "/streams/authorize",
-            new { token, path = $"cam-{Guid.CreateVersion7()}" });
+            new { token, path = $"cam-{Guid.CreateVersion7()}", action = "read" });
 
         await AssertStatusAsync(response, HttpStatusCode.OK);
     }
@@ -64,7 +64,7 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     {
         HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
             "/streams/authorize",
-            new { token = "this-is-not-a-jwt", path = $"cam-{Guid.CreateVersion7()}" });
+            new { token = "this-is-not-a-jwt", path = $"cam-{Guid.CreateVersion7()}", action = "read" });
 
         await AssertStatusAsync(response, HttpStatusCode.Unauthorized);
     }
@@ -77,9 +77,28 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
         HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
             "/streams/authorize",
-            new { token = $"Bearer {token}", path = $"cam-{Guid.CreateVersion7()}" });
+            new { token = $"Bearer {token}", path = $"cam-{Guid.CreateVersion7()}", action = "read" });
 
         await AssertStatusAsync(response, HttpStatusCode.OK);
+    }
+
+    /// <summary>
+    /// The broadest token this hook ever sees, on the action it never grants.
+    /// Today nothing but MediaMTX's own refusal of publishers on a path with a
+    /// static <c>source</c> stands between a caller and a publish — another
+    /// component's configuration file, not this endpoint.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_a_publish_with_a_valid_admin_token_returns_403()
+    {
+        string token = await aspire.GetAccessTokenAsync(
+            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+
+        HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
+            "/streams/authorize",
+            new { token, path = $"cam-{Guid.CreateVersion7()}", action = "publish" });
+
+        await AssertStatusAsync(response, HttpStatusCode.Forbidden);
     }
 
     // Asserts the status and, on mismatch, surfaces the response body. The
