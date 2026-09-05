@@ -157,11 +157,27 @@ export function CellPage() {
     },
     onResolvedOverlayTextChanged: (message) => {
       if (!boundOverlays.has(message.overlay)) return;
-      // Before the version mark, never after (ADR-0145 §1, FR-005). A foreign
-      // frame allowed to move the mark first would suppress the wall's own
-      // next, legitimately lower-versioned update for the rest of the session —
-      // and a frozen wall looks like a working one. Fails closed: a frame
-      // carrying no fab is `undefined` and matches nothing.
+      // Before the version mark, never after (ADR-0145 §1, FR-005). Cheap
+      // insurance against a prospective hazard, not a fix for an observed one:
+      // `version` is today a single per-overlay counter *shared* across fabs
+      // (one overlay on the wire ran 11 dresden, 12-14 munich, 15 dresden, 16
+      // munich), so the wall's own frame is never lower-versioned than a
+      // foreign frame preceding it, and the failure below cannot currently
+      // occur. It becomes live the moment that counter is re-keyed on
+      // (fab, overlay) — already recorded as a follow-up in spec 067's Out of
+      // scope — because then a foreign frame allowed to move the mark first
+      // would suppress the wall's own next, legitimately lower-versioned
+      // update for the rest of the session, and a frozen wall looks like a
+      // working one.
+      //
+      // Load-bearing in the suite regardless: `Does not let another fab's
+      // frame advance the version mark` constructs that version sequence
+      // directly and fails if these two lines are transposed. Unreachable in
+      // production and asserted in the tests are both true — do not simplify
+      // one away on the strength of the other.
+      //
+      // Fails closed: a frame carrying no fab is `undefined` and matches
+      // nothing.
       if (message.fab !== wallFab) return;
       const versions = overlayTextVersionsRef.current;
       if (message.version <= (versions.get(message.overlay) ?? 0)) return;
