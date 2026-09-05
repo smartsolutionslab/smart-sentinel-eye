@@ -38,7 +38,7 @@ public class WhepHandshakeLatencyTests(AspireFixture aspire) : IAsyncLifetime
         // call hits Keycloak's well-known endpoint; subsequent calls reuse
         // the cached signing keys. The SLO covers the warm regime.
         await aspire.StreamDistribution.PostAsJsonAsync(
-            "/streams/authorize", new { token, path = $"cam-{Guid.CreateVersion7()}" });
+            "/streams/authorize", new { token, path = $"cam-{Guid.CreateVersion7()}", action = "read" });
 
         double[] elapsedMs = new double[Iterations];
         for (int i = 0; i < Iterations; i++)
@@ -46,7 +46,7 @@ public class WhepHandshakeLatencyTests(AspireFixture aspire) : IAsyncLifetime
             Guid camera = Guid.CreateVersion7();
             Stopwatch sw = Stopwatch.StartNew();
             HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
-                "/streams/authorize", new { token, path = $"cam-{camera}" });
+                "/streams/authorize", new { token, path = $"cam-{camera}", action = "read" });
             sw.Stop();
             if (response.StatusCode != System.Net.HttpStatusCode.OK)
             {
