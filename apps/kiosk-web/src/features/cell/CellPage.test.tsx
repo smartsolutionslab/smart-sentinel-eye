@@ -3,7 +3,11 @@ import { act, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Provider, useSelector } from 'react-redux';
 import type { Layout, LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
-import type { LayoutHubCallbacks } from '@smart-sentinel-eye/shared/realtime/layoutHub';
+import type {
+  LayoutHubCallbacks,
+  OverlayHighlightChangedMessage,
+  ResolvedOverlayTextChangedMessage,
+} from '@smart-sentinel-eye/shared/realtime/layoutHub';
 import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import type { OverlaySnapshotInput } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { store } from '../../app/store.js';
@@ -933,6 +937,251 @@ describe('CellPage', () => {
       await push({ overlay: 'ovl-own-fab', fab: 'munich', resolvedText: 'OEE 82.5', version: 2 });
 
       expect(label(), "the wall stopped applying its own plant's frames").toBe('OEE 82.5');
+    });
+  });
+
+  /**
+   * Issue #2084 — a frame with no fab at all is a version skew, not a routine
+   * drop.
+   *
+   * <p>
+   * Spec 067's filter is correct and stays exactly as it is: a frame whose
+   * `fab` is not this wall's is refused (#2069 verified that end to end in a
+   * browser). What the filter cannot do is tell two very different frames
+   * apart. A frame naming <b>another plant</b> is the feature working — it is
+   * supposed to arrive and it is supposed to be dropped. A frame naming
+   * <b>no plant at all</b> is a `kiosk-web` bundle running against a
+   * LayoutComposition that predates the field: `message.fab` is `undefined`,
+   * `undefined !== 'munich'` holds for every frame ever pushed, and every
+   * resolved-text and highlight update is discarded for the whole session.
+   * </p>
+   *
+   * <p>
+   * <b>And nothing says so.</b> `LiveUpdatesBadge` stays clear, because the hub
+   * connection is genuinely healthy — it is delivering frames, and they are all
+   * being thrown away. A frozen wall is indistinguishable from a working one to
+   * anyone not actively changing a value, which is the same failure mode
+   * `Does not let another fab's frame advance the version mark` exists to
+   * prevent, arriving by a different route.
+   * </p>
+   *
+   * <h4>Why a log and not the badge</h4>
+   *
+   * <p>
+   * `LiveUpdatesBadge` means one thing — the hub connection is down and
+   * retrying — and it is defined to <i>clear on reconnection</i>
+   * (`useLayoutLifecycle`'s `onStateChange`). A version skew is the opposite
+   * condition on both counts: the connection is healthy, and reconnecting to
+   * the same skewed server fixes nothing. Driving the badge from it would make
+   * a genuine outage and a bad deployment look identical to the operator, while
+   * making the badge lie on the next reconnect. The two stay separate, and the
+   * first case below asserts the badge stays clear.
+   * </p>
+   *
+   * <h4>Why first-and-then-decades, rather than once or every time</h4>
+   *
+   * <p>
+   * A wall runs for weeks. One line per frame floods the console and evicts the
+   * first — the diagnostically valuable — occurrence. One line per session
+   * survives eviction but is emitted the moment the wall boots, weeks before
+   * anyone opens a remote-debug console because a label looked stale. So: the
+   * first occurrence, then every power of ten, each carrying the running count.
+   * That is bounded at roughly one line per order of magnitude and still leaves
+   * a recent line near the tail of the buffer.
+   * </p>
+   *
+   * <p>
+   * The two routes count separately and log under separate transitions: a
+   * server that carries `fab` on one frame type and not the other is exactly
+   * the skew this exists to name, and one shared counter would hide it.
+   * </p>
+   */
+  describe('A frame carrying no fab at all is a version skew (#2084)', () => {
+    afterEach(() => {
+      store.dispatch(systemVariablesApi.util.resetApiState());
+      vi.restoreAllMocks();
+    });
+
+    /**
+     * A munich wall showing one placeholder label, reading the real RTK cache —
+     * so an applied frame genuinely moves the label and a dropped one genuinely
+     * does not. No seeded snapshot: the tile falls back to the overlay's raw
+     * text, which is a value no frame below ever pushes.
+     */
+    function aMunichWall(overlay: string) {
+      getSnapshotMock.mockImplementation(useSnapshotFromTheRealCache);
+      mockLayout(
+        publishedRevision(1, 1, [tile({ cameraIdentifier: 'cam-a', overlayIdentifier: overlay, row: 0, col: 0 })]),
+      );
+      // The `{{…}}` is load-bearing: without a placeholder the page's
+      // `hasPlaceholder` gate skips the snapshot query and no push would show.
+      getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
+      renderPage();
+      return () => screen.getByTestId('camera-viewer').getAttribute('data-overlay-text');
+    }
+
+    /**
+     * The frame an older LayoutComposition puts on the wire: no `fab` field at
+     * all. `ResolvedOverlayTextChangedMessage` declares `fab: string`, and that
+     * declaration is precisely what a version-skewed server does not honour —
+     * so the cast reproduces the fault rather than dodging the type.
+     */
+    function textFrameWithoutFab(
+      overlay: string,
+      resolvedText: string,
+      version: number,
+    ): ResolvedOverlayTextChangedMessage {
+      return { overlay, resolvedText, version } as unknown as ResolvedOverlayTextChangedMessage;
+    }
+
+    /** The same omission on the highlight route, which travels its own path. */
+    function highlightFrameWithoutFab(overlay: string, durationMs: number): OverlayHighlightChangedMessage {
+      return { overlay, durationMs } as unknown as OverlayHighlightChangedMessage;
+    }
+
+    /**
+     * Fires one resolved-text frame and lets the cache write and re-render it
+     * would cause settle — the same 100 ms the #2069 block uses, and for the
+     * same reason: `upsertQueryData` is dispatched without being awaited, so a
+     * fixed count of microtask turns is not enough.
+     */
+    async function pushText(message: ResolvedOverlayTextChangedMessage) {
+      await act(async () => {
+        capturedCallbacks?.onResolvedOverlayTextChanged?.(message);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      });
+    }
+
+    /**
+     * The `[resilience]` payloads logged under `transition`. Filtering by
+     * transition rather than counting `console.info` calls keeps these cases
+     * independent of every other line the page emits.
+     */
+    function resilienceLines(calls: unknown[][], transition: string): Record<string, unknown>[] {
+      const lines: Record<string, unknown>[] = [];
+      for (const [prefix, payload] of calls) {
+        if (prefix !== '[resilience]' || typeof payload !== 'object' || payload === null) continue;
+        const line = payload as Record<string, unknown>;
+        if (line.transition === transition) lines.push(line);
+      }
+      return lines;
+    }
+
+    function spyOnConsoleInfo() {
+      return vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    }
+
+    /**
+     * RED. The gap itself: a fab-less resolved-text frame is still refused (the
+     * filter does not change) but now says so.
+     *
+     * <p>
+     * The badge assertion is a CONTROL, green today and required to stay green:
+     * it pins the decision that a version skew is not a hub outage.
+     * </p>
+     */
+    it('Reports a resolved-text frame that carries no fab, and leaves the badge alone', async () => {
+      const info = spyOnConsoleInfo();
+      const label = aMunichWall('ovl-skew-text');
+      expect(label()).toBe('OEE {{oeeline1}}');
+
+      await pushText(textFrameWithoutFab('ovl-skew-text', 'OEE 99.9', 2));
+
+      expect(label(), 'the filter must not change — a fab-less frame is still refused').toBe('OEE {{oeeline1}}');
+      expect(resilienceLines(info.mock.calls, 'resolved-text-without-fab')).toEqual([
+        { subsystem: 'hub', transition: 'resolved-text-without-fab', overlay: 'ovl-skew-text', count: 1 },
+      ]);
+      expect(
+        screen.queryByTestId('live-updates-degraded'),
+        'a version skew is not a hub outage — the badge must not conflate them',
+      ).not.toBeInTheDocument();
+    });
+
+    /**
+     * RED. The console-volume decision, stated as an assertion: the first
+     * occurrence and every power of ten, carrying the running count, and
+     * nothing in between.
+     */
+    it('Repeats the report on decades of dropped frames, not on every one', async () => {
+      const info = spyOnConsoleInfo();
+      aMunichWall('ovl-skew-decade');
+
+      for (let version = 2; version <= 11; version += 1) {
+        await pushText(textFrameWithoutFab('ovl-skew-decade', `OEE ${version}`, version));
+      }
+
+      expect(resilienceLines(info.mock.calls, 'resolved-text-without-fab')).toEqual([
+        { subsystem: 'hub', transition: 'resolved-text-without-fab', overlay: 'ovl-skew-decade', count: 1 },
+        { subsystem: 'hub', transition: 'resolved-text-without-fab', overlay: 'ovl-skew-decade', count: 10 },
+      ]);
+    });
+
+    /**
+     * RED, and **the whole point of the issue**. Dropping another plant's frame
+     * is the feature working; dropping a frame with no plant on it is a
+     * deployment fault wearing the same clothes. A signal that fires on both is
+     * no signal at all — it would report a skew on every healthy two-fab
+     * principal, every day.
+     */
+    it("Says nothing about a frame that names another plant's fab", async () => {
+      const info = spyOnConsoleInfo();
+      const label = aMunichWall('ovl-foreign-not-skew');
+
+      await pushText({ overlay: 'ovl-foreign-not-skew', fab: 'dresden', resolvedText: 'OEE 99.9', version: 2 });
+
+      expect(label(), "a munich wall showed dresden's production figure").toBe('OEE {{oeeline1}}');
+      expect(
+        resilienceLines(info.mock.calls, 'resolved-text-without-fab'),
+        'a well-formed foreign frame is the filter working, not a version skew',
+      ).toEqual([]);
+    });
+
+    /**
+     * RED. The highlight route has the same filter and — unlike the
+     * resolved-text route — no version guard at all (#2069 review), so nothing
+     * else on it would ever notice. Its symptom is harder to spot, too: a
+     * highlight that never fires leaves no stale label behind, just a tile that
+     * never lights.
+     */
+    it('Reports a highlight frame that carries no fab, under its own transition', () => {
+      const info = spyOnConsoleInfo();
+      mockLayout(
+        publishedRevision(1, 1, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-skew-highlight', row: 0, col: 0 }),
+        ]),
+      );
+      renderPage();
+
+      act(() => {
+        capturedCallbacks?.onOverlayHighlightChanged?.(highlightFrameWithoutFab('ovl-skew-highlight', 1000));
+      });
+
+      expect(
+        screen.getAllByTestId('layout-tile').map((el) => el.dataset.highlighted),
+        'the filter must not change — a fab-less highlight is still refused',
+      ).toEqual(['false']);
+      expect(resilienceLines(info.mock.calls, 'highlight-without-fab')).toEqual([
+        { subsystem: 'hub', transition: 'highlight-without-fab', overlay: 'ovl-skew-highlight', count: 1 },
+      ]);
+      expect(
+        resilienceLines(info.mock.calls, 'resolved-text-without-fab'),
+        'the two routes count separately, so a skew on one is not hidden by the other',
+      ).toEqual([]);
+    });
+
+    /**
+     * CONTROL — green today and it must still be green afterwards. A signal
+     * that fires on every frame satisfies the cases above and reports a
+     * permanent skew on a perfectly healthy wall.
+     */
+    it("Says nothing about the wall's own frame", async () => {
+      const info = spyOnConsoleInfo();
+      const label = aMunichWall('ovl-own-not-skew');
+
+      await pushText({ overlay: 'ovl-own-not-skew', fab: 'munich', resolvedText: 'OEE 82.5', version: 2 });
+
+      expect(label(), "the wall stopped applying its own plant's frames").toBe('OEE 82.5');
+      expect(resilienceLines(info.mock.calls, 'resolved-text-without-fab')).toEqual([]);
     });
   });
 });
