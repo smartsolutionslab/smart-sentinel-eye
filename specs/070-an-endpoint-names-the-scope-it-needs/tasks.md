@@ -1,6 +1,6 @@
 # Tasks — Spec 070, an endpoint names the scope it needs
 
-**Phase:** 3 (Tasks) · **Spec:** `spec.md` · **Plan:** `plan.md` · **Issue:** #850
+**Phase:** 3 (Tasks) · **Spec:** `spec.md` · **Plan:** `plan.md` · **Issue:** #2087
 
 **Engineer:** `backend-engineer` throughout. One C# guard in
 `tests/Architecture.Tests` plus metadata edits in `src/*/Api`. No frontend, no
@@ -156,8 +156,8 @@ guard does not check them and a wrong description is worse than a terse one).
   this spec** and would make a behaviour-preserving change behavioural.
 - **[T018] [P] [US-1]** Verify the three Identity files and `AuditEndpoints.cs`
   need **no** edit, and record that in the PR body. This is a read, not a
-  change; it is a task because "already conformant" is the claim #850's label
-  rests on and it should be confirmed rather than assumed.
+  change; it is a task because "already conformant" is the claim #850 was closed
+  on and it should be confirmed rather than assumed.
 
 *All of T010–T018 depend on T009 and on nothing else.*
 
@@ -184,11 +184,11 @@ guard does not check them and a wrong description is worse than a terse one).
 
 ## Board
 
-Per CLAUDE.md's corrected Phase 3 gate, **no per-task issues**. #850 is the
+Per CLAUDE.md's corrected Phase 3 gate, **no per-task issues**. #2087 is the
 feature-level issue; add it to Project #13 if it is not already there:
 
 ```sh
-gh project item-add 13 --owner smartsolutionslab --url https://github.com/smartsolutionslab/smart-sentinel-eye/issues/850
+gh project item-add 13 --owner smartsolutionslab --url https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2087
 ```
 
 Verify with `--limit 2000` — `item-list` defaults to 30 and a filled board looks
@@ -196,13 +196,11 @@ empty without it.
 
 ## Blocked / needs a decision before phase 4
 
-1. **#850's framing.** The issue's label is delivered work and its justification
-   is stale. Phase 4 should not start until the maintainer confirms whether #850
-   is re-scoped to this spec or closed with a new issue filed (spec §Assumptions
-   1). The artefacts are unchanged either way; only the issue reference moves.
-2. **Branch prefix.** This is `docs/850-…`, correct for phases 1–3. Phase 4
-   lands a guard and eight edited source files; spec 068's precedent was a
-   `test/` branch.
+1. ~~**#850's framing.**~~ **Resolved.** #850 was closed as delivered for its
+   Identity label; the work is now #2087, and every reference in these artefacts
+   points there.
+2. ~~**Branch prefix.**~~ **Resolved.** Phase 4 runs on
+   `test/2087-an-endpoint-names-the-scope-it-needs`, following spec 068.
 3. **No ADR is required and none may be written here** (ADR-0144). ADR-0139
    already states the build-failing-rule preference and ADR-0070 fixes the
    endpoint style; this spec implements existing decisions and makes none.

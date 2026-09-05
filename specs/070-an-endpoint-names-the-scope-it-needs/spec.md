@@ -1,6 +1,6 @@
 # Spec 070 — An endpoint names the scope it needs
 
-**Issue:** #850 · **Branch:** `docs/850-an-endpoint-names-the-scope-it-needs`
+**Issue:** #2087 · **Branch:** `test/2087-an-endpoint-names-the-scope-it-needs`
 **Phase:** 1 (Specify) · **Date:** 2026-09-05
 **ADRs:** ADR-0070 (Minimal APIs only — the surface this guards), ADR-0139
 (rules that fail the build, not conventions people remember), ADR-0130 (a record
@@ -18,7 +18,7 @@ here).
 That is the whole text. Three things in it do not survive contact with the
 repository, and the spec exists to correct them rather than to execute them.
 
-**1. Its label is finished work.** #850 carries `feature:008-identity`. The
+**1. Its label is finished work.** #850 carried `feature:008-identity`. The
 Identity context has **8 endpoints across 3 files**, and **8 of 8** carry a
 `.WithSummary` naming the scope they require. Read as its label reads, this
 issue is delivered and has been for some time.
@@ -405,12 +405,10 @@ obligation does not attach.
 
 ## Assumptions, marked
 
-1. **#850 is re-scoped rather than closed.** Its label says Identity, which is
-   done; its text says every endpoint, which is not. This spec takes the text as
-   the intent and the label as an artefact of spec 008's filing. **If the
-   maintainer prefers, closing #850 as delivered-for-its-label and filing the
-   guard as a new issue is equally honest** — the spec stands unchanged either
-   way, only its issue reference moves.
+1. ~~**#850 is re-scoped rather than closed.**~~ **Settled at phase 4a:
+   #850 was closed as delivered for its Identity label, and this work now lives
+   on #2087.** The spec is unchanged; only its issue reference moved, exactly as
+   this assumption said it would.
 2. **The stale justification is not revived.** No generated client is proposed.
    If one is wanted later, the summaries this spec lands are an input to it, not
    a reason for it.
