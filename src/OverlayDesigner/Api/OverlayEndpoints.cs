@@ -59,14 +59,17 @@ public static partial class OverlayEndpoints
                 + "the same unit of work. Required scope: sse.overlays.write")
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
         group.MapPost("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}/archive", Archive)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
             .WithName("ArchiveOverlayRevision")
             .WithSummary("Archive a revision of an overlay. Required scope: sse.overlays.write")
             .Produces<int>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
         group.MapPost("/{overlayIdentifier:guid}/draft", BranchDraft)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
@@ -76,7 +79,8 @@ public static partial class OverlayEndpoints
                 + "Required scope: sse.overlays.write")
             .Produces<int>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
         group.MapPatch("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}", EditDraft)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
@@ -86,7 +90,8 @@ public static partial class OverlayEndpoints
                 + "Required scope: sse.overlays.write")
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
         group.MapPost("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}/revert", Revert)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
@@ -96,7 +101,8 @@ public static partial class OverlayEndpoints
                 + "Required scope: sse.overlays.write")
             .Produces<int>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
         return app;
     }
