@@ -48,6 +48,7 @@ public static class RulesEndpoints
 
         group.MapPost("/{name}/publish", Publish)
             .WithName("PublishRule")
+            .WithSummary("Publish a rule. Requires If-Match with the rule's current version. Required scope: sse.rules.write")
             .Produces<Guid>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -56,6 +57,7 @@ public static class RulesEndpoints
 
         group.MapPost("/{name}/archive", Archive)
             .WithName("ArchiveRule")
+            .WithSummary("Archive a rule. Requires If-Match with the rule's current version. Required scope: sse.rules.write")
             .Produces<Guid>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -76,6 +78,7 @@ public static class RulesEndpoints
 
         reads.MapGet("/{name}", GetOne)
             .WithName("GetRule")
+            .WithSummary("Read one rule by name, within the fabs you are assigned to. Required scope: sse.rules.read")
             .Produces<RuleDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -86,6 +89,9 @@ public static class RulesEndpoints
         // so it sits behind the read scope.
         reads.MapPost("/{name}/dry-run", DryRun)
             .WithName("DryRunRule")
+            .WithSummary(
+                "Evaluate a rule against a sample event. A POST because it carries a body, but a read: "
+                + "nothing is persisted and no integration event is published. Required scope: sse.rules.read")
             .Produces<DryRunResultDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
