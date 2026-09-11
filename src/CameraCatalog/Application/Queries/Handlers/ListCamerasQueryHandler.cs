@@ -112,15 +112,24 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
     private static IQueryable<Camera> SortBy(IQueryable<Camera> source, string field, bool descending) =>
         (field, descending) switch
         {
-            // Fab breaks the tie: a multi-fab listing can hold two rows of one
-            // name, and ordering by name alone leaves their relative order to
-            // the database — so a page boundary could show one row twice and
+            // Fab reads well for a multi-fab listing, but it does not make the
+            // key unique and the comment here used to claim it did (#2144).
+            // `(fab, name_normalized)` is unique only for *live* rows — the
+            // index is partial on `status <> 'Decommissioned'`, deliberately,
+            // so retiring a camera releases its name. With includeRetired=true
+            // a decommissioned camera and its live replacement tie.
+            //
+            // Id closes it. CameraIdentifier is a Guid v7 (ADR-0039/0090),
+            // unique by construction for every row whether retired or not, so
+            // the order is total and Skip/Take has a position to resume from.
+            // Without it a page boundary inside a tie shows one row twice and
             // the other never.
-            ("name", false) => source.OrderBy(camera => camera.Name).ThenBy(camera => camera.Fab),
-            ("name", true) => source.OrderByDescending(camera => camera.Name).ThenBy(camera => camera.Fab),
-            // Same reason: two cameras can share a registration instant.
-            ("registeredAt", false) => source.OrderBy(camera => camera.Registration.At).ThenBy(camera => camera.Fab),
-            ("registeredAt", true) => source.OrderByDescending(camera => camera.Registration.At).ThenBy(camera => camera.Fab),
+            ("name", false) => source.OrderBy(camera => camera.Name).ThenBy(camera => camera.Fab).ThenBy(camera => camera.Id),
+            ("name", true) => source.OrderByDescending(camera => camera.Name).ThenBy(camera => camera.Fab).ThenBy(camera => camera.Id),
+            // Registration instants tie among live rows too, and no index has
+            // ever claimed otherwise.
+            ("registeredAt", false) => source.OrderBy(camera => camera.Registration.At).ThenBy(camera => camera.Fab).ThenBy(camera => camera.Id),
+            ("registeredAt", true) => source.OrderByDescending(camera => camera.Registration.At).ThenBy(camera => camera.Fab).ThenBy(camera => camera.Id),
             _ => throw new InvalidOperationException($"Unhandled sort field '{field}'."),
         };
 }
