@@ -69,6 +69,14 @@ function Get-HighestNumberFromSpecs {
 
 # Extract the highest sequential feature number from a list of branch/ref names.
 # Shared by Get-HighestNumberFromBranches and Get-HighestNumberFromRemoteRefs.
+#
+# Branch names in this repository never carry the spec number: they are
+# `fix/2111-...`, `docs/2124-...`, `chore/2141-...`, where the digits are the
+# GitHub *issue* number and never the first path segment. So the two branch
+# scanners below match nothing here and contribute 0. They are kept because
+# they cost nothing and would start working if the naming convention changed —
+# but the spec number comes from Get-HighestNumberFromGitSpecDirs, not from
+# them, and the fetch they depend on is not doing the work it looks like it is.
 function Get-HighestNumberFromNames {
     param([string[]]$Names)
 
@@ -125,6 +133,43 @@ function Get-HighestNumberFromRemoteRefs {
     return $highest
 }
 
+# Highest sequential number among the specs/ directories recorded in git, read
+# from every local branch and remote-tracking ref rather than from the working
+# tree. Two populations of numbers are invisible to the working copy and only
+# this sees them:
+#
+#   * a merged spec, once delete_branch_on_merge has removed its branch — its
+#     only surviving record is the specs/NNN-* directory in develop's tree, and
+#     a checkout that is behind does not have it;
+#   * an in-flight spec on a pushed but unmerged branch — its directory is on
+#     that branch's tree and nowhere else, so origin/develop alone under-reports.
+function Get-HighestNumberFromGitSpecDirs {
+    [long]$highest = 0
+    try {
+        $refs = git for-each-ref --format='%(objectname) %(refname)' refs/heads refs/remotes 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $refs) { return 0 }
+
+        # Branches that point at the same commit share a tree; read each once.
+        $seen = New-Object 'System.Collections.Generic.HashSet[string]'
+        foreach ($line in $refs) {
+            $parts = $line -split ' ', 2
+            if ($parts.Count -lt 2) { continue }
+            if ($parts[1] -like '*/HEAD') { continue }
+            if (-not $seen.Add($parts[0])) { continue }
+
+            $entries = git ls-tree -d --name-only $parts[0] specs/ 2>$null
+            if ($LASTEXITCODE -ne 0 -or -not $entries) { continue }
+
+            $names = $entries | ForEach-Object { ($_ -replace '^specs/', '').Trim('/') }
+            $refHighest = Get-HighestNumberFromNames -Names $names
+            if ($refHighest -gt $highest) { $highest = $refHighest }
+        }
+    } catch {
+        Write-Verbose "Could not read specs/ directories from git: $_"
+    }
+    return $highest
+}
+
 # Return next available branch number. When SkipFetch is true, queries remotes
 # via ls-remote (read-only) instead of fetching.
 function Get-NextBranchNumber {
@@ -148,11 +193,18 @@ function Get-NextBranchNumber {
         $highestBranch = Get-HighestNumberFromBranches
     }
 
-    # Get highest number from ALL specs (not just matching short name)
+    # specs/ directories as git records them — the only source that sees a
+    # number held by a branch this checkout has not merged, or merged before
+    # this checkout last pulled.
+    $highestGitSpec = Get-HighestNumberFromGitSpecDirs
+
+    # Get highest number from ALL specs (not just matching short name).
+    # Kept alongside the git read: it is the only source that sees a spec
+    # directory created in the working tree and not yet committed.
     $highestSpec = Get-HighestNumberFromSpecs -SpecsDir $SpecsDir
 
-    # Take the maximum of both
-    $maxNum = [Math]::Max($highestBranch, $highestSpec)
+    # Take the maximum of all of them
+    $maxNum = [Math]::Max([Math]::Max($highestBranch, $highestSpec), $highestGitSpec)
 
     # Return next number
     return $maxNum + 1
