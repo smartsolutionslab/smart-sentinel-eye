@@ -264,7 +264,20 @@ if (isRunMode && !isE2ETests)
 // `ConnectionStrings:minio` value into every consumer that
 // `WithReference`s it; the Infrastructure project resolves an
 // `IMinioClient` from that via `AddMinioClient("minio")`.
-var minio = builder.AddMinioContainer("minio");
+// The registry override is not a preference: MinIO withdrew their Docker Hub
+// organisation on 2026-09-11 (between roughly 18:12 and 19:46 UTC), so
+// `minio/minio` — CommunityToolkit's default coordinates — now 404s there and
+// every integration run failed on `minio: FailedToStart` (#2265). quay.io is
+// MinIO's other official registry and serves the identical tag: pulling it
+// gives digest
+// sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e,
+// the same manifest list the quay API reports, and `minio --version` inside it
+// prints RELEASE.2025-09-07T16-13-09Z. Whether quay.io is the long-term home is
+// undecided — MinIO has been narrowing its open-source distribution, and this
+// line was reached for during an outage rather than chosen on merit.
+var minio = builder
+    .AddMinioContainer("minio")
+    .WithImageRegistry("quay.io");
 
 if (isRunMode && !isE2ETests)
 {
