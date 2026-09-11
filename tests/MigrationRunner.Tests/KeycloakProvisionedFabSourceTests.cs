@@ -107,6 +107,60 @@ public class KeycloakProvisionedFabSourceTests
         absent.Message.ShouldNotBe(unusable.Message);
     }
 
+    /// <summary>
+    /// #2139. Three causes abort this run, and until now two of them shared a
+    /// sentence: the verdict for a realm with no <c>/fabs</c> group hedged —
+    /// "the group is absent, or present with no children" — because the value
+    /// it reasoned over could not tell those apart. They are different faults
+    /// with different fixes: re-import a realm that lost the group, or declare
+    /// fabs under a group that has none.
+    ///
+    /// <para>
+    /// <b>Which assertion is carrying this test, stated rather than implied.</b>
+    /// The first is the red: before the fix, absent and childless are one
+    /// message. The other two are already green — <c>95a2cf4f</c> separated the
+    /// unusable-names verdict from the rest — and are here so that a later
+    /// collapse of any pair turns this red rather than only the pair nobody
+    /// re-checked. Each was confirmed to fail on a tree where its own pair is
+    /// collapsed; none is carrying another (verification.md).
+    /// </para>
+    ///
+    /// <para>
+    /// Asserts distinctness, not prose, for the reason the test below it
+    /// records: rewording any of the three keeps this green, and only a
+    /// collapse turns it red.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Tells_an_absent_fabs_group_apart_from_one_that_has_no_children()
+    {
+        InvalidOperationException absent = await Should.ThrowAsync<InvalidOperationException>(
+            () => SourceWithoutTheFabsGroup().GetFabsAsync(CancellationToken.None));
+        InvalidOperationException childless = await Should.ThrowAsync<InvalidOperationException>(
+            () => Source([]).GetFabsAsync(CancellationToken.None));
+        InvalidOperationException unusable = await Should.ThrowAsync<InvalidOperationException>(
+            () => Source(["NOT-A-FAB"]).GetFabsAsync(CancellationToken.None));
+
+        absent.Message.ShouldNotBe(childless.Message);
+        childless.Message.ShouldNotBe(unusable.Message);
+        absent.Message.ShouldNotBe(unusable.Message);
+    }
+
+    /// <summary>
+    /// FR-005 and FR-011 still hold for a realm that has no <c>/fabs</c> group
+    /// at all: the run aborts rather than provisioning nothing and reporting
+    /// success. The control on the test above, which a source that threw three
+    /// differently-worded nothings would also satisfy — and on any future
+    /// reading of "absent" as "wait and ask again", which would hang this test
+    /// instead of failing it.
+    /// </summary>
+    [Fact]
+    public async Task Throws_when_the_fabs_group_itself_is_not_in_the_realm()
+    {
+        await Should.ThrowAsync<InvalidOperationException>(
+            () => SourceWithoutTheFabsGroup().GetFabsAsync(CancellationToken.None));
+    }
+
     /// <summary>An unreachable realm surfaces, rather than becoming "no fabs".</summary>
     [Fact]
     public async Task Propagates_a_failure_to_reach_the_realm()
@@ -118,14 +172,22 @@ public class KeycloakProvisionedFabSourceTests
             () => source.GetFabsAsync(CancellationToken.None));
     }
 
+    /// <summary>A realm whose <c>/fabs</c> group is there, holding these names.</summary>
     private static KeycloakProvisionedFabSource Source(string[] groupNames) =>
-        new(new StubKeycloakAdminClient(groupNames), NullLogger<KeycloakProvisionedFabSource>.Instance);
+        Over(Option<IReadOnlyList<string>>.Some(groupNames));
 
-    private sealed class StubKeycloakAdminClient(string[] groupNames) : IKeycloakAdminClient
+    /// <summary>A realm with no <c>/fabs</c> group at all (#2139).</summary>
+    private static KeycloakProvisionedFabSource SourceWithoutTheFabsGroup() =>
+        Over(Option<IReadOnlyList<string>>.None);
+
+    private static KeycloakProvisionedFabSource Over(Option<IReadOnlyList<string>> tree) =>
+        new(new StubKeycloakAdminClient(tree), NullLogger<KeycloakProvisionedFabSource>.Instance);
+
+    private sealed class StubKeycloakAdminClient(Option<IReadOnlyList<string>> tree) : IKeycloakAdminClient
     {
         public Task<Option<IReadOnlyList<string>>> GetSubGroupNamesAsync(
             string parentPath, CancellationToken cancellationToken) =>
-            Task.FromResult(Option<IReadOnlyList<string>>.Some(groupNames));
+            Task.FromResult(tree);
 
         public Task<KeycloakClientCredentials> CreateClientAsync(
             KeycloakClientRepresentation representation, string fabGroupPath, CancellationToken cancellationToken) =>
