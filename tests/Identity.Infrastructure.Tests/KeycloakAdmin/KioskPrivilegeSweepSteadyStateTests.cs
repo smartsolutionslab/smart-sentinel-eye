@@ -90,4 +90,78 @@ public class KioskPrivilegeSweepSteadyStateTests
             + "distinguishable from the steady state that phase 5 plants a residue precisely "
             + $"to escape. The line read: {completions[0].Message}");
     }
+
+    /// <summary>
+    /// Spec 132 US1 (#2169) — <b>red</b>. The silence spec 092 bought is guarded on
+    /// the count of kiosks, not the count of strips, so a realm holding an enrolled
+    /// kiosk reports "stripped 1 of 1" on <i>every</i> start whether or not that
+    /// start repaired anything. Phase 5 of spec 092 watched exactly this: the
+    /// residue was stripped on one boot and the identical line appeared on the next.
+    ///
+    /// <para>
+    /// <b>The fake cannot make this pass on its own, and that is the point.</b>
+    /// <c>AlreadyStripped</c> states the scenario — an account with no direct role
+    /// mappings — but the port returns <c>Task</c>, so the fact never reaches the
+    /// sweep. The information exists one frame down and is discarded; this test
+    /// fails until the port carries it.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_pass_over_a_kiosk_that_holds_nothing_says_nothing()
+    {
+        EnrolledKiosksKeycloakAdminClient keycloak = new("kiosk-swept-on-an-earlier-boot");
+        keycloak.AlreadyStripped.Add("kiosk-swept-on-an-earlier-boot");
+        CapturingLogger<KioskPrivilegeSweep> logger = new();
+
+        await new KioskPrivilegeSweep(keycloak, logger).SweepAsync(CancellationToken.None);
+
+        keycloak.Stripped.ShouldBe(
+            ["kiosk-swept-on-an-earlier-boot"],
+            "reporting less must not repair less — the removal stays idempotent and stays "
+            + "attempted, because an account that somehow regains the privilege loses it at "
+            + "the next boot (spec 052, ADR-0134 §1)");
+
+        logger.Named(CompletionLine).ShouldBeEmpty(
+            "the line says 'stripped', and nothing was stripped. An operator who reads it on "
+            + "every restart cannot tell it from the boot where twelve accounts genuinely lost "
+            + "privileges, which is the signal spec 092 silenced the empty realm to create.");
+    }
+
+    /// <summary>
+    /// Spec 132 US2 (#2169) — <b>red</b>, and the half that stops US1 from being
+    /// satisfied by deleting the logging altogether. Today this reports
+    /// <c>2 of 2</c>: the numerator is kiosks <i>reached</i>.
+    ///
+    /// <para>
+    /// Asserted on the <b>structured fields</b> rather than the message text
+    /// (ADR-0050). The fields are what an OTLP sink carries and what an operator
+    /// queries by, and a substring match on the rendered message would be green over
+    /// an entry whose <c>StrippedCount</c> field named a different number — the same
+    /// gap spec 122 (#2166) found in this file's sibling.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_pass_that_strips_one_of_two_counts_only_what_changed()
+    {
+        EnrolledKiosksKeycloakAdminClient keycloak = new("kiosk-residue-a", "kiosk-already-clean");
+        keycloak.AlreadyStripped.Add("kiosk-already-clean");
+        CapturingLogger<KioskPrivilegeSweep> logger = new();
+
+        await new KioskPrivilegeSweep(keycloak, logger).SweepAsync(CancellationToken.None);
+
+        IReadOnlyList<LoggedEntry> completions = logger.Named(CompletionLine);
+
+        completions.Count.ShouldBe(
+            1, "one line per pass, not one per kiosk and not one per repair");
+
+        completions[0].Field("StrippedCount").ShouldBe(
+            "1",
+            "one account lost a privilege on this pass. Counting the other one — reached, "
+            + $"holding nothing, changed in no way — is the defect. The line read: {completions[0].Message}");
+
+        completions[0].Field("KioskCount").ShouldBe(
+            "2",
+            "the population stays visible: '1 of 2' says one residue among two, which a bare "
+            + "'1' does not. #2169 forbids fixing this by removing the count.");
+    }
 }

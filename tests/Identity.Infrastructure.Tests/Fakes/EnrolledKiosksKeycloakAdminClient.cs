@@ -25,6 +25,21 @@ public sealed class EnrolledKiosksKeycloakAdminClient(params string[] kiosks) : 
 
     public List<string> Stripped { get; } = [];
 
+    /// <summary>
+    /// Kiosks whose service account holds no directly-assigned realm role, so
+    /// the strip is reached and removes nothing — <c>HttpKeycloakAdminClient</c>'s
+    /// <c>if (assigned.Length == 0) return;</c>, which is what a kiosk already
+    /// swept on an earlier boot looks like.
+    ///
+    /// <para>
+    /// Empty by default, so a kiosk named in the constructor still holds the
+    /// privilege. That default is what keeps
+    /// <c>A_pass_that_finds_a_kiosk_says_so_once_and_names_the_count</c> reading
+    /// the same as it did before spec 132.
+    /// </para>
+    /// </summary>
+    public HashSet<string> AlreadyStripped { get; } = new(StringComparer.Ordinal);
+
     public Task<IReadOnlyList<string>> GetEnrolledKioskClientIdsAsync(CancellationToken cancellationToken)
     {
         EnumerationAttempts++;
