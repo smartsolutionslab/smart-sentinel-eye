@@ -201,7 +201,7 @@ public class KeycloakProvisionedFabSourceTests
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
-        public Task StripInheritedRealmRolesAsync(
+        public Task<bool> StripInheritedRealmRolesAsync(
             string clientId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
@@ -224,7 +224,7 @@ public class KeycloakProvisionedFabSourceTests
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
-        public Task StripInheritedRealmRolesAsync(
+        public Task<bool> StripInheritedRealmRolesAsync(
             string clientId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 

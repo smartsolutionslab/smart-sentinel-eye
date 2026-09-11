@@ -7,9 +7,11 @@ namespace SmartSentinelEye.Identity.Application;
 [ExcludeFromCodeCoverage]
 internal static partial class Log
 {
-    // Spec 052. Reported at Information because "how many kiosk accounts still
-    // hold a privilege they should not" is the sort of thing worth being able to
-    // read back after the fact.
+    // Spec 052. Reported at Information because "how many kiosk accounts held a
+    // privilege they should not, and lost it" is the sort of thing worth being
+    // able to read back after the fact. Spec 132 (#2169) left the text and the
+    // field names alone and corrected what StrippedCount counts: accounts that
+    // changed, not accounts reached. The caller stays silent at zero.
     [LoggerMessage(Level = LogLevel.Information, Message = "Stripped inherited realm privileges from {StrippedCount} of {KioskCount} enrolled kiosk accounts.")]
     public static partial void SweptKioskPrivileges(this ILogger logger, int strippedCount, int kioskCount);
 

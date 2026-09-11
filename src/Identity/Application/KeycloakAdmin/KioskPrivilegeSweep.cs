@@ -42,7 +42,7 @@ public sealed class KioskPrivilegeSweep(
     ILogger<KioskPrivilegeSweep> logger)
 {
     /// <summary>
-    /// Strips every enrolled kiosk, and reports how many were reached.
+    /// Strips every enrolled kiosk, and reports how many actually lost something.
     ///
     /// <para>
     /// One kiosk failing does not stop the rest: the others are independent, and
@@ -50,17 +50,27 @@ public sealed class KioskPrivilegeSweep(
     /// be read would be the wrong trade. Each failure is logged, and the next
     /// start tries again.
     /// </para>
+    ///
+    /// <para>
+    /// <b>Every enrolled kiosk is still stripped</b>, including the ones already
+    /// clear — the removal is idempotent and that is what makes it reconciliation.
+    /// What changed in spec 132 is only what is counted and what is said.
+    /// </para>
     /// </summary>
     public async Task<KioskSweepOutcome> SweepAsync(CancellationToken cancellationToken)
     {
         IReadOnlyList<string> kiosks = await keycloak.GetEnrolledKioskClientIdsAsync(cancellationToken);
 
         List<string> unreachable = [];
+        int strippedCount = 0;
         foreach (string clientId in kiosks)
         {
             try
             {
-                await keycloak.StripInheritedRealmRolesAsync(clientId, cancellationToken);
+                if (await keycloak.StripInheritedRealmRolesAsync(clientId, cancellationToken))
+                {
+                    strippedCount++;
+                }
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -69,25 +79,34 @@ public sealed class KioskPrivilegeSweep(
             }
         }
 
-        if (kiosks.Count > 0)
+        // **Guarded on repairs, not on kiosks** (spec 132, #2169). Spec 092
+        // silenced the empty realm so that a line appearing means something
+        // happened; guarding on the kiosk count left the line on every start of
+        // any realm holding a kiosk, saying "stripped" about a pass that stripped
+        // nothing — which an operator cannot tell from a boot where twelve
+        // accounts genuinely lost privileges. An empty realm is still silent for
+        // the same reason it always was: a line per restart saying nothing
+        // happened trains an operator to skip the one that matters, and
+        // StreamFabAttributionService made the same call.
+        //
+        // A kiosk the pass could not read is in neither count; CouldNotSweepKiosk
+        // names it.
+        if (strippedCount > 0)
         {
-            logger.SweptKioskPrivileges(kiosks.Count - unreachable.Count, kiosks.Count);
+            logger.SweptKioskPrivileges(strippedCount, kiosks.Count);
         }
 
-        // Silent otherwise on purpose (spec 092). Now that this runs on every
-        // Identity start, an empty realm is what every start in every
-        // environment that exists today looks like — and a line per restart
-        // saying nothing happened trains an operator to skip the one that
-        // matters. StreamFabAttributionService made the same call.
-        return new KioskSweepOutcome(kiosks.Count, unreachable);
+        return new KioskSweepOutcome(kiosks.Count, strippedCount, unreachable);
     }
 }
 
 /// <summary>
-/// What a sweep reached. <paramref name="Unreachable"/> is named rather than
-/// counted so a caller can say which kiosk still holds the privilege.
+/// What a sweep reached and what it repaired. <paramref name="StrippedCount"/>
+/// counts accounts that held a directly-assigned realm privilege and lost it —
+/// carried rather than derived, because "reached" and "changed" are different
+/// numbers and deriving one from the other is what #2169 was.
+/// <paramref name="Unreachable"/> is named rather than counted so a caller can
+/// say which kiosk still holds the privilege.
 /// </summary>
-public sealed record KioskSweepOutcome(int KioskCount, IReadOnlyList<string> Unreachable)
-{
-    public int StrippedCount => KioskCount - Unreachable.Count;
-}
+public sealed record KioskSweepOutcome(
+    int KioskCount, int StrippedCount, IReadOnlyList<string> Unreachable);

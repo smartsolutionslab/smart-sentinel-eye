@@ -185,7 +185,14 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
         return Task.FromResult(kiosks);
     }
 
-    public Task StripInheritedRealmRolesAsync(
+    /// <summary>
+    /// Answers whether this call removed anything, which is
+    /// <see cref="HashSet{T}.Add"/>'s own answer over <see cref="Stripped"/> —
+    /// so the fake models the provider's idempotence exactly: the first strip of
+    /// an account changes it, every later one finds nothing to remove and says
+    /// so (spec 132, #2169).
+    /// </summary>
+    public Task<bool> StripInheritedRealmRolesAsync(
         string clientId, CancellationToken cancellationToken)
     {
         CallCount++;
@@ -200,8 +207,7 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
             ThrowAndClear();
         }
 
-        Stripped.Add(clientId);
-        return Task.CompletedTask;
+        return Task.FromResult(Stripped.Add(clientId));
     }
 
     public Task<Option<IReadOnlyList<string>>> GetSubGroupNamesAsync(

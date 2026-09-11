@@ -46,10 +46,10 @@ public sealed class EnrolledKiosksKeycloakAdminClient(params string[] kiosks) : 
         return Task.FromResult<IReadOnlyList<string>>(kiosks);
     }
 
-    public Task StripInheritedRealmRolesAsync(string clientId, CancellationToken cancellationToken)
+    public Task<bool> StripInheritedRealmRolesAsync(string clientId, CancellationToken cancellationToken)
     {
         Stripped.Add(clientId);
-        return Task.CompletedTask;
+        return Task.FromResult(!AlreadyStripped.Contains(clientId));
     }
 
     public Task<KeycloakClientCredentials> CreateClientAsync(

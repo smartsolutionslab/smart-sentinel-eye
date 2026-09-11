@@ -89,7 +89,11 @@ public sealed class HttpKeycloakAdminClient(
             // includes the privilege to mint credentials which never expire, so
             // each kiosk is born holding it. Removing it here rather than later
             // is what keeps the window one call wide.
-            await StripInheritedRealmRolesAsync(realm, clientUuid, cancellationToken);
+            //
+            // The answer is discarded on purpose: an account created moments ago
+            // always holds the composite, so it carries no information here. The
+            // sweep is where it is the report (spec 132).
+            _ = await StripInheritedRealmRolesAsync(realm, clientUuid, cancellationToken);
 
             // Read the just-minted secret.
             return await ReadClientSecretAsync(realm, clientUuid, cancellationToken);
@@ -313,7 +317,7 @@ public sealed class HttpKeycloakAdminClient(
             .ToArray();
     }
 
-    public async Task StripInheritedRealmRolesAsync(
+    public async Task<bool> StripInheritedRealmRolesAsync(
         string clientId, CancellationToken cancellationToken)
     {
         Ensure.That(clientId).IsNotNull().IsNotNullOrWhiteSpace();
@@ -322,7 +326,7 @@ public sealed class HttpKeycloakAdminClient(
         string clientUuid = await TryGetClientUuidAsync(realm, clientId, cancellationToken)
             ?? throw new KeycloakClientNotFoundException(clientId);
 
-        await StripInheritedRealmRolesAsync(realm, clientUuid, cancellationToken);
+        return await StripInheritedRealmRolesAsync(realm, clientUuid, cancellationToken);
     }
 
     /// <summary>
@@ -336,8 +340,13 @@ public sealed class HttpKeycloakAdminClient(
     /// from the realm's own role list looks identical and produces a
     /// <c>404</c> — which reads exactly like a permissions problem and is not.
     /// </para>
+    ///
+    /// <para>
+    /// Returns whether anything was removed. This method is the only place in the
+    /// system that knows; spec 132 (#2169) stopped discarding it.
+    /// </para>
     /// </summary>
-    private async Task StripInheritedRealmRolesAsync(
+    private async Task<bool> StripInheritedRealmRolesAsync(
         string realm, string clientUuid, CancellationToken cancellationToken)
     {
         using HttpResponseMessage saResponse = await httpClient
@@ -358,7 +367,7 @@ public sealed class HttpKeycloakAdminClient(
         // what makes a sweep safe to run on every startup.
         if (assigned.Length == 0)
         {
-            return;
+            return false;
         }
 
         using HttpRequestMessage remove = new(
@@ -369,6 +378,7 @@ public sealed class HttpKeycloakAdminClient(
         };
         using HttpResponseMessage removeResponse = await httpClient.SendAsync(remove, cancellationToken);
         removeResponse.EnsureSuccessStatusCode();
+        return true;
     }
 
     /// <summary>
