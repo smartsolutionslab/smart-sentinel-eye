@@ -423,11 +423,17 @@ describe('WhepClient', () => {
    * </p>
    *
    * <p>
-   * <b>What this deliberately does not change.</b> `live` still follows the
-   * connection state; gating it on attachment is a change to the hook's state
-   * machine and needs a retry path for "connected but nothing ever arrived",
-   * or a tile trades a false Live for a permanent Connecting… — reported
-   * against #2109, not fixed here.
+   * <b>What this deliberately does not change, and what has since changed.</b>
+   * When this was written, `live` followed the connection state, and gating it on
+   * attachment was out of scope: it changes the hook's state machine and needs a
+   * retry path for "connected but nothing ever arrived", or a tile trades a false
+   * Live for a permanent Connecting…. That was filed as <b>#2111</b> — not #2109,
+   * which carves this case out in its own second paragraph — and #2111 shipped in
+   * spec 094 (`5ee1d6cd`). Promotion is now gated on
+   * `getVideoPlaybackQuality().totalVideoFrames > 0`, polled every 250 ms, with a
+   * 3000 ms fall-through into the existing retry ladder: the retry path this
+   * paragraph called missing. What stays true is the scope of *this* suite —
+   * it covers track association, not promotion.
    * </p>
    */
   describe('a track carrying no stream association (#2108)', () => {
