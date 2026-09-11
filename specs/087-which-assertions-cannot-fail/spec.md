@@ -161,9 +161,18 @@ never recorded cannot be known to be a guard or a decoration.
 | `PostgresConnectionBudgetIntegrationTests` count | < 378 | 97 | ~3.9× | COMFORTABLE |
 | `NFR001_JwtValidationLatencyTests` p99 | 50 000 µs | 3–21 ms | 2.4× | TIGHT |
 | `PostgresConnectionBudgetIntegrationTests` max_conns | ≥ 500 | 500 | 1.0× | TIGHT (by construction) |
-| `NFR002_MqttConnectAuthTests` p50 | 15 ms | **17.58 ms** | **0.85×** | TIGHT — **has gone red** |
+| `NFR002_MqttConnectAuthTests` p50 | 15 ms | **1.98–2.29 ms** on CI, where the budget is enforced; 17.58 ms off-CI, where it is not | **6.6×–7.6×** | COMFORTABLE |
 | `NFR001_AuditIngestLatencyTests` p99 | 50 ms | 85 ms | **0.59×** | inverted — cannot pass; excluded (#2127) |
-| `CommandLatencyTests`, `SignalRRevocationIntegrationTests`, `OverlayPushIntegrationTests`, `ReconnectReconcileIntegrationTests`, `NFR002_AuditSearchLatencyTests`, `NFR002_MqttConnectAuthTests` p99, `AelInterpreterBenchmarkTests` ×2 | various | **never recorded** | — | **UNKNOWN** |
+| `CommandLatencyTests`, `SignalRRevocationIntegrationTests`, `OverlayPushIntegrationTests`, `ReconnectReconcileIntegrationTests`, `NFR002_AuditSearchLatencyTests`, `AelInterpreterBenchmarkTests` ×2 | various | **never recorded** | — | **UNKNOWN** |
+
+**Amended 2026-09-11 (#2148).** The `NFR002_MqttConnectAuthTests` p50 row now
+carries the figure the budget is actually enforced against, and that test's p99
+has left the UNKNOWN row: four green `develop` runs measured **4.53–8.88 ms**
+against the 50 ms ceiling. That ceiling is a wall-clock gross-regression guard,
+**not** NFR-002's 5 ms auth-overhead p99 (ADR-0100, `specs/008-…/spec.md:425`);
+the two numbers straddle each other and measure different things. The runs, their
+ids and the ≈ 14× CI-to-dev-box ratio are in
+`specs/136-the-figure-is-from-ci/spec.md`.
 
 **`NFR_VariableResolutionLatencyTests` is looser than the case the issue leads
 with** — 133×, against the 60× that opens the issue's table. Its own task note
@@ -327,7 +336,7 @@ deliberate."
 | F11 | `ReconnectReconcileIntegrationTests` `elapsed < 5 s` | the poll loop is bounded by the same token the threshold comes from — **a tripwire wired to its own timeout** | **No** — and **not on the issue's list**; found by this census | **New issue** |
 | F12 | `NFR_VariableResolutionLatencyTests` 800 ms vs 6 ms | **133×** — looser than the 60× case the issue leads with | **No**, though declared at the time | **New issue** |
 | F13 | 9 of 16 budgets | the observation was **never written down**; 4 sit under a spec that promised to record it | **No** | **New issue** |
-| F14 | `NFR002_MqttConnectAuthTests` p50 15 ms vs 17.58 ms | the inverse defect — threshold *below* observation, has gone red | **No** | **New issue** |
+| ~~F14~~ | ~~`NFR002_MqttConnectAuthTests` p50 15 ms vs 17.58 ms~~ | **VOID (#2148, 2026-09-11)** — no inversion exists. 17.58 ms was read off-CI, where `BudgetsApplyHere` leaves the assertion inert, so it was never an observation of the enforced budget. On CI the p50 is 1.98–2.29 ms, a **6.6×–7.6×** margin. Kept as a void row rather than deleted, so the finding is visibly examined. | **Yes** — the gate did its job; the record described it wrongly | #2148, closed by spec 136 |
 | F15 | `SfuLatencyIsReadableTests` | maps to §IV *Camera → SFU* but reads **no latency figure at all** | unclear | **New issue** |
 
 ---

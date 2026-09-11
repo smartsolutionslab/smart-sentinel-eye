@@ -209,10 +209,14 @@ Build              0 warnings, 0 errors
 Two notes on the runs themselves. The Aspire fixture failed to boot twice, both
 times on a run started immediately after a previous one — 223 Polly timeouts in
 under two minutes, which is a stack that never came up rather than 223 defects.
-A re-run on a settled machine passed. And the MQTT `CONNECT→CONNACK` p50 breached
-its 15 ms budget (17.58 ms) on the run before the health-check connection leak
-was fixed, and passed after. That is consistent with the leak but not proof of
-it.
+A re-run on a settled machine passed. And the MQTT `CONNECT→CONNACK` p50 was
+reported at 17.58 ms on the run before the health-check connection leak was
+fixed. That reading is off-CI, where `BudgetsApplyHere` is false and the test
+reports without enforcing (#1905): it neither breached the 15 ms budget nor — on
+the run after — passed it, because the assertion never ran in either. The figure
+is consistent with the leak but not proof of it. Where the budget is live, four
+green `develop` runs of `ci.yml` measured p50 1.98–2.29 ms, a 6.6×–7.6× margin
+(#2148, `specs/136-the-figure-is-from-ci/spec.md`).
 
 ## What this feature does not do
 
