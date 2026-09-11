@@ -237,8 +237,11 @@ public static class SystemVariableEndpoints
         }
 
         OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
+        // None: an operator setting a value by hand has no plant-floor event at
+        // the root of it, so this effect opens no `event → overlay state` leg
+        // and the push it causes is correctly left untimed (#2173).
         SetVariableValueCommand command = new(
-            fab, parsed, body.Value, actingOperator, Option<int>.Some(expectedVersion));
+            fab, parsed, body.Value, actingOperator, Option<int>.Some(expectedVersion), Option<DateTimeOffset>.None);
         Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(command, cancellationToken);
 
         return result.Match<IResult>(onSuccess: identifier => Results.Ok(identifier.Value), onFailure: error => error.ToProblem());

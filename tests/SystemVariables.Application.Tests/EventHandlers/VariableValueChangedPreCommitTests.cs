@@ -69,7 +69,8 @@ public class VariableValueChangedPreCommitTests
                 new VariableValue.NumberValue(82.5),
                 FixedMoment,
                 OperatorIdentifier.From(Guid.CreateVersion7()),
-                BooleanLabels: null),
+                BooleanLabels: null,
+                RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
         ResolvedOverlayTextChangedV1 push =
@@ -119,7 +120,8 @@ public class VariableValueChangedPreCommitTests
                 new VariableValue.NumberValue(82.5),
                 FixedMoment,
                 OperatorIdentifier.From(Guid.CreateVersion7()),
-                BooleanLabels: null),
+                BooleanLabels: null,
+                RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
         ResolvedOverlayTextChangedV1 push =

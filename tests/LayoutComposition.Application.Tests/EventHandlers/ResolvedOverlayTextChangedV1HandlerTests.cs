@@ -46,7 +46,7 @@ public class ResolvedOverlayTextChangedV1HandlerTests
     {
         FakeLayoutLifecycleBroadcaster broadcaster = new();
         ResolvedOverlayTextChangedV1Handler handler = new(
-            broadcaster, NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
+            broadcaster, new RecordingLatencyBudget(), NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
 
         Guid overlay = Guid.CreateVersion7();
         ResolvedOverlayTextChangedV1 message = new(
@@ -70,7 +70,7 @@ public class ResolvedOverlayTextChangedV1HandlerTests
     {
         FakeLayoutLifecycleBroadcaster broadcaster = new();
         ResolvedOverlayTextChangedV1Handler handler = new(
-            broadcaster, NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
+            broadcaster, new RecordingLatencyBudget(), NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
 
         await handler.Handle(
             new ResolvedOverlayTextChangedV1(
@@ -95,7 +95,7 @@ public class ResolvedOverlayTextChangedV1HandlerTests
         // last hop.
         FakeLayoutLifecycleBroadcaster broadcaster = new();
         ResolvedOverlayTextChangedV1Handler handler = new(
-            broadcaster, NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
+            broadcaster, new RecordingLatencyBudget(), NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
 
         await handler.Handle(
             new ResolvedOverlayTextChangedV1(
@@ -135,7 +135,7 @@ public class ResolvedOverlayTextChangedV1HandlerTests
         };
 
         ResolvedOverlayTextChangedV1Handler handler = new(
-            broadcaster, NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
+            broadcaster, latency, NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
 
         await handler.Handle(
             new ResolvedOverlayTextChangedV1(
@@ -170,7 +170,7 @@ public class ResolvedOverlayTextChangedV1HandlerTests
         RecordingLatencyBudget latency = new();
         FakeLayoutLifecycleBroadcaster broadcaster = new();
         ResolvedOverlayTextChangedV1Handler handler = new(
-            broadcaster, NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
+            broadcaster, latency, NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
 
         await handler.Handle(
             new ResolvedOverlayTextChangedV1(
@@ -198,7 +198,7 @@ public class ResolvedOverlayTextChangedV1HandlerTests
         RecordingLatencyBudget latency = new();
         FakeLayoutLifecycleBroadcaster broadcaster = new();
         ResolvedOverlayTextChangedV1Handler handler = new(
-            broadcaster, NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
+            broadcaster, latency, NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
 
         await handler.Handle(
             new ResolvedOverlayTextChangedV1(

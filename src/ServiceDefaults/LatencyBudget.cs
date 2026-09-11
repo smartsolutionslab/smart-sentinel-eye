@@ -179,6 +179,25 @@ public sealed record LatencySegment
     /// recordable, and the fragment is gone rather than left beside it as a
     /// second thing someone could pick by mistake.
     /// </para>
+    ///
+    /// <para>
+    /// <b>It took until #2173 for that to be true of both effects.</b> One
+    /// ingested event fans out into two: a highlight, timed at the push since
+    /// spec 025, and a variable, timed at the *value write* — a prefix ending
+    /// before an outbox relay, a broker hop and a context boundary that #2072
+    /// measured at 555 ms and 758 ms. So this segment carried two spans under
+    /// one name, and the shorter one was the reason a 200 ms budget could be
+    /// breached threefold without the series saying so. Both now stop at the
+    /// push.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>A reading from before 2026-09-11 is not comparable with one after.</b>
+    /// The step is the instrument lengthening, not the system slowing. There is
+    /// no retained series to annotate — the only sink is the dev/CI dashboard
+    /// and it does not outlive its process (ADR-0118) — so this paragraph is
+    /// where that is recorded.
+    /// </para>
     /// </summary>
     public static readonly LatencySegment EventToOverlayState =
         new("event-to-overlay-state", "event-to-overlay-state", 200, isWholeLeg: true);

@@ -1,3 +1,4 @@
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Domain.Tests.Variable.Builders;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
 using SmartSentinelEye.SystemVariables.Domain.Variable.Events;
@@ -83,12 +84,35 @@ public class VariableTests
         Domain.Variable.Variable v = b.Build();
         v.ClearPendingEvents();
 
-        v.SetValue(new VariableValue.NumberValue(99.0), b.Operator, b.Clock);
+        v.SetValue(new VariableValue.NumberValue(99.0), b.Operator, b.Clock, Option<DateTimeOffset>.None);
 
         v.Value.ShouldBeOfType<VariableValue.NumberValue>().Value.ShouldBe(99.0);
         VariableValueChangedDomainEvent evt =
             v.PendingEvents.OfType<VariableValueChangedDomainEvent>().ShouldHaveSingleItem();
         evt.Value.ShouldBeOfType<VariableValue.NumberValue>().Value.ShouldBe(99.0);
+        evt.RootIngestedAt.ShouldBe(Option<DateTimeOffset>.None);
+    }
+
+    /// <summary>
+    /// Spec 133. The aggregate stores nothing here and no invariant reads it:
+    /// it passes through because the event is raised here, and the leg it opens
+    /// is closed in another context. Asserted with a moment that is neither the
+    /// clock's nor the builder's, so a stamp taken from either would fail.
+    /// </summary>
+    [Fact]
+    public void SetValue_stamps_the_causing_events_acceptance_moment_on_the_event()
+    {
+        VariableBuilder b = new VariableBuilder().OfType(VariableType.Number);
+        Domain.Variable.Variable v = b.Build();
+        v.ClearPendingEvents();
+
+        DateTimeOffset accepted = b.Clock.UtcNow.AddMilliseconds(-750);
+        v.SetValue(new VariableValue.NumberValue(99.0), b.Operator, b.Clock, Option<DateTimeOffset>.Some(accepted));
+
+        VariableValueChangedDomainEvent evt =
+            v.PendingEvents.OfType<VariableValueChangedDomainEvent>().ShouldHaveSingleItem();
+        evt.RootIngestedAt.ShouldBe(Option<DateTimeOffset>.Some(accepted));
+        evt.ChangedAt.ShouldNotBe(accepted, "the two moments are the ends of the leg, not one field reused");
     }
 
     [Fact]
@@ -97,7 +121,7 @@ public class VariableTests
         VariableBuilder b = new VariableBuilder().OfType(VariableType.Number);
         Domain.Variable.Variable v = b.Build();
 
-        Action act = () => v.SetValue(new VariableValue.StringValue("nope"), b.Operator, b.Clock);
+        Action act = () => v.SetValue(new VariableValue.StringValue("nope"), b.Operator, b.Clock, Option<DateTimeOffset>.None);
         act.ShouldThrow<ArgumentException>();
     }
 
@@ -108,7 +132,7 @@ public class VariableTests
         Domain.Variable.Variable v = b.Build();
         v.Archive(b.Operator, b.Clock);
 
-        Action act = () => v.SetValue(new VariableValue.NumberValue(1.0), b.Operator, b.Clock);
+        Action act = () => v.SetValue(new VariableValue.NumberValue(1.0), b.Operator, b.Clock, Option<DateTimeOffset>.None);
         act.ShouldThrow<InvalidOperationException>();
     }
 

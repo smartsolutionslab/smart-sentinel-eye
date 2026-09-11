@@ -39,7 +39,7 @@ public class SetVariableValueCommandHandlerTests
             new SetVariableValueCommand(
                 FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"), "82.4",
-                OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.Some(0)),
+                OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.Some(0), Option<DateTimeOffset>.None),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -57,7 +57,7 @@ public class SetVariableValueCommandHandlerTests
             new SetVariableValueCommand(
                 FabIdentifier.From("munich"),
                 VariableName.From("ghost"), "1.0",
-                OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.Some(0)),
+                OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.Some(0), Option<DateTimeOffset>.None),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -75,7 +75,7 @@ public class SetVariableValueCommandHandlerTests
             new SetVariableValueCommand(
                 FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"), "not-a-number",
-                OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.Some(0)),
+                OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.Some(0), Option<DateTimeOffset>.None),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();

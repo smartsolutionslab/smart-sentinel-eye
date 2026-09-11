@@ -100,7 +100,18 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
     /// Replaces the current value. Must match the variable's declared
     /// type. Only callable while <c>Defined</c>.
     /// </summary>
-    public void SetValue(VariableValue value, OperatorIdentifier changedBy, IClock clock)
+    /// <param name="rootIngestedAt">
+    /// When the plant-floor event that caused this set was accepted, when there
+    /// was one. Stamped onto the raised event and stored nowhere: no invariant
+    /// reads it, exactly as <paramref name="clock"/> exists only to stamp
+    /// <c>ChangedAt</c>. It has to pass through here because the event is raised
+    /// here, and because the leg it opens is closed in another context (#2173).
+    /// </param>
+    public void SetValue(
+        VariableValue value,
+        OperatorIdentifier changedBy,
+        IClock clock,
+        Option<DateTimeOffset> rootIngestedAt)
     {
         Ensure.That(value).IsNotNull();
         Ensure.That(clock).IsNotNull();
@@ -112,7 +123,7 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
         EnsureValueMatchesType(Type, value);
         Value = value;
         Raise(new VariableValueChangedDomainEvent(
-            Id, Fab, Name, Type, value, clock.UtcNow, changedBy, BooleanLabels));
+            Id, Fab, Name, Type, value, clock.UtcNow, changedBy, BooleanLabels, rootIngestedAt));
     }
 
     /// <summary>

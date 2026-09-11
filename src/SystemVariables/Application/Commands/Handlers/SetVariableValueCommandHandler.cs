@@ -16,7 +16,7 @@ public sealed class SetVariableValueCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (FabIdentifier? fab, VariableName? name, string? wireValue, OperatorIdentifier changedBy, Option<int> expectedVersion) = command;
+        (FabIdentifier? fab, VariableName? name, string? wireValue, OperatorIdentifier changedBy, Option<int> expectedVersion, Option<DateTimeOffset> rootIngestedAt) = command;
 
         Option<Variable> found = await variables.GetByNameAsync(fab, name, cancellationToken);
         if (!found.HasValue)
@@ -55,7 +55,7 @@ public sealed class SetVariableValueCommandHandler(
             return Failure(SetVariableValueFailures.VariableTypeMismatch(variable.Type.Value, ex.Message));
         }
 
-        variable.SetValue(typedValue, changedBy, clock);
+        variable.SetValue(typedValue, changedBy, clock, rootIngestedAt);
         await variables.SaveAsync(cancellationToken);
 
         logger.SetVariable(variable.Id, name, wireValue, changedBy);

@@ -35,7 +35,7 @@ public class VariableValueChangedDomainEventHandlerTests
             new VariableValueChangedDomainEvent(
                 id, FabIdentifier.From("munich"), VariableName.From("oeeLine1"), VariableType.Number,
                 new VariableValue.NumberValue(82.5), FixedMoment,
-                OperatorIdentifier.From(Guid.CreateVersion7()), BooleanLabels: null),
+                OperatorIdentifier.From(Guid.CreateVersion7()), BooleanLabels: null, RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
         SystemVariableValueChangedV1 v1 = bus.Published.OfType<SystemVariableValueChangedV1>()
@@ -68,7 +68,7 @@ public class VariableValueChangedDomainEventHandlerTests
             new VariableValueChangedDomainEvent(
                 VariableIdentifier.New(), FabIdentifier.From("munich"), VariableName.From("orphan"),
                 VariableType.String, new VariableValue.StringValue("v"), FixedMoment,
-                OperatorIdentifier.From(Guid.CreateVersion7()), BooleanLabels: null),
+                OperatorIdentifier.From(Guid.CreateVersion7()), BooleanLabels: null, RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
         bus.Published.OfType<SystemVariableValueChangedV1>().ShouldHaveSingleItem();

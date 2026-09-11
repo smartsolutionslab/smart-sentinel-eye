@@ -71,7 +71,7 @@ public class SystemVariableValueRequestedV1HandlerTests
 
         FakeDedupStore dedup = new();
         SystemVariableValueRequestedV1Handler handler = new(
-            dedup, BuildSetHandler(repo), new RecordingLatencyBudget(),
+            dedup, BuildSetHandler(repo),
             NullLogger<SystemVariableValueRequestedV1Handler>.Instance);
 
         await handler.Handle(
@@ -91,7 +91,7 @@ public class SystemVariableValueRequestedV1HandlerTests
 
         FakeDedupStore dedup = new();
         SystemVariableValueRequestedV1Handler handler = new(
-            dedup, BuildSetHandler(repo), new RecordingLatencyBudget(),
+            dedup, BuildSetHandler(repo),
             NullLogger<SystemVariableValueRequestedV1Handler>.Instance);
 
         Guid causing = Guid.CreateVersion7();
@@ -138,7 +138,7 @@ public class SystemVariableValueRequestedV1HandlerTests
         FakeDedupStore dedup = new();
         CapturingLogger<SystemVariableValueRequestedV1Handler> logger = new();
         SystemVariableValueRequestedV1Handler handler = new(
-            dedup, BuildSetHandler(repo), new RecordingLatencyBudget(), logger);
+            dedup, BuildSetHandler(repo), logger);
 
         // The handler should not throw; it logs + returns.
         await handler.Handle(
@@ -249,7 +249,7 @@ public class SystemVariableValueRequestedV1HandlerTests
 
         CapturingLogger<SystemVariableValueRequestedV1Handler> logger = new();
         SystemVariableValueRequestedV1Handler handler = new(
-            new FakeDedupStore(), BuildSetHandler(repo), new RecordingLatencyBudget(), logger);
+            new FakeDedupStore(), BuildSetHandler(repo), logger);
 
         await handler.Handle(
             new SystemVariableValueRequestedV1(
@@ -274,14 +274,14 @@ public class SystemVariableValueRequestedV1HandlerTests
         Seed(repo, "munich", 1);
 
         CapturingLogger<SystemVariableValueRequestedV1Handler> noFab = new();
-        await new SystemVariableValueRequestedV1Handler(new FakeDedupStore(), BuildSetHandler(repo), new RecordingLatencyBudget(), noFab)
+        await new SystemVariableValueRequestedV1Handler(new FakeDedupStore(), BuildSetHandler(repo), noFab)
             .Handle(
                 new SystemVariableValueRequestedV1(
                     "oeeLine1", "1", Moment, Guid.CreateVersion7(), MetadataFor(null!)),
                 CancellationToken.None);
 
         CapturingLogger<SystemVariableValueRequestedV1Handler> badName = new();
-        await new SystemVariableValueRequestedV1Handler(new FakeDedupStore(), BuildSetHandler(repo), new RecordingLatencyBudget(), badName)
+        await new SystemVariableValueRequestedV1Handler(new FakeDedupStore(), BuildSetHandler(repo), badName)
             .Handle(
                 new SystemVariableValueRequestedV1(
                     "1bad", "1", Moment, Guid.CreateVersion7(), TestMetadata),
@@ -303,40 +303,6 @@ public class SystemVariableValueRequestedV1HandlerTests
         repo.Add(variable);
 
         return variable;
-    }
-
-    /// <summary>
-    /// Spec 025 FR-005 / SC-006. The leg is only measurable when the effect has
-    /// a plant-floor root; an operator setting a value by hand has none.
-    ///
-    /// <para>
-    /// The failure this prevents is not a crash. It is a <c>0 ms</c> in the
-    /// distribution — a perfect score for a journey nobody timed, which would
-    /// drag a p99 down and make a breached budget look met. Silence that reads
-    /// as success is the shape this programme keeps meeting.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public async Task An_effect_with_no_plant_floor_root_is_not_timed()
-    {
-        InMemoryVariableRepository repo = new();
-        Seed(repo, "munich", 1);
-
-        RecordingLatencyBudget latency = new();
-        SystemVariableValueRequestedV1Handler handler = new(
-            new FakeDedupStore(), BuildSetHandler(repo), latency,
-            NullLogger<SystemVariableValueRequestedV1Handler>.Instance);
-
-        // MetadataFor leaves RootIngestedAt null, which is what a message
-        // published before spec 025 — or by a path with no root — carries.
-        await handler.Handle(
-            new SystemVariableValueRequestedV1(
-                "oeeLine1", "82.5", Moment, Guid.CreateVersion7(), MetadataFor("munich")),
-            CancellationToken.None);
-
-        latency.Recorded.ShouldHaveSingleItem().ShouldBeNull(
-            "the handler must hand the absent moment to the budget and let it decide, "
-            + "rather than substituting a zero that would read as an instant journey");
     }
 
     /// <summary>
@@ -373,7 +339,7 @@ public class SystemVariableValueRequestedV1HandlerTests
             : Task.CompletedTask;
 
         SystemVariableValueRequestedV1Handler handler = new(
-            new FakeDedupStore(), BuildSetHandler(repo), new RecordingLatencyBudget(),
+            new FakeDedupStore(), BuildSetHandler(repo),
             NullLogger<SystemVariableValueRequestedV1Handler>.Instance);
 
         await handler.Handle(
@@ -391,6 +357,6 @@ public class SystemVariableValueRequestedV1HandlerTests
     }
 
     private static SystemVariableValueRequestedV1Handler BuildHandler(InMemoryVariableRepository repo) =>
-        new(new FakeDedupStore(), BuildSetHandler(repo), new RecordingLatencyBudget(),
+        new(new FakeDedupStore(), BuildSetHandler(repo),
             NullLogger<SystemVariableValueRequestedV1Handler>.Instance);
 }
