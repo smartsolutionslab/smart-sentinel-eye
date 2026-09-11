@@ -18,8 +18,14 @@ No per-task issues — that stopped after spec 028.
 - [x] **T004** `ResolvedOverlayTextChangedV1HandlerTests`: a frame with no root
   hands the absent moment to the budget rather than a zero; a frame with no fab
   is not broadcast and records nothing.
-- [x] **T005** `SystemVariableValueRequestedV1HandlerTests`: the value write
-  reports no measurement — the leg is not terminated there. **RED — it reports one today.**
+- [x] **T005** ~~`SystemVariableValueRequestedV1HandlerTests`: the value write
+  reports no measurement.~~ **Changed during 4a, and the change is recorded
+  rather than quietly made.** It cannot be written: the handler loses its
+  `ILatencyBudget` parameter entirely, so any test injecting one stops
+  compiling — there is no assertion that is legal both before and after. The
+  fact is carried instead by the handler's constructor no longer naming the
+  dependency, and by `An_effect_with_no_plant_floor_root_is_not_timed` moving to
+  the handler that now owns the measurement with its assertion unchanged.
 - [x] **T006** `SystemVariableValueRequestedV1HandlerTests` (or the command/domain
   handler tests): the acceptance moment survives from the requested message to
   the published `ResolvedOverlayTextChangedV1`. **RED — null today.**
@@ -48,7 +54,7 @@ No per-task issues — that stopped after spec 028.
 ## Phase 5 — verification
 
 - [x] **T017** `dotnet build -c Release` clean (AppHost stopped first — MSB3027).
-- [x] **T018** Four test projects green; counts recorded.
+- [x] **T018** Nine test projects green; counts recorded.
 - [x] **T019** `verification.md` — red verbatim, green, counterfactual, what the
   instrument measures now, and that no leg's actual cost changed.
 
