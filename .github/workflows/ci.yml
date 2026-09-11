@@ -257,8 +257,17 @@ jobs:
       - name: Run the Playwright e2e suite
         run: pnpm test:e2e
 
-      - name: AppHost log (on failure)
-        if: failure()
+      # `failure()` is false when the job is cancelled, and a job-level
+      # `timeout-minutes` expiry is a cancellation. Run 33623647778's e2e job
+      # hit the 40-minute timeout, so this step was skipped and apphost.log was
+      # discarded — on exactly the failure it exists to explain (#2137). The
+      # two `always()` siblings below ran in that same job, which is what says
+      # the guard rather than the runner was the problem.
+      #
+      # Not `always()`: that would print 300 lines on every green run. These
+      # two conditions are the cases the step is for.
+      - name: AppHost log (on failure or cancellation)
+        if: failure() || cancelled()
         run: tail -n 300 apphost.log || true
 
       - name: Stop the AppHost
