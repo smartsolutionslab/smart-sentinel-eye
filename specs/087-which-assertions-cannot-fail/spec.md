@@ -335,7 +335,7 @@ deliberate."
 | F10 | `A_reconnect_…_backoff` 4 ms cap vs 500 ms window | passes whether or not the reset happens | **No** | **New issue** |
 | F11 | `ReconnectReconcileIntegrationTests` `elapsed < 5 s` | the poll loop is bounded by the same token the threshold comes from — **a tripwire wired to its own timeout** | **No** — and **not on the issue's list**; found by this census | **New issue** |
 | F12 | `NFR_VariableResolutionLatencyTests` 800 ms vs 6 ms | **133×** — looser than the 60× case the issue leads with | **No**, though declared at the time | **New issue** |
-| F13 | 9 of 16 budgets | the observation was **never written down**; 4 sit under a spec that promised to record it | **No** | **New issue** |
+| F13 | 9 of 16 budgets | the observation was **never written down**; 4 sit under a spec that promised to record it. **Nine as of the census; eight from 2026-09-11**, when #2148 recorded NFR-002's CI figure — `census.md` §2d item 7, struck, and §2c's amended row | **No** | **New issue** |
 | ~~F14~~ | ~~`NFR002_MqttConnectAuthTests` p50 15 ms vs 17.58 ms~~ | **VOID (#2148, 2026-09-11)** — no inversion exists. 17.58 ms was read off-CI, where `BudgetsApplyHere` leaves the assertion inert, so it was never an observation of the enforced budget. On CI the p50 is 1.98–2.29 ms, a **6.6×–7.6×** margin. Kept as a void row rather than deleted, so the finding is visibly examined. | **Yes** — the gate did its job; the record described it wrongly | #2148, closed by spec 136 |
 | F15 | `SfuLatencyIsReadableTests` | maps to §IV *Camera → SFU* but reads **no latency figure at all** | unclear | **New issue** |
 
