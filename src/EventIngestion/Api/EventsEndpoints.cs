@@ -37,6 +37,7 @@ public static partial class EventsEndpoints
                 + "means it is readable at the Location (spec 020 FR-001). "
                 + "Required scope: sse.events.write")
             .Produces<Guid>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             // 409 is the idempotency guard's, not the write's: this route inserts,
@@ -80,6 +81,7 @@ public static partial class EventsEndpoints
             .WithName("ListEvents")
             .WithSummary("List events from the fabs you hold. Required scope: sse.events.read")
             .Produces<EventPageDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
@@ -87,6 +89,7 @@ public static partial class EventsEndpoints
             .WithName("GetEvent")
             .WithSummary("Read one event by its identifier, within the fabs you hold. Required scope: sse.events.read")
             .Produces<EventDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status403Forbidden);
@@ -98,6 +101,7 @@ public static partial class EventsEndpoints
                 + "not be established from its address is returned to nobody (spec 018 FR-011). "
                 + "Required scope: sse.events.read")
             .Produces<IReadOnlyList<DeadLetterDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 

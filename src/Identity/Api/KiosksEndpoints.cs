@@ -40,6 +40,7 @@ public static class KiosksEndpoints
             .WithName("EnrollKiosk")
             .WithSummary("Enroll a new kiosk in the fab. Required scope: sse.identity.kiosks.write")
             .Produces<KioskCredentialsDto>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict);
@@ -51,6 +52,7 @@ public static class KiosksEndpoints
             .WithName("DisableKiosk")
             .WithSummary("Disable an enrolled kiosk. Required scope: sse.identity.kiosks.write")
             .Produces<Guid>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -64,6 +66,7 @@ public static class KiosksEndpoints
             .WithName("ListKiosks")
             .WithSummary("List enrolled kiosks, optionally filtered by fab. Required scope: sse.identity.kiosks.read")
             .Produces<IReadOnlyList<RegisteredClientSummaryDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 

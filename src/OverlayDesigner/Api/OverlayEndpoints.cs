@@ -41,6 +41,7 @@ public static partial class OverlayEndpoints
                 "Create a new overlay chain, with its first revision in Draft. "
                 + "Required scope: sse.overlays.write")
             .Produces<Guid>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status403Forbidden);
@@ -50,6 +51,7 @@ public static partial class OverlayEndpoints
             .WithName("GetOverlay")
             .WithSummary("Read one overlay chain by its identifier. Required scope: sse.overlays.read")
             .Produces<OverlayDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
@@ -59,6 +61,7 @@ public static partial class OverlayEndpoints
             .WithName("ListOverlays")
             .WithSummary("List overlay chains. Required scope: sse.overlays.read")
             .Produces<ListOverlaysResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
@@ -69,6 +72,7 @@ public static partial class OverlayEndpoints
                 "Publish a Draft revision of an overlay, archiving the previously published one in "
                 + "the same unit of work. Required scope: sse.overlays.write")
             .Produces<int>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -80,6 +84,7 @@ public static partial class OverlayEndpoints
             .WithName("ArchiveOverlayRevision")
             .WithSummary("Archive a revision of an overlay. Required scope: sse.overlays.write")
             .Produces<int>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -93,6 +98,7 @@ public static partial class OverlayEndpoints
                 "Branch a new Draft revision off the overlay chain's current Published revision. "
                 + "Required scope: sse.overlays.write")
             .Produces<int>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -106,6 +112,7 @@ public static partial class OverlayEndpoints
                 "Edit a Draft revision's label in place. "
                 + "Required scope: sse.overlays.write")
             .Produces<int>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -119,6 +126,7 @@ public static partial class OverlayEndpoints
                 "Revert a Published overlay revision to Draft. "
                 + "Required scope: sse.overlays.write")
             .Produces<int>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest)
