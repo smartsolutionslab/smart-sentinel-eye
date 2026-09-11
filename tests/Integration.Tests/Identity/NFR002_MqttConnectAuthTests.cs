@@ -88,6 +88,28 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire, ITestOutputHelper
     /// evidence behind <see cref="BudgetsApplyHere"/> rather than a claim about
     /// it.
     /// </para>
+    ///
+    /// <para>
+    /// <b>And on CI, where the thresholds are live.</b> Four green <c>develop</c>
+    /// runs of <c>ci.yml</c> (2026-09-11), read out of the uploaded
+    /// <c>integration.trx</c> — runs 34631985515, 34607694151, 34589148935,
+    /// 34573183563, each line ending <c>(budgets enforced)</c> — measured
+    /// <b>p50 1.98 / 2.21 / 2.29 / 2.11 ms</b> against the 15 ms median budget
+    /// (<b>6.6×–7.6×</b> margin) and <b>p99 8.88 / 4.53 / 6.72 / 4.84 ms</b>
+    /// against the 50 ms ceiling (<b>5.6×–11.0×</b>). The dev box above is
+    /// therefore about <b>14× slower on both percentiles</b> — the measured
+    /// size of what this gate excludes, and the evidence for #1905 rather than
+    /// a claim about it (#2148).
+    /// </para>
+    ///
+    /// <para>
+    /// <b>That CI p99 is not NFR-002.</b> 4.53–8.88 ms straddles NFR-002's
+    /// 5 ms, and the two measure different things: NFR-002 is auth overhead on
+    /// production hardware (ADR-0100, <c>specs/008-…/spec.md:425</c>), while
+    /// this figure is a fresh TCP connect plus the MQTT handshake through the
+    /// container host proxy on a shared runner, gated only against gross
+    /// regression. Reading one as the other is the misreading #2148 records.
+    /// </para>
     /// </remarks>
     private static bool BudgetsApplyHere =>
         Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
