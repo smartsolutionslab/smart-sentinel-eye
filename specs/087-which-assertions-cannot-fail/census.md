@@ -190,6 +190,10 @@ re-sorted into margin order, so cites to `:177` still land on it.
 
 ### 2d — the nine UNKNOWNs, and the four that were promised
 
+**Nine as of the census; eight from 2026-09-11**, when #2148 recorded NFR-002's
+CI figure and struck item 7 below. The heading keeps the census-day count; item
+7 and §2c's amended row carry the figure and its run ids.
+
 Enforced against a number recorded nowhere in the tree:
 
 1. `WhepHandshakeLatencyTests` 3000 ms — no run's figure is recorded anywhere,
