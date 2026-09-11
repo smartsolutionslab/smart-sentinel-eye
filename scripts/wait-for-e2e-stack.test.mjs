@@ -43,10 +43,12 @@ const sleepStub = `#!/usr/bin/env bash
 exit 0
 `;
 
-// $STUB_DATABASES_WITH_HISTORY is the set of databases whose
-// __EFMigrationsHistory table exists and carries rows; anything else answers
-// the way psql does when the relation is not there. $STUB_NO_CONTAINER hides
-// the postgres container altogether.
+// Answers the one exec the script makes per poll with a `<database>=<rows>`
+// line each, the way psql-inside-the-container does.
+// $STUB_DATABASES_WITH_HISTORY is the set whose __EFMigrationsHistory table
+// exists and carries rows; the rest answer `none`, which is what the script
+// sees when the relation is not there. $STUB_NO_CONTAINER hides the postgres
+// container altogether.
 const dockerStub = `#!/usr/bin/env bash
 case "$1" in
   ps)
@@ -54,15 +56,13 @@ case "$1" in
     echo "stubpostgres"
     ;;
   exec)
-    for argument in "$@"; do
-      for database in \${STUB_DATABASES_WITH_HISTORY:-}; do
-        case "$argument" in
-          *"'$database'"*) echo "4"; exit 0 ;;
-        esac
+    for database in \${STUB_ALL_DATABASES:-}; do
+      rows=none
+      for migrated in \${STUB_DATABASES_WITH_HISTORY:-}; do
+        if [ "$migrated" = "$database" ]; then rows=4; fi
       done
+      printf '%s=%s\\n' "$database" "$rows"
     done
-    echo 'ERROR:  relation "__EFMigrationsHistory" does not exist' >&2
-    exit 1
     ;;
 esac
 exit 0
@@ -103,6 +103,7 @@ function runScript(environment) {
       ...process.env,
       PATH: `${stubs}${path.delimiter}${process.env.PATH}`,
       GITHUB_WORKSPACE: repositoryRoot,
+      STUB_ALL_DATABASES: allDatabases.join(' '),
       ...environment,
     },
   });
