@@ -1,5 +1,6 @@
 ---
 name: security-reviewer
+model: opus
 description: Reviews changes for security defects with this repo's actual auth model in hand (read-only) — Keycloak/OIDC, the sse.* scope catalogue and RequireScope, fab authorization, idempotency-key scoping, retry safety, secrets and trust boundaries. Reports a ranked findings list; never edits.
 tools: Glob, Grep, Read, Bash, WebFetch
 ---

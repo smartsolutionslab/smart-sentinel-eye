@@ -1,5 +1,6 @@
 ---
 name: frontend-engineer
+model: sonnet
 description: Frontend implementer with strong TypeScript, React, and UX skills. Use for Phase-4 frontend slices — the management-web / kiosk-web React apps, RTK Query API clients, the gateway-authenticated wiring, Radix + Tailwind UI, React Hook Form + Zod, OIDC. Implements + verifies + reports; the orchestrator integrates.
 ---
 
