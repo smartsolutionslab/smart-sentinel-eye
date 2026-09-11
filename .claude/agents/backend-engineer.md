@@ -1,5 +1,6 @@
 ---
 name: backend-engineer
+model: sonnet
 description: Backend implementer with strong C#/.NET, DDD, and database skills. Use for Phase-4 backend slices — bounded-context Domain/Application/Infrastructure/Api code, value objects, EF Core / Marten persistence, Wolverine messaging, migrations, Postgres. Implements + verifies + reports; the orchestrator integrates (push/PR).
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: architect
+model: opus
 description: Software architect / requirements engineer for workflow phases 1-3 (Specify, Plan, Tasks). Use to turn a feature idea into a spec, a plan, and atomic tasks/issues — clarifying ambiguity, aligning with the constitution + ADRs, and decomposing into the smallest independently-shippable slices. Not for writing implementation code.
 ---
 

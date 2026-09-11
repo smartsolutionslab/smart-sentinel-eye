@@ -1,5 +1,6 @@
 ---
 name: test-writer
+model: sonnet
 description: Writes tests that verify intended behaviour — unit (xUnit/Shouldly/Moq), integration (Aspire fixture), and Playwright e2e. Covers the happy path and the standard, expected cases for new or changed code. Pair with test-adversary for edge cases.
 ---
 

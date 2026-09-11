@@ -1,5 +1,6 @@
 ---
 name: frontend-reviewer
+model: opus
 description: Reviews frontend TypeScript/React changes (read-only). Checks RTK/auth wiring, the gateway client usage, accessibility/UX, Radix/Tailwind + RHF/Zod conventions, the disjoint-file rule, and e2e coverage. Reports a ranked findings list; never edits code.
 tools: Glob, Grep, Read, Bash, WebFetch
 ---

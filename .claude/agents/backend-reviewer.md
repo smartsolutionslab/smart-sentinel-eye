@@ -1,5 +1,6 @@
 ---
 name: backend-reviewer
+model: opus
 description: Reviews backend C#/.NET changes (read-only). Checks DDD/boundary correctness, value-object + guard usage, Result/Option, Wolverine/EF/Marten correctness, security at trust boundaries, coverage and code metrics. Reports a ranked findings list; never edits code.
 tools: Glob, Grep, Read, Bash, WebFetch
 ---

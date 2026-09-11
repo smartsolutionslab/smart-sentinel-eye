@@ -1,5 +1,6 @@
 ---
 name: infra-engineer
+model: sonnet
 description: Infrastructure implementer — .NET Aspire AppHost wiring, CI workflows, Docker, Keycloak/realm, the API gateway plumbing, observability, and k3s/Helm deploy. Use for Phase-4 infrastructure slices. Implements + verifies + reports; the orchestrator integrates.
 ---
 
