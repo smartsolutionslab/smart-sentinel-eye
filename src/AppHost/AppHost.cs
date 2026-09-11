@@ -433,23 +433,39 @@ var auditObservability = builder
     .WaitFor(keycloak)
     .WaitFor(minio);
 
+// Services must not boot until the schema exists — Wolverine builds its outbox
+// storage on startup (AutoBuildMessageStorageOnStartup), and this is the
+// services' only ordering against the data tier: WithReference injects a
+// connection string but waits for nothing.
+//
+// **Both lanes get this, and the `isE2ETests` conjunct is gone (#2137).** It
+// was scoped to the fixture on the reasoning that dev reuses a migrated volume
+// and gating would only cost startup time. That reads the cost and not the
+// failure: in run mode — a developer's `aspire run`, and the end-to-end CI job,
+// which also boots run mode — a `migrations` run that aborted let all nine
+// services start anyway, against a partial schema, reporting healthy. A stack
+// that misbehaves while claiming health is worse than one that refuses; the
+// fixture lane at least went red (#2064).
+//
+// The success path is not made more fragile by this. Every service already
+// waits for rabbitmq and keycloak, and `migrations` itself already waits for
+// all nine databases and keycloak, so nothing here can be reached that could
+// not be reached before — the services simply start a few seconds later, in an
+// order the graph half-imposed already. There is no database-less mode to
+// break: postgres is unconditional and every service references its own
+// database. `WaitForCompletion` defaults to expecting exit code 0, so an
+// aborted run is what stops them, not merely a finished one.
+foreach (IResourceBuilder<ProjectResource> dependent in new[]
+{
+    cameraCatalog, streamDistribution, layoutComposition, eventIngestion,
+    overlayDesigner, systemVariables, automation, identity, auditObservability,
+})
+{
+    dependent.WaitForCompletion(migrations);
+}
+
 if (isE2ETests)
 {
-    // Ephemeral containers mean an empty database every run, so services must
-    // not boot until the schema exists — Wolverine builds its outbox storage on
-    // startup (AutoBuildMessageStorageOnStartup). This is also the services'
-    // only ordering against the data tier: WithReference injects a connection
-    // string but waits for nothing. Dev reuses a migrated volume, where gating
-    // would only cost startup time.
-    foreach (IResourceBuilder<ProjectResource> dependent in new[]
-    {
-        cameraCatalog, streamDistribution, layoutComposition, eventIngestion,
-        overlayDesigner, systemVariables, automation, identity, auditObservability,
-    })
-    {
-        dependent.WaitForCompletion(migrations);
-    }
-
     // Sweep retention every few seconds in the integration suite so the
     // round-trip test isn't waiting on the production daily timer.
     auditObservability.WithEnvironment("AuditObservability__Retention__TickInterval", "00:00:03");
