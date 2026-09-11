@@ -246,10 +246,20 @@ green. Skipped-but-required is not green.
 - **Green** → merge **immediately**, even mid-phase on another issue:
   `gh pr merge <PR> --rebase --admin --delete-branch`, then confirm the
   issue actually closed, then move the board card to **Done**
-  (`98236657`). Standing authorization covers this merge; do not ask.
-  Then remove the worktree and **`git branch -D`** the local branch —
-  `--delete-branch` cannot delete a branch a worktree still holds, and
-  it says so rather than failing.
+  (`98236657`), then **take the eligibility label back off**:
+
+  ```sh
+  gh issue edit <N> --remove-label agent:ready
+  ```
+
+  A delivered issue has left the lane and must stop saying it is
+  enrolled in one. The board card is not the only reader: anything that
+  reasons from the label alone — a report, a future selector, a human
+  running `gh issue list --label agent:ready` — is told the wrong number
+  for every issue this step is skipped on. Standing authorization covers
+  this merge; do not ask. Then remove the worktree and **`git branch
+  -D`** the local branch — `--delete-branch` cannot delete a branch a
+  worktree still holds, and it says so rather than failing.
 - **Red** → **finish the issue in hand first.** Do not abandon a phase
   mid-flight; this workflow resumes worst from that state. When the
   current issue reaches its own PR or its blocked exit, hand the CI log

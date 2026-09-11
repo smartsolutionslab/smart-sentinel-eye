@@ -38,10 +38,10 @@ one first. The cap is not throughput management; it is how a conflicting
 branch gets found in hours rather than at the end of a run.
 
 **When a watcher reports, act on it immediately — mid-issue is fine for
-a merge.** Green → merge, close, card to Done, remove the worktree and
-`git branch -D` the local branch. Red → **finish the issue in hand
-first**, then retry once with the CI log, then block. Never abandon a
-phase mid-flight to chase a red build.
+a merge.** Green → merge, close, card to Done, **`agent:ready` off the
+issue**, remove the worktree and `git branch -D` the local branch. Red →
+**finish the issue in hand first**, then retry once with the CI log, then
+block. Never abandon a phase mid-flight to chase a red build.
 
 **After every merge, rebase every branch still parked**, in its own
 worktree:
