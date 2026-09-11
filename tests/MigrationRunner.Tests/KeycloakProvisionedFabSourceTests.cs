@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
 using SmartSentinelEye.MigrationRunner;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.MigrationRunner.Tests;
 
@@ -122,9 +123,9 @@ public class KeycloakProvisionedFabSourceTests
 
     private sealed class StubKeycloakAdminClient(string[] groupNames) : IKeycloakAdminClient
     {
-        public Task<IReadOnlyList<string>> GetSubGroupNamesAsync(
+        public Task<Option<IReadOnlyList<string>>> GetSubGroupNamesAsync(
             string parentPath, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<string>>(groupNames);
+            Task.FromResult(Option<IReadOnlyList<string>>.Some(groupNames));
 
         public Task<KeycloakClientCredentials> CreateClientAsync(
             KeycloakClientRepresentation representation, string fabGroupPath, CancellationToken cancellationToken) =>
@@ -153,7 +154,7 @@ public class KeycloakProvisionedFabSourceTests
 
     private sealed class ThrowingKeycloakAdminClient : IKeycloakAdminClient
     {
-        public Task<IReadOnlyList<string>> GetSubGroupNamesAsync(
+        public Task<Option<IReadOnlyList<string>>> GetSubGroupNamesAsync(
             string parentPath, CancellationToken cancellationToken) =>
             throw new HttpRequestException("realm unreachable");
 

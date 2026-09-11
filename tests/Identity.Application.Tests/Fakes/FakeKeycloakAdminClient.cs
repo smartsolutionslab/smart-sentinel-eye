@@ -204,7 +204,7 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyList<string>> GetSubGroupNamesAsync(
+    public Task<Option<IReadOnlyList<string>>> GetSubGroupNamesAsync(
         string parentPath, CancellationToken cancellationToken)
     {
         CallCount++;
@@ -213,8 +213,13 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
             ThrowAndClear();
         }
 
+        // A path this fake's realm does not hold is absent, not childless
+        // (#2139) — the dictionary miss is the fake's way of saying the group
+        // is not there, which is the case the empty list used to swallow.
         return Task.FromResult(
-            SubGroups.TryGetValue(parentPath, out IReadOnlyList<string>? names) ? names : []);
+            SubGroups.TryGetValue(parentPath, out IReadOnlyList<string>? names)
+                ? Option<IReadOnlyList<string>>.Some(names)
+                : Option<IReadOnlyList<string>>.None);
     }
 
     private void ThrowAndClear()
