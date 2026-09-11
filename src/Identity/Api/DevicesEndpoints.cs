@@ -40,6 +40,7 @@ public static class DevicesEndpoints
             .WithName("RegisterDevice")
             .WithSummary("Register a new PLC or inference device. Required scope: sse.identity.devices.write")
             .Produces<DeviceCredentialsDto>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict);
@@ -51,6 +52,7 @@ public static class DevicesEndpoints
             .WithName("DisableDevice")
             .WithSummary("Disable a registered device. Required scope: sse.identity.devices.write")
             .Produces<Guid>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -64,6 +66,7 @@ public static class DevicesEndpoints
             .WithName("ListDevices")
             .WithSummary("List registered devices, optionally filtered by fab. Required scope: sse.identity.devices.read")
             .Produces<IReadOnlyList<RegisteredClientSummaryDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 

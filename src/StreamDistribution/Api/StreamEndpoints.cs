@@ -39,6 +39,7 @@ public static class StreamEndpoints
                 + "is reported exactly as a camera with no stream (spec 016 FR-006). "
                 + "Required scope: sse.streams.read")
             .Produces<StreamHealthDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -50,6 +51,7 @@ public static class StreamEndpoints
                 "Batch-read stream health within your fabs. Omit fabId to span all of them; "
                 + "name one to narrow. Required scope: sse.streams.read")
             .Produces<IReadOnlyList<StreamHealthDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
@@ -94,6 +96,7 @@ public static class StreamEndpoints
                 + "elapsed time it already computed, never a start (ADR-0122). "
                 + "Required scope: sse.streams.read")
             .Produces(StatusCodes.Status202Accepted)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 

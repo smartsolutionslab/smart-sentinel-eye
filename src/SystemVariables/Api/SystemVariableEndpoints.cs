@@ -51,6 +51,7 @@ public static class SystemVariableEndpoints
                 + "outright — the same shape GET /cameras uses for retired ones. Every row carries its state. "
                 + "Required scope: sse.variables.read")
             .Produces<IReadOnlyList<VariableDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
@@ -63,6 +64,7 @@ public static class SystemVariableEndpoints
                 + "live update arrives. 404 if the overlay is unknown to your fabs. "
                 + "Required scope: sse.variables.read")
             .Produces<ResolvedOverlaySnapshotDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -74,6 +76,7 @@ public static class SystemVariableEndpoints
                 "Read one variable within your fabs. 400 if the name is held in more than one and none is named. "
                 + "Required scope: sse.variables.read")
             .Produces<VariableDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -85,6 +88,7 @@ public static class SystemVariableEndpoints
             .WithName("DefineSystemVariable")
             .WithSummary("Define a variable in the resolved fab. Required scope: sse.variables.write")
             .Produces<Guid>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict);
@@ -94,6 +98,7 @@ public static class SystemVariableEndpoints
             .WithName("SetSystemVariableValue")
             .WithSummary("Set a variable's value in the resolved fab. Required scope: sse.variables.write")
             .Produces<Guid>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -105,6 +110,7 @@ public static class SystemVariableEndpoints
             .WithName("ArchiveSystemVariable")
             .WithSummary("Archive a variable in the resolved fab. Required scope: sse.variables.write")
             .Produces<Guid>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)

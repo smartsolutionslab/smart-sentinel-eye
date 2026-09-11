@@ -42,6 +42,7 @@ public static class RulesEndpoints
             .WithName("CreateRule")
             .WithSummary("Author a rule. Omit fabId when you belong to exactly one fab; name it when you belong to several (ADR-0114). Required scope: sse.rules.write")
             .Produces<Guid>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict);
@@ -50,6 +51,7 @@ public static class RulesEndpoints
             .WithName("PublishRule")
             .WithSummary("Publish a rule. Requires If-Match with the rule's current version. Required scope: sse.rules.write")
             .Produces<Guid>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -60,6 +62,7 @@ public static class RulesEndpoints
             .WithName("ArchiveRule")
             .WithSummary("Archive a rule. Requires If-Match with the rule's current version. Required scope: sse.rules.write")
             .Produces<Guid>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -76,6 +79,7 @@ public static class RulesEndpoints
             .WithName("ListRules")
             .WithSummary("List rules in the fabs you are assigned to. Required scope: sse.rules.read")
             .Produces<IReadOnlyList<RuleDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
@@ -83,6 +87,7 @@ public static class RulesEndpoints
             .WithName("GetRule")
             .WithSummary("Read one rule by name, within the fabs you are assigned to. Required scope: sse.rules.read")
             .Produces<RuleDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -96,6 +101,7 @@ public static class RulesEndpoints
                 "Evaluate a rule against a sample event. A POST because it carries a body, but a read: "
                 + "nothing is persisted and no integration event is published. Required scope: sse.rules.read")
             .Produces<DryRunResultDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);

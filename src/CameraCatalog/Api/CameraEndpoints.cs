@@ -45,6 +45,7 @@ public static class CameraEndpoints
                 "Register a camera in the resolved fab. Omit fabId when you belong to exactly one fab; "
                 + "name it when you belong to several (ADR-0114). Required scope: sse.cameras.write")
             .Produces<Guid>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict);
@@ -66,6 +67,7 @@ public static class CameraEndpoints
                 "Retire a camera. Terminal, and idempotent — retiring one already retired succeeds. "
                 + "Its name becomes available again within its own fab. Required scope: sse.cameras.write")
             .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -89,6 +91,7 @@ public static class CameraEndpoints
                 + "its own version. Requires If-Match with the version from GET /cameras/{camera} or from a "
                 + "listing row. The fab and identifier are immutable. Required scope: sse.cameras.write")
             .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -111,6 +114,7 @@ public static class CameraEndpoints
                 "Read one camera by its identifier. Returns retired cameras too, with their status. "
                 + "The ETag carries the version to quote when changing it. Required scope: sse.cameras.read")
             .Produces<CameraDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -123,6 +127,7 @@ public static class CameraEndpoints
                 + "unless includeRetired=true; every row carries its status. "
                 + "Required scope: sse.cameras.read")
             .Produces<CameraListPageDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 

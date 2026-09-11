@@ -33,6 +33,7 @@ public static class AuditEndpoints
             .WithName("SearchAudit")
             .WithSummary("Cross-cutting audit search. Required scope: sse.audit.read")
             .Produces<AuditPageDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
@@ -40,6 +41,7 @@ public static class AuditEndpoints
             .WithName("GetResourceAuditTimeline")
             .WithSummary("Per-resource audit timeline. Required scope: sse.audit.read")
             .Produces<AuditPageDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
@@ -47,6 +49,7 @@ public static class AuditEndpoints
             .WithName("GetAuditEvent")
             .WithSummary("Single audit row + full payload. Required scope: sse.audit.read")
             .Produces<AuditRowDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);

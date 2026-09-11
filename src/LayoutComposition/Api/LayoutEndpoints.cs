@@ -48,6 +48,7 @@ public static partial class LayoutEndpoints
                 "Create a new layout chain in the resolved fab, with its first revision in Draft. "
                 + "Required scope: sse.layouts.write")
             .Produces<Guid>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status403Forbidden);
@@ -59,6 +60,7 @@ public static partial class LayoutEndpoints
                 "Read one layout chain by its identifier, within your fabs. "
                 + "Required scope: sse.layouts.read")
             .Produces<LayoutDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
@@ -68,6 +70,7 @@ public static partial class LayoutEndpoints
             .WithName("ListLayouts")
             .WithSummary("List layout chains in your fabs. Required scope: sse.layouts.read")
             .Produces<ListLayoutsResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
@@ -78,6 +81,7 @@ public static partial class LayoutEndpoints
                 "Publish a Draft revision of a layout, archiving the previously published one in the "
                 + "same unit of work. Required scope: sse.layouts.write")
             .Produces<int>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -89,6 +93,7 @@ public static partial class LayoutEndpoints
             .WithName("ArchiveRevision")
             .WithSummary("Archive a revision of a layout. Required scope: sse.layouts.write")
             .Produces<int>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -102,6 +107,7 @@ public static partial class LayoutEndpoints
                 "Branch a new Draft revision off the layout chain's current Published revision. "
                 + "Required scope: sse.layouts.write")
             .Produces<int>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -115,6 +121,7 @@ public static partial class LayoutEndpoints
                 "Replace a Draft revision's grid and tile set in place. "
                 + "Required scope: sse.layouts.write")
             .Produces<int>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -128,6 +135,7 @@ public static partial class LayoutEndpoints
                 "Revert a Published layout revision to Draft. "
                 + "Required scope: sse.layouts.write")
             .Produces<int>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status400BadRequest)
