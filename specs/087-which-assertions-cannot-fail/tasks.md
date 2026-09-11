@@ -133,8 +133,8 @@ to redo.
     observed; the inverse defect.~~ **Void (#2148, 2026-09-11):** 17.58 ms was
     an off-CI reading, taken where `BudgetsApplyHere` leaves the assertion
     inert, so it was never an observation of the enforced budget. On CI the p50
-    is 1.98–2.29 ms — a 6.6×–7.6× margin, COMFORTABLE. See `spec.md:330` and
-    `specs/136-the-figure-is-from-ci/`.
+    is 1.98–2.29 ms — a 6.6×–7.6× margin, COMFORTABLE. See F14 in `spec.md`'s
+    findings table and `specs/136-the-figure-is-from-ci/`.
   - **F15** `SfuLatencyIsReadableTests` maps to a §IV leg and reads no latency
     figure.
   - Depends on: nothing. May run in parallel with T003–T006 **[P]** — it touches
