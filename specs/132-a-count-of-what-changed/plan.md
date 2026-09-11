@@ -26,7 +26,7 @@ returns early; it now returns `false` there and `true` after a successful
 | `src/Identity/Application/KeycloakAdmin/IKeycloakAdminClient.cs` | `Task` → `Task<bool>`, with the meaning of the answer documented where the idempotence paragraph already is |
 | `src/Identity/Infrastructure/KeycloakAdmin/HttpKeycloakAdminClient.cs` | both overloads return the answer; the enrolment call site discards it (`_ = await …`) because a freshly-created account always holds the composite and a count there would report nothing new |
 | `src/Identity/Application/KeycloakAdmin/KioskPrivilegeSweep.cs` | count the `true` answers; guard the log on that count; `KioskSweepOutcome` carries it |
-| `src/Identity/Application/Log.cs` | message text only — the fields keep their names, so nothing an operator queries by moves |
+| `src/Identity/Application/Log.cs` | **comment only.** `"{StrippedCount} of {KioskCount}"` already reads true once the numerator means what it says, and the field names are what an operator queries by — moving either would be a second change wearing this one's clothes |
 | `tests/Identity.Infrastructure.Tests/Fakes/EnrolledKiosksKeycloakAdminClient.cs` | can express "this kiosk holds nothing" |
 | `tests/Identity.Application.Tests/Fakes/FakeKeycloakAdminClient.cs` | returns whether the strip changed anything — `HashSet.Add`'s own answer, which models the provider's idempotence exactly |
 | `tests/MigrationRunner.Tests/KeycloakProvisionedFabSourceTests.cs` | two stub implementations, signature only |

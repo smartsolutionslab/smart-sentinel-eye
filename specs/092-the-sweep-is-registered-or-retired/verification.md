@@ -180,6 +180,13 @@ has the same defect.
 ADR-0036's smallest change forbids folding it in. Recorded, with the log
 above, for whoever picks it up.
 
+> **Picked up as #2169 and fixed by spec 132 on 2026-09-11.** The port answers
+> whether it removed anything, the sweep counts those answers, and the line is
+> guarded on that count. `KioskSweepOutcome.StrippedCount` is carried rather than
+> derived. The observation above stands as what was seen on 2026-09-07; `spec.md`
+> step 9 reads true from that date. The log quoted here is therefore what the
+> **old** behaviour produced, and is kept for that reason.
+
 Step 6 *does* still hold after the second boot: the residue's roles were read
 as `[]` before that restart and nothing re-granted them.
 

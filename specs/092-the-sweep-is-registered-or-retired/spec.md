@@ -272,21 +272,30 @@ Run against the Aspire stack, by hand, without reading any source file:
 6. Re-read step 3's endpoint. `offline_access` is **absent**.
 7. Re-read step 4's account. Its realm roles are **unchanged**.
 8. Read the Identity API's logs for the sweep's completion line. It names a
-   non-zero count.
+   non-zero count — `1 of 1`, one account repaired out of one enrolled kiosk
+   examined.
 9. Restart the Identity API again. Step 6 still holds, and no new line is logged
    — there is nothing left to do.
 10. Delete both probe clients.
 
-> **Step 9's second half is wrong, and phase 5 found it by running it.** Step 6
-> holds; the line **is** logged again, `1 of 1`, from the next boot. The guard
-> is on `kiosks.Count > 0`, and the residue client still exists and is still
-> stamped — the probes are not deleted until step 10. `SweptKioskPrivileges`
-> counts kiosks *reached*, not accounts that lost something, and the strip
-> returns early on an account with no direct mappings. So a realm with any
-> enrolled kiosk in it reports "stripped N of N" on every start whether or not
-> it stripped anything, which is most of what the silence in T008 was bought
-> for. Recorded in `verification.md` §4 with the log; not fixed here, because
-> it is a behaviour change owing its own red.
+> **Step 9's second half was false when this spec shipped, and is true from
+> 2026-09-11.** Phase 5 found it by running it: step 6 held, and the line **was**
+> logged again, `1 of 1`, from the next boot. The guard was on
+> `kiosks.Count > 0`, and the residue client still exists and is still stamped —
+> the probes are not deleted until step 10. `SweptKioskPrivileges` counted kiosks
+> *reached*, not accounts that lost something, because the strip returns early on
+> an account with no direct mappings and said nothing about it. So a realm with
+> any enrolled kiosk in it reported "stripped N of N" on every start whether or
+> not it stripped anything — most of what the silence in T008 was bought for.
+> Recorded in `verification.md` §4 with the log, and filed as **#2169** rather
+> than fixed here, because it is a behaviour change owing its own red.
+>
+> **#2169 shipped it** (spec 132). `StripInheritedRealmRolesAsync` now answers
+> whether it removed anything, the sweep counts those answers, and the line is
+> guarded on that count. Step 8 and step 9 both read true against the behaviour
+> on `develop`, and the numerator in step 8 now means what the sentence says it
+> means. Step 8's denominator still counts kiosks examined, so a realm holding
+> other healthy kiosks will report `1 of N`, not `1 of 1`.
 
 **Step 4 and step 7 are the ones that matter.** A sweep whose idea of "a kiosk"
 matched everything would pass steps 6 and 8 on the way past.
