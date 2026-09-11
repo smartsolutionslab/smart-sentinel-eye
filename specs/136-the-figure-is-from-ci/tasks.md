@@ -11,7 +11,7 @@ disjoint-file parallelism (ADR-0109).
 
 ## Foundational — blocks everything
 
-- [ ] **T001** [US-1] Re-run the measurement on **four** current green `develop` runs
+- [X] **T001** [US-1] Re-run the measurement on **four** current green `develop` runs
       and record the figures. Do not reuse this spec's table if more than a few days
       have passed — artifact retention is 14 days, and the first run after machine churn
       reads like a regression, which is why the count is four and not one.
@@ -26,7 +26,7 @@ disjoint-file parallelism (ADR-0109).
       values and their margins against 15 ms and 50 ms written down.
       Blocks T002–T007.
 
-- [ ] **T002** [US-1] Phase 4a characterisation, **green**. Establish the two facts the
+- [X] **T002** [US-1] Phase 4a characterisation, **green**. Establish the two facts the
       later tasks must preserve:
       (a) the four T001 lines are the "before" reading of the **unmodified** file;
       (b) `git diff` of `NFR002_MqttConnectAuthTests.cs` restricted to non-comment lines
@@ -37,7 +37,7 @@ disjoint-file parallelism (ADR-0109).
 
 ## The point of enforcement
 
-- [ ] **T003** [US-1] Add a **CI paragraph** to the `<remarks>` of
+- [X] **T003** [US-1] Add a **CI paragraph** to the `<remarks>` of
       `tests/Integration.Tests/Identity/NFR002_MqttConnectAuthTests.cs`, beside spec
       123's off-CI paragraph at `:79-90` — not replacing it. It carries: the four run
       figures and ids, p50 margin 6.6×–7.6×, p99 margin 5.6×–11.0×, the ≈ 14×
@@ -50,13 +50,13 @@ disjoint-file parallelism (ADR-0109).
 
 ## The four records — three parallel lanes, disjoint files
 
-- [ ] **T004** [P] [US-1] `specs/021-transactional-outbox/verification.md:212-215`.
+- [X] **T004** [P] [US-1] `specs/021-transactional-outbox/verification.md:212-215`.
       Rewrite the CONNECT→CONNACK sentence so it reads as an off-CI, budgets-not-enforced
       observation. Both "breached" and "passed after" must go: off-CI the assertion can
       do neither. Cite #2148 and the CI figure. Do not touch section 6's other claims.
       Depends on T001. Disjoint from T005–T006.
 
-- [ ] **T005** [P] [US-1] `specs/087-which-assertions-cannot-fail/census.md` — two edits
+- [X] **T005** [P] [US-1] `specs/087-which-assertions-cannot-fail/census.md` — two edits
       in one file:
       - `:177` margin row → CI observation, 6.6×–7.6×, class **COMFORTABLE**; keep the
         off-CI figure in the row labelled as the environment that does not enforce, so
@@ -66,20 +66,20 @@ disjoint-file parallelism (ADR-0109).
         find any cite that would break.
       Depends on T001. Disjoint from T004, T006.
 
-- [ ] **T006** [P] [US-1] `specs/087-which-assertions-cannot-fail/spec.md` — three edits:
+- [X] **T006** [P] [US-1] `specs/087-which-assertions-cannot-fail/spec.md` — three edits:
       `:164` margin row (as T005); `:165` remove `NFR002_MqttConnectAuthTests` p99 from
       the "never recorded → UNKNOWN" row; `:330` mark **F14 void** with the reason.
       **Void, not deleted** — a removed finding leaves no trace that it was examined.
       Depends on T001. Disjoint from T004, T005.
 
-- [ ] **T007** [US-1] `specs/087-which-assertions-cannot-fail/tasks.md:132` — F14's
+- [X] **T007** [US-1] `specs/087-which-assertions-cannot-fail/tasks.md:132` — F14's
       restatement, corrected to match T006. Small and last so it cannot disagree with the
       row it restates.
       Depends on T006.
 
 ## Close
 
-- [ ] **T008** [US-1] Re-run T002's non-comment-diff check across the whole branch.
+- [X] **T008** [US-1] Re-run T002's non-comment-diff check across the whole branch.
       **Done when:** it is empty — every changed line in every `.cs` file is inside a
       comment, `P50BudgetMilliseconds` is still `15` and `P99CeilingMilliseconds` is
       still `50`.
