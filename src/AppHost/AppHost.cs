@@ -264,19 +264,40 @@ if (isRunMode && !isE2ETests)
 // `ConnectionStrings:minio` value into every consumer that
 // `WithReference`s it; the Infrastructure project resolves an
 // `IMinioClient` from that via `AddMinioClient("minio")`.
-// The registry override is not a preference: MinIO withdrew their Docker Hub
-// organisation on 2026-09-11 (between roughly 18:12 and 19:46 UTC), so
-// `minio/minio` — CommunityToolkit's default coordinates — now 404s there and
-// every integration run failed on `minio: FailedToStart` (#2265). quay.io is
-// MinIO's other official registry and serves the identical tag: pulling it
-// gives digest
-// sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e,
-// the same manifest list the quay API reports, and `minio --version` inside it
-// prints RELEASE.2025-09-07T16-13-09Z. Whether quay.io is the long-term home is
-// undecided — MinIO has been narrowing its open-source distribution, and this
-// line was reached for during an outage rather than chosen on merit.
+//
+// The registry override is not a preference. On 2026-09-11 — between roughly
+// 18:12 and 19:46 UTC, which bounds when we first observed it broken rather
+// than when the vendor acted — `minio/minio` and `minio/mc` started answering
+// 404 on Docker Hub. The `minio` organisation itself is untouched: it still
+// answers 200 with `is_active: true`, owned by MinIO, Inc., and its other
+// twenty repositories are still there. Only the two flagship images, server
+// and client, were removed. Every integration run failed on
+// `minio: FailedToStart` (#2265). quay.io is MinIO's other official registry
+// and serves the identical tag: the pull resolves to digest
+// sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e —
+// the manifest list the quay API reports — and `minio --version` inside it
+// prints RELEASE.2025-09-07T16-13-09Z.
+//
+// Whether MinIO stays in this stack at all is a human's decision, not this
+// file's. CommunityToolkit.Aspire.Hosting.Minio 13.5.0 says so in its own
+// nuspec description: "DEPRECATED: The MinIO OSS project has been archived and
+// is no longer maintained." There is no formal NuGet deprecation object behind
+// that sentence, so `dotnet restore` never warns. Choosing a successor is
+// ADR-level and out of scope here.
+//
+// Image and tag are spelled out because the package supplies all three
+// coordinates and this file named none of them: a Directory.Packages.props
+// bump could move the image or the tag with no diff here, and
+// ContainerImagePinTests reads literals out of this file, so minio was the one
+// container it could not see. Order matters: `WithImage` re-parses the
+// reference and resets the tag to `latest` when it is given none, so it must
+// come before `WithImageTag`. `WithImageRegistry` assigns only the registry
+// field, so its position is free — it sits last so the reference reads left to
+// right.
 var minio = builder
     .AddMinioContainer("minio")
+    .WithImage("minio/minio")
+    .WithImageTag("RELEASE.2025-09-07T16-13-09Z")
     .WithImageRegistry("quay.io");
 
 if (isRunMode && !isE2ETests)
