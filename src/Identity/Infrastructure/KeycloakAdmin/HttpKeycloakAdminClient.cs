@@ -223,8 +223,18 @@ public sealed class HttpKeycloakAdminClient(
     /// up rather than believed. An unreachable realm throws (spec 019 FR-011) —
     /// it must never be reported as "no groups".
     /// </para>
+    ///
+    /// <para>
+    /// This is the point where the wire's three answers become the contract's
+    /// three (#2139). A 404 on <c>group-by-path</c> is the realm saying the
+    /// group is not there, and it becomes <c>None</c> rather than an empty
+    /// list; a 403 or a 5xx is the realm declining to say, and it keeps
+    /// throwing. Translating here is what ADR-0141 exempts Infrastructure to
+    /// do — the exemption is a licence to speak the wire's vocabulary on the
+    /// way in, not a licence to hand it onward.
+    /// </para>
     /// </summary>
-    public async Task<IReadOnlyList<string>> GetSubGroupNamesAsync(
+    public async Task<Option<IReadOnlyList<string>>> GetSubGroupNamesAsync(
         string parentPath, CancellationToken cancellationToken)
     {
         Ensure.That(parentPath).IsNotNull().IsNotNullOrWhiteSpace();
@@ -236,7 +246,7 @@ public sealed class HttpKeycloakAdminClient(
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             logger.FabGroupParentMissing(parentPath, realm);
-            return [];
+            return Option<IReadOnlyList<string>>.None;
         }
         response.EnsureSuccessStatusCode();
 
@@ -247,7 +257,8 @@ public sealed class HttpKeycloakAdminClient(
 
         if (parent.SubGroups is { Length: > 0 })
         {
-            return [.. parent.SubGroups.Select(child => child.Name)];
+            return Option<IReadOnlyList<string>>.Some(
+                [.. parent.SubGroups.Select(child => child.Name)]);
         }
 
         // Paged explicitly, and read to exhaustion. Keycloak applies a server-side
@@ -273,7 +284,9 @@ public sealed class HttpKeycloakAdminClient(
             lastPageReached = rows.Length < pageSize;
         }
 
-        return names;
+        // Some, even when empty: the group answered, and "it has no children"
+        // is that answer rather than the absence of one.
+        return Option<IReadOnlyList<string>>.Some(names);
     }
 
     public async Task<IReadOnlyList<string>> GetEnrolledKioskClientIdsAsync(

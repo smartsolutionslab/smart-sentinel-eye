@@ -1,3 +1,5 @@
+using SmartSentinelEye.Shared.Kernel;
+
 namespace SmartSentinelEye.Identity.Application.KeycloakAdmin;
 
 /// <summary>
@@ -86,11 +88,28 @@ public interface IKeycloakAdminClient
     ///
     /// <para>
     /// Returns names, not paths — <c>munich</c>, not <c>/fabs/munich</c>.
-    /// Throws when the realm cannot be reached; never returns empty to mean
-    /// "could not tell".
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Three answers, and they are three.</b> <c>None</c> means the parent
+    /// group itself is not in the realm. <c>Some</c> means it is, and carries
+    /// its children — which may be none of them. Anything that leaves the
+    /// question unanswered — an unreachable realm, a refused lookup, a server
+    /// error — throws (spec 019 FR-011). The collection therefore never stands
+    /// in for either of the other two: an empty <c>Some</c> is a group that
+    /// answered, not a group that is missing and not a realm that could not be
+    /// asked.
+    /// </para>
+    ///
+    /// <para>
+    /// Spelt <see cref="Option{T}"/> because this interface is Application's
+    /// (ADR-0141, ADR-0048), and an absent group is exactly what that type is
+    /// for. Before #2139 the absent case was flattened into an empty list, and
+    /// the one caller's abort message had to hedge between two different faults
+    /// with two different fixes.
     /// </para>
     /// </summary>
-    Task<IReadOnlyList<string>> GetSubGroupNamesAsync(
+    Task<Option<IReadOnlyList<string>>> GetSubGroupNamesAsync(
         string parentPath, CancellationToken cancellationToken);
 
     /// <summary>

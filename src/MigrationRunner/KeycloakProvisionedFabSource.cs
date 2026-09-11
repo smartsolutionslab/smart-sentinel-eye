@@ -42,8 +42,10 @@ internal sealed class KeycloakProvisionedFabSource(
         // Not caught: an unreachable realm must fail the run rather than
         // provision nothing and report success (FR-011). "There are no fabs"
         // and "I could not tell" are the same value and opposite facts.
-        IReadOnlyList<string> names =
+        Option<IReadOnlyList<string>> tree =
             await keycloak.GetSubGroupNamesAsync(FabGroupPath, cancellationToken);
+
+        IReadOnlyList<string> names = tree.GetOrDefault([]);
 
         if (names.Count == 0)
         {

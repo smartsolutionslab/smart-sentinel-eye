@@ -1,4 +1,5 @@
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Infrastructure.Tests.Fakes;
 
@@ -36,7 +37,7 @@ public sealed class UnreachableKeycloakAdminClient : IKeycloakAdminClient
     public Task DisableClientAsync(
         string clientId, CancellationToken cancellationToken) => throw Unreachable();
 
-    public Task<IReadOnlyList<string>> GetSubGroupNamesAsync(
+    public Task<Option<IReadOnlyList<string>>> GetSubGroupNamesAsync(
         string parentPath, CancellationToken cancellationToken) => throw Unreachable();
 
     public Task<IReadOnlyList<string>> GetEnrolledKioskClientIdsAsync(

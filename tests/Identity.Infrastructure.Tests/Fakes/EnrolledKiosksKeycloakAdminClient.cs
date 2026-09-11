@@ -1,4 +1,5 @@
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Infrastructure.Tests.Fakes;
 
@@ -50,7 +51,7 @@ public sealed class EnrolledKiosksKeycloakAdminClient(params string[] kiosks) : 
     public Task DisableClientAsync(
         string clientId, CancellationToken cancellationToken) => throw NotPartOfASweep();
 
-    public Task<IReadOnlyList<string>> GetSubGroupNamesAsync(
+    public Task<Option<IReadOnlyList<string>>> GetSubGroupNamesAsync(
         string parentPath, CancellationToken cancellationToken) => throw NotPartOfASweep();
 
     private static NotSupportedException NotPartOfASweep() =>
