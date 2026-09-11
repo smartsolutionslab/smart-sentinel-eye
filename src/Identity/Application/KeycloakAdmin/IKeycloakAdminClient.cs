@@ -148,8 +148,17 @@ public interface IKeycloakAdminClient
     /// every directly-assigned realm privilege; against a person's account that
     /// would be destructive.
     /// </para>
+    ///
+    /// <para>
+    /// <b>Answers whether it changed anything</b> — <c>true</c> when the account
+    /// held directly-assigned realm privileges and they were removed,
+    /// <c>false</c> when it already held none. Without it a caller cannot tell a
+    /// pass that repaired something from a pass that only looked, and
+    /// <c>KioskPrivilegeSweep</c> reported "stripped N of N" on every start of
+    /// any realm holding a kiosk (spec 132, #2169).
+    /// </para>
     /// </summary>
-    Task StripInheritedRealmRolesAsync(
+    Task<bool> StripInheritedRealmRolesAsync(
         string clientId, CancellationToken cancellationToken);
 }
 

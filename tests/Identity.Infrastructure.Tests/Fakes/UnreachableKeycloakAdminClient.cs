@@ -47,7 +47,7 @@ public sealed class UnreachableKeycloakAdminClient : IKeycloakAdminClient
         throw Unreachable();
     }
 
-    public Task StripInheritedRealmRolesAsync(
+    public Task<bool> StripInheritedRealmRolesAsync(
         string clientId, CancellationToken cancellationToken) => throw Unreachable();
 
     private static HttpRequestException Unreachable() =>
