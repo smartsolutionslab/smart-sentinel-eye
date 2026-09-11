@@ -6,9 +6,11 @@ using SmartSentinelEye.Shared.Contracts.SystemVariables;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
 using SmartSentinelEye.SystemVariables.Application.EventHandlers;
+using SmartSentinelEye.SystemVariables.Application.Resolution;
 using SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
 using SmartSentinelEye.SystemVariables.Domain.Tests.Variable.Builders;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
+using SmartSentinelEye.SystemVariables.Domain.Variable.Events;
 
 namespace SmartSentinelEye.SystemVariables.Application.Tests.EventHandlers;
 
@@ -23,11 +25,24 @@ public class SystemVariableValueRequestedV1HandlerTests
     /// nothing. These tests are about dedup and dispatch, so they carry a fab
     /// and the fab-specific cases name their own.
     /// </summary>
-    private static EventMetadata MetadataFor(string fab) => new(
+    private static EventMetadata MetadataFor(string fab) => MetadataFor(fab, rootIngestedAt: null);
+
+    private static EventMetadata MetadataFor(string fab, DateTimeOffset? rootIngestedAt) => new(
         Guid.Parse("00000000-0000-0000-0000-0000000000aa"),
         DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture),
         fab,
-        null);
+        null,
+        rootIngestedAt);
+
+    /// <summary>
+    /// When EventIngestion accepted the plant-floor event at the root of the
+    /// request — the near end of §IV's <c>event → overlay state</c> leg.
+    /// Deliberately earlier than <see cref="Moment"/>, so a handler that
+    /// re-stamped the moment it acted instead of forwarding the one it was
+    /// given would fail rather than coincide.
+    /// </summary>
+    private static readonly DateTimeOffset Accepted =
+        DateTimeOffset.Parse("2026-05-28T08:14:32.250Z", CultureInfo.InvariantCulture);
 
     private sealed class FakeDedupStore : IVariableValueRequestDedupStore
     {
@@ -322,6 +337,57 @@ public class SystemVariableValueRequestedV1HandlerTests
         latency.Recorded.ShouldHaveSingleItem().ShouldBeNull(
             "the handler must hand the absent moment to the budget and let it decide, "
             + "rather than substituting a zero that would read as an instant journey");
+    }
+
+    /// <summary>
+    /// Spec 133 SC-002. The leg's near end has to reach the far end, and the
+    /// far end is in another context: LayoutComposition pushes the resolved
+    /// label. Everything between — the command, the aggregate, the domain
+    /// event, the integration event — is only a carrier, and before #2173 it
+    /// dropped its cargo at the value write. Nothing downstream could then time
+    /// the leg, so SystemVariables timed a prefix of it under the leg's name.
+    ///
+    /// <para>
+    /// Run as one chain rather than four unit hops on purpose: each hop
+    /// individually forwarding a field proves nothing if any one of them mints
+    /// fresh metadata, which is exactly what <c>EventMetadata</c>'s own
+    /// documentation warns about.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_acceptance_moment_reaches_the_event_that_pushes_the_overlay()
+    {
+        InMemoryVariableRepository repo = new();
+        Seed(repo, "munich", 1);
+
+        Guid overlay = Guid.CreateVersion7();
+        InMemoryReverseIndex index = new();
+        index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
+
+        FakeEventBus bus = new();
+        VariableValueChangedDomainEventHandler resolution = new(
+            bus, index, repo, new Resolver(),
+            NullLogger<VariableValueChangedDomainEventHandler>.Instance);
+        repo.OnDomainEvent = (domainEvent, token) => domainEvent is VariableValueChangedDomainEvent changed
+            ? resolution.Handle(changed, token)
+            : Task.CompletedTask;
+
+        SystemVariableValueRequestedV1Handler handler = new(
+            new FakeDedupStore(), BuildSetHandler(repo), new RecordingLatencyBudget(),
+            NullLogger<SystemVariableValueRequestedV1Handler>.Instance);
+
+        await handler.Handle(
+            new SystemVariableValueRequestedV1(
+                "oeeLine1", "82.5", Moment, Guid.CreateVersion7(), MetadataFor("munich", Accepted)),
+            CancellationToken.None);
+
+        ResolvedOverlayTextChangedV1 push = bus.Published
+            .OfType<ResolvedOverlayTextChangedV1>()
+            .ShouldHaveSingleItem();
+        push.Overlay.ShouldBe(overlay);
+        push.Metadata.RootIngestedAt.ShouldBe(
+            Accepted,
+            "the push is where this leg ends, so the moment it started has to arrive with it");
     }
 
     private static SystemVariableValueRequestedV1Handler BuildHandler(InMemoryVariableRepository repo) =>

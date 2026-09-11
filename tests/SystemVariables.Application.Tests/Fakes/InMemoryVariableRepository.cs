@@ -34,12 +34,29 @@ public sealed class InMemoryVariableRepository : IVariableRepository
         _variables.Add(variable);
     }
 
-    public Task SaveAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Invoked for each pending domain event as it is saved, mirroring what
+    /// <c>VariableRepository.SaveAsync</c> does through the dispatcher. Null —
+    /// the default — drops them, which is what every case that only cares about
+    /// aggregate state wants. A case that follows a value from an Automation
+    /// request through to the overlay push needs the rest of the chain to run,
+    /// and this is where production runs it.
+    /// </summary>
+    public Func<IDomainEvent, CancellationToken, Task>? OnDomainEvent { get; set; }
+
+    public async Task SaveAsync(CancellationToken cancellationToken)
     {
         foreach (Variable v in _variables)
         {
+            if (OnDomainEvent is { } handle)
+            {
+                foreach (IDomainEvent pending in v.PendingEvents.ToArray())
+                {
+                    await handle(pending, cancellationToken);
+                }
+            }
+
             v.ClearPendingEvents();
         }
-        return Task.CompletedTask;
     }
 }
