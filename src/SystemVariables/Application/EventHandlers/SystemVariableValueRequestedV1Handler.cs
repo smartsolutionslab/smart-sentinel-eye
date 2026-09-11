@@ -26,7 +26,6 @@ namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
 public sealed class SystemVariableValueRequestedV1Handler(
     IVariableValueRequestDedupStore dedup,
     SetVariableValueCommandHandler setHandler,
-    ILatencyBudget latency,
     ILogger<SystemVariableValueRequestedV1Handler> logger)
 {
     /// <summary>
@@ -87,17 +86,21 @@ public sealed class SystemVariableValueRequestedV1Handler(
                 variableName,
                 value,
                 AutomationOperator,
-                Option<int>.None),
+                Option<int>.None,
+                // The near end of the `event → overlay state` leg, forwarded so
+                // the far end can close it. This handler used to *record* the
+                // leg here instead, which timed the value write — a prefix
+                // ending roughly 750 ms before the tile changed, under the
+                // leg's name (#2173). The measurement now belongs to
+                // LayoutComposition's ResolvedOverlayTextChangedV1Handler,
+                // where the frame is actually pushed.
+                metadata.RootIngestedAt is { } accepted
+                    ? Option<DateTimeOffset>.Some(accepted)
+                    : Option<DateTimeOffset>.None),
             cancellationToken);
 
         if (result.IsSuccess)
         {
-            // The far end of the `event → overlay state` leg (ADR-0015,
-            // ≤ 200 ms): the effect is now applied. Recorded only on success,
-            // because a refused effect never arrived and timing it would put a
-            // fast failure into a distribution that is supposed to describe
-            // journeys that completed.
-            latency.RecordEventToOverlayState(metadata.RootIngestedAt);
             return;
         }
 

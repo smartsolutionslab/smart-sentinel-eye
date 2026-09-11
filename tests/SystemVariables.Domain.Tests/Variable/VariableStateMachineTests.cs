@@ -32,7 +32,7 @@ public class VariableStateMachineTests
     {
         VariableBuilder b = new VariableBuilder().OfType(VariableType.Number);
         Domain.Variable.Variable v = b.Build();
-        v.SetValue(new VariableValue.NumberValue(1.0), By, Clock);
+        v.SetValue(new VariableValue.NumberValue(1.0), By, Clock, Option<DateTimeOffset>.None);
         v.State.ShouldBe(VariableState.Defined);
     }
 
@@ -65,7 +65,7 @@ public class VariableStateMachineTests
         Domain.Variable.Variable v = b.Build();
         v.Archive(By, Clock);
 
-        Action act = () => v.SetValue(new VariableValue.NumberValue(1.0), By, Clock);
+        Action act = () => v.SetValue(new VariableValue.NumberValue(1.0), By, Clock, Option<DateTimeOffset>.None);
         act.ShouldThrow<InvalidOperationException>();
     }
 
@@ -80,7 +80,7 @@ public class VariableStateMachineTests
 
         v.Fab.Value.ShouldBe("dresden");
 
-        v.SetValue(new VariableValue.NumberValue(1.0), By, Clock);
+        v.SetValue(new VariableValue.NumberValue(1.0), By, Clock, Option<DateTimeOffset>.None);
         v.Fab.Value.ShouldBe("dresden");
 
         v.Archive(By, Clock);

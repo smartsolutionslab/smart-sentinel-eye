@@ -25,6 +25,26 @@ public interface ILatencyBudget
     /// <summary>
     /// Records the <c>event → overlay state</c> leg (ADR-0015, ≤ 200 ms): from
     /// the plant-floor event being accepted to its effect being applied.
+    ///
+    /// <para>
+    /// <b>Call this after the effect has been pushed, never before.</b>
+    /// "Applied" means the overlay's new state is on its way to the wall — the
+    /// last moment the server owns. Both callers do that: the highlight effect
+    /// after <c>OverlayHighlightedAsync</c>, the variable effect after
+    /// <c>ResolvedOverlayTextChangedAsync</c>. Anything earlier is a prefix of
+    /// the leg reported under the leg's name.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>The measurement point moved on 2026-09-11 (#2173), and figures from
+    /// either side of that are not comparable.</b> Until then the variable
+    /// effect was timed at the value write in SystemVariables, before an outbox
+    /// relay, a broker hop and a context boundary; #2072 measured that omitted
+    /// remainder at 555 ms and 758 ms server-side. A number that rises by
+    /// several hundred milliseconds across that change is the instrument
+    /// getting longer, not the system getting slower. Whether the leg holds its
+    /// 200 ms budget is #2072's question and is not settled by this.
+    /// </para>
     /// </summary>
     /// <param name="rootIngestedAt">
     /// When the causing event was accepted, or <see langword="null"/> when this

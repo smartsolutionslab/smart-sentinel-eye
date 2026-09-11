@@ -30,7 +30,7 @@ public sealed class VariableValueChangedDomainEventHandler(
     {
         Ensure.That(domainEvent).IsNotNull();
 
-        var (variable, fab, name, type, value, changedAt, changedBy, _) = domainEvent;
+        var (variable, fab, name, type, value, changedAt, changedBy, _, rootIngestedAt) = domainEvent;
 
         SystemVariableValueChangedV1 systemVariableValueChangedEvent = new(
             Variable: variable.Value,
@@ -41,6 +41,11 @@ public sealed class VariableValueChangedDomainEventHandler(
             ChangedBy: changedBy.Value,
             Metadata: new EventMetadata(Guid.CreateVersion7(), changedAt, fab.Value, changedBy.Value));
         await events.PublishAsync(systemVariableValueChangedEvent, cancellationToken);
+
+        // The near end of the `event → overlay state` leg, handed on rather than
+        // re-stamped. LayoutComposition closes the leg when it pushes the frame
+        // and cannot otherwise know when the journey began (ADR-0102, #2173).
+        DateTimeOffset? accepted = rootIngestedAt.Match<DateTimeOffset?>(moment => moment, () => null);
 
         IReadOnlyCollection<Guid> affectedOverlays = reverseIndex.LookupOverlays(name.Value);
         if (affectedOverlays.Count == 0)
@@ -70,7 +75,8 @@ public sealed class VariableValueChangedDomainEventHandler(
                     Guid.CreateVersion7(),
                     changedAt,
                     fab.Value,
-                    changedBy.Value));
+                    changedBy.Value,
+                    accepted));
             await events.PublishAsync(@event, cancellationToken);
         }
 

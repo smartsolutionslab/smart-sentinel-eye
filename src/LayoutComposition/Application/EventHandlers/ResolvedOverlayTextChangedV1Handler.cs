@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
+using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
@@ -15,6 +16,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 /// </summary>
 public sealed class ResolvedOverlayTextChangedV1Handler(
     ILayoutLifecycleBroadcaster broadcaster,
+    ILatencyBudget latency,
     ILogger<ResolvedOverlayTextChangedV1Handler> logger)
 {
     public async Task Handle(ResolvedOverlayTextChangedV1 message, CancellationToken cancellationToken)
@@ -43,6 +45,15 @@ public sealed class ResolvedOverlayTextChangedV1Handler(
                 version,
                 metadata.Fab),
             cancellationToken);
+
+        // The far end of the `event → overlay state` leg for the variable
+        // effect, and the same point OverlayHighlightRequestedV1Handler records
+        // for the highlight effect: after the push, because the leg ends when
+        // the frame is on its way, not when the value was written a context and
+        // a broker hop earlier (#2173). One measurement per overlay, for the
+        // reason given there — averaging separate arrivals at separate tiles
+        // hides a slow one behind a fast one.
+        latency.RecordEventToOverlayState(metadata.RootIngestedAt);
 
         logger.BroadcastResolvedOverlayTextChanged(overlay, version);
     }
