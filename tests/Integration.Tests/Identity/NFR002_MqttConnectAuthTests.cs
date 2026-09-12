@@ -90,25 +90,34 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire, ITestOutputHelper
     /// </para>
     ///
     /// <para>
-    /// <b>And on CI, where the thresholds are live.</b> Four green <c>develop</c>
-    /// runs of <c>ci.yml</c> (2026-09-11), read out of the uploaded
-    /// <c>integration.trx</c> — runs 34631985515, 34607694151, 34589148935,
-    /// 34573183563, each line ending <c>(budgets enforced)</c> — measured
-    /// <b>p50 1.98 / 2.21 / 2.29 / 2.11 ms</b> against the 15 ms median budget
-    /// (<b>6.6×–7.6×</b> margin) and <b>p99 8.88 / 4.53 / 6.72 / 4.84 ms</b>
-    /// against the 50 ms ceiling (<b>5.6×–11.0×</b>). The dev box above is
-    /// therefore about <b>14× slower on both percentiles</b> — the measured
-    /// size of what this gate excludes, and the evidence for #1905 rather than
-    /// a claim about it (#2148).
+    /// <b>And on CI, where the thresholds are live.</b> <b>Forty</b> green
+    /// <c>develop</c> runs of <c>ci.yml</c> (2026-09-07 05:07Z to 2026-09-11
+    /// 21:04Z), each read out of its own uploaded <c>integration.trx</c> and
+    /// each line ending <c>(budgets enforced)</c>, measured <b>p50 1.03–3.55 ms</b>
+    /// against the 15 ms median budget and <b>p99 1.99–12.97 ms</b> against the
+    /// 50 ms ceiling; sample means 2.18 ms and 6.50 ms. Across that sample the
+    /// margin never fell below <b>4.22×</b> on the median or <b>3.85×</b> on the
+    /// p99, and no run breached either threshold. That is a <em>sampled range
+    /// with a floor over one window</em>, not a property of the environment: a
+    /// run outside it is news, not a contradiction. Per-run ids and figures are
+    /// in <c>specs/136-the-figure-is-from-ci/verification.md</c>. On sample
+    /// means the dev box above is <b>≈ 14× slower on the median and ≈ 15× on
+    /// the p99</b> — the measured size of what this gate excludes, and the
+    /// evidence for #1905 rather than a claim about it (#2148).
     /// </para>
     ///
     /// <para>
-    /// <b>That CI p99 is not NFR-002.</b> 4.53–8.88 ms straddles NFR-002's
+    /// <b>That CI p99 is not NFR-002.</b> 1.99–12.97 ms brackets NFR-002's
     /// 5 ms, and the two measure different things: NFR-002 is auth overhead on
     /// production hardware (ADR-0100, <c>specs/008-…/spec.md:425</c>), while
     /// this figure is a fresh TCP connect plus the MQTT handshake through the
     /// container host proxy on a shared runner, gated only against gross
     /// regression. Reading one as the other is the misreading #2148 records.
+    /// ADR-0100's own Performance Validation section says this test "asserts
+    /// p99 ≤ 5 ms … against a Testcontainers Keycloak + Mosquitto"; it asserts
+    /// p50 ≤ 15 ms and p99 ≤ 50 ms against the Aspire fixture (ADR-0103). That
+    /// discrepancy is recorded, not corrected, by spec 136 — amending an ADR is
+    /// out of the autonomous lane's reach (ADR-0144).
     /// </para>
     /// </remarks>
     private static bool BudgetsApplyHere =>

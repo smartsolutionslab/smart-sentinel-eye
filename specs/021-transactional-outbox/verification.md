@@ -214,9 +214,11 @@ reported at 17.58 ms on the run before the health-check connection leak was
 fixed. That reading is off-CI, where `BudgetsApplyHere` is false and the test
 reports without enforcing (#1905): it neither breached the 15 ms budget nor — on
 the run after — passed it, because the assertion never ran in either. The figure
-is consistent with the leak but not proof of it. Where the budget is live, four
-green `develop` runs of `ci.yml` measured p50 1.98–2.29 ms, a 6.6×–7.6× margin
-(#2148, `specs/136-the-figure-is-from-ci/spec.md`).
+is consistent with the leak but not proof of it. Where the budget is live, forty
+green `develop` runs of `ci.yml` sampled over 2026-09-07 to 2026-09-11 measured
+p50 1.03–3.55 ms — a margin that never fell below 4.22× in that sample, which is
+a floor over one window rather than a constant (#2148,
+`specs/136-the-figure-is-from-ci/verification.md`).
 
 ## What this feature does not do
 

@@ -174,19 +174,23 @@ written down the answer is **UNKNOWN**, which is itself the finding.
 | `PostgresConnectionBudgetIntegrationTests` count | < 378 | 97 pre-cap | `docs/adr/0125-…:23-24,61-62` | ~3.9× | COMFORTABLE |
 | `NFR001_JwtValidationLatencyTests` p99 | 50 000 µs | 3–21 ms | `…:25-26` | 2.4× | TIGHT |
 | `PostgresConnectionBudgetIntegrationTests` max_conns | ≥ 500 | 500 | `docs/adr/0125-…:57` | 1.0× | TIGHT by construction |
-| `NFR002_MqttConnectAuthTests` p50 | 15 ms | **1.98–2.29 ms** on CI, where the budget is enforced; 17.58 ms and later 27.4–33.2 ms off-CI, where it is not | four green `develop` runs' `integration.trx` (#2148); off-CI: `specs/021-…/verification.md:212`, spec 123 | **6.6×–7.6×** | COMFORTABLE |
+| `NFR002_MqttConnectAuthTests` p50 | 15 ms | **1.03–3.55 ms** on CI over 40 sampled runs, where the budget is enforced; 17.58 ms and later 27.4–33.2 ms off-CI, where it is not | 40 green `develop` runs' `integration.trx`, 2026-09-07→11 (#2148); off-CI: `specs/021-…/verification.md:212`, spec 123 | **≥ 4.22×** sampled (4.22×–14.5×) | COMFORTABLE |
 | `NFR001_AuditIngestLatencyTests` p99 | 50 ms | 85 ms best | `…:182`; `specs/009-…/tasks.md:377` | 0.59× | inverted — cannot pass |
 | `SfuLatencyIsReadableTests` | none — `ShouldContain("paths")` | n/a | `…:35-39` | n/a | **no latency assertion at all** |
 | `EventToOverlayLatencyTests` | none — `ShouldBe(180, tol 1)` | n/a, `FixedClock` | `…:54` | n/a | unit guard, not a budget |
 
-**Amended 2026-09-11 (#2148).** One row no longer obeys the section's own rule
-that every figure is quoted from the tree: the `NFR002_MqttConnectAuthTests` p50
-observation was measured, by reading the test's `integration.trx` line out of
-four green `develop` CI runs' artifacts. That is why it is the one row carrying
-two environments — the class in the last column is the one the enforced
-environment earns. The runs and their ids are in
-`specs/136-the-figure-is-from-ci/spec.md`. The row is left in place rather than
-re-sorted into margin order, so cites to `:177` still land on it.
+**Amended 2026-09-11, figures widened 2026-09-12 (#2148).** One row no longer
+obeys the section's own rule that every figure is quoted from the tree: the
+`NFR002_MqttConnectAuthTests` p50 observation was measured, by reading the
+test's `integration.trx` line out of **forty** green `develop` CI runs'
+artifacts — every green run between 2026-09-07 05:07Z and 2026-09-11 21:04Z.
+That is why it is the one row carrying two environments — the class in the last
+column is the one the enforced environment earns. The margin column states a
+**floor over that sample**, not a property of CI: the first draft of this row
+said 6.6×–7.6× from four runs, and a green run the spec's own recipe returns
+(34586548968, p50 2.40 ms) already sat outside it. Per-run ids and figures are
+in `specs/136-the-figure-is-from-ci/verification.md`. The row is left in place
+rather than re-sorted into margin order, so cites to `:177` still land on it.
 
 ### 2d — the nine UNKNOWNs, and the four that were promised
 
@@ -212,16 +216,19 @@ Enforced against a number recorded nowhere in the tree:
 6. `NFR002_AuditSearchLatencyTests` 200 ms p99 over 100 000 rows — notable
    because its sibling NFR-001 is the most thoroughly measured test in the repo.
 7. ~~`NFR002_MqttConnectAuthTests` p99 ceiling 50 ms~~ — **no longer UNKNOWN,
-   corrected 2026-09-11 by #2148**: four green `develop` CI runs measured
-   **4.53–8.88 ms** against the 50 ms ceiling (a **5.6×–11.0×** margin), and
-   spec 123 measured **83.9–102.8 ms** off-CI, where the ceiling is not
-   enforced. That ceiling is a wall-clock gross-regression guard and **not**
-   NFR-002's 5 ms p99, which is auth overhead on production hardware
-   (ADR-0100, `specs/008-…/spec.md:425`) — the CI figure straddles 5 ms
-   numerically while measuring something else. Both figures are now in the
-   test's own remarks. Struck in place rather than removed, and items 8 and 9
-   keep their numbers: the enumeration stands at **eight**, which F13's "nine"
-   predates.
+   corrected 2026-09-11 by #2148, figures widened 2026-09-12**: **forty** green
+   `develop` CI runs — every one between 2026-09-07 05:07Z and 2026-09-11
+   21:04Z — measured **1.99–12.97 ms** against the 50 ms ceiling, a margin that
+   never fell below **3.85×** in that sample. (The first draft of this item said
+   4.53–8.88 ms from four runs; the wider sweep contains 12.97, 10.51, 10.41 and
+   9.32 ms, so the four-run range was not a range.) Spec 123 measured
+   **83.9–102.8 ms** off-CI, where the ceiling is not enforced. That ceiling is
+   a wall-clock gross-regression guard and **not** NFR-002's 5 ms p99, which is
+   auth overhead on production hardware (ADR-0100, `specs/008-…/spec.md:425`) —
+   the CI figure brackets 5 ms numerically while measuring something else. Both
+   figures are now in the test's own remarks. Struck in place rather than
+   removed, and items 8 and 9 keep their numbers: the enumeration stands at
+   **eight**, which F13's "nine" predates.
 8. `AelInterpreterBenchmarkTests` 500 / 1000 ms — the "≈ 100 ms per batch"
    at `:27-28` is labelled **expected**, and traces to the requirement
    (`docs/adr/0099-hand-rolled-ael.md:26`), not to a run.

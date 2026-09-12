@@ -22,44 +22,58 @@ breached too — which the body never mentions.
 
 **Phase 1 of this spec settled it.** The CI figure was not missing. It has been sitting
 in every integration run's uploaded artifact since the CI pipeline first landed
-(`f085cd3e`), because `ci.yml:179` already passes `--logger
-"trx;LogFileName=integration.trx"` and the next step uploads it with `if: always()`.
-Comment 1 proposed adding a flag that was already there.
+(`f085cd3e`, where the flag was at `:142`), because `ci.yml:180` already passes
+`--logger "trx;LogFileName=integration.trx"` and the next step uploads it with
+`if: always()`. Comment 1 proposed adding a flag that was already there.
 
 ## The measurement
 
-Four green `ci.yml` runs on `develop`, artifact `integration-test-results`, the test's
-own unconditional `output.WriteLine` line read verbatim out of `integration.trx`:
+**Forty** green `ci.yml` runs on `develop` — every green run in the window
+**2026-09-07 05:07Z → 2026-09-11 21:04Z** — artifact `integration-test-results`, the
+test's own unconditional `output.WriteLine` line read verbatim out of each run's
+`integration.trx`. All forty run ids with their figures are in
+[`verification.md`](verification.md); the distribution is:
 
-| run | date | p50 | p99 | max | gate |
+| | min | max | mean | margin floor | margin ceiling |
 |---|---|---|---|---|---|
-| 34631985515 | 2026-09-11 18:12 | **1.98 ms** | **8.88 ms** | 8.94 ms | budgets enforced |
-| 34607694151 | 2026-09-11 14:01 | **2.21 ms** | **4.53 ms** | 6.26 ms | budgets enforced |
-| 34589148935 | 2026-09-11 10:25 | **2.29 ms** | **6.72 ms** | 11.50 ms | budgets enforced |
-| 34573183563 | 2026-09-11 07:10 | **2.11 ms** | **4.84 ms** | 10.40 ms | budgets enforced |
+| p50 vs 15 ms | **1.03 ms** (34519576651) | **3.55 ms** (34475397402) | 2.18 ms | **4.22×** | 14.5× |
+| p99 vs 50 ms | **1.99 ms** (34519576651) | **12.97 ms** (34475397402) | 6.50 ms | **3.85×** | 25.1× |
 
-Every line ends `(budgets enforced)` — the CI branch of the ternary at
-`NFR002_MqttConnectAuthTests.cs:128`, which is the test stating for itself that
-`GITHUB_ACTIONS` was `true` and that the assertions at `:138` and `:141` ran.
+All forty lines end `(budgets enforced)` — the CI branch of the ternary at
+`NFR002_MqttConnectAuthTests.cs:159`, which is the test stating for itself that
+`GITHUB_ACTIONS` was `true` and that the assertions at `:169` and `:172` ran. Not one
+of the forty breached either threshold.
 
-- **p50 1.98–2.29 ms against 15 ms → margin 6.6×–7.6×**
-- **p99 4.53–8.88 ms against 50 ms → margin 5.6×–11.0×**
+**Read that as a sampled range with a floor, not as a constant of the environment.**
+Forty runs over five days say the margin did not fall below 4.22× on the median or
+3.85× on the p99 *in this window*; they do not promise the next run stays there. A
+reader who re-runs the recipe and gets a figure outside the range has found news, not a
+contradiction — which is the whole difference between quoting a measurement and quoting
+it with the qualification that makes it true.
 
-Four runs, because a single measurement after machine churn reads like a regression and
-one reading is not a figure.
+**An earlier draft of this spec said 1.98–2.29 ms on a four-run sample, and it was
+wrong in exactly the way #2148 is about.** Four runs are enough to refute "has gone
+red"; they are not enough to state a range. The recipe below, re-run days later, returns
+runs outside that band — 34586548968 at p50 2.40 ms is *more recent* than one of the
+four the draft cited. A claim about an environment needs a sample that can survive its
+own reproduction instructions.
 
 **So the honest verdict is neither "has gone red" nor UNKNOWN. It is COMFORTABLE, with
-a measured figure** — the same class the census gives `ResolvedTextReachesItsFabTests`
-at 6.6×. Comment 1's recommended UNKNOWN was correct given what it had; it is
-superseded by a number that costs nothing to obtain.
+a measured figure** — a 4.22× sampled floor sits above the ~3.9× the census already
+classes COMFORTABLE (`PostgresConnectionBudgetIntegrationTests` count) and well clear of
+the 2.4× it classes TIGHT. Comment 1's recommended UNKNOWN was correct given what it
+had; it is superseded by a number that costs nothing to obtain.
 
 ## What the two environments actually differ by
 
 | | p50 | p99 |
 |---|---|---|
-| CI (Linux, native Docker) | 1.98–2.29 ms | 4.53–8.88 ms |
-| dev box (Windows, Docker Desktop VM hop) | 27.4–33.2 ms | 83.9–102.8 ms |
-| ratio | **≈ 14×** | **≈ 14×** |
+| CI (Linux, native Docker), 40 runs | 1.03–3.55 ms, mean **2.18** | 1.99–12.97 ms, mean **6.50** |
+| dev box (Windows, Docker Desktop VM hop), 3 runs | 27.4–33.2 ms, mean **30.97** | 83.9–102.8 ms, mean **96.23** |
+| ratio of means | **≈ 14×** (14.2) | **≈ 15×** (14.8) |
+
+The ratio is taken on the means, because the ranges overlap nothing and a ratio of
+endpoints would be four different numbers depending which endpoints you pick.
 
 #1905's gate is not merely defensible, it is **understated**. The reason it exists has
 been asserted qualitatively ("a different and slower path"); this is the first time the
@@ -75,10 +89,19 @@ ADR-0100 and spec 008 set **NFR-002 at ≤ 5 ms p99 per device-connect** — an
 **auth-overhead** SLO on **production hardware**. The test's 50 ms is a wall-clock
 gross-regression ceiling covering TCP + MQTT handshake through the container host
 proxy, which the class remarks say explicitly. The measured CI wall-clock p99 is now
-**4.53–8.88 ms** — numerically straddling 5 ms. A reader who has both numbers on screen
+**1.99–12.97 ms** — numerically bracketing 5 ms. A reader who has both numbers on screen
 and not the distinction between them will conclude NFR-002 is marginal. It is not; the
 two figures measure different things. Writing the CI figure down without writing that
 down manufactures the next #2148.
+
+**And three records spring that trap already.** `docs/adr/0100-mosquitto-go-auth.md:237-239`,
+`specs/008-identity/plan.md:421-423` and `specs/008-identity/tasks.md:234` each say
+`NFR002_MqttConnectAuthTests` *asserts p99 ≤ 5 ms* — against *Testcontainers*. Both
+halves are wrong: the assertions are p50 ≤ 15 ms and p99 ≤ 50 ms, and the fixture is
+Aspire (ADR-0103). A reader following this spec's own ADR-0100 cite lands on that
+sentence with 1.99–12.97 ms in hand and concludes exactly what this spec says must not
+be concluded. The two `specs/008-identity` records are corrected here; the ADR is not —
+see *Out of scope, argued*.
 
 ## User stories
 
@@ -98,11 +121,11 @@ p99 as never-recorded:
 
 | # | file:line | what it says now | why it is wrong |
 |---|---|---|---|
-| R1 | `specs/021-transactional-outbox/verification.md:212-215` | "the MQTT `CONNECT→CONNACK` p50 **breached** its 15 ms budget (17.58 ms) … and passed after" | Off-CI, where the assertion is inert. It could neither breach nor pass. |
+| R1 | `specs/021-transactional-outbox/verification.md:212-221` | "the MQTT `CONNECT→CONNACK` p50 **breached** its 15 ms budget (17.58 ms) … and passed after" | Off-CI, where the assertion is inert. It could neither breach nor pass. |
 | R2 | `specs/087-which-assertions-cannot-fail/census.md:177` | margin table: `17.58 ms`, `0.85×`, `TIGHT — has gone red` | Compares a CI threshold to a dev-box observation |
 | R3 | `specs/087-which-assertions-cannot-fail/census.md` §2d item 7 | p99 ceiling listed among the nine UNKNOWNs: "the remarks assert a *relation* to it without a number" | The relation now has two numbers — off-CI (spec 123) and CI (this spec) |
-| R4 | `specs/087-which-assertions-cannot-fail/spec.md:164` and `:165` | the same margin row, plus p99 in the "never recorded → UNKNOWN" row | Same two defects as R2 and R3 |
-| R5 | `specs/087-which-assertions-cannot-fail/spec.md:330` + `tasks.md:132` | finding **F14**: "the inverse defect — threshold *below* observation, has gone red" | The finding itself is void; no inversion exists |
+| R4 | `specs/087-which-assertions-cannot-fail/spec.md:166` and `:168` | the same margin row, plus p99 in the "never recorded → UNKNOWN" row | Same two defects as R2 and R3 |
+| R5 | `specs/087-which-assertions-cannot-fail/spec.md:346` + `tasks.md:134` | finding **F14**: "the inverse defect — threshold *below* observation, has gone red" | The finding itself is void; no inversion exists |
 
 R1's *"and passed after"* is a detail neither comment caught, and it sharpens the case:
 off-CI the assertion cannot fail **or** pass, so both halves of that sentence describe a
@@ -144,13 +167,14 @@ Scenario: the conflicting record no longer reads as a breach
 Scenario: the census verdict matches the census's own rule
   Given the census §2c rule "where none is written down the answer is UNKNOWN"
   When a reader reads the NFR002 p50 row
-  Then it shows the CI observation, a margin of 6.6x-7.6x and the class COMFORTABLE
+  Then it shows the sampled CI observation, a margin floor of 4.22x and the class
+   COMFORTABLE
    And F14 is marked void with the reason, rather than deleted
 ```
 
 ```gherkin
 Scenario: the auth SLO is not confused with the transport ceiling
-  Given the CI wall-clock p99 of 4.53-8.88 ms is now recorded
+  Given the sampled CI wall-clock p99 of 1.99-12.97 ms is now recorded
   When a reader compares it to NFR-002's 5 ms p99
   Then the record states that the two measure different things
    And cites ADR-0100 and spec 008 for the auth-overhead SLO
@@ -172,17 +196,24 @@ scope or a request body. Saying so is more honest than manufacturing one.
 Reproducible by anyone with `gh`, no stack and no build:
 
 ```sh
-gh run list --workflow ci.yml --branch develop --status success --limit 4 \
+gh run list --workflow ci.yml --branch develop --status success --limit 40 \
   --json databaseId -q '.[].databaseId' | while read -r R; do
-  gh run download "$R" -n integration-test-results -D "/tmp/ci-$R"
-  grep -rohE 'CONNECT.CONNACK over [^<]{0,160}' "/tmp/ci-$R"
+  rm -rf /tmp/ci-run
+  gh run download "$R" -n integration-test-results -D /tmp/ci-run || continue
+  printf '%s ' "$R"
+  grep -rohE 'CONNECT.CONNACK over [^<]{0,160}' /tmp/ci-run | head -1
 done
 ```
 
-Each line must read `(budgets enforced)` and carry a p50 well under 15 ms. Artifact
-retention is **14 days** (`ci.yml`), so a reader after 2026-09-25 will need four fresh
-runs rather than these four — which is exactly why the run ids and figures are written
-into the tree rather than left as a link.
+Each line must read `(budgets enforced)` and carry a p50 under 15 ms and a p99 under
+50 ms. **`--limit 40`, not `--limit 4`, and the difference is the point of this spec:**
+four runs can refute "has gone red", but a *range* quoted from four runs is a claim the
+same recipe falsifies a week later. Each artifact is ~35 MB, so the loop deletes as it
+goes; the whole sweep takes a few minutes.
+
+Artifact retention is **14 days** (`ci.yml:188`), so a reader after 2026-09-25 will need
+a fresh sweep rather than these forty runs — which is exactly why the run ids and
+figures are written into the tree (`verification.md`) rather than left as a link.
 
 ## Locked tech choices
 
@@ -211,8 +242,49 @@ argument.
 it names this test.
 
 **Anything that moves a threshold.** The issue body forbids it, #2141 forbids the
-bulk-fix, and with a 6.6× CI margin there is nothing to move.
+bulk-fix, and with a sampled margin floor of 4.22× (p50) and 3.85× (p99) there is
+nothing to move.
 
 **A guard test asserting these markdown files contain these strings.** Such a test
 proves a string was typed, not that a figure is true, and it goes stale the moment the
 prose is reworded. See tasks.md for what phase 4a does instead.
+
+**Correcting `docs/adr/0100-mosquitto-go-auth.md:237-239`.** The ADR's *Performance
+Validation* section says `NFR002_MqttConnectAuthTests` (spec 008 T088) *"asserts p99
+≤ 5 ms over a warm 100-cycle connect test against a Testcontainers Keycloak +
+Mosquitto."* Both halves are false of the test as it stands: it asserts **p50 ≤ 15 ms**
+(`NFR002_MqttConnectAuthTests.cs:51`) and **p99 ≤ 50 ms** (`:55`), and it runs against
+the **Aspire fixture**, Testcontainers having been rejected by ADR-0103. The 5 ms is
+NFR-002's production-hardware auth-overhead SLO, which this test does not gate.
+
+This is a live instance of the very misreading #2148 records, and this spec cites
+ADR-0100 in four places as the authority for *"the CI p99 is not NFR-002's 5 ms"* — so
+a reader following the cite lands on a sentence that contradicts it.
+
+**It is recorded here and not fixed, because amending an ADR is one of the three
+outcomes the autonomous lane may not produce (ADR-0144).** It needs its own issue and a
+human. Mitigated in the meantime by the sentence added to the test's own `<remarks>`,
+which is what a reader arriving from either direction meets first. The two ordinary
+records carrying the same wrong claim — `specs/008-identity/plan.md:421-423` and
+`specs/008-identity/tasks.md:234` — *are* corrected here, since those are records, not
+decisions.
+
+## A note on line cites in this spec's own artefacts
+
+`spec.md`, `plan.md` and `tasks.md` were written against
+`NFR002_MqttConnectAuthTests.cs` as it stood **before** this spec added 31 comment
+lines to its `<remarks>`. Where those artefacts name a pre-change line, the current
+coordinates are:
+
+| what | cited as | now at |
+|---|---|---|
+| `P50BudgetMilliseconds = 15` | `:51` | `:51` (unmoved) |
+| `P99CeilingMilliseconds = 50` | `:55` | `:55` (unmoved) |
+| `BudgetsApplyHere` expression | `:92-93` | `:123-124` |
+| the `(budgets enforced)` ternary | `:128` | `:159` |
+| the early return | `:130-132` | `:161-164` |
+| the p50 / p99 assertions | `:138`, `:141` | `:169`, `:172` |
+
+Spec 087 has the precedent for this note — `2a84c552 docs(specs): 087 — census's
+line-shift note corrects the wrong cites`. A cite that has silently shifted is the
+cheapest way for a checker to conclude the evidence is not there.
