@@ -1,0 +1,25 @@
+# Assertion-invariance baseline — spec 137 / issue #2182
+# Captured at phase 3 from origin/develop (tip: 4a0bae62, specs tip 136-the-figure-is-from-ci).
+# Extractor and the two sha256 values are in plan.md, Phase 4a section.
+#
+# --- set A: the two covering test files -------------------------------------
+# sha256 66ed302493ddc309016f7f00095bae361e891398f815ae4c4822b19028056661  (11 statements)
+#   tests/Integration.Tests/Identity/KioskInheritedPrivilegeIntegrationTests.cs
+#   tests/Integration.Tests/Identity/KioskPrivilegeSweepStartupIntegrationTests.cs
+held.ShouldNotContain( LongLivedCredentialPrivilege, "a kiosk is born holding the realm's default privilege, and enrolment must take it back");
+created.IsSuccessStatusCode.ShouldBeTrue();
+held.ShouldContain( LongLivedCredentialPrivilege, "if the provider did not grant this by default, the test above would prove nothing");
+held.ShouldNotContain(LongLivedCredentialPrivilege);
+held.ShouldContain( LongLivedCredentialPrivilege, "a wall display is the one account that may hold it; if none does, nothing can stay up");
+before.ShouldContain( LongLivedCredentialPrivilege, "the provider grants this by default to accounts it creates after import; if this " + "residue never held it, the assertion below would pass against a sweep that " + "removes nothing and the whole test would prove nothing");
+after.ShouldNotContain( LongLivedCredentialPrivilege, "a client stamped sse.kind=kiosk that enrolment could not delete keeps a privilege " + "that mints credentials which never expire, and the existence probe answers " + "already-enrolled for it forever. Identity's startup pass is what takes it back " + "(ADR-0134 Decision 1).");
+before.ShouldNotBeEmpty("an account holding nothing cannot be shown to keep what it held");
+residueAfter.ShouldNotContain( LongLivedCredentialPrivilege, "the pass has to have done something, or the bystander below is unchanged for the " + "wrong reason");
+bystanderAfter.ShouldBe( before, ignoreOrder: true, "the pass is bounded to what enrolment stamped. An account it did not create must " + "come out of a pass holding exactly what it went in holding — the removal is " + "total and silent, so nothing else would report this.");
+startupServices.ShouldContain( typeof(KioskPrivilegeSweepHostedService), "AddIdentityInfrastructure registers no startup service that drives KioskPrivilegeSweep " + "when the Identity API starts, so a residue kiosk keeps " + "offline_access for as long as the realm lives (#2132). The class has existed since " + "spec 052 and has never been composed by anything.");
+#
+# --- set B: RealmProbe -------------------------------------------------------
+# sha256 974fe47efb32fc964169b766b044e65b0581cb53c3d68b8f1fb32fc7f81ec9fd  (2 statements)
+#   tests/Integration.Tests/Identity/RealmProbe.cs
+created.IsSuccessStatusCode.ShouldBeTrue( $"planting '{clientId}' failed with {(int)created.StatusCode}; without it the " + "assertions below prove nothing");
+deleted.IsSuccessStatusCode.ShouldBeTrue( $"removing probe client '{clientId}' answered {(int)deleted.StatusCode}; it is still " + "in the realm, stamped as this suite planted it, and the next pass over this " + "realm will read it as residue it did not create");
