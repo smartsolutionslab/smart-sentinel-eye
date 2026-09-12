@@ -232,6 +232,7 @@ Each task is one PR-F commit touching one context's API.
 
 - [x] **T087 [POLISH]** `NFR001_JwtValidationLatencyTests` — Testcontainers Keycloak; warm 1 000 iterations; asserts p99 ≤ 500 µs.
 - [x] **T088 [POLISH]** `NFR002_MqttConnectAuthTests` — Testcontainers Mosquitto + Keycloak; warm 100 connect cycles; asserts p99 ≤ 5 ms.
+  - **Corrected 2026-09-12 (#2148):** as delivered it runs against the **Aspire fixture** (ADR-0103) and asserts **p50 ≤ 15 ms** and **p99 ≤ 50 ms**, enforced only where `GITHUB_ACTIONS=true` (#1905) — wall-clock CONNECT→CONNACK through the container host proxy, not NFR-002's 5 ms auth-overhead SLO (`spec.md:425`). `plan.md`'s Performance Validation section and `docs/adr/0100-…:237-239` carry the same wrong claim; the ADR is recorded, not corrected (ADR-0144). See `specs/136-the-figure-is-from-ci/`.
 - [x] **T089 [POLISH]** Extend `scripts/coverage-check.ps1` with `Identity.Domain >= 90` and `Identity.Application >= 80`.
 - [x] **T090 [POLISH]** Update `tests/Architecture.Tests/BoundaryTests.cs` to assert `Identity.Domain` has zero framework deps + that the `Scope` catalogue lives in `ServiceDefaults` (not in any context's Domain).
 - [x] **T091 [P] [POLISH]** README "Bind a kiosk, register a device, author a scoped rule" quickstart section.
