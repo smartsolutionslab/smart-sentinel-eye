@@ -31,12 +31,7 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 [Collection(AspireCollection.Name)]
 public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
 {
-    private const string Realm = "smart-sentinel-eye";
-    private const string AdminClientId = "identity-admin";
-    private const string AdminClientSecret = "dev-only-identity-admin-secret";
-
-    /// <summary>The privilege that lets a grant outlive the session that issued it.</summary>
-    private const string LongLivedCredentialPrivilege = "offline_access";
+    private readonly RealmProbe realm = new(aspire);
 
     [Fact]
     public async Task A_kiosk_enrolled_at_runtime_does_not_hold_the_long_lived_credential_privilege()
@@ -49,10 +44,10 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
 
         try
         {
-            IReadOnlyList<string> held = await EffectiveRealmRolesAsync(clientId);
+            IReadOnlyList<string> held = await realm.EffectiveRealmRolesAsync(clientId, CancellationToken.None);
 
             held.ShouldNotContain(
-                LongLivedCredentialPrivilege,
+                RealmProbe.LongLivedCredentialPrivilege,
                 "a kiosk is born holding the realm's default privilege, and enrolment must take it back");
         }
         finally
@@ -69,12 +64,12 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_account_the_provider_creates_holds_it_until_something_removes_it()
     {
-        using HttpClient admin = await AuthorisedAdminClientAsync();
+        using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
         string clientId = $"control-probe-{Guid.CreateVersion7():N}";
 
         // Created directly, bypassing enrolment — so nothing strips it.
         HttpResponseMessage created = await admin.PostAsJsonAsync(
-            $"admin/realms/{Realm}/clients",
+            $"admin/realms/{RealmProbe.Realm}/clients",
             new
             {
                 clientId,
@@ -88,10 +83,10 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
 
         try
         {
-            IReadOnlyList<string> held = await EffectiveRealmRolesAsync(clientId);
+            IReadOnlyList<string> held = await realm.EffectiveRealmRolesAsync(clientId, CancellationToken.None);
 
             held.ShouldContain(
-                LongLivedCredentialPrivilege,
+                RealmProbe.LongLivedCredentialPrivilege,
                 "if the provider did not grant this by default, the test above would prove nothing");
         }
         finally
@@ -108,9 +103,9 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_operator_does_not_hold_the_long_lived_credential_privilege()
     {
-        IReadOnlyList<string> held = await EffectiveRealmRolesOfUserAsync("operator");
+        IReadOnlyList<string> held = await realm.EffectiveRealmRolesOfUserAsync("operator", CancellationToken.None);
 
-        held.ShouldNotContain(LongLivedCredentialPrivilege);
+        held.ShouldNotContain(RealmProbe.LongLivedCredentialPrivilege);
     }
 
     /// <summary>
@@ -121,10 +116,10 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_wall_display_account_does_hold_it()
     {
-        IReadOnlyList<string> held = await EffectiveRealmRolesOfUserAsync("wall-munich");
+        IReadOnlyList<string> held = await realm.EffectiveRealmRolesOfUserAsync("wall-munich", CancellationToken.None);
 
         held.ShouldContain(
-            LongLivedCredentialPrivilege,
+            RealmProbe.LongLivedCredentialPrivilege,
             "a wall display is the one account that may hold it; if none does, nothing can stay up");
     }
 
@@ -150,9 +145,9 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
         KeycloakAdminOptions options = new()
         {
             BaseUrl = http.BaseAddress!.ToString(),
-            Realm = Realm,
-            AdminClientId = AdminClientId,
-            AdminClientSecret = AdminClientSecret,
+            Realm = RealmProbe.Realm,
+            AdminClientId = RealmProbe.AdminClientId,
+            AdminClientSecret = RealmProbe.AdminClientSecret,
         };
         KeycloakAdminTokenProvider tokens = new(
             new FakeHttpClientFactory(aspire.CreateKeycloakClient()),
@@ -180,86 +175,18 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
             authorised, Options.Create(options), NullLogger<HttpKeycloakAdminClient>.Instance);
     }
 
-    private async Task<HttpClient> AuthorisedAdminClientAsync()
-    {
-        HttpClient http = aspire.CreateKeycloakClient();
-        KeycloakAdminOptions options = new()
-        {
-            BaseUrl = http.BaseAddress!.ToString(),
-            Realm = Realm,
-            AdminClientId = AdminClientId,
-            AdminClientSecret = AdminClientSecret,
-        };
-        KeycloakAdminTokenProvider tokens = new(
-            new FakeHttpClientFactory(aspire.CreateKeycloakClient()),
-            Options.Create(options),
-            TimeProvider.System,
-            NullLogger<KeycloakAdminTokenProvider>.Instance);
-
-        string token = await tokens.GetAccessTokenAsync(CancellationToken.None);
-        http.DefaultRequestHeaders.Authorization = new("Bearer", token);
-        return http;
-    }
-
-    /// <summary>
-    /// What the provider says an account effectively holds — composites
-    /// resolved, which is what actually decides whether a grant is issued.
-    /// </summary>
-    private async Task<IReadOnlyList<string>> EffectiveRealmRolesAsync(string clientId)
-    {
-        using HttpClient admin = await AuthorisedAdminClientAsync();
-
-        JsonElement clients = await ReadJsonAsync(
-            admin, $"admin/realms/{Realm}/clients?clientId={Uri.EscapeDataString(clientId)}");
-        string uuid = clients.EnumerateArray().First().GetProperty("id").GetString()!;
-
-        JsonElement serviceAccount = await ReadJsonAsync(
-            admin, $"admin/realms/{Realm}/clients/{uuid}/service-account-user");
-
-        return await CompositeRealmRolesAsync(admin, serviceAccount.GetProperty("id").GetString()!);
-    }
-
-    private async Task<IReadOnlyList<string>> EffectiveRealmRolesOfUserAsync(string username)
-    {
-        using HttpClient admin = await AuthorisedAdminClientAsync();
-
-        JsonElement users = await ReadJsonAsync(
-            admin, $"admin/realms/{Realm}/users?username={Uri.EscapeDataString(username)}&exact=true");
-        string id = users.EnumerateArray().First().GetProperty("id").GetString()!;
-
-        return await CompositeRealmRolesAsync(admin, id);
-    }
-
-    private static async Task<IReadOnlyList<string>> CompositeRealmRolesAsync(HttpClient admin, string userId)
-    {
-        JsonElement roles = await ReadJsonAsync(
-            admin, $"admin/realms/{Realm}/users/{userId}/role-mappings/realm/composite");
-
-        return roles.EnumerateArray()
-            .Select(role => role.GetProperty("name").GetString() ?? string.Empty)
-            .ToArray();
-    }
-
-    private static async Task<JsonElement> ReadJsonAsync(HttpClient admin, string url)
-    {
-        HttpResponseMessage response = await admin.GetAsync(url, CancellationToken.None);
-        response.EnsureSuccessStatusCode();
-
-        using JsonDocument document = JsonDocument.Parse(
-            await response.Content.ReadAsStringAsync(CancellationToken.None));
-        return document.RootElement.Clone();
-    }
-
     private async Task DeleteClientAsync(string clientId)
     {
-        using HttpClient admin = await AuthorisedAdminClientAsync();
+        using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
 
-        JsonElement clients = await ReadJsonAsync(
-            admin, $"admin/realms/{Realm}/clients?clientId={Uri.EscapeDataString(clientId)}");
+        JsonElement clients = await RealmProbe.ReadJsonAsync(
+            admin,
+            $"admin/realms/{RealmProbe.Realm}/clients?clientId={Uri.EscapeDataString(clientId)}",
+            CancellationToken.None);
         foreach (JsonElement client in clients.EnumerateArray())
         {
             await admin.DeleteAsync(
-                $"admin/realms/{Realm}/clients/{client.GetProperty("id").GetString()}",
+                $"admin/realms/{RealmProbe.Realm}/clients/{client.GetProperty("id").GetString()}",
                 CancellationToken.None);
         }
     }
