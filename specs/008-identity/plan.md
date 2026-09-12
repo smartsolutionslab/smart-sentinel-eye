@@ -426,6 +426,24 @@ NFR-001/NFR-002 are smaller than spec 006/007's latency tests
 and don't need a full Aspire fixture — Testcontainers per service
 is enough.
 
+**Corrected 2026-09-12 (#2148) — neither half of the NFR-002
+bullet describes the test that shipped.** It asserts **p50 ≤ 15 ms**
+and **p99 ≤ 50 ms**, not p99 ≤ 5 ms, and it runs against the
+**Aspire fixture**, Testcontainers having been rejected repo-wide by
+ADR-0103. The 5 ms is NFR-002's production-hardware *auth-overhead*
+SLO (`spec.md:425`); the test's figures are wall-clock
+CONNECT→CONNACK through the container host proxy, gated on the
+median with a gross-regression ceiling on the tail, and enforced
+only where `GITHUB_ACTIONS=true` (#1905). Across 40 sampled green
+CI runs the p50 was 1.03–3.55 ms and the p99 1.99–12.97 ms — so a
+reader who takes the bullet literally reads that p99 as a marginal
+NFR-002, which is exactly the misreading #2148 records. The bullets
+above are left as the plan-phase commitment they were.
+`docs/adr/0100-mosquitto-go-auth.md:237-239` carries the same wrong
+claim and is **not** corrected here — amending an ADR is out of the
+autonomous lane's reach (ADR-0144); see
+`specs/136-the-figure-is-from-ci/spec.md` *Out of scope, argued*.
+
 ## Out of Scope (deferred — re-stated for the plan)
 
 - **In-app onboarding UI** (spec 008a).
