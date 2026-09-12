@@ -1177,6 +1177,65 @@ public class EndpointScopeDeclarationTests
             + "convention goes quiet again.");
     }
 
+    /// <summary>
+    /// <b>A statement-bodied lambda does not end the chain before its own
+    /// authorization.</b> <see cref="StatementEnd"/>'s own doc comment names
+    /// this shape and says it is undemonstrated in the corpus today —
+    /// constructed rather than argued, the way
+    /// <c>ConcurrencyConflictDeclarationTests</c> constructs its unbalanced-
+    /// bracket and char-literal cases for the sibling copy of this same
+    /// method, so the claim does not rest on nobody having looked. Issue 2183.
+    ///
+    /// <para>
+    /// Without bracket tracking, <c>IndexOf(';')</c> stops at the filter's
+    /// internal <c>int probe = 1;</c>, and everything after it in the chain —
+    /// the <c>RequireAuthorization</c> call and the <c>ProducesProblem</c>
+    /// declaration — falls outside the span this guard reads. That is the
+    /// false red the issue describes: A13 would report the endpoint as
+    /// declaring no authorization when it plainly does.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_statement_bodied_lambda_does_not_end_the_chain_before_its_own_authorization()
+    {
+        const string source =
+            "group.MapPost(\"/probe\", Probe)\n"
+            + "    .AddEndpointFilter(async (context, next) => { int probe = 1; return await next(context); })\n"
+            + "    .RequireAuthorization(Scope.Sse.Cameras.Read)\n"
+            + "    .ProducesProblem(StatusCodes.Status403Forbidden);\n"
+            + "group.MapPost(\"/other\", Other)\n"
+            + "    .ProducesProblem(StatusCodes.Status404NotFound);\n";
+
+        string masked = Masked(source);
+        int end = StatementEnd(masked, 0);
+
+        end.ShouldBeGreaterThan(
+            0,
+            "the probe chain's terminating semicolon was not found at all, so this mapping would be "
+            + "reported as unreadable outright rather than merely truncated.");
+
+        string chain = masked[..end];
+
+        chain.ShouldContain(
+            "RequireAuthorization",
+            Case.Sensitive,
+            "the span stopped at the filter lambda's internal semicolon and never reached the chain's "
+            + "own RequireAuthorization call. A13 would then report this endpoint as declaring no "
+            + "authorization when it plainly does — the diagnosis points away from the cause.");
+
+        chain.ShouldContain(
+            "ProducesProblem(StatusCodes.Status403Forbidden)",
+            Case.Sensitive,
+            "the span stopped before the chain's own ProducesProblem declaration, so A15's "
+            + "walked-versus-swept counts would disagree even once the authorization is found.");
+
+        chain.ShouldNotContain(
+            "MapPost(\"/other\"",
+            Case.Sensitive,
+            "the truncated-then-recovered span must still stop at this chain's own terminating "
+            + "semicolon rather than running into the next mapping.");
+    }
+
     // ---- reading the chain -------------------------------------------------
 
     /// <summary>
@@ -1981,29 +2040,51 @@ public class EndpointScopeDeclarationTests
     }
 
     /// <summary>
-    /// A chain runs from its <c>Map*</c> call to the <em>first</em> semicolon
-    /// after it in the masked text. Masking is why a semicolon inside a summary
-    /// does not end it early; there is no brace tracking, so this is the first
-    /// semicolon and not necessarily the statement's own.
+    /// A chain runs from its <c>Map*</c> call to the semicolon that ends its own
+    /// statement, ignoring semicolons nested inside brackets — the same
+    /// depth-counting walk as its siblings in <c>PreconditionDeclarationTests</c>
+    /// and <c>RouteValueRefusalDeclarationTests</c>. A statement-bodied lambda in
+    /// the chain, such as <c>.AddEndpointFilter(async (context, next) =&gt; {
+    /// int probe = 1; return await next(context); })</c>, opens a brace before
+    /// its internal semicolon, so that semicolon is skipped and the walk
+    /// continues to the chain's own terminator. Issue 2183.
     ///
     /// <para>
-    /// A chain that contains a statement lambda therefore ends early. A filter
-    /// written as <c>.AddEndpointFilter(async (context, next) =&gt; { int probe =
-    /// 1; return await next(context); })</c> truncates the span at the lambda's
-    /// internal semicolon, and every call after it in the chain — including the
-    /// authorization and the <c>ProducesProblem</c> — is invisible to this
-    /// reader. That fails <b>red</b>, which is the safe direction: A13 reports
-    /// "neither the chain nor its group declares any authorization" for a mapping
-    /// that plainly does, and A15's two counts disagree. The diagnosis points
-    /// away from the cause, so it is written down here rather than left to be
-    /// rediscovered. Demonstrated in review; no chain in the corpus has that
-    /// shape today.
+    /// This copy keeps returning <see cref="string.Length"/> of
+    /// <paramref name="masked"/> for "not found", where the two siblings return
+    /// <c>-1</c>: this file's three call sites use the result directly as a
+    /// slice or search bound (<c>masked[declaration.Index..end]</c> and as the
+    /// <c>end</c> argument to <c>FirstLiteralIn</c>, <c>DeclaredAuthorization</c>,
+    /// <c>ForbiddenDeclarationsIn</c> and <c>GroupSite.IsMatch</c>), and
+    /// <c>masked[x..(-1)]</c> throws <see cref="ArgumentOutOfRangeException"/> —
+    /// the range operator's non-<c>fromEnd</c> <see cref="Index"/> constructor
+    /// rejects negatives. <c>masked[x..masked.Length]</c> is a valid identity
+    /// slice, so the contract stays as it was. Do not "fix" this back to
+    /// <c>-1</c> to match the siblings; that reintroduces the throw at every
+    /// call site the moment a chain has no trailing semicolon.
     /// </para>
     /// </summary>
     private static int StatementEnd(string masked, int start)
     {
-        int semicolon = masked.IndexOf(';', start);
-        return semicolon < 0 ? masked.Length : semicolon;
+        int depth = 0;
+        for (int i = start; i < masked.Length; i++)
+        {
+            char c = masked[i];
+            if (c is '(' or '[' or '{')
+            {
+                depth++;
+            }
+            else if (c is ')' or ']' or '}')
+            {
+                depth--;
+            }
+            else if (c == ';' && depth <= 0)
+            {
+                return i;
+            }
+        }
+
+        return masked.Length;
     }
 
     private static int IndexOfCall(string masked, string call, int start, int end)
