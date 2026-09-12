@@ -126,15 +126,18 @@ to redo.
     own timeout. **New; not on #2141's list.**
   - **F12** `NFR_VariableResolutionLatencyTests` 133× — looser than the case
     #2141 leads with.
-  - **F13** nine budgets with no recorded observation; three of them
+  - **F13** nine budgets with no recorded observation — **eight from 2026-09-11**,
+    when #2148 recorded `NFR002_MqttConnectAuthTests`'s CI p99 (`census.md` §2d
+    item 7, struck); three of them
     (`CommandLatencyTests`, `SignalRRevocationIntegrationTests`,
     `OverlayPushIntegrationTests`) sit under a spec that *promised* the figure.
   - ~~**F14** `NFR002_MqttConnectAuthTests` p50 — 15 ms threshold, 17.58 ms
     observed; the inverse defect.~~ **Void (#2148, 2026-09-11):** 17.58 ms was
     an off-CI reading, taken where `BudgetsApplyHere` leaves the assertion
-    inert, so it was never an observation of the enforced budget. On CI the p50
-    is 1.98–2.29 ms — a 6.6×–7.6× margin, COMFORTABLE. See F14 in `spec.md`'s
-    findings table and `specs/136-the-figure-is-from-ci/`.
+    inert, so it was never an observation of the enforced budget. On CI, across
+    40 sampled green runs, the p50 is 1.03–3.55 ms — a margin never below 4.22×
+    in that sample, COMFORTABLE (figures widened 2026-09-12). See F14 in
+    `spec.md`'s findings table and `specs/136-the-figure-is-from-ci/`.
   - **F15** `SfuLatencyIsReadableTests` maps to a §IV leg and reads no latency
     figure.
   - Depends on: nothing. May run in parallel with T003–T006 **[P]** — it touches
