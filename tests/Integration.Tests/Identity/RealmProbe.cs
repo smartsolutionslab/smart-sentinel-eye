@@ -19,10 +19,17 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// </para>
 ///
 /// <para>
-/// The helpers mirror the private ones in
-/// <see cref="KioskInheritedPrivilegeIntegrationTests"/>. That file is spec 052's
-/// and is left untouched; folding the two together is a tidy-up for whoever
-/// touches it next.
+/// <see cref="KioskInheritedPrivilegeIntegrationTests"/> and
+/// <see cref="KioskPrivilegeSweepStartupIntegrationTests"/> both call this class
+/// rather than keeping their own copies of the admin credentials, the token
+/// client and the role reads (spec 137). Two shapes in
+/// <see cref="KioskInheritedPrivilegeIntegrationTests"/> are deliberately
+/// <b>not</b> folded in, because folding either would change what runs:
+/// its <c>CreateAdminClient</c> builds a delegating-handler client, and its
+/// client-delete loop discards the DELETE response where
+/// <see cref="DeleteAsync"/> below asserts it. Folding the delete would add an
+/// assertion to the two tests that call it, and nothing has ever checked
+/// whether those deletes succeed — see issue #2182's row 8, and #2274.
 /// </para>
 /// </summary>
 public sealed class RealmProbe(AspireFixture aspire)
@@ -80,14 +87,27 @@ public sealed class RealmProbe(AspireFixture aspire)
         JsonElement serviceAccount = await ReadJsonAsync(
             admin, $"admin/realms/{Realm}/clients/{uuid}/service-account-user", cancellationToken);
 
-        JsonElement roles = await ReadJsonAsync(
-            admin,
-            $"admin/realms/{Realm}/users/{serviceAccount.GetProperty("id").GetString()}/role-mappings/realm/composite",
-            cancellationToken);
+        return await CompositeRealmRolesAsync(
+            admin, serviceAccount.GetProperty("id").GetString()!, cancellationToken);
+    }
 
-        return roles.EnumerateArray()
-            .Select(role => role.GetProperty("name").GetString() ?? string.Empty)
-            .ToArray();
+    /// <summary>
+    /// What the provider says a <b>user</b> account effectively holds —
+    /// composites resolved, the same as <see cref="EffectiveRealmRolesAsync"/>
+    /// but looked up by username rather than client id.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> EffectiveRealmRolesOfUserAsync(
+        string username, CancellationToken cancellationToken)
+    {
+        using HttpClient admin = await AuthorisedAdminClientAsync(cancellationToken);
+
+        JsonElement users = await ReadJsonAsync(
+            admin,
+            $"admin/realms/{Realm}/users?username={Uri.EscapeDataString(username)}&exact=true",
+            cancellationToken);
+        string id = users.EnumerateArray().First().GetProperty("id").GetString()!;
+
+        return await CompositeRealmRolesAsync(admin, id, cancellationToken);
     }
 
     /// <summary>
@@ -127,7 +147,7 @@ public sealed class RealmProbe(AspireFixture aspire)
         }
     }
 
-    private async Task<HttpClient> AuthorisedAdminClientAsync(CancellationToken cancellationToken)
+    public async Task<HttpClient> AuthorisedAdminClientAsync(CancellationToken cancellationToken)
     {
         HttpClient http = aspire.CreateKeycloakClient();
         KeycloakAdminOptions options = new()
@@ -153,7 +173,7 @@ public sealed class RealmProbe(AspireFixture aspire)
         return http;
     }
 
-    private static async Task<JsonElement> ReadJsonAsync(
+    public static async Task<JsonElement> ReadJsonAsync(
         HttpClient admin, string url, CancellationToken cancellationToken)
     {
         HttpResponseMessage response = await admin.GetAsync(url, cancellationToken);
@@ -162,5 +182,16 @@ public sealed class RealmProbe(AspireFixture aspire)
         using JsonDocument document = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
         return document.RootElement.Clone();
+    }
+
+    private static async Task<IReadOnlyList<string>> CompositeRealmRolesAsync(
+        HttpClient admin, string userId, CancellationToken cancellationToken)
+    {
+        JsonElement roles = await ReadJsonAsync(
+            admin, $"admin/realms/{Realm}/users/{userId}/role-mappings/realm/composite", cancellationToken);
+
+        return roles.EnumerateArray()
+            .Select(role => role.GetProperty("name").GetString() ?? string.Empty)
+            .ToArray();
     }
 }
