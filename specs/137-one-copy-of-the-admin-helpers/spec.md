@@ -58,8 +58,11 @@ role-expansion read the issue is most worried about has *not* quietly diverged.
 `KioskInherited…AuthorisedAdminClientAsync` (`:185`, `:194`) calls
 `aspire.CreateKeycloakClient()` **twice** and never disposes the second — the leak
 `RealmProbe`'s comment says it fixed. Same HTTP outcome, different resource lifetime.
-Folding removes the leak. **Nothing a test asserts changes**, which is why this is in
-scope.
+Folding removes the leak at these call sites. It does not make the file
+leak-free: `CreateAdminClient` still builds two `HttpClient`s and disposes
+neither, and the `IDisposable` `KeycloakAdminTokenProvider` beside them is also
+undisposed — all pre-existing, all deliberately untouched. **Nothing a test
+asserts changes**, which is why the fold is in scope and the rest is not.
 
 `RealmProbe`'s version also takes a `CancellationToken` (ADR-0049); the Kiosk version
 hardcodes `CancellationToken.None`, which is what all four call sites pass anyway.
@@ -77,7 +80,7 @@ KioskInherited….DeleteClientAsync  await admin.DeleteAsync(…);   // response
 failure. `KioskInherited….DeleteClientAsync` discards the response. Both call sites are
 `finally` blocks.
 
-**Folding row 8 would add an assertion to four currently-green tests.** If that
+**Folding row 8 would add an assertion to the two currently-green tests that call it** — `DeleteClientAsync` has exactly two call sites, both `finally` blocks. If that
 assertion fires — and nobody can know today whether those DELETEs always succeed,
 because nothing has ever looked — a characterisation test that must pass *unmodified*
 goes red, and the cheapest way out for an engineer under pressure is to delete the

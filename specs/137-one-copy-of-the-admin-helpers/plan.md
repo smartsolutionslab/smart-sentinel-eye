@@ -89,7 +89,7 @@ Expected file size: 266 → ~180 lines.
 
 ### What is deliberately not done
 
-- **Row 8, the checked delete.** Spec §row 8. Folding it adds an assertion inside four
+- **Row 8, the checked delete.** Spec §row 8. Folding it adds an assertion inside the two
   `finally` blocks and can turn characterisation red — a refactor that is also a
   strengthening is two issues (ADR-0144). File US-2 as a follow-up issue referencing
   #2166.
