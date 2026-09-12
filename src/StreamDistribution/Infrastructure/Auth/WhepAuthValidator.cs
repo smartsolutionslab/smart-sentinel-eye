@@ -73,8 +73,8 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
         // overlay enforcing https on Keycloak (deploy/helm/ has only the Mosquitto
         // chart); this is a permissive default, not one backed by deployment
         // config. Mirrors the standard JwtBearer pipeline's
-        // RequireHttpsMetadata = false (AuthenticationDefaults, which carries the
-        // same unbacked claim at :58). Without this the default HttpDocumentRetriever
+        // RequireHttpsMetadata = false (AuthenticationDefaults, which states
+        // the same reasoning). Without this the default HttpDocumentRetriever
         // requires https and throws IDX20108 on the dev/CI http authority — a 500 on
         // every WHEP authorize.
         return new ConfigurationManager<OpenIdConnectConfiguration>(

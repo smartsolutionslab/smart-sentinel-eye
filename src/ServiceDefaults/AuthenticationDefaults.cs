@@ -55,7 +55,19 @@ public static class AuthenticationDefaults
             .AddJwtBearer(options =>
             {
                 options.Authority = authority;
-                options.RequireHttpsMetadata = false; // dev/test; Helm overlay enforces in prod
+                // Allow an http metadata authority (dev/test/Aspire). There is no
+                // Helm overlay enforcing https on Keycloak — deploy/helm/ holds
+                // only the Mosquitto chart and no Chart.yaml exists anywhere — and
+                // no production deployment for one to overlay (ADR-0130, #1015).
+                // This is a permissive default, not one backed by deployment
+                // config, and it applies to every service in the solution because
+                // it lives in ServiceDefaults. Enforcing https metadata is an
+                // obligation on whichever spec builds a production deployment.
+                // Do not flip it here: AspireFixture and CI dial Keycloak over
+                // http, so the default retriever would throw IDX20108 on discovery
+                // and 500 every authenticated request. WhepAuthValidator carries
+                // the same reasoning for its own retriever.
+                options.RequireHttpsMetadata = false;
                 // The audience arrives on the sse-audience client scope, which
                 // every client in the realm carries as a default scope; clients
                 // created at runtime get it from
