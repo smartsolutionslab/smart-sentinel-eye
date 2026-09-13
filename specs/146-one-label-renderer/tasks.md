@@ -13,7 +13,7 @@ parity guard via **T003**. Both observed against `origin/develop`, before T004 e
 
 ## Foundational — blocks everything
 
-- [ ] **T001** Baseline. On this branch, with no edits: run
+- [x] **T001** Baseline. On this branch, with no edits: run
       `pnpm --filter @smart-sentinel-eye/shared test`,
       `pnpm --filter @smart-sentinel-eye/management-web test` and `pnpm --filter @smart-sentinel-eye/kiosk-web test`. Record the
       pass counts verbatim. A suite that is already red is a stop-and-report, not something
@@ -25,7 +25,7 @@ parity guard via **T003**. Both observed against `origin/develop`, before T004 e
 
 ### 4a, the two colours. Both run before any source change.
 
-- [ ] **T002 [P] [US1]** **CHARACTERISATION, observed GREEN on today's tree.** New file
+- [x] **T002 [P] [US1]** **CHARACTERISATION, observed GREEN on today's tree.** New file
       `apps/shared/src/ui/composites/OverlayLabelCharacterisation.test.tsx`. Line 1 is
       `// @vitest-environment jsdom`. Mirror the mock setup in
       `apps/shared/src/ui/composites/CameraViewer.test.tsx` — do not invent one. Render
@@ -43,7 +43,7 @@ parity guard via **T003**. Both observed against `origin/develop`, before T004 e
       `toHaveStyle`. Run it. **It must pass. Record the output.** It must pass *unmodified*
       at T008. **Depends: T001.**
 
-- [ ] **T003 [P] [US1]** **RED, observed FAILING on today's tree.** New file
+- [x] **T003 [P] [US1]** **RED, observed FAILING on today's tree.** New file
       `apps/shared/src/ui/composites/OverlayLabelParity.test.tsx`. Line 1 is
       `// @vitest-environment jsdom`. Render **both** components with the *same*
       `OverlayLabel` and assert the two nodes agree on the eight surface properties —
@@ -60,7 +60,7 @@ parity guard via **T003**. Both observed against `origin/develop`, before T004 e
 
 ### The fold
 
-- [ ] **T004 [US1]** New file `apps/shared/src/ui/composites/overlayLabelStyle.ts`. Export
+- [x] **T004 [US1]** New file `apps/shared/src/ui/composites/overlayLabelStyle.ts`. Export
       `interface OverlayLabelAppearance { fontSizePx: number }` and
       `overlayLabelSurfaceStyle(label: OverlayLabelAppearance): CSSProperties` returning the
       wall's eight properties **verbatim**, `plan.md` §"What it returns". Do **not** name any
@@ -69,13 +69,13 @@ parity guard via **T003**. Both observed against `origin/develop`, before T004 e
       observer, no effect, no memo cache, no `container-type`. It runs up to 250 times per
       wall render on the §IV composite + render leg. **Depends: T002, T003.**
 
-- [ ] **T005 [P] [US1]** `apps/shared/src/ui/composites/CameraViewer.tsx` — `OverlayLabel`
+- [x] **T005 [P] [US1]** `apps/shared/src/ui/composites/CameraViewer.tsx` — `OverlayLabel`
       (`:392-416`) spreads `overlayLabelSurfaceStyle(overlay)` into its style object and
       keeps `position`, `left`, `top`, `width`, `height` and `pointerEvents` inline. **No
       value changes.** The `vw` term is preserved exactly; the spec's decision section says
       why it is wrong and why it stays. **Depends: T004.**
 
-- [ ] **T006 [P] [US1]** `apps/shared/src/ui/composites/OverlayEditor.tsx` — the `<Rnd>`
+- [x] **T006 [P] [US1]** `apps/shared/src/ui/composites/OverlayEditor.tsx` — the `<Rnd>`
       style object (`:82-94`) spreads `overlayLabelSurfaceStyle(value)` and keeps only
       `cursor: 'move'` and `userSelect: 'none'`. **Delete `border`** — divergence 3; the wall
       has none. Leave the `Math.max(..., 24)` / `Math.max(..., 16)` px floors at `:45-46`
@@ -83,7 +83,7 @@ parity guard via **T003**. Both observed against `origin/develop`, before T004 e
       remain. Add `data-testid="overlay-editor-label"` to the `<Rnd>` only if T003 needed it.
       **Depends: T004.**
 
-- [ ] **T007 [US1]** New file `apps/shared/src/ui/composites/overlayLabelStyle.test.ts`. No
+- [x] **T007 [US1]** New file `apps/shared/src/ui/composites/overlayLabelStyle.test.ts`. No
       `@vitest-environment` pragma — it asserts a returned object, not a DOM. Cover the
       schema's two bounds (`overlays.schema.ts:6-13`): `fontSizePx: 8` →
       `'clamp(2px, 0.5vw, 8px)'` (the `Math.min(12, f/4)` floor takes the `f/4` branch) and
@@ -92,7 +92,7 @@ parity guard via **T003**. Both observed against `origin/develop`, before T004 e
 
 ### The gate
 
-- [ ] **T008 [US1]** Re-run both colours. **T002 must pass with no assertion edited** — an
+- [x] **T008 [US1]** Re-run both colours. **T002 must pass with no assertion edited** — an
       assertion that has to change is evidence the wall moved, and the correct response is to
       block, not to adjust (constitution §Testing). **T003 must now pass.** Also re-run
       `apps/management-web/src/features/cameras/CameraViewer.test.tsx` **unmodified** — its
@@ -103,7 +103,7 @@ parity guard via **T003**. Both observed against `origin/develop`, before T004 e
 
 ## User Story 2 — the extraction is where the tokens will land (P2)
 
-- [ ] **T009 [P] [US2]** Prove single-source. `grep -rn 'rgba(255, 255, 255,' apps/ --include=*.tsx --include=*.ts`
+- [x] **T009 [P] [US2]** Prove single-source. `grep -rn 'rgba(255, 255, 255,' apps/ --include=*.tsx --include=*.ts`
       and the same for `#111827` — each must hit exactly one non-test source file,
       `overlayLabelStyle.ts`. Then confirm the module introduces **no** CSS custom property
       and that `apps/shared/src/ui/tokens/colors.css` is **unchanged** — this spec converts
@@ -114,7 +114,7 @@ parity guard via **T003**. Both observed against `origin/develop`, before T004 e
 
 ## Polish
 
-- [ ] **T010 [P]** `pnpm lint` and `pnpm typecheck` across the three apps, plus the three
+- [x] **T010 [P]** `pnpm lint` and `pnpm typecheck` across the three apps, plus the three
       vitest suites from T001, all green. Compare the pass counts against T001's baseline:
       three new test files, so the shared count rises and the other two are unchanged.
       **Depends: T008.**

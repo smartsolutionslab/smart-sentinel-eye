@@ -3,7 +3,7 @@
 **Issue:** #2339 — *The overlay editor's preview and the wall's render are two hand-written
 copies that disagree*
 **Branch:** `fix/2339-one-label-renderer`
-**Status:** Phase 1 complete — awaiting gate
+**Status:** Phase 4 complete — awaiting PR (T011)
 **Lane:** autonomous (ADR-0144)
 **Engineer:** `frontend-engineer`
 **Phase 4a colour:** **two colours** — CHARACTERISATION (green) on the wall, RED on the
