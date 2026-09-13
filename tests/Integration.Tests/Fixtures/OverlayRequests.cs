@@ -52,4 +52,34 @@ internal static class OverlayRequests
 
         return await overlays.SendAsync(request);
     }
+
+    /// <summary>
+    /// Creates and publishes a one-label overlay carrying <paramref name="labelText"/>
+    /// verbatim, so a caller with two placeholders composes its own
+    /// <c>"Line A: {{first}} / Line B: {{second}}"</c> rather than this helper knowing
+    /// about placeholder count (#2201 T009).
+    /// </summary>
+    internal static async Task<Guid> PublishWithLabelAsync(
+        HttpClient overlays, string labelText, string namePrefix)
+    {
+        HttpResponseMessage created = await overlays.PostAsJsonAsync("/overlays", new
+        {
+            name = $"{namePrefix}-{Guid.NewGuid():N}"[..16],
+            label = new
+            {
+                text = labelText,
+                normalizedX = 0.5m,
+                normalizedY = 0.05m,
+                normalizedWidth = 0.3m,
+                normalizedHeight = 0.08m,
+                fontSizePx = 48,
+            },
+        });
+        created.EnsureSuccessStatusCode();
+
+        Guid overlay = await created.Content.ReadFromJsonAsync<Guid>();
+        (await PostAsync(overlays, overlay, "revisions/1/publish")).EnsureSuccessStatusCode();
+
+        return overlay;
+    }
 }

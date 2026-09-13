@@ -511,7 +511,7 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
         using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
         using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        string variableName = $"v{Guid.NewGuid():N}"[..12];
+        string variableName = VariableRequests.UniqueName();
         (await variables.PostAsJsonAsync("/system-variables", new
         {
             name = variableName,
@@ -521,23 +521,8 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
             falsyLabel = (string?)null,
         })).EnsureSuccessStatusCode();
 
-        HttpResponseMessage created = await overlays.PostAsJsonAsync("/overlays", new
-        {
-            name = $"Res-{Guid.NewGuid():N}"[..16],
-            label = new
-            {
-                text = $"Line 1: {{{{{variableName}}}}}",
-                normalizedX = 0.5m,
-                normalizedY = 0.05m,
-                normalizedWidth = 0.3m,
-                normalizedHeight = 0.08m,
-                fontSizePx = 48,
-            },
-        });
-        created.EnsureSuccessStatusCode();
-
-        Guid overlay = await created.Content.ReadFromJsonAsync<Guid>();
-        (await OverlayRequests.PostAsync(overlays, overlay, "revisions/1/publish")).EnsureSuccessStatusCode();
+        Guid overlay = await OverlayRequests.PublishWithLabelAsync(
+            overlays, $"Line 1: {{{{{variableName}}}}}", "Res");
 
         await PublishAMunichLayoutReferencingAsync(overlay);
         await OverlaySnapshotReadiness.WaitUntilResolvableAsync(variables, overlay, variableName);
