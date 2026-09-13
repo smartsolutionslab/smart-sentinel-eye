@@ -2,6 +2,21 @@ import { logResilienceEvent } from '../observability/resilienceLog.js';
 
 export type WhepErrorKind = 'unauthorized' | 'forbidden' | 'stream-unavailable' | 'network' | 'sdp';
 
+/**
+ * What `setPlayoutTarget` found, in place of the single `boolean` it used to
+ * collapse three distinct causes into (#2198 item 2, spec 142 FR-006):
+ *
+ * - `'applied'` — at least one video receiver accepted the assignment.
+ * - `'not-connected'` — no peer connection, no `getReceivers`, or no video
+ *   receiver at all. A transient every tile passes through on its way up.
+ * - `'unsupported'` — video receivers exist, but none carries
+ *   `jitterBufferTarget`. Permanent for this browser engine.
+ * - `'refused'` — a video receiver carries the property and every assignment
+ *   attempt threw. Never raised to a caller (FR-008); only made
+ *   distinguishable in the return value.
+ */
+export type PlayoutTargetOutcome = 'applied' | 'not-connected' | 'unsupported' | 'refused';
+
 export class WhepError extends Error {
   constructor(
     public readonly kind: WhepErrorKind,
@@ -182,33 +197,41 @@ export class WhepClient {
    * teardown are untouched. Support is checked rather than assumed — an older
    * engine or a test double may not offer the property, and a controller that
    * threw where it is unsupported would break the wall it is aligning
-   * (FR-013). Returns whether the target was applied.
+   * (FR-013). Returns which of four things happened —
+   * {@link PlayoutTargetOutcome}: `'applied'` to at least one video receiver;
+   * `'not-connected'`, a transient with no receivers to act on yet;
+   * `'unsupported'`, receivers exist but none carries the property; or
+   * `'refused'`, a receiver carries it and every assignment threw.
    * </p>
    */
-  setPlayoutTarget(milliseconds: number): boolean {
+  setPlayoutTarget(milliseconds: number): PlayoutTargetOutcome {
     const pc = this.pc;
     if (pc === null || typeof pc.getReceivers !== 'function') {
-      return false;
+      return 'not-connected';
     }
 
-    let applied = false;
+    let outcome: PlayoutTargetOutcome = 'not-connected';
     for (const receiver of pc.getReceivers()) {
       if (receiver.track?.kind !== 'video') continue;
+      if (outcome === 'not-connected') outcome = 'unsupported';
       if (!('jitterBufferTarget' in receiver)) continue;
       try {
         // Cast through `unknown`: `jitterBufferTarget` is a WebRTC extension
         // and is absent from the standard receiver type, so there is nothing
         // to intersect with.
         (receiver as unknown as { jitterBufferTarget: number | null }).jitterBufferTarget = milliseconds;
-        applied = true;
+        outcome = 'applied';
       } catch {
         // Swallowed deliberately: an engine may refuse a value or drop the
         // property, and a tile that cannot be aligned must carry on showing
         // video rather than surface an alignment fault to an operator watching
-        // a fab (FR-013).
+        // a fab (FR-013). Named 'refused' rather than raised — still not
+        // surfaced to any caller, only distinguishable in the return value
+        // (spec 142 FR-008).
+        if (outcome !== 'applied') outcome = 'refused';
       }
     }
-    return applied;
+    return outcome;
   }
 
   private releaseSession(): void {
@@ -217,7 +240,17 @@ export class WhepClient {
     this.sessionUrl = null;
     // WHEP DELETE (draft-ietf-wish-whep session resource). Fire-and-forget:
     // teardown must never depend on the server still being alive, and
-    // `keepalive` lets the release survive page navigation.
+    // `keepalive` lets the release survive page navigation. On page unload
+    // the continuation below never runs and nothing is logged — the accepted
+    // cost of `keepalive`, not designed around (spec 142 FR-003).
+    //
+    // Reported, never retried (spec 142 FR-004): MediaMTX 1.21.0 has no
+    // idle-session timeout of its own — reclaim is ICE-driven, at roughly 30 s
+    // (pion/ice's defaults; no MediaMTX setting bounds it any tighter), so a
+    // retry could not recover more than that already-bounded transient, and
+    // the dominant failure is a 401 from an expired token — `getToken()` is
+    // re-resolved above, at release time, so a retry would only re-present the
+    // same dead credential (ADR-0143).
     void this.opts
       .getToken()
       .then((token) => {
@@ -227,7 +260,14 @@ export class WhepClient {
         }
         return fetch(sessionUrl, { method: 'DELETE', headers, keepalive: true });
       })
-      .catch(() => undefined);
+      .then((response) => {
+        if (!response.ok) {
+          logResilienceEvent('stream', 'session-release-failed', { status: response.status });
+        }
+      })
+      .catch((cause: unknown) => {
+        logResilienceEvent('stream', 'session-release-failed', { error: String(cause) });
+      });
   }
 
   private teardownLocally(): void {
