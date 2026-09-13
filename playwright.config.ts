@@ -14,7 +14,10 @@ export default defineConfig({
   fullyParallel: false,
   retries: isCI ? 2 : 0,
   workers: isCI ? 1 : undefined,
-  reporter: isCI ? [['list'], ['html', { open: 'never' }]] : [['list']],
+  // #2077: json report feeds scripts/summarise-e2e-retries.mjs, CI-only.
+  reporter: isCI
+    ? [['list'], ['html', { open: 'never' }], ['json', { outputFile: 'test-results/e2e-report.json' }]]
+    : [['list']],
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
