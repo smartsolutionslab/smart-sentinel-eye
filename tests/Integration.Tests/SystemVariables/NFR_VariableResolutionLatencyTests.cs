@@ -72,8 +72,24 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
     /// </summary>
     private const int LegBudgetMs = 800;
 
+    /// <summary>
+    /// Kept at 3 even after #2201 corrected <see cref="WaitUntilResolvableAsync"/> to
+    /// actually wait: the readiness wait exercises only <c>GET
+    /// /system-variables/snapshot</c> — the read path. The measured loop below exercises a
+    /// different path entirely — the version read, <c>PUT .../value</c>, the domain event,
+    /// the outbox, and the resolve — so warmup round 0 remains that write-and-propagate
+    /// path's first execution, absorbing first-call JIT, Wolverine handler resolution and EF
+    /// plan compilation that would otherwise land inside the first measured sample. The two
+    /// warm different paths; neither makes the other redundant. See the second
+    /// <c>Console.WriteLine</c> below for the observation this reasoning predicts.
+    /// </summary>
     private const int WarmupRounds = 3;
+
     private const int MeasuredRounds = 5;
+
+    /// <summary>Poll interval for <see cref="WaitUntilResolvableAsync"/> — the loop is now
+    /// real (#2201), and an undelayed one would hot-spin a core against the API.</summary>
+    private const int PollIntervalMs = 200;
 
     public Task InitializeAsync() => aspire.ResetSystemVariablesAsync();
 
@@ -103,9 +119,10 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
         // Wolverine's delivery of a different event.
         await WaitUntilResolvableAsync(variables, overlay, variableName);
 
+        List<long> warmups = [];
         for (int round = 0; round < WarmupRounds; round++)
         {
-            await MeasureOneChangeAsync(variables, overlay, variableName, 1000 + round);
+            warmups.Add(await MeasureOneChangeAsync(variables, overlay, variableName, 1000 + round));
         }
 
         List<long> measured = [];
@@ -125,6 +142,13 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
             + $"GLOBAL-KEYED baseline: "
             + $"median {median} ms, worst {worst} ms, samples [{string.Join(", ", measured)}] ms "
             + $"(constitution §IV leg 4 budget: 200 ms)");
+
+        // #2201 US-2's observation: is round 0 of the write-and-propagate path markedly
+        // slower than rounds 1-2? If so, WarmupRounds is demonstrably load-bearing rather
+        // than a trim someone could remove now that the readiness wait is fixed.
+        Console.WriteLine(
+            $"[NFR spec 014 T031 warmup] write-and-propagate warmup samples "
+            + $"[{string.Join(", ", warmups)}] ms — round 0 is that path's first execution");
 
         median.ShouldBeLessThan(LegBudgetMs);
     }
@@ -146,7 +170,13 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
 
         while (stopwatch.ElapsedMilliseconds < 10_000)
         {
-            if ((await ResolvedTextAsync(variables, overlay)).Contains(expected, StringComparison.Ordinal))
+            string? resolved = await ResolvedTextAsync(variables, overlay);
+
+            // A non-200 meant "not a match" before this method returned string.Empty for
+            // it, and it must go on meaning exactly that now that it returns null (#2201) —
+            // this poll's own semantics are unchanged, only ResolvedTextAsync's spelling of
+            // "absent" moved.
+            if (resolved is not null && resolved.Contains(expected, StringComparison.Ordinal))
             {
                 return stopwatch.ElapsedMilliseconds;
             }
@@ -163,34 +193,54 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
     /// file's own measured test, which passes no <c>ceilingMs</c> and keeps its 30 s
     /// ceiling unchanged. The widening is deleted once both bodies move into a shared
     /// fixture.
+    ///
+    /// <para>
+    /// Copied from <c>TwoPlaceholdersInOneLabelTests.WaitUntilResolvableAsync</c>'s shape
+    /// (#2201): readiness requires both a 200 <b>and</b> the literal placeholder gone —
+    /// neither alone — and the poll delays between attempts rather than spinning.
+    /// </para>
     /// </summary>
     internal static async Task WaitUntilResolvableAsync(
         HttpClient variables, Guid overlay, string variableName, int ceilingMs = 30_000)
     {
+        string literal = $"{{{{{variableName}}}}}";
         Stopwatch stopwatch = Stopwatch.StartNew();
+        string? resolved = null;
+
         while (stopwatch.ElapsedMilliseconds < ceilingMs)
         {
-            string resolved = await ResolvedTextAsync(variables, overlay);
+            resolved = await ResolvedTextAsync(variables, overlay);
 
-            // Until the index knows the overlay, the snapshot renders the
-            // literal placeholder. Its disappearance is the readiness signal.
-            if (!resolved.Contains($"{{{{{variableName}}}}}", StringComparison.Ordinal))
+            // Until the index knows the overlay, the snapshot renders the literal
+            // placeholder. Its disappearance, on top of an actual 200, is the readiness
+            // signal — neither half alone is enough (#2201).
+            if (resolved is not null && !resolved.Contains(literal, StringComparison.Ordinal))
             {
                 return;
             }
+
+            await Task.Delay(PollIntervalMs);
         }
 
         throw new TimeoutException(
-            $"Overlay {overlay} never became resolvable; the reverse index did not pick it up.");
+            $"Overlay {overlay} never resolved '{variableName}' within {ceilingMs} ms; "
+            + $"the last snapshot was "
+            + $"{(resolved is null ? "not a 200" : $"a 200 carrying '{resolved}'")}.");
     }
 
-    internal static async Task<string> ResolvedTextAsync(HttpClient variables, Guid overlay)
+    /// <summary>
+    /// The resolved text, or <c>null</c> when the snapshot did not answer 200 — the two are
+    /// different states and the readiness wait must tell them apart (#2201).
+    /// <c>string.Empty</c> could not: <c>string.Empty.Contains(anything non-empty)</c>
+    /// answers <c>false</c>, the same answer a fully resolved label gives.
+    /// </summary>
+    internal static async Task<string?> ResolvedTextAsync(HttpClient variables, Guid overlay)
     {
         HttpResponseMessage snapshot = await variables.GetAsync(
             $"/system-variables/snapshot?overlayIdentifier={overlay}");
         if (!snapshot.IsSuccessStatusCode)
         {
-            return string.Empty;
+            return null;
         }
 
         JsonElement payload = await snapshot.Content.ReadFromJsonAsync<JsonElement>();
