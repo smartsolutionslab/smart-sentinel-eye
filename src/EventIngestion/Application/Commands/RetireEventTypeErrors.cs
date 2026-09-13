@@ -23,11 +23,9 @@ public abstract record RetireEventTypeError(string Code, string Message, HttpSta
     /// <c>StaleCodeConventionTests</c>): the shared client keys on that exact
     /// suffix to tell an operator their edit conflicts rather than to retry,
     /// and <c>_STALE_VERSION</c> is literally the pattern ADR-0119 was written
-    /// to catch. spec.md's acceptance scenario names
-    /// <c>EVENT_TYPE_STALE_VERSION</c>; this deviates from it deliberately —
-    /// see the phase 4a report.
+    /// to catch.
     /// </summary>
-    public sealed record EventTypeStaleVersion(string Kind, int ExpectedVersion, int ActualVersion)
+    public sealed record EventTypeStale(string Kind, int ExpectedVersion, int ActualVersion)
         : RetireEventTypeError(
             "EVENT_TYPE_STALE",
             $"Event type '{Kind}' has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
@@ -45,6 +43,6 @@ public static class RetireEventTypeFailures
     public static RetireEventTypeError EventTypeNotFound(string kind) =>
         new RetireEventTypeError.EventTypeNotFound(kind);
 
-    public static RetireEventTypeError EventTypeStaleVersion(string kind, int expectedVersion, int actualVersion) =>
-        new RetireEventTypeError.EventTypeStaleVersion(kind, expectedVersion, actualVersion);
+    public static RetireEventTypeError EventTypeStale(string kind, int expectedVersion, int actualVersion) =>
+        new RetireEventTypeError.EventTypeStale(kind, expectedVersion, actualVersion);
 }

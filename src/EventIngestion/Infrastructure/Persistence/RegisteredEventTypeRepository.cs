@@ -25,20 +25,6 @@ public sealed class RegisteredEventTypeRepository(
         return found is null ? Option<RegisteredEventType>.None : Option<RegisteredEventType>.Some(found);
     }
 
-    public async Task<Option<RegisteredEventType>> GetRegisteredAsync(
-        IReadOnlyList<FabIdentifier> fabs, Kind kind, CancellationToken cancellationToken)
-    {
-        Ensure.That(fabs).IsNotNull();
-        Ensure.That(kind).IsNotNull();
-
-        RegisteredEventType? found = await dbContext.RegisteredEventTypes
-            .Where(eventType => fabs.Contains(eventType.Fab) && eventType.Kind == kind
-                && eventType.State == RegistrationState.Registered)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        return found is null ? Option<RegisteredEventType>.None : Option<RegisteredEventType>.Some(found);
-    }
-
     public void Add(RegisteredEventType eventType)
     {
         Ensure.That(eventType).IsNotNull();

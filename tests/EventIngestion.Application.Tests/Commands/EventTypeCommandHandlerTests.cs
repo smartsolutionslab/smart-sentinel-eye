@@ -120,7 +120,7 @@ public class EventTypeCommandHandlerTests
             repo, new FakeClock(Now.AddHours(1)), NullLogger<RetireEventTypeCommandHandler>.Instance);
 
         Result<RegisteredEventTypeIdentifier, RetireEventTypeError> result = await handler.HandleAsync(
-            new RetireEventTypeCommand([Dresden], PersonInRestrictedZone, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
+            new RetireEventTypeCommand(Dresden, PersonInRestrictedZone, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -144,7 +144,7 @@ public class EventTypeCommandHandlerTests
             repo, new FakeClock(Now.AddHours(1)), NullLogger<RetireEventTypeCommandHandler>.Instance);
 
         Result<RegisteredEventTypeIdentifier, RetireEventTypeError> result = await handler.HandleAsync(
-            new RetireEventTypeCommand([Dresden], PersonInRestrictedZone, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
+            new RetireEventTypeCommand(Dresden, PersonInRestrictedZone, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -168,7 +168,7 @@ public class EventTypeCommandHandlerTests
             repo, new FakeClock(Now.AddHours(2)), NullLogger<RetireEventTypeCommandHandler>.Instance);
 
         Result<RegisteredEventTypeIdentifier, RetireEventTypeError> result = await handler.HandleAsync(
-            new RetireEventTypeCommand([Dresden], PersonInRestrictedZone, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
+            new RetireEventTypeCommand(Dresden, PersonInRestrictedZone, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -187,11 +187,11 @@ public class EventTypeCommandHandlerTests
             repo, new FakeClock(Now.AddHours(1)), NullLogger<RetireEventTypeCommandHandler>.Instance);
 
         Result<RegisteredEventTypeIdentifier, RetireEventTypeError> result = await handler.HandleAsync(
-            new RetireEventTypeCommand([Dresden], PersonInRestrictedZone, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
+            new RetireEventTypeCommand(Dresden, PersonInRestrictedZone, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
-        result.Error.ShouldBeOfType<RetireEventTypeError.EventTypeStaleVersion>();
+        result.Error.ShouldBeOfType<RetireEventTypeError.EventTypeStale>();
         repo.EventTypes.ShouldHaveSingleItem().State.ShouldNotBe(RegistrationState.Retired, "a refused retire retired it anyway");
     }
 
@@ -218,7 +218,7 @@ public class EventTypeCommandHandlerTests
             repo, new FakeClock(Now.AddHours(1)), NullLogger<RetireEventTypeCommandHandler>.Instance);
 
         Result<RegisteredEventTypeIdentifier, RetireEventTypeError> result = await handler.HandleAsync(
-            new RetireEventTypeCommand([Dresden], PersonInRestrictedZone, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
+            new RetireEventTypeCommand(Dresden, PersonInRestrictedZone, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();

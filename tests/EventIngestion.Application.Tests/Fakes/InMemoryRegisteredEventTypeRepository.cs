@@ -46,18 +46,6 @@ public sealed class InMemoryRegisteredEventTypeRepository : IRegisteredEventType
             : Option<RegisteredEventType>.Some(found));
     }
 
-    public Task<Option<RegisteredEventType>> GetRegisteredAsync(
-        IReadOnlyList<FabIdentifier> fabs, Kind kind, CancellationToken cancellationToken)
-    {
-        RegisteredEventType? found = _eventTypes.SingleOrDefault(
-            eventType => fabs.Contains(eventType.Fab) && eventType.Kind == kind
-                && eventType.State == RegistrationState.Registered);
-
-        return Task.FromResult(found is null
-            ? Option<RegisteredEventType>.None
-            : Option<RegisteredEventType>.Some(found));
-    }
-
     public void Add(RegisteredEventType eventType)
     {
         Ensure.That(eventType).IsNotNull();
