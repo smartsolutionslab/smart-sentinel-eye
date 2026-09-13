@@ -1,6 +1,11 @@
 # ADR-0078: Styling — Tailwind CSS with CSS-Custom-Property Tokens
 
 **Status:** Accepted
+**Amended by:** ADR-0148 (2026-09-13) — the token file's **structure and colour
+space**. The mechanism below (custom properties consumed by Tailwind) stands
+unchanged; what ADR-0148 adds is a two-layer primitive/semantic split in OKLCH,
+which the flat block this ADR describes could not carry past about a hundred
+properties.
 **Date:** 2026-05-25
 
 ## Context
@@ -18,19 +23,19 @@ properties**.
 ```css
 /* apps/shared/ui/tokens/colors.css */
 :root {
-    --color-bg-base: #0b0d10;
-    --color-bg-elevated: #14171c;
-    --color-fg-primary: #f5f7fa;
-    --color-fg-muted: #7a8294;
-    --color-accent-active: #00c853;
-    --color-accent-fault: #ff5252;
-    --color-accent-warning: #ffab40;
+  --color-bg-base: #0b0d10;
+  --color-bg-elevated: #14171c;
+  --color-fg-primary: #f5f7fa;
+  --color-fg-muted: #7a8294;
+  --color-accent-active: #00c853;
+  --color-accent-fault: #ff5252;
+  --color-accent-warning: #ffab40;
 }
 
-[data-theme="high-contrast"] {
-    --color-bg-base: #000;
-    --color-fg-primary: #fff;
-    --color-accent-fault: #ff0000;
+[data-theme='high-contrast'] {
+  --color-bg-base: #000;
+  --color-fg-primary: #fff;
+  --color-accent-fault: #ff0000;
 }
 ```
 
