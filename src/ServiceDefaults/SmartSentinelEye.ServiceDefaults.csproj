@@ -12,6 +12,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- TryLoadApplicationAssembly is internal — it is a composition detail
+         rather than API — and it holds the absent-vs-broken loader rules that
+         spec 139 FR-001 and FR-003 turn on. Those are worth testing without
+         making the type public to do it. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>SmartSentinelEye.ServiceDefaults.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
 
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
