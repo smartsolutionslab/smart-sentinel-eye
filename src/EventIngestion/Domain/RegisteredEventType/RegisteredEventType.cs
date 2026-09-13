@@ -26,13 +26,6 @@ public sealed class RegisteredEventType : AggregateRoot<RegisteredEventTypeIdent
     /// <summary>
     /// Mints a new registry entry. Raises
     /// <see cref="EventTypeRegisteredDomainEvent"/>.
-    ///
-    /// <para>
-    /// Phase 4a prelude (spec 143 T001): <see cref="State"/> and
-    /// <see cref="Registration"/> are the behaviour under test and are left
-    /// at their <c>null!</c> defaults here; nothing is raised. T004 fills
-    /// both in. The guards below survive unchanged into that fill-in.
-    /// </para>
     /// </summary>
     public static RegisteredEventType Register(
         FabIdentifier fab, Kind kind, OperatorIdentifier registeredBy, IClock clock)
@@ -41,12 +34,18 @@ public sealed class RegisteredEventType : AggregateRoot<RegisteredEventTypeIdent
         Ensure.That(kind).IsNotNull();
         Ensure.That(clock).IsNotNull();
 
+        DateTimeOffset now = clock.UtcNow;
+        RegisteredAt registeredAt = RegisteredAt.From(now);
         RegisteredEventType eventType = new()
         {
             Id = RegisteredEventTypeIdentifier.New(),
             Fab = fab,
             Kind = kind,
+            State = RegistrationState.Registered,
+            Registration = Registration.From(registeredAt, registeredBy),
         };
+
+        eventType.Raise(new EventTypeRegisteredDomainEvent(eventType.Id, fab, kind, now, registeredBy));
 
         return eventType;
     }
@@ -54,20 +53,17 @@ public sealed class RegisteredEventType : AggregateRoot<RegisteredEventTypeIdent
     /// <summary>
     /// Idempotent by early return when already <see cref="RegistrationState.Retired"/>
     /// (mirrors <c>Variable.Archive</c> and <c>WebhookIntegration.Revoke</c>).
-    ///
-    /// <para>
-    /// Phase 4a prelude (spec 143 T001): the body is the guard below and
-    /// nothing else — no flip, no idempotent check, nothing raised. T004
-    /// fills it in.
-    /// </para>
     /// </summary>
     public void Retire(OperatorIdentifier retiredBy, IClock clock)
     {
         Ensure.That(clock).IsNotNull();
 
-        // Touches instance state so CA1822/S2325 do not flag this as static
-        // while the behaviour they would otherwise be marking correctly as
-        // "does nothing yet" is still withheld (spec 143 T001).
-        _ = Id;
+        if (State == RegistrationState.Retired)
+        {
+            return; // idempotent
+        }
+
+        State = RegistrationState.Retired;
+        Raise(new EventTypeRetiredDomainEvent(Id, Fab, Kind, clock.UtcNow, retiredBy));
     }
 }

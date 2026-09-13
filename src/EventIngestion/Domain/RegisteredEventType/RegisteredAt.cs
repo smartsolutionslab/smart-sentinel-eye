@@ -34,10 +34,7 @@ public sealed record RegisteredAt(DateTimeOffset Value) : IValueObject<DateTimeO
     public static bool operator >=(RegisteredAt left, RegisteredAt right) =>
         Comparer<RegisteredAt>.Default.Compare(left, right) >= 0;
 
-    // Phase 4a prelude (spec 143 T001): the UTC normalisation is the
-    // behaviour under test and is withheld until T004 — this stores whatever
-    // it is given.
-    public static RegisteredAt From(DateTimeOffset value) => new(value);
+    public static RegisteredAt From(DateTimeOffset value) => new(value.ToUniversalTime());
 
     /// <summary>
     /// Implicit unwrap to <see cref="DateTimeOffset"/> so EF Core can
