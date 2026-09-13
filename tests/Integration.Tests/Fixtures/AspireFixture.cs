@@ -578,9 +578,25 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
+    // Issue #2195: the one-shot exemption reads EndedStates rather than
+    // spelling "Finished" a second time. FatalStartupStates carries Exited too
+    // (it is reachable — see that field's own doc), so a one-shot that ends
+    // there with exit code 0 was unhealthy before this and named as a likely
+    // cause in FormatLikelyCause below, which had to add its own comment
+    // explaining why the sentence must not call it "long-running": the
+    // predicate never checked that, because it never saw the resource as
+    // healthy to begin with. One list, read by both the exemption and the
+    // naming logic that depends on it, rather than a third spelling of the
+    // same states.
+    //
+    // The rebuilder exemption stays narrower, on purpose: it exempts only
+    // NotStarted, not EndedStates. #1918 wants a rebuilder that ends kept in
+    // the failure section; FormatLikelyCause drops it from the cause sentence
+    // alone, a different and intentionally asymmetric exemption.
     private static bool IsHealthy(string name, string state, Dictionary<string, int?> exitCodes) =>
         state is "Running"
-        || (state is "Finished" && IsOneShot(name) && !ExitedNonZero(name, exitCodes))
+        || (EndedStates.Contains(state, StringComparer.OrdinalIgnoreCase)
+            && IsOneShot(name) && !ExitedNonZero(name, exitCodes))
         || (state is "NotStarted" && name.EndsWith("-rebuilder", StringComparison.Ordinal));
 
     // "Did not exit non-zero", not "exited zero". An unobserved code means the

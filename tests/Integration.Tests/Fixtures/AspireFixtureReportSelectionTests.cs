@@ -133,14 +133,18 @@ public class AspireFixtureReportSelectionTests
     }
 
     [Fact]
-    public void A_one_shot_that_ended_is_named_without_being_called_long_running()
+    public void A_one_shot_that_succeeded_in_any_ended_state_is_not_named_as_a_cause()
     {
-        // `IsHealthy` spells the one-shot exemption for `Finished` only, so a
-        // `migrations` in `Exited` is unhealthy and reaches the cause line —
-        // which then said "a long-running resource that ends…" about the one
-        // resource in the stack that is known not to be. Naming it is right;
-        // the boot was waiting on it. The predicate never asked whether it was
-        // long-running, so the sentence must not answer.
+        // Issue #2195. `IsHealthy` used to spell the one-shot exemption for
+        // `Finished` only, so a `migrations` that succeeded via `Exited` —
+        // reachable, per `FatalStartupStates`' own doc — was unhealthy and
+        // reached the cause line, which then had to explain in its own
+        // comment why it could not call the resource "long-running": the
+        // predicate never checked that, because it never recognised the
+        // resource as healthy to begin with. This is the corrected property:
+        // a one-shot that ended successfully, in any state `EndedStates`
+        // recognises as ended, is exempt exactly as a `Finished` one always
+        // was — not reported, not named.
         Dictionary<string, string> states = new(StringComparer.Ordinal)
         {
             ["migrations"] = "Exited",
@@ -148,10 +152,30 @@ public class AspireFixtureReportSelectionTests
         };
         Dictionary<string, int?> exitCodes = new(StringComparer.Ordinal) { ["migrations"] = 0 };
 
+        AspireFixture.FormatLikelyCause(states, exitCodes).ShouldBeEmpty();
+        AspireFixture.SelectResourcesToReport(states, exitCodes).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void A_one_shot_that_failed_in_an_ended_state_other_than_Finished_is_still_named()
+    {
+        // The other half of #2195's fix, guarded against over-correction:
+        // widening the exemption to every ended state must not also exempt a
+        // one-shot that genuinely failed there. `ExitedNonZero` still gates
+        // the exemption, so this reaches `died`, not the exemption — the same
+        // outcome `The_report_names_a_likely_cause_when_a_resource_exited_non_zero`
+        // pins for `Finished`.
+        Dictionary<string, string> states = new(StringComparer.Ordinal)
+        {
+            ["migrations"] = "Exited",
+            ["camera-catalog"] = "Running",
+        };
+        Dictionary<string, int?> exitCodes = new(StringComparer.Ordinal) { ["migrations"] = 134 };
+
         string cause = AspireFixture.FormatLikelyCause(states, exitCodes);
 
-        cause.ShouldContain("migrations reached Exited with exit code 0");
-        cause.ShouldNotContain("long-running");
+        cause.ShouldContain("migrations exited with code 134");
+        AspireFixture.SelectResourcesToReport(states, exitCodes).ShouldBe(["migrations"]);
     }
 
     [Fact]
