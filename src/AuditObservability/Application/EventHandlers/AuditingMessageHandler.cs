@@ -15,7 +15,9 @@ namespace SmartSentinelEye.AuditObservability.Application.EventHandlers;
 ///
 /// <para>
 /// Idempotency is handled at the repository / EF Core layer
-/// (<c>INSERT … ON CONFLICT (event_identifier) DO NOTHING</c>);
+/// (<c>INSERT … ON CONFLICT (event_identifier, occurred_at) DO
+/// NOTHING</c> — the pair, because TimescaleDB forbids a unique
+/// index that omits the hypertable partitioning column);
 /// the handler does not need to check for prior rows.
 /// </para>
 ///
