@@ -49,8 +49,16 @@ public class FabPartitionProvisionerTests
         ddl.ShouldContain($"FOR VALUES IN ('{fab}')");
     }
 
+    /// <summary>
+    /// Issue #2193 — this test does not run <see cref="FabPartitionProvisioner.ProvisionAsync"/>
+    /// once, let alone twice, so it cannot exercise the repetition its old name
+    /// (<c>Is_idempotent_so_a_second_run_changes_nothing</c>) promised. What it
+    /// actually pins is the SQL shape a second run would rely on:
+    /// <c>FabPartitionProvisioningIntegrationTests.Provisioning_the_same_fab_twice_changes_nothing</c>
+    /// is the test that calls it twice against a real database.
+    /// </summary>
     [Fact]
-    public void Is_idempotent_so_a_second_run_changes_nothing()
+    public void Builds_ddl_that_tolerates_an_existing_partition()
     {
         string ddl = FabPartitionProvisioner.BuildPartitionDdl(FabIdentifier.From("munich"));
 

@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -94,6 +96,39 @@ public class FabPartitionProvisioningIntegrationTests(AspireFixture aspire)
         }
 
         found.ShouldBe(1, "the event was accepted but never stored — the T001 defect");
+    }
+
+    /// <summary>
+    /// Issue #2193. <c>FabPartitionProvisionerTests.Builds_ddl_that_tolerates_an_existing_partition</c>
+    /// pins the DDL shape a second run relies on but never calls
+    /// <see cref="FabPartitionProvisioner.ProvisionAsync"/> at all, so nothing
+    /// in the repository actually ran it twice. This does — against the real
+    /// database this fixture provides, on a fab already provisioned by the
+    /// migration job (<see cref="Every_fab_in_the_realm_has_event_storage"/>),
+    /// so the second call here is at minimum the third <c>CREATE TABLE IF NOT
+    /// EXISTS</c> this partition has seen.
+    /// </summary>
+    [Fact]
+    public async Task Provisioning_the_same_fab_twice_changes_nothing()
+    {
+        FabIdentifier munich = FabIdentifier.From("munich");
+        FabPartitionProvisioner provisioner = new(NullLogger<FabPartitionProvisioner>.Instance);
+
+        await using (EventIngestionDbContext first = await aspire.CreateEventIngestionDbContextAsync())
+        {
+            await provisioner.ProvisionAsync(first, [munich], CancellationToken.None);
+        }
+
+        IReadOnlyList<string> before = await FabPartitionsAsync();
+
+        await using (EventIngestionDbContext second = await aspire.CreateEventIngestionDbContextAsync())
+        {
+            await provisioner.ProvisionAsync(second, [munich], CancellationToken.None);
+        }
+
+        IReadOnlyList<string> after = await FabPartitionsAsync();
+
+        after.ShouldBe(before, ignoreOrder: true, "a second provisioning pass changed the partition set");
     }
 
     private async Task<IReadOnlyList<string>> FabPartitionsAsync()
