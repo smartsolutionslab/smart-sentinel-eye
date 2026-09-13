@@ -19,6 +19,7 @@ import {
 } from '../../observability/wallAlignment.js';
 import { useWhepSession } from './useWhepSession.js';
 import type { CameraViewerStatus } from './useWhepSession.js';
+import type { PlayoutTargetOutcome } from '../../streaming/WhepClient.js';
 
 export type { CameraViewerStatus } from './useWhepSession.js';
 
@@ -315,25 +316,34 @@ export function CameraViewer({
     // itself, but the call can still throw before it gets there — an engine
     // without `getReceivers`, a torn-down connection — and an exception here
     // would take the render effect with it. A tile that cannot be aligned must
-    // carry on showing video (FR-013).
-    let applied = false;
+    // carry on showing video (FR-013). Mapped to 'refused', one frame out: the
+    // engine refused, and it is still reported below, exactly as today's
+    // `applied = false` was.
+    let outcome: PlayoutTargetOutcome = 'not-connected';
     try {
-      applied = setPlayoutTarget(playoutTargetMilliseconds);
+      outcome = setPlayoutTarget(playoutTargetMilliseconds);
     } catch {
-      // Still swallowed, for the reason above. A throw is not an application,
-      // so it falls into the report below rather than out of this effect.
+      outcome = 'refused';
     }
 
-    // The answer is no longer discarded. `setPlayoutTarget` reports false when
-    // no video receiver carries `jitterBufferTarget` — Firefox, Safari, pre-115
-    // Chromium — and nothing in the tree read that. A wall on such an engine
-    // shows a spread that never closes, which is what an unconverged wall looks
-    // like too; the first is permanent and the second happens on every startup.
+    // The answer is no longer collapsed into one boolean (#2198 item 2, spec
+    // 142). `setPlayoutTarget` now answers which of four things happened, and
+    // this effect reports two of them: 'unsupported' (no video receiver ever
+    // carries `jitterBufferTarget` — Firefox, Safari, pre-115 Chromium) and
+    // 'refused' (a receiver carries it and every assignment threw). Both are
+    // permanent facts about this browser engine, and mean the same thing to an
+    // operator reading the line: this tile will not align.
     //
-    // Guarded on `status === 'live'` by the effect above, so the transient
-    // `useWhepSession` answers between mount and connect is not reported here
-    // (FR-005) — that would put a line on every tile on every mount.
-    if (!applied && !reportedNoPlayoutRef.current) {
+    // 'not-connected' is no longer reported. It is the transient every tile
+    // passes through on its way up — no peer connection yet, or one with no
+    // video receiver attached yet — and treating it the same as the permanent
+    // causes was spec 095's own recorded residual: a null `clientRef.current`
+    // (or a session mid-connect) answered the same falsy value as an engine
+    // that will never carry the property, so a tile could latch this line on
+    // its first render regardless of health. The `status === 'live'` guard
+    // above already screens out most of that window; closing the residual here
+    // makes it a second line of defence rather than the only one.
+    if ((outcome === 'unsupported' || outcome === 'refused') && !reportedNoPlayoutRef.current) {
       reportedNoPlayoutRef.current = true;
       logResilienceEvent('stream', 'playout-target-unsupported', { cameraIdentifier });
     }

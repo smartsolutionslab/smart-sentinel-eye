@@ -45,7 +45,7 @@ export interface WhepSessionResult {
    * nothing to align it with, and passes no target.
    * </p>
    */
-  setPlayoutTarget: (milliseconds: number) => boolean;
+  setPlayoutTarget: (milliseconds: number) => ReturnType<WhepClient['setPlayoutTarget']>;
 }
 
 const RETRY_BASE_MS = 1_000;
@@ -329,7 +329,7 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
   // (issue 1889). A controller that never samples twice reports nothing and
   // aligns nothing, while looking entirely healthy.
   const setPlayoutTarget = useCallback(
-    (milliseconds: number) => clientRef.current?.setPlayoutTarget(milliseconds) ?? false,
+    (milliseconds: number) => clientRef.current?.setPlayoutTarget(milliseconds) ?? 'not-connected',
     [],
   );
 

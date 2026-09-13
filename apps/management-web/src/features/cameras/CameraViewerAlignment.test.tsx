@@ -27,7 +27,9 @@ import { store } from '../../app/store.js';
  * </p>
  */
 
-const setPlayoutTarget = vi.fn(() => true);
+const setPlayoutTarget = vi.fn(
+  (): import('@smart-sentinel-eye/shared/streaming/WhepClient').PlayoutTargetOutcome => 'applied',
+);
 const stats = vi.fn(async () => new Map());
 
 vi.mock('@smart-sentinel-eye/shared/streaming/WhepClient', () => ({

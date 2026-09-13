@@ -2,6 +2,7 @@
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MockInstance } from 'vitest';
+import type { PlayoutTargetOutcome } from '@smart-sentinel-eye/shared/streaming/WhepClient';
 
 /**
  * Spec 045 T024 / FR-013. **Alignment must never cost a picture.**
@@ -43,7 +44,7 @@ const setPlayoutTargetThrows = vi.fn(() => {
 // so a case needing a *reading* receiver — or one that refuses a target rather
 // than throwing on it — swaps the behaviour rather than adding a second double.
 let statsBehaviour: () => unknown = statsThrows;
-let setPlayoutTargetBehaviour: (milliseconds: number) => boolean = setPlayoutTargetThrows;
+let setPlayoutTargetBehaviour: (milliseconds: number) => PlayoutTargetOutcome = setPlayoutTargetThrows;
 
 interface WhepClientDoubleOptions {
   onConnectionStateChange?: (state: string) => void;
@@ -341,7 +342,7 @@ describe('CameraViewer when alignment fails', () => {
    * </p>
    */
   it('Says so when the receiver cannot hold a playout target at all', async () => {
-    const setPlayoutTargetRefuses = vi.fn(() => false);
+    const setPlayoutTargetRefuses = vi.fn((): PlayoutTargetOutcome => 'unsupported');
     setPlayoutTargetBehaviour = setPlayoutTargetRefuses;
 
     const { container } = render(
@@ -386,7 +387,7 @@ describe('CameraViewer when alignment fails', () => {
    * </p>
    */
   it('Says nothing about a receiver that holds the playout target', async () => {
-    const setPlayoutTargetApplies = vi.fn(() => true);
+    const setPlayoutTargetApplies = vi.fn((): PlayoutTargetOutcome => 'applied');
     setPlayoutTargetBehaviour = setPlayoutTargetApplies;
 
     render(
@@ -421,7 +422,7 @@ describe('CameraViewer when alignment fails', () => {
    * answer alike, this same answer must stop being reported.
    */
   it('Says nothing when the actuator reports it is not connected (#2198)', async () => {
-    const setPlayoutTargetNotConnected = vi.fn(() => false);
+    const setPlayoutTargetNotConnected = vi.fn((): PlayoutTargetOutcome => 'not-connected');
     setPlayoutTargetBehaviour = setPlayoutTargetNotConnected;
 
     render(
@@ -485,7 +486,7 @@ describe('CameraViewer when alignment fails', () => {
 
   /** Spec 095 T006 / FR-004, plan risk R3 — the actuator half of the same rule. */
   it('Says a playout target is unsupported once across a session that flaps', async () => {
-    const setPlayoutTargetRefuses = vi.fn(() => false);
+    const setPlayoutTargetRefuses = vi.fn((): PlayoutTargetOutcome => 'unsupported');
     setPlayoutTargetBehaviour = setPlayoutTargetRefuses;
 
     render(
