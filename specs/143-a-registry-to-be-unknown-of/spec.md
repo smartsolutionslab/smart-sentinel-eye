@@ -211,7 +211,10 @@ Given an operator holding fab "dresden" and scope sse.events.types.write
 When they POST /event-types with { "kind": "PersonInRestrictedZone" }
 Then the response is 201 Created
 And the Location header is /event-types/PersonInRestrictedZone
-And the body carries the new eventTypeId, the kind, and fab "dresden"
+And the body is the bare eventTypeId — `IdempotentRequest.ExecuteCreateAsync`
+    (FR-008) answers `Results.Created(location, identifier)`, the same shape
+    every other creator on this pattern returns; the kind and fab are read
+    back from the Location header and the list, not the create response
 When they GET /event-types
 Then the response is 200 OK
 And the list contains exactly one entry, kind "PersonInRestrictedZone",
@@ -373,6 +376,13 @@ correctly without new plumbing. Retiring releases the name — the same shape as
 `ux_system_variables_*` (`VariableConfiguration.cs:116`,
 `HasFilter("state <> 'Archived'")`).
 
+Two requests that genuinely race each other therefore surface **two different
+problem titles for the same condition** — whichever loses the app-level lookup
+gets `EVENT_TYPE_ALREADY_REGISTERED`, whichever loses only the index gets
+`RESOURCE_ALREADY_EXISTS` — both `409`, and an operator sees whichever one their
+request happened to lose on. This is expected, not a bug a reviewer should file:
+tests assert the status, not the title, wherever a race is exercised.
+
 **FR-005 — Retire is a state transition, not a delete.** The row stays; `State`
 moves `Registered → Retired`. Retiring an entry that is already retired, or that
 belongs to a fab the caller does not hold, is `404` — the lookup is over
@@ -383,7 +393,13 @@ found" from where the caller stands.
 a write that addresses an existing row carries the expected version, read with
 `ConcurrencyHeaders.TryReadExpectedVersion`; absent ⇒ `428`; stale ⇒
 `409 EVENT_TYPE_STALE`. There is no retry-on-conflict. A create
-addresses no existing row and takes no precondition.
+addresses no existing row and takes no precondition. **The header is read, and
+`428` answered, before the row is looked up** — deliberately, not incidentally:
+looking the row up first would make the 428-vs-404 choice an existence oracle
+for kinds in fabs the caller cannot read (a caller who omits `If-Match` against
+someone else's row would learn, from the status code alone, whether that row
+exists). A missing header on a row in a fab the caller cannot read must answer
+`428`, the same as one they can, never `404`.
 
 **FR-007 — The list carries the version, because there is no single-resource
 GET.** `GET /event-types` returns `IReadOnlyList<RegisteredEventTypeDto>` with
@@ -392,7 +408,11 @@ GET.** `GET /event-types` returns `IReadOnlyList<RegisteredEventTypeDto>` with
 `ListWebhookIntegrationsQuery` is the precedent for an unpaged registry listing
 in this context. Retired entries are **excluded** by default; a
 `?includeRetired=true` flag is *not* added, because nothing needs it yet
-(ADR-0036).
+(ADR-0036). **The list is scoped to the caller's readable fabs**, exactly as
+`ListWebhookIntegrationsQuery` scopes its own list — resolved through
+`EventIngestionFabResolution.ResolveReadFabsAsync`, not a bare unfiltered
+query. A caller holding one fab must never see another fab's rows in the list,
+even though no single-resource GET exists to 404 or 403 against.
 
 **FR-008 — `POST /event-types` honours `Idempotency-Key`.** ADR-0142, and the
 table it needs already exists in this context (migration
@@ -413,6 +433,21 @@ persona, so reusing it would let an *event source* declare which event types are
 legitimate. Under the strict mode that follows, that is a source self-authorising
 its own types. `sse.webhooks.write` is the precedent for a distinct write-only
 admin scope in this context.
+
+**A testing gotcha this FR creates, worth stating so nobody re-derives it under
+deadline.** Every existing `ClientFor(...)`-style integration test client in
+this repo mints against a client (`management-web`, or the `sse.management`
+grandfather bundle) whose **default** Keycloak client scopes already include
+the entire `sse.*` catalogue — the `scope` parameter passed to a client-
+credentials grant only *narrows among a client's declared optional scopes*, it
+cannot subtract a default one. A token minted this way holds
+`sse.events.types.write` regardless of what the test asks for, once this FR's
+grant lands, so it can never demonstrate the negative case ("a caller who does
+NOT hold the new scope is refused"). Proving the negative needs a client whose
+default scopes are narrow by construction — an event-source-shaped client
+(webhook integration or MQTT persona), planted for the test and torn down
+after, holding only `sse.events.write`. The existing four-token-mint clients in
+this suite are the wrong tool for this one assertion.
 
 **FR-011 — The registry read reuses `sse.events.read`.** Reading which event
 types a fab expects is within the events read surface, it is granted to the
