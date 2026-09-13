@@ -395,13 +395,13 @@ function OverlayLabel({ overlay }: { overlay: CameraViewerOverlay }) {
     <span
       data-testid="camera-viewer-overlay-label"
       style={{
+        ...overlayLabelSurfaceStyle(overlay),
         position: 'absolute',
         left: `${overlay.normalizedX * 100}%`,
         top: `${overlay.normalizedY * 100}%`,
         width: `${overlay.normalizedWidth * 100}%`,
         height: `${overlay.normalizedHeight * 100}%`,
         pointerEvents: 'none',
-        ...overlayLabelSurfaceStyle(overlay),
       }}
     >
       {overlay.text}

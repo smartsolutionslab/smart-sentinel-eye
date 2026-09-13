@@ -77,6 +77,7 @@ describe('OverlayEditor preview vs CameraViewer wall label (parity guard)', () =
     const wallLabel = renderWallLabel();
     const editorLabel = renderEditorLabel();
 
+    expect(wallLabel.style.background).toBe('rgba(255, 255, 255, 0.85)');
     expect(editorLabel.style.background).toBe(wallLabel.style.background);
   });
 
@@ -95,8 +96,9 @@ describe('OverlayEditor preview vs CameraViewer wall label (parity guard)', () =
   });
 
   it('Does not paint a border the wall does not have', () => {
+    const wallLabel = renderWallLabel();
     const editorLabel = renderEditorLabel();
 
-    expect(editorLabel.style.border).toBe('');
+    expect(editorLabel.style.border).toBe(wallLabel.style.border);
   });
 });

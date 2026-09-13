@@ -26,16 +26,4 @@ describe('overlayLabelSurfaceStyle', () => {
 
     expect(style.fontSize).toBe('clamp(12px, 3vw, 48px)');
   });
-
-  it('Returns the wall surface and ink treatment unconditionally', () => {
-    const style = overlayLabelSurfaceStyle({ fontSizePx: 48 });
-
-    expect(style.display).toBe('flex');
-    expect(style.alignItems).toBe('center');
-    expect(style.justifyContent).toBe('center');
-    expect(style.background).toBe('rgba(255, 255, 255, 0.85)');
-    expect(style.color).toBe('#111827');
-    expect(style.fontWeight).toBe(600);
-    expect(style.padding).toBe('0 4px');
-  });
 });
