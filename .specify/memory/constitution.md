@@ -314,12 +314,15 @@ OpenTelemetry (provided by Aspire defaults).
 ### VIII. Safe by Default at Trust Boundaries
 
 - **External events.** Rejected deliveries are **dead-lettered**, captured
-  with payload and error, audit-only and never fanned out. But there is
-  **no event-type registry, no per-source strict/discovery mode and no
-  promotion path**, so an *unknown* type is ingested like any other rather
-  than quarantined for review. The intended guarantee stands as a
-  requirement (ADR-018, ADR-0130, issue 1972), **not as a description of
-  today**.
+  with payload and error, audit-only and never fanned out. A fab-scoped
+  event-type registry now exists (spec 143, the first third of issue
+  1972) — an operator can declare, list and retire the event types a fab
+  expects — but nothing reads it yet: there is still **no per-source
+  strict/discovery mode and no promotion path**, so an *unknown* type is
+  ingested like any other rather than quarantined for review (follow-up
+  issues to be filed for the mode and for quarantine/promotion). The
+  intended guarantee stands as a requirement (ADR-018, ADR-0130, issue
+  1972), **not as a description of today**.
 - **Kiosks.** Device-bound credentials **exist** — `POST /kiosks/enroll`
   mints a per-kiosk confidential client with a service account and a
   secret revealed **once per idempotency key** (ADR-0142): exactly once
