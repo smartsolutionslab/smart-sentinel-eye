@@ -1125,11 +1125,15 @@ public class EndpointScopeDeclarationTests
         walked.ShouldBe(
             swept,
             $"the walk found {walked} Status403Forbidden declarations inside mapping and group chains; a "
-            + $"flat sweep of {ApiGlob} found {swept}. A declaration the walk cannot see is a declaration "
-            + "this guard does not credit: it sits outside the fluent chain the reader captures — in a "
+            + $"flat sweep of {ApiGlob} found {swept}. The two directions have different causes. Fewer "
+            + "walked than swept: a declaration sits outside the fluent chain the reader captures — in a "
             + "shared convention, an endpoint filter, a metadata helper — and the rule above would report "
-            + "its endpoint as declaring nothing while the document is in fact correct. Put it in the "
-            + "mapping's own chain, or teach the reader the shape.");
+            + "its endpoint as declaring nothing while the document is in fact correct; put it in the "
+            + "mapping's own chain, or teach the reader the shape. More walked than swept: a chain's "
+            + "depth-counting walk ran past its own terminator — an unmatched opener left "
+            + "StatementEnd's depth positive — and counted the next mapping's declaration as its own; "
+            + "look for whatever leaves that depth positive, the same defect "
+            + "ConcurrencyConflictDeclarationTests.cs:705-714 records for the sibling copy of this walk.");
     }
 
     /// <summary>
@@ -1209,10 +1213,11 @@ public class EndpointScopeDeclarationTests
         string masked = Masked(source);
         int end = StatementEnd(masked, 0);
 
-        end.ShouldBeGreaterThan(
-            0,
-            "the probe chain's terminating semicolon was not found at all, so this mapping would be "
-            + "reported as unreadable outright rather than merely truncated.");
+        end.ShouldBeLessThan(
+            masked.Length,
+            "the probe chain's terminating semicolon was not found at all — StatementEnd fell through "
+            + "to its not-found contract, masked.Length — so this mapping would be reported as "
+            + "unreadable outright rather than merely truncated.");
 
         string chain = masked[..end];
 
@@ -1230,10 +1235,18 @@ public class EndpointScopeDeclarationTests
             + "walked-versus-swept counts would disagree even once the authorization is found.");
 
         chain.ShouldNotContain(
-            "MapPost(\"/other\"",
+            "Status404NotFound",
             Case.Sensitive,
-            "the truncated-then-recovered span must still stop at this chain's own terminating "
-            + "semicolon rather than running into the next mapping.");
+            "the span ran past this chain's own terminating semicolon and into the next mapping. "
+            + "MaskLiterals blanks literal interiors, so a needle built from the next mapping's route "
+            + "literal — \"MapPost(\\\"/other\\\"\" — can never appear in the masked text and could "
+            + "never have caught this.");
+
+        end.ShouldBe(
+            masked.IndexOf("Status403Forbidden);", StringComparison.Ordinal)
+                + "Status403Forbidden)".Length,
+            "the span must stop exactly at this chain's own terminating semicolon — not one character "
+            + "before or after it, and not at the next mapping's.");
     }
 
     // ---- reading the chain -------------------------------------------------
@@ -2042,26 +2055,49 @@ public class EndpointScopeDeclarationTests
     /// <summary>
     /// A chain runs from its <c>Map*</c> call to the semicolon that ends its own
     /// statement, ignoring semicolons nested inside brackets — the same
-    /// depth-counting walk as its siblings in <c>PreconditionDeclarationTests</c>
-    /// and <c>RouteValueRefusalDeclarationTests</c>. A statement-bodied lambda in
-    /// the chain, such as <c>.AddEndpointFilter(async (context, next) =&gt; {
-    /// int probe = 1; return await next(context); })</c>, opens a brace before
-    /// its internal semicolon, so that semicolon is skipped and the walk
-    /// continues to the chain's own terminator. Issue 2183.
+    /// depth-counting walk as four other copies:
+    /// <c>PreconditionDeclarationTests.cs:941</c>,
+    /// <c>RouteValueRefusalDeclarationTests.cs:758</c> and
+    /// <c>StatusProducerDeclarationTests.cs:751</c> (all the same
+    /// <c>-1</c>-on-not-found loop), plus the hardened, literal-aware copy at
+    /// <c>ConcurrencyConflictDeclarationTests.cs:1056</c>. Five copies in
+    /// total, this one included.
+    ///
+    /// <para>
+    /// A statement-bodied lambda in the chain, such as
+    /// <c>.AddEndpointFilter(async (context, next) =&gt; { int probe = 1;
+    /// return await next(context); })</c>, keeps depth positive at its
+    /// internal semicolon. The still-open <c>AddEndpointFilter(</c>
+    /// parenthesis is already enough on its own — a lambda body only ever
+    /// appears as a call argument in a single-statement mapping chain, so the
+    /// brace this walk also tracks is redundant here rather than the thing
+    /// doing the work. No realistic chain in this corpus needs
+    /// <c>[</c>/<c>]</c> tracking either: a raw statement semicolon cannot
+    /// appear inside a subscript in valid C#. Demonstrated in review; no
+    /// chain in the corpus has this shape today — constructed to prove the
+    /// fix, the same way <c>ConcurrencyConflictDeclarationTests</c>
+    /// constructs its unbalanced-bracket and char-literal cases for the
+    /// sibling copy of this method. Issue 2183.
+    /// </para>
     ///
     /// <para>
     /// This copy keeps returning <see cref="string.Length"/> of
-    /// <paramref name="masked"/> for "not found", where the two siblings return
-    /// <c>-1</c>: this file's three call sites use the result directly as a
-    /// slice or search bound (<c>masked[declaration.Index..end]</c> and as the
-    /// <c>end</c> argument to <c>FirstLiteralIn</c>, <c>DeclaredAuthorization</c>,
-    /// <c>ForbiddenDeclarationsIn</c> and <c>GroupSite.IsMatch</c>), and
-    /// <c>masked[x..(-1)]</c> throws <see cref="ArgumentOutOfRangeException"/> —
-    /// the range operator's non-<c>fromEnd</c> <see cref="Index"/> constructor
-    /// rejects negatives. <c>masked[x..masked.Length]</c> is a valid identity
-    /// slice, so the contract stays as it was. Do not "fix" this back to
-    /// <c>-1</c> to match the siblings; that reintroduces the throw at every
-    /// call site the moment a chain has no trailing semicolon.
+    /// <paramref name="masked"/> for "not found", where the four siblings
+    /// above return <c>-1</c>: this file's three call sites use the result
+    /// directly as a slice or search bound —
+    /// <c>masked[declaration.Index..end]</c>, which <c>GroupSite.IsMatch</c>
+    /// receives as that slice rather than as <c>end</c> itself — and as the
+    /// <c>end</c> argument to <c>FirstLiteralIn</c>, <c>FirstLiteral</c>,
+    /// <c>DeclaredAuthorization</c>, <c>DeclaredSummary</c> and
+    /// <c>ForbiddenDeclarationsIn</c>. With <c>int</c> indices,
+    /// <c>masked[x..(-1)]</c> lowers to <c>masked.Substring(x, end - x)</c>,
+    /// so the throw names the <em>length</em> parameter, not the index:
+    /// <c>ArgumentOutOfRangeException: length ('-1') must be a non-negative
+    /// value. (Parameter 'length')</c>. <c>masked[x..masked.Length]</c> is a
+    /// valid identity slice, so the contract stays as it was. Do not "fix"
+    /// this back to <c>-1</c> to match the siblings; that reintroduces the
+    /// throw at every call site the moment a chain has no trailing
+    /// semicolon.
     /// </para>
     /// </summary>
     private static int StatementEnd(string masked, int start)
