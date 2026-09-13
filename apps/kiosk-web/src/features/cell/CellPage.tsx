@@ -103,6 +103,22 @@ export function CellPage() {
   // would hide it.
   const textWithoutFabCountRef = useRef(0);
   const highlightWithoutFabCountRef = useRef(0);
+  // Spec 141: one latch set keyed by transition, so FR-002 and FR-004 each
+  // fire at most once per mounted page per session (FR-007) without needing
+  // two separate booleans.
+  const reportedLayoutFaultsRef = useRef<Set<string>>(new Set());
+  // Spec 141 site 3 (FR-005): what each tile decided about its own label —
+  // `true`/`false`, written only once the tile actually knows the text (never
+  // on the not-yet path, R5) — and the overlays already reported for
+  // disagreeing with a resolved-text push. A `Map`, not a `Set` of static
+  // overlays: the push handler must tell "the tile said static" apart from
+  // "the tile has not decided", and a `Set` would conflate the two (plan
+  // §"Where the state lives").
+  const staticLabelOverlaysRef = useRef<Map<string, boolean>>(new Map());
+  const reportedStaticPushRef = useRef<Set<string>>(new Set());
+  const onLabelVerdict = useCallback((overlay: string, hasPlaceholder: boolean) => {
+    staticLabelOverlaysRef.current.set(overlay, hasPlaceholder);
+  }, []);
 
   useEffect(() => {
     const timers = highlightTimersRef.current;
@@ -113,6 +129,31 @@ export function CellPage() {
       timers.clear();
     };
   }, []);
+
+  // Spec 141 FR-002/FR-004: a layout row that omits (or blanks) a tile's
+  // overlay identifier, or a layout that carries no fab at all, no longer
+  // takes the safe-looking branch silently — each says so once per mounted
+  // page. An effect, not the render body (plan R4): a `console.info` during
+  // render doubles under StrictMode, and the latch above is belt-and-braces
+  // rather than the only defence. `countReportableSkew` is not touched
+  // (plan invariant 3; its own blind spot is tracked separately as #2320).
+  useEffect(() => {
+    if (published === undefined) return;
+    const affectedTiles = published.tiles.filter(
+      (candidate) => candidate.overlayIdentifier !== null && boundOverlayIn(candidate.overlayIdentifier) === null,
+    ).length;
+    if (affectedTiles > 0 && !reportedLayoutFaultsRef.current.has('tile-without-overlay-identifier')) {
+      reportedLayoutFaultsRef.current.add('tile-without-overlay-identifier');
+      logResilienceEvent('hub', 'tile-without-overlay-identifier', {
+        layout: layoutIdentifier,
+        tiles: affectedTiles,
+      });
+    }
+    if (namedFab(wallFab) === null && !reportedLayoutFaultsRef.current.has('layout-without-fab')) {
+      reportedLayoutFaultsRef.current.add('layout-without-fab');
+      logResilienceEvent('hub', 'layout-without-fab', { layout: layoutIdentifier });
+    }
+  }, [layoutIdentifier, published, wallFab]);
 
   // The set of overlays actually bound to a rendered tile — used so a
   // highlight (or any overlay event) for an unbound overlay is a no-op.
@@ -195,6 +236,21 @@ export function CellPage() {
         logResilienceEvent('hub', 'resolved-text-without-fab', { overlay: message.overlay, count: textSkewCount });
       }
       if (message.fab !== wallFab) return;
+      // Spec 141 site 3 (FR-005): a ResolvedOverlayTextChangedV1 is only ever
+      // published for an overlay the server's own reverse index found a
+      // placeholder in — so arriving here for an overlay this tile parsed as
+      // static (no `{{`) is, by construction, the server and the kiosk
+      // disagreeing about the delimiter. Reported once per overlay per
+      // session (FR-007); does not change what happens below (FR-006) and
+      // sits before the version guard, so a push that loses the version race
+      // is still evidence of the disagreement.
+      if (
+        staticLabelOverlaysRef.current.get(message.overlay) === false &&
+        !reportedStaticPushRef.current.has(message.overlay)
+      ) {
+        reportedStaticPushRef.current.add(message.overlay);
+        logResilienceEvent('hub', 'resolved-text-for-static-label', { overlay: message.overlay });
+      }
       const versions = overlayTextVersionsRef.current;
       if (message.version <= (versions.get(message.overlay) ?? 0)) return;
       versions.set(message.overlay, message.version);
@@ -282,24 +338,27 @@ export function CellPage() {
           gridTemplateRows: `repeat(${published.gridRows}, minmax(0, 1fr))`,
         }}
       >
-        {cells.map((cell) =>
-          cell.tile === null ? (
-            <EmptyCell key={cell.key} />
-          ) : (
+        {cells.map((cell) => {
+          if (cell.tile === null) {
+            return <EmptyCell key={cell.key} />;
+          }
+          const boundOverlay = boundOverlayIn(cell.tile.overlayIdentifier);
+          return (
             <Tile
               key={cell.key}
               tile={cell.tile}
               fab={data.fab}
               getToken={getToken}
-              unavailable={cell.tile.overlayIdentifier !== null && unavailableOverlays.has(cell.tile.overlayIdentifier)}
-              highlighted={cell.tile.overlayIdentifier !== null && highlightedOverlays.has(cell.tile.overlayIdentifier)}
+              unavailable={boundOverlay !== null && unavailableOverlays.has(boundOverlay)}
+              highlighted={boundOverlay !== null && highlightedOverlays.has(boundOverlay)}
               playoutTargetMilliseconds={alignment.targetFor(cell.key)}
               frameAgeMilliseconds={alignment.frameAgeFor(cell.key)}
               onLagMeasured={(camera, lag, buffer) => alignment.reportLag(cell.key, camera, lag, buffer)}
               outOfAlignment={alignment.released.has(cell.key)}
+              onLabelVerdict={onLabelVerdict}
             />
-          ),
-        )}
+          );
+        })}
       </div>
       <LiveUpdatesBadge degraded={degraded} />
     </main>
@@ -330,6 +389,14 @@ interface TileProps {
    * (spec 046, ADR-0129). Null when unreadable — the label then shows at once.
    */
   frameAgeMilliseconds: number | null;
+  /**
+   * Reports this tile's own placeholder verdict for its bound overlay up to
+   * the page (spec 141 site 3, FR-005) — the same tile→page shape as
+   * `onLagMeasured` above (spec 045): a stable callback writing a page-level
+   * ref, so a later resolved-text push for this overlay can be checked for
+   * disagreement. Called only once the tile actually knows the text.
+   */
+  onLabelVerdict: (overlayIdentifier: string, hasPlaceholder: boolean) => void;
 }
 
 /**
@@ -349,8 +416,15 @@ function Tile({
   onLagMeasured,
   outOfAlignment,
   frameAgeMilliseconds,
+  onLabelVerdict,
 }: TileProps) {
-  const overlayIdentifier = tile.overlayIdentifier;
+  // Spec 141 site 1 (FR-001): an overlay identifier this tile actually binds —
+  // `null` for an omitted, blank, or genuinely absent field alike, matching
+  // #2084's own sentinel (`:519`) exactly. Widened past `LayoutTile`'s
+  // declared `string | null` (to admit `undefined`) because an omitted field
+  // is `undefined` on the wire, never `null` — `LayoutTile` itself stays
+  // untouched (FR-001).
+  const overlayIdentifier = boundOverlayIn(tile.overlayIdentifier);
   const { data: overlay } = useGetOverlayQuery(overlayIdentifier ?? '', {
     skip: overlayIdentifier === null,
   });
@@ -366,17 +440,28 @@ function Tile({
   // (avoids the console noise + a pointless round-trip); the resolved-text
   // SignalR push still upserts the cache for overlays that do use variables.
   const hasPlaceholder = publishedOverlay?.text?.includes('{{') ?? false;
+  // Spec 141 site 3 (FR-005, plan R5): whether the tile actually *knows* the
+  // text — while the overlay query is still loading, or when `text` is
+  // absent (the out-of-scope omitted/renamed case), `hasPlaceholder` above is
+  // `false` for the same reason a genuinely static label is, and the two must
+  // not be conflated. A verdict is registered only when this is true.
+  const labelTextKnown = publishedOverlay !== undefined && typeof publishedOverlay.text === 'string';
+  useEffect(() => {
+    if (overlayIdentifier === null || !labelTextKnown) return;
+    onLabelVerdict(overlayIdentifier, hasPlaceholder);
+  }, [overlayIdentifier, labelTextKnown, hasPlaceholder, onLabelVerdict]);
   // Naming the fab is what makes the opening label resolve in the plant this
   // wall shows rather than in whichever of the caller's fabs sorts first
   // (ADR-0145 §2). Same object shape as the push's `upsertQueryData` above —
   // it is the cache key they share.
   //
-  // Skipped on an empty fab rather than sent as one: an empty `fabId` on the
-  // query string is not a narrower request, it is the cross-fab request this
-  // exists to avoid. No fab, no query.
+  // Skipped on an unnamed fab rather than sent as one: an empty or absent
+  // `fabId` on the query string is not a narrower request, it is the
+  // cross-fab request this exists to avoid (spec 141 site 2, FR-004). No
+  // fab, no query.
   const { data: snapshot } = useGetOverlaySnapshotQuery(
     { overlayIdentifier: overlayIdentifier ?? '', fabId: fab },
-    { skip: overlayIdentifier === null || !hasPlaceholder || fab === '' },
+    { skip: overlayIdentifier === null || !hasPlaceholder || namedFab(fab) === null },
   );
 
   // Prefer the SystemVariables-resolved text over the raw label so any
@@ -524,11 +609,39 @@ function countReportableSkew(
   return decade === count ? count : null;
 }
 
+/**
+ * A tile's overlay identifier, or `null` when it names none (spec 141
+ * FR-001). All four readers of the sentinel go through this one function:
+ * `tilesToBoundOverlays` below, the `unavailable`/`highlighted` props and the
+ * `Tile` query's `skip` (`CellPage`).
+ *
+ * Parameter deliberately wider than `LayoutTile.overlayIdentifier`'s declared
+ * `string | null` — admitting `undefined` too — exactly as
+ * `countReportableSkew` below takes `frameFab: string | undefined` where
+ * `message.fab` is `string`. `LayoutTile` itself is not widened (FR-001):
+ * doing so would push a `| undefined` through every consumer in both apps to
+ * describe a server that does not exist.
+ */
+function boundOverlayIn(overlayIdentifier: string | null | undefined): string | null {
+  return typeof overlayIdentifier === 'string' && overlayIdentifier !== '' ? overlayIdentifier : null;
+}
+
+/**
+ * The same test as `boundOverlayIn`, for the wall's fab (spec 141 site 2,
+ * FR-004). `Layout.fab` stays declared `string` (not widened, same reasoning
+ * as above), so the wider parameter here is what admits the drift this
+ * guards against.
+ */
+function namedFab(fab: string | undefined): string | null {
+  return typeof fab === 'string' && fab !== '' ? fab : null;
+}
+
 function tilesToBoundOverlays(tiles: LayoutTile[]): ReadonlySet<string> {
   const bound = new Set<string>();
   for (const tile of tiles) {
-    if (tile.overlayIdentifier !== null) {
-      bound.add(tile.overlayIdentifier);
+    const overlay = boundOverlayIn(tile.overlayIdentifier);
+    if (overlay !== null) {
+      bound.add(overlay);
     }
   }
   return bound;
