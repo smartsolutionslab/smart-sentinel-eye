@@ -18,9 +18,18 @@ public abstract record RetireEventTypeError(string Code, string Message, HttpSta
             $"No registered event type '{Kind}' exists in a fab you hold.",
             HttpStatusCode.NotFound);
 
+    /// <summary>
+    /// Code ends <c>_STALE</c>, not <c>_STALE_VERSION</c> (ADR-0119,
+    /// <c>StaleCodeConventionTests</c>): the shared client keys on that exact
+    /// suffix to tell an operator their edit conflicts rather than to retry,
+    /// and <c>_STALE_VERSION</c> is literally the pattern ADR-0119 was written
+    /// to catch. spec.md's acceptance scenario names
+    /// <c>EVENT_TYPE_STALE_VERSION</c>; this deviates from it deliberately —
+    /// see the phase 4a report.
+    /// </summary>
     public sealed record EventTypeStaleVersion(string Kind, int ExpectedVersion, int ActualVersion)
         : RetireEventTypeError(
-            "EVENT_TYPE_STALE_VERSION",
+            "EVENT_TYPE_STALE",
             $"Event type '{Kind}' has changed since version {ExpectedVersion} (now {ActualVersion}). Re-read it and reapply the change.",
             HttpStatusCode.Conflict);
 }
