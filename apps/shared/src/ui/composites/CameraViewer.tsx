@@ -159,6 +159,14 @@ export function CameraViewer({
   // keyed on `status`, so a counter inside either one resets on every reconnect, and a
   // tile flapping through the night would report the same permanent fault hundreds of
   // times.
+  //
+  // ONE THING THE REASONING ABOVE DOES NOT TRANSFER: unlike a missing field, a throw
+  // is a property of *this* camera's connection, not of the browser engine, so a
+  // camera swap (a layout revision that puts a different camera at this tile) does
+  // not reset either counter. A new camera whose sampler starts failing inherits
+  // whatever decade its predecessor left behind, so its first report can be up to a
+  // decade away — accepted, because resetting on `cameraIdentifier` reintroduces the
+  // per-swap firehose these counters exist to avoid.
   const decodeSampleFailuresRef = useRef(0);
   const lagSampleFailuresRef = useRef(0);
   const reportSamplerFailure = useCallback(

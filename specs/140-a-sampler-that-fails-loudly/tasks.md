@@ -18,7 +18,7 @@ nothing.
 
 ## Foundational — blocks everything
 
-- [ ] **T001** `[P]` `[US-1]` **Re-verify the defect is still at the cited lines.**
+- [x] **T001** `[P]` `[US-1]` **Re-verify the defect is still at the cited lines.**
       Branches merge; the spec's line numbers are from 2026-09-13 and the issue's own
       were already stale by 50 lines.
       ```sh
@@ -30,7 +30,7 @@ nothing.
       still the `setPlayoutTarget` catch, and the newest commit touching the file is the
       one phase 1 read. If any differs, **stop and re-plan** — do not adapt silently.
 
-- [ ] **T002** `[P]` `[US-1]` **Confirm no other branch has taken either file.**
+- [x] **T002** `[P]` `[US-1]` **Confirm no other branch has taken either file.**
       ```sh
       git fetch origin
       git log --all --oneline --name-only -- apps/shared/src/ui/composites/CameraViewer.tsx apps/shared/src/ui/composites/CameraViewerAlignment.test.tsx | head -30
@@ -51,7 +51,7 @@ nothing.
 > §*How the red is constructed*. **`CameraViewer.test.tsx` and `CameraViewerMedia.test.tsx`
 > are not opened.**
 
-- [ ] **T003** `[US-1]` **R1 — `Says so when reading the tile lag throws`.** Default
+- [x] **T003** `[US-1]` **R1 — `Says so when reading the tile lag throws`.** Default
       `statsThrows` double; render with `onLagMeasured={() => {}}`; advance 20 000 ms.
       Assert, **in this order**: `statsThrows` was called (a double never reached makes
       every later assertion true of a component that did nothing); then
@@ -60,14 +60,14 @@ nothing.
       and the same with `count: 10`; then the video element is still present.
       **Depends on:** T001. **Red today:** zero lines.
 
-- [ ] **T004** `[US-1]` **R2 — `Says so when the decode sampler throws on a page with no
+- [x] **T004** `[US-1]` **R2 — `Says so when the decode sampler throws on a page with no
       wall`.** Default throwing double; render **without** `onLagMeasured`; advance
       20 000 ms. Assert the double ran, then `resilienceLines('decode-sampler-failed')`
       has length **1** with `count: 1`, and `resilienceLines('lag-sampler-failed')` is
       empty — the lag interval never starts when nobody asked for it
       (`CameraViewer.tsx:204–207`). **Red today.**
 
-- [ ] **T005** `[US-1]` **R3 — `A sampler that fails does not silence the other`.** The
+- [x] **T005** `[US-1]` **R3 — `A sampler that fails does not silence the other`.** The
       case that a single shared counter would fail. Needs the **advancing** report factory
       from plan §*The one case that needs a new fixture*: `videoStatWithout()` returns
       constants, so `lagBetween`/`bufferDelayBetween` answer null and `onLagMeasured` is
@@ -76,13 +76,13 @@ nothing.
       case is vacuous), then ≥ 1 `lag-sampler-failed` line and **zero**
       `decode-sampler-failed` lines. **Red today.**
 
-- [ ] **T006** `[US-1]` **R4 — `Bounds a permanently broken sampler to a decade
+- [x] **T006** `[US-1]` **R4 — `Bounds a permanently broken sampler to a decade
       cadence`.** Default throwing double, `onLagMeasured` supplied, advance
       **200 000 ms** (100 lag ticks). Assert exactly **3** `lag-sampler-failed` lines with
       `count` 1, 10, 100 in order. This is the case a log-every-tick fix fails.
       **Red today.**
 
-- [ ] **T007** `[US-1]` **R5 — `Counts across a flap rather than starting again`.**
+- [x] **T007** `[US-1]` **R5 — `Counts across a flap rather than starting again`.**
       Default throwing double; advance 20 000 ms (2 lines, counts 1 and 10); record the
       double's call count; call `flapThroughReconnect()`; advance 20 000 ms again. Assert
       a **second session really happened** (`sessions.length` grew) **and the double was
@@ -94,7 +94,7 @@ nothing.
       disconnect grace may or may not leave the sampler running, and the case must not
       depend on which. **Red today.**
 
-- [ ] **T008** `[US-1]` **G1 — `Says nothing about a sampler that does not throw`
+- [x] **T008** `[US-1]` **G1 — `Says nothing about a sampler that does not throw`
       (GREEN before and after).** The advancing factory from T005, a plain
       `onLagMeasured` that returns, advance 20 000 ms. Assert the double ran **and**
       `onLagMeasured` was called, then **zero** lines of either transition. Green today
@@ -102,7 +102,7 @@ nothing.
       `logResilienceEvent`, which would claim a broken instrument on every healthy kiosk
       with the whole suite green. **Not counted as a red** (ADR-0139).
 
-- [ ] **T009** `[US-1]` **Run the suite and capture the verbatim failure.**
+- [x] **T009** `[US-1]` **Run the suite and capture the verbatim failure.**
       ```sh
       pnpm --filter @smart-sentinel-eye/shared test -- CameraViewerAlignment
       ```
@@ -119,7 +119,7 @@ nothing.
 > **Agent: `frontend-engineer`.** Receives T009's verbatim output as its brief. **May not
 > edit the tests to make them pass.**
 
-- [ ] **T010** `[US-1]` **Add the two module-private helpers** `countReportableFailure`
+- [x] **T010** `[US-1]` **Add the two module-private helpers** `countReportableFailure`
       and `reasonFrom` at the bottom of
       `apps/shared/src/ui/composites/CameraViewer.tsx`, beside `labelFor`, with the doc
       comment from plan §*Edit 1* — including the sentence naming #2084 as the source of
@@ -127,23 +127,23 @@ nothing.
       **Done when:** `pnpm --filter @smart-sentinel-eye/shared typecheck` is clean. The
       tests are still red; this task adds no call site.
 
-- [ ] **T011** `[US-1]` **Add the two counters and the reporter** at component scope
+- [x] **T011** `[US-1]` **Add the two counters and the reporter** at component scope
       immediately after `reportMissingStatsField` (`:145`), with the comment from plan
       §*Edit 2*. Two `useRef(0)`, one `useCallback` on `[cameraIdentifier]`.
       **Do not modify `reportedMissingFieldsRef` or `reportMissingStatsField`** — the new
       mechanism sits beside them (FR-008). **Blocks:** T012, T013.
 
-- [ ] **T012** `[US-1]` **Replace the decode catch at `:185`** with
+- [x] **T012** `[US-1]` **Replace the decode catch at `:185`** with
       `.catch((error: unknown) => reportSamplerFailure(decodeSampleFailuresRef, 'decode-sampler-failed', error))`
       and add `reportSamplerFailure` to that effect's dependency array.
       **Done when:** T004's case passes and the `react-hooks/exhaustive-deps` lint rule
       is silent.
 
-- [ ] **T013** `[US-1]` **Replace the lag catch at `:258`** the same way, with
+- [x] **T013** `[US-1]` **Replace the lag catch at `:258`** the same way, with
       `lagSampleFailuresRef` and `'lag-sampler-failed'`, plus the dependency.
       **Done when:** T003, T005, T006, T007 pass.
 
-- [ ] **T014** `[US-1]` **Confirm the three untouched catches are untouched.**
+- [x] **T014** `[US-1]` **Confirm the three untouched catches are untouched.**
       ```sh
       git diff -- apps/shared/src/observability/kioskLatency.ts
       sed -n '276,306p' apps/shared/src/ui/composites/CameraViewer.tsx
@@ -157,7 +157,7 @@ nothing.
 
 ## Verification and gates
 
-- [ ] **T015** `[US-1]` **Whole-package green, and the characterisation intact.**
+- [x] **T015** `[US-1]` **Whole-package green, and the characterisation intact.**
       ```sh
       pnpm --filter @smart-sentinel-eye/shared test
       pnpm --filter @smart-sentinel-eye/shared lint
@@ -168,7 +168,7 @@ nothing.
       **`CameraViewer.test.tsx` shows no diff** (NFR-001 — its `toEqual` over the complete
       `[resilience]` array is the tripwire for a leaked line).
 
-- [ ] **T016** `[US-1]` **Prettier.** `pnpm format:check` clean for the two changed files.
+- [x] **T016** `[US-1]` **Prettier.** `pnpm format:check` clean for the two changed files.
 
 - [ ] **T017** `[US-1]` **Phase 5 — observe it in a browser**, following spec
       §*Independent end-to-end test procedure*. A `console.info` is observable in the real
@@ -178,7 +178,7 @@ nothing.
       **Cite the latency budget:** no leg moves; the change is on the failure branch of
       two observers that run at 5 s and 2 s.
 
-- [ ] **T018** `[US-1]` **Phase 6 — `/code-review`.** `frontend-reviewer`. Point it at
+- [x] **T018** `[US-1]` **Phase 6 — `/code-review`.** `frontend-reviewer`. Point it at
       spec §*Decision* 2 and 3 — the two-counters argument and the recorded duplication
       are the two findings most likely to be re-derived from scratch.
 
@@ -186,7 +186,7 @@ nothing.
       body quoting T009's verbatim red output (ADR-0139) and carrying
       `Closes #2189`. Conventional Commits, **no `Co-Authored-By`** (ADR-0086).
 
-- [ ] **T020** `[US-1]` **File the deferred item 3 as its own issue** — spec
+- [x] **T020** `[US-1]` **File the deferred item 3 as its own issue** — spec
       §*Decision* 5 — and add it and #2189 to Project #13:
       ```sh
       gh project item-add 13 --owner smartsolutionslab --url <issue-url>
