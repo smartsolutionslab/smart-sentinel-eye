@@ -9,14 +9,11 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 /// extension).
 ///
 /// <para>
-/// <b><see cref="IdentifierOfAsync"/> accepts two body shapes on purpose, and
-/// that is a finding rather than tolerance.</b> <c>spec.md</c> §4 says the 201
-/// body "carries the new eventTypeId, the kind, and fab"; <c>plan.md</c> §5
+/// <b><see cref="IdentifierOfAsync"/> reads a bare GUID.</b> <c>plan.md</c> §5
 /// routes the create through <c>IdempotentRequest.ExecuteCreateAsync</c>, whose
-/// response is <c>Results.Created(location, identifier)</c> — a bare GUID. The
-/// two cannot both be built. Reading either here keeps every assertion in these
-/// files about the behaviour it names instead of failing on a shape the spec
-/// has not settled.
+/// response is <c>Results.Created(location, identifier)</c> — confirmed a bare
+/// GUID (spec.md corrected in commit 8753b205; it no longer claims the 201 body
+/// carries an object).
 /// </para>
 /// </summary>
 internal static class EventTypeRegistryApi
@@ -48,12 +45,13 @@ internal static class EventTypeRegistryApi
     /// <paramref name="expectedVersion"/> of <c>null</c> sends no
     /// <c>If-Match</c> at all — the 428 case, and the one the disclosure
     /// ordering in <see cref="EventTypeRegistryAuthorizationIntegrationTests"/>
-    /// turns on.
+    /// turns on. <paramref name="fabId"/> is omitted by default, mirroring
+    /// <see cref="RegisterAsync"/>.
     /// </summary>
     internal static Task<HttpResponseMessage> RetireAsync(
-        HttpClient client, string kind, int? expectedVersion)
+        HttpClient client, string kind, int? expectedVersion, string? fabId = null)
     {
-        HttpRequestMessage request = new(HttpMethod.Delete, $"/event-types/{kind}");
+        HttpRequestMessage request = new(HttpMethod.Delete, $"/event-types/{kind}{(fabId is null ? string.Empty : $"?fabId={fabId}")}");
         if (expectedVersion is { } version)
         {
             request.Headers.TryAddWithoutValidation("If-Match", $"\"{version}\"");
@@ -80,9 +78,7 @@ internal static class EventTypeRegistryApi
     {
         JsonElement body = await response.Content.ReadFromJsonAsync<JsonElement>();
 
-        return body.ValueKind == JsonValueKind.Object
-            ? body.GetProperty("eventTypeId").GetGuid()
-            : body.GetGuid();
+        return body.GetGuid();
     }
 
     internal static async Task<string?> TitleOfAsync(HttpResponseMessage response)

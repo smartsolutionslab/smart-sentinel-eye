@@ -87,6 +87,40 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     }
 
     /// <summary>
+    /// Security review finding on issue #1972. The retire lookup used to run
+    /// over every fab the caller held, unordered — a multi-fab caller who had
+    /// registered the same kind in two fabs got a nondeterministic retire,
+    /// since both rows sat at version 0 and <c>If-Match</c> could not tell
+    /// them apart. Routing <c>DELETE</c> through the same write-fab
+    /// resolution as <c>POST</c> (ADR-0114) closes it: naming <c>fabId</c>
+    /// retires only that fab's row, and the other is untouched.
+    /// </summary>
+    [Fact]
+    public async Task A_multi_fab_caller_naming_a_fabId_retires_only_that_fabs_row()
+    {
+        string kind = UniqueKind();
+        using HttpClient multi = await ClientFor(MultiFabOperator);
+        (await RegisterAsync(multi, kind, fabId: "dresden")).StatusCode.ShouldBe(HttpStatusCode.Created);
+        (await RegisterAsync(multi, kind, fabId: "munich")).StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        HttpResponseMessage retired = await RetireAsync(multi, kind, expectedVersion: 0, fabId: "munich");
+        retired.StatusCode.ShouldBe(HttpStatusCode.OK, await Diagnose(retired));
+
+        // Retired rows are excluded from the listing (EventTypesEndpoints' own
+        // summary), so the only correct outcome leaves exactly one row for this
+        // kind — dresden's. Two rows would mean munich never retired; a single
+        // munich row would mean the ambiguity picked the wrong one.
+        JsonElement rows = await ListRowsAsync(multi, "listing after a fab-scoped retire");
+        JsonElement[] remaining = [.. rows.EnumerateArray().Where(row => row.GetProperty("kind").GetString() == kind)];
+        remaining.Length.ShouldBe(
+            1,
+            "an explicit fabId must retire only that fab's row, not whichever row Postgres "
+            + "happened to return first for the caller's held fabs");
+        remaining[0].GetProperty("fab").GetString().ShouldBe("dresden");
+        remaining[0].GetProperty("state").GetString().ShouldBe("Registered");
+    }
+
+    /// <summary>
     /// The disclosure probe. Three <c>DELETE</c>s with no <c>If-Match</c>: one
     /// against a kind that exists in the caller's fab, one against a kind that
     /// exists only in a fab they do not hold, one against a kind that has never

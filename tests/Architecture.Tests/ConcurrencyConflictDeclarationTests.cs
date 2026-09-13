@@ -349,7 +349,7 @@ public class ConcurrencyConflictDeclarationTests
             + "(ux_registered_event_types_fab_kind); idempotency"),
         new(
             "EventIngestion DELETE /event-types/{kind}",
-            "refusal (RetireEventTypeError.EventTypeStaleVersion); lost update "
+            "refusal (RetireEventTypeError.EventTypeStale); lost update "
             + "(eventType.Retire(...) then SaveAsync)"),
         new(
             "Identity POST /devices/register",

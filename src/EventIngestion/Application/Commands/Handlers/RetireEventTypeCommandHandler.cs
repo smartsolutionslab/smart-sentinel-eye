@@ -16,14 +16,14 @@ public sealed class RetireEventTypeCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        var (fabs, kind, expectedVersion, retiredBy) = command;
+        var (fab, kind, expectedVersion, retiredBy) = command;
 
-        // The lookup runs over the caller's fabs, not the row's own — a row
-        // outside them is genuinely absent from where the caller stands, and
-        // this order is load-bearing: it must run before the version gate, so
-        // a stale version against another fab's row still answers 404, not
-        // 409 (plan.md §6).
-        Option<RegisteredEventType> found = await eventTypes.GetRegisteredAsync(fabs, kind, cancellationToken);
+        // The lookup runs over the resolved fab, not the row's own — a row in
+        // a fab the caller did not resolve to is genuinely absent from where
+        // the caller stands, and this order is load-bearing: it must run
+        // before the version gate, so a stale version against another fab's
+        // row still answers 404, not 409 (plan.md §6).
+        Option<RegisteredEventType> found = await eventTypes.GetRegisteredAsync(fab, kind, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(RetireEventTypeFailures.EventTypeNotFound(kind.Value));
@@ -33,7 +33,7 @@ public sealed class RetireEventTypeCommandHandler(
 
         if (eventType.Version != expectedVersion)
         {
-            return Failure(RetireEventTypeFailures.EventTypeStaleVersion(
+            return Failure(RetireEventTypeFailures.EventTypeStale(
                 kind.Value, expectedVersion, eventType.Version));
         }
 

@@ -63,8 +63,11 @@ public static class EventTypesEndpoints
         group.MapDelete("/{kind}", Retire)
             .RequireAuthorization(Scope.Sse.Events.TypesWrite)
             .WithSummary(
-                "Retire a registered event type, releasing its name for re-registration. Requires "
-                + "If-Match with the version from GET /event-types. Required scope: sse.events.types.write")
+                "Retire a registered event type, releasing its name for re-registration. Omit fabId "
+                + "when you belong to exactly one; name it when you belong to several (ADR-0114) — a "
+                + "multi-fab caller who names none is refused rather than having a fab guessed for "
+                + "them. Requires If-Match with the version from GET /event-types. Required scope: "
+                + "sse.events.types.write")
             .Produces<Guid>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -202,18 +205,18 @@ public static class EventTypesEndpoints
             return precondition;
         }
 
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
-            await EventIngestionFabResolution.ResolveReadFabsAsync(
+        Result<FabIdentifier, IResult> fabResolution =
+            await EventIngestionFabResolution.ResolveWriteFabAsync(
                 user, fabId ?? string.Empty, fabGuard, cancellationToken);
-        if (fabsResolution.IsFailure)
+        if (fabResolution.IsFailure)
         {
-            return fabsResolution.Error;
+            return fabResolution.Error;
         }
 
         OperatorIdentifier retiredBy = user.ToOperatorIdentifier();
 
         Result<RegisteredEventTypeIdentifier, RetireEventTypeError> result = await handler.HandleAsync(
-            new RetireEventTypeCommand(fabsResolution.Value, parsed, expectedVersion, retiredBy),
+            new RetireEventTypeCommand(fabResolution.Value, parsed, expectedVersion, retiredBy),
             cancellationToken);
 
         return result.Match<IResult>(
