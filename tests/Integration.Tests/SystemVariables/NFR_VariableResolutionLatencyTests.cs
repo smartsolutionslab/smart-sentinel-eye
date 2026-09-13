@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Net.Http.Json;
-using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.SystemVariables;
@@ -87,10 +86,6 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
 
     private const int MeasuredRounds = 5;
 
-    /// <summary>Poll interval for <see cref="WaitUntilResolvableAsync"/> — the loop is now
-    /// real (#2201), and an undelayed one would hot-spin a core against the API.</summary>
-    private const int PollIntervalMs = 200;
-
     public Task InitializeAsync() => aspire.ResetSystemVariablesAsync();
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -101,7 +96,7 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
         using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
         using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        string variableName = UniqueVariableName();
+        string variableName = VariableRequests.UniqueName();
         (await variables.PostAsJsonAsync("/system-variables", new
         {
             name = variableName,
@@ -170,12 +165,11 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
 
         while (stopwatch.ElapsedMilliseconds < 10_000)
         {
-            string? resolved = await ResolvedTextAsync(variables, overlay);
+            string? resolved = await OverlaySnapshotReadiness.ResolvedTextAsync(variables, overlay);
 
             // A non-200 meant "not a match" before this method returned string.Empty for
             // it, and it must go on meaning exactly that now that it returns null (#2201) —
-            // this poll's own semantics are unchanged, only ResolvedTextAsync's spelling of
-            // "absent" moved.
+            // this poll's own semantics are unchanged, only the spelling of "absent" moved.
             if (resolved is not null && resolved.Contains(expected, StringComparison.Ordinal))
             {
                 return stopwatch.ElapsedMilliseconds;
@@ -188,65 +182,15 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
 
     /// <summary>
     /// <c>internal</c> rather than <c>private</c> so <c>OverlaySnapshotReadinessTests</c>
-    /// (#2201) can drive it directly against a scripted handler. Both this and
-    /// <see cref="ResolvedTextAsync"/> are invisible to every caller but that one and this
-    /// file's own measured test, which passes no <c>ceilingMs</c> and keeps its 30 s
-    /// ceiling unchanged. The widening is deleted once both bodies move into a shared
-    /// fixture.
-    ///
-    /// <para>
-    /// Copied from <c>TwoPlaceholdersInOneLabelTests.WaitUntilResolvableAsync</c>'s shape
-    /// (#2201): readiness requires both a 200 <b>and</b> the literal placeholder gone —
-    /// neither alone — and the poll delays between attempts rather than spinning.
-    /// </para>
+    /// (#2201) can drive it directly by this name — that file is the phase 4a red-test
+    /// file and the fold (#2201 US-4) may not edit it. Delegates to
+    /// <see cref="OverlaySnapshotReadiness"/>, which now holds the one implementation
+    /// folded from this file, <c>TwoPlaceholdersInOneLabelTests</c> and
+    /// <c>ResolvedTextReachesItsFabTests</c>.
     /// </summary>
-    internal static async Task WaitUntilResolvableAsync(
-        HttpClient variables, Guid overlay, string variableName, int ceilingMs = 30_000)
-    {
-        string literal = $"{{{{{variableName}}}}}";
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        string? resolved = null;
-
-        while (stopwatch.ElapsedMilliseconds < ceilingMs)
-        {
-            resolved = await ResolvedTextAsync(variables, overlay);
-
-            // Until the index knows the overlay, the snapshot renders the literal
-            // placeholder. Its disappearance, on top of an actual 200, is the readiness
-            // signal — neither half alone is enough (#2201).
-            if (resolved is not null && !resolved.Contains(literal, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            await Task.Delay(PollIntervalMs);
-        }
-
-        throw new TimeoutException(
-            $"Overlay {overlay} never resolved '{variableName}' within {ceilingMs} ms; "
-            + $"the last snapshot was "
-            + $"{(resolved is null ? "not a 200" : $"a 200 carrying '{resolved}'")}.");
-    }
-
-    /// <summary>
-    /// The resolved text, or <c>null</c> when the snapshot did not answer 200 — the two are
-    /// different states and the readiness wait must tell them apart (#2201).
-    /// <c>string.Empty</c> could not: <c>string.Empty.Contains(anything non-empty)</c>
-    /// answers <c>false</c>, the same answer a fully resolved label gives.
-    /// </summary>
-    internal static async Task<string?> ResolvedTextAsync(HttpClient variables, Guid overlay)
-    {
-        HttpResponseMessage snapshot = await variables.GetAsync(
-            $"/system-variables/snapshot?overlayIdentifier={overlay}");
-        if (!snapshot.IsSuccessStatusCode)
-        {
-            return null;
-        }
-
-        JsonElement payload = await snapshot.Content.ReadFromJsonAsync<JsonElement>();
-
-        return payload.GetProperty("resolvedText").GetString() ?? string.Empty;
-    }
+    internal static Task WaitUntilResolvableAsync(
+        HttpClient variables, Guid overlay, string variableName, int ceilingMs = 30_000) =>
+        OverlaySnapshotReadiness.WaitUntilResolvableAsync(variables, overlay, variableName, ceilingMs);
 
     private static async Task<Guid> PublishOverlayReferencingAsync(HttpClient overlays, string variableName)
     {
@@ -270,6 +214,4 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
 
         return overlay;
     }
-
-    private static string UniqueVariableName() => $"v{Guid.NewGuid():N}"[..12];
 }
