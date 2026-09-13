@@ -38,6 +38,23 @@ function renderAttempts(results) {
   return (results ?? []).map((result) => result.status ?? 'unknown').join(' → ');
 }
 
+// A `|` in a title or file path would otherwise split a Markdown table row.
+function escapeTableCell(value) {
+  return String(value).replace(/\|/g, '\\|');
+}
+
+// The immediate parent suite disambiguates two identically-titled specs in
+// different `describe` blocks; suppressed when it duplicates the file name
+// (the common, single-level case), so the label stays short there.
+function renderTestLabel(spec, suite) {
+  const file = escapeTableCell(spec.file);
+  const title = escapeTableCell(spec.title);
+  if (suite?.title && suite.title !== spec.file) {
+    return `\`${file}\` › ${escapeTableCell(suite.title)} › ${title}`;
+  }
+  return `\`${file}\` › ${title}`;
+}
+
 function renderSection(report) {
   const entries = collectTests(report.suites);
   const flakyEntries = entries.filter(({ test }) => test.status === 'flaky');
@@ -75,9 +92,9 @@ function renderSection(report) {
 
   if (walkedCount > 0) {
     lines.push('| Test | Project | Attempts | Statuses |', '| --- | --- | --- | --- |');
-    for (const { test, spec } of flakyEntries) {
+    for (const { test, spec, suite } of flakyEntries) {
       const attempts = test.results?.length ?? 0;
-      lines.push(`| \`${spec.file}\` › ${spec.title} | ${test.projectName} | ${attempts} | ${renderAttempts(test.results)} |`);
+      lines.push(`| ${renderTestLabel(spec, suite)} | ${test.projectName} | ${attempts} | ${renderAttempts(test.results)} |`);
     }
     lines.push('');
   }
@@ -99,8 +116,35 @@ function renderParseFailure(reportPath, error) {
   return [
     '### Playwright e2e — retried outcomes',
     '',
-    `⚠️ **The Playwright JSON report at \`${reportPath}\` could not be parsed** (${error.message}). A ` +
+    `⚠️ **The Playwright JSON report at \`${reportPath}\` could not be parsed** (${error.name}). A ` +
       'retried-test count cannot be reported for this run — this is not the same as zero retries.',
+    '',
+  ].join('\n');
+}
+
+// `report.suites` and `report.stats.flaky` are the two shapes this script
+// depends on; anything else (a Playwright reporter version bump, a report
+// that parses as JSON but isn't a JSONReport at all) must say so rather than
+// silently render a fabricated zero — see review of #2077.
+function renderShapeSurprise(reportPath, missingKey) {
+  return [
+    '### Playwright e2e — retried outcomes',
+    '',
+    `⚠️ **The Playwright JSON report at \`${reportPath}\` is not shaped as expected** (missing or invalid ` +
+      `\`${missingKey}\`). A retried-test count cannot be reported for this run — this is not the same as zero retries.`,
+    '',
+  ].join('\n');
+}
+
+// Emitted from the top-level catch, so a bug in this script still leaves the
+// section the plan promises — "its absence is itself a defect report" —
+// rather than only a stderr line the job summary never shows.
+function renderInternalFailure() {
+  return [
+    '### Playwright e2e — retried outcomes',
+    '',
+    '⚠️ **The summariser hit an internal error and could not report a retried-test count for this run** — ' +
+      "this is not the same as zero retries. See the job's logs for details.",
     '',
   ].join('\n');
 }
@@ -133,6 +177,16 @@ function main() {
     return;
   }
 
+  if (!Array.isArray(report?.suites)) {
+    writeSummary(renderShapeSurprise(reportPath, 'suites'));
+    return;
+  }
+
+  if (typeof report?.stats?.flaky !== 'number') {
+    writeSummary(renderShapeSurprise(reportPath, 'stats.flaky'));
+    return;
+  }
+
   writeSummary(renderSection(report));
 }
 
@@ -140,6 +194,13 @@ try {
   main();
 } catch (error) {
   // Never throws, never changes the job's outcome (FR-007) — a bug in this
-  // script must not turn a green e2e run red.
+  // script must not turn a green e2e run red. Still try to leave the section
+  // in the job summary — its own try/catch, because writeSummary (e.g. an
+  // unwritable GITHUB_STEP_SUMMARY path) can throw too.
+  try {
+    writeSummary(renderInternalFailure());
+  } catch (writeError) {
+    process.stderr.write(`summarise-e2e-retries: failed to write internal-failure summary: ${writeError.stack ?? writeError}\n`);
+  }
   process.stderr.write(`summarise-e2e-retries: unexpected error: ${error.stack ?? error}\n`);
 }

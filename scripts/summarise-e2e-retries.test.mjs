@@ -376,6 +376,70 @@ test('with GITHUB_STEP_SUMMARY unset, the Markdown lands on stdout', () => {
   assert.match(outcome.summary, /registers a camera/, describeFailure(outcome));
 });
 
+// ---- shape checks — a report that parses but isn't the expected shape -----
+//
+// Probed directly against the script during review of #2077: `echo '[]' >
+// r.json`, a bare string, and a report with `suites` but no `stats` all
+// rendered "0 tests passed only on retry" with a fabricated table — a
+// Playwright upgrade that changes the report shape must announce itself
+// rather than report a comforting zero (FR-005).
+
+test('a report that is a JSON array, not an object, is reported as a shape surprise', () => {
+  const directory = stubDirectory();
+  const reportPath = path.join(directory, 'array-report.json');
+  writeFileSync(reportPath, '[]');
+
+  const outcome = runScript(reportPath);
+
+  assert.equal(outcome.result.status, 0, describeFailure(outcome));
+  assert.match(outcome.summary, /not shaped as expected/i, describeFailure(outcome));
+  assert.ok(outcome.summary.includes(reportPath), describeFailure(outcome));
+  assert.doesNotMatch(outcome.summary, /0 tests passed only on retry/, describeFailure(outcome));
+});
+
+test('a report that is a bare JSON string is reported as a shape surprise', () => {
+  const directory = stubDirectory();
+  const reportPath = path.join(directory, 'string-report.json');
+  writeFileSync(reportPath, '"oops"');
+
+  const outcome = runScript(reportPath);
+
+  assert.equal(outcome.result.status, 0, describeFailure(outcome));
+  assert.match(outcome.summary, /not shaped as expected/i, describeFailure(outcome));
+  assert.doesNotMatch(outcome.summary, /0 tests passed only on retry/, describeFailure(outcome));
+});
+
+test('a report with suites but no stats is reported as a shape surprise, not a silent zero', () => {
+  const directory = stubDirectory();
+  const reportPath = path.join(directory, 'no-stats-report.json');
+  writeFileSync(reportPath, JSON.stringify({ suites: [], errors: [] }));
+
+  const outcome = runScript(reportPath);
+
+  assert.equal(outcome.result.status, 0, describeFailure(outcome));
+  assert.match(outcome.summary, /not shaped as expected/i, describeFailure(outcome));
+  assert.match(outcome.summary, /stats\.flaky/, describeFailure(outcome));
+  assert.doesNotMatch(outcome.summary, /0 tests passed only on retry/, describeFailure(outcome));
+});
+
+// ---- internal failure — the section is emitted even when the script itself
+// hits a bug, so its absence is never mistaken for a step that never ran ----
+
+test('an internal error past the shape checks still leaves the section in the summary', () => {
+  // Passes both shape checks (an array `suites`, a numeric `stats.flaky`) but
+  // contains a suite entry that is not an object, which crashes the walk —
+  // proving the top-level catch, not just the two guarded shape checks.
+  const report = { suites: [null], stats: { flaky: 0, expected: 0, unexpected: 0, skipped: 0 } };
+  const reportPath = writeReport(report);
+
+  const outcome = runScript(reportPath);
+
+  assert.equal(outcome.result.status, 0, describeFailure(outcome));
+  assert.match(outcome.summary, /### Playwright e2e — retried outcomes/, describeFailure(outcome));
+  assert.match(outcome.summary, /internal error/i, describeFailure(outcome));
+  assert.match(outcome.result.stderr, /unexpected error/, describeFailure(outcome));
+});
+
 // ---- T009 — the wiring exists and the gate values did not move -----------
 //
 // This guard reads an artefact and proves only that the design was written
@@ -401,9 +465,19 @@ test('the CI reporter list gains a json entry, and retries/expect.timeout are un
     /expect:\s*\{\s*timeout:\s*isCI\s*\?\s*30_000\s*:\s*15_000\s*\}/,
     'expect.timeout must remain isCI ? 30_000 : 15_000 — this issue does not change it (spec 145, out of scope)',
   );
+
+  // The regex above proves the string is *present*, not that it is the value
+  // Playwright actually honours — a second, later `retries:` nested inside a
+  // `projects[]` entry would match too and silently win at runtime. Assert
+  // there is exactly one top-level occurrence.
+  assert.equal(
+    config.match(/^\s*retries:/gm)?.length,
+    1,
+    'expected exactly one `retries:` key in playwright.config.ts — a second one (e.g. inside projects[]) would override this match',
+  );
 });
 
-test('the e2e job runs the summariser after the suite, unconditionally', () => {
+test('the e2e job has a summariser step that runs unconditionally (if: always())', () => {
   const workflow = readFileSync(workflowPath, 'utf8');
 
   const summariserStepIndex = workflow.indexOf('scripts/summarise-e2e-retries.mjs');
