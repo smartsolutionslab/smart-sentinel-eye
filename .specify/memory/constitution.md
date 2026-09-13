@@ -318,11 +318,10 @@ OpenTelemetry (provided by Aspire defaults).
   event-type registry now exists (spec 143, the first third of issue
   1972) — an operator can declare, list and retire the event types a fab
   expects — but nothing reads it yet: there is still **no per-source
-  strict/discovery mode and no promotion path**, so an *unknown* type is
-  ingested like any other rather than quarantined for review (follow-up
-  issues to be filed for the mode and for quarantine/promotion). The
-  intended guarantee stands as a requirement (ADR-018, ADR-0130, issue
-  1972), **not as a description of today**.
+  strict/discovery mode (issue 2324) and no promotion path (issue 2325)**,
+  so an *unknown* type is ingested like any other rather than quarantined
+  for review. The intended guarantee stands as a requirement (ADR-018,
+  ADR-0130, issue 1972), **not as a description of today**.
 - **Kiosks.** Device-bound credentials **exist** — `POST /kiosks/enroll`
   mints a per-kiosk confidential client with a service account and a
   secret revealed **once per idempotency key** (ADR-0142): exactly once
