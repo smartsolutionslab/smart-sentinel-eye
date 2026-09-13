@@ -15,6 +15,15 @@ export interface OverlayEditorProps {
   canvasWidthPx?: number;
   canvasHeightPx?: number;
   className?: string;
+  /**
+   * Resolves the operator's bearer token for a captured-frame WHEP session
+   * (spec 147). Accepted and unused until T005 — absent means the backdrop
+   * capture feature is simply not offered, so every caller that does not
+   * supply it keeps working exactly as today (FR-017's degradation path
+   * expressed as a type). Same shape as `CameraViewerProps.getToken` /
+   * `WhepSessionOptions.getToken`, so T005 does not have to change it.
+   */
+  getToken?: () => Promise<string | null>;
 }
 
 const MIN_NORMALIZED = 0;
