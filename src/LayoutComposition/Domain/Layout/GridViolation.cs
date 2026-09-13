@@ -10,11 +10,11 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 ///
 /// <para>
 /// That is the operator-facing tier. Underneath it, <see cref="Layout"/>
-/// enforces the same check on itself via
-/// <see cref="Layout.RequireValidGrid"/>, thrown as
-/// <see cref="InvalidOperationException"/> — reached only when a caller
-/// skips the handler's validation, so it is a programmer-error backstop,
-/// not a second operator-facing path.
+/// enforces the same check on itself via the private backstop guard called
+/// from <see cref="Layout.CreateDraft"/> and <see cref="Layout.EditDraft"/>,
+/// thrown as <see cref="InvalidOperationException"/> — reached only when a
+/// caller skips the handler's validation, so it is a programmer-error
+/// backstop, not a second operator-facing path.
 /// </para>
 /// </summary>
 public enum GridViolation
