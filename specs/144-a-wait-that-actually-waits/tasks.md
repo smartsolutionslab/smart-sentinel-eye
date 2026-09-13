@@ -41,8 +41,16 @@ New file `tests/Integration.Tests/Fixtures/OverlaySnapshotReadinessTests.cs`,
 hand-written scripted `HttpMessageHandler` (ADR-0054, no mocking framework), a real
 `HttpClient` over it, **no Docker, no Aspire fixture, no `[Collection]`**.
 
-Change `NFR_VariableResolutionLatencyTests.WaitUntilResolvableAsync` and `.ResolvedTextAsync`
-from `private static` to `internal static`. **Visibility only — do not touch either body.**
+**The non-behavioural prep edit, and it is exactly two things.** Change
+`NFR_VariableResolutionLatencyTests.WaitUntilResolvableAsync` and `.ResolvedTextAsync` from
+`private static` to `internal static`, and add `int ceilingMs = 30_000` to the wait,
+replacing the hardcoded `30_000` at `:163`. **Do not touch either body otherwise.** Both
+edits are behaviour-preserving at every existing call site — the only caller passes nothing
+and gets 30 s — and T007 deletes both when the bodies move to the fixture.
+
+The ceiling parameter is not optional prep. Without it, the two facts that drive a
+never-satisfied condition would each spin for 30 s against today's undelayed loop, and AC-4
+could not be expressed at all.
 
 Four facts, sentence-style (ADR-0053), Shouldly (ADR-0052):
 
