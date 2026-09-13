@@ -33,7 +33,8 @@ namespace SmartSentinelEye.Identity.Infrastructure.Tests.KeycloakAdmin;
 /// wrong obligation (ADR-0139, constitution §Testing).
 /// <c>A_pass_that_finds_no_kiosk_says_nothing</c> was observed failing by
 /// counterfactual — the guard replaced by <c>if (true)</c> — and the verbatim
-/// output is quoted in the PR body. <c>A_pass_that_finds_a_kiosk_says_so_once</c>
+/// output is quoted in the PR body.
+/// <c>A_pass_that_finds_a_kiosk_says_so_once_and_names_the_count</c>
 /// passes on both sides of that counterfactual and is not the red: it is here so
 /// the silence cannot be reached by deleting the line altogether, which would
 /// satisfy the first test and destroy phase 5's only evidence.

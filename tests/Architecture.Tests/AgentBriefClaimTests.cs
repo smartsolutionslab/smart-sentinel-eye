@@ -1025,11 +1025,11 @@ public class AgentBriefClaimTests
     /// the <b>sentence</b> carrying it, not the end of the block.
     ///
     /// <para>
-    /// The block is the wrong bound. <c>infra-reviewer.md:18</c> continues past
-    /// its enumeration into "Actions pinned to commit SHAs" and "the existing
-    /// NuGet/pnpm caches"; running to the end of the block makes every later
+    /// The block is the wrong bound. <c>infra-reviewer.md:19</c> continues past
+    /// its enumeration into "Actions pinned to commit SHAs" and "SDK pinned via
+    /// <c>global.json</c>"; running to the end of the block makes every later
     /// lower-case inline span an enumerated job, so backticking
-    /// <c>nuget</c>/<c>pnpm</c> — ordinary style here — reddens assertion 4 on a
+    /// <c>global.json</c> — ordinary style here — reddens assertion 4 on a
     /// sentence that is entirely true. A guard that fails on correct editing is
     /// one that gets deleted.
     /// </para>
