@@ -24,9 +24,12 @@ that reading, and it changes the answer.
 
 ### What was read
 
-- `src/AppHost/AppHost.cs:195` pins **`bluenviron/mediamtx:1.21.0-ffmpeg`**.
-- `src/AppHost/Resources/mediamtx.yml` sets **no** session or WebRTC timeout
-  override, so MediaMTX's own defaults apply.
+- `src/AppHost/AppHost.cs:159` pins **`bluenviron/mediamtx:1.21.0-ffmpeg`**
+  (`:202` and `:647` pin the same tag for `fixture-video` and `camera-sim`;
+  `:195` is a comment naming it, which is the line #2198's brief cited).
+- `src/AppHost/Resources/mediamtx.yml` is **18 effective lines and sets no
+  timeout of any kind** — `grep -niE 'timeout|session'` over it returns nothing.
+  Every MediaMTX default therefore applies unmodified.
 - `mediamtx.yml` at tag `v1.21.0`
   (`https://raw.githubusercontent.com/bluenviron/mediamtx/v1.21.0/mediamtx.yml`)
   declares, for WebRTC and WHEP: `readTimeout: 10s`, `writeTimeout: 10s`,
