@@ -72,15 +72,18 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
     private const int LegBudgetMs = 800;
 
     /// <summary>
-    /// Kept at 3 even after #2201 corrected <see cref="WaitUntilResolvableAsync"/> to
+    /// Kept at 3 even after #2201 corrected
+    /// <see cref="OverlaySnapshotReadiness.WaitUntilResolvableAsync"/> to
     /// actually wait: the readiness wait exercises only <c>GET
     /// /system-variables/snapshot</c> — the read path. The measured loop below exercises a
     /// different path entirely — the version read, <c>PUT .../value</c>, the domain event,
     /// the outbox, and the resolve — so warmup round 0 remains that write-and-propagate
     /// path's first execution, absorbing first-call JIT, Wolverine handler resolution and EF
     /// plan compilation that would otherwise land inside the first measured sample. The two
-    /// warm different paths; neither makes the other redundant. See the second
-    /// <c>Console.WriteLine</c> below for the observation this reasoning predicts.
+    /// warm different paths; neither makes the other redundant. The single local observation
+    /// to date, <c>[8, 8, 10]</c>, does not show round 0 as distinguishable from rounds 1-2;
+    /// the warmups stay regardless, because the downside of being wrong is a corrupted
+    /// latency figure, not because the data demands them.
     /// </summary>
     private const int WarmupRounds = 3;
 
@@ -113,7 +116,7 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
         // resolvable the instant publish returns. Wait for it before timing
         // anything, or the first measurement is really a measurement of
         // Wolverine's delivery of a different event.
-        await WaitUntilResolvableAsync(variables, overlay, variableName);
+        await OverlaySnapshotReadiness.WaitUntilResolvableAsync(variables, overlay, variableName);
 
         List<long> warmups = [];
         for (int round = 0; round < WarmupRounds; round++)
@@ -180,16 +183,4 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
         throw new TimeoutException(
             $"Resolved text never carried '{expected}' for overlay {overlay} within 10 s.");
     }
-
-    /// <summary>
-    /// <c>internal</c> rather than <c>private</c> so <c>OverlaySnapshotReadinessTests</c>
-    /// (#2201) can drive it directly by this name — that file is the phase 4a red-test
-    /// file and the fold (#2201 US-4) may not edit it. Delegates to
-    /// <see cref="OverlaySnapshotReadiness"/>, which now holds the one implementation
-    /// folded from this file, <c>TwoPlaceholdersInOneLabelTests</c> and
-    /// <c>ResolvedTextReachesItsFabTests</c>.
-    /// </summary>
-    internal static Task WaitUntilResolvableAsync(
-        HttpClient variables, Guid overlay, string variableName, int ceilingMs = 30_000) =>
-        OverlaySnapshotReadiness.WaitUntilResolvableAsync(variables, overlay, variableName, ceilingMs);
 }
