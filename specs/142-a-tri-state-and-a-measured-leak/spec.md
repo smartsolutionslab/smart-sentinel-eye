@@ -18,8 +18,8 @@ may not weaken a gate).
 
 ## The measurement the issue demanded, taken before the severity was ranked
 
-#2198 says, in as many words: *"Read the configured timeout before deciding the
-severity — do not let this issue's ranking stand in for that."* This section is
+#2198 says, in as many words: _"Read the configured timeout before deciding the
+severity — do not let this issue's ranking stand in for that."_ This section is
 that reading, and it changes the answer.
 
 ### What was read
@@ -40,7 +40,7 @@ that reading, and it changes the answer.
 ### Finding 1 — there is no such setting
 
 **MediaMTX 1.21.0 has no idle-session or orphaned-session reclaim timeout for
-WebRTC/WHEP.** Every timeout above governs *establishment* (handshake, candidate
+WebRTC/WHEP.** Every timeout above governs _establishment_ (handshake, candidate
 gathering, track gathering) or a single read/write, not the lifetime of an
 established session whose client has vanished. The premise behind the phrase
 "MediaMTX's own timeout reclaims it" does not exist as a configurable value.
@@ -85,10 +85,10 @@ the same way.
 **A logging gap with a bounded, correlated capacity spike — not an unbounded
 resource leak.** Both halves matter:
 
-- *Bounded.* A failed DELETE costs at most about 30 s of orphaned session, never
+- _Bounded._ A failed DELETE costs at most about 30 s of orphaned session, never
   forever. The word **"leak"** in this issue's title and branch name is
   therefore too strong, and the spec says so rather than inheriting it.
-- *Correlated, and that is the part that survives.* The issue's own scaling
+- _Correlated, and that is the part that survives._ The issue's own scaling
   argument holds inside the 30 s. A 250-camera wall that re-lays-out releases and
   re-establishes every session at once, and the usual cause of a failed release
   (an expired token, a gateway blip) hits all of them together. So the media
@@ -109,7 +109,7 @@ running MediaMTX. No MediaMTX container is running on this machine (`docker ps
 phase 1. The three quoted sources are at the pinned `v1.21.0` tag and at
 `pion/ice` `master`; **pion's version is the one risk** — `go.mod` was not read,
 so if MediaMTX 1.21.0 pins a pion/ice whose defaults differ, the 30 s moves.
-It does not move the *shape* of the finding: with no idle-session setting
+It does not move the _shape_ of the finding: with no idle-session setting
 anywhere, reclaim is ICE-driven either way, and ICE-driven means bounded.
 
 **What would change the ranking.** An observed session that outlives a killed
@@ -139,13 +139,13 @@ throws. `useWhepSession.ts:332` then adds a **fourth** producer of the same
 `false` — `clientRef.current?.setPlayoutTarget(...) ?? false` — and
 `CameraViewer.tsx:336` reports all four as `playout-target-unsupported`.
 
-That fourth producer is verbatim spec 095's recorded residual: *"a one-commit
-window can latch `playout-target-unsupported` on a healthy engine."*
+That fourth producer is verbatim spec 095's recorded residual: _"a one-commit
+window can latch `playout-target-unsupported` on a healthy engine."_
 
 ### Confirmed — the passing test that asserts the silence
 
-`WhepClient.test.ts:320-334`, *"close() without a captured session URL performs
-local teardown only"*, asserts `expect(fetchMock).not.toHaveBeenCalled()`. It is
+`WhepClient.test.ts:320-334`, _"close() without a captured session URL performs
+local teardown only"_, asserts `expect(fetchMock).not.toHaveBeenCalled()`. It is
 correct and **stays unmodified** (FR-009). Nothing in that file exercises a
 release that fails, and nothing in that file exercises `setPlayoutTarget` at
 all — `:411` mentions it only in a comment, and the harness's `receivers` are
@@ -154,9 +154,9 @@ skips every one of them.
 
 ### Correction the spec carries — "the unload path" does not exist
 
-The issue reasons: *"it is `keepalive: true` deliberately: the request must
+The issue reasons: _"it is `keepalive: true` deliberately: the request must
 survive page unload. So 'await it and report' is **not** available on the unload
-path."*
+path."_
 
 **There is no unload call path in this repository.** `grep -rn
 'pagehide\|beforeunload' apps/ e2e/` returns nothing, and `WhepClient.close()`
@@ -168,7 +168,7 @@ console to log to.
 `keepalive: true` is still right, and stays: it protects a release already **in
 flight** when the page goes away — an SPA route change immediately followed by a
 navigation, a kiosk browser being killed a beat after a re-layout. What it does
-*not* do is create a code path on which a continuation is unavailable by
+_not_ do is create a code path on which a continuation is unavailable by
 construction.
 
 **The consequence for the design is the opposite of the issue's premise:** a
@@ -228,24 +228,24 @@ call site.
   - the request resolved with a non-2xx → `{ status: <number> }`;
   - the request (or the `getToken()` that precedes it) rejected →
     `{ error: <string> }`.
-  Each line carries exactly the one fact it has; neither pads the other with a
-  null. A consumer tells them apart by which key is present.
+    Each line carries exactly the one fact it has; neither pads the other with a
+    null. A consumer tells them apart by which key is present.
 - **FR-002.** A DELETE that succeeds reports **nothing**, and a `close()` with no
   captured session URL reports **nothing** and still issues no request.
 - **FR-003.** **On page unload, nothing is logged, and that is accepted.** The
   continuation attached to a `keepalive` request does not run once the page is
   gone; there is no document to log to and no console to read it. This is stated
   as the cost of `keepalive`, not designed around. It is not a live hole today
-  (see *§ Correction*: no unload call path exists), and it becomes one only if a
+  (see _§ Correction_: no unload call path exists), and it becomes one only if a
   `pagehide` handler is ever added — at which point this FR is the note that
   says the report will be silent there.
 - **FR-004.** **No retry.** `releaseSession` fires the DELETE once, as today.
-  Three reasons, in descending weight: the measured ~30 s ICE ceiling caps what a
-  retry could recover; the dominant failure the issue names is a **401 from an
+  Three reasons, in descending weight: the ~30 s ICE ceiling derived at the
+  pinned tag (A1/A2) caps what a retry could recover; the dominant failure the issue names is a **401 from an
   expired token**, and `getToken()` is already re-resolved at release time
   (pinned by `WhepClient.test.ts:296`), so a retry re-presents the same dead
-  credential; and ADR-0143's principle — *retrying is the thing that needs
-  justifying* — is not met by a request whose failure costs a bounded transient.
+  credential; and ADR-0143's principle — _retrying is the thing that needs
+  justifying_ — is not met by a request whose failure costs a bounded transient.
   Recorded as **considered and declined with the number that declines it**, so a
   later reader does not re-open it as an oversight.
 - **FR-005.** Teardown is not delayed or made to depend on the release. The
@@ -259,23 +259,23 @@ call site.
   — a string-literal union, matching `WhepErrorKind` (`WhepClient.ts:3`) and
   `ResilienceSubsystem` (`resilienceLog.ts:1`). Mapping:
 
-  | Outcome | Condition | Issue's row |
-  |---|---|---|
-  | `'applied'` | at least one video receiver accepted the assignment | (success) |
-  | `'not-connected'` | no peer connection, no `getReceivers`, **or no video receiver at all** | `:190` — transient |
-  | `'unsupported'` | video receivers exist, none carries `jitterBufferTarget` | `:196` — permanent for this browser |
-  | `'refused'` | a video receiver carries it and every assignment threw | `:204` — possibly per-value |
+  | Outcome           | Condition                                                              | Issue's row                         |
+  | ----------------- | ---------------------------------------------------------------------- | ----------------------------------- |
+  | `'applied'`       | at least one video receiver accepted the assignment                    | (success)                           |
+  | `'not-connected'` | no peer connection, no `getReceivers`, **or no video receiver at all** | `:190` — transient                  |
+  | `'unsupported'`   | video receivers exist, none carries `jitterBufferTarget`               | `:196` — permanent for this browser |
+  | `'refused'`       | a video receiver carries it and every assignment threw                 | `:204` — possibly per-value         |
 
 - **FR-007.** **`'not-connected'` absorbs "zero video receivers", and this is a
   deliberate refinement of the issue's table rather than a deviation from it.**
-  The issue's row 2 reads *"no receiver **carries** `jitterBufferTarget`"*, which
+  The issue's row 2 reads _"no receiver **carries** `jitterBufferTarget`"_, which
   presupposes receivers to inspect. A peer connection that has not attached video
   yet is the same transient condition as no peer connection — it is `:190`'s
   meaning, reached one line later — and mapping it to `'unsupported'` would
   re-open exactly the latch US2 exists to close, one layer down.
 - **FR-008.** **The `catch` at `:204` stays swallowed.** FR-013 of spec 045 is
   right and is not reopened: a tile that cannot be aligned carries on showing
-  video. The throw becomes *distinguishable* (`'refused'`) and is still not
+  video. The throw becomes _distinguishable_ (`'refused'`) and is still not
   raised to any caller and still not surfaced to an operator on the tile.
 - **FR-009.** **The actuation is byte-equivalent.** `outcome === 'applied'` holds
   exactly where today's `applied` boolean holds: same loop, same receivers, same
@@ -288,7 +288,7 @@ call site.
   095 FR-003) and the emitted **payload** are unchanged — see FR-011.
 - **FR-011.** **The `[resilience]` line's payload does not grow.** It stays
   `{ subsystem: 'stream', transition: 'playout-target-unsupported',
-  cameraIdentifier }`. Three reasons: `resilienceLog.ts:3-8` declares the line
+cameraIdentifier }`. Three reasons: `resilienceLog.ts:3-8` declares the line
   shape an observable contract; `CameraViewerAlignment.test.tsx:365-369` asserts
   it with an exact `toEqual`, so growing it would force an assertion edit, and an
   assertion that has to be edited is a block rather than an adjustment; and
@@ -409,7 +409,7 @@ Scenario (bad request / hostile engine): setPlayoutTarget itself throws
 
 **Auth:** no scenario here crosses an authorization boundary that this change
 touches. The DELETE's bearer token is minted by the existing `getToken()` and its
-401 is now *reported* rather than granted differently; no scope, realm, client or
+401 is now _reported_ rather than granted differently; no scope, realm, client or
 policy is read or changed. There is no new endpoint and no new claim.
 
 **Bad request:** the two "hostile engine" shapes above — a receiver whose setter
@@ -421,13 +421,13 @@ the picture running.
 
 ## Locked technical choices
 
-| Concern | Choice | Why |
-|---|---|---|
-| Outcome type | **string-literal union**, `PlayoutTargetOutcome` | No payload to carry. Matches `WhepErrorKind` and `ResilienceSubsystem`; a discriminated object union would add a shape for nothing. Spec 095 recorded that the narrowed return buys `TS2367` on a comparison against a name outside the union — the same benefit applies here and is the point of not using `string`. |
-| Reporting channel | existing `logResilienceEvent` (ADR-0076 — transport-agnostic) | One new transition string, no new module, no widened union, no new dependency. |
-| Retry | **none** (FR-004) | The ~30 s measured ceiling, the 401 that a retry cannot fix, ADR-0143's principle. |
-| `keepalive: true` | **kept** | It protects an in-flight release across a navigation. Its cost is FR-003's silence, which is now written down. |
-| Test framework | Vitest + jsdom, existing `WhepClient.test.ts` / `CameraViewerAlignment.test.tsx` harnesses | No new harness; the `receivers` fake widens (`tasks.md` T001). |
+| Concern           | Choice                                                                                     | Why                                                                                                                                                                                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Outcome type      | **string-literal union**, `PlayoutTargetOutcome`                                           | No payload to carry. Matches `WhepErrorKind` and `ResilienceSubsystem`; a discriminated object union would add a shape for nothing. Spec 095 recorded that the narrowed return buys `TS2367` on a comparison against a name outside the union — the same benefit applies here and is the point of not using `string`. |
+| Reporting channel | existing `logResilienceEvent` (ADR-0076 — transport-agnostic)                              | One new transition string, no new module, no widened union, no new dependency.                                                                                                                                                                                                                                        |
+| Retry             | **none** (FR-004)                                                                          | The ~30 s ceiling (derived, A1/A2), the 401 that a retry cannot fix, ADR-0143's principle.                                                                                                                                                                                                                            |
+| `keepalive: true` | **kept**                                                                                   | It protects an in-flight release across a navigation. Its cost is FR-003's silence, which is now written down.                                                                                                                                                                                                        |
+| Test framework    | Vitest + jsdom, existing `WhepClient.test.ts` / `CameraViewerAlignment.test.tsx` harnesses | No new harness; the `receivers` fake widens (`tasks.md` T001).                                                                                                                                                                                                                                                        |
 
 ---
 
@@ -435,11 +435,11 @@ the picture running.
 
 **N/A — no §IV cell moves, and no measurement is owed.**
 
-`setPlayoutTarget` is the **actuator** for the *Presentation buffer (playout
-alignment) ≤ 200 ms* leg (ADR-0128), so the claim has to be earned rather than
+`setPlayoutTarget` is the **actuator** for the _Presentation buffer (playout
+alignment) ≤ 200 ms_ leg (ADR-0128), so the claim has to be earned rather than
 asserted. It is earned by FR-009: the loop, the receivers visited, the property
 written and the value written are unchanged, and `outcome === 'applied'` is the
-same predicate as today's `applied`. What changes is the *name* of the answer and
+same predicate as today's `applied`. What changes is the _name_ of the answer and
 which answers the call site reports. No effect is added or re-keyed; no render is
 provoked (the call site writes a ref, as today); `setPlayoutTarget` is still
 called once per effect run with the same argument.
@@ -448,8 +448,8 @@ The release report adds a `.then` to a fire-and-forget request that already
 exists, after `pc.close()` has been scheduled — it is not on any of the six legs,
 and it cannot delay teardown (FR-005).
 
-**No *before* figure is cited, deliberately.** §IV records the presentation
-buffer as *recorded, not yet observed*, and **#1714** is open precisely because
+**No _before_ figure is cited, deliberately.** §IV records the presentation
+buffer as _recorded, not yet observed_, and **#1714** is open precisely because
 nobody has read that number off a running wall. Inventing a baseline would be the
 clerical failure this whole series exists to make visible. The smaller true
 claim: after this change a `playout-target-unsupported` line in a kiosk log
@@ -473,7 +473,7 @@ convenient.
   ADR-0076/spec 011's; the string-literal-union idiom is the file's own
   (`WhepErrorKind`); the once-per-tile latch is spec 095's; the swallowed
   `catch` is spec 045 FR-013's, explicitly preserved rather than revisited.
-  Every choice here *continues* an existing pattern.
+  Every choice here _continues_ an existing pattern.
 - **The one thing that would need an ADR is deliberately not done.** Making
   `setPlayoutTarget` raise a fault to an operator would overturn spec 045
   FR-013, and changing MediaMTX's session lifecycle would touch ADR-0128's
@@ -487,7 +487,7 @@ Same reasoning as #2197 (spec 141), and it holds for the same reasons.
 
 - **A1 — pion/ice's defaults are the ones in effect.** MediaMTX 1.21.0's
   `go.mod` was not read; the defaults quoted are `pion/ice` `master`. If the
-  pinned pion differs, the 30 s figure moves. The *shape* of the finding — no
+  pinned pion differs, the 30 s figure moves. The _shape_ of the finding — no
   idle-session setting exists, so reclaim is ICE-driven and therefore bounded —
   does not depend on the exact number.
 - **A2 — no live MediaMTX was observed.** No container is running and the stack
@@ -496,7 +496,7 @@ Same reasoning as #2197 (spec 141), and it holds for the same reasons.
   killing a kiosk tab) and **should**, because this repository's records have
   gone wrong before by recording a derivation as a measurement.
 - **A3 — `keepalive` does not prevent the continuation from running.** A
-  `keepalive` fetch returns an ordinary promise; it is the *page's* disappearance
+  `keepalive` fetch returns an ordinary promise; it is the _page's_ disappearance
   that strands the continuation, not the flag. Standard behaviour, not verified
   against a browser here.
 

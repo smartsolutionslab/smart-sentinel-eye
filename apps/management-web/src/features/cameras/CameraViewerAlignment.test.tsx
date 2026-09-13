@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render } from '@testing-library/react';
 import { Provider } from 'react-redux';
+import type { PlayoutTargetOutcome } from '@smart-sentinel-eye/shared/streaming/WhepClient';
 import { store } from '../../app/store.js';
 
 /**
@@ -27,9 +28,7 @@ import { store } from '../../app/store.js';
  * </p>
  */
 
-const setPlayoutTarget = vi.fn(
-  (): import('@smart-sentinel-eye/shared/streaming/WhepClient').PlayoutTargetOutcome => 'applied',
-);
+const setPlayoutTarget = vi.fn((): PlayoutTargetOutcome => 'applied');
 const stats = vi.fn(async () => new Map());
 
 vi.mock('@smart-sentinel-eye/shared/streaming/WhepClient', () => ({

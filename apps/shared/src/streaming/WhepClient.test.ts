@@ -418,6 +418,12 @@ describe('WhepClient', () => {
       fetchMock.mockRejectedValueOnce(new Error('network down'));
 
       client.close();
+      // Synchronous, not eventual: teardown must not wait on the DELETE's
+      // outcome. A `close()` rewritten to `await` the release before tearing
+      // down would still pass the two assertions below (both run after a
+      // macrotask), so this is the one case in the file that pins the
+      // ordering rather than merely the outcome.
+      expect(FakePeerConnection.lastInstance().closed, 'teardown must not wait on the release').toBe(true);
       await new Promise((resolve) => setTimeout(resolve, 0));
 
       expect(resilienceLines(info.mock.calls, 'session-release-failed')).toEqual([

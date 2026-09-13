@@ -334,8 +334,8 @@ describe('CameraViewer when alignment fails', () => {
    * Spec 095 T005 / FR-004. **The controller reports what it never actuated.**
    *
    * <p>
-   * `setPlayoutTarget` answers false when no video receiver carries
-   * `jitterBufferTarget` — Firefox, Safari, pre-115 Chromium. The boolean is
+   * `setPlayoutTarget` answers `'unsupported'` when no video receiver carries
+   * `jitterBufferTarget` — Firefox, Safari, pre-115 Chromium. The outcome is
    * discarded today, so a wall on such an engine shows a spread that never
    * closes and nothing anywhere says the actuator is not connected. Distinct
    * from the throwing double above: this receiver is reached, and refuses.
