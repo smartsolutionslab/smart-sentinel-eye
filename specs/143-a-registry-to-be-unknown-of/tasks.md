@@ -365,7 +365,10 @@ Phase B.**
 - [ ] **T015 [US1]** Run `plan.md` §9's four counterfactuals, each expected to
   turn **exactly one** test red, and record the output in `verification.md`.
   Counterfactual 4 (swapping the write scope for `sse.events.write`) is the
-  one that proves FR-010 is a guard rather than a claim.
+  one that proves FR-010 is a guard rather than a claim — run against
+  `EventTypeRegistryAuthorizationIntegrationTests`'s planted-client test, not
+  the primary suite's original same-named case, which phase 4a removed (see
+  plan.md §9 note).
 - [ ] **T016 [US1]** `/code-review`, plus `/security-review` — this touches an
   auth boundary in Event Ingestion, which constitution §Code Review flags for
   `ultrareview`. Address or accept every finding in writing.

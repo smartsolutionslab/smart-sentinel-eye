@@ -429,7 +429,15 @@ made to bite before the implementation starts.
 3. Change the retire lookup from the plural-fabs overload to the single-fab one
    with the row's own fab: the cross-fab-404 test must fail.
 4. Swap `Scope.Sse.Events.Types.Write` for `Scope.Sse.Events.Write` on the `POST`
-   mapping: the `sse.events.write`-only caller test must go from 403 to 201.
+   mapping: `EventTypeRegistryAuthorizationIntegrationTests`'s
+   `An_event_source_token_can_neither_declare_nor_retire_an_event_type` must go
+   from 403 to 201. **Not** the primary suite's original
+   `A_caller_holding_only_sse_events_write_is_refused_with_403`, which phase 4a
+   found and removed as structurally unable to fail either way — every token
+   this repo's test clients mint carries the full `sse.*` bundle regardless of
+   the `scope` requested (FR-010's testing-gotcha note), so that test could
+   never distinguish a working gate from a missing one. The planted-client
+   test is the one this counterfactual actually exercises.
 
 Counterfactual 4 is the one that matters most — FR-010 is a security claim, and
 a security claim with no test that would notice its removal is a claim, not a

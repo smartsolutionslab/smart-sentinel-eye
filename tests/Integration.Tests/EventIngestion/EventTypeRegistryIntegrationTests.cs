@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -24,7 +23,6 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
     private const string DresdenOperator = "op-dresden@dresden.test";
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
     private const string OperatorPassword = "Operator1234";
-    private const string ManagementWebClientId = "management-web";
 
     [Fact]
     public async Task A_registered_event_type_is_listed_back()
@@ -130,23 +128,18 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
         refused.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
-    /// <summary>
-    /// FR-010's whole reason for existing: a caller holding the general
-    /// ingest-write scope but not the registry-write scope must not be able
-    /// to declare which event types are legitimate.
-    /// </summary>
-    [Fact]
-    public async Task A_caller_holding_only_sse_events_write_is_refused_with_403()
-    {
-        string jwt = await aspire.GetAccessTokenForClientAsync(
-            ManagementWebClientId, DresdenOperator, OperatorPassword, "openid sse.events.write");
-        using HttpClient scoped = aspire.CreateServiceClient("event-ingestion");
-        scoped.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
-
-        HttpResponseMessage refused = await RegisterAsync(scoped, UniqueKind());
-
-        refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await BodyAsync(refused));
-    }
+    // FR-010's whole reason for existing -- a caller holding the general
+    // ingest-write scope but not the registry-write scope must not be able to
+    // declare which event types are legitimate -- moved to
+    // EventTypeRegistryAuthorizationIntegrationTests's
+    // An_event_source_token_can_neither_declare_nor_retire_an_event_type.
+    // Every token this repo's test clients mint (management-web included)
+    // carries the full sse.* bundle as *default* client scopes regardless of
+    // the `scope` requested on the grant, so a test minted this way can never
+    // demonstrate the negative case once T008 grants this scope to
+    // management-web -- it was structurally unable to fail either way. The
+    // replacement plants a narrow-scoped event-source-shaped client instead
+    // (spec 143 FR-010's testing-gotcha note, plan.md §9 counterfactual 4).
 
     [Fact]
     public async Task Retiring_without_If_Match_is_refused_with_428()
