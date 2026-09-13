@@ -17,7 +17,11 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 /// grid invariants (≥1 tile, no duplicate position, in-bounds, ≤4);
 /// command handlers call it and map the first violation to a
 /// <c>LAYOUT_GRID_*</c> <c>400</c> error before invoking a write method.
-/// Illegal <em>state transitions</em> keep throwing
+/// The aggregate calls it too, via <see cref="RequireValidGrid"/>, as a
+/// backstop for a caller that skipped the handler check — the two tiers
+/// are the operator-facing <see cref="Shared.Kernel.Result{TValue,TError}"/>
+/// and a programmer-error throw underneath it. Illegal
+/// <em>state transitions</em> keep throwing
 /// <see cref="InvalidOperationException"/> (programmer error).
 /// </para>
 /// </summary>
@@ -87,10 +91,32 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     }
 
     /// <summary>
+    /// The aggregate's own backstop for the four spec-010 grid invariants
+    /// (ADR-0112 §2). Reached only when a caller skipped
+    /// <see cref="ValidateGrid"/>: both command handlers validate first and
+    /// map the violation to a <c>LAYOUT_GRID_*</c> <c>400</c>, so an
+    /// operator's bad input is a <see cref="Shared.Kernel.Result{TValue,TError}"/>
+    /// failure and never this throw (ADR-0047). A violation arriving here is
+    /// programmer error, the same category as the illegal state transitions
+    /// elsewhere in this file.
+    /// </summary>
+    private static void RequireValidGrid(GridDimensions grid, IReadOnlyList<Tile> tiles)
+    {
+        Option<GridViolation> violation = ValidateGrid(grid, tiles);
+        if (violation.HasValue)
+        {
+            throw new InvalidOperationException(
+                $"Grid {grid} with {tiles.Count} tile(s) violates {violation.Value}.");
+        }
+    }
+
+    /// <summary>
     /// Mints a new logical Layout chain with its first revision in
     /// <c>Draft</c> state. No domain event is raised — drafts are not
     /// observable to kiosks; the first observable transition is Publish.
-    /// The grid + tiles must already be valid (<see cref="ValidateGrid"/>).
+    /// The grid + tiles are validated by the command handler first
+    /// (<see cref="ValidateGrid"/>), and enforced again here as a backstop
+    /// (<see cref="RequireValidGrid"/>).
     /// </summary>
     public static Layout CreateDraft(
         FabIdentifier fab,
@@ -104,6 +130,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
         Ensure.That(name).IsNotNull();
         Ensure.That(tiles).IsNotNull();
         Ensure.That(clock).IsNotNull();
+        RequireValidGrid(grid, tiles);
 
         DateTimeOffset now = clock.UtcNow;
         Layout layout = new()
@@ -151,14 +178,18 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     /// <summary>
     /// In-place edit of an existing Draft revision (spec 003 FR-005,
     /// spec 010): atomically replaces its grid + tile set. The grid +
-    /// tiles must already be valid (<see cref="ValidateGrid"/>). Drafts
-    /// can be mutated without spawning further revisions.
+    /// tiles are validated by the command handler first
+    /// (<see cref="ValidateGrid"/>), and enforced again here as a backstop
+    /// (<see cref="RequireValidGrid"/>) — before the revision lookup, so a
+    /// bad argument is refused regardless of which revision or state it
+    /// targets. Drafts can be mutated without spawning further revisions.
     /// </summary>
     public void EditDraft(
         LayoutRevisionNumber number, GridDimensions grid, IReadOnlyList<Tile> tiles, IClock clock)
     {
         Ensure.That(tiles).IsNotNull();
         Ensure.That(clock).IsNotNull();
+        RequireValidGrid(grid, tiles);
         Revision target = RequireRevision(number);
         target.ReplaceTiles(grid, tiles);
         RecomputeArchival(clock.UtcNow);
