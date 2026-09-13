@@ -59,6 +59,10 @@ internal static class OverlayRequests
     /// <c>"Line A: {{first}} / Line B: {{second}}"</c> rather than this helper knowing
     /// about placeholder count (#2201 T009).
     /// </summary>
+    /// <param name="namePrefix">
+    /// Kept short: the generated name is truncated to 16 characters, so a longer prefix
+    /// leaves less of the random suffix and reduces its entropy.
+    /// </param>
     internal static async Task<Guid> PublishWithLabelAsync(
         HttpClient overlays, string labelText, string namePrefix)
     {
