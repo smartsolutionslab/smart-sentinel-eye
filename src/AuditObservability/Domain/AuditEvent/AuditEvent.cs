@@ -16,10 +16,14 @@ namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 /// </para>
 ///
 /// <para>
-/// Idempotency comes from the unique index on
-/// <see cref="EventIdentifier"/>: Wolverine at-least-once
-/// redeliveries hit <c>INSERT ... ON CONFLICT DO NOTHING</c> and
-/// produce a single row, not duplicates.
+/// Idempotency comes from the unique index on the pair
+/// <see cref="EventIdentifier"/> + <c>OccurredAt</c> — not
+/// <see cref="EventIdentifier"/> alone, because TimescaleDB forbids
+/// a unique index that omits the hypertable partitioning column
+/// (TS103). A given event's <c>OccurredAt</c> is stable, so the
+/// pair still dedups: Wolverine at-least-once redeliveries hit
+/// <c>INSERT ... ON CONFLICT (event_identifier, occurred_at) DO
+/// NOTHING</c> and produce a single row, not duplicates.
 /// </para>
 /// </summary>
 public sealed class AuditEvent
