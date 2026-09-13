@@ -90,7 +90,7 @@ public class PrimitiveBoundaryTests
         // A guard on the guard: if a refactor stops the walk reaching aggregate
         // state, the rule above silently passes everything. That failure is
         // invisible without this.
-        roots.Count.ShouldBe(11);
+        roots.Count.ShouldBe(12);
         reached.ShouldBeGreaterThan(100);
     }
 
