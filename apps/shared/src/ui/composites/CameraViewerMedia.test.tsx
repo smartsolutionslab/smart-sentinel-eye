@@ -283,7 +283,7 @@ describe('CameraViewer media confirmation', () => {
    *
    * <p>
    * <b>The trap this pins.</b> `attemptRef` is reset by `connected`
-   * (`useWhepSession.ts:140`), and `connected` fires on every retry of a
+   * (`useWhepSession.ts:257`), and `connected` fires on every retry of a
    * mediumless source. A watchdog added without moving that reset therefore
    * never backs off: it re-opens a WHEP session every `N + 1 s` forever — one
    * POST per 4 s per tile, 250 tiles, indefinitely. A fixed-interval retry
