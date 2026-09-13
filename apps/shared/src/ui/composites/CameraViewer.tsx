@@ -144,6 +144,32 @@ export function CameraViewer({
     [cameraIdentifier],
   );
 
+  // Issue #2189: a sampler that throws says so, instead of discarding the throw and
+  // every one after it.
+  //
+  // TWO COUNTERS, NOT ONE — the opposite of `reportedMissingFieldsRef` above, and for
+  // the reason #2084 gives for its own two: "one counter would hide it". A missing
+  // stats field is one fact about the browser engine that both samplers read, so it is
+  // shared and keyed by field. A throw is not. The lag sampler runs the wall's own
+  // `onLagMeasured` callback, which the decode sampler never touches, and the two
+  // report different §IV legs — so a lag failure must not consume the decode sampler's
+  // first line about an unrelated fault of its own.
+  //
+  // Same scope and same ref-not-state reasoning as the block above: both effects are
+  // keyed on `status`, so a counter inside either one resets on every reconnect, and a
+  // tile flapping through the night would report the same permanent fault hundreds of
+  // times.
+  const decodeSampleFailuresRef = useRef(0);
+  const lagSampleFailuresRef = useRef(0);
+  const reportSamplerFailure = useCallback(
+    (counter: { current: number }, transition: 'decode-sampler-failed' | 'lag-sampler-failed', error: unknown) => {
+      const count = countReportableFailure(counter);
+      if (count === null) return;
+      logResilienceEvent('stream', transition, { cameraIdentifier, count, reason: reasonFrom(error) });
+    },
+    [cameraIdentifier],
+  );
+
   // Spec 040: the receive-to-decoded fragment of the SFU → kiosk decode leg.
   //
   // A FRAGMENT, not the leg — the budget spans SFU-sends → kiosk-decoded, and a
@@ -182,11 +208,11 @@ export function CameraViewer({
           }
         }
         previous = current;
-      })().catch(() => undefined);
+      })().catch((error: unknown) => reportSamplerFailure(decodeSampleFailuresRef, 'decode-sampler-failed', error));
     }, DECODE_SAMPLE_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
-  }, [status, stats, cameraIdentifier, getToken, reportMissingStatsField]);
+  }, [status, stats, cameraIdentifier, getToken, reportMissingStatsField, reportSamplerFailure]);
 
   // Spec 045: this tile's lag, so the wall can align against it.
   //
@@ -255,11 +281,11 @@ export function CameraViewer({
           }
         }
         previous = current;
-      })().catch(() => undefined);
+      })().catch((error: unknown) => reportSamplerFailure(lagSampleFailuresRef, 'lag-sampler-failed', error));
     }, LAG_SAMPLE_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
-  }, [status, stats, cameraIdentifier, sampleLag, getToken, reportMissingStatsField]);
+  }, [status, stats, cameraIdentifier, sampleLag, getToken, reportMissingStatsField, reportSamplerFailure]);
 
   // Spec 095 FR-004: an engine that cannot hold a playout target says so once.
   //
@@ -369,6 +395,31 @@ function OverlayLabel({ overlay }: { overlay: CameraViewerOverlay }) {
       {overlay.text}
     </span>
   );
+}
+
+/**
+ * Counts a sampler failure and answers the running count when this one is worth a
+ * line, or null.
+ *
+ * The decade cadence #2084 landed for the fab-less frame (`CellPage.tsx`
+ * `countReportableSkew`), minus that case's fab predicate. A wall runs for weeks: a
+ * line per tick evicts the first — the diagnostically valuable — occurrence from any
+ * console buffer, and a line per session is emitted before anyone is looking.
+ *
+ * Duplicated rather than shared with CellPage deliberately; see spec 140
+ * §"The cadence is #2084's decade curve". Extract it at the third site.
+ */
+function countReportableFailure(counter: { current: number }): number | null {
+  counter.current += 1;
+  const count = counter.current;
+  let decade = 1;
+  while (decade < count) decade *= 10;
+  return decade === count ? count : null;
+}
+
+/** The message of a thrown value, or its string form when it is not an Error. */
+function reasonFrom(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function labelFor(status: CameraViewerStatus, stream: StreamHealth | undefined): string {
