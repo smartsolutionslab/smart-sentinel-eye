@@ -4,7 +4,7 @@ namespace SmartSentinelEye.AuditObservability.Domain.Tests.AuditEvent;
 
 /// <summary>
 /// The two text concepts on an audit event, and the only pair in this feature
-/// that had <b>no</b> validation at all — <c>AuditEvent.Record</c> guarded the
+/// that had <b>no</b> validation at all — <c>AuditEvent.From</c> guarded the
 /// envelope, the mapping and the clock, and neither of these.
 ///
 /// <para>
