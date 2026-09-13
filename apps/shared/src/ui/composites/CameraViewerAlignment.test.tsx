@@ -409,6 +409,39 @@ describe('CameraViewer when alignment fails', () => {
   });
 
   /**
+   * Spec 142 T005 / FR-007, FR-010. **The residual spec 095 recorded, closed
+   * from the call site.** `setPlayoutTarget` reported `false` for at least
+   * four different real causes (#2198 item 2), and this call site could not
+   * tell "still connecting" from "cannot align" — a null `jitterBufferTarget`
+   * fresh out of `connect()` was indistinguishable from an engine that will
+   * never carry one. `false` is the only spelling a double in this tree could
+   * give "not connected" before the tri-state exists (every other
+   * `setPlayoutTarget` double here answers `true` or `false` too); the point
+   * of this case is that once `CameraViewer.tsx` stops treating every falsy
+   * answer alike, this same answer must stop being reported.
+   */
+  it('Says nothing when the actuator reports it is not connected (#2198)', async () => {
+    const setPlayoutTargetNotConnected = vi.fn(() => false);
+    setPlayoutTargetBehaviour = setPlayoutTargetNotConnected;
+
+    render(
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={() => Promise.resolve('token')}
+        playoutTargetMilliseconds={120}
+        onLagMeasured={() => {}}
+      />,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+
+    expect(setPlayoutTargetNotConnected, 'the actuator must actually have run').toHaveBeenCalledWith(120);
+    expect(resilienceLines('playout-target-unsupported')).toHaveLength(0);
+  });
+
+  /**
    * Spec 095 T006 / FR-003, plan risk R3. **A flap is not a new engine.**
    *
    * <p>
