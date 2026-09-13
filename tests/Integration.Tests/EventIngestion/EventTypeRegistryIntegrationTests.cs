@@ -168,8 +168,8 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Conflict, await BodyAsync(refused));
         // ADR-0119 (StaleCodeConventionTests): the wire code ends "_STALE", not
-        // "_STALE_VERSION" as spec.md's acceptance scenario names it — see the
-        // phase 4a report.
+        // "_STALE_VERSION" — the shared client keys on that exact suffix to
+        // tell an operator their edit conflicts rather than to retry.
         (await refused.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("title").GetString().ShouldBe("EVENT_TYPE_STALE");
     }
