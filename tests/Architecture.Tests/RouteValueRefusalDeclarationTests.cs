@@ -189,13 +189,13 @@ public class RouteValueRefusalDeclarationTests
     /// Every <c>.Map(Get|Post|Put|Patch|Delete)("route", Handler)</c> site under
     /// <c>src/*/Api</c>. Pinned, not merely compared — see G4.
     /// </summary>
-    private const int RouteHandlerMappingCount = 56;
+    private const int RouteHandlerMappingCount = 59;
 
     /// <summary>
     /// Every file under <c>src/*/Api</c> whose name ends <c>Endpoints.cs</c>.
     /// Each is asserted to contribute at least one mapping, individually.
     /// </summary>
-    private const int EndpointFileCount = 12;
+    private const int EndpointFileCount = 13;
 
     private static readonly Regex MappingCall = new(
         @"(?<receiver>[A-Za-z_]\w*)\.Map(?<verb>Get|Post|Put|Patch|Delete)\s*\(",

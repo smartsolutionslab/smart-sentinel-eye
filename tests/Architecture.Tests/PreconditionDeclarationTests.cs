@@ -173,16 +173,16 @@ public class PreconditionDeclarationTests
     /// Seventeen mappings whose handler reads <c>If-Match</c>, spread over seven
     /// files. Pinned, not merely compared — see the class doc.
     /// </summary>
-    private const int PreconditionEndpointCount = 17;
+    private const int PreconditionEndpointCount = 18;
 
-    private const int PreconditionFileCount = 7;
+    private const int PreconditionFileCount = 8;
 
     /// <summary>
     /// Every file under <c>src/*/Api</c> whose name ends <c>Endpoints.cs</c>.
     /// Each is asserted to contribute at least one mapping, individually: a
     /// single total lets one file stop being read while the others carry it.
     /// </summary>
-    private const int EndpointFileCount = 12;
+    private const int EndpointFileCount = 13;
 
     private static readonly Regex MappingCall = new(
         @"\.Map(?<verb>Get|Post|Put|Patch|Delete)\s*\(",
