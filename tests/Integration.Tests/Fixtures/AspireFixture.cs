@@ -67,10 +67,17 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// <see cref="HttpRequestException"/> a test sees carries only "500" — the
     /// server's exception lives here.
     ///
-    /// A resource earns its place by having a <c>RecentLogs</c> call site, and
-    /// <c>LogTailCoverageTests</c> fails the build when the two disagree — the
-    /// list is hand-maintained, which is how four names stayed missing while
-    /// seven call sites returned a placeholder instead of a log (issue #2053).
+    /// This list is hand-maintained, which is how four names stayed missing
+    /// while seven call sites returned a placeholder instead of a log (issue
+    /// #2053). <c>LogTailCoverageTests</c> now fails the build in one
+    /// direction — every <c>RecentLogs</c> call site must name a resource
+    /// tailed here — so that specific gap cannot recur. It does not check the
+    /// reverse: a misspelled or stale entry below is not caught by that guard,
+    /// spins the fixture's resolve loop forever with no failure, and produces
+    /// exactly the placeholder #2053 exists to remove. Only
+    /// <c>LogTailDeliversIntegrationTests</c> test B catches that, and it
+    /// needs Docker — so it is absent from the fast unit lane where such a
+    /// typo is introduced. Edit this list carefully.
     /// </summary>
     private static readonly string[] TailedResources =
     [
