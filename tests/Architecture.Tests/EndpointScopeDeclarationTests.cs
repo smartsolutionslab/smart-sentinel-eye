@@ -342,9 +342,9 @@ public class EndpointScopeDeclarationTests
     /// Adding or removing an endpoint edits one of these numbers in the same
     /// diff as the endpoint.
     /// </summary>
-    private const int EndpointFileCount = 12;
+    private const int EndpointFileCount = 13;
 
-    private const int RouteHandlerMappingCount = 56;
+    private const int RouteHandlerMappingCount = 59;
 
     /// <summary>
     /// The routes that enforce no scope at all, each against the open issue that

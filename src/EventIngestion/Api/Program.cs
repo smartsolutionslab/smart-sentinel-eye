@@ -21,6 +21,7 @@ app.UseAuthorization();
 
 app.MapEventsEndpoints();
 app.MapWebhookIntegrationsEndpoints();
+app.MapEventTypesEndpoints();
 
 if (app.Environment.IsDevelopment())
 {

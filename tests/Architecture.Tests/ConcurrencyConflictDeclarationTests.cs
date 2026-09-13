@@ -232,9 +232,9 @@ public class ConcurrencyConflictDeclarationTests
     /// sides of every comparison at once and nothing goes red. Adding, moving or
     /// removing a mutating endpoint edits one of these numbers in the same diff.
     /// </summary>
-    private const int MutatingMappingCount = 33;
+    private const int MutatingMappingCount = 35;
 
-    private const int MutatingMappingFileCount = 11;
+    private const int MutatingMappingFileCount = 12;
 
     private const int MutatingMappingContextCount = 8;
 
@@ -343,6 +343,14 @@ public class ConcurrencyConflictDeclarationTests
         new(
             "EventIngestion DELETE /webhook-integrations/{name}",
             "refusal (RevokeWebhookIntegrationErrors); lost update (integration.Revoke then SaveAsync)"),
+        new(
+            "EventIngestion POST /event-types/",
+            "refusal (RegisterEventTypeError.EventTypeAlreadyRegistered); unique race "
+            + "(ux_registered_event_types_fab_kind); idempotency"),
+        new(
+            "EventIngestion DELETE /event-types/{kind}",
+            "refusal (RetireEventTypeError.EventTypeStaleVersion); lost update "
+            + "(eventType.Retire(...) then SaveAsync)"),
         new(
             "Identity POST /devices/register",
             "refusal (RegisterDeviceErrors); unique race (ux_registered_clients_clientid_active); "
