@@ -8,6 +8,16 @@ import { WhepClient } from './WhepClient.js';
  */
 type FakeTrack = { kind: string; id: string; stop: () => void };
 
+/**
+ * A receiver double `setPlayoutTarget` can act on (spec 142 T001). Widened
+ * from `{ track: { stop: () => void } }[]` — the pre-142 shape carried no
+ * `kind` and no `jitterBufferTarget`, so `setPlayoutTarget`'s
+ * `receiver.track?.kind !== 'video'` guard skipped every receiver this
+ * harness could build, and no test here ever reached any branch of the
+ * method under test.
+ */
+type FakeReceiver = { track: FakeTrack; jitterBufferTarget?: number | null };
+
 class FakePeerConnection {
   static instances: FakePeerConnection[] = [];
   static initialIceGatheringState = 'complete';
@@ -22,7 +32,7 @@ class FakePeerConnection {
   localDescription: RTCSessionDescriptionInit | null = null;
   remoteDescription: RTCSessionDescriptionInit | null = null;
   closed = false;
-  receivers: { track: { stop: () => void } }[] = [];
+  receivers: FakeReceiver[] = [];
   private iceGatheringListeners: (() => void)[] = [];
 
   constructor() {
@@ -110,6 +120,34 @@ class FakeMediaStream {
 
 function aTrack(kind: 'video' | 'audio'): FakeTrack {
   return { kind, id: `${kind}-track`, stop: () => undefined };
+}
+
+/**
+ * Four receiver builders for `setPlayoutTarget` (spec 142 T001), one per
+ * outcome `WhepClient.setPlayoutTarget` must be able to produce.
+ */
+function videoReceiverWithTarget(): FakeReceiver {
+  return { track: aTrack('video'), jitterBufferTarget: null };
+}
+
+function videoReceiverWithoutTarget(): FakeReceiver {
+  return { track: aTrack('video') };
+}
+
+function videoReceiverThatThrows(): FakeReceiver {
+  const receiver = { track: aTrack('video') } as FakeReceiver;
+  Object.defineProperty(receiver, 'jitterBufferTarget', {
+    set() {
+      throw new Error('engine refused the value');
+    },
+    get: () => null,
+    configurable: true,
+  });
+  return receiver;
+}
+
+function audioReceiverWithTarget(): FakeReceiver {
+  return { track: aTrack('audio'), jitterBufferTarget: null };
 }
 
 function attachedTracks(videoEl: HTMLVideoElement): FakeTrack[] {
@@ -331,6 +369,220 @@ describe('WhepClient', () => {
 
     expect(FakePeerConnection.lastInstance().closed).toBe(true);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('close() with no captured session URL logs nothing and asks nothing (#2198)', async () => {
+    fetchMock.mockResolvedValue(new Response(answerSdp, { status: 200 }));
+    const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const client = new WhepClient({
+      whepUrl: 'http://mediamtx.test/cam-x/whep',
+      getToken: async () => 'token',
+    });
+    await client.connect(videoEl);
+    fetchMock.mockClear();
+
+    client.close();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(fetchMock, 'no release request must be issued when nothing was captured').not.toHaveBeenCalled();
+    expect(resilienceLines(info.mock.calls, 'session-release-failed')).toHaveLength(0);
+  });
+
+  /**
+   * Spec 142 T002 / FR-001…FR-005. `releaseSession()` discarded every DELETE
+   * outcome via `.catch(() => undefined)` (#2198 item 1). Each case here
+   * `mockResolvedValueOnce`s the offer/answer POST before setting the
+   * DELETE's answer — one `vi.fn` serves both requests, so a bare
+   * `mockResolvedValue` would hand the DELETE's failure to `connect()` and
+   * fail for an unrelated reason (plan R4).
+   */
+  describe('a session release that fails (#2198)', () => {
+    async function connectedSessionWithCapturedUrl(getToken: () => Promise<string | null>) {
+      fetchMock.mockResolvedValueOnce(
+        new Response(answerSdp, {
+          status: 200,
+          headers: { Location: '/cam-x/whep/sessions/abc' },
+        }),
+      );
+      const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+      const client = new WhepClient({
+        whepUrl: 'http://mediamtx.test/cam-x/whep',
+        getToken,
+      });
+      await client.connect(videoEl);
+      return { client, info };
+    }
+
+    it('Reports session-release-failed with the error, and still tears the peer connection down locally, when the DELETE fetch rejects', async () => {
+      const { client, info } = await connectedSessionWithCapturedUrl(async () => 'token');
+      fetchMock.mockRejectedValueOnce(new Error('network down'));
+
+      client.close();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(resilienceLines(info.mock.calls, 'session-release-failed')).toEqual([
+        { subsystem: 'stream', transition: 'session-release-failed', error: 'Error: network down' },
+      ]);
+      expect(FakePeerConnection.lastInstance().closed, 'the report must not have displaced local teardown').toBe(true);
+    });
+
+    it('Reports session-release-failed with the status when the DELETE resolves 401', async () => {
+      const { client, info } = await connectedSessionWithCapturedUrl(async () => 'token');
+      fetchMock.mockResolvedValueOnce(new Response('', { status: 401 }));
+
+      client.close();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(resilienceLines(info.mock.calls, 'session-release-failed')).toEqual([
+        { subsystem: 'stream', transition: 'session-release-failed', status: 401 },
+      ]);
+      expect(FakePeerConnection.lastInstance().closed, 'the report must not have displaced local teardown').toBe(true);
+    });
+
+    it('Reports session-release-failed with the status when the DELETE resolves 500', async () => {
+      const { client, info } = await connectedSessionWithCapturedUrl(async () => 'token');
+      fetchMock.mockResolvedValueOnce(new Response('', { status: 500 }));
+
+      client.close();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(resilienceLines(info.mock.calls, 'session-release-failed')).toEqual([
+        { subsystem: 'stream', transition: 'session-release-failed', status: 500 },
+      ]);
+      expect(FakePeerConnection.lastInstance().closed, 'the report must not have displaced local teardown').toBe(true);
+    });
+
+    it('Reports session-release-failed with the error when getToken rejects at release time', async () => {
+      let resolvedOnce = false;
+      const { client, info } = await connectedSessionWithCapturedUrl(async () => {
+        if (!resolvedOnce) {
+          resolvedOnce = true;
+          return 'token';
+        }
+        throw new Error('token refresh failed');
+      });
+
+      client.close();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const lines = resilienceLines(info.mock.calls, 'session-release-failed');
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toHaveProperty('error');
+      expect(FakePeerConnection.lastInstance().closed, 'the report must not have displaced local teardown').toBe(true);
+    });
+
+    it('Says nothing when the release succeeds', async () => {
+      const { client, info } = await connectedSessionWithCapturedUrl(async () => 'token');
+      fetchMock.mockResolvedValueOnce(new Response('', { status: 200 }));
+
+      client.close();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const deleteCalls = fetchMock.mock.calls.filter(([, init]) => (init as RequestInit).method === 'DELETE');
+      expect(deleteCalls, 'the DELETE must actually have been issued').toHaveLength(1);
+      expect(resilienceLines(info.mock.calls, 'session-release-failed')).toHaveLength(0);
+    });
+  });
+
+  /**
+   * Spec 142 T003/T004 / FR-006…FR-009. `setPlayoutTarget` collapsed three
+   * distinct causes into one `false` (#2198 item 2); these cases pin the four
+   * outcomes independently, written against the *values* `setPlayoutTarget`
+   * returns rather than against a `PlayoutTargetOutcome` import — the type
+   * does not exist yet, and `toBe` is not typed against the receiver, so each
+   * case compiles and runs today, failing at the `toBe` with a legible
+   * `expected <boolean> to be '<outcome>'` (spec 061 `24e6fc4c`; a `TS2305`
+   * is not a red test).
+   */
+  describe('setPlayoutTarget (#2198)', () => {
+    async function connectedClient(): Promise<{ client: WhepClient; pc: FakePeerConnection }> {
+      fetchMock.mockResolvedValue(new Response(answerSdp, { status: 200 }));
+      const client = new WhepClient({
+        whepUrl: 'http://mediamtx.test/cam-x/whep',
+        getToken: async () => 'token',
+      });
+      await client.connect(videoEl);
+      return { client, pc: FakePeerConnection.lastInstance() };
+    }
+
+    it('Answers not-connected when the client has never connected', () => {
+      const client = new WhepClient({
+        whepUrl: 'http://mediamtx.test/cam-x/whep',
+        getToken: async () => 'token',
+      });
+
+      expect(client.setPlayoutTarget(120)).toBe('not-connected');
+    });
+
+    it('Answers not-connected when the peer connection reports no receivers (FR-007)', async () => {
+      const { client, pc } = await connectedClient();
+      pc.receivers = [];
+
+      expect(client.setPlayoutTarget(120)).toBe('not-connected');
+    });
+
+    it('Answers not-connected and leaves the value untouched when the only receiver is audio (FR-007)', async () => {
+      const { client, pc } = await connectedClient();
+      const audio = audioReceiverWithTarget();
+      pc.receivers = [audio];
+
+      const outcome = client.setPlayoutTarget(120);
+
+      expect(audio.jitterBufferTarget, 'an audio receiver must never be written to').toBe(null);
+      expect(outcome).toBe('not-connected');
+    });
+
+    it('Answers unsupported when the one video receiver carries no jitterBufferTarget', async () => {
+      const { client, pc } = await connectedClient();
+      pc.receivers = [videoReceiverWithoutTarget()];
+
+      expect(client.setPlayoutTarget(120)).toBe('unsupported');
+    });
+
+    it('Answers refused, without throwing, when the video receiver rejects the assignment (FR-008)', async () => {
+      const { client, pc } = await connectedClient();
+      pc.receivers = [videoReceiverThatThrows()];
+
+      const outcome = client.setPlayoutTarget(120);
+
+      expect(outcome).toBe('refused');
+    });
+
+    it('Answers applied when at least one video receiver accepts, even if another throws (plan invariant 3)', async () => {
+      const { client, pc } = await connectedClient();
+      const accepting = videoReceiverWithTarget();
+      const throwing = videoReceiverThatThrows();
+      pc.receivers = [accepting, throwing];
+
+      const outcome = client.setPlayoutTarget(120);
+
+      expect(accepting.jitterBufferTarget, 'the accepting receiver must have been written to').toBe(120);
+      expect(outcome).toBe('applied');
+    });
+
+    it('Applies the target to a single accepting video receiver (FR-009, the actuation proof)', async () => {
+      const { client, pc } = await connectedClient();
+      const receiver = videoReceiverWithTarget();
+      pc.receivers = [receiver];
+
+      const outcome = client.setPlayoutTarget(120);
+
+      expect(receiver.jitterBufferTarget, 'the actuation must actually have happened').toBe(120);
+      expect(outcome).toBe('applied');
+    });
+
+    it('Applies the target to every qualifying video receiver, not just the first (plan invariant 2)', async () => {
+      const { client, pc } = await connectedClient();
+      const first = videoReceiverWithTarget();
+      const second = videoReceiverWithTarget();
+      pc.receivers = [first, second];
+
+      const outcome = client.setPlayoutTarget(120);
+
+      expect(first.jitterBufferTarget, 'the first receiver must have been written to').toBe(120);
+      expect(second.jitterBufferTarget, 'the second receiver must have been written to too').toBe(120);
+      expect(outcome).toBe('applied');
+    });
   });
 
   it('Aborting mid-connect leaves no live peer connection', async () => {
