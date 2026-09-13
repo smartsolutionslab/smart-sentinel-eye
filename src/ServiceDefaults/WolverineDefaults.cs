@@ -181,7 +181,7 @@ public static class WolverineDefaults
     /// the convention silent when a future context legitimately has no
     /// Application handlers to discover.
     /// </summary>
-    private static Assembly? TryLoadApplicationAssembly(Assembly infrastructureAssembly)
+    internal static Assembly? TryLoadApplicationAssembly(Assembly infrastructureAssembly)
     {
         const string InfrastructureSuffix = ".Infrastructure";
         string name = infrastructureAssembly.GetName().Name ?? string.Empty;
