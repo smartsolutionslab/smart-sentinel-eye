@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.EventIngestion.Domain.Event;
+using SmartSentinelEye.EventIngestion.Domain.RegisteredEventType;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 
 namespace SmartSentinelEye.EventIngestion.Application;
@@ -53,4 +54,14 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information,
         Message = "Flipped webhook integration '{Name}' to JWT validation backed by Keycloak client '{ClientId}'.")]
     public static partial void WebhookIntegrationFlippedToJwt(this ILogger logger, string name, string clientId);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Registered event type '{Kind}' for fab {Fab} ({Identifier}).")]
+    public static partial void EventTypeRegistered(
+        this ILogger logger, FabIdentifier fab, Kind kind, RegisteredEventTypeIdentifier identifier);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Retired event type '{Kind}' for fab {Fab} ({Identifier}).")]
+    public static partial void EventTypeRetired(
+        this ILogger logger, FabIdentifier fab, Kind kind, RegisteredEventTypeIdentifier identifier);
 }
