@@ -1,7 +1,12 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { Rnd } from 'react-rnd';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { overlayLabelSurfaceStyle } from './overlayLabelStyle.js';
+import { BackdropControls } from './BackdropControls.js';
+import type { Backdrop } from './BackdropControls.js';
+import { FrameGrabber } from './FrameGrabber.js';
+import { useFrameCapture } from './useFrameCapture.js';
 
 export interface OverlayEditorProps {
   value: OverlayLabel;
@@ -17,11 +22,10 @@ export interface OverlayEditorProps {
   className?: string;
   /**
    * Resolves the operator's bearer token for a captured-frame WHEP session
-   * (spec 147). Accepted and unused until T005 — absent means the backdrop
-   * capture feature is simply not offered, so every caller that does not
-   * supply it keeps working exactly as today (FR-017's degradation path
-   * expressed as a type). Same shape as `CameraViewerProps.getToken` /
-   * `WhepSessionOptions.getToken`, so T005 does not have to change it.
+   * (spec 147). Absent means the camera picker and "Capture frame" are not
+   * offered at all — the checkerboard/white/black backdrops keep working
+   * regardless (FR-017's degradation path expressed as a type). Same shape as
+   * `CameraViewerProps.getToken` / `WhepSessionOptions.getToken`.
    */
   getToken?: () => Promise<string | null>;
 }
@@ -34,6 +38,36 @@ function clamp01(value: number): number {
   if (value < MIN_NORMALIZED) return MIN_NORMALIZED;
   if (value > MAX_NORMALIZED) return MAX_NORMALIZED;
   return value;
+}
+
+// FR-002, byte-for-byte. Pinned by `OverlayEditorCharacterisation.test.tsx`
+// (T001) — a mangled rebase against #2354 fails that test loudly.
+const CHECKERBOARD_BACKGROUND = 'repeating-linear-gradient(45deg, #1f2937, #1f2937 12px, #111827 12px, #111827 24px)';
+
+/**
+ * The canvas backdrop as a function of the operator's choice (spec 147
+ * FR-001–FR-004, FR-019). `captured` without a frame yet falls back to the
+ * checkerboard — the radio for it is disabled in that state, so this is a
+ * defensive default rather than a reachable path.
+ */
+function canvasBackgroundStyle(backdrop: Backdrop, capturedFrame: string | null): CSSProperties {
+  if (backdrop === 'white') return { backgroundColor: '#ffffff' };
+  if (backdrop === 'black') return { backgroundColor: '#000000' };
+  if (backdrop === 'captured' && capturedFrame !== null) {
+    // FR-019: the still is fitted *into* the fixed canvas, never the reverse —
+    // `contain`/`center`/`no-repeat` over black is the same letterboxing
+    // semantics as the wall's `object-contain` over `bg-black`
+    // (`CameraViewer.tsx`), so the label's normalized coordinates address the
+    // same box on both.
+    return {
+      backgroundColor: '#000000',
+      backgroundImage: `url("${capturedFrame}")`,
+      backgroundSize: 'contain',
+      backgroundPosition: 'center center',
+      backgroundRepeat: 'no-repeat',
+    };
+  }
+  return { background: CHECKERBOARD_BACKGROUND };
 }
 
 /**
@@ -49,6 +83,7 @@ export function OverlayEditor({
   canvasWidthPx = 800,
   canvasHeightPx = 450,
   className,
+  getToken,
 }: OverlayEditorProps) {
   const pixelX = value.normalizedX * canvasWidthPx;
   const pixelY = value.normalizedY * canvasHeightPx;
@@ -68,6 +103,42 @@ export function OverlayEditor({
     [canvasWidthPx, canvasHeightPx, onChange, value],
   );
 
+  // Neither of these is lifted into `OverlayLabel` — `onChange` fires only for
+  // text, font size and geometry, exactly as today (FR-005). The preview
+  // camera is authoring-session state, never persisted (spec.md §Which camera).
+  const [backdrop, setBackdrop] = useState<Backdrop>('checkerboard');
+  const [capturedFrame, setCapturedFrame] = useState<string | null>(null);
+  const [selectedCamera, setSelectedCamera] = useState('');
+  const { state: captureState, activeCamera, capture, cancel, fail } = useFrameCapture();
+
+  const handleCameraChange = useCallback(
+    (next: string) => {
+      setSelectedCamera(next);
+      // FR-012: changing the camera mid-capture closes the old session; no
+      // frame from it is ever applied.
+      if (activeCamera !== null) cancel();
+    },
+    [activeCamera, cancel],
+  );
+
+  const handleCapture = useCallback(() => {
+    if (selectedCamera === '') return;
+    capture(selectedCamera);
+  }, [selectedCamera, capture]);
+
+  const handleCaptured = useCallback(
+    (dataUrl: string) => {
+      setCapturedFrame(dataUrl);
+      setBackdrop('captured');
+      cancel();
+    },
+    [cancel],
+  );
+
+  const handleFailed = useCallback(() => {
+    fail();
+  }, [fail]);
+
   return (
     <div className={className}>
       <div
@@ -76,9 +147,9 @@ export function OverlayEditor({
           position: 'relative',
           width: canvasWidthPx,
           height: canvasHeightPx,
-          background: 'repeating-linear-gradient(45deg, #1f2937, #1f2937 12px, #111827 12px, #111827 24px)',
           overflow: 'hidden',
           borderRadius: 8,
+          ...canvasBackgroundStyle(backdrop, capturedFrame),
         }}
       >
         <Rnd
@@ -122,6 +193,29 @@ export function OverlayEditor({
           />
         </label>
       </div>
+      <BackdropControls
+        backdrop={backdrop}
+        onBackdropChange={setBackdrop}
+        hasCapturedFrame={capturedFrame !== null}
+        getToken={getToken}
+        selectedCamera={selectedCamera}
+        onCameraChange={handleCameraChange}
+        captureState={captureState}
+        onCapture={handleCapture}
+        onCancelCapture={cancel}
+      />
+      {/* Mounted only while a capture is in flight (spec 147 plan.md
+          §The mechanism) — success, failure, timeout, cancel, camera change
+          and unmount all release the WHEP session through this one unmount,
+          never a hand-written release path (FR-010–FR-014). */}
+      {activeCamera !== null && getToken !== undefined && (
+        <FrameGrabber
+          cameraIdentifier={activeCamera}
+          getToken={getToken}
+          onCaptured={handleCaptured}
+          onFailed={handleFailed}
+        />
+      )}
     </div>
   );
 }
