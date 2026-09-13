@@ -257,6 +257,14 @@ jobs:
       - name: Run the Playwright e2e suite
         run: pnpm test:e2e
 
+      # Runs on a red suite too (#2077): a retried pass reports identically to
+      # a clean one today, and that's the gap this step closes. `if: always()`
+      # so a failed or cancelled run still gets the section — FR-006 makes a
+      # missing report say so rather than silently reporting zero retries.
+      - name: Summarise retried e2e outcomes
+        if: always()
+        run: node scripts/summarise-e2e-retries.mjs
+
       # `failure()` is false when the job is cancelled, and a job-level
       # `timeout-minutes` expiry is a cancellation. Run 33623647778's e2e job
       # hit the 40-minute timeout, so this step was skipped and apphost.log was
