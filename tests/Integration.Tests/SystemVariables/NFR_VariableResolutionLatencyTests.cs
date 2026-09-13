@@ -106,7 +106,8 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
             falsyLabel = (string?)null,
         })).EnsureSuccessStatusCode();
 
-        Guid overlay = await PublishOverlayReferencingAsync(overlays, variableName);
+        Guid overlay = await OverlayRequests.PublishWithLabelAsync(
+            overlays, $"Line 1: {{{{{variableName}}}}}", "Nfr");
 
         // The index is populated by an integration event, so the overlay is not
         // resolvable the instant publish returns. Wait for it before timing
@@ -191,27 +192,4 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
     internal static Task WaitUntilResolvableAsync(
         HttpClient variables, Guid overlay, string variableName, int ceilingMs = 30_000) =>
         OverlaySnapshotReadiness.WaitUntilResolvableAsync(variables, overlay, variableName, ceilingMs);
-
-    private static async Task<Guid> PublishOverlayReferencingAsync(HttpClient overlays, string variableName)
-    {
-        HttpResponseMessage created = await overlays.PostAsJsonAsync("/overlays", new
-        {
-            name = $"Nfr-{Guid.NewGuid():N}"[..16],
-            label = new
-            {
-                text = $"Line 1: {{{{{variableName}}}}}",
-                normalizedX = 0.5m,
-                normalizedY = 0.05m,
-                normalizedWidth = 0.3m,
-                normalizedHeight = 0.08m,
-                fontSizePx = 48,
-            },
-        });
-        created.EnsureSuccessStatusCode();
-
-        Guid overlay = await created.Content.ReadFromJsonAsync<Guid>();
-        (await OverlayRequests.PostAsync(overlays, overlay, "revisions/1/publish")).EnsureSuccessStatusCode();
-
-        return overlay;
-    }
 }

@@ -69,7 +69,8 @@ public class TwoPlaceholdersInOneLabelTests(AspireFixture aspire) : IAsyncLifeti
         await DefineAsync(variables, first);
         await DefineAsync(variables, second);
 
-        Guid overlay = await PublishOverlayReferencingAsync(overlays, first, second);
+        Guid overlay = await OverlayRequests.PublishWithLabelAsync(
+            overlays, $"Line A: {{{{{first}}}}} / Line B: {{{{{second}}}}}", "Two");
 
         (await VariableRequests.SetValueAsync(variables, first, "82.5")).EnsureSuccessStatusCode();
         (await VariableRequests.SetValueAsync(variables, second, "91.5")).EnsureSuccessStatusCode();
@@ -124,7 +125,8 @@ public class TwoPlaceholdersInOneLabelTests(AspireFixture aspire) : IAsyncLifeti
         await DefineAsync(variables, unset);
         await DefineAsync(variables, valued);
 
-        Guid overlay = await PublishOverlayReferencingAsync(overlays, unset, valued);
+        Guid overlay = await OverlayRequests.PublishWithLabelAsync(
+            overlays, $"Line A: {{{{{unset}}}}} / Line B: {{{{{valued}}}}}", "Two");
 
         (await VariableRequests.SetValueAsync(variables, valued, "82.5")).EnsureSuccessStatusCode();
 
@@ -162,27 +164,4 @@ public class TwoPlaceholdersInOneLabelTests(AspireFixture aspire) : IAsyncLifeti
         })).EnsureSuccessStatusCode();
     }
 
-    private static async Task<Guid> PublishOverlayReferencingAsync(
-        HttpClient overlays, string first, string second)
-    {
-        HttpResponseMessage created = await overlays.PostAsJsonAsync("/overlays", new
-        {
-            name = $"Two-{Guid.NewGuid():N}"[..16],
-            label = new
-            {
-                text = $"Line A: {{{{{first}}}}} / Line B: {{{{{second}}}}}",
-                normalizedX = 0.5m,
-                normalizedY = 0.05m,
-                normalizedWidth = 0.3m,
-                normalizedHeight = 0.08m,
-                fontSizePx = 48,
-            },
-        });
-        created.EnsureSuccessStatusCode();
-
-        Guid overlay = await created.Content.ReadFromJsonAsync<Guid>();
-        (await OverlayRequests.PostAsync(overlays, overlay, "revisions/1/publish")).EnsureSuccessStatusCode();
-
-        return overlay;
-    }
 }
