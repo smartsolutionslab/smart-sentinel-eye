@@ -239,11 +239,84 @@ function publishedOverlay(text: string) {
   };
 }
 
+/**
+ * The double `Tile` queries an overlay through, extended for spec 141 site 1
+ * to honour `skip` and to answer the real server's shape for the collection
+ * URL a caller reaches with `''`.
+ *
+ * <p>
+ * Every existing case either overrides this outright
+ * (`mockImplementation`/`mockReturnValue` for a specific overlay) or renders
+ * a tile bound to a non-empty identifier, so this default only changes what
+ * the `''` cache key answers — the same lesson `useSnapshotFromTheRealCache`
+ * already states above for the snapshot hook (R2: "a fake that ignores
+ * [skip] cannot tell a skipped query from a fetched one").
+ * </p>
+ */
+function overlayDoubleDefault(overlayIdentifier: string, options?: { skip?: boolean }) {
+  if (options?.skip === true) return { data: undefined };
+  if (overlayIdentifier === '') {
+    // The real server's answer (spec 141 site 1), not a convenience:
+    // `OverlayEndpoints.cs:59` maps `GET /overlays/` to `List` and declares
+    // `.Produces<ListOverlaysResponse>(200)`; `GetOne`'s
+    // `{overlayIdentifier:guid}` constraint cannot match an empty segment, so
+    // there is no 404 to be had here; the gateway's
+    // `/overlay-designer/{**catch-all}` + `PathRemovePrefix` forwards the
+    // request verbatim; and both `kiosk-web` and `kiosk-wall` carry
+    // `sse.overlays.read`, so it is not a 403 either. The only possible
+    // answer is 200 with the *collection* payload.
+    return { data: { chains: [], published: [] } };
+  }
+  return { data: undefined };
+}
+
+/**
+ * The `[resilience]` payloads logged under `transition`. Filtering by
+ * transition rather than counting `console.info` calls keeps these cases
+ * independent of every other line the page emits.
+ */
+function resilienceLines(calls: unknown[][], transition: string): Record<string, unknown>[] {
+  const lines: Record<string, unknown>[] = [];
+  for (const [prefix, payload] of calls) {
+    if (prefix !== '[resilience]' || typeof payload !== 'object' || payload === null) continue;
+    const line = payload as Record<string, unknown>;
+    if (line.transition === transition) lines.push(line);
+  }
+  return lines;
+}
+
+function spyOnConsoleInfo() {
+  return vi.spyOn(console, 'info').mockImplementation(() => undefined);
+}
+
+/**
+ * Fires one resolved-text frame and lets the cache write and the re-render it
+ * causes settle — `upsertQueryData` is dispatched without being awaited, so a
+ * fixed count of microtask turns is not enough (#2069, #2084).
+ */
+async function pushText(message: ResolvedOverlayTextChangedMessage) {
+  await act(async () => {
+    capturedCallbacks?.onResolvedOverlayTextChanged?.(message);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  });
+}
+
+/**
+ * Spec 141 sites 2/3: a layout whose `fab` is not the `string` the type
+ * declares. The cast models the drift itself, exactly as the omitted
+ * `overlayIdentifier` fixtures do for site 1 — `Layout.fab` stays `string`
+ * (spec FR-001/FR-004 are explicit it is not widened), so this is the only
+ * way to construct the shape a field made optional would actually produce.
+ */
+function layoutWithFab(fab: string | undefined, tiles: LayoutTile[]): Layout {
+  return { ...publishedRevision(1, 1, tiles), fab: fab as unknown as string };
+}
+
 describe('CellPage', () => {
   beforeEach(() => {
     getLayoutMock.mockReset();
     getOverlayMock.mockReset();
-    getOverlayMock.mockReturnValue({ data: undefined });
+    getOverlayMock.mockImplementation(overlayDoubleDefault);
     getSnapshotMock.mockReset();
     getSnapshotMock.mockReturnValue({ data: undefined, isLoading: false });
     navigateMock.mockReset();
@@ -1039,37 +1112,9 @@ describe('CellPage', () => {
       return { overlay, durationMs } as unknown as OverlayHighlightChangedMessage;
     }
 
-    /**
-     * Fires one resolved-text frame and lets the cache write and re-render it
-     * would cause settle — the same 100 ms the #2069 block uses, and for the
-     * same reason: `upsertQueryData` is dispatched without being awaited, so a
-     * fixed count of microtask turns is not enough.
-     */
-    async function pushText(message: ResolvedOverlayTextChangedMessage) {
-      await act(async () => {
-        capturedCallbacks?.onResolvedOverlayTextChanged?.(message);
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      });
-    }
-
-    /**
-     * The `[resilience]` payloads logged under `transition`. Filtering by
-     * transition rather than counting `console.info` calls keeps these cases
-     * independent of every other line the page emits.
-     */
-    function resilienceLines(calls: unknown[][], transition: string): Record<string, unknown>[] {
-      const lines: Record<string, unknown>[] = [];
-      for (const [prefix, payload] of calls) {
-        if (prefix !== '[resilience]' || typeof payload !== 'object' || payload === null) continue;
-        const line = payload as Record<string, unknown>;
-        if (line.transition === transition) lines.push(line);
-      }
-      return lines;
-    }
-
-    function spyOnConsoleInfo() {
-      return vi.spyOn(console, 'info').mockImplementation(() => undefined);
-    }
+    // pushText, resilienceLines and spyOnConsoleInfo are declared at module
+    // scope above (spec 141) so the new site 1-3 describes below can share
+    // them without a second copy free to drift.
 
     /**
      * RED. The gap itself: a fab-less resolved-text frame is still refused (the
@@ -1182,6 +1227,330 @@ describe('CellPage', () => {
 
       expect(label(), "the wall stopped applying its own plant's frames").toBe('OEE 82.5');
       expect(resilienceLines(info.mock.calls, 'resolved-text-without-fab')).toEqual([]);
+    });
+  });
+
+  /**
+   * Spec 141 site 1 — an omitted `overlayIdentifier` is `undefined`, not
+   * `null`, and `undefined !== null` lets `useGetOverlayQuery('')` fire. The
+   * route table proves that request lands as 200 with the *collection*
+   * payload (`OverlayEndpoints.cs:59`'s `List`; `GetOne`'s `:guid` constraint
+   * cannot match an empty segment, and both kiosk realm clients carry
+   * `sse.overlays.read`), so `overlay.revisions` is `undefined` and `.find`
+   * throws out of `render()`. There is no `ErrorBoundary` in this test tree,
+   * so the defect cases below are expected to fail on that thrown
+   * `TypeError` itself, not on a clean assertion mismatch — that throw is
+   * the settled answer to #2197's open question (spec.md §"Site 1").
+   */
+  describe('An omitted overlayIdentifier says so instead of asking for the overlay collection (spec 141 site 1)', () => {
+    // Each case spies on `console.info` fresh; without restoring, `vi.spyOn`
+    // on an already-spied method returns the same spy and its call history
+    // leaks into the next case (found running the T005-T007 mutation proof,
+    // where the defect cases' lines bled into the quiet ones).
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('Reports the omitted field and never asks for the overlay collection', () => {
+      const info = spyOnConsoleInfo();
+      mockLayout(
+        publishedRevision(1, 1, [
+          // The cast models the drift itself: `LayoutTile` deliberately does
+          // not admit `undefined` (spec FR-001) — this is the only way to
+          // construct the shape a field made optional would actually
+          // produce.
+          { ...tile(), overlayIdentifier: undefined as unknown as string | null },
+        ]),
+      );
+
+      renderPage();
+
+      expect(
+        getOverlayMock.mock.calls.every(([, options]) => options?.skip === true),
+        'an omitted overlayIdentifier must not fire the overlay query',
+      ).toBe(true);
+      expect(resilienceLines(info.mock.calls, 'tile-without-overlay-identifier')).toEqual([
+        { subsystem: 'hub', transition: 'tile-without-overlay-identifier', layout: 'cam-1', tiles: 1 },
+      ]);
+    });
+
+    it('Keeps matching pushes for a real overlay when a sibling tile omits its identifier (mixed layout)', () => {
+      const info = spyOnConsoleInfo();
+      mockLayout(
+        publishedRevision(1, 2, [
+          {
+            ...tile({ cameraIdentifier: 'cam-a', row: 0, col: 0 }),
+            overlayIdentifier: undefined as unknown as string | null,
+          },
+          tile({ cameraIdentifier: 'cam-b', overlayIdentifier: 'ovl-real', row: 0, col: 1 }),
+        ]),
+      );
+
+      renderPage();
+
+      act(() => {
+        capturedCallbacks?.onOverlayHighlightChanged?.({ overlay: 'ovl-real', fab: 'munich', durationMs: 1000 });
+      });
+
+      expect(screen.getAllByTestId('layout-tile').map((el) => el.dataset.highlighted)).toEqual(['false', 'true']);
+      expect(resilienceLines(info.mock.calls, 'tile-without-overlay-identifier')).toEqual([
+        { subsystem: 'hub', transition: 'tile-without-overlay-identifier', layout: 'cam-1', tiles: 1 },
+      ]);
+    });
+
+    it('Reports an overlayIdentifier of empty string the same way as an omitted one', () => {
+      const info = spyOnConsoleInfo();
+      mockLayout(publishedRevision(1, 1, [tile({ overlayIdentifier: '' })]));
+
+      renderPage();
+
+      expect(
+        getOverlayMock.mock.calls.every(([, options]) => options?.skip === true),
+        'an empty-string overlayIdentifier must not fire the overlay query either',
+      ).toBe(true);
+      expect(resilienceLines(info.mock.calls, 'tile-without-overlay-identifier')).toEqual([
+        { subsystem: 'hub', transition: 'tile-without-overlay-identifier', layout: 'cam-1', tiles: 1 },
+      ]);
+    });
+
+    it("QUIET — a null overlayIdentifier is the healthy shape today's server sends, and reports nothing", () => {
+      const info = spyOnConsoleInfo();
+      mockLayout(publishedRevision(1, 1, [tile({ overlayIdentifier: null })]));
+
+      renderPage();
+
+      expect(resilienceLines(info.mock.calls, 'tile-without-overlay-identifier')).toEqual([]);
+      expect(getOverlayMock, 'the tile must have rendered and evaluated the guard').toHaveBeenCalledWith('', {
+        skip: true,
+      });
+    });
+
+    it('QUIET — a bound overlayIdentifier still queries, and reports nothing', () => {
+      const info = spyOnConsoleInfo();
+      mockLayout(publishedRevision(1, 1, [tile({ overlayIdentifier: 'ovl-real' })]));
+
+      renderPage();
+
+      expect(resilienceLines(info.mock.calls, 'tile-without-overlay-identifier')).toEqual([]);
+      expect(getOverlayMock).toHaveBeenCalledWith('ovl-real', { skip: false });
+    });
+  });
+
+  /**
+   * Spec 141 site 2 — `fab === ''` catches an empty string but not an absent
+   * field: `data?.fab` is `undefined` when the layout carries no fab at all,
+   * so the snapshot query fires across every fab the server holds (the
+   * cross-fab request #2069 exists to prevent) and `countReportableSkew`'s
+   * own `wallFab === undefined` early return (`:518`) goes silent for the
+   * whole session — the reporter #2084 built to notice a frozen wall is
+   * switched off by the same absence. `countReportableSkew` is not touched;
+   * this reports the blind spot it leaves, at the wall rather than the
+   * frame.
+   */
+  describe('A layout with no fab says so before querying across fabs (spec 141 site 2)', () => {
+    afterEach(() => {
+      store.dispatch(systemVariablesApi.util.resetApiState());
+      // Restores the console.info spy — see the note on the site 1 describe.
+      vi.restoreAllMocks();
+    });
+
+    it('Skips the cross-fab snapshot query when the fab is absent, and says so', () => {
+      const info = spyOnConsoleInfo();
+      mockLayout(
+        layoutWithFab(undefined, [tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-1', row: 0, col: 0 })]),
+      );
+      getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
+
+      renderPage();
+
+      expect(getSnapshotMock.mock.calls[0]?.[1], 'no request without a fabId').toEqual({ skip: true });
+      expect(resilienceLines(info.mock.calls, 'layout-without-fab')).toEqual([
+        { subsystem: 'hub', transition: 'layout-without-fab', layout: 'cam-1' },
+      ]);
+    });
+
+    it('Skips the cross-fab snapshot query for an empty-string fab too, and says so', () => {
+      const info = spyOnConsoleInfo();
+      mockLayout(layoutWithFab('', [tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-1', row: 0, col: 0 })]));
+      getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
+
+      renderPage();
+
+      expect(getSnapshotMock.mock.calls[0]?.[1], 'already skipped today — only the report is new').toEqual({
+        skip: true,
+      });
+      expect(resilienceLines(info.mock.calls, 'layout-without-fab')).toEqual([
+        { subsystem: 'hub', transition: 'layout-without-fab', layout: 'cam-1' },
+      ]);
+    });
+
+    /**
+     * The spec's own Gherkin for this case also expects the frame to be
+     * "dropped, exactly as today" — checked against the real cache and found
+     * not to hold: `message.fab !== wallFab` is `undefined !== undefined`,
+     * which is `false`, so the existing (unchanged, plan invariant 4) fab
+     * filter actually lets a fab-less frame through when the wall's own fab
+     * is *also* absent. That is a pre-existing hole in the equality filter
+     * itself, orthogonal to FR-004 and out of this spec's scope — so this
+     * case asserts only what FR-004 actually promises: the old reporter
+     * stays silent and the new one fires.
+     */
+    it("Leaves countReportableSkew's blind spot untouched, and reports the layout fault instead", async () => {
+      const info = spyOnConsoleInfo();
+      mockLayout(
+        layoutWithFab(undefined, [tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-blind', row: 0, col: 0 })]),
+      );
+      getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
+
+      renderPage();
+
+      await pushText({
+        overlay: 'ovl-blind',
+        resolvedText: 'OEE 99.9',
+        version: 2,
+      } as unknown as ResolvedOverlayTextChangedMessage);
+
+      expect(
+        resilienceLines(info.mock.calls, 'resolved-text-without-fab'),
+        "countReportableSkew's wallFab === undefined early return is untouched",
+      ).toEqual([]);
+      expect(resilienceLines(info.mock.calls, 'layout-without-fab'), 'the wall is no longer wholly silent').toEqual([
+        { subsystem: 'hub', transition: 'layout-without-fab', layout: 'cam-1' },
+      ]);
+    });
+
+    it('QUIET — a wall with a named fab is not reported, and the guard let the query through', () => {
+      const info = spyOnConsoleInfo();
+      mockLayout(
+        layoutWithFab('munich', [tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-1', row: 0, col: 0 })]),
+      );
+      getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
+
+      renderPage();
+
+      expect(resilienceLines(info.mock.calls, 'layout-without-fab')).toEqual([]);
+      expect(getSnapshotMock).toHaveBeenCalledWith({ overlayIdentifier: 'ovl-1', fabId: 'munich' }, { skip: false });
+    });
+  });
+
+  /**
+   * Spec 141 site 3 — the kiosk holds a third, unshared copy of the
+   * placeholder delimiter (`{{`), re-stated in TypeScript with nothing tying
+   * it to `PlaceholderParser.cs`. A `ResolvedOverlayTextChangedV1` is only
+   * ever published for an overlay the server's own reverse index found a
+   * placeholder in (`VariableValueChangedDomainEventHandler.cs:50-62`), so a
+   * resolved-text push arriving for an overlay whose tile decided the label
+   * was static is, by construction, the two parsers disagreeing about what a
+   * placeholder looks like. Only the delimiter-drift sub-case is in scope —
+   * an omitted or renamed `text` is visible, not silent, and stays out
+   * (spec.md's delimiter table).
+   */
+  describe('A resolved-text push for a label the kiosk treats as static says so (spec 141 site 3)', () => {
+    afterEach(() => {
+      store.dispatch(systemVariablesApi.util.resetApiState());
+      // Restores the console.info spy — see the note on the site 1 describe.
+      vi.restoreAllMocks();
+    });
+
+    it('Reports a resolved-text push for a label the kiosk parsed as static', async () => {
+      const info = spyOnConsoleInfo();
+      // No real-cache double needed: hasPlaceholder is false for this text
+      // regardless of fab, so the snapshot query stays skip:true throughout —
+      // asserted below — and the default double (never populated) is enough
+      // to prove the raw template is what's shown.
+      mockLayout(
+        publishedRevision(1, 1, [tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-drift', row: 0, col: 0 })]),
+      );
+      // The delimiter has moved (`[[…]]`) while the text has not — the only
+      // silent sub-case of site 3.
+      getOverlayMock.mockReturnValue(publishedOverlay('OEE [[oeeline1]]'));
+
+      renderPage();
+      const label = () => screen.getByTestId('camera-viewer').getAttribute('data-overlay-text');
+      expect(
+        getSnapshotMock.mock.calls[0]?.[1],
+        'the kiosk-side check found no {{, so the snapshot is skipped',
+      ).toEqual({ skip: true });
+
+      await pushText({ overlay: 'ovl-drift', fab: 'munich', resolvedText: 'OEE 99.9', version: 2 });
+
+      expect(label(), 'the report does not resolve the disagreement (FR-006)').toBe('OEE [[oeeline1]]');
+      expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([
+        { subsystem: 'hub', transition: 'resolved-text-for-static-label', overlay: 'ovl-drift' },
+      ]);
+    });
+
+    it('Latches the static-label report at one per overlay per session', async () => {
+      const info = spyOnConsoleInfo();
+      mockLayout(
+        publishedRevision(1, 1, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-drift-latch', row: 0, col: 0 }),
+        ]),
+      );
+      getOverlayMock.mockReturnValue(publishedOverlay('OEE [[oeeline1]]'));
+
+      renderPage();
+
+      await pushText({ overlay: 'ovl-drift-latch', fab: 'munich', resolvedText: 'OEE 99.9', version: 2 });
+      await pushText({ overlay: 'ovl-drift-latch', fab: 'munich', resolvedText: 'OEE 100.0', version: 3 });
+
+      expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([
+        { subsystem: 'hub', transition: 'resolved-text-for-static-label', overlay: 'ovl-drift-latch' },
+      ]);
+    });
+
+    it('QUIET — a label with the recognised delimiter still applies the push and reports nothing', async () => {
+      const info = spyOnConsoleInfo();
+      getSnapshotMock.mockImplementation(useSnapshotFromTheRealCache);
+      mockLayout(
+        publishedRevision(1, 1, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-placeholder', row: 0, col: 0 }),
+        ]),
+      );
+      getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
+
+      renderPage();
+      const label = () => screen.getByTestId('camera-viewer').getAttribute('data-overlay-text');
+
+      await pushText({ overlay: 'ovl-placeholder', fab: 'munich', resolvedText: 'OEE 99.9', version: 2 });
+
+      expect(label(), 'the push applied, so execution reached the new guard').toBe('OEE 99.9');
+      expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([]);
+    });
+
+    it('QUIET — a not-yet-resolved overlay query reports nothing', async () => {
+      const info = spyOnConsoleInfo();
+      mockLayout(
+        publishedRevision(1, 1, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-loading', row: 0, col: 0 }),
+        ]),
+      );
+      getOverlayMock.mockReturnValue({ data: undefined });
+
+      renderPage();
+
+      await pushText({ overlay: 'ovl-loading', fab: 'munich', resolvedText: 'OEE 99.9', version: 2 });
+
+      expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([]);
+      expect(getOverlayMock, 'the tile rendered and the code ran').toHaveBeenCalledWith('ovl-loading', {
+        skip: false,
+      });
+    });
+
+    it("CONFLICT — another plant's frame for a static label reports nothing", async () => {
+      const info = spyOnConsoleInfo();
+      mockLayout(
+        publishedRevision(1, 1, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-foreign-static', row: 0, col: 0 }),
+        ]),
+      );
+      getOverlayMock.mockReturnValue(publishedOverlay('OEE [[oeeline1]]'));
+
+      renderPage();
+
+      await pushText({ overlay: 'ovl-foreign-static', fab: 'dresden', resolvedText: 'OEE 99.9', version: 2 });
+
+      expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([]);
     });
   });
 });
