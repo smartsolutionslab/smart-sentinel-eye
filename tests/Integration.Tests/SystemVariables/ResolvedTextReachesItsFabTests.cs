@@ -554,5 +554,4 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
         Guid layout = await created.Content.ReadFromJsonAsync<Guid>();
         (await LayoutRequests.PostAsync(layouts, layout, "revisions/1/publish")).EnsureSuccessStatusCode();
     }
-
 }
