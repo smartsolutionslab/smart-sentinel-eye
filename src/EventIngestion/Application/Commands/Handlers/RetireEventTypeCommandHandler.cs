@@ -5,35 +5,43 @@ using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 
-/// <summary>
-/// Phase 4a prelude (spec 143 T002): the signature is the one plan.md §6
-/// specifies. The body below refuses everything as not-found and touches no
-/// repository; T005 replaces it with the lookup-then-version-gate order
-/// plan.md describes (load-bearing: lookup first, version gate second).
-/// </summary>
 public sealed class RetireEventTypeCommandHandler(
     IRegisteredEventTypeRepository eventTypes,
     IClock clock,
     ILogger<RetireEventTypeCommandHandler> logger)
     : ICommandHandler<RetireEventTypeCommand, Result<RegisteredEventTypeIdentifier, RetireEventTypeError>>
 {
-    public Task<Result<RegisteredEventTypeIdentifier, RetireEventTypeError>> HandleAsync(
+    public async Task<Result<RegisteredEventTypeIdentifier, RetireEventTypeError>> HandleAsync(
         RetireEventTypeCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
 
         var (fabs, kind, expectedVersion, retiredBy) = command;
 
-        // Phase 4a prelude: the injected collaborators are unused for now.
-        // T005 replaces this whole body with the fab-scoped lookup and the version gate.
-        _ = eventTypes;
-        _ = clock;
-        _ = logger;
-        _ = fabs;
-        _ = expectedVersion;
-        _ = retiredBy;
+        // The lookup runs over the caller's fabs, not the row's own — a row
+        // outside them is genuinely absent from where the caller stands, and
+        // this order is load-bearing: it must run before the version gate, so
+        // a stale version against another fab's row still answers 404, not
+        // 409 (plan.md §6).
+        Option<RegisteredEventType> found = await eventTypes.GetRegisteredAsync(fabs, kind, cancellationToken);
+        if (!found.HasValue)
+        {
+            return Failure(RetireEventTypeFailures.EventTypeNotFound(kind.Value));
+        }
 
-        return Task.FromResult<Result<RegisteredEventTypeIdentifier, RetireEventTypeError>>(
-            Failure(RetireEventTypeFailures.EventTypeNotFound(kind.Value)));
+        RegisteredEventType eventType = found.Value;
+
+        if (eventType.Version != expectedVersion)
+        {
+            return Failure(RetireEventTypeFailures.EventTypeStaleVersion(
+                kind.Value, expectedVersion, eventType.Version));
+        }
+
+        eventType.Retire(retiredBy, clock);
+        await eventTypes.SaveAsync(cancellationToken);
+
+        logger.EventTypeRetired(eventType.Fab, kind, eventType.Id);
+
+        return Success(eventType.Id);
     }
 }
