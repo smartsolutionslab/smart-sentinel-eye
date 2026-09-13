@@ -177,9 +177,12 @@ public static class WolverineDefaults
     /// <summary>
     /// Locates the <c>*.Application</c> assembly that pairs with the
     /// caller's Infrastructure project by string-rewriting the suffix.
-    /// Returns <c>null</c> if no matching assembly is loadable — keeps
-    /// the convention silent when a future context legitimately has no
-    /// Application handlers to discover.
+    /// Returns <c>null</c> in two legitimate cases — the infrastructure
+    /// assembly's name is outside the <c>.Infrastructure</c> convention,
+    /// or no matching <c>.Application</c> assembly exists — and throws
+    /// <see cref="InvalidOperationException"/> when the assembly is
+    /// present but cannot be loaded, so a broken deploy fails the host
+    /// instead of starting healthy with the handlers silently missing.
     /// </summary>
     internal static Assembly? TryLoadApplicationAssembly(Assembly infrastructureAssembly)
     {
@@ -198,15 +201,16 @@ public static class WolverineDefaults
         }
         catch (FileNotFoundException)
         {
+            // The one legitimate absence: the context has no Application
+            // assembly, so there are no handlers to discover.
             return null;
         }
-        catch (FileLoadException)
+        catch (Exception exception) when (exception is FileLoadException or BadImageFormatException)
         {
-            return null;
-        }
-        catch (BadImageFormatException)
-        {
-            return null;
+            throw new InvalidOperationException(
+                $"Assembly '{applicationName}' was found but could not be loaded, so every " +
+                "message handler in it would go unregistered while the service reported healthy.",
+                exception);
         }
     }
 }
