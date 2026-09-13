@@ -3,6 +3,7 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore.Query;
 using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
+using SmartSentinelEye.EventIngestion.Domain.RegisteredEventType;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
 
@@ -32,6 +33,13 @@ internal sealed class TestWebhookIntegrationQuerySource(IEnumerable<WebhookInteg
 {
     public IQueryable<WebhookIntegration> WebhookIntegrations { get; } =
         new TestAsyncEnumerable<WebhookIntegration>(seed);
+}
+
+internal sealed class TestRegisteredEventTypeQuerySource(IEnumerable<RegisteredEventType> seed)
+    : IRegisteredEventTypeQuerySource
+{
+    public IQueryable<RegisteredEventType> RegisteredEventTypes { get; } =
+        new TestAsyncEnumerable<RegisteredEventType>(seed);
 }
 
 internal sealed class TestAsyncEnumerable<T>(IEnumerable<T> enumerable)
