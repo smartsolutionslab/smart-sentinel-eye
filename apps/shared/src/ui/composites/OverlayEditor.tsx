@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { Rnd } from 'react-rnd';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
+import { overlayLabelSurfaceStyle } from './overlayLabelStyle.js';
 
 export interface OverlayEditorProps {
   value: OverlayLabel;
@@ -80,15 +81,7 @@ export function OverlayEditor({
             emitGeometry(position.x, position.y, ref.offsetWidth, ref.offsetHeight)
           }
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(255, 255, 255, 0.92)',
-            color: '#111827',
-            fontSize: value.fontSizePx,
-            fontWeight: 600,
-            border: '1px solid rgba(17, 24, 39, 0.4)',
-            padding: '0 8px',
+            ...overlayLabelSurfaceStyle(value),
             cursor: 'move',
             userSelect: 'none',
           }}

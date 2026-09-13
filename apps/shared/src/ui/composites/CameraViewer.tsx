@@ -20,6 +20,7 @@ import {
 import { useWhepSession } from './useWhepSession.js';
 import type { CameraViewerStatus } from './useWhepSession.js';
 import type { PlayoutTargetOutcome } from '../../streaming/WhepClient.js';
+import { overlayLabelSurfaceStyle } from './overlayLabelStyle.js';
 
 export type { CameraViewerStatus } from './useWhepSession.js';
 
@@ -399,15 +400,8 @@ function OverlayLabel({ overlay }: { overlay: CameraViewerOverlay }) {
         top: `${overlay.normalizedY * 100}%`,
         width: `${overlay.normalizedWidth * 100}%`,
         height: `${overlay.normalizedHeight * 100}%`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(255, 255, 255, 0.85)',
-        color: '#111827',
-        fontSize: `clamp(${Math.min(12, overlay.fontSizePx / 4)}px, ${overlay.fontSizePx / 16}vw, ${overlay.fontSizePx}px)`,
-        fontWeight: 600,
         pointerEvents: 'none',
-        padding: '0 4px',
+        ...overlayLabelSurfaceStyle(overlay),
       }}
     >
       {overlay.text}
