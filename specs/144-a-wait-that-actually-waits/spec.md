@@ -161,14 +161,13 @@ requires: doing it first would move the code under test out of the file that car
 defect. Three call sites, one implementation, and `AcceptToDecideLatencyTests`' prose
 brought back in line with the code.
 
-### US-5 (P4) — *Not delivered.* Fold `PublishOverlayReferencingAsync`.
+### US-5 (P4) — *Delivered.* Fold `PublishOverlayReferencingAsync`.
 
 Two named copies with **different arities** plus an inlined third whose overlay also needs
-a fab layout. Unifying them means inventing a parameterised builder for three call sites
-that genuinely differ — ADR-0036's "no speculative generality", and spec 137's row 8
-precedent for leaving a diverged shape alone. T009 evaluates whether it collapses to a
-single `labelText` + name-prefix signature; if it needs one knob per caller, it stays
-where it is and the PR says so. **Not a gate on this spec.**
+a fab layout. T009 found it collapsed to one signature —
+`OverlayRequests.PublishWithLabelAsync(HttpClient, string labelText, string namePrefix,
+CancellationToken)` — each caller composing its own label text, landing in `62a4e9d3`. Not
+a gate on this spec, but delivered rather than declined.
 
 ---
 
