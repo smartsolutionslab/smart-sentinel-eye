@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 import type { StreamState } from '@smart-sentinel-eye/shared/api/streams.api';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import { WhepClient } from '@smart-sentinel-eye/shared/streaming/WhepClient';
+import type { PlayoutTargetOutcome } from '@smart-sentinel-eye/shared/streaming/WhepClient';
 
 export type CameraViewerStatus = 'idle' | 'connecting' | 'live' | 'reconnecting' | 'error' | 'offline';
 
@@ -31,8 +32,9 @@ export interface WhepSessionResult {
    */
   stats: () => Promise<RTCStatsReport> | null;
   /**
-   * Sets this tile's playout target in milliseconds, returning whether it was
-   * applied (spec 045, ADR-0128).
+   * Sets this tile's playout target in milliseconds, returning which of four
+   * things happened — {@link PlayoutTargetOutcome} (spec 045, ADR-0128; spec
+   * 142 widened this from a boolean).
    *
    * <p>
    * The actuator a wall uses to bring its tiles to a common instant. Like
@@ -45,7 +47,7 @@ export interface WhepSessionResult {
    * nothing to align it with, and passes no target.
    * </p>
    */
-  setPlayoutTarget: (milliseconds: number) => ReturnType<WhepClient['setPlayoutTarget']>;
+  setPlayoutTarget: (milliseconds: number) => PlayoutTargetOutcome;
 }
 
 const RETRY_BASE_MS = 1_000;
