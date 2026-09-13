@@ -62,6 +62,26 @@ public static class Scope
 
             /// <summary>Granted to MQTT-publishing devices; not to humans.</summary>
             public const string Publish = "sse.events.publish";
+
+            /// <summary>
+            /// Spec 143 FR-010. Distinct from <see cref="Write"/> on purpose: that
+            /// scope is held by every event source (webhook integration, MQTT
+            /// publisher), and reusing it here would let a source declare which
+            /// event types are legitimate — the thing the strict mode that follows
+            /// this spec must not allow.
+            ///
+            /// <para>
+            /// Not nested under a further <c>Types</c> class — plan.md §7 sketched
+            /// <c>Events.Types.Write</c>, but a nested class member sharing a name
+            /// with its directly enclosing class' own member (<c>Write</c>) is
+            /// SonarAnalyzer S3218 (member shadowing), which fails the Release
+            /// build. The wire scope string is identical either way, and nothing
+            /// that reads this catalogue — <c>Scope.All</c>,
+            /// <c>EndpointScopeDeclarationTests</c>' reflection walk,
+            /// <c>ScopeGrantTests</c>' literal — depends on the extra nesting.
+            /// </para>
+            /// </summary>
+            public const string TypesWrite = "sse.events.types.write";
         }
 
         public static class Webhooks
@@ -104,7 +124,7 @@ public static class Scope
         Sse.Overlays.Read, Sse.Overlays.Write,
         Sse.Variables.Read, Sse.Variables.Write,
         Sse.Rules.Read, Sse.Rules.Write,
-        Sse.Events.Read, Sse.Events.Write, Sse.Events.Publish,
+        Sse.Events.Read, Sse.Events.Write, Sse.Events.Publish, Sse.Events.TypesWrite,
         Sse.Webhooks.Write,
         Sse.Identity.DeviceClients.Read, Sse.Identity.DeviceClients.Write,
         Sse.Identity.KioskClients.Read, Sse.Identity.KioskClients.Write,
