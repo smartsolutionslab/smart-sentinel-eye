@@ -1499,6 +1499,60 @@ describe('CellPage', () => {
       ]);
     });
 
+    /**
+     * Load-bearing ordering proof for the claim at `CellPage.tsx:239-255`
+     * ("sits before the version guard, so a push that loses the version race
+     * is still evidence of the disagreement"): the three cases above all use
+     * versions that win the race (2, 2/3, 2), so a transposition — moving the
+     * static-label check below the version guard — would leave all of them
+     * green. This one does not: the verdict is set only *after* a
+     * higher-versioned push has already moved the mark, so the disagreeing
+     * push that follows can only be reported if the check still runs before
+     * the version guard drops it.
+     */
+    it('Reports the disagreement even when the push loses the version race', async () => {
+      const info = spyOnConsoleInfo();
+      mockLayout(
+        publishedRevision(1, 1, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-verdict-race', row: 0, col: 0 }),
+        ]),
+      );
+      // Not yet resolved: labelTextKnown is false, so no verdict is recorded
+      // yet (R5) — matching "Does not flag a tile while its overlay is still
+      // loading" above.
+      getOverlayMock.mockReturnValue({ data: undefined });
+
+      renderPage();
+
+      // Silent: no verdict exists yet, so nothing can disagree — but the
+      // version mark still advances to 5.
+      await pushText({ overlay: 'ovl-verdict-race', fab: 'munich', resolvedText: 'OEE 5.0', version: 5 });
+      expect(
+        resilienceLines(info.mock.calls, 'resolved-text-for-static-label'),
+        'no verdict exists yet, so a push cannot yet disagree with one',
+      ).toEqual([]);
+
+      // The overlay resolves as static (no `{{`), setting the verdict for
+      // the first time. Forces the re-render the same way `rerenderTiles`
+      // does above — an unrelated highlight on the same overlay — so no
+      // fake timers are needed in this describe block.
+      getOverlayMock.mockReturnValue(publishedOverlay('OEE [[oeeline1]]'));
+      act(() => {
+        capturedCallbacks?.onOverlayHighlightChanged?.({
+          overlay: 'ovl-verdict-race',
+          fab: 'munich',
+          durationMs: 1000,
+        });
+      });
+
+      // Loses the version race (3 <= 5) — must still be reported.
+      await pushText({ overlay: 'ovl-verdict-race', fab: 'munich', resolvedText: 'OEE 3.0', version: 3 });
+
+      expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([
+        { subsystem: 'hub', transition: 'resolved-text-for-static-label', overlay: 'ovl-verdict-race' },
+      ]);
+    });
+
     it('QUIET — a label with the recognised delimiter still applies the push and reports nothing', async () => {
       const info = spyOnConsoleInfo();
       getSnapshotMock.mockImplementation(useSnapshotFromTheRealCache);

@@ -137,6 +137,13 @@ export function CellPage() {
   // render doubles under StrictMode, and the latch above is belt-and-braces
   // rather than the only defence. `countReportableSkew` is not touched
   // (plan invariant 3; its own blind spot is tracked separately as #2320).
+  //
+  // The `published === undefined` guard below is also what keeps FR-004
+  // silent while the layout is still loading: `wallFab` is legitimately
+  // `undefined` in that window for a reason that has nothing to do with a
+  // fab-less layout, and this early return is what tells the two apart. A
+  // future split of this effect has to keep that coupling or risk a false
+  // `layout-without-fab` line on every page load.
   useEffect(() => {
     if (published === undefined) return;
     const affectedTiles = published.tiles.filter(
