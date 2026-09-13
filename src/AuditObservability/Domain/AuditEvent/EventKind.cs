@@ -5,7 +5,7 @@ namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 
 /// <summary>
 /// The <c>*V1</c> contract's CLR type name (e.g.
-/// <c>"CameraRegisteredV1"</c>, <c>"RuleArchivedV1"</c>). The
+/// <c>"CameraRegisteredV1"</c>, <c>"AuditChunkArchivedV1"</c>). The
 /// shape mirrors a C# identifier so the audit query API can
 /// safely use it in URL paths + `eventKind` filters without
 /// extra escaping.

@@ -20,7 +20,7 @@ namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 /// </para>
 ///
 /// <para>
-/// Emptiness is refused. <c>AuditEvent.Record</c> guarded the envelope, the
+/// Emptiness is refused. <c>AuditEvent.From</c> guarded the envelope, the
 /// mapping and the clock, and never this — so an audit row could assert that
 /// something happened while carrying nothing to inspect.
 /// </para>

@@ -6,7 +6,7 @@ public class EventKindTests
 {
     [Theory]
     [InlineData("CameraRegisteredV1")]
-    [InlineData("RuleArchivedV1")]
+    [InlineData("WebhookIntegrationRotatedV1")]
     [InlineData("AuditChunkArchivedV1")]
     public void Accepts_valid_kinds(string input)
     {

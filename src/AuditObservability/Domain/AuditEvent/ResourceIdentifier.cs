@@ -7,7 +7,7 @@ namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 /// String identifier of the aggregate the audited <c>*V1</c>
 /// touched (spec 009 FR-004 / FR-009). Carries a Guid v7 string
 /// for most V1s; carries a business name where the V1 uses one
-/// (e.g. <c>RuleArchivedV1.Name</c>).
+/// (e.g. <c>WebhookIntegrationRotatedV1.IntegrationName</c>).
 /// </summary>
 public sealed record ResourceIdentifier : StringValueObject
 {
