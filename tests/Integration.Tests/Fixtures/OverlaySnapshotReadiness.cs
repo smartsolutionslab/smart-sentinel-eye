@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
@@ -75,7 +74,9 @@ internal static class OverlaySnapshotReadiness
         throw new TimeoutException(
             $"Overlay {overlay} never resolved '{variableName}' within {ceilingMs} ms; "
             + $"the last snapshot was "
-            + $"{(resolved is null ? "not a 200" : $"a 200 carrying '{resolved}'")}.");
+            + $"{(resolved is null ? "not a 200" : $"a 200 carrying '{resolved}'")}. "
+            + "Either the reverse index never picked the overlay up, or the snapshot loop "
+            + "never reached that name.");
     }
 
     internal static string ResolvedTextIn(string body)
