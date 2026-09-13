@@ -111,6 +111,7 @@ public class StaleCodeConventionTests
             [
                 "AGGREGATE_VERSION_STALE",
                 "CAMERA_VERSION_STALE",
+                "EVENT_TYPE_STALE",
                 "LAYOUT_REVISION_STALE",
                 "OVERLAY_REVISION_STALE",
                 "RULE_STALE",
@@ -119,7 +120,7 @@ public class StaleCodeConventionTests
                 "WEBHOOK_INTEGRATION_STALE",
             ],
             ignoreOrder: true,
-            "Eight codes: seven per-context refusals plus AGGREGATE_VERSION_STALE, the shared Layer-2 "
+            "Nine codes: eight per-context refusals plus AGGREGATE_VERSION_STALE, the shared Layer-2 "
             + "handler in ServiceDefaults that covers the true database race for every mutating endpoint. "
             + "If this list shrank, a context lost its concurrency "
             + "refusal; if it grew, a new one arrived and the shared client's tests should cover it too "
