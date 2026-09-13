@@ -1,6 +1,7 @@
 using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
+using EventTypeRegisteredAt = SmartSentinelEye.EventIngestion.Domain.RegisteredEventType.RegisteredAt;
 
 namespace SmartSentinelEye.EventIngestion.Domain.Tests.Timestamps;
 
@@ -84,6 +85,7 @@ public class TimestampOrderingTests
         OrdersByItsMoment(RegisteredAt.From);
         OrdersByItsMoment(RevokedAt.From);
         OrdersByItsMoment(RotatedAt.From);
+        OrdersByItsMoment(EventTypeRegisteredAt.From);
 
         OperatorsAgreeWithCompareTo(RejectedAt.From, (a, b) => a < b, (a, b) => a > b, (a, b) => a <= b, (a, b) => a >= b);
         OperatorsAgreeWithCompareTo(OccurredAt.From, (a, b) => a < b, (a, b) => a > b, (a, b) => a <= b, (a, b) => a >= b);
@@ -91,6 +93,7 @@ public class TimestampOrderingTests
         OperatorsAgreeWithCompareTo(RegisteredAt.From, (a, b) => a < b, (a, b) => a > b, (a, b) => a <= b, (a, b) => a >= b);
         OperatorsAgreeWithCompareTo(RevokedAt.From, (a, b) => a < b, (a, b) => a > b, (a, b) => a <= b, (a, b) => a >= b);
         OperatorsAgreeWithCompareTo(RotatedAt.From, (a, b) => a < b, (a, b) => a > b, (a, b) => a <= b, (a, b) => a >= b);
+        OperatorsAgreeWithCompareTo(EventTypeRegisteredAt.From, (a, b) => a < b, (a, b) => a > b, (a, b) => a <= b, (a, b) => a >= b);
 
         NormalizesWithoutMovingTheInstant(RejectedAt.From, x => x);
         NormalizesWithoutMovingTheInstant(OccurredAt.From, x => x);
@@ -98,5 +101,6 @@ public class TimestampOrderingTests
         NormalizesWithoutMovingTheInstant(RegisteredAt.From, x => x);
         NormalizesWithoutMovingTheInstant(RevokedAt.From, x => x);
         NormalizesWithoutMovingTheInstant(RotatedAt.From, x => x);
+        NormalizesWithoutMovingTheInstant(EventTypeRegisteredAt.From, x => x);
     }
 }
