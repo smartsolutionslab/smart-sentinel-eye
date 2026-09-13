@@ -7,7 +7,8 @@ import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { OverlayEditor } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
 import { problemCode, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { useAuth } from 'react-oidc-context';
 import { Controller, useForm } from 'react-hook-form';
 
 export interface OverlayEditorDialogProps {
@@ -29,6 +30,24 @@ const DEFAULT_INPUT: CreateOverlayDraftInput = {
 
 export function OverlayEditorDialog({ open, onOpenChange }: OverlayEditorDialogProps) {
   const [createOverlayDraft, { isLoading, error, reset: resetMutationState }] = useCreateOverlayDraftMutation();
+
+  // Spec 147 T010. Stable identity, holding the newest token behind a ref —
+  // copied from `CameraDetailPage.tsx:20-38`, including its reasoning.
+  // `OverlayEditor` puts this into a WHEP session's connect effect the same
+  // way `CameraViewer` does, so a fresh function every render would tear that
+  // session down and reconnect it on every render rather than only when the
+  // camera changes — the same failure that silently killed the decode
+  // sampler once already (issue 1889).
+  //
+  // `auth?.` rather than `auth.`: unlike `CameraDetailPage`, this dialog is
+  // exercised in tests with no `<AuthProvider>` in the tree, where
+  // `react-oidc-context`'s real `useAuth()` warns and returns `undefined`
+  // rather than throwing.
+  const auth = useAuth();
+  const accessTokenRef = useRef(auth?.user?.access_token);
+  // eslint-disable-next-line react-hooks/refs -- see above
+  accessTokenRef.current = auth?.user?.access_token;
+  const getToken = useCallback(() => Promise.resolve(accessTokenRef.current ?? null), []);
 
   // Drop any prior backend error when the dialog closes so a stale banner
   // doesn't greet the operator on the next open.
@@ -87,7 +106,7 @@ export function OverlayEditorDialog({ open, onOpenChange }: OverlayEditorDialogP
         <Controller
           control={control}
           name="label"
-          render={({ field }) => <OverlayEditor value={field.value} onChange={field.onChange} />}
+          render={({ field }) => <OverlayEditor value={field.value} onChange={field.onChange} getToken={getToken} />}
         />
         {errors.label?.text?.message !== undefined && (
           <p role="alert" className="text-sm text-accent-fault">
