@@ -156,11 +156,19 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
             $"Resolved text never carried '{expected}' for overlay {overlay} within 10 s.");
     }
 
-    private static async Task WaitUntilResolvableAsync(
-        HttpClient variables, Guid overlay, string variableName)
+    /// <summary>
+    /// <c>internal</c> rather than <c>private</c> so <c>OverlaySnapshotReadinessTests</c>
+    /// (#2201) can drive it directly against a scripted handler. Both this and
+    /// <see cref="ResolvedTextAsync"/> are invisible to every caller but that one and this
+    /// file's own measured test, which passes no <c>ceilingMs</c> and keeps its 30 s
+    /// ceiling unchanged. The widening is deleted once both bodies move into a shared
+    /// fixture.
+    /// </summary>
+    internal static async Task WaitUntilResolvableAsync(
+        HttpClient variables, Guid overlay, string variableName, int ceilingMs = 30_000)
     {
         Stopwatch stopwatch = Stopwatch.StartNew();
-        while (stopwatch.ElapsedMilliseconds < 30_000)
+        while (stopwatch.ElapsedMilliseconds < ceilingMs)
         {
             string resolved = await ResolvedTextAsync(variables, overlay);
 
@@ -176,7 +184,7 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
             $"Overlay {overlay} never became resolvable; the reverse index did not pick it up.");
     }
 
-    private static async Task<string> ResolvedTextAsync(HttpClient variables, Guid overlay)
+    internal static async Task<string> ResolvedTextAsync(HttpClient variables, Guid overlay)
     {
         HttpResponseMessage snapshot = await variables.GetAsync(
             $"/system-variables/snapshot?overlayIdentifier={overlay}");
