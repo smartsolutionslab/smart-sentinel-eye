@@ -7,6 +7,15 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 /// <c>400</c> error — an operator input error is a
 /// <see cref="Shared.Kernel.Result{TValue,TError}"/> failure, not a
 /// thrown exception (ADR-0047).
+///
+/// <para>
+/// That is the operator-facing tier. Underneath it, <see cref="Layout"/>
+/// enforces the same check on itself via
+/// <see cref="Layout.RequireValidGrid"/>, thrown as
+/// <see cref="InvalidOperationException"/> — reached only when a caller
+/// skips the handler's validation, so it is a programmer-error backstop,
+/// not a second operator-facing path.
+/// </para>
 /// </summary>
 public enum GridViolation
 {
