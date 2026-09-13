@@ -333,7 +333,14 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
     unmount();
 
-    expect(FakePeerConnection.lastInstance().closed).toBe(true);
+    expect(FakePeerConnection.lastInstance().closed, 'teardown must not wait on the release').toBe(true);
+
+    // The release is fire-and-forget behind getToken() — at least one
+    // microtask beyond close() returning, so the DELETE cannot have been
+    // issued synchronously with unmount() (WhepClient.close():
+    // releaseSession() awaits getToken() before it ever calls fetch).
+    await flushConnect();
+
     expect(fetchMock).toHaveBeenCalledWith(SESSION_URL_42, expect.objectContaining({ method: 'DELETE' }));
   });
 
