@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -541,7 +540,7 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
         (await OverlayRequests.PostAsync(overlays, overlay, "revisions/1/publish")).EnsureSuccessStatusCode();
 
         await PublishAMunichLayoutReferencingAsync(overlay);
-        await WaitUntilResolvableAsync(variables, overlay, variableName);
+        await OverlaySnapshotReadiness.WaitUntilResolvableAsync(variables, overlay, variableName);
 
         return (variableName, overlay);
     }
@@ -571,34 +570,4 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
         (await LayoutRequests.PostAsync(layouts, layout, "revisions/1/publish")).EnsureSuccessStatusCode();
     }
 
-    /// <summary>
-    /// Until the reverse index knows the overlay, the snapshot renders the
-    /// literal placeholder. Its disappearance is the readiness signal — and
-    /// asserting it over HTTP before touching the hub means a broken fixture
-    /// fails here, differently, rather than as a mystery timeout later.
-    /// </summary>
-    private static async Task WaitUntilResolvableAsync(
-        HttpClient variables, Guid overlay, string variableName)
-    {
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        while (stopwatch.ElapsedMilliseconds < 30_000)
-        {
-            HttpResponseMessage snapshot = await variables.GetAsync(
-                $"/system-variables/snapshot?overlayIdentifier={overlay}");
-            if (snapshot.IsSuccessStatusCode)
-            {
-                JsonElement payload = await snapshot.Content.ReadFromJsonAsync<JsonElement>();
-                string resolved = payload.GetProperty("resolvedText").GetString() ?? string.Empty;
-                if (!resolved.Contains($"{{{{{variableName}}}}}", StringComparison.Ordinal))
-                {
-                    return;
-                }
-            }
-        }
-
-        throw new TimeoutException(
-            string.Create(
-                CultureInfo.InvariantCulture,
-                $"Overlay {overlay} never became resolvable; the reverse index did not pick it up."));
-    }
 }

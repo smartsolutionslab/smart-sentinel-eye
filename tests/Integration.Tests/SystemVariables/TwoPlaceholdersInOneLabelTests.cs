@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.SystemVariables;
@@ -50,15 +48,6 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 [Collection(AspireCollection.Name)]
 public class TwoPlaceholdersInOneLabelTests(AspireFixture aspire) : IAsyncLifetime
 {
-    /// <summary>
-    /// The reverse index is populated by an integration event, so an overlay is
-    /// not resolvable the instant publish returns. 30 s is the ceiling
-    /// <c>NFR_VariableResolutionLatencyTests</c> already uses for the same wait.
-    /// </summary>
-    private const int IndexReadinessCeilingMs = 30_000;
-
-    private const int PollIntervalMs = 200;
-
     public Task InitializeAsync() => aspire.ResetSystemVariablesAsync();
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -75,8 +64,8 @@ public class TwoPlaceholdersInOneLabelTests(AspireFixture aspire) : IAsyncLifeti
         using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
         using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        string first = UniqueVariableName();
-        string second = UniqueVariableName();
+        string first = VariableRequests.UniqueName();
+        string second = VariableRequests.UniqueName();
         await DefineAsync(variables, first);
         await DefineAsync(variables, second);
 
@@ -93,13 +82,13 @@ public class TwoPlaceholdersInOneLabelTests(AspireFixture aspire) : IAsyncLifeti
         // second name still literal *is* the defect — and requiring it here
         // would bury that defect in a 30 s readiness timeout instead of letting
         // the assertion below print the expected and actual strings.
-        await WaitUntilResolvableAsync(variables, overlay, first);
+        await OverlaySnapshotReadiness.WaitUntilResolvableAsync(variables, overlay, first);
 
-        using HttpResponseMessage snapshot = await SnapshotAsync(variables, overlay);
+        using HttpResponseMessage snapshot = await OverlaySnapshotReadiness.SnapshotAsync(variables, overlay);
         string body = await snapshot.Content.ReadAsStringAsync();
 
         snapshot.StatusCode.ShouldBe(HttpStatusCode.OK, body);
-        ResolvedTextIn(body).ShouldBe("Line A: 82.5 / Line B: 91.5");
+        OverlaySnapshotReadiness.ResolvedTextIn(body).ShouldBe("Line A: 82.5 / Line B: 91.5");
     }
 
     /// <summary>
@@ -130,8 +119,8 @@ public class TwoPlaceholdersInOneLabelTests(AspireFixture aspire) : IAsyncLifeti
         using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
         using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        string unset = UniqueVariableName();
-        string valued = UniqueVariableName();
+        string unset = VariableRequests.UniqueName();
+        string valued = VariableRequests.UniqueName();
         await DefineAsync(variables, unset);
         await DefineAsync(variables, valued);
 
@@ -141,13 +130,13 @@ public class TwoPlaceholdersInOneLabelTests(AspireFixture aspire) : IAsyncLifeti
 
         // Only the valued name can ever leave the text; the unset one is the
         // expected output, so it is not part of the readiness signal.
-        await WaitUntilResolvableAsync(variables, overlay, valued);
+        await OverlaySnapshotReadiness.WaitUntilResolvableAsync(variables, overlay, valued);
 
-        using HttpResponseMessage snapshot = await SnapshotAsync(variables, overlay);
+        using HttpResponseMessage snapshot = await OverlaySnapshotReadiness.SnapshotAsync(variables, overlay);
         string body = await snapshot.Content.ReadAsStringAsync();
 
         snapshot.StatusCode.ShouldBe(HttpStatusCode.OK, body);
-        ResolvedTextIn(body).ShouldBe($"Line A: {{{{{unset}}}}} / Line B: 82.5");
+        OverlaySnapshotReadiness.ResolvedTextIn(body).ShouldBe($"Line A: {{{{{unset}}}}} / Line B: 82.5");
     }
 
     /// <summary>
@@ -196,70 +185,4 @@ public class TwoPlaceholdersInOneLabelTests(AspireFixture aspire) : IAsyncLifeti
 
         return overlay;
     }
-
-    /// Polls until the snapshot answers 200 <b>and</b>
-    /// <paramref name="name"/> no longer renders as its literal placeholder.
-    /// The timeout names the variable and the overlay, and quotes the last text
-    /// seen, because an unbooted index and a snapshot loop that stopped early
-    /// otherwise look identical from here.
-    ///
-    /// <para>
-    /// The 200 is half the condition, not a formality. Until the reverse index
-    /// picks the overlay up the endpoint answers 404, and a failed snapshot
-    /// mapped to an empty string would satisfy "no literal remains" trivially —
-    /// so a wait that ignored the status code would return before the index had
-    /// done anything, which is exactly how the first run of this file failed.
-    /// </para>
-    /// </summary>
-    private static async Task WaitUntilResolvableAsync(
-        HttpClient variables, Guid overlay, string name)
-    {
-        string literal = $"{{{{{name}}}}}";
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        string? resolved = null;
-
-        while (stopwatch.ElapsedMilliseconds < IndexReadinessCeilingMs)
-        {
-            resolved = await ResolvedTextAsync(variables, overlay);
-            if (resolved is not null && !resolved.Contains(literal, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            await Task.Delay(PollIntervalMs);
-        }
-
-        throw new TimeoutException(
-            $"Overlay {overlay} never resolved '{name}' within {IndexReadinessCeilingMs} ms; "
-            + $"the last snapshot was {(resolved is null ? "not a 200" : $"'{resolved}'")}. "
-            + "Either the reverse index never picked the overlay up, or the snapshot loop "
-            + "never reached that name.");
-    }
-
-    /// <summary>
-    /// The resolved text, or <c>null</c> when the snapshot did not answer 200 —
-    /// the two are different states and the readiness wait must tell them apart.
-    /// </summary>
-    private static async Task<string?> ResolvedTextAsync(HttpClient variables, Guid overlay)
-    {
-        using HttpResponseMessage snapshot = await SnapshotAsync(variables, overlay);
-        if (!snapshot.IsSuccessStatusCode)
-        {
-            return null;
-        }
-
-        return ResolvedTextIn(await snapshot.Content.ReadAsStringAsync());
-    }
-
-    private static Task<HttpResponseMessage> SnapshotAsync(HttpClient variables, Guid overlay) =>
-        variables.GetAsync($"/system-variables/snapshot?overlayIdentifier={overlay}");
-
-    private static string ResolvedTextIn(string body)
-    {
-        using JsonDocument payload = JsonDocument.Parse(body);
-
-        return payload.RootElement.GetProperty("resolvedText").GetString() ?? string.Empty;
-    }
-
-    private static string UniqueVariableName() => $"v{Guid.NewGuid():N}"[..12];
 }

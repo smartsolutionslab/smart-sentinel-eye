@@ -17,6 +17,9 @@ namespace SmartSentinelEye.Integration.Tests.Fixtures;
 /// </summary>
 internal static class VariableRequests
 {
+    /// <summary>A variable name unique enough not to collide across tests or runs.</summary>
+    internal static string UniqueName() => $"v{Guid.NewGuid():N}"[..12];
+
     internal static async Task<int> VersionAsync(HttpClient variables, string name)
     {
         HttpResponseMessage fetched = await variables.GetAsync($"/system-variables/{name}");
