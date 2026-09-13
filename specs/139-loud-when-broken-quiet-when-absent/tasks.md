@@ -18,7 +18,7 @@ markers are on the two evidence-gathering tasks that read the tree and touch not
 
 ## Foundational — blocks everything
 
-- [ ] **T001** [P] [US-1] **Re-verify the defect is still at the cited lines before
+- [x] **T001** [P] [US-1] **Re-verify the defect is still at the cited lines before
       writing anything.** Branches merge; the spec's line numbers are from
       2026-09-13.
       ```sh
@@ -31,7 +31,7 @@ markers are on the two evidence-gathering tasks that read the tree and touch not
       one the spec recorded. If any differs, **stop and re-plan** — do not adapt
       silently.
 
-- [ ] **T002** [P] [US-1] **Confirm no other branch has taken this file** since phase 3.
+- [x] **T002** [P] [US-1] **Confirm no other branch has taken this file** since phase 3.
       ```sh
       git fetch origin
       git log --all --name-only --pretty=format:'%h %s' -- src/ServiceDefaults/WolverineDefaults.cs | head -20
@@ -40,7 +40,7 @@ markers are on the two evidence-gathering tasks that read the tree and touch not
       does, this becomes a stacked PR and the child must be retargeted to `develop`
       before the parent merges (CLAUDE.md §Stacked PRs).
 
-- [ ] **T003** [US-1] **Open the method for test.** In
+- [x] **T003** [US-1] **Open the method for test.** In
       `src/ServiceDefaults/WolverineDefaults.cs`, change `private static Assembly?
       TryLoadApplicationAssembly` to `internal static`. In
       `src/ServiceDefaults/SmartSentinelEye.ServiceDefaults.csproj`, add the
@@ -61,7 +61,7 @@ markers are on the two evidence-gathering tasks that read the tree and touch not
 > **Agent: `test-writer`.** Writes tests only. Runs them. Returns the **verbatim**
 > output. Does not touch `WolverineDefaults.cs` beyond what T003 already did.
 
-- [ ] **T004** [US-1] **Write the probe harness** in a new file
+- [x] **T004** [US-1] **Write the probe harness** in a new file
       `tests/ServiceDefaults.Tests/WolverineApplicationAssemblyTests.cs`: a
       `sealed class ResolvingProbe : IDisposable` that subscribes a handler to
       `AssemblyLoadContext.Default.Resolving` on construction and unsubscribes on
@@ -75,7 +75,7 @@ markers are on the two evidence-gathering tasks that read the tree and touch not
       3. Unsubscription is in a `finally`/`Dispose`, not at the end of the happy path.
       **Done when:** the file compiles. **Depends on:** T003.
 
-- [ ] **T005** [US-1] **Characterisation — the absent case (expected GREEN).** Test
+- [x] **T005** [US-1] **Characterisation — the absent case (expected GREEN).** Test
       `An_absent_application_assembly_is_not_an_error`: a dynamic `Probe….Infrastructure`
       with **no** resolving handler registered; assert
       `TryLoadApplicationAssembly(probe)` returns `null` and throws nothing.
@@ -83,14 +83,14 @@ markers are on the two evidence-gathering tasks that read the tree and touch not
       guard that FR-001 survives the fix. Say so in the PR.
       **Depends on:** T004.
 
-- [ ] **T006** [US-1] **Characterisation — outside the convention (expected GREEN).**
+- [x] **T006** [US-1] **Characterisation — outside the convention (expected GREEN).**
       Test `An_assembly_outside_the_naming_convention_is_not_probed`: pass an assembly
       whose simple name does not end in `.Infrastructure` (a dynamic
       `Probe….Something`); assert `null`, and assert the resolving handler was **never
       invoked** (a counter in the probe). FR-002.
       **Depends on:** T004.
 
-- [ ] **T007** [US-1] **RED — the corrupt image.** Test
+- [x] **T007** [US-1] **RED — the corrupt image.** Test
       `A_corrupt_application_assembly_fails_the_host`. The probe's handler returns
       `Assembly.Load(new byte[] { 0x01, 0x02, 0x03, 0x04 })`, which the CLR rejects with
       a real `BadImageFormatException` that propagates out of `Assembly.Load(string)` —
@@ -103,7 +103,7 @@ markers are on the two evidence-gathering tasks that read the tree and touch not
       `System.InvalidOperationException` but no exception was thrown*.
       **Depends on:** T004.
 
-- [ ] **T008** [US-1] **RED — the identity mismatch.** Test
+- [x] **T008** [US-1] **RED — the identity mismatch.** Test
       `An_application_assembly_that_is_present_but_unloadable_fails_the_host`. The
       probe's handler returns an assembly whose identity does **not** match the request
       (`typeof(object).Assembly`); the **runtime itself** then raises
@@ -115,7 +115,7 @@ markers are on the two evidence-gathering tasks that read the tree and touch not
       **Must be observed failing**, same expected text as T007.
       **Depends on:** T004.
 
-- [ ] **T009** [US-1] **Run the suite and capture the red verbatim.**
+- [x] **T009** [US-1] **Run the suite and capture the red verbatim.**
       ```sh
       dotnet test tests/ServiceDefaults.Tests/SmartSentinelEye.ServiceDefaults.Tests.csproj \
         --filter FullyQualifiedName~WolverineApplicationAssemblyTests
@@ -137,7 +137,7 @@ markers are on the two evidence-gathering tasks that read the tree and touch not
 > **Agent: `backend-engineer`.** Receives T009's verbatim output as its brief. **May not
 > edit the tests to pass.**
 
-- [ ] **T010** [US-1] **Split the catches.** In
+- [x] **T010** [US-1] **Split the catches.** In
       `src/ServiceDefaults/WolverineDefaults.cs`, replace the `FileLoadException` and
       `BadImageFormatException` catch blocks (currently `:203` and `:207`) with one
       filtered catch that wraps and throws:
@@ -158,7 +158,7 @@ markers are on the two evidence-gathering tasks that read the tree and touch not
       infer; `InnerException` carries the loader's own diagnosis (FR-004).
       **Done when:** FR-003 and FR-004 hold. **Depends on:** T009.
 
-- [ ] **T011** [US-1] **Correct the XML doc comment** on `TryLoadApplicationAssembly`
+- [x] **T011** [US-1] **Correct the XML doc comment** on `TryLoadApplicationAssembly`
       (lines 177–183). *"Returns `null` if no matching assembly is loadable"* is false
       after T010. The replacement must distinguish the two outcomes: `null` for absent,
       throw for present-but-broken.
@@ -166,7 +166,7 @@ markers are on the two evidence-gathering tasks that read the tree and touch not
       is the failure mode this very file diagnoses 130 lines earlier. Do not defer it.
       **Depends on:** T010.
 
-- [ ] **T012** [US-1] **Turn the suite green without touching the tests.**
+- [x] **T012** [US-1] **Turn the suite green without touching the tests.**
       ```sh
       dotnet test tests/ServiceDefaults.Tests/SmartSentinelEye.ServiceDefaults.Tests.csproj
       ```
@@ -176,7 +176,7 @@ markers are on the two evidence-gathering tasks that read the tree and touch not
       fix over-reached into the absent case (CLAUDE.md §Refactors stay green).
       **Depends on:** T010, T011.
 
-- [ ] **T013** [US-1] **Prove nothing else broke.** Build the solution in Release (the
+- [x] **T013** [US-1] **Prove nothing else broke.** Build the solution in Release (the
       analyzer gates only fire there) and run the fast suites.
       ```sh
       dotnet build -c Release
@@ -223,7 +223,7 @@ markers are on the two evidence-gathering tasks that read the tree and touch not
 
 ## Phase 6 — QA
 
-- [ ] **T016** [US-1] **`/code-review`** with `backend-reviewer`. Specific things to put
+- [x] **T016** [US-1] **`/code-review`** with `backend-reviewer`. Specific things to put
       in front of it, because they are the judgement calls rather than the mechanics:
       the throw-vs-log decision and whether the reviewer agrees no ADR is needed; whether
       the exception message stands alone given it may reach stderr only; whether the
