@@ -411,14 +411,13 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
     /// the two it was still missing.
     ///
     /// <para>
-    /// The shape is
-    /// <c>TwoPlaceholdersInOneLabelTests.WaitUntilResolvableAsync</c>'s, not
-    /// <c>NFR_VariableResolutionLatencyTests.WaitUntilResolvableAsync</c>'s —
-    /// that one maps a non-200 to an empty string, so it returns on its first
-    /// iteration against a 404, and it has no delay so it would spin if it ever
-    /// looped (#2201). The distinction matters more here than anywhere: a
-    /// readiness check that returns early does not merely wait less, it moves
-    /// set-up work into the first measured sample.
+    /// The shape matches <c>OverlaySnapshotReadiness.WaitUntilResolvableAsync</c> (#2201),
+    /// which <c>NFR_VariableResolutionLatencyTests</c>, <c>TwoPlaceholdersInOneLabelTests</c>
+    /// and <c>ResolvedTextReachesItsFabTests</c> now all share — this method stays its own,
+    /// separate implementation because it waits on a different endpoint
+    /// (<c>GET /system-variables/{name}</c>, not the snapshot), but the reason the shape
+    /// matters is identical: a readiness check that returns early does not merely wait
+    /// less, it moves set-up work into the first measured sample.
     /// </para>
     /// </summary>
     private static async Task WaitForValueAsync(
