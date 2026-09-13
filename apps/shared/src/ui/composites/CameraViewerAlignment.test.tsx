@@ -104,6 +104,49 @@ function videoStatWithout(...absent: readonly string[]): Map<string, unknown> {
 const audioOnlyReport = (): Map<string, unknown> =>
   new Map<string, unknown>([['a', { type: 'inbound-rtp', kind: 'audio', framesDecoded: 200 }]]);
 
+/**
+ * Issue #2189. A receiver statistics report whose lag-relevant counters
+ * **advance on every call**, unlike {@link videoStatWithout}'s constants.
+ *
+ * <p>
+ * `lagBetween` and `bufferDelayBetween` answer null unless
+ * `jitterBufferEmittedCount` and `framesDecoded` increase between samples and
+ * the two delay totals do not go backwards (`wallAlignment.ts:169-179,
+ * 201-209`) — needed so `onLagMeasured` is ever reached at all. A case built
+ * on the constant fixture would leave `onLagMeasured` unreached and every
+ * assertion about it vacuously true, which is exactly the failure mode this
+ * file's other doubles already guard against.
+ * </p>
+ */
+function advancingVideoStat(): () => Promise<Map<string, unknown>> {
+  let framesDecoded = 200;
+  let jitterBufferEmittedCount = 200;
+  let jitterBufferDelay = 2.5;
+  let totalProcessingDelay = 1.25;
+  return () => {
+    framesDecoded += 30;
+    jitterBufferEmittedCount += 30;
+    jitterBufferDelay += 0.05;
+    totalProcessingDelay += 0.02;
+    return Promise.resolve(
+      new Map<string, unknown>([
+        [
+          'v',
+          {
+            type: 'inbound-rtp',
+            kind: 'video',
+            jitterBufferDelay,
+            jitterBufferEmittedCount,
+            totalProcessingDelay,
+            totalDecodeTime: 0.5,
+            framesDecoded,
+          },
+        ],
+      ]),
+    );
+  };
+}
+
 describe('CameraViewer when alignment fails', () => {
   let infoSpy: MockInstance<typeof console.info>;
 
@@ -439,5 +482,229 @@ describe('CameraViewer when alignment fails', () => {
     );
 
     expect(resilienceLines('playout-target-unsupported')).toHaveLength(1);
+  });
+
+  /**
+   * Issue #2189 / spec 140. **A thrown `getStats` used to vanish, forever, on
+   * every tick** — both samplers wrapped their whole async IIFE in
+   * `.catch(() => undefined)`. This is the decode sampler's half: R2 below is
+   * its independent twin, and R3/R4/R5 the cadence and scoping this reporting
+   * must hold.
+   *
+   * <p>
+   * Spec 140 §*Decision* 4: two transitions, not one — `decode-sampler-failed`
+   * names the `SFU → kiosk decode` leg. Cadence and detail shape follow #2084's
+   * `countReportableSkew` (quoted in the plan): report the first failure and
+   * every failure count that is a power of ten thereafter, never every tick.
+   * </p>
+   */
+  it('Says so when reading the tile lag throws', async () => {
+    const { container } = render(
+      <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} onLagMeasured={() => {}} />,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+
+    // Asserted BEFORE the outcome, per this file's convention: a double never
+    // reached would make every later assertion true of a component that did
+    // nothing.
+    expect(statsThrows, 'the lag sampler must actually have run').toHaveBeenCalled();
+
+    // 2 000 ms interval, 20 000 ms advanced: 10 ticks, decade boundaries at 1
+    // and 10 (plan §*The tick arithmetic*).
+    const failed = resilienceLines('lag-sampler-failed');
+    expect(failed).toHaveLength(2);
+    expect(failed[0]![1]).toEqual({
+      subsystem: 'stream',
+      transition: 'lag-sampler-failed',
+      cameraIdentifier: 'cam-42',
+      count: 1,
+      reason: 'getStats exploded',
+    });
+    expect(failed[1]![1]).toEqual({
+      subsystem: 'stream',
+      transition: 'lag-sampler-failed',
+      cameraIdentifier: 'cam-42',
+      count: 10,
+      reason: 'getStats exploded',
+    });
+
+    // Spec 140 FR-009 / ADR-0128 FR-013: reporting must not cost the picture.
+    expect(container.querySelector('video')).not.toBeNull();
+  });
+
+  /**
+   * Issue #2189 / spec 140, R2. The decode sampler's own report, on a page
+   * that never asked for lag at all — proving the decode half fails and
+   * reports independently of `onLagMeasured`, and that the lag interval does
+   * not start (and so cannot report) when nobody passed a callback
+   * (`CameraViewer.tsx:204-207`, FR-004).
+   */
+  it('Says so when the decode sampler throws on a page with no wall', async () => {
+    render(<CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+
+    expect(statsThrows, 'the decode sampler must actually have run').toHaveBeenCalled();
+
+    // 5 000 ms interval, 20 000 ms advanced: 4 ticks, only the first decade
+    // boundary (1) is reached (plan §*The tick arithmetic*).
+    const failed = resilienceLines('decode-sampler-failed');
+    expect(failed).toHaveLength(1);
+    expect(failed[0]![1]).toEqual({
+      subsystem: 'stream',
+      transition: 'decode-sampler-failed',
+      cameraIdentifier: 'cam-42',
+      count: 1,
+      reason: 'getStats exploded',
+    });
+
+    expect(resilienceLines('lag-sampler-failed')).toHaveLength(0);
+  });
+
+  /**
+   * Issue #2189 / spec 140, R3. **The case a single shared counter would
+   * fail.** Spec §*Decision* 2 argues two independent refs rather than one,
+   * because the lag sampler runs `onLagMeasured` — the wall's own code, which
+   * the decode sampler never touches — and the two observe different §IV
+   * legs. A stats read that succeeds but a wall callback that always throws
+   * must report only `lag-sampler-failed`, never `decode-sampler-failed`.
+   *
+   * <p>
+   * Needs the advancing fixture: the constant one leaves `lagBetween` and
+   * `bufferDelayBetween` null forever, so `onLagMeasured` would never be
+   * reached and the case would be vacuous.
+   * </p>
+   */
+  it('A sampler that fails does not silence the other', async () => {
+    statsBehaviour = advancingVideoStat();
+    const onLagMeasuredThrows = vi.fn(() => {
+      throw new Error('wall callback exploded');
+    });
+
+    render(
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={() => Promise.resolve('token')}
+        onLagMeasured={onLagMeasuredThrows}
+      />,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+
+    // Asserted BEFORE the verdicts: a callback never reached would make "no
+    // decode-sampler-failed line" true of a component that measured nothing.
+    expect(onLagMeasuredThrows, 'the wall callback must actually have run').toHaveBeenCalled();
+
+    expect(resilienceLines('lag-sampler-failed').length).toBeGreaterThanOrEqual(1);
+    expect(resilienceLines('decode-sampler-failed')).toHaveLength(0);
+  });
+
+  /**
+   * Issue #2189 / spec 140, R4. **Bounds a permanently broken sampler to a
+   * decade cadence** — the case a naive log-every-tick fix fails. 200 000 ms
+   * at the lag sampler's 2 000 ms interval is 100 ticks; the decade boundaries
+   * are 1, 10 and 100, and nothing else (plan §*The tick arithmetic*).
+   */
+  it('Bounds a permanently broken sampler to a decade cadence', async () => {
+    render(
+      <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} onLagMeasured={() => {}} />,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200_000);
+    });
+
+    expect(statsThrows, 'the lag sampler must actually have run').toHaveBeenCalled();
+
+    const failed = resilienceLines('lag-sampler-failed');
+    expect(failed.map((call) => (call[1] as { count: unknown }).count)).toEqual([1, 10, 100]);
+  });
+
+  /**
+   * Issue #2189 / spec 140, R5. **A flap is not a new fault.** The counter
+   * lives at component scope (spec §*Decision* 2, mirroring
+   * `reportedMissingFieldsRef`'s own scoping argument), so a tile that goes
+   * `live → reconnecting → live` must continue counting from where it left
+   * off rather than restart at 1 — an effect-scoped counter would instead emit
+   * a third line here, at the reconnected count 1.
+   *
+   * <p>
+   * Assert on the totals, not on a tick count during the flap: the 5 s
+   * disconnect grace may or may not leave the sampler running, and this case
+   * must not depend on which (plan T007).
+   * </p>
+   */
+  it('Counts across a flap rather than starting again', async () => {
+    render(
+      <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} onLagMeasured={() => {}} />,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    const calledBeforeFlap = statsThrows.mock.calls.length;
+    expect(resilienceLines('lag-sampler-failed'), 'the first live window must have reported 1 and 10').toHaveLength(2);
+
+    await flapThroughReconnect();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+
+    // Asserted BEFORE the totals, per this file's convention: a flap that
+    // never rebuilt the session, or a second live window that never sampled,
+    // would make "still two lines" true of a component that did nothing the
+    // second time.
+    expect(sessions.length, 'the flap must have built a second session').toBeGreaterThan(1);
+    expect(statsThrows.mock.calls.length, 'the second live window must have sampled too').toBeGreaterThan(
+      calledBeforeFlap,
+    );
+
+    // Still exactly 2: the second window's 10 ticks carry the counter from 10
+    // to 20, and the next boundary (100) is nowhere near reached.
+    expect(resilienceLines('lag-sampler-failed')).toHaveLength(2);
+  });
+
+  /**
+   * Issue #2189 / spec 140, G1 (US-2) — **must stay green before and after.**
+   * Pins FR-007: without this guard the fix could be an unconditional
+   * `logResilienceEvent(...)` on every tick, and every kiosk would claim a
+   * permanently broken instrument with the whole suite still green (the
+   * spec-095 review finding on the actuator half, re-applied here). Uses the
+   * advancing fixture so both `stats()` and `onLagMeasured` are actually
+   * reached and actually succeed.
+   */
+  it('Says nothing about a sampler that does not throw', async () => {
+    const advancingStats = vi.fn(advancingVideoStat());
+    statsBehaviour = advancingStats;
+    const onLagMeasured = vi.fn();
+
+    render(
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={() => Promise.resolve('token')}
+        onLagMeasured={onLagMeasured}
+      />,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+
+    // Asserted BEFORE the silence: a sampler or callback never reached is
+    // silent too, and would make this case true of a component that did
+    // nothing.
+    expect(advancingStats, 'the samplers must actually have run').toHaveBeenCalled();
+    expect(onLagMeasured, 'the wall callback must actually have run').toHaveBeenCalled();
+
+    expect(resilienceLines('decode-sampler-failed')).toHaveLength(0);
+    expect(resilienceLines('lag-sampler-failed')).toHaveLength(0);
   });
 });
