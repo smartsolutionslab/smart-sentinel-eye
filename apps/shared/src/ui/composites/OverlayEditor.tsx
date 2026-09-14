@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import type { CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Rnd } from 'react-rnd';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
 import type { ResolvedTextPreview } from '@smart-sentinel-eye/shared/api/systemVariables.api';
@@ -53,6 +53,88 @@ function clamp01(value: number): number {
   if (value > MAX_NORMALIZED) return MAX_NORMALIZED;
   return value;
 }
+
+// Spec 149 §The step grid / §The keyboard map: the two step sizes, the
+// server's size floor, the quantum that keeps repeated presses from
+// drifting in IEEE-754, and the announcement debounce. Reasoning lives in
+// spec.md, not restated here.
+const FINE_STEP = 0.005;
+const COARSE_STEP = 0.05;
+const MIN_NORMALIZED_SIZE = 0.005;
+const QUANTUM = 10_000;
+const ANNOUNCE_DELAY_MS = 500;
+
+const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
+
+function quantize(value: number): number {
+  return Math.round(value * QUANTUM) / QUANTUM;
+}
+
+/**
+ * FR-007, per plan.md §2: quantize, then `clamp01` (the same clamp the drag
+ * path uses), then the reachable-region bound — the `bounds="parent"`
+ * equivalent for a move. `size` is the axis's *other* dimension (width for
+ * an x move, height for a y move).
+ */
+function nudgePosition(current: number, delta: number, size: number): number {
+  const stepped = clamp01(quantize(current + delta));
+  return Math.min(stepped, Math.max(0, 1 - size));
+}
+
+/**
+ * FR-007 + FR-008, per plan.md §2: quantize, `clamp01`, the reachable-region
+ * bound anchored at the axis's origin, then the `NormalizedSize` floor so a
+ * keyboard resize cannot mint a label the server refuses (finding 4).
+ */
+function resizeSize(current: number, delta: number, origin: number): number {
+  const stepped = clamp01(quantize(current + delta));
+  const boundedByCanvas = Math.min(stepped, 1 - origin);
+  return Math.max(boundedByCanvas, MIN_NORMALIZED_SIZE);
+}
+
+type AnnounceAxis = 'x' | 'y' | 'width' | 'height';
+
+const AXIS_ANNOUNCE_LABEL: Record<AnnounceAxis, string> = {
+  x: 'Left',
+  y: 'Top',
+  width: 'Width',
+  height: 'Height',
+};
+
+// FR-015: a normalized value rendered as the percentage an operator can
+// hold in their head, trimmed of trailing zeros ("30%", not "30.00%").
+function formatPercent(value: number): string {
+  return `${Number((value * 100).toFixed(2))}%`;
+}
+
+// FR-016: which edge a refused press hit. Position axes are refused at the
+// canvas edge on either side; size axes are refused at FR-008's floor on
+// the low side and at the canvas edge (the reachable-region bound) on the
+// high side.
+function edgeName(axis: AnnounceAxis, delta: number): string {
+  if (axis === 'x') return delta < 0 ? 'at the left edge' : 'at the right edge';
+  if (axis === 'y') return delta < 0 ? 'at the top edge' : 'at the bottom edge';
+  if (axis === 'width') return delta < 0 ? 'at the minimum' : 'at the right edge';
+  return delta < 0 ? 'at the minimum' : 'at the bottom edge';
+}
+
+function buildAnnouncement(axis: AnnounceAxis, value: number, edge: string | null): string {
+  const base = `${AXIS_ANNOUNCE_LABEL[axis]} ${formatPercent(value)}`;
+  return edge === null ? base : `${base}, ${edge}`;
+}
+
+const OVERLAY_EDITOR_LABEL_INSTRUCTIONS_ID = 'overlay-editor-label-instructions';
+
+// FR-002. Two rings drawn with `outline` (flush against the element, paints
+// on top of `boxShadow` per CSS paint order — the white inner ring) and
+// `boxShadow` (a wider solid extension — the black outer ring underneath
+// it). Never `border` — `OverlayLabelParity.test.tsx` pins the label's
+// border empty against the wall in every state.
+const FOCUS_RING_STYLE: CSSProperties = {
+  outline: '2px solid #ffffff',
+  outlineOffset: 0,
+  boxShadow: '0 0 0 4px #000000',
+};
 
 // FR-002, byte-for-byte. Pinned by `OverlayEditorCharacterisation.test.tsx`
 // (T001) — a mangled rebase against #2354 fails that test loudly.
@@ -112,18 +194,115 @@ export function OverlayEditor({
   const pixelWidth = Math.max(value.normalizedWidth * canvasWidthPx, 24);
   const pixelHeight = Math.max(value.normalizedHeight * canvasHeightPx, 16);
 
-  const emitGeometry = useCallback(
-    (xPx: number, yPx: number, widthPx: number, heightPx: number) => {
+  // T005: the single place that builds the `onChange` payload. `clamp01` is
+  // the one clamp both the drag and keyboard paths call — the drag path's
+  // pixel-derived values need it as their only bound (unchanged, FR-011);
+  // the keyboard path's values are already bounded tighter by `nudgePosition`
+  // / `resizeSize` before they arrive here, so `clamp01` is a no-op on them.
+  const emitNormalized = useCallback(
+    (nextX: number, nextY: number, nextWidth: number, nextHeight: number) => {
       onChange({
         ...value,
-        normalizedX: clamp01(xPx / canvasWidthPx),
-        normalizedY: clamp01(yPx / canvasHeightPx),
-        normalizedWidth: clamp01(widthPx / canvasWidthPx),
-        normalizedHeight: clamp01(heightPx / canvasHeightPx),
+        normalizedX: clamp01(nextX),
+        normalizedY: clamp01(nextY),
+        normalizedWidth: clamp01(nextWidth),
+        normalizedHeight: clamp01(nextHeight),
       });
     },
-    [canvasWidthPx, canvasHeightPx, onChange, value],
+    [onChange, value],
   );
+
+  const emitGeometry = useCallback(
+    (xPx: number, yPx: number, widthPx: number, heightPx: number) => {
+      emitNormalized(xPx / canvasWidthPx, yPx / canvasHeightPx, widthPx / canvasWidthPx, heightPx / canvasHeightPx);
+    },
+    [canvasWidthPx, canvasHeightPx, emitNormalized],
+  );
+
+  // FR-002/FR-003: driven by onFocus/onBlur, not `:focus-visible` — the file
+  // is inline-styled throughout and a pseudo-class cannot be expressed
+  // inline. A mouse click also raises the ring; that is deliberate (spec.md
+  // FR-003).
+  const [isLabelFocused, setIsLabelFocused] = useState(false);
+
+  // FR-015/016/017: one debounced live-region message. The timer is reset on
+  // every handled keypress so a burst produces exactly one announcement.
+  const [liveMessage, setLiveMessage] = useState('');
+  const announceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const queueAnnouncement = useCallback((message: string) => {
+    if (announceTimerRef.current !== null) {
+      clearTimeout(announceTimerRef.current);
+    }
+    announceTimerRef.current = setTimeout(() => {
+      setLiveMessage(message);
+      announceTimerRef.current = null;
+    }, ANNOUNCE_DELAY_MS);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (announceTimerRef.current !== null) {
+        clearTimeout(announceTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  // FR-004–FR-009: the one `onKeyDown` on the label. Non-arrow keys, and
+  // Alt/Meta held with an arrow, are left entirely alone (spec.md §The
+  // keyboard map — Alt+arrow stays browser Back/Forward).
+  const handleLabelKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (!ARROW_KEYS.has(event.key)) return;
+      if (event.altKey || event.metaKey) return;
+      event.preventDefault();
+
+      const step = event.shiftKey ? COARSE_STEP : FINE_STEP;
+      const resizing = event.ctrlKey;
+      const sign = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 1;
+      const delta = sign * step;
+
+      let nextX = value.normalizedX;
+      let nextY = value.normalizedY;
+      let nextWidth = value.normalizedWidth;
+      let nextHeight = value.normalizedHeight;
+      let axis: AnnounceAxis;
+      let announceValue: number;
+      let refused: boolean;
+
+      if (resizing) {
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          axis = 'width';
+          nextWidth = resizeSize(value.normalizedWidth, delta, value.normalizedX);
+          announceValue = nextWidth;
+          refused = nextWidth === value.normalizedWidth;
+        } else {
+          axis = 'height';
+          nextHeight = resizeSize(value.normalizedHeight, delta, value.normalizedY);
+          announceValue = nextHeight;
+          refused = nextHeight === value.normalizedHeight;
+        }
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        axis = 'x';
+        nextX = nudgePosition(value.normalizedX, delta, value.normalizedWidth);
+        announceValue = nextX;
+        refused = nextX === value.normalizedX;
+      } else {
+        axis = 'y';
+        nextY = nudgePosition(value.normalizedY, delta, value.normalizedHeight);
+        announceValue = nextY;
+        refused = nextY === value.normalizedY;
+      }
+
+      emitNormalized(nextX, nextY, nextWidth, nextHeight);
+      queueAnnouncement(buildAnnouncement(axis, announceValue, refused ? edgeName(axis, delta) : null));
+    },
+    [value, emitNormalized, queueAnnouncement],
+  );
+
+  // FR-012: named by its own text, falling back to a fixed, non-empty name.
+  const accessibleLabelName = value.text.length > 0 ? `Overlay label: ${value.text}` : 'Overlay label (no text set)';
 
   // Neither of these is lifted into `OverlayLabel` — `onChange` fires only for
   // text, font size and geometry, exactly as today (FR-005). The preview
@@ -182,14 +361,36 @@ export function OverlayEditor({
           onResizeStop={(_e, _dir, ref, _delta, position) =>
             emitGeometry(position.x, position.y, ref.offsetWidth, ref.offsetHeight)
           }
+          tabIndex={0}
+          data-testid="overlay-editor-label"
+          role="application"
+          aria-roledescription="Overlay label"
+          aria-label={accessibleLabelName}
+          aria-describedby={OVERLAY_EDITOR_LABEL_INSTRUCTIONS_ID}
+          onKeyDown={handleLabelKeyDown}
+          onFocus={() => setIsLabelFocused(true)}
+          onBlur={() => setIsLabelFocused(false)}
           style={{
             ...overlayLabelSurfaceStyle(value),
             cursor: 'move',
             userSelect: 'none',
+            ...(isLabelFocused ? FOCUS_RING_STYLE : {}),
           }}
         >
           <span data-testid="overlay-editor-preview">{previewText || ' '}</span>
         </Rnd>
+      </div>
+      {/* FR-014/FR-015, plan.md §6 — siblings below the canvas `div`, not
+          inside `<Rnd>`: `OverlayLabelParity.test.tsx` reaches the label
+          through `overlay-editor-preview`'s `parentElement`, and PR #2360
+          rewrites that same `<span>`. Keeping the `<Rnd>` subtree to its one
+          existing child keeps both out of the way. */}
+      <p id={OVERLAY_EDITOR_LABEL_INSTRUCTIONS_ID} className="sr-only">
+        Arrow keys move this label; hold Shift for a larger step. Hold Ctrl with an arrow key to resize from the
+        top-left corner; add Shift for a larger resize step.
+      </p>
+      <div aria-live="polite" className="sr-only">
+        {liveMessage}
       </div>
       <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
