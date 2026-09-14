@@ -201,16 +201,36 @@ resolveOverlayText: builder.query<ResolvedTextPreview, ResolveTextInput>({ ... }
 would invalidate it on every unrelated variable write for no benefit. This is a deliberate
 departure from the slice's other reads and the reason is written at the call site.
 
-**In `OverlayEditor.tsx`:**
+**In `OverlayEditorDialog.tsx`** — corrected during phase 4a; this originally said
+`OverlayEditor.tsx` and that does not work:
 
 ```ts
-const settledText = useDebouncedValue(value.text);            // DEBOUNCE_MS = 250
+const settledText = useDebouncedValue(label.text);            // DEBOUNCE_MS = 250
 const shouldResolve = settledText.includes('{{');
 const { data, isFetching, isError } = useResolveOverlayTextQuery(
   { text: settledText },
   { skip: !shouldResolve },
 );
 ```
+
+The results pass down into `OverlayEditor` as props (`resolvedPreview`, `isResolving`,
+`resolveFailed`); `OverlayEditor` itself stays Redux-free.
+
+**Why the query cannot live in `OverlayEditor`.** Three suites render it bare, with no
+Redux `<Provider>` — `OverlayEditorCharacterisation.test.tsx`,
+`OverlayEditorBackdrop.test.tsx` and `OverlayLabelParity.test.tsx` — because until this
+spec the component had no RTK Query dependency at all. Mounting the hook there fails all
+three with *"could not find react-redux context value"*, 19 previously-green tests. Two of
+those files are the characterisation baseline for specs 146 and 147, so wrapping them in a
+`<Provider>` to make the hook fit would edit the very assertions that prove those refactors
+did not move behaviour — CLAUDE.md: *an assertion that has to be edited is evidence the
+behaviour moved: block, don't adjust.*
+
+`OverlayEditorDialog` already has a `<Provider>` in its own test (it consumes
+`useCreateOverlayDraftMutation`), so the real application path is unaffected either way.
+Lifting the query is also the better shape on its own terms: `OverlayEditor` lives in
+`apps/shared`, consumed by two apps, and a shared presentational component should not
+assume a Redux store exists.
 
 Three constraints, each with its reason:
 
