@@ -10,6 +10,7 @@ const editDraftMock = vi.fn(async (_body: unknown) => ({ data: 2 }));
 
 // Set per test so the error banner can be exercised; the mutation hooks are
 // module-level mocks and cannot take arguments.
+let createError: unknown = undefined;
 let editError: unknown = undefined;
 const refetchChainMock = vi.fn();
 
@@ -17,8 +18,18 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/layouts.api')>();
   return {
     ...actual,
-    useCreateLayoutDraftMutation: () => [createDraftMock, { isLoading: false, error: editError, reset: vi.fn() }],
-    useEditDraftRevisionMutation: () => [editDraftMock, { isLoading: false, error: editError, reset: vi.fn() }],
+    // Real behaviour, not a spy stub: `reset()` clears the module-level error
+    // variable it corresponds to, so a test can tell "the wrong mutation's
+    // reset ran" from "the right one did" — a `vi.fn()` that does nothing
+    // cannot express that distinction (mirrors OverlayEditorDialog.test.tsx).
+    useCreateLayoutDraftMutation: () => [
+      createDraftMock,
+      { isLoading: false, error: createError, reset: vi.fn(() => (createError = undefined)) },
+    ],
+    useEditDraftRevisionMutation: () => [
+      editDraftMock,
+      { isLoading: false, error: editError, reset: vi.fn(() => (editError = undefined)) },
+    ],
     // The dialog reads the chain back to learn its current version; the page
     // branched a draft just before opening, so the version it held is stale.
     // Both `data` and `currentData` are supplied, set to the SAME object —
@@ -124,7 +135,7 @@ describe('LayoutEditorDialog — create', () => {
     createDraftMock.mockClear();
     editDraftMock.mockClear();
     refetchChainMock.mockClear();
-    editError = undefined;
+    createError = undefined;
   });
 
   it('Starts on a 1×1 grid with a name input and one camera picker', () => {
@@ -245,6 +256,7 @@ describe('LayoutEditorDialog — edit', () => {
     createDraftMock.mockClear();
     editDraftMock.mockClear();
     refetchChainMock.mockClear();
+    createError = undefined;
     editError = undefined;
   });
 
@@ -285,6 +297,53 @@ describe('LayoutEditorDialog — edit', () => {
     const body = editDraftMock.mock.calls[0]![0] as { tiles: Array<{ cameraIdentifier: string }> };
     expect(body.tiles[1]!.cameraIdentifier).toBe(CAMERA_A);
   });
+
+  /**
+   * Issue #2371. `LayoutsPage.tsx:335` drives this dialog's edit instance as
+   * `open={editTarget !== undefined}`, so `isEdit` and `open` fall together on
+   * close — not an unmount and a fresh mount, but the same component driven
+   * A → undefined → B. `LayoutEditorDialog.tsx:92`'s close effect selects the
+   * mutation state to reset by `isEdit`, which by the time the effect runs is
+   * already `false`, so it resets `createState` and never `editState`. A
+   * refused edit's banner then survives into the next open, on a different
+   * draft, where the offered Reload cannot even address it (it refetches the
+   * new draft's chain).
+   */
+  it('Does not carry a refused layout edit banner over to a different draft after closing', async () => {
+    editError = {
+      status: 409,
+      data: { title: 'LAYOUT_REVISION_NOT_DRAFT', detail: 'Revision 2 of Rolling Mill is no longer a draft.' },
+    };
+    const { rerender } = renderDialog(editTarget);
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+
+    // Close — `open` and `editTarget` fall together, as LayoutsPage.tsx
+    // always drives them.
+    rerender(
+      <Provider store={store}>
+        <LayoutEditorDialog open={false} onOpenChange={() => {}} editTarget={undefined} />
+      </Provider>,
+    );
+
+    const OTHER_TARGET: LayoutEditTarget = {
+      layoutIdentifier: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+      revisionNumber: 4,
+      name: 'Furnace Hall',
+      grid: { rows: 1, cols: 1 },
+      tiles: [{ cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 0 }],
+    };
+    // Reopen on an unrelated draft that was never refused.
+    rerender(
+      <Provider store={store}>
+        <LayoutEditorDialog open={true} onOpenChange={() => {}} editTarget={OTHER_TARGET} />
+      </Provider>,
+    );
+
+    // B's form must actually have seeded before the alert is asked about — a
+    // rerender that silently did not take could otherwise pass vacuously.
+    expect(await screen.findByRole('combobox', { name: /camera/i })).toHaveValue(CAMERA_B);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
 });
 
 /**
@@ -304,6 +363,7 @@ describe('Conflict copy (spec 012 T050)', () => {
 
   beforeEach(() => {
     refetchChainMock.mockClear();
+    createError = undefined;
     editError = undefined;
   });
 
@@ -340,7 +400,7 @@ describe('Conflict copy (spec 012 T050)', () => {
   // retrying *is* the right advice — with a different name. Keying the copy on
   // the status alone would have handed the operator a reload prompt instead.
   it('Keeps retry wording, and offers no reload, for a name collision', async () => {
-    editError = {
+    createError = {
       status: 409,
       data: { title: 'LAYOUT_NAME_TAKEN', detail: "A layout named 'Cnc-Hall' already exists." },
     };
