@@ -229,8 +229,14 @@ test('operator drags a label, undoes it, and undoes back to the saved geometry',
   // assertions at once. `toBeDisabled()` would be no better the other way:
   // it passes on `aria-disabled` alone even if the native property regressed
   // to `true`, which is exactly the regression this test exists to catch.
-  // Both properties are read directly instead of through either matcher.
-  expect(await undoButton.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
+  // Both properties are read directly instead of through either matcher. The
+  // element is cast through `unknown` to a structural `{ disabled: boolean }`
+  // rather than typed `HTMLButtonElement` — `eslint.config.js`'s `e2e/**`
+  // globals declare `document`/`window`/`Element` but not the per-tag DOM
+  // lib types, and widening that list to reach green is the gate-weakening
+  // ADR-0144 rules out; routing around it here is the same call already
+  // made for `apps/shared` and `apps/management-web`'s own eslint configs.
+  expect(await undoButton.evaluate((el) => (el as unknown as { disabled: boolean }).disabled)).toBe(false);
   await undoButton.focus();
   expect(await undoButton.evaluate((el) => document.activeElement === el)).toBe(true);
 
