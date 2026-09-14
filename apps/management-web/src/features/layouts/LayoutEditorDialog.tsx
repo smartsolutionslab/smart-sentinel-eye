@@ -62,7 +62,26 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   // Reading it back rather than inferring "+1" keeps the client from doing
   // arithmetic on server state -- and still fails correctly if another
   // operator moves the chain while the dialog is open.
-  const { data: currentChain, refetch: refetchChain } = useGetLayoutQuery(editTarget?.layoutIdentifier ?? skipToken);
+  //
+  // `currentData`, never `data` (spec 153): `data` is RTK Query's last
+  // successful result for ANY argument this hook has ever been called with,
+  // so it survives a `skipToken` step and an argument change. This dialog
+  // stays permanently mounted in `LayoutsPage` and is driven
+  // `editTarget: A -> undefined -> B` on the same component -- not an
+  // unmount and a fresh mount -- so `data` would hand layout B's dialog
+  // layout A's chain, including A's version, before B's own GET has ever
+  // answered. `currentData` resets on both, which is what "re-read", not
+  // "reused", requires.
+  //
+  // `refetchOnMountOrArgChange`: without it a reopen within the 60s cache
+  // window answers from cache with no request, which makes FR-003's "re-read
+  // from the server" only sometimes true.
+  const {
+    currentData: currentChain,
+    isError: chainFailed,
+    isFetching: chainFetching,
+    refetch: refetchChain,
+  } = useGetLayoutQuery(editTarget?.layoutIdentifier ?? skipToken, { refetchOnMountOrArgChange: true });
   const { isLoading, error, reset: resetMutationState } = isEdit ? editState : createState;
 
   // Drop any prior backend error when the dialog closes so a stale banner
@@ -180,6 +199,8 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   const onSubmit = handleSubmit(async (value) => {
     const tiles = tilesFromCells(value.cells);
     if (editTarget !== undefined) {
+      // FR-002: Save is disabled until `currentChain` resolves, so this is
+      // defensive rather than reachable through the UI.
       if (currentChain === undefined) return;
       const result = await editDraftRevision({
         layoutIdentifier: editTarget.layoutIdentifier,
@@ -323,18 +344,33 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
           cameraFilterActive={filtering}
           cameraNoticeId={cameraNoticeId}
         />
-        {backendError !== null && (
+        {/*
+          One alert at a time, never two siblings: a failed chain read takes
+          priority, because it blocks Save outright and a `backendError` still
+          on screen from a prior submit is stale the moment the chain can no
+          longer even be confirmed current (mirrors OverlayEditorDialog.tsx).
+        */}
+        {isEdit && chainFailed ? (
           <p role="alert" className="text-sm text-accent-fault">
-            {backendError}{' '}
-            {staleConflict && (
-              // Reload, never retry. Refetching the chain replaces the version
-              // the dialog would resubmit with the one the other writer left,
-              // so the operator reapplies against what is actually stored.
-              <button type="button" className="underline" onClick={() => void refetchChain()}>
-                Reload
-              </button>
-            )}
+            The layout could not be read.{' '}
+            <button type="button" className="underline" onClick={() => void refetchChain()}>
+              Retry
+            </button>
           </p>
+        ) : (
+          backendError !== null && (
+            <p role="alert" className="text-sm text-accent-fault">
+              {backendError}{' '}
+              {staleConflict && (
+                // Reload, never retry. Refetching the chain replaces the version
+                // the dialog would resubmit with the one the other writer left,
+                // so the operator reapplies against what is actually stored.
+                <button type="button" className="underline" onClick={() => void refetchChain()}>
+                  Reload
+                </button>
+              )}
+            </p>
+          )
         )}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
@@ -350,8 +386,21 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
 
             `knownCameras` only ever grows, so it answers the question actually
             being asked: has this dialog ever seen a camera.
+
+            The `isEdit && (currentChain === undefined || chainFetching)`
+            half is FR-002: a version that has not been read, or is being
+            re-read, must never be the one Save submits. `chainFetching`
+            covers Reload (`refetchChain()`) keeping the dialog subscribed —
+            the one case where `currentData` genuinely stays stale while a
+            fetch for the same argument is in flight (verified in phase 4a
+            against a real store; not pinned by any test in this repo, so
+            its 412-not-wrong-write outcome is recorded here rather than
+            asserted).
           */}
-          <Button type="submit" disabled={isLoading || knownCameras.size === 0}>
+          <Button
+            type="submit"
+            disabled={isLoading || knownCameras.size === 0 || (isEdit && (currentChain === undefined || chainFetching))}
+          >
             {isLoading ? 'Saving…' : isEdit ? 'Save draft' : 'Save as draft'}
           </Button>
         </div>
