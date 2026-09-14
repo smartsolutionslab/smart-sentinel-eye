@@ -33,7 +33,14 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
     ...actual,
     useCreateLayoutDraftMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false, reset: vi.fn() }],
     useEditDraftRevisionMutation: () => [vi.fn(async () => ({ data: 2 })), { isLoading: false, reset: vi.fn() }],
-    useGetLayoutQuery: () => ({ data: undefined, isLoading: false, refetch: vi.fn() }),
+    useGetLayoutQuery: () => ({
+      data: undefined,
+      currentData: undefined,
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    }),
   };
 });
 
