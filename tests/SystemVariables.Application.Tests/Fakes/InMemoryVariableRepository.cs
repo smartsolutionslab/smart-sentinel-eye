@@ -28,6 +28,14 @@ public sealed class InMemoryVariableRepository : IVariableRepository
         return Task.FromResult(found is null ? Option<Variable>.None : Option<Variable>.Some(found));
     }
 
+    public Task<bool> ExistsIncludingArchivedAsync(FabIdentifier fab, VariableName name, CancellationToken cancellationToken)
+    {
+        Ensure.That(fab).IsNotNull();
+        Ensure.That(name).IsNotNull();
+        bool exists = _variables.Any(v => v.Fab == fab && v.Name == name);
+        return Task.FromResult(exists);
+    }
+
     public void Add(Variable variable)
     {
         Ensure.That(variable).IsNotNull();
