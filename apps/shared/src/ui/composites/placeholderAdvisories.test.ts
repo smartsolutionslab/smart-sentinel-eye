@@ -70,7 +70,7 @@ describe('placeholderAdvisories (spec 148 US1 — server-reported outcomes)', ()
   it('Reports an Archived reference distinctly from Unknown and Unset', () => {
     const response: ResolvedTextPreview = {
       resolvedText: '{{oldOne}}',
-      placeholders: [{ name: 'oldOne', outcome: 'Archived', fab: 'munich', renderedValue: null }],
+      placeholders: [{ name: 'oldOne', outcome: 'Archived', fab: null, renderedValue: null }],
     };
 
     const rows = placeholderAdvisories('{{oldOne}}', response);
@@ -79,7 +79,7 @@ describe('placeholderAdvisories (spec 148 US1 — server-reported outcomes)', ()
       {
         kind: 'archived',
         reference: 'oldOne',
-        message: 'oldOne was archived in munich. It will render as {{oldOne}}.',
+        message: 'oldOne was archived in your fab(s). It will render as {{oldOne}}.',
       },
     ]);
   });
@@ -90,7 +90,7 @@ describe('placeholderAdvisories (spec 148 US1 — server-reported outcomes)', ()
       placeholders: [
         { name: 'temperature', outcome: 'Resolved', fab: 'munich', renderedValue: '23.4' },
         { name: 'shift', outcome: 'Unset', fab: 'munich', renderedValue: null },
-        { name: 'oldOne', outcome: 'Archived', fab: 'munich', renderedValue: null },
+        { name: 'oldOne', outcome: 'Archived', fab: null, renderedValue: null },
         { name: 'temperatuer', outcome: 'Unknown', fab: null, renderedValue: null },
       ],
     };
