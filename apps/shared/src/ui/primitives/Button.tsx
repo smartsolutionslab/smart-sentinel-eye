@@ -1,10 +1,14 @@
 import { Slot } from '@radix-ui/react-slot';
 import clsx from 'clsx';
-import type { ButtonHTMLAttributes } from 'react';
+import type { ComponentPropsWithRef } from 'react';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+// `ComponentPropsWithRef<'button'>`, not `ButtonHTMLAttributes<HTMLButtonElement>`
+// (spec 156, plan.md §3b): a strict superset that also carries `ref` — React
+// 19.2.8 already passes `ref` through `{...rest}` onto the native element at
+// runtime, so this widening is TypeScript-only and no call site changes.
+export interface ButtonProps extends ComponentPropsWithRef<'button'> {
   variant?: ButtonVariant;
   asChild?: boolean;
 }
