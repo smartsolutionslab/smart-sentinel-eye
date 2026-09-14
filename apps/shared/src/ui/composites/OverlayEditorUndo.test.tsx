@@ -114,11 +114,19 @@ function buildLabel(overrides: Partial<OverlayLabel> = {}): OverlayLabel {
   return { ...BASE_LABEL, ...overrides };
 }
 
+// Phase 6 review finding — Undo/Redo are `aria-disabled`, not natively
+// `disabled`. A native `disabled` attribute makes a browser blur the
+// element the instant it is applied, so undoing to the floor *by mouse*
+// would drop focus to `<body>` — outside the editor root — and `Ctrl+Z`
+// would stop working entirely until the operator clicked back in
+// (FR-007's root-element binding cannot fire on a target it no longer
+// contains focus inside). `aria-disabled` keeps the control focusable and
+// keyboard-reachable; the click handler itself is what must refuse to act.
 // `apps/shared` does not carry `@testing-library/jest-dom`
-// (`OverlayEditorBackdrop.test.tsx`'s own comment) — `.disabled` is read
-// directly off the element.
+// (`OverlayEditorBackdrop.test.tsx`'s own comment), so this is read
+// directly off the element rather than via `toBeDisabled()`.
 function isDisabled(el: HTMLElement): boolean {
-  return (el as HTMLInputElement | HTMLButtonElement).disabled;
+  return el.getAttribute('aria-disabled') === 'true';
 }
 
 function getLabel(): HTMLElement {
@@ -283,7 +291,7 @@ describe('OverlayEditor undo/redo (spec 154, issue #2347)', () => {
       expect(field('Top').value).toBe('30');
     });
 
-    it('A new edit after an undo discards the redo stack, and Ctrl+Shift+Z does nothing', () => {
+    it('A new edit after an undo discards the redo stack, and a refused Ctrl+Shift+Z is announced, not silent', () => {
       render(<ControlledOverlayEditor initial={buildLabel()} />);
 
       act(() => {
@@ -300,6 +308,13 @@ describe('OverlayEditor undo/redo (spec 154, issue #2347)', () => {
       const widthBefore = field('Width').value;
       pressRedo();
       expect(field('Width').value).toBe(widthBefore);
+      // Phase 6 review finding — this used to only pin that the value did
+      // not change, which reads as "Ctrl+Shift+Z does nothing" and endorses
+      // silence as correct. It is not: `handleUndoClick` already announces
+      // a refusal ('Nothing to undo'); `handleRedoClick` must say the
+      // symmetric 'Nothing to redo', not leave the live region holding
+      // whatever it last said.
+      expect(getUndoLiveRegion().textContent).toBe('Nothing to redo');
     });
 
     it('Bad request — undo with nothing to undo changes nothing, calls onChange not at all, and the control is disabled', () => {
@@ -312,6 +327,29 @@ describe('OverlayEditor undo/redo (spec 154, issue #2347)', () => {
       expect(onChange).not.toHaveBeenCalled();
       expect(field('Left').value).toBe('10');
       expect(isDisabled(getUndoButton())).toBe(true);
+    });
+
+    it('A refused Undo stays focusable (aria-disabled, not disabled), and a mouse click on it still no-ops', () => {
+      // The native `disabled` attribute would make this moot: a browser
+      // refuses focus outright on a disabled element and blurs one that
+      // becomes disabled while focused. `aria-disabled` is a purely
+      // advisory ARIA state — the element stays a normal, focusable,
+      // clickable control, which is why the click handler itself, not the
+      // browser, has to be the thing that refuses to act.
+      const onChange = vi.fn();
+      render(<ControlledOverlayEditor initial={buildLabel()} onChangeSpy={onChange} />);
+
+      const undoButton = getUndoButton();
+      expect(isDisabled(undoButton)).toBe(true);
+      expect(undoButton.disabled).toBe(false);
+
+      undoButton.focus();
+      expect(document.activeElement).toBe(undoButton);
+
+      fireEvent.click(undoButton);
+
+      expect(onChange).not.toHaveBeenCalled();
+      expect(field('Left').value).toBe('10');
     });
   });
 
@@ -617,6 +655,42 @@ describe('OverlayEditor undo/redo (spec 154, issue #2347)', () => {
       expect(field('Left').value).toBe('10');
     });
 
+    // Phase 6 review finding — the case the suite above does not present.
+    // `resolvedPreview`'s identity changes there while `value` itself is left
+    // completely alone (still the same reference `ControlledOverlayEditor`'s
+    // own state holds), which catches a detector keyed on the wrong prop or
+    // on "did the component re-render" — but not a detector that compares
+    // `value` by reference *only*, with no structural fallback: that
+    // implementation also survives the test above, because `value` never
+    // moves in it at all. This test is the one that does move `value` — to a
+    // brand-new object carrying the exact same six fields — which is what a
+    // real controlled parent whose own render pipeline clones (RHF's
+    // `Controller`, sourced through `useWatch`) hands back on every one of
+    // its own echoes, not only on a query settling.
+    it('A new object with content identical to the last emission preserves the history (echo-tolerant identity, not reference-only)', () => {
+      const onChange = vi.fn();
+      const { rerender } = render(<OverlayEditor value={buildLabel({ text: 'Furnace' })} onChange={onChange} />);
+
+      act(() => {
+        lastRndProps!.onDragStop({}, { x: 320, y: 135 });
+      });
+      expect(isDisabled(getUndoButton())).toBe(false);
+
+      const emitted = onChange.mock.calls[onChange.mock.calls.length - 1]![0] as OverlayLabel;
+      // A fresh object, never the one the hook itself handed to `onChange`,
+      // but byte-for-byte the same six fields — exactly the shape
+      // `useWatch`'s `generateWatchOutput` produces on every form-state
+      // notification, echoing this hook's own emission back as a new clone.
+      // A reference-only detector (the current implementation) cannot tell
+      // this apart from `OverlayEditorDialog.tsx`'s `reset(defaultValues)`
+      // and clears both stacks here.
+      rerender(<OverlayEditor value={{ ...emitted }} onChange={onChange} />);
+
+      expect(isDisabled(getUndoButton())).toBe(false);
+      fireEvent.click(getUndoButton());
+      expect(field('Left').value).toBe('10');
+    });
+
     it('An uncommitted geometry draft is left alone by undo', () => {
       render(<ControlledOverlayEditor initial={buildLabel()} />);
 
@@ -696,6 +770,48 @@ describe('OverlayEditor undo/redo (spec 154, issue #2347)', () => {
       fireEvent.click(getRedoButton());
 
       expect(getUndoLiveRegion().textContent).toBe('Redone');
+    });
+
+    // Phase 6 review finding — #2344's defect recurring in a file that
+    // already carries its own fix twenty lines above (`OverlayEditor.tsx`'s
+    // `queueAnnouncement`, `lastAnnouncedRef` plus a trailing zero-width-space
+    // toggle). `setUndoMessage('Undone')` with the region already reading
+    // 'Undone' is a same-string write — React bails out and never touches the
+    // DOM — so a screen reader, which only re-announces a polite region when
+    // its text actually *changes*, says nothing on the second of two
+    // consecutive identical outcomes. `MutationObserver.takeRecords()` reads
+    // the pending mutation queue synchronously, so this needs no fake timers
+    // and no `waitFor`.
+    it('A second consecutive identical announcement still reaches the DOM (repeated-announcement bail-out)', () => {
+      render(<ControlledOverlayEditor initial={buildLabel()} />);
+
+      // Two undo steps, so two consecutive undos both succeed and both say
+      // the identical 'Undone' — the exact repeat the bail-out needs.
+      act(() => {
+        lastRndProps!.onDragStop({}, { x: 320, y: 135 });
+      });
+      act(() => {
+        lastRndProps!.onResizeStop({}, 'bottomRight', { offsetWidth: 320, offsetHeight: 54 }, {}, { x: 80, y: 45 });
+      });
+
+      const region = getUndoLiveRegion();
+      // `globalThis.MutationObserver`, not the bare global — this file's
+      // eslint config does not (yet) list it among the DOM globals it
+      // recognizes, and `globalThis` is already one of them.
+      const observer = new globalThis.MutationObserver(() => {});
+      observer.observe(region, { childList: true, characterData: true, subtree: true });
+
+      fireEvent.click(getUndoButton());
+      expect(region.textContent).toBe('Undone');
+      const firstMutations = observer.takeRecords().length;
+      expect(firstMutations).toBeGreaterThan(0);
+
+      fireEvent.click(getUndoButton());
+      expect(region.textContent).toBe('Undone');
+      const secondMutations = observer.takeRecords().length;
+      expect(secondMutations).toBeGreaterThan(0);
+
+      observer.disconnect();
     });
   });
 });
