@@ -12,15 +12,6 @@ namespace SmartSentinelEye.SystemVariables.Application.Tests.Resolution;
 /// every outcome resolves each independently, and the per-placeholder
 /// ordinal fab tiebreak (ADR-0115) is visible on the result rather than only
 /// on the resolved text.
-///
-/// <para>
-/// <b>Phase 4a — RED.</b> <see cref="VariableSnapshotBuilder"/> is a phase-4a
-/// scaffold that always throws <see cref="NotImplementedException"/>
-/// (spec 148 plan.md "The extraction", T002). Every fact below is expected
-/// to fail until T002 moves <c>GetOverlaySnapshotQueryHandler.BuildSnapshotAsync</c>
-/// and <c>FindInAnyFabAsync</c> here and maps their exits onto
-/// <see cref="PlaceholderOutcome"/>.
-/// </para>
 /// </summary>
 public class VariableSnapshotBuilderTests
 {
@@ -77,6 +68,9 @@ public class VariableSnapshotBuilderTests
 
         PlaceholderResolution resolution = resolutions.ShouldHaveSingleItem();
         resolution.Outcome.ShouldBe(PlaceholderOutcome.Unset);
+        // S2 — Unset carries the fab it was found in, same as Resolved
+        // (plan.md:170); nothing pinned this before.
+        resolution.Fab.ShouldBe(Munich);
         resolution.Entry.ShouldBeNull();
     }
 
@@ -97,6 +91,9 @@ public class VariableSnapshotBuilderTests
 
         PlaceholderResolution resolution = resolutions.ShouldHaveSingleItem();
         resolution.Outcome.ShouldBe(PlaceholderOutcome.Archived);
+        // Archived stays null — it is the not-found path, and
+        // ExistsArchivedInAnyFabAsync only ever returns a bool (S2).
+        resolution.Fab.ShouldBeNull();
         resolution.Entry.ShouldBeNull();
     }
 

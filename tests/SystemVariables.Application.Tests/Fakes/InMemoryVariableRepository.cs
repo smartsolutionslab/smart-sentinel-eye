@@ -32,7 +32,7 @@ public sealed class InMemoryVariableRepository : IVariableRepository
     {
         Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
-        bool exists = _variables.Any(v => v.Fab == fab && v.Name == name);
+        bool exists = _variables.Any(variable => variable.Fab == fab && variable.Name == name);
         return Task.FromResult(exists);
     }
 

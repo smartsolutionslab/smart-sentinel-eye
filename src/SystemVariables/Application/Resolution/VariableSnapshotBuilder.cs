@@ -6,15 +6,23 @@ namespace SmartSentinelEye.SystemVariables.Application.Resolution;
 /// <summary>
 /// The resolution loop extracted from
 /// <c>GetOverlaySnapshotQueryHandler.BuildSnapshotAsync</c> +
-/// <c>FindInAnyFabAsync</c> (spec 148 plan.md "The extraction"). One loop,
-/// two callers, zero policy duplication — the fab search order, the three
-/// skip rules and the per-placeholder ordinal tiebreak all live here.
+/// <c>FindInAnyFabAsync</c> (spec 148 plan.md "The extraction") for its two
+/// query-side callers, <c>GetOverlaySnapshotQueryHandler</c> and
+/// <c>ResolveOverlayTextQueryHandler</c> — the fab search order, the three
+/// skip rules and the per-placeholder ordinal tiebreak all live here for
+/// both. It is not the only place this policy lives: the push-side domain
+/// event handlers (<c>VariableValueChangedDomainEventHandler</c>,
+/// <c>VariableArchivedDomainEventHandler</c>) each carry their own copy,
+/// single-fab rather than multi-fab (spec 148 plan.md "Follow-ups").
 /// </summary>
 public sealed class VariableSnapshotBuilder(IVariableRepository variables) : IVariableSnapshotBuilder
 {
     public async Task<IReadOnlyList<PlaceholderResolution>> BuildAsync(
         IReadOnlyList<FabIdentifier> fabs, string labelText, CancellationToken cancellationToken)
     {
+        Ensure.That(fabs).IsNotNull();
+        Ensure.That(labelText).IsNotNull();
+
         List<PlaceholderResolution> resolutions = [];
         foreach (string name in PlaceholderParser.ExtractNames(labelText))
         {
@@ -49,7 +57,10 @@ public sealed class VariableSnapshotBuilder(IVariableRepository variables) : IVa
             Variable variable = found.Value;
             if (variable.Value is VariableValue.Unset)
             {
-                resolutions.Add(new PlaceholderResolution(name, PlaceholderOutcome.Unset, null, null));
+                // The fab it was found in, same as a Resolved row (plan.md:170)
+                // — the answering fab is already in hand here, unlike the
+                // not-found path below where Archived has none to give.
+                resolutions.Add(new PlaceholderResolution(name, PlaceholderOutcome.Unset, answeringFab, null));
                 continue;
             }
 
