@@ -508,6 +508,13 @@ unverified if none is available.**
 8. Move the label to a deliberate position, click **Save**. **Expect**: a `200`,
    not a `400`. Reopen. **Expect**: the position persisted, with at most four
    decimal places in the payload.
+9. Added at phase 6 review (should-fix 3, the ring drawn inward so the
+   canvas's `overflow: hidden` cannot clip it) — hold `ArrowLeft`/`ArrowUp`/
+   `ArrowRight`/`ArrowDown` in turn until the label reaches each of the four
+   canvas edges, re-focusing between if focus is lost. **Expect**: the full
+   white-inside/black-outside double ring stays visible and unclipped at
+   every edge, not just at the mid-canvas position steps 2 and 6 already
+   cover. Screenshot each edge.
 
 ---
 

@@ -168,10 +168,16 @@ const OVERLAY_EDITOR_LABEL_INSTRUCTIONS_ID = 'overlay-editor-label-instructions'
 // `boxShadow` (a wider solid extension — the black outer ring underneath
 // it). Never `border` — `OverlayLabelParity.test.tsx` pins the label's
 // border empty against the wall in every state.
+//
+// Both rings are drawn *inward* — `outlineOffset: -2` and an `inset`
+// `boxShadow` — because the canvas is `overflow: hidden` (phase 6 should-fix
+// 3): the keyboard path's own bounds let the label sit flush against every
+// edge of the canvas, exactly where an outward ring would be clipped by the
+// overflow it is meant to be visible against.
 const FOCUS_RING_STYLE: CSSProperties = {
   outline: '2px solid #ffffff',
-  outlineOffset: 0,
-  boxShadow: '0 0 0 4px #000000',
+  outlineOffset: -2,
+  boxShadow: 'inset 0 0 0 4px #000000',
 };
 
 // FR-002, byte-for-byte. Pinned by `OverlayEditorCharacterisation.test.tsx`
