@@ -59,6 +59,11 @@ public static class SystemVariablesInfrastructureModule
         builder.Services.AddSingleton<IReverseIndex, InMemoryReverseIndex>();
         builder.Services.AddSingleton<IResolver, Resolver>();
 
+        // Scoped, not singleton (spec 148): VariableSnapshotBuilder depends on
+        // IVariableRepository, which is itself scoped — a singleton capturing
+        // it would be a captive dependency.
+        builder.Services.AddScoped<IVariableSnapshotBuilder, VariableSnapshotBuilder>();
+
         // Domain event handlers (in-process, fan out to V1 + broadcaster).
         builder.Services.AddScoped<
             IDomainEventHandler<VariableDefinedDomainEvent>,
