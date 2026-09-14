@@ -22,9 +22,7 @@ describe('placeholderAdvisories (spec 148 US1 — server-reported outcomes)', ()
 
     const rows = placeholderAdvisories('Line 1: {{temperature}}', response);
 
-    expect(rows).toEqual([
-      { kind: 'resolved', reference: 'temperature', message: 'temperature — 23.4 (munich)' },
-    ]);
+    expect(rows).toEqual([{ kind: 'resolved', reference: 'temperature', message: 'temperature — 23.4 (munich)' }]);
   });
 
   /**
@@ -33,7 +31,7 @@ describe('placeholderAdvisories (spec 148 US1 — server-reported outcomes)', ()
    * may be present in the *viewer's*. The wording is fixed by CLAUDE.md and
    * the spec, so this test asserts the exact string rather than a substring.
    */
-  it('Says no variable of this name is defined in the caller\'s fab(s) for an Unknown reference — never that it does not exist', () => {
+  it("Says no variable of this name is defined in the caller's fab(s) for an Unknown reference — never that it does not exist", () => {
     const response: ResolvedTextPreview = {
       resolvedText: '{{temperatuer}}',
       placeholders: [{ name: 'temperatuer', outcome: 'Unknown', fab: null, renderedValue: null }],
@@ -97,10 +95,7 @@ describe('placeholderAdvisories (spec 148 US1 — server-reported outcomes)', ()
       ],
     };
 
-    const rows = placeholderAdvisories(
-      'L1 {{temperature}} {{shift}} {{oldOne}} {{temperatuer}}',
-      response,
-    );
+    const rows = placeholderAdvisories('L1 {{temperature}} {{shift}} {{oldOne}} {{temperatuer}}', response);
 
     expect(rows.map((r) => r.kind)).toEqual(['resolved', 'unset', 'archived', 'unknown']);
   });
