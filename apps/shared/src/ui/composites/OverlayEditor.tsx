@@ -9,7 +9,7 @@ import type { Backdrop } from './BackdropControls.js';
 import { FrameGrabber } from './FrameGrabber.js';
 import { useFrameCapture } from './useFrameCapture.js';
 import { PlaceholderPreviewPanel, PLACEHOLDER_PREVIEW_STATUS_ID } from './PlaceholderPreviewPanel.js';
-import { formatPercent } from './normalizedPercent.js';
+import { formatPercent, QUANTUM } from './normalizedPercent.js';
 import { OverlayGeometryFields } from './OverlayGeometryFields.js';
 import type { OverlayGeometry, OverlayGeometryField } from './OverlayGeometryFields.js';
 
@@ -58,13 +58,14 @@ function clamp01(value: number): number {
 }
 
 // Spec 149 §The step grid / §The keyboard map: the two step sizes, the
-// server's size floor, the quantum that keeps repeated presses from
-// drifting in IEEE-754, and the announcement debounce. Reasoning lives in
-// spec.md, not restated here.
+// server's size floor, and the announcement debounce. `QUANTUM` — the grid
+// that keeps repeated presses from drifting in IEEE-754 — is imported from
+// `normalizedPercent.js` (phase 6 nit 6): spec 151 defined the same constant
+// a second time there rather than importing it. Reasoning lives in spec.md,
+// not restated here.
 const FINE_STEP = 0.005;
 const COARSE_STEP = 0.05;
 const MIN_NORMALIZED_SIZE = 0.005;
-const QUANTUM = 10_000;
 const ANNOUNCE_DELAY_MS = 500;
 
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
@@ -262,12 +263,12 @@ export function OverlayEditor({
   // in-flight geometry in local state, through the same `clamp01` the stop
   // handlers use, so the readout never shows a number the release would not
   // produce. `onChange` does not fire from either — only the two existing
-  // `*Stop` handlers below call it, unchanged. The `*Stop` handlers also set
-  // this preview to the release geometry (rather than clearing it to `null`):
-  // `OverlayGeometryFields` is otherwise driven by the `value` prop, which in
-  // a fully controlled parent is updated by this same `onChange` on the next
-  // render — but nothing here assumes that render happens, so the readout
-  // stays correct even the instant after release.
+  // `*Stop` handlers below call it, unchanged, and then clear this back to
+  // `null` (FR-014: "discarded when the gesture ends" — spec.md:217).
+  // `OverlayGeometryFields` then falls back to the `value` prop, which in the
+  // real, controlled `OverlayEditorDialog.tsx` (a `<Controller>`) is updated
+  // by this same `onChange` on the very next render, so the field keeps
+  // reading correctly across the handoff.
   const [preview, setPreview] = useState<OverlayGeometry | null>(null);
 
   const geometryFromPixels = useCallback(
@@ -289,10 +290,10 @@ export function OverlayEditor({
 
   const handleDragStop = useCallback(
     (_e: unknown, data: { x: number; y: number }) => {
-      setPreview(geometryFromPixels(data.x, data.y, pixelWidth, pixelHeight));
       emitGeometry(data.x, data.y, pixelWidth, pixelHeight);
+      setPreview(null);
     },
-    [geometryFromPixels, pixelWidth, pixelHeight, emitGeometry],
+    [pixelWidth, pixelHeight, emitGeometry],
   );
 
   const handleResize = useCallback(
@@ -316,10 +317,10 @@ export function OverlayEditor({
       _delta: unknown,
       position: { x: number; y: number },
     ) => {
-      setPreview(geometryFromPixels(position.x, position.y, ref.offsetWidth, ref.offsetHeight));
       emitGeometry(position.x, position.y, ref.offsetWidth, ref.offsetHeight);
+      setPreview(null);
     },
-    [geometryFromPixels, emitGeometry],
+    [emitGeometry],
   );
 
   // Spec 151 FR-006, plan.md §3c: one field, spread onto `value`. Deliberately
@@ -529,8 +530,11 @@ export function OverlayEditor({
       {/* Phase 6 should-fix 6: `data-testid` so `OverlayEditorKeyboard.test.tsx`
           can find this region without relying on JSX order against
           `PlaceholderPreviewPanel`'s own `aria-live="polite"` region — two
-          matches for the same attribute, and `querySelector` takes whichever
-          happens to come first in the DOM. */}
+          matches for the same attribute at the time this comment was
+          written, and `querySelector` takes whichever happens to come first
+          in the DOM. A third live region joined this tree in the phase 6
+          fix round — `OverlayGeometryFields.tsx`'s `role="status"` advisory
+          span — carrying its own `data-testid` for the same reason. */}
       <div aria-live="polite" data-testid="overlay-editor-geometry-live-region" className="sr-only">
         {liveMessage}
       </div>
