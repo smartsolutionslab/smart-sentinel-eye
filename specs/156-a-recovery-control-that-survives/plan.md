@@ -125,10 +125,17 @@ region renders `<span key={announcement.token}>{announcement.text}</span>`.
 
 **Styling:** Tailwind classes, matching the `text-sm text-accent-fault` the two
 alerts already carry (ADR-0078 tokens). `sr-only` for the status region — it is
-for a screen reader, and the visible in-flight signal is the control's own
-`aria-disabled` styling. Not inline styles: unlike `OverlayGeometryFields.tsx`,
-which spec 151 kept inline deliberately, this component's neighbours in both
-dialogs are Tailwind-classed (`FormField`, `Input`, `Button`), so Tailwind is the
+for a screen reader. **Correction (phase-6 review):** this originally claimed
+"the visible in-flight signal is the control's own `aria-disabled` styling" —
+false as written: `aria-disabled` is an ARIA attribute, not a CSS hook, and a
+grep across `apps/*/src` at the time found zero rules keyed on it anywhere in
+the repo, so a sighted operator saw a pixel-identical link for the whole
+round trip. The control carries `className="underline aria-disabled:opacity-50
+aria-disabled:cursor-progress"` (Tailwind's built-in `aria-disabled:` variant,
+still ADR-0078 tokens) so the styling this paragraph describes actually exists.
+Not inline styles: unlike `OverlayGeometryFields.tsx`, which spec 151 kept
+inline deliberately, this component's neighbours in both dialogs are
+Tailwind-classed (`FormField`, `Input`, `Button`), so Tailwind is the
 non-hybrid choice here.
 
 ### 3b. `apps/shared/src/ui/primitives/Button.tsx` — one type widening
@@ -201,8 +208,16 @@ The move is therefore **latched by an operator act**:
   announcement, move nothing (FR-006 — the control is still mounted and still
   focused, so there is nothing to restore).
 
-The latch is a ref, not state: it must not cause a render, and it is read inside
-the effect that already runs.
+**Correction (phase-6 review):** this said the latch is a ref. It is `useState`
+in the implementation, and that is correct, not a divergence to fix — the
+chain-read arm's own mount condition (`chainArmActive`) has to exclude a
+Reload-originated re-read (a phase-6 finding this plan did not anticipate:
+`readFailed` alone, with no regard for which control started the fetch, hands
+the chain-read arm priority over a Reload-originated refusal too, unmounting
+the focused Reload button), and that exclusion is read during **render**. A
+ref cannot drive a render-time value — the whole reason this plan reached for
+one was to avoid a re-render the falling-edge effect did not need, but the arm
+selector does.
 
 **Reload uses the same latch and the same effect**, with `onReadRecovered`
 withheld — a second boolean on the latch (`{ requested, moveFocus }`) rather than
