@@ -126,21 +126,31 @@ functions, and the float trap in it is pinned by a test (see §Precision, below)
 
 ## Precision: where the float goes wrong, and where it is caught
 
-The naive round trip is wrong, and the test suite must prove the implementation
-is not naive.
+The naive round trip is wrong on a measured fraction of the grid, and the test
+suite must prove the implementation is not naive.
+
+**Measured, not asserted:** of the 10000 values on the 2dp percent grid
+(`0.01%` .. `100.00%`), **2760 disagree** between `/100` and
+`Math.round(percent * 100) / 10_000`. `24.87` is *not* one of the 2760 —
+`24.87 / 100 === 0.2487` exactly — so an example built on it would not
+discriminate the naive parse from the correct one. `0.07%` is one of the 2760
+and is used below instead.
 
 ```
-0.2487 * 100            === 24.869999999999997      (display side)
-Number((0.2487*100).toFixed(2))  === 24.87          ← correct display
-24.87 / 100             === 0.24870000000000003     ← WRONG, off-grid, 17 dp
-Math.round(24.87 * 100) / 10000  === 0.2487         ← correct parse
+0.0007 * 100                      === 0.06999999999999999   (display side, raw)
+Number((0.0007*100).toFixed(2))   === 0.07                  ← correct display
+0.07 / 100                        === 0.0007000000000000001 ← WRONG, off-grid, 17 dp
+Math.round(0.07 * 100) / 10000    === 0.0007                ← correct parse
 ```
+
+(One of the 2760, `0.35%`, rounds *down* in the division form —
+`0.35 / 100 === 0.0034999999999999996`, not up — so `toBeCloseTo` would pass on
+it and on every other one of the 2760; only `toBe` catches the class.)
 
 So the parse must quantize **on the normalized side** using the same
-`QUANTUM = 10_000` spec 149 already defines, not divide by 100. A `0.24870000000000003`
-reaching `onChange` is precisely the defect spec 149's phase-6 review found in
-`quantizeBoundFloor` — a value latched at 17 decimals — arriving through a new
-door.
+`QUANTUM = 10_000` spec 149 already defines, not divide by 100. A value latched
+at seventeen decimals reaching `onChange` is precisely the defect spec 149's
+phase-6 review found in `quantizeBoundFloor`, arriving through a new door.
 
 ---
 
@@ -635,7 +645,7 @@ one canvas size and the wrong thing on another.
 
 | Risk | Handling |
 |---|---|
-| The percent parse divides by 100 and latches a 17-decimal value | §Precision names the exact wrong expression; T001 pins `24.87` → `0.2487` with `toBe`, not `toBeCloseTo`. `toBeCloseTo` would pass on the defect and must not be used for this assertion |
+| The percent parse divides by 100 and latches a 17-decimal value | §Precision names the exact wrong expression; T001 pins `0.07` → `0.0007` (one of the 2760 grid values `/100` gets wrong; `24.87` is not one of them) with `toBe`, not `toBeCloseTo`. `toBeCloseTo` would pass on the defect and must not be used for this assertion |
 | `type="number"` is chosen anyway and kills the Save button | §The input type; the failure is invisible to jsdom, so test-procedure step 10 is the only place it can be caught |
 | The live readout is wired through `onChange` and the dialog's RHF form re-validates at mouse-move rate | FR-014 is the requirement; T001 asserts `onChange` is **not** called during `onDrag` |
 | A field re-renders from `value` mid-typing and eats the operator's keystrokes | FR-004's draft-string model is the fix; the draft, not `value`, is the input's `value` while focused |
