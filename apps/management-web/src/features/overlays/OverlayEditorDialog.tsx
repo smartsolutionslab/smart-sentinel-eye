@@ -10,6 +10,7 @@ import { skipToken } from '@reduxjs/toolkit/query/react';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
+import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/ChainRecoveryNotice';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { OverlayEditor } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
 import {
@@ -20,7 +21,7 @@ import {
 } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type ComponentRef } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 
@@ -88,6 +89,7 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
   const {
     currentData: currentChain,
     isError: chainFailed,
+    isFetching: chainFetching,
     refetch: refetchChain,
   } = useGetOverlayQuery(editTarget?.overlayIdentifier ?? skipToken, { refetchOnMountOrArgChange: true });
   const { isLoading, error } = isEdit ? editState : createState;
@@ -227,6 +229,16 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
   // revision that has already left draft (notDraft) — neither can succeed.
   const offerReload = staleConflict || notDraft;
 
+  // Spec 156 (issue #2372). The chain read is the only thing blocking
+  // Save (FR-013 above), so an operator clicks Retry *in order to* Save —
+  // focus lands there, not restored to wherever it was, when the operator's
+  // own re-read succeeds.
+  // `ComponentRef<'button'>`, not `HTMLButtonElement` (spec 154's own
+  // `e2e/overlays.spec.ts` fix, bc30486f) — this app's eslint config has no
+  // per-tag DOM lib globals, and naming the type literally trips `no-undef`;
+  // widening the config would be the gate-weakening ADR-0144 rules out.
+  const saveRef = useRef<ComponentRef<'button'>>(null);
+
   return (
     <Dialog
       open={open}
@@ -269,37 +281,26 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
           </p>
         )}
         {/*
-          One alert at a time, never two siblings (phase-6 review): the chain
-          read failing takes priority, because it blocks Save outright and a
-          `backendError` still on screen from a prior submit is stale the
-          moment the chain can no longer even be confirmed current.
+          Not gated on `isEdit`: the chain query is `skipToken` outside edit
+          mode, so `chainFailed`/`chainFetching` are already inert there, and
+          create mode's own `backendError` (a name clash) still needs to
+          render through this same composite (phase-6 review, the "one alert
+          at a time" comment this replaces applied to both modes).
         */}
-        {isEdit && chainFailed ? (
-          <p role="alert" className="text-sm text-accent-fault">
-            The overlay could not be read.{' '}
-            <button type="button" className="underline" onClick={() => void refetchChain()}>
-              Retry
-            </button>
-          </p>
-        ) : (
-          backendError !== null && (
-            <p role="alert" className="text-sm text-accent-fault">
-              {backendError}{' '}
-              {offerReload && (
-                // Reload, never retry: refetching the chain replaces the version
-                // the dialog would resubmit with the one actually stored.
-                <button type="button" className="underline" onClick={() => void refetchChain()}>
-                  Reload
-                </button>
-              )}
-            </p>
-          )
-        )}
+        <ChainRecoveryNotice
+          noun="overlay"
+          readFailed={chainFailed}
+          reReading={chainFetching}
+          onReRead={() => void refetchChain()}
+          backendError={backendError}
+          offerReload={offerReload}
+          onReadRecovered={() => saveRef.current?.focus()}
+        />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isLoading || (isEdit && currentChain === undefined)}>
+          <Button ref={saveRef} type="submit" disabled={isLoading || (isEdit && currentChain === undefined)}>
             {isLoading ? 'Saving…' : isEdit ? 'Save draft' : 'Save as draft'}
           </Button>
         </div>
