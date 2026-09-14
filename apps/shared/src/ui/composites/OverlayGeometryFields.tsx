@@ -1,4 +1,7 @@
+import { useId, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
+import { parsePercent, toPercentText } from './normalizedPercent.js';
 
 /**
  * In-flight drag/resize geometry, normalized [0,1] (spec 151 FR-013). `null`
@@ -24,6 +27,45 @@ export interface OverlayGeometryFieldsProps {
   onCommit: (field: OverlayGeometryField, normalized: number) => void;
 }
 
+type FieldKind = 'position' | 'size';
+
+interface FieldSpec {
+  field: OverlayGeometryField;
+  /** Matches spec 149's `AXIS_ANNOUNCE_LABEL` exactly (FR-001) — restated, not
+   * imported, because importing from `OverlayEditor.tsx` would be a circular
+   * import. A reviewer should check the four strings against each other. */
+  label: string;
+  kind: FieldKind;
+  previewKey: keyof OverlayGeometry;
+}
+
+const FIELD_SPECS: FieldSpec[] = [
+  { field: 'normalizedX', label: 'Left', kind: 'position', previewKey: 'x' },
+  { field: 'normalizedY', label: 'Top', kind: 'position', previewKey: 'y' },
+  { field: 'normalizedWidth', label: 'Width', kind: 'size', previewKey: 'width' },
+  { field: 'normalizedHeight', label: 'Height', kind: 'size', previewKey: 'height' },
+];
+
+/** Validates a committed (parsed) normalized value; `null` means accepted. */
+function validate(spec: FieldSpec, normalized: number): string | null {
+  if (spec.kind === 'position') {
+    if (normalized < 0 || normalized > 1) {
+      return `${spec.label} must be between 0% and 100%.`;
+    }
+    return null;
+  }
+  // size — refused at 0 and below, and above 100% (#2361, from the guarded
+  // side: a typed 0 is refused with a message, never floored).
+  if (!(normalized > 0 && normalized <= 1)) {
+    return `${spec.label} must be greater than 0% and at most 100%.`;
+  }
+  return null;
+}
+
+const FIELD_INPUT_STYLE = { padding: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' as const };
+const FIELD_ALERT_STYLE = { color: '#dc2626', fontSize: 12 };
+const FIELD_STATUS_STYLE = { color: '#b45309', fontSize: 12 };
+
 /**
  * Four percent-denominated fields — Left, Top, Width, Height — for an overlay
  * label's position and size (spec 151, issue #2346). Per plan.md §2:
@@ -34,14 +76,141 @@ export interface OverlayGeometryFieldsProps {
  * percent-phrased message (FR-007–FR-011); a non-blocking `role="status"`
  * advisory when the committed rectangle runs off the canvas (FR-012); a
  * `<label htmlFor>` per field (FR-017).
- *
- * <p><b>Phase 4a scaffold (spec 151, T001).</b> Renders nothing at all, so
- * every `OverlayGeometryFields.test.tsx` query for a labelled field is
- * observed red on a genuine missing control — never on a missing export or a
- * type error, per ADR-0139/ADR-0144. T004 fills in FR-001 through FR-012 and
- * FR-017.</p>
  */
-export function OverlayGeometryFields(props: OverlayGeometryFieldsProps): null {
-  void props;
-  return null;
+export function OverlayGeometryFields({ value, preview, onCommit }: OverlayGeometryFieldsProps) {
+  const instanceId = useId();
+  const [drafts, setDrafts] = useState<Partial<Record<OverlayGeometryField, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<OverlayGeometryField, string>>>({});
+
+  // FR-013: a live drag/resize outranks a stale draft — once a gesture is in
+  // progress the field must track it, per spec.md's "field tracks the drag"
+  // requirement. Outside a gesture (`preview` null), a draft — including the
+  // reformatted text of what was just committed — is shown ahead of `value`,
+  // so the field keeps reading what the operator entered even in a render
+  // tree that (unlike `OverlayEditor.tsx`'s real, controlled usage) never
+  // feeds the committed value back down as a new `value` prop.
+  function displayValue(spec: FieldSpec): string {
+    if (preview !== null) return toPercentText(preview[spec.previewKey]);
+    const draft = drafts[spec.field];
+    if (draft !== undefined) return draft;
+    return toPercentText(value[spec.field]);
+  }
+
+  function commit(spec: FieldSpec): void {
+    const draft = drafts[spec.field];
+    if (draft === undefined) return;
+
+    const parsed = parsePercent(draft);
+    if (parsed === null) {
+      setErrors((prev) => ({ ...prev, [spec.field]: 'Enter a number.' }));
+      return;
+    }
+
+    const message = validate(spec, parsed);
+    if (message !== null) {
+      setErrors((prev) => ({ ...prev, [spec.field]: message }));
+      return;
+    }
+
+    // The draft is kept, reformatted to grid resolution (FR-002), rather than
+    // cleared — it is what the field continues to read until a fresh drag,
+    // edit, or Escape supersedes it (see the comment on `displayValue`).
+    setDrafts((prev) => ({ ...prev, [spec.field]: toPercentText(parsed) }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[spec.field];
+      return next;
+    });
+    onCommit(spec.field, parsed);
+  }
+
+  function handleKeyDown(spec: FieldSpec, event: ReactKeyboardEvent<HTMLInputElement>): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commit(spec);
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setDrafts((prev) => {
+        const next = { ...prev };
+        delete next[spec.field];
+        return next;
+      });
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[spec.field];
+        return next;
+      });
+    }
+  }
+
+  // FR-012: driven by the committed value, and by the live preview while a
+  // gesture is in progress — never by a draft, which may not parse at all.
+  const advisoryX = preview?.x ?? value.normalizedX;
+  const advisoryY = preview?.y ?? value.normalizedY;
+  const advisoryWidth = preview?.width ?? value.normalizedWidth;
+  const advisoryHeight = preview?.height ?? value.normalizedHeight;
+  const clipsRight = advisoryX + advisoryWidth > 1;
+  const clipsBottom = advisoryY + advisoryHeight > 1;
+  const advisory = buildAdvisory(clipsRight, clipsBottom);
+
+  return (
+    <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        {FIELD_SPECS.map((spec) => {
+          const inputId = `${instanceId}-${spec.field}`;
+          const errorId = `${instanceId}-${spec.field}-error`;
+          const error = errors[spec.field];
+          return (
+            // The error span is a sibling of `<label>`, not a child of it:
+            // `aria-describedby` only needs a matching id anywhere in the
+            // document, and a `<label>` computes its accessible text from
+            // *all* of its descendant text — nesting the error inside it
+            // would fold "Enter a number." into the label RTL's
+            // `getByLabelText('Width')` (and a screen reader's field name)
+            // looks up.
+            <div key={spec.field} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label htmlFor={inputId} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span>{spec.label}</span>
+                <input
+                  id={inputId}
+                  type="text"
+                  inputMode="decimal"
+                  value={displayValue(spec)}
+                  onChange={(event) => setDrafts((prev) => ({ ...prev, [spec.field]: event.target.value }))}
+                  onBlur={() => commit(spec)}
+                  onKeyDown={(event) => handleKeyDown(spec, event)}
+                  aria-describedby={error !== undefined ? errorId : undefined}
+                  style={FIELD_INPUT_STYLE}
+                />
+              </label>
+              {error !== undefined && (
+                <span id={errorId} role="alert" style={FIELD_ALERT_STYLE}>
+                  {error}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {advisory !== null && (
+        <span role="status" style={FIELD_STATUS_STYLE}>
+          {advisory}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** FR-012 — phrased as what the wall will do, not as an error. */
+function buildAdvisory(clipsRight: boolean, clipsBottom: boolean): string | null {
+  if (!clipsRight && !clipsBottom) return null;
+  if (clipsRight && clipsBottom) {
+    return 'This label extends past the right edge and the bottom edge and will be clipped on the wall.';
+  }
+  if (clipsRight) {
+    return 'This label extends past the right edge and will be clipped on the wall.';
+  }
+  return 'This label extends past the bottom edge and will be clipped on the wall.';
 }
