@@ -669,7 +669,8 @@ describe('OverlayEditor undo/redo (spec 154, issue #2347)', () => {
     // its own echoes, not only on a query settling.
     it('A new object with content identical to the last emission preserves the history (echo-tolerant identity, not reference-only)', () => {
       const onChange = vi.fn();
-      const { rerender } = render(<OverlayEditor value={buildLabel({ text: 'Furnace' })} onChange={onChange} />);
+      const initial = buildLabel({ text: 'Furnace' });
+      const { rerender } = render(<OverlayEditor value={initial} onChange={onChange} />);
 
       act(() => {
         lastRndProps!.onDragStop({}, { x: 320, y: 135 });
@@ -681,14 +682,31 @@ describe('OverlayEditor undo/redo (spec 154, issue #2347)', () => {
       // but byte-for-byte the same six fields — exactly the shape
       // `useWatch`'s `generateWatchOutput` produces on every form-state
       // notification, echoing this hook's own emission back as a new clone.
-      // A reference-only detector (the current implementation) cannot tell
-      // this apart from `OverlayEditorDialog.tsx`'s `reset(defaultValues)`
-      // and clears both stacks here.
+      // A reference-only detector cannot tell this apart from
+      // `OverlayEditorDialog.tsx`'s `reset(defaultValues)` and would clear
+      // both stacks here — that is the failure this test exists to forbid,
+      // not what ships: the re-seed detector is echo-tolerant (reference OR
+      // structural equality against what the hook last emitted).
       rerender(<OverlayEditor value={{ ...emitted }} onChange={onChange} />);
 
+      // The discriminating assertion: the history survived the identity
+      // change. This is the whole point of the test.
       expect(isDisabled(getUndoButton())).toBe(false);
+
+      // `OverlayEditor` is controlled — its geometry fields render from the
+      // `value` *prop* — and this harness's `onChange` is a bare spy with no
+      // feedback loop, so nothing feeds the restored snapshot back in as a
+      // new `value` for the DOM to reflect. `ControlledOverlayEditor`'s other
+      // cases in this file (e.g. "A completed drag is one undo step") already
+      // prove the DOM side end to end with a real feedback loop; the bare
+      // spy here is the right harness for the detector this test targets, so
+      // the assertion is on what the hook actually emits, not on a DOM value
+      // nothing in this test would ever feed.
+      onChange.mockClear();
       fireEvent.click(getUndoButton());
-      expect(field('Left').value).toBe('10');
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange.mock.calls[0]![0]).toEqual(initial);
     });
 
     it('An uncommitted geometry draft is left alone by undo', () => {
