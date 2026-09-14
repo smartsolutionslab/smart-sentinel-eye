@@ -121,6 +121,10 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
   const statusRef = useRef<CameraViewerStatus>('idle');
   const attemptRef = useRef(0);
   const previousStreamStateRef = useRef<StreamState | undefined>(undefined);
+  // Spec 157 FR-003/FR-004: mirrors `previousStreamStateRef` above — this
+  // file's own idiom for "did this prop actually change", so the effect below
+  // is a no-op on first mount and fires only on a genuine camera swap.
+  const previousCameraRef = useRef(cameraIdentifier);
 
   // Callers commonly pass getToken as a fresh inline closure
   // (e.g. () => Promise.resolve(auth.user?.access_token)), so its identity
@@ -145,8 +149,47 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
 
   const offlineMessage = streamState === 'Offline' ? (streamError ?? 'Stream is offline.') : null;
 
+  // Spec 157 FR-003/FR-006: a camera change must never leave the previous
+  // camera's picture on the element, and must never leave `status` at `live`
+  // once there is no session behind it. `currentData` alone is not enough —
+  // it produces a frozen last frame still labelled Live, the shape the
+  // decision explicitly rejected (spec § "the gap is not empty, it is A").
+  //
+  // Declared ABOVE the session effect below, and that ordering is
+  // load-bearing, not stylistic: React runs every effect's cleanup in
+  // declaration order, then every effect's setup in declaration order. With
+  // this effect first, the session effect's cleanup (which closes the
+  // previous camera's WhepClient) still runs before this effect's setup, so
+  // the clear below is never racing a teardown that has not happened yet.
+  // Declared below the session effect, this effect's setup would run before
+  // that cleanup, and the previous camera's session could still be writing to
+  // the element after it was supposedly cleared.
+  useEffect(() => {
+    const previousCamera = previousCameraRef.current;
+    previousCameraRef.current = cameraIdentifier;
+    if (previousCamera === cameraIdentifier) return;
+
+    const videoEl = videoRef.current;
+    if (videoEl) videoEl.srcObject = null;
+    transitionTo('connecting');
+    // FR-006: the new camera starts its own retry ladder rather than
+    // inheriting whatever backoff position the previous camera left behind —
+    // otherwise its first retry can start at the 15 s cap.
+    attemptRef.current = 0;
+  }, [cameraIdentifier, transitionTo]);
+
   useEffect(() => {
     void retryNonce; // dep only: each bump forces a fresh connection attempt
+    // FR-004: the teardown below currently rides on `transitionTo`'s own
+    // `[cameraIdentifier]` dependency, which exists only so a log line can
+    // name the camera. This file already holds three other collaborators
+    // behind refs for exactly the reason someone would do it to a fourth —
+    // `getTokenRef` above, `onLagMeasuredRef` and `accessTokenRef` elsewhere
+    // in this composite family — and the moment `cameraIdentifier` follows
+    // them, the coupling that tears this session down on a camera change
+    // silently stops existing. Stated as an explicit dependency so that
+    // regression is a merge conflict, not a silent behaviour change.
+    void cameraIdentifier; // dep only: see above — the body reads whepUrl, not this
     const videoEl = videoRef.current;
     if (!whepUrl || !videoEl) return undefined;
     if (offlineMessage !== null) {
@@ -301,7 +344,7 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
       client.close();
       clientRef.current = null;
     };
-  }, [whepUrl, offlineMessage, retryNonce, transitionTo]);
+  }, [whepUrl, offlineMessage, retryNonce, transitionTo, cameraIdentifier]);
 
   useEffect(() => {
     const previous = previousStreamStateRef.current;
