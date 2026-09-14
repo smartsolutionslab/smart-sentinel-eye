@@ -68,12 +68,29 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
   // operator here was itself a write, so the page's version is already one
   // behind. `version + 1` is the obvious wrong implementation and it works on
   // a single-operator machine (LayoutEditorDialog.tsx:59-65).
+  //
+  // `currentData`, never `data` (phase-6 review, OverlayEditorDialogChainRetention.test.tsx):
+  // `data` is RTK Query's last successful result for ANY argument this hook
+  // has ever been called with, so it survives a `skipToken` step and an
+  // argument change. This dialog stays permanently mounted in `OverlaysPage`
+  // and is driven `editTarget: A -> undefined -> B` on the same component —
+  // not an unmount and a fresh mount — so `data` would hand overlay B's
+  // dialog overlay A's chain, including A's version, before B's own GET has
+  // ever answered. `currentData` resets on both, which is what "re-read",
+  // not "reused", requires. `apps/shared/src/ui/composites/OverlayEditorDialog`'s
+  // own resolve-preview query documents the identical trap seventy lines below.
+  //
+  // `refetchOnMountOrArgChange`: without it a reopen within the 60s cache
+  // window answers from cache with no request, which makes FR-011's "re-read
+  // from the server" only sometimes true. Does not stand in for the
+  // `currentData` fix above — `data` would still shadow a fresh fetch either
+  // way.
   const {
-    data: currentChain,
+    currentData: currentChain,
     isError: chainFailed,
     refetch: refetchChain,
-  } = useGetOverlayQuery(editTarget?.overlayIdentifier ?? skipToken);
-  const { isLoading, error, reset: resetMutationState } = isEdit ? editState : createState;
+  } = useGetOverlayQuery(editTarget?.overlayIdentifier ?? skipToken, { refetchOnMountOrArgChange: true });
+  const { isLoading, error } = isEdit ? editState : createState;
 
   // Spec 147 T010. Stable identity, holding the newest token behind a ref —
   // copied from `CameraDetailPage.tsx:20-38`, including its reasoning.
@@ -95,9 +112,19 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
 
   // Drop any prior backend error when the dialog closes so a stale banner
   // doesn't greet the operator on the next open.
+  //
+  // Resets BOTH mutation states, not the one `isEdit` names (phase-6 review):
+  // `OverlaysPage.tsx` drives `open={editTarget !== undefined}`, so `open`
+  // and `isEdit` are the same boolean, and by the time this effect fires on
+  // close (`!open`), `isEdit` has already gone false — a mode-selected reset
+  // would always clear create's state, leaving a refused edit's error to
+  // survive into the next open, on a different, never-refused draft.
   useEffect(() => {
-    if (!open) resetMutationState();
-  }, [open, resetMutationState]);
+    if (!open) {
+      createState.reset();
+      editState.reset();
+    }
+  }, [open, createState, editState]);
 
   // The create seed (`DEFAULT_INPUT`) is untouched; edit seeds a second value
   // computed from `editTarget`, exactly as `LayoutEditorDialog.tsx:155-162`
@@ -241,25 +268,32 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
             {errors.label.text.message}
           </p>
         )}
-        {isEdit && chainFailed && (
+        {/*
+          One alert at a time, never two siblings (phase-6 review): the chain
+          read failing takes priority, because it blocks Save outright and a
+          `backendError` still on screen from a prior submit is stale the
+          moment the chain can no longer even be confirmed current.
+        */}
+        {isEdit && chainFailed ? (
           <p role="alert" className="text-sm text-accent-fault">
             The overlay could not be read.{' '}
             <button type="button" className="underline" onClick={() => void refetchChain()}>
               Retry
             </button>
           </p>
-        )}
-        {backendError !== null && (
-          <p role="alert" className="text-sm text-accent-fault">
-            {backendError}{' '}
-            {offerReload && (
-              // Reload, never retry: refetching the chain replaces the version
-              // the dialog would resubmit with the one actually stored.
-              <button type="button" className="underline" onClick={() => void refetchChain()}>
-                Reload
-              </button>
-            )}
-          </p>
+        ) : (
+          backendError !== null && (
+            <p role="alert" className="text-sm text-accent-fault">
+              {backendError}{' '}
+              {offerReload && (
+                // Reload, never retry: refetching the chain replaces the version
+                // the dialog would resubmit with the one actually stored.
+                <button type="button" className="underline" onClick={() => void refetchChain()}>
+                  Reload
+                </button>
+              )}
+            </p>
+          )
         )}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
