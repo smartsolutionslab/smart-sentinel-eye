@@ -201,6 +201,9 @@ edit those tests to pass** (ADR-0144).
       - the two screenshots from steps 2 and 6 — the focus ring over the
         checkerboard and over a **bright** captured frame. These are the only
         evidence FR-002 has;
+      - the four screenshots from step 9 (added at phase 6 review,
+        should-fix 3) — the ring at each of the four canvas edges, unclipped
+        by the canvas's `overflow: hidden`;
       - step 4's result stated as a fact: the label stopped at the canvas edge
         and did not leave it;
       - step 8's `PATCH` status and the decimal places in the payload;
