@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
 
 /**
@@ -52,6 +52,57 @@ function isIdleRun(key: RunKey): boolean {
 }
 
 /**
+ * Field-by-field comparison of `OverlayLabel`'s six flat fields — not a
+ * general deep-equal utility, because there is nothing general to compare:
+ * this shape is the whole domain (Decision 3 / I7).
+ *
+ * <p>
+ * <b>Phase 6 review finding.</b> Plan.md §5 asserted "RHF's `Controller`
+ * hands `field.value` straight from form state without cloning on render" —
+ * false for the installed `react-hook-form@7.86.0`. `useController` (which
+ * `Controller` calls internally) sources `field.value` through `useWatch`,
+ * and `useWatch` re-derives its return value via `generateWatchOutput` on
+ * *every* form-state notification: deep-equal to what this hook last
+ * emitted, but never the same object. A reference-only re-seed detector
+ * reads every one of those echoes as an external re-seed and clears both
+ * stacks the render after every single edit — confirmed against the real
+ * `Controller`/`useWatch` tree in `OverlayEditorReseedRegression.test.tsx`.
+ * `isEcho` below is the fix: `value` is this hook's own echo when it is
+ * reference-*or*-structurally equal to `lastEmitted`.
+ * </p>
+ */
+function sameOverlayLabel(a: OverlayLabel, b: OverlayLabel): boolean {
+  return (
+    a.text === b.text &&
+    a.normalizedX === b.normalizedX &&
+    a.normalizedY === b.normalizedY &&
+    a.normalizedWidth === b.normalizedWidth &&
+    a.normalizedHeight === b.normalizedHeight &&
+    a.fontSizePx === b.fontSizePx
+  );
+}
+
+/**
+ * I6/FR-011's echo test. Compared against `lastEmitted` **only** — never
+ * against `prevValue`, and never general deep equality: a genuine external
+ * re-seed to genuinely different content must still clear both stacks, and
+ * the six-field domain here makes a general deep-equal utility unwarranted.
+ *
+ * <p>
+ * One accepted miss, deliberately: an external `reset()` to a label that
+ * happens to be structurally identical to what this hook last emitted goes
+ * undetected as a re-seed — the history is kept instead of cleared. Benign
+ * — the visible content is the same either way, and the alternative (deep
+ * equality alone, with no reference short-circuit) is exactly plan.md §5's
+ * *other* named-wrong implementation: it would also misread an undo that
+ * lands back on a value the operator visited before as a re-seed.
+ * </p>
+ */
+function isEcho(value: OverlayLabel, lastEmitted: OverlayLabel): boolean {
+  return value === lastEmitted || sameOverlayLabel(value, lastEmitted);
+}
+
+/**
  * Step-wise undo/redo over one overlay-editor session (spec 154, issue
  * #2347). Lives beside `OverlayEditor.tsx`, in `apps/shared`, importing
  * nothing but `react` and the `OverlayLabel` *type* — no `react-redux`, no
@@ -69,13 +120,13 @@ function isIdleRun(key: RunKey): boolean {
  * feedback from the caller in between, e.g. a test harness whose `onChange`
  * is an inert spy — leaves `value` untouched, and must not be mistaken for
  * an external change just because `lastEmitted` has already moved on inside
- * `commit`. Only once the prop has actually moved does `lastEmitted` decide
+ * `commit`. Only once the prop has actually moved does `isEcho` decide
  * whether that move was this hook's own echo (a real controlled parent
- * feeding the emitted object straight back, exactly as RHF's `Controller`
- * does) or a re-seed from outside (`OverlayEditorDialog.tsx`'s
- * `reset(defaultValues)`). Never a deep-equality check on `value`, and never
- * keyed on "did the component re-render" — plan.md §5 names both as the
- * wrong implementation.
+ * feeding back the emitted object or a structurally-identical clone of it —
+ * RHF's `Controller`, see `isEcho`'s own doc comment) or a re-seed from
+ * outside (`OverlayEditorDialog.tsx`'s `reset(defaultValues)`, to genuinely
+ * different content). Never keyed on "did the component re-render" —
+ * plan.md §5 names that as the wrong implementation too.
  * </p>
  * <p>
  * The run token and the idle timer stay in refs — they are read and written
@@ -99,12 +150,15 @@ export function useOverlayEditHistory(
   const openRunRef = useRef<RunKey | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function clearIdleTimer(): void {
+  // Stable across every render — touches only refs, no reactive dependency —
+  // so functions that close over it (below) are stable too, unless one of
+  // *their own* other dependencies changes.
+  const clearIdleTimer = useCallback(() => {
     if (idleTimerRef.current !== null) {
       clearTimeout(idleTimerRef.current);
       idleTimerRef.current = null;
     }
-  }
+  }, []);
 
   // I6/FR-011 — see the doc comment above. Pure: only `useState` setters,
   // no ref access and no side effect, so it is safe to run unconditionally
@@ -112,7 +166,7 @@ export function useOverlayEditHistory(
   // rather than an extra one.
   if (value !== prevValue) {
     setPrevValue(value);
-    if (value !== lastEmitted) {
+    if (!isEcho(value, lastEmitted)) {
       setLastEmitted(value);
       setReseedToken((token) => token + 1);
       if (past.length > 0) setPast([]);
@@ -132,48 +186,66 @@ export function useOverlayEditHistory(
     }
   }, [reseedToken]);
 
-  function scheduleIdleClose(key: RunKey): void {
-    clearIdleTimer();
-    idleTimerRef.current = setTimeout(() => {
-      idleTimerRef.current = null;
-      if (openRunRef.current === key) {
-        openRunRef.current = null;
-      }
-    }, TEXT_IDLE_MS);
-  }
-
-  function commit(next: OverlayLabel, boundary: Boundary): void {
-    const current = lastEmitted;
-    const key = boundary === 'atomic' ? null : boundary.run;
-
-    // I5 — a foreign commit (atomic, or a different run key) closes
-    // whatever run is open and starts a new step; I4 — a commit under the
-    // run already open absorbs into it instead of pushing again.
-    if (key === null || openRunRef.current !== key) {
+  const scheduleIdleClose = useCallback(
+    (key: RunKey) => {
       clearIdleTimer();
-      setPast((prev) => [...prev, current]);
-      // I3 — a run's future was already cleared when the run opened, so an
-      // absorbed commit (the `else` of this branch) must not clear it a
-      // second time; only a commit that opens a new step does.
-      setFuture((prev) => (prev.length > 0 ? [] : prev));
-      openRunRef.current = key;
-    }
+      idleTimerRef.current = setTimeout(() => {
+        idleTimerRef.current = null;
+        if (openRunRef.current === key) {
+          openRunRef.current = null;
+        }
+      }, TEXT_IDLE_MS);
+    },
+    [clearIdleTimer],
+  );
 
-    setLastEmitted(next);
-    onChange(next);
+  // Phase 6 review finding — stated as an invariant, not just left implicit:
+  // `current` reads `lastEmitted` from render scope (state, not a ref — see
+  // the hook's own doc comment on why), so two `commit` calls inside one
+  // synchronous handler would both read the *same* pre-batch snapshot and
+  // push it onto `past` twice. No reachable call site does that today —
+  // every one of the six emission sites is a discrete React event
+  // (`onChange`, `onDragStop`, a keydown), each already flushed by React
+  // before the next fires. A future site that emits twice in one handler
+  // would break this silently; if you are adding one, read this first.
+  const commit = useCallback(
+    (next: OverlayLabel, boundary: Boundary) => {
+      const current = lastEmitted;
+      const key = boundary === 'atomic' ? null : boundary.run;
 
-    if (key !== null && isIdleRun(key)) {
-      scheduleIdleClose(key);
-    }
-  }
+      // I5 — a foreign commit (atomic, or a different run key) closes
+      // whatever run is open and starts a new step; I4 — a commit under the
+      // run already open absorbs into it instead of pushing again.
+      if (key === null || openRunRef.current !== key) {
+        clearIdleTimer();
+        setPast((prev) => [...prev, current]);
+        // I3 — a run's future was already cleared when the run opened, so an
+        // absorbed commit (the `else` of this branch) must not clear it a
+        // second time; only a commit that opens a new step does.
+        setFuture((prev) => (prev.length > 0 ? [] : prev));
+        openRunRef.current = key;
+      }
 
-  function endRun(key?: RunKey): void {
-    if (key !== undefined && openRunRef.current !== key) return;
-    clearIdleTimer();
-    openRunRef.current = null;
-  }
+      setLastEmitted(next);
+      onChange(next);
 
-  function undo(): boolean {
+      if (key !== null && isIdleRun(key)) {
+        scheduleIdleClose(key);
+      }
+    },
+    [lastEmitted, onChange, clearIdleTimer, scheduleIdleClose],
+  );
+
+  const endRun = useCallback(
+    (key?: RunKey) => {
+      if (key !== undefined && openRunRef.current !== key) return;
+      clearIdleTimer();
+      openRunRef.current = null;
+    },
+    [clearIdleTimer],
+  );
+
+  const undo = useCallback((): boolean => {
     if (past.length === 0) return false;
     clearIdleTimer();
     openRunRef.current = null;
@@ -186,9 +258,9 @@ export function useOverlayEditHistory(
     setLastEmitted(previous);
     onChange(previous);
     return true;
-  }
+  }, [past, lastEmitted, onChange, clearIdleTimer]);
 
-  function redo(): boolean {
+  const redo = useCallback((): boolean => {
     if (future.length === 0) return false;
     clearIdleTimer();
     openRunRef.current = null;
@@ -201,10 +273,10 @@ export function useOverlayEditHistory(
     setLastEmitted(next);
     onChange(next);
     return true;
-  }
+  }, [future, lastEmitted, onChange, clearIdleTimer]);
 
   // I8, mirroring `OverlayEditor.tsx`'s own `announceTimerRef` cleanup.
-  useEffect(() => () => clearIdleTimer(), []);
+  useEffect(() => () => clearIdleTimer(), [clearIdleTimer]);
 
   return {
     commit,
