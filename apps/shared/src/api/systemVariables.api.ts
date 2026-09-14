@@ -80,6 +80,41 @@ export interface ResolvedOverlaySnapshot {
 }
 
 /**
+ * One referenced name's resolution outcome (spec 148 US1). Mirrors the
+ * server's `PlaceholderResolutionDto` exactly: `outcome` is a string —
+ * matching `VariableState`/`VariableType` in this same file rather than a
+ * numeric enum the caller would have to decode.
+ */
+export type PlaceholderOutcome = 'Resolved' | 'Unknown' | 'Unset' | 'Archived';
+
+export interface PlaceholderResolutionEntry {
+  name: string;
+  outcome: PlaceholderOutcome;
+  /** The fab the name resolved in; null unless `outcome` is `'Resolved'`. */
+  fab: string | null;
+  /** `VariableValue.Render(...)`'s output — never null unless `outcome` is `'Resolved'`. */
+  renderedValue: string | null;
+}
+
+export interface ResolvedTextPreview {
+  resolvedText: string;
+  placeholders: PlaceholderResolutionEntry[];
+}
+
+/**
+ * `fabId` is optional and left unnamed by every caller today (spec 148
+ * decision 4 — ADR-0114 records the deployed population as single-fab, so no
+ * picker exists to supply it). Omitted entirely rather than sent as `''`:
+ * unlike {@link OverlaySnapshotInput}, an absent fab here does not need a
+ * distinguished "every fab" sentinel — the server's own default is exactly
+ * that.
+ */
+export interface ResolveOverlayTextInput {
+  text: string;
+  fabId?: string;
+}
+
+/**
  * An overlay is a fab-neutral template (ADR-0115), so resolving its label means
  * naming the fab to resolve it *in*. Left unnamed the server resolves across
  * every fab the caller holds and returns whichever sorts first — right for a
@@ -185,6 +220,18 @@ export const systemVariablesApi = createApi({
         { type: 'OverlaySnapshot', id: 'ALL' },
       ],
     }),
+    resolveOverlayText: build.query<ResolvedTextPreview, ResolveOverlayTextInput>({
+      query: ({ text, fabId }) => ({
+        url: '/resolve',
+        method: 'GET',
+        params: fabId === undefined || fabId === '' ? { text } : { text, fabId },
+      }),
+      // No tags, deliberately (spec 148 plan.md "Frontend wiring"). A preview
+      // is derived, transient and keyed by its own input; tagging it would
+      // invalidate it on every unrelated variable write for no benefit — a
+      // departure from every other read in this file, which does tag.
+      providesTags: [],
+    }),
     archiveVariable: build.mutation<string, ArchiveVariableInput>({
       query: ({ name, version, fabId }) => ({
         url: `/${encodeURIComponent(name)}/archive`,
@@ -207,5 +254,6 @@ export const {
   useListVariablesQuery,
   useSetVariableValueMutation,
   useGetOverlaySnapshotQuery,
+  useResolveOverlayTextQuery,
   useArchiveVariableMutation,
 } = systemVariablesApi;
