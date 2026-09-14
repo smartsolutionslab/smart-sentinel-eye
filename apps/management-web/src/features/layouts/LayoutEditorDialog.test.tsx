@@ -238,6 +238,45 @@ describe('LayoutEditorDialog — create', () => {
     expect(await screen.findByText(/name is required/i)).toBeInTheDocument();
     expect(createDraftMock).not.toHaveBeenCalled();
   });
+
+  /**
+   * Issue #2371, phase-6 review. `createState.reset()` in the close effect
+   * (`LayoutEditorDialog.tsx:104`) was pinned by nothing — the reviewer
+   * deleted it and the whole `management-web` suite stayed green. The split
+   * mocks this issue added (`createError`/`editError`, each with a
+   * behavioural reset) are what make that half expressible for the first
+   * time, so it is closed alongside the edit half rather than filed.
+   *
+   * This create-mode instance never carries an `editTarget`, so there is no
+   * A→B draft to distinguish — the shape is simply "the banner does not
+   * outlive a close", proved by deleting `createState.reset()` in isolation
+   * (see the phase-4a report for that counterfactual run).
+   */
+  it('Does not carry a refused layout create banner over to the next open after closing', async () => {
+    createError = {
+      status: 409,
+      data: { title: 'LAYOUT_NAME_TAKEN', detail: "A layout named 'Line-1' already exists." },
+    };
+    const { rerender } = renderDialog();
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+
+    // Close — LayoutsPage.tsx drives this instance's `open` on its own; it
+    // never carries an `editTarget` to fall in step with.
+    rerender(
+      <Provider store={store}>
+        <LayoutEditorDialog open={false} onOpenChange={() => {}} />
+      </Provider>,
+    );
+
+    // Reopen for a fresh draft.
+    rerender(
+      <Provider store={store}>
+        <LayoutEditorDialog open={true} onOpenChange={() => {}} />
+      </Provider>,
+    );
+
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
 });
 
 describe('LayoutEditorDialog — edit', () => {

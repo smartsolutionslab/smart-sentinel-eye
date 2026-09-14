@@ -42,12 +42,17 @@ refetches *that* layout's chain, which cannot clear a message about the first.
    Read from `@reduxjs/toolkit@2.12.0`
    (`dist/query/react/rtk-query-react.modern.mjs:544-565`): with no
    `fixedCacheKey` — none of these hooks passes one — `reset` dispatches nothing
-   at all; it calls `setPromise(undefined)`, which makes the mutation cache key
-   `skipToken` and the selector return the uninitialised state. That clears the
-   error, and it is the only thing that clears it *before* a submit. A new
-   trigger does replace the error, but only once the operator has pressed Save —
-   after they have read the banner and decided. So reset-on-close is necessary,
-   exactly as in the overlay twin.
+   *directly*; it calls `setPromise(undefined)`, which makes the mutation cache
+   key `skipToken` and the selector return the uninitialised state. Dropping the
+   promise does dispatch, though, one step removed: it fires RTK's own
+   `useEffect(() => () => promise?.reset(), [promise])` cleanup
+   (`rtk-query-react.modern.mjs:521-523`), which dispatches exactly one
+   `layoutsApi/mutations/removeMutationResult` — measured on a real-hook probe
+   at store dispatches 7 → 9 on close, then quiescent (phase-6 review). Either
+   way, that is what clears the error, and it is the only thing that clears it
+   *before* a submit. A new trigger does replace the error, but only once the
+   operator has pressed Save — after they have read the banner and decided. So
+   reset-on-close is necessary, exactly as in the overlay twin.
 3. **The reference's effect deps terminate — verified, not assumed.** The twin
    depends on `[open, createState, editState]`, and those objects change identity
    when the mutation state changes (`finalState` is `useMemo`'d over
@@ -76,6 +81,14 @@ refetches *that* layout's chain, which cannot clear a message about the first.
    passes. The mocks must become behavioural
    (`vi.fn(() => (editError = undefined))`) over **separate** variables, as
    `OverlayEditorDialog.test.tsx:30-48` already does.
+8. **For the next author: `if (open)` is the better default, not used here.**
+   Phase-6 review noted `RenameCameraDialog.tsx:67-72` and
+   `EditCameraAddressDialog.tsx:59-64` reset on `if (open)` rather than
+   `if (!open)` — structurally immune to this whole defect class, because at
+   open time every mode flag is already consistent with `open`; there is no
+   window where a stale mode selects the wrong state. Not worth changing here,
+   since the twin (`OverlayEditorDialog.tsx`) already set the `if (!open)`
+   precedent this fix mirrors, and that fix is verified.
 
 ## Tasks
 
