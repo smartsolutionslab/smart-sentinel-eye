@@ -229,12 +229,13 @@ export function OverlaysPage() {
                   <Button
                     variant="secondary"
                     disabled={disabled}
-                    onClick={() => {
-                      const baseline = live ?? newest;
-                      if (baseline !== undefined) {
-                        void onEdit(chain, baseline);
-                      }
-                    }}
+                    // The gate above already proves a baseline exists: `live`
+                    // defined covers the first half directly, and
+                    // `fullyArchived` (chainView.ts) is true only when
+                    // `newest` is defined too. A guarded no-op here would be
+                    // a click that does nothing and says nothing — the
+                    // defect class FR-013 exists to reject by name.
+                    onClick={() => void onEdit(chain, live ?? newest!)}
                   >
                     Edit (new draft)
                   </Button>
