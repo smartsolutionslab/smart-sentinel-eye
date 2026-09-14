@@ -83,8 +83,11 @@ them leaves the suite red for a reason unrelated to the defect.
   window the original sweep missed: Reload (`refetchChain()`) keeps the
   dialog subscribed, so `currentData` does stay stale while that refetch is
   in flight. Its outcome is a safe 412, not a silent wrong write, and neither
-  red test in T001 pins it — see spec.md "The Reload window, found in phase
-  4a".
+  red test in T001 pins it. A commoner trigger than Reload was found in phase
+  6: RTK Query applies a mutation's `invalidatesTags` on a *rejected*
+  response too, so a stale-version 412 from `editDraftRevision` starts the
+  same kind of background refetch while the dialog stays subscribed — see
+  spec.md "The refetch-in-flight windows, found in phase 4a/6".
 
 - **[T004] [US1] FR-004: a failed chain read says so.**
   A `role="alert"` paragraph with a Retry calling `refetchChain`, shown when

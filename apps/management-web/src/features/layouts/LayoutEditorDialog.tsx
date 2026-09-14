@@ -73,9 +73,16 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   // answered. `currentData` resets on both, which is what "re-read", not
   // "reused", requires.
   //
-  // `refetchOnMountOrArgChange`: without it a reopen within the 60s cache
-  // window answers from cache with no request, which makes FR-003's "re-read
-  // from the server" only sometimes true.
+  // `refetchOnMountOrArgChange`: kept even though the only path into this
+  // dialog already re-fetches without it -- `branchDraftRevision`'s
+  // invalidation lands with zero subscribers (`LayoutsPage.onEdit` awaits it
+  // before `setEditTarget`), so the entry is evicted outright before the
+  // dialog ever reopens on the same layout (spec.md "Window 3, corrected in
+  // phase 4a"). The option is what makes FR-003 true on its own terms -- a
+  // reopen within the 60s cache window always asks the server again --
+  // rather than resting on an eviction behaviour that is RTK Query's
+  // implementation detail, not a contract, and could change under a library
+  // upgrade.
   const {
     currentData: currentChain,
     isError: chainFailed,
@@ -389,13 +396,20 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
 
             The `isEdit && (currentChain === undefined || chainFetching)`
             half is FR-002: a version that has not been read, or is being
-            re-read, must never be the one Save submits. `chainFetching`
-            covers Reload (`refetchChain()`) keeping the dialog subscribed —
-            the one case where `currentData` genuinely stays stale while a
-            fetch for the same argument is in flight (verified in phase 4a
-            against a real store; not pinned by any test in this repo, so
-            its 412-not-wrong-write outcome is recorded here rather than
-            asserted).
+            re-read, must never be the one Save submits. `chainFetching`'s
+            most common trigger is not the Reload button -- it is RTK Query
+            applying `invalidatesTags` on a REJECTED mutation too: a
+            stale-version 412 from `editDraftRevision` starts a background
+            chain refetch while the dialog stays subscribed, exactly the
+            moment an operator is about to click Save again. Verified in
+            phase 6 against a real `LAYOUT_REVISION_STALE` 412: GET count 1
+            -> 2 immediately, `currentData` still the old version,
+            `isFetching` true, Save disabled, exactly one PATCH ever issued.
+            Reload (`refetchChain()`) hits the same gate but is the rarer
+            path -- both are cases where `currentData` genuinely stays stale
+            while a fetch for the same argument is in flight. Neither is
+            pinned by a test in this repo, so the outcome is recorded here
+            rather than asserted.
           */}
           <Button
             type="submit"

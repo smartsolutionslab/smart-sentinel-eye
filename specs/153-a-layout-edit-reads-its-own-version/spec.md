@@ -60,29 +60,40 @@ whole window — the same `currentChain === undefined` gate that closes windows
 1 and 2 already closes this one. No separate fetch-state signal is needed for
 window 3 specifically.
 
-That does not mean fetch state is unnecessary everywhere: see "The Reload
-window, found in phase 4a" below for the one case where `currentData`
-genuinely does stay stale during a live fetch.
+That does not mean fetch state is unnecessary everywhere: see "The
+refetch-in-flight windows, found in phase 4a/6" below for the two cases where
+`currentData` genuinely does stay stale during a live fetch.
 
-## The Reload window, found in phase 4a
+## The refetch-in-flight windows, found in phase 4a/6
 
-The chain-retention test suite pins three windows. Phase 4a's empirical run
-against the real hook found a fourth the original sweep did not enumerate,
-and it is the one place `currentData` genuinely does stay stale during a live
-fetch: **Reload** (the `refetchChain()` button on a stale-conflict banner)
-keeps the dialog subscribed the whole time, so the invalidation-eviction
-mechanism above does not apply — `currentData` holds the pre-Reload value
-until the new response lands. A Save click in that window would resubmit the
-version already known to be superseded.
+The chain-retention test suite pins three windows. Phase 4a and phase 6's
+empirical runs against the real hook found two more the original sweep did
+not enumerate — both places where `currentData` genuinely does stay stale
+while a fetch for the same argument is in flight, because the dialog never
+unsubscribes, so the invalidation-eviction mechanism above does not apply:
 
-Its consequence is a safe 412, not a silent wrong write (unlike windows 1/2,
-the version cannot coincidentally match — it's the exact one the operator was
-just told is stale), so it is lower severity than the defect this spec exists
-to fix, and neither of the two red tests pins it (both drive a fresh read of
-an unsubscribed entry, not a Reload of a subscribed one). The gate closes it
-anyway, because `isFetching` is already available on the hook and folding it
-in costs nothing — but this window is recorded as closed-by-construction, not
-as covered by a test.
+- **A rejected `editDraftRevision` — the common one.** RTK Query applies a
+  mutation's `invalidatesTags` on a rejected response too, not only a
+  successful one. A stale-version 412 therefore starts a background chain
+  refetch while the dialog stays subscribed — exactly the moment an operator
+  is about to click Save again, since the 412 is what they are reacting to.
+  Verified in phase 6 against a real `LAYOUT_REVISION_STALE` 412: GET count 1
+  → 2 immediately, `currentData` still the old version, `isFetching` true,
+  Save disabled, exactly one PATCH ever issued.
+- **Reload — the rarer one.** The `refetchChain()` button on the
+  stale-conflict banner keeps the dialog subscribed the same way. A Save
+  click while that refetch is in flight would resubmit the version already
+  known to be superseded.
+
+Both consequences are a safe 412, not a silent wrong write (unlike windows
+1/2, the version cannot coincidentally match — it's the exact one the
+operator was just told is stale), so both are lower severity than the defect
+this spec exists to fix, and neither is pinned by a test in this repo (the
+three pinned windows all drive a fresh read of an unsubscribed entry, not a
+refetch of a subscribed one). The gate closes both anyway, because
+`isFetching` is already available on the hook and folding it in costs
+nothing — but they are recorded as closed-by-construction, not as covered by
+a test.
 
 ## Why the gate drags a fourth requirement in
 
@@ -103,8 +114,10 @@ not scope creep.
   undefined`, which also covers the branch-invalidation window: an
   invalidated entry with no subscriber is evicted outright, so reopening
   starts from `undefined` rather than a stale value), or being actively
-  re-read (`isFetching`, which closes the Reload window specifically — see
-  "The Reload window, found in phase 4a"). It is never a silent no-op.
+  re-read (`isFetching`, which closes the refetch-in-flight windows — a
+  rejected `editDraftRevision`'s own invalidation, and Reload — see "The
+  refetch-in-flight windows, found in phase 4a/6"). It is never a silent
+  no-op.
 - **FR-003** — Reopening the dialog on a layout read earlier still **re-reads
   from the server** rather than answering from the 60 s cache window
   (`refetchOnMountOrArgChange: true`).
