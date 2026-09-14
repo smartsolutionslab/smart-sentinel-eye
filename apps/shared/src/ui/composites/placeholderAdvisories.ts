@@ -49,7 +49,7 @@ function advisoryFor(entry: PlaceholderResolutionEntry): PlaceholderAdvisory {
       return {
         kind: 'archived',
         reference: name,
-        message: `${name} was archived in ${fab}. It will render as {{${name}}}.`,
+        message: `${name} was archived in your fab(s). It will render as {{${name}}}.`,
       };
     case 'Unknown':
     default:

@@ -92,7 +92,7 @@ export interface PlaceholderResolutionEntry {
   outcome: PlaceholderOutcome;
   /** The fab the name resolved in; null unless `outcome` is `'Resolved'`. */
   fab: string | null;
-  /** `VariableValue.Render(...)`'s output — never null unless `outcome` is `'Resolved'`. */
+  /** `VariableValue.Render(...)`'s output — null unless `outcome` is `'Resolved'`. */
   renderedValue: string | null;
 }
 
