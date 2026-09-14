@@ -12,26 +12,36 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
 
 /**
- * Spec 153 (#2368), new behaviour, RED. `useGetLayoutQuery` is REAL in this
- * file — that is the whole point. `LayoutEditorDialog.test.tsx` and
- * `LayoutsPage.test.tsx` both mock the hook, and a mocked hook returns the
- * same value regardless of its argument — it cannot express RTK Query's own
- * distinction between `data` (the last successful result for *any* argument
- * the hook has ever been called with) and `currentData` (resets to
- * `undefined` on a `skipToken` or an argument change — but, as the second
- * `it` below establishes empirically, NOT on an invalidation-driven refetch
- * of the *same* argument). That gap is exactly how a mocked-everything suite
- * proved the wiring while missing the caching bug.
+ * Spec 153 (#2368). `useGetLayoutQuery` is REAL in this file — that is the
+ * whole point. `LayoutEditorDialog.test.tsx` and `LayoutsPage.test.tsx` both
+ * mock the hook, and a mocked hook returns the same value regardless of its
+ * argument — it cannot express RTK Query's own distinction between `data`
+ * (the last successful result for *any* argument the hook has ever been
+ * called with) and `currentData` (resets to `undefined` on a `skipToken` or
+ * an argument change).
  *
  * `LayoutsPage.tsx:333-340` keeps the edit `LayoutEditorDialog` permanently
  * mounted and drives `open`/`editTarget` together
  * (`open={editTarget !== undefined}`), so closing on one layout and reopening
  * on a different one is exactly `editTarget: A -> undefined -> B` on this one
  * component instance — not an unmount and a fresh mount.
- * `LayoutEditorDialog.tsx:65` destructures `data` from the hook; because
- * `data` survives both the `skipToken` step and the argument change, layout
- * B's dialog can read layout A's chain — including A's version — before B's
- * own GET has ever answered.
+ *
+ * **Phase-6 finding.** The shipped Save gate is
+ * `isEdit && (currentChain === undefined || chainFetching)`. While a held-open
+ * GET is in flight, `chainFetching` is true regardless of which field
+ * `currentChain` reads from — so the first two `it`s below, on their own,
+ * disable Save (and block the PATCH) whether the component reads `data` or
+ * `currentData`. Reverting `currentData` back to `data` in
+ * `LayoutEditorDialog.tsx` and running this file plus the whole mocked
+ * `LayoutEditorDialog.test.tsx` against it stayed green — proved by that
+ * counterfactual, not assumed. The third `it` closes the gap: once B's GET
+ * *settles* (rather than staying held), `chainFetching` drops to `false` and
+ * `currentChain === undefined` is the only thing left standing between the
+ * operator and A's version going out under B's identity — that is the case
+ * that actually discriminates `data` from `currentData`. The first `it`
+ * additionally pins the **positive** leg (Save enables and submits exactly
+ * B's own version once it lands), so a gate change that left `chainFetching`
+ * permanently true could not pass silently either.
  *
  * Not an extension of `LayoutEditorDialogRetention.test.tsx` — that file
  * covers *camera* retention across a close/reopen, a different concern.
@@ -205,10 +215,47 @@ describe('LayoutEditorDialog — the chain is re-read for the layout actually be
     );
     expect(patchedWithAsVersion).toBe(false);
 
+    // The positive leg. Everything above would also pass a gate stuck on
+    // `chainFetching` alone, with `currentChain` never actually read — so
+    // this closes the complement: once B's own version lands, Save must
+    // enable and submit *exactly* that version, not merely "some" version.
     resolveB?.(jsonResponse(chainOf(LAYOUT_B, 3)));
+    await waitFor(() => {
+      const state = layoutsApi.endpoints.getLayout.select(LAYOUT_B)(store.getState());
+      expect(state.data?.version).toBe(3);
+    });
+    await user.click(screen.getByRole('button', { name: /^save draft$/i }));
+    const patchedWithBsVersion = fetchMock.mock.calls.some(
+      ([request]) => request.method === 'PATCH' && request.headers.get('If-Match') === '"3"',
+    );
+    expect(patchedWithBsVersion).toBe(true);
   });
 
-  it('Does not submit the version it already read when reopening the SAME layout while a branch-invalidated refetch is in flight (window 3)', async () => {
+  /**
+   * Window 3 (branch path): reopening the SAME layout after
+   * `branchDraftRevision` has invalidated `{type:'Layout', id}` while the
+   * dialog was closed (unsubscribed).
+   *
+   * **Not a fetch-state test.** `spec.md` originally claimed this window
+   * needed a gate on `chainFetching`, reasoning that `currentData` would
+   * stay stale during the invalidation-driven refetch. Phase 4a disproved
+   * that empirically — `c4c71dab` corrected `spec.md`/`tasks.md` — and
+   * phase 6 re-confirmed it independently, reading the raw store slice
+   * directly: invalidating a tag with **zero active subscribers evicts the
+   * cache entry outright** (`status: "uninitialized"`, both `data` and
+   * `currentData` gone) rather than marking it stale-but-cached. The
+   * resubscribe below is therefore a genuinely fresh, empty fetch — closed
+   * by the exact same `currentChain === undefined` half of the gate as the
+   * cross-layout case above, not by `chainFetching`. Kept as its own test
+   * rather than folded into the cross-layout case because it pins a
+   * different production trigger (`LayoutsPage.onEdit`'s branch-then-open,
+   * spec.md's "Branch path" scenario) and a different RTK Query mechanism
+   * (store-level eviction on invalidation, not the hook's per-instance
+   * `lastResult` carry-forward) — a regression that made an invalidated,
+   * unsubscribed entry survive instead of being evicted would slip past the
+   * cross-layout case entirely.
+   */
+  it('Reads the CURRENT version, not the one it held before the branch, when reopening the same layout after branchDraftRevision has invalidated it', async () => {
     let layoutACalls = 0;
     let resolveSecondRead: ((response: Response) => void) | undefined;
     const fetchMock = vi.fn((request: Request) => {
@@ -219,7 +266,9 @@ describe('LayoutEditorDialog — the chain is re-read for the layout actually be
         }
         // The second read — provoked below by invalidating the tag while the
         // dialog is unsubscribed, exactly what `branchDraftRevision` does
-        // (`layouts.api.ts:135`) — is held open for the whole test.
+        // (`layouts.api.ts:135`) — is held open for the whole test. It is
+        // reached at all because the invalidated entry was evicted, not
+        // because of `refetchOnMountOrArgChange`.
         return new Promise<Response>((resolve) => {
           resolveSecondRead = resolve;
         });
@@ -273,12 +322,13 @@ describe('LayoutEditorDialog — the chain is re-read for the layout actually be
       await Promise.resolve();
     });
 
-    // The point of this second case: reopening the identical layout is not
-    // the cross-layout case above, and `currentData` alone does not close
-    // it — the stale value (7) is still what RTK Query reports as
-    // `currentData` while this second, invalidation-driven fetch for the
-    // very same argument is in flight. Only a gate on fetch state (not on
-    // "is there a value yet") can keep Save disabled here.
+    // The invalidated entry was evicted (see the block comment above), so
+    // `currentChain` is `undefined` here — the same half of the gate that
+    // covers a layout's first-ever read. This assertion does not, on its
+    // own, distinguish `data` from `currentData`: `chainFetching` is also
+    // true while this second GET is held, so it alone would disable Save
+    // too (see the file-level counterfactual note). It stays as a
+    // regression pin on the eviction behaviour itself.
     expect(screen.getByRole('button', { name: /^save draft$/i })).toBeDisabled();
 
     // Defence in depth: no PATCH may carry the version (7) this dialog
@@ -292,5 +342,77 @@ describe('LayoutEditorDialog — the chain is re-read for the layout actually be
     expect(patchedWithStaleVersion).toBe(false);
 
     resolveSecondRead?.(jsonResponse(chainOf(LAYOUT_A, 8)));
+  });
+
+  /**
+   * The case that actually distinguishes `data` from `currentData`.
+   *
+   * The two cases above hold B's (or the re-read's) GET open for the whole
+   * test, so `chainFetching` is true throughout and disables Save on its
+   * own — a fix that read `data` instead of `currentData` would pass both
+   * unnoticed (proved by counterfactual: reverting `currentData` back to
+   * `data` while leaving `chainFetching` in place left this file, and the
+   * whole mocked `LayoutEditorDialog.test.tsx`, green). Here B's GET
+   * *settles* — with a 500 — so `chainFetching` drops back to `false` once
+   * the response lands, and `currentChain === undefined` is the only thing
+   * left standing between the operator and A's version going out under B's
+   * identity. `data` would still hold A's chain here (it survives the
+   * argument change); `currentData` does not.
+   */
+  it("Never submits the previous layout's version when the new layout's own chain read fails outright", async () => {
+    const fetchMock = vi.fn((request: Request) => {
+      if (request.method === 'GET' && request.url.includes(LAYOUT_A)) {
+        return Promise.resolve(jsonResponse(chainOf(LAYOUT_A, 7)));
+      }
+      if (request.method === 'GET' && request.url.includes(LAYOUT_B)) {
+        return Promise.resolve(jsonResponse({ title: 'Internal Server Error' }, 500));
+      }
+      if (request.method === 'PATCH') {
+        return Promise.resolve(jsonResponse(1));
+      }
+      throw new Error(`unexpected fetch: ${request.method} ${request.url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const store = createStore();
+    const targetA = targetFor(LAYOUT_A);
+    const targetB = targetFor(LAYOUT_B);
+
+    const { rerender } = render(
+      <Provider store={store}>
+        <LayoutEditorDialog open={true} onOpenChange={() => {}} editTarget={targetA} />
+      </Provider>,
+    );
+
+    await waitFor(() => {
+      const state = layoutsApi.endpoints.getLayout.select(LAYOUT_A)(store.getState());
+      expect(state.data?.version).toBe(7);
+    });
+
+    rerender(
+      <Provider store={store}>
+        <LayoutEditorDialog open={false} onOpenChange={() => {}} editTarget={undefined} />
+      </Provider>,
+    );
+    rerender(
+      <Provider store={store}>
+        <LayoutEditorDialog open={true} onOpenChange={() => {}} editTarget={targetB} />
+      </Provider>,
+    );
+
+    // Let B's read actually settle (fail), rather than stopping at the first
+    // microtask flush the way the held-open cases do — the whole point is
+    // that `chainFetching` has gone back to `false` by the time this
+    // assertion runs. FR-004's alert is the observable signal that it has.
+    await screen.findByRole('alert');
+
+    expect(screen.getByRole('button', { name: /^save draft$/i })).toBeDisabled();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /^save draft$/i }));
+    const patchedWithAsVersion = fetchMock.mock.calls.some(
+      ([request]) => request.method === 'PATCH' && request.headers.get('If-Match') === '"7"',
+    );
+    expect(patchedWithAsVersion).toBe(false);
   });
 });

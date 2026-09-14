@@ -21,9 +21,13 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
     useEditDraftRevisionMutation: () => [editDraftMock, { isLoading: false, error: editError, reset: vi.fn() }],
     // The dialog reads the chain back to learn its current version; the page
     // branched a draft just before opening, so the version it held is stale.
-    // Both `data` and `currentData` are supplied — spec 153 switches the
-    // component to `currentData`; keeping `data` too means a regression back
-    // to the wrong field would still be caught here.
+    // Both `data` and `currentData` are supplied, set to the SAME object —
+    // this mock cannot distinguish the two fields, so it cannot catch a
+    // regression back to `data`. That discrimination lives in
+    // LayoutEditorDialogChainRetention.test.tsx, which drives the real
+    // useGetLayoutQuery instead of mocking it. `currentData` is supplied here
+    // only because the component reads it; without it every test in this
+    // file would see `currentChain === undefined` and hit FR-002's gate.
     useGetLayoutQuery: () => ({
       data: { layoutIdentifier: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', version: 7 },
       currentData: { layoutIdentifier: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', version: 7 },
