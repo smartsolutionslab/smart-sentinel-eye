@@ -97,7 +97,13 @@ export function CameraViewer({
   onLagMeasured,
   className,
 }: CameraViewerProps) {
-  const { data: stream, error: queryError } = useGetStreamQuery(cameraIdentifier, {
+  // `currentData`, not `data` (spec 157 FR-001): `data` is the last successful
+  // result for ANY argument this hook instance has ever been called with, so a
+  // camera swap would keep answering the previous camera's stream — and
+  // therefore its `whepUrl` — until the new camera's own read succeeds, or
+  // forever if it never does. `currentData` resets to `undefined` the instant
+  // the argument changes.
+  const { currentData: stream, error: queryError } = useGetStreamQuery(cameraIdentifier, {
     pollingInterval: 5000,
   });
   const { videoRef, status, errorMessage, stats, setPlayoutTarget } = useWhepSession({
@@ -372,9 +378,16 @@ function ViewerOverlay({
   stream: StreamHealth | undefined;
   queryError: unknown;
 }) {
-  const label = labelFor(status, stream);
+  // FR-005: the read for the current camera has failed and no stream has been
+  // received for it — an explicit error, never "Connecting…", never "Idle",
+  // and never a picture. `status` stays the session state machine (no new
+  // member added, per plan §2a); `offline` already has its own read of stream
+  // state from a read that *succeeded*, so it is excluded here rather than
+  // overridden.
+  const failedRead = stream === undefined && queryError !== undefined && status !== 'offline';
+  const label = failedRead ? 'Viewer error' : labelFor(status, stream);
   const tone =
-    status === 'error' || status === 'offline'
+    failedRead || status === 'error' || status === 'offline'
       ? 'text-accent-fault'
       : status === 'reconnecting'
         ? 'text-accent-warning'
