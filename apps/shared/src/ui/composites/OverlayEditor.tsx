@@ -2,11 +2,13 @@ import { useCallback, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Rnd } from 'react-rnd';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
+import type { ResolvedTextPreview } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { overlayLabelSurfaceStyle } from './overlayLabelStyle.js';
 import { BackdropControls } from './BackdropControls.js';
 import type { Backdrop } from './BackdropControls.js';
 import { FrameGrabber } from './FrameGrabber.js';
 import { useFrameCapture } from './useFrameCapture.js';
+import { PlaceholderPreviewPanel } from './PlaceholderPreviewPanel.js';
 
 export interface OverlayEditorProps {
   value: OverlayLabel;
@@ -28,6 +30,18 @@ export interface OverlayEditorProps {
    * `CameraViewerProps.getToken` / `WhepSessionOptions.getToken`.
    */
   getToken?: () => Promise<string | null>;
+  /**
+   * Spec 148 US1 + US3 — the caller (`OverlayEditorDialog`) owns the debounce
+   * and the `useResolveOverlayTextQuery` call and passes the settled result
+   * down as props, so this component stays Redux-free: it lives in
+   * `apps/shared`, is consumed by two apps, and a shared presentational
+   * component should not assume a store exists. All three are optional so a
+   * caller with no query wiring (every existing test) renders exactly as
+   * before, falling back to the raw text.
+   */
+  resolvedPreview?: ResolvedTextPreview;
+  isResolving?: boolean;
+  resolveFailed?: boolean;
 }
 
 const MIN_NORMALIZED = 0;
@@ -84,7 +98,15 @@ export function OverlayEditor({
   canvasHeightPx = 450,
   className,
   getToken,
+  resolvedPreview,
+  isResolving = false,
+  resolveFailed = false,
 }: OverlayEditorProps) {
+  // US3: the canvas box sizes around the string the wall will actually show.
+  // Raw text is the fallback while the preview is in flight, has failed, or
+  // has not been requested at all (no `{{` — `resolvedPreview` never arrives)
+  // — never empty, never a placeholder of its own (spec 148 US3 scenario 3).
+  const previewText = resolvedPreview?.resolvedText ?? value.text;
   const pixelX = value.normalizedX * canvasWidthPx;
   const pixelY = value.normalizedY * canvasHeightPx;
   const pixelWidth = Math.max(value.normalizedWidth * canvasWidthPx, 24);
@@ -166,7 +188,7 @@ export function OverlayEditor({
             userSelect: 'none',
           }}
         >
-          <span data-testid="overlay-editor-preview">{value.text || ' '}</span>
+          <span data-testid="overlay-editor-preview">{previewText || ' '}</span>
         </Rnd>
       </div>
       <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
@@ -193,6 +215,12 @@ export function OverlayEditor({
           />
         </label>
       </div>
+      <PlaceholderPreviewPanel
+        text={value.text}
+        data={resolvedPreview}
+        isFetching={isResolving}
+        isError={resolveFailed}
+      />
       <BackdropControls
         backdrop={backdrop}
         onBackdropChange={setBackdrop}

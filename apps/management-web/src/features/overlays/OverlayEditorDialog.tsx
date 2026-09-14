@@ -1,15 +1,17 @@
 import { useCreateOverlayDraftMutation } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { createOverlayDraftSchema, type CreateOverlayDraftInput } from '@smart-sentinel-eye/shared/api/overlays.schema';
+import { useResolveOverlayTextQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { OverlayEditor } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
 import { problemCode, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
+import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useRef } from 'react';
 import { useAuth } from 'react-oidc-context';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 
 export interface OverlayEditorDialogProps {
   open: boolean;
@@ -66,6 +68,22 @@ export function OverlayEditorDialog({ open, onOpenChange }: OverlayEditorDialogP
     defaultValues: DEFAULT_INPUT,
   });
 
+  // Spec 148 US1 + US3. The query lives here, not in `OverlayEditor` — three
+  // suites render that component bare, with no Redux `<Provider>`, and
+  // mounting the hook there fails all of them with "could not find
+  // react-redux context value" (plan.md "Frontend wiring"). The settled text
+  // drives the query; `value.text` (via `Controller` below) keeps driving the
+  // input, never the reverse — `useDebouncedValue`'s own doc comment says the
+  // field would drop characters otherwise.
+  const labelText = useWatch({ control, name: 'label.text' }) ?? DEFAULT_INPUT.label.text;
+  const settledLabelText = useDebouncedValue(labelText);
+  const shouldResolve = settledLabelText.includes('{{');
+  const {
+    data: resolvedPreview,
+    isFetching: isResolving,
+    isError: resolveFailed,
+  } = useResolveOverlayTextQuery({ text: settledLabelText }, { skip: !shouldResolve });
+
   const onSubmit = handleSubmit(async (input) => {
     const result = await createOverlayDraft(input);
     if (!('error' in result)) {
@@ -106,7 +124,16 @@ export function OverlayEditorDialog({ open, onOpenChange }: OverlayEditorDialogP
         <Controller
           control={control}
           name="label"
-          render={({ field }) => <OverlayEditor value={field.value} onChange={field.onChange} getToken={getToken} />}
+          render={({ field }) => (
+            <OverlayEditor
+              value={field.value}
+              onChange={field.onChange}
+              getToken={getToken}
+              resolvedPreview={resolvedPreview}
+              isResolving={isResolving}
+              resolveFailed={resolveFailed}
+            />
+          )}
         />
         {errors.label?.text?.message !== undefined && (
           <p role="alert" className="text-sm text-accent-fault">
