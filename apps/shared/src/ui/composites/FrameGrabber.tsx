@@ -34,7 +34,13 @@ const HIDDEN_VIDEO_STYLE: CSSProperties = {
  * (the unmount), not five.
  */
 export function FrameGrabber({ cameraIdentifier, getToken, onCaptured, onFailed }: FrameGrabberProps) {
-  const { data: stream } = useGetStreamQuery(cameraIdentifier);
+  // `currentData`, not `data` (spec 157 FR-002): behaviour-preserving here —
+  // this component is mounted per capture and never re-propped, so its
+  // `cameraIdentifier` cannot change on a mounted instance and the two
+  // spellings are indistinguishable today. Closed anyway so a known instance
+  // of the `data`-with-a-variable-argument shape does not stay live in the
+  // same file family (spec § "The ESLint rule").
+  const { currentData: stream } = useGetStreamQuery(cameraIdentifier);
   const { videoRef, status } = useWhepSession({
     cameraIdentifier,
     whepUrl: stream?.whepUrl,
