@@ -234,24 +234,14 @@ export function OverlayGeometryFields({ value, preview, onCommit }: OverlayGeome
           })}
         </div>
       </fieldset>
-      {/* Phase 6 should-fix 4 asked for this span to render unconditionally
-          (mounted from the first render, empty text when there is no
-          advisory) so a screen reader already knows about the live region
-          before its content ever changes — mount-and-fill-in-the-same-
-          instant is not reliably announced. NOT done: it directly
-          contradicts `OverlayGeometryFields.test.tsx:456-466` ("The advisory
-          clears once the label is committed back inside the canvas"), which
-          asserts `queryByRole('status')` is `null` once the advisory clears
-          — true only if this span unmounts. That test is not one of the six
-          named guard files, but the brief forbids editing *any* test, so an
-          always-mounted span and that assertion cannot both hold. Left
-          conditionally mounted, with the requested `data-testid` added
-          regardless. */}
-      {advisory !== null && (
-        <span role="status" data-testid="overlay-geometry-advisory" style={FIELD_STATUS_STYLE}>
-          {advisory}
-        </span>
-      )}
+      {/* Should-fix 4 (phase 6): rendered unconditionally, not mounted only
+          while `advisory !== null` — a live region inserted into the DOM at
+          the same instant as its content is not reliably announced.
+          `OverlayEditor.tsx:534` already does it this way in the same tree:
+          always rendered, content changes. */}
+      <span role="status" data-testid="overlay-geometry-advisory" style={FIELD_STATUS_STYLE}>
+        {advisory ?? ''}
+      </span>
     </div>
   );
 }
