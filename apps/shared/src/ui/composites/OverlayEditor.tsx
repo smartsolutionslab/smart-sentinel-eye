@@ -9,6 +9,9 @@ import type { Backdrop } from './BackdropControls.js';
 import { FrameGrabber } from './FrameGrabber.js';
 import { useFrameCapture } from './useFrameCapture.js';
 import { PlaceholderPreviewPanel, PLACEHOLDER_PREVIEW_STATUS_ID } from './PlaceholderPreviewPanel.js';
+import { formatPercent } from './normalizedPercent.js';
+import { OverlayGeometryFields } from './OverlayGeometryFields.js';
+import type { OverlayGeometry, OverlayGeometryField } from './OverlayGeometryFields.js';
 
 export interface OverlayEditorProps {
   value: OverlayLabel;
@@ -139,12 +142,6 @@ const AXIS_ANNOUNCE_LABEL: Record<AnnounceAxis, string> = {
   height: 'Height',
 };
 
-// FR-015: a normalized value rendered as the percentage an operator can
-// hold in their head, trimmed of trailing zeros ("30%", not "30.00%").
-function formatPercent(value: number): string {
-  return `${Number((value * 100).toFixed(2))}%`;
-}
-
 // FR-016: which edge a refused press hit. Position axes are refused at the
 // canvas edge on either side; size axes are refused at FR-008's floor on
 // the low side and at the canvas edge (the reachable-region bound) on the
@@ -259,6 +256,86 @@ export function OverlayEditor({
       emitNormalized(xPx / canvasWidthPx, yPx / canvasHeightPx, widthPx / canvasWidthPx, heightPx / canvasHeightPx);
     },
     [canvasWidthPx, canvasHeightPx, emitNormalized],
+  );
+
+  // Spec 151 FR-013/FR-014: the live readout. `onDrag`/`onResize` hold the
+  // in-flight geometry in local state, through the same `clamp01` the stop
+  // handlers use, so the readout never shows a number the release would not
+  // produce. `onChange` does not fire from either — only the two existing
+  // `*Stop` handlers below call it, unchanged. The `*Stop` handlers also set
+  // this preview to the release geometry (rather than clearing it to `null`):
+  // `OverlayGeometryFields` is otherwise driven by the `value` prop, which in
+  // a fully controlled parent is updated by this same `onChange` on the next
+  // render — but nothing here assumes that render happens, so the readout
+  // stays correct even the instant after release.
+  const [preview, setPreview] = useState<OverlayGeometry | null>(null);
+
+  const geometryFromPixels = useCallback(
+    (xPx: number, yPx: number, widthPx: number, heightPx: number): OverlayGeometry => ({
+      x: clamp01(xPx / canvasWidthPx),
+      y: clamp01(yPx / canvasHeightPx),
+      width: clamp01(widthPx / canvasWidthPx),
+      height: clamp01(heightPx / canvasHeightPx),
+    }),
+    [canvasWidthPx, canvasHeightPx],
+  );
+
+  const handleDrag = useCallback(
+    (_e: unknown, data: { x: number; y: number }) => {
+      setPreview(geometryFromPixels(data.x, data.y, pixelWidth, pixelHeight));
+    },
+    [geometryFromPixels, pixelWidth, pixelHeight],
+  );
+
+  const handleDragStop = useCallback(
+    (_e: unknown, data: { x: number; y: number }) => {
+      setPreview(geometryFromPixels(data.x, data.y, pixelWidth, pixelHeight));
+      emitGeometry(data.x, data.y, pixelWidth, pixelHeight);
+    },
+    [geometryFromPixels, pixelWidth, pixelHeight, emitGeometry],
+  );
+
+  const handleResize = useCallback(
+    (
+      _e: unknown,
+      _dir: string,
+      ref: { offsetWidth: number; offsetHeight: number },
+      _delta: unknown,
+      position: { x: number; y: number },
+    ) => {
+      setPreview(geometryFromPixels(position.x, position.y, ref.offsetWidth, ref.offsetHeight));
+    },
+    [geometryFromPixels],
+  );
+
+  const handleResizeStop = useCallback(
+    (
+      _e: unknown,
+      _dir: string,
+      ref: { offsetWidth: number; offsetHeight: number },
+      _delta: unknown,
+      position: { x: number; y: number },
+    ) => {
+      setPreview(geometryFromPixels(position.x, position.y, ref.offsetWidth, ref.offsetHeight));
+      emitGeometry(position.x, position.y, ref.offsetWidth, ref.offsetHeight);
+    },
+    [geometryFromPixels, emitGeometry],
+  );
+
+  // Spec 151 FR-006, plan.md §3c: one field, spread onto `value`. Deliberately
+  // **not** through `emitNormalized` — that applies `clamp01` to all four
+  // values, but `OverlayGeometryFields` has already validated the committed
+  // field strictly tighter than `clamp01` (FR-008/FR-009), and running the
+  // *other three* through `clamp01` would silently rewrite a stored off-grid
+  // or out-of-range value the operator never touched (FR-006 says they travel
+  // forward untouched). It would also let a typed `0` reach `clamp01`'s own
+  // zero, which spec.md §The zero-size question is at pains to keep
+  // unreachable.
+  const handleGeometryCommit = useCallback(
+    (field: OverlayGeometryField, normalized: number) => {
+      onChange({ ...value, [field]: normalized });
+    },
+    [onChange, value],
   );
 
   // FR-002/FR-003: driven by onFocus/onBlur, not `:focus-visible` — the file
@@ -417,10 +494,10 @@ export function OverlayEditor({
           size={{ width: pixelWidth, height: pixelHeight }}
           position={{ x: pixelX, y: pixelY }}
           bounds="parent"
-          onDragStop={(_e, data) => emitGeometry(data.x, data.y, pixelWidth, pixelHeight)}
-          onResizeStop={(_e, _dir, ref, _delta, position) =>
-            emitGeometry(position.x, position.y, ref.offsetWidth, ref.offsetHeight)
-          }
+          onDrag={handleDrag}
+          onDragStop={handleDragStop}
+          onResize={handleResize}
+          onResizeStop={handleResizeStop}
           tabIndex={0}
           data-testid="overlay-editor-label"
           role="application"
@@ -482,6 +559,10 @@ export function OverlayEditor({
           />
         </label>
       </div>
+      {/* Spec 151 (issue #2346), FR-001–FR-012/FR-017 — the four numeric
+          geometry fields, below the existing controls and before the
+          preview panel. */}
+      <OverlayGeometryFields value={value} preview={preview} onCommit={handleGeometryCommit} />
       <PlaceholderPreviewPanel
         text={value.text}
         data={resolvedPreview}
