@@ -405,11 +405,13 @@ the first thing to run: if it is green, the conflict was resolved correctly.
 
 ## Follow-ups to file (not fixed here)
 
-1. **A third copy of the resolution filter.** `VariableValueChangedDomainEventHandler.cs:100-142`
-   repeats the skip rules and the fab search for the push fan-out. After this spec it is the
-   *only* copy outside `VariableSnapshotBuilder`. Folding it is a behaviour-preserving refactor
-   on constitution §IV leg 4's hottest path and wants its own characterisation gate. Carry
-   §"The extraction" above into the issue.
+1. **Two more copies of the resolution filter, not one.** `VariableValueChangedDomainEventHandler.cs:100-142`
+   and `VariableArchivedDomainEventHandler.cs:60-92` each repeat the skip rules and the fab
+   search for their own push fan-out. After this spec they are the *only* copies outside
+   `VariableSnapshotBuilder` — both of them, single-fab (resolving siblings only in the fab
+   that changed) rather than the builder's multi-fab ordinal search. Folding them is a
+   behaviour-preserving refactor on constitution §IV leg 4's hottest path and wants its own
+   characterisation gate. Carry §"The extraction" above into the issue.
 2. **An overlay's label cannot be edited after creation.** `OverlayEditorDialog` mounts only
    `useCreateOverlayDraftMutation`; `overlaysApi.editDraftOverlayRevision`
    (`overlays.api.ts:117`) is wired to no UI. So the issue's own *"renamed or archived later"*
