@@ -37,9 +37,11 @@ test('operator creates an overlay draft and it appears in the list', async ({ pa
 // Spec 151 (issue #2346) T002 — the one thing jsdom cannot prove
 // (spec.md §Precision, §Independent end-to-end test procedure step 11): a
 // typed percentage survives real form submission and the double -> decimal
-// boundary to the server exactly, not as 0.24870000000000003. There is no
-// edit dialog (`OverlayEditorDialog` is create-only), so the read-back is a
-// gateway call, not a re-open.
+// boundary to the server exactly — the client-side /100-vs-quantize
+// discrimination is `OverlayGeometryFields.test.tsx`'s job (24.87 does not
+// discriminate the two; it is used here only as an ordinary value). There is
+// no edit dialog (`OverlayEditorDialog` is create-only), so the read-back is
+// a gateway call, not a re-open.
 test('operator types an exact geometry and the saved overlay carries it through the gateway', async ({ page }) => {
   test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
 
@@ -74,7 +76,10 @@ test('operator types an exact geometry and the saved overlay carries it through 
   // on the panel refuses it.
   await expect(page.getByRole('alert')).toHaveCount(0);
 
-  const name = `E2E-151-${Date.now()}`;
+  // The teardown's DISPOSABLE pattern (archive-e2e-overlays.teardown.ts) matches
+  // "E2E " (space), not "E2E-" — every other disposable in this suite uses the
+  // space form, and a hyphen here would leave one orphan draft per CI run.
+  const name = `E2E Geometry ${Date.now()}`;
   await page.locator('#overlay-name').fill(name);
   await page.getByRole('button', { name: /save as draft/i }).click();
 
@@ -95,8 +100,7 @@ test('operator types an exact geometry and the saved overlay carries it through 
   const saved = overlays.chains.find((chain) => chain.name === name);
   expect(saved, `the saved overlay "${name}" should be readable back through the gateway`).toBeTruthy();
   const revision = saved!.revisions[0]!;
-  // Exactly 0.2487, not 0.24870000000000003 — the naive `/100` parse this
-  // spec exists to rule out would fail this assertion, not just look ugly.
+  // Exactly 0.2487 through the double -> decimal boundary, not merely close.
   expect(revision.normalizedX).toBe(0.2487);
   expect(revision.normalizedWidth).toBe(0.5);
 });

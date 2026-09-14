@@ -18,12 +18,15 @@ import { OverlayGeometryFields } from './OverlayGeometryFields.js';
  *
  * <p>
  * <b>The float trap this file exists to catch</b> (spec.md §Precision):
- * `24.87 / 100 === 0.24870000000000003`, off-grid at seventeen decimals — the
- * same class of defect spec 149's phase-6 review found in
- * `quantizeBoundFloor`. The parse must instead be `Math.round(percent * 100) /
- * 10_000`. The assertion that pins this uses `toBe`, never `toBeCloseTo` —
- * `toBeCloseTo` passes on the `/100` defect and would make this test useless
- * for the one thing it is here to catch.
+ * `/100` and the correct `Math.round(percent * 100) / 10_000` disagree on
+ * 2760 of the 10000 values on the 2dp percent grid — `0.07% -> 0.07 / 100 ===
+ * 0.0007000000000000001`, not `0.0007` — the same class of defect spec 149's
+ * phase-6 review found in `quantizeBoundFloor`. `24.87` does not happen to be
+ * one of the 2760 (`24.87 / 100 === 0.2487` exactly), so it cannot carry this
+ * assertion; `0.07` is used instead, below. The assertion that pins this uses
+ * `toBe`, never `toBeCloseTo` — `toBeCloseTo` passes on every one of the 2760
+ * (one of them, `0.35%`, even rounds *down* in the division form) and would
+ * make this test useless for the one thing it is here to catch.
  * </p>
  *
  * <p>
@@ -115,10 +118,14 @@ function ControlledFields({
 }
 
 describe('normalizedPercent (FR-016, spec.md §Precision)', () => {
-  it('Parses "24.87" to exactly 0.2487 — not the 17-decimal /100 result', () => {
-    // The trap, named: naive division is off-grid at 17dp. toBe, never toBeCloseTo.
-    expect(24.87 / 100).not.toBe(0.2487);
-    expect(parsePercent('24.87')).toBe(0.2487);
+  it('Parses "0.07" to exactly 0.0007 — not the 17-decimal /100 result (2760 of 10000 grid values disagree)', () => {
+    // The trap, named: 0.07/100 is off-grid at 17dp. `24.87` is not one of the
+    // 2760 grid values that discriminate the two forms (24.87/100 === 0.2487
+    // exactly) and cannot carry this assertion — see the header comment.
+    // toBe, never toBeCloseTo: toBeCloseTo passes on every one of the 2760,
+    // including the one (0.35%) that rounds down instead of up.
+    expect(0.07 / 100).not.toBe(0.0007);
+    expect(parsePercent('0.07')).toBe(0.0007);
   });
 
   it('Parses "25" to exactly 0.25', () => {
