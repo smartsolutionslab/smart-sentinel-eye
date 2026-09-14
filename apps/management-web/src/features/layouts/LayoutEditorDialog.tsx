@@ -11,8 +11,9 @@ import { CONFLICT_FALLBACK, isStaleConflict, problemDetail } from '@smart-sentin
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
+import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/ChainRecoveryNotice';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
 import { useForm } from 'react-hook-form';
 import { GridDesigner } from './GridDesigner.js';
@@ -248,6 +249,17 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
     error,
     staleConflict ? CONFLICT_FALLBACK : 'Could not save the layout. Try again.',
   );
+
+  // Spec 156 (issue #2372). The chain read is the only thing blocking Save
+  // (FR-002 above), so an operator clicks Retry *in order to* Save — focus
+  // lands there, not restored to wherever it was, when the operator's own
+  // re-read succeeds.
+  // `ComponentRef<'button'>`, not `HTMLButtonElement` (spec 154's own
+  // `e2e/overlays.spec.ts` fix, bc30486f) — this app's eslint config has no
+  // per-tag DOM lib globals, and naming the type literally trips `no-undef`;
+  // widening the config would be the gate-weakening ADR-0144 rules out.
+  const saveRef = useRef<ComponentRef<'button'>>(null);
+
   const cameraItems = cameras?.items ?? [];
   // Only ever true when the source says more cameras exist than were gathered.
   // The copy states the two numbers and stops there, deliberately: the gap can
@@ -361,34 +373,15 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
           cameraFilterActive={filtering}
           cameraNoticeId={cameraNoticeId}
         />
-        {/*
-          One alert at a time, never two siblings: a failed chain read takes
-          priority, because it blocks Save outright and a `backendError` still
-          on screen from a prior submit is stale the moment the chain can no
-          longer even be confirmed current (mirrors OverlayEditorDialog.tsx).
-        */}
-        {isEdit && chainFailed ? (
-          <p role="alert" className="text-sm text-accent-fault">
-            The layout could not be read.{' '}
-            <button type="button" className="underline" onClick={() => void refetchChain()}>
-              Retry
-            </button>
-          </p>
-        ) : (
-          backendError !== null && (
-            <p role="alert" className="text-sm text-accent-fault">
-              {backendError}{' '}
-              {staleConflict && (
-                // Reload, never retry. Refetching the chain replaces the version
-                // the dialog would resubmit with the one the other writer left,
-                // so the operator reapplies against what is actually stored.
-                <button type="button" className="underline" onClick={() => void refetchChain()}>
-                  Reload
-                </button>
-              )}
-            </p>
-          )
-        )}
+        <ChainRecoveryNotice
+          noun="layout"
+          readFailed={chainFailed}
+          reReading={chainFetching}
+          onReRead={() => void refetchChain()}
+          backendError={backendError}
+          offerReload={staleConflict}
+          onReadRecovered={() => saveRef.current?.focus()}
+        />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
             Cancel
@@ -422,6 +415,7 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
             rather than asserted.
           */}
           <Button
+            ref={saveRef}
             type="submit"
             disabled={isLoading || knownCameras.size === 0 || (isEdit && (currentChain === undefined || chainFetching))}
           >
