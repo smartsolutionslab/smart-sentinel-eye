@@ -207,12 +207,29 @@ test('operator drags a label, undoes it, and undoes back to the saved geometry',
   // Step 5 — the field reads its step-2 value again.
   await expect(leftField).toHaveValue(savedLeft);
 
-  // Step 6 — Ctrl+Z until the Undo control disables. One drag is one step,
-  // so this is already true; pressed again to pin Decision 5's "further
-  // presses change nothing" as well as reaching the floor in the first
-  // place.
+  // Step 6 — Ctrl+Z until the Undo control refuses. One drag is one step, so
+  // this is already true; pressed again to pin Decision 5's "further presses
+  // change nothing" as well as reaching the floor in the first place.
+  //
+  // `aria-disabled`, not the native `disabled` attribute (phase 6 review
+  // finding): a browser blurs a focused element the instant it becomes
+  // natively disabled, so reaching the floor *by mouse* would push focus to
+  // `<body>` — outside the editor root — and `Ctrl+Z` would stop working
+  // until the operator clicked back in. jsdom does not implement
+  // blur-on-disable, so only a real browser can prove this; that is exactly
+  // what this test is for.
   const undoButton = page.getByRole('button', { name: /^undo$/i });
-  await expect(undoButton).toBeDisabled();
+  await expect(undoButton).toHaveAttribute('aria-disabled', 'true');
+  await expect(undoButton).toBeEnabled(); // stays a real, focusable control
+
+  // A mouse click on the refused control — not the keyboard shortcut — must
+  // still no-op: aria-disabled does not stop the browser from dispatching
+  // the click, so the handler itself has to refuse.
+  await undoButton.click();
+  await expect(leftField).toHaveValue(savedLeft);
+  const activeElementTag = await page.evaluate(() => document.activeElement?.tagName ?? null);
+  expect(activeElementTag, 'focus should stay on a real control, not fall out to <body>').not.toBe('BODY');
+
   await page.keyboard.press('Control+z');
 
   // Step 7 — the label is back at the saved geometry.
