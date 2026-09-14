@@ -55,16 +55,18 @@ function getLabel(): HTMLElement {
 }
 
 /**
- * The live region an operator (or NVDA) would actually hear. Queried by the
- * accessibility contract (`aria-live="polite"`), not by a `data-testid` the
- * implementation happens to choose (FR-015).
+ * The geometry live region an operator (or NVDA) would actually hear for a
+ * keyboard move/resize. `PlaceholderPreviewPanel` renders its own
+ * `aria-live="polite"` region (the text-resolution status), so a bare
+ * `[aria-live="polite"]` query is ambiguous between the two and would
+ * silently retarget onto whichever happens to come first in the DOM (phase 6
+ * should-fix 6) — `data-testid` picks this one specifically, and the
+ * accessibility contract (`aria-live="polite"`) is still asserted on it.
  */
 function getLiveRegion(): HTMLElement {
-  const region = document.querySelector('[aria-live="polite"]');
-  if (region === null) {
-    throw new Error('expected an aria-live="polite" region to be rendered');
-  }
-  return region as HTMLElement;
+  const region = screen.getByTestId('overlay-editor-geometry-live-region');
+  expect(region.getAttribute('aria-live')).toBe('polite');
+  return region;
 }
 
 /**
@@ -106,11 +108,9 @@ describe('OverlayEditor keyboard operability (spec 149)', () => {
 
       expect(label.tabIndex).toBe(0);
       // The label must precede the text input in DOM order — compareDocumentPosition
-      // reports bit 0x04 (DOCUMENT_POSITION_FOLLOWING) when the argument comes after
-      // the node it is called on. `Node` is not in this package's eslint globals, so
-      // the bitmask is spelled out rather than referenced off the global constructor.
-      const DOCUMENT_POSITION_FOLLOWING = 0x04;
-      expect(label.compareDocumentPosition(textInput) & DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      // reports bit Node.DOCUMENT_POSITION_FOLLOWING when the argument comes after
+      // the node it is called on.
+      expect(label.compareDocumentPosition(textInput) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
       label.focus();
       expect(document.activeElement).toBe(label);
