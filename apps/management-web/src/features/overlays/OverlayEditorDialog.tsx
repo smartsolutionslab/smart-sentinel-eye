@@ -1,15 +1,26 @@
-import { useCreateOverlayDraftMutation, type OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
+import {
+  useCreateOverlayDraftMutation,
+  useEditDraftOverlayRevisionMutation,
+  useGetOverlayQuery,
+  type OverlayLabel,
+} from '@smart-sentinel-eye/shared/api/overlays.api';
 import { createOverlayDraftSchema, type CreateOverlayDraftInput } from '@smart-sentinel-eye/shared/api/overlays.schema';
 import { useResolveOverlayTextQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+import { skipToken } from '@reduxjs/toolkit/query/react';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { OverlayEditor } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
-import { problemCode, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
+import {
+  CONFLICT_FALLBACK,
+  isStaleConflict,
+  problemCode,
+  problemDetail,
+} from '@smart-sentinel-eye/shared/api/problemDetail';
 import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 
@@ -47,14 +58,22 @@ const DEFAULT_INPUT: CreateOverlayDraftInput = {
 };
 
 export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayEditorDialogProps) {
-  // Spec 152 phase 4a scaffold. `editTarget` is accepted so
-  // `OverlayEditorDialog.test.tsx`'s new edit-mode block and `OverlaysPage.tsx`
-  // (once it passes one) type-check, but nothing below reads it yet — the
-  // dialog still behaves exactly as it does today, in create mode only. Mode
-  // selection, seeding, the chain re-read and the edit submit branch are
-  // T008-T011 (frontend-engineer), against this block's failing output.
-  void editTarget;
-  const [createOverlayDraft, { isLoading, error, reset: resetMutationState }] = useCreateOverlayDraftMutation();
+  const isEdit = editTarget !== undefined;
+  const [createOverlayDraft, createState] = useCreateOverlayDraftMutation();
+  const [editDraftOverlayRevision, editState] = useEditDraftOverlayRevisionMutation();
+
+  // The If-Match version has to be the chain's *current* one (ADR-0113), read
+  // back rather than inferred: in US1 the page's held version merely might be
+  // stale by the time Save is clicked, and in US2 the branch that got the
+  // operator here was itself a write, so the page's version is already one
+  // behind. `version + 1` is the obvious wrong implementation and it works on
+  // a single-operator machine (LayoutEditorDialog.tsx:59-65).
+  const {
+    data: currentChain,
+    isError: chainFailed,
+    refetch: refetchChain,
+  } = useGetOverlayQuery(editTarget?.overlayIdentifier ?? skipToken);
+  const { isLoading, error, reset: resetMutationState } = isEdit ? editState : createState;
 
   // Spec 147 T010. Stable identity, holding the newest token behind a ref —
   // copied from `CameraDetailPage.tsx:20-38`, including its reasoning.
@@ -80,6 +99,16 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
     if (!open) resetMutationState();
   }, [open, resetMutationState]);
 
+  // The create seed (`DEFAULT_INPUT`) is untouched; edit seeds a second value
+  // computed from `editTarget`, exactly as `LayoutEditorDialog.tsx:155-162`
+  // computes one beside `EMPTY_CREATE`. `name` is still seeded from the
+  // chain's real name even though the field is hidden in edit mode, so
+  // `createOverlayDraftSchema` — unchanged — keeps validating it.
+  const defaultValues = useMemo<CreateOverlayDraftInput>(() => {
+    if (editTarget === undefined) return DEFAULT_INPUT;
+    return { name: editTarget.name, label: editTarget.label };
+  }, [editTarget]);
+
   const {
     control,
     register,
@@ -88,8 +117,13 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
     reset,
   } = useForm<CreateOverlayDraftInput>({
     resolver: zodResolver(createOverlayDraftSchema),
-    defaultValues: DEFAULT_INPUT,
+    defaultValues,
   });
+
+  // Re-seed when the target (or create/edit mode) changes between opens.
+  useEffect(() => {
+    reset(defaultValues);
+  }, [defaultValues, reset]);
 
   // Spec 148 US1 + US3. The query lives here, not in `OverlayEditor` — three
   // suites render that component bare, with no Redux `<Provider>`, and
@@ -98,7 +132,7 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
   // drives the query; `value.text` (via `Controller` below) keeps driving the
   // input, never the reverse — `useDebouncedValue`'s own doc comment says the
   // field would drop characters otherwise.
-  const labelText = useWatch({ control, name: 'label.text' }) ?? DEFAULT_INPUT.label.text;
+  const labelText = useWatch({ control, name: 'label.text' }) ?? defaultValues.label.text;
   const settledLabelText = useDebouncedValue(labelText);
   const shouldResolve = settledLabelText.includes('{{');
   const {
@@ -118,6 +152,24 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
   const isResolving = isFetching || !settled;
 
   const onSubmit = handleSubmit(async (input) => {
+    if (editTarget !== undefined) {
+      // FR-013: Save is disabled until `currentChain` resolves, so this is
+      // defensive rather than reachable through the UI — not the silent
+      // no-op `LayoutEditorDialog.tsx:183` uses, which this deliberately
+      // does not copy (that button gives no explanation at all).
+      if (currentChain === undefined) return;
+      const result = await editDraftOverlayRevision({
+        overlayIdentifier: editTarget.overlayIdentifier,
+        revisionNumber: editTarget.revisionNumber,
+        version: currentChain.version,
+        label: input.label,
+      });
+      if (!('error' in result)) {
+        reset(defaultValues);
+        onOpenChange(false);
+      }
+      return;
+    }
     const result = await createOverlayDraft(input);
     if (!('error' in result)) {
       reset(DEFAULT_INPUT);
@@ -125,35 +177,51 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
     }
   });
 
-  // This dialog only creates, so its 409 is OVERLAY_NAME_TAKEN — never the
-  // stale-version conflict LayoutEditorDialog handles. Keyed on the code
-  // rather than the status so it stays right if editing is added here later:
-  // "reload to see their version" would be useless advice for a name clash,
-  // and "try again" is useless advice for a stale one.
+  // Keyed on the code rather than the status (ADR-0119): "reload to see their
+  // version" is useless advice for a name clash, and "try again" is useless
+  // advice for a stale one or a state that moved out from under the operator.
+  const staleConflict = isStaleConflict(error);
+  const notDraft = problemCode(error) === 'OVERLAY_REVISION_NOT_DRAFT';
+  // Create-mode only — this dialog's create 409 is always OVERLAY_NAME_TAKEN,
+  // never the stale-version or not-a-draft conflicts edit mode can hit.
   const nameTaken = problemCode(error) === 'OVERLAY_NAME_TAKEN';
   const backendError = problemDetail(
     error,
-    nameTaken
-      ? 'That overlay name is already taken. Choose a different one.'
-      : 'Could not save the overlay. Try again.',
+    staleConflict
+      ? CONFLICT_FALLBACK
+      : notDraft
+        ? 'This revision is no longer a draft. Reload to see its current state.'
+        : nameTaken
+          ? 'That overlay name is already taken. Choose a different one.'
+          : 'Could not save the overlay. Try again.',
   );
+  // Reload, never retry: retrying replays the same stale intent over
+  // whoever wrote in between (staleConflict), or resubmits against a
+  // revision that has already left draft (notDraft) — neither can succeed.
+  const offerReload = staleConflict || notDraft;
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         if (!next) {
-          reset(DEFAULT_INPUT);
+          reset(defaultValues);
         }
         onOpenChange(next);
       }}
-      title="New overlay"
-      description="Pick a name, type the label, and drag it to position. The overlay starts as a draft."
+      title={isEdit ? 'Edit overlay draft' : 'New overlay'}
+      description={
+        isEdit
+          ? `Editing draft v${editTarget.revisionNumber} of ${editTarget.name}. The change is saved onto this draft.`
+          : 'Pick a name, type the label, and drag it to position. The overlay starts as a draft.'
+      }
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <FormField label="Name" htmlFor="overlay-name" error={errors.name?.message}>
-          <Input id="overlay-name" autoFocus {...register('name')} />
-        </FormField>
+        {!isEdit && (
+          <FormField label="Name" htmlFor="overlay-name" error={errors.name?.message}>
+            <Input id="overlay-name" autoFocus {...register('name')} />
+          </FormField>
+        )}
         <Controller
           control={control}
           name="label"
@@ -173,17 +241,32 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
             {errors.label.text.message}
           </p>
         )}
+        {isEdit && chainFailed && (
+          <p role="alert" className="text-sm text-accent-fault">
+            The overlay could not be read.{' '}
+            <button type="button" className="underline" onClick={() => void refetchChain()}>
+              Retry
+            </button>
+          </p>
+        )}
         {backendError !== null && (
           <p role="alert" className="text-sm text-accent-fault">
-            {backendError}
+            {backendError}{' '}
+            {offerReload && (
+              // Reload, never retry: refetching the chain replaces the version
+              // the dialog would resubmit with the one actually stored.
+              <button type="button" className="underline" onClick={() => void refetchChain()}>
+                Reload
+              </button>
+            )}
           </p>
         )}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? 'Saving…' : 'Save as draft'}
+          <Button type="submit" disabled={isLoading || (isEdit && currentChain === undefined)}>
+            {isLoading ? 'Saving…' : isEdit ? 'Save draft' : 'Save as draft'}
           </Button>
         </div>
       </form>
