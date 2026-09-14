@@ -46,8 +46,15 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
     // unmocked new hook here would reach the real RTK Query and fire a
     // request from a component test the moment the dialog mounts.
     useEditDraftOverlayRevisionMutation: () => [editDraftMock, { isLoading: false, error: undefined, reset: vi.fn() }],
+    // Both `data` and `currentData` are supplied — see the fuller comment in
+    // OverlayEditorDialog.test.tsx's own mock of this hook: this page-level
+    // mock is arg-independent and so cannot itself discriminate the two
+    // (OverlayEditorDialogChainRetention.test.tsx is the file that can, with
+    // the real hook), but a mock that only ever supplied one would hide a
+    // regression in the field this page's test suite doesn't read.
     useGetOverlayQuery: () => ({
       data: { overlayIdentifier: '11111111-1111-1111-1111-111111111111', version: 0 },
+      currentData: { overlayIdentifier: '11111111-1111-1111-1111-111111111111', version: 0 },
       isLoading: false,
       isError: false,
       refetch: vi.fn(),

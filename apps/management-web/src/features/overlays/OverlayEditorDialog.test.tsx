@@ -31,13 +31,35 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/overlays.api')>();
   return {
     ...actual,
-    useCreateOverlayDraftMutation: () => [createDraftMock, { isLoading: false, error: createError, reset: vi.fn() }],
-    useEditDraftOverlayRevisionMutation: () => [editDraftMock, { isLoading: false, error: editError, reset: vi.fn() }],
+    // Real behaviour, not a spy stub: `reset()` clears the module-level error
+    // variable it corresponds to, so a test can tell "the wrong mutation's
+    // reset ran" from "the right one did" — a `vi.fn()` that does nothing
+    // cannot express that distinction, and review found the effect at
+    // OverlayEditorDialog.tsx that calls one of these keys on `open`, which
+    // flips in lockstep with `isEdit` in real usage, so on close it always
+    // resets create's state even in edit mode.
+    useCreateOverlayDraftMutation: () => [
+      createDraftMock,
+      { isLoading: false, error: createError, reset: vi.fn(() => (createError = undefined)) },
+    ],
+    useEditDraftOverlayRevisionMutation: () => [
+      editDraftMock,
+      { isLoading: false, error: editError, reset: vi.fn(() => (editError = undefined)) },
+    ],
     // The dialog reads the chain back to learn its current version (FR-011);
     // the page target is one write behind by construction (US1: possibly, US2:
     // certainly, since branching is itself a write) — see LayoutEditorDialog.tsx:59-65.
+    //
+    // Both `data` and `currentData` are supplied, deliberately identical here:
+    // this file's mock is arg-independent, so it cannot express RTK Query's
+    // real distinction (`data` survives a `skipToken`/arg change; `currentData`
+    // resets on both — OverlayEditorDialogChainRetention.test.tsx is the file
+    // that can, using the real hook). Supplying only one field would hide a
+    // regression in whichever direction went unmocked — the implementation
+    // could read the wrong one and every test here would stay green.
     useGetOverlayQuery: () => ({
       data: chainQueryState.data,
+      currentData: chainQueryState.data,
       isLoading: chainQueryState.isLoading,
       isError: chainQueryState.isError,
       refetch: refetchChainMock,
@@ -341,6 +363,54 @@ describe('OverlayEditorDialog — edit', () => {
 
     expect(await screen.findByText(/text is required/i)).toBeInTheDocument();
     expect(editDraftMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Phase-6 review finding, new behaviour, RED. `OverlaysPage` keeps the edit
+   * dialog permanently mounted and drives `open`/`editTarget` together
+   * (`open={editTarget !== undefined}`), so a close and a reopen on a
+   * *different* draft is exactly A→undefined→B on this one component — not
+   * an unmount and a fresh mount.
+   *
+   * The reset effect (`OverlayEditorDialog.tsx:98-100`) keys on `open`, which
+   * changes in lockstep with `isEdit`: on close `isEdit` has already gone
+   * false, so `resetMutationState` resolves to `createState.reset` and the
+   * refused *edit* mutation's error is never cleared. This mock's `reset`
+   * functions are behavioural for exactly this reason (see the vi.mock
+   * factory above) — a `vi.fn()` that does nothing cannot fail this test
+   * either way.
+   */
+  it('Does not carry a refused edit banner over to a different draft after closing', async () => {
+    editError = {
+      status: 409,
+      data: { title: 'OVERLAY_REVISION_NOT_DRAFT', detail: 'Revision 1 of Line-1 Title is no longer a draft.' },
+    };
+    const { rerender } = renderDialog(EDIT_TARGET);
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+
+    // Close — `open` and `editTarget` fall together, as OverlaysPage.tsx
+    // always drives them.
+    rerender(
+      <Provider store={store}>
+        <OverlayEditorDialog open={false} onOpenChange={() => {}} editTarget={undefined} />
+      </Provider>,
+    );
+
+    const OTHER_TARGET: OverlayEditTarget = {
+      overlayIdentifier: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+      revisionNumber: 4,
+      name: 'Line-2 Title',
+      label: { ...EDIT_TARGET.label, text: 'Line 4' },
+    };
+    // Reopen on an unrelated draft that was never refused.
+    rerender(
+      <Provider store={store}>
+        <OverlayEditorDialog open={true} onOpenChange={() => {}} editTarget={OTHER_TARGET} />
+      </Provider>,
+    );
+
+    expect(screen.getByTestId('overlay-editor-text')).toHaveValue('Line 4');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
 
