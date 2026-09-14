@@ -86,26 +86,69 @@ for every input is identical after the split — that is exactly what
 
 ### 2. Clamp order, stated once so it is reviewable
 
+**Corrected at phase 6 review (findings 1 and 2).** The order below is what
+`OverlayEditor.tsx` implements; the version this plan originally specified had
+two defects the review caught and the corrected implementation fixes — recorded
+here rather than silently overwritten, because the plan is what a reviewer
+checks the code against.
+
+**Finding 1 — the bound must be quantized too, not just the step.** `1 - s` is
+arithmetic on an already-quantized `s`, but IEEE-754 lands it off-grid for a
+large fraction of grid-valid sizes (`1 - 0.8 === 0.19999999999999996`), and the
+bound was applied *last* — so an unquantized bound silently defeated the
+quantum at exactly the boundary the quantum exists for. The fix floors the
+bound to the grid, with a small epsilon so a bound that is mathematically exact
+but float-noisy (the `0.8` case above) still lands on its true grid point
+instead of one step short, while a genuinely off-grid bound (an origin/size
+from a drag) still floors *inward*, never past the true edge.
+
+**Finding 2 — the bound must clamp the *motion*, not the resulting *value*.**
+`NormalizedPosition`/`NormalizedSize` bound each axis to `[0, 1]` independently
+and do not relate position to size, so the domain permits a label already
+off-canvas (`x + width > 1`) — not reachable by drag, but exactly the shape
+#2346's typed entry produces routinely. Clamping the *value* to the bound (the
+original `Math.min(stepped, bound)`) snapped such a label onto the bound on the
+very first keypress — including an `ArrowRight` (nominally rightward) that
+moved the label 40% of the canvas to the *left*, and a shrink that dropped 80%
+of the width in one press, both silent (no refusal announced). The fix
+compares against `current`, not just the bound: a press that would move the
+value further out is refused (the result stays at `current`); a press moving
+toward the region is unclamped by this rule and proceeds normally.
+
 For a **move**, per axis, given the axis's current size `s`:
 
 ```
-next = quantize(current ± step)        FR-009, 4 dp
-next = clamp01(next)                   FR-007, the same function the drag uses
-next = min(next, max(0, 1 - s))        FR-007, the bounds="parent" equivalent
+stepped = clamp01(quantize(current ± step))    FR-009, 4 dp; FR-007, the same
+                                                function the drag uses
+bound   = quantizeBoundFloor(max(0, 1 - s))    FR-007, the bounds="parent"
+                                                equivalent, floored to the grid
+next    = delta <= 0
+            ? stepped
+            : min(stepped, max(bound, current))  refuse only a press that would
+                                                   move further out than `current`
 ```
 
 For a **resize**, per axis, given the axis's current origin `o`:
 
 ```
-next = quantize(current ± step)        FR-009
-next = clamp01(next)                   FR-007
-next = min(next, 1 - o)                FR-007, stay inside the canvas
-next = max(next, 0.005)                FR-008, NormalizedSize refuses zero
+stepped = clamp01(quantize(current ± step))    FR-009; FR-007
+floored = max(stepped, 0.005)                  FR-008, NormalizedSize refuses
+                                                zero — applied *before* the
+                                                canvas bound (finding 2a: an
+                                                outermost floor can win over the
+                                                bound and mint an off-canvas
+                                                label at a near-edge origin;
+                                                canvas containment must win)
+bound   = quantizeBoundFloor(max(0, 1 - o))    FR-007, stay inside the canvas,
+                                                floored to the grid
+next    = delta <= 0
+            ? floored
+            : min(floored, max(bound, current))  same motion-not-value rule
 ```
 
-`max(0, 1 - s)` is guarded because `s` can exceed 1 in props (the component is
-controlled and a caller may hand it anything); `Math.max` keeps the target
-non-negative instead of producing an inverted range.
+`max(0, 1 - s)` (and `1 - o`) is guarded because `s`/`o` can exceed 1 in props
+(the component is controlled and a caller may hand it anything); `Math.max`
+keeps the target non-negative instead of producing an inverted range.
 
 ### 3. Key dispatch
 

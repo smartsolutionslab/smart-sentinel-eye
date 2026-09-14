@@ -430,6 +430,87 @@ describe('OverlayEditor keyboard operability (spec 149)', () => {
         expect(Math.abs(scaled - Math.round(scaled))).toBeLessThan(1e-6);
       }
     });
+
+    // Phase 6 finding 1: `width: 0.2` gives a bound (`1 - 0.2 === 0.8`) that
+    // happens to be exactly representable, so it passed even when the bound
+    // itself was never quantized. `width: 0.7` gives a bound
+    // (`1 - 0.7 === 0.30000000000000004`) that is not, and the quantum was
+    // silently defeated by it at exactly the boundary the quantum exists for
+    // — a held ArrowRight from x = 0.25 used to latch on a 17-decimal value
+    // forever instead of stopping at 0.3.
+    it('Reaches the clamp boundary exactly at an off-grid bound (width 0.7, bound 0.3)', () => {
+      const onChange = vi.fn();
+      render(
+        <ControlledOverlayEditor
+          initial={buildLabel({ normalizedX: 0.25, normalizedWidth: 0.7 })}
+          onChangeSpy={onChange}
+        />,
+      );
+      const label = getLabel();
+
+      for (let i = 0; i < 160; i += 1) {
+        fireEvent.keyDown(label, { key: 'ArrowRight' });
+      }
+
+      expect(onChange).toHaveBeenCalledTimes(160);
+      const finalX = (onChange.mock.calls[159]![0] as OverlayLabel).normalizedX;
+      expect(finalX).toBe(0.3);
+
+      for (const call of onChange.mock.calls) {
+        const x = (call[0] as OverlayLabel).normalizedX;
+        const scaled = x * 10_000;
+        expect(Math.abs(scaled - Math.round(scaled))).toBeLessThan(1e-6);
+      }
+    });
+  });
+
+  describe('an already off-canvas label moves only toward the canvas (FR-007, finding 2b)', () => {
+    // NormalizedPosition.cs bounds x/y to [0, 1] independently and permits
+    // x + width > 1 — the domain's own off-edge rectangle, not reachable by
+    // drag but exactly what #2346's typed entry will produce routinely. A
+    // press pointing further out must be refused, not snapped onto the
+    // bound: snapping onto the bound is how ArrowRight used to move the
+    // label 40% of the canvas to the *left*.
+
+    it('ArrowRight refuses to grow the excursion — no leftward snap to the bound', () => {
+      const onChange = vi.fn();
+      render(<OverlayEditor value={buildLabel({ normalizedX: 0.9, normalizedWidth: 0.5 })} onChange={onChange} />);
+
+      fireEvent.keyDown(getLabel(), { key: 'ArrowRight' });
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect((onChange.mock.calls[0]![0] as OverlayLabel).normalizedX).toBe(0.9);
+    });
+
+    it('ArrowLeft moves the label toward the canvas by exactly one fine step', () => {
+      const onChange = vi.fn();
+      render(<OverlayEditor value={buildLabel({ normalizedX: 0.9, normalizedWidth: 0.5 })} onChange={onChange} />);
+
+      fireEvent.keyDown(getLabel(), { key: 'ArrowLeft' });
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect((onChange.mock.calls[0]![0] as OverlayLabel).normalizedX).toBeCloseTo(0.9 - FINE, 10);
+    });
+
+    it('Ctrl+ArrowRight refuses to grow the excursion — no 80% shrink-then-jump', () => {
+      const onChange = vi.fn();
+      render(<OverlayEditor value={buildLabel({ normalizedX: 0.9, normalizedWidth: 0.5 })} onChange={onChange} />);
+
+      fireEvent.keyDown(getLabel(), { key: 'ArrowRight', ctrlKey: true });
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect((onChange.mock.calls[0]![0] as OverlayLabel).normalizedWidth).toBe(0.5);
+    });
+
+    it('Ctrl+ArrowLeft shrinks the label toward the canvas by exactly one fine step', () => {
+      const onChange = vi.fn();
+      render(<OverlayEditor value={buildLabel({ normalizedX: 0.9, normalizedWidth: 0.5 })} onChange={onChange} />);
+
+      fireEvent.keyDown(getLabel(), { key: 'ArrowLeft', ctrlKey: true });
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect((onChange.mock.calls[0]![0] as OverlayLabel).normalizedWidth).toBeCloseTo(0.5 - FINE, 10);
+    });
   });
 
   describe('unhandled keys are left to the browser (FR-011 / bad request)', () => {
