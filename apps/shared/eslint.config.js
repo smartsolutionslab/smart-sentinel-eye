@@ -36,6 +36,7 @@ export default [
         AbortSignal: 'readonly',
         Response: 'readonly',
         Request: 'readonly',
+        RequestInfo: 'readonly',
         RequestInit: 'readonly',
         WebSocket: 'readonly',
         fetch: 'readonly',
