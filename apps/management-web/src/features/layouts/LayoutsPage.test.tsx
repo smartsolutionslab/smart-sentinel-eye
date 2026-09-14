@@ -17,9 +17,14 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
   return {
     ...actual,
     useListLayoutsQuery: (...args: unknown[]) => listLayoutsMock(...args),
-    // Both `data` and `currentData` are supplied — spec 153 switches the
-    // dialog to `currentData`; keeping `data` too means a regression back to
-    // the wrong field would still be caught here.
+    // Both `data` and `currentData` are supplied, set to the SAME value —
+    // this mock cannot distinguish the two fields, so it cannot catch a
+    // regression back to `data`. That discrimination lives in
+    // LayoutEditorDialogChainRetention.test.tsx, which drives the real
+    // useGetLayoutQuery instead of mocking it. `currentData` is supplied here
+    // only because the dialog reads it; without it every edit-mode assertion
+    // in this file would see `currentChain === undefined` and hit FR-002's
+    // gate.
     useGetLayoutQuery: () => ({
       data: chain(),
       currentData: chain(),
