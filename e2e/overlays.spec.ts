@@ -56,9 +56,15 @@ test('operator types an exact geometry and the saved overlay carries it through 
   await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
 
   const origin = new URL((await gatewayRequest).url()).origin;
+  // management-web sets no `userStore` in apps/management-web/src/app/auth.ts
+  // (unlike apps/kiosk-web, which opts into `window.localStorage` explicitly),
+  // so oidc-client-ts falls back to its default, sessionStorage. Reading
+  // localStorage here — the pattern every kiosk spec uses because kiosk-web
+  // genuinely is in localStorage — silently returns '', and every kiosk
+  // helper this was copied from is a kiosk spec for exactly that reason.
   const token = await page.evaluate(() => {
-    const key = Object.keys(window.localStorage).find((candidate) => candidate.startsWith('oidc.user:'));
-    const user = JSON.parse(window.localStorage.getItem(key ?? '') ?? '{}') as Record<string, string>;
+    const key = Object.keys(window.sessionStorage).find((candidate) => candidate.startsWith('oidc.user:'));
+    const user = JSON.parse(window.sessionStorage.getItem(key ?? '') ?? '{}') as Record<string, string>;
     return user['access_token'] ?? '';
   });
   expect(token, 'the operator should be holding an access token').not.toBe('');
