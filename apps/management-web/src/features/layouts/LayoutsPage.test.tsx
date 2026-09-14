@@ -17,7 +17,16 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
   return {
     ...actual,
     useListLayoutsQuery: (...args: unknown[]) => listLayoutsMock(...args),
-    useGetLayoutQuery: () => ({ data: chain(), isLoading: false }),
+    // Both `data` and `currentData` are supplied — spec 153 switches the
+    // dialog to `currentData`; keeping `data` too means a regression back to
+    // the wrong field would still be caught here.
+    useGetLayoutQuery: () => ({
+      data: chain(),
+      currentData: chain(),
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+    }),
     usePublishRevisionMutation: () => [publishMock, { isLoading: false }],
     useArchiveRevisionMutation: () => [archiveMock, { isLoading: false }],
     useBranchDraftRevisionMutation: () => [branchMock, { isLoading: false }],
