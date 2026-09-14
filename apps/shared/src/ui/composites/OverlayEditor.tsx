@@ -433,7 +433,12 @@ export function OverlayEditor({
         Arrow keys move this label; hold Shift for a larger step. Hold Ctrl with an arrow key to resize from the
         top-left corner; add Shift for a larger resize step.
       </p>
-      <div aria-live="polite" className="sr-only">
+      {/* Phase 6 should-fix 6: `data-testid` so `OverlayEditorKeyboard.test.tsx`
+          can find this region without relying on JSX order against
+          `PlaceholderPreviewPanel`'s own `aria-live="polite"` region — two
+          matches for the same attribute, and `querySelector` takes whichever
+          happens to come first in the DOM. */}
+      <div aria-live="polite" data-testid="overlay-editor-geometry-live-region" className="sr-only">
         {liveMessage}
       </div>
       <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
