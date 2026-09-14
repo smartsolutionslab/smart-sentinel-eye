@@ -242,6 +242,106 @@ describe('OverlayEditor undo/redo (spec 154, issue #2347)', () => {
       expect(field('Height').value).toBe('8');
     });
 
+    // Phase 5 review finding — a real defect the e2e caught, not a gap in
+    // this suite's mocking: `react-rnd`/`react-draggable` fires `onDragStop`
+    // even for a plain click with zero mouse movement, reporting the label's
+    // own, unchanged position. Site 1 is documented as "atomic — one
+    // emission, one step" (Decision 2), but nothing before this guarded
+    // "one emission" against "emission of a value identical to what is
+    // already there" — so a click-to-focus, the exact flow
+    // `e2e/overlays.spec.ts`'s undo test uses to move keyboard focus into
+    // the editor before `Ctrl+Z`, pushes a content-identical phantom step
+    // on top of a real one. One `Ctrl+Z` then undoes the phantom (invisibly
+    // — the value does not change) and the field never visibly moves.
+    it('A zero-movement drag stop (a plain click, no drag) pushes no history step on a fresh editor', () => {
+      render(<ControlledOverlayEditor initial={buildLabel()} />);
+
+      // BASE_LABEL's own geometry in pixels on the default 800x450 canvas —
+      // normalizedX 0.1 -> 80px, normalizedY 0.1 -> 45px — fed back as
+      // `onDragStop`'s position, exactly what a zero-movement mouse-up
+      // reports: the label's current position, unchanged.
+      act(() => {
+        lastRndProps!.onDragStop({}, { x: 80, y: 45 });
+      });
+
+      expect(field('Left').value).toBe('10');
+      expect(isDisabled(getUndoButton())).toBe(true);
+      pressUndo();
+      expect(field('Left').value).toBe('10');
+    });
+
+    it('A zero-movement drag stop after a real drag leaves exactly one undo step — Ctrl+Z once restores the pre-drag value', () => {
+      render(<ControlledOverlayEditor initial={buildLabel()} />);
+
+      act(() => {
+        lastRndProps!.onDragStop({}, { x: 320, y: 135 });
+      });
+      expect(field('Left').value).toBe('40');
+      expect(isDisabled(getUndoButton())).toBe(false);
+
+      // The exact e2e flow (`e2e/overlays.spec.ts` "operator drags a label,
+      // undoes it..."): drag, then click the now-dragged label to move
+      // keyboard focus into the editor before pressing Ctrl+Z. The click's
+      // mouse-up lands where the label already sits, so `onDragStop` fires
+      // again with the *same* position as the real drag just committed.
+      act(() => {
+        lastRndProps!.onDragStop({}, { x: 320, y: 135 });
+      });
+
+      pressUndo();
+
+      expect(field('Left').value).toBe('10');
+      expect(field('Top').value).toBe('10');
+      // If the click had pushed a phantom step, this single undo would only
+      // have reverted *that* — content-identical to the dragged value, so
+      // the field would misleadingly already read '10' either way — leaving
+      // the real drag still on the stack and the control still enabled.
+      expect(isDisabled(getUndoButton())).toBe(true);
+
+      // Redo is the assertion that actually tells the phantom apart from the
+      // real step: redoing a phantom would be a no-op landing back on '40'
+      // for the wrong reason, but a *second* redo would then be available
+      // and reachable, which a single real step never allows.
+      fireEvent.click(getRedoButton());
+      expect(field('Left').value).toBe('40');
+      expect(isDisabled(getRedoButton())).toBe(true);
+    });
+
+    it('A zero-movement resize stop pushes no history step on a fresh editor', () => {
+      render(<ControlledOverlayEditor initial={buildLabel()} />);
+
+      // pixelWidth 240 / pixelHeight 36 for BASE_LABEL's 0.3/0.08 on the
+      // default 800x450 canvas — the resize handle's own, unchanged size.
+      act(() => {
+        lastRndProps!.onResizeStop({}, 'bottomRight', { offsetWidth: 240, offsetHeight: 36 }, {}, { x: 80, y: 45 });
+      });
+
+      expect(field('Width').value).toBe('30');
+      expect(isDisabled(getUndoButton())).toBe(true);
+    });
+
+    it('A zero-movement resize stop after a real resize leaves exactly one undo step', () => {
+      render(<ControlledOverlayEditor initial={buildLabel()} />);
+
+      act(() => {
+        lastRndProps!.onResizeStop({}, 'bottomRight', { offsetWidth: 400, offsetHeight: 54 }, {}, { x: 80, y: 45 });
+      });
+      expect(field('Width').value).toBe('50');
+      expect(isDisabled(getUndoButton())).toBe(false);
+
+      // The resize handles' sibling of the drag defect — releasing a handle
+      // with no net movement, reporting the same dimensions the real resize
+      // just committed.
+      act(() => {
+        lastRndProps!.onResizeStop({}, 'bottomRight', { offsetWidth: 400, offsetHeight: 54 }, {}, { x: 80, y: 45 });
+      });
+
+      fireEvent.click(getUndoButton());
+
+      expect(field('Width').value).toBe('30');
+      expect(isDisabled(getUndoButton())).toBe(true);
+    });
+
     it('A committed geometry value is one undo step, and the label moves back with it', () => {
       render(<ControlledOverlayEditor initial={buildLabel()} />);
 
