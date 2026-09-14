@@ -148,3 +148,73 @@ test('operator edits a saved draft in place, onto the same revision', async ({ p
   await expect(row.getByText('E2E Edited')).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
   await expect(row.getByText('v1 · Draft')).toBeVisible();
 });
+
+// Spec 154 (issue #2347) T010, US1 — step-wise undo/redo, observed in a real
+// browser against the real stack. New behaviour, RED (ADR-0139/ADR-0144):
+// `overlay-editor-label` and the Left field already exist on `develop`
+// (spec 149, spec 151), so this fails at "press Ctrl+Z" — there is no Undo
+// control yet and Ctrl+Z does nothing — not on a selector that cannot
+// resolve at all. Modelled on "operator edits a saved draft in place"
+// above, including `FIRST_WRITE_TEST_TIMEOUT_MS`. Only what jsdom cannot
+// prove is exercised here — a real mouse drag through react-rnd and a real
+// `Ctrl+Z` reaching the page — the coalescing algebra itself is
+// `OverlayEditorUndo.test.tsx`'s job.
+test('operator drags a label, undoes it, and undoes back to the saved geometry', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
+  await signInAsOperator(page);
+
+  await page.getByRole('link', { name: /^overlays$/i }).click();
+  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: /new overlay/i }).click();
+  const name = `E2E Undo ${Date.now()}`;
+  await page.locator('#overlay-name').fill(name);
+  await page.getByRole('button', { name: /save as draft/i }).click();
+  await expect(page.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+
+  const row = page.getByRole('listitem').filter({ hasText: name });
+  await row.getByRole('button', { name: /^edit draft$/i }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+
+  // Step 2 — the value the dialog opened with, read back from the field
+  // rather than assumed, so the test pins whatever DEFAULT_INPUT actually
+  // is today.
+  const leftField = page.getByLabel('Left', { exact: true });
+  const savedLeft = await leftField.inputValue();
+
+  // Step 3 — a real mouse drag on the label, through react-rnd. No test id
+  // exists for "drop the label 150px right, 60px down"; the drag is driven
+  // by mouse position, exactly as an operator's would be.
+  const label = page.getByTestId('overlay-editor-label');
+  const box = await label.boundingBox();
+  if (box === null) {
+    throw new Error('the overlay label should have a bounding box once the dialog has rendered');
+  }
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 150, box.y + box.height / 2 + 60, { steps: 10 });
+  await page.mouse.up();
+
+  await expect(leftField).not.toHaveValue(savedLeft);
+
+  // Step 4 — Ctrl+Z, with focus inside the editor but not necessarily on the
+  // field itself (FR-007: the binding is on the editor's root, not
+  // conditioned on the event target).
+  await label.click();
+  await page.keyboard.press('Control+z');
+
+  // Step 5 — the field reads its step-2 value again.
+  await expect(leftField).toHaveValue(savedLeft);
+
+  // Step 6 — Ctrl+Z until the Undo control disables. One drag is one step,
+  // so this is already true; pressed again to pin Decision 5's "further
+  // presses change nothing" as well as reaching the floor in the first
+  // place.
+  const undoButton = page.getByRole('button', { name: /^undo$/i });
+  await expect(undoButton).toBeDisabled();
+  await page.keyboard.press('Control+z');
+
+  // Step 7 — the label is back at the saved geometry.
+  await expect(leftField).toHaveValue(savedLeft);
+});
