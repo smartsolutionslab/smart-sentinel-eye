@@ -198,6 +198,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     useGetStreamQueryMock.mockImplementation((cameraIdentifier: string) => ({
       data: healthyStream(cameraIdentifier),
+      currentData: healthyStream(cameraIdentifier),
       isLoading: false,
       error: undefined,
     }));

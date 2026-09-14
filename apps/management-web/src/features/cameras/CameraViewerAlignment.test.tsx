@@ -55,6 +55,7 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => 
     ...actual,
     useGetStreamQuery: () => ({
       data: { state: 'Healthy', whepUrl: 'http://sfu/whep/cam-42', error: null },
+      currentData: { state: 'Healthy', whepUrl: 'http://sfu/whep/cam-42', error: null },
       isLoading: false,
       error: undefined,
     }),

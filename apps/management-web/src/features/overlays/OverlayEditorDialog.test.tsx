@@ -556,6 +556,14 @@ describe('Frame capture (spec 147)', () => {
         lastSuccessAt: null,
         error: null,
       },
+      currentData: {
+        cameraIdentifier: CAMERA.cameraIdentifier,
+        state: 'Healthy',
+        whepUrl: 'http://sfu.test/cam-42/whep',
+        transcodeMode: 'Passthrough',
+        lastSuccessAt: null,
+        error: null,
+      },
       isLoading: false,
       error: undefined,
     });
