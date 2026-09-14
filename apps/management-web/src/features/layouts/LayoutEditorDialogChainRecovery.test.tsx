@@ -134,9 +134,18 @@ function renderDialog() {
   );
 }
 
-/** What the mocked `refetch()` does by default — the same transition a real refetch's dispatch produces. */
+/**
+ * What the mocked `refetch()` does by default — the same transition a real
+ * refetch's dispatch produces. `...chainQueryState` (not `data: undefined`,
+ * phase-6 review): RTK Query keeps `currentData` defined through a
+ * same-argument refetch, clearing it only on a `skipToken` step or an arg
+ * change (neither happens here) — `LayoutEditorDialog.tsx:66-74` says so.
+ * Overwriting it to `undefined` was only ever accidentally correct for
+ * Retry, whose precondition already has no data; it was wrong for Reload,
+ * whose precondition is a *successful* prior read.
+ */
 function beginReRead() {
-  setChainQueryState({ data: undefined, isError: false, isFetching: true });
+  setChainQueryState({ ...chainQueryState, isError: false, isFetching: true });
 }
 
 function statusRegion() {
@@ -179,6 +188,13 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
     expect(document.activeElement).toBe(retryButton);
     expect(retryButton).toHaveAttribute('aria-disabled', 'true');
     expect(statusRegion()).toHaveTextContent(/re-reading the layout/i);
+    // `role="alert"` is gone — but this proves only that the *attribute*
+    // is absent right now, not that the underlying element unmounted. It
+    // is in fact the same `<p>`, reused unchanged across the whole click
+    // -> fail -> click cycle (`chainArmActive` spans both states); only
+    // its `role` toggles off and back on. That reuse is a real regression
+    // (blocker 1, phase-6 review) — see "Announces a second refusal"
+    // below.
     expect(screen.queryByRole('alert')).toBeNull();
 
     await act(async () => {
@@ -215,6 +231,45 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
     expect(document.activeElement).toBe(retryAgain);
     expect(screen.getByRole('button', { name: /^save draft$/i })).toBeDisabled();
     expect(statusRegion().textContent).toBe('');
+  });
+
+  /**
+   * Regression, blocker 1 (phase-6 review), mirrored from the overlay
+   * dialog (FR-012). `chainArmActive` (the mount condition for the
+   * chain-read `<p>`) spans BOTH the in-flight window and the failed
+   * state, so React reconciles one persistent element across a whole
+   * click -> fail -> click -> fail cycle rather than unmounting and
+   * remounting it — only `role` toggles between `undefined` and `'alert'`.
+   * `queryByRole('alert')` cannot see that difference (it reads the current
+   * accessibility tree, not DOM history), so this compares node identity
+   * directly, the way the discriminating test's own assertion 5 comment
+   * now points here.
+   *
+   * This is a regression against the ternary this component replaced: that
+   * rendered two structurally separate `<p role="alert">` arms, so a
+   * genuine unmount/remount happened on every `chainFailed` transition,
+   * earning a real insertion-announcement each time (#2346's requirement).
+   * Meanwhile FR-006 clears the status region to `''` on failure, so on a
+   * second-and-later refusal the operator today gets nothing at all — the
+   * common case when a backend is down, not a rare one.
+   */
+  it('Announces a second refusal — the alert node is re-inserted, not merely re-labelled (regression, blocker 1)', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    const firstAlert = screen.getByRole('alert');
+
+    const retryButton = screen.getByRole('button', { name: /retry/i });
+    await user.click(retryButton);
+    await act(async () => {
+      setChainQueryState({ data: undefined, isError: true, isFetching: false });
+    });
+
+    // The discriminating assertion: today this is the SAME node (only its
+    // `role` came back), so it fails — proving the operator earns no fresh
+    // insertion-announcement on a repeat failure.
+    const secondAlert = screen.getByRole('alert');
+    expect(secondAlert).not.toBe(firstAlert);
   });
 
   /**
@@ -306,6 +361,53 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
 
     expect(document.activeElement).toBe(reloadButton);
     expect(document.activeElement).not.toBe(screen.getByRole('button', { name: /^save draft$/i }));
+  });
+
+  /**
+   * Regression, blocker 2 (phase-6 review), mirrored from the overlay
+   * dialog (FR-012). FR-008 enumerates only Reload's *success* path; a
+   * Reload-originated re-read can itself be refused (the other writer
+   * having deleted or archived the record since, or any backend blip),
+   * and that path is reachable in production on the exact screen Reload
+   * exists for — a stale-version conflict.
+   *
+   * `chainArmActive = readFailed || (reReading && origin === 'retry')`
+   * takes no account of `origin` in its first disjunct: `readFailed` alone
+   * flips it true regardless of which control started the fetch, so a
+   * Reload-originated refusal hands the chain-read arm priority and
+   * unmounts the `backendError` arm — Reload — anyway, taking the focused
+   * button down with it. Focus falls to the dialog container, the exact
+   * defect this component exists to fix, on a path FR-008 never covers.
+   */
+  it('Reload stays mounted and focused when the re-read it starts is itself refused (regression, blocker 2)', async () => {
+    const user = userEvent.setup();
+    editError = {
+      status: 409,
+      data: { title: 'LAYOUT_REVISION_STALE', detail: 'Layout has changed since version 7 (now 8).' },
+    };
+    chainQueryState = {
+      data: { layoutIdentifier: EDIT_TARGET.layoutIdentifier, version: 7 },
+      isError: false,
+      isFetching: false,
+    };
+    renderDialog();
+
+    const reloadButton = await screen.findByRole('button', { name: /reload/i });
+    await user.click(reloadButton);
+    expect(document.activeElement).toBe(reloadButton);
+
+    await act(async () => {
+      setChainQueryState({
+        data: { layoutIdentifier: EDIT_TARGET.layoutIdentifier, version: 7 },
+        isError: true,
+        isFetching: false,
+      });
+    });
+
+    // The discriminating assertion: today `getByRole('reload')` throws —
+    // the chain-read arm has taken over and Reload is gone.
+    const reloadAfterRefusal = screen.getByRole('button', { name: /reload/i });
+    expect(document.activeElement).toBe(reloadAfterRefusal);
   });
 
   it('Moves no focus and announces nothing on a normal successful open (FR-007)', () => {
