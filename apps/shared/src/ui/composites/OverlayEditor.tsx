@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Rnd } from 'react-rnd';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
@@ -161,8 +161,6 @@ function buildAnnouncement(axis: AnnounceAxis, value: number, edge: string | nul
   return edge === null ? base : `${base}, ${edge}`;
 }
 
-const OVERLAY_EDITOR_LABEL_INSTRUCTIONS_ID = 'overlay-editor-label-instructions';
-
 // FR-002. Two rings drawn with `outline` (flush against the element, paints
 // on top of `boxShadow` per CSS paint order — the white inner ring) and
 // `boxShadow` (a wider solid extension — the black outer ring underneath
@@ -273,13 +271,24 @@ export function OverlayEditor({
   // every handled keypress so a burst produces exactly one announcement.
   const [liveMessage, setLiveMessage] = useState('');
   const announceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Phase 6 should-fix 5: a held key that stays refused at the same edge
+  // repeats the same `message` burst after burst. Writing an unchanged
+  // string is a React no-op — the DOM text never changes, so the region
+  // never fires again after the first burst. A trailing zero-width space,
+  // toggled on each write, makes a repeat of the same announcement a
+  // different string every other time, without changing what is read aloud.
+  const lastAnnouncedRef = useRef('');
+  const announceToggleRef = useRef(false);
 
   const queueAnnouncement = useCallback((message: string) => {
     if (announceTimerRef.current !== null) {
       clearTimeout(announceTimerRef.current);
     }
     announceTimerRef.current = setTimeout(() => {
-      setLiveMessage(message);
+      const repeated = message === lastAnnouncedRef.current;
+      announceToggleRef.current = repeated ? !announceToggleRef.current : false;
+      lastAnnouncedRef.current = message;
+      setLiveMessage(announceToggleRef.current ? `${message}\u200B` : message);
       announceTimerRef.current = null;
     }, ANNOUNCE_DELAY_MS);
   }, []);
@@ -346,7 +355,14 @@ export function OverlayEditor({
   );
 
   // FR-012: named by its own text, falling back to a fixed, non-empty name.
-  const accessibleLabelName = value.text.length > 0 ? `Overlay label: ${value.text}` : 'Overlay label (no text set)';
+  // Not `Overlay label: ${text}` (phase 6 should-fix 7) —
+  // `aria-roledescription="Overlay label"` is already announced alongside
+  // the accessible name, so that prefix made NVDA say "Overlay label" twice.
+  const accessibleLabelName = value.text || 'No text set';
+
+  // FR-014. `useId()`, not a module constant (phase 6 should-fix 8) — a
+  // module constant collides the moment a document renders two editors.
+  const instructionsId = useId();
 
   // Neither of these is lifted into `OverlayLabel` — `onChange` fires only for
   // text, font size and geometry, exactly as today (FR-005). The preview
@@ -410,7 +426,7 @@ export function OverlayEditor({
           role="application"
           aria-roledescription="Overlay label"
           aria-label={accessibleLabelName}
-          aria-describedby={OVERLAY_EDITOR_LABEL_INSTRUCTIONS_ID}
+          aria-describedby={instructionsId}
           onKeyDown={handleLabelKeyDown}
           onFocus={() => setIsLabelFocused(true)}
           onBlur={() => setIsLabelFocused(false)}
@@ -429,7 +445,7 @@ export function OverlayEditor({
           through `overlay-editor-preview`'s `parentElement`, and PR #2360
           rewrites that same `<span>`. Keeping the `<Rnd>` subtree to its one
           existing child keeps both out of the way. */}
-      <p id={OVERLAY_EDITOR_LABEL_INSTRUCTIONS_ID} className="sr-only">
+      <p id={instructionsId} className="sr-only">
         Arrow keys move this label; hold Shift for a larger step. Hold Ctrl with an arrow key to resize from the
         top-left corner; add Shift for a larger resize step.
       </p>
