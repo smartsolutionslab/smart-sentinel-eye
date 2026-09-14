@@ -221,10 +221,13 @@ diff them. **A C# resolver and a TS resolver cannot be compared by any test this
 run.** The drift would be undetectable by construction.
 
 **Chosen: `GET /system-variables/resolve?text=<text>&fabId=<optional>`**, a new read on the
-existing `/system-variables` group, reusing `PlaceholderParser`, `IResolver` and
-`IVariableRepository` unchanged and sharing the *snapshot-building loop itself* with
-`GetOverlaySnapshotQueryHandler` (see `plan.md` §The extraction). The preview is then the same
-code the wall runs, and cannot drift because there is nothing to drift from.
+existing `/system-variables` group, reusing `PlaceholderParser` and `IResolver` unchanged and
+sharing the *snapshot-building loop itself* with `GetOverlaySnapshotQueryHandler` (see `plan.md`
+§The extraction). `IVariableRepository` gains one method,
+`ExistsIncludingArchivedAsync` — `GetByNameAsync` excludes archived rows by contract (FR-005: a
+released name is free for re-use), so it cannot itself distinguish `Archived` from `Unknown`,
+which this endpoint's own `placeholders` array must. The preview is then the same code the wall
+runs, and cannot drift because there is nothing to drift from.
 
 `GET`, not `POST`: it is a read, it creates nothing, it needs no `Idempotency-Key` (ADR-0142),
 and `GET` is retried by the standard resilience handler while `POST` is not (ADR-0143) — so
