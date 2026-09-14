@@ -1,4 +1,4 @@
-import { useCreateOverlayDraftMutation } from '@smart-sentinel-eye/shared/api/overlays.api';
+import { useCreateOverlayDraftMutation, type OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { createOverlayDraftSchema, type CreateOverlayDraftInput } from '@smart-sentinel-eye/shared/api/overlays.schema';
 import { useResolveOverlayTextQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
@@ -13,9 +13,25 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 
+/**
+ * Spec 152. Carries what the page already knows about the draft being
+ * edited, so the dialog needs no lookup to render its first frame — the six
+ * `OverlayLabel` fields lifted off the target `OverlayRevision`, not the
+ * whole revision (a spread would carry `state`/`createdAt`/etc. into the form
+ * value and then into the PATCH body).
+ */
+export interface OverlayEditTarget {
+  overlayIdentifier: string;
+  revisionNumber: number;
+  name: string;
+  label: OverlayLabel;
+}
+
 export interface OverlayEditorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** When set the dialog edits an existing draft (spec 152); otherwise it creates. */
+  editTarget?: OverlayEditTarget;
 }
 
 const DEFAULT_INPUT: CreateOverlayDraftInput = {
@@ -30,7 +46,14 @@ const DEFAULT_INPUT: CreateOverlayDraftInput = {
   },
 };
 
-export function OverlayEditorDialog({ open, onOpenChange }: OverlayEditorDialogProps) {
+export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayEditorDialogProps) {
+  // Spec 152 phase 4a scaffold. `editTarget` is accepted so
+  // `OverlayEditorDialog.test.tsx`'s new edit-mode block and `OverlaysPage.tsx`
+  // (once it passes one) type-check, but nothing below reads it yet — the
+  // dialog still behaves exactly as it does today, in create mode only. Mode
+  // selection, seeding, the chain re-read and the edit submit branch are
+  // T008-T011 (frontend-engineer), against this block's failing output.
+  void editTarget;
   const [createOverlayDraft, { isLoading, error, reset: resetMutationState }] = useCreateOverlayDraftMutation();
 
   // Spec 147 T010. Stable identity, holding the newest token behind a ref —

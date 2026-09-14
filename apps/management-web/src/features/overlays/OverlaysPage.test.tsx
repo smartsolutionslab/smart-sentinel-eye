@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
@@ -12,7 +12,11 @@ const createDraftMock = vi.fn(async () => ({ data: 'noop' }));
 // Spec 037: hoisted from an inline anonymous vi.fn. It satisfied the hook and
 // could not be asserted on, so nothing could check that recovering an archived
 // overlay actually branches.
-const branchMock = vi.fn(async () => ({ data: 2 }));
+const branchMock = vi.fn(async (): Promise<{ data: number } | { error: unknown }> => ({ data: 2 }));
+// Spec 152 T004/T006. Asserted-on so "Edit draft" (US1) and "Edit (new draft)"
+// (US2) can be told apart by what they send: US1 sends nothing at all, US2
+// sends a branch and, only on success, opens the same dialog.
+const editDraftMock = vi.fn(async () => ({ data: 1 }));
 
 // The mutation *state* the page reads back. Mutable module state, because a
 // vi.mock factory is hoisted above every test; the tests that care set these
@@ -37,6 +41,17 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
     useBranchDraftOverlayRevisionMutation: () => [branchMock, branchState],
     useRevertOverlayRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), revertState],
     useCreateOverlayDraftMutation: () => [createDraftMock, { isLoading: false, error: undefined, reset: vi.fn() }],
+    // Spec 152. `OverlayEditorDialog` is rendered for real by this page (not
+    // mocked), and its `vi.mock` factory above spreads `...actual` — so an
+    // unmocked new hook here would reach the real RTK Query and fire a
+    // request from a component test the moment the dialog mounts.
+    useEditDraftOverlayRevisionMutation: () => [editDraftMock, { isLoading: false, error: undefined, reset: vi.fn() }],
+    useGetOverlayQuery: () => ({
+      data: { overlayIdentifier: '11111111-1111-1111-1111-111111111111', version: 0 },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    }),
   };
 });
 
@@ -87,6 +102,7 @@ describe('OverlaysPage', () => {
     listOverlaysMock.mockReset();
     publishMock.mockClear();
     archiveMock.mockClear();
+    editDraftMock.mockClear();
     publishState = { isLoading: false };
     archiveState = { isLoading: false };
     branchState = { isLoading: false };
@@ -374,6 +390,75 @@ describe('OverlaysPage — recovering an archived overlay', () => {
       version: 0,
     });
   });
+
+  /**
+   * Spec 152 T006 / US2, new behaviour, RED. `OverlaysPage` branches and stops
+   * today — nothing opens after `branchMock` resolves — so this fails on a
+   * missing dialog, not a missing call (the two tests above already cover the
+   * call).
+   */
+  it('Opens the editor on the branched revision, seeded from the archived revision it branched from', async () => {
+    const user = userEvent.setup();
+    showing([chain({ revisions: [revision({ revisionNumber: 1 })] })]);
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /edit \(new draft\)/i }));
+
+    expect(await screen.findByText(/^edit overlay draft$/i)).toBeInTheDocument();
+    expect(screen.getByText(/draft v2/i)).toBeInTheDocument();
+    expect(screen.getByTestId('overlay-editor-text')).toHaveValue('Production Line 1');
+  });
+
+  /**
+   * Spec 152 Decision 2 / FR-003: US2 seeds from `live ?? newest`, so a
+   * published revision under a discarded draft must seed the LIVE one, not
+   * the newer-numbered draft it discarded.
+   */
+  it('Seeds the editor from the PUBLISHED revision, not the discarded draft, when both exist', async () => {
+    const user = userEvent.setup();
+    showing([
+      chain({
+        revisions: [
+          revision({
+            revisionNumber: 1,
+            state: 'Published',
+            publishedAt: '2026-05-28T10:00:00Z',
+            archivedAt: null,
+            text: 'Live label',
+          }),
+          revision({ revisionNumber: 2, revisionIdentifier: 'aa', text: 'Discarded label' }),
+        ],
+      }),
+    ]);
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /edit \(new draft\)/i }));
+
+    expect(await screen.findByTestId('overlay-editor-text')).toHaveValue('Live label');
+  });
+
+  /**
+   * FR-003: "On failure it opens nothing and the existing `mutationError`
+   * banner surfaces the refusal, as now." Trivially true today too — the page
+   * opens no dialog on branch success OR failure yet — so this assertion does
+   * not distinguish the two states before T012/T013 land; it pins the
+   * negative half of FR-003 so a future implementation cannot open the editor
+   * on a refusal by accident.
+   */
+  it('Opens nothing when the branch is refused', async () => {
+    const user = userEvent.setup();
+    branchMock.mockResolvedValueOnce({ error: { status: 409, data: { title: 'OVERLAY_REVISION_STALE' } } });
+    showing([chain({ revisions: [revision({ revisionNumber: 1 })] })]);
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /edit \(new draft\)/i }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(branchMock).toHaveBeenCalled();
+    expect(screen.queryByText(/^edit overlay draft$/i)).not.toBeInTheDocument();
+  });
 });
 
 /**
@@ -400,26 +485,30 @@ describe('OverlaysPage — every chain shape offers something', () => {
     };
   }
 
-  const ACTION_LABELS = ['Publish', 'Discard draft', 'Edit (new draft)', 'Revert', 'Archive'];
+  // Spec 152 FR-004: 'Edit draft' joins the exhaustive set. Adding it only here
+  // (and not to a shape's expectation below) would make the new button
+  // invisible to `.filter((label) => ACTION_LABELS.includes(label))` — the
+  // quiet way to pass this table while covering nothing.
+  const ACTION_LABELS = ['Publish', 'Discard draft', 'Edit draft', 'Edit (new draft)', 'Revert', 'Archive'];
 
   const shapes: ReadonlyArray<[string, ReturnType<typeof rev>[], string[]]> = [
-    ['{D}', [rev(1, 'Draft')], ['Publish', 'Discard draft']],
+    ['{D}', [rev(1, 'Draft')], ['Publish', 'Discard draft', 'Edit draft']],
     ['{P}', [rev(1, 'Published')], ['Edit (new draft)', 'Revert', 'Archive']],
     ['{A}', [rev(1, 'Archived')], ['Edit (new draft)']],
     [
       '{P,D}',
       [rev(1, 'Published'), rev(2, 'Draft')],
-      ['Publish', 'Discard draft', 'Edit (new draft)', 'Revert', 'Archive'],
+      ['Publish', 'Discard draft', 'Edit draft', 'Edit (new draft)', 'Revert', 'Archive'],
     ],
     // The shape issue 1879 filed: this row used to offer nothing at all.
     ['{P,A}', [rev(1, 'Published'), rev(2, 'Archived')], ['Edit (new draft)', 'Revert', 'Archive']],
-    ['{A,D}', [rev(1, 'Archived'), rev(2, 'Draft')], ['Publish', 'Discard draft']],
+    ['{A,D}', [rev(1, 'Archived'), rev(2, 'Draft')], ['Publish', 'Discard draft', 'Edit draft']],
     // Two open drafts: branch off a published revision, then revert it.
-    ['{D,D}', [rev(1, 'Draft'), rev(2, 'Draft')], ['Publish', 'Discard draft']],
+    ['{D,D}', [rev(1, 'Draft'), rev(2, 'Draft')], ['Publish', 'Discard draft', 'Edit draft']],
     [
       '{P,D,D}',
       [rev(1, 'Draft'), rev(2, 'Draft'), rev(3, 'Published')],
-      ['Publish', 'Discard draft', 'Edit (new draft)', 'Revert', 'Archive'],
+      ['Publish', 'Discard draft', 'Edit draft', 'Edit (new draft)', 'Revert', 'Archive'],
     ],
   ];
 
@@ -661,5 +750,96 @@ describe('OverlaysPage — a refused mutation is surfaced', () => {
   it('Shows no alert while every mutation is clean', () => {
     renderPage();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Spec 152 T004, US1 — new behaviour, RED (ADR-0139). `OverlaysPage` offers no
+ * `Edit draft` button today, so every test below fails on a missing control,
+ * not on an import or a compile error. This is the issue's literal scenario:
+ * `{D}` — the row a freshly-created overlay is on — offers Publish and
+ * Discard draft and nothing else (see spec.md "The correction that changes
+ * the design"), and copying `LayoutsPage`'s `Edit (new draft)` gate
+ * (`live !== undefined || fullyArchived`) would not fix it, because that gate
+ * is false on `{D}` too.
+ */
+describe('OverlaysPage — editing a draft in place (spec 152 US1)', () => {
+  function draftRevision(revisionNumber: number, text: string) {
+    return {
+      revisionIdentifier: `r${revisionNumber}`,
+      revisionNumber,
+      state: 'Draft' as const,
+      text,
+      normalizedX: 0.1,
+      normalizedY: 0.1,
+      normalizedWidth: 0.3,
+      normalizedHeight: 0.08,
+      fontSizePx: 32,
+      createdAt: '2026-05-27T10:00:00Z',
+      createdBy: '22222222-2222-2222-2222-222222222222',
+      publishedAt: null,
+      archivedAt: null,
+    };
+  }
+
+  beforeEach(() => {
+    editDraftMock.mockClear();
+    branchMock.mockClear();
+  });
+
+  /** FR-001: offered on the exact shape the issue reports — a lone open draft. */
+  it('Offers Edit draft on a chain whose only revision is an open draft', () => {
+    listOverlaysMock.mockReturnValue({
+      data: response([chain()]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.getByRole('button', { name: /^edit draft$/i })).toBeInTheDocument();
+  });
+
+  /** FR-002: no branch, no PATCH, no optimistic update — only the dialog opens. */
+  it('Opens the editor on that draft and sends no request', async () => {
+    const user = userEvent.setup();
+    listOverlaysMock.mockReturnValue({
+      data: response([chain()]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /^edit draft$/i }));
+
+    expect(await screen.findByText(/^edit overlay draft$/i)).toBeInTheDocument();
+    expect(branchMock).not.toHaveBeenCalled();
+    expect(editDraftMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Decision 1: the draft acted on is `chainView(...).draft` — the newest
+   * Draft, not "the" draft. Consistent with what Publish and Discard already
+   * target on the same row.
+   */
+  it('Targets the newest draft on a chain holding two open drafts', async () => {
+    const user = userEvent.setup();
+    listOverlaysMock.mockReturnValue({
+      data: response([chain({ revisions: [draftRevision(2, 'Older draft'), draftRevision(3, 'Newer draft')] })]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /^edit draft$/i }));
+
+    expect(await screen.findByText(/draft v3/i)).toBeInTheDocument();
+    expect(screen.getByTestId('overlay-editor-text')).toHaveValue('Newer draft');
   });
 });

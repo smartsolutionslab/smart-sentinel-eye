@@ -4,18 +4,44 @@ import { Provider } from 'react-redux';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { store } from '../../app/store.js';
+import type { OverlayEditTarget } from './OverlayEditorDialog.js';
 
 const createDraftMock = vi.fn(async () => ({ data: 'noop' }));
+const editDraftMock = vi.fn(async (_body: unknown) => ({ data: 1 }));
 
-// Set per test so the error banner can be exercised; the mutation hook is a
-// module-level mock and cannot take arguments.
+// Set per test so the error banner can be exercised; the mutation hooks are
+// module-level mocks and cannot take arguments.
 let createError: unknown = undefined;
+let editError: unknown = undefined;
+const refetchChainMock = vi.fn();
+
+/**
+ * Spec 152 FR-011. The dialog re-reads the chain's version rather than
+ * inferring it, so this is the version `editDraftOverlayRevision` must carry.
+ * Deliberately not `EDIT_TARGET.revisionNumber` (1) and not `revisionNumber + 1`
+ * (2) — either would pass a test asserting `version + 1`, which FR-012 forbids.
+ */
+let chainQueryState: { data?: { overlayIdentifier: string; version: number }; isLoading: boolean; isError: boolean } = {
+  data: undefined,
+  isLoading: false,
+  isError: false,
+};
 
 vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/overlays.api')>();
   return {
     ...actual,
     useCreateOverlayDraftMutation: () => [createDraftMock, { isLoading: false, error: createError, reset: vi.fn() }],
+    useEditDraftOverlayRevisionMutation: () => [editDraftMock, { isLoading: false, error: editError, reset: vi.fn() }],
+    // The dialog reads the chain back to learn its current version (FR-011);
+    // the page target is one write behind by construction (US1: possibly, US2:
+    // certainly, since branching is itself a write) — see LayoutEditorDialog.tsx:59-65.
+    useGetOverlayQuery: () => ({
+      data: chainQueryState.data,
+      isLoading: chainQueryState.isLoading,
+      isError: chainQueryState.isError,
+      refetch: refetchChainMock,
+    }),
   };
 });
 
@@ -57,10 +83,10 @@ beforeEach(() => {
 
 const { OverlayEditorDialog } = await import('./OverlayEditorDialog.js');
 
-function renderDialog() {
+function renderDialog(editTarget?: OverlayEditTarget, onOpenChange: (open: boolean) => void = () => {}) {
   return render(
     <Provider store={store}>
-      <OverlayEditorDialog open={true} onOpenChange={() => {}} />
+      <OverlayEditorDialog open={true} onOpenChange={onOpenChange} editTarget={editTarget} />
     </Provider>,
   );
 }
@@ -143,6 +169,178 @@ describe('Conflict copy (spec 012 T050)', () => {
     renderDialog();
 
     expect((await screen.findByRole('alert')).textContent).toContain('Try again');
+  });
+});
+
+/**
+ * Spec 152 T001-T003 — new behaviour, RED (ADR-0139). `OverlayEditorDialog`
+ * accepts `editTarget` today only as an unused scaffold prop (T008-T011 wire
+ * it up): the dialog renders in create mode regardless of what is passed, so
+ * every assertion below fails for a real reason — a rendered Name field that
+ * should be hidden, a title/description that never changed, a mutation that
+ * is never called — not on a missing export or a type error.
+ */
+describe('OverlayEditorDialog — edit', () => {
+  const EDIT_TARGET: OverlayEditTarget = {
+    overlayIdentifier: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    revisionNumber: 1,
+    name: 'Line-1 Title',
+    label: {
+      text: 'Line 1',
+      normalizedX: 0.1,
+      normalizedY: 0.1,
+      normalizedWidth: 0.3,
+      normalizedHeight: 0.08,
+      fontSizePx: 32,
+    },
+  };
+
+  beforeEach(() => {
+    createDraftMock.mockClear();
+    editDraftMock.mockClear();
+    refetchChainMock.mockClear();
+    createError = undefined;
+    editError = undefined;
+    // The queried chain version (7) is deliberately not EDIT_TARGET.revisionNumber
+    // (1) and not revisionNumber + 1 (2) — see the FR-011/FR-012 test below.
+    chainQueryState = {
+      data: { overlayIdentifier: EDIT_TARGET.overlayIdentifier, version: 7 },
+      isLoading: false,
+      isError: false,
+    };
+  });
+
+  it('Seeds the label field from the target, hides the Name field, and titles the dialog for that revision', () => {
+    renderDialog(EDIT_TARGET);
+
+    expect(screen.queryByLabelText(/name/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId('overlay-editor-text')).toHaveValue('Line 1');
+    expect(screen.getByText(/^edit overlay draft$/i)).toBeInTheDocument();
+
+    // FR-008: the description names the revision AND the overlay, because on
+    // a chain with two drafts there are two revisions' worth of ambiguity
+    // about which one is about to be overwritten.
+    const description = screen.getByText(/draft v1/i);
+    expect(description.textContent).toContain('Line-1 Title');
+  });
+
+  it(
+    'Calls editDraftOverlayRevision exactly once with the queried chain version — never ' +
+      'the revision number or revision number + 1 — and a label-only body',
+    async () => {
+      const user = userEvent.setup();
+      renderDialog(EDIT_TARGET);
+
+      const textInput = screen.getByTestId('overlay-editor-text');
+      await user.clear(textInput);
+      await user.type(textInput, 'Line 2');
+
+      await user.click(screen.getByRole('button', { name: /^save draft$/i }));
+
+      expect(editDraftMock).toHaveBeenCalledTimes(1);
+      expect(createDraftMock).not.toHaveBeenCalled();
+      const body = (
+        editDraftMock.mock.calls[0] as unknown as ReadonlyArray<{
+          overlayIdentifier: string;
+          revisionNumber: number;
+          version: number;
+          label: Record<string, unknown>;
+        }>
+      )[0]!;
+      expect(body.overlayIdentifier).toBe(EDIT_TARGET.overlayIdentifier);
+      expect(body.revisionNumber).toBe(1);
+      // The point of the test (FR-012): 7 is the queried version. 1 would mean
+      // the client reused the revision number; 2 would mean it computed +1.
+      expect(body.version).toBe(7);
+      expect(Object.keys(body).sort()).toEqual(['label', 'overlayIdentifier', 'revisionNumber', 'version']);
+      expect(body.label.text).toBe('Line 2');
+    },
+  );
+
+  it('Closes the dialog once the edit is saved', async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    renderDialog(EDIT_TARGET, onOpenChange);
+
+    await user.click(screen.getByRole('button', { name: /^save draft$/i }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  describe('The version has to be read before Save can be trusted (FR-013)', () => {
+    it('Disables Save while the chain query has not resolved', () => {
+      chainQueryState = { data: undefined, isLoading: true, isError: false };
+      renderDialog(EDIT_TARGET);
+
+      expect(screen.getByRole('button', { name: /^save draft$/i })).toBeDisabled();
+    });
+
+    it('Disables Save and offers a retry — not a silent no-op — when the chain read fails', async () => {
+      const user = userEvent.setup();
+      chainQueryState = { data: undefined, isLoading: false, isError: true };
+      renderDialog(EDIT_TARGET);
+
+      expect(screen.getByRole('button', { name: /^save draft$/i })).toBeDisabled();
+      const alert = screen.getByRole('alert');
+      expect(alert.textContent).toMatch(/could not be read/i);
+
+      await user.click(screen.getByRole('button', { name: /retry/i }));
+      expect(refetchChainMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('A conflict names what to do, never "try again" (FR-014/FR-015)', () => {
+    it('Shows the server detail and a Reload control for a stale version, never "try again"', async () => {
+      editError = {
+        status: 409,
+        data: {
+          title: 'OVERLAY_REVISION_STALE',
+          detail: 'Overlay has changed since version 7 (now 8). Re-read it and reapply the change.',
+        },
+      };
+      renderDialog(EDIT_TARGET);
+
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).toContain('changed since version 7');
+      expect(alert.textContent).not.toMatch(/try again/i);
+      expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument();
+    });
+
+    it('Reloads rather than resubmitting when the operator clicks Reload', async () => {
+      const user = userEvent.setup();
+      editError = { status: 409, data: { title: 'OVERLAY_REVISION_STALE' } };
+      renderDialog(EDIT_TARGET);
+
+      await user.click(screen.getByRole('button', { name: /reload/i }));
+
+      expect(refetchChainMock).toHaveBeenCalledTimes(1);
+      expect(editDraftMock).not.toHaveBeenCalled();
+    });
+
+    it('Says the revision is no longer a draft and offers Reload, without the stale wording', async () => {
+      editError = {
+        status: 409,
+        data: { title: 'OVERLAY_REVISION_NOT_DRAFT', detail: 'Revision 1 of Line-1 Title is no longer a draft.' },
+      };
+      renderDialog(EDIT_TARGET);
+
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).toContain('no longer a draft');
+      expect(alert.textContent).not.toMatch(/someone else changed this/i);
+      expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument();
+    });
+  });
+
+  it('Refuses an empty label before any request, and calls no mutation', async () => {
+    const user = userEvent.setup();
+    renderDialog(EDIT_TARGET);
+
+    const textInput = screen.getByTestId('overlay-editor-text');
+    await user.clear(textInput);
+    await user.click(screen.getByRole('button', { name: /^save draft$/i }));
+
+    expect(await screen.findByText(/text is required/i)).toBeInTheDocument();
+    expect(editDraftMock).not.toHaveBeenCalled();
   });
 });
 
