@@ -8,7 +8,7 @@ import { BackdropControls } from './BackdropControls.js';
 import type { Backdrop } from './BackdropControls.js';
 import { FrameGrabber } from './FrameGrabber.js';
 import { useFrameCapture } from './useFrameCapture.js';
-import { PlaceholderPreviewPanel } from './PlaceholderPreviewPanel.js';
+import { PlaceholderPreviewPanel, PLACEHOLDER_PREVIEW_STATUS_ID } from './PlaceholderPreviewPanel.js';
 
 export interface OverlayEditorProps {
   value: OverlayLabel;
@@ -201,6 +201,7 @@ export function OverlayEditor({
             onChange={(e) => onChange({ ...value, text: e.target.value })}
             maxLength={256}
             style={{ padding: 8, fontSize: 14 }}
+            aria-describedby={PLACEHOLDER_PREVIEW_STATUS_ID}
           />
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
