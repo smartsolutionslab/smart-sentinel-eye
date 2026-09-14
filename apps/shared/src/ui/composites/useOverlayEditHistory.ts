@@ -54,7 +54,11 @@ function isIdleRun(key: RunKey): boolean {
 /**
  * Field-by-field comparison of `OverlayLabel`'s six flat fields — not a
  * general deep-equal utility, because there is nothing general to compare:
- * this shape is the whole domain (Decision 3 / I7).
+ * this shape is the whole domain (Decision 3 / I7). Shared by `isEcho`
+ * below and by `commit`'s own phantom-step guard (its doc comment) — the
+ * two are different questions asked with the same comparison: "is this
+ * incoming prop my own echo" versus "did this commit actually change
+ * anything."
  *
  * <p>
  * <b>Phase 6 review finding.</b> Plan.md §5 asserted "RHF's `Controller`
@@ -149,6 +153,11 @@ export function useOverlayEditHistory(
   const [reseedToken, setReseedToken] = useState(0);
   const openRunRef = useRef<RunKey | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Phase 5 review finding — the floor a step/run *might* need to push, held
+  // back until something in it actually diverges. See `commit`'s own doc
+  // comment for why this is a separate ref rather than a plain `if` guarding
+  // the push directly.
+  const pendingFloorRef = useRef<OverlayLabel | null>(null);
 
   // Stable across every render — touches only refs, no reactive dependency —
   // so functions that close over it (below) are stable too, unless one of
@@ -208,6 +217,36 @@ export function useOverlayEditHistory(
   // (`onChange`, `onDragStop`, a keydown), each already flushed by React
   // before the next fires. A future site that emits twice in one handler
   // would break this silently; if you are adding one, read this first.
+  //
+  // <p>
+  // <b>Phase 5 review finding — the phantom-step guard.</b> `react-rnd`/
+  // `react-draggable` fires `onDragStop`/`onResizeStop` even for a plain
+  // click or handle-release with zero net movement, reporting the label's
+  // own, unchanged position — site 1/2 "atomic: one emission, one step"
+  // (Decision 2) never said that emission has to carry a *changed* value.
+  // Without this guard, that click-to-focus (the exact flow
+  // `e2e/overlays.spec.ts`'s undo test uses before `Ctrl+Z`) pushes a
+  // content-identical phantom step on top of whatever real step preceded
+  // it, and a single `Ctrl+Z` undoes the phantom invisibly instead of the
+  // real edit.
+  // </p>
+  // <p>
+  // `pendingFloorRef` — not a plain `if (!sameOverlayLabel(next, current))
+  // return` guarding the push directly — because a *run's* first commit can
+  // itself be a content-identical no-op (retyping the exact same character
+  // over a selection) while a **later** commit in the same run genuinely
+  // changes the value; the run's floor (`current` as of when it opened)
+  // must still be reachable then, not lost because the opening commit alone
+  // looked like nothing happened. So a step/run's floor is recorded as
+  // *pending* when it opens, and only pushed onto `past` the first time some
+  // commit's value actually diverges from it — which, for an atomic
+  // commit, is this same call (there is no later one to defer to). Once
+  // pushed, `pendingFloorRef` is cleared to `null`, so a later commit that
+  // still matches it (I3/I4's ordinary absorption) correctly pushes
+  // nothing. The run itself is never broken or closed by a held-back
+  // push — `openRunRef`/the idle timer are set unconditionally below,
+  // exactly as before.
+  // </p>
   const commit = useCallback(
     (next: OverlayLabel, boundary: Boundary) => {
       const current = lastEmitted;
@@ -218,12 +257,20 @@ export function useOverlayEditHistory(
       // run already open absorbs into it instead of pushing again.
       if (key === null || openRunRef.current !== key) {
         clearIdleTimer();
-        setPast((prev) => [...prev, current]);
-        // I3 — a run's future was already cleared when the run opened, so an
-        // absorbed commit (the `else` of this branch) must not clear it a
-        // second time; only a commit that opens a new step does.
-        setFuture((prev) => (prev.length > 0 ? [] : prev));
         openRunRef.current = key;
+        pendingFloorRef.current = current;
+      }
+
+      // Pushes the still-pending floor the moment something in this
+      // step/run actually diverges from it (see the doc comment above).
+      if (pendingFloorRef.current !== null && !sameOverlayLabel(next, pendingFloorRef.current)) {
+        const floor = pendingFloorRef.current;
+        setPast((prev) => [...prev, floor]);
+        // I3 — a run's future was already cleared when its floor was
+        // pushed, so a later divergence within the same run (floor already
+        // null by then) must not clear it a second time.
+        setFuture((prev) => (prev.length > 0 ? [] : prev));
+        pendingFloorRef.current = null;
       }
 
       setLastEmitted(next);
