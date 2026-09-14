@@ -210,11 +210,18 @@ defect independently. Shipping one without the other re-creates the condition.
 
 ## Functional requirements
 
-- **FR-001** — In edit mode each dialog renders exactly one `role="status"`
-  region that is **mounted for the whole life of the dialog** and whose text
-  changes. It is never conditionally mounted. It is visually hidden (`sr-only`)
-  and carries a `data-testid` so a test can address it without JSX-order
-  guessing (the reason `OverlayEditor.tsx:631-638` gives).
+- **FR-001** — Each dialog renders exactly one `role="status"` region that is
+  **mounted for the whole life of the dialog**, in both create and edit mode,
+  and whose text changes. It is never conditionally mounted. It is visually
+  hidden (`sr-only`) and carries a `data-testid` so a test can address it
+  without JSX-order guessing (the reason `OverlayEditor.tsx:631-638` gives).
+  **Correction (phase-6 review):** this said "in edit mode" — the shipped
+  composite is not gated on `isEdit` in either dialog, and that is not a
+  defect: the chain query is `skipToken` outside edit mode, so `readFailed`/
+  `reReading` are already inert there, and create mode has its own
+  `backendError` (a name clash) that needs the same region regardless. Gating
+  on `isEdit` would have silently dropped that create-mode banner. Wording
+  corrected to match what was actually built.
 - **FR-002** — While a chain re-read is in flight the region reads
   *"Re-reading the overlay…"* / *"Re-reading the layout…"*.
 - **FR-003** — The recovery control stays mounted for the whole in-flight

@@ -52,7 +52,21 @@ export function ChainRecoveryNotice({
 }: ChainRecoveryNoticeProps) {
   const [origin, setOrigin] = useState<RecoveryOrigin | null>(null);
   const [announcement, setAnnouncement] = useState({ text: '', token: 0 });
+  // Bumped only when Retry's own re-read is refused a *second* (or later)
+  // time — the `key` that forces the alert `<p>` below to genuinely
+  // remount rather than merely flip its `role` attribute (blocker 1,
+  // phase-6 review). Left at 0 for the first failure (the initial mount,
+  // and the click -> in-flight transition immediately after it): that
+  // `<p>` must stay the SAME node across that one transition, because the
+  // Retry button lives inside it and the discriminating test captures a
+  // reference to it before the click and reuses that reference after.
+  const [retryFailureKey, setRetryFailureKey] = useState(0);
+  const retryButtonRef = useRef<HTMLButtonElement>(null);
   const wasReReadingRef = useRef(reReading);
+  // Skips the refocus effect's first run (the initial mount — nothing was
+  // focused yet, and FR-007 forbids taking focus on a dialog that just
+  // opened) so it only fires on an actual `retryFailureKey` bump.
+  const isFirstFailureKeyRenderRef = useRef(true);
 
   // The focus/announcement move is latched by the operator's act, not by
   // `readFailed` going false on its own (FR-007's trap, plan.md §4): a
@@ -77,16 +91,37 @@ export function ChainRecoveryNotice({
     if (!wasReReading || reReading || origin === null) return;
 
     const requestedBy = origin;
-    setOrigin(null);
     if (readFailed) {
-      // Refused again (FR-006): the control is still mounted and still
-      // focused — there is nothing to restore. The status region is cleared;
-      // the alert's own insertion is what announces the failure.
+      // Refused again (FR-006/blocker 1): the status region is cleared —
+      // the alert's own (re-)insertion is what announces the failure now.
+      //
+      // `origin` is deliberately NOT cleared here (blocker 2, phase-6
+      // review): this effect's own `setOrigin(null)` would otherwise land
+      // in the very next render, and for a Reload-originated refusal that
+      // render has `readFailed` genuinely true with nothing left to exclude
+      // it from `chainArmActive` — reopening the exact hole this fix
+      // closes, one render later. Leaving `origin` latched costs nothing
+      // for Retry (its own exclusion never consults `origin`), and a fresh
+      // click re-latches it to the same value regardless.
       // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
       setAnnouncement((previous) => ({ text: '', token: previous.token + 1 }));
+      if (requestedBy === 'retry') {
+        // Forces the alert `<p>` below to remount (blocker 1) so a
+        // second-and-later refusal earns a fresh insertion-announcement
+        // instead of a reused node whose `role` merely flips back on —
+        // the exact unreliability #2346 recorded. Gated on `'retry'`:
+        // Reload's own alert is a structurally separate, permanently
+        // mounted element (`!chainArmActive && backendError !== null`
+        // below) that this key never touches.
+        setRetryFailureKey((previous) => previous + 1);
+      }
       return;
     }
-    // Succeeded (FR-005/FR-008).
+    // Succeeded (FR-005/FR-008). Safe to clear `origin` here: `chainArmActive`
+    // no longer needs the exclusion once the arm that mattered has
+    // resolved, and leaving `origin` stuck on a past success would wrongly
+    // suppress a later, unrelated chain failure.
+    setOrigin(null);
     setAnnouncement((previous) => ({
       text: `The ${noun} was read. Save is available.`,
       token: previous.token + 1,
@@ -95,6 +130,19 @@ export function ChainRecoveryNotice({
       onReadRecovered();
     }
   }, [reReading, readFailed, origin, noun, onReadRecovered]);
+
+  // Companion to the remount above: a `key` change unmounts the old Retry
+  // button along with its old `<p>`, and the browser does not carry focus
+  // to whatever replaces a removed focused element — it falls to `<body>`.
+  // This is what puts it back, mirroring FR-005's `onReadRecovered()` call
+  // for the success path; this is the refusal path's equivalent.
+  useEffect(() => {
+    if (isFirstFailureKeyRenderRef.current) {
+      isFirstFailureKeyRenderRef.current = false;
+      return;
+    }
+    retryButtonRef.current?.focus();
+  }, [retryFailureKey]);
 
   function activate(kind: RecoveryOrigin) {
     // FR-004: the handler refuses to act while a re-read it started is
@@ -118,7 +166,17 @@ export function ChainRecoveryNotice({
     onReRead();
   }
 
-  const chainArmActive = readFailed || (reReading && origin === 'retry');
+  // `origin !== 'reload'` (blocker 2, phase-6 review): without it, a
+  // Reload-originated re-read that is itself refused still flips this true
+  // on `readFailed` alone, handing the chain-read arm priority and
+  // unmounting the `backendError`/Reload arm out from under the focused
+  // button — the exact defect this component exists to fix, on a path
+  // FR-008 never enumerated (it covers only Reload's success). Excluding
+  // `'reload'` keeps that arm exclusively responsible for its own re-read,
+  // success or failure alike.
+  const chainArmActive = origin !== 'reload' && (readFailed || (reReading && origin === 'retry'));
+
+  const controlClassName = 'underline aria-disabled:opacity-50 aria-disabled:cursor-progress';
 
   return (
     <>
@@ -139,22 +197,38 @@ export function ChainRecoveryNotice({
         during the in-flight window there is nothing to interrupt a screen
         reader for.
 
-        BUG (blocker 1, phase-6 review): this `<p>` is left mounted across
-        the WHOLE `chainArmActive` span — in-flight and failed alike, since
-        both live on the same element — so only `role` toggles off and back
-        on; the element itself is never re-inserted. A second-and-later
-        failure therefore earns no fresh insertion-announcement — the exact
-        unreliability #2346 recorded, and the reason FR-001 makes the status
-        region always-mounted rather than toggled. FR-006 also clears the
-        status region to '' on failure, so a repeat refusal currently
-        announces nothing at all — the common case when a backend is down.
-        Needs a genuine remount on each `readFailed` transition (e.g. a
-        `key` bumped alongside `announcement.token`), not a reused element.
+        The Retry button lives INSIDE this `<p>` (not beside it): the
+        discriminating test captures the button once, before the operator
+        ever clicks it — while it is still nested inside `role="alert"` —
+        and reuses that same reference through the in-flight window, so the
+        very first `readFailed: true -> false` transition (click -> in
+        flight) must reuse this exact node, not replace it.
+
+        `key={retryFailureKey}` (blocker 1, phase-6 review): left at its
+        initial value across that one required transition, then bumped —
+        forcing a genuine unmount/remount of this whole `<p>`, button
+        included — specifically when Retry's OWN re-read is refused a
+        SECOND time. Without it this element is merely reconciled across
+        every `readFailed` edge, so only its `role` attribute flips off and
+        back on; a repeat refusal then earns no fresh insertion-announcement
+        (the exact unreliability #2346 recorded), and with the status region
+        cleared by FR-006 the operator hears nothing at all on a repeat
+        failure — the common case when a backend is down. The remount does
+        take the button's DOM focus with it (a browser does not carry focus
+        to whatever replaces a removed focused element), so the effect above
+        explicitly restores it — mirroring `onReadRecovered()` on the
+        success path.
       */}
       {chainArmActive && (
-        <p role={readFailed ? 'alert' : undefined} className="text-sm text-accent-fault">
+        <p key={retryFailureKey} role={readFailed ? 'alert' : undefined} className="text-sm text-accent-fault">
           {readFailed && <>The {noun} could not be read. </>}
-          <button type="button" className="underline" aria-disabled={reReading} onClick={() => activate('retry')}>
+          <button
+            ref={retryButtonRef}
+            type="button"
+            className={controlClassName}
+            aria-disabled={reReading}
+            onClick={() => activate('retry')}
+          >
             Retry
           </button>
         </p>
@@ -167,8 +241,14 @@ export function ChainRecoveryNotice({
             // the dialog would resubmit with the one actually stored. Its
             // own arm does not depend on `chainArmActive` — nothing clears
             // `backendError` but the dialog's close effect, so it stays
-            // mounted and focused through its own re-read (FR-008).
-            <button type="button" className="underline" aria-disabled={reReading} onClick={() => activate('reload')}>
+            // mounted and focused through its own re-read, success or
+            // failure alike (FR-008, blocker 2).
+            <button
+              type="button"
+              className={controlClassName}
+              aria-disabled={reReading}
+              onClick={() => activate('reload')}
+            >
               Reload
             </button>
           )}
