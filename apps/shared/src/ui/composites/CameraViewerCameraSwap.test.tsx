@@ -311,33 +311,37 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     // A's last decoded frame survives on the element under camera B's name.
     expect(videoEl.srcObject).toBeNull();
 
-    // Sanity, not a red claim: the tile already reads "Connecting…" here,
-    // because `transitionTo('connecting')` runs synchronously in the
-    // re-dial's own effect setup. (plan.md §5's table calls this row FAILS
-    // for "the `!whepUrl` early return never fires" — that reasoning is
-    // for the FR-001-only intermediate state the spec traces separately;
-    // against today's actual, fully unfixed code the label already reads
-    // "Connecting…", just for the wrong reason. Recorded as a plan
-    // discrepancy in the PR, not silently corrected here.)
+    // FR-003. The tile reads "Connecting…" here because the camera-change
+    // effect calls `transitionTo('connecting')` on the swap, before the new
+    // camera's own read has answered — not, as an earlier (unfixed-baseline)
+    // version of this comment said, because a re-dial to camera A's own
+    // effect setup happened to leave it there. There is no re-dial once
+    // `currentData` and FR-003 are both in place (see the instance-count
+    // assertion below); this is the correct mechanism producing the same
+    // label. (plan.md §5's table calls this row FAILS against fully-unfixed
+    // code for "the `!whepUrl` early return never fires" — that reasoning
+    // was for the FR-001-only intermediate state the spec traces
+    // separately, and against the actual unfixed baseline the label read
+    // "Connecting…" too, just for the wrong reason. Recorded as a plan
+    // discrepancy, not silently corrected.)
     expect(screen.getByText('Connecting…')).toBeDefined();
 
-    // RED — the real headline defect, reproduced rather than inferred: the
-    // erroneous reconnect above is a genuine session against camera A's own
-    // real URL, so nothing stops it succeeding in production. Let it.
-    const errantPc = FakePeerConnection.lastInstance();
-    expect(errantPc).not.toBe(pcA);
-    act(() => {
-      errantPc.ontrack?.({ streams: [{ id: 'fake-stream-errant-a-again' }] });
-      errantPc.setConnectionState('connected');
-    });
-
-    // RED — today this flips straight back to Live, showing camera A's
-    // video, logged under camera B's identity (`cameraIdentifier: 'cam-b'`
-    // in the resilience transition — `transitionTo` reads the *current*
-    // camera, not the one the session actually belongs to). This is #2370
-    // exactly: "camera A's picture under camera B's identity."
-    expect(videoEl.srcObject).toBeNull();
-    expect(screen.getByText('Connecting…')).toBeDefined();
+    // The true post-fix property, stated at the strongest level available:
+    // no SECOND peer connection is ever constructed for this swap at all.
+    // With `currentData`, `whepUrl` reads `undefined` in the SAME
+    // render/effect cycle as the swap, so the session effect's
+    // `if (!whepUrl || !videoEl) return undefined;` guard early-returns
+    // before a client is ever built — there is no errant negotiation to
+    // camera A left to complete. (An earlier version of this test drove a
+    // second, distinct `FakePeerConnection` to `connected` to prove the
+    // headline defect directly; that instance never exists once the fix is
+    // in place, so `postsToA()` above and this instance count are what
+    // prove its absence instead — asserting object identity against a
+    // connection that cannot exist doesn't hold against a correct
+    // implementation, and forcing events onto the already-closed `pcA`
+    // would test something no real, closed `RTCPeerConnection` can do:
+    // `ontrack` never fires again after `close()`.)
+    expect(FakePeerConnection.instances).toHaveLength(1);
 
     // Now let camera B's own read answer.
     setStreamAnswer(CAM_B, () => jsonResponse(healthyStream(CAM_B, CAM_B_WHEP_URL)));
