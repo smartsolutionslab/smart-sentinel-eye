@@ -243,7 +243,21 @@ test('operator drags a label, undoes it, and undoes back to the saved geometry',
   // A mouse click on the refused control — not the keyboard shortcut — must
   // still no-op: aria-disabled does not stop the browser from dispatching
   // the click, so the handler itself has to refuse.
-  await undoButton.click();
+  //
+  // `force: true` — the same `getAriaDisabled` function behind the
+  // `toBeEnabled()` fix above (`4d3b7c95`) also gates `locator.click()`'s
+  // actionability pre-check, but here as a wait rather than a failure:
+  // `aria-disabled="true"` never becomes `false` at the floor, so an
+  // unforced click polls "element is not enabled" until
+  // `FIRST_WRITE_TEST_TIMEOUT_MS` (300 s) fires — reproduced on a live
+  // stack, 614+ retries, the exact shape of the CI hang this comment
+  // replaces. `force: true` skips the pre-check and still dispatches a real
+  // mouse click at the element's point, which is what this step is for.
+  // Scoped to this one call — every other `.click()` on this button (there
+  // is none while it is genuinely enabled in this file) should stay
+  // unforced, since an unforced click is the thing that would actually
+  // catch the button wrongly staying `aria-disabled` mid-sequence.
+  await undoButton.click({ force: true });
   await expect(leftField).toHaveValue(savedLeft);
   const activeElementTag = await page.evaluate(() => document.activeElement?.tagName ?? null);
   expect(activeElementTag, 'focus should stay on a real control, not fall out to <body>').not.toBe('BODY');
