@@ -82,17 +82,18 @@ export function OverlayGeometryFields({ value, preview, onCommit }: OverlayGeome
   const [drafts, setDrafts] = useState<Partial<Record<OverlayGeometryField, string>>>({});
   const [errors, setErrors] = useState<Partial<Record<OverlayGeometryField, string>>>({});
 
-  // FR-013: a live drag/resize outranks a stale draft — once a gesture is in
-  // progress the field must track it, per spec.md's "field tracks the drag"
-  // requirement. Outside a gesture (`preview` null), a draft — including the
-  // reformatted text of what was just committed — is shown ahead of `value`,
-  // so the field keeps reading what the operator entered even in a render
-  // tree that (unlike `OverlayEditor.tsx`'s real, controlled usage) never
-  // feeds the committed value back down as a new `value` prop.
+  // plan.md §2/§3c: `draft ?? preview ?? value` (FR-004/FR-013). An in-flight
+  // draft — what the operator is mid-typing — outranks a live drag/resize;
+  // in practice the two never overlap (a mouse gesture and a keystroke
+  // don't land in the same instant), so this only matters for that edge
+  // case and otherwise resolves exactly as FR-013's "field tracks the drag"
+  // requirement expects. Once a commit succeeds the draft is cleared (see
+  // `commit`, below), so a real controlled parent's next render — a fresh
+  // `value` — becomes visible again instead of being shadowed forever.
   function displayValue(spec: FieldSpec): string {
-    if (preview !== null) return toPercentText(preview[spec.previewKey]);
     const draft = drafts[spec.field];
     if (draft !== undefined) return draft;
+    if (preview !== null) return toPercentText(preview[spec.previewKey]);
     return toPercentText(value[spec.field]);
   }
 
@@ -112,10 +113,18 @@ export function OverlayGeometryFields({ value, preview, onCommit }: OverlayGeome
       return;
     }
 
-    // The draft is kept, reformatted to grid resolution (FR-002), rather than
-    // cleared — it is what the field continues to read until a fresh drag,
-    // edit, or Escape supersedes it (see the comment on `displayValue`).
-    setDrafts((prev) => ({ ...prev, [spec.field]: toPercentText(parsed) }));
+    // plan.md:173 — "clear draft + error, onCommit(field, parsed)". The
+    // draft is cleared, not kept: a real controlled parent (`Controller`,
+    // `OverlayEditorDialog.tsx:134-147`) feeds the committed value straight
+    // back down as a new `value` prop, and `displayValue`'s `draft ??
+    // preview ?? value` would otherwise let this stale draft shadow it
+    // forever — including a *later, unrelated* change to `value` that has
+    // nothing to do with this field (a reset, a reload).
+    setDrafts((prev) => {
+      const next = { ...prev };
+      delete next[spec.field];
+      return next;
+    });
     setErrors((prev) => {
       const next = { ...prev };
       delete next[spec.field];
