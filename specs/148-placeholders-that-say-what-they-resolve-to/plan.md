@@ -38,7 +38,7 @@ every migration. A diff touching any of them is a defect.
 | `apps/shared/src/api/systemVariables.api.ts` | **edited** — one endpoint + hook |
 | `apps/shared/src/api/systemVariables.schema.ts` | **edited** — one Zod schema |
 | `apps/shared/src/ui/composites/PlaceholderPreviewPanel.tsx` | **new** — US1 + US4 panel |
-| `apps/shared/src/ui/composites/VariablePickList.tsx` | **new** — US2 |
+| `apps/shared/src/ui/composites/VariablePickList.tsx` | **new** — US2 — **descoped from #2341's delivery; never created (this row, §Parallelism's "C", and §PR #2357's sibling list are all stale)** |
 | `apps/shared/src/ui/composites/placeholderAdvisories.ts` | **new** — pure mapping fn |
 | `apps/shared/src/ui/composites/OverlayEditor.tsx` | **edited** — mounts both; US3 span |
 

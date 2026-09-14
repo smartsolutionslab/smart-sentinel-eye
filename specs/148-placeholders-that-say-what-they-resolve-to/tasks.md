@@ -50,6 +50,8 @@ Files: `src/SystemVariables/**`, `tests/SystemVariables.Application.Tests/**`,
 
 ## Block C `[P]` — the pick list (`frontend-engineer`)
 
+**Descoped from #2341's delivery — T015/T016 were never implemented, `VariablePickList.tsx` does not exist in the tree, and T020's US2 half is untested; US2 remains open for a later spec.**
+
 Disjoint from Block B's files. Parallel with B after T010.
 
 | ID | P | Story | Colour | Task |
