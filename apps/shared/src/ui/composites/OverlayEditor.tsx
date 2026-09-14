@@ -483,18 +483,34 @@ export function OverlayEditor({
   // module constant collides the moment a document renders two editors.
   const instructionsId = useId();
 
-  // Spec 154 (issue #2347) US2 — a discrete act, not a burst, so this skips
-  // the debounce/toggle machinery `queueAnnouncement` above uses for a
-  // stream of keyboard nudges.
-  const [undoMessage, setUndoMessage] = useState('');
+  // Spec 154 (issue #2347) US2 — a discrete act, not a burst, so no debounce
+  // (unlike `queueAnnouncement` above). Phase 6 review finding (#2344's
+  // defect, twenty lines above its own fix): a same-string `setState` is a
+  // React no-op — no DOM write — so a screen reader never re-announces a
+  // repeated outcome, and `Ctrl+Z` pressed twice at the floor is exactly the
+  // likeliest repeat ('Nothing to undo', twice). `queueAnnouncement`'s own
+  // fix (`lastAnnouncedRef` + a toggled trailing zero-width space) does not
+  // reuse cleanly here: its *visible* output alternates between "message"
+  // and "message<ZWSP>" on repeats, harmless for a screen reader but not
+  // byte-identical text on every call, and this announcer has no debounce
+  // window to key a "was the last one the same" comparison against in the
+  // first place. `token`, bumped on every call and used as the inner
+  // `<span>`'s React `key`, forces a fresh DOM node on every announcement
+  // instead — a real mutation even for back-to-back identical text, with no
+  // leftover character.
+  const [undoAnnouncement, setUndoAnnouncement] = useState({ text: '', token: 0 });
+
+  const announceUndo = useCallback((message: string) => {
+    setUndoAnnouncement((prev) => ({ text: message, token: prev.token + 1 }));
+  }, []);
 
   const handleUndoClick = useCallback(() => {
-    setUndoMessage(undo() ? 'Undone' : 'Nothing to undo');
-  }, [undo]);
+    announceUndo(undo() ? 'Undone' : 'Nothing to undo');
+  }, [undo, announceUndo]);
 
   const handleRedoClick = useCallback(() => {
-    if (redo()) setUndoMessage('Redone');
-  }, [redo]);
+    announceUndo(redo() ? 'Redone' : 'Nothing to redo');
+  }, [redo, announceUndo]);
 
   // FR-006/FR-007: bound on the editor's root element, not the label, so
   // `Ctrl+Z`/`Cmd+Z`/`Ctrl+Shift+Z`/`Cmd+Shift+Z`/`Ctrl+Y` work from any
@@ -628,13 +644,23 @@ export function OverlayEditor({
           text input in DOM order (`OverlayEditorKeyboard.test.tsx:103`).
           `type="button"` is mandatory: the editor renders inside
           `OverlayEditorDialog`'s `<form>`, and a bare `<button>` would
-          submit it. */}
+          submit it.
+
+          `aria-disabled`, not the native `disabled` attribute (phase 6
+          review finding): a browser blurs a focused element the instant it
+          becomes natively disabled, so reaching the undo floor *by mouse*
+          would drop focus to `<body>` — outside the editor root — and
+          `handleRootKeyDown` would stop receiving `Ctrl+Z` until the
+          operator clicked back in. `aria-disabled` keeps the control a
+          normal, focusable, clickable element; `handleUndoClick`/
+          `handleRedoClick` are what refuse to act, via `undo()`/`redo()`
+          already returning `false` with nothing to do. */}
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
         <button
           type="button"
           data-testid="overlay-editor-undo"
           aria-keyshortcuts="Control+Z"
-          disabled={!canUndo}
+          aria-disabled={!canUndo}
           onClick={handleUndoClick}
         >
           Undo
@@ -643,16 +669,18 @@ export function OverlayEditor({
           type="button"
           data-testid="overlay-editor-redo"
           aria-keyshortcuts="Control+Shift+Z"
-          disabled={!canRedo}
+          aria-disabled={!canRedo}
           onClick={handleRedoClick}
         >
           Redo
         </button>
       </div>
       {/* US2 — its own live region, own `data-testid`, so it never collides
-          with the geometry announcer above. A discrete act, not a burst. */}
+          with the geometry announcer above. A discrete act, not a burst; the
+          inner `key` is `announceUndo`'s repeated-announcement fix — see its
+          own comment. */}
       <div aria-live="polite" data-testid="overlay-editor-undo-live-region" className="sr-only">
-        {undoMessage}
+        <span key={undoAnnouncement.token}>{undoAnnouncement.text}</span>
       </div>
       <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

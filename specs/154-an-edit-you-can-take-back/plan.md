@@ -222,16 +222,37 @@ This is FR-011 / invariant I6, and it is the single implementation detail with
 a track record in this repo (#2341, #2364, #2368 were all "the wrong field
 changed identity at the wrong time").
 
-**The rule:** compare the incoming `value` prop, by reference, against the
-object the hook last emitted.
+**The rule (corrected post-phase-6 — see below): echo-tolerant identity.**
+Compare the incoming `value` prop against the object the hook last emitted —
+by reference **or** by structural equality of `OverlayLabel`'s six flat
+fields — never against anything else.
 
 ```
-value === lastEmittedRef.current   ->  our own echo; do nothing
-value !== lastEmittedRef.current   ->  external re-seed; clear both stacks,
-                                       close any run, adopt value as floor
+isEcho(value, lastEmitted)   ->  our own echo; do nothing
+!isEcho(value, lastEmitted)  ->  external re-seed; clear both stacks,
+                                  close any run, adopt value as floor
 ```
 
-**Three implementations that look equivalent and are wrong:**
+**Corrected, phase 6 review, spec 154 delivery.** The paragraph this replaced
+asserted reference identity alone was sufficient because "RHF's `Controller`
+hands `field.value` straight from form state without cloning on render." That
+is false, measured against the installed `react-hook-form@7.86.0`:
+`useController` (which `Controller` calls internally) sources `field.value`
+through `useWatch`, and `useWatch` re-derives its return value via
+`generateWatchOutput` on **every** form-state notification — deep-equal to
+what was emitted, but a new object, never the same reference. A reference-only
+detector reads every one of the `Controller`'s own echoes as an external
+re-seed and clears both stacks the render after every single edit — undo has
+never worked inside `OverlayEditorDialog`, the only place it ships, and no
+test caught it because every test suite rendered `OverlayEditor` either bare
+(a literal built once) or behind a hand-rolled `useState` passthrough that
+hands the hook's own object straight back — neither exercises the production
+wiring. `OverlayEditorReseedRegression.test.tsx` (`apps/management-web`,
+added at delivery) renders the real `Controller`/`useWatch` tree and is what
+found this. This file is worth re-reading skeptically wherever else it
+asserts a third-party library's mechanism rather than measuring it.
+
+**Four implementations that look equivalent and are wrong:**
 
 1. **A `useEffect` keyed on a prop other than `value`.** `OverlayEditor`
    receives `resolvedPreview`, `isResolving` and `resolveFailed`, all derived
@@ -239,25 +260,43 @@ value !== lastEmittedRef.current   ->  external re-seed; clear both stacks,
    (`OverlayEditorDialog.tsx:166`, used at `:178`). `currentData` is a fresh
    object every time the query settles. Any dependency array containing it
    clears the history the moment a `{{placeholder}}` resolves.
-2. **A deep-equality check on `value`.** Two structurally-equal labels are not
-   the same event: an undo that lands back on a value the operator visited
-   before would read as an external re-seed and wipe the stack.
-3. **Clearing on re-render.** The dialog re-renders on every `isFetching`
+2. **A deep-equality check against anything other than `lastEmitted`** — in
+   particular, against the previous render's `value` (which is really just
+   "clearing on re-render" wearing a structural-comparison disguise, item 4
+   below) or general deep equality with no reference short-circuit at all.
+   The comparison target matters as much as the comparison method: compared
+   against `lastEmitted`, an undo that lands back on a value the operator
+   visited before is recognized as an echo (`lastEmitted` was set to exactly
+   that value by the undo itself) and correctly kept; compared against
+   anything else, the same revisit can misread as a re-seed.
+3. **Reference identity alone, with no structural fallback.** This is the
+   error this section itself made — sound against a parent that never clones,
+   unsound against one (RHF's `Controller`, and by extension any parent
+   whose own render pipeline clones) that does. `OverlayEditorUndo.test.tsx`'s
+   *"a new object with content identical to the last emission preserves the
+   history"* test pins the fix directly: a `rerender` with a fresh object
+   carrying the exact fields of the hook's last emission must **not** read as
+   a re-seed.
+4. **Clearing on re-render.** The dialog re-renders on every `isFetching`
    flip, every `currentChain` arrival, and every keystroke through `useWatch`.
 
-**Why reference identity is sound here.** RHF's `Controller` hands `field.value`
-straight from form state without cloning on render, so the object survives
-unrelated re-renders. `reset(defaultValues)` produces a new object — which is
-precisely the case we want detected. The bare-render guards pass a literal
-built once per test.
+**Why echo-tolerant identity is sound here.** `OverlayLabel` is six flat
+fields (Decision 3) — a field-by-field compare, not a general deep-equal
+utility (there is nothing else in the domain to make general). One accepted
+miss, stated once more here because it is easy to lose in a list of what the
+check must catch: an external `reset()` to a label that happens to be
+structurally identical to what this hook last emitted goes undetected as a
+re-seed and the history is kept instead of cleared. Benign — the visible
+content is the same either way.
 
-**The failure mode if that assumption is wrong**, and how it is found: the
-history clears unexpectedly, and `OverlayEditorUndo.test.tsx`'s
-*"a query settling does not erase the history"* test goes red. The fallback
-is then the explicit `editSessionKey` prop from spec Decision 4 — optional,
-defaulted, and requiring one line in `OverlayEditorDialog.tsx`, which would
-cost FR-016. **Do not reach for the fallback pre-emptively**; it is more
-coupling for a problem that may not exist, and the test will say.
+**The fallback**, unchanged in shape from the original text but now the
+documented outcome of a real failure rather than a hypothetical one: the
+explicit `editSessionKey` prop from spec Decision 4 — optional, defaulted,
+and requiring one line in `OverlayEditorDialog.tsx`, which would cost
+FR-016. It was **not** taken for this defect — echo-tolerant identity fixes
+it without touching `OverlayEditorDialog.tsx` at all, and the fallback would
+still leave any *other* cloning parent broken, pushing the burden onto every
+future call site instead of fixing it once, here.
 
 ---
 
