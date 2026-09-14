@@ -1,4 +1,7 @@
-import type { ResolvedTextPreview } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+import type {
+  PlaceholderResolutionEntry,
+  ResolvedTextPreview,
+} from '@smart-sentinel-eye/shared/api/systemVariables.api';
 
 /**
  * Every advisory kind the panel can show for one referenced name (spec 148
@@ -26,24 +29,72 @@ export interface PlaceholderAdvisory {
 const BRACE_SHAPED = /\{\{([^{}]*)\}\}/g;
 
 /**
+ * Wording scoped to what the *editor* can know (spec 148 decision 3,
+ * ADR-0115): an overlay is a fab-neutral template, so a name absent from the
+ * author's fabs may legitimately be present in the viewer's. Never "does not
+ * exist" — only "no variable named X is defined in your fab(s)".
+ */
+function advisoryFor(entry: PlaceholderResolutionEntry): PlaceholderAdvisory {
+  const { name, outcome, fab, renderedValue } = entry;
+  switch (outcome) {
+    case 'Resolved':
+      return { kind: 'resolved', reference: name, message: `${name} — ${renderedValue} (${fab})` };
+    case 'Unset':
+      return {
+        kind: 'unset',
+        reference: name,
+        message: `${name} is defined in ${fab} but has no value set yet. It will render as {{${name}}}.`,
+      };
+    case 'Archived':
+      return {
+        kind: 'archived',
+        reference: name,
+        message: `${name} was archived in ${fab}. It will render as {{${name}}}.`,
+      };
+    case 'Unknown':
+    default:
+      return {
+        kind: 'unknown',
+        reference: name,
+        message: `${name} — no variable named ${name} is defined in your fab(s). It will render as {{${name}}}.`,
+      };
+  }
+}
+
+/**
+ * Rows for brace-shaped text the server never saw a name for (spec 148 US4).
+ * Matched against the **loose** shape above, then filtered to exclude any
+ * match whose inner text is one of the names the server actually returned —
+ * those already have a server-reported row (`Unknown` included) and must not
+ * also be flagged malformed.
+ */
+function malformedRows(rawText: string, knownNames: ReadonlySet<string>): PlaceholderAdvisory[] {
+  const rows: PlaceholderAdvisory[] = [];
+  for (const match of rawText.matchAll(BRACE_SHAPED)) {
+    const full = match[0];
+    const inner = match[1] ?? '';
+    if (knownNames.has(inner)) continue;
+    rows.push({
+      kind: 'malformed',
+      reference: full,
+      message: `${full} is not a placeholder and will render literally.`,
+    });
+  }
+  return rows;
+}
+
+/**
  * Maps a resolve response plus the raw authored text onto the rows
  * `PlaceholderPreviewPanel` renders. Pure: no DOM, no store, no fetch — unit
  * testable in isolation (spec 148 plan.md "Frontend wiring").
- *
- * <p><b>Phase 4a scaffold (spec 148).</b> Returns no rows at all. This is the
- * one piece of genuinely new decision logic on the frontend side — the
- * per-outcome wording (US1 decision 3: "no variable named X is defined in
- * your fab(s)", never "does not exist") and the loose-brace heuristic
- * (US4) — and it is deliberately left unimplemented so
- * `placeholderAdvisories.test.ts` is observed red for a real reason (an
- * empty array where rows are expected), not a missing export.</p>
  */
 export function placeholderAdvisories(
   rawText: string,
   response: ResolvedTextPreview | undefined,
 ): PlaceholderAdvisory[] {
-  void rawText;
-  void response;
-  void BRACE_SHAPED;
-  return [];
+  if (response === undefined) return [];
+
+  const rows = response.placeholders.map(advisoryFor);
+  const knownNames = new Set(response.placeholders.map((entry) => entry.name));
+  return [...rows, ...malformedRows(rawText, knownNames)];
 }
