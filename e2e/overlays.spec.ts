@@ -220,7 +220,19 @@ test('operator drags a label, undoes it, and undoes back to the saved geometry',
   // what this test is for.
   const undoButton = page.getByRole('button', { name: /^undo$/i });
   await expect(undoButton).toHaveAttribute('aria-disabled', 'true');
-  await expect(undoButton).toBeEnabled(); // stays a real, focusable control
+  // Not `toBeEnabled()`: Playwright's own `getAriaDisabled` (pinned
+  // playwright-core@1.62.1) is `isNativelyDisabled(el) || hasExplicitAriaDisabled(el)`
+  // for a `role="button"` element, so `aria-disabled="true"` alone makes
+  // `toBeEnabled()` fail regardless of the native `disabled` property —
+  // confirmed against a bare `<button aria-disabled="true">` fixture with no
+  // app code, so no implementation of this design can satisfy both
+  // assertions at once. `toBeDisabled()` would be no better the other way:
+  // it passes on `aria-disabled` alone even if the native property regressed
+  // to `true`, which is exactly the regression this test exists to catch.
+  // Both properties are read directly instead of through either matcher.
+  expect(await undoButton.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
+  await undoButton.focus();
+  expect(await undoButton.evaluate((el) => document.activeElement === el)).toBe(true);
 
   // A mouse click on the refused control — not the keyboard shortcut — must
   // still no-op: aria-disabled does not stop the browser from dispatching
