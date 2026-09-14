@@ -21,7 +21,7 @@ state.** Any task that finds itself opening a `.cs` file has left this spec.
 
 | Layer | Change |
 |---|---|
-| `apps/shared/src/ui/composites/` | `OverlayEditor.tsx` gains a backdrop; a new `useFrameCapture.ts` + `CameraBackdropPicker.tsx` sit beside it |
+| `apps/shared/src/ui/composites/` | `OverlayEditor.tsx` gains a backdrop; a new `useFrameCapture.ts` + `BackdropControls.tsx` sit beside it |
 | `apps/shared/src/api/` | **read-only reuse** — `cameras.api.ts`, `streams.api.ts` unchanged |
 | `apps/shared/src/streaming/` | **read-only reuse** — `WhepClient.ts` unchanged |
 | `apps/management-web/src/features/overlays/` | `OverlayEditorDialog.tsx` passes `getToken` down |
