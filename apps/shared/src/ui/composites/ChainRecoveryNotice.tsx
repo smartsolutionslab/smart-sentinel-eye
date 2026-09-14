@@ -137,8 +137,19 @@ export function ChainRecoveryNotice({
         still on screen is stale the moment the chain can no longer even be
         confirmed current. `role="alert"` only while `readFailed` is true —
         during the in-flight window there is nothing to interrupt a screen
-        reader for, and leaving the alert mounted would break its own
-        insertion-announcement on a repeat failure.
+        reader for.
+
+        BUG (blocker 1, phase-6 review): this `<p>` is left mounted across
+        the WHOLE `chainArmActive` span — in-flight and failed alike, since
+        both live on the same element — so only `role` toggles off and back
+        on; the element itself is never re-inserted. A second-and-later
+        failure therefore earns no fresh insertion-announcement — the exact
+        unreliability #2346 recorded, and the reason FR-001 makes the status
+        region always-mounted rather than toggled. FR-006 also clears the
+        status region to '' on failure, so a repeat refusal currently
+        announces nothing at all — the common case when a backend is down.
+        Needs a genuine remount on each `readFailed` transition (e.g. a
+        `key` bumped alongside `announcement.token`), not a reused element.
       */}
       {chainArmActive && (
         <p role={readFailed ? 'alert' : undefined} className="text-sm text-accent-fault">
