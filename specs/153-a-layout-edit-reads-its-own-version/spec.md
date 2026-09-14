@@ -41,17 +41,48 @@ code, not inferred from the overlay twin:
 |---|---|---|---|
 | 1 | Edit A, close, edit **B**; B's GET in flight | `data` = A's chain, so A's version is submitted under B's identity. **Unverified precondition, can succeed.** | `data` to `currentData` |
 | 2 | **First** edit of a layout this session; its GET in flight | `data` undefined, so `if (currentChain === undefined) return;` fires — Save does nothing, silently, with no message | a visible Save gate (FR-002) |
-| 3 | Edit **A**, close, edit A again within `keepUnusedDataFor` (60 s); the branch has bumped the version and the invalidation refetch is in flight | `currentData` **still serves the stale cached value** — it resets on an arg change, not on a refetch of the same arg. Submits A's own older version, so 412: safe, but confusing ("changed since version 7") about the operator's own branch | gating on the fetch state, not only on `undefined` (FR-002) |
+| 3 | Edit **A**, close, edit A again within `keepUnusedDataFor` (60 s); the branch has bumped the version and the invalidation refetch is in flight | **Corrected below** — not what this row originally claimed | closed by `currentData === undefined` alone (FR-002) |
 
-**Window 3 is the correction to the issue text.** #2368 says the branch path is
-fixed by reading `currentData`; it is not. `branchDraftRevision` invalidates
-`{type:'Layout', id}` (`apps/shared/src/api/layouts.api.ts:135`), and an
-invalidation-driven refetch of the *same* argument leaves `currentData` holding
-the previous value. Only a fetch-state gate closes it. The outcome there is a
-loud 412 rather than a silent wrong write, so it is the least severe of the
-three — but the file's own comment names the branch path as the reason the
-re-read exists, so leaving it open would fix the defect while missing its
-stated motivation.
+**Window 3, corrected in phase 4a.** This spec originally claimed the branch
+path needed a separate fetch-state gate, reasoning that `currentData` does not
+reset on an invalidation-driven refetch of the *same* argument. Phase 4a
+disproved that empirically, by driving the real `useGetLayoutQuery` against a
+raw Redux store rather than a mock: `LayoutsPage.onEdit` `await`s
+`branchDraft(...)` **before** `setEditTarget(...)`, and "Edit (new draft)" is
+only reachable while the edit dialog is closed — so at the moment
+`branchDraftRevision` invalidates `{type:'Layout', id}`
+(`apps/shared/src/api/layouts.api.ts:135`), the query has **zero
+subscribers**. Invalidating a tag with no active subscriber does not trigger a
+background refetch; RTK Query instead **evicts the cache entry outright**
+(`status: 'uninitialized'`, no `data`, no `currentData`). Resubscribing on
+reopen starts a genuinely fresh fetch, so `currentData` is `undefined` for the
+whole window — the same `currentChain === undefined` gate that closes windows
+1 and 2 already closes this one. No separate fetch-state signal is needed for
+window 3 specifically.
+
+That does not mean fetch state is unnecessary everywhere: see "The Reload
+window, found in phase 4a" below for the one case where `currentData`
+genuinely does stay stale during a live fetch.
+
+## The Reload window, found in phase 4a
+
+The chain-retention test suite pins three windows. Phase 4a's empirical run
+against the real hook found a fourth the original sweep did not enumerate,
+and it is the one place `currentData` genuinely does stay stale during a live
+fetch: **Reload** (the `refetchChain()` button on a stale-conflict banner)
+keeps the dialog subscribed the whole time, so the invalidation-eviction
+mechanism above does not apply — `currentData` holds the pre-Reload value
+until the new response lands. A Save click in that window would resubmit the
+version already known to be superseded.
+
+Its consequence is a safe 412, not a silent wrong write (unlike windows 1/2,
+the version cannot coincidentally match — it's the exact one the operator was
+just told is stale), so it is lower severity than the defect this spec exists
+to fix, and neither of the two red tests pins it (both drive a fresh read of
+an unsubscribed entry, not a Reload of a subscribed one). The gate closes it
+anyway, because `isFetching` is already available on the hook and folding it
+in costs nothing — but this window is recorded as closed-by-construction, not
+as covered by a test.
 
 ## Why the gate drags a fourth requirement in
 
@@ -68,8 +99,12 @@ not scope creep.
 - **FR-001** — The dialog reads the chain for **the layout currently being
   edited**, never a previously read one. (`currentData`, not `data`.)
 - **FR-002** — Save is **disabled**, visibly, while editing and the current
-  layout's version is unknown — either not yet read, or being re-read. It is
-  never a silent no-op.
+  layout's version is unknown — either not yet read (`currentChain ===
+  undefined`, which also covers the branch-invalidation window: an
+  invalidated entry with no subscriber is evicted outright, so reopening
+  starts from `undefined` rather than a stale value), or being actively
+  re-read (`isFetching`, which closes the Reload window specifically — see
+  "The Reload window, found in phase 4a"). It is never a silent no-op.
 - **FR-003** — Reopening the dialog on a layout read earlier still **re-reads
   from the server** rather than answering from the 60 s cache window
   (`refetchOnMountOrArgChange: true`).

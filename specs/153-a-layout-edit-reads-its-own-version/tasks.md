@@ -72,11 +72,19 @@ them leaves the suite red for a reason unrelated to the defect.
   type narrowing, but is no longer the only thing standing between the
   operator and a no-op click.
 
-  **`chainFetching` is the part the twin does not have**, and it is what closes
-  window 3: `currentData` does not reset on an invalidation-driven refetch of
-  the same argument, so after `branchDraftRevision` invalidates
-  `{type:'Layout', id}` the stale version is still readable until the refetch
-  lands.
+  **Corrected in phase 4a**: `chainFetching` is *not* what closes window 3.
+  Driving the real hook against a raw store showed `branchDraftRevision`
+  invalidates `{type:'Layout', id}` while the dialog has zero subscribers
+  (`LayoutsPage.onEdit` awaits the branch before `setEditTarget`), and RTK
+  Query evicts an invalidated entry with no subscriber outright rather than
+  refetching it in the background — so `currentData` is `undefined` on
+  reopen, same as windows 1/2, and `currentChain === undefined` alone closes
+  window 3. `chainFetching` is included anyway because it closes a *fourth*
+  window the original sweep missed: Reload (`refetchChain()`) keeps the
+  dialog subscribed, so `currentData` does stay stale while that refetch is
+  in flight. Its outcome is a safe 412, not a silent wrong write, and neither
+  red test in T001 pins it — see spec.md "The Reload window, found in phase
+  4a".
 
 - **[T004] [US1] FR-004: a failed chain read says so.**
   A `role="alert"` paragraph with a Retry calling `refetchChain`, shown when
