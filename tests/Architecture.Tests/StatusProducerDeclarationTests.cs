@@ -99,7 +99,7 @@ public class StatusProducerDeclarationTests
     private const string EndpointFileSuffix = "Endpoints.cs";
 
     /// <summary>Every <c>.Map(Get|Post|Put|Patch|Delete)(</c> site under <c>src/*/Api</c>.</summary>
-    private const int RouteHandlerMappingCount = 59;
+    private const int RouteHandlerMappingCount = 60;
 
     /// <summary>Every file under <c>src/*/Api</c> whose name ends <c>Endpoints.cs</c>.</summary>
     private const int EndpointFileCount = 13;

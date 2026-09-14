@@ -189,7 +189,7 @@ public class RouteValueRefusalDeclarationTests
     /// Every <c>.Map(Get|Post|Put|Patch|Delete)("route", Handler)</c> site under
     /// <c>src/*/Api</c>. Pinned, not merely compared — see G4.
     /// </summary>
-    private const int RouteHandlerMappingCount = 59;
+    private const int RouteHandlerMappingCount = 60;
 
     /// <summary>
     /// Every file under <c>src/*/Api</c> whose name ends <c>Endpoints.cs</c>.

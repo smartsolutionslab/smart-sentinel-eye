@@ -23,6 +23,7 @@ public static class SystemVariablesApiModule
         services.AddScoped<GetVariableQueryHandler>();
         services.AddScoped<ListVariablesQueryHandler>();
         services.AddScoped<GetOverlaySnapshotQueryHandler>();
+        services.AddScoped<ResolveOverlayTextQueryHandler>();
 
         return services;
     }

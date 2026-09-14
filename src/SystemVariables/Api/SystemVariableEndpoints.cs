@@ -29,6 +29,15 @@ public static class SystemVariableEndpoints
     /// <summary>Route identity an idempotency key is scoped to (ADR-0142).</summary>
     private const string DefineEndpoint = "POST /system-variables";
 
+    /// <summary>
+    /// Spec 148's own bound, chosen to match the <c>Label</c> value object's
+    /// 256-character limit (<c>overlays.schema.ts:7</c>) — not a reference to
+    /// it, since OverlayDesigner and SystemVariables share no project
+    /// reference. The server does not resolve text no overlay could ever
+    /// carry.
+    /// </summary>
+    private const int MaximumTextLength = 256;
+
     public static IEndpointRouteBuilder MapSystemVariableEndpoints(this IEndpointRouteBuilder app)
     {
         Ensure.That(app).IsNotNull();
@@ -68,6 +77,22 @@ public static class SystemVariableEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapGet("/resolve", ResolveText)
+            .RequireAuthorization(Scope.Sse.Variables.Read)
+            .WithName("ResolveOverlayText")
+            .WithSummary(
+                "Resolve arbitrary text carrying {{variable}} placeholders against your fabs — the overlay editor's "
+                + "live preview of what the wall will render, using the exact same resolution rules GetOverlaySnapshot "
+                + "uses. Unresolvable placeholders (unknown, unset, or archived) keep their literal {{name}} in the "
+                + "resolved text (FR-011); the per-name entries in the response are what distinguish those three cases "
+                + "from each other and from a resolved one. No 404 — resolving text with no matching variables is a 200 "
+                + "with an empty placeholders list, since there is no resource to be absent. "
+                + "Required scope: sse.variables.read")
+            .Produces<ResolvedTextPreviewDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapGet("/{name}", GetOne)
             .RequireAuthorization(Scope.Sse.Variables.Read)
@@ -358,6 +383,45 @@ public static class SystemVariableEndpoints
 
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result = await handler.HandleAsync(
             new GetOverlaySnapshotQuery(fabs, overlayIdentifier), cancellationToken);
+
+        return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
+    }
+
+    private static async Task<IResult> ResolveText(
+        [FromQuery] string? text,
+        [FromServices] ResolveOverlayTextQueryHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken,
+        [FromQuery] string fabId = "")
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return Results.Problem(
+                title: "VARIABLE_INVALID_INPUT",
+                detail: "text must not be empty.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (text.Length > MaximumTextLength)
+        {
+            return Results.Problem(
+                title: "VARIABLE_INVALID_INPUT",
+                detail: $"text must not exceed {MaximumTextLength} characters.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+            await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
+        if (fabsResolution.IsFailure)
+        {
+            return fabsResolution.Error;
+        }
+
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+
+        Result<ResolvedTextPreviewDto, ResolveOverlayTextError> result = await handler.HandleAsync(
+            new ResolveOverlayTextQuery(fabs, text), cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
