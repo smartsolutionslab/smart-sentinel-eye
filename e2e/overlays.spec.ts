@@ -110,3 +110,41 @@ test('operator types an exact geometry and the saved overlay carries it through 
   expect(revision.normalizedX).toBe(0.2487);
   expect(revision.normalizedWidth).toBe(0.5);
 });
+
+// Spec 152 T007, US1 — the issue's literal scenario. Every component test in
+// this feature mocks the API hooks, so it is exactly how
+// `useEditDraftOverlayRevisionMutation` stayed exported and uncalled for four
+// specs (see spec 152 "Independent end-to-end test procedure"). Only this
+// level proves the PATCH leaves the browser, crosses the gateway, and is
+// answered 200 — the same PATCH /overlay-designer/overlays/{id}/revisions/1
+// carrying If-Match that OverlayEditorDialog.test.tsx asserts is built from a
+// server re-read, not client arithmetic (FR-011/FR-012).
+test('operator edits a saved draft in place, onto the same revision', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
+  await signInAsOperator(page);
+
+  await page.getByRole('link', { name: /^overlays$/i }).click();
+  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: /new overlay/i }).click();
+  const name = `E2E Edit ${Date.now()}`;
+  await page.locator('#overlay-name').fill(name);
+  await page.getByRole('button', { name: /save as draft/i }).click();
+  await expect(page.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+
+  // Before this spec the row offers only Publish and Discard draft — this is
+  // the observable that fails on develop.
+  const row = page.getByRole('listitem').filter({ hasText: name });
+  await row.getByRole('button', { name: /^edit draft$/i }).click();
+
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByLabel(/^name$/i)).toHaveCount(0);
+  const textField = page.getByTestId('overlay-editor-text');
+  await textField.fill('E2E Edited');
+  await page.getByRole('button', { name: /^save draft$/i }).click();
+
+  // Same revision, not a new one: the badge still reads v1 · Draft.
+  await expect(row.getByText('E2E Edited')).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+  await expect(row.getByText('v1 · Draft')).toBeVisible();
+});
