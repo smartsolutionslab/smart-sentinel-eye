@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { CSSProperties } from 'react';
 import { useListAllCameraChoicesQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { FormField } from './FormField.js';
@@ -59,6 +60,11 @@ export function BackdropControls({
   onCapture,
   onCancelCapture,
 }: BackdropControlsProps) {
+  // Radio grouping is document-wide, and this is a component in `apps/shared`
+  // that can be mounted more than once on a page — a hardcoded `name` would
+  // cross-wire two instances' radio groups (#2343/#2346 territory).
+  const backdropGroupName = useId();
+
   return (
     <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
       <fieldset style={FIELDSET_STYLE}>
@@ -67,7 +73,7 @@ export function BackdropControls({
           <label key={option.value} style={RADIO_LABEL_STYLE}>
             <input
               type="radio"
-              name="overlay-editor-backdrop"
+              name={backdropGroupName}
               value={option.value}
               checked={backdrop === option.value}
               disabled={option.value === 'captured' && !hasCapturedFrame}
@@ -116,15 +122,16 @@ function CameraCaptureSection({
   // that dialog's name filter: this picker is a preview-time convenience, not
   // a record of anything the operator authors.
   const { data: cameras, isLoading: camerasLoading, isError: camerasFailed } = useListAllCameraChoicesQuery();
+  const cameraSelectId = useId();
 
   const cameraItems = cameras?.items ?? [];
   const camerasTruncated = cameras !== undefined && !cameras.complete;
 
   return (
     <div style={{ display: 'grid', gap: 8 }}>
-      <FormField label="Camera" htmlFor="overlay-editor-camera">
+      <FormField label="Camera" htmlFor={cameraSelectId}>
         <select
-          id="overlay-editor-camera"
+          id={cameraSelectId}
           style={SELECT_STYLE}
           value={selectedCamera}
           onChange={(e) => onCameraChange(e.target.value)}
