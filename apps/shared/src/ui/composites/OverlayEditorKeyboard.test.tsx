@@ -132,22 +132,134 @@ describe('OverlayEditor keyboard operability (spec 149)', () => {
     // width=height=0.2) so none of these sixteen presses is also exercising
     // FR-007/FR-008 — those get their own tests below.
     const COMBOS: Combo[] = [
-      { description: 'ArrowLeft moves x by -fine', key: 'ArrowLeft', shiftKey: false, ctrlKey: false, axis: 'normalizedX', delta: -FINE },
-      { description: 'ArrowRight moves x by +fine', key: 'ArrowRight', shiftKey: false, ctrlKey: false, axis: 'normalizedX', delta: FINE },
-      { description: 'ArrowUp moves y by -fine', key: 'ArrowUp', shiftKey: false, ctrlKey: false, axis: 'normalizedY', delta: -FINE },
-      { description: 'ArrowDown moves y by +fine', key: 'ArrowDown', shiftKey: false, ctrlKey: false, axis: 'normalizedY', delta: FINE },
-      { description: 'Shift+ArrowLeft moves x by -coarse', key: 'ArrowLeft', shiftKey: true, ctrlKey: false, axis: 'normalizedX', delta: -COARSE },
-      { description: 'Shift+ArrowRight moves x by +coarse', key: 'ArrowRight', shiftKey: true, ctrlKey: false, axis: 'normalizedX', delta: COARSE },
-      { description: 'Shift+ArrowUp moves y by -coarse', key: 'ArrowUp', shiftKey: true, ctrlKey: false, axis: 'normalizedY', delta: -COARSE },
-      { description: 'Shift+ArrowDown moves y by +coarse', key: 'ArrowDown', shiftKey: true, ctrlKey: false, axis: 'normalizedY', delta: COARSE },
-      { description: 'Ctrl+ArrowLeft shrinks width by fine, top-left anchored', key: 'ArrowLeft', shiftKey: false, ctrlKey: true, axis: 'normalizedWidth', delta: -FINE },
-      { description: 'Ctrl+ArrowRight grows width by fine, top-left anchored', key: 'ArrowRight', shiftKey: false, ctrlKey: true, axis: 'normalizedWidth', delta: FINE },
-      { description: 'Ctrl+ArrowUp shrinks height by fine, top-left anchored', key: 'ArrowUp', shiftKey: false, ctrlKey: true, axis: 'normalizedHeight', delta: -FINE },
-      { description: 'Ctrl+ArrowDown grows height by fine, top-left anchored', key: 'ArrowDown', shiftKey: false, ctrlKey: true, axis: 'normalizedHeight', delta: FINE },
-      { description: 'Ctrl+Shift+ArrowLeft shrinks width by coarse', key: 'ArrowLeft', shiftKey: true, ctrlKey: true, axis: 'normalizedWidth', delta: -COARSE },
-      { description: 'Ctrl+Shift+ArrowRight grows width by coarse', key: 'ArrowRight', shiftKey: true, ctrlKey: true, axis: 'normalizedWidth', delta: COARSE },
-      { description: 'Ctrl+Shift+ArrowUp shrinks height by coarse', key: 'ArrowUp', shiftKey: true, ctrlKey: true, axis: 'normalizedHeight', delta: -COARSE },
-      { description: 'Ctrl+Shift+ArrowDown grows height by coarse', key: 'ArrowDown', shiftKey: true, ctrlKey: true, axis: 'normalizedHeight', delta: COARSE },
+      {
+        description: 'ArrowLeft moves x by -fine',
+        key: 'ArrowLeft',
+        shiftKey: false,
+        ctrlKey: false,
+        axis: 'normalizedX',
+        delta: -FINE,
+      },
+      {
+        description: 'ArrowRight moves x by +fine',
+        key: 'ArrowRight',
+        shiftKey: false,
+        ctrlKey: false,
+        axis: 'normalizedX',
+        delta: FINE,
+      },
+      {
+        description: 'ArrowUp moves y by -fine',
+        key: 'ArrowUp',
+        shiftKey: false,
+        ctrlKey: false,
+        axis: 'normalizedY',
+        delta: -FINE,
+      },
+      {
+        description: 'ArrowDown moves y by +fine',
+        key: 'ArrowDown',
+        shiftKey: false,
+        ctrlKey: false,
+        axis: 'normalizedY',
+        delta: FINE,
+      },
+      {
+        description: 'Shift+ArrowLeft moves x by -coarse',
+        key: 'ArrowLeft',
+        shiftKey: true,
+        ctrlKey: false,
+        axis: 'normalizedX',
+        delta: -COARSE,
+      },
+      {
+        description: 'Shift+ArrowRight moves x by +coarse',
+        key: 'ArrowRight',
+        shiftKey: true,
+        ctrlKey: false,
+        axis: 'normalizedX',
+        delta: COARSE,
+      },
+      {
+        description: 'Shift+ArrowUp moves y by -coarse',
+        key: 'ArrowUp',
+        shiftKey: true,
+        ctrlKey: false,
+        axis: 'normalizedY',
+        delta: -COARSE,
+      },
+      {
+        description: 'Shift+ArrowDown moves y by +coarse',
+        key: 'ArrowDown',
+        shiftKey: true,
+        ctrlKey: false,
+        axis: 'normalizedY',
+        delta: COARSE,
+      },
+      {
+        description: 'Ctrl+ArrowLeft shrinks width by fine, top-left anchored',
+        key: 'ArrowLeft',
+        shiftKey: false,
+        ctrlKey: true,
+        axis: 'normalizedWidth',
+        delta: -FINE,
+      },
+      {
+        description: 'Ctrl+ArrowRight grows width by fine, top-left anchored',
+        key: 'ArrowRight',
+        shiftKey: false,
+        ctrlKey: true,
+        axis: 'normalizedWidth',
+        delta: FINE,
+      },
+      {
+        description: 'Ctrl+ArrowUp shrinks height by fine, top-left anchored',
+        key: 'ArrowUp',
+        shiftKey: false,
+        ctrlKey: true,
+        axis: 'normalizedHeight',
+        delta: -FINE,
+      },
+      {
+        description: 'Ctrl+ArrowDown grows height by fine, top-left anchored',
+        key: 'ArrowDown',
+        shiftKey: false,
+        ctrlKey: true,
+        axis: 'normalizedHeight',
+        delta: FINE,
+      },
+      {
+        description: 'Ctrl+Shift+ArrowLeft shrinks width by coarse',
+        key: 'ArrowLeft',
+        shiftKey: true,
+        ctrlKey: true,
+        axis: 'normalizedWidth',
+        delta: -COARSE,
+      },
+      {
+        description: 'Ctrl+Shift+ArrowRight grows width by coarse',
+        key: 'ArrowRight',
+        shiftKey: true,
+        ctrlKey: true,
+        axis: 'normalizedWidth',
+        delta: COARSE,
+      },
+      {
+        description: 'Ctrl+Shift+ArrowUp shrinks height by coarse',
+        key: 'ArrowUp',
+        shiftKey: true,
+        ctrlKey: true,
+        axis: 'normalizedHeight',
+        delta: -COARSE,
+      },
+      {
+        description: 'Ctrl+Shift+ArrowDown grows height by coarse',
+        key: 'ArrowDown',
+        shiftKey: true,
+        ctrlKey: true,
+        axis: 'normalizedHeight',
+        delta: COARSE,
+      },
     ];
 
     it.each(COMBOS)('$description', ({ key, shiftKey, ctrlKey, axis, delta }) => {
@@ -415,9 +527,7 @@ describe('OverlayEditor keyboard operability (spec 149)', () => {
 
     it('Announces exactly once, 500 ms after the last of ten presses within the burst', async () => {
       const onChange = vi.fn();
-      render(
-        <ControlledOverlayEditor initial={buildLabel({ normalizedX: 0.25 })} onChangeSpy={onChange} />,
-      );
+      render(<ControlledOverlayEditor initial={buildLabel({ normalizedX: 0.25 })} onChangeSpy={onChange} />);
       const label = getLabel();
 
       for (let i = 0; i < 10; i += 1) {
