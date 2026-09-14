@@ -79,10 +79,20 @@ export function OverlayEditorDialog({ open, onOpenChange }: OverlayEditorDialogP
   const settledLabelText = useDebouncedValue(labelText);
   const shouldResolve = settledLabelText.includes('{{');
   const {
-    data: resolvedPreview,
-    isFetching: isResolving,
+    currentData,
+    isFetching,
     isError: resolveFailed,
   } = useResolveOverlayTextQuery({ text: settledLabelText }, { skip: !shouldResolve });
+  // `data` retains the last successful result across `skip` and arg changes
+  // (RTK Query, not a bug here to work around) — clearing the field, or
+  // closing and reopening this dialog for a different overlay, would keep
+  // showing the previous resolve. `currentData` resets on both. `settled`
+  // additionally withholds the preview while debounce is still catching up
+  // to what was typed, so the panel never diffs live braces against a
+  // response for an earlier version of the text (phase 6 blockers 2+3).
+  const settled = settledLabelText === labelText;
+  const resolvedPreview = settled ? currentData : undefined;
+  const isResolving = isFetching || !settled;
 
   const onSubmit = handleSubmit(async (input) => {
     const result = await createOverlayDraft(input);
