@@ -81,7 +81,16 @@ export function FrameGrabber({ cameraIdentifier, getToken, onCaptured, onFailed 
       return;
     }
 
-    if (status === 'error' || status === 'offline') {
+    // FR-016, fast fail: a capture has no use for `useWhepSession`'s retry
+    // ladder — that machinery is for a wall tile that must eventually recover
+    // on its own. The first `reconnecting` (a refused/failed connect, a
+    // stalled ICE transport, or the media watchdog finding no frames) already
+    // means this attempt did not work, so this unmounts on it rather than
+    // riding the ladder or waiting out the outer 10 s timeout. `'error'` is
+    // not reachable — `useWhepSession`'s only transitions are `offline`,
+    // `reconnecting`, `live` and `connecting` — so that arm is dropped rather
+    // than kept as a false sense of coverage.
+    if (status === 'reconnecting' || status === 'offline') {
       settledRef.current = true;
       onFailed();
     }
