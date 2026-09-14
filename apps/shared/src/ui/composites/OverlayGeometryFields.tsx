@@ -65,6 +65,10 @@ function validate(spec: FieldSpec, normalized: number): string | null {
 const FIELD_INPUT_STYLE = { padding: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' as const };
 const FIELD_ALERT_STYLE = { color: '#dc2626', fontSize: 12 };
 const FIELD_STATUS_STYLE = { color: '#b45309', fontSize: 12 };
+// Nit 9 (phase 6): matches `BackdropControls.tsx`'s own `<fieldset><legend>`
+// pattern — the four fields otherwise have no accessible group name.
+const FIELDSET_STYLE = { border: 'none', padding: 0, margin: 0 };
+const LEGEND_STYLE = { fontSize: 14, padding: 0, marginBottom: 4 };
 
 /**
  * Four percent-denominated fields — Left, Top, Width, Height — for an overlay
@@ -133,6 +137,19 @@ export function OverlayGeometryFields({ value, preview, onCommit }: OverlayGeome
     onCommit(spec.field, parsed);
   }
 
+  // Should-fix 3 (phase 6): `commit` only ever validates a *typed* draft, so
+  // a drag-produced value never passes through `validate` at all — a
+  // drag-produced zero-size label reaches `value` with no message anywhere
+  // (#2361 stays open: this adds the message, not a clamp — the drag path's
+  // own emitted payload is untouched). Only applies once the field has
+  // settled onto `value` (no standing draft, no live gesture) — while either
+  // is present the field shows *that* number, not `value`, and `commit`
+  // already owns validation for a draft.
+  function committedValueError(spec: FieldSpec): string | null {
+    if (drafts[spec.field] !== undefined || preview !== null) return null;
+    return validate(spec, value[spec.field]);
+  }
+
   function handleKeyDown(spec: FieldSpec, event: ReactKeyboardEvent<HTMLInputElement>): void {
     if (event.key === 'Enter') {
       event.preventDefault();
@@ -166,45 +183,72 @@ export function OverlayGeometryFields({ value, preview, onCommit }: OverlayGeome
 
   return (
     <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        {FIELD_SPECS.map((spec) => {
-          const inputId = `${instanceId}-${spec.field}`;
-          const errorId = `${instanceId}-${spec.field}-error`;
-          const error = errors[spec.field];
-          return (
-            // The error span is a sibling of `<label>`, not a child of it:
-            // `aria-describedby` only needs a matching id anywhere in the
-            // document, and a `<label>` computes its accessible text from
-            // *all* of its descendant text — nesting the error inside it
-            // would fold "Enter a number." into the label RTL's
-            // `getByLabelText('Width')` (and a screen reader's field name)
-            // looks up.
-            <div key={spec.field} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <label htmlFor={inputId} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span>{spec.label}</span>
-                <input
-                  id={inputId}
-                  type="text"
-                  inputMode="decimal"
-                  value={displayValue(spec)}
-                  onChange={(event) => setDrafts((prev) => ({ ...prev, [spec.field]: event.target.value }))}
-                  onBlur={() => commit(spec)}
-                  onKeyDown={(event) => handleKeyDown(spec, event)}
-                  aria-describedby={error !== undefined ? errorId : undefined}
-                  style={FIELD_INPUT_STYLE}
-                />
-              </label>
-              {error !== undefined && (
-                <span id={errorId} role="alert" style={FIELD_ALERT_STYLE}>
-                  {error}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <fieldset style={FIELDSET_STYLE}>
+        <legend style={LEGEND_STYLE}>Position and size</legend>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          {FIELD_SPECS.map((spec) => {
+            const inputId = `${instanceId}-${spec.field}`;
+            const errorId = `${instanceId}-${spec.field}-error`;
+            const error = errors[spec.field] ?? committedValueError(spec) ?? undefined;
+            return (
+              // The error span is a sibling of `<label>`, not a child of it:
+              // `aria-describedby` only needs a matching id anywhere in the
+              // document, and a `<label>` computes its accessible text from
+              // *all* of its descendant text — nesting the error inside it
+              // would fold "Enter a number." into the label RTL's
+              // `getByLabelText('Width')` (and a screen reader's field name)
+              // looks up.
+              <div key={spec.field} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label htmlFor={inputId} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span>{spec.label}</span>
+                  <input
+                    id={inputId}
+                    type="text"
+                    inputMode="decimal"
+                    value={displayValue(spec)}
+                    onChange={(event) => {
+                      setDrafts((prev) => ({ ...prev, [spec.field]: event.target.value }));
+                      // Nit 8 (phase 6): a standing error otherwise keeps
+                      // describing a value the operator has already changed
+                      // — a screen reader re-announces a stale description.
+                      setErrors((prev) => {
+                        if (prev[spec.field] === undefined) return prev;
+                        const next = { ...prev };
+                        delete next[spec.field];
+                        return next;
+                      });
+                    }}
+                    onBlur={() => commit(spec)}
+                    onKeyDown={(event) => handleKeyDown(spec, event)}
+                    aria-describedby={error !== undefined ? errorId : undefined}
+                    style={FIELD_INPUT_STYLE}
+                  />
+                </label>
+                {error !== undefined && (
+                  <span id={errorId} role="alert" style={FIELD_ALERT_STYLE}>
+                    {error}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </fieldset>
+      {/* Phase 6 should-fix 4 asked for this span to render unconditionally
+          (mounted from the first render, empty text when there is no
+          advisory) so a screen reader already knows about the live region
+          before its content ever changes — mount-and-fill-in-the-same-
+          instant is not reliably announced. NOT done: it directly
+          contradicts `OverlayGeometryFields.test.tsx:456-466` ("The advisory
+          clears once the label is committed back inside the canvas"), which
+          asserts `queryByRole('status')` is `null` once the advisory clears
+          — true only if this span unmounts. That test is not one of the six
+          named guard files, but the brief forbids editing *any* test, so an
+          always-mounted span and that assertion cannot both hold. Left
+          conditionally mounted, with the requested `data-testid` added
+          regardless. */}
       {advisory !== null && (
-        <span role="status" style={FIELD_STATUS_STYLE}>
+        <span role="status" data-testid="overlay-geometry-advisory" style={FIELD_STATUS_STYLE}>
           {advisory}
         </span>
       )}
