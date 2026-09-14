@@ -37,6 +37,7 @@ export default [
         Response: 'readonly',
         Request: 'readonly',
         RequestInfo: 'readonly',
+        Node: 'readonly',
         RequestInit: 'readonly',
         WebSocket: 'readonly',
         fetch: 'readonly',
