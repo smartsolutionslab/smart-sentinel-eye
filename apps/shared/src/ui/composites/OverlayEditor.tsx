@@ -12,6 +12,8 @@ import { PlaceholderPreviewPanel, PLACEHOLDER_PREVIEW_STATUS_ID } from './Placeh
 import { formatPercent, QUANTUM } from './normalizedPercent.js';
 import { OverlayGeometryFields } from './OverlayGeometryFields.js';
 import type { OverlayGeometry, OverlayGeometryField } from './OverlayGeometryFields.js';
+import { useOverlayEditHistory } from './useOverlayEditHistory.js';
+import type { Boundary, RunKey } from './useOverlayEditHistory.js';
 
 export interface OverlayEditorProps {
   value: OverlayLabel;
@@ -159,6 +161,14 @@ function buildAnnouncement(axis: AnnounceAxis, value: number, edge: string | nul
   return edge === null ? base : `${base}, ${edge}`;
 }
 
+// Spec 154 Decision 2, site 6: the run key includes both the axis and the
+// mode, so switching between moving and resizing mid-hold (Ctrl) starts a
+// new run even though the axis label alone (`width` vs `x`) would already
+// differ; holding Shift changes only the step size, never this key.
+function arrowRunKey(resizing: boolean, axis: AnnounceAxis): RunKey {
+  return `arrow:${resizing ? 'resize' : 'move'}:${axis}`;
+}
+
 // FR-002. Two rings drawn with `outline` (flush against the element, paints
 // on top of `boxShadow` per CSS paint order — the white inner ring) and
 // `boxShadow` (a wider solid extension — the black outer ring underneath
@@ -234,27 +244,43 @@ export function OverlayEditor({
   const pixelWidth = Math.max(value.normalizedWidth * canvasWidthPx, 24);
   const pixelHeight = Math.max(value.normalizedHeight * canvasHeightPx, 16);
 
+  // Spec 154 (issue #2347): step-wise undo/redo over this editing session,
+  // kept entirely in this hook's own React state — no Redux, no new
+  // required prop (Decision 4). `commit` replaces every direct `onChange`
+  // call below; the payload each site builds is unchanged, byte for byte
+  // (FR-015) — only the bookkeeping around the emission is new.
+  const { commit, endRun, undo, redo, canUndo, canRedo } = useOverlayEditHistory(value, onChange);
+
   // T005: the single place that builds the `onChange` payload. `clamp01` is
   // the one clamp both the drag and keyboard paths call — the drag path's
   // pixel-derived values need it as their only bound (unchanged, FR-011);
   // the keyboard path's values are already bounded tighter by `nudgePosition`
   // / `resizeSize` before they arrive here, so `clamp01` is a no-op on them.
   const emitNormalized = useCallback(
-    (nextX: number, nextY: number, nextWidth: number, nextHeight: number) => {
-      onChange({
-        ...value,
-        normalizedX: clamp01(nextX),
-        normalizedY: clamp01(nextY),
-        normalizedWidth: clamp01(nextWidth),
-        normalizedHeight: clamp01(nextHeight),
-      });
+    (nextX: number, nextY: number, nextWidth: number, nextHeight: number, boundary: Boundary) => {
+      commit(
+        {
+          ...value,
+          normalizedX: clamp01(nextX),
+          normalizedY: clamp01(nextY),
+          normalizedWidth: clamp01(nextWidth),
+          normalizedHeight: clamp01(nextHeight),
+        },
+        boundary,
+      );
     },
-    [onChange, value],
+    [commit, value],
   );
 
   const emitGeometry = useCallback(
     (xPx: number, yPx: number, widthPx: number, heightPx: number) => {
-      emitNormalized(xPx / canvasWidthPx, yPx / canvasHeightPx, widthPx / canvasWidthPx, heightPx / canvasHeightPx);
+      emitNormalized(
+        xPx / canvasWidthPx,
+        yPx / canvasHeightPx,
+        widthPx / canvasWidthPx,
+        heightPx / canvasHeightPx,
+        'atomic',
+      );
     },
     [canvasWidthPx, canvasHeightPx, emitNormalized],
   );
@@ -334,9 +360,9 @@ export function OverlayEditor({
   // unreachable.
   const handleGeometryCommit = useCallback(
     (field: OverlayGeometryField, normalized: number) => {
-      onChange({ ...value, [field]: normalized });
+      commit({ ...value, [field]: normalized }, 'atomic');
     },
-    [onChange, value],
+    [commit, value],
   );
 
   // FR-002/FR-003: driven by onFocus/onBlur, not `:focus-visible` — the file
@@ -426,10 +452,25 @@ export function OverlayEditor({
         refused = nextY === value.normalizedY;
       }
 
-      emitNormalized(nextX, nextY, nextWidth, nextHeight);
+      emitNormalized(nextX, nextY, nextWidth, nextHeight, { run: arrowRunKey(resizing, axis) });
       queueAnnouncement(buildAnnouncement(axis, announceValue, refused ? edgeName(axis, delta) : null));
     },
     [value, emitNormalized, queueAnnouncement],
+  );
+
+  // Spec 154 FR-005: the held-arrow run closes on `keyup` of any arrow key —
+  // not on an idle timer (OS key repeat fires `keydown` roughly every 30ms
+  // with no intervening `keyup`, so a timer wide enough to hold a long run
+  // together would also merge two deliberate, separate nudges). `endRun()`
+  // with no key closes whichever run is open; a non-arrow keyup (Shift,
+  // Ctrl alone) is not the end of a nudge and is left alone.
+  const handleLabelKeyUp = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (ARROW_KEYS.has(event.key)) {
+        endRun();
+      }
+    },
+    [endRun],
   );
 
   // FR-012: named by its own text, falling back to a fixed, non-empty name.
@@ -441,6 +482,46 @@ export function OverlayEditor({
   // FR-014. `useId()`, not a module constant (phase 6 should-fix 8) — a
   // module constant collides the moment a document renders two editors.
   const instructionsId = useId();
+
+  // Spec 154 (issue #2347) US2 — a discrete act, not a burst, so this skips
+  // the debounce/toggle machinery `queueAnnouncement` above uses for a
+  // stream of keyboard nudges.
+  const [undoMessage, setUndoMessage] = useState('');
+
+  const handleUndoClick = useCallback(() => {
+    setUndoMessage(undo() ? 'Undone' : 'Nothing to undo');
+  }, [undo]);
+
+  const handleRedoClick = useCallback(() => {
+    if (redo()) setUndoMessage('Redone');
+  }, [redo]);
+
+  // FR-006/FR-007: bound on the editor's root element, not the label, so
+  // `Ctrl+Z`/`Cmd+Z`/`Ctrl+Shift+Z`/`Cmd+Shift+Z`/`Ctrl+Y` work from any
+  // focus position inside the editor. `preventDefault` only on a handled
+  // combination; everything else — `Ctrl+C`, `Ctrl+V`, the browser's own
+  // shortcuts — falls through untouched.
+  const handleRootKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      const key = event.key.toLowerCase();
+      if (key === 'z' && event.shiftKey) {
+        event.preventDefault();
+        handleRedoClick();
+        return;
+      }
+      if (key === 'z') {
+        event.preventDefault();
+        handleUndoClick();
+        return;
+      }
+      if (key === 'y' && event.ctrlKey) {
+        event.preventDefault();
+        handleRedoClick();
+      }
+    },
+    [handleUndoClick, handleRedoClick],
+  );
 
   // Neither of these is lifted into `OverlayLabel` — `onChange` fires only for
   // text, font size and geometry, exactly as today (FR-005). The preview
@@ -479,7 +560,7 @@ export function OverlayEditor({
   );
 
   return (
-    <div className={className}>
+    <div className={className} onKeyDown={handleRootKeyDown}>
       <div
         data-testid="overlay-editor-canvas"
         style={{
@@ -506,8 +587,12 @@ export function OverlayEditor({
           aria-label={accessibleLabelName}
           aria-describedby={instructionsId}
           onKeyDown={handleLabelKeyDown}
+          onKeyUp={handleLabelKeyUp}
           onFocus={() => setIsLabelFocused(true)}
-          onBlur={() => setIsLabelFocused(false)}
+          onBlur={() => {
+            setIsLabelFocused(false);
+            endRun();
+          }}
           style={{
             ...overlayLabelSurfaceStyle(value),
             cursor: 'move',
@@ -538,6 +623,37 @@ export function OverlayEditor({
       <div aria-live="polite" data-testid="overlay-editor-geometry-live-region" className="sr-only">
         {liveMessage}
       </div>
+      {/* Spec 154 (issue #2347), plan.md §6 — between the two sr-only regions
+          above and the input grid below, so the label still precedes the
+          text input in DOM order (`OverlayEditorKeyboard.test.tsx:103`).
+          `type="button"` is mandatory: the editor renders inside
+          `OverlayEditorDialog`'s `<form>`, and a bare `<button>` would
+          submit it. */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <button
+          type="button"
+          data-testid="overlay-editor-undo"
+          aria-keyshortcuts="Control+Z"
+          disabled={!canUndo}
+          onClick={handleUndoClick}
+        >
+          Undo
+        </button>
+        <button
+          type="button"
+          data-testid="overlay-editor-redo"
+          aria-keyshortcuts="Control+Shift+Z"
+          disabled={!canRedo}
+          onClick={handleRedoClick}
+        >
+          Redo
+        </button>
+      </div>
+      {/* US2 — its own live region, own `data-testid`, so it never collides
+          with the geometry announcer above. A discrete act, not a burst. */}
+      <div aria-live="polite" data-testid="overlay-editor-undo-live-region" className="sr-only">
+        {undoMessage}
+      </div>
       <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span>Label text</span>
@@ -545,7 +661,8 @@ export function OverlayEditor({
             data-testid="overlay-editor-text"
             type="text"
             value={value.text}
-            onChange={(e) => onChange({ ...value, text: e.target.value })}
+            onChange={(e) => commit({ ...value, text: e.target.value }, { run: 'text' })}
+            onBlur={() => endRun('text')}
             maxLength={256}
             style={{ padding: 8, fontSize: 14 }}
             aria-describedby={PLACEHOLDER_PREVIEW_STATUS_ID}
@@ -559,7 +676,9 @@ export function OverlayEditor({
             min={8}
             max={256}
             value={value.fontSizePx}
-            onChange={(e) => onChange({ ...value, fontSizePx: Number(e.target.value) })}
+            onChange={(e) => commit({ ...value, fontSizePx: Number(e.target.value) }, { run: 'fontSize' })}
+            onBlur={() => endRun('fontSize')}
+            onPointerUp={() => endRun('fontSize')}
           />
         </label>
       </div>
