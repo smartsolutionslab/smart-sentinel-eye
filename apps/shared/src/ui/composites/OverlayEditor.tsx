@@ -115,10 +115,14 @@ export function OverlayEditor({
     (next: string) => {
       setSelectedCamera(next);
       // FR-012: changing the camera mid-capture closes the old session; no
-      // frame from it is ever applied.
-      if (activeCamera !== null) cancel();
+      // frame from it is ever applied. Called unconditionally — `cancel()` is
+      // idempotent against `idle`, and this is also how picking a different
+      // camera clears a stale `failed` alert instead of leaving the operator
+      // staring at "try again, or pick a different camera" after doing
+      // exactly that.
+      cancel();
     },
-    [activeCamera, cancel],
+    [cancel],
   );
 
   const handleCapture = useCallback(() => {
@@ -134,10 +138,6 @@ export function OverlayEditor({
     },
     [cancel],
   );
-
-  const handleFailed = useCallback(() => {
-    fail();
-  }, [fail]);
 
   return (
     <div className={className}>
@@ -210,10 +210,11 @@ export function OverlayEditor({
           never a hand-written release path (FR-010–FR-014). */}
       {activeCamera !== null && getToken !== undefined && (
         <FrameGrabber
+          key={activeCamera}
           cameraIdentifier={activeCamera}
           getToken={getToken}
           onCaptured={handleCaptured}
-          onFailed={handleFailed}
+          onFailed={fail}
         />
       )}
     </div>
