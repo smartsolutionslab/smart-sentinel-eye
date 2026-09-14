@@ -12,15 +12,6 @@ namespace SmartSentinelEye.SystemVariables.Application.Tests.Queries;
 /// <summary>
 /// Spec 148 T006 — <c>GET /system-variables/resolve</c>'s handler. Covers
 /// US1 acceptance scenarios 1-5 and 11.
-///
-/// <para>
-/// <b>Phase 4a — RED, and deliberately not characterisation.</b>
-/// <c>ResolveOverlayTextQueryHandler</c> is new: the endpoint it serves never
-/// existed, so no test of it was ever green (plan.md "Phase 4a"). It is a
-/// phase-4a scaffold that always throws <see cref="NotImplementedException"/>
-/// until T004/T005 implement it — every fact below is expected to fail on
-/// that exception, not on a missing type.
-/// </para>
 /// </summary>
 public class ResolveOverlayTextQueryHandlerTests
 {
@@ -106,8 +97,14 @@ public class ResolveOverlayTextQueryHandlerTests
             new ResolveOverlayTextQuery([Munich], "{{shift}} {{oldOne}} {{unknownName}}"), CancellationToken.None);
 
         result.Value.ResolvedText.ShouldBe("{{shift}} {{oldOne}} {{unknownName}}");
-        result.Value.Placeholders.Single(p => p.Name == "shift").Outcome.ShouldBe("Unset");
-        result.Value.Placeholders.Single(p => p.Name == "oldOne").Outcome.ShouldBe("Archived");
+        PlaceholderResolutionDto shift = result.Value.Placeholders.Single(p => p.Name == "shift");
+        shift.Outcome.ShouldBe("Unset");
+        // S2 — Unset carries the fab it was found in, same as Resolved.
+        shift.Fab.ShouldBe("munich");
+        PlaceholderResolutionDto oldOne = result.Value.Placeholders.Single(p => p.Name == "oldOne");
+        oldOne.Outcome.ShouldBe("Archived");
+        // Archived stays null — it is the not-found path (plan.md:170).
+        oldOne.Fab.ShouldBeNull();
         result.Value.Placeholders.Single(p => p.Name == "unknownName").Outcome.ShouldBe("Unknown");
     }
 
