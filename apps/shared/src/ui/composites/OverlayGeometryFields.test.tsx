@@ -453,16 +453,28 @@ describe('OverlayGeometryFields (FR-001–FR-012, FR-017)', () => {
     expect(screen.getByRole('status').textContent).toContain('clipped');
   });
 
-  it('The advisory clears once the label is committed back inside the canvas (FR-012)', () => {
+  /**
+   * Phase-6 should-fix 4 (reviewer). A live region inserted into the DOM at
+   * the same instant as its content is not reliably announced by NVDA or
+   * JAWS — the region must pre-exist and have its *text* change, exactly as
+   * `OverlayEditor.tsx:534`'s own live region already does in this same
+   * component tree. `queryByRole('status') === null` describes the
+   * unmount-based mechanism, not the requirement: an implementation that
+   * unmounts the span "clears" the advisory by that assertion's standard and
+   * is exactly the one the reviewer's finding says is wrong. This asserts
+   * what "cleared" actually means instead — the region stays mounted
+   * (`getByTestId` throws if it does not) and its text becomes empty.
+   */
+  it('The advisory clears once the label is committed back inside the canvas, without the live region unmounting (FR-012)', () => {
     render(
       <ControlledFields initial={buildLabel({ normalizedX: 0.9, normalizedWidth: 0.25 })} onCommitSpy={vi.fn()} />,
     );
-    expect(screen.getByRole('status').textContent).toContain('clipped');
+    expect(screen.getByTestId('overlay-geometry-advisory').textContent).toContain('clipped');
 
     fireEvent.change(field('Left'), { target: { value: '50' } });
     fireEvent.keyDown(field('Left'), { key: 'Enter' });
 
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByTestId('overlay-geometry-advisory').textContent).toBe('');
   });
 
   it('Each field has a visible label bound by htmlFor, describing itself only while a message is present (FR-017)', () => {
