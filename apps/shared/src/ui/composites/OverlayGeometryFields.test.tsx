@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
@@ -38,6 +38,27 @@ import { OverlayGeometryFields } from './OverlayGeometryFields.js';
  * `Rnd` isolates it, exactly as the characterisation guard already does for
  * `onDragStop`/`onResizeStop`.
  * </p>
+ *
+ * <p>
+ * <b>Phase-6 fix round.</b> Two tests in the "wires the live readout" and
+ * "commits" sections used to render with a fixed `value` prop and a bare
+ * `vi.fn()` in place of a real caller's feedback loop — a shape no real
+ * parent has. `OverlayEditorDialog.tsx:134-147` renders this tree inside a
+ * React Hook Form `<Controller>`, whose `onChange` flows straight back down
+ * as a new `value` prop on every render; a fixed-`value` harness cannot tell
+ * a correct implementation from an incorrect one for anything that depends
+ * on that feedback, and one currently does not — the two production files
+ * were adjusted specifically to keep those two tests green against a harness
+ * that does not represent reality (see the comments on `displayValue` and
+ * `commit` in `OverlayGeometryFields.tsx`, and on `preview` in
+ * `OverlayEditor.tsx`). `ControlledFields` and `ControlledOverlayEditor`
+ * (below) are the fix: every test that fires a gesture or a commit and then
+ * reads a field's displayed value now goes through one of them. C1, C2, C4
+ * and C5b are the reviewer's own counterfactuals, pinned as tests; they are
+ * expected to fail for a real reason until the two production files revert
+ * to their original, simpler design (preview cleared on drag/resize stop;
+ * a committed draft cleared, not kept, once the commit succeeds).
+ * </p>
  */
 
 interface RndStubProps {
@@ -59,6 +80,23 @@ interface RndStubProps {
     delta: unknown,
     position: { x: number; y: number },
   ) => void;
+  /**
+   * Real `OverlayEditor.tsx` wires this to `handleLabelKeyDown` (spec 149).
+   * The stub below renders no DOM node at all — `Rnd: (props) => props.children`
+   * — so C5b (spec 151 fix round) invokes it directly the same way the file
+   * already invokes `onDrag`/`onDragStop`, rather than firing a DOM
+   * `keydown` that would land on nothing. `OverlayEditorKeyboard.test.tsx`
+   * is the file that exercises this handler through the real, unmocked
+   * `Rnd` and real DOM events; duplicating that here would test the stub.
+   */
+  onKeyDown?: (event: {
+    key: string;
+    preventDefault: () => void;
+    altKey?: boolean;
+    metaKey?: boolean;
+    shiftKey?: boolean;
+    ctrlKey?: boolean;
+  }) => void;
   children?: unknown;
 }
 
@@ -96,15 +134,55 @@ function field(label: string): HTMLInputElement {
  * `OverlayEditor.tsx`'s `handleGeometryCommit` does against the real dialog's
  * state (plan.md §3c). Needed for FR-011 (a later commit clearing a standing
  * error) and FR-012 (the advisory reacting to the value it was just shown).
+ *
+ * <p>
+ * <b>Phase-6 fix round.</b> Two tests in this file used to render
+ * `OverlayGeometryFields` with a fixed `value` prop and a bare `vi.fn()` for
+ * `onCommit` or `onChange` — a shape no real caller has.
+ * `OverlayEditorDialog.tsx:134-147` renders this tree inside a React Hook
+ * Form `<Controller>`, whose `onChange` flows straight back down as a new
+ * `value` prop on every render. A harness that holds `value` fixed makes an
+ * incorrect implementation look right (see `commit`'s comment in
+ * `OverlayGeometryFields.tsx`, which currently keeps a committed draft
+ * forever specifically so it kept reading right against that fixed-`value`
+ * harness) and makes a correct one fail. Every test below that fires a
+ * gesture or a commit and then reads a field's displayed value now goes
+ * through this component (or `ControlledOverlayEditor`, below, for the
+ * `OverlayEditor`-level cases) so the assertion means what it says.
+ * </p>
+ *
+ * <p>
+ * `controllerRef`, when supplied, exposes an imperative `setValue` alongside the
+ * normal `onCommit` feedback loop — needed for C4 (below): an operator's
+ * draft must not shadow a *later, unrelated* change to `value` that arrives
+ * by some path other than this component's own commit (a parent reset, a
+ * reload, a sibling field's own — differently-routed — update). No test
+ * harness anywhere else in this file drives that path, because no ordinary
+ * commit does either.
+ * </p>
  */
+interface FieldsController {
+  setValue: (updater: (prev: OverlayLabel) => OverlayLabel) => void;
+}
+
 function ControlledFields({
   initial,
   onCommitSpy,
+  controllerRef,
 }: {
   initial: OverlayLabel;
   onCommitSpy: (field: string, normalized: number) => void;
+  controllerRef?: { current: FieldsController | null };
 }) {
   const [value, setValue] = useState(initial);
+  // Assigned in an effect, not during render — react-hooks/refs, and the same
+  // rule any real `useRef` obeys, even though `controllerRef` here is a plain
+  // test-only object rather than one `useRef()` produced.
+  useEffect(() => {
+    if (controllerRef) {
+      controllerRef.current = { setValue };
+    }
+  }, [controllerRef, setValue]);
   return (
     <OverlayGeometryFields
       value={value}
@@ -112,6 +190,34 @@ function ControlledFields({
       onCommit={(next, normalized) => {
         setValue((prev) => ({ ...prev, [next]: normalized }));
         onCommitSpy(next, normalized);
+      }}
+    />
+  );
+}
+
+/**
+ * The `OverlayEditor`-level counterpart of `ControlledFields`, same pattern
+ * as `OverlayEditorKeyboard.test.tsx`'s helper of the same name: every
+ * `onChange` becomes the next `value`, so a drag settling or a field commit
+ * is visible to the *next* render exactly as it is for the real, controlled
+ * `OverlayEditorDialog.tsx`. C1, C2 and C5b (below) all need this — each is
+ * about what the panel displays *after* something has genuinely changed
+ * `value`, which a fixed-`value` render cannot represent.
+ */
+function ControlledOverlayEditor({
+  initial,
+  onChangeSpy,
+}: {
+  initial: OverlayLabel;
+  onChangeSpy: (next: OverlayLabel) => void;
+}) {
+  const [value, setValue] = useState(initial);
+  return (
+    <OverlayEditor
+      value={value}
+      onChange={(next) => {
+        setValue(next);
+        onChangeSpy(next);
       }}
     />
   );
@@ -198,17 +304,17 @@ describe('OverlayGeometryFields (FR-001–FR-012, FR-017)', () => {
     }
   });
 
-  it('Commits an exact value on Enter, quantized to the grid, and calls onCommit once (FR-004, FR-005, FR-006)', () => {
-    const onCommit = vi.fn();
-    render(<OverlayGeometryFields value={buildLabel()} preview={null} onCommit={onCommit} />);
-
-    fireEvent.change(field('Left'), { target: { value: '33.33' } });
-    fireEvent.keyDown(field('Left'), { key: 'Enter' });
-
-    expect(onCommit).toHaveBeenCalledTimes(1);
-    expect(onCommit).toHaveBeenCalledWith('normalizedX', 0.3333);
-    expect(field('Left').value).toBe('33.33');
-  });
+  // "Commits an exact value on Enter, quantized to the grid, and calls
+  // onCommit once (FR-004, FR-005, FR-006)" used to live here, rendering a
+  // fixed `value` with a bare `vi.fn()` for `onCommit` — exactly the harness
+  // shape no real caller has (phase-6 fix round; see the comment on
+  // `ControlledFields`, above). Converting it to `ControlledFields` alone
+  // does not discriminate anything: a single isolated commit has no later
+  // event for a stale draft to shadow, so it would stay green either way,
+  // proving nothing new. Its coverage — an exact typed value, correctly
+  // quantized, one `onCommit`/`onChange` call — is fully subsumed by C2,
+  // below, which asserts the same payload exactness *and* the display
+  // correctness this version could never have proven.
 
   it('Commits on blur exactly as Enter does (FR-004)', () => {
     const onCommit = vi.fn();
@@ -295,6 +401,46 @@ describe('OverlayGeometryFields (FR-001–FR-012, FR-017)', () => {
     expect(field('Width').value).toBe('60');
   });
 
+  /**
+   * C4 (phase-6 fix round, reviewer counterfactual). No drag, no keypress on
+   * the label — "no gesture ever" — only this field's own commit, followed
+   * by an *external* change to `value` that has nothing to do with it: a
+   * parent reset, a reload, a sibling save routed some other way. A
+   * committed draft must not go on shadowing `value` forever once `value`
+   * has genuinely moved past it — `commit` currently keeps the draft
+   * (reformatted) rather than clearing it, so `value` changing later has no
+   * way back into the display.
+   */
+  it('C4 — a committed draft does not shadow a later, unrelated change to value (no gesture ever)', () => {
+    const controllerRef: { current: FieldsController | null } = { current: null };
+    render(
+      <ControlledFields
+        initial={buildLabel({ normalizedX: 0.25 })}
+        onCommitSpy={vi.fn()}
+        controllerRef={controllerRef}
+      />,
+    );
+
+    // The initial value (25%) and the typed draft (10%) must differ: a
+    // `fireEvent.change` to the value already on screen does not fire
+    // React's `onChange` at all (its tracked-value comparison short-circuits
+    // it), which would make this commit never happen and the assertions
+    // below pass for no reason — exactly the class of defect this fix round
+    // exists to remove. Caught empirically while writing this test.
+    fireEvent.change(field('Left'), { target: { value: '10' } });
+    fireEvent.keyDown(field('Left'), { key: 'Enter' });
+    expect(field('Left').value).toBe('10');
+
+    // Not this component's onCommit — an unrelated write to the same `value`
+    // the real dialog could equally produce (e.g. a reset, or a save that
+    // reloads the label from the server).
+    act(() => {
+      controllerRef.current!.setValue((prev) => ({ ...prev, normalizedX: 0.8 }));
+    });
+
+    expect(field('Left').value).toBe('80');
+  });
+
   it('An off-edge rectangle is accepted, not refused, and shows a non-blocking status advisory (FR-012)', () => {
     const onCommitSpy = vi.fn();
     render(<ControlledFields initial={buildLabel({ normalizedWidth: 0.25 })} onCommitSpy={onCommitSpy} />);
@@ -363,9 +509,23 @@ describe('OverlayEditor wires the live readout and the commit path (FR-006, FR-0
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('Releasing the drag emits once through the existing onDragStop path, unchanged', () => {
+  /**
+   * C1 (phase-6 fix round, reviewer counterfactual). This replaces a test
+   * that used to stop at "the field reads the settled drag position" —
+   * true, but against a fixed `value` it was also true for the wrong
+   * reason: `OverlayGeometryFields.tsx`'s `displayValue` returns `preview`
+   * whenever it is non-null, unconditionally, and `handleDragStop` sets
+   * `preview` to the *release* geometry rather than clearing it back to
+   * `null` (its own comment says why: "nothing here assumes that render
+   * happens" — true of `onChange`'s argument, not of `preview` staying
+   * stuck forever after). The two together mean a field can never show
+   * anything the operator types once a drag has ever touched it. Typing
+   * is the only way an operator using this panel as documented — FR-001 —
+   * would ever notice.
+   */
+  it('C1 — after a drag settles, typing into Left is visible immediately, not the stale drag position', () => {
     const onChange = vi.fn();
-    render(<OverlayEditor value={buildLabel()} onChange={onChange} />);
+    render(<ControlledOverlayEditor initial={buildLabel()} onChangeSpy={onChange} />);
 
     act(() => {
       lastRndProps!.onDrag?.({}, { x: 400, y: 0 });
@@ -373,9 +533,40 @@ describe('OverlayEditor wires the live readout and the commit path (FR-006, FR-0
     });
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const next = onChange.mock.calls[0]![0] as OverlayLabel;
-    expect(next.normalizedX).toBe(0.5);
+    expect((onChange.mock.calls[0]![0] as OverlayLabel).normalizedX).toBe(0.5);
     expect(field('Left').value).toBe('50');
+
+    fireEvent.change(field('Left'), { target: { value: '10' } });
+
+    expect(field('Left').value).toBe('10');
+  });
+
+  /**
+   * C2 (phase-6 fix round, reviewer counterfactual) — the worse case: the
+   * commit *does* reach `onChange` with the right value (`normalizedX:
+   * 0.1`), so a save right now would silently move the overlay to where
+   * the field never showed it going. Escape does not rescue this either —
+   * `handleKeyDown`'s Escape clears `drafts`, not `preview`, and `preview`
+   * is what is pinning the display. This replaces a test that asserted the
+   * same commit's `onChange` payload without ever re-reading the field —
+   * the payload was always right; the display was not, and nothing checked it.
+   */
+  it('C2 — after a drag settles, committing Left shows the committed value, not the drag position', () => {
+    const onChange = vi.fn();
+    render(<ControlledOverlayEditor initial={buildLabel()} onChangeSpy={onChange} />);
+
+    act(() => {
+      lastRndProps!.onDrag?.({}, { x: 400, y: 0 });
+      lastRndProps!.onDragStop({}, { x: 400, y: 0 });
+    });
+    expect(field('Left').value).toBe('50');
+
+    fireEvent.change(field('Left'), { target: { value: '10' } });
+    fireEvent.keyDown(field('Left'), { key: 'Enter' });
+
+    expect(onChange).toHaveBeenCalledTimes(2);
+    expect((onChange.mock.calls[1]![0] as OverlayLabel).normalizedX).toBe(0.1);
+    expect(field('Left').value).toBe('10');
   });
 
   it('Committing "33.33" into Left calls onChange once, leaving the other three geometry values, text and fontSizePx untouched (FR-006)', () => {
@@ -393,5 +584,38 @@ describe('OverlayEditor wires the live readout and the commit path (FR-006, FR-0
     expect(next.normalizedHeight).toBe(BASE_LABEL.normalizedHeight);
     expect(next.text).toBe(BASE_LABEL.text);
     expect(next.fontSizePx).toBe(BASE_LABEL.fontSizePx);
+  });
+
+  /**
+   * C5b (phase-6 fix round, reviewer counterfactual). Needs the real
+   * keyboard path — spec 149's arrow-key nudge, which calls `emitNormalized`
+   * directly and never touches `preview` at all — so this is `OverlayGeometryFields`'s
+   * own bug in isolation from `OverlayEditor`'s stuck-`preview` one: `commit`
+   * keeps the draft (reformatted) rather than clearing it, so a *later*
+   * `value` change arriving through any other path — including the very
+   * keyboard nudge spec 149 shipped before this panel existed — cannot reach
+   * the display. `lastRndProps!.onKeyDown` is invoked directly (see the
+   * comment on `RndStubProps`) rather than firing a DOM event on the stub,
+   * which renders no element for one to land on.
+   */
+  it('C5b — after typing 10% into Left and committing, ArrowRight nudges the field to 10.5%', () => {
+    const onChange = vi.fn();
+    // Starts away from 10%: a `fireEvent.change` to the value already
+    // displayed does not fire React's `onChange` at all (its tracked-value
+    // comparison short-circuits it), which would make the commit below never
+    // happen and the assertions pass for no reason (caught empirically
+    // while writing this test — see the identical note on C4).
+    render(<ControlledOverlayEditor initial={buildLabel({ normalizedX: 0.25 })} onChangeSpy={onChange} />);
+    expect(field('Left').value).toBe('25');
+
+    fireEvent.change(field('Left'), { target: { value: '10' } });
+    fireEvent.keyDown(field('Left'), { key: 'Enter' });
+    expect(field('Left').value).toBe('10');
+
+    act(() => {
+      lastRndProps!.onKeyDown?.({ key: 'ArrowRight', preventDefault: () => undefined });
+    });
+
+    expect(field('Left').value).toBe('10.5');
   });
 });
