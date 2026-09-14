@@ -217,6 +217,26 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
     expect(statusRegion().textContent).toBe('');
   });
 
+  /**
+   * FR-009. This does NOT prove a same-string write survives React's
+   * same-value bail-out (#2344's defect) — it can't, from here. FR-006
+   * clears the status region to `''` on failure before a second Retry can
+   * ever fire, so the two "Re-reading the layout…" writes this test
+   * drives are never adjacent in React's render history (asserted below:
+   * the region reads `''` right before the second click). The bail-out
+   * only fires on two *consecutive* identical writes, so it never gets a
+   * chance to trigger here, key-token remount or not — confirmed by
+   * counterfactual (phase-6 review): dropping `ChainRecoveryNotice.tsx`'s
+   * `key={announcement.token}` left this test green.
+   * `OverlayEditorUndo.test.tsx:915-931` is where that collision is real:
+   * two consecutive successful undos both write 'Undone' with nothing
+   * between them, so its key-remount is load-bearing in a way this one
+   * isn't.
+   *
+   * What this test does prove: the second announcement actually reaches
+   * the DOM — the region is not left stuck on `''` or silently frozen once
+   * a second recovery cycle starts.
+   */
   it('Mutates the status region a second time even though the recovery message repeats itself (FR-009)', async () => {
     renderDialog();
 
@@ -240,6 +260,9 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
     const observer = new globalThis.MutationObserver(() => {});
     observer.observe(statusRegion(), { childList: true, subtree: true, characterData: true });
 
+    // Same message text as the first re-read — but not adjacent to it: the
+    // clear asserted above already intervened, so this does not exercise
+    // #2344's collision (see the docblock above).
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
 
     const mutations = observer.takeRecords();

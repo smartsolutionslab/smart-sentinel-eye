@@ -102,10 +102,18 @@ export function ChainRecoveryNotice({
     // this is what actually stops it.
     if (reReading) return;
     setOrigin(kind);
-    // Bumping `token` on every call, even a repeat (`key`-token remount,
-    // mirroring `OverlayEditor.tsx:501-508`'s `announceUndo`), is what makes
-    // a second identical announcement a real DOM mutation (FR-009) — an
-    // unchanged string is a React no-op (#2344).
+    // `key`-token remount, mirroring `OverlayEditor.tsx:501-508`'s
+    // `announceUndo` — but here it is defensive, not load-bearing. FR-006's
+    // `text: ''` clear below always writes a distinct value between two
+    // "Re-reading the {noun}…" announcements, so the same-value bail-out
+    // (#2344) never gets a chance to fire on this message, key or not —
+    // checked by counterfactual (phase-6 review): dropping the key left
+    // `OverlayEditorDialogChainRecovery.test.tsx`'s FR-009 test green. Kept
+    // anyway — one prop, cheap insurance against a future change that
+    // removes that intervening clear, and it keeps this in step with the
+    // sibling pattern, where the same trick *is* load-bearing (two
+    // consecutive successful undos both write 'Undone' with nothing
+    // between them).
     setAnnouncement((previous) => ({ text: `Re-reading the ${noun}…`, token: previous.token + 1 }));
     onReRead();
   }
