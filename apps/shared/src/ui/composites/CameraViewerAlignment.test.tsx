@@ -185,6 +185,7 @@ describe('CameraViewer when alignment fails', () => {
     infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
     useGetStreamQueryMock.mockReturnValue({
       data: { state: 'Healthy', whepUrl: 'http://sfu/whep/cam-42', error: null },
+      currentData: { state: 'Healthy', whepUrl: 'http://sfu/whep/cam-42', error: null },
       isLoading: false,
       error: undefined,
     });

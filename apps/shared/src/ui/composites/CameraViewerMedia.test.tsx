@@ -219,6 +219,7 @@ describe('CameraViewer media confirmation', () => {
     streamHealth = undefined;
     useGetStreamQueryMock.mockImplementation(() => ({
       data: streamHealth,
+      currentData: streamHealth,
       isLoading: false,
       error: undefined,
     }));

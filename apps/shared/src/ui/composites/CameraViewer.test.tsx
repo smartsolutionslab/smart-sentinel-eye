@@ -114,6 +114,7 @@ describe('CameraViewer stream session state machine', () => {
     streamHealth = undefined;
     useGetStreamQueryMock.mockImplementation(() => ({
       data: streamHealth,
+      currentData: streamHealth,
       isLoading: false,
       error: undefined,
     }));
