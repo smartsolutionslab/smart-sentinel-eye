@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useSyncExternalStore } from 'react';
 import { Provider } from 'react-redux';
 import userEvent from '@testing-library/user-event';
@@ -218,19 +218,29 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
   });
 
   it('Mutates the status region a second time even though the recovery message repeats itself (FR-009)', async () => {
-    const user = userEvent.setup();
     renderDialog();
 
-    await user.click(screen.getByRole('button', { name: /retry/i }));
+    // `fireEvent.click`, not `user.click` (phase-6 review finding): jsdom's
+    // `MutationObserver` delivers queued records via a microtask scheduled
+    // the instant the DOM mutates, and `user-event`'s internal flush cycles
+    // yield the microtask queue after the click's synchronous work — which
+    // lets that notify microtask run first (FIFO) and drains the observer
+    // before control returns here, so `takeRecords()` always reads empty.
+    // `OverlayEditorUndo.test.tsx:915-931` hits the identical shape (same
+    // key-token remount, same `takeRecords()`) and stays on `fireEvent.click`
+    // for exactly this reason. The other tests in this file keep
+    // `user.click` deliberately — they assert focus, where its realism is
+    // the point.
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     await act(async () => {
       setChainQueryState({ data: undefined, isError: true, isFetching: false });
     });
     expect(statusRegion().textContent).toBe('');
 
-    const observer = new window.MutationObserver(() => {});
+    const observer = new globalThis.MutationObserver(() => {});
     observer.observe(statusRegion(), { childList: true, subtree: true, characterData: true });
 
-    await user.click(screen.getByRole('button', { name: /retry/i }));
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
 
     const mutations = observer.takeRecords();
     observer.disconnect();
