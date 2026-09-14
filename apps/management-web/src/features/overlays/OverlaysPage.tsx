@@ -5,6 +5,7 @@ import {
   usePublishOverlayRevisionMutation,
   useRevertOverlayRevisionMutation,
   type Overlay,
+  type OverlayLabel,
   type OverlayRevision,
   type OverlayRevisionState,
 } from '@smart-sentinel-eye/shared/api/overlays.api';
@@ -18,12 +19,13 @@ import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useState } from 'react';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
 import { chainView } from '../chainView.js';
-import { OverlayEditorDialog } from './OverlayEditorDialog.js';
+import { OverlayEditorDialog, type OverlayEditTarget } from './OverlayEditorDialog.js';
 
 const STATE_FILTERS: ReadonlyArray<OverlayRevisionState | 'All'> = ['All', 'Draft', 'Published', 'Archived'];
 
 export function OverlaysPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<OverlayEditTarget>();
   const [filter, setFilter] = useState<OverlayRevisionState | 'All'>('All');
   // Spec 036, narrowed by spec 038. The `published` flag is gone: Archive is
   // offered only when a live revision exists and targets that revision, so the
@@ -65,6 +67,21 @@ export function OverlaysPage() {
 
   const chains = data?.chains ?? [];
   const visible = filter === 'All' ? chains : chains.filter((c) => containsRevisionIn(c, filter));
+
+  // Spec 152 US2. Mirrors `LayoutsPage.tsx:76-84`: the branch is itself a
+  // write, so it happens first and only on success does the dialog open —
+  // seeded from `baseline`, the same revision the server branches from
+  // (`Overlay.cs:76-77`: `CurrentPublishedOrNull() ?? NewestWhenFullyArchivedOrNull()`).
+  const onEdit = async (chain: Overlay, baseline: OverlayRevision) => {
+    const result = await branchDraft({ overlayIdentifier: chain.overlayIdentifier, version: chain.version });
+    if ('error' in result) return;
+    setEditTarget({
+      overlayIdentifier: chain.overlayIdentifier,
+      revisionNumber: result.data,
+      name: chain.name,
+      label: labelOf(baseline),
+    });
+  };
 
   return (
     <section className="p-6">
@@ -131,10 +148,11 @@ export function OverlaysPage() {
           // LayoutsPage and for the same reason — deciding from `newest` left a
           // live overlay under a discarded draft offering nothing, and an
           // Archive button that discarded a draft under a false warning.
-          // No `newest`: unlike LayoutsPage, Edit here branches without opening
-          // a designer, so there is no baseline to hand it. The server picks the
-          // branch source by the same rule either way.
-          const { live, draft, summarised, fullyArchived } = chainView(chain.revisions);
+          // `newest` is back (spec 152 US2): Edit (new draft) now opens the
+          // designer on what it branches, and needs a baseline to seed it with
+          // — the same `live ?? newest` rule LayoutsPage uses, because the
+          // server picks the branch source by that rule either way.
+          const { live, draft, newest, summarised, fullyArchived } = chainView(chain.revisions);
           const disabled = publishing || archiving || branching || reverting;
           return (
             <li key={chain.overlayIdentifier} className="rounded-md border border-fg-muted/30 bg-bg-elevated px-4 py-3">
@@ -178,6 +196,30 @@ export function OverlaysPage() {
                   </Button>
                 )}
                 {/*
+                  Spec 152 US1. Edits the draft that already exists — the
+                  action neither this row nor LayoutsPage's offered before,
+                  and the one the issue's own scenario needed: a freshly
+                  created overlay is `{D}`, where `Edit (new draft)`'s gate
+                  below is false. Sends nothing on click (FR-002) — the
+                  dialog opens against `draft`, and only Save writes.
+                */}
+                {draft !== undefined && (
+                  <Button
+                    variant="secondary"
+                    disabled={disabled}
+                    onClick={() =>
+                      setEditTarget({
+                        overlayIdentifier: chain.overlayIdentifier,
+                        revisionNumber: draft.revisionNumber,
+                        name: chain.name,
+                        label: labelOf(draft),
+                      })
+                    }
+                  >
+                    Edit draft
+                  </Button>
+                )}
+                {/*
                   Offered while a draft is open as well (spec 038 FR-003). That
                   is also the app's route to a chain with two open drafts —
                   recorded as observed rather than fixed, because suppressing it
@@ -187,9 +229,12 @@ export function OverlaysPage() {
                   <Button
                     variant="secondary"
                     disabled={disabled}
-                    onClick={() =>
-                      void branchDraft({ overlayIdentifier: chain.overlayIdentifier, version: chain.version })
-                    }
+                    onClick={() => {
+                      const baseline = live ?? newest;
+                      if (baseline !== undefined) {
+                        void onEdit(chain, baseline);
+                      }
+                    }}
                   >
                     Edit (new draft)
                   </Button>
@@ -314,12 +359,27 @@ export function OverlaysPage() {
       </ArchiveConfirmation>
 
       <OverlayEditorDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <OverlayEditorDialog
+        open={editTarget !== undefined}
+        onOpenChange={(next) => {
+          if (!next) setEditTarget(undefined);
+        }}
+        editTarget={editTarget}
+      />
     </section>
   );
 }
 
 function containsRevisionIn(chain: Overlay, state: OverlayRevisionState): boolean {
   return chain.revisions.some((r) => r.state === state);
+}
+
+// Spec 152. Lifts the six `OverlayLabel` fields off a revision rather than
+// spreading it — a spread would carry `state`/`createdAt`/`revisionIdentifier`
+// and the rest into the edit target and then into the PATCH body.
+function labelOf(revision: OverlayRevision): OverlayLabel {
+  const { text, normalizedX, normalizedY, normalizedWidth, normalizedHeight, fontSizePx } = revision;
+  return { text, normalizedX, normalizedY, normalizedWidth, normalizedHeight, fontSizePx };
 }
 
 // Spec 038 FR-009, the twin of LayoutsPage's. Names the LIVE revision, because
