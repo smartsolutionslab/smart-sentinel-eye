@@ -425,7 +425,6 @@ test('a stale-version conflict does not cost the keyboard operator their place a
     // since Save regaining focus is not this check's claim to make.
     const patchRequestCountBeforeEnter = patchRequestCount;
     await pageTwo.getByTestId('overlay-editor-text').press('Enter');
-    expect(patchRequestCount).toBe(patchRequestCountBeforeEnter);
     await expect(saveButtonTwo).toHaveAttribute('aria-disabled', 'true');
     await saveButtonTwo.focus();
     await expect(saveButtonTwo).toBeFocused();
@@ -434,6 +433,22 @@ test('a stale-version conflict does not cost the keyboard operator their place a
     const alertTwo = pageTwo.getByRole('alert');
     await expect(alertTwo).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
     await expect(saveButtonTwo).toBeFocused();
+
+    // Phase-6 finding 2 (issue #2387, third review round): re-asserted HERE,
+    // not synchronously right after `press('Enter')` above. The counter
+    // increments inside this test's own route handler, which only runs
+    // after the renderer's submit -> interception -> CDP round trip, while
+    // `press()` resolves as soon as the key events are dispatched — a
+    // regressed implicit submission's second PATCH could easily still be
+    // in flight (or not yet even requested) the instant `press()` returns,
+    // so a check made there could pass while the regression is real. The
+    // `await expect(...).toBeVisible(...)` above already forced a wait of
+    // at least the intercepted route's own one-second hold (the FIRST
+    // writer's PATCH is what that alert is waiting on), which is ample time
+    // for a wrongly-fired second PATCH to have reached this same route and
+    // bumped the counter — so this reassertion, unlike the one it replaces,
+    // cannot pass merely because it ran too early to see the harm.
+    expect(patchRequestCount).toBe(patchRequestCountBeforeEnter);
 
     // The re-read answers with the corrected version; Save re-opens, still
     // under the operator's finger.
