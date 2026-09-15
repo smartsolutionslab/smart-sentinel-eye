@@ -262,4 +262,68 @@ describe('LayoutEditorDialog — Save keeps its focus while it is unavailable (s
 
     expect(editDraftMock).not.toHaveBeenCalled();
   });
+
+  /**
+   * Spec §5.2 (US2, issue #2387 finding 2, FR-007/FR-008) — new behaviour,
+   * RED (ADR-0139), mirrored from the overlay sibling file (tasks.md T007).
+   * See that file's doc comment for the full reasoning: starts from an
+   * already-refused mutation and an already-*settled*, refused re-read set
+   * directly (not a live click cycle), and pairs the gate-closed assertion
+   * with a call-count assertion via `expect.soft` so both halves of the
+   * architect's stated red land in one run's output.
+   */
+  it('keeps Save unavailable when the layout re-read itself is refused, with Retry as the way out (US2 FR-007/FR-008)', async () => {
+    const user = userEvent.setup();
+    mutationState = {
+      isLoading: false,
+      error: {
+        status: 409,
+        data: { title: 'LAYOUT_REVISION_STALE', detail: 'Layout has changed since version 7 (now 8).' },
+      },
+    };
+    chainQueryState = {
+      data: { layoutIdentifier: EDIT_TARGET.layoutIdentifier, version: 7 },
+      isError: true,
+      isFetching: false,
+    };
+    renderDialog();
+
+    const saveButton = screen.getByRole('button', { name: /^save draft$/i });
+    const retryButton = screen.getByRole('button', { name: /retry/i });
+    expect(retryButton).toBeInTheDocument();
+
+    expect.soft(saveButton).toHaveAttribute('aria-disabled', 'true');
+
+    await user.click(saveButton);
+    expect.soft(editDraftMock).not.toHaveBeenCalled();
+
+    // On unmodified code the blocked click above was NOT actually blocked —
+    // see the overlay sibling file's doc comment for why this reset is here
+    // rather than being evidence of anything about the retry recovery below.
+    await act(async () => {
+      setMutationState({ isLoading: false, error: mutationState.error });
+    });
+    const editCallsBeforeRetry = editDraftMock.mock.calls.length;
+
+    await user.click(retryButton);
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: false, isFetching: true });
+    });
+    await act(async () => {
+      setChainQueryState({
+        data: { layoutIdentifier: EDIT_TARGET.layoutIdentifier, version: 8 },
+        isError: false,
+        isFetching: false,
+      });
+    });
+
+    expect(saveButton).not.toHaveAttribute('aria-disabled', 'true');
+    expect(document.activeElement).toBe(saveButton);
+
+    await user.click(saveButton);
+    await waitFor(() => expect(editDraftMock).toHaveBeenCalledTimes(editCallsBeforeRetry + 1));
+    expect(editDraftMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ layoutIdentifier: EDIT_TARGET.layoutIdentifier, version: 8 }),
+    );
+  });
 });
