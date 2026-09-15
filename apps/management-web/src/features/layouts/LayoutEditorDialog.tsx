@@ -292,7 +292,17 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   // The Reload path is pinned by `LayoutEditorDialogChainRecovery.test.tsx`'s
   // FR-005 case; the REJECTED-mutation path is not pinned by a test in this
   // repo, so that half of the outcome is recorded here rather than asserted.
-  const saveBlocked = isLoading || knownCameras.size === 0 || (isEdit && (currentChain === undefined || chainFetching));
+  //
+  // `chainFailed` (FR-007): a refused re-read still LEAVES `currentData` at
+  // the pre-re-read version — `queryThunk.rejected` writes only
+  // `status`/`error` (`@reduxjs/toolkit` 2.12.0,
+  // `dist/query/rtk-query.modern.mjs:1443-1455`) and `currentData` is that
+  // raw substate `data` (`dist/query/react/rtk-query-react.modern.mjs:155`).
+  // Without this term the gate reopens on a version already known stale, and
+  // a click resubmits it for an identical second 409. Retry stays the way
+  // out (`ChainRecoveryNotice`'s chain arm, `chainArmActive` on `readFailed`).
+  const saveBlocked =
+    isLoading || knownCameras.size === 0 || (isEdit && (currentChain === undefined || chainFetching || chainFailed));
 
   // FR-003: `aria-disabled` restores implicit form submission (a natively
   // disabled default button suppresses Enter-to-submit; `aria-disabled` does
