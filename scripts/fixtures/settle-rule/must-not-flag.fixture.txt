@@ -103,3 +103,18 @@ test('an unbounded for(;;) poll with no test expression is not a fixed-count set
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
 });
+
+// A `for...of` over a fixed array is ALSO covered by Selector B now (#2392
+// phase 6 finding 5) — but only for the `new Promise` shape. A `for...of`
+// that drains MICROTASKS per iteration, the same way `flushMicrotasks` does
+// per round, must stay legal for the same reason `flushMicrotasks` itself
+// does: `Promise.resolve()` is a `CallExpression`, not a `NewExpression`.
+// Mirrors the retry-delay `for...of` in `CameraViewer.test.tsx`, which
+// drives fake timers rather than awaiting a raw `new Promise` at all.
+const EXPECTED_DELAYS = [1000, 2000, 4000];
+test('a for-of loop that drains microtasks per round is not a fixed-count settle', async () => {
+  for (const delay of EXPECTED_DELAYS) {
+    await flushMicrotasks();
+    expect(delay).toBeGreaterThan(0);
+  }
+});
