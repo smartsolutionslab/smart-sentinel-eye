@@ -138,8 +138,15 @@ describe('OverlayEditorDialog — the chain is re-read per overlay, not carried 
     // Let A's GET resolve and the dialog settle on version 7. The button
     // exists on the very first render regardless of the fetch outcome, so
     // `findByRole` alone would not wait for anything — `waitFor` polls the
-    // disabled state itself.
-    await waitFor(() => expect(screen.getByRole('button', { name: /^save draft$/i })).not.toBeDisabled());
+    // save-gate attribute itself as a synchronization primitive, not as a
+    // UX claim in its own right (spec 160 FR-001: `aria-disabled`, not
+    // native `disabled` — the same claim, moved to the new attribute; this
+    // line makes no independent availability assertion for a click to pair
+    // with, unlike the disabled-gate assertion below at the actual point of
+    // the test).
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^save draft$/i })).not.toHaveAttribute('aria-disabled', 'true'),
+    );
 
     // Close — OverlaysPage.tsx always drives `open` and `editTarget` together
     // (`open={editTarget !== undefined}`), so this is the real transition, not
@@ -163,9 +170,11 @@ describe('OverlayEditorDialog — the chain is re-read per overlay, not carried 
     // The point of the test: `data` (RTK Query's last successful result for
     // ANY argument) still holds A's chain here; only `currentData` resets on
     // the argument change to B (`skipToken` in between, then B's id). Save
-    // must stay disabled until B's own GET answers — not merely until some
-    // GET, for some overlay, once has.
-    expect(screen.getByRole('button', { name: /^save draft$/i })).toBeDisabled();
+    // must stay unavailable until B's own GET answers — not merely until some
+    // GET, for some overlay, once has. `aria-disabled`, not native `disabled`
+    // (spec 160 FR-001) — paired below with the click/PATCH check that is
+    // this test's own behavioural half (tasks.md rule 2).
+    expect(screen.getByRole('button', { name: /^save draft$/i })).toHaveAttribute('aria-disabled', 'true');
 
     // Defence in depth, in case Save is wrongly reachable: no PATCH may ever
     // carry A's version (7) once the target has moved on to B.

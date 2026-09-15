@@ -290,11 +290,20 @@ describe('OverlayEditorDialog — edit', () => {
   });
 
   describe('The version has to be read before Save can be trusted (FR-013)', () => {
-    it('Disables Save while the chain query has not resolved', () => {
+    it('Disables Save while the chain query has not resolved', async () => {
+      const user = userEvent.setup();
       chainQueryState = { data: undefined, isLoading: true, isError: false };
       renderDialog(EDIT_TARGET);
 
-      expect(screen.getByRole('button', { name: /^save draft$/i })).toBeDisabled();
+      // Spec 160 (issue #2387) FR-001: `aria-disabled`, not native `disabled`
+      // — a natively-disabled Save would blur the moment it disables. Paired
+      // with the call-count half (tasks.md rule 2): the attribute alone
+      // cannot tell "gate closed" from "gate cosmetic".
+      const saveButton = screen.getByRole('button', { name: /^save draft$/i });
+      expect(saveButton).toHaveAttribute('aria-disabled', 'true');
+
+      await user.click(saveButton);
+      expect(editDraftMock).not.toHaveBeenCalled();
     });
 
     it('Disables Save and offers a retry — not a silent no-op — when the chain read fails', async () => {
@@ -302,7 +311,12 @@ describe('OverlayEditorDialog — edit', () => {
       chainQueryState = { data: undefined, isLoading: false, isError: true };
       renderDialog(EDIT_TARGET);
 
-      expect(screen.getByRole('button', { name: /^save draft$/i })).toBeDisabled();
+      // Spec 160 FR-001/rule 2 — see the sibling test above.
+      const saveButton = screen.getByRole('button', { name: /^save draft$/i });
+      expect(saveButton).toHaveAttribute('aria-disabled', 'true');
+      await user.click(saveButton);
+      expect(editDraftMock).not.toHaveBeenCalled();
+
       const alert = screen.getByRole('alert');
       expect(alert.textContent).toMatch(/could not be read/i);
 
