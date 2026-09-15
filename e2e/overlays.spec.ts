@@ -144,13 +144,15 @@ test('operator edits a saved draft in place, onto the same revision', async ({ p
   await textField.fill('E2E Edited');
   // Spec 160 (issue #2387) §11 A3. Save is `aria-disabled` (spec 160
   // FR-001), not natively `disabled`, while the chain read that gates it is
-  // still settling — whether Playwright 1.62's click actionability treats
-  // `aria-disabled="true"` as "not enabled" is unverified, so this waits on
-  // the attribute explicitly rather than depending on the answer; a click
-  // that silently lands on a closed gate would otherwise still leave this
-  // assertion green.
+  // still settling. Playwright 1.62's click actionability DOES treat
+  // `aria-disabled="true"` as "not enabled" for a `role="button"` element
+  // (pinned playwright-core@1.62.1's `getAriaDisabled`, verified below at
+  // :232-248 against a 614-retry hang on a bare fixture) — so an unforced
+  // click here would already wait rather than silently no-op. This explicit
+  // wait is kept anyway: it fails fast with a clear "attribute still true"
+  // message instead of polling a plain click to `FIRST_WRITE_TIMEOUT_MS`.
   const saveDraftButton = page.getByRole('button', { name: /^save draft$/i });
-  await expect(saveDraftButton).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(saveDraftButton).toHaveAttribute('aria-disabled', 'false');
   await saveDraftButton.click();
 
   // Same revision, not a new one: the badge still reads v1 · Draft.
@@ -337,6 +339,21 @@ test('a stale-version conflict does not cost the keyboard operator their place a
     // sampling inside it. Still Save-specific within this dialog: neither
     // `Cancel` nor create mode's `Save as draft` matches either branch.
     const saveButtonTwo = pageTwo.getByRole('button', { name: /^(save draft|saving…)$/i });
+    // Phase-6 finding 2 (issue #2387): the dialog becomes visible on its
+    // first frame, before its own chain GET has answered — unsynchronised
+    // with the first writer's PATCH below. If that GET lands after the
+    // first writer's edit (a slow first read against a cold
+    // OverlayDesigner, exactly what `FIRST_WRITE_TIMEOUT_MS` exists for),
+    // pageTwo mounts holding the version the first writer is about to move
+    // past, but its own read then answers with the already-updated chain —
+    // no 409 is ever raised, and this test fails 300s later at `alertTwo`
+    // below, reading like a product bug rather than a race. Save is gated
+    // on `currentChain === undefined` (`OverlayEditorDialog.tsx:267`), so
+    // waiting for the gate to open here — the same idiom as :153, just
+    // stronger (finding 4) — pins "pageTwo's own chain read has landed"
+    // before the first writer is allowed to move the version out from
+    // under it.
+    await expect(saveButtonTwo).toHaveAttribute('aria-disabled', 'false');
 
     // The first writer moves the version out from under the second.
     const rowOne = pageOne.getByRole('listitem').filter({ hasText: name });
@@ -353,10 +370,17 @@ test('a stale-version conflict does not cost the keyboard operator their place a
     // route — delaying it too would make its own in-flight window
     // unobservable for the identical reason that file discriminates by
     // method.
+    // Phase-6 finding 3 (issue #2387, nit): doubles as the counter that
+    // proves the implicit-submission check below fired no second PATCH —
+    // reusing this route handler rather than a separate `page.on('request')`
+    // listener, since it already isolates the one PATCH this test cares
+    // about from the chain re-read GET on the same resource.
+    let patchRequestCount = 0;
     await pageTwo.route(
       (url) => /\/overlay-designer\/overlays\/[^/]+\/revisions\/\d+$/.test(url.pathname),
       async (route) => {
         if (route.request().method() !== 'PATCH') return route.fallback();
+        patchRequestCount += 1;
         await new Promise((resolve) => setTimeout(resolve, 1000));
         await route.continue();
       },
@@ -379,6 +403,33 @@ test('a stale-version conflict does not cost the keyboard operator their place a
     await expect(saveButtonTwo).toBeFocused();
     await expect(saveButtonTwo).toHaveAttribute('aria-disabled', 'true');
 
+    // Phase-6 finding 3 (issue #2387, nit): the one real regression risk in
+    // this whole change is `aria-disabled` restoring the browser's implicit
+    // form submission — Enter pressed in a text field, not on Save itself.
+    // No test anywhere exercises that real browser algorithm (user-event's
+    // "Enter" simulates it as a synthetic click on Save, and every keyboard
+    // press in this file so far has had focus ON Save, which is also a
+    // button activation). Deliberately exercised HERE, in the PATCH-in-flight
+    // window the route above holds open for a full second, rather than after
+    // the conflict lands below: the chain re-read that reopens the gate
+    // post-conflict is not itself throttled (see the route's own comment
+    // below), so on a warm local stack it can settle before this line runs,
+    // making that window an unreliable place to prove a negative. `isLoading`
+    // alone already makes `saveBlocked` true for this whole second,
+    // independent of the chain, which is what makes this window safe to
+    // assert against.
+    //
+    // `press` focuses its own target first, which would otherwise break
+    // every focus-stayed-on-Save assertion below — restored explicitly
+    // rather than left to whatever the next assertion happens to require,
+    // since Save regaining focus is not this check's claim to make.
+    const patchRequestCountBeforeEnter = patchRequestCount;
+    await pageTwo.getByTestId('overlay-editor-text').press('Enter');
+    expect(patchRequestCount).toBe(patchRequestCountBeforeEnter);
+    await expect(saveButtonTwo).toHaveAttribute('aria-disabled', 'true');
+    await saveButtonTwo.focus();
+    await expect(saveButtonTwo).toBeFocused();
+
     // The conflict lands and the chain re-read starts.
     const alertTwo = pageTwo.getByRole('alert');
     await expect(alertTwo).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
@@ -386,7 +437,7 @@ test('a stale-version conflict does not cost the keyboard operator their place a
 
     // The re-read answers with the corrected version; Save re-opens, still
     // under the operator's finger.
-    await expect(saveButtonTwo).not.toHaveAttribute('aria-disabled', 'true', {
+    await expect(saveButtonTwo).toHaveAttribute('aria-disabled', 'false', {
       timeout: FIRST_WRITE_TIMEOUT_MS,
     });
     await expect(saveButtonTwo).toBeFocused();
