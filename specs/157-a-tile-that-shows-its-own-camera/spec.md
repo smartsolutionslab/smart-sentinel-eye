@@ -224,7 +224,13 @@ for exactly the reason someone would do it to a fourth — `getTokenRef`
 (`:130-133`), `onLagMeasuredRef` (`CameraViewer.tsx:235-238`), `accessTokenRef`
 (`CellPage.tsx:46-53`) — and the moment `cameraIdentifier` follows them, the
 teardown silently stops happening and #2370 returns in the form it was *filed*
-as. The dependency makes the coupling a stated intention. T009 pins it.
+as. The dependency makes the coupling a stated intention — but nothing pins it.
+T009 *files an issue* for the RTK-census sites; it does not test this one, and
+no test can: `cameraIdentifier`'s explicit dependency is behaviourally
+redundant while `transitionTo` still carries `[cameraIdentifier]`, so a test
+cannot distinguish "explicit and redundant" from "absent" without the very
+refactor (moving the camera behind a ref) the dependency exists to survive.
+The source comment at `useWhepSession.ts:193-201` is the pin.
 
 **FR-005 — a failed stream read reads as an error, never as connecting and never
 as the last good stream.**
@@ -241,13 +247,24 @@ which makes this reachable. **This is a deliberate small addition to the smalles
 change** (one line, in the effect FR-003 already adds) and is flagged as such: a
 reviewer may strike it and file it separately without affecting FR-001 or FR-003.
 
-**FR-007 — behaviour outside a camera change is unchanged.**
-Not a wish — the thing the characterisation suites assert. Specifically: the
-retry ladder and its jitter, the media watchdog and its `mediaBaseline`
-(`:223-241`), the disconnect grace window, the Degraded→Healthy re-dial
-(`:306-318`), the decode and lag samplers and their `logResilienceEvent`
-cadences, `setPlayoutTarget`, and the `offline` path all behave exactly as they
-do today when `cameraIdentifier` does not change.
+**FR-007 — behaviour outside a camera change is unchanged, with one named
+exception.** Not a wish — the thing the characterisation suites assert.
+Specifically: the retry ladder and its jitter, the media watchdog and its
+`mediaBaseline` (`:223-241`), the disconnect grace window, the Degraded→Healthy
+re-dial (`:306-318`), the decode and lag samplers and their
+`logResilienceEvent` cadences, `setPlayoutTarget`, and the `offline` path all
+behave exactly as they do today when `cameraIdentifier` does not change.
+
+The exception is FR-005's own error branch, and it is not scoped to a camera
+change: `CameraViewer.tsx`'s `failedRead` fires on *any* failed read with no
+stream for the current camera, including a **first mount**, where the tile
+previously read "Idle". A first mount whose stream read fails now reads
+"Viewer error" instead — an improvement, and within FR-005's wording as
+written, but a real change to behaviour outside a camera change, and this
+requirement's "unchanged" does not cover it. Pinned by
+`CameraViewerCameraSwap.test.tsx`'s "Reads Viewer error, not Idle, on a first
+mount whose stream read fails", so the scoping is a decision the next reader
+can see, not a silent one.
 
 ---
 
