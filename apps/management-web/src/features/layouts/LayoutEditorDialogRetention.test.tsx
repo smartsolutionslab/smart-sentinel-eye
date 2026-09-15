@@ -27,11 +27,17 @@ const ALL_ITEMS = [
 // stable per filter, exactly as an RTK Query cache entry is.
 const INLET_ONLY = [ALL_ITEMS[1]!];
 
+// Spec 160 (issue #2387), lifted to module scope: `LayoutEditorDialogRetention.test.tsx:200`'s
+// migration (FR-001) pairs the `aria-disabled` assertion with a
+// call-count check, which needs a reference to the mock, not an anonymous
+// `vi.fn()` the mock factory could otherwise close over.
+const createLayoutDraftMock = vi.fn(async () => ({ data: 'noop' }));
+
 vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/layouts.api')>();
   return {
     ...actual,
-    useCreateLayoutDraftMutation: () => [vi.fn(async () => ({ data: 'noop' })), { isLoading: false, reset: vi.fn() }],
+    useCreateLayoutDraftMutation: () => [createLayoutDraftMock, { isLoading: false, reset: vi.fn() }],
     useEditDraftRevisionMutation: () => [vi.fn(async () => ({ data: 2 })), { isLoading: false, reset: vi.fn() }],
     useGetLayoutQuery: () => ({
       data: undefined,
@@ -197,6 +203,13 @@ describe('LayoutEditorDialog — the retained camera survives a close and reopen
     // something similar, which is the point of the other fix.
     await vi.waitFor(() => expect(screen.getByText(/no camera matches “nothingmatchesthis”/i)).toBeInTheDocument());
 
-    expect(screen.getByRole('button', { name: /save/i })).toBeEnabled();
+    // `aria-disabled`, not native `disabled` (spec 160 FR-001), paired with
+    // the behavioural half (tasks.md rule 2): a search matching nothing must
+    // not merely look enabled, it must actually be clickable and submit.
+    const saveButton = screen.getByRole('button', { name: /save/i });
+    expect(saveButton).not.toHaveAttribute('aria-disabled', 'true');
+
+    await user.click(saveButton);
+    expect(createLayoutDraftMock).toHaveBeenCalledTimes(1);
   });
 });

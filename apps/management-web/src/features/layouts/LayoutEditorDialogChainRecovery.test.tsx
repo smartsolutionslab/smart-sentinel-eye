@@ -208,8 +208,17 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
     expect(screen.queryByRole('button', { name: /retry/i })).toBeNull();
     const saveButton = screen.getByRole('button', { name: /^save draft$/i });
     expect(document.activeElement).toBe(saveButton);
-    expect(saveButton).not.toBeDisabled();
+    // `aria-disabled`, not native `disabled` (spec 160 FR-001), paired with
+    // the behavioural half (tasks.md rule 2) — the attribute alone cannot
+    // tell "gate open" from "gate cosmetic".
+    expect(saveButton).not.toHaveAttribute('aria-disabled', 'true');
     expect(statusRegion()).toHaveTextContent(/was read/i);
+
+    await user.click(saveButton);
+    expect(editDraftMock).toHaveBeenCalledTimes(1);
+    expect(editDraftMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ layoutIdentifier: EDIT_TARGET.layoutIdentifier, version: 7 }),
+    );
   });
 
   it('Leaves focus on Retry and shows the alert again when the re-read is refused a second time (FR-006)', async () => {
@@ -229,7 +238,11 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
     const retryAgain = screen.getByRole('button', { name: /retry/i });
     expect(retryAgain).not.toHaveAttribute('aria-disabled', 'true');
     expect(document.activeElement).toBe(retryAgain);
-    expect(screen.getByRole('button', { name: /^save draft$/i })).toBeDisabled();
+    // Spec 160 FR-001/rule 2 — `aria-disabled`, paired with a call-count check.
+    const saveButton = screen.getByRole('button', { name: /^save draft$/i });
+    expect(saveButton).toHaveAttribute('aria-disabled', 'true');
+    await user.click(saveButton);
+    expect(editDraftMock).not.toHaveBeenCalled();
     expect(statusRegion().textContent).toBe('');
   });
 
@@ -424,29 +437,29 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
 
   /**
    * Spec 158 (issue #2379) — GREEN characterisation (ADR-0139/ADR-0144).
+   * Its own assertion mechanism moved with spec 160 (`aria-disabled`, not
+   * native `disabled`); the behaviour it pins did not.
    *
-   * Unlike the overlay dialog, `LayoutEditorDialog.tsx:422` already ORs
-   * `chainFetching` into the Save predicate — but nothing in this repo
-   * pinned it: `LayoutEditorDialog.tsx:411-417`'s comment said so in
-   * words ("Neither is pinned by a test in this repo…") until this test
-   * landed and T005 corrected it, and every `it` in
-   * `LayoutEditorDialogChainRetention.test.tsx` whose Save-disabled
-   * assertion runs with `currentChain === undefined` (`:207`, `:332` — an
-   * in-flight read, so `chainFetching: true`; `:409` — a settled, failed
-   * read, so `chainFailed: true` instead) is closed by the
+   * Unlike the overlay dialog, `LayoutEditorDialog.tsx`'s `saveBlocked`
+   * local already ORs `chainFetching` in — but nothing in this repo pinned
+   * it: the comment above that predicate said so in words ("Neither is
+   * pinned by a test in this repo…") until this test landed and T005
+   * corrected it, and every `it` in `LayoutEditorDialogChainRetention.test.tsx`
+   * whose Save-unavailable assertion runs with `currentChain === undefined`
+   * (`:207`, `:332` — an in-flight read, so `chainFetching: true`; `:409` —
+   * a settled, failed read, so `chainFailed: true` instead) is closed by the
    * `currentChain === undefined` half of the predicate alone — `chainFetching`
    * could be deleted and that file would stay green. This file's own Reload
    * test (FR-008, above) drives `isFetching:
    * true` with `data` retained but asserts focus only, never Save's
-   * disabled state.
+   * availability.
    *
    * This test exists to close that gap: it is the mirror of the overlay
    * dialog's new RED test (`OverlayEditorDialogChainRecovery.test.tsx`),
    * captured GREEN here because `chainFetching` is already present — no
    * production edit follows on this side. Proved by counterfactual in T004
-   * (deleting ` || chainFetching` from `LayoutEditorDialog.tsx:422` must
-   * fail this exact test) rather than trusted on the strength of this
-   * comment.
+   * (deleting ` || chainFetching` from `saveBlocked` must fail this exact
+   * test) rather than trusted on the strength of this comment.
    */
   it('Save is unavailable while the re-read Reload started is in flight, and resumes once it answers with the new version (FR-005)', async () => {
     const user = userEvent.setup();
@@ -472,8 +485,9 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
     expect(chainQueryState.isFetching).toBe(true);
 
     // 2. Save must be unavailable while the re-read is in flight, even
-    //    though `currentChain` (v7) is still defined.
-    expect(saveButton).toBeDisabled();
+    //    though `currentChain` (v7) is still defined. `aria-disabled`, not
+    //    native `disabled` (spec 160 FR-001).
+    expect(saveButton).toHaveAttribute('aria-disabled', 'true');
 
     // 3. The harm, not only the attribute: clicking must not submit v7 a
     //    second time while the re-read is still on the wire.
@@ -491,7 +505,7 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
       });
     });
 
-    expect(saveButton).not.toBeDisabled();
+    expect(saveButton).not.toHaveAttribute('aria-disabled', 'true');
 
     await user.click(saveButton);
 

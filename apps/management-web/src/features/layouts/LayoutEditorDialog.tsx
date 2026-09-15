@@ -13,7 +13,7 @@ import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/ChainRecoveryNotice';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
-import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef, type FormEvent } from 'react';
 import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
 import { useForm } from 'react-hook-form';
 import { GridDesigner } from './GridDesigner.js';
@@ -217,8 +217,11 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   const onSubmit = handleSubmit(async (value) => {
     const tiles = tilesFromCells(value.cells);
     if (editTarget !== undefined) {
-      // FR-002: Save is disabled until `currentChain` resolves, so this is
-      // defensive rather than reachable through the UI.
+      // FR-002: kept as defence-in-depth alongside `saveBlocked` below (spec
+      // 160 FR-002). It narrows `currentChain` for the `.version` read next,
+      // and — now that the button is `aria-disabled` rather than natively
+      // disabled — the form's submit guard, not this check, is what actually
+      // keeps this unreached through the UI.
       if (currentChain === undefined) return;
       const result = await editDraftRevision({
         layoutIdentifier: editTarget.layoutIdentifier,
@@ -259,6 +262,51 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   // per-tag DOM lib globals, and naming the type literally trips `no-undef`;
   // widening the config would be the gate-weakening ADR-0144 rules out.
   const saveRef = useRef<ComponentRef<'button'>>(null);
+
+  // Spec 160 (issue #2387) FR-002/FR-007/spec §11 A1. Computed once,
+  // consumed by both the button's `aria-disabled` and the form's submit
+  // guard below — one gate, one mechanism, rather than the two overlapping
+  // conditions this used to state separately (here and in `onSubmit`'s own
+  // `currentChain === undefined` check above).
+  //
+  // `knownCameras.size === 0`, not `cameraItems.length === 0` — that is
+  // "nothing to assign" and not the same question as "nothing matched".
+  // Reading `cameraItems` here disabled Save with no explanation on a form
+  // whose tiles may all already be filled, and flickered on every keystroke
+  // while each new filter fragment was in flight. `knownCameras` only ever
+  // grows, so it answers the question actually being asked: has this dialog
+  // ever seen a camera.
+  //
+  // `chainFetching` alongside `currentChain === undefined` (FR-002): a
+  // version that has not been read, or is being re-read, must never be the
+  // one Save submits. Its most common trigger is not the Reload button — it
+  // is RTK Query applying `invalidatesTags` on a REJECTED mutation too: a
+  // stale-version 409 from `editDraftRevision` starts a background chain
+  // refetch while the dialog stays subscribed, exactly the moment an
+  // operator is about to click Save again. Verified in phase 6 against a
+  // real `LAYOUT_REVISION_STALE` 409: GET count 1 -> 2 immediately,
+  // `currentData` still the old version, `isFetching` true, Save unavailable,
+  // exactly one PATCH ever issued. Reload (`refetchChain()`) hits the same
+  // gate but is the rarer path — both are cases where `currentData`
+  // genuinely stays stale while a fetch for the same argument is in flight.
+  // The Reload path is pinned by `LayoutEditorDialogChainRecovery.test.tsx`'s
+  // FR-005 case; the REJECTED-mutation path is not pinned by a test in this
+  // repo, so that half of the outcome is recorded here rather than asserted.
+  const saveBlocked = isLoading || knownCameras.size === 0 || (isEdit && (currentChain === undefined || chainFetching));
+
+  // FR-003: `aria-disabled` restores implicit form submission (a natively
+  // disabled default button suppresses Enter-to-submit; `aria-disabled` does
+  // not), so this guard — run on the form's submit event, before
+  // `handleSubmit` — is the only thing left stopping a submit while
+  // `saveBlocked` is true, on both routes: a click on Save, and Enter in a
+  // text field.
+  function handleFormSubmit(event: FormEvent) {
+    if (saveBlocked) {
+      event.preventDefault();
+      return;
+    }
+    void onSubmit(event);
+  }
 
   const cameraItems = cameras?.items ?? [];
   // Only ever true when the source says more cameras exist than were gathered.
@@ -319,7 +367,7 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
           : 'Name the wall, pick a grid size, and assign a camera to each tile. It starts as a draft.'
       }
     >
-      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
         {!isEdit && (
           <FormField label="Name" htmlFor="layout-name" error={errors.name?.message}>
             <Input id="layout-name" autoFocus {...register('name')} />
@@ -387,39 +435,19 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
             Cancel
           </Button>
           {/*
-            Disabled when there is nothing to assign — which is **not** the same
-            as "nothing matched". Reading `cameraItems` here meant a search
-            matching nothing disabled Save with no explanation, on a form whose
-            tiles may all already be filled, and the operator had to clear the
-            box to discover why. It also flickered on every keystroke, because
-            the query yields no data while each new fragment is in flight.
-
-            `knownCameras` only ever grows, so it answers the question actually
-            being asked: has this dialog ever seen a camera.
-
-            The `isEdit && (currentChain === undefined || chainFetching)`
-            half is FR-002: a version that has not been read, or is being
-            re-read, must never be the one Save submits. `chainFetching`'s
-            most common trigger is not the Reload button -- it is RTK Query
-            applying `invalidatesTags` on a REJECTED mutation too: a
-            stale-version 412 from `editDraftRevision` starts a background
-            chain refetch while the dialog stays subscribed, exactly the
-            moment an operator is about to click Save again. Verified in
-            phase 6 against a real `LAYOUT_REVISION_STALE` 412: GET count 1
-            -> 2 immediately, `currentData` still the old version,
-            `isFetching` true, Save disabled, exactly one PATCH ever issued.
-            Reload (`refetchChain()`) hits the same gate but is the rarer
-            path -- both are cases where `currentData` genuinely stays stale
-            while a fetch for the same argument is in flight. The Reload path
-            is pinned by
-            `LayoutEditorDialogChainRecovery.test.tsx`'s FR-005 case; the
-            REJECTED-mutation path is not pinned by a test in this repo, so
-            that half of the outcome is recorded here rather than asserted.
+            `aria-disabled`, not the native `disabled` attribute (spec 160,
+            issue #2387) — a native disable blurs the focused element the
+            instant it takes effect, the same finding this repo already
+            shipped twice: `ChainRecoveryNotice.tsx:31-33` (spec 156) and
+            `OverlayEditor.tsx:649-657` (spec 154). `saveBlocked` above is
+            what defines the gate; `handleFormSubmit` on the form is what
+            actually enforces it now that the button stays clickable.
           */}
           <Button
             ref={saveRef}
             type="submit"
-            disabled={isLoading || knownCameras.size === 0 || (isEdit && (currentChain === undefined || chainFetching))}
+            aria-disabled={saveBlocked}
+            className="aria-disabled:opacity-50 aria-disabled:cursor-progress"
           >
             {isLoading ? 'Saving…' : isEdit ? 'Save draft' : 'Save as draft'}
           </Button>
