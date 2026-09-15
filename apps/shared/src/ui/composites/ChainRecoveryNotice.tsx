@@ -86,20 +86,45 @@ export function ChainRecoveryNotice({
   // focused yet, and FR-007 forbids taking focus on a dialog that just
   // opened) so it only fires on an actual `retryFailureKey` bump.
   const isFirstFailureKeyRenderRef = useRef(true);
+  // Per-FETCH discriminator (phase-6 finding 1, issue #2387): `origin` alone
+  // cannot say "did a control start THIS fetch" once a refused Retry/Reload
+  // has latched it, because `origin` is deliberately NOT cleared on refusal
+  // (see the comment on that `setAnnouncement` below) — the alert and the
+  // Retry arm's own mount condition (`chainArmActive`) both still need it
+  // after the failure. Left latched, `origin === null` stops meaning
+  // "unrequested" the moment it has ever been non-null: every later
+  // unrequested re-read (the `invalidatesTags` refetch FR-009/FR-010 exist
+  // for) would misread as the SAME click that already failed, announcing
+  // nothing on the rising edge and calling `onReadRecovered()` / bumping
+  // `retryFailureKey` on the falling edge — exactly the focus-yank FR-009
+  // forbids.
+  //
+  // `activatedOriginRef` is written once, by `activate()`, for the fetch
+  // about to start; the rising edge below consumes it into
+  // `currentFetchOriginRef` (which lives for that one fetch's whole
+  // in-flight window) and resets it to `null` — so a LATER, uncontrolled
+  // fetch always finds it `null`, regardless of what `origin` (the
+  // UI-arm-selection state) still remembers from a past click.
+  const activatedOriginRef = useRef<RecoveryOrigin | null>(null);
+  const currentFetchOriginRef = useRef<RecoveryOrigin | null>(null);
 
   // The focus move is latched by the operator's act, not by `readFailed`
   // going false on its own (FR-007's trap, plan.md §4): a normal dialog open
   // also goes `true -> false` on `readFailed` between renders as its first
   // read resolves, and a plain effect on that alone would steal focus to
-  // Save on every open. Moving focus (and touching `origin`/`retryFailureKey`)
-  // only happens when `origin` says a control latched this fetch.
+  // Save on every open. Moving focus (and touching `retryFailureKey`) only
+  // happens when `currentFetchOriginRef` says a control latched THIS fetch
+  // — not `origin`, which stays latched across a refused fetch and so
+  // cannot tell a later, uncontrolled fetch apart from the click that
+  // already failed (finding 1 above).
   //
-  // An unrequested fetch (`origin === null`) still gets an ANNOUNCEMENT-only
-  // reaction (spec 160 FR-009) once THIS MOUNT has seen its own read settle
-  // at least once (`hadPriorReadRef`, FR-010) — the dominant trigger in
-  // production is the rejected mutation's own `invalidatesTags`, which never
-  // touches `origin` at all, so without this branch the disable that FR-001
-  // keeps silently unavailable and silently available again.
+  // An unrequested fetch (`currentFetchOriginRef.current === null`) still
+  // gets an ANNOUNCEMENT-only reaction (spec 160 FR-009) once THIS MOUNT has
+  // seen its own read settle at least once (`hadPriorReadRef`, FR-010) — the
+  // dominant trigger in production is the rejected mutation's own
+  // `invalidatesTags`, which never touches `origin` at all, so without this
+  // branch the disable that FR-001 keeps silently unavailable and silently
+  // available again.
   //
   // The `setState` calls below are the point of the effect, not a lint
   // accident: this is React's own "subscribe to an external system"
@@ -113,15 +138,22 @@ export function ChainRecoveryNotice({
     const wasReReading = wasReReadingRef.current;
     wasReReadingRef.current = reReading;
 
-    // FR-009 rising edge: an unrequested re-read (no click, so `origin` is
-    // still `null`) says so on the way in — but only once THIS MOUNT has
-    // seen its own read settle before. FR-010's trap: the dialog's own
-    // FIRST read also goes `false -> true` right here, and `hadPriorReadRef`
-    // is what tells the two apart (it cannot be true yet on a first read,
-    // whatever the RTK Query cache already holds — see the ref's own
-    // comment).
+    // FR-009 rising edge: an unrequested re-read (nothing in
+    // `activatedOriginRef` — no click started THIS fetch) says so on the way
+    // in — but only once THIS MOUNT has seen its own read settle before.
+    // FR-010's trap: the dialog's own FIRST read also goes `false -> true`
+    // right here, and `hadPriorReadRef` is what tells the two apart (it
+    // cannot be true yet on a first read, whatever the RTK Query cache
+    // already holds — see the ref's own comment).
+    //
+    // `activatedOriginRef` is consumed (read, then reset to `null`) here
+    // rather than left latched — it describes only "did a control just
+    // start THIS fetch", not the longer-lived `origin` state that still
+    // drives which arm is mounted.
     if (!wasReReading && reReading) {
-      if (origin === null && hadPriorReadRef.current) {
+      currentFetchOriginRef.current = activatedOriginRef.current;
+      activatedOriginRef.current = null;
+      if (currentFetchOriginRef.current === null && hadPriorReadRef.current) {
         setAnnouncement((previous) => ({ text: reReadingAnnouncement(noun), token: previous.token + 1 }));
       }
       return;
@@ -129,14 +161,21 @@ export function ChainRecoveryNotice({
 
     if (!wasReReading || reReading) return;
 
-    // This mount's read has just settled — success or failure, origin null
-    // or not, it makes no difference here. Latched unconditionally, once,
-    // so a LATER re-read is recognised as genuine (FR-010); read below to
-    // tell THIS settle apart from a later one.
+    // This mount's read has just settled — success or failure, requested or
+    // not, it makes no difference here. Latched unconditionally, once, so a
+    // LATER re-read is recognised as genuine (FR-010); read below to tell
+    // THIS settle apart from a later one.
     const isFirstSettleForThisMount = !hadPriorReadRef.current;
     hadPriorReadRef.current = true;
 
-    if (origin === null) {
+    // Consumed once per fetch, mirroring the rising edge above: this is
+    // "did a control start THE FETCH THAT JUST SETTLED", not `origin`
+    // (which stays latched after a refusal for reasons unrelated to this
+    // settle).
+    const thisFetchOrigin = currentFetchOriginRef.current;
+    currentFetchOriginRef.current = null;
+
+    if (thisFetchOrigin === null) {
       // Falling edge, unrequested. FR-009's announcement half only: never
       // `setOrigin` (already `null`), never `setRetryFailureKey` (that key
       // owns the Retry `<p>`'s remount and would move focus for a click
@@ -165,7 +204,7 @@ export function ChainRecoveryNotice({
       return;
     }
 
-    const requestedBy = origin;
+    const requestedBy = thisFetchOrigin;
     if (readFailed) {
       // Refused again (FR-006/blocker 1): the status region is cleared —
       // the alert's own (re-)insertion is what announces the failure now.
@@ -203,7 +242,11 @@ export function ChainRecoveryNotice({
     if (requestedBy === 'retry') {
       onReadRecovered();
     }
-  }, [reReading, readFailed, origin, noun, onReadRecovered]);
+    // `origin` (the state) is deliberately absent here: the effect now reads
+    // only `activatedOriginRef`/`currentFetchOriginRef` for the per-fetch
+    // discriminator (finding 1 above) and `setOrigin`, neither of which
+    // needs `origin`'s current value at effect time.
+  }, [reReading, readFailed, noun, onReadRecovered]);
 
   // Companion to the remount above: a `key` change unmounts the old Retry
   // button along with its old `<p>`, and the browser does not carry focus
@@ -224,6 +267,12 @@ export function ChainRecoveryNotice({
     // this is what actually stops it.
     if (reReading) return;
     setOrigin(kind);
+    // Latches the per-fetch discriminator (finding 1 above) for the fetch
+    // `onReRead()` is about to start — the rising edge below consumes this
+    // into `currentFetchOriginRef` and resets it, so it cannot leak into a
+    // LATER, uncontrolled fetch the way `origin` (never cleared on refusal)
+    // would.
+    activatedOriginRef.current = kind;
     // `key`-token remount, mirroring `OverlayEditor.tsx:501-508`'s
     // `announceUndo` — but here it is defensive, not load-bearing. FR-006's
     // `text: ''` clear below always writes a distinct value between two

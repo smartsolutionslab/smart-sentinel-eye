@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useSyncExternalStore } from 'react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -237,5 +237,80 @@ describe('LayoutEditorDialog — an unrequested re-read announces itself (spec 1
 
     expect(statusRegion().textContent).toBe('');
     expect(document.activeElement).toBe(focusBefore);
+  });
+
+  /**
+   * Phase-6 finding 1 (issue #2387, third review round), mirrored from the
+   * overlay file — see its doc comment for the full reasoning.
+   */
+  it('after a refused Retry, a later unrequested re-read that SUCCEEDS still announces and never hands focus to Save (phase-6 finding 1)', async () => {
+    chainQueryState = { data: undefined, isError: false, isFetching: true };
+    renderDialog();
+
+    await act(async () => {
+      setChainQueryState({ data: undefined, isError: true, isFetching: false });
+    });
+    const retryButton = screen.getByRole('button', { name: /retry/i });
+
+    fireEvent.click(retryButton);
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: false, isFetching: true });
+    });
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: true, isFetching: false });
+    });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /retry/i }));
+
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: false, isFetching: true });
+    });
+    expect(statusRegion()).toHaveTextContent(/re-reading the layout/i);
+
+    await act(async () => {
+      setChainQueryState({
+        data: { layoutIdentifier: EDIT_TARGET.layoutIdentifier, version: 8 },
+        isError: false,
+        isFetching: false,
+      });
+    });
+
+    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: /^save draft$/i }));
+  });
+
+  /**
+   * Phase-6 finding 1 (issue #2387, third review round), the failure
+   * variant, mirrored from the overlay file — see its doc comment for the
+   * full reasoning.
+   */
+  it('after a refused Retry, a later unrequested re-read that FAILS does not remount the Retry control (phase-6 finding 1)', async () => {
+    chainQueryState = { data: undefined, isError: false, isFetching: true };
+    renderDialog();
+
+    await act(async () => {
+      setChainQueryState({ data: undefined, isError: true, isFetching: false });
+    });
+    const retryButton = screen.getByRole('button', { name: /retry/i });
+
+    fireEvent.click(retryButton);
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: false, isFetching: true });
+    });
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: true, isFetching: false });
+    });
+    const retryButtonAfterRefusal = screen.getByRole('button', { name: /retry/i });
+    expect(document.activeElement).toBe(retryButtonAfterRefusal);
+
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: false, isFetching: true });
+    });
+    expect(statusRegion()).toHaveTextContent(/re-reading the layout/i);
+
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: true, isFetching: false });
+    });
+
+    expect(screen.getByRole('button', { name: /retry/i })).toBe(retryButtonAfterRefusal);
+    expect(document.activeElement).toBe(retryButtonAfterRefusal);
   });
 });

@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useSyncExternalStore } from 'react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -260,5 +260,113 @@ describe('OverlayEditorDialog — an unrequested re-read announces itself (spec 
 
     expect(statusRegion().textContent).toBe('');
     expect(document.activeElement).toBe(focusBefore);
+  });
+
+  /**
+   * Phase-6 finding 1 (issue #2387, third review round): `origin` is
+   * deliberately latched (never cleared) after a refused Retry/Reload — the
+   * alert and `chainArmActive` still need it — so a discriminator that reads
+   * `origin === null` to mean "unrequested" stops working the instant Retry
+   * has failed once: every LATER unrequested re-read (this file's whole
+   * subject) misreads as the same click, all over again.
+   *
+   * This drives exactly that sequence: a real refused Retry first, THEN an
+   * unrequested (`invalidatesTags`-shaped) re-read that succeeds — and
+   * asserts the success half of the harm the finding describes: the
+   * unrequested re-read must still announce on the rising edge (a), and
+   * must NOT call `onReadRecovered()` — observable as focus never landing on
+   * Save, which only that callback ever explicitly focuses (b). (Save's own
+   * `<p>` unmounting Retry when `chainArmActive` drops is a separate,
+   * unrelated effect of this same settle — see `ChainRecoveryNotice.tsx`'s
+   * `chainArmActive` — which is why this asserts "not Save" rather than "focus
+   * unchanged": the latter would fail even on the fixed component.)
+   */
+  it('after a refused Retry, a later unrequested re-read that SUCCEEDS still announces and never hands focus to Save (phase-6 finding 1)', async () => {
+    chainQueryState = { data: undefined, isError: false, isFetching: true };
+    renderDialog();
+
+    // The dialog's own first read — settles FAILED, silently (FR-010),
+    // mounting Retry.
+    await act(async () => {
+      setChainQueryState({ data: undefined, isError: true, isFetching: false });
+    });
+    const retryButton = screen.getByRole('button', { name: /retry/i });
+
+    // A real, operator-driven Retry — refused.
+    fireEvent.click(retryButton);
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: false, isFetching: true });
+    });
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: true, isFetching: false });
+    });
+    // `origin` is now latched 'retry' and stays that way — the precondition
+    // the finding names explicitly.
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /retry/i }));
+
+    // The unrequested re-read: nothing here is a click.
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: false, isFetching: true });
+    });
+    // (a) Rising edge: announced, same as any other unrequested re-read.
+    expect(statusRegion()).toHaveTextContent(/re-reading the overlay/i);
+
+    await act(async () => {
+      setChainQueryState({
+        data: { overlayIdentifier: EDIT_TARGET.overlayIdentifier, version: 8 },
+        isError: false,
+        isFetching: false,
+      });
+    });
+
+    // (b) Falling edge: `onReadRecovered()` must not have fired — the only
+    // thing in this component that ever moves focus TO Save.
+    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: /^save draft$/i }));
+  });
+
+  /**
+   * Phase-6 finding 1 (issue #2387, third review round), the failure
+   * variant — "worse" per the finding: with the old `origin === null`
+   * discriminator, an unrequested re-read that itself FAILS is misread as
+   * Retry's own failure (`requestedBy === 'retry'`), which bumps
+   * `retryFailureKey` — remounting the alert `<p>` (a fresh DOM node) and
+   * re-firing `retryButtonRef.current?.focus()` for a click that never
+   * happened. Node identity, not focus alone, is the discriminating
+   * assertion: focus would coincidentally already be on Retry either way in
+   * this sequence, but only the buggy path produces a NEW node.
+   */
+  it('after a refused Retry, a later unrequested re-read that FAILS does not remount the Retry control (phase-6 finding 1)', async () => {
+    chainQueryState = { data: undefined, isError: false, isFetching: true };
+    renderDialog();
+
+    await act(async () => {
+      setChainQueryState({ data: undefined, isError: true, isFetching: false });
+    });
+    const retryButton = screen.getByRole('button', { name: /retry/i });
+
+    fireEvent.click(retryButton);
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: false, isFetching: true });
+    });
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: true, isFetching: false });
+    });
+    const retryButtonAfterRefusal = screen.getByRole('button', { name: /retry/i });
+    expect(document.activeElement).toBe(retryButtonAfterRefusal);
+
+    // The unrequested re-read — fails.
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: false, isFetching: true });
+    });
+    expect(statusRegion()).toHaveTextContent(/re-reading the overlay/i);
+
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: true, isFetching: false });
+    });
+
+    // The discriminating assertion: today (unfixed) this is a NEW node —
+    // `retryFailureKey` was wrongly bumped for a click that never happened.
+    expect(screen.getByRole('button', { name: /retry/i })).toBe(retryButtonAfterRefusal);
+    expect(document.activeElement).toBe(retryButtonAfterRefusal);
   });
 });
