@@ -258,11 +258,19 @@ async function flushConnect() {
   });
 }
 
-/** A real wall-clock wait, for the one scenario that needs the 5 s poll to actually elapse. */
+/**
+ * A real wall-clock wait, for the one scenario that needs the 5 s poll to
+ * actually elapse. Ends with `flushConnect` deliberately: the sleep only
+ * proves the timer fired, not that whatever it triggers (a refetch, a
+ * re-dial) has finished propagating through React — and the assertions this
+ * precedes are the negative kind `flushConnect`'s own docblock sanctions it
+ * for, never a state that has to arrive.
+ */
 async function realWait(ms: number) {
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, ms));
   });
+  await flushConnect();
 }
 
 /**
@@ -272,11 +280,16 @@ async function realWait(ms: number) {
  * caller in this file waits on the state it actually needs rather than on a
  * fixed count of macrotask yields (#2386).
  */
-async function waitUntil(condition: () => boolean, description: string, timeoutMs = 4000): Promise<void> {
+async function waitUntil(
+  condition: () => boolean,
+  description: string | (() => string),
+  timeoutMs = 4000,
+): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (!condition()) {
     if (Date.now() >= deadline) {
-      throw new Error(`Timed out after ${timeoutMs}ms waiting for ${description}.`);
+      const resolvedDescription = typeof description === 'function' ? description() : description;
+      throw new Error(`Timed out after ${timeoutMs}ms waiting for ${resolvedDescription}.`);
     }
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
@@ -298,15 +311,15 @@ async function waitUntil(condition: () => boolean, description: string, timeoutM
  * stream" branch and throws on a fake stream with no `getTracks`.
  */
 async function waitForNewPeerConnection(before: number, timeoutMs = 4000): Promise<FakePeerConnection> {
-  try {
-    await waitUntil(() => FakePeerConnection.instances.length > before, 'a new RTCPeerConnection', timeoutMs);
-  } catch {
-    // Preserve the had/have counts verbatim — diagnostically better than a generic message.
-    throw new Error(
-      `Timed out after ${timeoutMs}ms waiting for a new RTCPeerConnection ` +
-        `(had ${before}, still have ${FakePeerConnection.instances.length}).`,
-    );
-  }
+  // The had/have counts are built lazily — only read if the wait actually
+  // times out — so a real error thrown during the poll (e.g. a component
+  // crash `act()` rethrows) propagates verbatim instead of being swallowed
+  // into a generic timeout message.
+  await waitUntil(
+    () => FakePeerConnection.instances.length > before,
+    () => `a new RTCPeerConnection (had ${before}, still have ${FakePeerConnection.instances.length})`,
+    timeoutMs,
+  );
   return FakePeerConnection.instances[FakePeerConnection.instances.length - 1]!;
 }
 
@@ -350,7 +363,7 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     vi.restoreAllMocks();
   });
 
-  it('Stops showing camera A the instant the tile is reassigned to camera B', async () => {
+  it('Stops showing camera A the instant the tile is reassigned to camera B', { timeout: 10_000 }, async () => {
     setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
     const view = render(viewerFor(CAM_A));
     const pcA = await goLive();
@@ -477,118 +490,133 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     expect(fetchMock.mock.calls.filter(isPostTo(CAM_A_WHEP_URL))).toEqual(postsToA);
   });
 
-  it("Never resolves to camera A when the gateway refuses camera B's stream read with 403", async () => {
-    setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
-    const view = render(viewerFor(CAM_A));
-    const pcA = await goLive();
-    const videoEl = videoElement();
+  it(
+    "Never resolves to camera A when the gateway refuses camera B's stream read with 403",
+    { timeout: 10_000 },
+    async () => {
+      setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
+      const view = render(viewerFor(CAM_A));
+      const pcA = await goLive();
+      const videoEl = videoElement();
 
-    view.rerender(viewerFor(CAM_B));
-    await flushConnect();
-    expect(pcA.closed).toBe(true);
+      view.rerender(viewerFor(CAM_B));
+      await flushConnect();
+      expect(pcA.closed).toBe(true);
 
-    setStreamAnswer(CAM_B, () => errorResponse(403));
-    await waitUntil(() => screen.queryByText('Viewer error') !== null, 'the tile to report a failed read for camera B');
+      setStreamAnswer(CAM_B, () => errorResponse(403));
+      await waitUntil(
+        () => screen.queryByText('Viewer error') !== null,
+        'the tile to report a failed read for camera B',
+      );
 
-    // RED — an explicit error, not camera A's picture under camera B's name.
-    expect(screen.getByText('Viewer error')).toBeDefined();
-    expect(screen.queryByText('Connecting…')).toBeNull();
-    expect(videoEl.srcObject).toBeNull();
-  });
+      // RED — an explicit error, not camera A's picture under camera B's name.
+      expect(screen.getByText('Viewer error')).toBeDefined();
+      expect(screen.queryByText('Connecting…')).toBeNull();
+      expect(videoEl.srcObject).toBeNull();
+    },
+  );
 
-  it('Reads "Stream is offline" rather than Connecting when the new camera answers Offline', async () => {
-    setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
-    const view = render(viewerFor(CAM_A));
-    await goLive();
-    const videoEl = videoElement();
+  it(
+    'Reads "Stream is offline" rather than Connecting when the new camera answers Offline',
+    { timeout: 10_000 },
+    async () => {
+      setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
+      const view = render(viewerFor(CAM_A));
+      await goLive();
+      const videoEl = videoElement();
 
-    view.rerender(viewerFor(CAM_B));
-    await flushConnect();
+      view.rerender(viewerFor(CAM_B));
+      await flushConnect();
 
-    setStreamAnswer(CAM_B, () => jsonResponse(offlineStream(CAM_B, CAM_B_WHEP_URL, 'Source powered down.')));
-    await waitUntil(
-      () => screen.queryByText('Stream is offline') !== null,
-      "camera B's offline state to reach the tile",
-    );
+      setStreamAnswer(CAM_B, () => jsonResponse(offlineStream(CAM_B, CAM_B_WHEP_URL, 'Source powered down.')));
+      await waitUntil(
+        () => screen.queryByText('Stream is offline') !== null,
+        "camera B's offline state to reach the tile",
+      );
 
-    // Existing behaviour, pinned rather than exercised for the first time:
-    // an Offline read already short-circuits before any client is built
-    // (useWhepSession.ts:152-162). Labelled here as a characterisation of
-    // that path through the swap, not as a new red.
-    expect(screen.getByText('Stream is offline')).toBeDefined();
-    expect(screen.getByText('Source powered down.')).toBeDefined();
+      // Existing behaviour, pinned rather than exercised for the first time:
+      // an Offline read already short-circuits before any client is built
+      // (useWhepSession.ts:152-162). Labelled here as a characterisation of
+      // that path through the swap, not as a new red.
+      expect(screen.getByText('Stream is offline')).toBeDefined();
+      expect(screen.getByText('Source powered down.')).toBeDefined();
 
-    // RED — this part is NOT already correct. Camera A's frame from before
-    // the swap is still attached; nothing on the offline path clears
-    // `srcObject` either (that is FR-003's job, and FR-003 applies
-    // regardless of which state the new camera turns out to be in).
-    expect(videoEl.srcObject).toBeNull();
+      // RED — this part is NOT already correct. Camera A's frame from before
+      // the swap is still attached; nothing on the offline path clears
+      // `srcObject` either (that is FR-003's job, and FR-003 applies
+      // regardless of which state the new camera turns out to be in).
+      expect(videoEl.srcObject).toBeNull();
 
-    const postsToA = fetchMock.mock.calls.filter(isPostTo(CAM_A_WHEP_URL));
-    const postsToB = fetchMock.mock.calls.filter(isPostTo(CAM_B_WHEP_URL));
-    // No session is opened for the NEW camera while it is offline.
-    expect(postsToB).toHaveLength(0);
-    // But the wrong-camera re-dial this whole spec is about already happened
-    // by the time B's offline answer arrived (Link 3) — recorded, not hidden.
-    expect(postsToA.length).toBeGreaterThanOrEqual(1);
-  });
+      const postsToA = fetchMock.mock.calls.filter(isPostTo(CAM_A_WHEP_URL));
+      const postsToB = fetchMock.mock.calls.filter(isPostTo(CAM_B_WHEP_URL));
+      // No session is opened for the NEW camera while it is offline.
+      expect(postsToB).toHaveLength(0);
+      // But the wrong-camera re-dial this whole spec is about already happened
+      // by the time B's offline answer arrived (Link 3) — recorded, not hidden.
+      expect(postsToA.length).toBeGreaterThanOrEqual(1);
+    },
+  );
 
-  it('Reads Stream is offline, not Connecting forever, when camera B is already warm in the cache', async () => {
-    setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
-    setStreamAnswer(CAM_B, () => jsonResponse(offlineStream(CAM_B, CAM_B_WHEP_URL, 'Source powered down.')));
+  it(
+    'Reads Stream is offline, not Connecting forever, when camera B is already warm in the cache',
+    { timeout: 10_000 },
+    async () => {
+      setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
+      setStreamAnswer(CAM_B, () => jsonResponse(offlineStream(CAM_B, CAM_B_WHEP_URL, 'Source powered down.')));
 
-    // Warm camera B into the RTK Query cache: mount a second CameraViewer on
-    // it (same store), let its own read settle, then unmount it. The cache
-    // entry survives losing its last subscriber for keepUnusedDataFor (60 s
-    // default) — a camera permuted between tiles on the same wall, or shown
-    // anywhere in the last minute, leaves exactly this residue behind.
-    const warm = render(viewerFor(CAM_B));
-    // Wait for the premise itself, not a fixed count: if the read for camera
-    // B has not actually landed in the cache when it unmounts, the entry
-    // below is discarded and this test would silently go on to exercise the
-    // COLD ordering while claiming the warm one (#2386).
-    await waitUntil(
-      () => streamsApi.endpoints.getStream.select(CAM_B)(store.getState()).data !== undefined,
-      'camera B to be warm in the RTK Query cache',
-    );
-    warm.unmount();
+      // Warm camera B into the RTK Query cache: mount a second CameraViewer on
+      // it (same store), let its own read settle, then unmount it. The cache
+      // entry survives losing its last subscriber for keepUnusedDataFor (60 s
+      // default) — a camera permuted between tiles on the same wall, or shown
+      // anywhere in the last minute, leaves exactly this residue behind.
+      const warm = render(viewerFor(CAM_B));
+      // Wait for the premise itself, not a fixed count: if the read for camera
+      // B has not actually landed in the cache when it unmounts, the entry
+      // below is discarded and this test would silently go on to exercise the
+      // COLD ordering while claiming the warm one (#2386).
+      await waitUntil(
+        () => streamsApi.endpoints.getStream.select(CAM_B)(store.getState()).data !== undefined,
+        'camera B to be warm in the RTK Query cache',
+      );
+      warm.unmount();
 
-    const view = render(viewerFor(CAM_A));
-    const pcA = await goLive();
-    const videoEl = videoElement();
+      const view = render(viewerFor(CAM_A));
+      const pcA = await goLive();
+      const videoEl = videoElement();
 
-    // Act — the swap. Camera B's data is ALREADY cached, so `currentData`
-    // (and therefore `offlineMessage`) resolves in the SAME commit as this
-    // rerender — unlike every other scenario in this file, where camera B's
-    // GET is still in flight when the effects first run. This is the only
-    // scenario in the file that exercises that ordering.
-    view.rerender(viewerFor(CAM_B));
-    await waitUntil(
-      () => screen.queryByText('Stream is offline') !== null,
-      "camera B's warm offline state to land in the same commit as the swap",
-    );
+      // Act — the swap. Camera B's data is ALREADY cached, so `currentData`
+      // (and therefore `offlineMessage`) resolves in the SAME commit as this
+      // rerender — unlike every other scenario in this file, where camera B's
+      // GET is still in flight when the effects first run. This is the only
+      // scenario in the file that exercises that ordering.
+      view.rerender(viewerFor(CAM_B));
+      await waitUntil(
+        () => screen.queryByText('Stream is offline') !== null,
+        "camera B's warm offline state to land in the same commit as the swap",
+      );
 
-    expect(videoElement()).toBe(videoEl);
-    expect(pcA.closed).toBe(true);
+      expect(videoElement()).toBe(videoEl);
+      expect(pcA.closed).toBe(true);
 
-    // GUARD, not a red: this passes against the shipped code, because the
-    // camera-change effect (useWhepSession.ts) is declared above the session
-    // effect, so the session effect's cleanup for camera A always runs
-    // before the camera-change effect's setup, and — the part nothing had
-    // written down — the camera-change effect's `transitionTo('connecting')`
-    // runs BEFORE the session effect's `transitionTo('offline', ...)` when
-    // both fire in this same commit, so 'offline' is the one that lands
-    // last and wins. Reordering the two effect declarations flips which one
-    // wins and the tile reads "Connecting…" forever instead — see the
-    // counterfactual recorded in the PR body, not committed here.
-    expect(screen.getByText('Stream is offline')).toBeDefined();
-    expect(screen.getByText('Source powered down.')).toBeDefined();
-    expect(screen.queryByText('Connecting…')).toBeNull();
-    expect(videoEl.srcObject).toBeNull();
-    expect(fetchMock.mock.calls.filter(isPostTo(CAM_B_WHEP_URL))).toHaveLength(0);
-  });
+      // GUARD, not a red: this passes against the shipped code, because the
+      // camera-change effect (useWhepSession.ts) is declared above the session
+      // effect, so the session effect's cleanup for camera A always runs
+      // before the camera-change effect's setup, and — the part nothing had
+      // written down — the camera-change effect's `transitionTo('connecting')`
+      // runs BEFORE the session effect's `transitionTo('offline', ...)` when
+      // both fire in this same commit, so 'offline' is the one that lands
+      // last and wins. Reordering the two effect declarations flips which one
+      // wins and the tile reads "Connecting…" forever instead — see the
+      // counterfactual recorded in the PR body, not committed here.
+      expect(screen.getByText('Stream is offline')).toBeDefined();
+      expect(screen.getByText('Source powered down.')).toBeDefined();
+      expect(screen.queryByText('Connecting…')).toBeNull();
+      expect(videoEl.srcObject).toBeNull();
+      expect(fetchMock.mock.calls.filter(isPostTo(CAM_B_WHEP_URL))).toHaveLength(0);
+    },
+  );
 
-  it('Reads Viewer error, not Idle, on a first mount whose stream read fails', async () => {
+  it('Reads Viewer error, not Idle, on a first mount whose stream read fails', { timeout: 10_000 }, async () => {
     // FR-007 note, not a swap scenario: FR-005's error branch
     // (CameraViewer.tsx's `failedRead`) is not scoped to a camera change —
     // it fires on ANY failed read with no stream for the current camera,
@@ -610,21 +638,25 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     expect(FakePeerConnection.instances).toHaveLength(0);
   });
 
-  it('Keeps the session to camera A across an unrelated re-render with a new getToken closure', async () => {
-    setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
-    const view = render(viewerFor(CAM_A));
-    const pcA = await goLive();
-    const videoEl = videoElement();
-    const streamBefore = videoEl.srcObject;
+  it(
+    'Keeps the session to camera A across an unrelated re-render with a new getToken closure',
+    { timeout: 10_000 },
+    async () => {
+      setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
+      const view = render(viewerFor(CAM_A));
+      const pcA = await goLive();
+      const videoEl = videoElement();
+      const streamBefore = videoEl.srcObject;
 
-    // Same camera, a fresh getToken closure — the shape FR-003 must not
-    // regress: this is not a camera change.
-    view.rerender(viewerFor(CAM_A, async () => 'a-different-token'));
-    await flushConnect();
+      // Same camera, a fresh getToken closure — the shape FR-003 must not
+      // regress: this is not a camera change.
+      view.rerender(viewerFor(CAM_A, async () => 'a-different-token'));
+      await flushConnect();
 
-    expect(pcA.closed).toBe(false);
-    expect(videoEl.srcObject).toBe(streamBefore);
-    expect(screen.queryByText('Connecting…')).toBeNull();
-    expect(fetchMock.mock.calls.filter(isPostTo(CAM_A_WHEP_URL))).toHaveLength(1);
-  });
+      expect(pcA.closed).toBe(false);
+      expect(videoEl.srcObject).toBe(streamBefore);
+      expect(screen.queryByText('Connecting…')).toBeNull();
+      expect(fetchMock.mock.calls.filter(isPostTo(CAM_A_WHEP_URL))).toHaveLength(1);
+    },
+  );
 });
