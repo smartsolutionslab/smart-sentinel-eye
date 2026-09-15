@@ -202,9 +202,10 @@ describe('LayoutEditorDialog — the chain is re-read for the layout actually be
     // The point of the test: `data` (RTK Query's last successful result for
     // ANY argument) still holds A's chain here; only `currentData` resets on
     // the argument change to B (`skipToken` in between, then B's id). Save
-    // must stay disabled until B's own GET answers — not merely until some
-    // GET, for some layout, once has.
-    expect(screen.getByRole('button', { name: /^save draft$/i })).toBeDisabled();
+    // must stay unavailable until B's own GET answers — not merely until some
+    // GET, for some layout, once has. `aria-disabled`, not native `disabled`
+    // (spec 160 FR-001) — paired below with the click/PATCH check.
+    expect(screen.getByRole('button', { name: /^save draft$/i })).toHaveAttribute('aria-disabled', 'true');
 
     // Defence in depth, in case Save is wrongly reachable: no PATCH may ever
     // carry A's version (7) once the target has moved on to B.
@@ -328,8 +329,10 @@ describe('LayoutEditorDialog — the chain is re-read for the layout actually be
     // own, distinguish `data` from `currentData`: `chainFetching` is also
     // true while this second GET is held, so it alone would disable Save
     // too (see the file-level counterfactual note). It stays as a
-    // regression pin on the eviction behaviour itself.
-    expect(screen.getByRole('button', { name: /^save draft$/i })).toBeDisabled();
+    // regression pin on the eviction behaviour itself. `aria-disabled`, not
+    // native `disabled` (spec 160 FR-001) — paired below with the click/PATCH
+    // check.
+    expect(screen.getByRole('button', { name: /^save draft$/i })).toHaveAttribute('aria-disabled', 'true');
 
     // Defence in depth: no PATCH may carry the version (7) this dialog
     // already knows to be superseded by whatever the in-flight re-read will
@@ -406,7 +409,9 @@ describe('LayoutEditorDialog — the chain is re-read for the layout actually be
     // assertion runs. FR-004's alert is the observable signal that it has.
     await screen.findByRole('alert');
 
-    expect(screen.getByRole('button', { name: /^save draft$/i })).toBeDisabled();
+    // `aria-disabled`, not native `disabled` (spec 160 FR-001) — paired below
+    // with the click/PATCH check.
+    expect(screen.getByRole('button', { name: /^save draft$/i })).toHaveAttribute('aria-disabled', 'true');
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /^save draft$/i }));
