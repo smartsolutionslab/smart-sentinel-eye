@@ -75,9 +75,13 @@ A new effect, declared **above** the session effect at `:148`:
 - on a change: `videoRef.current.srcObject = null`, `transitionTo('connecting')`,
   `attemptRef.current = 0`.
 
-**Ordering is the reason it goes above, and it is load-bearing.** React runs
-every cleanup in declaration order, then every setup in declaration order. With
-the new effect first:
+**Ordering is the reason it goes above, and it is load-bearing — but not for
+the reason a first pass at this plan gave.** React runs *all* cleanups before
+*all* setups, in declaration order within each phase, regardless of which
+effect is declared first — so the session effect's cleanup (closing camera A's
+`WhepClient`) always precedes the camera-change effect's setup either way, and
+the clear can never race a teardown that has not happened yet. That hazard
+does not exist under either ordering:
 
 ```
 cleanup(cameraChangeEffect)   — none
@@ -86,9 +90,23 @@ setup(cameraChangeEffect)     — clears srcObject, leaves live, resets attempts
 setup(sessionEffect)          — !whepUrl → early return, no session (existing)
 ```
 
-Declared *below*, the clear would run before the teardown and A's teardown could
-not be relied on to leave the element empty. Put a one-line comment saying so;
-this is exactly the class of "why" the house rules keep.
+**The real reason:** both effects' *setups* call `transitionTo`. Ordinarily
+the new camera's stream read is still in flight when these effects first run,
+so only the camera-change effect's `'connecting'` fires in that commit. But
+when the new camera's data is already warm in the RTK Query cache — a camera
+permuted between tiles, or shown anywhere in the last `keepUnusedDataFor`
+window — `currentData` resolves in the *same* commit as the prop change, so
+the session effect's `offlineMessage` branch also calls `transitionTo` in that
+commit, and whichever setup runs last is the one that sticks. Declared first,
+the camera-change effect's `'connecting'` runs before the session effect's
+`'offline'`, so `'offline'` — the correct state — is the last writer and wins.
+Declared second, `'connecting'` would be the last writer instead, and an
+offline camera B would read "Connecting…" forever under its own name —
+#2370's own defect class, reintroduced by this fix's own effect. Put a comment
+saying so, naming the warm-cache condition explicitly (it is what makes the
+race reachable) and pointing at the guarding test — this is exactly the class
+of "why" the house rules keep, and a wrong "why" is worse than none, because
+it reads as settled.
 
 **`transitionTo` inside an effect trips `react-hooks/set-state-in-effect`** (v7,
 `--max-warnings 0`). The file already carries one such disable with a stated
@@ -106,10 +124,16 @@ handles a decrease (`:219`). **Scope the clear to the camera-change path only.**
 Clearing on every teardown would change the retry path's baseline semantics and
 is a different, larger change.
 
-**FR-004, the explicit dependency.** Add `cameraIdentifier` to `:304`. The effect
-body does not reference it, so `react-hooks/exhaustive-deps` will report an
-*unnecessary dependency* and fail the build at `--max-warnings 0`. The file
-already solved this exact problem one line into the same effect:
+**FR-004, the explicit dependency.** Add `cameraIdentifier` to `:304`. **Not a
+lint requirement** — phase 6 proved by construction, under
+`eslint-plugin-react-hooks@7.1.1`, that `exhaustive-deps` only fires in the
+*missing* direction: an extra, unreferenced entry in the array is silently
+accepted, so deleting `cameraIdentifier` (and its `void` statement) costs
+nothing at `--max-warnings 0`. The dependency is added for the same reason the
+file already holds three collaborators behind refs — `getTokenRef`,
+`onLagMeasuredRef`, `accessTokenRef` — documents the coupling for the next
+reader, not because a tool enforces it. The file already carries the idiom for
+an effect body that doesn't reference one of its own deps:
 
 ```ts
 void retryNonce; // dep only: each bump forces a fresh connection attempt
@@ -117,7 +141,8 @@ void retryNonce; // dep only: each bump forces a fresh connection attempt
 
 Mirror it — `void cameraIdentifier;` with a reason naming FR-004's failure mode
 (a future refactor moving the camera behind a ref silently deletes the
-teardown). **Reuse this idiom; do not add an eslint-disable.**
+teardown, and nothing but a human reading the comment, or a merge conflict,
+would catch it). **Reuse this idiom; do not add an eslint-disable.**
 
 ### 2c. `FrameGrabber.tsx` — one word
 
@@ -263,8 +288,8 @@ Three independent reds, one premise. Quote all of it in the PR (ADR-0139).
 | # | Risk | Mitigation |
 |---|---|---|
 | R1 | The mock widening (T001) silently changes a suite's behaviour | Assertions may not be edited. Run each suite green before and after T001 and diff nothing but the mock objects. |
-| R2 | Effect ordering is got wrong and the clear runs before the teardown | The new effect is declared above the session effect, with a comment saying why. T005's `srcObject === null` assertion is the guard. |
-| R3 | `exhaustive-deps` rejects `cameraIdentifier` as unnecessary and `--max-warnings 0` fails | `void cameraIdentifier;`, mirroring `:149`. Verified by `pnpm lint`, which is a task's done-when. |
+| R2 | On a warm-cache swap (camera B's data already cached), the camera-change effect's `'connecting'` and the session effect's `'offline'` both fire in the same commit, and declaration order decides which one is the last writer and wins | The new effect is declared above the session effect, so its `'connecting'` runs first and `'offline'` runs last. **Not** a race between one effect's setup and the other's cleanup — React runs all cleanups before all setups regardless of declaration order, so that particular race cannot occur either way. `CameraViewerCameraSwap.test.tsx`'s "Reads Stream is offline, not Connecting forever, when camera B is already warm in the cache" is the guard. |
+| R3 | ~~`exhaustive-deps` rejects `cameraIdentifier` as unnecessary~~ — phase 6 proved this does not happen: the rule only fires on a *missing* dependency, not an unused one, so `--max-warnings 0` was never at risk here. `void cameraIdentifier;` is intent-documentation (mirroring `:149`), not a lint requirement. | No mitigation needed; verified by `pnpm lint` remaining clean either way. |
 | R4 | `transitionTo('connecting')` in the new effect trips `set-state-in-effect` | Same disable form as `:159`, with a reason specific to this effect. |
 | R5 | The new suite's `fetch` stub mis-dispatches and a WHEP POST is read as a stream GET | Dispatch on URL prefix; assert the *positive* case (a POST to B's URL does appear) as well as the negative, so a stub that serves nothing cannot pass. |
 | R6 | #2355 lands first or concurrently and conflicts | Same effect block, different lines — no textual conflict expected. If it lands first, rebase and check whether its terminal refusal state needs clearing on a camera change; that clearing belongs to whichever lands second. |

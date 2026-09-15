@@ -156,14 +156,24 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
   // decision explicitly rejected (spec § "the gap is not empty, it is A").
   //
   // Declared ABOVE the session effect below, and that ordering is
-  // load-bearing, not stylistic: React runs every effect's cleanup in
-  // declaration order, then every effect's setup in declaration order. With
-  // this effect first, the session effect's cleanup (which closes the
-  // previous camera's WhepClient) still runs before this effect's setup, so
-  // the clear below is never racing a teardown that has not happened yet.
-  // Declared below the session effect, this effect's setup would run before
-  // that cleanup, and the previous camera's session could still be writing to
-  // the element after it was supposedly cleared.
+  // load-bearing — but not because it keeps this effect's setup clear of the
+  // session effect's cleanup; React runs *all* cleanups before *all* setups
+  // regardless of declaration order, so that race cannot occur either way.
+  // The reason is that both effects' SETUPS call `transitionTo`. Ordinarily
+  // the new camera's stream read is still in flight when these effects first
+  // run, so only this effect's `transitionTo('connecting')` fires in that
+  // commit. But when the new camera's data is already warm in the RTK Query
+  // cache — a camera permuted between tiles, or shown anywhere in the last
+  // `keepUnusedDataFor` window — `currentData` resolves in the SAME commit as
+  // the prop change, so the session effect's `offlineMessage` branch below
+  // also fires in that commit, and whichever `transitionTo` call runs last is
+  // the one that sticks. Declared first, this effect's `'connecting'` runs
+  // before the session effect's `'offline'`, so `'offline'` is the last
+  // writer and wins. Declared second, `'connecting'` would be the last writer
+  // instead, and an offline camera B would read "Connecting…" forever under
+  // its own name — #2370's own defect class. Guarded by
+  // `CameraViewerCameraSwap.test.tsx`'s "Reads Stream is offline, not
+  // Connecting forever, when camera B is already warm in the cache".
   useEffect(() => {
     const previousCamera = previousCameraRef.current;
     previousCameraRef.current = cameraIdentifier;

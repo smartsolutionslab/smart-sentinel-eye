@@ -163,26 +163,44 @@ must be stated, not worked around.
 **(a)** Add a `previousCameraRef`, mirroring `previousStreamStateRef` (`:123`).
 
 **(b)** Add an effect keyed `[cameraIdentifier, transitionTo]`, **declared above
-the session effect at `:148`** — ordering is load-bearing; carry a one-line
-comment saying React runs all cleanups before all setups in declaration order,
-so the session teardown lands before this clear. No-op on first mount (that is
-what the ref is for). On a change (FR-003, FR-006):
+the session effect at `:148`** — ordering is load-bearing, but not because it
+keeps this effect's setup clear of the session effect's cleanup: React runs
+*all* cleanups before *all* setups regardless of declaration order, so that
+race cannot occur either way. The real reason is that both effects' setups
+call `transitionTo`, and on a warm-cache swap (the new camera's data already
+in the RTK Query cache — a camera permuted between tiles, or shown anywhere in
+the last `keepUnusedDataFor` window) both fire in the same commit; whichever
+setup runs last wins. Declared first, this effect's `'connecting'` runs before
+the session effect's `'offline'`, so `'offline'` — the correct state — is the
+last writer. Declared second, `'connecting'` would win instead, and an offline
+new camera would read "Connecting…" forever under its own name. Carry a
+comment naming the warm-cache condition and pointing at the guarding test
+(`CameraViewerCameraSwap.test.tsx`'s "Reads Stream is offline, not Connecting
+forever, when camera B is already warm in the cache"). No-op on first mount
+(that is what the ref is for). On a change (FR-003, FR-006):
 
 - `videoRef.current.srcObject = null`;
 - `transitionTo('connecting')`;
 - `attemptRef.current = 0`.
 
-`transitionTo` inside an effect trips `react-hooks/set-state-in-effect` at
-`--max-warnings 0`. Use the same disable form as `:159`, with a reason specific
-to this effect. **Do not** disable `exhaustive-deps`.
+`transitionTo` inside an effect *may* trip `react-hooks/set-state-in-effect` at
+`--max-warnings 0` — check `pnpm lint` before reaching for the disable form at
+`:159`; it did not fire for this effect in practice, likely because this
+effect also does other work (`srcObject`, `attemptRef`) and is not a pure
+state-derivation effect, so no disable was needed. **Do not** disable
+`exhaustive-deps`.
 
 **(c)** FR-004 — add `cameraIdentifier` to the session effect's dep array at
 `:304`, and make the reference real with `void cameraIdentifier;` beside the
-existing `void retryNonce;` at `:149`, carrying a reason: the teardown currently
-rides on `transitionTo`'s `[cameraIdentifier]`, and a future refactor holding the
-camera behind a ref — which this file already does for `getToken` at `:130-133`
-— would silently delete it. **Mirror the existing idiom; do not add an
-eslint-disable.**
+existing `void retryNonce;` at `:149`. **This documents intent; it is not a
+lint requirement** — `exhaustive-deps` only fires on a *missing* dependency,
+not an unused one, so omitting `cameraIdentifier` entirely would not fail
+`--max-warnings 0`. The reason to add it anyway: the teardown currently rides
+on `transitionTo`'s `[cameraIdentifier]`, and a future refactor holding the
+camera behind a ref — which this file already does for `getToken` at
+`:130-133` — would silently delete it, and only a human reading the comment,
+or a merge conflict, would catch that. **Mirror the existing idiom; do not add
+an eslint-disable.**
 
 **Scope the `srcObject` clear to the camera-change path only.** Clearing on every
 teardown inverts the `mediaBaseline` reasoning at `:227-233` that #2111 paid for.
