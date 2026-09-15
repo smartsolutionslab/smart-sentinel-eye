@@ -480,11 +480,11 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     await realWait(5200);
     // Asserts the property spec.md verified in RTK's writePendingCacheEntry:
     // `error` survives a pending refetch, so the tile does not flash back to
-    // "Connecting…" every 5 s.
-    await waitUntil(
-      () => screen.queryByText('Viewer error') !== null,
-      'the tile to still report a failed read after the poll',
-    );
+    // "Connecting…" every 5 s. A plain assertion, not a wait: `realWait`
+    // already drained everything async, and the label was already showing
+    // as of the `getByText` above (label and hint render from the same
+    // `ViewerOverlay` call) — there is no condition left to poll for.
+    expect(screen.getByText('Viewer error')).toBeDefined();
     expect(screen.queryByText('Connecting…')).toBeNull();
     expect(videoEl.srcObject).toBeNull();
     expect(fetchMock.mock.calls.filter(isPostTo(CAM_A_WHEP_URL))).toEqual(postsToA);
