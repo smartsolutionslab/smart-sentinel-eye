@@ -303,7 +303,10 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
           {/*
             `chainFetching` alongside `currentChain === undefined`: RTK Query
             keeps `currentData` defined for the same query arg while a
-            refetch is in flight, so the version held is known-stale.
+            refetch is in flight, so the version held is known-stale. The
+            common trigger is not Reload but the conflict's own
+            `invalidatesTags` refetch — `LayoutEditorDialog.tsx:400-417` has
+            the evidence.
           */}
           <Button
             ref={saveRef}

@@ -462,9 +462,10 @@ describe('OverlayEditorDialog — a recovery control that survives its own activ
    * than clearing `data` to model it). So while a re-read of the same
    * overlay is in flight, `currentChain` stays defined at the pre-re-read
    * version, and the shipped predicate
-   * (`isLoading || (isEdit && currentChain === undefined)`,
-   * `OverlayEditorDialog.tsx:303`) is false — Save stays enabled and would
-   * submit `version: 7`, the exact version the re-read exists to correct.
+   * (`isLoading || (isEdit && currentChain === undefined)`) was the gate at
+   * `OverlayEditorDialog.tsx:311`, until `36a27d01` added `chainFetching` —
+   * it was false, so Save stayed enabled and would have submitted
+   * `version: 7`, the exact version the re-read exists to correct.
    *
    * Steps 4-5 below cannot be satisfied by a cosmetic fix: hard-wiring Save
    * to `disabled` forever would pass an attribute-only assertion but fail
