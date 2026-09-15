@@ -7,10 +7,17 @@
 // through the same tool the gate uses.
 //
 // Two kinds of assertion here, and they are not equally strong:
-//   * "every test-shaped file under an app's src/ is collected" runs
-//     `vitest list --filesOnly --json` inside the app, so it covers a file
-//     added tomorrow under a directory no current glob happens to reach —
-//     memory: guards that read the design artefact.
+//   * "every test-shaped file under an app is collected" runs `vitest list
+//     --filesOnly --json` inside the app, so it covers a file added
+//     tomorrow under a directory no current glob happens to reach — memory:
+//     guards that read the design artefact. The candidate scan walks the
+//     whole app root (excluding node_modules/dist/.vite), not just `src/`:
+//     `apps/shared` currently narrows its own vitest `include` to
+//     `src/**/*.test.ts(x)`, so a test file placed outside `src` there would
+//     be uncollected *and* unflagged if the scan stopped at `src` too
+//     (#2397 review finding 5). No app currently has a test-shaped file
+//     outside `src/` — verified by a full-tree search — so this widens the
+//     guard's claim without changing what it reports today.
 //   * Root discovery ("which directories under apps/ are apps") reads
 //     `apps/*/package.json` for a `test` script, rather than naming
 //     `['shared', 'kiosk-web', 'management-web']` in this file. A guard that
@@ -44,6 +51,19 @@
 // Defensible — it is more faithfully "the tool the gate uses", since vitest
 // (unlike ESLint) has no supported programmatic "what would you collect"
 // API — but it is a choice, not a default.
+//
+// Root discovery deliberately does not assume a runner ("has a `test`
+// script" only), but asking the runner *the collection question* does — it
+// shells out to `vitest` specifically. Those two used to disagree silently:
+// a future `apps/<x>` with `"test": "node --test"` or `"test": "jest"` would
+// pass discovery and then blow up `require.resolve('vitest/package.json')`
+// with a bare `MODULE_NOT_FOUND`, taking the whole guard down instead of
+// just that app (#2397 review finding 1). Fixed by making them agree
+// explicitly: an app is only asked the vitest collection question if its own
+// `package.json` declares `vitest` as a dependency; one that doesn't is
+// skipped, and the skip is reported (`t.diagnostic`) rather than silent, so
+// a `node --test`/jest app shows up as a visible skip instead of either an
+// opaque crash or a quiet no-op.
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -132,6 +152,15 @@ async function testShapedFilesUnder(directory) {
   return files;
 }
 
+// Whether `appRoot` actually uses vitest as its test runner, read from its
+// own `package.json` (dependency or devDependency) rather than assumed from
+// having a `test` script at all — see the header note on why `vitestBinFor`
+// must not be reached for an app that doesn't declare vitest.
+async function usesVitestRunner(appRoot) {
+  const packageJson = JSON.parse(await readFile(path.join(appRoot, 'package.json'), 'utf8'));
+  return Boolean(packageJson.dependencies?.vitest ?? packageJson.devDependencies?.vitest);
+}
+
 // Resolve the app's own installed `vitest` bin and run it directly with
 // `process.execPath`, rather than shelling out to `npx`. Two things this
 // avoids (#2397 review finding 8): the `npx`/`npx.cmd` platform branch, which
@@ -140,10 +169,15 @@ async function testShapedFilesUnder(directory) {
 // the `shell: true` option itself, which drew a DEP0190 deprecation warning
 // on every run. No shell, no platform branch, no warning.
 function vitestBinFor(appRoot) {
+  const relativeAppRoot = normalise(path.relative(repositoryRoot, appRoot));
   const require = createRequire(path.join(appRoot, 'package.json'));
   const vitestPackageJsonPath = require.resolve('vitest/package.json');
   const vitestPackage = JSON.parse(readFileSync(vitestPackageJsonPath, 'utf8'));
-  const vitestBinEntry = typeof vitestPackage.bin === 'string' ? vitestPackage.bin : vitestPackage.bin.vitest;
+  const vitestBinEntry = typeof vitestPackage.bin === 'string' ? vitestPackage.bin : vitestPackage.bin?.vitest;
+  assert.ok(
+    typeof vitestBinEntry === 'string',
+    `${relativeAppRoot}'s installed vitest package has no 'bin.vitest' entry (bin: ${JSON.stringify(vitestPackage.bin)})`,
+  );
   return path.join(path.dirname(vitestPackageJsonPath), vitestBinEntry);
 }
 
@@ -151,37 +185,67 @@ function vitestBinFor(appRoot) {
 // run through the app's real, shipped config — not a re-implementation of
 // its include globs.
 function collectedFilesFor(appRoot) {
+  const relativeAppRoot = normalise(path.relative(repositoryRoot, appRoot));
   const result = spawnSync(process.execPath, [vitestBinFor(appRoot), 'list', '--filesOnly', '--json'], {
     cwd: appRoot,
     encoding: 'utf8',
   });
 
-  assert.equal(
-    result.status,
-    0,
-    `vitest list failed in ${path.relative(repositoryRoot, appRoot)}: ${result.stderr}`,
-  );
+  assert.equal(result.status, 0, `vitest list failed in ${relativeAppRoot}: ${result.stderr}`);
 
-  const entries = JSON.parse(result.stdout);
+  let entries;
+  try {
+    entries = JSON.parse(result.stdout);
+  } catch (error) {
+    const firstLine = result.stdout.split('\n')[0];
+    // A config that logs during `vitest list` (both app configs evaluate
+    // `process.env` at load) makes stdout something other than pure JSON;
+    // name the app and show what was actually seen, rather than a
+    // `SyntaxError` naming no one (#2397 review finding 3).
+    throw new Error(
+      `vitest list produced non-JSON stdout in ${relativeAppRoot} (first line: ${JSON.stringify(firstLine)}): ${error.message}`,
+    );
+  }
   return new Set(entries.map((entry) => normalise(path.resolve(entry.file))));
 }
 
-test('every test-shaped file under an app src/ is collected by that app vitest', async () => {
+test('every test-shaped file under an app is collected by that app vitest', async (t) => {
   const appRoots = await discoverAppRoots(appsDirectory);
   assert.ok(appRoots.length > 0, 'expected at least one app under apps/ with a test script');
 
   const uncollected = [];
   for (const appRoot of appRoots) {
     const appName = path.basename(appRoot);
+
+    // Discovery keys on "has a `test` script", not "uses vitest" — a future
+    // app with `"test": "node --test"` or jest must be skipped here, visibly,
+    // rather than reaching `vitestBinFor` and throwing a bare
+    // `MODULE_NOT_FOUND` that names no app and takes the whole guard down
+    // (#2397 review finding 1).
+    if (!(await usesVitestRunner(appRoot))) {
+      t.diagnostic(`skipping apps/${appName}: no vitest dependency declared, cannot ask 'vitest list'`);
+      continue;
+    }
+
     const collected = collectedFilesFor(appRoot);
     // A collected set of zero would make the inner loop vacuously pass —
     // every candidate would report "uncollected", true, but a `discovered
     // app that collects nothing` is itself a sign the guard checked nothing
-    // real for it (#2397 review finding 2). Assert it per app, not only via
-    // the top-level `appRoots.length > 0`, which fires only if *every* app
-    // vanished.
-    assert.ok(collected.size > 0, `expected apps/${appName}'s vitest to collect at least one file`);
-    const candidates = await testShapedFilesUnder(path.join(appRoot, 'src'));
+    // real for it. Accumulate this into the same `uncollected` list instead
+    // of asserting per app: an `assert.ok` here would abort the loop on the
+    // first empty app and leave every later app unchecked — worst in
+    // exactly the scenario this guard exists to catch (#2397 review finding
+    // 4). Accumulating means one run names every affected app, not just the
+    // first.
+    if (collected.size === 0) {
+      uncollected.push(`apps/${appName}'s vitest collected zero files (expected at least one)`);
+      continue;
+    }
+
+    // Walk the whole app root, not `<appRoot>/src` — see the header note on
+    // finding 5. Directories that are never source (node_modules/dist/.vite)
+    // are excluded by name inside testShapedFilesUnder.
+    const candidates = await testShapedFilesUnder(appRoot);
 
     for (const candidate of candidates) {
       if (!collected.has(normalise(path.resolve(candidate)))) {
