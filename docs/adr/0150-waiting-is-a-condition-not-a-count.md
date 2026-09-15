@@ -1,9 +1,9 @@
 # ADR-0150: Waiting is a condition, not a count
 
-**Status:** **Proposed**
+**Status:** **Accepted**
 **Date:** 2026-09-15
 **Extends:** ADR-0139 (rules that fail the build, not the review)
-**Amends:** Constitution §Testing (proposed — not in force until this ADR is accepted)
+**Amends:** Constitution §Testing
 **Supersedes:** —
 **Superseded by:** —
 
@@ -70,7 +70,8 @@ first appeared.
 
 ## Decision
 
-**Proposed — requires acceptance before any of the following binds.**
+Accepted 2026-09-15. The §Testing amendment in §4 and the rule in §2 bind from
+this date; the ESLint rule itself is tracked by issue #2392.
 
 ### 1. The sanctioned idiom is a deadline poll on the condition
 
