@@ -1,6 +1,6 @@
 # ADR-0151: A disable that keeps the operator's place
 
-**Status:** **Proposed**
+**Status:** **Accepted**
 **Date:** 2026-09-15
 **Extends:** ADR-0077 (Radix UI headless components + custom design system)
 **Amends:** —
@@ -87,7 +87,8 @@ identically is what makes the population 32 instead of a handful.
 
 ## Decision
 
-**Proposed — requires acceptance before any of the following binds.**
+Accepted 2026-09-15. Implementation is tracked separately; nothing in this ADR
+converts an existing call site on its own.
 
 ### 1. The rule, stated narrowly
 
