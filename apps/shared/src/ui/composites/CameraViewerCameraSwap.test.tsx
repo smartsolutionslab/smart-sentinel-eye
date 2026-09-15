@@ -240,6 +240,39 @@ async function realWait(ms: number) {
 }
 
 /**
+ * A bounded DRIVE, not a synchronisation primitive (ADR-0150 §2 permits the
+ * former, bans the latter). Used at exactly two call sites below, each
+ * immediately before a genuinely NEGATIVE assertion — nothing must have
+ * happened — for which no condition can be polled: on the correct
+ * trajectory nothing further occurs at that point, so there is no state for
+ * `waitUntil` to wait FOR. A fixed number of TIMER-phase yields is what
+ * gives the async connect chain (`getToken()` → `createOffer()` →
+ * `setLocalDescription()` → the WHEP POST → `setRemoteDescription()`,
+ * `WhepClient.ts:101-164`) a real chance to advance before the assertion
+ * samples it, so a reintroduced re-dial actually gets caught rather than
+ * merely not-yet-observed (#2386; #2392 phase 6 findings 1/2).
+ *
+ * Selector B (ADR-0150 §2 amended) bans this shape outright, by
+ * construction, regardless of role — it cannot distinguish driving an
+ * assertion of absence from synchronising a positive one. The
+ * `eslint-disable-next-line` below is the documented escape hatch the
+ * config comment names for exactly this case, not a workaround around it.
+ */
+async function driveConnectChain() {
+  await act(async () => {
+    for (let i = 0; i < 10; i += 1) {
+      // Bounded DRIVE, not a synchronisation primitive: see the docblock
+      // above (ADR-0150 §2 amended escape hatch; #2392 phase 6 findings 1/2).
+      // eslint-disable-next-line no-restricted-syntax -- see comment above
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      for (let j = 0; j < 5; j += 1) {
+        await Promise.resolve();
+      }
+    }
+  });
+}
+
+/**
  * Polls `condition` on real timers, inside `act`, until it is true or
  * `timeoutMs` elapses. This is the deadline-poll idiom `waitForNewPeerConnection`
  * (below) already proved out for the connect chain, generalised so every
@@ -352,6 +385,14 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     // defect, because the defect only exists because the tile is NOT
     // remounted (spec 095, CellPage.tsx position keying).
     expect(videoElement()).toBe(videoEl);
+
+    // A bounded drive, not a wait for a condition — see driveConnectChain's
+    // docblock. Nothing about pcA.closed below needs it (rerender is
+    // act-wrapped, so cleanup is already synchronous by this point); it is
+    // here for postsToA() and videoEl.srcObject below, which are genuinely
+    // negative and need the async connect chain given a real chance to
+    // advance before they sample it (#2392 phase 6 findings 1/2).
+    await driveConnectChain();
 
     // Camera A's session is closed — Link 3, confirmed: the effect does
     // re-run on a camera change (transitionTo's [cameraIdentifier] is in its
@@ -626,6 +667,12 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
       // Same camera, a fresh getToken closure — the shape FR-003 must not
       // regress: this is not a camera change.
       view.rerender(viewerFor(CAM_A, async () => 'a-different-token'));
+
+      // Genuinely negative — nothing must have happened — and there is no
+      // condition to poll for: on the correct trajectory nothing further
+      // occurs here at all. A bounded drive is the only instrument (#2386;
+      // #2392 phase 6 findings 1/2); see driveConnectChain's docblock.
+      await driveConnectChain();
 
       expect(pcA.closed).toBe(false);
       expect(videoEl.srcObject).toBe(streamBefore);
