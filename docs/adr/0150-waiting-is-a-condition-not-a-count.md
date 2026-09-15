@@ -97,7 +97,12 @@ failing the build in the `frontend` bucket rather than warning.
 
 **Amended 2026-09-15, on measurement taken while implementing this ADR (spec
 161, issue #2392).** The adjacency rule above is kept, but it is not sufficient
-on its own, and the reason is that the premise behind it was wrong.
+on its own, and the reason is that the premise behind it was wrong. **This
+amendment was a human decision, not the autonomous lane's** (ADR-0144
+forbids the lane from amending an ADR): the architect escalated the choice
+between shipping §2 as literally accepted and widening it as a blocking
+decision at spec 161's phase-3 gate, and Heiko chose the widened selector
+(option A+B) over shipping §2 as written.
 
 `flushConnect` was assumed to be one helper. It is **one name with two opposite
 semantics across six files**: a macrotask settle in
@@ -215,9 +220,16 @@ after it had blocked unrelated delivery.
 
 - The rule belongs in the frontend ESLint config, scoped to test files, failing
   the `frontend` bucket. It is not a `dotnet` analyzer question.
-- `CameraViewerCameraSwap.test.tsx` is the reference for both halves: `waitUntil`
+- ~~`CameraViewerCameraSwap.test.tsx` is the reference for both halves: `waitUntil`
   for the sanctioned idiom, and the corrected `flushConnect` docblock for the
-  honest statement of why a driving settle is safe.
+  honest statement of why a driving settle is safe.~~ Stale (#2392 phase 6
+  finding 5): commit `e1d07122` deleted `flushConnect`, its docblock, and all
+  six call sites — the shape it fixed turned out to be inert (see the `i < 0`
+  observation above). `waitUntil` in that file is still the reference for the
+  sanctioned idiom; there is no longer a corrected `flushConnect` docblock to
+  point at. Struck rather than rewritten, in keeping with this ADR's own
+  practice of leaving a wrong record visible (see "Overturned by the
+  amendment in §2" above).
 - Do **not** implement this before the ADR is accepted. Issue #2392 tracks it,
   and was deliberately filed rather than implemented because ADR-0144 forbids the
   autonomous lane from making architectural decisions.
