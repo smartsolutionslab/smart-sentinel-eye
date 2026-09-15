@@ -299,8 +299,12 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
   // `dist/query/rtk-query.modern.mjs:1443-1455`) and `currentData` is that
   // raw substate `data` (`dist/query/react/rtk-query-react.modern.mjs:155`).
   // Without this term the gate reopens on a version already known stale, and
-  // a click resubmits it for an identical second 409. Retry stays the way
-  // out (`ChainRecoveryNotice`'s chain arm, `chainArmActive` on `readFailed`).
+  // a click resubmits it for an identical second 409. For a Retry-originated
+  // refusal, Retry stays the way out (`ChainRecoveryNotice`'s chain arm,
+  // `chainArmActive` on `readFailed`) — but not for a Reload-originated one:
+  // `chainArmActive` excludes `origin === 'reload'` precisely so a refused
+  // Reload keeps its OWN arm mounted instead, and Reload itself is the way
+  // out there (`ChainRecoveryNotice.tsx`'s `chainArmActive` definition).
   const saveBlocked =
     isLoading || knownCameras.size === 0 || (isEdit && (currentChain === undefined || chainFetching || chainFailed));
 
