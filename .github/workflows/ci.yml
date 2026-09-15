@@ -194,7 +194,21 @@ jobs:
     # Boots the full Aspire stack in RUN mode (web apps + gateway + Keycloak)
     # and drives the browser through it (ADR-0108). Gated on the cheap jobs so a
     # branch that already fails lint/units doesn't burn the boot budget.
-    timeout-minutes: 40
+    #
+    # Raised from 40 to 45 (#2376). The `always()`/`cancelled()`-guarded
+    # diagnostic steps below already ran and the Playwright report already
+    # uploaded on the run that prompted this (34859447889, artifact
+    # 10356401686, 9 files) -- a job-level timeout does grant that grace
+    # period, so this raise does not fix a skipped step. What it buys: a run
+    # whose tail hangs (e.g. a slow-but-passing retry) gets enough headroom to
+    # finish and let Playwright's reporters write a complete report, instead
+    # of being cancelled a couple of minutes short with the suite otherwise
+    # green. #2376 stays open -- closing it needs Playwright's own
+    # `globalTimeout` so a hang ends the run from inside the process that
+    # holds the report writers, which is #2382's job once that issue's known
+    # 15.5-minute teardown hang is fixed (sizing globalTimeout against a
+    # distribution that still contains it would repeat this issue's mistake).
+    timeout-minutes: 45
     env:
       ASPIRE_ALLOW_UNSECURED_TRANSPORT: 'true'
     steps:
