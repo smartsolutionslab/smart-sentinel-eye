@@ -142,7 +142,16 @@ test('operator edits a saved draft in place, onto the same revision', async ({ p
   await expect(page.getByLabel(/^name$/i)).toHaveCount(0);
   const textField = page.getByTestId('overlay-editor-text');
   await textField.fill('E2E Edited');
-  await page.getByRole('button', { name: /^save draft$/i }).click();
+  // Spec 160 (issue #2387) §11 A3. Save is `aria-disabled` (spec 160
+  // FR-001), not natively `disabled`, while the chain read that gates it is
+  // still settling — whether Playwright 1.62's click actionability treats
+  // `aria-disabled="true"` as "not enabled" is unverified, so this waits on
+  // the attribute explicitly rather than depending on the answer; a click
+  // that silently lands on a closed gate would otherwise still leave this
+  // assertion green.
+  const saveDraftButton = page.getByRole('button', { name: /^save draft$/i });
+  await expect(saveDraftButton).not.toHaveAttribute('aria-disabled', 'true');
+  await saveDraftButton.click();
 
   // Same revision, not a new one: the badge still reads v1 · Draft.
   await expect(row.getByText('E2E Edited')).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
