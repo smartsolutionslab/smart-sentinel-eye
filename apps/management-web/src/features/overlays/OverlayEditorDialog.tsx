@@ -300,7 +300,16 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button ref={saveRef} type="submit" disabled={isLoading || (isEdit && currentChain === undefined)}>
+          {/*
+            `chainFetching` alongside `currentChain === undefined`: RTK Query
+            keeps `currentData` defined for the same query arg while a
+            refetch is in flight, so the version held is known-stale.
+          */}
+          <Button
+            ref={saveRef}
+            type="submit"
+            disabled={isLoading || (isEdit && (currentChain === undefined || chainFetching))}
+          >
             {isLoading ? 'Saving…' : isEdit ? 'Save draft' : 'Save as draft'}
           </Button>
         </div>
