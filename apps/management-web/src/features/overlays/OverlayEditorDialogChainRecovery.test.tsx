@@ -452,4 +452,76 @@ describe('OverlayEditorDialog — a recovery control that survives its own activ
     expect(document.activeElement).not.toBe(screen.getByRole('button', { name: /^save draft$/i }));
     expect(statusRegion().textContent).toBe('');
   });
+
+  /**
+   * Spec 158 (issue #2379) — new behaviour, RED (ADR-0139).
+   *
+   * `currentData` survives a same-argument refetch (the comment block above
+   * `useGetOverlayQuery` at `OverlayEditorDialog.tsx:72-82` states this, and
+   * `beginReRead()` above deliberately spreads `...chainQueryState` rather
+   * than clearing `data` to model it). So while a re-read of the same
+   * overlay is in flight, `currentChain` stays defined at the pre-re-read
+   * version, and the shipped predicate
+   * (`isLoading || (isEdit && currentChain === undefined)`,
+   * `OverlayEditorDialog.tsx:303`) is false — Save stays enabled and would
+   * submit `version: 7`, the exact version the re-read exists to correct.
+   *
+   * Steps 4-5 below cannot be satisfied by a cosmetic fix: hard-wiring Save
+   * to `disabled` forever would pass an attribute-only assertion but fail
+   * the complement leg, and a fix that only prevents the click handler but
+   * leaves the attribute enabled would fail step 3.
+   */
+  it('Save is unavailable while the re-read Reload started is in flight, and resumes once it answers with the new version (FR-001, FR-004)', async () => {
+    const user = userEvent.setup();
+    editError = {
+      status: 409,
+      data: { title: 'OVERLAY_REVISION_STALE', detail: 'Overlay has changed since version 7 (now 8).' },
+    };
+    chainQueryState = {
+      data: { overlayIdentifier: EDIT_TARGET.overlayIdentifier, version: 7 },
+      isError: false,
+      isFetching: false,
+    };
+    renderDialog();
+
+    const reloadButton = await screen.findByRole('button', { name: /reload/i });
+    const saveButton = screen.getByRole('button', { name: /^save draft$/i });
+    const editDraftCallsBeforeReload = editDraftMock.mock.calls.length;
+
+    await user.click(reloadButton);
+
+    // 1. `data` is retained through the refetch (harness contract above).
+    expect(chainQueryState.data).toStrictEqual({ overlayIdentifier: EDIT_TARGET.overlayIdentifier, version: 7 });
+    expect(chainQueryState.isFetching).toBe(true);
+
+    // 2. The failing assertion: Save must be unavailable while the re-read
+    //    is in flight, even though `currentChain` (v7) is still defined.
+    expect(saveButton).toBeDisabled();
+
+    // 3. The harm, not only the attribute: clicking must not submit v7 a
+    //    second time while the re-read is still on the wire.
+    await user.click(saveButton);
+    expect(editDraftMock).toHaveBeenCalledTimes(editDraftCallsBeforeReload);
+
+    // 4. The complement: once the re-read answers with the corrected
+    //    version, Save re-enables and a save now carries that version, not
+    //    the stale one. Without this leg a predicate hard-wired to
+    //    `disabled` would still satisfy assertions 2-3.
+    await act(async () => {
+      setChainQueryState({
+        data: { overlayIdentifier: EDIT_TARGET.overlayIdentifier, version: 8 },
+        isError: false,
+        isFetching: false,
+      });
+    });
+
+    expect(saveButton).not.toBeDisabled();
+
+    await user.click(saveButton);
+
+    expect(editDraftMock).toHaveBeenCalledTimes(editDraftCallsBeforeReload + 1);
+    expect(editDraftMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ overlayIdentifier: EDIT_TARGET.overlayIdentifier, version: 8 }),
+    );
+  });
 });
