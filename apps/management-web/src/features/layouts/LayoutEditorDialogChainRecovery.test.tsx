@@ -211,7 +211,7 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
     // `aria-disabled`, not native `disabled` (spec 160 FR-001), paired with
     // the behavioural half (tasks.md rule 2) — the attribute alone cannot
     // tell "gate open" from "gate cosmetic".
-    expect(saveButton).not.toHaveAttribute('aria-disabled', 'true');
+    expect(saveButton).toHaveAttribute('aria-disabled', 'false');
     expect(statusRegion()).toHaveTextContent(/was read/i);
 
     await user.click(saveButton);
@@ -505,7 +505,7 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
       });
     });
 
-    expect(saveButton).not.toHaveAttribute('aria-disabled', 'true');
+    expect(saveButton).toHaveAttribute('aria-disabled', 'false');
 
     await user.click(saveButton);
 

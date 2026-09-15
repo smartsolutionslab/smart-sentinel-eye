@@ -207,7 +207,7 @@ describe('LayoutEditorDialog — the retained camera survives a close and reopen
     // the behavioural half (tasks.md rule 2): a search matching nothing must
     // not merely look enabled, it must actually be clickable and submit.
     const saveButton = screen.getByRole('button', { name: /save/i });
-    expect(saveButton).not.toHaveAttribute('aria-disabled', 'true');
+    expect(saveButton).toHaveAttribute('aria-disabled', 'false');
 
     await user.click(saveButton);
     expect(createLayoutDraftMock).toHaveBeenCalledTimes(1);

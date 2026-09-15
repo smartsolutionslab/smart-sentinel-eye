@@ -145,7 +145,7 @@ describe('OverlayEditorDialog — the chain is re-read per overlay, not carried 
     // with, unlike the disabled-gate assertion below at the actual point of
     // the test).
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /^save draft$/i })).not.toHaveAttribute('aria-disabled', 'true'),
+      expect(screen.getByRole('button', { name: /^save draft$/i })).toHaveAttribute('aria-disabled', 'false'),
     );
 
     // Close — OverlaysPage.tsx always drives `open` and `editTarget` together

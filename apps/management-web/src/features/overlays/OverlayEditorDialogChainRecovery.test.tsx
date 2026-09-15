@@ -234,7 +234,7 @@ describe('OverlayEditorDialog — a recovery control that survives its own activ
     // 8. The success is exactly what enables it (spec 160 FR-001: `aria-disabled`,
     //    not native `disabled`). Paired with the behavioural half (tasks.md rule
     //    2) — the attribute alone cannot tell "gate open" from "gate cosmetic".
-    expect(saveButton).not.toHaveAttribute('aria-disabled', 'true');
+    expect(saveButton).toHaveAttribute('aria-disabled', 'false');
     // 9. The announcement changes to reflect the outcome.
     expect(statusRegion()).toHaveTextContent(/was read/i);
 
@@ -529,7 +529,7 @@ describe('OverlayEditorDialog — a recovery control that survives its own activ
       });
     });
 
-    expect(saveButton).not.toHaveAttribute('aria-disabled', 'true');
+    expect(saveButton).toHaveAttribute('aria-disabled', 'false');
 
     await user.click(saveButton);
 
