@@ -336,6 +336,7 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
           backendError={backendError}
           offerReload={offerReload}
           onReadRecovered={() => saveRef.current?.focus()}
+          previouslyRead={currentChain !== undefined}
         />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>

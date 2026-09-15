@@ -15,6 +15,19 @@ export interface ChainRecoveryNoticeProps {
   offerReload: boolean;
   /** Called once, when a re-read the operator started with Retry succeeds. Never called for Reload (FR-008). */
   onReadRecovered: () => void;
+  /**
+   * `currentChain !== undefined` — the chain has been read at least once, so
+   * a `reReading` transition is a RE-read and not this dialog's first read
+   * (spec 160 FR-010). Without this, an unrequested re-read's announcement
+   * (FR-009) would also fire on the dialog's own opening read.
+   */
+  previouslyRead: boolean;
+}
+
+/** Shared by `activate()`'s click-driven announcement and the unrequested-re-read
+ *  rising edge (FR-009), so the two copies of this string cannot drift apart. */
+function reReadingAnnouncement(noun: string) {
+  return `Re-reading the ${noun}…`;
 }
 
 type RecoveryOrigin = 'retry' | 'reload';
@@ -49,6 +62,7 @@ export function ChainRecoveryNotice({
   backendError,
   offerReload,
   onReadRecovered,
+  previouslyRead,
 }: ChainRecoveryNoticeProps) {
   const [origin, setOrigin] = useState<RecoveryOrigin | null>(null);
   const [announcement, setAnnouncement] = useState({ text: '', token: 0 });
@@ -63,19 +77,35 @@ export function ChainRecoveryNotice({
   const [retryFailureKey, setRetryFailureKey] = useState(0);
   const retryButtonRef = useRef<HTMLButtonElement>(null);
   const wasReReadingRef = useRef(reReading);
+  // Snapshot of `previouslyRead` taken at the RISING edge, not read live at
+  // the falling edge (FR-010's trap, restated for this ref specifically):
+  // `previouslyRead` is `currentChain !== undefined`, and `currentChain`
+  // updates in the very same render that flips `reReading` false, so by the
+  // time the falling edge runs, a first-ever successful read has already
+  // made `previouslyRead` true — indistinguishable, read live, from a
+  // second-or-later read. This ref freezes the answer from before the
+  // fetch that just settled. Initialised from the mount-time value so a
+  // dialog that mounts already mid-fetch (no rising edge to observe) still
+  // answers correctly.
+  const hadPriorReadRef = useRef(previouslyRead);
   // Skips the refocus effect's first run (the initial mount — nothing was
   // focused yet, and FR-007 forbids taking focus on a dialog that just
   // opened) so it only fires on an actual `retryFailureKey` bump.
   const isFirstFailureKeyRenderRef = useRef(true);
 
-  // The focus/announcement move is latched by the operator's act, not by
-  // `readFailed` going false on its own (FR-007's trap, plan.md §4): a
-  // normal dialog open also goes `true -> false` on `readFailed` between
-  // renders as its first read resolves, and a plain effect on that alone
-  // would steal focus to Save on every open. Firing only on `reReading`'s
-  // falling edge, and only when `origin` says a control latched it, avoids
-  // that — an unrequested fetch (or none) leaves `origin` `null` and this
-  // effect does nothing.
+  // The focus move is latched by the operator's act, not by `readFailed`
+  // going false on its own (FR-007's trap, plan.md §4): a normal dialog open
+  // also goes `true -> false` on `readFailed` between renders as its first
+  // read resolves, and a plain effect on that alone would steal focus to
+  // Save on every open. Moving focus (and touching `origin`/`retryFailureKey`)
+  // only happens when `origin` says a control latched this fetch.
+  //
+  // An unrequested fetch (`origin === null`) still gets an ANNOUNCEMENT-only
+  // reaction (spec 160 FR-009) once the chain has been read before at least
+  // once (`previouslyRead`, FR-010) — the dominant trigger in production is
+  // the rejected mutation's own `invalidatesTags`, which never touches
+  // `origin` at all, so without this branch the disable that FR-001 keeps
+  // silently unavailable and silently available again.
   //
   // The `setState` calls below are the point of the effect, not a lint
   // accident: this is React's own "subscribe to an external system"
@@ -88,7 +118,46 @@ export function ChainRecoveryNotice({
   useEffect(() => {
     const wasReReading = wasReReadingRef.current;
     wasReReadingRef.current = reReading;
-    if (!wasReReading || reReading || origin === null) return;
+
+    // FR-009 rising edge: an unrequested re-read (no click, so `origin` is
+    // still `null`) says so on the way in — but only once the chain has
+    // been read before. FR-010's trap: the dialog's own FIRST read also
+    // goes `false -> true` right here, and `previouslyRead` is what tells
+    // the two apart.
+    if (!wasReReading && reReading) {
+      // Captured here, before this fetch settles and `previouslyRead`
+      // changes underneath it (see the ref's own comment).
+      hadPriorReadRef.current = previouslyRead;
+      if (origin === null && previouslyRead) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
+        setAnnouncement((previous) => ({ text: reReadingAnnouncement(noun), token: previous.token + 1 }));
+      }
+      return;
+    }
+
+    if (!wasReReading || reReading) return;
+
+    if (origin === null) {
+      // Falling edge, unrequested. FR-009's announcement half only: never
+      // `setOrigin` (already `null`), never `setRetryFailureKey` (that key
+      // owns the Retry `<p>`'s remount and would move focus for a click
+      // that never happened), never `onReadRecovered()` (focus is already
+      // on Save per FR-001/FR-004; moving it would steal focus from an
+      // operator who has moved on).
+      if (!hadPriorReadRef.current) return;
+      if (readFailed) {
+        // The chain arm's own `role="alert"` insertion is what announces
+        // the refusal (the same rule FR-006 below already sets for the
+        // Retry/Reload path) — this only clears the status region.
+        setAnnouncement((previous) => ({ text: '', token: previous.token + 1 }));
+      } else {
+        setAnnouncement((previous) => ({
+          text: `The ${noun} was read. Save is available.`,
+          token: previous.token + 1,
+        }));
+      }
+      return;
+    }
 
     const requestedBy = origin;
     if (readFailed) {
@@ -103,7 +172,6 @@ export function ChainRecoveryNotice({
       // closes, one render later. Leaving `origin` latched costs nothing
       // for Retry (its own exclusion never consults `origin`), and a fresh
       // click re-latches it to the same value regardless.
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
       setAnnouncement((previous) => ({ text: '', token: previous.token + 1 }));
       if (requestedBy === 'retry') {
         // Forces the alert `<p>` below to remount (blocker 1) so a
@@ -129,7 +197,7 @@ export function ChainRecoveryNotice({
     if (requestedBy === 'retry') {
       onReadRecovered();
     }
-  }, [reReading, readFailed, origin, noun, onReadRecovered]);
+  }, [reReading, readFailed, origin, noun, onReadRecovered, previouslyRead]);
 
   // Companion to the remount above: a `key` change unmounts the old Retry
   // button along with its old `<p>`, and the browser does not carry focus
@@ -162,7 +230,7 @@ export function ChainRecoveryNotice({
     // sibling pattern, where the same trick *is* load-bearing (two
     // consecutive successful undos both write 'Undone' with nothing
     // between them).
-    setAnnouncement((previous) => ({ text: `Re-reading the ${noun}…`, token: previous.token + 1 }));
+    setAnnouncement((previous) => ({ text: reReadingAnnouncement(noun), token: previous.token + 1 }));
     onReRead();
   }
 
