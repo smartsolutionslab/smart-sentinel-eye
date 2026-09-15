@@ -1,17 +1,16 @@
 // Guard for #2397 / spec 162.
 //
 // `apps/shared/vitest.config.ts` narrows `include` to `src/**/*.test.ts(x)`,
-// so `apps/shared/src/realtime/client.spec.ts` has never been collected by
+// so `apps/shared/src/realtime/client.spec.ts` had never been collected by
 // any runner: not CI, not a human running `pnpm test`, because nothing ever
 // asked the question. This guard asks it — the same question the gate asks,
 // through the same tool the gate uses.
 //
 // Two kinds of assertion here, and they are not equally strong:
-//   * "every test-shaped file under an app's src/ is collected" and "the
-//     apps with no known gap report nothing" both run
-//     `npx vitest list --filesOnly --json` inside the app, so they cover a
-//     file added tomorrow under a directory no current glob happens to
-//     reach — memory: guards that read the design artefact.
+//   * "every test-shaped file under an app's src/ is collected" runs
+//     `vitest list --filesOnly --json` inside the app, so it covers a file
+//     added tomorrow under a directory no current glob happens to reach —
+//     memory: guards that read the design artefact.
 //   * Root discovery ("which directories under apps/ are apps") reads
 //     `apps/*/package.json` for a `test` script, rather than naming
 //     `['shared', 'kiosk-web', 'management-web']` in this file. A guard that
@@ -20,22 +19,37 @@
 //     not to be a hardcoded list by a fixture tree whose directory names
 //     share nothing with the real apps.
 //
-// FIRST-RUN NOTE, read before treating any of this as a status report:
-//   * "every test-shaped file ... is collected" is expected RED right now,
-//     naming apps/shared/src/realtime/client.spec.ts.
-//   * "apps with no known gap report nothing" and "app roots are
-//     discovered, not hardcoded" will be GREEN on this very first run, and
-//     that is expected and proves NOTHING on its own: the defect is one
-//     additive uncollected file, not a universal failure to flag, so a
-//     guard that flagged every file it enumerates would look identical on
-//     these two axes. They only become evidence once the first assertion
-//     has been observed red-then-green with this same guard in place, and
-//     once the scratch-file counterfactual (spec 162, T004) has run. Do not
-//     read "1 of 3 red" here as "the other two were already satisfied".
+// FIRST-RUN PROVENANCE, 2026-09-16 (past tense — this is history, not a
+// status report): "every test-shaped file ... is collected" was observed RED
+// on the first run of this guard, naming
+// apps/shared/src/realtime/client.spec.ts. "app roots are discovered, not
+// hardcoded" was GREEN on that same first run, which proved nothing on its
+// own — the defect was one additive uncollected file, not a universal
+// failure to flag, so a guard that flagged every file it enumerates would
+// have looked identical on that axis. It became evidence only once the first
+// assertion had been observed red-then-green with this same guard in place,
+// and once the scratch-file counterfactual (spec 162, T004) had run.
+//
+// A prior revision of this file also asserted "apps with no known gap report
+// zero uncollected files" against a hardcoded `['kiosk-web',
+// 'management-web']`. Deleted (#2397 review finding 4): it could not fail
+// without the first assertion also failing — the first assertion already
+// iterates every discovered app, including both of those — and it hardcoded
+// exactly the list the *other* assertion (app roots are discovered, not
+// hardcoded) exists to argue against.
+//
+// Divergence from `lint-scope.test.mjs`'s precedent, chosen rather than
+// inherited: that guard asks ESLint through its Node API; this one shells
+// out to the app's own `vitest` bin, five times across a `pnpm test` run.
+// Defensible — it is more faithfully "the tool the gate uses", since vitest
+// (unlike ESLint) has no supported programmatic "what would you collect"
+// API — but it is a choice, not a default.
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -55,12 +69,20 @@ const normalise = (filePath) => filePath.split(path.sep).join('/');
 // The one assertion in this file that is about discovery rather than
 // content: which directories under `directory` are "an app" (a `test`
 // script in their package.json), read from the filesystem each run.
+// A missing directory (ENOENT) is tolerated — it means "no app here", which
+// is what the `gamma-not-a-package` fixture (no package.json at all) relies
+// on. Any other failure — in particular a `package.json` that exists but
+// fails to parse — propagates and fails the guard loudly. Swallowing it
+// would silently drop that app out of `appRoots`, and the guard would report
+// green having checked nothing for it: the exact failure mode this guard
+// exists to catch, turned on itself (#2397 review finding 2).
 async function discoverAppRoots(directory) {
   let entries;
   try {
     entries = await readdir(directory, { withFileTypes: true });
-  } catch {
-    return [];
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
   }
 
   const roots = [];
@@ -71,8 +93,9 @@ async function discoverAppRoots(directory) {
     let packageJson;
     try {
       packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8'));
-    } catch {
-      continue;
+    } catch (error) {
+      if (error.code === 'ENOENT') continue;
+      throw error;
     }
 
     if (typeof packageJson.scripts?.test === 'string') {
@@ -82,12 +105,17 @@ async function discoverAppRoots(directory) {
   return roots.sort();
 }
 
+// Same tolerance as discoverAppRoots, and for the same reason: a missing
+// directory is a legitimate "nothing here" (an app with no `src/`), but any
+// other readdir failure must propagate rather than silently produce an
+// empty candidate set (#2397 review finding 2).
 async function testShapedFilesUnder(directory) {
   let entries;
   try {
     entries = await readdir(directory, { withFileTypes: true });
-  } catch {
-    return [];
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
   }
 
   const files = [];
@@ -104,15 +132,28 @@ async function testShapedFilesUnder(directory) {
   return files;
 }
 
+// Resolve the app's own installed `vitest` bin and run it directly with
+// `process.execPath`, rather than shelling out to `npx`. Two things this
+// avoids (#2397 review finding 8): the `npx`/`npx.cmd` platform branch, which
+// was dead anyway once `shell: true` was in play — the shell resolves `npx`
+// through PATHEXT on Windows regardless of which spelling is passed — and
+// the `shell: true` option itself, which drew a DEP0190 deprecation warning
+// on every run. No shell, no platform branch, no warning.
+function vitestBinFor(appRoot) {
+  const require = createRequire(path.join(appRoot, 'package.json'));
+  const vitestPackageJsonPath = require.resolve('vitest/package.json');
+  const vitestPackage = JSON.parse(readFileSync(vitestPackageJsonPath, 'utf8'));
+  const vitestBinEntry = typeof vitestPackage.bin === 'string' ? vitestPackage.bin : vitestPackage.bin.vitest;
+  return path.join(path.dirname(vitestPackageJsonPath), vitestBinEntry);
+}
+
 // The "ask the tool" half: vitest's own resolution of what it will collect,
 // run through the app's real, shipped config — not a re-implementation of
 // its include globs.
 function collectedFilesFor(appRoot) {
-  const command = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const result = spawnSync(command, ['vitest', 'list', '--filesOnly', '--json'], {
+  const result = spawnSync(process.execPath, [vitestBinFor(appRoot), 'list', '--filesOnly', '--json'], {
     cwd: appRoot,
     encoding: 'utf8',
-    shell: true,
   });
 
   assert.equal(
@@ -133,6 +174,13 @@ test('every test-shaped file under an app src/ is collected by that app vitest',
   for (const appRoot of appRoots) {
     const appName = path.basename(appRoot);
     const collected = collectedFilesFor(appRoot);
+    // A collected set of zero would make the inner loop vacuously pass —
+    // every candidate would report "uncollected", true, but a `discovered
+    // app that collects nothing` is itself a sign the guard checked nothing
+    // real for it (#2397 review finding 2). Assert it per app, not only via
+    // the top-level `appRoots.length > 0`, which fires only if *every* app
+    // vanished.
+    assert.ok(collected.size > 0, `expected apps/${appName}'s vitest to collect at least one file`);
     const candidates = await testShapedFilesUnder(path.join(appRoot, 'src'));
 
     for (const candidate of candidates) {
@@ -144,26 +192,6 @@ test('every test-shaped file under an app src/ is collected by that app vitest',
   }
 
   assert.deepEqual(uncollected, [], `test files not collected by any vitest run:\n${uncollected.join('\n')}`);
-});
-
-test('apps with no known include gap report zero uncollected files', async () => {
-  const appsWithoutKnownGap = ['kiosk-web', 'management-web'];
-
-  for (const appName of appsWithoutKnownGap) {
-    const appRoot = path.join(appsDirectory, appName);
-    const collected = collectedFilesFor(appRoot);
-    const candidates = await testShapedFilesUnder(path.join(appRoot, 'src'));
-
-    const uncollected = candidates
-      .filter((candidate) => !collected.has(normalise(path.resolve(candidate))))
-      .map((candidate) => normalise(path.relative(repositoryRoot, candidate)));
-
-    assert.deepEqual(
-      uncollected,
-      [],
-      `expected zero uncollected test files in apps/${appName}, got: ${uncollected.join(', ')}`,
-    );
-  }
 });
 
 test('app roots are discovered from apps/*/package.json, not a hardcoded list', async () => {
