@@ -577,6 +577,13 @@ smart-sentinel-eye/
 - **Architecture:** `NetArchTest` rules enforce bounded-context
   boundaries. A failing arch test blocks merge.
 - **Latency:** synthetic load tests covering the 250-camera target.
+- **Waiting:** a test waits for a *condition*, never for a *count*. A fixed
+  number of event-loop yields is not a bound on work that advances in
+  another phase of the loop, so a settle of N yields followed by a
+  synchronous assertion is a defect rather than a synchronisation
+  primitive — it passes on the author's machine and fails under CI
+  contention. Poll the condition against a wall-clock deadline; the
+  deadline is a failure bound, not a wait (ADR-0150).
 
 ### Code Review and Merging
 
