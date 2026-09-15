@@ -189,25 +189,33 @@ this one.
 
 ### T009 — Say why the surviving `flushConnect()` calls survive
 
-Five call sites keep their fixed count, and every one of them precedes an
-assertion that something did **not** happen — a negative, which no condition wait
-can express, and for which a bounded drive is the correct instrument:
+Five call sites keep their fixed count. Only `:571` precedes a purely negative
+assertion — a fresh `getToken` closure must change **nothing** — for which no
+condition wait can be expressed and a bounded drive is the correct instrument.
+The other four (`:350`, `:416`, `:452`, `:470`) also precede assertions about
+state that DOES have to arrive — camera A's session closed, the "Connecting…"
+label — but `flushConnect`'s drive is not what makes those safe: the
+`view.rerender(...)` immediately before each of them is itself act-wrapped, so
+React flushes the outgoing effect's cleanup and the incoming effect's
+synchronous body before `rerender` returns, and that state is already settled
+by the time `flushConnect` even runs.
 
-| Site | What it lets fail to happen |
+| Site | What follows |
 |---|---|
-| `:350` | no second POST to camera A; instance count stays 1 |
-| `:416` | camera A's session closed, nothing new opened |
+| `:350` | no second POST to camera A; instance count stays 1 — negative |
+| `:416` | camera A's session closed; `Connecting…` present — already settled by `rerender`'s act |
 | `:452` | as `:416` |
 | `:470` | as `:416` |
-| `:571` | **the whole test** — a new `getToken` closure must change nothing |
+| `:571` | **the whole test** — a new `getToken` closure must change nothing — negative |
 
 Add **one** comment on `flushConnect`'s docblock (`:226-239`) recording the
-division — it drives the fakes, it never synchronises an assertion about a state
-that has to arrive — and cite #2386. Do not comment all five sites; one statement
+division above — and cite #2386. Do not comment all five sites; one statement
 of the rule, per CLAUDE.md's no-drive-by-comments rule.
 
-`flushConnect` keeps its budget of **10**. It is drive strength now, not a
-deadline.
+`flushConnect`'s budget of **10** is not load-bearing for any of these five
+sites: an empty loop (`i < 0`, zero yields) still leaves all seven tests
+passing. Do not record the count as though it matters here — it exists for
+`waitForNewPeerConnection`'s own bounded-drive use elsewhere in the file.
 
 **Depends on:** T004–T008.
 

@@ -242,10 +242,18 @@ function viewerFor(cameraIdentifier: string, getToken: () => Promise<string | nu
  *
  * `flushConnect` is a DRIVER, not a synchroniser: it is the right instrument
  * for giving the fakes a bounded chance to advance, or for probing that
- * something does NOT happen, but it must never be the last thing before an
- * assertion about a state that has to arrive — that is what `waitUntil`
- * (below) is for. The remaining call sites in this file precede only
- * negative assertions, for which a condition wait cannot be expressed (#2386).
+ * something does NOT happen, but it must never be the SOLE reason an
+ * assertion about a state that has to arrive is safe — that is what
+ * `waitUntil` (below) is for. Most of the remaining call sites in this file
+ * DO precede an assertion about arrived state (`pcA.closed`, the
+ * "Connecting…" label) — what makes those safe is not this function: the
+ * `view.rerender(...)` immediately before each of them is itself act-wrapped,
+ * so React flushes the outgoing effect's cleanup and the incoming effect's
+ * synchronous body before `rerender` returns, and that state is already
+ * settled by the time `flushConnect` even runs. Only one remaining site
+ * (the fresh-`getToken` re-render test) precedes a genuinely negative
+ * assertion — nothing changed — for which a condition wait cannot be
+ * expressed and a bounded drive is the right and only instrument (#2386).
  */
 async function flushConnect() {
   await act(async () => {
@@ -262,9 +270,12 @@ async function flushConnect() {
  * A real wall-clock wait, for the one scenario that needs the 5 s poll to
  * actually elapse. Ends with `flushConnect` deliberately: the sleep only
  * proves the timer fired, not that whatever it triggers (a refetch, a
- * re-dial) has finished propagating through React — and the assertions this
- * precedes are the negative kind `flushConnect`'s own docblock sanctions it
- * for, never a state that has to arrive.
+ * re-dial) has finished propagating through React. What follows this call is
+ * a mix of negative assertions (no further POST to camera A) and one
+ * positive one already on screen before this wait even starts — RTK's
+ * `writePendingCacheEntry` preserves `error` across a pending refetch, so the
+ * "Viewer error" label does not flash back to "Connecting…" every 5 s, and
+ * there is nothing new for it to arrive at here.
  */
 async function realWait(ms: number) {
   await act(async () => {
@@ -311,10 +322,11 @@ async function waitUntil(
  * stream" branch and throws on a fake stream with no `getTracks`.
  */
 async function waitForNewPeerConnection(before: number, timeoutMs = 4000): Promise<FakePeerConnection> {
-  // The had/have counts are built lazily — only read if the wait actually
-  // times out — so a real error thrown during the poll (e.g. a component
-  // crash `act()` rethrows) propagates verbatim instead of being swallowed
-  // into a generic timeout message.
+  // The "have" count is built lazily, inside a callback, so it is read at
+  // TIMEOUT time rather than at this call site's time: `waitUntil` invokes
+  // the description only if the deadline is reached, by which point more
+  // instances may have been constructed than existed when `waitUntil` was
+  // called. A description built eagerly here would report a stale count.
   await waitUntil(
     () => FakePeerConnection.instances.length > before,
     () => `a new RTCPeerConnection (had ${before}, still have ${FakePeerConnection.instances.length})`,
@@ -590,10 +602,22 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
       // GET is still in flight when the effects first run. This is the only
       // scenario in the file that exercises that ordering.
       view.rerender(viewerFor(CAM_B));
-      await waitUntil(
-        () => screen.queryByText('Stream is offline') !== null,
-        "camera B's warm offline state to land in the same commit as the swap",
-      );
+
+      // Deliberately a synchronous read, NOT a `waitUntil` — this assertion
+      // exists solely to pin that the camera-change effect's
+      // `transitionTo('connecting')` and the session effect's
+      // `transitionTo('offline', ...)` fire in the SAME commit as this
+      // rerender, in that order (see the GUARD comment below). `rerender` is
+      // itself act-wrapped, so if that same-commit guarantee holds, the label
+      // is already on screen the instant `rerender` returns — no wait is
+      // needed to observe it. Polling here would ALSO pass if the label
+      // instead arrived in a LATER commit (e.g. a shortened
+      // `keepUnusedDataFor` evicting the warm cache entry, forcing a cold
+      // refetch that answers a tick later): exactly the ordering the premise
+      // wait above exists to rule out, silently handed back at the one
+      // assertion this whole scenario exists to make. Do not convert this to
+      // a wait.
+      expect(screen.queryByText('Stream is offline')).not.toBeNull();
 
       expect(videoElement()).toBe(videoEl);
       expect(pcA.closed).toBe(true);
