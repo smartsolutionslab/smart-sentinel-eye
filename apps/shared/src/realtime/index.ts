@@ -18,3 +18,20 @@ export interface RealtimeClient {
   subscribe(topic: string, handler: (message: RealtimeMessage) => void): RealtimeSubscription;
   disconnect(): void;
 }
+
+// Adoption gap, recorded rather than rediscovered (spec 162 §1.8 / #2397):
+// nothing implements RealtimeClient. Zero implementors, zero consumers — all
+// seven real import sites use `shared/realtime/layoutHub`, the SignalR client,
+// whose `start`/`stop`/`state` surface does not satisfy connect/subscribe/
+// disconnect and never claimed to. `src/Realtime.Abstractions/` holds zero
+// `.cs` files. Whether this interface should survive is tracked by #2400 and
+// is not decided here.
+
+type Exact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+
+// ADR-0076 promises a v2 transport drops in behind this interface without
+// changing consumers. Adding or removing a member breaks that promise, so the
+// shape is pinned: tsc fails in BOTH directions, which a `keyof`-typed array
+// does not (a subset satisfies it). See spec 162 §3.3.
+export const realtimeClientSurfaceIsExhaustive: Exact<keyof RealtimeClient, 'connect' | 'subscribe' | 'disconnect'> =
+  true;
