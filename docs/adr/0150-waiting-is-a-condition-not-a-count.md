@@ -95,6 +95,45 @@ not.
 Enforced by an ESLint `no-restricted-syntax` rule over `**/*.test.{ts,tsx}`,
 failing the build in the `frontend` bucket rather than warning.
 
+**Amended 2026-09-15, on measurement taken while implementing this ADR (spec
+161, issue #2392).** The adjacency rule above is kept, but it is not sufficient
+on its own, and the reason is that the premise behind it was wrong.
+
+`flushConnect` was assumed to be one helper. It is **one name with two opposite
+semantics across six files**: a macrotask settle in
+`CameraViewerCameraSwap.test.tsx` (the defect) and a microtask drain in five
+sibling suites (sound). A name-keyed adjacency rule run over the real tree
+produces **26 errors, 22 of them the sound drains** — precisely the outcome this
+ADR rejected the blanket ban for. That collision is also the likeliest reason the
+defect spread: a reader copying `flushConnect` from a neighbouring suite cannot
+tell which one they copied.
+
+Worse, once the defect is cleaned up the adjacency rule's population is **zero**,
+and it is evaded by naming the helper anything else. It is a reserved-name guard,
+not a bound.
+
+So a second, **shape-based** selector is added — a `for` loop with a literal
+bound containing `await new Promise(...)`:
+
+```
+ForStatement[test.right.type='Literal'] AwaitExpression > NewExpression[callee.name='Promise']
+```
+
+Measured population over the whole tree: **exactly one**, the broken helper. It
+does not match the microtask drains (`Promise.resolve()` is a `CallExpression`,
+not a `NewExpression`), nor `waitUntil`'s deadline poll (a `WhileStatement`), nor
+`realWait` (no loop), nor `WhepClient.test.ts`'s bare timer awaits (no loop), nor
+counted `fireEvent` loops (no `await`).
+
+**This supersedes this ADR's own rejection of "ban it outright."** That rejection
+rested on the claim that a ban "would condemn correct code" — the microtask
+drains. Measured, it does not: the shape selector draws its line exactly where
+the measurement draws it, without a name list. The probe that settles it is in
+this ADR's Implementation Notes: with the macrotask helper's body emptied
+entirely — no loop, no `act` — the suite still passes 7/7, while blanking the
+sound helpers' bodies fails 5 tests. The instrument this bans is inert; the one
+it spares is load-bearing.
+
 ### 3. What the rule cannot see is written down, not assumed away
 
 The rule is **necessary, not sufficient**. It cannot see through a helper that
@@ -159,6 +198,14 @@ demonstrably do nothing (`i < 0` passes). Rejected because "they do nothing in
 because the six sibling suites in `apps/shared` settle with microtask-only drains
 that are genuinely sound — N microtask rounds *do* bound an N-deep microtask
 chain, with no wall-clock dependence. A blanket ban would condemn correct code.
+
+**Overturned by the amendment in §2 (2026-09-15).** This rejection was right
+about the microtask drains and wrong about the inference: a ban keyed on the
+*shape* of the broken instrument spares them, because they are a different shape.
+The ban stands for `await new Promise(...)` inside a literal-bound loop — one
+site, measured — and not for the drains. Left here rather than rewritten, because
+what this ADR got wrong before it was implemented is the useful part of the
+record.
 
 **Do nothing; the tests are fixed.** Rejected: the same defect has now been fixed
 twice in one file, by two different commits, with the second fix arriving only
