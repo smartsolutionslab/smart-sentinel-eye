@@ -333,8 +333,14 @@ the filename, not the glob** — as #2397 suspected.
 makes the three apps consistent in the wrong direction: it admits a suffix the repo does
 not use under `src/` and that Playwright owns elsewhere, and it fixes exactly one file
 while leaving the failure mode — *a test file that no runner collects* — fully intact for
-every other spelling (`client.tests.ts`, `client.test.mts`, a file under a directory the
-glob misses).
+every other way a file can go uncollected: a spelling the guard's own pattern
+(`/\.(test|spec)\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/`) does not match — confirmed by probe,
+it catches `client.test.mts` and `client.spec.mjs` but not `client.tests.ts` (a plural, not
+the word `test`) or a differently-cased `Foo.Test.ts` — or a file outside the one directory
+the guard walks (`apps/<app>/src`; `apps/shared/tests/x.test.ts` would be unflagged, a
+population that is currently zero, verified). §5.2's guard narrows the *mechanism*
+(reachability, not naming); it does not claim to catch every possible spelling or location,
+only the ones its stated pattern and its stated root cover.
 
 ### 5.2 The mechanism should be **reachability**, not naming
 

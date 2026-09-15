@@ -147,6 +147,16 @@ deliberate: it is the thing most likely to be read by someone changing the inter
 needs no new export entry in `package.json`, and under `spec.md` §4 option (B) it is
 deleted in the same breath as the module.
 
+**Correction (#2397 phase-6 review, finding 1):** this reasoning does not survive contact
+with `spec.md` §3.4's own discrimination criterion — "the expectation and the subject must
+live in **different files**" — whose table names "the pin file" as the expectation's home.
+Co-locating subject and expectation is exactly the shape the criterion exists to catch: it
+still discriminates today (tsc computes the relation either way), but a later edit to
+`RealtimeClient` in this same file could re-pin the shape in the same breath that changes
+it, silently. The pin moved to `apps/shared/src/realtime/surface.pin.ts`; `index.ts` keeps
+a one-line pointer to it. `spec.md` §4 option (B) is unaffected — deleting `index.ts` still
+takes its sibling pin file with it.
+
 The pin's shape, verified at phase 1 in both directions:
 
 ```ts
