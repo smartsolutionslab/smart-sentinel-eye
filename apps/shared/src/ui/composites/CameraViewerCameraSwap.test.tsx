@@ -42,9 +42,6 @@ const CAM_B_WHEP_URL = 'http://sfu.test/whep/cam-b';
 
 class FakePeerConnection {
   static instances: FakePeerConnection[] = [];
-  static lastInstance(): FakePeerConnection {
-    return FakePeerConnection.instances[FakePeerConnection.instances.length - 1]!;
-  }
   ontrack: ((event: { streams: unknown[] }) => void) | null = null;
   onconnectionstatechange: (() => void) | null = null;
   connectionState = 'new';
@@ -83,6 +80,29 @@ class FakePeerConnection {
   setConnectionState(state: string) {
     this.connectionState = state;
     this.onconnectionstatechange?.();
+  }
+}
+
+/**
+ * A real, if minimal, stand-in for `MediaStream` — `WhepClient.ts`'s
+ * `ontrack` handler calls `.getTracks()` on whatever `sessionStream` holds
+ * when a second track event arrives for the same session, and a plain
+ * `{ id: string }` object does not have one. Mirrors
+ * `apps/shared/src/streaming/WhepClient.test.ts`'s own `FakeMediaStream`.
+ */
+class FakeMediaStream {
+  private readonly tracks: { kind: string; id: string; stop: () => void }[];
+
+  constructor(tracks: { kind: string; id: string; stop: () => void }[] = []) {
+    this.tracks = [...tracks];
+  }
+
+  addTrack(track: { kind: string; id: string; stop: () => void }) {
+    if (!this.tracks.includes(track)) this.tracks.push(track);
+  }
+
+  getTracks() {
+    return [...this.tracks];
   }
 }
 
@@ -236,15 +256,46 @@ async function realWait(ms: number) {
   await flushConnect();
 }
 
-/** Drains the connect chain, then drives the most recently created fake peer
- * connection to `connected` with a track attached — the fake stand-in for a
- * frame having actually arrived, so `srcObject` genuinely holds something the
- * later assertions can prove gets cleared. */
+/**
+ * Waits for a NEW `FakePeerConnection` to exist beyond `before`, polling the
+ * actual condition on real timers with a deadline — not a fixed number of
+ * macrotask yields. `flushConnect`'s fixed count is reliably enough locally,
+ * but CI showed it is an assumption, not a guarantee: under contention it can
+ * run out before React has even dispatched the effect that constructs a
+ * connection, and `FakePeerConnection.lastInstance()` then silently returns
+ * either `undefined` (nothing built yet) or a STALE connection from an
+ * earlier call — the second of which is worse, because firing `ontrack` a
+ * second time on an already-`ontrack`ed connection hits
+ * `WhepClient.ts`'s "carry the previous session's tracks into the new
+ * stream" branch and throws on a fake stream with no `getTracks`.
+ */
+async function waitForNewPeerConnection(before: number, timeoutMs = 4000): Promise<FakePeerConnection> {
+  const deadline = Date.now() + timeoutMs;
+  while (FakePeerConnection.instances.length <= before) {
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `Timed out after ${timeoutMs}ms waiting for a new RTCPeerConnection ` +
+          `(had ${before}, still have ${FakePeerConnection.instances.length}).`,
+      );
+    }
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+  }
+  return FakePeerConnection.instances[FakePeerConnection.instances.length - 1]!;
+}
+
+/** Waits for a new peer connection (see above), lets its connect chain
+ * (offer → POST → answer) actually settle, then drives it to `connected`
+ * with a track attached — the fake stand-in for a frame having actually
+ * arrived, so `srcObject` genuinely holds something the later assertions
+ * can prove gets cleared. */
 async function goLive(): Promise<FakePeerConnection> {
+  const before = FakePeerConnection.instances.length;
+  const pc = await waitForNewPeerConnection(before);
   await flushConnect();
-  const pc = FakePeerConnection.lastInstance();
   act(() => {
-    pc.ontrack?.({ streams: [{ id: `fake-stream-${FakePeerConnection.instances.indexOf(pc)}` }] });
+    pc.ontrack?.({ streams: [new FakeMediaStream()] });
     pc.setConnectionState('connected');
   });
   return pc;
