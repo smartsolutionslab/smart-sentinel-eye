@@ -421,4 +421,81 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
     expect(document.activeElement).not.toBe(screen.getByRole('button', { name: /^save draft$/i }));
     expect(statusRegion().textContent).toBe('');
   });
+
+  /**
+   * Spec 158 (issue #2379) — GREEN characterisation (ADR-0139/ADR-0144).
+   *
+   * Unlike the overlay dialog, `LayoutEditorDialog.tsx:420` already ORs
+   * `chainFetching` into the Save predicate — but nothing in this repo
+   * pinned it: `LayoutEditorDialog.tsx:412-413`'s own comment says so in
+   * words ("Neither is pinned by a test in this repo, so the outcome is
+   * recorded here rather than asserted"), and every `it` in
+   * `LayoutEditorDialogChainRetention.test.tsx` that drives `chainFetching:
+   * true` also has `currentChain === undefined` (`:207`, `:332`, `:409`),
+   * so the `currentChain === undefined` half of the predicate alone closes
+   * all three — `chainFetching` could be deleted and that file would stay
+   * green. This file's own Reload test (FR-008, above) drives `isFetching:
+   * true` with `data` retained but asserts focus only, never Save's
+   * disabled state.
+   *
+   * This test exists to close that gap: it is the mirror of the overlay
+   * dialog's new RED test (`OverlayEditorDialogChainRecovery.test.tsx`),
+   * captured GREEN here because `chainFetching` is already present — no
+   * production edit follows on this side. Proved by counterfactual in T004
+   * (deleting ` || chainFetching` from `LayoutEditorDialog.tsx:420` must
+   * fail this exact test) rather than trusted on the strength of this
+   * comment.
+   */
+  it('Save is unavailable while the re-read Reload started is in flight, and resumes once it answers with the new version (FR-005)', async () => {
+    const user = userEvent.setup();
+    editError = {
+      status: 409,
+      data: { title: 'LAYOUT_REVISION_STALE', detail: 'Layout has changed since version 7 (now 8).' },
+    };
+    chainQueryState = {
+      data: { layoutIdentifier: EDIT_TARGET.layoutIdentifier, version: 7 },
+      isError: false,
+      isFetching: false,
+    };
+    renderDialog();
+
+    const reloadButton = await screen.findByRole('button', { name: /reload/i });
+    const saveButton = screen.getByRole('button', { name: /^save draft$/i });
+    const editDraftCallsBeforeReload = editDraftMock.mock.calls.length;
+
+    await user.click(reloadButton);
+
+    // 1. `data` is retained through the refetch (harness contract above).
+    expect(chainQueryState.data).toStrictEqual({ layoutIdentifier: EDIT_TARGET.layoutIdentifier, version: 7 });
+    expect(chainQueryState.isFetching).toBe(true);
+
+    // 2. Save must be unavailable while the re-read is in flight, even
+    //    though `currentChain` (v7) is still defined.
+    expect(saveButton).toBeDisabled();
+
+    // 3. The harm, not only the attribute: clicking must not submit v7 a
+    //    second time while the re-read is still on the wire.
+    await user.click(saveButton);
+    expect(editDraftMock).toHaveBeenCalledTimes(editDraftCallsBeforeReload);
+
+    // 4. The complement: once the re-read answers with the corrected
+    //    version, Save re-enables and a save now carries that version, not
+    //    the stale one.
+    await act(async () => {
+      setChainQueryState({
+        data: { layoutIdentifier: EDIT_TARGET.layoutIdentifier, version: 8 },
+        isError: false,
+        isFetching: false,
+      });
+    });
+
+    expect(saveButton).not.toBeDisabled();
+
+    await user.click(saveButton);
+
+    expect(editDraftMock).toHaveBeenCalledTimes(editDraftCallsBeforeReload + 1);
+    expect(editDraftMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ layoutIdentifier: EDIT_TARGET.layoutIdentifier, version: 8 }),
+    );
+  });
 });
