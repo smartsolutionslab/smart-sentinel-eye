@@ -80,8 +80,14 @@ function renderViewer() {
   return render(viewer());
 }
 
-/** Drains the async connect chain (offer → POST → answer) inside act. */
-async function flushConnect() {
+/**
+ * Drains the async connect chain (offer → POST → answer) inside act.
+ *
+ * N microtask rounds bound an N-deep microtask chain — no wall-clock
+ * dependence, so this is a bound and not an assumption (ADR-0150). Not a
+ * substitute for `waitFor` when the work crosses into the timer phase.
+ */
+async function flushMicrotasks() {
   await act(async () => {
     for (let i = 0; i < 12; i += 1) {
       await Promise.resolve();
@@ -96,7 +102,7 @@ async function advance(ms: number) {
 }
 
 async function goLive() {
-  await flushConnect();
+  await flushMicrotasks();
   act(() => {
     FakePeerConnection.lastInstance().setConnectionState('connected');
   });
@@ -130,7 +136,7 @@ describe('CameraViewer stream session state machine', () => {
   it('Does not claim Live until the peer connection reports connected', async () => {
     setHealth('Healthy');
     renderViewer();
-    await flushConnect();
+    await flushMicrotasks();
 
     // The WHEP POST has succeeded, but media transport is not up yet.
     expect(screen.getByText('Connecting…')).toBeDefined();
@@ -156,7 +162,7 @@ describe('CameraViewer stream session state machine', () => {
     expect(FakePeerConnection.instances).toHaveLength(1);
 
     await advance(1000); // base delay; jitter factor pinned to 1.0 via Math.random = 0.5
-    await flushConnect();
+    await flushMicrotasks();
 
     expect(FakePeerConnection.instances).toHaveLength(2);
   });
@@ -195,7 +201,7 @@ describe('CameraViewer stream session state machine', () => {
     expect(screen.getByText('Reconnecting…')).toBeDefined();
 
     await advance(1000);
-    await flushConnect();
+    await flushMicrotasks();
 
     expect(FakePeerConnection.instances).toHaveLength(2);
   });
@@ -204,7 +210,7 @@ describe('CameraViewer stream session state machine', () => {
     fetchMock.mockRejectedValue(new Error('gateway down'));
     setHealth('Healthy');
     renderViewer();
-    await flushConnect();
+    await flushMicrotasks();
 
     expect(screen.getByText('Reconnecting…')).toBeDefined();
     expect(FakePeerConnection.instances).toHaveLength(1);
@@ -212,7 +218,7 @@ describe('CameraViewer stream session state machine', () => {
     const expectedDelays = [1000, 2000, 4000, 8000, 15000, 15000];
     for (const [index, delay] of expectedDelays.entries()) {
       await advance(delay);
-      await flushConnect();
+      await flushMicrotasks();
       expect(FakePeerConnection.instances).toHaveLength(index + 2);
     }
   });
@@ -222,20 +228,20 @@ describe('CameraViewer stream session state machine', () => {
     vi.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(1);
     setHealth('Healthy');
     renderViewer();
-    await flushConnect();
+    await flushMicrotasks();
 
     // First retry: base 1000 ms at the jitter floor (factor 0.8).
     await advance(799);
     expect(FakePeerConnection.instances).toHaveLength(1);
     await advance(1);
-    await flushConnect();
+    await flushMicrotasks();
     expect(FakePeerConnection.instances).toHaveLength(2);
 
     // Second retry: base 2000 ms at the jitter ceiling (factor 1.2).
     await advance(2399);
     expect(FakePeerConnection.instances).toHaveLength(2);
     await advance(1);
-    await flushConnect();
+    await flushMicrotasks();
     expect(FakePeerConnection.instances).toHaveLength(3);
   });
 
@@ -243,7 +249,7 @@ describe('CameraViewer stream session state machine', () => {
     fetchMock.mockRejectedValue(new Error('gateway down'));
     setHealth('Healthy');
     const view = renderViewer();
-    await flushConnect();
+    await flushMicrotasks();
 
     expect(screen.getByText('Reconnecting…')).toBeDefined();
 
@@ -258,7 +264,7 @@ describe('CameraViewer stream session state machine', () => {
     fetchMock.mockResolvedValue(sdpResponse());
     setHealth('Healthy');
     view.rerender(viewer());
-    await flushConnect();
+    await flushMicrotasks();
 
     expect(FakePeerConnection.instances).toHaveLength(2);
   });
@@ -276,7 +282,7 @@ describe('CameraViewer stream session state machine', () => {
 
     setHealth('Healthy');
     view.rerender(viewer());
-    await flushConnect();
+    await flushMicrotasks();
 
     expect(FakePeerConnection.instances).toHaveLength(2);
     expect(FakePeerConnection.instances[0]!.closed).toBe(true);

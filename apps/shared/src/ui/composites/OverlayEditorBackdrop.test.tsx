@@ -146,8 +146,14 @@ function isDisabled(el: HTMLElement): boolean {
   return (el as HTMLInputElement | HTMLButtonElement).disabled;
 }
 
-/** Drains the async connect chain (offer → POST → answer) inside act. */
-async function flushConnect() {
+/**
+ * Drains the async connect chain (offer → POST → answer) inside act.
+ *
+ * N microtask rounds bound an N-deep microtask chain — no wall-clock
+ * dependence, so this is a bound and not an assumption (ADR-0150). Not a
+ * substitute for `waitFor` when the work crosses into the timer phase.
+ */
+async function flushMicrotasks() {
   await act(async () => {
     for (let i = 0; i < 12; i += 1) {
       await Promise.resolve();
@@ -249,11 +255,11 @@ describe('OverlayEditor backdrop selection (spec 147 T002)', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /capture frame/i }));
 
-    await flushConnect();
+    await flushMicrotasks();
     act(() => {
       FakePeerConnection.lastInstance().setConnectionState('connected');
     });
-    await flushConnect();
+    await flushMicrotasks();
 
     const capturedRadio = screen.getByRole('radio', { name: 'Captured frame' });
     expect(isDisabled(capturedRadio)).toBe(false);

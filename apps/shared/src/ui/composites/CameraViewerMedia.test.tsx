@@ -157,8 +157,14 @@ function renderViewer() {
   return render(<CameraViewer cameraIdentifier="cam-42" getToken={async () => 'token'} />);
 }
 
-/** Drains the async connect chain (offer → POST → answer) inside act. */
-async function flushConnect() {
+/**
+ * Drains the async connect chain (offer → POST → answer) inside act.
+ *
+ * N microtask rounds bound an N-deep microtask chain — no wall-clock
+ * dependence, so this is a bound and not an assumption (ADR-0150). Not a
+ * substitute for `waitFor` when the work crosses into the timer phase.
+ */
+async function flushMicrotasks() {
   await act(async () => {
     for (let i = 0; i < 12; i += 1) {
       await Promise.resolve();
@@ -174,7 +180,7 @@ async function advance(ms: number) {
 
 /** Brings the newest session's transport up — and nothing else. No track. */
 async function reachConnected() {
-  await flushConnect();
+  await flushMicrotasks();
   act(() => {
     FakePeerConnection.lastInstance().setConnectionState('connected');
   });
@@ -274,7 +280,7 @@ describe('CameraViewer media confirmation', () => {
     expect(FakePeerConnection.instances).toHaveLength(1);
 
     await advance(1000); // base delay; jitter factor pinned to 1.0
-    await flushConnect();
+    await flushMicrotasks();
 
     expect(FakePeerConnection.instances).toHaveLength(2);
   });
@@ -303,7 +309,7 @@ describe('CameraViewer media confirmation', () => {
     await advance(999);
     expect(FakePeerConnection.instances).toHaveLength(1);
     await advance(1);
-    await flushConnect();
+    await flushMicrotasks();
     expect(FakePeerConnection.instances).toHaveLength(2);
 
     // Cycle two: 2 s.
@@ -312,7 +318,7 @@ describe('CameraViewer media confirmation', () => {
     await advance(1999);
     expect(FakePeerConnection.instances).toHaveLength(2);
     await advance(1);
-    await flushConnect();
+    await flushMicrotasks();
     expect(FakePeerConnection.instances).toHaveLength(3);
 
     // Cycle three: 4 s, and this is the assertion that fails on a ladder that
@@ -325,7 +331,7 @@ describe('CameraViewer media confirmation', () => {
       'a retry spaced by the base delay would already have opened a fourth session',
     ).toHaveLength(3);
     await advance(1);
-    await flushConnect();
+    await flushMicrotasks();
     expect(FakePeerConnection.instances).toHaveLength(4);
   });
 
@@ -366,7 +372,7 @@ describe('CameraViewer media confirmation', () => {
       FakePeerConnection.lastInstance().setConnectionState('failed');
     });
     await advance(1_000); // base delay; jitter factor pinned to 1.0
-    await flushConnect();
+    await flushMicrotasks();
     expect(FakePeerConnection.instances).toHaveLength(2);
 
     // Session two negotiates cleanly and delivers no track: the counter stays.
