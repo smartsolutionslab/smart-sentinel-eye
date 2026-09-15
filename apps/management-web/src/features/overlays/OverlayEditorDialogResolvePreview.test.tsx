@@ -243,7 +243,7 @@ describe('OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018)', () =
     const saveButton = screen.getByRole('button', { name: /save as draft/i });
     // `aria-disabled`, not native `disabled` (spec 160 FR-001); paired with
     // the click/call-count assertion below (already this test's own claim).
-    expect(saveButton).not.toHaveAttribute('aria-disabled', 'true');
+    expect(saveButton).toHaveAttribute('aria-disabled', 'false');
 
     await user.click(saveButton);
 
