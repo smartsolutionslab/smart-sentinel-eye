@@ -52,3 +52,16 @@ test('case 4 - a settle then a negated assertion', async () => {
   await flushConnect();
   expect(pc.closed).not.toBe(true);
 });
+
+// Case 5 — Selector B, widened (ADR-0150 §2 amended, #2392 phase 6 finding
+// 2): a counted `for` loop with a NAMED bound, not a literal one. The
+// ORIGINAL selector (`[test.right.type='Literal']`) missed this shape
+// entirely — `test.right.type` is `Identifier` here, not `Literal`. This
+// case is the pin: narrowing the bound back to `[test.right.type='Literal']`
+// must turn it green again.
+const ROUNDS = 10;
+test('case 5 - a counted loop with a named bound yields to the timer phase', async () => {
+  for (let i = 0; i < ROUNDS; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+});

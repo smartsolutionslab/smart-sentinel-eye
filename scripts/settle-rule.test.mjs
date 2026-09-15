@@ -44,71 +44,91 @@ const sharedApp = path.join(repositoryRoot, 'apps', 'shared');
 const managementWebApp = path.join(repositoryRoot, 'apps', 'management-web');
 const kioskWebApp = path.join(repositoryRoot, 'apps', 'kiosk-web');
 
+// All three apps carry their own COPY of the ADR-0150 config block (no
+// shared eslint config exists to lint through once) — see the contention-file
+// note in the project guide. Lint every fixture through all three, not just
+// `apps/shared`: a fat-fingered selector or dropped combinator in ONE app's
+// copy (`NewExpression` -> `NewExpresion`, say) would otherwise go
+// undetected as long as `apps/shared`'s copy stayed correct, because the
+// per-app fixture population is zero in the real repo either way (#2392
+// phase 6 finding 1).
+const apps = [
+  ['shared', sharedApp],
+  ['management-web', managementWebApp],
+  ['kiosk-web', kioskWebApp],
+];
+
 const severityOf = (entry) => (Array.isArray(entry) ? entry[0] : entry);
 
 function readFixture(name) {
   return readFileSync(path.join(fixturesRoot, name), 'utf8');
 }
 
-// Lints `code` through the real `apps/shared` ESLint config, at a filePath
+// Lints `code` through the real ESLint config of `appRoot`, at a filePath
 // matching `src/**/*.test.{ts,tsx}` — the rule's `files` scope — so flat
 // config resolves the same block `eslint src` would apply to a real suite.
 // The path need not exist on disk: flat config's `files` matcher and the
 // parser both operate on the string, not the filesystem.
-async function lintThroughSharedApp(code, fixtureName) {
-  const eslint = new ESLint({ cwd: sharedApp });
+async function lintThroughApp(appRoot, code, fixtureName) {
+  const eslint = new ESLint({ cwd: appRoot });
   const [result] = await eslint.lintText(code, {
-    filePath: path.join(sharedApp, 'src', 'ui', 'composites', `__${fixtureName}__.test.tsx`),
+    filePath: path.join(appRoot, 'src', 'ui', 'composites', `__${fixtureName}__.test.tsx`),
   });
   return result.messages.filter((message) => message.ruleId === 'no-restricted-syntax');
 }
 
-test('the rule flags a fixed-count settle before an assertion', async () => {
-  const code = readFixture('must-flag.fixture.txt');
-  const problems = await lintThroughSharedApp(code, 'must-flag');
+for (const [appName, appRoot] of apps) {
+  test(`the rule flags a fixed-count settle before an assertion (${appName})`, async () => {
+    const code = readFixture('must-flag.fixture.txt');
+    const problems = await lintThroughApp(appRoot, code, 'must-flag');
 
-  assert.equal(
-    problems.length,
-    4,
-    `expected exactly 4 no-restricted-syntax problems in must-flag.fixture.txt, ` +
-      `got ${problems.length}: ${JSON.stringify(problems, null, 2)}`,
-  );
-
-  assert.deepEqual(
-    problems.map((problem) => problem.line),
-    [28, 36, 46, 53],
-    'expected the 4 violations at their recorded lines — the counted timer-phase ' +
-      'loop (28), the plain settle-then-assert (36), the comment-separated ' +
-      'settle-then-assert (46), and the settle-then-negated-assert (53)',
-  );
-
-  for (const problem of problems) {
-    assert.match(
-      problem.message,
-      /waitFor|findBy|waitUntil/,
-      `expected the message to name a sanctioned idiom, got: ${problem.message}`,
+    assert.equal(
+      problems.length,
+      5,
+      `expected exactly 5 no-restricted-syntax problems in must-flag.fixture.txt ` +
+        `via ${appName}, got ${problems.length}: ${JSON.stringify(problems, null, 2)}`,
     );
-  }
-});
 
-test('the rule does not flag the sanctioned or the sound idiom', async () => {
-  const code = readFixture('must-not-flag.fixture.txt');
-  const problems = await lintThroughSharedApp(code, 'must-not-flag');
+    assert.deepEqual(
+      problems.map((problem) => problem.line),
+      [28, 36, 46, 53, 65],
+      `expected the 5 violations at their recorded lines via ${appName} — the ` +
+        'counted timer-phase loop with a literal bound (28), the plain ' +
+        'settle-then-assert (36), the comment-separated settle-then-assert (46), ' +
+        'the settle-then-negated-assert (53), and the counted timer-phase loop ' +
+        'with a NAMED bound (65, the widened-selector pin — #2392 phase 6 ' +
+        'finding 2)',
+    );
 
-  // This is the discrimination proof (plan.md §5): the previous test alone
-  // is also satisfied by a rule registered as `selector: "*"`. Only a
-  // fixture of idioms the rule must NOT touch — the waitUntil deadline
-  // poll, the un-looped realWait, the flushMicrotasks microtask drain (both
-  // before an assertion and before a driving call), an ordinary awaited
-  // helper, a counted loop with no await, and a bare un-looped timer
-  // await — closes that gap.
-  assert.deepEqual(
-    problems,
-    [],
-    `expected zero no-restricted-syntax problems in must-not-flag.fixture.txt, ` +
-      `got: ${JSON.stringify(problems, null, 2)}`,
-  );
-});
+    for (const problem of problems) {
+      assert.match(
+        problem.message,
+        /waitFor|findBy|waitUntil/,
+        `expected the message to name a sanctioned idiom via ${appName}, got: ${problem.message}`,
+      );
+    }
+  });
+
+  test(`the rule does not flag the sanctioned or the sound idiom (${appName})`, async () => {
+    const code = readFixture('must-not-flag.fixture.txt');
+    const problems = await lintThroughApp(appRoot, code, 'must-not-flag');
+
+    // This is the discrimination proof (plan.md §5): the previous test alone
+    // is also satisfied by a rule registered as `selector: "*"`. Only a
+    // fixture of idioms the rule must NOT touch — the waitUntil deadline
+    // poll, the un-looped realWait, the flushMicrotasks microtask drain (both
+    // before an assertion and before a driving call), an ordinary awaited
+    // helper, a counted loop with no await, a bare un-looped timer await, and
+    // an unbounded `for (;;)` poll with no `test` node at all — closes that
+    // gap.
+    assert.deepEqual(
+      problems,
+      [],
+      `expected zero no-restricted-syntax problems in must-not-flag.fixture.txt ` +
+        `via ${appName}, got: ${JSON.stringify(problems, null, 2)}`,
+    );
+  });
+}
 
 test('the rule is registered at error in every app that has tests', async () => {
   const cases = [
@@ -123,13 +143,44 @@ test('the rule is registered at error in every app that has tests', async () => 
   for (const [appRoot, testFile] of cases) {
     const eslint = new ESLint({ cwd: appRoot });
     const configuration = await eslint.calculateConfigForFile(testFile);
-    const severity = severityOf(configuration.rules?.['no-restricted-syntax']);
+    const entry = configuration.rules?.['no-restricted-syntax'];
+    const severity = severityOf(entry);
+    const relativeTestFile = path.relative(repositoryRoot, testFile);
 
     assert.equal(
       severity,
       2,
       `expected no-restricted-syntax at severity error (2) for ` +
-        `${path.relative(repositoryRoot, testFile)}, got ${JSON.stringify(severity)}`,
+        `${relativeTestFile}, got ${JSON.stringify(severity)}`,
+    );
+
+    // Severity alone is not enough (#2392 phase 6 finding 4): flat config
+    // REPLACES a rule's options rather than merging them, so a later block
+    // adding an unrelated no-restricted-syntax entry for test files (banning
+    // `describe.only`, say) would silently drop both selectors below while
+    // this test still sees severity 2. Assert the options array still
+    // carries both.
+    const options = Array.isArray(entry) ? entry.slice(1) : [];
+
+    assert.equal(
+      options.length,
+      2,
+      `expected exactly 2 no-restricted-syntax selectors for ` +
+        `${relativeTestFile}, got ${options.length}: ${JSON.stringify(options, null, 2)}`,
+    );
+
+    const selectors = options.map((option) => option.selector);
+
+    assert.ok(
+      selectors.some((selector) => selector.includes("NewExpression[callee.name='Promise']")),
+      `expected Selector B (the counted-loop instrument) among the options for ` +
+        `${relativeTestFile}, got: ${JSON.stringify(selectors)}`,
+    );
+
+    assert.ok(
+      selectors.some((selector) => selector.includes('flushConnect|settle|pump|spin')),
+      `expected Selector A (the reserved-name adjacency check) among the options for ` +
+        `${relativeTestFile}, got: ${JSON.stringify(selectors)}`,
     );
   }
 });

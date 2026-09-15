@@ -88,3 +88,18 @@ test('a counted loop that drives input is not a settle', () => {
 test('a bare timer await with no loop is not a fixed-count settle', async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
 });
+
+// `for (;;)` — an unbounded loop with NO `test` expression at all, exactly
+// the shape ADR-0150 §2 (amended) names as still outside Selector B after
+// widening: `ForStatement[test]` requires a `test` node to exist, so a
+// genuine deadline-style poll written as `for (;;) { … break …}` (mirrors
+// e2e/kiosk-shows-a-label-over-video.spec.ts's settleSubmitRoundTrip) stays
+// legal by structure, not by name.
+test('an unbounded for(;;) poll with no test expression is not a fixed-count settle', async () => {
+  let attempts = 0;
+  for (;;) {
+    attempts += 1;
+    if (attempts > 3) break;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+});
