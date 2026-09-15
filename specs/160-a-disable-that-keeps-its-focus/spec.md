@@ -354,6 +354,11 @@ Scenario: Save keeps focus from click through conflict to recovery
 The closing two lines are load-bearing: a gate stuck closed forever would satisfy
 every assertion above them.
 
+**The `document.activeElement` lines describe the behaviour, not the vitest
+mechanism that proves it.** Only the `aria-disabled` lines are asserted in
+the vitest suite; the focus lines are asserted in Playwright, against a real
+browser. See §7's amendment.
+
 ### 5.2 US2 — conflict path: a refused re-read keeps Save shut, with a way out
 
 ```gherkin
@@ -486,17 +491,67 @@ resolves to red and a silent declaration is how that gets missed.
 
 | Story | Behaviour | Colour | What "observed red" means concretely |
 |---|---|---|---|
-| **US1** | Changing — the disable mechanism changes, and the blocked-submit path is new | **RED** | The focus assertion fails on unmodified `develop`, because `document.activeElement` is `<body>` (or the dialog container), not the Save button. Quote the received value. |
+| **US1** | Changing — the disable mechanism changes, and the blocked-submit path is new | **RED** | In the vitest suite: `expect(save).toHaveAttribute('aria-disabled', 'true')` fails against `develop`'s native `disabled` (received `null`), paired with the mutation-call-count assertions. The focus claim itself — `document.activeElement` reaching `<body>` (or the dialog container) — is **not** assertable there; see the amendment below. It is observed instead in Playwright, against a real browser, and that is where the received value is quoted. |
 | **US2** | Changing — Save is available on a refused re-read today, unavailable after | **RED** | `expect(save).toHaveAttribute('aria-disabled', 'true')` fails; and the click-calls-no-mutation assertion fails with a call count of 1. |
 | **US3** | Changing — nothing is announced today on this path | **RED** | The status-region assertion fails against an **empty** region. Quote it: an empty-vs-expected diff is the proof the path was silent. |
 
+**Amendment (post-T001/T002, phase 4a): the focus claim cannot be asserted in
+jsdom at all — it is carried by a Playwright test, not the vitest suite.**
+This section originally prescribed
+`expect(document.activeElement).toBe(saveButton)` as the vitest evidence for
+US1, on the assumption that unmodified `develop` would move focus to
+`<body>` there the same way a real browser does. It does not: jsdom has no
+implementation of the browser's disable-blur ("focus fixup") algorithm —
+confirmed against a bare, unmocked React `<button disabled>` with no app
+code involved (`document.activeElement` and `button.disabled` are both true
+at once, a state a real browser cannot reach), and against jsdom 30.0.1's own
+source (`HTMLOrSVGElement-impl.js`'s `blur()` only runs on an explicit call
+or a focus move elsewhere; `Document-impl.js`'s focus-fixup rule fires only
+on node removal, never on an attribute change). The assertion is therefore
+not merely weak in that environment, it is **unfalsifiable**: it would pass
+identically whether Save uses `aria-disabled` or stays natively `disabled`,
+on `develop` and after the fix alike.
+
+This repo had already answered the identical question for a structurally
+identical control: `e2e/overlays.spec.ts:213-220` (spec 154, the
+`OverlayEditor` Undo button) states the same finding — *"jsdom does not
+implement blur-on-disable, so only a real browser can prove this"* — and
+carries that claim in Playwright instead. Applying that precedent here is
+application, not a new decision, and does not need an ADR (constitution
+§Testing / ADR-0144's "may not skip 4a" is unaffected — this is a change of
+*mechanism* for one claim, not a weakened gate: the vitest suite still reds
+on `aria-disabled`, paired with the call-count assertions; the focus claim
+moved to a level that can actually observe it).
+
+**The vitest suite therefore never asserts `document.activeElement`.**
+`OverlayEditorDialogSaveGate.test.tsx` and `LayoutEditorDialogSaveGate.test.tsx`
+assert the `aria-disabled` gate and the call-count pairing only, with a doc
+comment at each site pointing here and at the e2e test. **The focus claim is
+`e2e/overlays.spec.ts`'s "a stale-version conflict does not cost the
+keyboard operator their place at Save"**, observed red against a live Aspire
+stack:
+
+```
+Error: expect(locator).toBeFocused() failed
+
+Locator:  getByRole('button', { name: /^save draft$/i })
+Expected: focused
+Received: inactive
+Timeout:  15000ms
+```
+
 **On the strength of the focus assertion**, since #2387 asks for it explicitly:
-`expect(document.activeElement).not.toBe(document.body)` is **not acceptable** in
-any of these tests. It passes against the container-refocus accident described in
-§1.1 and against any future change that parks focus anywhere in the dialog. Every
-focus assertion is `expect(document.activeElement).toBe(saveButton)`, against a
-reference captured **before** the transition — the discipline
-`OverlayEditorDialogChainRecovery.test.tsx:206` and `:233` already use.
+`expect(document.activeElement).not.toBe(document.body)` (or the Playwright
+equivalent, a bare "not focused" check) is **not acceptable** in either
+suite. It passes against the container-refocus accident described in §1.1
+and against any future change that parks focus anywhere in the dialog. Every
+focus assertion — in the one place it is now asserted, `e2e/overlays.spec.ts`
+— is `expect(saveButton).toBeFocused()` (Playwright's positive form of "is
+this specific element"), against a locator captured **before** the
+transition. The vitest discipline this describes for a *different* control
+(`OverlayEditorDialogChainRecovery.test.tsx:206` and `:233`, Retry/Reload
+focus, which jsdom *can* observe because those controls are never natively
+disabled) is unaffected.
 
 **On `aria-disabled` being cosmetic**: no test may assert the attribute alone. An
 implementation that renders `aria-disabled` and submits anyway would pass an
