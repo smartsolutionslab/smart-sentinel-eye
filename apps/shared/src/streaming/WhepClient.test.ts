@@ -177,6 +177,16 @@ function resilienceLines(calls: unknown[][], transition: string): Record<string,
 
 const answerSdp = 'v=0\r\no=mediamtx 1 1 IN IP4 127.0.0.1\r\ns=-\r\n';
 
+/**
+ * Drains the async connect chain (offer -> POST -> answer). Bare, NOT
+ * act-wrapped — this suite renders no React tree, so there is no effect
+ * flush to fold in. The five same-named helpers in the composite suites
+ * (CameraViewer.test.tsx and siblings) are act-wrapped and use 12 rounds;
+ * both are sound and agree in semantics (#2392 phase 6 finding 6), but
+ * copying this bare one into a React suite would silently drop the `act`
+ * flush — copy-from-a-neighbour is exactly how the original flushConnect
+ * defect spread (ADR-0150).
+ */
 async function flushMicrotasks(): Promise<void> {
   for (let i = 0; i < 10; i += 1) {
     await Promise.resolve();
