@@ -121,10 +121,7 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/overlays.api')>();
   return {
     ...actual,
-    useCreateOverlayDraftMutation: () => [
-      createDraftMock,
-      { isLoading: false, error: undefined, reset: vi.fn() },
-    ],
+    useCreateOverlayDraftMutation: () => [createDraftMock, { isLoading: false, error: undefined, reset: vi.fn() }],
     useEditDraftOverlayRevisionMutation: () => {
       const state = useSyncExternalStore(subscribeMutationState, () => mutationState);
       return [editDraftMock, { isLoading: state.isLoading, error: state.error, reset: vi.fn() }];
