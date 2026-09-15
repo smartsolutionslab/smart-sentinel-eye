@@ -425,11 +425,11 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
   /**
    * Spec 158 (issue #2379) — GREEN characterisation (ADR-0139/ADR-0144).
    *
-   * Unlike the overlay dialog, `LayoutEditorDialog.tsx:420` already ORs
+   * Unlike the overlay dialog, `LayoutEditorDialog.tsx:422` already ORs
    * `chainFetching` into the Save predicate — but nothing in this repo
-   * pinned it: `LayoutEditorDialog.tsx:412-413`'s own comment says so in
-   * words ("Neither is pinned by a test in this repo, so the outcome is
-   * recorded here rather than asserted"), and every `it` in
+   * pinned it: `LayoutEditorDialog.tsx:411-417`'s comment said so in
+   * words ("Neither is pinned by a test in this repo…") until this test
+   * landed and T005 corrected it, and every `it` in
    * `LayoutEditorDialogChainRetention.test.tsx` that drives `chainFetching:
    * true` also has `currentChain === undefined` (`:207`, `:332`, `:409`),
    * so the `currentChain === undefined` half of the predicate alone closes
@@ -442,7 +442,7 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
    * dialog's new RED test (`OverlayEditorDialogChainRecovery.test.tsx`),
    * captured GREEN here because `chainFetching` is already present — no
    * production edit follows on this side. Proved by counterfactual in T004
-   * (deleting ` || chainFetching` from `LayoutEditorDialog.tsx:420` must
+   * (deleting ` || chainFetching` from `LayoutEditorDialog.tsx:422` must
    * fail this exact test) rather than trusted on the strength of this
    * comment.
    */
