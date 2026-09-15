@@ -439,7 +439,6 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
           backendError={backendError}
           offerReload={staleConflict}
           onReadRecovered={() => saveRef.current?.focus()}
-          previouslyRead={currentChain !== undefined}
         />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>

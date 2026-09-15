@@ -156,12 +156,22 @@ describe('OverlayEditorDialog — an unrequested re-read announces itself (spec 
    * empty-vs-expected diff is itself the proof the path is silent today.
    */
   it('announces an invalidation-driven re-read on the way in and the way out, without moving focus (FR-009)', async () => {
-    chainQueryState = {
-      data: { overlayIdentifier: EDIT_TARGET.overlayIdentifier, version: 7 },
-      isError: false,
-      isFetching: false,
-    };
+    chainQueryState = { data: undefined, isError: false, isFetching: true };
     renderDialog();
+
+    // The dialog's own first read, driven to a genuine settle before the
+    // re-read starts (phase-6 finding 1): FR-010's discriminator is now
+    // per-mount, latched only once a read has settled while this dialog is
+    // mounted, so this test must produce a real settle rather than start
+    // from an already-warm cache — a warm start is exactly the state a
+    // reopened dialog sees, and is covered by its own negative test below.
+    await act(async () => {
+      setChainQueryState({
+        data: { overlayIdentifier: EDIT_TARGET.overlayIdentifier, version: 7 },
+        isError: false,
+        isFetching: false,
+      });
+    });
 
     const focusBefore = document.activeElement;
 
@@ -210,5 +220,45 @@ describe('OverlayEditorDialog — an unrequested re-read announces itself (spec 
     });
 
     expect(statusRegion().textContent).toBe('');
+  });
+
+  /**
+   * Phase-6 finding 1 (issue #2387): the FR-010 negative above only covers a
+   * COLD mount (`data: undefined`). A warm reopen — Cancel out of Edit draft
+   * within `keepUnusedDataFor` (60s), then reopen the same overlay — mounts
+   * this notice fresh with `currentData` already the cached value, and
+   * `refetchOnMountOrArgChange` still forces a refetch regardless. The old
+   * `currentChain !== undefined` discriminator could not tell that refetch
+   * apart from a genuine re-read and announced on this ordinary reopen; the
+   * per-mount `hadPriorReadRef` fix must stay silent here too.
+   */
+  it('stays silent on a warm reopen, before this mount has seen its own read settle (FR-010)', async () => {
+    chainQueryState = {
+      data: { overlayIdentifier: EDIT_TARGET.overlayIdentifier, version: 7 },
+      isError: false,
+      isFetching: false,
+    };
+    renderDialog();
+
+    const focusBefore = document.activeElement;
+
+    expect(statusRegion().textContent).toBe('');
+
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isFetching: true });
+    });
+
+    expect(statusRegion().textContent).toBe('');
+
+    await act(async () => {
+      setChainQueryState({
+        data: { overlayIdentifier: EDIT_TARGET.overlayIdentifier, version: 7 },
+        isError: false,
+        isFetching: false,
+      });
+    });
+
+    expect(statusRegion().textContent).toBe('');
+    expect(document.activeElement).toBe(focusBefore);
   });
 });

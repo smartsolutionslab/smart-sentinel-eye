@@ -146,12 +146,22 @@ describe('LayoutEditorDialog — an unrequested re-read announces itself (spec 1
 
   /** Spec §5.5, mirrored — see the overlay file's doc comment for the reasoning. */
   it('announces an invalidation-driven re-read on the way in and the way out, without moving focus (FR-009)', async () => {
-    chainQueryState = {
-      data: { layoutIdentifier: EDIT_TARGET.layoutIdentifier, version: 7 },
-      isError: false,
-      isFetching: false,
-    };
+    chainQueryState = { data: undefined, isError: false, isFetching: true };
     renderDialog();
+
+    // The dialog's own first read, driven to a genuine settle before the
+    // re-read starts (phase-6 finding 1, mirrored from the overlay file):
+    // FR-010's discriminator is now per-mount, latched only once a read has
+    // settled while this dialog is mounted, so this test must produce a
+    // real settle rather than start from an already-warm cache — a warm
+    // start is covered by its own negative test below.
+    await act(async () => {
+      setChainQueryState({
+        data: { layoutIdentifier: EDIT_TARGET.layoutIdentifier, version: 7 },
+        isError: false,
+        isFetching: false,
+      });
+    });
 
     const focusBefore = document.activeElement;
 
@@ -190,5 +200,42 @@ describe('LayoutEditorDialog — an unrequested re-read announces itself (spec 1
     });
 
     expect(statusRegion().textContent).toBe('');
+  });
+
+  /**
+   * Phase-6 finding 1 (issue #2387), mirrored from the overlay file — see
+   * its doc comment for the full reasoning. Not redundant with it: the
+   * layout dialog wires its own `previouslyRead`-turned-`hadPriorReadRef`
+   * discriminator independently, so only a layout-specific test catches the
+   * layout dialog regressing while the overlay one stays fixed.
+   */
+  it('stays silent on a warm reopen, before this mount has seen its own read settle (FR-010)', async () => {
+    chainQueryState = {
+      data: { layoutIdentifier: EDIT_TARGET.layoutIdentifier, version: 7 },
+      isError: false,
+      isFetching: false,
+    };
+    renderDialog();
+
+    const focusBefore = document.activeElement;
+
+    expect(statusRegion().textContent).toBe('');
+
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isFetching: true });
+    });
+
+    expect(statusRegion().textContent).toBe('');
+
+    await act(async () => {
+      setChainQueryState({
+        data: { layoutIdentifier: EDIT_TARGET.layoutIdentifier, version: 7 },
+        isError: false,
+        isFetching: false,
+      });
+    });
+
+    expect(statusRegion().textContent).toBe('');
+    expect(document.activeElement).toBe(focusBefore);
   });
 });
