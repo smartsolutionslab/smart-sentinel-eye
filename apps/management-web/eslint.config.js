@@ -63,19 +63,42 @@ export default [
   //     clothes. Spec 159 shipped one and review caught it. No syntactic rule
   //     will find it; reviewers keep that obligation explicitly.
   //   * anything under `e2e/` — those are `*.spec.ts`, outside ADR-0150's glob.
+  //   * Selector A's name list is CLOSED: `flushConnect` / `settle` / `pump` /
+  //     `spin` only. Rename the helper (`waitABit`, say) and the adjacency
+  //     check cannot see it — it is a reserved-name guard, not a bound
+  //     (ADR-0150 §2 amended).
+  //   * Selector B's bound, after widening (#2392 phase 6 finding 2), is "has
+  //     a `test` expression at all" (`ForStatement[test]`) — not "a literal
+  //     bound". It still cannot reach a loop with NO `test` node: `waitUntil`
+  //     is a `WhileStatement`, and a genuine `for (;;) { … break … }` poll has
+  //     no `test` to match.
   // The rule is NECESSARY, NOT SUFFICIENT.
+  //
+  // ESCAPE HATCH: Selector B cannot tell DRIVING a fake forward from
+  // SYNCHRONISING an assertion — a literal- or named-bound loop that samples
+  // N frames (`for (let i = 0; i < 3; i += 1) { await new Promise((r) =>
+  // requestAnimationFrame(r)); }`) is banned by shape even though ADR-0150
+  // permits driving. Where that is genuinely the need, use
+  // `// eslint-disable-next-line no-restricted-syntax` WITH A STATED REASON —
+  // do not delete the rule instead.
   {
     files: ['src/**/*.test.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': [
         'error',
         {
-          // Selector B — the instrument itself. A counted loop that yields to the
-          // TIMER phase. Deliberately does not match `await Promise.resolve()`:
-          // N microtask rounds DO bound an N-deep microtask chain, with no
+          // Selector B — the instrument itself. A counted loop that yields to
+          // the TIMER phase, on ANY bound — literal or named. Widened from a
+          // literal-only bound (ADR-0150 §2 amended, #2392 phase 6 finding
+          // 2): `const ROUNDS = 10; for (let i = 0; i < ROUNDS; i += 1)` was
+          // invisible to the original `[test.right.type='Literal']` selector.
+          // `ForStatement[test]` still requires a `test` expression to exist
+          // at all, so `for (;;)` and `while` stay outside it structurally.
+          // Deliberately does not match `await Promise.resolve()`: N
+          // microtask rounds DO bound an N-deep microtask chain, with no
           // wall-clock dependence, and those drains are load-bearing here
           // (spec.md §3.1 — five tests go red without them).
-          selector: "ForStatement[test.right.type='Literal'] AwaitExpression > NewExpression[callee.name='Promise']",
+          selector: "ForStatement[test] AwaitExpression > NewExpression[callee.name='Promise']",
           message:
             'A fixed count of timer yields is not a bound on work that advances in ' +
             'another phase of the event loop (ADR-0150). Poll the condition against ' +
