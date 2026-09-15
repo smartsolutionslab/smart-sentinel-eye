@@ -1,10 +1,10 @@
-// Pin for RealtimeClient (apps/shared/src/realtime/index.ts). Kept in its
-// own file, deliberately: spec 162 §3.4's discrimination criterion asks
-// "can the assertion's subject change without the assertion's text
-// changing?", and that only holds when the subject (`RealtimeClient`) and
-// the expectation (the literal member list below) live in different files.
-// Import the interface; never redeclare it here.
-import type { RealtimeClient } from './index.js';
+// Pin for RealtimeClient and RealtimeMessage (apps/shared/src/realtime/index.ts).
+// Kept in its own file, deliberately: spec 162 §3.4's discrimination criterion
+// asks "can the assertion's subject change without the assertion's text
+// changing?", and that only holds when the subject (`RealtimeClient` /
+// `RealtimeMessage`) and the expectation (the literal member lists below)
+// live in different files. Import the types; never redeclare them here.
+import type { RealtimeClient, RealtimeMessage } from './index.js';
 
 type Exact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 type Assert<T extends true> = T;
@@ -26,4 +26,19 @@ type Assert<T extends true> = T;
 // trading away the erasure property.
 export type RealtimeClientSurfaceIsExhaustive = Assert<
   Exact<keyof RealtimeClient, 'connect' | 'subscribe' | 'disconnect'>
+>;
+
+// Same technique, same property, applied to the envelope shape rather than
+// the client's method surface. `client.spec.ts` (deleted — never collected in
+// 15 months, #2397) asserted a literal satisfies `RealtimeMessage`; that was
+// type-level and genuinely typechecked regardless of vitest collection, so
+// deleting the file removed a real, if weak, check on this type. This pin
+// replaces it in the same style as RealtimeClientSurfaceIsExhaustive above:
+// the subject (`RealtimeMessage`) stays in index.ts, the expectation (the
+// literal field list) lives here, and every field of RealtimeMessage is
+// required with no index signature, so `keyof` set-equality pins it
+// exhaustively in both directions — adding a field or removing one both fail
+// `tsc`, verified by counterfactual (#2397 review finding 6).
+export type RealtimeMessageSurfaceIsExhaustive = Assert<
+  Exact<keyof RealtimeMessage, 'type' | 'payload' | 'traceId' | 'ts'>
 >;
