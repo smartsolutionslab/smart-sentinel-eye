@@ -225,63 +225,51 @@ function viewerFor(cameraIdentifier: string, getToken: () => Promise<string | nu
 }
 
 /**
- * Drains the async connect chain (RTK Query's GET → the reducer → the
- * effect → `createOffer`/`setLocalDescription`/the WHEP POST →
- * `setRemoteDescription`).
- *
- * A pure microtask spin (`await Promise.resolve()`, however many times) is
- * NOT enough here — unlike the fully-mocked `CameraViewer.test.tsx`, this
- * file drives the REAL `fetchBaseQuery`, and Node's `Response` body plumbing
- * genuinely yields to the event loop at least once. A real `setTimeout(0)`
- * macrotask, interleaved with microtask draining, is what actually lets that
- * continue — confirmed empirically: a 100-tick microtask-only loop left zero
- * `RTCPeerConnection` instances ever constructed, while this passes on the
- * first attempt. Real timers throughout this file, deliberately — no
- * `vi.useFakeTimers()` — because faking `setTimeout` stops it from providing
- * that yield too.
- *
- * `flushConnect` is a DRIVER, not a synchroniser: it is the right instrument
- * for giving the fakes a bounded chance to advance, or for probing that
- * something does NOT happen, but it must never be the SOLE reason an
- * assertion about a state that has to arrive is safe — that is what
- * `waitUntil` (below) is for. Most of the remaining call sites in this file
- * DO precede an assertion about arrived state (`pcA.closed`, the
- * "Connecting…" label) — what makes those safe is not this function: the
- * `view.rerender(...)` immediately before each of them is itself act-wrapped,
- * so React flushes the outgoing effect's cleanup and the incoming effect's
- * synchronous body before `rerender` returns, and that state is already
- * settled by the time `flushConnect` even runs. Only one remaining site
- * (the fresh-`getToken` re-render test) precedes a genuinely negative
- * assertion — nothing changed — for which a condition wait cannot be
- * expressed and a bounded drive is the right and only instrument (#2386).
+ * A real wall-clock wait, for the one scenario that needs the 5 s poll to
+ * actually elapse. What follows this call is a mix of negative assertions
+ * (no further POST to camera A) and one positive one already on screen
+ * before this wait even starts — RTK's `writePendingCacheEntry` preserves
+ * `error` across a pending refetch, so the "Viewer error" label does not
+ * flash back to "Connecting…" every 5 s, and there is nothing new for it to
+ * arrive at here.
  */
-async function flushConnect() {
+async function realWait(ms: number) {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  });
+}
+
+/**
+ * A bounded DRIVE, not a synchronisation primitive (ADR-0150 §2 permits the
+ * former, bans the latter). Used at exactly two call sites below, each
+ * immediately before a genuinely NEGATIVE assertion — nothing must have
+ * happened — for which no condition can be polled: on the correct
+ * trajectory nothing further occurs at that point, so there is no state for
+ * `waitUntil` to wait FOR. A fixed number of TIMER-phase yields is what
+ * gives the async connect chain (`getToken()` → `createOffer()` →
+ * `setLocalDescription()` → the WHEP POST → `setRemoteDescription()`,
+ * `WhepClient.ts:101-164`) a real chance to advance before the assertion
+ * samples it, so a reintroduced re-dial actually gets caught rather than
+ * merely not-yet-observed (#2386; #2392 phase 6 findings 1/2).
+ *
+ * Selector B (ADR-0150 §2 amended) bans this shape outright, by
+ * construction, regardless of role — it cannot distinguish driving an
+ * assertion of absence from synchronising a positive one. The
+ * `eslint-disable-next-line` below is the documented escape hatch the
+ * config comment names for exactly this case, not a workaround around it.
+ */
+async function driveConnectChain() {
   await act(async () => {
     for (let i = 0; i < 10; i += 1) {
+      // Bounded DRIVE, not a synchronisation primitive: see the docblock
+      // above (ADR-0150 §2 amended escape hatch; #2392 phase 6 findings 1/2).
+      // eslint-disable-next-line no-restricted-syntax -- see comment above
       await new Promise((resolve) => setTimeout(resolve, 0));
       for (let j = 0; j < 5; j += 1) {
         await Promise.resolve();
       }
     }
   });
-}
-
-/**
- * A real wall-clock wait, for the one scenario that needs the 5 s poll to
- * actually elapse. Ends with `flushConnect` deliberately: the sleep only
- * proves the timer fired, not that whatever it triggers (a refetch, a
- * re-dial) has finished propagating through React. What follows this call is
- * a mix of negative assertions (no further POST to camera A) and one
- * positive one already on screen before this wait even starts — RTK's
- * `writePendingCacheEntry` preserves `error` across a pending refetch, so the
- * "Viewer error" label does not flash back to "Connecting…" every 5 s, and
- * there is nothing new for it to arrive at here.
- */
-async function realWait(ms: number) {
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, ms));
-  });
-  await flushConnect();
 }
 
 /**
@@ -311,9 +299,10 @@ async function waitUntil(
 /**
  * Waits for a NEW `FakePeerConnection` to exist beyond `before`, polling the
  * actual condition on real timers with a deadline — not a fixed number of
- * macrotask yields. `flushConnect`'s fixed count is reliably enough locally,
- * but CI showed it is an assumption, not a guarantee: under contention it can
- * run out before React has even dispatched the effect that constructs a
+ * macrotask yields. The fixed-count settle this file used to end with was
+ * reliably enough locally, but CI showed it was an assumption, not a
+ * guarantee (ADR-0150): under contention it can run out before React has
+ * even dispatched the effect that constructs a
  * connection, and `FakePeerConnection.lastInstance()` then silently returns
  * either `undefined` (nothing built yet) or a STALE connection from an
  * earlier call — the second of which is worse, because firing `ontrack` a
@@ -397,7 +386,13 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     // remounted (spec 095, CellPage.tsx position keying).
     expect(videoElement()).toBe(videoEl);
 
-    await flushConnect();
+    // A bounded drive, not a wait for a condition — see driveConnectChain's
+    // docblock. Nothing about pcA.closed below needs it (rerender is
+    // act-wrapped, so cleanup is already synchronous by this point); it is
+    // here for postsToA() and videoEl.srcObject below, which are genuinely
+    // negative and need the async connect chain given a real chance to
+    // advance before they sample it (#2392 phase 6 findings 1/2).
+    await driveConnectChain();
 
     // Camera A's session is closed — Link 3, confirmed: the effect does
     // re-run on a camera change (transitionTo's [cameraIdentifier] is in its
@@ -463,7 +458,6 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     const videoEl = videoElement();
 
     view.rerender(viewerFor(CAM_B));
-    await flushConnect();
     expect(pcA.closed).toBe(true);
 
     // Every read for camera B fails, from here on — including the 5 s poll's
@@ -512,7 +506,6 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
       const videoEl = videoElement();
 
       view.rerender(viewerFor(CAM_B));
-      await flushConnect();
       expect(pcA.closed).toBe(true);
 
       setStreamAnswer(CAM_B, () => errorResponse(403));
@@ -538,7 +531,6 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
       const videoEl = videoElement();
 
       view.rerender(viewerFor(CAM_B));
-      await flushConnect();
 
       setStreamAnswer(CAM_B, () => jsonResponse(offlineStream(CAM_B, CAM_B_WHEP_URL, 'Source powered down.')));
       await waitUntil(
@@ -675,7 +667,12 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
       // Same camera, a fresh getToken closure — the shape FR-003 must not
       // regress: this is not a camera change.
       view.rerender(viewerFor(CAM_A, async () => 'a-different-token'));
-      await flushConnect();
+
+      // Genuinely negative — nothing must have happened — and there is no
+      // condition to poll for: on the correct trajectory nothing further
+      // occurs here at all. A bounded drive is the only instrument (#2386;
+      // #2392 phase 6 findings 1/2); see driveConnectChain's docblock.
+      await driveConnectChain();
 
       expect(pcA.closed).toBe(false);
       expect(videoEl.srcObject).toBe(streamBefore);

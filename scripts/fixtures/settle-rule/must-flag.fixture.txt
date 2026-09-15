@@ -1,0 +1,80 @@
+// Fixture: must-flag — spec 161 / #2392 / ADR-0150 §2 (amended).
+// Every case below is a shape the `no-restricted-syntax` rule MUST catch.
+// Line numbers are load-bearing: scripts/settle-rule.test.mjs asserts the
+// EXACT line of each violation, not merely "more than zero problems" —
+// a rule registered as `selector: "*"` would also pass a bare count check.
+//
+// Linted as `src/ui/composites/__must-flag__.test.tsx` through the REAL
+// apps/shared config (see settle-rule.test.mjs), so this must parse as a
+// valid, self-contained .tsx test file — no fixture-only syntax.
+
+import { expect, test } from 'vitest';
+import { screen } from '@testing-library/react';
+
+// Stand-in for the historical fixed-count settle. Selector A matches the
+// CALL SITE's name, not this declaration's body — kept deliberately empty
+// so this declaration does not ALSO trip Selector B (case 1 below is the
+// only place that shape appears in this fixture; the exact-count assertion
+// in settle-rule.test.mjs depends on that).
+async function flushConnect() {}
+
+const pc = { closed: false };
+
+// Case 1 — Selector B: a counted `for` loop (literal bound) whose body
+// awaits `new Promise(...)` — a fixed number of TIMER-phase yields. Flagged
+// regardless of what follows, because the instrument itself is the defect.
+test('case 1 - a counted loop yields to the timer phase', async () => {
+  for (let i = 0; i < 10; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+});
+
+// Case 2 — Selector A, plain: a fixed-count settle immediately precedes an
+// assertion. This is the historical defect's exact shape (spec.md §4).
+test('case 2 - a settle immediately precedes an assertion', async () => {
+  await flushConnect();
+  expect(screen.queryByText('Connecting…')).toBeNull();
+});
+
+// Case 3 — Selector A across an intervening COMMENT. Comments are lexical
+// trivia, not AST nodes, so esquery's `+` (next-sibling) combinator sees
+// straight through them. Three of the four historical CI failures had an
+// intervening comment exactly like this one and were flagged anyway.
+test('case 3 - a settle, a comment, then an assertion', async () => {
+  await flushConnect();
+  // the label should have cleared by the time this assertion runs
+  expect(screen.getByText('Stream is offline')).toBeInTheDocument();
+});
+
+// Case 4 — Selector A covers a NEGATED matcher chain via esquery's `:has()`,
+// not just the plain `expect(x).toBe(y)` form.
+test('case 4 - a settle then a negated assertion', async () => {
+  await flushConnect();
+  expect(pc.closed).not.toBe(true);
+});
+
+// Case 5 — Selector B, widened (ADR-0150 §2 amended, #2392 phase 6 finding
+// 2): a counted `for` loop with a NAMED bound, not a literal one. The
+// ORIGINAL selector (`[test.right.type='Literal']`) missed this shape
+// entirely — `test.right.type` is `Identifier` here, not `Literal`. This
+// case is the pin: narrowing the bound back to `[test.right.type='Literal']`
+// must turn it green again.
+const ROUNDS = 10;
+test('case 5 - a counted loop with a named bound yields to the timer phase', async () => {
+  for (let i = 0; i < ROUNDS; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+});
+
+// Case 6 — Selector B, widened again (ADR-0150 §2 amended, #2392 phase 6
+// finding 5): a `for...of` loop over a FIXED array, not a `for` loop at all
+// — `ForStatement[test]` cannot see a `ForOfStatement`, which has no `test`
+// node to match. The same fixed-count instrument by another shape: a sibling
+// suite (`CameraViewer.test.tsx`'s retry-delay loop) already reaches for
+// `for (const x of fixedArray)`, just not over a raw `new Promise`.
+const FIXED_ARRAY = [0, 0, 0];
+test('case 6 - a for-of loop over a fixed array yields to the timer phase', async () => {
+  for (const delay of FIXED_ARRAY) {
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+});

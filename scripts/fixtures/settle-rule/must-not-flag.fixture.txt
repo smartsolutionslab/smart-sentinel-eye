@@ -1,0 +1,120 @@
+// Fixture: must-not-flag — spec 161 / #2392 / ADR-0150 §2 (amended).
+// Every case below is a sanctioned or genuinely sound idiom that MUST stay
+// legal. scripts/settle-rule.test.mjs asserts EXACTLY ZERO `no-restricted-
+// syntax` problems over this whole file — that is the discrimination proof:
+// the must-flag fixture alone is also satisfied by `selector: "*"`, which
+// would fail every case here.
+//
+// Linted as `src/ui/composites/__must-not-flag__.test.tsx` through the REAL
+// apps/shared config (see settle-rule.test.mjs), so this must parse as a
+// valid, self-contained .tsx test file — no fixture-only syntax.
+
+import { expect, test } from 'vitest';
+import { fireEvent } from '@testing-library/react';
+
+// waitUntil — the sanctioned idiom (ADR-0150 §1). A WHILE loop polling a
+// condition against a wall-clock deadline, not a FOR loop with a literal
+// bound: Selector B requires `ForStatement`, so this is safe by construction.
+async function waitUntil(condition, description, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() > deadline) {
+      throw new Error(description);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+// realWait — one deliberate timer-phase wait with NO loop at all. Selector B
+// requires a `ForStatement`; there isn't one here.
+async function realWait(ms) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// flushMicrotasks — the sound drain (renamed from the collided `flushConnect`
+// per spec 161 §7 / tasks.md T004). `Promise.resolve()` is a CallExpression,
+// not a NewExpression, so Selector B's `NewExpression[callee.name='Promise']`
+// does not match it. N microtask rounds bound an N-deep microtask chain with
+// no wall-clock dependence — a bound, not an assumption (spec.md §3.1 measured
+// this as load-bearing: 5 tests go red without it).
+async function flushMicrotasks() {
+  for (let i = 0; i < 12; i += 1) {
+    await Promise.resolve();
+  }
+}
+
+async function goLive() {
+  return { closed: false };
+}
+
+const FakePeerConnection = { instances: [] };
+
+function setStreamAnswer(_camera, _responder) {}
+function errorResponse(_status) {
+  return { status: _status };
+}
+
+const CAM_B = 'cam-b';
+
+test('a deadline poll is not a fixed-count settle', async () => {
+  await waitUntil(() => true, 'never times out', 1000);
+});
+
+test('a single un-looped timer wait is not a fixed-count settle', async () => {
+  await realWait(0);
+});
+
+test('a bounded microtask drain before an assertion stays legal', async () => {
+  await flushMicrotasks();
+  expect(FakePeerConnection.instances).toHaveLength(0);
+});
+
+test('a settle that drives, rather than synchronises, stays legal', async () => {
+  await flushMicrotasks();
+  setStreamAnswer(CAM_B, () => errorResponse(403));
+});
+
+test('an ordinary awaited helper before an assertion is untouched', async () => {
+  const pc = await goLive();
+  expect(pc.closed).toBe(false);
+});
+
+test('a counted loop that drives input is not a settle', () => {
+  for (let i = 0; i < 160; i += 1) {
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+  }
+});
+
+test('a bare timer await with no loop is not a fixed-count settle', async () => {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+});
+
+// `for (;;)` — an unbounded loop with NO `test` expression at all, exactly
+// the shape ADR-0150 §2 (amended) names as still outside Selector B after
+// widening: `ForStatement[test]` requires a `test` node to exist, so a
+// genuine deadline-style poll written as `for (;;) { … break …}` (mirrors
+// e2e/kiosk-shows-a-label-over-video.spec.ts's settleSubmitRoundTrip) stays
+// legal by structure, not by name.
+test('an unbounded for(;;) poll with no test expression is not a fixed-count settle', async () => {
+  let attempts = 0;
+  for (;;) {
+    attempts += 1;
+    if (attempts > 3) break;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+});
+
+// A `for...of` over a fixed array is ALSO covered by Selector B now (#2392
+// phase 6 finding 5) — but only for the `new Promise` shape. A `for...of`
+// that drains MICROTASKS per iteration, the same way `flushMicrotasks` does
+// per round, must stay legal for the same reason `flushMicrotasks` itself
+// does: `Promise.resolve()` is a `CallExpression`, not a `NewExpression`.
+// Mirrors the retry-delay `for...of` in `CameraViewer.test.tsx`, which
+// drives fake timers rather than awaiting a raw `new Promise` at all.
+const EXPECTED_DELAYS = [1000, 2000, 4000];
+test('a for-of loop that drains microtasks per round is not a fixed-count settle', async () => {
+  for (const delay of EXPECTED_DELAYS) {
+    await flushMicrotasks();
+    expect(delay).toBeGreaterThan(0);
+  }
+});
