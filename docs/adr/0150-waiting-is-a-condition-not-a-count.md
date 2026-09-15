@@ -120,15 +120,39 @@ not a bound.
 So a second, **shape-based** selector is added — a `for` loop with a literal
 bound containing `await new Promise(...)`:
 
-```
+~~```
 ForStatement[test.right.type='Literal'] AwaitExpression > NewExpression[callee.name='Promise']
+```~~
+
+**Stale before it ever shipped (#2392 phase 6 findings 2 and 5).** The selector
+above never reached the config: implementation-time measurement found two
+shapes it could not see. A NAMED bound (`const ROUNDS = 10; for (let i = 0; i
+< ROUNDS; i += 1)`) has `test.right.type === 'Identifier'`, not `'Literal'`,
+and a `for...of` / `for...in` loop has no `test` node at all, so
+`ForStatement[...]` cannot match it regardless of the bound clause. The
+shipped selector drops the literal constraint and adds both loop kinds:
+
+```
+ForStatement[test] AwaitExpression > NewExpression[callee.name='Promise'],
+ForOfStatement AwaitExpression > NewExpression[callee.name='Promise'],
+ForInStatement AwaitExpression > NewExpression[callee.name='Promise']
 ```
 
-Measured population over the whole tree: **exactly one**, the broken helper. It
-does not match the microtask drains (`Promise.resolve()` is a `CallExpression`,
-not a `NewExpression`), nor `waitUntil`'s deadline poll (a `WhileStatement`), nor
-`realWait` (no loop), nor `WhepClient.test.ts`'s bare timer awaits (no loop), nor
-counted `fireEvent` loops (no `await`).
+`ForStatement[test]` still requires a `test` expression to exist at all, so a
+`WhileStatement` (`waitUntil`'s deadline poll) and a genuine
+`for (;;) { … break … }` stay outside it structurally — see §3.
+
+Measured population over the whole tree, either selector: **exactly one**
+before this branch's own cleanup — the broken helper — and **zero** after:
+`e1d07122` deleted it (see the Implementation Notes). The `for...of` /
+`for...in` arms specifically measured **zero** on both `develop` and this
+branch's tip before they were added — nothing in the tree used that shape for
+a timer settle; they close a reachable gap pre-emptively; they do not fix an
+observed defect. None of the three arms match the microtask drains
+(`Promise.resolve()` is a `CallExpression`, not a `NewExpression`), nor
+`waitUntil`'s deadline poll (a `WhileStatement`), nor `realWait` (no loop), nor
+`WhepClient.test.ts`'s bare timer awaits (no loop), nor counted `fireEvent`
+loops (no `await`).
 
 **This supersedes this ADR's own rejection of "ban it outright."** That rejection
 rested on the claim that a ban "would condemn correct code" — the microtask
@@ -141,16 +165,37 @@ it spares is load-bearing.
 
 ### 3. What the rule cannot see is written down, not assumed away
 
-The rule is **necessary, not sufficient**. It cannot see through a helper that
-wraps the settle, and it cannot tell a condition that must arrive from one that
-is already true — spec 159 shipped, and review caught, a `waitUntil` whose
-condition held on entry, so the loop never iterated. That is a settle that cannot
-fail wearing the sanctioned idiom's clothes, and no syntactic rule will find it.
+The rule is **necessary, not sufficient**. §3 had recorded two of these; the
+ESLint config comment always carried six (#2392 phase 6 finding 4 — the record
+readers are pointed at was a strict subset of the truth, the same defect class
+this list itself cites below). All six, word for word with the config:
 
-Reviewers keep that obligation explicitly. Recording the limit is the point:
-§II drifted twice, the Phase 3 board gate drifted for sixteen specs, and §IV
-recorded a built leg as unbuilt — each time because a rule's scope was assumed
-rather than stated.
+- A settle hidden inside a wrapper: `await goLive()` where `goLive()` settles.
+- A settle two or more statements before the assertion it guards — Selector A
+  (§2) matches only *immediate* adjacency.
+- A `waitUntil` whose condition is already true on entry, so the loop never
+  iterates — a settle that cannot fail, wearing the sanctioned idiom's
+  clothes. Spec 159 shipped one and review caught it.
+- Anything under `e2e/` — those are `*.spec.ts`, outside this rule's
+  `**/*.test.{ts,tsx}` glob.
+- Selector A's name list is **closed**: `flushConnect` / `settle` / `pump` /
+  `spin` only. Rename the helper (`waitABit`, say) and the adjacency check
+  cannot see it — a reserved-name guard, not a bound.
+- Selector B requires a `test` expression to exist at all
+  (`ForStatement[test]`, post-widening — see §2) or a `for...of` / `for...in`
+  node; a genuine `for (;;) { … break … }` deadline poll, or a `while` loop,
+  has neither and stays outside it structurally. It also cannot tell a TIMER
+  promise from an EVENT promise (`await new Promise((r) => { img.onload = r;
+  })` in a loop reads the same as a `setTimeout` yield) — deliberately: a
+  false positive here costs one documented `eslint-disable-next-line`, and
+  narrowing to require `setTimeout` / `setInterval` evidence would just move
+  the gap to `requestAnimationFrame` or a hand-rolled `sleep()` (#2392 phase 6
+  finding 6).
+
+No syntactic rule will find any of these. Reviewers keep that obligation
+explicitly. Recording the limit is the point: §II drifted twice, the Phase 3
+board gate drifted for sixteen specs, and §IV recorded a built leg as unbuilt
+— each time because a rule's scope was assumed rather than stated.
 
 ### 4. §Testing gains one sentence
 
