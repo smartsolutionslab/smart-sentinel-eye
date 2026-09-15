@@ -1,5 +1,6 @@
 import { test as cleanup, expect, type Page } from '@playwright/test';
 import { signInAsOperator } from './sign-in';
+import { recoverAndRetry } from './retire-e2e-cameras.recovery';
 
 /**
  * Retires the cameras an e2e run registers (issue 1895).
@@ -47,8 +48,23 @@ const DISPOSABLE = /^(E2E |Kiosk Seed Cam |Push Probe Cam |T012 Verification )/;
  */
 const DEADLINE_MS = 8 * 60 * 1000;
 
+/**
+ * How long a single re-sign-in attempt (below) may take before the sweep
+ * gives up on it and treats the camera as skipped. Ordinary sign-in is
+ * single-digit seconds — the retry that follows this file's historical
+ * 15.5-minute hang (issue #2382) passed in 15s, on a fresh page with no
+ * lapsed OIDC session to race. This cap is generous next to that and only
+ * ever bites the stalled renewal the recovery exists to work around.
+ */
+const RE_SIGN_IN_TIMEOUT_MS = 30_000;
+
 cleanup('retire the cameras this run registered', async ({ page }) => {
-  cleanup.setTimeout(900_000);
+  // Was 900_000 (15 min): 3 retries at that ceiling is 45 minutes, the whole
+  // CI job's own budget, on a single flaky test (#2382 Q4). With the re-sign-in
+  // below now bounded, the realistic worst case is the 8-minute sweep deadline
+  // plus one in-flight camera (bounded) plus one final listing for the
+  // out-of-time report — comfortably inside 12 minutes.
+  cleanup.setTimeout(720_000);
   const deadline = Date.now() + DEADLINE_MS;
 
   await signInAsOperator(page);
@@ -92,8 +108,24 @@ cleanup('retire the cameras this run registered', async ({ page }) => {
       //
       // Either way a refusal is not taken at face value: sign in again and ask
       // once more. Only a camera that refuses on a fresh session is skipped.
-      await signInAsOperator(page);
-      if (await retireAt(page, href)) retired++;
+      //
+      // Both halves are bounded (issue #2382): a spent deadline does not start
+      // a fresh sign-in at all, and one in flight cannot run past its own
+      // timeout — the shape that used to fall through to this test's 900s
+      // ceiling, 15.5 minutes on roughly a third of green CI runs.
+      const recovery = await recoverAndRetry(
+        Date.now(),
+        deadline,
+        RE_SIGN_IN_TIMEOUT_MS,
+        () => signInAsOperator(page),
+        () => retireAt(page, href),
+      );
+      if (!recovery.attempted) {
+        outOfTime = true;
+        skipped.push(href);
+        break;
+      }
+      if (recovery.result) retired++;
       else skipped.push(href);
     }
   }
