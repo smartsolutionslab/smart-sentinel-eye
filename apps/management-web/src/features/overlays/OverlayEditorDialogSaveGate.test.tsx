@@ -295,4 +295,93 @@ describe('OverlayEditorDialog — Save keeps its focus while it is unavailable (
 
     expect(editDraftMock).not.toHaveBeenCalled();
   });
+
+  /**
+   * Spec §5.2 (US2, issue #2387 finding 2, FR-007/FR-008) — new behaviour,
+   * RED (ADR-0139). Written after T003 lands so this red is attributable to
+   * the missing `chainFailed` term alone, not the `aria-disabled` mechanism
+   * change T003 already made.
+   *
+   * Starts from an already-refused mutation and an already-*settled*,
+   * refused re-read (`isFetching: false`) — set directly, the way
+   * `OverlayEditorDialogChainRecovery.test.tsx`'s own "Save is unavailable
+   * while the re-read Reload started is in flight" test (`:487-540`) starts
+   * from a directly-set `editError` rather than a live click cycle. RTK
+   * Query retains `currentData` at the pre-re-read version through a refusal
+   * (`queryThunk.rejected` writes only `status`/`error`,
+   * `@reduxjs/toolkit` 2.12.0 `dist/query/rtk-query.modern.mjs:1443-1455`),
+   * so `currentChain` here is still v7 — the version already known stale.
+   *
+   * `expect.soft` for the gate-closed pair (tasks.md rule 2): the architect's
+   * stated red is "the attribute missing AND the call count 1 where 0 was
+   * expected" — both halves, in one run's output, rather than the test
+   * aborting on the first failing `expect`.
+   */
+  it('keeps Save unavailable when the overlay re-read itself is refused, with Retry as the way out (US2 FR-007/FR-008)', async () => {
+    const user = userEvent.setup();
+    mutationState = {
+      isLoading: false,
+      error: {
+        status: 409,
+        data: { title: 'OVERLAY_REVISION_STALE', detail: 'Overlay has changed since version 7 (now 8).' },
+      },
+    };
+    chainQueryState = {
+      data: { overlayIdentifier: EDIT_TARGET.overlayIdentifier, version: 7 },
+      isError: true,
+      isFetching: false,
+    };
+    renderDialog();
+
+    const saveButton = screen.getByRole('button', { name: /^save draft$/i });
+    const retryButton = screen.getByRole('button', { name: /retry/i });
+    expect(retryButton).toBeInTheDocument();
+
+    // The red: on unmodified `saveBlocked` (no `chainFailed` term),
+    // `currentChain` is defined and `chainFetching` is false, so the gate
+    // reads open even though the version it would submit is the one just
+    // refused.
+    expect.soft(saveButton).toHaveAttribute('aria-disabled', 'true');
+
+    await user.click(saveButton);
+    // The harm, not only the attribute (rule 2): a click while blocked must
+    // call no mutation. Received 1 where 0 is expected on unmodified code.
+    expect.soft(editDraftMock).not.toHaveBeenCalled();
+
+    // On unmodified code the blocked click above was NOT actually blocked —
+    // it reached `editDraftMock`, which (harness contract, see the file doc
+    // comment) flips `isLoading` true and hangs on a never-settled deferred
+    // promise. Undoing that here keeps the complement below about the
+    // retry recovery, not about an accidental second in-flight mutation
+    // that the soft assertion just above already caught on its own terms.
+    await act(async () => {
+      setMutationState({ isLoading: false, error: mutationState.error });
+    });
+    const editCallsBeforeRetry = editDraftMock.mock.calls.length;
+
+    // FR-008 — not a dead end: a successful Retry re-opens the gate and
+    // hands focus to Save, exactly as the pre-existing (spec 156)
+    // `onReadRecovered` mechanism already does — unaffected by the missing
+    // `chainFailed` term, so this half already passes today.
+    await user.click(retryButton);
+    await act(async () => {
+      setChainQueryState({ ...chainQueryState, isError: false, isFetching: true });
+    });
+    await act(async () => {
+      setChainQueryState({
+        data: { overlayIdentifier: EDIT_TARGET.overlayIdentifier, version: 8 },
+        isError: false,
+        isFetching: false,
+      });
+    });
+
+    expect(saveButton).not.toHaveAttribute('aria-disabled', 'true');
+    expect(document.activeElement).toBe(saveButton);
+
+    await user.click(saveButton);
+    await waitFor(() => expect(editDraftMock).toHaveBeenCalledTimes(editCallsBeforeRetry + 1));
+    expect(editDraftMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ overlayIdentifier: EDIT_TARGET.overlayIdentifier, version: 8 }),
+    );
+  });
 });
