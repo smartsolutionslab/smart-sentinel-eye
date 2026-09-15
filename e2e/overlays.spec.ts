@@ -328,7 +328,15 @@ test('a stale-version conflict does not cost the keyboard operator their place a
     });
     await rowTwo.getByRole('button', { name: /^edit draft$/i }).click();
     await expect(pageTwo.getByRole('dialog')).toBeVisible();
-    const saveButtonTwo = pageTwo.getByRole('button', { name: /^save draft$/i });
+    // Accessible-name pattern, not a plain `/^save draft$/i`: this dialog's
+    // submit button relabels itself `Saving…` for exactly as long as
+    // `isLoading` is true (`OverlayEditorDialog.tsx:360`) — the PATCH-pending
+    // window this test exists to observe. A locator that only matches the
+    // settled label resolves to nothing during that window, so a retrying
+    // assertion built on it silently skips past the window instead of
+    // sampling inside it. Still Save-specific within this dialog: neither
+    // `Cancel` nor create mode's `Save as draft` matches either branch.
+    const saveButtonTwo = pageTwo.getByRole('button', { name: /^(save draft|saving…)$/i });
 
     // The first writer moves the version out from under the second.
     const rowOne = pageOne.getByRole('listitem').filter({ hasText: name });
