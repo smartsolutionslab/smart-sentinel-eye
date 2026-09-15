@@ -267,3 +267,119 @@ test('operator drags a label, undoes it, and undoes back to the saved geometry',
   // Step 7 — the label is back at the saved geometry.
   await expect(leftField).toHaveValue(savedLeft);
 });
+
+// Spec 160 (issue #2387) US1 — the one thing jsdom cannot prove
+// (`OverlayEditorDialogSaveGate.test.tsx`'s doc comment): jsdom does not
+// implement the browser's disable-blur ("focus fixup") algorithm, so a
+// vitest assertion on `document.activeElement` can never fail there
+// regardless of whether Save uses `aria-disabled` or native `disabled`. This
+// repo already answered the identical question for a structurally identical
+// control — the Undo button test above (spec 154, :213-220) — and this test
+// carries the claim here for the same reason.
+//
+// New behaviour, RED (ADR-0139/ADR-0144) against unmodified `develop`: Save
+// is rendered natively `disabled`, so the instant the edit mutation goes
+// pending a real browser drops focus to `<body>` and it never returns —
+// Radix's FocusScope cannot rescue a disable-blur (`relatedTarget: null` on
+// the `focusout`, and its MutationObserver watches `childList`/`subtree`,
+// never `attributes`, spec.md §1.1).
+//
+// Two browser contexts sharing one overlay, modelled on
+// `e2e/layouts.spec.ts`'s "a second operator publishing the same revision is
+// refused" test: the second context opens the editor on the version the
+// first is about to move past, so its own Save is the one that earns the
+// 409.
+test('a stale-version conflict does not cost the keyboard operator their place at Save', async ({ browser }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
+  const name = `E2E Save Focus ${Date.now()}`;
+
+  const first = await browser.newContext();
+  const second = await browser.newContext();
+
+  try {
+    const pageOne = await first.newPage();
+    await signInAsOperator(pageOne);
+    await pageOne.getByRole('link', { name: /^overlays$/i }).click();
+    await pageOne.getByRole('button', { name: /new overlay/i }).click();
+    await pageOne.locator('#overlay-name').fill(name);
+    await pageOne.getByRole('button', { name: /save as draft/i }).click();
+    await expect(pageOne.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+
+    // The second context opens the editor *now*, before the first writer's
+    // edit lands, so it holds the version that edit is about to supersede.
+    // Opening it after would hand it the current version and prove nothing —
+    // the same ordering the layouts conflict test uses.
+    const pageTwo = await second.newPage();
+    await signInAsOperator(pageTwo);
+    await pageTwo.getByRole('link', { name: /^overlays$/i }).click();
+    const rowTwo = pageTwo.getByRole('listitem').filter({ hasText: name });
+    await expect(rowTwo.getByRole('button', { name: /^edit draft$/i })).toBeVisible({
+      timeout: FIRST_WRITE_TIMEOUT_MS,
+    });
+    await rowTwo.getByRole('button', { name: /^edit draft$/i }).click();
+    await expect(pageTwo.getByRole('dialog')).toBeVisible();
+    const saveButtonTwo = pageTwo.getByRole('button', { name: /^save draft$/i });
+
+    // The first writer moves the version out from under the second.
+    const rowOne = pageOne.getByRole('listitem').filter({ hasText: name });
+    await rowOne.getByRole('button', { name: /^edit draft$/i }).click();
+    await expect(pageOne.getByRole('dialog')).toBeVisible();
+    await pageOne.getByTestId('overlay-editor-text').fill('E2E First Writer');
+    await pageOne.getByRole('button', { name: /^save draft$/i }).click();
+    await expect(pageOne.getByRole('dialog')).toHaveCount(0);
+
+    // Slow only the second context's PATCH, so the pending window is
+    // observable rather than a single-frame flicker on a warm local stack —
+    // `system-variables.spec.ts`'s pattern. The chain re-read GET is a
+    // different path (`/{id}`, no `/revisions/`), so it is untouched by this
+    // route — delaying it too would make its own in-flight window
+    // unobservable for the identical reason that file discriminates by
+    // method.
+    await pageTwo.route(
+      (url) => /\/overlay-designer\/overlays\/[^/]+\/revisions\/\d+$/.test(url.pathname),
+      async (route) => {
+        if (route.request().method() !== 'PATCH') return route.fallback();
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await route.continue();
+      },
+    );
+
+    // Programmatic focus, not a real Tab traversal: the mechanism under test
+    // (a browser un-focusing a control the instant it natively disables)
+    // does not care how the control became focused, only that it was —
+    // spec.md §8.1 step 3's own parenthetical ("a click would focus it
+    // anyway; tabbing proves the keyboard path" — this proves the same thing
+    // more directly, without depending on the form's current tab order).
+    await pageTwo.getByTestId('overlay-editor-text').fill('E2E Second Writer');
+    await saveButtonTwo.focus();
+    await expect(saveButtonTwo).toBeFocused();
+    await pageTwo.keyboard.press('Enter');
+
+    // The PATCH is now in flight (held by the route above). This is the
+    // assertion that must be RED on unmodified `develop`: real browser, real
+    // native `disabled`, real blur to `<body>`.
+    await expect(saveButtonTwo).toBeFocused();
+    await expect(saveButtonTwo).toHaveAttribute('aria-disabled', 'true');
+
+    // The conflict lands and the chain re-read starts.
+    const alertTwo = pageTwo.getByRole('alert');
+    await expect(alertTwo).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+    await expect(saveButtonTwo).toBeFocused();
+
+    // The re-read answers with the corrected version; Save re-opens, still
+    // under the operator's finger.
+    await expect(saveButtonTwo).not.toHaveAttribute('aria-disabled', 'true', {
+      timeout: FIRST_WRITE_TIMEOUT_MS,
+    });
+    await expect(saveButtonTwo).toBeFocused();
+
+    // Gate-open pairing (rule 2, tasks.md): pressing it now actually saves,
+    // onto the recovered version.
+    await pageTwo.keyboard.press('Enter');
+    await expect(pageTwo.getByRole('dialog')).toHaveCount(0, { timeout: FIRST_WRITE_TIMEOUT_MS });
+  } finally {
+    await first.close();
+    await second.close();
+  }
+});
