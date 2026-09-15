@@ -48,6 +48,7 @@ class FakePeerConnection {
   iceGatheringState = 'complete';
   localDescription: { type: string; sdp: string } | null = null;
   closed = false;
+  remoteDescriptionSet = false;
 
   constructor() {
     FakePeerConnection.instances.push(this);
@@ -63,7 +64,9 @@ class FakePeerConnection {
     this.localDescription = desc;
   }
 
-  async setRemoteDescription() {}
+  async setRemoteDescription() {
+    this.remoteDescriptionSet = true;
+  }
 
   getReceivers() {
     return [];
@@ -236,6 +239,13 @@ function viewerFor(cameraIdentifier: string, getToken: () => Promise<string | nu
  * first attempt. Real timers throughout this file, deliberately — no
  * `vi.useFakeTimers()` — because faking `setTimeout` stops it from providing
  * that yield too.
+ *
+ * `flushConnect` is a DRIVER, not a synchroniser: it is the right instrument
+ * for giving the fakes a bounded chance to advance, or for probing that
+ * something does NOT happen, but it must never be the last thing before an
+ * assertion about a state that has to arrive — that is what `waitUntil`
+ * (below) is for. The remaining call sites in this file precede only
+ * negative assertions, for which a condition wait cannot be expressed (#2386).
  */
 async function flushConnect() {
   await act(async () => {
@@ -253,7 +263,25 @@ async function realWait(ms: number) {
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, ms));
   });
-  await flushConnect();
+}
+
+/**
+ * Polls `condition` on real timers, inside `act`, until it is true or
+ * `timeoutMs` elapses. This is the deadline-poll idiom `waitForNewPeerConnection`
+ * (below) already proved out for the connect chain, generalised so every
+ * caller in this file waits on the state it actually needs rather than on a
+ * fixed count of macrotask yields (#2386).
+ */
+async function waitUntil(condition: () => boolean, description: string, timeoutMs = 4000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() >= deadline) {
+      throw new Error(`Timed out after ${timeoutMs}ms waiting for ${description}.`);
+    }
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+  }
 }
 
 /**
@@ -270,17 +298,14 @@ async function realWait(ms: number) {
  * stream" branch and throws on a fake stream with no `getTracks`.
  */
 async function waitForNewPeerConnection(before: number, timeoutMs = 4000): Promise<FakePeerConnection> {
-  const deadline = Date.now() + timeoutMs;
-  while (FakePeerConnection.instances.length <= before) {
-    if (Date.now() >= deadline) {
-      throw new Error(
-        `Timed out after ${timeoutMs}ms waiting for a new RTCPeerConnection ` +
-          `(had ${before}, still have ${FakePeerConnection.instances.length}).`,
-      );
-    }
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    });
+  try {
+    await waitUntil(() => FakePeerConnection.instances.length > before, 'a new RTCPeerConnection', timeoutMs);
+  } catch {
+    // Preserve the had/have counts verbatim — diagnostically better than a generic message.
+    throw new Error(
+      `Timed out after ${timeoutMs}ms waiting for a new RTCPeerConnection ` +
+        `(had ${before}, still have ${FakePeerConnection.instances.length}).`,
+    );
   }
   return FakePeerConnection.instances[FakePeerConnection.instances.length - 1]!;
 }
@@ -293,7 +318,7 @@ async function waitForNewPeerConnection(before: number, timeoutMs = 4000): Promi
 async function goLive(): Promise<FakePeerConnection> {
   const before = FakePeerConnection.instances.length;
   const pc = await waitForNewPeerConnection(before);
-  await flushConnect();
+  await waitUntil(() => pc.remoteDescriptionSet, 'the WHEP answer to be applied');
   act(() => {
     pc.ontrack?.({ streams: [new FakeMediaStream()] });
     pc.setConnectionState('connected');
@@ -419,7 +444,10 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     // Every read for camera B fails, from here on — including the 5 s poll's
     // refetches.
     setStreamAnswer(CAM_B, () => errorResponse(500));
-    await flushConnect();
+    await waitUntil(
+      () => screen.queryByText(/could not reach the streaming service/i) !== null,
+      'the tile to report a failed read for camera B',
+    );
 
     // RED — FR-005. The tile has no stream for the current camera and every
     // read has failed; it must present as an explicit error, not read as
@@ -437,6 +465,13 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     // A genuine wall-clock wait — `pollingInterval` is real RTK Query
     // machinery, not a timer this file owns to fast-forward.
     await realWait(5200);
+    // Asserts the property spec.md verified in RTK's writePendingCacheEntry:
+    // `error` survives a pending refetch, so the tile does not flash back to
+    // "Connecting…" every 5 s.
+    await waitUntil(
+      () => screen.queryByText('Viewer error') !== null,
+      'the tile to still report a failed read after the poll',
+    );
     expect(screen.queryByText('Connecting…')).toBeNull();
     expect(videoEl.srcObject).toBeNull();
     expect(fetchMock.mock.calls.filter(isPostTo(CAM_A_WHEP_URL))).toEqual(postsToA);
@@ -453,9 +488,10 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     expect(pcA.closed).toBe(true);
 
     setStreamAnswer(CAM_B, () => errorResponse(403));
-    await flushConnect();
+    await waitUntil(() => screen.queryByText('Viewer error') !== null, 'the tile to report a failed read for camera B');
 
     // RED — an explicit error, not camera A's picture under camera B's name.
+    expect(screen.getByText('Viewer error')).toBeDefined();
     expect(screen.queryByText('Connecting…')).toBeNull();
     expect(videoEl.srcObject).toBeNull();
   });
@@ -470,7 +506,10 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     await flushConnect();
 
     setStreamAnswer(CAM_B, () => jsonResponse(offlineStream(CAM_B, CAM_B_WHEP_URL, 'Source powered down.')));
-    await flushConnect();
+    await waitUntil(
+      () => screen.queryByText('Stream is offline') !== null,
+      "camera B's offline state to reach the tile",
+    );
 
     // Existing behaviour, pinned rather than exercised for the first time:
     // an Offline read already short-circuits before any client is built
@@ -504,7 +543,14 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     // default) — a camera permuted between tiles on the same wall, or shown
     // anywhere in the last minute, leaves exactly this residue behind.
     const warm = render(viewerFor(CAM_B));
-    await flushConnect();
+    // Wait for the premise itself, not a fixed count: if the read for camera
+    // B has not actually landed in the cache when it unmounts, the entry
+    // below is discarded and this test would silently go on to exercise the
+    // COLD ordering while claiming the warm one (#2386).
+    await waitUntil(
+      () => streamsApi.endpoints.getStream.select(CAM_B)(store.getState()).data !== undefined,
+      'camera B to be warm in the RTK Query cache',
+    );
     warm.unmount();
 
     const view = render(viewerFor(CAM_A));
@@ -517,7 +563,10 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     // GET is still in flight when the effects first run. This is the only
     // scenario in the file that exercises that ordering.
     view.rerender(viewerFor(CAM_B));
-    await flushConnect();
+    await waitUntil(
+      () => screen.queryByText('Stream is offline') !== null,
+      "camera B's warm offline state to land in the same commit as the swap",
+    );
 
     expect(videoElement()).toBe(videoEl);
     expect(pcA.closed).toBe(true);
@@ -550,7 +599,10 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     // that scoping is a deliberate decision, not a silent one.
     setStreamAnswer(CAM_A, () => errorResponse(500));
     render(viewerFor(CAM_A));
-    await flushConnect();
+    await waitUntil(
+      () => screen.queryByText('Viewer error') !== null,
+      'the first-mount read failure to reach the tile',
+    );
 
     expect(screen.getByText('Viewer error')).toBeDefined();
     expect(screen.getByText('Could not reach the streaming service.')).toBeDefined();
