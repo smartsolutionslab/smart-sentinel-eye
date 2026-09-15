@@ -410,9 +410,11 @@ export function LayoutEditorDialog({ open, onOpenChange, editTarget }: LayoutEdi
             `isFetching` true, Save disabled, exactly one PATCH ever issued.
             Reload (`refetchChain()`) hits the same gate but is the rarer
             path -- both are cases where `currentData` genuinely stays stale
-            while a fetch for the same argument is in flight. Neither is
-            pinned by a test in this repo, so the outcome is recorded here
-            rather than asserted.
+            while a fetch for the same argument is in flight. The Reload path
+            is pinned by
+            `LayoutEditorDialogChainRecovery.test.tsx`'s FR-005 case; the
+            REJECTED-mutation path is not pinned by a test in this repo, so
+            that half of the outcome is recorded here rather than asserted.
           */}
           <Button
             ref={saveRef}
