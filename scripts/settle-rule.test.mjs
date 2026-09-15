@@ -84,20 +84,21 @@ for (const [appName, appRoot] of apps) {
 
     assert.equal(
       problems.length,
-      5,
-      `expected exactly 5 no-restricted-syntax problems in must-flag.fixture.txt ` +
+      6,
+      `expected exactly 6 no-restricted-syntax problems in must-flag.fixture.txt ` +
         `via ${appName}, got ${problems.length}: ${JSON.stringify(problems, null, 2)}`,
     );
 
     assert.deepEqual(
       problems.map((problem) => problem.line),
-      [28, 36, 46, 53, 65],
-      `expected the 5 violations at their recorded lines via ${appName} — the ` +
+      [28, 36, 46, 53, 65, 78],
+      `expected the 6 violations at their recorded lines via ${appName} — the ` +
         'counted timer-phase loop with a literal bound (28), the plain ' +
         'settle-then-assert (36), the comment-separated settle-then-assert (46), ' +
-        'the settle-then-negated-assert (53), and the counted timer-phase loop ' +
+        'the settle-then-negated-assert (53), the counted timer-phase loop ' +
         'with a NAMED bound (65, the widened-selector pin — #2392 phase 6 ' +
-        'finding 2)',
+        'finding 2), and a `for...of` loop over a fixed array yielding to the ' +
+        'timer phase (78, the ForOfStatement pin — #2392 phase 6 finding 5)',
     );
 
     for (const problem of problems) {

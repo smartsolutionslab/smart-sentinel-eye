@@ -65,3 +65,16 @@ test('case 5 - a counted loop with a named bound yields to the timer phase', asy
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
 });
+
+// Case 6 — Selector B, widened again (ADR-0150 §2 amended, #2392 phase 6
+// finding 5): a `for...of` loop over a FIXED array, not a `for` loop at all
+// — `ForStatement[test]` cannot see a `ForOfStatement`, which has no `test`
+// node to match. The same fixed-count instrument by another shape: a sibling
+// suite (`CameraViewer.test.tsx`'s retry-delay loop) already reaches for
+// `for (const x of fixedArray)`, just not over a raw `new Promise`.
+const FIXED_ARRAY = [0, 0, 0];
+test('case 6 - a for-of loop over a fixed array yields to the timer phase', async () => {
+  for (const delay of FIXED_ARRAY) {
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+});
