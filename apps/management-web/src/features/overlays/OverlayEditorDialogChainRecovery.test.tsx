@@ -231,10 +231,18 @@ describe('OverlayEditorDialog — a recovery control that survives its own activ
     // 7. Focus lands on Save, the control the operator was trying to reach.
     const saveButton = screen.getByRole('button', { name: /^save draft$/i });
     expect(document.activeElement).toBe(saveButton);
-    // 8. The success is exactly what enables it.
-    expect(saveButton).not.toBeDisabled();
+    // 8. The success is exactly what enables it (spec 160 FR-001: `aria-disabled`,
+    //    not native `disabled`). Paired with the behavioural half (tasks.md rule
+    //    2) — the attribute alone cannot tell "gate open" from "gate cosmetic".
+    expect(saveButton).not.toHaveAttribute('aria-disabled', 'true');
     // 9. The announcement changes to reflect the outcome.
     expect(statusRegion()).toHaveTextContent(/was read/i);
+
+    await user.click(saveButton);
+    expect(editDraftMock).toHaveBeenCalledTimes(1);
+    expect(editDraftMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ overlayIdentifier: EDIT_TARGET.overlayIdentifier, version: 7 }),
+    );
   });
 
   it('Leaves focus on Retry and shows the alert again when the re-read is refused a second time (FR-006)', async () => {
@@ -254,7 +262,11 @@ describe('OverlayEditorDialog — a recovery control that survives its own activ
     const retryAgain = screen.getByRole('button', { name: /retry/i });
     expect(retryAgain).not.toHaveAttribute('aria-disabled', 'true');
     expect(document.activeElement).toBe(retryAgain);
-    expect(screen.getByRole('button', { name: /^save draft$/i })).toBeDisabled();
+    // Spec 160 FR-001/rule 2 — `aria-disabled`, paired with a call-count check.
+    const saveButton = screen.getByRole('button', { name: /^save draft$/i });
+    expect(saveButton).toHaveAttribute('aria-disabled', 'true');
+    await user.click(saveButton);
+    expect(editDraftMock).not.toHaveBeenCalled();
     // Cleared, not merely unchanged — the failure's own insertion is what
     // announces it now, so the status region has nothing left to say.
     expect(statusRegion().textContent).toBe('');
@@ -497,7 +509,8 @@ describe('OverlayEditorDialog — a recovery control that survives its own activ
 
     // 2. The failing assertion: Save must be unavailable while the re-read
     //    is in flight, even though `currentChain` (v7) is still defined.
-    expect(saveButton).toBeDisabled();
+    //    `aria-disabled`, not native `disabled` (spec 160 FR-001).
+    expect(saveButton).toHaveAttribute('aria-disabled', 'true');
 
     // 3. The harm, not only the attribute: clicking must not submit v7 a
     //    second time while the re-read is still on the wire.
@@ -516,7 +529,7 @@ describe('OverlayEditorDialog — a recovery control that survives its own activ
       });
     });
 
-    expect(saveButton).not.toBeDisabled();
+    expect(saveButton).not.toHaveAttribute('aria-disabled', 'true');
 
     await user.click(saveButton);
 

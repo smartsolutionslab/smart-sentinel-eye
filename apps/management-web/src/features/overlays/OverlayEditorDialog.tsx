@@ -21,7 +21,7 @@ import {
 } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback, useEffect, useMemo, useRef, type ComponentRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type ComponentRef, type FormEvent } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 
@@ -182,10 +182,16 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
 
   const onSubmit = handleSubmit(async (input) => {
     if (editTarget !== undefined) {
-      // FR-013: Save is disabled until `currentChain` resolves, so this is
-      // defensive rather than reachable through the UI — not the silent
-      // no-op `LayoutEditorDialog.tsx:183` uses, which this deliberately
-      // does not copy (that button gives no explanation at all).
+      // FR-013: kept as defence-in-depth alongside `saveBlocked` below (spec
+      // 160 FR-002). Before spec 160 this was the only guard and the button
+      // itself was natively `disabled`, so this really was unreachable
+      // through the UI; now the button is `aria-disabled` (clickable) and
+      // the form's submit guard is the one that actually keeps this
+      // unreached — this still narrows `currentChain` for the `.version`
+      // read below, and stays as a second line of defence rather than
+      // trusting the caller. Not the silent no-op `LayoutEditorDialog.tsx:183`
+      // uses, which this deliberately does not copy (that button gives no
+      // explanation at all).
       if (currentChain === undefined) return;
       const result = await editDraftOverlayRevision({
         overlayIdentifier: editTarget.overlayIdentifier,
@@ -239,6 +245,32 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
   // widening the config would be the gate-weakening ADR-0144 rules out.
   const saveRef = useRef<ComponentRef<'button'>>(null);
 
+  // Spec 160 (issue #2387) FR-002/FR-007. Computed once, consumed by both
+  // the button's `aria-disabled` and the form's submit guard below — today
+  // the two stated overlapping conditions separately (here and in
+  // `onSubmit`'s own `currentChain === undefined` check above).
+  //
+  // `chainFetching` alongside `currentChain === undefined`: RTK Query keeps
+  // `currentData` defined for the same query arg while a refetch is in
+  // flight, so the version held is known-stale. The common trigger is not
+  // Reload but the conflict's own `invalidatesTags` refetch —
+  // `LayoutEditorDialog.tsx:400-417` has the evidence.
+  const saveBlocked = isLoading || (isEdit && (currentChain === undefined || chainFetching));
+
+  // FR-003: `aria-disabled` restores implicit form submission (a natively
+  // disabled default button suppresses Enter-to-submit; `aria-disabled` does
+  // not), so this guard — run on the form's submit event, before
+  // `handleSubmit` — is the only thing left stopping a submit while
+  // `saveBlocked` is true, on both routes: a click on Save, and Enter in a
+  // text field.
+  function handleFormSubmit(event: FormEvent) {
+    if (saveBlocked) {
+      event.preventDefault();
+      return;
+    }
+    void onSubmit(event);
+  }
+
   return (
     <Dialog
       open={open}
@@ -255,7 +287,7 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
           : 'Pick a name, type the label, and drag it to position. The overlay starts as a draft.'
       }
     >
-      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
         {!isEdit && (
           <FormField label="Name" htmlFor="overlay-name" error={errors.name?.message}>
             <Input id="overlay-name" autoFocus {...register('name')} />
@@ -301,17 +333,19 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
             Cancel
           </Button>
           {/*
-            `chainFetching` alongside `currentChain === undefined`: RTK Query
-            keeps `currentData` defined for the same query arg while a
-            refetch is in flight, so the version held is known-stale. The
-            common trigger is not Reload but the conflict's own
-            `invalidatesTags` refetch — `LayoutEditorDialog.tsx:400-417` has
-            the evidence.
+            `aria-disabled`, not the native `disabled` attribute (spec 160,
+            issue #2387) — a native disable blurs the focused element the
+            instant it takes effect, the same finding this repo already
+            shipped twice: `ChainRecoveryNotice.tsx:31-33` (spec 156) and
+            `OverlayEditor.tsx:649-657` (spec 154). `saveBlocked` above is
+            what defines the gate; `handleFormSubmit` on the form is what
+            actually enforces it now that the button stays clickable.
           */}
           <Button
             ref={saveRef}
             type="submit"
-            disabled={isLoading || (isEdit && (currentChain === undefined || chainFetching))}
+            aria-disabled={saveBlocked}
+            className="aria-disabled:opacity-50 aria-disabled:cursor-progress"
           >
             {isLoading ? 'Saving…' : isEdit ? 'Save draft' : 'Save as draft'}
           </Button>
