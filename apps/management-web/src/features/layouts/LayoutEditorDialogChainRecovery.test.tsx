@@ -430,11 +430,13 @@ describe('LayoutEditorDialog — a recovery control that survives its own activa
    * pinned it: `LayoutEditorDialog.tsx:411-417`'s comment said so in
    * words ("Neither is pinned by a test in this repo…") until this test
    * landed and T005 corrected it, and every `it` in
-   * `LayoutEditorDialogChainRetention.test.tsx` that drives `chainFetching:
-   * true` also has `currentChain === undefined` (`:207`, `:332`, `:409`),
-   * so the `currentChain === undefined` half of the predicate alone closes
-   * all three — `chainFetching` could be deleted and that file would stay
-   * green. This file's own Reload test (FR-008, above) drives `isFetching:
+   * `LayoutEditorDialogChainRetention.test.tsx` whose Save-disabled
+   * assertion runs with `currentChain === undefined` (`:207`, `:332` — an
+   * in-flight read, so `chainFetching: true`; `:409` — a settled, failed
+   * read, so `chainFailed: true` instead) is closed by the
+   * `currentChain === undefined` half of the predicate alone — `chainFetching`
+   * could be deleted and that file would stay green. This file's own Reload
+   * test (FR-008, above) drives `isFetching:
    * true` with `data` retained but asserts focus only, never Save's
    * disabled state.
    *
