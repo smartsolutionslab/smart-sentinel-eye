@@ -164,8 +164,14 @@ function healthyStream(cameraIdentifier: string) {
   };
 }
 
-/** Drains the async connect chain (offer → POST → answer) inside act. */
-async function flushConnect() {
+/**
+ * Drains the async connect chain (offer → POST → answer) inside act.
+ *
+ * N microtask rounds bound an N-deep microtask chain — no wall-clock
+ * dependence, so this is a bound and not an assumption (ADR-0150). Not a
+ * substitute for `waitFor` when the work crosses into the timer phase.
+ */
+async function flushMicrotasks() {
   await act(async () => {
     for (let i = 0; i < 12; i += 1) {
       await Promise.resolve();
@@ -231,7 +237,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();
-    await flushConnect();
+    await flushMicrotasks();
 
     expect(FakePeerConnection.instances).toHaveLength(1);
   });
@@ -242,7 +248,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();
-    await flushConnect();
+    await flushMicrotasks();
 
     // Transport has negotiated but never reported `connected`.
     expect(isDisabled(screen.getByRole('radio', { name: 'Captured frame' }))).toBe(true);
@@ -256,11 +262,11 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();
-    await flushConnect();
+    await flushMicrotasks();
     act(() => {
       FakePeerConnection.lastInstance().setConnectionState('connected');
     });
-    await flushConnect();
+    await flushMicrotasks();
 
     expect(FakePeerConnection.lastInstance().closed).toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(SESSION_URL_42, expect.objectContaining({ method: 'DELETE' }));
@@ -272,7 +278,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();
-    await flushConnect();
+    await flushMicrotasks();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10_000);
@@ -291,7 +297,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();
-    await flushConnect();
+    await flushMicrotasks();
 
     fireEvent.click(screen.getByRole('button', { name: /cancel capture/i }));
 
@@ -305,7 +311,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();
-    await flushConnect();
+    await flushMicrotasks();
     const firstConnection = FakePeerConnection.lastInstance();
 
     selectCamera(CAMERA_7.cameraIdentifier);
@@ -317,7 +323,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
     act(() => {
       firstConnection.setConnectionState('connected');
     });
-    await flushConnect();
+    await flushMicrotasks();
 
     expect(isDisabled(screen.getByRole('radio', { name: 'Captured frame' }))).toBe(true);
   });
@@ -330,7 +336,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();
-    await flushConnect();
+    await flushMicrotasks();
 
     unmount();
 
@@ -340,7 +346,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
     // microtask beyond close() returning, so the DELETE cannot have been
     // issued synchronously with unmount() (WhepClient.close():
     // releaseSession() awaits getToken() before it ever calls fetch).
-    await flushConnect();
+    await flushMicrotasks();
 
     expect(fetchMock).toHaveBeenCalledWith(SESSION_URL_42, expect.objectContaining({ method: 'DELETE' }));
   });
