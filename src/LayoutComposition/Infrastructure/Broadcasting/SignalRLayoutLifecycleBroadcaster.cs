@@ -7,11 +7,11 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 
 /// <summary>
 /// SignalR-backed implementation of
-/// <see cref="ILayoutLifecycleBroadcaster"/>. Broadcasts to every
-/// connected client (admin or kiosk). Failures are best-effort —
-/// the kiosk's reconnect-and-reconcile path (FR-012) is the safety
-/// net so a dropped frame never leaves a kiosk staring at an archived
-/// layout.
+/// <see cref="ILayoutLifecycleBroadcaster"/>. Broadcasts to the
+/// fab-scoped group of connected kiosk clients (ADR-0145 fab
+/// isolation). Failures are best-effort — the kiosk's
+/// reconnect-and-reconcile path (FR-012) is the safety net so a
+/// dropped frame never leaves a kiosk staring at an archived layout.
 /// </summary>
 public sealed class SignalRLayoutLifecycleBroadcaster(
     IHubContext<LayoutLifecycleHub, ILayoutLifecycleClient> hub,

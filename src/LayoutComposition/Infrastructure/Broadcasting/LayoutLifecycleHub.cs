@@ -5,9 +5,9 @@ using SmartSentinelEye.ServiceDefaults.Authorization;
 namespace SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 
 /// <summary>
-/// SignalR hub the kiosk (and management-web) connects to for layout
-/// lifecycle pushes (spec 003 FR-009 / FR-011). Empty server-side
-/// surface — clients listen only. Broadcast happens via
+/// SignalR hub the kiosk connects to for layout lifecycle pushes
+/// (spec 003 FR-009 / FR-011). Empty server-side surface — clients
+/// listen only. Broadcast happens via
 /// <see cref="IHubContext{THub, T}"/> in
 /// <see cref="SignalRLayoutLifecycleBroadcaster"/>.
 ///

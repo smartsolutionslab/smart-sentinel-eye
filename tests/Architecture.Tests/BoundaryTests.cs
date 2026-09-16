@@ -137,8 +137,8 @@ public class BoundaryTests
 
     /// <summary>
     /// ADR-0106 (#1006): the gateway carries only REST/CRUD traffic, so it must
-    /// stay off the constitution §IV latency legs. The per-kiosk WebSocket push
-    /// (ADR-0076) and the WebRTC/SFU media (ADR-0011/0012) stay direct — proven
+    /// stay off the constitution §IV latency legs. The per-kiosk SignalR push
+    /// (ADR-0152) and the WebRTC/SFU media (ADR-0011/0012) stay direct — proven
     /// structurally here by the gateway assembly depending on no SignalR or
     /// WebSocket transport. With the route table carrying only REST contexts,
     /// the event-to-overlay and media legs never traverse the gateway hop.
