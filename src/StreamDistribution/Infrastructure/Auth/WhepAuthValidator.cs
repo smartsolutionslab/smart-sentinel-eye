@@ -118,12 +118,21 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
         }
         catch (InvalidOperationException exception)
         {
-            // Narrow on purpose, and measured rather than assumed: a cancelled
-            // request surfaces here as OperationCanceledException — ConfigurationManager
-            // raises it even when the retriever wrapped the cancellation — so this
-            // catch lets a caller that went away leave as a cancellation. Widening it
-            // to catch Exception reports that caller as a refused viewer instead;
-            // A_cancelled_request_stays_cancelled fails on exactly that edit.
+            // Narrow on purpose, and measured rather than assumed: an
+            // OperationCanceledException escapes this catch — and the method —
+            // only when the token was already cancelled before ConfigurationManager
+            // acquired its configuration lock; that lock's own already-cancelled
+            // check is the only place GetConfigurationAsync reads this token before
+            // a configuration is cached (Microsoft.IdentityModel.Protocols 8.19.2).
+            // The fetch itself always runs with CancellationToken.None, by the
+            // library's own design, so a cancellation that reaches the retriever is
+            // wrapped into this same InvalidOperationException as any other outage
+            // and correctly reported as IdentityProviderUnavailable below — a
+            // metadata fetch that cannot complete is an unavailable realm. Widening
+            // this catch to catch Exception instead swallows the already-cancelled
+            // case into that same refusal;
+            // A_request_cancelled_before_the_realm_is_reached_stays_cancelled fails
+            // on exactly that edit.
             // Logged on the transition, not per request. /streams/authorize is
             // AllowAnonymous and nothing rate-limits it, so one Warning and one full
             // exception chain per WHEP open floods the single OTLP sink at exactly
