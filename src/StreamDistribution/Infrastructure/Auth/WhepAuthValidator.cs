@@ -120,19 +120,25 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
         {
             // Narrow on purpose, and measured rather than assumed: an
             // OperationCanceledException escapes this catch — and the method —
-            // only when the token was already cancelled before ConfigurationManager
-            // acquired its configuration lock; that lock's own already-cancelled
-            // check is the only place GetConfigurationAsync reads this token before
-            // a configuration is cached (Microsoft.IdentityModel.Protocols 8.19.2).
+            // only when the token is cancelled before ConfigurationManager's
+            // configuration lock (SemaphoreSlim.WaitAsync(cancel)) admits this
+            // caller — either already cancelled on entry, or cancelled while
+            // queued behind another caller's in-flight first fetch. That lock
+            // is the only place GetConfigurationAsync reads this token before a
+            // configuration is cached (Microsoft.IdentityModel.Protocols 8.19.2).
             // The fetch itself always runs with CancellationToken.None, by the
-            // library's own design, so a cancellation that reaches the retriever is
-            // wrapped into this same InvalidOperationException as any other outage
-            // and correctly reported as IdentityProviderUnavailable below — a
-            // metadata fetch that cannot complete is an unavailable realm. Widening
-            // this catch to catch Exception instead swallows the already-cancelled
-            // case into that same refusal;
-            // A_request_cancelled_before_the_realm_is_reached_stays_cancelled fails
-            // on exactly that edit.
+            // library's own design, so a cancellation that reaches the retriever
+            // is wrapped into this same InvalidOperationException as any other
+            // outage and correctly reported as IdentityProviderUnavailable below
+            // — a metadata fetch that cannot complete is an unavailable realm.
+            // Widening this catch to catch Exception instead swallows both
+            // honoured cases into that same refusal — the queued caller
+            // included, which is the production-relevant one: this validator is
+            // a singleton serving every WHEP open at once, so a cold-cache
+            // outage queues real viewers behind the first caller's fetch.
+            // A_request_cancelled_before_the_realm_is_reached_stays_cancelled and
+            // A_viewer_queued_behind_another_viewers_first_fetch_can_still_cancel
+            // both fail on exactly that edit.
             // Logged on the transition, not per request. /streams/authorize is
             // AllowAnonymous and nothing rate-limits it, so one Warning and one full
             // exception chain per WHEP open floods the single OTLP sink at exactly
