@@ -1,6 +1,6 @@
 # ADR-0076: Real-Time Transport — Replaceable Abstraction, WebSocket First
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0152 (SignalR is the real-time transport)
 **Date:** 2026-05-25
 
 ## Context

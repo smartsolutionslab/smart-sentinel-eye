@@ -482,12 +482,12 @@ Driven by ADRs 0074–0080.
   `apps/shared/`.
 - **Redux Toolkit + RTK Query** for state (ADR-0075). One store per
   app; real-time updates dispatch into the store.
-- **Realtime transport is replaceable behind an abstraction**
-  (ADR-0076): WebSocket implementation v1, SSE candidate v2. Server
-  side: `IRealtimeChannel` / `IRealtimeTransport` in
-  `SmartSentinelEye.Realtime.Abstractions`. Client side: parallel
-  TypeScript interface in `apps/shared/realtime/`. Operator commands
-  go over REST, not the realtime channel.
+- **Realtime transport is SignalR** (ADR-0152), with transport
+  negotiation (WebSockets → SSE → long polling) handled inside it.
+  Server side: `LayoutLifecycleHub` at `/hubs/layouts`, sending
+  through `ILayoutLifecycleBroadcaster`. Client side: `@microsoft/
+  signalr` in `apps/shared/src/realtime/layoutHub.ts`. Operator
+  commands go over REST, not the realtime channel.
 - **UI primitives** built on Radix UI + Tailwind tokens (ADR-0077,
   ADR-0078). All visual code in `apps/shared/ui/`. No external
   component library.
