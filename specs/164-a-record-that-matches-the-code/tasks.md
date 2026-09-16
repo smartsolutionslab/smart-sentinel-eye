@@ -154,7 +154,10 @@ registration changes.**
   `Clients.Group(LayoutLifecycleHub.FabGroup(…))` (lines 35, 51, 77, 96, 116,
   132); `Clients.All` appears nowhere in `src/`.
 - `src/LayoutComposition/Infrastructure/Broadcasting/LayoutLifecycleHub.cs:8` —
-  drop "(and management-web)". Kiosk only.
+  drop "(and management-web)". Kiosk only — this is about which app *connects*
+  to the hub; it says nothing about who *receives* a broadcast (that's the fab
+  group membership in the two bullets above, and it is not kiosk-only: see
+  issue #2400 phase 6 finding #1).
 - `src/AppHost/AppHost.cs:554` — SignalR hub, ADR-0152. **The rest of that
   comment block stays verbatim**; the `VITE_LAYOUT_HUB_ORIGIN` /
   POSIX-shell-hyphen explanation is still true for the kiosk.

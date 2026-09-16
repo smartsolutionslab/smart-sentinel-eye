@@ -7,9 +7,12 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 
 /// <summary>
 /// SignalR-backed implementation of
-/// <see cref="ILayoutLifecycleBroadcaster"/>. Broadcasts to the
-/// fab-scoped group of connected kiosk clients (ADR-0145 fab
-/// isolation). Failures are best-effort — the kiosk's
+/// <see cref="ILayoutLifecycleBroadcaster"/>. Broadcasts to the fab
+/// group: every connection holding that fab, i.e. any caller with
+/// <c>sse.layouts.read</c> (in production, the kiosk) — see spec 017
+/// FR-008 and spec 014 FR-015 below; ADR-0145 decides the client-side
+/// complement (the kiosk discards a frame whose fab doesn't match the
+/// displayed layout's). Failures are best-effort — the kiosk's
 /// reconnect-and-reconcile path (FR-012) is the safety net so a
 /// dropped frame never leaves a kiosk staring at an archived layout.
 /// </summary>
