@@ -100,10 +100,18 @@ jobs:
       # loop writes into `artifacts/coverage/raw/<project>/<guid>/`, because
       # that loop passes its own `--results-directory`; only the ci.yml
       # fixture-logic step (no override) lands under the vstest default
-      # `TestResults/`. The filename is `Sequence_<guid>.xml` (prefix, not
-      # suffix), confirmed the same way. `if-no-files-found: ignore` matters:
-      # on every normal run this glob matches nothing, and that must not
-      # fail the job.
+      # `TestResults/`.
+      #
+      # The sequence-file glob is deliberately loose (`*Sequence*`, not
+      # anchored to a prefix or suffix): the collector assembly we ran
+      # against writes `Sequence_<guid>.xml` (prefix), confirmed the same
+      # way as the directory above, but `dotnet test --help` in this same
+      # pinned SDK documents the opposite — `<guid>_Sequence.xml` (suffix).
+      # The two disagree, and the help text is exactly what a future reader
+      # checks first, so anchoring to either spelling risks a "fix" into a
+      # glob that matches nothing. Matching both costs nothing here.
+      # `if-no-files-found: ignore` matters: on every normal run this glob
+      # matches nothing, and that must not fail the job.
       - name: Upload hang/crash diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -111,7 +119,7 @@ jobs:
           name: backend-blame-diagnostics
           path: |
             **/*.dmp
-            **/Sequence_*.xml
+            **/*Sequence*.xml
           retention-days: 14
           if-no-files-found: ignore
 
@@ -184,6 +192,13 @@ jobs:
         run: dotnet build tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj -c Release --no-restore
 
       - name: Run integration tests
+        # No blame-hang watchdog here (unlike `backend`, #2409): a hang in this
+        # job has the identical silent-`cancelled` invisibility one job over,
+        # and this job's Docker-bound fixture is a different "how slow is
+        # legitimately slow" population than the fakes-only unit tests #2409
+        # sized its budget against, so it was left out of that slice rather
+        # than folded in. Tracked as a follow-up: #2410.
+        #
         # Three categories are excluded. The first two are spec 020, and share a
         # reason: they measure or disturb the runner rather than the code.
         #
