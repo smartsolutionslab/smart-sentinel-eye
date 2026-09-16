@@ -11,7 +11,7 @@ import { logResilienceEvent } from '../observability/resilienceLog.js';
 // production build, which keeps unit tests and previews working; a production
 // build with no origin throws at load instead of falling back (see below).
 //
-// Realtime (ADR-0076 WebSocket) and WebRTC media do NOT go through here — they
+// Realtime (SignalR, ADR-0152) and WebRTC media do NOT go through here — they
 // stay direct, off the gateway and off the §IV latency budget.
 const gatewayOrigin: string = (import.meta.env.VITE_API_GATEWAY_URL ?? '').replace(/\/+$/, '');
 

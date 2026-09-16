@@ -46,7 +46,7 @@ builder.Services.AddRateLimiter(options =>
 // ADR-0106: single YARP reverse proxy at the edge. Routes and clusters come
 // from configuration; destinations resolve through Aspire service discovery
 // (e.g. "http://camera-catalog" -> the live service endpoint). REST only —
-// the realtime WebSocket push (ADR-0076) and WebRTC media stay direct, off
+// the realtime SignalR push (ADR-0152) and WebRTC media stay direct, off
 // the latency budget (constitution §IV). TLS terminates at the deploy edge
 // (k3s Ingress / Helm, ADR-0024/0025) — the Aspire dev model is all-HTTP, so
 // there is no dev HTTPS endpoint here. Each route opts into CORS and the
