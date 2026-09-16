@@ -236,6 +236,17 @@ describe('OverlayEditorDialog — Save keeps its focus while it is unavailable (
     // keyboard operator their place at Save".)
     expect(saveButton).toHaveAttribute('aria-disabled', 'true');
 
+    // Spec 163 (issue #2399) T003 — characterisation, captured GREEN on
+    // unmodified `develop` before the Button `unavailable` prop lands (T005)
+    // and the call site converts to it (T006). Must pass UNMODIFIED
+    // afterwards: an edit here would mean the conversion moved behaviour,
+    // not merely relocated it (ADR-0144). Order-independent `toHaveClass`,
+    // never an exact `className` string — `clsx` reorders the classes once
+    // `aria-disabled:opacity-50` comes from the primitive instead of this
+    // call site's own `className` (plan.md 163 §3).
+    expect(saveButton).toHaveClass('aria-disabled:opacity-50', 'aria-disabled:cursor-progress');
+    expect(saveButton).not.toHaveAttribute('disabled');
+
     await act(async () => {
       refuseEdit({
         status: 409,
