@@ -209,11 +209,48 @@ jobs:
         # StartupTimeout, --blame-hang would pre-empt that mechanism's own
         # richer, resource-named TimeoutException with a generic hang dump
         # that (during fixture boot) has no dispatched test to attribute
-        # the hang to. This budget is coupled to two things that can drift
-        # it without anyone touching this file: AspireFixture gaining
-        # another gated resource, or EventIngestion's retry/backoff policy
-        # changing PoisonDeliveryEscapeIntegrationTests's ~97s. Re-measure
-        # (don't just copy this number forward) if either moves.
+        # the hang to.
+        #
+        # The margin, stated as a figure rather than "with margin": 12min -
+        # 8min = 240s. That 240s has to absorb the one failure class
+        # --blame-hang exists to backstop above StartupTimeout (spec.md
+        # §2.6) -- StartupTimeout's own `cts` firing but the cancellation not
+        # propagating instantly through some awaited call
+        # (WaitForResourceAsync/Docker/Aspire). Measured directly rather
+        # than assumed (spec.md §5 counterfactual 2's procedure --
+        # StartupTimeout shrunk to 10s, one WaitForResourceAsync pointed at
+        # a resource name that can never resolve, temporarily, locally,
+        # reverted): the fixture's own TimeoutException fired ~30ms after
+        # the nominal 10s in that construction -- propagation was
+        # essentially instant for a `WaitForResourceAsync` awaiting
+        # `ResourceNotificationService`. 240s is a floor for that reason,
+        # not a midpoint: the one case we could measure showed ~0 delay, so
+        # the 240s is sized against the unbounded version of this risk this
+        # one measurement cannot rule out -- third-party code that does not
+        # honour the token at all (the class spec 166 §2.1 found in
+        # `WhepValidatorUnreachableRealmTests`), not a known few-second
+        # figure to "absorb".
+        #
+        # This budget is coupled to three things that can drift it without
+        # anyone touching this file: (1) AspireFixture gaining another
+        # gated resource (grows the ~132s boot figure), (2) EventIngestion's
+        # retry/backoff policy changing PoisonDeliveryEscapeIntegrationTests's
+        # ~97s, and (3) StartupTimeout itself (AspireFixture.cs, currently
+        # 8min) -- the only one of the three that *inverts* the 12min/8min
+        # ordering rather than merely consuming margin. StartupTimeout has
+        # been retuned before (#2064, 8min is not its original value); a
+        # later slice raising it toward or above 12min would, from that
+        # commit on, cause every boot-phase hang to be pre-empted by
+        # --blame-hang's generic dump with no dispatched test to attribute
+        # it to, instead of StartupTimeout's own resource-state/exit-code/
+        # log-tail table (spec.md §2.6) -- and nothing on the AspireFixture
+        # side flags this coupling today (tracked: #2412). The fixture's
+        # boot-wait logic has been retuned before as ordinary feature work
+        # (#2064, the migration-exit-code gate) -- not a precedent for
+        # StartupTimeout's own 8min figure having moved (it hasn't, checked
+        # against this file's history), but evidence this class of change
+        # happens here without anyone thinking to check ci.yml. Re-measure
+        # (don't just copy this number forward) if any of the three moves.
         #
         # Three categories are excluded. The first two are spec 020, and share a
         # reason: they measure or disturb the runner rather than the code.
@@ -291,13 +328,36 @@ jobs:
       # Not always(): 709d56c8's own reasoning, reused verbatim -- this
       # would print a large amount of output on every green run for no
       # reason. failure() || cancelled(), matching that precedent exactly.
+      #
+      # On a genuine failure() (not cancelled()), expect an EMPTY container
+      # list, and that is not this step being broken. This job launches the
+      # AppHost with E2ETests=true (AspireFixture.InitializeAsync's own
+      # `parameters` array), which -- via AppHost.cs's `isRunMode &&
+      # !isE2ETests` gate on every `WithLifetime(ContainerLifetime.Persistent)`
+      # -- makes every container here ephemeral, not persistent. On an
+      # ordinary red test, the host process exits normally,
+      # AspireFixture.DisposeAsync runs (AspireFixture.cs), and DCP tears the
+      # containers down before this step ever runs -- `docker ps -a` prints
+      # nothing to see, legitimately. This step's payload only has something
+      # to capture on the cancelled() branch, where the runner kills the job
+      # out from under the test host before teardown can run.
+      #
+      # Residual, unverifiable without inducing a real 30-minute
+      # timeout-minutes cancellation, recorded rather than fixed: if the test
+      # host *does* reach AspireFixture.DisposeAsync inside the runner's
+      # cancellation grace window, that teardown deliberately runs with
+      # CancellationToken.None (AspireFixture.cs, "No token by design" --
+      # teardown must release the stack even while the run is being torn
+      # down) and would then race this step's `docker ps -a` / `docker logs`
+      # against DCP's own `docker rm` -- a partial capture is possible in
+      # that narrow window. Known limitation, not addressed here.
       - name: Container state and logs (on failure or cancellation)
         if: failure() || cancelled()
         run: |
-          docker ps -a
+          timeout 60 docker ps -a || true
           for c in $(docker ps -aq); do
-            echo "::group::$(docker inspect -f '{{.Name}}' "$c")"
-            docker logs --tail 200 "$c" || true
+            echo "::group::$(docker inspect -f '{{.Name}}' "$c" | sed 's#^/##')"
+            timeout 30 docker logs --tail 200 "$c" || true
             echo "::endgroup::"
           done
 
