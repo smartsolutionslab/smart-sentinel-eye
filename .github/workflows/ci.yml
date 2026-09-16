@@ -218,18 +218,30 @@ jobs:
         # propagating instantly through some awaited call
         # (WaitForResourceAsync/Docker/Aspire). Measured directly rather
         # than assumed (spec.md §5 counterfactual 2's procedure --
-        # StartupTimeout shrunk to 10s, one WaitForResourceAsync pointed at
-        # a resource name that can never resolve, temporarily, locally,
-        # reverted): the fixture's own TimeoutException fired ~30ms after
-        # the nominal 10s in that construction -- propagation was
-        # essentially instant for a `WaitForResourceAsync` awaiting
-        # `ResourceNotificationService`. 240s is a floor for that reason,
-        # not a midpoint: the one case we could measure showed ~0 delay, so
-        # the 240s is sized against the unbounded version of this risk this
-        # one measurement cannot rule out -- third-party code that does not
-        # honour the token at all (the class spec 166 §2.1 found in
-        # `WhepValidatorUnreachableRealmTests`), not a known few-second
-        # figure to "absorb".
+        # StartupTimeout shrunk to 10s, temporarily, locally, reverted), and
+        # two different regions of the boot gave two very different
+        # answers:
+        #
+        # - WaitForResourceAsync awaiting ResourceNotificationService (one
+        #   WaitForResourceAsync pointed at a resource name that can never
+        #   resolve): the fixture's own TimeoutException fired ~30ms after
+        #   the nominal 10s -- essentially instant.
+        # - DCP/container bring-up inside StartAsync: a first attempt at a
+        #   nominally-correct ordering (--blame-hang-timeout 20s over a 10s
+        #   StartupTimeout) still lost -- StartAsync's
+        #   OperationCanceledException did not surface until ~74s wall
+        #   against the 10s cutoff, a ~64s propagation delay, and
+        #   --blame-hang fired first anyway despite the "correct" ordering.
+        #
+        # So nominal ordering (CI value > StartupTimeout) is not sufficient
+        # by itself -- what matters is absolute margin large enough to
+        # survive the slower of the two measured delays. 240s is ~3-4x the
+        # ~64s worst case actually measured, not a hedge against a purely
+        # hypothetical one. Third-party code that ignores the token
+        # entirely (the class spec 166 §2.1 found in
+        # `WhepValidatorUnreachableRealmTests`) remains unbounded and
+        # unmeasurable -- that risk is still real, but it is the second
+        # reason for a floor, not the first.
         #
         # This budget is coupled to three things that can drift it without
         # anyone touching this file: (1) AspireFixture gaining another

@@ -281,18 +281,28 @@ own `cts` firing but the cancellation **not propagating instantly**
 through some awaited call (`WaitForResourceAsync`/Docker/Aspire).
 Measured directly rather than assumed — §5 counterfactual 2's own
 procedure, run for this purpose: `StartupTimeout` shrunk to 10s
-(temporarily, locally, reverted before this PR) and one
-`WaitForResourceAsync` pointed at a resource name that can never
-resolve (`"keycloak-typo"`) — the fixture's own `TimeoutException` fired
-**~30ms after the nominal 10s** in that construction. Propagation was
-essentially instant for the one code path this measurement could reach
-(`WaitForResourceAsync` awaiting `ResourceNotificationService`). **240s
-is stated as a floor for that reason, not a midpoint**: the one case
-measurable locally showed ~0 delay, so the 240s is sized against the
-*unbounded* version of this risk that a single local measurement cannot
-rule out — third-party code that does not honour the token at all (the
-class spec 166 §2.1 found in `WhepValidatorUnreachableRealmTests`), not
-a known few-second figure to "absorb."
+(temporarily, locally, reverted before this PR). Two different regions
+of the boot gave two very different answers:
+
+- **`WaitForResourceAsync` awaiting `ResourceNotificationService`** — one
+  `WaitForResourceAsync` pointed at a resource name that can never
+  resolve (`"keycloak-typo"`): the fixture's own `TimeoutException` fired
+  **~30ms after the nominal 10s** — essentially instant.
+- **DCP/container bring-up inside `StartAsync`** — a first attempt at a
+  nominally-correct ordering (`--blame-hang-timeout` 20s over a 10s
+  `StartupTimeout`) still lost: `StartAsync`'s `OperationCanceledException`
+  did not surface until **~74s wall** against the 10s cutoff — a **~64s**
+  propagation delay — and `--blame-hang` fired first anyway, despite the
+  "correct" ordering.
+
+**So nominal ordering (CI value > `StartupTimeout`) is not sufficient by
+itself** — what matters is absolute margin large enough to survive the
+slower of the two measured delays. **240s is ~3-4x the ~64s worst case
+actually measured**, not a hedge against a purely hypothetical one.
+Third-party code that ignores the token entirely (the class spec 166
+§2.1 found in `WhepValidatorUnreachableRealmTests`) remains unbounded and
+unmeasurable — that risk is still real, but it is the **second** reason
+for a floor, not the first.
 
 **Known fragility, recorded at the call site rather than discovered later:**
 this number is coupled to **three** things that can move it without anyone
