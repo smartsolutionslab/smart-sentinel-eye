@@ -43,12 +43,17 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Auth;
 /// interrupt a fetch already under way; a fake that only completes when its
 /// token is cancelled hangs the host instead. The one guarantee that exists is
 /// the already-cancelled check on <c>ConfigurationManager</c>'s configuration
-/// lock, read before there is a cached configuration: a token cancelled
-/// outright before the call is honoured there, and only there. A metadata
-/// fetch that cannot complete — cancellation reaching the retriever included —
-/// already reports as <c>IdentityProviderUnavailable</c>, which is correct: an
-/// unreachable realm is an unreachable realm regardless of why the caller
-/// stopped waiting.
+/// lock — <c>SemaphoreSlim.WaitAsync(cancel)</c> — which honours a token both
+/// on entry and while queued behind another caller's in-flight first fetch:
+/// see <see cref="A_request_cancelled_before_the_realm_is_reached_stays_cancelled"/>
+/// for the former and
+/// <see cref="A_viewer_queued_behind_another_viewers_first_fetch_can_still_cancel"/>
+/// for the latter. Nowhere else does <c>GetConfigurationAsync</c> read this
+/// token before a configuration is cached. A metadata fetch that cannot
+/// complete — cancellation reaching the retriever included — already reports
+/// as <c>IdentityProviderUnavailable</c>, which is correct: an unreachable
+/// realm is an unreachable realm regardless of why the caller stopped
+/// waiting.
 /// </para>
 /// </summary>
 public sealed class WhepValidatorUnreachableRealmTests : IDisposable
@@ -182,11 +187,13 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
     /// <c>WhepAuthValidator</c> is a singleton and a wall of kiosks opens WHEP at
     /// once, so a viewer queued behind another viewer's first fetch is the
     /// normal state during a cold-cache outage, not an exotic one. Deterministic
-    /// whichever way the two sub-races resolve — caller B either finds the
-    /// configuration lock already held and queues, or finds its own token
-    /// already cancelled — because both land on the same
-    /// <c>OperationCanceledException</c> from the same statement; caller B can
-    /// never reach the retriever, because caller A holds the lock.
+    /// by construction, not by luck: awaiting <see cref="GatedRealm.Entered"/>
+    /// before starting the second viewer guarantees caller A already holds the
+    /// configuration lock and is blocked on the retriever, so caller B's
+    /// <c>SemaphoreSlim.WaitAsync</c> is certain to queue rather than race —
+    /// there is only the one path to <c>OperationCanceledException</c> here,
+    /// not two whose order might vary. Caller B can never reach the retriever,
+    /// because caller A holds the lock.
     /// </summary>
     [Fact]
     public async Task A_viewer_queued_behind_another_viewers_first_fetch_can_still_cancel()
@@ -203,9 +210,18 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
             validator.ValidateAsync(AToken(), cancelledForSecondViewer.Token);
         await cancelledForSecondViewer.CancelAsync();
 
-        await Should.ThrowAsync<OperationCanceledException>(() => secondViewer);
+        try
+        {
+            await Should.ThrowAsync<OperationCanceledException>(() => secondViewer);
+        }
+        finally
+        {
+            // Release even if the assertion above throws — otherwise a failing
+            // assertion here strands caller A on GatedRealm's 5 s cap instead of
+            // completing it immediately.
+            realm.Release();
+        }
 
-        realm.Release();
         Result<WhepAuthSubject, WhepAuthFailure> firstOutcome = await firstViewer;
         firstOutcome.IsSuccess.ShouldBeTrue(
             customMessage: "the second viewer's cancellation must not affect the first viewer's "
@@ -345,13 +361,20 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
     /// A realm that answers after a short, fixed bound — long enough that a
     /// caller cancelling once the first fetch is under way finds it still in
     /// flight, short enough that no token this fake is handed can make it
-    /// outlive that bound. <c>ConfigurationManager&lt;T&gt;</c> 8.19.2 fetches
-    /// the retriever with <c>CancellationToken.None</c> on both its code paths
-    /// (measured against the library's own source, not assumed), so this fake
-    /// does not read <paramref name="cancel"/> either — the fixed delay on the
-    /// first call is the only thing that gates it, matching the mechanism it
-    /// exists to characterise rather than reproducing a guarantee the library
-    /// does not make.
+    /// outlive that bound. <paramref name="cancel"/> <b>is</b> threaded into
+    /// the delay, deliberately: today's <c>ConfigurationManager&lt;T&gt;</c>
+    /// 8.19.2 always calls this retriever with <c>CancellationToken.None</c>
+    /// (measured against the library's own source, not assumed), so the token
+    /// this fake receives is never actually cancelled and the fixed delay is
+    /// what gates it in practice — but if a future library version starts
+    /// forwarding the caller's real token here instead, that token *will* be
+    /// cancelled mid-delay, this call throws
+    /// <see cref="OperationCanceledException"/>, and
+    /// <see cref="A_cancellation_arriving_mid_fetch_does_not_abandon_the_first_metadata_read"/>
+    /// goes red — the tripwire the test's own doc comment claims. A fake that
+    /// discarded <paramref name="cancel"/> outright could never detect that
+    /// drift; the bound alone, not the token, is what keeps this fake from
+    /// hanging regardless of which library behaviour is in effect.
     /// </summary>
     private sealed class SlowRealm(string discovery, string keys) : IDocumentRetriever
     {
@@ -368,7 +391,7 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
             if (Interlocked.Exchange(ref fetches, 1) == 0)
             {
                 entered.TrySetResult();
-                await Task.Delay(Bound, CancellationToken.None);
+                await Task.Delay(Bound, cancel);
             }
 
             return address == JwksUri ? keys : discovery;
