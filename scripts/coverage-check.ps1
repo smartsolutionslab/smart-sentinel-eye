@@ -82,6 +82,18 @@ try {
             '-c', $Configuration
             '--collect:XPlat Code Coverage'
             '--results-directory', (Join-Path $rawDir $projectName)
+            # #2409: a hung test host previously ran silent until the job's
+            # 20-minute ceiling killed it and reported `cancelled`, not
+            # `failure` — invisible to downstream `needs:` jobs and to
+            # `gh pr checks --watch`. blame-hang fails fast, names the stuck
+            # test, and writes a thread dump. 3min budget verified against a
+            # fresh local run of all ~28 projects with these flags on: none
+            # exceeded 27s (Architecture.Tests, 401 NetArchTest cases — the
+            # slowest of the set), ~6.7x headroom, and still far inside the
+            # 20-minute job ceiling.
+            '--blame-hang'
+            '--blame-hang-dump-type', 'mini'
+            '--blame-hang-timeout', '3min'
         )
         if ($NoBuild) { $testArgs += '--no-build' }
         & dotnet @testArgs 2>&1 | Tee-Object -Variable projectOutput
