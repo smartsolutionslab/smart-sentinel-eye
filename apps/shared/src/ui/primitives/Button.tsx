@@ -11,6 +11,7 @@ export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 export interface ButtonProps extends ComponentPropsWithRef<'button'> {
   variant?: ButtonVariant;
   asChild?: boolean;
+  unavailable?: boolean;
 }
 
 // Custom design-system button (ADR-0077). Built on Radix Slot so it can wrap
