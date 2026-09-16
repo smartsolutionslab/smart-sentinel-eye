@@ -452,7 +452,7 @@ claims a discharge nobody earned.
 |---|---|---|
 | Frontend | React + TypeScript + Vite, **two apps** (`management-web` + `kiosk-web`) | 0074 |
 | Frontend state | Redux Toolkit + RTK Query | 0075 |
-| Real-time push | **Replaceable transport** (WebSocket v1, SSE v2 candidate) | 0076 |
+| Real-time push | **SignalR**, transport negotiation within it (WebSockets → SSE → long polling) | 0152 |
 | UI primitives | Radix UI headless components + custom design system | 0077 |
 | Styling | Tailwind CSS with design tokens via CSS custom properties | 0078 |
 | Frontend forms | React Hook Form + Zod | 0079 |
