@@ -103,9 +103,6 @@
   <Folder Name="/src/OverlayDesigner/Infrastructure/">
     <Project Path="src/OverlayDesigner/Infrastructure/SmartSentinelEye.OverlayDesigner.Infrastructure.csproj" />
   </Folder>
-  <Folder Name="/src/Realtime.Abstractions/">
-    <Project Path="src/Realtime.Abstractions/SmartSentinelEye.Realtime.Abstractions.csproj" />
-  </Folder>
   <Folder Name="/src/ServiceDefaults/">
     <Project Path="src/ServiceDefaults/SmartSentinelEye.ServiceDefaults.csproj" />
   </Folder>
