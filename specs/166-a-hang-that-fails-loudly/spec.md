@@ -37,7 +37,7 @@ wall. Both teardowns report four orphaned `dotnet` processes
 stuck, not crashed.
 
 Normal duration for this whole job (build + Docker-free fixture step +
-26-project coverage loop) is 4–5 minutes; per-project timing in the
+29-project coverage loop) is 4–5 minutes; per-project timing in the
 successful portion of both logs ranges roughly 3–14 seconds. A 15+ minute
 silence from one project is not slow, it is stuck.
 
@@ -139,9 +139,18 @@ silence after "test files matched."
 ### 2.2 This is a lead, not a finding
 
 This is **the only unbounded, externally-cancellation-dependent wait** in an
-assembly of 12 classes and ~60 tests — everything else is fakes and stubs
-returning completed or pre-faulted `Task`s synchronously, with no timers, no
-semaphores, no real I/O. That singularity is worth recording. It is *not*
+assembly of 12 classes and ~60 tests — everything else in *this assembly* is
+fakes and stubs returning completed or pre-faulted `Task`s synchronously,
+with no timers, no semaphores, no real I/O. That singularity is scoped to
+`WhepValidatorUnreachableRealmTests.cs`'s own assembly, not the repo, and is
+worth recording as such. **A second, unrelated lead exists elsewhere**:
+`tests/EventIngestion.Infrastructure.Tests/MqttClientWasConnectedContractTests.cs:158`
+also has an unbounded `await Task.Delay(Timeout.InfiniteTimeSpan,
+cancellationToken)`, but inside a real `TcpListener`/`AcceptTcpClientAsync`
+loop — actual sockets, not a fake — in a project that runs in the same
+`coverage-check.ps1` loop this instrument covers. Recorded here so that when
+the instrument fires, this test is not mistaken for the only candidate. It is
+*not*
 being reported as the confirmed cause, for a reason stated plainly: **both
 occurrences produced zero output between "test files matched" and the job
 kill** — no stack, no exception, nothing identifying which of the ~60 tests
@@ -197,7 +206,7 @@ assembly (and every other assembly) without any watchdog today:
 
 - `scripts/coverage-check.ps1`, the `foreach ($proj in $testProjects)` loop
   (currently building `$testArgs` around line 84) — the loop the hang
-  actually occurred in, covering all ~26 non-Integration test projects.
+  actually occurred in, covering all 29 non-Integration test projects.
 - `.github/workflows/ci.yml`'s **"Docker-free fixture logic tests"** step —
   the other unguarded `dotnet test` invocation in the same job, against
   `Integration.Tests` filtered to `Category=FixtureLogic`. Same job, same
@@ -226,13 +235,13 @@ dropped.
 killed and reported as hung — indistinguishably from a real hang, from the
 gate's point of view. The budget must sit comfortably above the slowest
 normal per-project run. From both logs' successful portions, per-project gaps
-run 3–14 seconds; the whole 26-project loop completes in under two minutes.
+run 3–14 seconds; the whole 29-project loop completes in under two minutes.
 A budget of **3 minutes** (`--blame-hang-timeout 3min`) is proposed as the
 default — over 12× the slowest observed normal gap, while still failing
 **well** inside the 20-minute job ceiling even in the worst realistic case
 (`coverage-check.ps1` throws on the first non-zero exit code, §`if
 ($exitCode -ne 0) { throw … }` — one hung project stops the loop, it does not
-let 26 of them each burn 3 minutes). This number is a proposal for phase 4 to
+let 29 of them each burn 3 minutes). This number is a proposal for phase 4 to
 verify against a fresh measurement (memory: *measurement runs need
 repeating* — run the loop's timing twice) and to record, at the call site,
 why it was chosen — the same convention this repo already applies to retry

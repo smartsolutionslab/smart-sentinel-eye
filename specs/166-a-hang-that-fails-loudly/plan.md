@@ -124,11 +124,28 @@ candidates:
   with:
     name: backend-blame-diagnostics
     path: |
-      **/TestResults/*.dmp
-      **/TestResults/*_Sequence.xml
+      **/*.dmp
+      **/*Sequence*.xml
     retention-days: 14
     if-no-files-found: ignore
 ```
+
+The path is not scoped to `**/TestResults/` — verified against a deliberately
+induced real hang that `coverage-check.ps1`'s loop writes into
+`artifacts/coverage/raw/<project>/<guid>/` (it passes its own
+`--results-directory`, so the vstest default `TestResults/` never applies
+there). This replaces an earlier draft of this glob (`**/TestResults/*.dmp`)
+that matched neither the real directory nor, once verified, the real
+filename.
+
+The sequence-file glob (`**/*Sequence*.xml`) is deliberately loose rather
+than anchored to a prefix or suffix: the collector assembly we ran against
+writes `Sequence_<guid>.xml` (prefix), confirmed the same way as the
+directory above, but `dotnet test --help` in this repo's pinned SDK documents
+the opposite — `<guid>_Sequence.xml` (suffix). The two disagree, and the help
+text is exactly what a future reader checks first, so anchoring to either
+spelling risks a "fix" into a glob that matches nothing real. Matching both
+costs nothing here.
 
 `if-no-files-found: ignore` matters: on every normal (non-hung) run this glob
 matches nothing, and the step must not fail the job for that. This is new

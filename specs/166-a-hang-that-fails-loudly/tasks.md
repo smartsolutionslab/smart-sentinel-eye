@@ -116,10 +116,19 @@ before opening the PR.
 **File:** `.github/workflows/ci.yml`
 
 Add the new `if: always()` upload-artifact step to the `backend` job,
-per `plan.md` §3.3 — `**/TestResults/*.dmp` and `**/TestResults/*_Sequence.xml`,
-`if-no-files-found: ignore`, `retention-days: 14`, pinned to the same
-`actions/upload-artifact` SHA already used elsewhere in this file (do not
-introduce a second pin for the same action).
+per `plan.md` §3.3 — `**/*.dmp` and `**/*Sequence*.xml` (not
+`**/TestResults/*.dmp` / `**/TestResults/*_Sequence.xml`, an earlier draft of
+this glob that matched neither the real results directory nor the real
+filename: `coverage-check.ps1` overrides `--results-directory` to
+`artifacts/coverage/raw/<project>/<guid>/`, so its dumps never land under
+`TestResults/`; and the sequence filename is loosely matched rather than
+anchored to a prefix or suffix because the collector assembly we verified
+against writes `Sequence_<guid>.xml` while `dotnet test --help` in this same
+pinned SDK documents the opposite, `<guid>_Sequence.xml` — the two disagree,
+so `**/*Sequence*.xml` matches either), `if-no-files-found: ignore`,
+`retention-days: 14`, pinned to the same `actions/upload-artifact` SHA
+already used elsewhere in this file (do not introduce a second pin for the
+same action).
 
 **Verify:** on a normal (non-hung) `backend` job run, this step reports
 "no files found" (via `if-no-files-found: ignore`) and does **not** fail the
