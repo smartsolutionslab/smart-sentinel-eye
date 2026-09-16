@@ -237,20 +237,20 @@ jobs:
         # retry/backoff policy changing PoisonDeliveryEscapeIntegrationTests's
         # ~97s, and (3) StartupTimeout itself (AspireFixture.cs, currently
         # 8min) -- the only one of the three that *inverts* the 12min/8min
-        # ordering rather than merely consuming margin. StartupTimeout has
-        # been retuned before (#2064, 8min is not its original value); a
-        # later slice raising it toward or above 12min would, from that
+        # ordering rather than merely consuming margin. A later slice
+        # raising StartupTimeout toward or above 12min would, from that
         # commit on, cause every boot-phase hang to be pre-empted by
         # --blame-hang's generic dump with no dispatched test to attribute
         # it to, instead of StartupTimeout's own resource-state/exit-code/
         # log-tail table (spec.md §2.6) -- and nothing on the AspireFixture
-        # side flags this coupling today (tracked: #2412). The fixture's
-        # boot-wait logic has been retuned before as ordinary feature work
-        # (#2064, the migration-exit-code gate) -- not a precedent for
-        # StartupTimeout's own 8min figure having moved (it hasn't, checked
-        # against this file's history), but evidence this class of change
-        # happens here without anyone thinking to check ci.yml. Re-measure
-        # (don't just copy this number forward) if any of the three moves.
+        # side flags this coupling today (tracked: #2412). Checked, not
+        # assumed: StartupTimeout's own 8min figure has never moved in this
+        # file's history. The fixture's boot-wait logic has been retuned
+        # before as ordinary feature work (#2064, the migration-exit-code
+        # gate) -- not a precedent for the timeout itself having drifted,
+        # but evidence this class of change happens here without anyone
+        # thinking to check ci.yml. Re-measure (don't just copy this number
+        # forward) if any of the three moves.
         #
         # Three categories are excluded. The first two are spec 020, and share a
         # reason: they measure or disturb the runner rather than the code.
