@@ -76,7 +76,8 @@ Five cases, one per acceptance scenario in spec §6:
    **was called**. (Called, not refused — `aria-disabled` is an announcement and the
    caller's guard is what refuses. ADR-0151 §1.)
 3. **`unavailable={false}` renders `aria-disabled="false"`** — the value, not the
-   absence. Spec §1.5: eight assertions in five untouched suites depend on this.
+   absence. Spec §1.5: seven assertions in five untouched suites in `apps/` depend on
+   this (ten counting `e2e/overlays.spec.ts`).
 4. **No `unavailable` prop ⇒ unchanged** — no `aria-disabled`, no
    `aria-disabled:opacity-50`, and `disabled:opacity-50` +
    `disabled:pointer-events-none` still present. **This one is expected GREEN on
@@ -258,7 +259,7 @@ Again constructed in `Button.tsx`, with the expectations two packages away.
 **D4 —** drop `'aria-disabled:opacity-50'` from the `clsx` call. Expect T003 and T004
 red.
 
-**D3 —** emit `aria-disabled={unavailable || undefined}`. Expect the **eight existing**
+**D3 —** emit `aria-disabled={unavailable || undefined}`. Expect the **seven existing**
 `toHaveAttribute('aria-disabled', 'false')` assertions red, across five suites nobody
 edited for this change:
 
@@ -355,14 +356,14 @@ event→overlay path is touched, and `Button` is not rendered by `kiosk-web`.
    **not built**; the slice ships complete without it, so this is an escalation, not a
    BLOCK. T008 corrects arithmetic, not a decision.
 3. **PHASE 4a, per work item:**
-   - **T002 / T005 (`Button` + its new test) — BEHAVIOUR-CHANGING → RED.** Cases 1, 2, 3,
-     5 observed failing before `Button.tsx` is edited; case 4 declared green in advance.
+   - **T002 / T005 (`Button` + its new test) — BEHAVIOUR-CHANGING → RED.** Cases 1, 2 and 3
+     observed failing before `Button.tsx` is edited; case 4 declared green in advance.
      Verbatim vitest output in the PR. Discrimination proved by T009 (D1/D2, D5),
      constructed in `Button.tsx`, asserted in `Button.test.tsx`.
    - **T003 / T004 / T006 / T007 (the two call sites) — BEHAVIOUR-PRESERVING →
      CHARACTERISATION, OBSERVED GREEN FIRST.** Captured green on unmodified `develop`,
      passing unmodified afterwards, alongside five existing suites and
-     `e2e/overlays.spec.ts`. Discrimination proved by T010 (D4, and D3 against eight
+     `e2e/overlays.spec.ts`. Discrimination proved by T010 (D4, and D3 against seven
      assertions nobody wrote for this change), constructed in `Button.tsx` in
      `apps/shared`, asserted in `apps/management-web`.
    - **T008 — documentation, no test.** The reproduction command is the evidence; a

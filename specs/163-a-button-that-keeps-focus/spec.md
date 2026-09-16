@@ -154,19 +154,20 @@ not close it** — see §4 Q2.
 
 ### 1.5 `aria-disabled="false"` is asserted, not merely `"true"` — the preservation trap
 
-Eight existing assertions across five suites assert the attribute's **`'false'`**
-value, not its absence:
+Ten existing assertions — seven across five suites in `apps/`, plus three in
+`e2e/overlays.spec.ts` — assert the attribute's **`'false'`** value, not its absence:
 
 ```
 OverlayEditorDialogChainRecovery.test.tsx:237,532   LayoutEditorDialogChainRecovery.test.tsx:214,508
 OverlayEditorDialogChainRetention.test.tsx:148      LayoutEditorDialogRetention.test.tsx:210
 OverlayEditorDialogResolvePreview.test.tsx:246
+e2e/overlays.spec.ts:155,356,455
 ```
 
 React stringifies boolean `aria-*` values, so `aria-disabled={false}` renders
 `aria-disabled="false"`. Any implementation of `unavailable` that emits the attribute
 **only when true** (`unavailable || undefined`, or a conditional spread) breaks all
-eight. FR-002 pins this.
+ten. FR-002 pins this.
 
 ### 1.6 `ChainRecoveryNotice` uses `aria-disabled:cursor-progress` too
 
@@ -437,7 +438,7 @@ Scenario: an unavailable Button keeps the operator's place
 caller's guard is what refuses. A test asserting the handler is NOT invoked would be
 asserting the opposite of ADR-0151 §1.)*
 
-**The `false` case — the one that breaks eight existing assertions if got wrong**
+**The `false` case — the one that breaks ten existing assertions if got wrong**
 
 ```gherkin
 Scenario: an available Button says so explicitly
