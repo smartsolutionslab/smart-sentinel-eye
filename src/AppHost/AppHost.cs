@@ -556,8 +556,14 @@ var apiGateway = builder
     .WithReference(identity);
 
 // HA (#1005): run >= 2 gateway replicas so the single REST front door is not a
-// single point of failure (ADR-0106). Kept to one instance under E2E tests so
-// the gateway routing/rate-limit integration tests resolve a single endpoint.
+// single point of failure (ADR-0106). This is ADR-0153's recorded clause-2
+// exception to "one instance per service"; #2283 owns whether it stays two
+// replicas behind a shared rate-limiter store or returns to one.
+// AppHostReplicaCountTests pins both this exception and the one-instance rule
+// for every other service. Kept to one instance under the E2ETests=true
+// integration fixture (not the Playwright end-to-end job, which boots this
+// same run-mode shape) so the gateway routing/rate-limit integration tests
+// resolve a single endpoint.
 if (!isE2ETests)
 {
     apiGateway.WithReplicas(2);
