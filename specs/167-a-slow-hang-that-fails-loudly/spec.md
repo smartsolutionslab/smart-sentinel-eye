@@ -273,15 +273,52 @@ layer rather than a tight scalpel.
   well before it), sized honestly for a population where "well before"
   cannot mean "in under 3 minutes."
 
+**The margin, stated as a figure, and what it has to absorb:** 12min −
+8min = **240s**. That 240s is not slack against a known delay — it is
+the budget available to absorb the one failure class `--blame-hang`
+exists to backstop *above* `StartupTimeout` (§2.6): `StartupTimeout`'s
+own `cts` firing but the cancellation **not propagating instantly**
+through some awaited call (`WaitForResourceAsync`/Docker/Aspire).
+Measured directly rather than assumed — §5 counterfactual 2's own
+procedure, run for this purpose: `StartupTimeout` shrunk to 10s
+(temporarily, locally, reverted before this PR) and one
+`WaitForResourceAsync` pointed at a resource name that can never
+resolve (`"keycloak-typo"`) — the fixture's own `TimeoutException` fired
+**~30ms after the nominal 10s** in that construction. Propagation was
+essentially instant for the one code path this measurement could reach
+(`WaitForResourceAsync` awaiting `ResourceNotificationService`). **240s
+is stated as a floor for that reason, not a midpoint**: the one case
+measurable locally showed ~0 delay, so the 240s is sized against the
+*unbounded* version of this risk that a single local measurement cannot
+rule out — third-party code that does not honour the token at all (the
+class spec 166 §2.1 found in `WhepValidatorUnreachableRealmTests`), not
+a known few-second figure to "absorb."
+
 **Known fragility, recorded at the call site rather than discovered later:**
-this number is coupled to two things that can move it without anyone
+this number is coupled to **three** things that can move it without anyone
 touching `ci.yml`: (1) `AspireFixture.InitializeAsync` gaining an
-additional gated resource (grows the ~132s boot figure), and (2) any
+additional gated resource (grows the ~132s boot figure), (2) any
 change to `EventIngestion`'s retry/backoff policy that
-`PoisonDeliveryEscapeIntegrationTests` exercises (currently ~97s). Neither
-is hypothetical — both are ordinary feature work in this repo. The call-site
-comment must say so, so the next person who sees this test's duration creep
-does not mistake policy drift for a CI regression.
+`PoisonDeliveryEscapeIntegrationTests` exercises (currently ~97s), and (3)
+`StartupTimeout` itself (`AspireFixture.cs:60`, currently 8min) — the
+only one of the three that **inverts the 12min/8min ordering** rather
+than merely consuming margin. A later slice raising it toward or above
+12min would, from that commit on, cause every boot-phase hang to be
+pre-empted by `--blame-hang`'s generic dump — with no dispatched test to
+attribute it to — instead of `StartupTimeout`'s own resource-state/
+exit-code/log-tail table (§2.6), and nothing on the `AspireFixture` side
+today flags that coupling (tracked as a follow-up: #2412, filed rather
+than fixed here — `AspireFixture.cs` is out of scope for this spec's
+diff, §6). **Checked, not assumed: `StartupTimeout`'s own 8-minute
+figure has never moved in this file's history** — but the fixture's
+boot-wait *logic* has been retuned before as ordinary feature work
+(#2064, the migration-exit-code gate), which is the actual precedent for
+"this class of change happens here," not evidence the timeout itself has
+drifted. None of the three items is hypothetical — all are ordinary
+feature work in this repo.
+The call-site comment must say so, so the next person who sees this
+test's duration creep, or retunes `StartupTimeout`, does not mistake
+policy drift for a CI regression or ship an inverted ordering unknowingly.
 
 ### 3.2 Upload the dump — extend the existing step, don't add one
 
@@ -295,15 +332,26 @@ The existing "Upload integration test results" step already targets
 rather than adding a new step or reaching for `backend`'s wider
 `**/*.dmp` glob — that wider glob exists specifically to cover
 `coverage-check.ps1`'s per-project `--results-directory` override, which
-does not apply here; the anchored form is correct and sufficient at this
-call site, verified rather than assumed (checked: no `--results-directory`
-flag anywhere in this job's `dotnet test` invocation).
+does not apply here.
 
-Add `**/TestResults/*.dmp` and `**/TestResults/*Sequence*.xml` to the
-existing `path:` block. Same `*Sequence*` looseness as `backend`'s step,
-same reason (the collector's actual filename and `dotnet test --help`'s
-documented filename disagree — verified once, applies to both call sites
-since both use the same pinned SDK's collector).
+**Corrected after a real induced hang (counterfactual 1, §5): this
+section's first draft called a single-segment glob
+(`**/TestResults/*.dmp`) "correct and sufficient at this call site,
+verified rather than assumed." That verification was wrong.** Checked
+against a real `--blame-hang` dump, the single-segment form matched
+neither of the two nesting depths vstest actually produced —
+`.dmp`/`Sequence*.xml` land one level deeper than the `.trx`
+(`TestResults/<guid>/...`), with a second copy three levels deep
+(`TestResults/<host>_<timestamp>/In/<host>/...`). The single-segment form
+never shipped in `ci.yml`; the glob below is what shipped.
+
+Add `**/TestResults/**/*.dmp` and `**/TestResults/**/*Sequence*.xml`
+(note the second `**` between `TestResults/` and the filename — required
+to reach either real nesting depth above) to the existing `path:` block.
+Same `*Sequence*` looseness as `backend`'s step, same reason (the
+collector's actual filename and `dotnet test --help`'s documented
+filename disagree — verified once, applies to both call sites since both
+use the same pinned SDK's collector).
 
 ### 3.3 A cancellation-only container-log dump — new, answering the brief's question 3 directly
 

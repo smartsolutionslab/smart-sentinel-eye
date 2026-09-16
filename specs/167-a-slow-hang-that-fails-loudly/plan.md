@@ -75,11 +75,25 @@ Target:
         # StartupTimeout, --blame-hang would pre-empt that mechanism's own
         # richer, resource-named TimeoutException with a generic hang dump
         # that (during fixture boot) has no dispatched test to attribute
-        # the hang to. This budget is coupled to two things that can drift
-        # it without anyone touching this file: AspireFixture gaining
-        # another gated resource, or EventIngestion's retry/backoff policy
-        # changing PoisonDeliveryEscapeIntegrationTests's ~97s. Re-measure
-        # (don't just copy this number forward) if either moves.
+        # the hang to.
+        #
+        # The margin, as a figure: 12min - 8min = 240s, which has to absorb
+        # StartupTimeout's cancellation not propagating instantly through
+        # some awaited call -- measured directly (StartupTimeout shrunk to
+        # 10s, a WaitForResourceAsync pointed at an unresolvable name,
+        # temporarily/locally/reverted): the fixture's own TimeoutException
+        # fired ~30ms after the nominal 10s. 240s is a floor sized against
+        # the *unbounded* version of that risk (a call that never honours
+        # the token at all), not against the ~30ms this one measurement
+        # actually saw -- see spec.md §3.1 for the full reasoning.
+        #
+        # This budget is coupled to three things that can drift it without
+        # anyone touching this file: AspireFixture gaining another gated
+        # resource, EventIngestion's retry/backoff policy changing
+        # PoisonDeliveryEscapeIntegrationTests's ~97s, or StartupTimeout
+        # itself being retuned upward (it inverts the 12min/8min ordering,
+        # not just consumes margin -- tracked: #2412). Re-measure (don't
+        # just copy this number forward) if any of the three moves.
         #
         # Three categories are excluded. …
         run: |
@@ -136,9 +150,19 @@ pin already used elsewhere in this file:
           # (which backend's equivalent step has to work around with a
           # repo-root-relative **/*.dmp glob), this call site takes no
           # --results-directory override, so everything -- trx, dmp,
-          # sequence file -- lands under the vstest default TestResults/.
-          # The anchored glob below is verified correct for this call site,
-          # not copied from backend's wider one.
+          # sequence file -- lands under the vstest default TestResults/ --
+          # but verified directly against a real hang dump (counterfactual
+          # 1, PR body), the .trx lands flat in TestResults/ while the .dmp
+          # and Sequence*.xml do not: vstest writes them one level deeper,
+          # under a per-run GUID subfolder (TestResults/<guid>/...), and a
+          # second copy lands three levels deep
+          # (TestResults/<host>_<timestamp>/In/<host>/...). A single-segment
+          # `**/TestResults/*.dmp` (matching only a direct child of
+          # TestResults/) misses both -- an earlier version of this plan
+          # assumed the .trx's flat placement generalised to the blame
+          # outputs, and it does not. `**/TestResults/**/*.dmp` (a second
+          # `**` between TestResults/ and the filename) is what actually
+          # matches, confirmed against both nesting depths above.
           #
           # *Sequence*, not a prefix/suffix anchor: this pinned SDK's
           # collector writes `Sequence_<guid>.xml` but `dotnet test --help`
@@ -148,8 +172,8 @@ pin already used elsewhere in this file:
           # "fix" into one that matches neither.
           path: |
             **/TestResults/*.trx
-            **/TestResults/*.dmp
-            **/TestResults/*Sequence*.xml
+            **/TestResults/**/*.dmp
+            **/TestResults/**/*Sequence*.xml
           retention-days: 14
 ```
 
