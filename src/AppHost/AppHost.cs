@@ -515,7 +515,7 @@ if (isE2ETests)
 
 // ADR-0106: single YARP API gateway at the edge — fronts all nine context REST
 // APIs via service discovery (#1002). CORS/TLS (#1003) and rate limiting (#1004)
-// follow. Realtime WebSocket (ADR-0076) and WebRTC media stay direct, off the
+// follow. Realtime SignalR (ADR-0152) and WebRTC media stay direct, off the
 // gateway, so the latency budget (constitution §IV) is untouched.
 var apiGateway = builder
     .AddProject<Projects.SmartSentinelEye_ApiGateway>("api-gateway")
