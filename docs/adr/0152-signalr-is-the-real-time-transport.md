@@ -82,8 +82,12 @@ The two properties ADR-0076's rejection clause *credited* SignalR with —
 auto-reconnect and groups — are the two this system now depends on:
 
 - **Groups are load-bearing.** Every one of the six broadcasts is
-  `Clients.Group(...)`; `Clients.All` appears nowhere. ADR-0145's fab isolation
-  rests on it.
+  `Clients.Group(...)`; `Clients.All` appears nowhere. Fab-scoped delivery is
+  spec 017 FR-008 / spec 014 FR-015. **Corrected 2026-09-16 (issue #2400 phase
+  6 finding #2):** this line originally credited that isolation to ADR-0145,
+  which does not decide it — ADR-0145 decides the client-side complement (the
+  kiosk derives its fab from `Layout.Fab` and discards a frame whose fab
+  doesn't match), not the server-side group send.
 - **Auto-reconnect is load-bearing and has been extended**, with a custom retry
   ladder plus a hand-written loop for the two cases SignalR does not cover
   (initial-connect failure, `onclose`).

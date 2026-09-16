@@ -483,11 +483,12 @@ Driven by ADRs 0074–0080.
 - **Redux Toolkit + RTK Query** for state (ADR-0075). One store per
   app; real-time updates dispatch into the store.
 - **Realtime transport is SignalR** (ADR-0152), with transport
-  negotiation (WebSockets → SSE → long polling) handled inside it.
-  Server side: `LayoutLifecycleHub` at `/hubs/layouts`, sending
-  through `ILayoutLifecycleBroadcaster`. Client side: `@microsoft/
-  signalr` in `apps/shared/src/realtime/layoutHub.ts`. Operator
-  commands go over REST, not the realtime channel.
+  negotiation (WebSockets → SSE → long polling, configuration-derived,
+  not yet observed) handled inside it. Server side:
+  `LayoutLifecycleHub` at `/hubs/layouts`, sending through
+  `ILayoutLifecycleBroadcaster`. Client side: `@microsoft/signalr` in
+  `apps/shared/src/realtime/layoutHub.ts`. Operator commands go over
+  REST, not the realtime channel.
 - **UI primitives** built on Radix UI + Tailwind tokens (ADR-0077,
   ADR-0078). All visual code in `apps/shared/ui/`. No external
   component library.
