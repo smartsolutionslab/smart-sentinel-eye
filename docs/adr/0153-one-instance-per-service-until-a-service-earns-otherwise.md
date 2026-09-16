@@ -26,7 +26,8 @@ happened to be noticed would fix the instance and leave the class.
 | **SystemVariables** | Singleton `InMemoryReverseIndex`, seeded per process, kept fresh by events on the same competing-consumer queues. Only one replica sees each `OverlayRevisionPublishedV1`. | `InMemoryReverseIndex.cs:14,22-24` |
 | **EventIngestion** | One MQTT client id with `CleanSession(false)`. Two replicas presenting the same id evict each other in a loop. **Hard-blocked, not degraded.** | `MosquittoOptions.cs:49`, `MosquittoConnectionFactory.cs:70-74` |
 | **StreamDistribution** | `StreamHealthWatcher`'s per-process `degradedSince` clock; plus two one-shot startup mutators that would both run — one of which **deletes** MediaMTX paths it considers orphans. | `StreamHealthWatcher.cs:29`, `MediaMtxReconciler.cs:34`, `StreamFabAttributionService.cs:32` |
-| **AuditObservability**, **Identity** | Timer-driven hosted services with no leader election; each runs twice. | `AuditRetentionHostedService.cs:31`, `KioskPrivilegeSweepHostedService.cs:32` |
+| **AuditObservability** | Timer-driven `BackgroundService` with no leader election; the daily retention pass runs twice. | `AuditRetentionHostedService.cs:31` |
+| **Identity** | Startup-once `IHostedService`, not timer-driven; the kiosk-privilege sweep still runs twice, once per replica at boot, with no leader election. | `KioskPrivilegeSweepHostedService.cs:32` |
 
 Only **OverlayDesigner** and **CameraCatalog** hold no per-instance state.
 
@@ -116,11 +117,15 @@ Before any service's replica count rises above one, its per-instance state must
 be enumerated and each item resolved — shared, made idempotent, or leader-elected
 — and a test must exist that **runs two instances and fails without the fix.**
 
-This clause exists because neither a backplane nor a relay is verifiable today:
-**no lane in this repository runs two replicas of anything**, so a backplane
-wired backwards would pass the entire suite. The first honest test of any
-horizontal-scaling fix is the same two-instance harness that would demonstrate
-the defect, and that harness does not exist.
+This clause exists because neither a backplane nor a relay is verifiable today.
+**No lane asserts that two replicas of a stateful service cooperate** — the
+one lane that runs two replicas of anything, the Playwright end-to-end job,
+runs them against `api-gateway`, and the state that breaks there
+(`FixedWindowRateLimiter`, #2283) fails silently: the suite is green regardless
+of which replica answers. A backplane wired backwards would pass the entire
+suite the same way. The first honest test of any horizontal-scaling fix is the
+same two-instance harness that would demonstrate the defect, and that harness
+does not exist.
 
 ### 4. §Availability is amended to say what is true
 
