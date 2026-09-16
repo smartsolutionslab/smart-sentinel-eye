@@ -1,6 +1,6 @@
 # ADR-0152: SignalR is the real-time transport
 
-**Status:** **Proposed**
+**Status:** **Accepted**
 **Date:** 2026-09-16
 **Supersedes:** ADR-0076 (replaceable real-time transport)
 **Superseded by:** —
@@ -104,7 +104,20 @@ resilient reconnect.
 
 ## Decision
 
-**Proposed — requires acceptance before any of the following binds.**
+Accepted 2026-09-16. Issue #2400 tracks the implementation; nothing in this ADR
+changes runtime behaviour on its own.
+
+**The status of the evidence, recorded because this ADR's central claim is
+inferred rather than observed.** That SignalR falls back to SSE when a proxy
+blocks a WebSocket upgrade is derived from configuration — no
+`HttpTransportType`, no `skipNegotiation`, `AddSignalR()` with no options, and
+the client package's own transport enum. **Nobody has watched it happen on a
+network that blocks the upgrade**, and no such network exists in this repository
+to test against (`deploy/` holds two Mosquitto files and no chart, Service or
+Ingress). If that fallback ever needs to be relied upon rather than cited, it
+should be observed first. The rest of the Context — the group and reconnect
+dependencies, the empty abstractions, the decision path through spec 003 — is
+read directly from code and history.
 
 ### 1. SignalR is the real-time transport. ADR-0076 is superseded
 
