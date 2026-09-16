@@ -517,6 +517,30 @@ if (isE2ETests)
 // APIs via service discovery (#1002). CORS/TLS (#1003) and rate limiting (#1004)
 // follow. Realtime SignalR (ADR-0152) and WebRTC media stay direct, off the
 // gateway, so the latency budget (constitution §IV) is untouched.
+//
+// Not a WaitFor, on any of the nine below (#2407): YARP resolves each
+// destination's address per request, through Aspire service discovery
+// (AddServiceDiscoveryDestinationResolver, ApiGateway/Program.cs) — the same
+// mechanism that makes a WithReference address resolvable regardless of
+// ordering. The address is populated in api-gateway's environment at launch
+// whether or not the referenced service has started. No cluster in
+// ApiGateway/appsettings.json declares a HealthCheck, so a request that
+// reaches a backend before it is listening gets one fast, explicit 502 — it
+// is never marked unhealthy, so there is nothing to recover; the very next
+// request, once the backend is listening, just succeeds. Every one of the
+// nine already waits on its own dependencies — RabbitMQ and Keycloak, plus
+// MediaMTX, Mosquitto, MinIO or overlay-designer where one applies; not its
+// database, which only the migration runner waits on — so chaining
+// api-gateway behind all nine as well would inherit the union of those nine
+// chains and make it one of the last resources in the stack to reach Running, for
+// a guarantee that would still be incomplete — none of the three SPAs below
+// wait for api-gateway either (WithReference only), so a request that beats
+// a backend here surfaces once, unretried, the same shape of race one layer
+// further out that this change does not touch. Same reasoning already
+// recorded above on the two WithReference(cameraCatalog) call sites — on
+// stream-distribution ("attribution must not gate host start") and on
+// layout-composition ("a CameraCatalog outage must stop layout authoring
+// only") — this is that pattern at nine references instead of one.
 var apiGateway = builder
     .AddProject<Projects.SmartSentinelEye_ApiGateway>("api-gateway")
     .WithHttpEndpoint()
