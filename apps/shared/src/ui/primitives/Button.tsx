@@ -39,6 +39,11 @@ export interface ButtonProps extends ComponentPropsWithRef<'button'> {
    * Do not pass this together with `disabled` — the browser enforces
    * `disabled` regardless, and the control loses focus anyway.
    *
+   * This prop only ever emits the dimming class; cursor treatment (e.g.
+   * `aria-disabled:cursor-progress`) stays a call-site `className`, because
+   * `cursor-progress` claims *busy*, not *unavailable*, and not every
+   * unavailable control is mid-request.
+   *
    * Reference implementations: `OverlayEditor.tsx` Undo/Redo (the handler
    * already no-ops), `ChainRecoveryNotice.tsx` Retry/Reload
    * (`if (reReading) return;`), `OverlayEditorDialog.tsx` /
@@ -50,7 +55,15 @@ export interface ButtonProps extends ComponentPropsWithRef<'button'> {
 // Custom design-system button (ADR-0077). Built on Radix Slot so it can wrap
 // arbitrary children when asChild is set. Tailwind tokens via CSS custom
 // properties (ADR-0078).
-export function Button({ variant = 'primary', asChild, className, type, unavailable, ...rest }: ButtonProps) {
+export function Button({
+  variant = 'primary',
+  asChild,
+  className,
+  type,
+  unavailable,
+  'aria-disabled': ariaDisabled,
+  ...rest
+}: ButtonProps) {
   const Component = asChild ? Slot : 'button';
   const base =
     'inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium ' +
@@ -69,7 +82,7 @@ export function Button({ variant = 'primary', asChild, className, type, unavaila
   return (
     <Component
       type={asChild ? undefined : (type ?? 'button')}
-      aria-disabled={unavailable}
+      aria-disabled={unavailable ?? ariaDisabled}
       className={clsx(base, variants[variant], unavailable !== undefined && 'aria-disabled:opacity-50', className)}
       {...rest}
     />
