@@ -346,20 +346,15 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
             Cancel
           </Button>
           {/*
-            `aria-disabled`, not the native `disabled` attribute (spec 160,
-            issue #2387) — a native disable blurs the focused element the
-            instant it takes effect, the same finding this repo already
-            shipped twice: `ChainRecoveryNotice.tsx:31-33` (spec 156) and
+            `unavailable` (ADR-0151), not the native `disabled` attribute —
+            it emits `aria-disabled` and the dimming classes without blurring
+            the focused element, the same finding this repo already shipped
+            twice: `ChainRecoveryNotice.tsx:31-33` (spec 156) and
             `OverlayEditor.tsx:649-657` (spec 154). `saveBlocked` above is
             what defines the gate; `handleFormSubmit` on the form is what
             actually enforces it now that the button stays clickable.
           */}
-          <Button
-            ref={saveRef}
-            type="submit"
-            aria-disabled={saveBlocked}
-            className="aria-disabled:opacity-50 aria-disabled:cursor-progress"
-          >
+          <Button ref={saveRef} type="submit" unavailable={saveBlocked} className="aria-disabled:cursor-progress">
             {isLoading ? 'Saving…' : isEdit ? 'Save draft' : 'Save as draft'}
           </Button>
         </div>
