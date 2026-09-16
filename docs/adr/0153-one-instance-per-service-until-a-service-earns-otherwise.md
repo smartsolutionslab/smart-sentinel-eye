@@ -33,12 +33,12 @@ Only **OverlayDesigner** and **CameraCatalog** hold no per-instance state.
 ### The precedent that should settle the appetite for adding backplanes
 
 **The one service already running at two replicas is broken by it.**
-`api-gateway` runs `WithReplicas(2)` (`AppHost.cs:534-540`, for #1005/ADR-0106)
-with an **in-process** `FixedWindowRateLimiter` and no shared store, so a fab's
-real budget is 100–200/min depending on which replica it lands on (#2283,
-open). The same comment records that the two-replica mode is **disabled under
-e2e** so the tests resolve a single endpoint — i.e. the only lane that could
-have caught it was turned off for an unrelated reason.
+`api-gateway` runs `WithReplicas(2)` (the `// HA (#1005)` block in `AppHost.cs`,
+for #1005/ADR-0106) with an **in-process** `FixedWindowRateLimiter` and no
+shared store, so a fab's real budget is 100–200/min depending on which replica
+it lands on (#2283, open). The same comment records that the two-replica mode
+is **disabled under e2e** so the tests resolve a single endpoint — i.e. the
+only lane that could have caught it was turned off for an unrelated reason.
 
 That is this decision in miniature: replicas were added to one service, its
 per-instance state was not audited, and the gap is invisible in every lane we
@@ -199,8 +199,9 @@ outage, i.e. the worst moment to discover that five services corrupt silently.
   worth saying so where the guard is written.
 - Clause 3's two-instance harness is the substantial piece of work here and the
   prerequisite for every other option. Sizing it is its own slice.
-- `AppHost.cs:536-540`'s comment — that the gateway is pinned to one replica
-  under e2e so tests resolve a single endpoint — is the exact obstacle clause 3's
+- The `// HA (#1005)` comment in `AppHost.cs`, guarding
+  `apiGateway.WithReplicas(2)` — that the gateway is pinned to one replica under
+  e2e so tests resolve a single endpoint — is the exact obstacle clause 3's
   harness must solve. Start there.
 - Each context in the table deserves its own issue, or one issue with the table
   in it, so the list does not live only in this ADR.
