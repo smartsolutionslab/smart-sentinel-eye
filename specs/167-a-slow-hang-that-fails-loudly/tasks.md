@@ -75,13 +75,19 @@ false the moment this lands.
 **File:** `.github/workflows/ci.yml`
 
 Per `plan.md` §3.2 — extend the existing "Upload integration test results"
-step's `path:` to include `**/TestResults/*.dmp` and
-`**/TestResults/*Sequence*.xml`, anchored (not `backend`'s wider `**/*.dmp`
-— this call site has no `--results-directory` override, verified in
-`spec.md` §3.2, so the anchored form is correct here). Leave
-`if-no-files-found` unset (default `warn`) — do not copy `ignore` from
-`backend`'s step; that step exists solely for files normally absent, this
-one already uploads the always-present `.trx`.
+step's `path:` to include `**/TestResults/**/*.dmp` and
+`**/TestResults/**/*Sequence*.xml` (double `**` — not `backend`'s wider,
+repo-root-relative `**/*.dmp`, but also not a single-segment
+`**/TestResults/*.dmp` anchor: checked against a real induced hang
+(counterfactual 1), the single-segment form matched **neither** of the
+two real nesting depths vstest produces for blame outputs
+(`TestResults/<guid>/...` and `TestResults/<host>_<timestamp>/In/
+<host>/...`) — only the `.trx` lands flat in `TestResults/`. An earlier
+draft of `spec.md` §3.2 called the single-segment form "verified correct
+for this call site"; that verification was wrong and has been corrected
+there. Leave `if-no-files-found` unset (default `warn`) — do not copy
+`ignore` from `backend`'s step; that step exists solely for files
+normally absent, this one already uploads the always-present `.trx`.
 
 **Verify:** on a normal (non-hung) run, the step still succeeds and still
 uploads the `.trx` (i.e. the extension doesn't change existing behaviour
@@ -97,11 +103,20 @@ reinvented), `docker ps -a` then `docker logs --tail 200` per container,
 grouped with `::group::`/`::endgroup::` for readability.
 
 **Verify:** trigger on a genuine test failure (e.g. temporarily break an
-assertion, observe the step runs and prints container logs, then revert)
-— confirming the condition fires on `failure()` as well as `cancelled()`
-is cheap to check directly rather than trusting the YAML reads correctly;
-do not attempt to verify the `cancelled()` half by actually cancelling a
-30-minute job.
+assertion, observe the step's condition fires and the YAML runs cleanly)
+— confirming `failure()` evaluates true and the step's syntax is correct
+is cheap to check directly rather than trusting the YAML reads correctly.
+**This proves the condition and syntax only, not the payload**: this
+job's containers are ephemeral (`E2ETests=true` gates every
+`WithLifetime(ContainerLifetime.Persistent)` off in `AppHost.cs`), so on
+an ordinary `failure()` the test host exits normally,
+`AspireFixture.DisposeAsync` tears the stack down, and `docker ps -a`
+legitimately prints an empty list by the time this step runs — expect
+and accept that, don't chase a non-existent bug. The payload (actual
+container logs to capture) only has something to show on the
+`cancelled()` branch, and that cannot be safely induced in verification —
+it needs a real 30-minute `timeout-minutes` cancellation. Do not attempt
+to verify the `cancelled()` half that way.
 
 ## T004 — Counterfactual 1: a hung test case, once dispatched `[infra-engineer]`
 
