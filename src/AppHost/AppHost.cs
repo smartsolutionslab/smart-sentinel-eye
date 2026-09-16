@@ -557,8 +557,7 @@ if (isRunMode && !isE2ETests)
     //
     // VITE_LAYOUT_HUB_ORIGIN is the shell-safe alias the kiosk app uses to
     // build its `/hubs` dev proxy (management-web's vite.config.ts reads no
-    // environment and has no such proxy — its reference below is dead wiring,
-    // tracked by #2405). Aspire's own service-discovery key is
+    // environment and has no such proxy). Aspire's own service-discovery key is
     // `services__layout-composition__http__0`, and that name contains hyphens —
     // POSIX shells (bash, dash) refuse to import environment variables whose
     // names aren't valid identifiers, so `npm run dev` (which spawns Vite via
@@ -567,18 +566,16 @@ if (isRunMode && !isE2ETests)
     // 404s, and the kiosk sits on a permanently-stuck "live updates degraded"
     // badge (spec 011 FR-006/FR-010).
     //
-    // WaitFor(layoutComposition) is ordering hygiene — the kiosk's
-    // vite.config.ts reads the environment once, at config-evaluation time, so
-    // the endpoint should be resolvable before the app starts.
+    // WaitFor(layoutComposition) on the two kiosk instances below is ordering
+    // hygiene — each vite.config.ts reads the environment once, at
+    // config-evaluation time, so the endpoint should be resolvable before the
+    // app starts.
     builder.AddNpmApp("management-web", "../../apps/management-web", "dev")
         .WithHttpEndpoint(env: "PORT", port: 5173, isProxied: false)
         .WithReference(apiGateway)
         .WithEnvironment("VITE_API_GATEWAY_URL", apiGateway.GetEndpoint("http"))
         .WithReference(keycloak)
         .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
-        .WithReference(layoutComposition)
-        .WithEnvironment("VITE_LAYOUT_HUB_ORIGIN", layoutComposition.GetEndpoint("http"))
-        .WaitFor(layoutComposition)
         .WithExternalHttpEndpoints()
         // Dashboard grouping: nest the SPAs under the gateway they call.
         .WithParentRelationship(apiGateway);
