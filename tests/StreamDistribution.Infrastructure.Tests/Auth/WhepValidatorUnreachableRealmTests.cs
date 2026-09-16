@@ -34,6 +34,22 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Auth;
 /// the validator meets is the production one, built by the production
 /// <c>ConfigurationManager</c>.
 /// </para>
+///
+/// <para>
+/// <b>Spec 170 (issue #2418).</b> <c>ConfigurationManager&lt;T&gt;</c> 8.19.2
+/// fetches metadata with <c>CancellationToken.None</c> on both its code
+/// paths — a documented design choice in the library's own source, not an
+/// oversight — so no test in this file may wait for a caller's token to
+/// interrupt a fetch already under way; a fake that only completes when its
+/// token is cancelled hangs the host instead. The one guarantee that exists is
+/// the already-cancelled check on <c>ConfigurationManager</c>'s configuration
+/// lock, read before there is a cached configuration: a token cancelled
+/// outright before the call is honoured there, and only there. A metadata
+/// fetch that cannot complete — cancellation reaching the retriever included —
+/// already reports as <c>IdentityProviderUnavailable</c>, which is correct: an
+/// unreachable realm is an unreachable realm regardless of why the caller
+/// stopped waiting.
+/// </para>
 /// </summary>
 public sealed class WhepValidatorUnreachableRealmTests : IDisposable
 {
@@ -94,21 +110,106 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
     }
 
     /// <summary>
-    /// <b>Cancellation stays cancellation.</b> A caller that went away must not be
-    /// counted as a refused viewer. What protects it is the <em>narrowness</em> of
-    /// the catch, so this test is aimed at the edit that would remove that: with
-    /// <c>catch (Exception)</c> in place of <c>catch (InvalidOperationException)</c>
-    /// it fails, and it was run against exactly that mistake before being
-    /// committed.
+    /// <b>Cancellation stays cancellation — for the guarantee that actually
+    /// exists.</b> A token cancelled outright before <c>ValidateAsync</c> is ever
+    /// called must leave as a cancellation, never as a refused viewer.
+    /// <c>UnreachableRealm</c>, not a delaying fake, and no timer anywhere: with
+    /// a live token this exact arrangement is
+    /// <c>An_unreachable_realm_refuses_instead_of_throwing</c>, which asserts
+    /// <c>IdentityProviderUnavailable</c>. Same fake, same validator, only the
+    /// token differs — so the outcome is pinned to the token and nothing else,
+    /// no delay, no scheduler, no window to widen.
     /// </summary>
+    /// <remarks>
+    /// What protects it is the narrowness of the catch in <c>ValidateAsync</c>:
+    /// with <c>catch (Exception)</c> in place of
+    /// <c>catch (InvalidOperationException)</c> the cancellation is swallowed
+    /// into that same refusal, and this test fails on exactly that edit — the
+    /// protection spec 119 built.
+    /// </remarks>
     [Fact]
-    public async Task A_cancelled_request_stays_cancelled()
+    public async Task A_request_cancelled_before_the_realm_is_reached_stays_cancelled()
     {
-        WhepAuthValidator validator = ValidatorOver(new CancellingRealm());
-        using CancellationTokenSource cancelled = new(TimeSpan.FromMilliseconds(50));
+        WhepAuthValidator validator = ValidatorOver(new UnreachableRealm());
+        using CancellationTokenSource cancelled = new();
+        await cancelled.CancelAsync();
 
         await Should.ThrowAsync<OperationCanceledException>(
-            () => validator.ValidateAsync(AToken(), cancelled.Token));
+            () => validator.ValidateAsync(AToken(), cancelled.Token),
+            customMessage: "a token cancelled before the realm was ever reached must leave as a "
+            + "cancellation, not as an IdentityProviderUnavailable refusal — widening the catch in "
+            + "ValidateAsync converts this into exactly that refusal instead.");
+
+        logs.Entries.ShouldBeEmpty(
+            customMessage: "a caller that went away before the realm was reached wrote a log entry. "
+            + "The transition logger only fires when the widened catch turns this into a refusal — "
+            + "an entry here means that regression, not this one.");
+    }
+
+    /// <summary>
+    /// <b>The boundary the library actually draws, characterised.</b>
+    /// <c>ConfigurationManager&lt;T&gt;</c> 8.19.2 fetches the retriever with
+    /// <c>CancellationToken.None</c> on both its code paths — a cancellation
+    /// that arrives once the first metadata read is already in flight does not
+    /// abandon it. This is the tripwire whose absence made #2418 possible: if a
+    /// future library version starts threading the caller's token into the
+    /// retriever, this test goes red, and red here is the warning that
+    /// <see cref="A_request_cancelled_before_the_realm_is_reached_stays_cancelled"/>'s
+    /// neighbouring assumption has moved, not a regression to chase.
+    /// </summary>
+    [Fact]
+    public async Task A_cancellation_arriving_mid_fetch_does_not_abandon_the_first_metadata_read()
+    {
+        SlowRealm realm = new(DiscoveryDocument, JsonWebKeySet());
+        WhepAuthValidator validator = ValidatorOver(realm);
+        using CancellationTokenSource cancelled = new();
+
+        Task<Result<WhepAuthSubject, WhepAuthFailure>> validating =
+            validator.ValidateAsync(AToken(), cancelled.Token);
+        await realm.Entered;
+        await cancelled.CancelAsync();
+
+        Result<WhepAuthSubject, WhepAuthFailure> outcome = await validating;
+
+        outcome.IsSuccess.ShouldBeTrue(
+            customMessage: "the first metadata read was abandoned by a cancellation that arrived "
+            + "after it was already under way — ConfigurationManager 8.19.2 fetches with "
+            + "CancellationToken.None by design, so this can only mean the library changed its mind.");
+    }
+
+    /// <summary>
+    /// <b>The one in-flight cancellation the library genuinely honours.</b>
+    /// <c>WhepAuthValidator</c> is a singleton and a wall of kiosks opens WHEP at
+    /// once, so a viewer queued behind another viewer's first fetch is the
+    /// normal state during a cold-cache outage, not an exotic one. Deterministic
+    /// whichever way the two sub-races resolve — caller B either finds the
+    /// configuration lock already held and queues, or finds its own token
+    /// already cancelled — because both land on the same
+    /// <c>OperationCanceledException</c> from the same statement; caller B can
+    /// never reach the retriever, because caller A holds the lock.
+    /// </summary>
+    [Fact]
+    public async Task A_viewer_queued_behind_another_viewers_first_fetch_can_still_cancel()
+    {
+        GatedRealm realm = new(DiscoveryDocument, JsonWebKeySet());
+        WhepAuthValidator validator = ValidatorOver(realm);
+        using CancellationTokenSource cancelledForSecondViewer = new();
+
+        Task<Result<WhepAuthSubject, WhepAuthFailure>> firstViewer =
+            validator.ValidateAsync(AToken(), CancellationToken.None);
+        await realm.Entered;
+
+        Task<Result<WhepAuthSubject, WhepAuthFailure>> secondViewer =
+            validator.ValidateAsync(AToken(), cancelledForSecondViewer.Token);
+        await cancelledForSecondViewer.CancelAsync();
+
+        await Should.ThrowAsync<OperationCanceledException>(() => secondViewer);
+
+        realm.Release();
+        Result<WhepAuthSubject, WhepAuthFailure> firstOutcome = await firstViewer;
+        firstOutcome.IsSuccess.ShouldBeTrue(
+            customMessage: "the second viewer's cancellation must not affect the first viewer's "
+            + "own in-flight fetch.");
     }
 
     /// <summary>
@@ -241,36 +342,36 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
     }
 
     /// <summary>
-    /// A cancelled fetch as the production retriever delivers it.
-    /// <c>HttpDocumentRetriever.GetDocumentAsync</c> wraps <em>every</em> exception
-    /// its request threw in <c>IOException(IDX20804)</c> — a cancellation
-    /// included — and <c>ConfigurationManager</c> then wraps that in
-    /// <c>InvalidOperationException(IDX20803)</c>. So a caller that went away and
-    /// a realm that is down arrive at the catch as one type, and only the token
-    /// tells them apart.
-    ///
-    /// <para>
-    /// Measured, not assumed: an <c>OperationCanceledException</c> thrown
-    /// <em>straight</em> out of a retriever propagates unwrapped and needs no
-    /// guard at all. It is the wrapping that creates the confusion, so it is the
-    /// wrapping this reproduces — a stub that threw the bare exception would pass
-    /// with the guard deleted.
-    /// </para>
+    /// A realm that answers after a short, fixed bound — long enough that a
+    /// caller cancelling once the first fetch is under way finds it still in
+    /// flight, short enough that no token this fake is handed can make it
+    /// outlive that bound. <c>ConfigurationManager&lt;T&gt;</c> 8.19.2 fetches
+    /// the retriever with <c>CancellationToken.None</c> on both its code paths
+    /// (measured against the library's own source, not assumed), so this fake
+    /// does not read <paramref name="cancel"/> either — the fixed delay on the
+    /// first call is the only thing that gates it, matching the mechanism it
+    /// exists to characterise rather than reproducing a guarantee the library
+    /// does not make.
     /// </summary>
-    private sealed class CancellingRealm : IDocumentRetriever
+    private sealed class SlowRealm(string discovery, string keys) : IDocumentRetriever
     {
+        private static readonly TimeSpan Bound = TimeSpan.FromMilliseconds(200);
+
+        private readonly TaskCompletionSource entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private int fetches;
+
+        public Task Entered => entered.Task;
+
         public async Task<string> GetDocumentAsync(string address, CancellationToken cancel)
         {
-            try
+            if (Interlocked.Exchange(ref fetches, 1) == 0)
             {
-                await Task.Delay(Timeout.InfiniteTimeSpan, cancel);
-            }
-            catch (Exception exception)
-            {
-                throw new IOException($"IDX20804: Unable to retrieve document from: '{address}'.", exception);
+                entered.TrySetResult();
+                await Task.Delay(Bound, CancellationToken.None);
             }
 
-            return DiscoveryDocument;
+            return address == JwksUri ? keys : discovery;
         }
     }
 
@@ -310,5 +411,39 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
     {
         public Task<string> GetDocumentAsync(string address, CancellationToken cancel) =>
             Task.FromResult(address == JwksUri ? keys : discovery);
+    }
+
+    /// <summary>
+    /// Holds the first caller inside the retriever until released, so a second
+    /// caller queued behind it — behind <c>ConfigurationManager</c>'s
+    /// configuration lock, not behind this fake — can be cancelled while
+    /// genuinely waiting. The hold is itself bounded by
+    /// <c>Task.WhenAny</c> against a hard cap, never a bare await on the gate:
+    /// a test failure that forgets to call <see cref="Release"/> must not
+    /// become a hung host.
+    /// </summary>
+    private sealed class GatedRealm(string discovery, string keys) : IDocumentRetriever
+    {
+        private static readonly TimeSpan HardCap = TimeSpan.FromSeconds(5);
+
+        private readonly TaskCompletionSource entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private int fetches;
+
+        public Task Entered => entered.Task;
+
+        public void Release() => gate.TrySetResult();
+
+        public async Task<string> GetDocumentAsync(string address, CancellationToken cancel)
+        {
+            if (Interlocked.Exchange(ref fetches, 1) == 0)
+            {
+                entered.TrySetResult();
+                await Task.WhenAny(gate.Task, Task.Delay(HardCap, CancellationToken.None));
+            }
+
+            return address == JwksUri ? keys : discovery;
+        }
     }
 }
