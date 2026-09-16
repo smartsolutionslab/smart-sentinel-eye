@@ -551,7 +551,7 @@ if (isRunMode && !isE2ETests)
     // policy allows the app origins, #1003). Auth is direct to Keycloak (OIDC):
     // VITE_KEYCLOAK_URL is the same Aspire endpoint the services validate tokens
     // against, so the issuer matches (ServiceDefaults.AddBearerAuthentication).
-    // The realtime WebSocket hub (ADR-0076, LayoutComposition) and WebRTC media
+    // The realtime SignalR hub (ADR-0152, LayoutComposition) and WebRTC media
     // stay direct — a direct reference to layout-composition keeps that URL
     // resolvable, off the gateway.
     //

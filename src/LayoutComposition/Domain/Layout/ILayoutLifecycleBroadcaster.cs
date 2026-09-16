@@ -1,10 +1,10 @@
 namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 
 /// <summary>
-/// Domain abstraction over the real-time push transport (ADR-0076 v1
-/// SignalR; future v2 candidates kept swappable per constitution IX).
-/// The Infrastructure implementation broadcasts to all connected admin
-/// + kiosk clients; failures are best-effort — the kiosk's reconnect-
+/// Domain abstraction over the real-time push transport (ADR-0152:
+/// SignalR is the real-time transport). The Infrastructure
+/// implementation broadcasts to the fab-scoped group of connected
+/// kiosk clients; failures are best-effort — the kiosk's reconnect-
 /// and-reconcile path (FR-012) is the safety net.
 /// </summary>
 public interface ILayoutLifecycleBroadcaster
