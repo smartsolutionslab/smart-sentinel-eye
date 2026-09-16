@@ -86,11 +86,22 @@ try {
             # 20-minute ceiling killed it and reported `cancelled`, not
             # `failure` — invisible to downstream `needs:` jobs and to
             # `gh pr checks --watch`. blame-hang fails fast, names the stuck
-            # test, and writes a thread dump. 3min budget verified against a
-            # fresh local run of all ~28 projects with these flags on: none
-            # exceeded 27s (Architecture.Tests, 401 NetArchTest cases — the
-            # slowest of the set), ~6.7x headroom, and still far inside the
-            # 20-minute job ceiling.
+            # test, and writes a thread dump.
+            #
+            # --blame-hang-timeout is NOT a per-project wall-clock budget: per
+            # the pinned SDK's own `dotnet test --help`, for xUnit/NUnit/MSTest
+            # 2.2.4+ it is a per-test-case inactivity window, renewed after
+            # every test case completes (plus the session-start -> first-test
+            # gap). A project's *total* runtime is irrelevant to this flag —
+            # what matters is the longest gap between two consecutive test
+            # cases finishing. 3min was chosen against a fresh local run of
+            # all 29 projects with these flags on: no inter-test gap observed
+            # anywhere near that window, including in Architecture.Tests (401
+            # NetArchTest cases, ~27s total) — the slowest *project* in the
+            # set, but its per-test gaps are a small fraction of its total,
+            # same as everywhere else. A single legitimately slow test would
+            # still be judged against this per-test budget, not against how
+            # long the rest of its project takes.
             '--blame-hang'
             '--blame-hang-dump-type', 'mini'
             '--blame-hang-timeout', '3min'
