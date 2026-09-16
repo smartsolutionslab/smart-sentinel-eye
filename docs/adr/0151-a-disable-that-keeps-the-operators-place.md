@@ -65,12 +65,23 @@ that defect across the codebase and be green the whole time.
 
 Measured on `develop` at `36796e84`:
 
-- **32** `disabled={…}` sites across **17** `.tsx` files in `apps/`.
+- **26** native `disabled={…}` sites across **13** `.tsx` files in `apps/`.
 - **6** production `aria-disabled={…}` sites across **4** files.
+- **32** sites across **17** files, in total.
 
-So a blanket rule would put 32 call sites in scope, in features nobody is
-currently working in — camera dialogs, rules, system variables, audit — each
-needing a guard written and tested to avoid the trap above.
+**Correction (spec 163, 2026-09-16):** this ADR originally read "32 across 17"
+for the native count and "6 across 4" for `aria-disabled`, which double-counts
+the six `aria-disabled` sites — the substring `disabled=` also matches
+`aria-disabled=`. Re-measured with
+`git grep -noE '(aria-)?disabled=' <sha> -- 'apps/**/*.tsx' | awk -F: '{print
+$NF}' | sort | uniq -c`, identical at `36796e84` and at spec 163's base
+(`5ea913dc`): 26 native + 6 aria = 32 sites; 13 native-only files + 4
+aria-only files = 17 files, with no file carrying both spellings. The tree had
+not moved; the arithmetic was wrong when it was written.
+
+So a blanket rule would put 26 native call sites in scope, in features nobody
+is currently working in — camera dialogs, rules, system variables, audit —
+each needing a guard written and tested to avoid the trap above.
 
 ### Not every disabled control has the problem
 
@@ -123,8 +134,8 @@ A `no-restricted-syntax` rule banning `disabled=` is **rejected** — see below.
 
 ### 4. Existing sites are not converted en masse
 
-The 32 native sites stay as they are. This rule binds new controls and any
-control a spec is already touching. A sweep would mean 32 guards written by
+The 26 native sites stay as they are. This rule binds new controls and any
+control a spec is already touching. A sweep would mean 26 guards written by
 someone with no reason to be in those files, with the implicit-submission trap
 live in every one of them.
 
@@ -138,7 +149,7 @@ prop and one ADR reference replaces that.
 for a codemod finds §4 and the implicit-submission trap written down.
 
 **A real inconsistency persists, deliberately.** Two spellings of "unavailable"
-will coexist in the codebase — 32 native, 6 aria — and no tool will flag the
+will coexist in the codebase — 26 native, 6 aria — and no tool will flag the
 difference. That is the cost of not sweeping, and it is a genuine cost: a reader
 cannot tell whether a given `disabled=` was considered and kept, or never
 examined.
