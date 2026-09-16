@@ -1,6 +1,6 @@
 # ADR-0149: Create and edit are routes; confirmation is a dialog
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-09-15
 **Amends:** —
 
@@ -77,6 +77,9 @@ route-vs-modal call to a spec, on the grounds that it is a convention rather tha
 one surface's problem. It is. This is that decision.
 
 ## Decision
+
+Accepted 2026-09-16. Implementation is not tracked here; nothing in this ADR
+converts an existing surface on its own.
 
 **A surface that holds draft state is a route. A surface that is a single
 confirmed action is a dialog.**
