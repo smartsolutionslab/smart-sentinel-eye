@@ -192,12 +192,28 @@ jobs:
         run: dotnet build tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj -c Release --no-restore
 
       - name: Run integration tests
-        # No blame-hang watchdog here (unlike `backend`, #2409): a hang in this
-        # job has the identical silent-`cancelled` invisibility one job over,
-        # and this job's Docker-bound fixture is a different "how slow is
-        # legitimately slow" population than the fakes-only unit tests #2409
-        # sized its budget against, so it was left out of that slice rather
-        # than folded in. Tracked as a follow-up: #2410.
+        # #2410: blame-hang watchdog, sized against this job's own measured
+        # timing (specs/167-a-slow-hang-that-fails-loudly/spec.md §2-3), not
+        # copied from `backend`'s (#2409) 3-minute figure — that population
+        # is fakes-only with near-zero inter-test gaps; this one boots a
+        # real Aspire/Docker stack inside a collection fixture, and four
+        # independent green runs show a stable, structurally-explained
+        # 120-134s host-wide inactivity ceiling (AspireFixture's own
+        # ~132s bring-up, invisible to any single test's duration since
+        # xUnit dispatches no gated test until the fixture's
+        # InitializeAsync returns; separately, EventIngestion.
+        # PoisonDeliveryEscapeIntegrationTests legitimately runs ~97s on a
+        # retry/backoff path). 12min is chosen to clear that ceiling by
+        # >5x AND to sit above AspireFixture's own internal
+        # `StartupTimeout` (8min, AspireFixture.cs) with margin -- below
+        # StartupTimeout, --blame-hang would pre-empt that mechanism's own
+        # richer, resource-named TimeoutException with a generic hang dump
+        # that (during fixture boot) has no dispatched test to attribute
+        # the hang to. This budget is coupled to two things that can drift
+        # it without anyone touching this file: AspireFixture gaining
+        # another gated resource, or EventIngestion's retry/backoff policy
+        # changing PoisonDeliveryEscapeIntegrationTests's ~97s. Re-measure
+        # (don't just copy this number forward) if either moves.
         #
         # Three categories are excluded. The first two are spec 020, and share a
         # reason: they measure or disturb the runner rather than the code.
@@ -220,15 +236,70 @@ jobs:
             -c Release \
             --no-build \
             --filter "Category!=Measurement&Category!=Disruptive&Category!=Maintenance" \
-            --logger "trx;LogFileName=integration.trx"
+            --logger "trx;LogFileName=integration.trx" \
+            --blame-hang --blame-hang-dump-type mini --blame-hang-timeout 12min
 
       - name: Upload integration test results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: integration-test-results
-          path: '**/TestResults/*.trx'
+          # #2410: --blame-hang writes a mini-dump (and a sequence trace)
+          # into this same dotnet test call's results directory. Unlike
+          # coverage-check.ps1's per-project --results-directory override
+          # (which backend's equivalent step has to work around with a
+          # repo-root-relative **/*.dmp glob), this call site takes no
+          # --results-directory override, so everything lands under the
+          # vstest default TestResults/ -- but verified directly against a
+          # real hang dump (counterfactual 1, PR body), the .trx lands flat
+          # in TestResults/ while the .dmp and Sequence*.xml do not: vstest
+          # writes them one level deeper, under a per-run GUID subfolder
+          # (TestResults/<guid>/...), and a second copy lands three levels
+          # deep (TestResults/<host>_<timestamp>/In/<host>/...). A
+          # single-segment `**/TestResults/*.dmp` (matching only a direct
+          # child of TestResults/) misses both -- the plan's original
+          # anchor assumed the .trx's flat placement generalised to the
+          # blame outputs, and it does not. `**/TestResults/**/*.dmp` (a
+          # second `**` between TestResults/ and the filename) is what
+          # actually matches, confirmed against both nesting depths above.
+          #
+          # *Sequence*, not a prefix/suffix anchor: this pinned SDK's
+          # collector writes `Sequence_<guid>.xml` but `dotnet test --help`
+          # documents the opposite, `<guid>_Sequence.xml` -- the two
+          # disagree (verified against the collector assembly directly),
+          # so the loose glob matches either rather than risking a future
+          # "fix" into one that matches neither.
+          path: |
+            **/TestResults/*.trx
+            **/TestResults/**/*.dmp
+            **/TestResults/**/*Sequence*.xml
           retention-days: 14
+
+      # #2410: the outermost of three layers. --blame-hang (above) and
+      # AspireFixture's own StartupTimeout (AspireFixture.cs) both depend on
+      # something inside the test host noticing the hang and unwinding
+      # cleanly enough to throw or dump. If neither does, the job runs to
+      # its 30-minute timeout-minutes wall and everything with it is lost --
+      # the same gap 709d56c8 (#2137) closed for e2e's apphost.log. That
+      # job's AppHost is a separate `dotnet run` process with a redirected
+      # log file; this job's AppHost runs in-process via
+      # DistributedApplicationTestingBuilder, so there is no equivalent
+      # single log file -- but the Docker containers it starts are still
+      # visible to the runner's own Docker daemon regardless of what the
+      # test host is doing.
+      #
+      # Not always(): 709d56c8's own reasoning, reused verbatim -- this
+      # would print a large amount of output on every green run for no
+      # reason. failure() || cancelled(), matching that precedent exactly.
+      - name: Container state and logs (on failure or cancellation)
+        if: failure() || cancelled()
+        run: |
+          docker ps -a
+          for c in $(docker ps -aq); do
+            echo "::group::$(docker inspect -f '{{.Name}}' "$c")"
+            docker logs --tail 200 "$c" || true
+            echo "::endgroup::"
+          done
 
   e2e:
     name: e2e (Playwright, full stack)
