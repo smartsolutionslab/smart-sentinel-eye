@@ -1,8 +1,8 @@
 # ADR-0153: One instance per service, until a service earns otherwise
 
-**Status:** **Proposed**
+**Status:** **Accepted**
 **Date:** 2026-09-16
-**Amends:** Constitution §Availability (proposed — not in force until this ADR is accepted)
+**Amends:** Constitution §Availability
 **Supersedes:** —
 **Superseded by:** —
 
@@ -92,7 +92,10 @@ declined a latency argument for this reason and this ADR does the same.
 
 ## Decision
 
-**Proposed — requires acceptance before any of the following binds.**
+Accepted 2026-09-16. Issue #2404 tracks the implementation; the §Availability
+amendment in §4 lands with this acceptance. Nothing here changes runtime behaviour
+on its own — every service already runs at one instance except `api-gateway`.
+
 
 ### 1. No service in this system runs more than one instance
 
