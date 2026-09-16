@@ -552,8 +552,8 @@ if (isRunMode && !isE2ETests)
     // VITE_KEYCLOAK_URL is the same Aspire endpoint the services validate tokens
     // against, so the issuer matches (ServiceDefaults.AddBearerAuthentication).
     // The realtime SignalR hub (ADR-0152, LayoutComposition) and WebRTC media
-    // stay direct — a direct reference to layout-composition keeps that URL
-    // resolvable, off the gateway.
+    // stay direct — a direct reference to layout-composition from the two
+    // kiosk instances keeps that URL resolvable, off the gateway.
     //
     // VITE_LAYOUT_HUB_ORIGIN is the shell-safe alias the kiosk app uses to
     // build its `/hubs` dev proxy (management-web's vite.config.ts reads no
