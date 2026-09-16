@@ -57,6 +57,41 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// </summary>
     public const string RtspTestSourceUrl = "rtsp://fixture-video:8554/loop";
 
+    /// <summary>
+    /// How long <see cref="InitializeAsync"/> waits for the whole AppHost to come
+    /// up before <see cref="FormatTimeoutMessage"/> reports which resource did not.
+    ///
+    /// <para>
+    /// <strong>Coupled to <c>.github/workflows/ci.yml</c>'s <c>integration</c>
+    /// job, which nothing enforces.</strong> That job runs <c>dotnet test</c>
+    /// with <c>--blame-hang-timeout 12min</c>, and the ordering is deliberate:
+    /// the watchdog must stay <em>above</em> this value with real margin. Below
+    /// it, a boot-phase hang is pre-empted by vstest's generic hang dump — which,
+    /// because no gated test has been dispatched yet, carries no
+    /// "test running when the crash occurred" line at all — instead of the
+    /// resource-state table, exit codes and log tail that
+    /// <c>FormatTimeoutMessage</c> produces here. Spec 167 §2.6 records the
+    /// reasoning; spec 167 §5's counterfactual 2 demonstrates both orderings.
+    /// </para>
+    ///
+    /// <para>
+    /// The margin is 240 s, and it is sized rather than guessed: cancellation
+    /// does not always propagate promptly when this timeout fires. Measured in
+    /// two regions of the boot — ~30 ms for a <c>WaitForResourceAsync</c> awaiting
+    /// <c>ResourceNotificationService</c>, but ~64 s inside DCP container
+    /// bring-up, where a nominally-correct 20 s-over-10 s ordering still lost.
+    /// Nominal ordering is not sufficient; absolute margin is.
+    /// </para>
+    ///
+    /// <para>
+    /// This value has never changed since the repository's initial import, which
+    /// is exactly why the coupling is worth writing down: the first person to
+    /// raise it has no reason to suspect a CI flag depends on it, and raising it
+    /// toward or past 12 min silently degrades every boot-phase diagnostic from
+    /// that commit on. Raise <c>--blame-hang-timeout</c> to match, or accept the
+    /// degradation knowingly.
+    /// </para>
+    /// </summary>
     private static readonly TimeSpan StartupTimeout = TimeSpan.FromMinutes(8);
 
     private DistributedApplication? _app;
