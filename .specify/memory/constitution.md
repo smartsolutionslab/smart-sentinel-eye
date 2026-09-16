@@ -432,6 +432,26 @@ unrecorded for as long as nobody looked.
 
 - 24/7 operation. Rolling updates are zero-downtime.
 - StreamKeeper failover ≤ 5 s.
+- **One instance per service** (ADR-0153). No service runs more than one
+  replica, because at least five of nine contexts hold per-instance state a
+  second replica corrupts — LayoutComposition's in-process SignalR groups over
+  competing-consumer queues, Automation's rule cache, SystemVariables' reverse
+  index, EventIngestion's MQTT client id (which hard-blocks rather than
+  degrades), and StreamDistribution's health clock and startup mutators. A
+  service earns a second instance by enumerating and resolving that state and
+  by a test that **runs two instances and fails without the fix** — no lane
+  runs two replicas today, so nothing else can verify such a fix.
+
+  `api-gateway` is the one exception and a known-broken one: it runs at two
+  replicas with an in-process rate limiter and no shared store (#2283).
+
+  **The zero-downtime clause above is an aspiration, not a discharged
+  requirement**, and ADR-0153 records why rather than deleting it: no
+  deployment artefact exists — no Deployment, Service, Ingress, chart or
+  Kubernetes publisher anywhere — so nothing can perform a rolling update for
+  any service, and `/health` cannot return unhealthy (#2125), so even with one
+  the overlap window would be governed by timers rather than readiness. Pinning
+  to one instance is the current deliberate position, not an oversight.
 - A wall of 20 kiosks rebooting must come up unattended. **Not met, and
   the attempt to meet it was withdrawn before merge.** Spec 050 gave
   screens a wall-display account holding a grant that outlives the
