@@ -20,7 +20,6 @@
     "./api/systemVariables.schema": "./src/api/systemVariables.schema.ts",
     "./api/audit.api": "./src/api/audit.api.ts",
     "./api/problemDetail": "./src/api/problemDetail.ts",
-    "./realtime": "./src/realtime/index.ts",
     "./realtime/layoutHub": "./src/realtime/layoutHub.ts",
     "./realtime/hubUrl": "./src/realtime/hubUrl.ts",
     "./observability/resilienceLog": "./src/observability/resilienceLog.ts",
