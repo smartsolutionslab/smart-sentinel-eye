@@ -80,12 +80,15 @@ Target:
         # The margin, as a figure: 12min - 8min = 240s, which has to absorb
         # StartupTimeout's cancellation not propagating instantly through
         # some awaited call -- measured directly (StartupTimeout shrunk to
-        # 10s, a WaitForResourceAsync pointed at an unresolvable name,
-        # temporarily/locally/reverted): the fixture's own TimeoutException
-        # fired ~30ms after the nominal 10s. 240s is a floor sized against
-        # the *unbounded* version of that risk (a call that never honours
-        # the token at all), not against the ~30ms this one measurement
-        # actually saw -- see spec.md §3.1 for the full reasoning.
+        # 10s, temporarily/locally/reverted), two regions, two very
+        # different answers: a WaitForResourceAsync pointed at an
+        # unresolvable name fired ~30ms after the nominal 10s (essentially
+        # instant); DCP/container bring-up inside StartAsync did not --
+        # a nominally-correct 20s-over-10s ordering still lost, surfacing
+        # ~74s wall against the 10s cutoff (~64s propagation delay). 240s
+        # is ~3-4x that ~64s worst case actually measured, not a hedge
+        # against a purely hypothetical one -- see spec.md §3.1 for the
+        # full reasoning.
         #
         # This budget is coupled to three things that can drift it without
         # anyone touching this file: AspireFixture gaining another gated
