@@ -13,7 +13,7 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 /// FR-008 and spec 014 FR-015 below; ADR-0145 decides the client-side
 /// complement (the kiosk discards a frame whose fab doesn't match the
 /// displayed layout's). Failures are best-effort — the kiosk's
-/// reconnect-and-reconcile path (FR-012) is the safety net so a
+/// reconnect-and-reconcile path (spec 003 FR-012) is the safety net so a
 /// dropped frame never leaves a kiosk staring at an archived layout.
 /// </summary>
 public sealed class SignalRLayoutLifecycleBroadcaster(
