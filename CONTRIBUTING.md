@@ -205,14 +205,19 @@ bump patch and follow the same dual-merge pattern from `hotfix/<short>`.
 - **C#:** `dotnet format` enforces `.editorconfig` + Roslyn analyzers
   (`EnableNETAnalyzers=true`, `AnalysisLevel=latest`,
   `AnalysisMode=Recommended`) plus **SonarAnalyzer.CSharp**. Warnings
-  are errors in `Release` builds.
+  are errors in `Release` builds, **except ADR-0084's five code-metric
+  rules below, which are carved out via `WarningsNotAsErrors` and stay
+  advisory.**
 - **TypeScript / React:** ESLint + Prettier with the configs shipped
   in `apps/web/`.
 - **YAML / Markdown:** Prettier defaults.
 - **Line length:** 160 (ADR-0064).
-- **Code metric limits** enforced by SonarAnalyzer (ADR-0084):
+- **Code metric limits** — **advisory (warning, not build-failing)**, via
+  SonarAnalyzer (ADR-0084):
   - Max LOC per file: **300** (S104)
-  - Max LOC per method: **30** backend / **50** frontend (S138)
+  - Max LOC per method: **30** backend (S138). The **50 frontend** figure
+    is ESLint's `max-lines-per-function`, a separate mechanism that is
+    **not configured** — see ADR-0084's amendment.
   - Max parameters: **4** (S107)
   - Cyclomatic complexity: **≤ 10** (S1541)
   - Nesting depth: **≤ 3** (S134)

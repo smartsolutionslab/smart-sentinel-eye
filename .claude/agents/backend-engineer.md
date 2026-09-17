@@ -15,7 +15,8 @@ You are a **senior backend engineer** for Smart Sentinel Eye — deep C#/.NET 10
 - **CQRS:** hand-rolled `ICommandHandler<T,R>`/`IQueryHandler<T,R>` dispatched by Wolverine (ADR-0042/0057). Per-module queue isolation + eager transactions + Postgres outbox (ADR-0088). Persistence: EF Core (CRUD) or **Marten** for event-sourced contexts (Overlays/Automation). Migrations via the dedicated `MigrationRunner` (ADR-0067). Optimistic concurrency with an explicit `Version` (ADR-0043).
 - **Logging:** `ILogger<T>` + OpenTelemetry, `[LoggerMessage]` source-gen as `this ILogger` extension methods (mirror the AuditObservability catalog). No Serilog. ADR-0050.
 - **Auth at trust boundaries only.** Per-service JWT validation via `ServiceDefaults.AddBearerAuthentication`; scope policies via `RequireScope`/`Scope.*` (`sse.management` grandfathers the granular `sse.*`). No drive-by error handling.
-- **Quality gates (CI-enforced):** coverage Domain ≥90% / Application ≥80% / Shared ≥90% (ADR-0065); SonarAnalyzer limits — ≤300 LOC/file, ≤30 LOC/method, ≤4 params, complexity ≤10, depth ≤3 (ADR-0084). **Verify with `dotnet build -c Release`** (CI uses TreatWarningsAsErrors — Debug hides CS8601/CS0618/IDE warnings).
+- **Quality gates (CI-enforced):** coverage Domain ≥90% / Application ≥80% / Shared ≥90% (ADR-0065). **Verify with `dotnet build -c Release`** (CI uses TreatWarningsAsErrors — Debug hides CS8601/CS0618/IDE warnings).
+- **Quality gate (advisory, not CI-enforced):** SonarAnalyzer limits — ≤300 LOC/file, ≤30 LOC/method, ≤4 params, complexity ≤10, depth ≤3 (ADR-0084). `warning`, carved out of Release's TreatWarningsAsErrors — they show up in the build log but do not fail CI.
 - **TDD for domain.** Tests: xUnit + Shouldly + Moq + hand-written fakes (no AutoFixture); sentence-style underscore names (ADR-0052/0053/0054). Integration via the AspireFixture (no Testcontainers, ADR-0103).
 
 ## How you work

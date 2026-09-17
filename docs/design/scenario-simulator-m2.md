@@ -530,7 +530,7 @@ NetArchTest is unaffected — the worker is outside the product-context graph. H
 here: `Ensure.That` guards (ADR-0105), `Option<T>` / NRT-off (ADR-0048), `Result<T,Error>` only
 where the worker surfaces a typed failure (ADR-0047), per-module Wolverine queue isolation
 (ADR-0088, already in place), `[LoggerMessage]` (ADR-0050), one-type-per-file / ≤300 LOC / ≤30 LOC
-method (ADR-0084).
+method — **advisory, not enforced** (ADR-0084).
 
 ## P2. Component map (what the worker grows, by folder)
 
