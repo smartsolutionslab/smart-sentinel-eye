@@ -19,10 +19,11 @@ public abstract record GetRuleError(string Code, string Message, HttpStatusCode 
     /// candidates' fabs would leak nothing — they are all fabs the caller
     /// already holds — but the caller still has to say which one they meant.
     /// </summary>
-    public sealed record FabAmbiguous(string Name, string Fabs)
+    public sealed record FabAmbiguous(string Name, IReadOnlyList<string> Fabs)
         : GetRuleError(
             "RULE_FAB_AMBIGUOUS",
-            $"'{Name}' exists in more than one of your fabs ({Fabs}). Name the one you mean with ?fabId=.",
+            $"'{Name}' exists in more than one of your fabs ({string.Join(", ", Fabs)}). "
+                + "Name the one you mean with ?fabId=.",
             HttpStatusCode.BadRequest);
 }
 
@@ -37,6 +38,6 @@ public static class GetRuleFailures
     public static GetRuleError RuleNotFound(string name) =>
         new GetRuleError.RuleNotFound(name);
 
-    public static GetRuleError FabAmbiguous(string name, string fabs) =>
+    public static GetRuleError FabAmbiguous(string name, IReadOnlyList<string> fabs) =>
         new GetRuleError.FabAmbiguous(name, fabs);
 }

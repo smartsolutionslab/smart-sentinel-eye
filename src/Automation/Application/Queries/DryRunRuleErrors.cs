@@ -17,10 +17,11 @@ public abstract record DryRunRuleError(string Code, string Message, HttpStatusCo
     /// the caller's fabs, and a dry run must not silently pick one — trialling
     /// a rule the caller did not mean is worse than refusing.
     /// </summary>
-    public sealed record FabAmbiguous(string Name, string Fabs)
+    public sealed record FabAmbiguous(string Name, IReadOnlyList<string> Fabs)
         : DryRunRuleError(
             "RULE_FAB_AMBIGUOUS",
-            $"'{Name}' exists in more than one of your fabs ({Fabs}). Name the one you mean with ?fabId=.",
+            $"'{Name}' exists in more than one of your fabs ({string.Join(", ", Fabs)}). "
+                + "Name the one you mean with ?fabId=.",
             HttpStatusCode.BadRequest);
 
     public sealed record SampleEventNotJson(string Reason)
@@ -55,7 +56,7 @@ public static class DryRunRuleFailures
     public static DryRunRuleError RuleNotFound(string name) =>
         new DryRunRuleError.RuleNotFound(name);
 
-    public static DryRunRuleError FabAmbiguous(string name, string fabs) =>
+    public static DryRunRuleError FabAmbiguous(string name, IReadOnlyList<string> fabs) =>
         new DryRunRuleError.FabAmbiguous(name, fabs);
 
     public static DryRunRuleError SampleEventNotJson(string reason) =>
