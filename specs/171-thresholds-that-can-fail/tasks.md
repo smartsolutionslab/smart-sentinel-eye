@@ -55,10 +55,11 @@ claims the old bound could not fail; with it, the PR shows it.
 **Defect to reintroduce**: a latency regression on the *event → overlay state*
 leg, of a size the old bound waved through.
 
-**Injection**: add `await Task.Delay(150, cancellationToken);` at the top of the
-SystemVariables snapshot/resolve query handler that
-`GET /system-variables/snapshot` reaches — the code path
-`MeasureOneChangeAsync` polls. One line, one file under `src/SystemVariables`.
+**Injection**: add `await Task.Delay(150, cancellationToken);` at the top of
+`src/SystemVariables/Application/Queries/Handlers/GetOverlaySnapshotQueryHandler.cs`
+— the handler behind `GET /system-variables/snapshot`
+(`SystemVariableEndpoints.cs:67`), which is the path `MeasureOneChangeAsync`
+polls. One line, one file.
 
 **Why 150 ms and not a smaller number**: it is chosen to sit *between* the two
 bounds, and that is the whole demonstration.
