@@ -188,22 +188,22 @@ away. T010 verifies by `git diff` that it was not.
 Taken first because it is the only row that needs no stack, so it cannot be
 blocked by contention and its evidence lands while the stack is in use elsewhere.
 
-- [ ] **T002** `[P]` `[US-3]` Re-arrange
+- [x] **T002** `[P]` `[US-3]` Re-arrange
   `A_reconnect_after_a_success_does_not_inherit_the_previous_backoff` in
   `tests/EventIngestion.Infrastructure.Tests/MqttConnectionLoopTests.cs`:
   `Start(client => client.RefuseNextConnects(2), LoopUnderTest.Patient())`, a
   900 ms hold before `DropAsync()`, a `Stopwatch` around the wait, an
   unconditional print of the elapsed ms, and the window tightened to a new
   `PromptReconnectWindow` constant of 150 ms. Depends on T001.
-- [ ] **T003** `[P]` `[US-3]` Write the derivation into the new constants' doc
+- [x] **T003** `[P]` `[US-3]` Write the derivation into the new constants' doc
   comments per `plan.md` row 4: the two populations (~0 ms vs 320-480 ms), where
   320-480 comes from (`100 x 2^2` capped at 400, jittered [0.8, 1.2]), why the hold
   is 900 ms (1.9x the worst-case `servedDelay * 2` yardstick), and why 150 ms
   rather than 50 or 250. Depends on T002.
-- [ ] **T004** `[P]` `[US-3]` Correct the stale paragraph at
+- [x] **T004** `[P]` `[US-3]` Correct the stale paragraph at
   `MqttConnectionLoopTests.cs:234-239`: the two tests differ by **hold duration**,
   which is what `ResetIfHeld` measures, not by "repetition". Depends on T002.
-- [ ] **T005** `[US-3]` Counterfactual, four outputs in order: (1) old arrangement
+- [x] **T005** `[US-3]` Counterfactual, four outputs in order: (1) old arrangement
   + `ResetIfHeld` commented out → green; (2) new arrangement + injection → red,
   quoting the elapsed ms; (3) injection reverted → green with the figure printed;
   (4) record the figure in this file. Confirm the sibling spin tests do not also
@@ -318,5 +318,6 @@ board (project *Smart Sentinel Eye*, status **Todo**, label `agent:ready`), so n
 | 1 | boot A | _pending T006_ | | |
 | 1 | boot B | _pending T006_ | | |
 | 3 | 5 runs / 2 boots | _pending T010_ | | |
-| 4 | reset path | _pending T005_ | 150 ms | |
-| 4 | inherited path (injected) | _pending T005_ | | |
+| 4 | reset path (green, unmodified code, 3 runs) | 12, 13, 12 ms | 150 ms | ~12x headroom |
+| 4 | old arrangement + injection (counterfactual output 1) | passes regardless — 4.8 ms worst case fits inside the 500 ms window | 500 ms | vacuous, as before |
+| 4 | new arrangement + injection (counterfactual output 2) | did not reconnect within the window (backoff inherited, floor 320-480 ms per `MqttBackoff.Next()`) | 150 ms | correctly red |
