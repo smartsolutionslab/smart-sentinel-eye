@@ -1,8 +1,8 @@
-# Spec 172 — Plan
+# Spec 173 — Plan
 
 **Issue**: #2203 · **Branch**: `fix/2203-a-delivery-that-cannot-be-read` · **Phase**: 2 (Plan)
 
-**Spec**: `specs/172-a-delivery-that-cannot-be-read/spec.md`
+**Spec**: `specs/173-a-delivery-that-cannot-be-read/spec.md`
 
 ---
 
