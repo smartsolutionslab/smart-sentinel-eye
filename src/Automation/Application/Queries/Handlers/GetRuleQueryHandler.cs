@@ -46,9 +46,16 @@ public sealed class GetRuleQueryHandler(IRuleQuerySource rules)
         // caller holding several fabs can legitimately match the same name more
         // than once, and Single would throw out of the handler as a 500. The
         // result is bounded by how many fabs the caller holds.
+        //
+        // Archived excluded: FR-002 releases an archived name for re-use, and
+        // RuleRepository.GetByNameAsync already treats it that way — this
+        // predicate makes the read agree. Value object, not .Value: RuleState
+        // is value-converted, same trap as RuleName and Fab above.
         FabIdentifier[] scopedFabs = [.. fabs];
         List<Rule> matches = await rules.Rules
-            .Where(candidate => scopedFabs.Contains(candidate.Fab) && candidate.Name == parsed)
+            .Where(candidate => scopedFabs.Contains(candidate.Fab)
+                && candidate.Name == parsed
+                && candidate.State != RuleState.Archived)
             .ToListAsync(cancellationToken);
 
         if (matches.Count == 0)
@@ -56,9 +63,14 @@ public sealed class GetRuleQueryHandler(IRuleQuerySource rules)
             return Failure(GetRuleFailures.RuleNotFound(name));
         }
 
-        if (matches.Count > 1)
+        // Keyed on distinct fabs, not match count: with Archived excluded,
+        // ux_rules_fab_name_active allows at most one match per fab, so more
+        // than one distinct fab is the only way this can be reached — the
+        // message's claim is true by construction.
+        IReadOnlyList<string> fabsHolding = RuleFabCandidates.Fabs(matches);
+        if (fabsHolding.Count > 1)
         {
-            return Failure(GetRuleFailures.FabAmbiguous(name, RuleFabCandidates.Describe(matches)));
+            return Failure(GetRuleFailures.FabAmbiguous(name, fabsHolding));
         }
 
         return Success(RuleMapper.Map(matches[0]));

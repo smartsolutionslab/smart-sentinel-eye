@@ -56,9 +56,17 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
         // per-fab uniqueness lets a multi-fab caller match the same name twice,
         // and the catch further down guards only the evaluation block, so a
         // Single throw would escape as a 500.
+        //
+        // Archived excluded: same reason as GetRuleQueryHandler — FR-002
+        // releases an archived name for re-use, and dry-running an archived
+        // rule is meaningless anyway (FR-004: only Active rules are evaluated).
+        // Value object, not .Value: RuleState is value-converted, same trap as
+        // RuleName and Fab above.
         FabIdentifier[] scopedFabs = [.. fabs];
         List<Rule> matches = await rules.Rules
-            .Where(candidate => scopedFabs.Contains(candidate.Fab) && candidate.Name == parsed)
+            .Where(candidate => scopedFabs.Contains(candidate.Fab)
+                && candidate.Name == parsed
+                && candidate.State != RuleState.Archived)
             .ToListAsync(cancellationToken);
 
         if (matches.Count == 0)
@@ -66,10 +74,12 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
             return Failure(DryRunRuleFailures.RuleNotFound(name));
         }
 
-        if (matches.Count > 1)
+        // Keyed on distinct fabs, not match count — same reason as
+        // GetRuleQueryHandler.
+        IReadOnlyList<string> fabsHolding = RuleFabCandidates.Fabs(matches);
+        if (fabsHolding.Count > 1)
         {
-            return Failure(DryRunRuleFailures.FabAmbiguous(
-                    name, RuleFabCandidates.Describe(matches)));
+            return Failure(DryRunRuleFailures.FabAmbiguous(name, fabsHolding));
         }
 
         Rule rule = matches[0];
