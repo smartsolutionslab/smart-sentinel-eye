@@ -232,42 +232,86 @@ blocked by contention and its evidence lands while the stack is in use elsewhere
 
 ### US-2 (row 3) — needs the Aspire stack
 
-- [ ] **T009** `[US-2]` Rewire `ReconnectReconcileIntegrationTests`: split
+- [x] **T009** `[US-2]` Rewire `ReconnectReconcileIntegrationTests`: split
   `ReconcileBudgetSeconds` into `ReconcileWindow` (30 s, governing the token only)
   and `ReconcileCeilingMs` (governing the assertion only), replace
   `DateTime.UtcNow` with a `Stopwatch`, and print the elapsed figure
   unconditionally. Depends on T001. **Serialises with T006 on the stack.**
-- [ ] **T010** `[US-2]` Measure: run the rewired test **at least 5 times across 2
+- [x] **T010** `[US-2]` Measure: run the rewired test **at least 5 times across 2
   fixture boots**, record every `elapsed` figure here, then set
   `ReconcileCeilingMs` to 6-7x the worst, rounded up, checking it stays at least
   4x below the 30 s window. **Hard stop at 2 s** — if the derivation exceeds it,
   do not write the number: stop, report the figures, and escalate, because a warm
   synchronous EF read over 300 ms is a finding about the read path. Depends on
   T009.
-- [ ] **T011** `[US-2]` Write the derivation into `ReconcileCeilingMs`'s doc
+
+  **Deviation, reported and accepted by the orchestrator rather than resolved
+  silently**: only 3 clean samples were obtained (33 ms, 25 ms, 104 ms), not
+  the planned 5+. One run's execution window measurably overlapped a ~30s
+  stash/pop the orchestrating session performed on this same file (to rewrite
+  two earlier commit messages) — discarded regardless of what it showed. A
+  separate run, clear of that window, failed with
+  `Polly.Timeout.TimeoutRejectedException` / a socket abort during setup —
+  not a measurement, but evidence of the same constraint: repeated ephemeral
+  Aspire boots on this machine (already carrying an IDE + language-server
+  backend at ~4.5 GB) drove free memory to ~3.7 GB of 23.8 GB, and a follow-up
+  measurement batch was killed outright by the OS ("running low on memory").
+  Orchestrator's call: proceed with the 3 clean samples — worst=104ms puts the
+  6-7x derivation at 625-728 ms, ~3x below the 2s hard stop before the
+  multiplier's own margin, so a 4th/5th sample would not have moved the
+  decision.
+- [x] **T011** `[US-2]` Write the derivation into `ReconcileCeilingMs`'s doc
   comment in the template's shape, including the fact that the reconcile is
   **synchronous** (`GetLayoutQueryHandler` reads `ILayoutQuerySource` over the same
   Postgres the archive already committed to), so the next reader does not mistake
   the ceiling for a propagation allowance. Also correct the class summary, which
   says "within 5 seconds of reconnect". Depends on T010.
-- [ ] **T012** `[US-2]` Counterfactual, four outputs in order: (1) the old
+- [x] **T012** `[US-2]` Counterfactual, four outputs in order: (1) the old
   self-bounded 5 s + the archive delayed ~3 s past the reconnect → green; (2) the
   new ceiling + the same injection → red on the **timing** assertion with the
   state assertion passing; (3) injection reverted → green with the figure printed;
   (4) record the figure here. Depends on T011.
 
+  **Deviation, reported and accepted**: given the memory constraint above, the
+  orchestrator directed exactly one counterfactual run rather than the full
+  four-output sequence's separate old-bound/new-bound executions. Outputs (1)
+  and (2) were captured together in that single run: the real assertion (700 ms
+  ceiling) failed exactly as required, and a diagnostic comparison printed
+  alongside it (informational only, reverted with the injection) confirmed the
+  old 5s-equivalent bound would have passed the same figure. Output (3),
+  reverted + green, is not from a dedicated rerun; it is inferred from the 3
+  baseline measurement runs already recorded above (33/25/104 ms), all
+  comfortably under the shipped 700 ms ceiling with no injection present —
+  the orchestrator's explicit instruction after the counterfactual succeeded
+  was to commit rather than spend a further ephemeral boot re-confirming it.
+
 ### Gate checks
 
-- [ ] **T013** `[P]` Confirm `git diff origin/develop --
+- [x] **T013** `[P]` Confirm `git diff origin/develop --
   tests/Integration.Tests/StreamDistribution/WhepHandshakeLatencyTests.cs` is
-  **empty** (SC-5). Depends on T005, T008, T012.
-- [ ] **T014** `[P]` Confirm `git diff origin/develop --stat -- src/` is **empty**
+  **empty** (SC-5). Depends on T005, T008, T012. Confirmed empty.
+- [x] **T014** `[P]` Confirm `git diff origin/develop --stat -- src/` is **empty**
   (SC-6) — every counterfactual injection reverted. Depends on T005, T008, T012.
-- [ ] **T015** `[P]` Run the three test classes together, green, and confirm each
+  Confirmed empty.
+- [x] **T015** `[P]` Run the three test classes together, green, and confirm each
   prints its figure on the green run (SC-4). Depends on T005, T008, T012.
-- [ ] **T016** Record all measured figures in this file and confirm each of the
+
+  **Not run as one literal combined invocation**, given the memory constraint
+  recorded at T010/T012. Each class's green-with-printed-figure is instead
+  confirmed from runs already on record: row 4's full 52-test class run
+  (green, figure printed); row 1's counterfactual output (3) (median 59 ms,
+  worst 102 ms, green, printed); row 3's 3 baseline measurement runs (33/25/104
+  ms, green, printed — same test body as shipped, differing only in the
+  `ReconcileCeilingMs` placeholder value in place at measurement time, which
+  does not change whether the figure is printed or the assertion's shape).
+- [x] **T016** Record all measured figures in this file and confirm each of the
   three derivations is independent — no single multiplier applied three times
-  (SC-7, #2141's prohibition on the bulk fix). Depends on T013-T015.
+  (SC-7, #2141's prohibition on the bulk fix). Depends on T013-T015. Confirmed:
+  row 1 uses a fixed 100 ms anchored to the §IV budget constraint (not a
+  multiplier of its observation); row 3 uses 6.7x its own worst observation;
+  row 4 uses arrangement changes (hold duration, window) derived from
+  `MqttBackoff`'s own arithmetic, not a shared multiplier. Three independent
+  derivations, as required.
 
 ---
 
@@ -324,7 +368,12 @@ board (project *Smart Sentinel Eye*, status **Todo**, label `agent:ready`), so n
 | 1 | counterfactual (3): injection reverted, 100 ms bound (T008) | median 59 ms, worst 102 ms | 100 ms | green |
 
 **Note on T006's 4 boots instead of 2**: the plan asked for two; boots 1-2 disagreed enough (median 19 vs 34 ms, worst 23 vs 69 ms) to warrant more evidence before anchoring, so 2 more were taken. All four medians stayed well under the chosen 100 ms ceiling (worst case 46 ms, >2x margin), so no further boots were taken after 4. See the constant's doc comment in `NFR_VariableResolutionLatencyTests.cs` for the full reasoning, including a conflict this measurement exposed between the template's "10x worst observed" rule and the "must stay below the 200 ms §IV budget" rule — resolved in favour of the budget constraint, which is load-bearing.
-| 3 | 5 runs / 2 boots | _pending T010_ | | |
+| 3 | run (boot A) | 33 ms | | clean |
+| 3 | run (boot A) | 25 ms | | clean |
+| 3 | run (boot A, discarded) | test failed — overlapped the commit-message stash/pop window | | discarded, not a measurement |
+| 3 | run (boot A, discarded) | test failed — `Polly.Timeout.TimeoutRejectedException`, socket abort during setup | | discarded — evidence of machine memory pressure (~3.7 GB free of 23.8 GB), not a measurement |
+| 3 | run (boot B) | 104 ms (worst) | 700 ms | clean |
+| 3 | counterfactual: archive delayed ~3s past reconnect, single run | elapsed 3259 ms; old 5s-equivalent bound would have passed (masking); new 700 ms ceiling failed (`ShouldAssertException: elapsedMs ... but was 3259L`), state assertion passed first | 700 ms | red as required |
 | 4 | reset path (green, unmodified code, 3 runs) | 12, 13, 12 ms | 150 ms | ~12x headroom |
 | 4 | old arrangement + injection (counterfactual output 1) | passes regardless — 4.8 ms worst case fits inside the 500 ms window | 500 ms | vacuous, as before |
 | 4 | new arrangement + injection (counterfactual output 2) | did not reconnect within the window (backoff inherited, floor 320-480 ms per `MqttBackoff.Next()`) | 150 ms | correctly red |
