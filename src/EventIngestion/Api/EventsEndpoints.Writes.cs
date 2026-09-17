@@ -82,7 +82,7 @@ public static partial class EventsEndpoints
                 DeviceIdentifier.From(body.DeviceId),
                 Kind.From(body.Kind),
                 OccurredAt.From(body.OccurredAt),
-                Payload.From(body.Payload.GetRawText()));
+                Payload.From(body.Payload));
         }
         catch (ArgumentException ex)
         {
@@ -159,7 +159,7 @@ public static partial class EventsEndpoints
                 DeviceIdentifier.From(integration.Name.Value),
                 Kind.From(body.Kind ?? integration.DefaultKind.Value),
                 OccurredAt.From(body.OccurredAt ?? clock.UtcNow),
-                Payload.From(body.Payload.GetRawText()));
+                Payload.From(body.Payload));
         }
         catch (ArgumentException ex)
         {

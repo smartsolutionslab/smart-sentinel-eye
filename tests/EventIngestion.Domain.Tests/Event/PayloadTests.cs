@@ -51,4 +51,36 @@ public class PayloadTests
         Action act = () => Payload.From(doc);
         act.ShouldThrow<ArgumentException>();
     }
+
+    [Fact]
+    public void From_element_rejects_an_undefined_element()
+    {
+        JsonElement undefined = default;
+        undefined.ValueKind.ShouldBe(JsonValueKind.Undefined);
+
+        Action act = () => Payload.From(undefined);
+
+        act.ShouldThrow<ArgumentException>().Message.ShouldContain("missing", Case.Insensitive);
+    }
+
+    [Fact]
+    public void From_element_accepts_a_json_null_element()
+    {
+        using JsonDocument doc = JsonDocument.Parse("null");
+        Payload.From(doc.RootElement).Value.ShouldBe("null");
+    }
+
+    [Fact]
+    public void From_element_accepts_a_scalar_element()
+    {
+        using JsonDocument doc = JsonDocument.Parse("\"oops\"");
+        Payload.From(doc.RootElement).Value.ShouldBe("\"oops\"");
+    }
+
+    [Fact]
+    public void From_element_round_trips_an_object()
+    {
+        using JsonDocument doc = JsonDocument.Parse("{\"cycleId\":\"abc\"}");
+        Payload.From(doc.RootElement).Value.ShouldBe("{\"cycleId\":\"abc\"}");
+    }
 }

@@ -225,7 +225,7 @@ public sealed class MqttSubscriberHostedService(
         Payload payloadVo;
         try
         {
-            payloadVo = Payload.From(payload.Payload.GetRawText());
+            payloadVo = Payload.From(payload.Payload);
         }
         catch (ArgumentException ex)
         {
