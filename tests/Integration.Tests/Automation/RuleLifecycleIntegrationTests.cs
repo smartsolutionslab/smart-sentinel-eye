@@ -113,6 +113,51 @@ public class RuleLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetim
 
 
     /// <summary>
+    /// #2216 (FR-002): archiving releases a name for re-use, so the new rule
+    /// created with the same name must be manageable through the API — not
+    /// just resolvable server-side. Publish and archive learn a rule's
+    /// current version only from this GET's ETag (RulesEndpoints.GetOne), so
+    /// if the read is blocked the rule is unmanageable regardless of what the
+    /// write handlers themselves would have allowed.
+    /// </summary>
+    [Fact]
+    public async Task A_name_freed_by_archiving_is_readable_and_publishable_again()
+    {
+        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        string name = UniqueName();
+
+        HttpResponseMessage created = await CreateAsync(rules, name);
+        created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(created));
+
+        HttpResponseMessage archived = await rules.SendAsync(RuleRequests.Conditional(name, "archive", 0));
+        archived.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(archived));
+
+        // Arrange, asserted explicitly (FR-002 already permits this and it
+        // already works): a silent failure here would masquerade as the
+        // defect this test exists to expose.
+        HttpResponseMessage recreated = await CreateAsync(rules, name);
+        recreated.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(recreated));
+
+        // The assertion. Today this is 400 RULE_FAB_AMBIGUOUS — the archived
+        // row and the re-created row both match by name in the one fab the
+        // caller holds — and DiagnoseAsync's body dump names "munich" twice
+        // inside a sentence claiming more than one fab.
+        HttpResponseMessage fetched = await rules.GetAsync($"/rules/{name}");
+        fetched.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(fetched));
+
+        JsonElement body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        body.GetProperty("state").GetString().ShouldBe("Draft");
+        fetched.Headers.ETag.ShouldNotBeNull();
+        fetched.Headers.ETag.Tag.ShouldBe($"\"{body.GetProperty("version").GetInt32()}\"");
+
+        HttpResponseMessage published = await rules.SendAsync(
+            RuleRequests.Conditional(name, "publish", body.GetProperty("version").GetInt32()));
+        published.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(published));
+
+        (await ReadAsync(rules, name)).GetProperty("state").GetString().ShouldBe("Active");
+    }
+
+    /// <summary>
     /// A bare "500" tells a reader nothing, and CI has no other route to the
     /// service's stack trace. Attach the response body and the automation
     /// service's recent output to the assertion message so an unexpected status
