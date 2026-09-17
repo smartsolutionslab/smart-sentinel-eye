@@ -152,7 +152,10 @@ public static class Extensions
         // conditional on both halves staying true. A ResponseWriter that renders
         // detail, or a check whose *name* encodes a dependency, turns an
         // aggregate word into an unauthenticated inventory of the system's
-        // internals, and the analysis has to be redone before it ships.
+        // internals, and the analysis has to be redone before it ships. That
+        // condition is now a decision with a number: ADR-0154 bars any check
+        // registered on this endpoint from naming or reaching an external
+        // dependency, for exactly this reason.
         //
         // In-cluster that audience is the kubelet, but the gateway's
         // "/{context}/{**catch-all}" routes (src/ApiGateway/appsettings.json)
