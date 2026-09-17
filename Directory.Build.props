@@ -31,7 +31,11 @@
     <IsTestProject Condition="'$(IsTestProject)' == ''">false</IsTestProject>
   </PropertyGroup>
 
-  <!-- ADR-0084: code-metric limits enforced via SonarAnalyzer. Looser in tests. -->
+  <!-- ADR-0084: the SonarAnalyzer package that implements the code-metric
+       rules. This ItemGroup is the PackageReference block — it configures no
+       severity and no threshold; those live in .editorconfig and
+       SonarLint.xml (below and in the AdditionalFiles ItemGroup further
+       down). -->
   <ItemGroup>
     <PackageReference Include="SonarAnalyzer.CSharp">
       <PrivateAssets>all</PrivateAssets>
@@ -41,6 +45,16 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <!-- ADR-0084: the five code-metric thresholds. SonarAnalyzer reads rule
+       parameters from an AdditionalFile named exactly SonarLint.xml; the
+       severities live in .editorconfig, and neither input works without the
+       other. Non-test projects only — ADR-0084 exempts tests, and that
+       exemption is ALSO spelled out in .editorconfig, because editorconfig
+       severity outranks the NoWarn below. -->
+  <ItemGroup Condition="'$(IsTestProject)' != 'true'">
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)SonarLint.xml" />
   </ItemGroup>
 
   <!-- ADR-0049: ConfigureAwait is banned in application code (ASP.NET Core has
@@ -68,8 +82,23 @@
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)build\guards\BannedSymbols.txt" />
   </ItemGroup>
 
-  <!-- Production code: hard limits per ADR-0084. -->
+  <!-- Production code: unrelated repo-wide suppressions, plus the ADR-0084
+       Release carve-out below. This PropertyGroup sets no metric limit itself
+       — the five thresholds live in SonarLint.xml, the severities in
+       .editorconfig. -->
   <PropertyGroup Condition="'$(IsTestProject)' != 'true'">
+    <!-- ADR-0084 (as amended 2026-09-17): the five metric limits are ADVISORY.
+         TreatWarningsAsErrors is on in Release above, and CI builds Release, so
+         severity `warning` alone would turn the recorded baseline into that many
+         build ERRORS on the first push. This carve-out is how "warning, not
+         error" is expressed under ADR-0034's Release policy.
+
+         It is PERMANENT, not a migration aid. Deleting it does not tighten the
+         limits; it breaks the build. If these limits are ever to become blocking,
+         that is an ADR-0084 amendment plus a cleanup of the baseline, not the
+         removal of this line. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);S104;S138;S107;S1541;S134</WarningsNotAsErrors>
+
     <!--
       S104 file too long, S138 method too long, S107 too many params, S1541 cyclomatic complexity, S134 nesting depth.
 
@@ -101,9 +130,13 @@
     <NoWarn>$(NoWarn);CA1716;CA1000;S2326;CA1711;CA1848;CA1873</NoWarn>
   </PropertyGroup>
 
-  <!-- Tests: relax the metric rules; loud test methods are valuable.
-       CA1716 also suppressed because test-project namespaces mirror their
-       Shared.* / Result / Option production counterparts (see rationale above). -->
+  <!-- Tests: for ADR-0084's five metric rules, this NoWarn is belt-and-braces,
+       not the decision — .editorconfig's [tests/**.cs] severity = none is the
+       input that actually wins (editorconfig severity outranks NoWarn), so
+       treat that section as authoritative and this list as the second line of
+       defence. S2699/CA1707/CA1716 are unrelated to ADR-0084 and this NoWarn
+       is still what suppresses them; loud test methods are valuable, hence
+       CA1707's naming-convention relaxation. -->
   <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
     <NoWarn>$(NoWarn);S104;S138;S107;S1541;S134;S2699;CA1707;CA1716</NoWarn>
   </PropertyGroup>

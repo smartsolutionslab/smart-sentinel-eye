@@ -117,6 +117,39 @@ dotnet_naming_symbols.private_fields.applicable_accessibilities = private
 
 dotnet_naming_style.camel_case_no_prefix.capitalization = camel_case
 
+# ADR-0084 (as amended 2026-09-17, spec 174 / #2209): the five code-metric
+# limits are ADVISORY — `warning`, never `error`. Until this change they were
+# configured nowhere and fired on nothing, while the ADR, CLAUDE.md and two
+# agent briefs all called them CI-enforced.
+#
+# Severity here, thresholds in SonarLint.xml, and NEITHER FILE IS SUFFICIENT
+# ALONE: S107 and S134 are disabled in the analyzer itself, so these lines are
+# what switch them on at all; S104, S138 and S1541 are on already at 1000 / 80 /
+# 10, so it is SonarLint.xml that tightens them to ADR-0084's numbers.
+#
+# Scoped to src/ deliberately, NOT [*.cs]. EditorConfig severity OUTRANKS a
+# project's NoWarn, so a blanket section would re-enable all five inside tests/
+# and silently revoke the test exemption that ADR-0084 grants and that
+# Directory.Build.props still believes it has. tests/ gets the opposite
+# instruction below, in the file that wins.
+[src/**.cs]
+dotnet_diagnostic.S104.severity = warning
+dotnet_diagnostic.S138.severity = warning
+dotnet_diagnostic.S107.severity = warning
+dotnet_diagnostic.S1541.severity = warning
+dotnet_diagnostic.S134.severity = warning
+
+# ADR-0084: "Test projects exempt — long, narrative test methods are valuable."
+# Restated here, not only as NoWarn in Directory.Build.props, because the NoWarn
+# is not the deciding input: editorconfig severity beats it. The exemption has to
+# be written where it wins.
+[tests/**.cs]
+dotnet_diagnostic.S104.severity = none
+dotnet_diagnostic.S138.severity = none
+dotnet_diagnostic.S107.severity = none
+dotnet_diagnostic.S1541.severity = none
+dotnet_diagnostic.S134.severity = none
+
 [**/Migrations/*.cs]
 # EF Core generates these files. Don't fight the generator.
 generated_code = true
