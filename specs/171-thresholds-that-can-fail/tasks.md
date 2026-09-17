@@ -211,11 +211,11 @@ blocked by contention and its evidence lands while the stack is in use elsewhere
 
 ### US-1 (row 1) — needs the Aspire stack
 
-- [ ] **T006** `[US-1]` Re-measure `NFR_VariableResolutionLatencyTests` against
+- [x] **T006** `[US-1]` Re-measure `NFR_VariableResolutionLatencyTests` against
   unmodified `develop` code, **twice, on separate fixture boots**, and record both
   medians and worsts in this file. Anchoring before measuring is the defect this
   spec exists to remove. Depends on T001. **Serialises with T009 on the stack.**
-- [ ] **T007** `[US-1]` Rename `LegBudgetMs` → `RegressionCeilingMs` and set it to
+- [x] **T007** `[US-1]` Rename `LegBudgetMs` → `RegressionCeilingMs` and set it to
   **100 ms**, or re-derive at 10x the worst observed sample if T006's median
   exceeds 20 ms. Rewrite the doc comment in the template's shape: the 6 ms / 8 ms
   provenance (`specs/014-.../tasks.md:238-239`), the `[8, 8, 10]` local sample,
@@ -223,7 +223,7 @@ blocked by contention and its evidence lands while the stack is in use elsewhere
   (warm dev-box medians vs the template's cold-stack figures), and the load-bearing
   half — that 100 ms sits **below** the 200 ms §IV leg it guards, where 800 ms sat
   above it. Depends on T006.
-- [ ] **T008** `[US-1]` Counterfactual, four outputs in order: (1) 800 ms bound +
+- [x] **T008** `[US-1]` Counterfactual, four outputs in order: (1) 800 ms bound +
   a 150 ms delay injected into the SystemVariables resolve path → green; (2)
   100 ms bound + the same injection → red, quoting the median; (3) injection
   reverted → green with the median printed; (4) record the figure here. Mark the
@@ -315,8 +315,15 @@ board (project *Smart Sentinel Eye*, status **Todo**, label `agent:ready`), so n
 
 | Row | Run | Figure | Threshold set | Multiple |
 |---|---|---|---|---|
-| 1 | boot A | _pending T006_ | | |
-| 1 | boot B | _pending T006_ | | |
+| 1 | boot 1 (T006) | median 19 ms, worst 23 ms, [9, 14, 19, 20, 23] | | |
+| 1 | boot 2 (T006) | median 34 ms, worst 69 ms, [18, 26, 34, 34, 69] | | |
+| 1 | boot 3 (T006, extra — see note) | median 19 ms, worst 34 ms, [11, 13, 19, 30, 34] | | |
+| 1 | boot 4 (T006, extra — see note) | median 46 ms, worst 99 ms, [16, 28, 46, 66, 99] | | |
+| 1 | counterfactual (1): 800 ms bound + 150 ms injection (T008) | median 219 ms, worst 276 ms | 800 ms | green (vacuous) |
+| 1 | counterfactual (2): 100 ms bound + 150 ms injection (T008) | median 182 ms, worst 208 ms | 100 ms | red |
+| 1 | counterfactual (3): injection reverted, 100 ms bound (T008) | median 59 ms, worst 102 ms | 100 ms | green |
+
+**Note on T006's 4 boots instead of 2**: the plan asked for two; boots 1-2 disagreed enough (median 19 vs 34 ms, worst 23 vs 69 ms) to warrant more evidence before anchoring, so 2 more were taken. All four medians stayed well under the chosen 100 ms ceiling (worst case 46 ms, >2x margin), so no further boots were taken after 4. See the constant's doc comment in `NFR_VariableResolutionLatencyTests.cs` for the full reasoning, including a conflict this measurement exposed between the template's "10x worst observed" rule and the "must stay below the 200 ms §IV budget" rule — resolved in favour of the budget constraint, which is load-bearing.
 | 3 | 5 runs / 2 boots | _pending T010_ | | |
 | 4 | reset path (green, unmodified code, 3 runs) | 12, 13, 12 ms | 150 ms | ~12x headroom |
 | 4 | old arrangement + injection (counterfactual output 1) | passes regardless — 4.8 ms worst case fits inside the 500 ms window | 500 ms | vacuous, as before |
