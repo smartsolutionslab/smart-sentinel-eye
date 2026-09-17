@@ -15,9 +15,9 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 /// It also pins down the tables the health check reads. Their names are
 /// Wolverine's, not ours, and a health check querying a table that does not
 /// exist reports nothing wrong — the query fails, the failure is swallowed as
-/// "the database check owns this", and the backlog stays invisible for the same
-/// reason it was invisible before. So the names are asserted rather than
-/// assumed.
+/// "a database outage does not fail this replica's readiness" (ADR-0154), and
+/// the backlog stays invisible for the same reason it was invisible before. So
+/// the names are asserted rather than assumed.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]

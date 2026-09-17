@@ -165,6 +165,11 @@ public static class WolverineDefaults
         // FR-008. Trading a silent loss for a silent backlog would not be much
         // of a trade, so the queue depth is visible from the moment the outbox
         // starts being used.
+        //
+        // failureStatus: Degraded, not the framework's default Unhealthy — this
+        // is a deliberate readiness-is-liveness constraint (ADR-0154), not a
+        // local preference. A tenth check reaching for Unhealthy here reverses
+        // that decision rather than tuning it.
         builder.Services.AddHealthChecks().AddTypeActivatedCheck<OutboxBacklogHealthCheck<TDbContext>>(
             $"outbox-{moduleQueuePrefix}",
             failureStatus: HealthStatus.Degraded,
