@@ -22,6 +22,13 @@ namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 /// management API and an idle queue are indistinguishable in a number, and the
 /// whole reading is built on telling those two apart.
 /// </para>
+///
+/// <para>
+/// <b>The read also answers the matched queues' short names.</b> A wrong
+/// prefix and an idle broker both produce a count of zero; only the queue
+/// names tell a reader which one happened, so the count is never returned
+/// without them (spec 178 US1).
+/// </para>
 /// </summary>
 internal static class AuditQueueProbe
 {
@@ -52,8 +59,18 @@ internal static class AuditQueueProbe
         return client;
     }
 
-    /// <summary>Sums <c>messages_unacknowledged</c> across the audit queues.</summary>
-    internal static async Task<int> UnacknowledgedAsync(HttpClient broker, CancellationToken cancellationToken)
+    /// <summary>
+    /// Sums <c>messages_unacknowledged</c> across the audit queues, and answers
+    /// the matched queues' short names alongside the count.
+    ///
+    /// <para>
+    /// A refusal throws naming the address and the status. Answering zero would
+    /// be indistinguishable from an idle broker, and the whole reading is built
+    /// on telling those two apart.
+    /// </para>
+    /// </summary>
+    internal static async Task<(int Unacknowledged, string[] Queues)> ReadAsync(
+        HttpClient broker, CancellationToken cancellationToken)
     {
         using HttpResponseMessage response = await broker.GetAsync("/api/queues", cancellationToken);
         if (!response.IsSuccessStatusCode)
@@ -67,17 +84,50 @@ internal static class AuditQueueProbe
         JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
         int unacknowledged = 0;
+        List<string> queues = [];
         foreach (JsonElement queue in payload.EnumerateArray())
         {
             string name = queue.GetProperty("name").GetString() ?? "";
-            if (name.StartsWith(QueuePrefix, StringComparison.Ordinal)
-                && queue.TryGetProperty("messages_unacknowledged", out JsonElement outstanding))
+            if (!name.StartsWith(QueuePrefix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            queues.Add(name[(name.LastIndexOf('.') + 1)..]);
+            if (queue.TryGetProperty("messages_unacknowledged", out JsonElement outstanding))
             {
                 unacknowledged += outstanding.GetInt32();
             }
         }
 
+        return (unacknowledged, [.. queues.Order()]);
+    }
+
+    /// <summary>Sums <c>messages_unacknowledged</c> across the audit queues.</summary>
+    internal static async Task<int> UnacknowledgedAsync(HttpClient broker, CancellationToken cancellationToken)
+    {
+        (int unacknowledged, _) = await ReadAsync(broker, cancellationToken);
         return unacknowledged;
+    }
+
+    /// <summary>
+    /// Polls until the audit queues report nothing unacknowledged, so a run's
+    /// sample window contains that run's population and nobody else's, and
+    /// answers what it last saw together with the queue names it was reading.
+    /// </summary>
+    internal static async Task<(int Unacknowledged, string[] Queues)> WaitForQuiescenceReadingAsync(
+        HttpClient broker, TimeSpan deadline, CancellationToken cancellationToken)
+    {
+        DateTimeOffset until = DateTimeOffset.UtcNow + deadline;
+        (int unacknowledged, string[] queues) = await ReadAsync(broker, cancellationToken);
+
+        while (unacknowledged > 0 && DateTimeOffset.UtcNow < until)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+            (unacknowledged, queues) = await ReadAsync(broker, cancellationToken);
+        }
+
+        return (unacknowledged, queues);
     }
 
     /// <summary>
@@ -87,15 +137,7 @@ internal static class AuditQueueProbe
     internal static async Task<int> WaitForQuiescenceAsync(
         HttpClient broker, TimeSpan deadline, CancellationToken cancellationToken)
     {
-        DateTimeOffset until = DateTimeOffset.UtcNow + deadline;
-        int unacknowledged = await UnacknowledgedAsync(broker, cancellationToken);
-
-        while (unacknowledged > 0 && DateTimeOffset.UtcNow < until)
-        {
-            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
-            unacknowledged = await UnacknowledgedAsync(broker, cancellationToken);
-        }
-
+        (int unacknowledged, _) = await WaitForQuiescenceReadingAsync(broker, deadline, cancellationToken);
         return unacknowledged;
     }
 }
