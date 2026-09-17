@@ -126,20 +126,40 @@ public sealed class OutboxBacklogHealthCheck<TDbContext>(
             logger.OutboxBacklogConcerning(outboxSchema, pending, attempts);
             return HealthCheckResult.Degraded(description, data: data);
         }
+        catch (InvalidOperationException ex) when (ex.InnerException is DbException inner && IsUnreachable(inner))
+        {
+            // ADR-0154. Readiness on this system is a liveness and routing signal,
+            // and this is the path that makes that a decision rather than an
+            // omission. Nothing is being deferred to: the check set is exactly two
+            // members — "self", which returns Healthy unconditionally, and this
+            // one. There is no connection check. The Healthy below is the refusal
+            // to fail readiness on a dependency every replica shares: an
+            // unreachable database is unreachable from all of them, so draining
+            // them all converts a database outage into the loss of the HTTP
+            // surface an operator would use to find out why. The backlog is
+            // unreadable, not bad; the signal for the outage is the log and the
+            // trace, not the probe.
+            //
+            // Caught as InvalidOperationException, not DbException, on purpose:
+            // EF Core's Npgsql execution strategy (NpgsqlExecutionStrategy) wraps
+            // any exception NpgsqlException.IsTransient reports as true — which is
+            // any connection failure carrying an IOException, SocketException or
+            // TimeoutException inner exception, a refused connection exactly as
+            // much as a timed-out one — and rethrows it wrapped in a plain
+            // InvalidOperationException. That is what the raw-SQL query below
+            // actually throws for an unreachable database; a catch guarded only on
+            // DbException never sees it.
+            return Unreachable(inner.GetType().Name);
+        }
         catch (DbException ex) when (IsUnreachable(ex))
         {
-            // Nothing else reports the database being unreachable. The check
-            // set is exactly two members — "self", which returns Healthy
-            // unconditionally, and this one — so there is no connection check
-            // to defer to, and the Healthy below is not deduplication. It is a
-            // deliberate choice not to fail readiness on a dependency every
-            // replica shares: draining all of them at once helps nobody, and a
-            // backlog monitor is the wrong place to own that signal. Whether
-            // that is the right answer, and what should own it instead, is
-            // #2125.
-            return HealthCheckResult.Healthy(
-                "Backlog not readable; the database check owns this.",
-                new Dictionary<string, object>(StringComparer.Ordinal) { ["error"] = ex.GetType().Name });
+            // Kept alongside the InvalidOperationException catch above, not
+            // instead of it: nothing here guarantees every EF provider or a
+            // future EF Core version wraps this the same way, and a DbException
+            // reaching here directly should resolve to the same ADR-0154 decision
+            // rather than falling through to the "this check is wrong" catch
+            // below.
+            return Unreachable(ex.GetType().Name);
         }
         catch (DbException ex)
         {
@@ -162,6 +182,17 @@ public sealed class OutboxBacklogHealthCheck<TDbContext>(
                 });
         }
     }
+
+    /// <summary>
+    /// The one outcome both unreachable-database catches report (ADR-0154).
+    /// Written once so the description string cannot drift from what the
+    /// comments above say it means — which is exactly how it drifted before
+    /// (spec 172).
+    /// </summary>
+    private static HealthCheckResult Unreachable(string exceptionTypeName) =>
+        HealthCheckResult.Healthy(
+            "Backlog not readable; a database outage does not fail this replica's readiness.",
+            new Dictionary<string, object>(StringComparer.Ordinal) { ["error"] = exceptionTypeName });
 
     /// <summary>
     /// Whether this is the database being away rather than the query being
