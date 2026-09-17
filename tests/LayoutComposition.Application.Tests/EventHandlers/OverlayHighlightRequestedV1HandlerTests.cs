@@ -43,6 +43,37 @@ public class OverlayHighlightRequestedV1HandlerTests
     }
 
     [Fact]
+    public async Task Two_highlights_of_one_event_on_one_overlay_are_both_broadcast()
+    {
+        // These two frames share their overlay AND their CausingEventIdentifier
+        // by design, so a consumer keyed on that pair would collapse them; the
+        // correct redelivery key is Metadata.EventIdentifier (#2214).
+        FakeLayoutLifecycleBroadcaster broadcaster = new();
+        OverlayHighlightRequestedV1Handler handler = new(
+            broadcaster, new RecordingLatencyBudget(), NullLogger<OverlayHighlightRequestedV1Handler>.Instance);
+
+        Guid overlay = Guid.CreateVersion7();
+        Guid causingEvent = Guid.CreateVersion7();
+
+        await handler.Handle(
+            new OverlayHighlightRequestedV1(
+                overlay, 5_000, Moment, causingEvent,
+                new EventMetadata(Guid.CreateVersion7(), Moment, "munich", null)),
+            CancellationToken.None);
+        await handler.Handle(
+            new OverlayHighlightRequestedV1(
+                overlay, 12_000, Moment, causingEvent,
+                new EventMetadata(Guid.CreateVersion7(), Moment, "munich", null)),
+            CancellationToken.None);
+
+        broadcaster.Highlighted.Count.ShouldBe(2);
+        broadcaster.Highlighted[0].Overlay.ShouldBe(overlay);
+        broadcaster.Highlighted[0].DurationMs.ShouldBe(5_000);
+        broadcaster.Highlighted[1].Overlay.ShouldBe(overlay);
+        broadcaster.Highlighted[1].DurationMs.ShouldBe(12_000);
+    }
+
+    [Fact]
     public async Task Carries_the_fab_of_the_rule_that_requested_it()
     {
         FakeLayoutLifecycleBroadcaster broadcaster = new();
