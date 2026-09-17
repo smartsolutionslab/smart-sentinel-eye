@@ -1,3 +1,5 @@
+using SmartSentinelEye.Shared.Kernel;
+
 namespace SmartSentinelEye.EventIngestion.Application.Ingress;
 
 /// <summary>
@@ -26,7 +28,12 @@ public sealed class IngestWriteLimiter : IDisposable
 
     public IngestWriteLimiter() : this(DefaultConcurrency) { }
 
-    public IngestWriteLimiter(int concurrency) => slots = new SemaphoreSlim(concurrency, concurrency);
+    public IngestWriteLimiter(int concurrency)
+    {
+        Ensure.That(concurrency).AtLeast(1);
+
+        slots = new SemaphoreSlim(concurrency, concurrency);
+    }
 
     /// <summary>
     /// Takes a slot if one is free, without waiting. Refusing immediately is

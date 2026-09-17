@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using OpenTelemetry.Metrics;
 using SmartSentinelEye.EventIngestion.Application.Commands;
 using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
@@ -114,7 +115,12 @@ public static class EventIngestionInfrastructureModule
         // Spec 020: direct submissions store before answering, so they no longer
         // pass through the channel — and the 429 that used to mean "the channel
         // is full" needs something to bound. This is it.
-        builder.Services.AddSingleton<IngestWriteLimiter>();
+        //
+        // Spec 175: the bound is configurable, so it is read from
+        // IngestWriteOptions rather than always taking the parameterless
+        // constructor's default of 64.
+        builder.Services.AddSingleton(provider =>
+            new IngestWriteLimiter(provider.GetRequiredService<IOptions<IngestWriteOptions>>().Value.Concurrency));
 
         // Spec 103 FR-004. A meter nobody registers records into nothing and
         // raises no error, so this line is the whole difference between an
@@ -136,6 +142,11 @@ public static class EventIngestionInfrastructureModule
         // loop because the right answer is how long a plant's outages last.
         builder.Services.AddOptions<IngestRetryOptions>()
             .Bind(builder.Configuration.GetSection(IngestRetryOptions.SectionName));
+
+        // Spec 175: the direct-write concurrency bound, read by the
+        // IngestWriteLimiter factory above.
+        builder.Services.AddOptions<IngestWriteOptions>()
+            .Bind(builder.Configuration.GetSection(IngestWriteOptions.SectionName));
         // Resolve the broker + Keycloak from the Aspire-injected endpoints, and
         // fail fast when they are absent. Defaulting these (it used to be
         // localhost:1883) turns a wiring gap into a subscriber that silently
