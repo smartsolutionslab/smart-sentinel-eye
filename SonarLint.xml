@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ADR-0084's five code-metric thresholds. THRESHOLDS ONLY: whether a rule runs
+  at all is set in .editorconfig (dotnet_diagnostic.<ID>.severity), and neither
+  file does the job alone. Wired in as an AdditionalFile for non-test projects
+  by Directory.Build.props; SonarAnalyzer matches this file by its exact name.
+
+  All five are written out, including S1541 and S134 whose values already equal
+  SonarAnalyzer 10.33.0.1635's own defaults. Two reasons:
+
+    - A partial statement of a rule is how this repository's records drift. §II
+      was summarised by three examples while 35 violations accumulated, then
+      enumerated as nine types that omitted `short`. A file that lists three of
+      ADR-0084's five limits invites the same reading.
+    - A default belongs to the analyzer, which is upgraded. An unpinned
+      threshold would let a SonarAnalyzer release move a documented limit
+      without a diff in this repository.
+
+  The cost is eight lines that change nothing today. Phase 4 confirms they
+  change nothing today, by measuring S1541 and S134 at the counts they had
+  before this file existed.
+-->
+<AnalysisInput>
+  <Rules>
+    <Rule>
+      <Key>S104</Key>
+      <Parameters>
+        <Parameter>
+          <Key>maximumFileLocThreshold</Key>
+          <Value>300</Value>
+        </Parameter>
+      </Parameters>
+    </Rule>
+    <Rule>
+      <Key>S138</Key>
+      <Parameters>
+        <Parameter>
+          <Key>max</Key>
+          <Value>30</Value>
+        </Parameter>
+      </Parameters>
+    </Rule>
+    <Rule>
+      <Key>S107</Key>
+      <Parameters>
+        <Parameter>
+          <Key>max</Key>
+          <Value>4</Value>
+        </Parameter>
+      </Parameters>
+    </Rule>
+    <Rule>
+      <Key>S1541</Key>
+      <Parameters>
+        <Parameter>
+          <Key>maximumFunctionComplexityThreshold</Key>
+          <Value>10</Value>
+        </Parameter>
+      </Parameters>
+    </Rule>
+    <Rule>
+      <Key>S134</Key>
+      <Parameters>
+        <Parameter>
+          <Key>maximumNestingLevel</Key>
+          <Value>3</Value>
+        </Parameter>
+      </Parameters>
+    </Rule>
+  </Rules>
+</AnalysisInput>
