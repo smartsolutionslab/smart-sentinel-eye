@@ -1,4 +1,4 @@
-# Spec 172 — A delivery whose payload is absent
+# Spec 173 — A delivery whose payload is absent
 
 **Issue**: #2203 · **Branch**: `fix/2203-a-delivery-that-cannot-be-read` · **Phase**: 1 (Specify)
 

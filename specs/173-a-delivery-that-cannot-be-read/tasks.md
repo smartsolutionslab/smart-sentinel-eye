@@ -1,4 +1,4 @@
-# Spec 172 — Tasks
+# Spec 173 — Tasks
 
 **Issue**: #2203 · **Branch**: `fix/2203-a-delivery-that-cannot-be-read` · **Phase**: 3 (Tasks)
 
