@@ -195,7 +195,7 @@ public sealed class MqttSubscriberHostedService(
     private static ReadOnlyMemory<byte> Body(MqttApplicationMessage message) =>
         message.Payload.IsSingleSegment ? message.Payload.First : message.Payload.ToArray();
 
-    private static ParseResult TryParseEnvelope(string topic, ReadOnlyMemory<byte> body)
+    internal static ParseResult TryParseEnvelope(string topic, ReadOnlyMemory<byte> body)
     {
         // Topic shape: fab/{fabId}/{source}/{deviceId}
         string[] segments = topic.Split('/');
@@ -329,5 +329,5 @@ public sealed class MqttSubscriberHostedService(
         }
     }
 
-    private sealed record ParseResult(EventEnvelope? Envelope, string? Error);
+    internal sealed record ParseResult(EventEnvelope? Envelope, string? Error);
 }
