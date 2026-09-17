@@ -55,21 +55,74 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 /// </para>
 ///
 /// <para>
-/// The assertion is deliberately loose. This runs on shared CI against a cold
-/// stack, so a tight bound would flake and get deleted; the figure recorded in
-/// the output is the artefact that matters, and <see cref="LegBudgetMs"/> is
-/// there to catch an order-of-magnitude regression rather than to police the
-/// budget.
+/// The assertion is deliberately loose relative to the observed figures, and
+/// deliberately tight relative to constitution §IV. This runs on shared CI
+/// against a cold stack, so a bound near the observed median would flake and
+/// get deleted; the figure recorded in the output is the artefact that
+/// matters, and <see cref="RegressionCeilingMs"/> is there to catch an
+/// order-of-magnitude regression rather than to police the budget. See its own
+/// remarks for the derivation, spec 171 (#2150), and a conflict spec 171's
+/// re-measurement found between two of the derivation's own constraints.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
 public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLifetime
 {
     /// <summary>
-    /// Constitution §IV leg 4 is 200 ms. Asserted at 4x to survive CI jitter
-    /// and a cold JIT — see the class remarks on why this is not the budget.
+    /// A regression ceiling anchored to observation, <b>not</b> constitution
+    /// §IV's 200 ms leg 4 budget — the old name (<c>LegBudgetMs</c>) claimed
+    /// otherwise, which is half of why this could not fail: at 800 ms the bound
+    /// sat <i>above</i> the very budget it was named after, so a run breaching
+    /// §IV by 3x still passed (spec 171 / #2150).
+    ///
+    /// <para>
+    /// <b>Provenance.</b> Spec 014 recorded median 6 ms / worst 8 ms on its
+    /// machine (<c>specs/014-.../tasks.md:238-239</c>), with a later local
+    /// sample of <c>[8, 8, 10]</c>. Spec 171 re-measured on <i>this</i> machine,
+    /// four times rather than the planned two, because the first two
+    /// disagreed enough to warrant it:
+    /// </para>
+    ///
+    /// <list type="table">
+    /// <item><description>boot 1: median 19 ms, worst 23 ms, [9, 14, 19, 20, 23]</description></item>
+    /// <item><description>boot 2: median 34 ms, worst 69 ms, [18, 26, 34, 34, 69]</description></item>
+    /// <item><description>boot 3: median 19 ms, worst 34 ms, [11, 13, 19, 30, 34]</description></item>
+    /// <item><description>boot 4: median 46 ms, worst 99 ms, [16, 28, 46, 66, 99]</description></item>
+    /// </list>
+    ///
+    /// <para>
+    /// This dev box, with the persistent Aspire stack it shares also running,
+    /// is measurably noisier than spec 014's figures — samples climb across
+    /// each run (e.g. boot 4's 16 → 28 → 46 → 66 → 99); the mechanism is not
+    /// confirmed and is not needed to justify the number below, so it is not
+    /// asserted as fact here.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>The conflict, stated plainly.</b> The template's rule
+    /// (<c>ResolvedTextReachesItsFabTests.cs:120-132</c>) is 10x the worst
+    /// sample ever recorded. Taken literally against boot 4's 99 ms, that is
+    /// ~1000 ms — <i>above</i> the 200 ms §IV budget, which recreates the exact
+    /// defect this rename exists to remove. The two constraints — enough
+    /// headroom above observed noise, and a ceiling that stays under the
+    /// budget it guards — cannot both be satisfied once observed worst-case
+    /// noise exceeds ~20 ms on this box, and nothing resolves that for you: the
+    /// budget constraint wins, because a "regression ceiling" that sits above
+    /// the leg it is meant to help guard is incoherent regardless of what the
+    /// multiplier says.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Why 100 ms still holds despite that.</b> The assertion is on the
+    /// <b>median</b> of 5, not the worst single sample — every boot's median
+    /// above (19, 34, 19, 46 ms) clears 100 ms by at least 2.1x, worst boot
+    /// included, so the noise this box actually produces does not threaten to
+    /// flake it. And it stays below the §IV budget, which is the load-bearing
+    /// half: at 100 ms a breach of the constitution's leg fails here first,
+    /// where 800 ms sat above the thing it was named after.
+    /// </para>
     /// </summary>
-    private const int LegBudgetMs = 800;
+    private const int RegressionCeilingMs = 100;
 
     /// <summary>
     /// Kept at 3 even after #2201 corrected
@@ -149,7 +202,7 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
             $"[NFR spec 014 T031 warmup] write-and-propagate warmup samples "
             + $"[{string.Join(", ", warmups)}] ms — round 0 is that path's first execution");
 
-        median.ShouldBeLessThan(LegBudgetMs);
+        median.ShouldBeLessThan(RegressionCeilingMs);
     }
 
     /// <summary>
