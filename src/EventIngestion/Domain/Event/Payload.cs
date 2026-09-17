@@ -38,6 +38,27 @@ public sealed record Payload : IValueObject<string>
         return new Payload(Encoding.UTF8.GetString(buffer.ToArray()));
     }
 
+    /// <summary>
+    /// Builds a Payload from a <see cref="JsonElement"/> already located inside
+    /// a deserialized envelope (spec 173 / #2203). <c>Undefined</c> is the shape
+    /// an omitted JSON property deserializes to — not a JSON value — and is
+    /// rejected here rather than left to throw <see cref="InvalidOperationException"/>
+    /// out of <see cref="JsonElement.GetRawText"/> at the call site, uncaught.
+    /// Every other <see cref="JsonValueKind"/>, including <c>Null</c> and every
+    /// scalar, is a value and is accepted, exactly as <see cref="From(string)"/>
+    /// already requires.
+    /// </summary>
+    public static Payload From(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Undefined)
+        {
+            throw new ArgumentException(
+                "Payload is missing: the \"payload\" property was not present.",
+                nameof(element));
+        }
+        return From(element.GetRawText());
+    }
+
     /// <summary>Parses raw JSON text into a Payload (rejects malformed JSON).</summary>
     public static Payload From(string rawJson)
     {
