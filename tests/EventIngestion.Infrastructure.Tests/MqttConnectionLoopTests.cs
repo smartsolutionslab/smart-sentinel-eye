@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -62,6 +63,32 @@ public class MqttConnectionLoopTests
     /// served, so this hold no longer clears it.
     /// </summary>
     private static readonly TimeSpan JustPastTheFloor = TimeSpan.FromMilliseconds(110);
+
+    /// <summary>
+    /// How long to hold the connecting attempt before it drops, so the
+    /// connection <b>held</b> rather than merely arrived. <c>ResetIfHeld</c>'s
+    /// yardstick is twice the delay <c>Patient()</c> actually served on the
+    /// attempt that connects: two refusals put that attempt at
+    /// <c>100 x 2^1</c> jittered [0.8, 1.2] = 160-240 ms, so twice that tops out
+    /// at 480 ms. 900 ms clears the worst case by 1.9x — nothing marginal, so
+    /// the reset happens on every run regardless of where the jitter lands. Not
+    /// minimal on purpose: a hold near 480 ms would flake on jitter alone, the
+    /// failure mode this file's remarks name throughout.
+    /// </summary>
+    private static readonly TimeSpan HeldConnectionDuration = TimeSpan.FromMilliseconds(900);
+
+    /// <summary>
+    /// How long to wait for the reconnect that follows a held connection.
+    /// Above it sits nothing the correct loop produces — the reset path is
+    /// bounded by a <c>TaskCompletionSource</c> continuation and this fake's own
+    /// 5 ms poll grain. Below it sits nothing the broken loop produces — with
+    /// the backoff inherited, the next attempt is <c>Patient()</c>'s
+    /// <c>100 x 2^2</c> capped at 400 ms, jittered [0.8, 1.2] = 320-480 ms. 150
+    /// ms sits roughly 3x above the poll grain and 2.1x below the inherited
+    /// floor: clear of both populations, which is the property this file's
+    /// windows are built to have.
+    /// </summary>
+    private static readonly TimeSpan PromptReconnectWindow = TimeSpan.FromMilliseconds(150);
 
     [Fact]
     public async Task The_loop_reconnects_after_the_connection_drops()
@@ -146,22 +173,51 @@ public class MqttConnectionLoopTests
     /// <summary>
     /// The connect that ends an outage resets the wait, so the next drop
     /// reconnects at once instead of inheriting the delay the outage grew to.
+    ///
+    /// <para>
+    /// <b>The arrangement supplies what "a success" means, not merely a
+    /// connect.</b> The previous version dropped the connection the instant it
+    /// came up, against a 4 ms backoff cap — an immediate drop is a connection
+    /// that did <i>not</i> hold, which <c>ResetIfHeld</c> is correct to leave the
+    /// backoff alone for, and the 4.8 ms worst case fit inside the old 500 ms
+    /// window whether or not the reset ran. Nothing the loop could do failed
+    /// that assertion. Here the connection is held for
+    /// <see cref="HeldConnectionDuration"/> — well past <c>ResetIfHeld</c>'s own
+    /// yardstick — so a reset is the behaviour actually under test, checked
+    /// against a window narrow enough that only the reset path can meet it.
+    /// </para>
     /// </summary>
     [Fact]
     public async Task A_reconnect_after_a_success_does_not_inherit_the_previous_backoff()
     {
-        using LoopUnderTest loop = LoopUnderTest.Start(refuseFirstConnects: 4);
+        using LoopUnderTest loop = LoopUnderTest.Start(
+            client => client.RefuseNextConnects(2), LoopUnderTest.Patient());
 
         (await LoopUnderTest.WaitUntilAsync(() => loop.Client.IsConnected)).ShouldBeTrue(
             "the loop never connected");
 
         int before = loop.Client.ConnectAttempts;
+
+        // Hold the connection well past ResetIfHeld's own yardstick (twice the
+        // 160-240 ms this attempt served, so at most 480 ms) before dropping
+        // it — a connection that held, not merely arrived.
+        await Task.Delay(HeldConnectionDuration);
         await loop.Client.DropAsync();
 
-        (await LoopUnderTest.WaitUntilAsync(
-            () => loop.Client.ConnectAttempts > before, TimeSpan.FromMilliseconds(500))).ShouldBeTrue(
-            "the reconnect was still waiting out the backoff the outage had grown. A delay is "
-            + "for repeated failures, not for the first attempt after a connection that worked.");
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        bool reconnected = await LoopUnderTest.WaitUntilAsync(
+            () => loop.Client.ConnectAttempts > before, PromptReconnectWindow);
+        long elapsedMs = stopwatch.ElapsedMilliseconds;
+
+        Console.WriteLine(
+            $"[row 4] reconnect observed at {elapsedMs} ms against a "
+            + $"{PromptReconnectWindow.TotalMilliseconds:F0} ms window, after a "
+            + $"{HeldConnectionDuration.TotalMilliseconds:F0} ms hold");
+
+        reconnected.ShouldBeTrue(
+            $"the reconnect took {elapsedMs} ms against a {PromptReconnectWindow.TotalMilliseconds:F0} ms "
+            + "window — still waiting out the backoff the outage had grown. A delay is for repeated "
+            + "failures, not for the first attempt after a connection that held.");
     }
 
     /// <summary>
@@ -233,9 +289,10 @@ public class MqttConnectionLoopTests
     /// <para>
     /// This does not contradict
     /// <see cref="A_reconnect_after_a_success_does_not_inherit_the_previous_backoff"/>:
-    /// one drop after a connection that worked must reconnect at once, and a
-    /// <i>run</i> of connections that die on arrival must not. The difference is
-    /// repetition, not the first reconnect.
+    /// <c>ResetIfHeld</c> tells the two apart by <b>hold duration</b>, not by
+    /// repetition. That test holds its connection well past twice its served
+    /// wait before dropping it, so the reset runs; a connection that dies on
+    /// arrival is held for zero, so it does not.
     /// </para>
     /// </summary>
     [Fact]
