@@ -449,7 +449,7 @@ unrecorded for as long as nobody looked.
   requirement**, and ADR-0153 records why rather than deleting it: no
   deployment artefact exists — no Deployment, Service, Ingress, chart or
   Kubernetes publisher anywhere — so nothing can perform a rolling update for
-  any service, and `/health` cannot return unhealthy (#2125), so even with one
+  any service, and `/health` cannot return unhealthy (ADR-0154, #2125), so even with one
   the overlap window would be governed by timers rather than readiness. Pinning
   to one instance is the current deliberate position, not an oversight.
 - A wall of 20 kiosks rebooting must come up unattended. **Not met, and
