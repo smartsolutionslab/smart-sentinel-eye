@@ -486,7 +486,7 @@ claims a discharge nobody earned.
 | Test naming | Sentence-style with underscores | 0053 |
 | Test data | Hand-written fluent builders, no AutoFixture | 0054 |
 | Coverage gates | Domain ≥ 90%, Application ≥ 80%, Shared ≥ 90% (CI-enforced) | 0065 |
-| Code metrics | Max 300 LOC/file, 30 LOC/method, 4 params, complexity ≤ 10, depth ≤ 3 (SonarAnalyzer) | 0084 |
+| Code metrics | **Advisory, not enforced** — `warning`, carved out of Release's `TreatWarningsAsErrors`: 300 LOC/file, 30 LOC/method, 4 params, complexity ≤ 10, depth ≤ 3 (SonarAnalyzer). Configured nowhere until 2026-09-17; baseline and re-measurement command in the ADR | 0084 |
 | Wolverine defaults | Per-module queue isolation + eager transactions + Postgres outbox | 0088 |
 | Git: commits | Conventional Commits, **no `Co-Authored-By` footer** | 0030, 0086 |
 | Git: merge | **Rebase-only** (no squash, no merge commits) | 0029, 0087 |
