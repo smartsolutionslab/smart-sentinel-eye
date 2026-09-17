@@ -41,6 +41,23 @@ public class InMemoryRuleCacheTests
         return rule;
     }
 
+    private static RuleAggregate HighlightRule(
+        string name, Guid overlay, int durationMs, int minutesLate = 0)
+    {
+        RuleBuilder builder = new RuleBuilder()
+            .WithFab("munich")
+            .WithName(name)
+            .WithTriggerSource("plc")
+            .WithTriggerKind("PlcCycleStart")
+            .WithAction(RuleAction.HighlightOverlay.From(overlay, durationMs))
+            .WithClock(Moment.AddMinutes(minutesLate));
+
+        RuleAggregate rule = builder.Build();
+        rule.Publish(builder.Clock);
+
+        return rule;
+    }
+
     [Fact]
     public void An_event_matches_only_rules_from_its_own_fab()
     {
@@ -96,6 +113,34 @@ public class InMemoryRuleCacheTests
             cache.LookupActive(FabIdentifier.From("munich"), "plc", "PlcCycleStart");
 
         bucket.Select(rule => rule.Identifier).ShouldBe([earlier.Id, later.Id]);
+    }
+
+    [Fact]
+    public void Two_rules_highlighting_the_same_overlay_both_stay_in_the_bucket()
+    {
+        // The two windows differ on purpose: the kiosk's later-expiry OR
+        // (CellPage.test.tsx, "Scenario 3: overlapping highlights on the same
+        // overlay survive until the later expiry") has nothing to discriminate
+        // if both frames carry the same duration. The cache keeps both rather
+        // than picking one (#2214).
+        InMemoryRuleCache cache = new();
+        Guid overlay = Guid.CreateVersion7();
+
+        cache.Upsert(HighlightRule("highlight-a", overlay, 5_000));
+        cache.Upsert(HighlightRule("highlight-b", overlay, 12_000, minutesLate: 5));
+
+        IReadOnlyList<CompiledRule> bucket =
+            cache.LookupActive(FabIdentifier.From("munich"), "plc", "PlcCycleStart");
+
+        bucket.Count.ShouldBe(2);
+
+        RuleAction.HighlightOverlay first = bucket[0].Action.ShouldBeOfType<RuleAction.HighlightOverlay>();
+        first.Overlay.Value.ShouldBe(overlay);
+        first.Duration.Value.ShouldBe(5_000);
+
+        RuleAction.HighlightOverlay second = bucket[1].Action.ShouldBeOfType<RuleAction.HighlightOverlay>();
+        second.Overlay.Value.ShouldBe(overlay);
+        second.Duration.Value.ShouldBe(12_000);
     }
 
     [Fact]

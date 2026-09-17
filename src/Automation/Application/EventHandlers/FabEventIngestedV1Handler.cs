@@ -25,6 +25,18 @@ namespace SmartSentinelEye.Automation.Application.EventHandlers;
 /// <c>CausingEventIdentifier</c> so consumers can dedup against
 /// Wolverine outbox redelivery.
 /// </para>
+///
+/// <para>
+/// The correct dedupe key for that redelivery is the contract's own
+/// <c>Metadata.EventIdentifier</c> — a fresh <see cref="Guid.CreateVersion7()"/>
+/// minted per published effect, below — and not
+/// <c>(OverlayIdentifier, CausingEventIdentifier)</c>. Two highlight rules
+/// firing on one overlay for one event produce two
+/// <see cref="OverlayHighlightRequestedV1"/> that share both of those and
+/// differ only in duration; a consumer keyed on that pair collapses them,
+/// and the kiosk never receives the second window to OR against the first
+/// (#2214).
+/// </para>
 /// </summary>
 public sealed class FabEventIngestedV1Handler(
     RuleEvaluator evaluator,
