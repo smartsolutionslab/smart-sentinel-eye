@@ -128,4 +128,31 @@ public class IngestWriteLimiterTests
         held.ShouldAllBe(lease => lease.Acquired);
         limiter.TryAcquire().Acquired.ShouldBeFalse();
     }
+
+    /// <summary>
+    /// AS-3 — the zero direction. Today <c>new IngestWriteLimiter(0)</c>
+    /// constructs cleanly and hands back a limiter that refuses every write in
+    /// silence; the guard turns that into a loud, diagnosable failure at
+    /// construction instead, naming the parameter and the value it rejected.
+    /// </summary>
+    [Fact]
+    public void A_concurrency_of_zero_is_refused()
+    {
+        ArgumentException exception = Should.Throw<ArgumentException>(() => new IngestWriteLimiter(0));
+
+        exception.ParamName.ShouldBe("concurrency");
+    }
+
+    /// <summary>
+    /// AS-3 — the negative direction. <see cref="System.Threading.SemaphoreSlim"/>
+    /// already rejects a negative bound, but with its own message; the guard
+    /// makes zero and negative answer alike.
+    /// </summary>
+    [Fact]
+    public void A_negative_concurrency_is_refused()
+    {
+        ArgumentException exception = Should.Throw<ArgumentException>(() => new IngestWriteLimiter(-1));
+
+        exception.ParamName.ShouldBe("concurrency");
+    }
 }
