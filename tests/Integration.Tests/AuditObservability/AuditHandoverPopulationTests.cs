@@ -1,7 +1,3 @@
-using System.Net.Http.Json;
-using System.Text;
-using System.Text.Json;
-using SmartSentinelEye.AuditObservability.Infrastructure;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -40,14 +36,6 @@ namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 [Collection(AspireCollection.Name)]
 public class AuditHandoverPopulationTests(AspireFixture aspire, ITestOutputHelper output)
 {
-    /// <summary>
-    /// Queues are named <c>{moduleQueuePrefix}.{eventType.FullName}</c>, and the
-    /// audit module's prefix is its context name. Read from the module rather
-    /// than spelled here: <c>wolverine_audit</c> is the <i>outbox schema</i>, not
-    /// the queue prefix, and the two are easy to confuse.
-    /// </summary>
-    private static readonly string AuditQueuePrefix = AuditObservabilityInfrastructureModule.ContextName + ".";
-
     /// <summary>How long to wait for the audit queues to fall idle.</summary>
     private static readonly TimeSpan QuiesceDeadline = TimeSpan.FromSeconds(90);
 
@@ -87,9 +75,12 @@ public class AuditHandoverPopulationTests(AspireFixture aspire, ITestOutputHelpe
     [Fact]
     public async Task Unacknowledged_deliveries_on_the_audit_queues_are_zero_when_quiescent_and_not_when_handlers_run()
     {
-        using HttpClient broker = await BrokerClientAsync();
+        CancellationToken cancellationToken = CancellationToken.None;
 
-        (int quiescent, string[] queues) = await WaitForQuiescenceAsync(broker);
+        using HttpClient broker = await AuditQueueProbe.ClientAsync(aspire, cancellationToken);
+
+        (int quiescent, string[] queues) =
+            await AuditQueueProbe.WaitForQuiescenceReadingAsync(broker, QuiesceDeadline, cancellationToken);
         output.WriteLine($"audit queues seen: {(queues.Length == 0 ? "(none)" : string.Join(", ", queues))}");
         output.WriteLine($"quiescent  : messages_unacknowledged = {quiescent}");
 
@@ -98,14 +89,14 @@ public class AuditHandoverPopulationTests(AspireFixture aspire, ITestOutputHelpe
         string[] names = new string[BurstWriters];
         for (int writer = 0; writer < BurstWriters; writer++)
         {
-            names[writer] = await IngestSpanMeasurement.DefineAsync(variables, CancellationToken.None);
+            names[writer] = await IngestSpanMeasurement.DefineAsync(variables, cancellationToken);
         }
 
         using CancellationTokenSource sampling = new();
         Task<(int Peak, int Samples, int NonZero)> sampler = SampleAsync(broker, sampling.Token);
 
         await Task.WhenAll(names.Select(name => IngestSpanMeasurement.SetRepeatedlyAsync(
-            variables, name, BurstEventsPerWriter, IngestSpanMeasurement.NoPacing, CancellationToken.None)));
+            variables, name, BurstEventsPerWriter, IngestSpanMeasurement.NoPacing, cancellationToken)));
 
         sampling.CancelAfter(DrainWindow);
         (int peak, int samples, int nonZero) = await sampler;
@@ -114,11 +105,11 @@ public class AuditHandoverPopulationTests(AspireFixture aspire, ITestOutputHelpe
             $"mid-flight : {samples} samples over the drive and {DrainWindow.TotalSeconds:F0}s of drain, "
             + $"{nonZero} of them non-zero, peak messages_unacknowledged = {peak}");
 
-        await VariableRequests.ArchiveAllAsync(variables, names, CancellationToken.None);
+        await VariableRequests.ArchiveAllAsync(variables, names, cancellationToken);
 
         quiescent.ShouldBe(
             0,
-            $"with the audit service idle every delivery has been settled, so {AuditQueuePrefix}* should "
+            $"with the audit service idle every delivery has been settled, so {AuditQueueProbe.QueuePrefix}* should "
             + $"hold nothing unacknowledged; {quiescent} were still outstanding after "
             + $"{QuiesceDeadline.TotalSeconds:F0}s. A count that does not empty is not the in-flight "
             + "population, and Little's law over it would divide by the wrong thing");
@@ -132,24 +123,6 @@ public class AuditHandoverPopulationTests(AspireFixture aspire, ITestOutputHelpe
             + "what ADR-0126 describes, and Little's law over it would divide by the wrong thing");
     }
 
-    /// <summary>
-    /// Polls until the audit queues report nothing unacknowledged, and answers
-    /// what it last saw together with the queue names it was reading.
-    /// </summary>
-    private static async Task<(int Unacknowledged, string[] Queues)> WaitForQuiescenceAsync(HttpClient broker)
-    {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + QuiesceDeadline;
-        (int unacknowledged, string[] queues) = await ReadAsync(broker);
-
-        while (unacknowledged > 0 && DateTimeOffset.UtcNow < deadline)
-        {
-            await Task.Delay(TimeSpan.FromSeconds(1));
-            (unacknowledged, queues) = await ReadAsync(broker);
-        }
-
-        return (unacknowledged, queues);
-    }
-
     /// <summary>Samples the count until cancelled, and answers the peak it saw.</summary>
     private static async Task<(int Peak, int Samples, int NonZero)> SampleAsync(HttpClient broker, CancellationToken cancellationToken)
     {
@@ -159,7 +132,7 @@ public class AuditHandoverPopulationTests(AspireFixture aspire, ITestOutputHelpe
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            (int unacknowledged, _) = await ReadAsync(broker);
+            (int unacknowledged, _) = await AuditQueueProbe.ReadAsync(broker, cancellationToken);
             peak = Math.Max(peak, unacknowledged);
             samples++;
             if (unacknowledged > 0)
@@ -178,65 +151,5 @@ public class AuditHandoverPopulationTests(AspireFixture aspire, ITestOutputHelpe
         }
 
         return (peak, samples, nonZero);
-    }
-
-    /// <summary>
-    /// Sums <c>messages_unacknowledged</c> across the audit queues.
-    ///
-    /// <para>
-    /// A refusal throws naming the address and the status. Answering zero would
-    /// be indistinguishable from an idle broker, and the whole reading is built
-    /// on telling those two apart.
-    /// </para>
-    /// </summary>
-    private static async Task<(int Unacknowledged, string[] Queues)> ReadAsync(HttpClient broker)
-    {
-        using HttpResponseMessage response = await broker.GetAsync("/api/queues");
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new InvalidOperationException(
-                $"the RabbitMQ management API at {broker.BaseAddress}api/queues answered "
-                + $"{(int)response.StatusCode} {response.ReasonPhrase}. A sampler that reported zero "
-                + "here would be reporting an unreachable broker as an empty queue.");
-        }
-
-        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>();
-
-        int unacknowledged = 0;
-        List<string> queues = [];
-        foreach (JsonElement queue in payload.EnumerateArray())
-        {
-            string name = queue.GetProperty("name").GetString() ?? "";
-            if (!name.StartsWith(AuditQueuePrefix, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            queues.Add(name[(name.LastIndexOf('.') + 1)..]);
-            if (queue.TryGetProperty("messages_unacknowledged", out JsonElement outstanding))
-            {
-                unacknowledged += outstanding.GetInt32();
-            }
-        }
-
-        return (unacknowledged, [.. queues.Order()]);
-    }
-
-    /// <summary>
-    /// The management plugin, with the credentials the AppHost parameterised
-    /// rather than guessed: a 401 here reads exactly like "no queues".
-    /// </summary>
-    private async Task<HttpClient> BrokerClientAsync()
-    {
-        Uri management = aspire.App.GetEndpoint("rabbitmq", "management");
-        string connection = await aspire.App.GetConnectionStringAsync("rabbitmq") ?? "";
-        string userInfo = new Uri(connection).UserInfo;
-
-        HttpClient client = new() { BaseAddress = management };
-        client.DefaultRequestHeaders.Authorization = new(
-            "Basic",
-            Convert.ToBase64String(Encoding.UTF8.GetBytes(Uri.UnescapeDataString(userInfo))));
-
-        return client;
     }
 }
