@@ -2,6 +2,8 @@
 
 **Phase**: 2 (Plan) · **Date**: 2026-09-17 · **Issue**: #2212
 **Engineer**: `backend-engineer` · **Reviewer**: `backend-reviewer`
+**Scope**: US1 only. The integration test is **#2441**, split out at the phase-3
+gate on the instruction of #2212's own scope note. No AppHost file is touched.
 
 ---
 
@@ -16,7 +18,7 @@ root.
 | **Application** | New `IngestWriteOptions` (configuration shape). Guard added to `IngestWriteLimiter`'s `int` constructor. |
 | **Infrastructure** | `EventIngestionInfrastructureModule` binds the options and registers the limiter from them. |
 | **Api** | **None.** `EventsEndpoints.Writes.cs` is read-only here — it is the code under test, and editing it would be editing the subject to fit the test. |
-| **AppHost** | One `WithEnvironment` line inside the existing `if (isE2ETests)` block (US2 only). |
+| **AppHost** | **None.** The `isE2ETests` override line belongs to #2441. |
 
 **Why the options class lives in Application, not Infrastructure.** It is the
 shape `IngestWriteLimiter` is configured by, and the limiter is in
@@ -57,8 +59,8 @@ HTTP response and always has been.
 ## 4. Boundary rules
 
 - **No cross-context project reference** is added or needed. Everything is
-  inside `EventIngestion` plus `AppHost`, which is the composition root and is
-  permitted to reference every context (ADR-0051).
+  inside `EventIngestion`. No composition-root file is touched either — the
+  AppHost override belongs to #2441.
 - **`Shared.Contracts` untouched.** The 429 is a `ProblemDetails` produced by
   `Results.Problem`, not a contract type.
 - **Api does not reference Infrastructure.** The limiter is resolved through DI
@@ -72,7 +74,7 @@ HTTP response and always has been.
 Exhaustive. **Phase 4 may touch these and no others.** A change outside this
 list is a stop-and-report, not a judgement call.
 
-### US1 — production
+### Production
 
 | File | Change |
 |---|---|
@@ -80,19 +82,12 @@ list is a stop-and-report, not a judgement call.
 | `src/EventIngestion/Application/Ingress/IngestWriteLimiter.cs` | `:29` only — expression body becomes a block with `Ensure.That(concurrency).AtLeast(1);` before the assignment. Add the `using` for `SmartSentinelEye.Shared.Kernel`. **`DefaultConcurrency = 64` at `:23` does not move.** |
 | `src/EventIngestion/Infrastructure/EventIngestionInfrastructureModule.cs` | `:117` becomes a factory registration; an `AddOptions<IngestWriteOptions>().Bind(...)` beside the `IngestRetryOptions` binding at `:134-138`. |
 
-### US1 — tests
+### Tests
 
 | File | Change |
 |---|---|
 | `tests/EventIngestion.Application.Tests/Ingress/IngestWriteLimiterTests.cs` | **Append only.** Two cases for AS-3. The four existing tests are not edited (spec AS-4). |
 | `tests/EventIngestion.Infrastructure.Tests/IngestWriteConcurrencyRegistrationTests.cs` | **New.** AS-1 and AS-2 through the real module. |
-
-### US2 — production + tests
-
-| File | Change |
-|---|---|
-| `src/AppHost/AppHost.cs` | One line added inside the existing `if (isE2ETests)` block at `:501-514`. Nothing else in the file. |
-| `tests/Integration.Tests/EventIngestion/IngestBackpressureIntegrationTests.cs` | **New.** AS-5. |
 
 ### Explicitly read-only
 
@@ -143,39 +138,24 @@ Two `[Fact]`s, Shouldly's `Should.Throw<ArgumentException>`, asserting
 throw. Sentence-style names (ADR-0053). No builder needed (ADR-0054) — the input
 is an `int`.
 
-### 6.3 AS-5 — mirrors `DirectWriteHonestyIntegrationTests`
+### 6.3 What the integration test would have added, and where it went
 
-```csharp
-[Collection(AspireCollection.Name)]
-public class IngestBackpressureIntegrationTests(AspireFixture aspire, ITestOutputHelper output)
-```
+`tests/Integration.Tests/EventIngestion/IngestBackpressureIntegrationTests.cs`
+is **#2441**, not this spec. Its design — the eight-POST `Task.WhenAll`, the
+`if (isE2ETests)` override on `AppHost.cs:501`, the two-step red, the
+problem-title injection and the honest non-determinism framing — is carried in
+full on that issue so it is not redone from scratch.
 
-- Client: `await aspire.CreateAuthenticatedClientAsync("event-ingestion", Operator, OperatorPassword)`.
-  The `"event-ingestion"` / `"http"` endpoint naming is handled inside the
-  fixture (#1133) and must not be reinvented.
-- Body: the `deviceId` / `kind` / `occurredAt` / `payload` shape from
-  `DirectWriteHonestyIntegrationTests`, with a run-unique `kind` —
-  `$"Backpressure{Guid.CreateVersion7():N}"[..20]` — so a previous run's rows
-  cannot be mistaken for this one's.
-- Eight requests through **one** `Task.WhenAll`. Not a loop, not a retry.
-- Assertions: at least one `429` **and** at least one `201`; every `429`'s
-  problem `title` is `EVENT_INGEST_BACKPRESSURE`. The last clause is stronger
-  than "some 429 has the title" and is what CF-A tests.
-- Diagnostics on failure: the repo idiom of appending
-  `aspire.RecentLogs("event-ingestion")` to the assertion message.
-  `"event-ingestion"` is already in `TailedResources`
-  (`AspireFixture.cs:122`), which `LogTailCoverageTests` requires.
-
-**An assertion must not check its own input.** The status codes are read off
-real `HttpResponseMessage`s; nothing in the assertion text is computed from the
-responses.
+**What this slice therefore leaves uncovered, stated rather than discovered**:
+the two lines at `EventsEndpoints.Writes.cs:344-351` that turn a refused lease
+into a `429`. Spec 104 recorded that gap; this spec does not close it, it makes
+closing it possible. AS-1 proves the limiter is bounded by the configured value;
+nothing here proves that bound becomes an HTTP answer.
 
 ### 6.4 What is deliberately not tested
 
-- **The webhook path's 429.** It calls the same `StoreOrRefuseAsync` at
-  `EventsEndpoints.Writes.cs:171`; a second integration test would exercise a
-  different auth shape for the same two lines. Recorded so its absence reads as
-  a decision.
+- **Anything over HTTP.** #2441. This slice tests how the limiter is
+  constructed, not its effect on a response.
 - **Concurrency under load.** Spec §0.1.
 - **A non-numeric configuration value.** Options binding throws before the code
   under test is reached; a test of it tests the BCL.
@@ -184,11 +164,11 @@ responses.
 
 - `IngestWriteLimiterTests` and `IngestWriteConcurrencyRegistrationTests` run in
   the ordinary unit buckets. No new project, no new package, no `.csproj` edit.
-- `IngestBackpressureIntegrationTests` joins the existing Aspire integration
-  bucket. It adds no container and boots no second stack — it uses the
-  collection fixture that is already running, and adds well under a second.
-- **No `[Trait("Category", "Measurement")]`.** This is not a measurement test,
-  and tagging it as one would exclude it from CI, which would defeat the issue.
+- **No integration bucket change.** This slice adds no test to
+  `tests/Integration.Tests/`, boots no stack and starts no container, so the
+  Aspire bucket's runtime is unaffected.
+- **No `[Trait("Category", "Measurement")]`.** Neither new test is a
+  measurement; tagging one would exclude it from CI and defeat the issue.
 
 ## 8. Coverage gate (ADR-0065)
 
@@ -209,14 +189,14 @@ a finding.
 | **ADR-0036** smallest change | Three production lines plus one new 8-line file. No abstraction, no interface, no startup-validation mechanism the repo does not have. |
 | **ADR-0084** metrics | Every touched file stays far below 300 LOC; no method grows past 30. |
 | **ADR-0141** `Option<T>` | Not applicable — no absence is modelled. A missing key is an absent *configuration*, resolved by the property default, not by the domain. |
-| **ADR-0109** `[P]` | Two tasks qualify; see tasks.md. |
+| **ADR-0109** `[P]` | One task qualifies (T002); see tasks.md. |
 | **ADR-0144** no weakened gates | `IngestWriteLimiterTests`'s four existing tests pass **unmodified**. No suppression, no threshold change, no deletion. |
 
 ## 10. Risks, and what each costs
 
 | Risk | Mitigation |
 |---|---|
-| E2E concurrency 1 reddens unrelated integration tests | Verified safe against every concurrent-write test in the suite (spec §5.4). If it happens anyway, **report it** — it means the sequential-collection assumption is wrong, and the answer is a higher E2E value, not a retry loop. |
-| AS-5 flakes | Raise the request count. Never loop until a 429 appears (spec §5.5). |
+| The binding half is mistaken for characterisation and only AS-2 gets written | **The live risk in this slice.** AS-2 passes against the current broken registration, so skipping AS-1 yields a test wired to nothing. Spec §6.2 and tasks.md's per-piece colour table both say so; CF-A (T010) demonstrates it rather than asserting it. |
+| The engineer drifts into #2441's work | Any edit under `src/AppHost/` or `tests/Integration.Tests/` is out of scope. Stop and report. |
 | `IngestWriteConcurrencyRegistrationTests` breaks on an unrelated config change | Known and accepted, same as `IngestVolumeRegistrationTests` (§6.1). |
 | The engineer is tempted to change 64 | Out of scope, in bold, three times. Stop and report. |

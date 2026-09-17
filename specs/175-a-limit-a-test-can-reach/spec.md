@@ -5,14 +5,14 @@
 **Engineer**: `backend-engineer` · **Reviewer**: `backend-reviewer`
 **Feature bucket**: spec `specs/020-durable-ingest-ack/` (FR-013), extended by
 `specs/104-a-limiter-that-sheds-and-recovers/` (which filed this as **F2**)
+**Follow-up filed**: **#2441** — the integration test this knob enables, split
+out at the phase-3 gate. See §0.
 **ADRs**: ADR-0105 (`Ensure.That` argument guards), ADR-0051 (per-context
-`Add<Context>Infrastructure` registration), ADR-0103 (integration tests are
-Aspire-only), ADR-0036 (smallest change, no speculative generality),
-ADR-0052 / ADR-0053 / ADR-0054 (xUnit + Shouldly, sentence-style names,
-hand-written data), ADR-0084 (code metrics), ADR-0109 (disjoint files),
-ADR-0139 / ADR-0144 (two testing obligations; phase 4a has two colours and no
-exemption), ADR-0143 (`POST` is not retried — load-bearing here, see §5.4),
-ADR-0037 (the phased workflow).
+`Add<Context>Infrastructure` registration), ADR-0036 (smallest change, no
+speculative generality), ADR-0052 / ADR-0053 / ADR-0054 (xUnit + Shouldly,
+sentence-style names, hand-written data), ADR-0084 (code metrics),
+ADR-0109 (disjoint files), ADR-0139 / ADR-0144 (two testing obligations; phase
+4a has two colours and no exemption), ADR-0037 (the phased workflow).
 **Constitution**: §II (checked and **does not bind** — see §2.3), §Testing, §IV
 (latency budget — **N/A**, see §7).
 **New ADR needed**: **No.** This wires an existing constructor parameter to the
@@ -20,37 +20,42 @@ existing options-binding pattern. No design decision is made. See §8.
 
 ---
 
-## 0. Scope, and the one thing this spec had to settle before writing
+## 0. Scope: one story, and the one that was split out
 
-Issue #2212 grew twice after it was filed, and its own comments disagree with
-the brief this spec was written from. **That disagreement is recorded here
-rather than resolved silently**, because it decides whether US2 exists.
+Issue #2212 grew twice after it was filed. Its **most recent comment**
+(2026-09-08) settles the scope authoritatively, and this spec follows it:
 
-| Source | Says about the integration test |
-|---|---|
-| Issue **body** | *"Do not add the integration test in the same change **without a red**."* — permits it, conditional on a red. |
-| Issue **comment 2** (scope note) | *"Still explicitly out of scope … the integration test the config knob enables. That needs its own red … and it should not ride along on a change that cannot demonstrate it."* |
+> The scope is deliberate and it is two things, not one: (1) Make
+> `IngestWriteLimiter`'s concurrency configurable … **default unchanged at 64**.
+> (2) Guard it. … They are one piece of work because (1) creates the
+> reachability that makes (2) matter. Splitting them would land a config knob
+> whose worst input fails silently.
+>
+> **Still explicitly out of scope** … the integration test the config knob
+> enables. That needs its own red … and it should not ride along on a change
+> that cannot demonstrate it.
 
-The two are reconcilable and this spec reads them as one condition: **the test
-may land here if and only if it is observed red against the unwired code
-first.** A change that *can* demonstrate the test is not the change the comment
-excludes; the comment excludes a test that arrives green beside its own wiring.
+So this spec is **one user story with two halves that ship together**, and the
+integration test is **#2441**, filed before phase 4 began with the full
+red-then-green design carried across — the two-step red sequence, the
+problem-title defect injection, and the honest non-determinism framing. It is
+blocked by this spec: the knob has to exist before the test can be written,
+which is exactly why #2212 declined to include it.
 
-**So US2 is specified, sequenced behind its own red, and kept independently
-droppable.** US1 ships alone and is useful alone. If the phase-3 reviewer reads
-comment 2 as an absolute bar, **drop US2 and file it** — US1 needs no rework,
-and the only orphan is one `AppHost.cs` line that goes with it. This is flagged
-at the gate (tasks.md §Gate) rather than decided by an agent.
+**An earlier draft of this spec carried that test as a P2 story.** It was
+removed, not deferred. Recorded because a spec that silently drops half its
+scope is indistinguishable from one that forgot.
 
 ### 0.1 What is explicitly **not** in this spec
 
 | Item | Why not |
 |---|---|
-| **Changing the production default from 64.** | The issue names this out of scope in bold and this spec does not answer it. 64 stays 64 in the type default and in production. Whether 64 is right for a 250-camera fab is a separate issue with a separate measurement. |
+| **The integration test.** | **#2441.** Out of scope by the issue's own scope note. |
+| **Changing the production default from 64.** | The issue names this out of scope in bold. 64 stays 64 in the type default and in production. Whether 64 is right for a 250-camera fab is a separate issue wanting a measurement. |
 | **A `WriteConcurrency` value object.** | Constitution §II binds domain models; this is Application-layer configuration. See §2.3. ADR-0105's `Ensure.That` is the guard the rule actually asks for. |
 | **The MQTT path (`BoundedIngestChannel`, `FullMode = Wait`).** | #2211, and a design question with no ADR. It does not touch `IngestWriteLimiter` at all (§2.2). |
 | **A non-zero acquisition timeout.** | Spec 104's review noted `slots.Wait(50)` passes all four existing unit tests. Real, but it is spec 104's uncovered clause and changing the gate is a behaviour change. |
-| **A load or throughput assertion.** | The whole point of the knob is that no load generator is needed. |
+| **`src/AppHost/AppHost.cs`.** | The `if (isE2ETests)` override line belongs to #2441. **This spec touches no AppHost file.** |
 
 ---
 
@@ -92,21 +97,20 @@ then conclude the guard is unreachable.
 
 ## 2. The gap, stated precisely
 
-### 2.1 What is untestable, and why
+### 2.1 Why the two halves are one change
 
-`StoreOrRefuseAsync` is the only consumer. Two lines connect the limiter to an
-HTTP answer — take a lease, and if refused return the 429 — and **no test above
-unit level executes them.** Reaching 64 genuinely-concurrent in-flight writes
-over HTTP needs hundreds of simultaneous POSTs racing a write that commits in
-single-digit milliseconds: the flaky load test spec 104 declined to write.
+The issue's scope note puts it exactly right and the reasoning is worth keeping
+in front of the engineer: *"(1) creates the reachability that makes (2) matter.
+Splitting them would land a config knob whose worst input fails silently."*
 
-And the escape hatch does not exist either. The Aspire fixture
-(`tests/Integration.Tests/Fixtures/AspireFixture.cs:273-302`) boots the AppHost,
-which launches `event-ingestion` as a **separate process**. A test holds an
-`HttpClient`, not the service's `IServiceProvider`; it cannot reach in and
-saturate the singleton.
+Today `new IngestWriteLimiter(0)` is unreachable — the parameterless constructor
+is the only caller and it passes 64. The moment concurrency comes from
+configuration, `0` becomes an input an operator can supply, and the failure mode
+is a service that reports healthy and answers `429` to **every** write, with
+nothing in the log to say why. The singleton lives for the process, so it stays
+that way.
 
-### 2.2 Which endpoints this actually covers
+### 2.2 Which endpoints this affects
 
 The limiter guards exactly **two** routes, both in the `/events` group
 (`src/EventIngestion/Api/EventsEndpoints.cs:24`):
@@ -118,6 +122,9 @@ The limiter guards exactly **two** routes, both in the `/events` group
 through `BoundedIngestChannel` + `PersistenceLoopHostedService` and never touch
 `IngestWriteLimiter`. Verified: the type is referenced only in
 `EventsEndpoints.Writes.cs` and the registration line.
+
+`src/EventIngestion/Api/` is **read-only in this spec**. Nothing on the request
+path changes; only how the singleton is constructed.
 
 ### 2.3 Constitution §II was checked and does **not** bind here
 
@@ -142,7 +149,7 @@ numeric-range `throw new ArgumentException` precondition".
 
 ---
 
-## 3. User stories
+## 3. User story
 
 ### US1 (P1) — The write limit can be set, and a bad setting fails loudly
 
@@ -151,26 +158,14 @@ assumption, I can set the direct-write concurrency from configuration, and a
 value that would silently refuse every event is refused at construction
 instead.*
 
-**Independently shippable.** It is a complete, observable change on its own: a
-configured value takes effect, an invalid one throws. It does not depend on US2,
-and US2 can be dropped without touching it.
+The only story. Its two halves ship together for the reason §2.1 gives.
 
 **The default does not move.** `EventIngestion:IngestWrite:Concurrency` unset →
 64, exactly as today.
 
-### US2 (P2) — The 429 is proved off the real endpoint
-
-*As a reviewer, I can see that a refused lease actually becomes a
-`429 EVENT_INGEST_BACKPRESSURE` over HTTP, rather than trusting two lines that
-no test executes.*
-
-Depends on US1. **Must be observed red against the unwired code first** (§6).
-
 ---
 
 ## 4. Acceptance scenarios (Gherkin)
-
-### US1
 
 #### AS-1 — A configured value takes effect (the "binding does nothing" direction)
 
@@ -182,8 +177,8 @@ When the IngestWriteLimiter singleton is resolved
 Then the third TryAcquire is refused
 ```
 
-This is the **red**: today the singleton ignores configuration and grants 64, so
-the third lease succeeds.
+**New behaviour, and therefore RED** (§6). Today the singleton ignores
+configuration and grants 64, so the third lease succeeds.
 
 #### AS-2 — The shipped default is unchanged (the "smuggled behaviour change" direction)
 
@@ -194,9 +189,11 @@ When the IngestWriteLimiter singleton is resolved
 Then 64 leases are granted and the 65th is refused
 ```
 
-AS-2 guards this spec's own worst failure. It must be asserted **through the
-registration**, not only on the type default, because the registration is what
-changes.
+**Characterisation, observed green before and after** (§6). It guards this
+spec's own worst failure. It must be asserted **through the registration**, not
+only on the type default, because the registration is what changes — and note
+that AS-2 alone cannot tell the old registration from the new one, which is
+precisely why AS-1 exists.
 
 #### AS-3 — Zero is refused at construction (bad input, at the configuration boundary)
 
@@ -206,8 +203,9 @@ When an IngestWriteLimiter is constructed
 Then an ArgumentException is thrown naming "concurrency"
 ```
 
-And the same for a negative value — which `SemaphoreSlim` already rejects, but
-with its own message; the guard makes the two inputs answer alike.
+**New behaviour, and therefore RED.** And the same for a negative value — which
+`SemaphoreSlim` already rejects, but with its own message; the guard makes the
+two inputs answer alike.
 
 #### AS-4 — The existing unit tests still hold
 
@@ -217,55 +215,23 @@ When the guard and the options binding are added
 Then all four still pass, unmodified
 ```
 
-Explicit because `The_default_limiter_bounds_writes_at_sixty_four`
+**Characterisation, green.** Explicit because
+`The_default_limiter_bounds_writes_at_sixty_four`
 (`IngestWriteLimiterTests.cs:115`) asserts `DefaultConcurrency.ShouldBe(64)` in
 both directions. Spec 104's review noted a configurable default "will need that
 assertion revisited rather than deleted". **This spec keeps the default at 64,
 so it needs neither** — it must pass untouched. Editing or deleting it is a
 weakened gate (ADR-0144) and a review blocker.
 
-### US2
+#### Auth and bad-request — unchanged, and that is the assertion
 
-#### AS-5 — Overlapping writes are refused off the real endpoint (the wiring, end to end)
-
-```gherkin
-Given the Aspire fixture is running with write concurrency set to 1
-  And an authenticated operator for a provisioned fab
-When eight POSTs to /events/manual are issued concurrently
-Then at least one answers 429 with problem title "EVENT_INGEST_BACKPRESSURE"
-  And at least one answers 201 Created
-```
-
-**Both clauses are load-bearing.** The 201 clause is what distinguishes a
-working limiter from one stuck refusing everything — precisely the
-concurrency-zero failure AS-3 guards, observed from the outside.
-
-#### AS-6 — Auth
-
-```gherkin
-Given no bearer token
-When a POST to /events/manual is issued
-Then the answer is 401, not 429
-```
-
-Already covered by `AnonymousIngestIsRefusedTests`. Restated so the phase-4
-engineer does not duplicate it, and to record that the limiter sits **behind**
-`RequireAuthorization(Scope.Sse.Events.Write)` (`EventsEndpoints.cs:31`) —
-backpressure is never the answer to an unauthenticated caller.
-
-#### AS-7 — Bad request
-
-```gherkin
-Given an authenticated operator and a malformed body
-When a POST to /events/manual is issued
-Then the answer is 400, not 429
-```
-
-Covered by `MissingPayloadIsRefusedIntegrationTests`. Restated for the same
-reason: validation precedes `StoreOrRefuseAsync`, so a lowered limit must not
-turn a 400 into a 429. **Not a new test** — but if either of these existing
-tests reddens under concurrency 1, US2's AppHost line is wrong and must be
-reported, not worked around.
+The limiter sits **behind** `RequireAuthorization(Scope.Sse.Events.Write)`
+(`EventsEndpoints.cs:31`) and behind body validation, so an unauthenticated
+caller gets 401 and a malformed body gets 400 — never 429. Already covered by
+`AnonymousIngestIsRefusedTests` and `MissingPayloadIsRefusedIntegrationTests`.
+**No new test**; recorded so the engineer does not duplicate them, and so that a
+redden in either reads as a finding rather than an inconvenience. Nothing in
+this spec changes the request path, so neither should move.
 
 ---
 
@@ -306,71 +272,30 @@ refuse-everything, and it matches every other options class in the repo. If
 startup-time validation is wanted, it is a repo-wide question and a different
 issue.
 
-### 5.3 The test-lane override — mirrors `AppHost.cs:501-514`
+### 5.3 No new configuration key is shipped
 
-**There is no per-test configuration hook and this spec does not add one.** The
-fixture is an `ICollectionFixture`: one AppHost boot per assembly, from a
-hard-coded `string[] parameters` containing `"E2ETests=true"`
-(`AspireFixture.cs:275-281`). The **only** channel by which the integration lane
-configures a service differently is a `WithEnvironment` line inside
-`if (isE2ETests)` at `AppHost.cs:501`, which already carries two:
-
-```csharp
-auditObservability.WithEnvironment("AuditObservability__Retention__TickInterval", "00:00:03");
-auditObservability.WithEnvironment("AuditObservability__Measurement__RecordIngestBreakdown", "true");
-```
-
-Spec 109 cites the first as *the* precedent for exactly this move. US2 adds a
-third, on the `eventIngestion` local captured at `AppHost.cs:405`:
-
-```csharp
-eventIngestion.WithEnvironment("EventIngestion__IngestWrite__Concurrency", "1");
-```
-
-### 5.4 Why a stack-wide concurrency of 1 is safe — checked, not assumed
-
-This is the one genuinely risky consequence, so it was verified rather than
-argued.
-
-| Risk | Finding |
-|---|---|
-| Other integration tests contend for the single slot | Every integration test is `[Collection(AspireCollection.Name)]` — **one** collection, so xUnit runs them **sequentially**. One in-flight HTTP write at a time; one slot suffices. |
-| A test that itself issues concurrent writes | Only two exist. `EventTypeRegistryConcurrencyIntegrationTests` (three `Task.WhenAll` blocks) hits the **event-type** endpoints, which do not call `StoreOrRefuseAsync`. `IngestThroughputMeasurementTests` uses `Parallel.ForAsync` but publishes over **MQTT** (`MqttClientFactory`, `PublishAsync`), bypassing the limiter entirely — and is `[Trait("Category", "Measurement")]` besides. |
-| A latency test serialised by the lowered limit | `AcceptToDecideLatencyTests` is a **run-mode** test keyed on `SSE_RUNMODE_*` and skips unless pointed at an externally-booted stack. `E2ETests=true` is never set there. |
-| Dev and production affected | No. The line is inside `if (isE2ETests)`; `dotnet run` on the AppHost sets nothing and the options default stands at 64. |
-| The fixture's `HttpClient` retries the 429 away | **No — and this is what makes AS-5 observable at all.** `FixtureHttpClients.Configure` applies `IdempotentRetry.RetryIdempotentMethodsOnly` (ADR-0143, #2129), so a `POST` gets one attempt. Had the fixture kept the library's outcome-based predicate, the retry handler would have swallowed the 429 and AS-5 would have failed for a reason with nothing to do with the limiter. |
-
-### 5.5 Determinism of AS-5, stated honestly
-
-AS-5 is **not** formally deterministic and this spec does not claim it is. With
-concurrency 1, a 429 requires two requests inside `StoreOrRefuseAsync` at the
-same instant. Eight `PostAsJsonAsync` calls awaited through one `Task.WhenAll`
-arrive within microseconds of each other and each holds its lease across a real
-Postgres round-trip of single-digit milliseconds, so overlap is
-overwhelming — but it is probabilistic, and saying otherwise would be the
-overclaim this repository keeps correcting.
-
-**It is a different risk class from the test spec 104 declined**, and that
-difference is the whole justification for this issue:
-
-| | `[T091]`'s load test | AS-5 |
-|---|---|---|
-| Concurrent in-flight writes needed | **64** | **2** |
-| Load generator | 5 000 ev/s for 30 s | 8 POSTs, once |
-| Runtime | ~30 s | well under a second |
-| Fails when | the runner is slow, the DB is fast, the burst disperses | only if the server serialises eight simultaneous requests end to end |
-
-**No retry loop, no wall-clock bound, no `while`.** If AS-5 ever flakes, the
-answer is to raise the request count, never to loop until a 429 appears — a loop
-would turn a real regression into a slow pass.
+`src/EventIngestion/Api/appsettings.json` gains **nothing**. The default is the
+C# property initialiser; writing `64` into `appsettings.json` too would put the
+number in two places, and the next person to change one would not find the
+other. Confirmed: the file contains no `IngestWrite` key today.
 
 ---
 
-## 6. Phase-4a colour: **RED**, explicit, with the counterfactual plan
+## 6. Phase-4a colour: **RED**, per piece
 
-Both user stories change behaviour, so ADR-0139/ADR-0144's first obligation
-applies and there is no ambiguity to resolve toward red — it *is* red. **A test
-in this spec that arrives green is a phase-4 failure.**
+ADR-0144 requires the colour declared per obligation, and this slice has both.
+**The two must not be collapsed** — see §6.2 for why that particular collapse is
+dangerous here.
+
+| Piece | Colour | Why |
+|---|---|---|
+| **AS-1** — a configured value bounds the registered limiter | **RED** | Behaviour-changing. The registration ignores configuration today; the test fails today. **The load-bearing red** — it is the defect #2212 names. |
+| **AS-3** — zero and negative are refused at construction | **RED** | Behaviour-changing. `new IngestWriteLimiter(0)` constructs cleanly today and produces a limiter that refuses every write. |
+| **AS-2** — the default is still 64, through the registration | **Characterisation, GREEN** | Behaviour-preserving. Captured passing **before** the change and must pass **unmodified** after. |
+| **AS-4** — the four existing unit tests | **Characterisation, GREEN** | Same. Unmodified. An assertion that has to be edited is evidence the behaviour moved: block, don't adjust. |
+
+**The slice as a whole is RED.** A test for AS-1 or AS-3 that arrives green is a
+phase-4 failure, not a shortcut.
 
 ### 6.1 The reds, and what each must say when it fails
 
@@ -378,47 +303,42 @@ in this spec that arrives green is a phase-4 failure.**
 |---|---|---|---|
 | **R1** | AS-3 — `A_concurrency_of_zero_is_refused` | `IngestWriteLimiter.cs:29` unguarded | `Should throw ArgumentException but did not` — today `new IngestWriteLimiter(0)` constructs cleanly. |
 | **R2** | AS-1 — `A_configured_concurrency_bounds_the_registered_limiter` | `EventIngestionInfrastructureModule.cs:117` parameterless | third `TryAcquire().Acquired` is `True`, expected `False` — the singleton grants 64 regardless of configuration. |
-| **R3** | AS-5 — `Overlapping_direct_writes_are_refused_with_backpressure` | the whole chain unwired | no response has status 429; eight 201s. |
 
-**R2 is the load-bearing red.** R1 would pass with the guard and no binding at
-all; R3 is expensive and boots the stack. R2 is the cheap test that fails for
-exactly the reason this issue exists.
+**Both verbatim failures are quoted in the PR body** (ADR-0139). R2's is the one
+that matters: it is the exact defect the issue describes, in the test's own
+words.
 
-### 6.2 R3's red must be observed against the **unwired** state
+### 6.2 Why the binding half is **not** characterisation
 
-This is the anti-pattern the issue names, so the sequence is mandatory and is
-its own task, not folded into the wiring:
+Worth stating plainly, because it is an easy and expensive mistake. "The default
+is unchanged" is true and is AS-2's job — but it describes the *preserved* half.
+The *new* half is that a configured value is now honoured, and that is new
+behaviour with a test that fails today.
 
-1. Write R3. Run it on the branch with **no** production change — no options
-   class, no factory registration, no `AppHost.cs` line. **Capture the verbatim
-   failure.**
-2. Land US1 (options class, guard, registration). Run R3 again. It is **still
-   red** — the AppHost still passes no value, so concurrency is still 64. This
-   second observation is worth capturing too: it proves R3 is testing the
-   *delivered* value, not merely the existence of a config class.
-3. Land the `AppHost.cs:501` line. R3 goes **green**.
-
-A test that goes green at step 2 is wired to nothing and must be reported.
+Reading the binding as characterisation leads to writing AS-2 and skipping
+AS-1 — and **AS-2 passes against the current, broken registration**, because a
+parameterless `AddSingleton<IngestWriteLimiter>()` also yields 64. That is
+precisely the "test wired to nothing" shape this whole issue exists to prevent.
+**AS-1 is not optional.**
 
 ### 6.3 Defect-injection counterfactuals (phase 5, after green)
 
-A red from absent wiring proves the test *notices the feature*. It does not
-prove the test asserts what it claims. Three injections, each applied to `src/`,
+A red from absent wiring proves a test *notices* the feature. It does not prove
+the test asserts what it claims. Two injections, each applied to `src/`,
 observed, then reverted with `git checkout -- src/`:
 
 | # | Injection | Predicted result | What it proves |
 |---|---|---|---|
-| **CF-A** | `EventsEndpoints.Writes.cs:348` — change the title to `"EVENT_INGEST_OVERLOAD"` | **R3 red** on the title assertion; the 429 status still appears | R3 asserts the problem title, not merely a status code. Without this, R3 would pass against any 429 from anywhere — including the gateway's own rate limiter. |
-| **CF-B** | `IngestWriteLimiter.cs` — drop the `slots.Wait(0)` gate in `TryAcquire`, always grant. Currently `:36-37`; **locate it by content**, since T004's guard shifts every line below `:29`. | **R3 red** (no 429), **R2 red**, R1 green | The 429 comes from the limiter, not from the server shedding load some other way. |
-| **CF-C** | `EventIngestionInfrastructureModule` — revert the factory to `AddSingleton<IngestWriteLimiter>()` | **R2 red**, **R3 red**, **R1 green**, AS-2 green | The asymmetry is the point: the *binding* is what R2 and R3 test, and AS-2 (the default) cannot tell the two registrations apart — which is why AS-2 alone is not sufficient coverage. |
+| **CF-A** | `EventIngestionInfrastructureModule` — revert the factory to `AddSingleton<IngestWriteLimiter>()` | **R2 red**, **R1 green**, **AS-2 green** | The **asymmetry is the finding**: AS-2 cannot tell the two registrations apart, so AS-2 alone would never have caught this. This is §6.2's argument, demonstrated rather than asserted. |
+| **CF-B** | `IngestWriteOptions.Concurrency` initialiser — change `IngestWriteLimiter.DefaultConcurrency` to a literal `32` | **AS-2 red**, R1 green, R2 green | AS-2 genuinely pins the shipped default through the registration, so a silent change to it cannot pass. This is the counterfactual for the "do not change 64" constraint, and it is the one that makes that constraint enforced rather than merely instructed. |
 
 **Predictions are written before the runs.** A mismatch is reported, not edited
 into agreement.
 
 ### 6.4 The counterfactual this spec deliberately does **not** run
 
-Injecting `Concurrency = 0` to watch the guard fire at runtime. R1 covers it at
-unit level, and a stack booted with a limiter that refuses every write would
+Injecting `Concurrency = 0` into a booted stack to watch the guard fire. R1
+covers it at unit level, and a stack whose limiter refuses every write would
 redden a dozen unrelated integration tests for no added information.
 
 ---
@@ -438,10 +358,6 @@ and with the default still 64 the semaphore is initialised identically. The only
 production-observable difference is that a configured `0` now throws instead of
 refusing every write in silence.
 
-The E2E-only value of 1 lives inside `if (isE2ETests)` and reaches no
-measurement: §5.4 records that the only latency test in the suite
-(`AcceptToDecideLatencyTests`) is run-mode and never sees `E2ETests=true`.
-
 ---
 
 ## 8. Why no ADR is needed
@@ -454,9 +370,6 @@ than assumed. Each half already has a decision on the books:
   shape is the established form inside that very method.
 - **The guard** — ADR-0105 mandates `Ensure.That`, and the `int` overload exists
   for this exact case.
-- **The E2E override** — an established mechanism with two existing users at
-  `AppHost.cs:501-514`.
-- **The test level** — ADR-0103 settles that integration means Aspire.
 
 **What would need an ADR, and is therefore excluded**: changing the default from
 64 (a sizing decision on a 250-camera target), and adding startup-time options
@@ -468,10 +381,11 @@ and a report, not a judgement call.
 
 ## 9. Independent end-to-end test procedure
 
-Run by a human against a stack this spec's tests did not boot.
+Run by a human against a stack this spec's tests did not boot. Six steps, all
+against the ordinary dev stack — this spec adds nothing to the test lane, so
+there is nothing test-only to observe.
 
 1. Stop any running AppHost. Start the dev stack: `dotnet run --project src/AppHost`.
-   **No `E2ETests` flag** — this is the production-shaped lane.
 2. Mint an operator token and `POST /events/manual` once. **Expect `201`.** This
    is the "default unchanged" observation: the shipped configuration names no
    concurrency and the write succeeds exactly as before.
@@ -479,11 +393,14 @@ Run by a human against a stack this spec's tests did not boot.
    to `src/EventIngestion/Api/appsettings.Development.json`. Restart.
 4. Issue eight concurrent `POST /events/manual`. **Expect at least one `429`**
    whose body has `"title": "EVENT_INGEST_BACKPRESSURE"`, **and at least one
-   `201`**. This is the observation that the value reaches production code
-   through ordinary configuration, not only through the AppHost's test-lane line.
+   `201`**. This is the observation that a configured value reaches production
+   code through ordinary configuration. *(Automating this assertion is #2441;
+   here it is observed by hand, which is what phase 5 is for.)*
 5. Set `Concurrency` to `0`. Restart and issue one write. **Expect the request to
    fail with an `ArgumentException` naming `concurrency`** in the
-   `event-ingestion` log — *not* a silent 429. This is the guard, observed.
+   `event-ingestion` log — *not* a silent 429. This is the guard, observed, and
+   it is the step that distinguishes this change from the one the issue warned
+   would "land a config knob whose worst input fails silently".
 6. Remove the configuration. Restart. Repeat step 2. **Expect `201`** — the
    default is back at 64 and nothing was left behind.
 
