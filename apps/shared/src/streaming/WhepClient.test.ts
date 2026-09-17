@@ -664,9 +664,11 @@ describe('WhepClient', () => {
    * <p>
    * <b>The gap.</b> `ontrack` attached `event.streams[0]` and did nothing at
    * all when that array was empty. `msid` is negotiated, not guaranteed — a
-   * renegotiating SFU, a MediaMTX whose SDP shape moves under a floating
-   * `latest` tag (#2103), or a track added with no stream association all
-   * produce an empty `streams` for every track. Nothing then reaches the
+   * renegotiating SFU, a MediaMTX version bump moving the SDP shape (the
+   * image is pinned since #2103, so a bump replaces a float as the live
+   * risk — the pin is what makes that bump visible at all), or a track
+   * added with no stream association all produce an empty `streams` for
+   * every track. Nothing then reaches the
    * element, and because `useWhepSession` derives `live` from
    * `pc.connectionState` alone, the tile still labels itself <b>Live</b> over
    * a black picture. No error, no log, no state change: the most misleading
