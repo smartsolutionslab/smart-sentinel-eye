@@ -135,6 +135,111 @@ public class RuleQueryHandlerTests
         action.ValueExpression.ShouldBeNull();
     }
 
+    // ---- FR-002: an archived name is released for re-use (#2216) ----
+    //
+    // RuleRepository.GetByNameAsync already excludes Archived rows; these pin
+    // GetRuleQueryHandler to agree with it. Archive via the aggregate's own
+    // Archive(clock) (FR-003 permits Draft -> Archived) rather than a new
+    // builder method.
+
+    [Fact]
+    public async Task Get_resolves_the_live_rule_when_an_archived_one_holds_the_same_name()
+    {
+        RuleAggregate archived = new RuleBuilder().WithName("re-used").WithClock(Moment).Build();
+        archived.Archive(new FakeClock(Moment));
+        RuleAggregate live = new RuleBuilder().WithName("re-used").WithClock(Moment.AddMinutes(1)).Build();
+        (_, IRuleQuerySource source) = Seed(archived, live);
+
+        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+            .HandleAsync(new GetRuleQuery(Munich, "re-used"), CancellationToken.None);
+
+        // The custom message surfaces today's actual refusal (code + message)
+        // in the assertion failure itself, so the red output quotes the
+        // "(munich, munich)" rendering directly rather than just "False".
+        result.IsSuccess.ShouldBeTrue(
+            result.IsFailure ? $"expected success but got {result.Error.Code}: {result.Error.Message}" : "success");
+        result.Value.State.ShouldBe(RuleState.Draft.Value);
+        // The identifier, not only the state: asserting only the state would
+        // pass even if the handler picked the archived row by accident.
+        result.Value.RuleIdentifier.ShouldBe(live.Id.Value);
+    }
+
+    [Fact]
+    public async Task Get_reports_an_archived_rule_whose_name_was_never_re_used_as_not_found()
+    {
+        RuleAggregate archived = new RuleBuilder().WithName("r-gone").WithClock(Moment).Build();
+        archived.Archive(new FakeClock(Moment));
+        (_, IRuleQuerySource source) = Seed(archived);
+
+        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+            .HandleAsync(new GetRuleQuery(Munich, "r-gone"), CancellationToken.None);
+
+        // The deliberate narrowing (spec.md, "What option 1 costs"): a name
+        // that was archived and never re-used stops being readable, rather
+        // than continuing to answer 200 for a row no route but List serves
+        // any more.
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.ShouldBeOfType<GetRuleError.RuleNotFound>();
+        result.Error.Status.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Get_still_refuses_a_cross_fab_collision_when_an_archived_namesake_exists()
+    {
+        RuleAggregate archivedMunich = new RuleBuilder()
+            .WithFab("munich").WithName("shared").WithClock(Moment).Build();
+        archivedMunich.Archive(new FakeClock(Moment));
+        RuleAggregate liveMunich = new RuleBuilder()
+            .WithFab("munich").WithName("shared").WithClock(Moment.AddMinutes(1)).Build();
+        RuleAggregate liveDresden = new RuleBuilder()
+            .WithFab("dresden").WithName("shared").WithClock(Moment).Build();
+        (_, IRuleQuerySource source) = Seed(archivedMunich, liveMunich, liveDresden);
+
+        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+            .HandleAsync(new GetRuleQuery(Both, "shared"), CancellationToken.None);
+
+        // A genuine ambiguity must survive the new archived-exclusion
+        // predicate: excluding the archived munich row must not also make
+        // this look like a single-fab match.
+        result.IsFailure.ShouldBeTrue();
+        GetRuleError.FabAmbiguous ambiguous = result.Error.ShouldBeOfType<GetRuleError.FabAmbiguous>();
+
+        // Exact message, not Message.ShouldContain: a substring check cannot
+        // see the archived row rendering as a second "munich" in the
+        // parenthesis, which is exactly today's defect.
+        ambiguous.Message.ShouldBe(
+            "'shared' exists in more than one of your fabs (dresden, munich). Name the one you mean with ?fabId=.");
+    }
+
+    [Fact]
+    public async Task The_ambiguity_refusal_names_each_holding_fab_exactly_once()
+    {
+        RuleAggregate archivedMunich = new RuleBuilder()
+            .WithFab("munich").WithName("shared").WithClock(Moment).Build();
+        archivedMunich.Archive(new FakeClock(Moment));
+        RuleAggregate liveMunich = new RuleBuilder()
+            .WithFab("munich").WithName("shared").WithClock(Moment.AddMinutes(1)).Build();
+        RuleAggregate liveDresden = new RuleBuilder()
+            .WithFab("dresden").WithName("shared").WithClock(Moment).Build();
+        (_, IRuleQuerySource source) = Seed(archivedMunich, liveMunich, liveDresden);
+
+        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+            .HandleAsync(new GetRuleQuery(Both, "shared"), CancellationToken.None);
+
+        GetRuleError.FabAmbiguous ambiguous = result.Error.ShouldBeOfType<GetRuleError.FabAmbiguous>();
+
+        // Message.ShouldContain("munich") cannot see a duplicate: it would
+        // pass whether "munich" is named once or twice, which is exactly why
+        // the two existing cross-fab tests below cannot catch this. Counting
+        // occurrences can: the sentence claims "more than one of your fabs",
+        // so naming one of them twice is false no matter how it is spelled.
+        CountOccurrences(ambiguous.Message, "munich").ShouldBe(1);
+        CountOccurrences(ambiguous.Message, "dresden").ShouldBe(1);
+    }
+
+    private static int CountOccurrences(string haystack, string needle) =>
+        (haystack.Length - haystack.Replace(needle, string.Empty, StringComparison.Ordinal).Length) / needle.Length;
+
     // ---- ListRulesQuery ----
 
     [Fact]
@@ -317,6 +422,26 @@ public class RuleQueryHandlerTests
 
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<DryRunRuleError.EvaluationFailed>();
+    }
+
+    // ---- FR-002: dry-run resolves a re-used archived name the same way (#2216, US3) ----
+
+    [Fact]
+    public async Task DryRun_resolves_the_live_rule_when_an_archived_one_holds_the_same_name()
+    {
+        RuleAggregate archived = new RuleBuilder()
+            .WithName("re-used").WithPredicate("$.payload.cycleTime <= 30").WithClock(Moment).Build();
+        archived.Archive(new FakeClock(Moment));
+        RuleAggregate live = new RuleBuilder()
+            .WithName("re-used").WithPredicate("$.payload.cycleTime <= 30").WithClock(Moment.AddMinutes(1)).Build();
+        (_, IRuleQuerySource source) = Seed(archived, live);
+
+        Result<DryRunResultDto, DryRunRuleError> result = await new DryRunRuleQueryHandler(source)
+            .HandleAsync(new DryRunRuleQuery(Munich, "re-used", Sample), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue(
+            result.IsFailure ? $"expected success but got {result.Error.Code}: {result.Error.Message}" : "success");
+        result.Value.Matched.ShouldBeTrue();
     }
 
     // ---- spec 013: reads are scoped to the caller's fabs (FR-005, FR-007) ----
