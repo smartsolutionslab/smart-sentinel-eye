@@ -44,6 +44,22 @@ public class IntegrationTestSelectionTests
     private const string CheapStep = ".github/workflows/ci.yml:72";
     private const string ExcludeStep = ".github/workflows/ci.yml:179";
 
+    /// <summary>
+    /// #2289. The workflow file the reader below parses <b>as text</b>, not as
+    /// YAML — the same choice <c>AgentBriefClaimTests.WorkflowJobs()</c> and
+    /// <c>AppHostE2ESwitchTests</c> already made, so this guard does not add a
+    /// YAML dependency to a test project that runs in seconds (spec 185, A-3).
+    /// </summary>
+    private const string Workflow = ".github/workflows/ci.yml";
+
+    /// <summary>
+    /// The exact VSTest run-setting that turns "no test matched the filter"
+    /// into a non-zero exit (spec 185 §2). It is inert unless it appears after
+    /// a standalone <c>--</c> token — everything before that separator is a
+    /// <c>dotnet test</c> argument, not a VSTest run-setting override.
+    /// </summary>
+    private const string TreatNoTestsAsErrorFlag = "RunConfiguration.TreatNoTestsAsError=true";
+
     private static readonly Regex BlockComment = new(
         @"/\*.*?\*/",
         RegexOptions.Singleline | RegexOptions.Compiled);
@@ -80,6 +96,162 @@ public class IntegrationTestSelectionTests
     private static readonly Regex CategoryDeclaration = new(
         @"^[ \t]*\[\s*Trait\(\s*""Category""\s*,\s*""(FixtureLogic|Measurement|Disruptive|Maintenance)""\s*\)\s*\]",
         RegexOptions.Multiline | RegexOptions.Compiled);
+
+    /// <summary>
+    /// The same trait-declaration shape as <see cref="CategoryDeclaration"/>,
+    /// generalised to <b>capture</b> the value instead of matching a frozen
+    /// list of four — #2289's F3 needs to ask "does any class declare this
+    /// name", for a name it read out of <c>ci.yml</c>, not out of a literal.
+    /// </summary>
+    private static readonly Regex AnyCategoryDeclaration = new(
+        @"^[ \t]*\[\s*Trait\(\s*""Category""\s*,\s*""(?<name>[A-Za-z0-9_]+)""\s*\)\s*\]",
+        RegexOptions.Multiline | RegexOptions.Compiled,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// Pulls the quoted argument to <c>--filter</c> out of a joined
+    /// <c>dotnet test</c> command. Anchored on the literal token so a filter
+    /// value that itself contains the word <c>filter</c> cannot confuse it.
+    /// </summary>
+    private static readonly Regex FilterArgument = new(
+        @"--filter\s+""(?<value>[^""]*)""",
+        RegexOptions.Compiled,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// Every <c>Category</c> term inside a <c>--filter</c> value, deliberately
+    /// blind to <c>=</c> versus <c>!=</c> (plan.md §3.1): both an inclusion and
+    /// an exclusion are a claim that the named category exists on the test
+    /// side, so <c>Category!=X&amp;Category!=Y</c> yields <c>X</c> and
+    /// <c>Y</c> as two separate names, not one.
+    /// </summary>
+    private static readonly Regex CategoryTerm = new(
+        @"Category\s*!?=\s*(?<name>[A-Za-z0-9_]+)",
+        RegexOptions.Compiled,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// One <c>dotnet test</c> invocation read out of <c>ci.yml</c>, continuation
+    /// lines joined into a single <see cref="Command"/> (plan.md §3.1). <see
+    /// cref="Line"/> is 1-based and points at the line the invocation
+    /// <b>opens</b> on — the line a reader jumps to, not a line inside the
+    /// continuation.
+    /// </summary>
+    private sealed record TestInvocation(int Line, string Command)
+    {
+        /// <summary>
+        /// The quoted argument to <c>--filter</c>, or <c>null</c> when this
+        /// invocation carries none. An invocation with no filter runs the
+        /// whole matched project and cannot select zero tests the way a
+        /// filtered one can — it is never asked for <see cref="FailsOnNoTests"/>.
+        /// </summary>
+        public string? Filter
+        {
+            get
+            {
+                Match match = FilterArgument.Match(Command);
+                return match.Success ? match.Groups["value"].Value : null;
+            }
+        }
+
+        public bool IsFiltered => Filter is not null;
+
+        /// <summary>
+        /// True only when <see cref="TreatNoTestsAsErrorFlag"/> appears as its
+        /// own token strictly after a standalone <c>--</c> token in <see
+        /// cref="Command"/>. Two traps this deliberately refuses to credit
+        /// (plan.md §3.3, spec 185 §2.1): the flag's text sitting inside a
+        /// quoted <c>--filter</c> value (it is then part of one token wrapped
+        /// in quotes, never equal to the bare flag), and the flag appearing
+        /// <i>before</i> the separator (it is then an unrecognised <c>dotnet
+        /// test</c> argument, never reaching VSTest as a run-setting override).
+        /// </summary>
+        public bool FailsOnNoTests
+        {
+            get
+            {
+                string[] tokens = Command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                int separator = Array.IndexOf(tokens, "--");
+
+                return separator >= 0
+                    && tokens.Skip(separator + 1).Any(token => token == TreatNoTestsAsErrorFlag);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Every <c>dotnet test</c> invocation in <c>ci.yml</c>, continuation
+    /// lines joined. A line opens an invocation when its trimmed text starts
+    /// with <c>dotnet test</c>; while the line just consumed ends with a
+    /// trailing <c>\</c>, the next line is appended (trimmed) to the same
+    /// invocation; otherwise the invocation closes (plan.md §3.1).
+    /// </summary>
+    private static TestInvocation[] WorkflowInvocations() => ParseInvocations(WorkflowLines());
+
+    /// <summary>
+    /// The parsing half of <see cref="WorkflowInvocations"/>, taking lines
+    /// directly rather than reading <c>ci.yml</c> — what F4's synthetic-input
+    /// facts call, in exactly the way the existing eight facts call <see
+    /// cref="Describe"/> with literal text rather than the real tree.
+    /// </summary>
+    private static TestInvocation[] ParseInvocations(string[] lines)
+    {
+        List<TestInvocation> invocations = [];
+        int index = 0;
+
+        while (index < lines.Length)
+        {
+            string trimmed = lines[index].Trim();
+            if (!trimmed.StartsWith("dotnet test", StringComparison.Ordinal))
+            {
+                index++;
+                continue;
+            }
+
+            int line = index + 1;
+            List<string> segments = [TrimContinuation(trimmed)];
+
+            while (EndsInContinuation(lines[index]))
+            {
+                index++;
+                segments.Add(TrimContinuation(lines[index].Trim()));
+            }
+
+            invocations.Add(new TestInvocation(line, string.Join(' ', segments)));
+            index++;
+        }
+
+        return [.. invocations];
+    }
+
+    private static bool EndsInContinuation(string line) => line.TrimEnd().EndsWith('\\');
+
+    private static string TrimContinuation(string line)
+    {
+        string trimmed = line.TrimEnd();
+        return trimmed.EndsWith('\\') ? trimmed[..^1].TrimEnd() : trimmed;
+    }
+
+    /// <summary>
+    /// Every category name a <c>--filter</c> value mentions. Blind to
+    /// <c>=</c> versus <c>!=</c> by design (see <see cref="CategoryTerm"/>).
+    /// </summary>
+    private static string[] Categories(string filter) =>
+        [.. CategoryTerm.Matches(filter).Select(match => match.Groups["name"].Value)];
+
+    private static string[] WorkflowLines() =>
+        ReadWorkflowText().Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+
+    private static string ReadWorkflowText()
+    {
+        DirectoryInfo root = RepositoryRoot();
+        string path = Path.Combine([root.FullName, .. Workflow.Split('/')]);
+
+        File.Exists(path).ShouldBeTrue(
+            $"expected {Workflow} at {path} — if it moved, update this guard rather than deleting it.");
+
+        return File.ReadAllText(path);
+    }
 
     [Fact]
     public void Every_integration_test_class_declares_where_it_runs()
@@ -300,6 +472,238 @@ public class IntegrationTestSelectionTests
             "a class in the fixture's collection has declared: it runs in the integration job.");
         Describe("synthetic/CheapTests.cs", categoryDeclared).Undeclared.ShouldBeFalse(
             "a class carrying a category has declared: the trait decides which job selects it.");
+    }
+
+    /// <summary>
+    /// #2289, F2 — the positive control for <see cref="WorkflowInvocations"/>.
+    /// Asserts parity against an independently-computed raw line-count rather
+    /// than a frozen number, so this cannot go stale as <c>ci.yml</c> grows a
+    /// step: a reader whose continuation-line scan breaks under-counts and
+    /// would let <see cref="Every_filtered_test_step_in_the_workflow_fails_when_it_selects_nothing"/>
+    /// (F1) pass vacuously over an incomplete set — the exact defect this
+    /// feature exists to close, rebuilt inside its own guard (AS-6).
+    /// </summary>
+    [Fact]
+    public void The_workflow_reader_finds_every_dotnet_test_invocation()
+    {
+        string[] lines = WorkflowLines();
+        int rawCount = lines.Count(line => line.TrimStart().StartsWith("dotnet test", StringComparison.Ordinal));
+
+        TestInvocation[] invocations = WorkflowInvocations();
+
+        invocations.Length.ShouldBe(rawCount,
+            $"the reader found {invocations.Length} `dotnet test` invocation(s) in {Workflow}, but a raw count "
+            + $"of lines whose trimmed text starts with `dotnet test` finds {rawCount}. A reader that "
+            + "under-counts here is broken, not the workflow, and every other fact in this class is unsound "
+            + "until this one is green again.");
+
+        invocations.Any(invocation => invocation.IsFiltered).ShouldBeTrue(
+            $"none of the {invocations.Length} `dotnet test` invocation(s) found in {Workflow} carry a "
+            + "--filter. F1 below has nothing to check without at least one — this positive control has gone "
+            + "stale along with it.");
+    }
+
+    /// <summary>
+    /// #2289, F1 — <b>the red this feature exists to turn green</b> (spec
+    /// AS-3). Neither filtered step in <c>ci.yml</c> carries
+    /// <see cref="TreatNoTestsAsErrorFlag"/> today, so a typo'd or renamed
+    /// category selects zero tests and the step still exits 0. The message
+    /// names every offending invocation's real line number, its filter, and
+    /// the exact text to add — this is <c>infra-engineer</c>'s brief for
+    /// phase 4b, not just "assertion failed".
+    /// </summary>
+    [Fact]
+    public void Every_filtered_test_step_in_the_workflow_fails_when_it_selects_nothing()
+    {
+        TestInvocation[] filtered = [.. WorkflowInvocations().Where(invocation => invocation.IsFiltered)];
+
+        filtered.ShouldNotBeEmpty(
+            $"no filtered `dotnet test` invocation was found in {Workflow} — the reader is broken, not the "
+            + "workflow. An empty set here would let this fact pass vacuously over nothing to check, which is "
+            + "the exact defect class this feature exists to close.");
+
+        TestInvocation[] missing = [.. filtered.Where(invocation => !invocation.FailsOnNoTests)];
+
+        missing.ShouldBeEmpty(ExplainMissingFlag(missing));
+    }
+
+    /// <summary>
+    /// #2289, F3. Cross-checks the category names <see cref="WorkflowInvocations"/>
+    /// derives from <c>ci.yml</c>'s filters against the trait names actually
+    /// declared by a test class (AS-4) — reusing <see cref="AnyCategoryDeclaration"/>
+    /// and <see cref="StripComments"/> rather than re-scanning the tree a
+    /// second, different way. The converse (a class declaring a name
+    /// <c>ci.yml</c> does not filter on) is already covered by
+    /// <see cref="Every_integration_test_class_declares_where_it_runs"/>, since
+    /// such a class no longer matches the derived <see cref="CategoryDeclaration"/>
+    /// set once phase 4b builds it from this same source (AS-5).
+    /// </summary>
+    [Fact]
+    public void Every_category_the_workflow_filters_on_is_declared_by_a_test_class()
+    {
+        string[] categories = [.. WorkflowInvocations()
+            .Where(invocation => invocation.IsFiltered)
+            .SelectMany(invocation => Categories(invocation.Filter!))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)];
+
+        categories.ShouldNotBeEmpty(
+            $"the reader derived no category names from {Workflow}'s filters — an empty set would make every "
+            + "class vacuously \"declared\", which is the exact silent-pass shape this fact exists to refuse.");
+
+        HashSet<string> declared = DeclaredCategoryNames();
+
+        string[] undeclared = [.. categories.Where(name => !declared.Contains(name))];
+
+        undeclared.ShouldBeEmpty(
+            $"{Workflow} filters on {string.Join(", ", undeclared)}, but no test class under {ScannedTree} "
+            + "declares that category — that filter selects zero tests today, exactly the shape this whole "
+            + "feature exists to catch, one step earlier than CI.");
+    }
+
+    /// <summary>
+    /// #2289, F4 — the reader's parsing logic, exercised directly against
+    /// literal workflow text rather than the real file, exactly as the eight
+    /// pre-existing facts feed <see cref="Describe"/> synthetic sources
+    /// (plan.md §3.3).
+    /// </summary>
+    [Fact]
+    public void A_filtered_invocation_split_across_continuation_lines_is_read_as_one_command()
+    {
+        const string workflow = """
+            jobs:
+              backend:
+                steps:
+                  - run: |
+                      dotnet test tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj \
+                        -c Release \
+                        --no-build \
+                        --filter "Category=FixtureLogic" \
+                        --blame-hang --blame-hang-dump-type mini --blame-hang-timeout 3min
+            """;
+
+        TestInvocation[] invocations = ParseWorkflow(workflow);
+
+        invocations.Length.ShouldBe(1,
+            "a `dotnet test` invocation split across five continuation lines must be read as one invocation, "
+            + "not five separate ones.");
+        invocations[0].Filter.ShouldBe("Category=FixtureLogic",
+            "the --filter value sits on a continuation line joined onto the opening `dotnet test` line.");
+    }
+
+    [Fact]
+    public void The_flag_text_inside_a_quoted_filter_value_does_not_count_as_present()
+    {
+        const string workflow = """
+                  - run: |
+                      dotnet test foo.csproj \
+                        --filter "Category=RunConfiguration.TreatNoTestsAsError=true"
+            """;
+
+        TestInvocation invocation = ParseWorkflow(workflow).Single();
+
+        invocation.FailsOnNoTests.ShouldBeFalse(
+            "the flag's text sitting inside a quoted --filter value is not the flag reaching VSTest — there is "
+            + "no standalone `--` separator anywhere in this command, so nothing after it to check.");
+    }
+
+    [Fact]
+    public void The_flag_appearing_before_the_separator_does_not_count_as_present()
+    {
+        const string workflow = """
+                  - run: |
+                      dotnet test foo.csproj \
+                        --filter "Category=X" \
+                        RunConfiguration.TreatNoTestsAsError=true \
+                        -- SomeOtherSetting=false
+            """;
+
+        TestInvocation invocation = ParseWorkflow(workflow).Single();
+
+        invocation.FailsOnNoTests.ShouldBeFalse(
+            "the flag token sits before the standalone `--` separator, so it never reaches VSTest as a "
+            + "run-setting override — it is an unrecognised dotnet test argument instead.");
+    }
+
+    [Fact]
+    public void An_unfiltered_dotnet_test_invocation_is_not_asked_to_carry_the_flag()
+    {
+        const string workflow = """
+                  - run: |
+                      dotnet test tests/Shared.Kernel.Tests/SmartSentinelEye.Shared.Kernel.Tests.csproj \
+                        -c Release --no-build
+            """;
+
+        TestInvocation invocation = ParseWorkflow(workflow).Single();
+
+        invocation.IsFiltered.ShouldBeFalse(
+            "this invocation carries no --filter, so it cannot select zero tests the way a filtered one can — "
+            + "F1 excludes it from the invocations it holds to the flag.");
+    }
+
+    [Fact]
+    public void An_exclusion_filter_with_two_terms_yields_both_category_names()
+    {
+        string[] categories = Categories("Category!=Measurement&Category!=Disruptive&Category!=Maintenance");
+
+        categories.ShouldBe(["Measurement", "Disruptive", "Maintenance"],
+            "each Category!=X term names a separate category that must exist on the test side; combining them "
+            + "into one string would make F3 check a name no class could ever declare.");
+    }
+
+    [Fact]
+    public void A_filter_the_workflow_does_not_contain_yields_no_categories()
+    {
+        Categories(string.Empty).ShouldBeEmpty(
+            "no Category term to find means no category names — an empty or absent filter must not "
+            + "manufacture names for F3 to check.");
+    }
+
+    [Fact]
+    public void A_filter_the_workflow_does_contain_yields_its_category_names()
+    {
+        Categories("Category=FixtureLogic").ShouldBe(["FixtureLogic"],
+            "the positive twin: a filter that does name a category must yield exactly that name.");
+    }
+
+    private static TestInvocation[] ParseWorkflow(string workflow) =>
+        ParseInvocations(workflow.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'));
+
+    /// <summary>
+    /// The trait-category names actually declared under <see cref="ScannedTree"/>,
+    /// read with the same comment-stripping <see cref="Describe"/> already
+    /// applies before matching a category declaration — not a second, competing
+    /// scanner.
+    /// </summary>
+    private static HashSet<string> DeclaredCategoryNames()
+    {
+        DirectoryInfo root = RepositoryRoot();
+
+        IEnumerable<string> names = Directory
+            .EnumerateFiles(Path.Combine(root.FullName, ScannedTree), "*.cs", SearchOption.AllDirectories)
+            .Select(file => Relative(root, file))
+            .Where(IsSource)
+            .SelectMany(relative => AnyCategoryDeclaration
+                .Matches(StripComments(File.ReadAllText(Path.Combine(root.FullName, relative))))
+                .Select(match => match.Groups["name"].Value));
+
+        return new HashSet<string>(names, StringComparer.Ordinal);
+    }
+
+    private static string ExplainMissingFlag(TestInvocation[] missing)
+    {
+        List<string> message =
+        [
+            $"{missing.Length} filtered `dotnet test` invocation(s) in {Workflow} can select zero tests and "
+            + $"still exit 0, because none carries `-- {TreatNoTestsAsErrorFlag}` after a standalone `--`:",
+            string.Empty,
+        ];
+
+        message.AddRange(missing.Select(invocation =>
+            $"  {Workflow}:{invocation.Line} — --filter \"{invocation.Filter}\" — "
+            + $"add `-- {TreatNoTestsAsErrorFlag}` as the final continuation line"));
+
+        return string.Join(Environment.NewLine, message);
     }
 
     private static string Explain(TestFile[] undeclared, TestFile[] scanned)
