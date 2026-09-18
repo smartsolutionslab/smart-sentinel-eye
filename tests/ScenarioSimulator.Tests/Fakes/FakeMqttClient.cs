@@ -171,6 +171,16 @@ internal sealed class FakeMqttClient : IMqttClient
     /// mis-measure the spin, it hangs the test host inside the call that started
     /// the loop. That was harmless only while this fake could not refuse.
     /// </para>
+    ///
+    /// <para>
+    /// <b>Connecting a client that is already connected throws</b>, as
+    /// <c>MqttClient.ThrowIfConnected</c> does. No CONNECT leaves the machine in
+    /// that case, so nothing is recorded and <see cref="ConnectAttempts"/> does
+    /// not move — the failure is visible in the log, not in the count. The check
+    /// runs <b>before</b> the connect gate rather than after it: this fake's gate
+    /// is its own test affordance, and a CONNECT the real client refuses outright
+    /// must not instead park on a gate nobody has released.
+    /// </para>
     /// </summary>
     public async Task<MqttClientConnectResult> ConnectAsync(
         MqttClientOptions options, CancellationToken cancellationToken = default)
@@ -183,6 +193,12 @@ internal sealed class FakeMqttClient : IMqttClient
         {
             staleDuringNextConnect = false;
             await RaiseStaleDisconnectAsync();
+        }
+
+        if (IsConnected)
+        {
+            throw new InvalidOperationException(
+                "It is not allowed to connect with a server after the connection is established.");
         }
 
         if (connectGate is not null)
