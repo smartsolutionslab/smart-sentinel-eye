@@ -66,7 +66,7 @@ public static class DevicesEndpoints
 
         reads.MapGet("/", List)
             .WithName("ListDevices")
-            .WithSummary("List registered devices, optionally filtered by fab. Required scope: sse.identity.devices.read")
+            .WithSummary("List registered devices in your fabs. Omit fabId to span all of them; name one to narrow. Required scope: sse.identity.devices.read")
             .Produces<IReadOnlyList<RegisteredClientSummaryDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)

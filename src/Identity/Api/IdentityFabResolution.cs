@@ -21,7 +21,7 @@ namespace SmartSentinelEye.Identity.Api;
 internal static class IdentityFabResolution
 {
     /// <summary>
-    /// The fabs a read may span (spec 183 FR-001/FR-002). Omitting
+    /// The fabs a read may span (spec 183 AS-1/AS-4). Omitting
     /// <paramref name="fabId"/> spans every fab the caller holds; naming one
     /// narrows to it; naming one they do not hold is refused.
     ///
@@ -29,8 +29,9 @@ internal static class IdentityFabResolution
     /// Parsed per entry rather than all-or-nothing. One group under
     /// <c>/fabs/</c> that is not a usable fab name would otherwise fail the
     /// whole read, hiding every client in the fabs the caller legitimately
-    /// holds. Mirrors <c>CameraEndpoints</c> and
-    /// <c>EventIngestionFabResolution</c>, where that was a real defect.
+    /// holds. Mirrors <c>CameraEndpoints</c>, where that was a real defect;
+    /// <c>EventIngestionFabResolution</c> carries the same fix, copied
+    /// forward rather than discovered independently there.
     /// </para>
     /// </summary>
     public static async Task<Result<IReadOnlyList<FabIdentifier>, IResult>> ResolveReadFabsAsync(
