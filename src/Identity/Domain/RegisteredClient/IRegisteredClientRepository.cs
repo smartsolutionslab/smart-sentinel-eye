@@ -24,7 +24,7 @@ public interface IRegisteredClientRepository
     /// Disabled rows, matching <see cref="GetByClientIdAsync"/>.
     /// </summary>
     Task<Option<RegisteredClient>> GetWithinFabAsync(
-        ClientId clientId, FabIdentifier fab, CancellationToken cancellationToken);
+        FabIdentifier fab, ClientId clientId, CancellationToken cancellationToken);
 
     void Add(RegisteredClient client);
 

@@ -7,16 +7,16 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 
 /// <summary>
 /// Spec 180 US1 (#2240). <c>DELETE /kiosks/{clientId}</c> and
-/// <c>DELETE /devices/{clientId}</c> take no fab at all today —
+/// <c>DELETE /devices/{clientId}</c> took no fab at all before this fix —
 /// <see cref="SmartSentinelEye.Identity.Api.KiosksEndpoints"/>'s <c>Disable</c>
-/// and its device sibling look the client up by clientId alone
-/// (<c>GetByClientIdAsync</c>, unscoped across every fab) and check only its
+/// and its device sibling looked the client up by clientId alone
+/// (<c>GetByClientIdAsync</c>, unscoped across every fab) and checked only its
 /// <see cref="SmartSentinelEye.Identity.Domain.RegisteredClient.ClientKind"/>.
-/// Any seeded operator can disable another fab's kiosk or device —
+/// Any seeded operator could disable another fab's kiosk or device —
 /// <c>LegacyManagementBundle</c> makes <c>sse.management</c> satisfy the write
 /// policy, and <c>smart-sentinel-eye-web</c> grants it by default, so the
 /// attacker principal below is an ordinary seeded operator, not one invented
-/// for this test.
+/// for this test. These tests guard against a regression back to that shape.
 ///
 /// <para>
 /// <b>I1/I2 is the whole of the design question this spec answers.</b> A bare
@@ -116,9 +116,10 @@ public class CrossFabDisableIntegrationTests(AspireFixture aspire)
     }
 
     /// <summary>
-    /// I4 — the legitimate case, which the fix must not break. Passes both
-    /// before and after: today's unscoped lookup happens to also let the
-    /// rightful owner through, since it checks kind and nothing else.
+    /// I4 — the legitimate case, which the fix must not break. Passed before
+    /// the fix too, because the unscoped lookup also let the rightful owner
+    /// through, since it checked kind and nothing else — and passes after,
+    /// now for the right reason (the fab-scoped lookup matches).
     /// </summary>
     [Fact]
     public async Task A_munich_operator_disables_its_own_fabs_kiosk()

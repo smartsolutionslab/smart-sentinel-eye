@@ -21,7 +21,7 @@ public sealed class DisableKioskCommandHandler(
         (ClientId clientId, FabIdentifier fab) = command;
 
         Option<RegisteredClientAggregate> found = await clients
-            .GetWithinFabAsync(clientId, fab, cancellationToken);
+            .GetWithinFabAsync(fab, clientId, cancellationToken);
         if (!found.HasValue || found.Value.Kind != ClientKind.Kiosk)
         {
             return Failure(DisableKioskFailures.KioskNotFound(clientId.Value));
