@@ -328,10 +328,17 @@ while the stack still looks perfectly healthy.
   `:230`, and **both already send `?fabId=`**, so both keep working unchanged.
   (`EventIngestion`'s `/webhook-integrations` hits are a different context on a
   different service and are untouched.)
-- **A3 — the zero-fab 403 affects no live principal.** Exactly one seeded
-  principal holds no fab group: `service-account-event-ingestion`, whose scope is
-  `sse.events.publish` — the one scope the legacy bundle does **not** satisfy —
-  and which calls no Identity route.
+- **A3 — the zero-fab 403 affects no live principal.** Corrected during phase 6
+  review, which found this originally undercounted: **three** seeded principals
+  hold no fab group, not one —
+  `service-account-migration-runner`, `service-account-identity-admin` and
+  `service-account-event-ingestion` (`src/AppHost/Realms/smart-sentinel-eye-realm.json`).
+  The conclusion still holds, for a different and stronger reason than first
+  written: all three carry only `sse-identity` + `sse-audience` as default client
+  scopes, and `sse-identity` grants no permission — so none of them can pass the
+  scope policy on `/kiosks`, `/devices` or `/webhook-integrations` at all. They
+  are refused before `IdentityFabResolution` is ever reached; the zero-fab 403 is
+  unreachable for them specifically because the request never gets that far.
 - **A4 — the response body shape is unchanged.** `RegisteredClientSummaryDto` is
   not touched. Fewer rows, same rows.
 - **A5 — `fabs.Contains(client.Fab)` translates.** Identity's `Fab` column carries
