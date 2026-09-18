@@ -18,12 +18,18 @@ WS="${GITHUB_WORKSPACE:-$PWD}"
 # resource it composed and the state each reached; the gate here only reads
 # it.
 #
-# "Started" is Running, or Finished with exit code 0 — the one-shot
-# `migrations` resource, which the probe below asks a different question about
-# (not "did it start" but "did it leave a migrated schema behind"). Everything
+# "Started" is Running, or Finished/Exited for the one-shot `migrations`
+# resource with no *confirmed* non-zero exit code — the probe below asks a
+# different question about that same resource (not "did it start" but "did it
+# leave a migrated schema behind"). An empty exit code counts as started, not
+# failed: AspireFixture.cs:637-648 (#2064) documents that ResourceEvent
+# delivery can carry a Finished state before its ExitCode is populated in the
+# same snapshot, so treating "unconfirmed" as "not started" would burn the
+# whole wait window on a migrations run that already succeeded. Everything
 # else — Waiting, Starting, NotStarted, FailedToStart, Exited,
-# RuntimeUnhealthy, Terminated, or any state this script does not recognise —
-# counts as not started.
+# RuntimeUnhealthy, Terminated, a non-migrations resource that is Finished or
+# Exited at all, or any state this script does not recognise — counts as not
+# started.
 #
 # Like the migration probe, this is **not** best-effort: "I could not ask" is
 # not "the stack came up", so a status report that never appears is fatal
@@ -39,11 +45,26 @@ status_lines() {
 # Echoes one ` <name>(<state>)` per resource that has not started, and nothing
 # when every one of them has — the same rendering `unmigrated_databases` below
 # uses, so the two failure messages read consistently.
+#
+# The `migrations` exemption below reaches this function only with an empty
+# or "0" exit code — dead_resources() above already fatal'd any confirmed
+# non-zero exit before this ever runs — mirroring
+# AspireFixture.IsHealthy's `!ExitedNonZero` clause (#2064), scoped the same
+# way it is there: to the one one-shot resource this composition has, so a
+# persistent service that unexpectedly stops is still reported, not quietly
+# waved through.
 not_started_resources() {
   while IFS=$'\t' read -r name state exit_code; do
     [ -n "$name" ] || continue
     if [ "$state" = "Running" ]; then continue; fi
     if [ "$state" = "Finished" ] && [ "$exit_code" = "0" ]; then continue; fi
+    case "$name" in
+      migrations | migrations-*)
+        case "$state" in
+          Finished | Exited) continue ;;
+        esac
+        ;;
+    esac
     printf ' %s(%s)' "$name" "$state"
   done <<< "$(status_lines)"
 }
@@ -90,6 +111,18 @@ for i in $(seq 1 120); do # up to ~10 min
     continue
   fi
 
+  # A status report with zero resource lines — the header only, or the file
+  # existing but unreadable (status_lines() silences grep's stderr and exit
+  # status on purpose, to tolerate a read racing the writer's atomic
+  # File.Move) — must not read as "everything started": both
+  # dead_resources() and not_started_resources() print nothing over an empty
+  # input, and this loop would otherwise treat that silence as success on the
+  # very next check.
+  if [ -z "$(status_lines)" ]; then
+    sleep 5
+    continue
+  fi
+
   dead="$(dead_resources)"
   if [ -n "$dead" ]; then
     echo "::error::a composed resource ended without starting —$dead"
@@ -107,6 +140,10 @@ done
 if [ "$resources_ready" != "1" ]; then
   if [ ! -f "$STATUS_FILE" ]; then
     echo "::error::no status report ever appeared at $STATUS_FILE — the boot step must pass StackStatusFile= so the AppHost writes one"
+    exit 1
+  fi
+  if [ -z "$(status_lines)" ]; then
+    echo "::error::the status report at $STATUS_FILE names no resources — it may be unreadable, or the AppHost has not written past its header line"
     exit 1
   fi
   echo "::error::not every composed resource started —$(not_started_resources)"
