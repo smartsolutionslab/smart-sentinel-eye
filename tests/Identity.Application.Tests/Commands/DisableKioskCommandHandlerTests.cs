@@ -15,11 +15,13 @@ public class DisableKioskCommandHandlerTests
     private static readonly DateTimeOffset Now =
         DateTimeOffset.Parse("2026-05-29T08:00:00Z", CultureInfo.InvariantCulture);
 
-    private static void Seed(InMemoryRegisteredClientRepository repo, ClientKind kind, string clientId)
+    private static void Seed(
+        InMemoryRegisteredClientRepository repo, ClientKind kind, string clientId, string fab = "munich")
     {
         RegisteredClientAggregate aggregate = new RegisteredClientBuilder()
             .WithClientId(clientId)
             .WithKind(kind)
+            .WithFab(fab)
             .WithClock(Now)
             .Build();
         repo.Seed(aggregate);
@@ -74,5 +76,33 @@ public class DisableKioskCommandHandlerTests
             new DisableKioskCommand(ClientId.From("plc-station-4"), FabIdentifier.From("munich")), CancellationToken.None);
 
         result.Error.ShouldBeOfType<DisableKioskError.KioskNotFound>();
+    }
+
+    /// <summary>
+    /// The kiosk exists; the caller may not know that. The refusal must be
+    /// the same one an unknown clientId produces, because a distinguishable
+    /// answer lets an operator enumerate another fab's kiosks.
+    /// </summary>
+    [Fact]
+    public async Task Another_fabs_kiosk_returns_KioskNotFound_with_the_same_message_as_unknown()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        Seed(repo, ClientKind.Kiosk, "kiosk-3", "dresden");
+        FakeKeycloakAdminClient keycloak = new();
+
+        DisableKioskCommandHandler handler = new(
+            repo, keycloak, new FakeClock(Now),
+            NullLogger<DisableKioskCommandHandler>.Instance);
+
+        Result<RegisteredClientIdentifier, DisableKioskError> result = await handler.HandleAsync(
+            new DisableKioskCommand(ClientId.From("kiosk-3"), FabIdentifier.From("munich")), CancellationToken.None);
+
+        result.Error.ShouldBeOfType<DisableKioskError.KioskNotFound>();
+
+        // The message must not differ either — the fab is what it would leak.
+        result.Error.Message.ShouldBe("No enrolled kiosk with clientId 'kiosk-3' exists.");
+
+        // And nothing happened to it.
+        repo.Clients[0].DisabledAt.ShouldBeNull();
     }
 }
