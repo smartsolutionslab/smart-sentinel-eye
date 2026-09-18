@@ -66,7 +66,7 @@ public static class KiosksEndpoints
 
         reads.MapGet("/", List)
             .WithName("ListKiosks")
-            .WithSummary("List enrolled kiosks, optionally filtered by fab. Required scope: sse.identity.kiosks.read")
+            .WithSummary("List enrolled kiosks in your fabs. Omit fabId to span all of them; name one to narrow. Required scope: sse.identity.kiosks.read")
             .Produces<IReadOnlyList<RegisteredClientSummaryDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
