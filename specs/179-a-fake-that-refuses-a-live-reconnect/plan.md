@@ -1,6 +1,6 @@
-# Plan 178 — A fake that refuses a live reconnect
+# Plan 179 — A fake that refuses a live reconnect
 
-**Spec:** `specs/178-a-fake-that-refuses-a-live-reconnect/spec.md`
+**Spec:** `specs/179-a-fake-that-refuses-a-live-reconnect/spec.md`
 **Issue:** #2233
 
 ---

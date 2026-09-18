@@ -1,7 +1,7 @@
-# Tasks 178 — A fake that refuses a live reconnect
+# Tasks 179 — A fake that refuses a live reconnect
 
-**Spec:** `specs/178-a-fake-that-refuses-a-live-reconnect/spec.md`
-**Plan:** `specs/178-a-fake-that-refuses-a-live-reconnect/plan.md`
+**Spec:** `specs/179-a-fake-that-refuses-a-live-reconnect/spec.md`
+**Plan:** `specs/179-a-fake-that-refuses-a-live-reconnect/plan.md`
 **Issue:** #2233 — already on Project #13, status **Todo** (verified by
 `content.url`, not by the number filter). **No `item-add` needed.**
 
@@ -74,7 +74,7 @@ with a reason.
 1. `tests/ScenarioSimulator.Tests/Fakes/FakeMqttClient.cs` — 4b only
 2. `tests/ScenarioSimulator.Tests/FakeMqttClientContractTests.cs` — 4a only, new
 3. `tests/ScenarioSimulator.Tests/MqttPublisherDropAccountingTests.cs` — 4a only
-4. `specs/178-a-fake-that-refuses-a-live-reconnect/verification.md` — new, phase 5
+4. `specs/179-a-fake-that-refuses-a-live-reconnect/verification.md` — new, phase 5
 
 **Forbidden:** everything under `src/` (the counterfactual's patch to
 `src/ScenarioSimulator/Mqtt/MqttPublisher.cs` is transient and must be reverted —
