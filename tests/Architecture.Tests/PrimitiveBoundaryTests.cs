@@ -19,8 +19,8 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// every type in a Domain assembly. §II binds what a domain model exposes as
 /// state; a notification record or a port's return shape is neither, and
 /// scanning by assembly flags 30 of those before it finds anything real. From
-/// eleven roots the walk reaches 133 types and has exactly the surface the rule
-/// is about.
+/// twelve roots the walk reaches well over 100 types and has exactly the
+/// surface the rule is about.
 /// </para>
 ///
 /// <para>
@@ -53,7 +53,7 @@ public class PrimitiveBoundaryTests
     ];
 
     /// <summary>
-    /// Roots the walk starts from. Nine aggregates reach it through
+    /// Roots the walk starts from. Eleven aggregates reach it through
     /// <c>AggregateRoot&lt;T&gt;</c>; <c>AuditEvent</c> is append-only and carries
     /// state without that base, so it is named. A new aggregate needs no edit
     /// here unless it likewise skips the base.
@@ -257,17 +257,16 @@ public class PrimitiveBoundaryTests
                     continue;
                 }
 
-                Type propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-
-                if (Banned.Contains(propertyType))
+                foreach (Type constituent in Constituents(property.PropertyType))
                 {
-                    members.Add(new StateMember(type, property.Name, propertyType, isValueObject, IsComputed(type, property)));
-                    continue;
-                }
-
-                foreach (Type reachable in Unwrap(property.PropertyType))
-                {
-                    pending.Enqueue(reachable);
+                    if (Banned.Contains(constituent))
+                    {
+                        members.Add(new StateMember(type, property.Name, constituent, isValueObject, IsComputed(type, property)));
+                    }
+                    else
+                    {
+                        pending.Enqueue(constituent);
+                    }
                 }
             }
 
@@ -305,16 +304,65 @@ public class PrimitiveBoundaryTests
         && type.GetField($"<{property.Name}>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance) is null
         && property.GetSetMethod(nonPublic: true) is null;
 
-    private static IEnumerable<Type> Unwrap(Type type)
+    /// <summary>
+    /// The set of types a property's declared type is built out of — itself,
+    /// its generic arguments (recursively) and its array element type
+    /// (recursively), each with <c>Nullable&lt;&gt;</c> stripped at every level.
+    /// A banned constituent is recorded wherever it sits in that shape, not
+    /// only when it is the declared type itself (issue #2291).
+    ///
+    /// <para>
+    /// A fresh <c>visited</c> set per top-level call guards a self-referential
+    /// generic closure from looping forever; it also happens to de-duplicate a
+    /// repeated constituent (<c>IReadOnlyDictionary&lt;string, string&gt;</c>)
+    /// within the one property. It is not shared across properties or across
+    /// the outer walk's own <c>seen</c> set, which tracks dequeued types, not
+    /// constituents computed before anything is enqueued.
+    /// </para>
+    /// </summary>
+    private static IEnumerable<Type> Constituents(Type type) => Constituents(type, []);
+
+    private static IEnumerable<Type> Constituents(Type type, HashSet<Type> visited)
     {
         Type underlying = Nullable.GetUnderlyingType(type) ?? type;
+        if (!visited.Add(underlying))
+        {
+            yield break;
+        }
+
+        if (underlying.IsArray)
+        {
+            Type? elementType = underlying.GetElementType();
+            if (elementType is not null)
+            {
+                foreach (Type constituent in Constituents(elementType, visited))
+                {
+                    yield return constituent;
+                }
+            }
+
+            yield return underlying;
+            yield break;
+        }
+
+        // A generic type parameter (`T` on an open generic) is neither an
+        // array nor a constructed generic type — it has no arguments to
+        // recurse into and a null Namespace, which is harmless here and only
+        // matters once the outer walk dequeues it.
         if (underlying.IsGenericType)
         {
             foreach (Type argument in underlying.GetGenericArguments())
             {
-                yield return argument;
+                foreach (Type constituent in Constituents(argument, visited))
+                {
+                    yield return constituent;
+                }
             }
+
+            yield return underlying;
+            yield break;
         }
+
         yield return underlying;
     }
 
