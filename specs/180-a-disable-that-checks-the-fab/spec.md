@@ -141,14 +141,17 @@ enumerate what another plant runs.
 ```gherkin
 Given an operator in fab "munich"
 When they send DELETE /kiosks/wall-a with no fabId
-Then the response is 400 with title "KIOSK_INVALID_INPUT"
+Then the response is 400 (minimal-API binding rejects a missing non-nullable
+  query parameter before the handler runs — no problem-details body, no
+  "KIOSK_INVALID_INPUT" title)
   And nothing is disabled
 ```
 
 ```gherkin
 Given an operator in fab "munich"
 When they send DELETE /kiosks/wall-a?fabId=%20
-Then the response is 400 with title "KIOSK_INVALID_INPUT"
+Then the response is 400 with title "KIOSK_INVALID_INPUT" (fabId is present so
+  binding succeeds; FabIdentifier.From's guard is what rejects it)
 ```
 
 ### AS-5 — auth
@@ -184,8 +187,12 @@ Then the response is 404 with title "KIOSK_NOT_FOUND"
 
 ## 5. Independent end-to-end test procedure
 
-Run against the **already-running** Aspire stack (pid 3312 — do not stop it).
-No test project required; this is the procedure a reviewer can repeat to see the
+Run against a freshly-booted Aspire stack — a persistent `dotnet run` process
+does not hot-reload from a rebuilt DLL, so a stack that predates this change's
+commit will still exhibit the pre-fix behaviour no matter what code is on
+disk. Check the AppHost process's start time against the commit before
+trusting any manual check against it; restart it first if it's stale. No test
+project required; this is the procedure a reviewer can repeat to see the
 defect and then its absence.
 
 1. Mint a munich token and a dresden token from Aspire's **proxied** Keycloak

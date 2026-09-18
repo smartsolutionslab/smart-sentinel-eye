@@ -11,7 +11,7 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// <para>
 /// The gate applies to the webhook rotation only. The device and kiosk
 /// disables were reviewed out: a disable is terminal and
-/// <c>GetByClientIdAsync</c> stops returning the row, so their version cannot
+/// <c>GetWithinFabAsync</c> stops returning the row, so their version cannot
 /// move while they are still reachable, and requiring a precondition there
 /// would have been a breaking change buying nothing.
 /// </para>

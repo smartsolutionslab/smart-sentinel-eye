@@ -37,7 +37,7 @@ public sealed class RegisteredClientRepository(
     }
 
     public async Task<Option<RegisteredClientAggregate>> GetWithinFabAsync(
-        ClientId clientId, FabIdentifier fab, CancellationToken cancellationToken)
+        FabIdentifier fab, ClientId clientId, CancellationToken cancellationToken)
     {
         Ensure.That(clientId).IsNotNull();
         Ensure.That(fab).IsNotNull();
