@@ -7,8 +7,9 @@ namespace SmartSentinelEye.Identity.Application.Queries;
 
 /// <summary>
 /// Lists enrolled <see cref="ClientKind.Kiosk"/> clients (issue #827),
-/// optionally filtered to a single fab. Disabled rows are included so the
-/// management UI can show the full enrollment history.
+/// always filtered to the caller's resolved fab set (spec 183). Disabled
+/// rows are included so the management UI can show the full enrollment
+/// history.
 /// </summary>
-public sealed record ListKiosksQuery(Option<FabIdentifier> Fab)
+public sealed record ListKiosksQuery(IReadOnlyList<FabIdentifier> Fabs)
     : IQuery<Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>;

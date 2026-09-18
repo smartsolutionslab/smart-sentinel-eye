@@ -8,9 +8,10 @@ namespace SmartSentinelEye.Identity.Application.Queries.Handlers;
 
 /// <summary>
 /// Shared read-side projection for the device + kiosk list queries
-/// (issues #826/#827). Filters by <see cref="ClientKind"/> and an
-/// optional <see cref="FabIdentifier"/>, orders newest-first, and maps to
-/// <see cref="RegisteredClientSummaryDto"/> — which never carries the
+/// (issues #826/#827). Filters by <see cref="ClientKind"/> and the caller's
+/// resolved <see cref="FabIdentifier"/> set (spec 183) — every caller has at
+/// least one, so the filter is unconditional — orders newest-first, and maps
+/// to <see cref="RegisteredClientSummaryDto"/> — which never carries the
 /// (unpersisted) client secret.
 /// </summary>
 internal static class RegisteredClientProjection
@@ -18,17 +19,13 @@ internal static class RegisteredClientProjection
     public static async Task<IReadOnlyList<RegisteredClientSummaryDto>> ListAsync(
         IRegisteredClientQuerySource source,
         ClientKind kind,
-        Option<FabIdentifier> fab,
+        IReadOnlyList<FabIdentifier> fabs,
         CancellationToken cancellationToken)
     {
-        IQueryable<RegisteredClientAggregate> query = source.RegisteredClients
-            .Where(client => client.Kind == kind);
+        Ensure.That(fabs).IsNotNull();
 
-        if (fab.HasValue)
-        {
-            FabIdentifier wanted = fab.Value;
-            query = query.Where(client => client.Fab == wanted);
-        }
+        IQueryable<RegisteredClientAggregate> query = source.RegisteredClients
+            .Where(client => client.Kind == kind && fabs.Contains(client.Fab));
 
         return await query
             .OrderByDescending(client => client.Registration.At)

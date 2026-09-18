@@ -15,7 +15,7 @@ public sealed class ListKiosksQueryHandler(IRegisteredClientQuerySource clients)
         Ensure.That(query).IsNotNull();
 
         IReadOnlyList<RegisteredClientSummaryDto> kiosks = await RegisteredClientProjection.ListAsync(
-            clients, ClientKind.Kiosk, query.Fab, cancellationToken);
+            clients, ClientKind.Kiosk, query.Fabs, cancellationToken);
 
         return Success(kiosks);
     }

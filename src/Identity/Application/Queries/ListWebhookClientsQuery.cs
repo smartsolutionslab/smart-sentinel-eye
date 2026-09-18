@@ -7,7 +7,7 @@ namespace SmartSentinelEye.Identity.Application.Queries;
 
 /// <summary>
 /// Lists registered <see cref="ClientKind.WebhookIntegration"/> clients,
-/// optionally filtered to a single fab.
+/// always filtered to the caller's resolved fab set (spec 183).
 ///
 /// <para>
 /// Exists because rotation requires an <c>If-Match</c> (ADR-0113) and this
@@ -17,5 +17,5 @@ namespace SmartSentinelEye.Identity.Application.Queries;
 /// need to, a credential having leaked.
 /// </para>
 /// </summary>
-public sealed record ListWebhookClientsQuery(Option<FabIdentifier> Fab)
+public sealed record ListWebhookClientsQuery(IReadOnlyList<FabIdentifier> Fabs)
     : IQuery<Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>;
