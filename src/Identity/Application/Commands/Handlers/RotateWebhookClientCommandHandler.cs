@@ -49,8 +49,11 @@ public sealed class RotateWebhookClientCommandHandler(
             return Failure(RotateWebhookClientFailures.InvalidIntegrationName(ex.Message));
         }
 
+        // Scoped to fab: an unscoped lookup lets a caller who names their own
+        // fab (not the client's) resolve and rotate a client registered in a
+        // fab they hold no access to — AS-4, spec 182.
         Option<RegisteredClientAggregate> existing = await clients
-            .GetByClientIdAsync(clientId, cancellationToken);
+            .GetWithinFabAsync(fab, clientId, cancellationToken);
 
         // ADR-0113 Layer 1. The caller says which branch it intends, and a
         // mismatch is refused rather than quietly resolved the other way:
@@ -127,7 +130,7 @@ public sealed class RotateWebhookClientCommandHandler(
 
                 // The register branch keeps the opposite order on purpose. If
                 // the row were written first and CreateClientAsync then failed,
-                // GetByClientIdAsync would find it on the retry, which would
+                // GetWithinFabAsync would find it on the retry, which would
                 // take the rotate branch and try to roll a secret for a
                 // Keycloak client that was never created.
                 await clients.SaveAsync(cancellationToken);

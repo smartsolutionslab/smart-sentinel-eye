@@ -51,6 +51,10 @@ internal static partial class Log
         Message = "Webhook integration '{Name}' not present; rotation event ignored.")]
     public static partial void RotationTargetMissing(this ILogger logger, string name);
 
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Webhook integration '{Name}' rotation event carried fab '{Fab}' and was ignored.")]
+    public static partial void RotationFabMismatch(this ILogger logger, string name, string fab);
+
     [LoggerMessage(Level = LogLevel.Information,
         Message = "Flipped webhook integration '{Name}' to JWT validation backed by Keycloak client '{ClientId}'.")]
     public static partial void WebhookIntegrationFlippedToJwt(this ILogger logger, string name, string clientId);
