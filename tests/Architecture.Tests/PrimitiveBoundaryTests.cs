@@ -319,10 +319,21 @@ public class PrimitiveBoundaryTests
     /// the outer walk's own <c>seen</c> set, which tracks dequeued types, not
     /// constituents computed before anything is enqueued.
     /// </para>
+    ///
+    /// <para>
+    /// The array branch does not yield the array type itself, only what its
+    /// element recurses into: an array's <see cref="Type.Namespace"/> is its
+    /// <i>element's</i> namespace, so an array of a domain type would pass the
+    /// <c>SmartSentinelEye</c> prefix filter at the outer walk and get walked
+    /// into <see cref="Array"/>'s own public members (<c>Length</c>,
+    /// <c>Rank</c>, …), producing spurious offenders. The element is already
+    /// reached recursively, so the array type itself contributes nothing
+    /// useful.
+    /// </para>
     /// </summary>
-    private static IEnumerable<Type> Constituents(Type type) => Constituents(type, []);
+    private static IReadOnlyList<Type> Constituents(Type type) => [.. ConstituentsCore(type, [])];
 
-    private static IEnumerable<Type> Constituents(Type type, HashSet<Type> visited)
+    private static IEnumerable<Type> ConstituentsCore(Type type, HashSet<Type> visited)
     {
         Type underlying = Nullable.GetUnderlyingType(type) ?? type;
         if (!visited.Add(underlying))
@@ -335,13 +346,12 @@ public class PrimitiveBoundaryTests
             Type? elementType = underlying.GetElementType();
             if (elementType is not null)
             {
-                foreach (Type constituent in Constituents(elementType, visited))
+                foreach (Type constituent in ConstituentsCore(elementType, visited))
                 {
                     yield return constituent;
                 }
             }
 
-            yield return underlying;
             yield break;
         }
 
@@ -353,7 +363,7 @@ public class PrimitiveBoundaryTests
         {
             foreach (Type argument in underlying.GetGenericArguments())
             {
-                foreach (Type constituent in Constituents(argument, visited))
+                foreach (Type constituent in ConstituentsCore(argument, visited))
                 {
                     yield return constituent;
                 }
