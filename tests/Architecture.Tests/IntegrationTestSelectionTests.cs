@@ -6,7 +6,7 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// Guards which CI job reads an integration test's verdict (issues #2141, #2134).
 ///
 /// <para>
-/// <c>ci.yml:72</c> selects the Docker-free step <b>by trait</b>, deliberately:
+/// The Docker-free step in <c>ci.yml</c> selects <b>by trait</b>, deliberately:
 /// the name filter it replaced read <c>~AspireFixtureReportSelectionTests</c>,
 /// and the very next Docker-free class did not match it, recreating the omission
 /// the step exists to remove (#2064). A trait is the one selector a new class
@@ -115,6 +115,21 @@ public class IntegrationTestSelectionTests
         TimeSpan.FromSeconds(5));
 
     /// <summary>
+    /// Phase 6 review, #2289. A double-quoted span, whole and including its
+    /// quotes — used by <see cref="TestInvocation.FailsOnNoTests"/> to blank
+    /// out a <c>--filter</c> value before tokenizing on spaces. Without this,
+    /// a filter value that itself contains the text <c>-- RunConfiguration.
+    /// TreatNoTestsAsError=true</c> tokenizes into a standalone <c>--</c>
+    /// followed by the flag token — a false positive: the guard would credit
+    /// a flag that never actually reaches VSTest, because it never left the
+    /// quotes <c>dotnet test</c> itself saw as one argument.
+    /// </summary>
+    private static readonly Regex QuotedSpan = new(
+        @"""[^""]*""",
+        RegexOptions.Compiled,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>
     /// #2289, T009. Constrained to the categories <c>ci.yml</c> actually
     /// filters on today — <b>derived</b> from the workflow itself via
     /// <see cref="DerivedCategoryNames"/> rather than typed as a frozen
@@ -130,10 +145,19 @@ public class IntegrationTestSelectionTests
     /// the value would still credit any spelling — <see
     /// cref="A_misspelled_category_value_is_not_a_declaration"/> is what
     /// catches that.
+    ///
+    /// <para>
+    /// Must stay declared below <see cref="FilterArgument"/> and
+    /// <see cref="CategoryTerm"/>: this field's initializer calls <see
+    /// cref="DerivedCategoryNames"/>, which reads both of those fields, and
+    /// C# runs static field initializers in textual order — moving this
+    /// field above either would read it as still <see langword="null"/>.
+    /// </para>
     /// </summary>
     private static readonly Regex CategoryDeclaration = new(
         $"""^[ \t]*\[\s*Trait\(\s*"Category"\s*,\s*"(?:{string.Join('|', DerivedCategoryNames().Select(Regex.Escape))})"\s*\)\s*\]""",
-        RegexOptions.Multiline | RegexOptions.Compiled);
+        RegexOptions.Multiline | RegexOptions.Compiled,
+        TimeSpan.FromSeconds(5));
 
     /// <summary>
     /// One <c>dotnet test</c> invocation read out of <c>ci.yml</c>, continuation
@@ -164,18 +188,23 @@ public class IntegrationTestSelectionTests
         /// <summary>
         /// True only when <see cref="TreatNoTestsAsErrorFlag"/> appears as its
         /// own token strictly after a standalone <c>--</c> token in <see
-        /// cref="Command"/>. Two traps this deliberately refuses to credit
-        /// (plan.md §3.3, spec 185 §2.1): the flag's text sitting inside a
-        /// quoted <c>--filter</c> value (it is then part of one token wrapped
-        /// in quotes, never equal to the bare flag), and the flag appearing
-        /// <i>before</i> the separator (it is then an unrecognised <c>dotnet
-        /// test</c> argument, never reaching VSTest as a run-setting override).
+        /// cref="Command"/>, with every double-quoted span (a <c>--filter</c>
+        /// value, most often) blanked out via <see cref="QuotedSpan"/> before
+        /// tokenizing. Two traps this deliberately refuses to credit (plan.md
+        /// §3.3, spec 185 §2.1, phase 6 review): the flag's text sitting
+        /// inside a quoted <c>--filter</c> value — including a value that
+        /// itself contains what looks like a standalone <c>--</c> followed by
+        /// the flag, which tokenizes into exactly that shape if the quotes
+        /// are not stripped first — and the flag appearing <i>before</i> the
+        /// separator (it is then an unrecognised <c>dotnet test</c> argument,
+        /// never reaching VSTest as a run-setting override).
         /// </summary>
         public bool FailsOnNoTests
         {
             get
             {
-                string[] tokens = Command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                string[] tokens = QuotedSpan.Replace(Command, "QUOTEDVALUE")
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 int separator = Array.IndexOf(tokens, "--");
 
                 return separator >= 0
@@ -216,7 +245,12 @@ public class IntegrationTestSelectionTests
             int line = index + 1;
             List<string> segments = [TrimContinuation(trimmed)];
 
-            while (EndsInContinuation(lines[index]))
+            // Bounds-checked (phase 6 review, #2289): a workflow whose very last
+            // line is this invocation's opener and ends in `\` would otherwise
+            // index one past the end here — an IndexOutOfRangeException with no
+            // diagnostic, instead of just closing the invocation on what is, by
+            // construction, an unterminated continuation.
+            while (index < lines.Length - 1 && EndsInContinuation(lines[index]))
             {
                 index++;
                 segments.Add(TrimContinuation(lines[index].Trim()));
@@ -245,18 +279,19 @@ public class IntegrationTestSelectionTests
         [.. CategoryTerm.Matches(filter).Select(match => match.Groups["name"].Value)];
 
     /// <summary>
-    /// #2289, T009. Every category name <c>ci.yml</c>'s filters mention today,
-    /// computed exactly the way F3 (<see
+    /// #2289, T009. Every category name <c>ci.yml</c>'s filters mention
+    /// today — the single source both <see cref="CategoryDeclaration"/> and
+    /// F3 (<see
     /// cref="Every_category_the_workflow_filters_on_is_declared_by_a_test_class"/>)
-    /// computes the same set, so <see cref="CategoryDeclaration"/> and F3 can
-    /// never drift apart — sorted so the built regex (and any message built
-    /// from it) is deterministic across runs. Runs during static field
-    /// initialization for <see cref="CategoryDeclaration"/>'s field
-    /// initializer, which is why it is declared after <see
-    /// cref="FilterArgument"/> and <see cref="CategoryTerm"/> in this file:
-    /// C# runs static field initializers in textual order, and this method
-    /// reads both of those fields through <see cref="WorkflowInvocations"/>
-    /// and <see cref="Categories"/>.
+    /// are built from, rather than each computing the set its own way, so
+    /// the two cannot drift apart (phase 6 review, #2289). Sorted so the
+    /// built regex (and any message built from it) is deterministic across
+    /// runs. Runs during static field initialization for <see
+    /// cref="CategoryDeclaration"/>'s field initializer, which is why it is
+    /// declared after <see cref="FilterArgument"/> and <see
+    /// cref="CategoryTerm"/> in this file: C# runs static field initializers
+    /// in textual order, and this method reads both of those fields through
+    /// <see cref="WorkflowInvocations"/> and <see cref="Categories"/>.
     /// </summary>
     private static string[] DerivedCategoryNames() => [.. WorkflowInvocations()
         .Where(invocation => invocation.IsFiltered)
@@ -423,8 +458,8 @@ public class IntegrationTestSelectionTests
     /// <summary>
     /// A misspelled category is not a declaration <see cref="CategoryDeclaration"/> credits.
     /// Before this test existed, matching <c>[Trait("Category"</c> without reading the value
-    /// meant <c>[Trait("Category", "FixtureLogick")]</c> satisfied the guard while
-    /// <c>ci.yml:72</c> and <c>ci.yml:179</c> select and exclude neither — the class would run
+    /// meant <c>[Trait("Category", "FixtureLogick")]</c> satisfied the guard while the two
+    /// filtered steps in <c>ci.yml</c> select and exclude neither — the class would run
     /// only in the thirty-minute Docker job, exactly the omission this guard exists to close,
     /// now behind a declaration that looks correct.
     /// </summary>
@@ -507,6 +542,22 @@ public class IntegrationTestSelectionTests
     /// would let <see cref="Every_filtered_test_step_in_the_workflow_fails_when_it_selects_nothing"/>
     /// (F1) pass vacuously over an incomplete set — the exact defect this
     /// feature exists to close, rebuilt inside its own guard (AS-6).
+    ///
+    /// <para>
+    /// Phase 6 review, #2289. A second parity check, against a different blind
+    /// spot: <see cref="TestInvocation.IsFiltered"/> recognises exactly one
+    /// spelling, <c>--filter "..."</c>. An invocation rewritten to
+    /// <c>--filter Category=X</c> (unquoted), <c>--filter=Category=X</c>
+    /// (equals-joined) or single-quoted still contains the literal substring
+    /// <c>--filter</c> and so is still <b>found</b> above — the invocation
+    /// count would stay in parity — but <see cref="TestInvocation.Filter"/>
+    /// would silently read <c>null</c>, exempting that step from F1's flag
+    /// requirement and F3's category derivation without failing anywhere.
+    /// Counting the literal substring independently of recognition, the same
+    /// shape as the invocation-count check above, catches that the moment a
+    /// rewrite introduces it, rather than trying to enumerate every valid
+    /// <c>--filter</c> spelling in <see cref="FilterArgument"/>.
+    /// </para>
     /// </summary>
     [Fact]
     public void The_workflow_reader_finds_every_dotnet_test_invocation()
@@ -526,6 +577,17 @@ public class IntegrationTestSelectionTests
             $"none of the {invocations.Length} `dotnet test` invocation(s) found in {Workflow} carry a "
             + "--filter. F1 below has nothing to check without at least one — this positive control has gone "
             + "stale along with it.");
+
+        int filterMentions = invocations.Count(invocation =>
+            invocation.Command.Contains("--filter", StringComparison.Ordinal));
+        int recognizedFilters = invocations.Count(invocation => invocation.IsFiltered);
+
+        filterMentions.ShouldBe(recognizedFilters,
+            $"{filterMentions} invocation(s) in {Workflow} contain the literal `--filter` substring, but only "
+            + $"{recognizedFilters} match the quoted-value spelling `--filter \"...\"` this reader recognises. "
+            + "A rewrite to an unquoted, equals-joined, or single-quoted --filter would silently exempt that "
+            + "step from F1's flag requirement and F3's category derivation while still counting as \"found\" "
+            + "above — exactly the vacuous-pass shape this class exists to prevent.");
     }
 
     /// <summary>
@@ -562,15 +624,20 @@ public class IntegrationTestSelectionTests
     /// <see cref="Every_integration_test_class_declares_where_it_runs"/>, since
     /// such a class no longer matches the derived <see cref="CategoryDeclaration"/>
     /// set once phase 4b builds it from this same source (AS-5).
+    ///
+    /// <para>
+    /// Phase 6 review, #2289. Calls <see cref="DerivedCategoryNames"/> rather
+    /// than recomputing the same set inline: the two used to be a literal
+    /// duplicate of each other under a comment claiming they "can never drift
+    /// apart" — the weakest possible defense of that claim. Calling the one
+    /// method <see cref="CategoryDeclaration"/> is itself built from makes it
+    /// true by construction instead.
+    /// </para>
     /// </summary>
     [Fact]
     public void Every_category_the_workflow_filters_on_is_declared_by_a_test_class()
     {
-        string[] categories = [.. WorkflowInvocations()
-            .Where(invocation => invocation.IsFiltered)
-            .SelectMany(invocation => Categories(invocation.Filter!))
-            .Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal)];
+        string[] categories = DerivedCategoryNames();
 
         categories.ShouldNotBeEmpty(
             $"the reader derived no category names from {Workflow}'s filters — an empty set would make every "
@@ -630,6 +697,32 @@ public class IntegrationTestSelectionTests
         invocation.FailsOnNoTests.ShouldBeFalse(
             "the flag's text sitting inside a quoted --filter value is not the flag reaching VSTest — there is "
             + "no standalone `--` separator anywhere in this command, so nothing after it to check.");
+    }
+
+    /// <summary>
+    /// Phase 6 review, #2289. The sibling above proves nothing about a
+    /// quoted value that itself <i>contains</i> a standalone <c>--</c>
+    /// followed by the flag text — split on plain spaces without stripping
+    /// quotes first, this tokenizes into exactly the shape <see
+    /// cref="TestInvocation.FailsOnNoTests"/> looks for, and would be a false
+    /// positive: the flag never actually left the quotes <c>dotnet test</c>
+    /// saw as one <c>--filter</c> argument, so it never reached VSTest.
+    /// </summary>
+    [Fact]
+    public void A_standalone_separator_inside_a_quoted_filter_value_does_not_count_as_present()
+    {
+        const string workflow = """
+                  - run: |
+                      dotnet test foo.csproj \
+                        --filter "Category=A -- RunConfiguration.TreatNoTestsAsError=true &Category=B"
+            """;
+
+        TestInvocation invocation = ParseWorkflow(workflow).Single();
+
+        invocation.FailsOnNoTests.ShouldBeFalse(
+            "the `--` and the flag text both sit inside the quoted --filter value; splitting on plain spaces "
+            + "without stripping quotes first would misread them as a real standalone separator plus a real "
+            + "flag token, crediting a flag that never left the quotes and so never reached VSTest.");
     }
 
     [Fact]
@@ -716,22 +809,35 @@ public class IntegrationTestSelectionTests
     }
 
     /// <summary>
-    /// #2289, T009. Replaces the deleted <c>CheapStep</c>/<c>ExcludeStep</c>
-    /// constants for <see cref="Explain"/> and
-    /// <see cref="A_misspelled_category_value_is_not_a_declaration"/>: those
-    /// held hard-coded <c>ci.yml</c> line numbers in a comment, which is
-    /// exactly the staleness spec 185 §1.2 caught (one of the two had already
-    /// drifted, silently). This reads the current line back out of the same
-    /// <see cref="WorkflowInvocations"/> the rest of the class already
-    /// trusts, so a line shifting under a workflow edit cannot leave the
-    /// message wrong the way the constant did.
+    /// #2289, T009 (phase 6 review). Replaces the deleted
+    /// <c>CheapStep</c>/<c>ExcludeStep</c> constants for <see cref="Explain"/>
+    /// and <see cref="A_misspelled_category_value_is_not_a_declaration"/>:
+    /// those held hard-coded <c>ci.yml</c> line numbers in a comment, which
+    /// is exactly the staleness spec 185 §1.2 caught (one of the two had
+    /// already drifted, silently). This reads the current line back out of
+    /// the same <see cref="WorkflowInvocations"/> the rest of the class
+    /// already trusts, so a line shifting under a workflow edit cannot leave
+    /// the message wrong the way the constant did.
+    ///
+    /// <para>
+    /// <c>FirstOrDefault</c>, not <c>First</c>: Shouldly evaluates a
+    /// <c>ShouldBeTrue</c>/<c>ShouldBeEmpty</c> message argument eagerly, so
+    /// this runs on every green run of <see cref="Explain"/>'s caller, not
+    /// only on failure. A workflow that no longer matches
+    /// <paramref name="matchesFilter"/> at all must not throw an opaque,
+    /// message-less <c>InvalidOperationException</c> out of a passing test —
+    /// it falls back to a description naming <b>this</b> guard's own
+    /// staleness instead.
+    /// </para>
     /// </summary>
-    private static string CitationFor(Func<string, bool> matchesFilter)
+    private static string CitationFor(Func<string, bool> matchesFilter, string description)
     {
-        TestInvocation invocation = WorkflowInvocations()
-            .First(candidate => candidate.IsFiltered && matchesFilter(candidate.Filter!));
+        TestInvocation? invocation = WorkflowInvocations()
+            .FirstOrDefault(candidate => candidate.IsFiltered && matchesFilter(candidate.Filter!));
 
-        return $"{Workflow}:{invocation.Line}";
+        return invocation is null
+            ? $"{Workflow}'s {description} (not located — the reader may be stale)"
+            : $"{Workflow}:{invocation.Line}";
     }
 
     /// <summary>
@@ -741,12 +847,14 @@ public class IntegrationTestSelectionTests
     /// since that also contains a literal <c>=</c>.
     /// </summary>
     private static string InclusionStepCitation() =>
-        CitationFor(filter => filter.Contains('=', StringComparison.Ordinal)
-            && !filter.Contains("!=", StringComparison.Ordinal));
+        CitationFor(
+            filter => filter.Contains('=', StringComparison.Ordinal)
+                && !filter.Contains("!=", StringComparison.Ordinal),
+            "inclusion step");
 
     /// <summary>The step that names categories with <c>Category!=X</c>.</summary>
     private static string ExclusionStepCitation() =>
-        CitationFor(filter => filter.Contains("!=", StringComparison.Ordinal));
+        CitationFor(filter => filter.Contains("!=", StringComparison.Ordinal), "exclusion step");
 
     private static string ExplainMissingFlag(TestInvocation[] missing)
     {
@@ -762,6 +870,25 @@ public class IntegrationTestSelectionTests
             + $"add `-- {TreatNoTestsAsErrorFlag}` as the final continuation line"));
 
         return string.Join(Environment.NewLine, message);
+    }
+
+    /// <summary>
+    /// Phase 6 review, #2289. <c>"A", "B" and "C"</c> — the same style the
+    /// hard-coded list in <see cref="Explain"/> used to spell out by hand,
+    /// now built from <see cref="DerivedCategoryNames"/> so a rename on the
+    /// <c>ci.yml</c> side cannot leave this message asserting a set that no
+    /// longer matches the file it just cited a fresh line number from.
+    /// </summary>
+    private static string FormatNameList(IReadOnlyList<string> names)
+    {
+        string[] quoted = [.. names.Select(name => $"\"{name}\"")];
+
+        return quoted.Length switch
+        {
+            0 => string.Empty,
+            1 => quoted[0],
+            _ => string.Join(", ", quoted[..^1]) + $" and {quoted[^1]}",
+        };
     }
 
     private static string Explain(TestFile[] undeclared, TestFile[] scanned)
@@ -783,10 +910,11 @@ public class IntegrationTestSelectionTests
 
         string cheapStep = InclusionStepCitation();
         string excludeStep = ExclusionStepCitation();
+        string categoryList = FormatNameList(DerivedCategoryNames());
 
         message.Add(string.Empty);
         message.Add(
-            "Only \"FixtureLogic\", \"Measurement\", \"Disruptive\" and \"Maintenance\" count — that is "
+            $"Only {categoryList} count — that is "
             + $"the exact set {cheapStep} selects and {excludeStep} excludes, so any other spelling is "
             + "silently undeclared, not merely unrecognised.");
         message.Add(string.Empty);
