@@ -213,9 +213,14 @@ US2's reader even though they live in different files.
   `CategoryDeclaration` from the derived set with `Regex.Escape` on every name;
   re-word `Explain(...)` and fact 6's message to cite freshly-read line numbers.
   *Depends on T006. Same file as T001–T005 — not `[P]`.*
-- **T010 [US1+US2]** Re-run the class. **All twelve facts green** (eight
-  pre-existing with unmodified assertions, four new). Confirm no assertion in
-  the eight was edited. *Depends on T007–T009.*
+- **T010 [US1+US2]** Re-run the class. **All facts green** — the eight
+  pre-existing with unmodified assertions, plus every fact phase 4a and
+  phase 6 added (phase 4a's F4 was implemented as several separate facts
+  rather than one, and phase 6 added one more closing a review finding — the
+  actual count is 19, not the 12 originally estimated here; re-count from the
+  runner rather than trust this number, which is exactly the mistake this
+  spec exists to correct). Confirm no assertion in the eight was edited.
+  *Depends on T007–T009.*
 
 ### Phase 5 — verify (`/verify`)
 
