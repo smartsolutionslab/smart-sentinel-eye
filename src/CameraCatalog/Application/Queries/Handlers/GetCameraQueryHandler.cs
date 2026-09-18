@@ -28,8 +28,9 @@ public sealed class GetCameraQueryHandler(ICameraQuerySource cameras)
         // not for a member access on it.
         FabIdentifier[] scopedFabs = [.. fabs];
 
-        // Materialised rather than FirstOrDefault: NRT is disabled (ADR-0048),
-        // so a possibly-null result needs a shape the compiler is happy with.
+        // Materialised rather than FirstOrDefault: FirstOrDefaultAsync would
+        // return Camera?, and ADR-0141 prefers avoiding a nullable reference
+        // in Application code over introducing one and checking it.
         // GetRuleQueryHandler resolves it the same way. At most one row can
         // match — the identifier is the primary key.
         List<Camera> matches = await cameras.Cameras

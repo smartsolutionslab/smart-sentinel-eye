@@ -1,8 +1,10 @@
 namespace SmartSentinelEye.Shared.Kernel;
 
 /// <summary>
-/// Explicit-absence type per ADR-0048. NRT is disabled at the solution level;
-/// Option&lt;T&gt; is the canonical way to express domain absence.
+/// Explicit-absence type per ADR-0048. Preferred over a nullable reference
+/// for domain absences and repository lookups (ADR-0141) — NRT is enabled
+/// solution-wide, but a nullable parameter says a value may be absent while
+/// Option&lt;T&gt; says what absent means and forces the caller to handle it.
 /// </summary>
 public readonly struct Option<T> : IEquatable<Option<T>>
     where T : notnull
