@@ -12,7 +12,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -163,45 +163,38 @@ function stubDirectory() {
   return directory;
 }
 
-// The path the gate resolves to when a test does not override
-// STACK_STATUS_FILE: GITHUB_WORKSPACE is always set to repositoryRoot below,
-// matching `${STACK_STATUS_FILE:-${GITHUB_WORKSPACE:-$PWD}/stack-status.tsv}`
-// (plan.md §2.5).
-const defaultStatusFile = path.join(repositoryRoot, 'stack-status.tsv');
-
 function runScript(environment) {
   const stubs = stubDirectory();
 
   // A test that does not name STACK_STATUS_FILE gets the AppHost's own
-  // happy-path fixture at the gate's default location — the resource gate
-  // (#2268) is now the first thing every run of this script does, so every
-  // test that isn't specifically exercising that gate needs a status report
-  // to read, the same way the existing curl/docker/sleep stubs already
-  // answer every OTHER probe for a healthy stack. Tests that set their own
-  // STACK_STATUS_FILE (or deliberately want none) are unaffected — this only
-  // fills in the default path, never overrides an explicit one.
-  const seedsDefaultReport = !('STACK_STATUS_FILE' in environment);
-  if (seedsDefaultReport) {
-    writeFileSync(defaultStatusFile, statusReportBody());
-  }
+  // happy-path fixture, written into its own tmp directory and passed
+  // explicitly — the resource gate (#2268) is now the first thing every run
+  // of this script does, so every test that isn't specifically exercising
+  // that gate needs a status report to read, the same way the existing
+  // curl/docker/sleep stubs already answer every OTHER probe for a healthy
+  // stack. Never the gate's own default path
+  // (`${GITHUB_WORKSPACE:-$PWD}/stack-status.tsv`, i.e. this repository's
+  // root): a developer running the AppHost locally in this worktree with the
+  // default path could have a live report sitting there, and writing (then
+  // deleting) over it would be a real bug, not a test-only one. Tests that
+  // set their own STACK_STATUS_FILE (or deliberately want none) are
+  // unaffected — this only fills in a default, never overrides an explicit
+  // one.
+  const seededEnvironment = 'STACK_STATUS_FILE' in environment
+    ? environment
+    : { STACK_STATUS_FILE: writeStatusReport(), ...environment };
 
-  try {
-    return spawnSync('bash', [script], {
-      cwd: repositoryRoot,
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        PATH: `${stubs}${path.delimiter}${process.env.PATH}`,
-        GITHUB_WORKSPACE: repositoryRoot,
-        STUB_ALL_DATABASES: allDatabases.join(' '),
-        ...environment,
-      },
-    });
-  } finally {
-    if (seedsDefaultReport) {
-      rmSync(defaultStatusFile, { force: true });
-    }
-  }
+  return spawnSync('bash', [script], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: `${stubs}${path.delimiter}${process.env.PATH}`,
+      GITHUB_WORKSPACE: repositoryRoot,
+      STUB_ALL_DATABASES: allDatabases.join(' '),
+      ...seededEnvironment,
+    },
+  });
 }
 
 test('a stack whose databases carry applied migrations is reported ready', { skip: !bashAvailable }, () => {
@@ -254,10 +247,25 @@ test('a stack whose status report names a resource that never started is not rep
     STACK_STATUS_FILE: statusFile,
   });
 
+  const output = `${result.stdout}${result.stderr}`;
   assert.notEqual(
     result.status,
     0,
-    `the gate opened over a stack missing minio (#2268):\n${result.stdout}${result.stderr}`,
+    `the gate opened over a stack missing minio (#2268):\n${output}`,
+  );
+  // US2: the refusal must name the offender, not just refuse (tasks.md T009).
+  assert.match(
+    output,
+    /minio/,
+    `expected the failure to name minio, the resource that never started:\n${output}`,
+  );
+  // ... and must not name a resource that did start — "postgres" is Running
+  // in this fixture, same as every other composed resource but minio and
+  // audit-observability.
+  assert.doesNotMatch(
+    output,
+    /postgres/,
+    `expected the failure to name only the resources that did not start, not a healthy one:\n${output}`,
   );
 });
 

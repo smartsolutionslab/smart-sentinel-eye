@@ -12,9 +12,8 @@ namespace SmartSentinelEye.Integration.Tests;
 /// makes the AppHost write a status report;</item>
 /// <item>the resource set that report is seeded from is the composition
 /// itself — every resource the e2e job's own arguments produce that is not
-/// <see cref="IResourceWithoutLifetime"/> — not a hand-written list
-/// (spec.md §5's rejected options are all hand-written lists of one shape
-/// or another).</item>
+/// a <see cref="ParameterResource"/> — not a hand-written list (spec.md §5's
+/// rejected options are all hand-written lists of one shape or another).</item>
 /// </list>
 ///
 /// <para>
@@ -26,13 +25,12 @@ namespace SmartSentinelEye.Integration.Tests;
 ///
 /// <para>
 /// Fact 2 asserts against resources named directly — <c>audit-observability</c>,
-/// <c>minio</c> and <c>migrations</c> present; <c>PostgresUser</c>,
-/// <c>PostgresPassword</c>, <c>KeycloakPassword</c> and
-/// <c>RabbitMqPassword</c> absent — rather than re-deriving the "expected"
-/// set with the same <c>IResourceWithoutLifetime</c> predicate
-/// <see cref="StackStatusReport"/> itself is meant to apply. Comparing two
-/// derivations of the same filter would pass even if both drifted together;
-/// naming the resources is what lets the assertion actually fail
+/// <c>minio</c> and <c>migrations</c> present; every <c>builder.AddParameter(...)</c>
+/// secret this AppHost composes absent — rather than re-deriving the
+/// "expected" set with the same <see cref="ParameterResource"/> predicate
+/// <see cref="StackStatusReport"/> itself applies. Comparing two derivations
+/// of the same filter would pass even if both drifted together; naming the
+/// resources is what lets the assertion actually fail
 /// (an-assertion-must-not-check-its-own-input).
 /// </para>
 /// </summary>
@@ -104,11 +102,11 @@ public class AppHostStackStatusTests
         names.ShouldContain("minio");
         names.ShouldContain("migrations");
 
-        // Aspire's own IResourceWithoutLifetime marker, not a name this file
-        // wrote down: parameters can never reach Running, so a gate that
-        // waited on one would wait forever, and a report that printed one
-        // would carry the value it forbids (spec.md §3's "no secrets"
-        // scenario) if it were ever printed with anything but the name.
+        // ParameterResource is a type, not a name this file wrote down:
+        // parameters can never reach Running, so a gate that waited on one
+        // would wait forever, and a report that printed one would carry the
+        // value it forbids (spec.md §3's "no secrets" scenario) if it were
+        // ever printed with anything but the name.
         names.ShouldNotContain("PostgresUser");
         names.ShouldNotContain("PostgresPassword");
         names.ShouldNotContain("KeycloakPassword");
