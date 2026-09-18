@@ -113,6 +113,12 @@ public class AppHostStackStatusTests
         names.ShouldNotContain("PostgresPassword");
         names.ShouldNotContain("KeycloakPassword");
         names.ShouldNotContain("RabbitMqPassword");
+        names.ShouldNotContain("IdentityAdminClientSecret");
+        names.ShouldNotContain("MigrationRunnerClientSecret");
+        names.ShouldNotContain("ScenarioSimulatorClientSecret");
+        names.ShouldNotContain("EventIngestionMqttClientSecret");
+        names.ShouldNotContain("StreamDistributionAttributionClientSecret");
+        names.ShouldNotContain("SystemVariablesSeederClientSecret");
     }
 
     /// <summary>
