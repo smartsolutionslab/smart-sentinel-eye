@@ -447,7 +447,8 @@ jobs:
 
       - name: Boot the Aspire stack (run mode) in the background
         run: |
-          nohup dotnet run --project src/AppHost/SmartSentinelEye.AppHost.csproj -c Release --no-build -- ScenarioSimulator=false > apphost.log 2>&1 &
+          rm -f "$GITHUB_WORKSPACE/stack-status.tsv"
+          nohup dotnet run --project src/AppHost/SmartSentinelEye.AppHost.csproj -c Release --no-build -- ScenarioSimulator=false StackStatusFile="$GITHUB_WORKSPACE/stack-status.tsv" > apphost.log 2>&1 &
           echo "$!" > apphost.pid
           echo "AppHost PID $(cat apphost.pid)"
 
@@ -476,7 +477,10 @@ jobs:
       # two conditions are the cases the step is for.
       - name: AppHost log (on failure or cancellation)
         if: failure() || cancelled()
-        run: tail -n 300 apphost.log || true
+        run: |
+          tail -n 300 apphost.log || true
+          echo "--- stack-status.tsv ---"
+          cat "$GITHUB_WORKSPACE/stack-status.tsv" 2>/dev/null || echo "(no status report was ever written)"
 
       - name: Stop the AppHost
         if: always()

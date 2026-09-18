@@ -72,6 +72,10 @@ aspire-dashboard-storage/
 /blob-report/
 /playwright/.cache/
 
+# AppHost resource-status report (#2268, StackStatusFile=) — written at boot,
+# read by scripts/wait-for-e2e-stack.sh, never committed.
+/stack-status.tsv
+
 # Local-only: a BOM-prefixed copy of coverage-check.ps1, because Windows
 # PowerShell 5.1 mis-decodes the script's UTF-8 characters without one.
 scripts/coverage-check.bom.ps1

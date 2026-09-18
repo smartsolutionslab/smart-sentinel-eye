@@ -57,6 +57,22 @@ Responsibilities, in order:
    `IResourceWithoutLifetime`, and record each with state `(not reported)`.
    This is the half that makes the set derived rather than listed: a resource
    DCP never creates still has a line, which is the `minio` case.
+
+   > **Correction (T001, phase 4b):** `IResourceWithoutLifetime` does not hold
+   > this role in Aspire.Hosting 13.5.3, the version `Aspire.AppHost.Sdk`
+   > pins. Decompiling `Aspire.Hosting.dll` during the live-boot spike showed
+   > `ParameterResource` does **not** implement it, and a full-source grep
+   > found nothing in the assembly that does — the interface is vestigial,
+   > referenced only in two internal `is` checks. Filtering on it excludes
+   > zero resources, so every secret parameter (`PostgresPassword`,
+   > `KeycloakPassword`, the four `*ClientSecret` parameters, etc. — 10 total)
+   > would have landed in the report. The implementation filters on
+   > `resource is not ParameterResource` instead — still a type filter, not a
+   > name list, which is what this section's reasoning actually requires; it
+   > just names the type that exists in this SDK version. This AppHost has no
+   > `AddConnectionString` resource, so `ParameterResource` is the only
+   > lifetime-less type in play. See `src/AppHost/StackStatusReport.cs` and
+   > the PR body for the full finding.
 2. **Write the seeded report immediately**, before any resource starts. A gate
    that finds the file already present and full of `(not reported)` is reading a
    live boot; a gate that finds nothing knows the switch was not set.
@@ -239,8 +255,8 @@ failure the standing lesson names. **Phase 5 is not optional here.**
 | Risk | Mitigation |
 |---|---|
 | The watch hook yields nothing until the stack is fully up, so the report can never describe a failure | T007 observes a live boot before the gate is written to depend on it. This is the make-or-break unknown, scheduled early. |
-| Lifetime-less resources still appear with a never-Running state and wedge the gate permanently | The `IResourceWithoutLifetime` filter is applied at seed time, not by state. T007's live dump confirms the filter is sufficient. |
+| Lifetime-less resources still appear with a never-Running state and wedge the gate permanently | The `ParameterResource` filter (corrected from `IResourceWithoutLifetime` — §2.2's note) is applied at seed time, not by state. T007's live dump confirms the filter is sufficient. |
 | Worst-case job time grows past `timeout-minutes: 45` | The added wait is 10 min worst case and overlaps waits that already exist. T010 records the observed figure from the first green run; if it is material, the fix is to shorten the downstream waits, not to weaken the gate. |
-| A resource legitimately not `Running` in the e2e shape (beyond `migrations`) | T007's live dump is the check. If one exists, it is exempted **by its state semantics in the script**, with the reason written at the exemption — never by name in a list, which is the defect being fixed. |
+| A resource legitimately not `Running` in the e2e shape (beyond `migrations`) | **Resolved (T007).** Every `AddProject<T>()` resource gets an Aspire-built-in `<name>-rebuilder` companion (`ExplicitStartupAnnotation`, stays `NotStarted` unless the dashboard's Rebuild command is invoked) — 11 of them in this composition, confirmed live. Exempted at the model level, in `StackStatusReport.ExpectedResourceNames`, by filtering `resource.HasAnnotationOfType<ExplicitStartupAnnotation>()` — Aspire's own marker for "does not start on its own", not a name list, and not the script (the "exempted by state semantics in the script" idea above turned out not to be where this needed handling: the script sees a resource set that's already correct, and stays free of name-based special cases). |
 | The gate becomes flaky and someone weakens it | ADR-0144 forbids weakening a gate to reach green. Recorded here so the next reader sees it before reaching for a `|| true`. |
 | The three existing mjs tests need editing | They must not. An edit is evidence the change reached the migration probe — block, do not adjust (spec §7). |
