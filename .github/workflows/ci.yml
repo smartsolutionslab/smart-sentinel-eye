@@ -69,11 +69,20 @@ jobs:
           # #2409: same hang-watchdog reasoning as coverage-check.ps1's
           # $testArgs comment — a silent hang here reads as `cancelled`, not
           # `failure`, and is just as invisible.
+          #
+          # #2289: a --filter matching zero tests exits 0 today (measured:
+          # `--filter "Category=NoSuchCategoryAtAll"` prints "No test matches
+          # the given testcase filter" and still exits 0), so a typo'd or
+          # renamed category here would report success having run nothing.
+          # `-- RunConfiguration.TreatNoTestsAsError=true` is a VSTest
+          # run-setting, effective only after a standalone `--`, that turns
+          # that zero-match case into a non-zero exit instead.
           dotnet test tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj \
             -c Release \
             --no-build \
             --filter "Category=FixtureLogic" \
-            --blame-hang --blame-hang-dump-type mini --blame-hang-timeout 3min
+            --blame-hang --blame-hang-dump-type mini --blame-hang-timeout 3min \
+            -- RunConfiguration.TreatNoTestsAsError=true
 
       # Single test pass: coverage-check runs the unit + architecture tests once
       # (with coverage + a .trx), reusing the build above via -NoBuild, and
@@ -281,12 +290,19 @@ jobs:
         # did not start (#2004). It refuses without one, so in CI it would be a
         # guaranteed red that says nothing about the code.
         run: |
+          # #2289: same `-- RunConfiguration.TreatNoTestsAsError=true` as the
+          # "Docker-free fixture logic tests" step's comment above — but this
+          # filter *excludes* three named categories rather than including
+          # one, so it can only select zero if the whole suite is empty; its
+          # more realistic failure (an exclusion that stops excluding)
+          # already surfaces as a red job, loudly, without this flag.
           dotnet test tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj \
             -c Release \
             --no-build \
             --filter "Category!=Measurement&Category!=Disruptive&Category!=Maintenance" \
             --logger "trx;LogFileName=integration.trx" \
-            --blame-hang --blame-hang-dump-type mini --blame-hang-timeout 12min
+            --blame-hang --blame-hang-dump-type mini --blame-hang-timeout 12min \
+            -- RunConfiguration.TreatNoTestsAsError=true
 
       - name: Upload integration test results
         if: always()
