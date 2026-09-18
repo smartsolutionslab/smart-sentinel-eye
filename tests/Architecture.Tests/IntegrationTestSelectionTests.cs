@@ -41,8 +41,6 @@ namespace SmartSentinelEye.Architecture.Tests;
 public class IntegrationTestSelectionTests
 {
     private const string ScannedTree = "tests/Integration.Tests";
-    private const string CheapStep = ".github/workflows/ci.yml:72";
-    private const string ExcludeStep = ".github/workflows/ci.yml:179";
 
     /// <summary>
     /// #2289. The workflow file the reader below parses <b>as text</b>, not as
@@ -84,20 +82,6 @@ public class IntegrationTestSelectionTests
         RegexOptions.Multiline | RegexOptions.Compiled);
 
     /// <summary>
-    /// Constrained to the four categories <c>ci.yml</c> actually knows about —
-    /// the cheap-step selector at <see cref="CheapStep"/> and the exclusion
-    /// filter at <see cref="ExcludeStep"/>. Matching <c>[Trait("Category"</c>
-    /// without reading the value would credit any spelling:
-    /// <c>[Trait("Category", "FixtureLogick")]</c> would satisfy the guard
-    /// while selecting nothing in either job, running only in the thirty-minute
-    /// Docker job — the precise omission this guard exists to close, now
-    /// behind a declaration that looks correct.
-    /// </summary>
-    private static readonly Regex CategoryDeclaration = new(
-        @"^[ \t]*\[\s*Trait\(\s*""Category""\s*,\s*""(FixtureLogic|Measurement|Disruptive|Maintenance)""\s*\)\s*\]",
-        RegexOptions.Multiline | RegexOptions.Compiled);
-
-    /// <summary>
     /// The same trait-declaration shape as <see cref="CategoryDeclaration"/>,
     /// generalised to <b>capture</b> the value instead of matching a frozen
     /// list of four — #2289's F3 needs to ask "does any class declare this
@@ -129,6 +113,27 @@ public class IntegrationTestSelectionTests
         @"Category\s*!?=\s*(?<name>[A-Za-z0-9_]+)",
         RegexOptions.Compiled,
         TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// #2289, T009. Constrained to the categories <c>ci.yml</c> actually
+    /// filters on today — <b>derived</b> from the workflow itself via
+    /// <see cref="DerivedCategoryNames"/> rather than typed as a frozen
+    /// four-name literal. The literal this replaced was exactly the failure
+    /// mode spec 185 §1.4 names: rename a category on both sides and the
+    /// literal still matches, crediting a declaration that selects zero
+    /// tests in <c>ci.yml</c>. Sourced from parsed text rather than typed as
+    /// a literal, so each name is <see cref="Regex.Escape"/>d before joining —
+    /// a category name is <c>[A-Za-z0-9_]+</c> today (<see
+    /// cref="AnyCategoryDeclaration"/>) and carries nothing a regex would
+    /// treat specially, but escaping costs nothing and does not depend on
+    /// that staying true. Matching <c>[Trait("Category"</c> without reading
+    /// the value would still credit any spelling — <see
+    /// cref="A_misspelled_category_value_is_not_a_declaration"/> is what
+    /// catches that.
+    /// </summary>
+    private static readonly Regex CategoryDeclaration = new(
+        $"""^[ \t]*\[\s*Trait\(\s*"Category"\s*,\s*"(?:{string.Join('|', DerivedCategoryNames().Select(Regex.Escape))})"\s*\)\s*\]""",
+        RegexOptions.Multiline | RegexOptions.Compiled);
 
     /// <summary>
     /// One <c>dotnet test</c> invocation read out of <c>ci.yml</c>, continuation
@@ -238,6 +243,26 @@ public class IntegrationTestSelectionTests
     /// </summary>
     private static string[] Categories(string filter) =>
         [.. CategoryTerm.Matches(filter).Select(match => match.Groups["name"].Value)];
+
+    /// <summary>
+    /// #2289, T009. Every category name <c>ci.yml</c>'s filters mention today,
+    /// computed exactly the way F3 (<see
+    /// cref="Every_category_the_workflow_filters_on_is_declared_by_a_test_class"/>)
+    /// computes the same set, so <see cref="CategoryDeclaration"/> and F3 can
+    /// never drift apart — sorted so the built regex (and any message built
+    /// from it) is deterministic across runs. Runs during static field
+    /// initialization for <see cref="CategoryDeclaration"/>'s field
+    /// initializer, which is why it is declared after <see
+    /// cref="FilterArgument"/> and <see cref="CategoryTerm"/> in this file:
+    /// C# runs static field initializers in textual order, and this method
+    /// reads both of those fields through <see cref="WorkflowInvocations"/>
+    /// and <see cref="Categories"/>.
+    /// </summary>
+    private static string[] DerivedCategoryNames() => [.. WorkflowInvocations()
+        .Where(invocation => invocation.IsFiltered)
+        .SelectMany(invocation => Categories(invocation.Filter!))
+        .Distinct(StringComparer.Ordinal)
+        .Order(StringComparer.Ordinal)];
 
     private static string[] WorkflowLines() =>
         ReadWorkflowText().Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
@@ -416,8 +441,8 @@ public class IntegrationTestSelectionTests
             """;
 
         Describe("synthetic/MisspelledCategoryTests.cs", source).Undeclared.ShouldBeTrue(
-            "\"FixtureLogick\" selects nothing at ci.yml:72 and is excluded by nothing at "
-            + "ci.yml:179, so it is not one of the four declarations the guard recognises.");
+            $"\"FixtureLogick\" selects nothing at {InclusionStepCitation()} and is excluded by nothing at "
+            + $"{ExclusionStepCitation()}, so it is not one of the four declarations the guard recognises.");
     }
 
     /// <summary>
@@ -690,6 +715,39 @@ public class IntegrationTestSelectionTests
         return new HashSet<string>(names, StringComparer.Ordinal);
     }
 
+    /// <summary>
+    /// #2289, T009. Replaces the deleted <c>CheapStep</c>/<c>ExcludeStep</c>
+    /// constants for <see cref="Explain"/> and
+    /// <see cref="A_misspelled_category_value_is_not_a_declaration"/>: those
+    /// held hard-coded <c>ci.yml</c> line numbers in a comment, which is
+    /// exactly the staleness spec 185 §1.2 caught (one of the two had already
+    /// drifted, silently). This reads the current line back out of the same
+    /// <see cref="WorkflowInvocations"/> the rest of the class already
+    /// trusts, so a line shifting under a workflow edit cannot leave the
+    /// message wrong the way the constant did.
+    /// </summary>
+    private static string CitationFor(Func<string, bool> matchesFilter)
+    {
+        TestInvocation invocation = WorkflowInvocations()
+            .First(candidate => candidate.IsFiltered && matchesFilter(candidate.Filter!));
+
+        return $"{Workflow}:{invocation.Line}";
+    }
+
+    /// <summary>
+    /// The step that names categories with a bare <c>Category=X</c> — an
+    /// inclusion, which is what "selected by" means in <see cref="Explain"/>'s
+    /// message. Excludes an exclusion term's <c>!=</c> spelling explicitly,
+    /// since that also contains a literal <c>=</c>.
+    /// </summary>
+    private static string InclusionStepCitation() =>
+        CitationFor(filter => filter.Contains('=', StringComparison.Ordinal)
+            && !filter.Contains("!=", StringComparison.Ordinal));
+
+    /// <summary>The step that names categories with <c>Category!=X</c>.</summary>
+    private static string ExclusionStepCitation() =>
+        CitationFor(filter => filter.Contains("!=", StringComparison.Ordinal));
+
     private static string ExplainMissingFlag(TestInvocation[] missing)
     {
         List<string> message =
@@ -723,20 +781,23 @@ public class IntegrationTestSelectionTests
             .OrderBy(file => file.Path, StringComparer.Ordinal)
             .Select(file => $"  {file.Path} ({file.Facts} tests)"));
 
+        string cheapStep = InclusionStepCitation();
+        string excludeStep = ExclusionStepCitation();
+
         message.Add(string.Empty);
         message.Add(
             "Only \"FixtureLogic\", \"Measurement\", \"Disruptive\" and \"Maintenance\" count — that is "
-            + $"the exact set {CheapStep} selects and {ExcludeStep} excludes, so any other spelling is "
+            + $"the exact set {cheapStep} selects and {excludeStep} excludes, so any other spelling is "
             + "silently undeclared, not merely unrecognised.");
         message.Add(string.Empty);
         message.Add(
             "Add one of the legitimate declarations — the correct fix differs between them and the "
             + "wrong one is silent:");
         message.Add(
-            $"  needs no stack                 → [Trait(\"Category\", \"FixtureLogic\")], selected by {CheapStep}");
+            $"  needs no stack                 → [Trait(\"Category\", \"FixtureLogic\")], selected by {cheapStep}");
         message.Add(
             "  needs a stack CI does not boot → [Trait(\"Category\", \"Measurement\" | \"Disruptive\" "
-            + $"| \"Maintenance\")], excluded by {ExcludeStep}");
+            + $"| \"Maintenance\")], excluded by {excludeStep}");
         message.Add(
             "  needs the fixture's stack      → [Collection(AspireCollection.Name)], no trait needed");
 
