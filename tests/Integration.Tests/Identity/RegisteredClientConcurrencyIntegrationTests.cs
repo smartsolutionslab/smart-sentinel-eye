@@ -51,7 +51,7 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
         using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
         string clientId = await RegisterDeviceAsync(identity);
 
-        HttpResponseMessage disabled = await identity.DeleteAsync($"/devices/{clientId}");
+        HttpResponseMessage disabled = await identity.DeleteAsync($"/devices/{clientId}?fabId={Fab}");
 
         disabled.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(disabled));
         (await FindDeviceAsync(identity, clientId)).GetProperty("disabledAt").ValueKind

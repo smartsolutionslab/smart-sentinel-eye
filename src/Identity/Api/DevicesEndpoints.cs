@@ -33,9 +33,11 @@ public static class DevicesEndpoints
         // 403 is declared on all three because the scope itself produces it:
         // AddScopePolicies builds each sse.* policy as RequireAuthenticatedUser()
         // plus a claim assertion, so a caller who authenticates without the scope
-        // is forbidden rather than challenged. On DELETE /devices/{clientId} that is
-        // the only producer, because it runs no fab guard; the other two can reach
-        // 403 through IFabAuthorizationGuard as well.
+        // is forbidden rather than challenged. All three now reach 403 through
+        // IFabAuthorizationGuard as well — DELETE /devices/{clientId} runs the fab
+        // guard against the required ?fabId= (spec 180 US1), scoped into
+        // GetWithinFabAsync's predicate so a fab the caller genuinely holds but
+        // that does not own the target answers 404, not 403 (#2240).
         group.MapPost("/register", Register)
             .WithName("RegisterDevice")
             .WithSummary("Register a new PLC or inference device. Required scope: sse.identity.devices.write")
@@ -201,9 +203,29 @@ public static class DevicesEndpoints
 
     private static async Task<IResult> Disable(
         string clientId,
+        [FromQuery] string fabId,
         [FromServices] DisableDeviceCommandHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
+        // Fab first — before clientId is parsed or looked up. Answering 400 or
+        // 404 for another fab's device would confirm that device exists, which
+        // is the enumeration GetWithinFabAsync exists to prevent (spec 180 US1).
+        FabIdentifier fab;
+        try
+        {
+            fab = FabIdentifier.From(fabId);
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.Problem(
+                title: "DEVICE_INVALID_INPUT", detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken);
+
         ClientId parsed;
         try
         {
@@ -217,7 +239,7 @@ public static class DevicesEndpoints
         }
 
         Result<RegisteredClientIdentifier, DisableDeviceError> result = await handler.HandleAsync(
-            new DisableDeviceCommand(parsed), cancellationToken);
+            new DisableDeviceCommand(parsed, fab), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: id => Results.Ok(id.Value),

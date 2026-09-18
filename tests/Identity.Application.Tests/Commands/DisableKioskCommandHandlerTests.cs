@@ -37,7 +37,7 @@ public class DisableKioskCommandHandlerTests
             NullLogger<DisableKioskCommandHandler>.Instance);
 
         Result<RegisteredClientIdentifier, DisableKioskError> result = await handler.HandleAsync(
-            new DisableKioskCommand(ClientId.From("kiosk-3")), CancellationToken.None);
+            new DisableKioskCommand(ClientId.From("kiosk-3"), FabIdentifier.From("munich")), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         keycloak.Disabled.ShouldContain("kiosk-3");
@@ -54,7 +54,7 @@ public class DisableKioskCommandHandlerTests
             NullLogger<DisableKioskCommandHandler>.Instance);
 
         Result<RegisteredClientIdentifier, DisableKioskError> result = await handler.HandleAsync(
-            new DisableKioskCommand(ClientId.From("ghost")), CancellationToken.None);
+            new DisableKioskCommand(ClientId.From("ghost"), FabIdentifier.From("munich")), CancellationToken.None);
 
         result.Error.ShouldBeOfType<DisableKioskError.KioskNotFound>();
     }
@@ -71,7 +71,7 @@ public class DisableKioskCommandHandlerTests
             NullLogger<DisableKioskCommandHandler>.Instance);
 
         Result<RegisteredClientIdentifier, DisableKioskError> result = await handler.HandleAsync(
-            new DisableKioskCommand(ClientId.From("plc-station-4")), CancellationToken.None);
+            new DisableKioskCommand(ClientId.From("plc-station-4"), FabIdentifier.From("munich")), CancellationToken.None);
 
         result.Error.ShouldBeOfType<DisableKioskError.KioskNotFound>();
     }

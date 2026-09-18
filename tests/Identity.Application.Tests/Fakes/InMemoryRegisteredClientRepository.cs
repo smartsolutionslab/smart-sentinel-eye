@@ -57,6 +57,22 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
             : Option<RegisteredClientAggregate>.Some(found));
     }
 
+    public Task<Option<RegisteredClientAggregate>> GetWithinFabAsync(
+        ClientId clientId, FabIdentifier fab, CancellationToken cancellationToken)
+    {
+        Ensure.That(clientId).IsNotNull();
+        Ensure.That(fab).IsNotNull();
+
+        // Fab is part of the match, not a filter applied afterwards — mirrors
+        // the production predicate (spec 180 US1). Disabled rows are excluded,
+        // matching GetByClientIdAsync.
+        RegisteredClientAggregate? found = _clients.SingleOrDefault(c =>
+            c.ClientId == clientId && c.Fab == fab && c.DisabledAt is null);
+        return Task.FromResult(found is null
+            ? Option<RegisteredClientAggregate>.None
+            : Option<RegisteredClientAggregate>.Some(found));
+    }
+
     public void Add(RegisteredClientAggregate client)
     {
         Ensure.That(client).IsNotNull();

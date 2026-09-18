@@ -33,9 +33,11 @@ public static class KiosksEndpoints
         // 403 is declared on all three because the scope itself produces it:
         // AddScopePolicies builds each sse.* policy as RequireAuthenticatedUser()
         // plus a claim assertion, so a caller who authenticates without the scope
-        // is forbidden rather than challenged. On DELETE /kiosks/{clientId} that is
-        // the only producer, because it runs no fab guard; the other two can reach
-        // 403 through IFabAuthorizationGuard as well.
+        // is forbidden rather than challenged. All three now reach 403 through
+        // IFabAuthorizationGuard as well — DELETE /kiosks/{clientId} runs the fab
+        // guard against the required ?fabId= (spec 180 US1), scoped into
+        // GetWithinFabAsync's predicate so a fab the caller genuinely holds but
+        // that does not own the target answers 404, not 403 (#2240).
         group.MapPost("/enroll", Enroll)
             .WithName("EnrollKiosk")
             .WithSummary("Enroll a new kiosk in the fab. Required scope: sse.identity.kiosks.write")
@@ -197,9 +199,29 @@ public static class KiosksEndpoints
 
     private static async Task<IResult> Disable(
         string clientId,
+        [FromQuery] string fabId,
         [FromServices] DisableKioskCommandHandler handler,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
+        // Fab first — before clientId is parsed or looked up. Answering 400 or
+        // 404 for another fab's kiosk would confirm that kiosk exists, which is
+        // the enumeration GetWithinFabAsync exists to prevent (spec 180 US1).
+        FabIdentifier fab;
+        try
+        {
+            fab = FabIdentifier.From(fabId);
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.Problem(
+                title: "KIOSK_INVALID_INPUT", detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken);
+
         ClientId parsed;
         try
         {
@@ -213,7 +235,7 @@ public static class KiosksEndpoints
         }
 
         Result<RegisteredClientIdentifier, DisableKioskError> result = await handler.HandleAsync(
-            new DisableKioskCommand(parsed), cancellationToken);
+            new DisableKioskCommand(parsed, fab), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: id => Results.Ok(id.Value),

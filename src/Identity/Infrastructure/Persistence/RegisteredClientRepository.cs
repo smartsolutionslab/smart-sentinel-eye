@@ -36,6 +36,26 @@ public sealed class RegisteredClientRepository(
             : Option<RegisteredClientAggregate>.Some(found);
     }
 
+    public async Task<Option<RegisteredClientAggregate>> GetWithinFabAsync(
+        ClientId clientId, FabIdentifier fab, CancellationToken cancellationToken)
+    {
+        Ensure.That(clientId).IsNotNull();
+        Ensure.That(fab).IsNotNull();
+
+        // The fab is part of the predicate, not a check afterwards: another
+        // fab's client is never materialised, so it cannot be leaked by a
+        // caller that forgets to compare (mirrors CameraRepository.GetWithinFabAsync,
+        // spec 180 US1). Disabled rows are excluded, matching GetByClientIdAsync.
+        RegisteredClientAggregate? found = await dbContext.RegisteredClients
+            .Where(client => client.ClientId == clientId)
+            .Where(client => client.Fab == fab)
+            .Where(client => client.DisabledAt == null)
+            .FirstOrDefaultAsync(cancellationToken);
+        return found is null
+            ? Option<RegisteredClientAggregate>.None
+            : Option<RegisteredClientAggregate>.Some(found);
+    }
+
     public void Add(RegisteredClientAggregate client)
     {
         Ensure.That(client).IsNotNull();
