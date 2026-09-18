@@ -52,7 +52,11 @@ internal static partial class Log
     public static partial void RotationTargetMissing(this ILogger logger, string name);
 
     [LoggerMessage(Level = LogLevel.Warning,
-        Message = "Webhook integration '{Name}' rotation event carried fab '{Fab}' and was ignored.")]
+        Message = "Webhook integration '{Name}' rotation event carried an unusable fab '{Fab}' and was ignored.")]
+    public static partial void RotationFabInvalid(this ILogger logger, Exception? exception, string name, string fab);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Webhook integration '{Name}' rotation event named fab '{Fab}', which does not hold it; ignored.")]
     public static partial void RotationFabMismatch(this ILogger logger, string name, string fab);
 
     [LoggerMessage(Level = LogLevel.Information,
