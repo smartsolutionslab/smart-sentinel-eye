@@ -80,33 +80,20 @@ public static class KiosksEndpoints
         [FromServices] ListKiosksQueryHandler handler,
         ClaimsPrincipal user,
         CancellationToken cancellationToken,
-        [FromQuery] string? fabId = null)
+        [FromQuery] string fabId = "")
     {
-        Option<FabIdentifier> fab;
-        if (string.IsNullOrWhiteSpace(fabId))
+        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+            await IdentityFabResolution.ResolveReadFabsAsync(
+                user, fabId, fabGuard, "KIOSK_INVALID_INPUT", cancellationToken);
+        if (fabsResolution.IsFailure)
         {
-            fab = Option<FabIdentifier>.None;
+            return fabsResolution.Error;
         }
-        else
-        {
-            FabIdentifier parsed;
-            try
-            {
-                parsed = FabIdentifier.From(fabId);
-            }
-            catch (ArgumentException ex)
-            {
-                return Results.Problem(
-                    title: "KIOSK_INVALID_INPUT", detail: ex.Message,
-                    statusCode: StatusCodes.Status400BadRequest);
-            }
 
-            await fabGuard.EnsureAccessAsync(user, parsed.Value, cancellationToken);
-            fab = Option<FabIdentifier>.Some(parsed);
-        }
+        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
 
         Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
-            await handler.HandleAsync(new ListKiosksQuery(fab), cancellationToken);
+            await handler.HandleAsync(new ListKiosksQuery(fabs), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,
