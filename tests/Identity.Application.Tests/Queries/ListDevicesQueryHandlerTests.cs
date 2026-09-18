@@ -36,7 +36,8 @@ public class ListDevicesQueryHandlerTests
             Build(ClientKind.WebhookIntegration, "hook-grafana", "munich"));
 
         Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
-            await handler.HandleAsync(new ListDevicesQuery(Option<FabIdentifier>.None), CancellationToken.None);
+            await handler.HandleAsync(
+                new ListDevicesQuery([FabIdentifier.From("munich")]), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Select(dto => dto.ClientId).ShouldBe(["plc-station-4"]);
@@ -52,21 +53,43 @@ public class ListDevicesQueryHandlerTests
 
         Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
             await handler.HandleAsync(
-                new ListDevicesQuery(Option<FabIdentifier>.Some(FabIdentifier.From("munich"))),
+                new ListDevicesQuery([FabIdentifier.From("munich")]),
                 CancellationToken.None);
 
         result.Value.Select(dto => dto.ClientId).ShouldBe(["plc-munich"]);
     }
 
     [Fact]
-    public async Task Returns_devices_across_all_fabs_when_no_fab_is_supplied()
+    public async Task A_fab_outside_the_callers_set_is_excluded()
     {
+        // The over-narrowing guard's handler-level twin: a device in a fab the
+        // caller does not hold must never appear, however many fabs the
+        // caller's own set contains.
+        ListDevicesQueryHandler handler = HandlerFor(
+            Build(ClientKind.Device, "plc-munich", "munich"),
+            Build(ClientKind.Device, "plc-berlin", "berlin"));
+
+        Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
+            await handler.HandleAsync(
+                new ListDevicesQuery([FabIdentifier.From("munich"), FabIdentifier.From("dresden")]),
+                CancellationToken.None);
+
+        result.Value.Select(dto => dto.ClientId).ShouldBe(["plc-munich"]);
+    }
+
+    [Fact]
+    public async Task Returns_devices_from_both_fabs_when_the_caller_holds_two()
+    {
+        // The multi-fab caller's shape at the handler level: SC-003 requires
+        // the fix to narrow to the caller's fab *set*, not to a single fab.
         ListDevicesQueryHandler handler = HandlerFor(
             Build(ClientKind.Device, "plc-munich", "munich"),
             Build(ClientKind.Device, "plc-dresden", "dresden"));
 
         Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
-            await handler.HandleAsync(new ListDevicesQuery(Option<FabIdentifier>.None), CancellationToken.None);
+            await handler.HandleAsync(
+                new ListDevicesQuery([FabIdentifier.From("munich"), FabIdentifier.From("dresden")]),
+                CancellationToken.None);
 
         result.Value.Select(dto => dto.ClientId).ShouldBe(["plc-munich", "plc-dresden"], ignoreOrder: true);
     }
@@ -78,7 +101,8 @@ public class ListDevicesQueryHandlerTests
             Build(ClientKind.Kiosk, "kiosk-3", "munich"));
 
         Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
-            await handler.HandleAsync(new ListDevicesQuery(Option<FabIdentifier>.None), CancellationToken.None);
+            await handler.HandleAsync(
+                new ListDevicesQuery([FabIdentifier.From("munich")]), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBeEmpty();
@@ -100,7 +124,7 @@ public class ListDevicesQueryHandlerTests
 
         Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
             await HandlerFor(device).HandleAsync(
-                new ListDevicesQuery(Option<FabIdentifier>.None), CancellationToken.None);
+                new ListDevicesQuery([FabIdentifier.From("munich")]), CancellationToken.None);
 
         result.Value.ShouldHaveSingleItem().Version.ShouldBe(5);
     }
@@ -113,7 +137,8 @@ public class ListDevicesQueryHandlerTests
         ListDevicesQueryHandler handler = HandlerFor(Build(ClientKind.Device, "plc-station-4", "munich"));
 
         Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
-            await handler.HandleAsync(new ListDevicesQuery(Option<FabIdentifier>.None), CancellationToken.None);
+            await handler.HandleAsync(
+                new ListDevicesQuery([FabIdentifier.From("munich")]), CancellationToken.None);
 
         result.Value.ShouldHaveSingleItem();
         typeof(RegisteredClientSummaryDto)

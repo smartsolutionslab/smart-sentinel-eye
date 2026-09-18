@@ -35,7 +35,8 @@ public class ListKiosksQueryHandlerTests
             Build(ClientKind.WebhookIntegration, "hook-grafana", "munich"));
 
         Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
-            await handler.HandleAsync(new ListKiosksQuery(Option<FabIdentifier>.None), CancellationToken.None);
+            await handler.HandleAsync(
+                new ListKiosksQuery([FabIdentifier.From("munich")]), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Select(dto => dto.ClientId).ShouldBe(["kiosk-3"]);
@@ -51,10 +52,45 @@ public class ListKiosksQueryHandlerTests
 
         Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
             await handler.HandleAsync(
-                new ListKiosksQuery(Option<FabIdentifier>.Some(FabIdentifier.From("dresden"))),
+                new ListKiosksQuery([FabIdentifier.From("dresden")]),
                 CancellationToken.None);
 
         result.Value.Select(dto => dto.ClientId).ShouldBe(["kiosk-dresden"]);
+    }
+
+    [Fact]
+    public async Task A_fab_outside_the_callers_set_is_excluded()
+    {
+        // The over-narrowing guard's handler-level twin: a kiosk in a fab the
+        // caller does not hold must never appear, however many fabs the
+        // caller's own set contains.
+        ListKiosksQueryHandler handler = HandlerFor(
+            Build(ClientKind.Kiosk, "kiosk-munich", "munich"),
+            Build(ClientKind.Kiosk, "kiosk-berlin", "berlin"));
+
+        Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
+            await handler.HandleAsync(
+                new ListKiosksQuery([FabIdentifier.From("munich"), FabIdentifier.From("dresden")]),
+                CancellationToken.None);
+
+        result.Value.Select(dto => dto.ClientId).ShouldBe(["kiosk-munich"]);
+    }
+
+    [Fact]
+    public async Task Returns_kiosks_from_both_fabs_when_the_caller_holds_two()
+    {
+        // The multi-fab caller's shape at the handler level: SC-003 requires
+        // the fix to narrow to the caller's fab *set*, not to a single fab.
+        ListKiosksQueryHandler handler = HandlerFor(
+            Build(ClientKind.Kiosk, "kiosk-munich", "munich"),
+            Build(ClientKind.Kiosk, "kiosk-dresden", "dresden"));
+
+        Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
+            await handler.HandleAsync(
+                new ListKiosksQuery([FabIdentifier.From("munich"), FabIdentifier.From("dresden")]),
+                CancellationToken.None);
+
+        result.Value.Select(dto => dto.ClientId).ShouldBe(["kiosk-munich", "kiosk-dresden"], ignoreOrder: true);
     }
 
     [Fact]
@@ -64,7 +100,8 @@ public class ListKiosksQueryHandlerTests
             Build(ClientKind.Device, "plc-station-4", "munich"));
 
         Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
-            await handler.HandleAsync(new ListKiosksQuery(Option<FabIdentifier>.None), CancellationToken.None);
+            await handler.HandleAsync(
+                new ListKiosksQuery([FabIdentifier.From("munich")]), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBeEmpty();
@@ -76,7 +113,8 @@ public class ListKiosksQueryHandlerTests
         ListKiosksQueryHandler handler = HandlerFor(Build(ClientKind.Kiosk, "kiosk-3", "munich"));
 
         Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
-            await handler.HandleAsync(new ListKiosksQuery(Option<FabIdentifier>.None), CancellationToken.None);
+            await handler.HandleAsync(
+                new ListKiosksQuery([FabIdentifier.From("munich")]), CancellationToken.None);
 
         RegisteredClientSummaryDto dto = result.Value.ShouldHaveSingleItem();
         dto.ClientId.ShouldBe("kiosk-3");
