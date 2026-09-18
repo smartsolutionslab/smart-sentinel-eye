@@ -1,4 +1,4 @@
-# Tasks 180 — A gate that knows its resource set
+# Tasks 181 — A gate that knows its resource set
 
 **Spec:** `spec.md` · **Plan:** `plan.md` · **Issue:** #2268
 

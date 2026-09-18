@@ -1,4 +1,4 @@
-# Spec 180 — A gate that knows its resource set
+# Spec 181 — A gate that knows its resource set
 
 **Issue:** #2268 — "The e2e readiness gate probes three ports, so a missing service reports green"
 **Type:** bug (CI infrastructure)
