@@ -1,3 +1,5 @@
+using SmartSentinelEye.AppHost;
+
 // Aspire composition root for Smart Sentinel Eye (ADR-0024).
 //
 // Resources wired here:
@@ -713,4 +715,6 @@ if (isRunMode && !isE2ETests && isScenarioSimulatorEnabled)
     cameraSim.WithParentRelationship(scenarioSimulator);
 }
 
-await builder.Build().RunAsync();
+var app = builder.Build();
+StackStatusReport.Attach(app, builder.Configuration["StackStatusFile"]);
+await app.RunAsync();

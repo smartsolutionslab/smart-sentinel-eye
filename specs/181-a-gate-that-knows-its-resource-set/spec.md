@@ -290,6 +290,15 @@ Locked, consistent with the stack table and existing patterns:
   not `IResourceWithoutLifetime`** — Aspire's own marker for parameters and
   connection strings, which have no lifetime and can never be `Running`. A type
   filter, not a name list.
+
+  > **Correction (T001, phase 4b):** `IResourceWithoutLifetime` turned out not
+  > to hold this role in Aspire.Hosting 13.5.3 — decompiling the assembly
+  > during the live-boot spike showed nothing implements it, `ParameterResource`
+  > included, so it would have excluded zero resources and leaked all 10 of
+  > this AppHost's secret parameters into the report. The filter actually
+  > shipped is `resource is not ParameterResource` — still the type filter
+  > this bullet asks for, naming the type that exists in this SDK version
+  > rather than a vestigial marker. See `plan.md` §2.2 and the PR body.
 - The started/not-started classification lives **in the shell script**, so it is
   testable by `scripts/wait-for-e2e-stack.test.mjs` without booting anything.
 - The existing migration, port and gateway probes **stay**. The resource gate

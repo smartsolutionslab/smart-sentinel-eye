@@ -9,7 +9,111 @@ set -uo pipefail
 WEB="http://localhost:5173"
 WS="${GITHUB_WORKSPACE:-$PWD}"
 
-# The migration run, first. It is the cheapest question and the one whose
+# The AppHost's own composed resource set, first of all — it is the question
+# whose failure explains every other probe in this file: a resource that never
+# started (minio FailedToStart, audit-observability still Waiting on it) used
+# to satisfy every probe below, including the migration one, because none of
+# them ask the AppHost anything (#2268). The AppHost writes this file
+# (StackStatusReport.cs, switched on by StackStatusFile=) naming every
+# resource it composed and the state each reached; the gate here only reads
+# it.
+#
+# "Started" is Running, or Finished with exit code 0 — the one-shot
+# `migrations` resource, which the probe below asks a different question about
+# (not "did it start" but "did it leave a migrated schema behind"). Everything
+# else — Waiting, Starting, NotStarted, FailedToStart, Exited,
+# RuntimeUnhealthy, Terminated, or any state this script does not recognise —
+# counts as not started.
+#
+# Like the migration probe, this is **not** best-effort: "I could not ask" is
+# not "the stack came up", so a status report that never appears is fatal
+# rather than skipped.
+STATUS_FILE="${STACK_STATUS_FILE:-${GITHUB_WORKSPACE:-$PWD}/stack-status.tsv}"
+
+# Echoes the report's `<name>\t<state>\t<exit code>` lines, skipping the `#
+# stack-status ...` header.
+status_lines() {
+  grep -v '^#' "$STATUS_FILE" 2>/dev/null
+}
+
+# Echoes one ` <name>(<state>)` per resource that has not started, and nothing
+# when every one of them has — the same rendering `unmigrated_databases` below
+# uses, so the two failure messages read consistently.
+not_started_resources() {
+  while IFS=$'\t' read -r name state exit_code; do
+    [ -n "$name" ] || continue
+    if [ "$state" = "Running" ]; then continue; fi
+    if [ "$state" = "Finished" ] && [ "$exit_code" = "0" ]; then continue; fi
+    printf ' %s(%s)' "$name" "$state"
+  done <<< "$(status_lines)"
+}
+
+# Echoes one ` <name>(<state>[, exit <exit code>])` per resource in a state
+# that cannot become Running on its own — fatal on sight, so it does not cost
+# the rest of this file's wait budget on services that WaitFor() it (a dead
+# `migrations` run behind nine WaitFor()s is the case that matters most).
+#
+# Finished/Exited only count once a non-zero exit code is confirmed — an empty
+# exit code means "ended, cause unread", not "ended cleanly" (plan.md §2.4:
+# never print 0 for unknown), so it falls through to the poll instead of
+# being asserted as a definite failure here.
+#
+# FailedToStart and Terminated need no exit-code check: neither state ever
+# carries one (no process ran, or none Aspire observed exiting), and both are
+# unconditionally terminal — mirrors
+# AspireFixture.FatalStartupStates/KnownResourceStates.TerminalStates.
+# RuntimeUnhealthy is deliberately excluded, matching that same file's
+# judgement: a resource answering badly may still recover, so it stays in
+# not_started_resources and gets the rest of the poll window rather than a
+# verdict this function is not confident enough to make.
+dead_resources() {
+  while IFS=$'\t' read -r name state exit_code; do
+    [ -n "$name" ] || continue
+    case "$state" in
+      Finished | Exited)
+        if [ -n "$exit_code" ] && [ "$exit_code" != "0" ]; then
+          printf ' %s(%s, exit %s)' "$name" "$state" "$exit_code"
+        fi
+        ;;
+      FailedToStart | Terminated)
+        printf ' %s(%s)' "$name" "$state"
+        ;;
+    esac
+  done <<< "$(status_lines)"
+}
+
+echo "Waiting for the AppHost's composed resource set to start ..."
+resources_ready=0
+for i in $(seq 1 120); do # up to ~10 min
+  if [ ! -f "$STATUS_FILE" ]; then
+    sleep 5
+    continue
+  fi
+
+  dead="$(dead_resources)"
+  if [ -n "$dead" ]; then
+    echo "::error::a composed resource ended without starting —$dead"
+    exit 1
+  fi
+
+  not_started="$(not_started_resources)"
+  if [ -z "$not_started" ]; then
+    echo "  every composed resource started after ~$((i * 5))s"
+    resources_ready=1
+    break
+  fi
+  sleep 5
+done
+if [ "$resources_ready" != "1" ]; then
+  if [ ! -f "$STATUS_FILE" ]; then
+    echo "::error::no status report ever appeared at $STATUS_FILE — the boot step must pass StackStatusFile= so the AppHost writes one"
+    exit 1
+  fi
+  echo "::error::not every composed resource started —$(not_started_resources)"
+  exit 1
+fi
+
+# The migration run, first of the schema-level probes. It is the cheapest question and the one whose
 # failure explains the others: a stack whose migrations aborted used to satisfy
 # every probe below it, and the Playwright suite then failed in ways that
 # describe the product rather than the boot (#2137).
