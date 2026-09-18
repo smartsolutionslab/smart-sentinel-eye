@@ -18,17 +18,18 @@ public sealed class DisableDeviceCommandHandler(
         DisableDeviceCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
+        (ClientId clientId, FabIdentifier fab) = command;
 
         Option<RegisteredClientAggregate> found = await clients
-            .GetByClientIdAsync(command.ClientId, cancellationToken);
+            .GetWithinFabAsync(clientId, fab, cancellationToken);
         if (!found.HasValue || found.Value.Kind != ClientKind.Device)
         {
-            return Failure(DisableDeviceFailures.DeviceNotFound(command.ClientId.Value));
+            return Failure(DisableDeviceFailures.DeviceNotFound(clientId.Value));
         }
 
         try
         {
-            await keycloak.DisableClientAsync(command.ClientId.Value, cancellationToken);
+            await keycloak.DisableClientAsync(clientId.Value, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -39,7 +40,7 @@ public sealed class DisableDeviceCommandHandler(
         client.Disable(clock);
         await clients.SaveAsync(cancellationToken);
 
-        logger.DisabledDevice(client.Id, command.ClientId);
+        logger.DisabledDevice(client.Id, clientId);
 
         return Success(client.Id);
     }
