@@ -207,17 +207,9 @@ public class MqttPublisherDropAccountingTests
     /// late the handler runs — measured off the real client in
     /// EventIngestion's <c>MqttClientWasConnectedContractTests</c>.
     /// </para>
-    ///
-    /// <para>
-    /// <b>What this fake can and cannot show.</b> It does not emulate
-    /// <c>MqttClient.ThrowIfConnected</c>, so the second CONNECT here simply
-    /// succeeds rather than being refused; the visible symptom is the cycle
-    /// restarting, not the permanent stream of connect errors the subscriber's
-    /// copy of this test can see. Both start with the same false drop.
-    /// </para>
     /// </summary>
     [Fact]
-    public async Task A_stale_disconnect_landing_mid_connect_does_not_restart_the_connect_cycle()
+    public async Task A_stale_disconnect_landing_mid_connect_does_not_end_the_connection_it_landed_in()
     {
         await using PublisherUnderTest publisher = PublisherUnderTest.Create();
         publisher.Client.RaiseStaleDisconnectDuringNextConnect();
@@ -241,9 +233,14 @@ public class MqttPublisherDropAccountingTests
         publisher.Client.ConnectAttempts.ShouldBe(
             1,
             "one CONNECT was answered and nothing dropped it. A second is the loop working its way "
-            + "through a backoff it should never have entered — and against the real client, where "
-            + "ThrowIfConnected refuses a CONNECT on a live connection, it is the start of a cycle "
-            + "that does not end.");
+            + "through a backoff it should never have entered.");
+
+        publisher.FailedConnects.ShouldBe(
+            0,
+            "ThrowIfConnected refuses to reconnect a live client, and nothing closes that client — "
+            + "so a fake that models the refusal would turn the stale disconnect into a permanent "
+            + "stream of \"could not connect\" errors rather than the one restarted cycle above. "
+            + "A non-zero count here is that stream.");
     }
 
     private static bool Announces(string message) =>
@@ -276,6 +273,16 @@ public class MqttPublisherDropAccountingTests
         public RecordingLogger<MqttPublisher> Logger { get; }
 
         public MqttPublisher Publisher { get; }
+
+        /// <summary>
+        /// How many times the loop has said it could not connect. Counted from
+        /// the log rather than from <see cref="FakeMqttClient.ConnectAttempts"/>
+        /// because a CONNECT refused by <c>ThrowIfConnected</c> never leaves the
+        /// client, so it shows up only here — the same reasoning as
+        /// EventIngestion's <c>LoopUnderTest.FailedConnects</c>.
+        /// </summary>
+        public int FailedConnects =>
+            Logger.Entries.Count(entry => entry.Message.Contains("could not connect", StringComparison.Ordinal));
 
         public static PublisherUnderTest Create()
         {
