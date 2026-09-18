@@ -19,11 +19,12 @@ public class DisableDeviceCommandHandlerTests
         SeedAggregate(repo, ClientKind.Device, "plc-station-4");
 
     private static void SeedAggregate(
-        InMemoryRegisteredClientRepository repo, ClientKind kind, string clientId)
+        InMemoryRegisteredClientRepository repo, ClientKind kind, string clientId, string fab = "munich")
     {
         RegisteredClientAggregate aggregate = new RegisteredClientBuilder()
             .WithClientId(clientId)
             .WithKind(kind)
+            .WithFab(fab)
             .WithClock(Now)
             .Build();
         repo.Seed(aggregate);
@@ -82,5 +83,33 @@ public class DisableDeviceCommandHandlerTests
             new DisableDeviceCommand(ClientId.From("kiosk-3"), FabIdentifier.From("munich")), CancellationToken.None);
 
         result.Error.ShouldBeOfType<DisableDeviceError.DeviceNotFound>();
+    }
+
+    /// <summary>
+    /// The device exists; the caller may not know that. The refusal must be
+    /// the same one an unknown clientId produces, because a distinguishable
+    /// answer lets an operator enumerate another fab's devices.
+    /// </summary>
+    [Fact]
+    public async Task Another_fabs_device_returns_DeviceNotFound_with_the_same_message_as_unknown()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        SeedAggregate(repo, ClientKind.Device, "plc-station-4", "dresden");
+        FakeKeycloakAdminClient keycloak = new();
+
+        DisableDeviceCommandHandler handler = new(
+            repo, keycloak, new FakeClock(Now),
+            NullLogger<DisableDeviceCommandHandler>.Instance);
+
+        Result<RegisteredClientIdentifier, DisableDeviceError> result = await handler.HandleAsync(
+            new DisableDeviceCommand(ClientId.From("plc-station-4"), FabIdentifier.From("munich")), CancellationToken.None);
+
+        result.Error.ShouldBeOfType<DisableDeviceError.DeviceNotFound>();
+
+        // The message must not differ either — the fab is what it would leak.
+        result.Error.Message.ShouldBe("No registered device with clientId 'plc-station-4' exists.");
+
+        // And nothing happened to it.
+        repo.Clients[0].DisabledAt.ShouldBeNull();
     }
 }
