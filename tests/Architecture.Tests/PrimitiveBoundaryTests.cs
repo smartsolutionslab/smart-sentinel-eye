@@ -63,12 +63,7 @@ public class PrimitiveBoundaryTests
     [Fact]
     public void No_domain_model_exposes_primitive_typed_state()
     {
-        IReadOnlyList<string> offenders = [.. WalkAggregateState()
-            .Where(member => !member.Computed)
-            .Where(member => !member.DeclaringTypeIsValueObject || IsIdentityReferenceInsideValueObject(member))
-            .Select(member => $"{member.DeclaringType.Name}.{member.Name} : {member.PropertyType.Name}")
-            .Distinct()
-            .Order()];
+        IReadOnlyList<string> offenders = Offenders(DomainAssemblies());
 
         offenders.ShouldBeEmpty(
             $"""
@@ -80,6 +75,67 @@ public class PrimitiveBoundaryTests
              and these are its own backing values — mark it with IValueObject
              (ADR-0066), which is what makes the exemption legible to this rule.
              """);
+    }
+
+    /// <summary>
+    /// Confirmed by counterfactual, spec 184 (issue #2291): the walk records a
+    /// banned type only when it is a property's <i>declared</i> type, not a
+    /// generic argument or array element arriving as a constituent of it. A
+    /// probe aggregate carrying <c>IReadOnlyList&lt;string&gt; Tags</c> is
+    /// invisible to the walk below even though it violates the same rule as a
+    /// bare <c>string</c> property would.
+    ///
+    /// <para>
+    /// This fact is expected to fail today, on the unfixed walk, with the
+    /// offender list holding only <c>ProbeAggregate.RawCount : Int32</c> — the
+    /// positive control — while <c>Tags</c>, <c>Labels</c>, <c>Counters</c>,
+    /// <c>Windows</c>, <c>Optionals</c> and <c>ProbeHighlight.Overlays</c> are
+    /// absent. That asymmetry is the point: it proves the probe assembly is
+    /// genuinely being walked, and that the gap is the collection/array
+    /// constituent, not the harness.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_walk_sees_a_primitive_reached_through_a_collection_or_array()
+    {
+        IReadOnlyList<string> offenders = Offenders([typeof(PrimitiveBoundaryTests).Assembly]);
+
+        offenders.ShouldBe(
+        [
+            "ProbeAggregate.Counters : Int32",
+            "ProbeAggregate.Labels : String",
+            "ProbeAggregate.Optionals : Int32",
+            "ProbeAggregate.RawCount : Int32",
+            "ProbeAggregate.Tags : String",
+            "ProbeAggregate.Windows : DateTimeOffset",
+            "ProbeHighlight.Overlays : Guid",
+        ]);
+    }
+
+    /// <summary>
+    /// The negative control for the fact above: constitution §II exempts "a
+    /// value object's own backing values — plural", and a composite value
+    /// object whose only backing value is a collection of primitives
+    /// (<c>ProbeTagSet.Values</c>) is inside that exemption. A fix that widens
+    /// the walk into collections must not start flagging it.
+    /// </summary>
+    [Fact]
+    public void A_value_objects_own_backing_collection_is_exempt()
+    {
+        List<StateMember> members = WalkAggregateState([typeof(PrimitiveBoundaryTests).Assembly]);
+
+        IReadOnlyList<string> exempted = [.. members
+            .Where(member => member.DeclaringTypeIsValueObject)
+            .Select(member => $"{member.DeclaringType.Name}.{member.Name}")
+            .Distinct()];
+
+        exempted.ShouldContain("ProbeTagSet.Values");
+        exempted.ShouldContain("ProbeName.Value");
+
+        IReadOnlyList<string> offenders = Offenders([typeof(PrimitiveBoundaryTests).Assembly]);
+
+        offenders.ShouldNotContain("ProbeTagSet.Values : String");
+        offenders.ShouldNotContain("ProbeName.Value : String");
     }
 
     [Fact]
@@ -109,14 +165,29 @@ public class PrimitiveBoundaryTests
         exempted.ShouldContain("NormalizedPosition.X");
     }
 
+    /// <summary>
+    /// The offender-filtering chain, shared between the real fact and the
+    /// probe fact so a future change to the exemption logic cannot apply to
+    /// one corpus and not the other.
+    /// </summary>
+    private static IReadOnlyList<string> Offenders(IReadOnlyList<Assembly> assemblies) =>
+        [.. WalkAggregateState(assemblies)
+            .Where(member => !member.Computed)
+            .Where(member => !member.DeclaringTypeIsValueObject || IsIdentityReferenceInsideValueObject(member))
+            .Select(member => $"{member.DeclaringType.Name}.{member.Name} : {member.PropertyType.Name}")
+            .Distinct()
+            .Order()];
+
     private static (IReadOnlyList<Type> Roots, int Reached) WalkFootprint()
     {
         IReadOnlyList<Type> roots = Roots();
         return (roots, WalkAggregateState().Select(member => member.DeclaringType).Distinct().Count());
     }
 
-    private static IReadOnlyList<Type> Roots() =>
-        [.. DomainAssemblies()
+    private static IReadOnlyList<Type> Roots() => Roots(DomainAssemblies());
+
+    private static IReadOnlyList<Type> Roots(IReadOnlyList<Assembly> assemblies) =>
+        [.. assemblies
             .SelectMany(assembly => assembly.GetExportedTypes())
             .Where(type => DerivesFromAggregateRoot(type)
                            || RootsWithoutAggregateRootBase.Contains(type.Name))];
@@ -160,12 +231,14 @@ public class PrimitiveBoundaryTests
         member.PropertyType == typeof(Guid)
         && !typeof(IValueObject<Guid>).IsAssignableFrom(member.DeclaringType);
 
-    private static List<StateMember> WalkAggregateState()
+    private static List<StateMember> WalkAggregateState() => WalkAggregateState(DomainAssemblies());
+
+    private static List<StateMember> WalkAggregateState(IReadOnlyList<Assembly> assemblies)
     {
         List<StateMember> members = [];
         HashSet<Type> seen = [];
-        Queue<Type> pending = new(Roots());
-        IReadOnlyList<Type> allDomainTypes = [.. DomainAssemblies().SelectMany(assembly => assembly.GetExportedTypes())];
+        Queue<Type> pending = new(Roots(assemblies));
+        IReadOnlyList<Type> allDomainTypes = [.. assemblies.SelectMany(assembly => assembly.GetExportedTypes())];
 
         while (pending.Count > 0)
         {
