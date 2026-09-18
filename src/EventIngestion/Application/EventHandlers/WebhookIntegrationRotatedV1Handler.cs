@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
+using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.Identity;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -18,7 +20,7 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
     {
         Ensure.That(message).IsNotNull();
 
-        var (integrationName, clientId, _, _) = message;
+        var (integrationName, clientId, _, metadata) = message;
 
         WebhookIntegrationName name;
         try
@@ -31,7 +33,23 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
             return;
         }
 
-        Option<WebhookIntegration> found = await integrations.GetByNameAsync(name, cancellationToken);
+        FabIdentifier fab;
+        try
+        {
+            // A null or unparsable fab is refused rather than resolved by
+            // name alone: this handler mutates a security-relevant
+            // validation mode, and an unscoped resolve is exactly how AS-5
+            // (spec 182) lets a first rotation in one fab take over an
+            // unrotated integration registered in another.
+            fab = FabIdentifier.From(metadata.Fab ?? string.Empty);
+        }
+        catch (ArgumentException)
+        {
+            logger.RotationFabMismatch(integrationName, metadata.Fab ?? "(none)");
+            return;
+        }
+
+        Option<WebhookIntegration> found = await integrations.GetWithinFabAsync(fab, name, cancellationToken);
         if (!found.HasValue)
         {
             logger.RotationTargetMissing(integrationName);

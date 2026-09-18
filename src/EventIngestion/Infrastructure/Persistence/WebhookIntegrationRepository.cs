@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -16,6 +17,23 @@ public sealed class WebhookIntegrationRepository(
         Ensure.That(name).IsNotNull();
         WebhookIntegration? found = await dbContext.WebhookIntegrations
             .Where(integration => integration.Name == name)
+            .FirstOrDefaultAsync(cancellationToken);
+        return found is null ? Option<WebhookIntegration>.None : Option<WebhookIntegration>.Some(found);
+    }
+
+    public async Task<Option<WebhookIntegration>> GetWithinFabAsync(
+        FabIdentifier fab, WebhookIntegrationName name, CancellationToken cancellationToken)
+    {
+        Ensure.That(fab).IsNotNull();
+        Ensure.That(name).IsNotNull();
+
+        // The fab is part of the predicate, not a check afterwards: an
+        // integration registered in another fab is never materialised, so it
+        // cannot be mutated by a caller that forgets to compare (mirrors
+        // RegisteredClientRepository.GetWithinFabAsync, spec 180).
+        WebhookIntegration? found = await dbContext.WebhookIntegrations
+            .Where(integration => integration.Name == name)
+            .Where(integration => integration.Fab == fab)
             .FirstOrDefaultAsync(cancellationToken);
         return found is null ? Option<WebhookIntegration>.None : Option<WebhookIntegration>.Some(found);
     }
