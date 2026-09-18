@@ -54,7 +54,7 @@ public sealed class ProbeAggregate : AggregateRoot<ProbeIdentifier>
     /// already catches. Its presence in the offender list proves the probe
     /// assembly is genuinely being walked.
     /// </summary>
-    public int RawCount { get; private set; }
+    public int RawCount { get; private set; } = 1;
 
     /// <summary>The issue's exact shape: a primitive behind a single generic argument.</summary>
     public IReadOnlyList<string> Tags { get; private set; } = [];
