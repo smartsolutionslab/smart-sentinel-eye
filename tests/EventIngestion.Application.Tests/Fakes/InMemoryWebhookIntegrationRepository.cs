@@ -1,3 +1,4 @@
+using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 using SmartSentinelEye.Shared.Kernel.Tests;
 using SmartSentinelEye.Shared.Kernel;
@@ -41,6 +42,23 @@ public sealed class InMemoryWebhookIntegrationRepository : IWebhookIntegrationRe
     {
         Ensure.That(name).IsNotNull();
         WebhookIntegration? found = _integrations.SingleOrDefault(i => i.Name == name);
+        return Task.FromResult(found is null
+            ? Option<WebhookIntegration>.None
+            : Option<WebhookIntegration>.Some(found));
+    }
+
+    /// <summary>
+    /// Spec 182 US2 (#2280). Mirrors the production predicate the fix adds:
+    /// fab is part of the match, not a filter applied afterwards, so an
+    /// integration registered in a different fab is never materialised for a
+    /// rotation announcement that names another one.
+    /// </summary>
+    public Task<Option<WebhookIntegration>> GetWithinFabAsync(
+        FabIdentifier fab, WebhookIntegrationName name, CancellationToken cancellationToken)
+    {
+        Ensure.That(fab).IsNotNull();
+        Ensure.That(name).IsNotNull();
+        WebhookIntegration? found = _integrations.SingleOrDefault(i => i.Name == name && i.Fab == fab);
         return Task.FromResult(found is null
             ? Option<WebhookIntegration>.None
             : Option<WebhookIntegration>.Some(found));
