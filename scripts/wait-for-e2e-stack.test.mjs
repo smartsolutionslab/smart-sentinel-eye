@@ -80,6 +80,75 @@ const allDatabases = [
   'audit-db',
 ];
 
+// Guard for #2268 / spec 181.
+//
+// `wait-for-e2e-stack.sh` waited on three ports, the gateway and the nine
+// databases' migration history, and asked nothing about whether the AppHost's
+// own composition actually started — so a resource that could not even be
+// pulled (minio, #2264) or one still `Waiting` on it (audit-observability)
+// satisfied every probe above and the gate opened over a stack that was
+// missing a service. The AppHost is meant to write a status report (plan.md
+// §2.4) naming every resource it composed and the state each reached; these
+// tests describe what the gate must do with that report, under
+// `STACK_STATUS_FILE` pointing at a fixture instead of the AppHost's real
+// path. The report format and the writer that produces it are phase 4b's job
+// (`StackStatusReport.cs`) — none of that exists yet, which is exactly why
+// the gate cannot read one today and these tests are red.
+//
+// The set of resources below stands in for "the composition" without
+// depending on the AppHost: every one is Running, except the one-shot
+// `migrations` resource, which is Finished with exit code 0 — the shape
+// spec.md's happy-path scenario describes.
+const composedResources = [
+  'postgres',
+  'rabbitmq',
+  'keycloak',
+  'minio',
+  'migrations',
+  'camera-catalog',
+  'stream-distribution',
+  'layout-composition',
+  'overlay-designer',
+  'system-variables',
+  'event-ingestion',
+  'automation',
+  'identity',
+  'audit-observability',
+  'management-web',
+  'kiosk-web',
+  'kiosk-wall',
+  'fixture-video',
+];
+
+// One line per resource in `composedResources`, `<name>\t<state>\t<exit
+// code>` (plan.md §2.4), sorted by name so a diff between two reports reads
+// cleanly. `overrides` replaces individual resources' `[state, exitCode]`.
+function statusReportBody(overrides = {}) {
+  const states = new Map(
+    composedResources.map((name) => [name, name === 'migrations' ? ['Finished', '0'] : ['Running', '']]),
+  );
+  for (const [name, entry] of Object.entries(overrides)) {
+    states.set(name, entry);
+  }
+
+  const lines = ['# stack-status v1 2026-09-18T00:00:00Z'];
+  for (const name of [...states.keys()].sort()) {
+    const [state, exitCode] = states.get(name);
+    lines.push(`${name}\t${state}\t${exitCode}`);
+  }
+  return `${lines.join('\n')}\n`;
+}
+
+// Writes a status-report fixture into its own tmp directory (never the
+// AppHost's real path) and returns the path to hand the script via
+// `STACK_STATUS_FILE`.
+function writeStatusReport(overrides) {
+  const directory = mkdtempSync(path.join(tmpdir(), 'wait-for-e2e-stack-status-'));
+  const file = path.join(directory, 'stack-status.tsv');
+  writeFileSync(file, statusReportBody(overrides));
+  return file;
+}
+
 function stubDirectory() {
   const directory = mkdtempSync(path.join(tmpdir(), 'wait-for-e2e-stack-'));
   for (const [name, body] of [
@@ -141,5 +210,78 @@ test('a stack the script cannot ask about migrations is not reported ready', { s
     result.status,
     0,
     `the script accepted a stack it could not ask about migrations (#2137):\n${result.stdout}${result.stderr}`,
+  );
+});
+
+test('a stack whose status report names a resource that never started is not reported ready (#2268)', { skip: !bashAvailable }, () => {
+  // #2264's stack exactly: every existing probe is satisfied — ports serve,
+  // the gateway answers 401, every database carries applied migrations — and
+  // the only thing wrong is a status report naming minio as FailedToStart and
+  // audit-observability as Waiting.
+  const statusFile = writeStatusReport({
+    minio: ['FailedToStart', ''],
+    'audit-observability': ['Waiting', ''],
+  });
+
+  const result = runScript({
+    STUB_DATABASES_WITH_HISTORY: allDatabases.join(' '),
+    STACK_STATUS_FILE: statusFile,
+  });
+
+  assert.notEqual(
+    result.status,
+    0,
+    `the gate opened over a stack missing minio (#2268):\n${result.stdout}${result.stderr}`,
+  );
+});
+
+test('a stack with no status report for the whole wait window is not reported ready (#2268)', { skip: !bashAvailable }, () => {
+  // "I could not ask" is not "it started" — the migration probe above already
+  // treats a question it could not ask as fatal (#2137), and this reuses that
+  // stance for the resource gate: a missing report is not best-effort.
+  const directory = mkdtempSync(path.join(tmpdir(), 'wait-for-e2e-stack-status-'));
+  const statusFile = path.join(directory, 'never-written.tsv');
+
+  const result = runScript({
+    STUB_DATABASES_WITH_HISTORY: allDatabases.join(' '),
+    STACK_STATUS_FILE: statusFile,
+  });
+
+  const output = `${result.stdout}${result.stderr}`;
+  assert.notEqual(
+    result.status,
+    0,
+    `the gate opened with no status report at all (#2268):\n${output}`,
+  );
+  assert.match(
+    output,
+    /StackStatusFile/,
+    `expected the failure to name the switch that produces the report:\n${output}`,
+  );
+});
+
+test('a one-shot resource that ended non-zero fails the gate immediately (#2268)', { skip: !bashAvailable }, () => {
+  const statusFile = writeStatusReport({
+    migrations: ['Finished', '1'],
+  });
+
+  const result = runScript({
+    STUB_DATABASES_WITH_HISTORY: allDatabases.join(' '),
+    STACK_STATUS_FILE: statusFile,
+  });
+
+  const output = `${result.stdout}${result.stderr}`;
+  assert.notEqual(
+    result.status,
+    0,
+    `the gate opened over a stack whose migrations resource exited 1 (#2268):\n${output}`,
+  );
+  // Shape, not wall-clock (the sleep stub is already instant): a fatal
+  // one-shot resource must stop the gate before it ever reaches the
+  // downstream probes that wait on it, so their messages must not appear.
+  assert.doesNotMatch(
+    output,
+    /management-web/,
+    `expected the gate to fail before spending the wait budget on resources that wait for migrations (#2268):\n${output}`,
   );
 });
