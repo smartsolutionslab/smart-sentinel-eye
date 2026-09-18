@@ -23,10 +23,10 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// never on the status code.</b> A dresden <c>clientId</c> must not appear in
 /// a munich-scoped body with no <c>fabId</c>, and the set of distinct
 /// <c>fab</c> values in that body must be exactly <c>{"munich"}</c>. Both are
-/// true today for the wrong reason (a projection that never filters), so
-/// these two must go red before the fix and green after — a status-only
-/// assertion here could never fail, which is the class of defect this repo
-/// has been bitten by repeatedly (spec 183 tasks.md).
+/// false today, because the projection never filters — that's exactly what
+/// must go red before the fix and green after; a status-only assertion here
+/// could never fail, which is the class of defect this repo has been bitten
+/// by repeatedly (spec 183 tasks.md).
 /// </para>
 ///
 /// <para>
@@ -67,12 +67,22 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
         string dresdenClientId = await EnrollKioskAsync(dresden, "dresden");
 
         using HttpClient munich = await MunichClientAsync();
+        // Enrolled explicitly rather than relying on some other test's side
+        // effect to have left a munich row behind: the second assertion below
+        // needs at least one munich row to exist by construction, not by luck
+        // of xUnit's unordered execution within the collection.
+        string munichClientId = await EnrollKioskAsync(munich, "munich");
+
         JsonElement rows = await ListAsync(munich, "/kiosks");
 
         ClientIds(rows).ShouldNotContain(
             dresdenClientId,
             "a dresden client must never appear in a munich-scoped list with no fabId — "
             + "this is the disclosure #2281 exists to close");
+        ClientIds(rows).ShouldContain(
+            munichClientId,
+            "a caller's own fab must still be listed — this is the non-empty control that makes the "
+            + "distinct-fabs assertion below mean something, rather than pass on an empty result");
         DistinctFabs(rows).ShouldBe(
             ["munich"],
             "an omitted fabId must narrow the list to the caller's own fabs, not return every fab's rows");
@@ -86,12 +96,21 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
         string dresdenClientId = await RegisterDeviceAsync(dresden, "dresden");
 
         using HttpClient munich = await MunichClientAsync();
+        // Enrolled explicitly, same reasoning as I1: the distinct-fabs
+        // assertion below needs a guaranteed munich row, not one that happens
+        // to be left behind by another test's unordered execution.
+        string munichClientId = await RegisterDeviceAsync(munich, "munich");
+
         JsonElement rows = await ListAsync(munich, "/devices");
 
         ClientIds(rows).ShouldNotContain(
             dresdenClientId,
             "a dresden device must never appear in a munich-scoped list with no fabId — "
             + "this is the disclosure #2281 exists to close");
+        ClientIds(rows).ShouldContain(
+            munichClientId,
+            "a caller's own fab must still be listed — this is the non-empty control that makes the "
+            + "distinct-fabs assertion below mean something, rather than pass on an empty result");
         DistinctFabs(rows).ShouldBe(
             ["munich"],
             "an omitted fabId must narrow the list to the caller's own fabs, not return every fab's rows");
@@ -105,12 +124,21 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
         string dresdenClientId = await CreateWebhookIntegrationAsync(dresden, "dresden");
 
         using HttpClient munich = await MunichClientAsync();
+        // Created explicitly, same reasoning as I1/I2: the distinct-fabs
+        // assertion below needs a guaranteed munich row, not one that happens
+        // to be left behind by another test's unordered execution.
+        string munichClientId = await CreateWebhookIntegrationAsync(munich, "munich");
+
         JsonElement rows = await ListAsync(munich, "/webhook-integrations");
 
         ClientIds(rows).ShouldNotContain(
             dresdenClientId,
             "a dresden webhook integration must never appear in a munich-scoped list with no fabId — "
             + "this is the disclosure #2281 exists to close");
+        ClientIds(rows).ShouldContain(
+            munichClientId,
+            "a caller's own fab must still be listed — this is the non-empty control that makes the "
+            + "distinct-fabs assertion below mean something, rather than pass on an empty result");
         DistinctFabs(rows).ShouldBe(
             ["munich"],
             "an omitted fabId must narrow the list to the caller's own fabs, not return every fab's rows");
