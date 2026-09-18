@@ -54,6 +54,7 @@ public sealed class ProbeAggregate : AggregateRoot<ProbeIdentifier>
     /// already catches. Its presence in the offender list proves the probe
     /// assembly is genuinely being walked.
     /// </summary>
+    // Non-default initializer so the private setter is genuinely exercised — S1144 flags it otherwise.
     public int RawCount { get; private set; } = 1;
 
     /// <summary>The issue's exact shape: a primitive behind a single generic argument.</summary>
