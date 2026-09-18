@@ -95,6 +95,54 @@ public class CrossFabWebhookRotationEffectIntegrationTests(AspireFixture aspire)
             "Dresden's original static bearer must still be accepted after the attempted takeover");
     }
 
+    /// <summary>
+    /// Positive control for the test above (phase-6 review finding). That
+    /// test only ever exercises the <c>None</c> branch of
+    /// <c>WebhookIntegrationRepository.GetWithinFabAsync</c>'s fab-scoped
+    /// predicate — it proves a cross-fab rotation is refused, but nothing
+    /// proves the predicate still <b>matches</b> a real row when the fab
+    /// genuinely agrees. If <c>.Where(i =&gt; i.Fab == fab)</c> ever regressed
+    /// (a broken equality, a migration that changes the column mapping),
+    /// every legitimate same-fab rotation would silently stop flipping
+    /// integrations to JWT, and the cross-fab test alone would never notice —
+    /// it only ever asserts "stayed StaticHash". A same-fab first rotation,
+    /// performed by the fab's own operator, must still reach
+    /// <see cref="BearerValidationMode.Jwt"/>.
+    /// </summary>
+    [Fact]
+    public async Task A_dresden_first_rotation_naming_its_own_integration_flips_it_to_JWT_validation()
+    {
+        using HttpClient dresdenEvents = await aspire.CreateAuthenticatedClientAsync(
+            "event-ingestion", DresdenOperator, OperatorPassword);
+        string name = UniqueName("dresden-own");
+        await RegisterStaticHashIntegrationAsync(dresdenEvents, name);
+
+        using HttpClient dresdenIdentity = await aspire.CreateAuthenticatedClientAsync(
+            "identity", DresdenOperator, OperatorPassword);
+        HttpResponseMessage rotation = await dresdenIdentity.SendAsync(CreateConditional(name, "dresden"));
+
+        rotation.StatusCode.ShouldBe(
+            HttpStatusCode.OK,
+            $"a dresden operator rotating its own integration must succeed; got "
+            + $"{(int)rotation.StatusCode} {await rotation.Content.ReadAsStringAsync()}");
+
+        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
+        (BearerValidationMode mode, string? keycloakClientId) = await ReadStateAsync(name);
+        while (mode != BearerValidationMode.Jwt && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+            (mode, keycloakClientId) = await ReadStateAsync(name);
+        }
+
+        mode.ShouldBe(
+            BearerValidationMode.Jwt,
+            $"a same-fab rotation must still flip the integration to JWT validation within the window; "
+            + $"got mode '{mode}' — if this fails, the fab-scoped predicate stopped matching a real "
+            + "row, which the cross-fab test above cannot detect on its own");
+        keycloakClientId.ShouldNotBeNull(
+            "a genuinely flipped integration must carry the KeycloakClientId the rotation minted");
+    }
+
     private static async Task<string> RegisterStaticHashIntegrationAsync(HttpClient dresdenEvents, string name)
     {
         HttpResponseMessage created = await dresdenEvents.PostAsJsonAsync(
