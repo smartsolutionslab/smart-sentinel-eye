@@ -33,26 +33,19 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
             return;
         }
 
-        FabIdentifier fab;
-        try
+        Option<FabIdentifier> fab = ParseFab(metadata, integrationName);
+        if (!fab.HasValue)
         {
-            // A null or unparsable fab is refused rather than resolved by
-            // name alone: this handler mutates a security-relevant
-            // validation mode, and an unscoped resolve is exactly how AS-5
-            // (spec 182) lets a first rotation in one fab take over an
-            // unrotated integration registered in another.
-            fab = FabIdentifier.From(metadata.Fab ?? string.Empty);
-        }
-        catch (ArgumentException)
-        {
-            logger.RotationFabMismatch(integrationName, metadata.Fab ?? "(none)");
             return;
         }
 
-        Option<WebhookIntegration> found = await integrations.GetWithinFabAsync(fab, name, cancellationToken);
+        // AS-5/AS-6 (spec 182): scoped so an integration registered in
+        // another fab is never materialised — a first rotation in one fab
+        // cannot take over an unrotated integration registered in another.
+        Option<WebhookIntegration> found = await integrations.GetWithinFabAsync(fab.Value, name, cancellationToken);
         if (!found.HasValue)
         {
-            logger.RotationTargetMissing(integrationName);
+            await LogRefusalAsync(name, integrationName, fab.Value, cancellationToken);
             return;
         }
 
@@ -61,5 +54,58 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
         await integrations.SaveAsync(cancellationToken);
 
         logger.WebhookIntegrationFlippedToJwt(integrationName, clientId);
+    }
+
+    /// <summary>
+    /// A null or unparsable fab is refused rather than resolved by name
+    /// alone: this handler mutates a security-relevant validation mode.
+    /// <c>metadata</c> is read through <c>?.</c> even though
+    /// <see cref="EventMetadata"/> is declared non-nullable on the contract
+    /// — a deserialized message missing <c>Metadata</c> yields a genuine
+    /// <see langword="null"/> at runtime regardless of that annotation
+    /// (mirrors <c>SystemVariableValueRequestedV1Handler.Handle</c>).
+    /// </summary>
+    private Option<FabIdentifier> ParseFab(EventMetadata metadata, string integrationName)
+    {
+        if (string.IsNullOrWhiteSpace(metadata?.Fab))
+        {
+            logger.RotationFabInvalid(exception: null, integrationName, "(none)");
+            return Option<FabIdentifier>.None;
+        }
+
+        try
+        {
+            return Option<FabIdentifier>.Some(FabIdentifier.From(metadata.Fab));
+        }
+        catch (ArgumentException ex)
+        {
+            logger.RotationFabInvalid(ex, integrationName, metadata.Fab);
+            return Option<FabIdentifier>.None;
+        }
+    }
+
+    /// <summary>
+    /// The scoped lookup above already refused the mutation; this only picks
+    /// the signal. A plain read against the unscoped name — a lookup this
+    /// handler is already entitled to, and one that never reaches the caller
+    /// — distinguishes "no such integration anywhere" (benign, e.g. a replay
+    /// against a deleted integration) from "exists, in a different fab" (the
+    /// actual cross-fab attempt), so the latter reaches Warning instead of
+    /// being indistinguishable from the former at Information. The victim's
+    /// real fab is still never logged — only the caller's own claimed one —
+    /// so this does not reopen the enumeration oracle AS-4/AS-9 close.
+    /// </summary>
+    private async Task LogRefusalAsync(
+        WebhookIntegrationName name, string integrationName, FabIdentifier fab, CancellationToken cancellationToken)
+    {
+        Option<WebhookIntegration> existsInAnyFab = await integrations.GetByNameAsync(name, cancellationToken);
+        if (existsInAnyFab.HasValue)
+        {
+            logger.RotationFabMismatch(integrationName, fab.Value);
+        }
+        else
+        {
+            logger.RotationTargetMissing(integrationName);
+        }
     }
 }
