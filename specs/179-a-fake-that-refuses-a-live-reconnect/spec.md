@@ -1,4 +1,4 @@
-# Spec 178 — A fake that refuses a live reconnect
+# Spec 179 — A fake that refuses a live reconnect
 
 **Issue:** #2233 (`agent:ready`, `tech-debt`, Project #13 → Todo)
 **Branch:** `test/2233-a-fake-that-refuses-a-live-reconnect`
