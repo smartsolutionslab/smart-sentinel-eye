@@ -1,6 +1,6 @@
-# Plan 180 — A gate that knows its resource set
+# Plan 181 — A gate that knows its resource set
 
-**Spec:** `specs/180-a-gate-that-knows-its-resource-set/spec.md`
+**Spec:** `specs/181-a-gate-that-knows-its-resource-set/spec.md`
 **Issue:** #2268
 **ADRs:** ADR-0108, ADR-0033, ADR-0103, ADR-0068, ADR-0037, ADR-0144, ADR-0109
 (parallelism), ADR-0105 (`Ensure.That`), ADR-0050 (logging), ADR-0049
