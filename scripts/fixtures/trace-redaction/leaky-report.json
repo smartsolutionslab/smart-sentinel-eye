@@ -1,0 +1,74 @@
+{
+  "config": {},
+  "suites": [
+    {
+      "title": "e2e/sign-in.spec.ts",
+      "file": "e2e/sign-in.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "tags": [],
+          "title": "signs in as an operator",
+          "ok": false,
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectName": "chromium",
+              "projectId": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "timedOut",
+                  "duration": 100,
+                  "error": {
+                    "message": "Timed out waiting for token eyJhbGciOiJSUzI1NiJ9.SSE_FAKE_ACCESS_TOKEN_PAYLOAD.sig"
+                  },
+                  "errors": [
+                    {
+                      "message": "Timed out waiting for token eyJhbGciOiJSUzI1NiJ9.SSE_FAKE_ACCESS_TOKEN_PAYLOAD.sig"
+                    }
+                  ],
+                  "stdout": [
+                    { "text": "note: access_token=eyJhbGciOiJSUzI1NiJ9.SSE_FAKE_ACCESS_TOKEN_PAYLOAD.sig" }
+                  ],
+                  "stderr": [
+                    { "text": "warn: Authorization: Bearer eyJhbGciOiJSUzI1NiJ9.SSE_FAKE_ACCESS_TOKEN_PAYLOAD.sig" }
+                  ],
+                  "retry": 0,
+                  "startTime": "2026-09-19T00:00:00.000Z",
+                  "attachments": [
+                    {
+                      "name": "trace",
+                      "contentType": "application/octet-stream",
+                      "body": "eyJhbGciOiJSUzI1NiJ9.SSE_FAKE_ACCESS_TOKEN_PAYLOAD.sig"
+                    }
+                  ],
+                  "annotations": []
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "e2e/sign-in.spec.ts:1",
+          "file": "e2e/sign-in.spec.ts",
+          "line": 1,
+          "column": 0
+        }
+      ],
+      "suites": []
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-19T00:00:00.000Z",
+    "duration": 1000,
+    "expected": 0,
+    "unexpected": 1,
+    "flaky": 0,
+    "skipped": 0
+  }
+}
