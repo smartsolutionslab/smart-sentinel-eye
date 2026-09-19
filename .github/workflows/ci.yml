@@ -503,8 +503,26 @@ jobs:
         run: |
           if [ -f apphost.pid ]; then kill "$(cat apphost.pid)" 2>/dev/null || true; fi
 
-      - name: Upload Playwright report
+      # #2287: a real Keycloak sign-in means a Playwright trace records a real
+      # bearer token, a real refresh token, a client secret and the seeded
+      # realm password verbatim (specs/186-a-trace-that-keeps-its-secrets/
+      # spec.md §1.3). Two independent guarantees close that off, because
+      # neither alone is enough:
+      #   1. The script itself fails closed (deletes what it cannot scrub,
+      #      plan.md §7.6) — this covers a partial failure that still exits 0.
+      #   2. The upload below is gated on `steps.scrub.outcome == 'success'`,
+      #      which is also false when this step is skipped or cancelled — so
+      #      a scrub that never ran can never be followed by an unscrubbed
+      #      upload. Do NOT add `continue-on-error: true` here: it would make
+      #      `outcome` report 'success' regardless, silently defeating
+      #      guarantee 2 while leaving it looking present.
+      - name: Scrub credentials from the Playwright artifacts
+        id: scrub
         if: always()
+        run: node scripts/scrub-playwright-artifacts.mjs
+
+      - name: Upload Playwright report
+        if: always() && steps.scrub.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-report
