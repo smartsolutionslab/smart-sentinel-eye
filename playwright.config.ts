@@ -20,7 +20,12 @@ export default defineConfig({
     : [['list']],
   use: {
     baseURL: 'http://localhost:5173',
-    trace: 'on-first-retry',
+    // #2287: a trace embeds the e2e source file that produced it by default,
+    // and this repository's e2e sources carry literal seeded realm passwords
+    // (spec.md §1.3 S6) — `sources: false` keeps the trace without exporting
+    // them. `mode` stays 'on-first-retry'; scripts/scrub-playwright-artifacts.mjs
+    // closes the rest of what a trace can carry.
+    trace: { mode: 'on-first-retry', sources: false },
     video: 'retain-on-failure',
     ignoreHTTPSErrors: true,
   },
