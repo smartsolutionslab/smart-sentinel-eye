@@ -188,11 +188,17 @@ that would read a residue as something it did not create.
 filters only `Category!=Measurement&Category!=Disruptive&Category!=Maintenance`
 — so both classes run on every integration job.
 
-Measured on 2026-09-20: the **15 most recent `ci.yml` runs on `develop` since
-2026-09-08 all report the `integration tests (Docker)` job as `success`**
-(run ids 35260128345 … 35500014633). Each of those runs executed at least three
-asserted DELETEs through `RealmProbe.DeleteAsync`. **No asserted DELETE against
-this realm has been observed failing.**
+Measured on 2026-09-20: the **15 most recent `ci.yml` runs on `develop`**
+(run ids 35260128345 … 35500014633, spanning 2026-09-17T18:39 → 2026-09-20T08:36
+— three days, not the twelve a loose reading of the id range might suggest)
+**all report the `integration tests (Docker)` job as `success`**. One of the
+15, run `35265373878`, has a `failure` run-level conclusion — its `frontend`
+job failed and `e2e` was skipped, but `integration tests (Docker)` still
+completed `success`, so it counts toward the figure below; recorded here so
+this measurement is not itself a case of reporting only the number that
+supports the hypothesis. Each of the 15 runs executed at least three asserted
+DELETEs through `RealmProbe.DeleteAsync`. **No asserted DELETE against this
+realm has been observed failing across this window.**
 
 What that prior does and does not cover:
 
