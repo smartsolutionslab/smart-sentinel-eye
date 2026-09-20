@@ -64,9 +64,32 @@ method is `public` and safe to call from a hook.
 
 ## Read an archived NDJSON object
 
+`mc` (the MinIO client CLI) isn't bundled with the stack. Install it,
+or run it via Docker from **`quay.io/minio/mc`** — MinIO's other
+official registry, now that `minio/mc` was removed from Docker Hub on
+2026-09-11 alongside `minio/minio` (#2265; #2266 made the same switch
+for the server image). Verified 2026-09-20: `docker pull
+quay.io/minio/mc:latest` succeeds and `docker run --rm
+quay.io/minio/mc:latest --version` reports a real MinIO Client
+release.
+
+The root **user** is the fixed default `minioadmin`; the root
+**password** is a generated Aspire parameter, not `minioadmin` —
+retrieve it from the Aspire dashboard's `minio-rootPassword` parameter
+(reveal the value), or run `dotnet user-secrets list --project
+src/AppHost` from the repo root and read the
+`Parameters:minio-rootPassword` key.
+
 ```bash
-# Configure mc against the dev MinIO (Aspire dashboard → minio).
-mc alias set audit http://localhost:<port> minioadmin minioadmin
+# Run mc via Docker. Mount the current directory so the alias config
+# and any downloaded chunks persist across invocations, and reach the
+# host's published port via `host.docker.internal` (works on Docker
+# Desktop; on Linux Docker add --add-host=host.docker.internal:host-gateway).
+alias mc='docker run --rm -e HOME=/work -v "$PWD:/work" -w /work quay.io/minio/mc:latest'
+
+# Configure mc against the dev MinIO (port from the Aspire dashboard;
+# password retrieved as above).
+mc alias set audit http://host.docker.internal:<port> minioadmin <root-password>
 
 # List archived objects.
 mc ls --recursive audit/audit-archive/
