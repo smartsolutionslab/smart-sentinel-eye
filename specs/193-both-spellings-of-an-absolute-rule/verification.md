@@ -6,7 +6,7 @@ below, captured 2026-09-20 against worktree `D:/Github/sse-2292`.
 ## T004 — phase 4a red, on the unmodified comparison
 
 `dotnet test tests/Architecture.Tests --filter "FullyQualifiedName~OutboxCommitTests"`
-against the tree at `ba7a94cc` (probe + companion fact added, comparison not
+against the tree at `20396249` (probe + companion fact added, comparison not
 yet widened):
 
 ```
@@ -41,7 +41,7 @@ This is the red T005/T006 fix.
 ## T009 — corpus plant, on the real `CameraCatalog.Infrastructure` assembly
 
 Steps below use `git stash` to isolate the comparison change (not the probe,
-which was already committed at `ba7a94cc`) rather than the theory's own filter
+which was already committed at `20396249`) rather than the theory's own filter
 list, and a plant in
 `src/CameraCatalog/Infrastructure/Persistence/CameraRepository.cs`:
 
