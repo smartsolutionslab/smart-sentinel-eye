@@ -16,28 +16,35 @@ For every `.cs` file under `src/*/Api`:
 
 ## Where it actually lives
 
-**This is not a separate tool.** The comparison is `SourceScanCharacterisationTests.cs`'s
-M2 region:
+**This is not a separate tool, and the M2 half described below no longer
+exists.** `SourceScanCharacterisationTests.cs` had two regions:
 
-- `AssertIdenticalAcrossRealCorpus` sweeps every file under `src/*/Api` and
-  compares two functions' output char-for-char, reporting the file, the
-  offset and both differing characters on the first mismatch — exactly AS-3's
-  requirement, not a hash.
-- `The_three_byte_identical_A_maskers_already_agree_on_every_api_source_file`
-  and `The_three_byte_identical_StatementEnd_walks_already_agree_at_every_mapping_call_in_the_real_corpus`
-  run that sweep today, before any extraction, comparing the frozen
-  per-guard copies against each other.
-- `The_two_stage_masker_preserves_length_on_every_api_source_file`,
-  `The_literal_aware_StatementEnd_walk_finds_a_terminator_for_every_mutating_mapping_in_the_real_corpus`
-  and `The_end_of_text_StatementEnd_walk_never_returns_the_not_found_sentinel_on_the_real_corpus`
-  are the smoke checks for the three shapes that have no identical sibling to
-  compare against yet.
+- **M1 — the fixture golden test, permanent.** Every fixture in
+  `SourceScanFixtures.cs` masked under every strictness and read by every
+  chain-reader shape, asserted against a pinned expected output. This is what
+  remains today, and it is the ongoing regression guard for `SourceMask` and
+  `RouteChainReader` — not a before/after diff, a fixture corpus with a known
+  answer per fixture.
+- **M2 — the frozen-copy comparison, throwaway, deleted at T29.** Before the
+  extraction existed, this region held a frozen, verbatim copy of each
+  guard's own masker/chain-reader code and swept `src/*/Api` comparing them
+  char-for-char (`AssertIdenticalAcrossRealCorpus` and named facts around
+  it) — the actual before/after proof AS-1 and AS-3 asked for, run once
+  while both the old per-guard copies and the new shared ones existed
+  side by side. T29 deleted the whole region, frozen copies included, once
+  every guard was repointed at `SourceMask` / `RouteChainReader` and had
+  nothing left to compare against.
 
-Phase 4b's T13 extends this region to compare each frozen copy against
-`SourceMask.Apply` / `RouteChainReader.StatementEnd` once those exist — at
-that point the sweep is comparing *old* against *new*, which is the actual
-before/after proof AS-1 and AS-3 ask for. T29 deletes the whole region,
-frozen copies included, once every guard is repointed.
+So a reviewer today runs the **M1 fixture facts** to convince themselves the
+shared reader still does what every fixture says it should; there is no
+standing M2 sweep to run because there is nothing left for it to compare —
+the "before" side (the frozen per-guard copies) was the thing being deleted.
+A reviewer who wants an actual before/after diff against `origin/develop`
+reconstructs it by hand: check out `origin/develop` in a second worktree, run
+the loop below there and on this branch, and diff the two outputs — the
+frozen copies this file's loop borrows are still recoverable from
+`origin/develop`'s `SourceScanCharacterisationTests.cs` even though this
+branch no longer carries them.
 
 ## Running it as a standalone before/after diff, if a reviewer wants a file
 
@@ -80,12 +87,14 @@ static string Digest(string s) =>
 The chain-end half is not reproduced as a standalone loop here: it needs an
 anchor (a mapping-call site) to ask `StatementEnd` about, and which regex
 finds an anchor is exactly the guard-specific rule spec 190 keeps out of the
-shared surface (plan.md §3.3 — "no `Read(...)` façade"). The M2 facts already
-do this correctly *inside* the test project, using each guard's own mapping
-shape (a generic `.Map[A-Za-z]*\(` for the four already-masked-input guards,
-`.(Post|Put|Patch|Delete)\(` for the literal-aware one) — that is where the
-before/after proof for the chain-end walks belongs, not in a second
-standalone script that would have to duplicate the same judgement call.
+shared surface (plan.md §3.3 — "no `Read(...)` façade"). The (now-deleted) M2
+facts did this correctly *inside* the test project, using each guard's own
+mapping shape (a generic `.Map[A-Za-z]*\(` for the four already-masked-input
+guards, `.(Post|Put|Patch|Delete)\(` for the literal-aware one) — that is
+where the before/after proof for the chain-end walks belonged while it still
+existed, and where a reviewer reconstructing it against `origin/develop`
+should put it again, not in a second standalone script that would have to
+duplicate the same judgement call.
 
 ## Why this file exists rather than only the code
 

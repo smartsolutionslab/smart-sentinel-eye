@@ -72,6 +72,19 @@ public class PaginatedConsumerTests
     private const string ApiClients = "apps/*/src/**/*.api.ts";
 
     /// <summary>
+    /// The machinery spec 190 (issue #2257) extracted out of this guard and five
+    /// others, scanned in addition to <see cref="GuardSource"/> below: an
+    /// exemption added to what every guard now shares would otherwise pass all
+    /// six self-scans silently.
+    /// </summary>
+    private static readonly string[] SharedSourceScanFiles =
+    [
+        "tests/Architecture.Tests/RepositorySource.cs",
+        "tests/Architecture.Tests/SourceMask.cs",
+        "tests/Architecture.Tests/RouteChainReader.cs",
+    ];
+
+    /// <summary>
     /// What the completeness check reports for a bounded response that no
     /// <c>build.query</c> produces. It can never equal a register row — every
     /// hook name begins <c>use</c> — so such a type arrives red rather than
@@ -365,7 +378,8 @@ public class PaginatedConsumerTests
     [InlineData("#pragma warning disable")]
     public void The_guard_offers_no_way_to_excuse_a_consumer(string mechanism)
     {
-        string[] offenders = RepositorySource.ExecutableLines(ReadRepositoryFile(GuardSource))
+        string[] offenders = SharedSourceScanFiles.Prepend(GuardSource)
+            .SelectMany(file => RepositorySource.ExecutableLines(ReadRepositoryFile(file)))
             .Where(line => line.Contains(mechanism, StringComparison.OrdinalIgnoreCase))
             .ToArray();
 

@@ -70,12 +70,20 @@ is true of five of the six and not of the sixth.
 | 6 | `tests/Architecture.Tests/PaginatedConsumerTests.cs` | spec 065 (#1982) | 643 | **`apps/*/src`**, TypeScript |
 
 **All six were run on this tree before anything was written: `Passed! - Failed:
-0, Passed: 189` for the whole Architecture.Tests project (2026-09-20,
+0, Passed: 414` for the whole Architecture.Tests project (2026-09-20,
 `dotnet test … --filter FullyQualifiedName~DeclarationTests|…EndpointScope…`
-plus the full run).** No guard currently reports a violation, so the
-characterisation baseline is "every assertion passes", not "these violations are
-listed". That is a simplification worth stating, because it is the thing that
-makes byte-identical output a usable proof rather than a wish.
+plus the full run) — the six guards' own subtotal is 199 of those 414.** No
+guard currently reports a violation, so the characterisation baseline is "every
+assertion passes", not "these violations are listed". That is a simplification
+worth stating, because it is the thing that makes byte-identical output a
+usable proof rather than a wish.
+
+**189 was a measurement error in this figure as first recorded, not a real
+prior state of the project** — a phase-6 review of the extraction this spec
+describes found the whole-project total wrong while confirming the six guards'
+own 199 was correct; re-measuring against `origin/develop` gives 414, and two
+independent readers (phase 4a's `test-writer` and the phase-6 reviewer) have
+now confirmed it.
 
 ### 1.2 The three pieces are three different counts
 
@@ -299,9 +307,9 @@ Written as Gherkin. "The six guards" means the six files in §1.1.
 
 ```gherkin
 Given origin/develop at the commit this branch was cut from
-  And the full Architecture.Tests suite passing, 189 of 189
+  And the full Architecture.Tests suite passing, 414 of 414
 When the six guards are repointed at the shared reader
-Then the full Architecture.Tests suite still passes, 189 of 189
+Then the full Architecture.Tests suite still passes, 414 of 414
   And the per-test console output of the six guards' classes is byte-identical
       to the output captured before the change, modulo durations
   And no [Fact] or [Theory] method body in any of the six files has changed
@@ -415,7 +423,7 @@ Docker, no browser — this is a test-project refactor and it verifies in second
    grep -E '^\s+(Passed|Failed)\s' /tmp/arch-before.txt | sort > /tmp/arch-before-tests.txt
    ```
 
-   Expect `Passed! - Failed: 0, Passed: 189`.
+   Expect `Passed! - Failed: 0, Passed: 414`.
 
 2. **Capture the derived surface.** Still on `origin/develop`, run the
    one-off harness `specs/190-.../tools/capture-surface.md` describes (phase 4a
