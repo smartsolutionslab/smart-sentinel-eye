@@ -32,8 +32,8 @@ namespace SmartSentinelEye.Integration.Tests;
 public class AppHostMigrationGateTests
 {
     /// <summary>
-    /// The shape a developer's <c>aspire run</c> and the end-to-end job see:
-    /// parameters only, no <c>E2ETests</c>.
+    /// Run mode with no <c>E2ETests</c>. Not the shape a developer's
+    /// <c>aspire run</c> or the end-to-end job see — neither passes a <c>Parameters:</c> argument.
     /// </summary>
     private static readonly string[] RunModeArguments =
     [

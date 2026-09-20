@@ -52,8 +52,8 @@ public class AppHostMediaMtxImageTests
     ];
 
     /// <summary>
-    /// A developer's <c>aspire run</c>, and the shape the end-to-end job boots
-    /// bar its simulator switch: all three MediaMTX containers are composed.
+    /// Run mode: all three MediaMTX containers are composed. Not the shape
+    /// CI's end-to-end job or <c>aspire run</c> boots — neither passes a <c>Parameters:</c> argument.
     /// </summary>
     [Fact]
     public async Task A_run_mode_stack_resolves_every_media_mtx_container_to_one_image()

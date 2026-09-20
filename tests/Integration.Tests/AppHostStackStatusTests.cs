@@ -42,10 +42,10 @@ public class AppHostStackStatusTests
     private const string StatusFileArgument = "StackStatusFile=";
 
     /// <summary>
-    /// The shape the end-to-end job boots: parameters, plus the switch that
-    /// disables the scenario simulator (<see cref="AppHostE2ESwitchTests"/>).
-    /// No <c>E2ETests</c> — that switch is a different lane and removes
-    /// resources (the Vite apps) the e2e job needs.
+    /// The switch that disables the scenario simulator
+    /// (<see cref="AppHostE2ESwitchTests"/>) — CI's end-to-end job actually passes
+    /// this, with no <c>Parameters:</c> argument. No <c>E2ETests</c> — that switch
+    /// is a different lane and removes resources (the Vite apps) the e2e job needs.
     /// </summary>
     private static readonly string[] E2EJobArguments =
     [

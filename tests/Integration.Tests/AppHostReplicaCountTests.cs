@@ -61,9 +61,9 @@ public class AppHostReplicaCountTests
         + "must not be changed by an unrelated slice.";
 
     /// <summary>
-    /// The shape a developer's <c>aspire run</c> and the end-to-end job boot:
-    /// parameters only, no <c>E2ETests</c>. Mirrors
-    /// <see cref="AppHostE2ESwitchTests"/>.
+    /// Run mode with no <c>E2ETests</c>. Not the shape a developer's
+    /// <c>aspire run</c> or the end-to-end job boot — neither passes a <c>Parameters:</c>
+    /// argument. Mirrors <see cref="AppHostE2ESwitchTests"/>.
     /// </summary>
     private static readonly string[] RunModeArguments =
     [
