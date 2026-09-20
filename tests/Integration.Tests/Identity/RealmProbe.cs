@@ -30,13 +30,13 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// </para>
 ///
 /// <para>
-/// The client-delete loop <b>is</b> folded — closing issue #2182's row 8.
-/// Spec 189 asked whether asserting the DELETE in
-/// <see cref="KioskInheritedPrivilegeIntegrationTests"/>' own copy would turn
-/// it red: CI run 35503359310 (PR #2463) answered green for both the
-/// enrolment-created and the directly-created populations, so the assertion
-/// added there was byte-equivalent to <see cref="DeleteAsync"/> below, and the
-/// two copies collapse into this one.
+/// The client-delete loop <b>is</b> folded — closing issue #2182's row 8. The
+/// two copies were already the same shape; spec 189 asked whether asserting
+/// the DELETE in <see cref="KioskInheritedPrivilegeIntegrationTests"/>' own
+/// copy would turn it red before collapsing them. CI run 35503359310
+/// (PR #2463) answered green for both the enrolment-created and the
+/// directly-created populations, which licensed deleting the Kiosk copy and
+/// pointing both call sites at <see cref="DeleteAsync"/> below.
 /// </para>
 /// </summary>
 public sealed class RealmProbe(AspireFixture aspire)
@@ -130,8 +130,8 @@ public sealed class RealmProbe(AspireFixture aspire)
     /// </para>
     ///
     /// <para>
-    /// Both call sites are <c>finally</c> blocks, so a throw here replaces a
-    /// failure from the body. That is the accepted cost: a cleanup that failed
+    /// All five call sites are <c>finally</c>/cleanup blocks, so a throw here
+    /// replaces a failure from the body. That is the accepted cost: a cleanup that failed
     /// silently is how a suite starts lying about the realm it runs against,
     /// and the message below names the client and the status.
     /// </para>
