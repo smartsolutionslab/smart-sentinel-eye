@@ -7,7 +7,7 @@
 # Test info
 
 - Name: fixture.spec.ts >> fixture: a page snapshot at failure time embeds the typed password value
-- Location: scripts\fixtures\trace-redaction\fixture.spec.ts:51:5
+- Location: scripts\fixtures\trace-redaction\fixture.spec.ts:54:5
 
 # Error details
 
@@ -53,54 +53,57 @@ Received: true
   20 | // file's own bytes*; an imported identifier would put only the identifier
   21 | // name in the codeframe, not the value. This mirrors the exact shape the
   22 | // review is proving: a real e2e file (e.g. `e2e/support/sign-in.ts`) has
-  23 | // `.fill('Operator1234')` as a literal in its own source, so its own
-  24 | // codeframe would embed it the same way.
-  25 | const FIXTURE_PASSWORD_VALUE = 'SSE_FAKE_PASSWORD_VALUE';
-  26 | 
-  27 | import { test, expect } from '@playwright/test';
-  28 | 
-  29 | test('fixture: a locator assertion reports the filled password value in its own call log', async ({ page }) => {
-  30 |   await page.setContent(`
-  31 |     <form>
-  32 |       <label for="password">Password</label>
-  33 |       <input id="password" type="password" />
-  34 |     </form>
-  35 |   `);
-  36 | 
-  37 |   // A genuine Playwright fill(), so the value lands in the DOM the way a
-  38 |   // real sign-in flow's does.
-  39 |   await page.locator('#password').fill(FIXTURE_PASSWORD_VALUE);
-  40 | 
-  41 |   // Deliberately mismatched, so the assertion fails. Playwright's own
-  42 |   // `toHaveValue` call log then repeats the field's actual value as a bare
-  43 |   // quoted literal — `unexpected value "SSE_FAKE_PASSWORD_VALUE"` — inside
-  44 |   // `error.message`, which the JSON reporter serialises verbatim. That shape
-  45 |   // (a quoted literal in free text) is not `"key":"value"`, not `key=value`,
-  46 |   // not a JWT and not a `Bearer ...` header, so none of the scrubber's four
-  47 |   // pattern-backstop regexes match it.
-  48 |   await expect(page.locator('#password')).toHaveValue('this-will-never-match', { timeout: 1000 });
-  49 | });
-  50 | 
-  51 | test('fixture: a page snapshot at failure time embeds the typed password value', async ({ page }) => {
-  52 |   await page.setContent(`
-  53 |     <form>
-  54 |       <label for="password">Password</label>
-  55 |       <input id="password" type="password" />
-  56 |     </form>
-  57 |   `);
-  58 | 
-  59 |   await page.locator('#password').fill(FIXTURE_PASSWORD_VALUE);
-  60 | 
-  61 |   // A plain assertion (not a locator matcher) fails while the field is
-  62 |   // still filled and the page is still open. That is what makes Playwright
-  63 |   // capture a whole-page ARIA snapshot after the test function returns
-  64 |   // (`ArtifactsRecorder._takePageSnapshot`, `page.ariaSnapshot({mode:'ai'})`)
-  65 |   // and write it into `error-context.md` under its own "# Page snapshot"
-  66 |   // heading — the same mechanism as the first test, on a different path
-  67 |   // through Playwright's own reporting code, so both are exercised for
-  68 |   // real rather than only one being assumed to generalise to the other.
-> 69 |   expect(true, 'forced failure so the page snapshot is captured while the password field is still filled').toBe(false);
+  23 | // its own literal seeded-realm-password passed to `.fill(...)` directly in
+  24 | // source, so its own codeframe would embed it the same way. (Deliberately
+  25 | // not spelling that literal here: this fixture's own policy is planted
+  26 | // SSE_FAKE_* sentinels only, and this file's source is itself captured
+  27 | // verbatim into the generated report data below.)
+  28 | const FIXTURE_PASSWORD_VALUE = 'SSE_FAKE_PASSWORD_VALUE';
+  29 | 
+  30 | import { test, expect } from '@playwright/test';
+  31 | 
+  32 | test('fixture: a locator assertion reports the filled password value in its own call log', async ({ page }) => {
+  33 |   await page.setContent(`
+  34 |     <form>
+  35 |       <label for="password">Password</label>
+  36 |       <input id="password" type="password" />
+  37 |     </form>
+  38 |   `);
+  39 | 
+  40 |   // A genuine Playwright fill(), so the value lands in the DOM the way a
+  41 |   // real sign-in flow's does.
+  42 |   await page.locator('#password').fill(FIXTURE_PASSWORD_VALUE);
+  43 | 
+  44 |   // Deliberately mismatched, so the assertion fails. Playwright's own
+  45 |   // `toHaveValue` call log then repeats the field's actual value as a bare
+  46 |   // quoted literal — `unexpected value "SSE_FAKE_PASSWORD_VALUE"` — inside
+  47 |   // `error.message`, which the JSON reporter serialises verbatim. That shape
+  48 |   // (a quoted literal in free text) is not `"key":"value"`, not `key=value`,
+  49 |   // not a JWT and not a `Bearer ...` header, so none of the scrubber's four
+  50 |   // pattern-backstop regexes match it.
+  51 |   await expect(page.locator('#password')).toHaveValue('this-will-never-match', { timeout: 1000 });
+  52 | });
+  53 | 
+  54 | test('fixture: a page snapshot at failure time embeds the typed password value', async ({ page }) => {
+  55 |   await page.setContent(`
+  56 |     <form>
+  57 |       <label for="password">Password</label>
+  58 |       <input id="password" type="password" />
+  59 |     </form>
+  60 |   `);
+  61 | 
+  62 |   await page.locator('#password').fill(FIXTURE_PASSWORD_VALUE);
+  63 | 
+  64 |   // A plain assertion (not a locator matcher) fails while the field is
+  65 |   // still filled and the page is still open. That is what makes Playwright
+  66 |   // capture a whole-page ARIA snapshot after the test function returns
+  67 |   // (`ArtifactsRecorder._takePageSnapshot`, `page.ariaSnapshot({mode:'ai'})`)
+  68 |   // and write it into `error-context.md` under its own "# Page snapshot"
+  69 |   // heading — the same mechanism as the first test, on a different path
+  70 |   // through Playwright's own reporting code, so both are exercised for
+  71 |   // real rather than only one being assumed to generalise to the other.
+> 72 |   expect(true, 'forced failure so the page snapshot is captured while the password field is still filled').toBe(false);
      |                                                                                                            ^ Error: forced failure so the page snapshot is captured while the password field is still filled
-  70 | });
-  71 | 
+  73 | });
+  74 | 
 ```
