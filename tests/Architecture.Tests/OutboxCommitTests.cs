@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.Architecture.Tests.Persistence;
 
 namespace SmartSentinelEye.Architecture.Tests;
 
@@ -62,6 +63,48 @@ public class OutboxCommitTests
         }
 
         return data;
+    }
+
+    /// <summary>
+    /// Spec 193. The issue's own counterfactual, made permanent: before the
+    /// comparison in <see cref="ReferencesSaveChanges"/> widens to both
+    /// spellings, <see cref="SyncOffenderRepository"/> commits synchronously
+    /// and is not reported — that gap is what this asserts.
+    /// <see cref="AsyncOffenderRepository"/> is the spelling the rule already
+    /// catches and must stay caught. <see cref="SeamCommitRepository"/> and
+    /// <see cref="FailureSubscriptionRepository"/> are the negative and
+    /// substring-conflict controls (<c>OutboxCommitProbe.cs</c>) — without
+    /// them this assertion could not tell a detector that is right from one
+    /// that reports every candidate it is handed.
+    ///
+    /// <para>
+    /// This calls the same <see cref="CallsSaveChangesDirectly"/> the real
+    /// theory above calls — not a reimplementation of it — over the same
+    /// namespace/name candidate filter, so a gap here is the theory's own
+    /// gap, not a copy that could disagree with it.
+    /// </para>
+    ///
+    /// <para>
+    /// The probe types live in this same test assembly, which is never a
+    /// member of <see cref="Assemblies"/> — the real theory above never sees
+    /// them, so this fact cannot turn it red.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_rule_sees_both_spellings_of_a_direct_commit()
+    {
+        List<string> offenders = [.. typeof(OutboxCommitTests).Assembly.GetTypes()
+            .Where(type => type.Namespace?.Contains(".Persistence", StringComparison.Ordinal) == true)
+            .Where(type => type.Name.EndsWith("Repository", StringComparison.Ordinal))
+            .Where(CallsSaveChangesDirectly)
+            .Select(type => type.FullName ?? type.Name)];
+
+        offenders.ShouldBe(
+            [
+                "SmartSentinelEye.Architecture.Tests.Persistence.AsyncOffenderRepository",
+                "SmartSentinelEye.Architecture.Tests.Persistence.SyncOffenderRepository",
+            ],
+            ignoreOrder: true);
     }
 
     /// <summary>
