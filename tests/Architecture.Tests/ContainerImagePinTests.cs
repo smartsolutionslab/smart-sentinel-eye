@@ -33,6 +33,22 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// <see cref="LogTailCoverageTests"/> and <c>IntegrationTestSelectionTests</c>
 /// read source for the same reason.
 /// </para>
+///
+/// <para>
+/// <b>What this scan cannot see (issue #2270).</b> It reads <b>literals</b>, so
+/// a call whose coordinates come from a hosting package rather than a string in
+/// this file is invisible to it — <c>keycloak</c>'s image today. It also has
+/// <b>no notion of call order</b>: <c>WithImage(reference)</c> resets a
+/// resource's tag to <c>latest</c> when given none, so a <c>WithImage</c> call
+/// that runs <i>after</i> <c>WithImageTag</c> silently overwrites the pin while
+/// the literal tag this scan matched keeps sitting in the file, still passing,
+/// describing a tag nothing resolves. <c>AppHostContainerImagePinTests</c>
+/// (<c>Integration.Tests</c>) is the authority for that composed claim — it
+/// reads the <c>ContainerImageAnnotation</c> the model actually carries, so the
+/// order the calls ran in is already baked into what it inspects. This scan
+/// remains the authority for what is <b>written</b>: the MediaMTX references
+/// in <c>scripts/</c> and in prose, which no application model contains.
+/// </para>
 /// </summary>
 public class ContainerImagePinTests
 {
@@ -64,7 +80,7 @@ public class ContainerImagePinTests
         RegexOptions.Compiled);
 
     [Fact]
-    public void No_container_image_in_the_app_host_runs_a_floating_tag()
+    public void Every_literal_image_tag_written_in_the_app_host_is_pinned()
     {
         Pin[] pins = AppHostPins();
 
