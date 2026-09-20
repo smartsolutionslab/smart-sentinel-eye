@@ -68,10 +68,36 @@
 //
 //   3. **The JSON report** (§7.5) — separately, `test-results/e2e-report.json`
 //      (or any `*.json` this script finds) has its `stdout`, `stderr`, every
-//      error's `message`/`stack`, and every attachment's `body` run through
-//      the same pattern backstop. These are the four fields
-//      `scripts/summarise-e2e-retries.test.mjs:17-19` already names as
-//      capable of carrying a token.
+//      error's `message`/`stack`/`codeframe`, every step's `title`/`error`,
+//      and every attachment's `body` run through the same pattern backstop.
+//      These are the fields `scripts/summarise-e2e-retries.test.mjs:17-19`
+//      already names as capable of carrying a token, plus `codeframe` and the
+//      step fields a phase-6 security review added (below).
+//
+//   4. **Report-level value sweep** (phase-6 reopen, blocker 2a) — a bare
+//      quoted literal in free text (`unexpected value "..."`, a step title's
+//      `Fill "..." locator('...')`) matches none of the four shape-based
+//      patterns above. Mirroring the trace.trace mechanism in reverse: once
+//      Playwright's own call-log wording ties a value to a credential-shaped
+//      *locator* within one test result (a `Fill "<value>" locator('<sel>')`
+//      step title, or a `Locator: locator('<sel>')` line paired with an
+//      `unexpected value "<value>"` line in the same error message), that
+//      value is swept from every string field of that same result — the
+//      report-shaped analogue of trace.trace's own selector-keyed sweep.
+//
+// The HTML reporter's `playwright-report/index.html` (phase-6 reopen,
+// blocker 1) embeds its entire report data set as a base64-encoded zip inside
+// a `<template id="playwrightReportBase64">` element. That embedded zip's
+// entries are JSON files in the same report shape, so they get layers 3 and 4
+// above, with the pattern backstop (layer 2) as a fallback for anything that
+// doesn't parse as JSON.
+//
+// `error-context.md` (phase-6 reopen, blocker 2b) is Playwright's per-failure
+// ARIA-snapshot dump. It has no distinct role for a password input — a
+// `textbox`/`searchbox` line repeats the typed value verbatim — so its
+// `# Page snapshot` section gets its own structural pass: a role line is
+// redacted when its *label* reads as credential-shaped, mirroring
+// `CREDENTIAL_SELECTOR_PATTERN` below, never because of what the value is.
 //
 // **Fail closed** (§7.6): an artifact this script cannot process — a corrupt
 // or truncated zip, a write failure — is deleted rather than left for the
@@ -249,35 +275,85 @@ function redactPasswordDomValues(node, sweepValues) {
   }
 }
 
+// Walks a record's own string-typed values (recursively — mirrors
+// `redactPasswordDomValues`'s generic tree walk) and sweeps a found value out
+// of each one *before* the record is re-serialised. This is deliberately not
+// a substring replace over the already-`JSON.stringify`'d line (phase-6
+// reopen, should-fix): that ran over the whole serialised text without
+// knowing which parts of it were inside a JSON string versus a bare
+// (unquoted) numeric/boolean/null literal, so a swept value that ever
+// collided with one of the latter could corrupt that line's JSON syntax.
+// Touching only fields that are already JSON strings — never a number,
+// boolean or null — makes that corruption impossible: whatever comes out the
+// other side is still a string, and `JSON.stringify` re-escapes it correctly.
+function sweepStringValues(node, sweepValues) {
+  if (Array.isArray(node)) {
+    for (let index = 0; index < node.length; index += 1) {
+      const child = node[index];
+      if (typeof child === 'string') {
+        node[index] = sweepString(child, sweepValues);
+      } else {
+        sweepStringValues(child, sweepValues);
+      }
+    }
+    return;
+  }
+  if (node && typeof node === 'object') {
+    for (const key of Object.keys(node)) {
+      const value = node[key];
+      if (typeof value === 'string') {
+        node[key] = sweepString(value, sweepValues);
+      } else {
+        sweepStringValues(value, sweepValues);
+      }
+    }
+  }
+}
+
+function sweepString(text, sweepValues) {
+  let result = text;
+  for (const value of sweepValues) {
+    result = result.split(value).join(REDACTED);
+  }
+  return result;
+}
+
 function redactTraceTrace(buffer) {
   const lines = buffer.toString('utf8').split('\n');
   const sweepValues = new Set();
 
-  const rewritten = lines.map((line) => {
-    if (line.trim().length === 0) return line;
-    let record;
+  // Two passes, because a value found on one line (a fill() targeting a
+  // credential-shaped selector, or a password-typed DOM value) is repeated
+  // elsewhere in this same entry as free text — a
+  // `{"type":"log",...,"message":"  fill(\"...\")"}` line, or a DOM snapshot
+  // holding it under a field that isn't itself typed `password` (a client
+  // secret's input is `type="text"`) — regardless of which line it appears
+  // on relative to where it was first found. Pass 1 parses every line and
+  // runs the structural redaction, accumulating `sweepValues`; pass 2 sweeps
+  // the complete set out of every record's own string fields before
+  // re-serialising.
+  const parsedLines = lines.map((line) => {
+    if (line.trim().length === 0) return { line, record: null };
     try {
-      record = JSON.parse(line);
+      return { line, record: JSON.parse(line) };
     } catch {
-      return line;
+      // Not a JSON line this pass understands — leave it for the pattern
+      // backstop that runs over the whole entry afterwards.
+      return { line, record: null };
     }
-    redactTraceRecord(record, sweepValues);
+  });
+
+  for (const { record } of parsedLines) {
+    if (record !== null) redactTraceRecord(record, sweepValues);
+  }
+
+  const rewritten = parsedLines.map(({ line, record }) => {
+    if (record === null) return line;
+    sweepStringValues(record, sweepValues);
     return JSON.stringify(record);
   });
 
-  let text = rewritten.join('\n');
-
-  // A value found above (a fill() targeting a credential-shaped selector, or
-  // a password-typed DOM value) is repeated elsewhere in this same entry as
-  // free text: a `{"type":"log",...,"message":"  fill(\"...\")"}` line, and
-  // a DOM snapshot can hold it under a field that isn't itself typed
-  // `password` (a client secret's input is `type="text"`). This sweeps the
-  // *value just found*, not a credential this script had to already know.
-  for (const value of sweepValues) {
-    text = text.split(value).join(REDACTED);
-  }
-
-  return Buffer.from(text, 'utf8');
+  return Buffer.from(rewritten.join('\n'), 'utf8');
 }
 
 // ---------------------------------------------------------------------------
@@ -336,13 +412,73 @@ function scrubZipFile(filePath) {
 }
 
 // ---------------------------------------------------------------------------
-// The JSON report (§7.5)
+// The JSON report (§7.5) and its report-level value sweep (phase-6 reopen,
+// blocker 2a)
 // ---------------------------------------------------------------------------
+
+// Playwright's own call-log wording for a `fill()` step, when the HTML
+// reporter's per-file report renders it as a step title: `Fill "<value>"
+// locator('<selector>')`. Both the typed value and the selector it targeted
+// are in the same string, so this is a direct structural analogue of
+// `redactTraceRecord`'s `fill` handling above — reused here because the JSON
+// report has no `fill()` action log of its own to key off.
+const FILL_STEP_TITLE_PATTERN = /Fill "([^"]*)" locator\('([^']*)'\)/g;
+// Playwright's own call-log wording when a locator assertion (e.g.
+// `toHaveValue`) fails: the failing locator is named on one line, and the
+// value actually found is repeated as a bare quoted literal a few lines
+// later — never in the same regex match, so the two are captured separately
+// and correlated by "same error message".
+const LOCATOR_LINE_PATTERN = /Locator:\s*locator\('([^']*)'\)/;
+const UNEXPECTED_VALUE_PATTERN = /unexpected value "([^"]*)"/g;
+
+// Scans one string field for either shape above and adds any value tied to a
+// credential-shaped selector to `sweepValues` — the same
+// found-once-sweep-everywhere mechanism `redactTraceTrace` already uses,
+// applied to report free text instead of a trace's own structured fill()
+// records.
+function collectReportSweepValues(text, sweepValues) {
+  if (typeof text !== 'string') return;
+
+  for (const match of text.matchAll(FILL_STEP_TITLE_PATTERN)) {
+    const [, value, selector] = match;
+    if (CREDENTIAL_SELECTOR_PATTERN.test(selector) && value.length >= MINIMUM_SWEEPABLE_VALUE_LENGTH) {
+      sweepValues.add(value);
+    }
+  }
+
+  const locatorMatch = text.match(LOCATOR_LINE_PATTERN);
+  if (locatorMatch && CREDENTIAL_SELECTOR_PATTERN.test(locatorMatch[1])) {
+    for (const match of text.matchAll(UNEXPECTED_VALUE_PATTERN)) {
+      const value = match[1];
+      if (value.length >= MINIMUM_SWEEPABLE_VALUE_LENGTH) sweepValues.add(value);
+    }
+  }
+}
+
+function collectStringValues(node, out) {
+  if (Array.isArray(node)) {
+    for (const child of node) collectStringValues(child, out);
+  } else if (node && typeof node === 'object') {
+    for (const value of Object.values(node)) collectStringValues(value, out);
+  } else if (typeof node === 'string') {
+    out.push(node);
+  }
+}
+
+function applySweepAndPatternBackstop(text, sweepValues) {
+  let result = applyPatternBackstop(text);
+  for (const value of sweepValues) {
+    result = result.split(value).join(REDACTED);
+  }
+  return result;
+}
 
 // Walks the whole report tree (`suites[].specs[].tests[].results[]...`,
 // recursively) rather than hardcoding that path, so a nested `suites[]`
 // (JSONReportSuite.suites) is covered the same way
-// `scripts/summarise-e2e-retries.mjs` already recurses it.
+// `scripts/summarise-e2e-retries.mjs` already recurses it. Also matches the
+// HTML reporter's own per-file report shape (`tests[].results[].steps[]` /
+// `.errors[]`), which nests differently but reaches the same field names.
 function redactReportNode(node) {
   if (Array.isArray(node)) {
     for (const child of node) redactReportNode(child);
@@ -350,38 +486,81 @@ function redactReportNode(node) {
   }
   if (!node || typeof node !== 'object') return;
 
-  if (Array.isArray(node.stdout)) redactTextEntries(node.stdout);
-  if (Array.isArray(node.stderr)) redactTextEntries(node.stderr);
-  if (node.error && typeof node.error === 'object') redactReportError(node.error);
-  if (Array.isArray(node.errors)) {
-    for (const error of node.errors) redactReportError(error);
+  const isResultNode =
+    (Array.isArray(node.stdout) && node.stdout.length > 0) ||
+    (Array.isArray(node.stderr) && node.stderr.length > 0) ||
+    (node.error && typeof node.error === 'object') ||
+    (Array.isArray(node.errors) && node.errors.length > 0) ||
+    (Array.isArray(node.attachments) && node.attachments.length > 0) ||
+    (Array.isArray(node.steps) && node.steps.length > 0);
+
+  if (isResultNode) {
+    redactReportResult(node);
   }
-  if (Array.isArray(node.attachments)) redactAttachments(node.attachments);
 
   for (const value of Object.values(node)) {
     redactReportNode(value);
   }
 }
 
-function redactTextEntries(entries) {
+// One "result" (a single test attempt, in either report shape) is one sweep
+// scope: every string field anywhere within it is scanned once for the
+// call-log shapes above, then the values found are swept out of every string
+// field in that same result — never across two different tests' results.
+function redactReportResult(node) {
+  const allStrings = [];
+  collectStringValues(node, allStrings);
+  const sweepValues = new Set();
+  for (const text of allStrings) collectReportSweepValues(text, sweepValues);
+
+  if (Array.isArray(node.stdout)) redactTextEntries(node.stdout, sweepValues);
+  if (Array.isArray(node.stderr)) redactTextEntries(node.stderr, sweepValues);
+  if (node.error && typeof node.error === 'object') redactReportError(node.error, sweepValues);
+  if (Array.isArray(node.errors)) {
+    for (const error of node.errors) redactReportError(error, sweepValues);
+  }
+  if (Array.isArray(node.attachments)) redactAttachments(node.attachments, sweepValues);
+  if (Array.isArray(node.steps)) redactReportSteps(node.steps, sweepValues);
+}
+
+function redactTextEntries(entries, sweepValues) {
   for (const entry of entries) {
     if (entry && typeof entry.text === 'string') {
-      entry.text = applyPatternBackstop(entry.text);
+      entry.text = applySweepAndPatternBackstop(entry.text, sweepValues);
     }
   }
 }
 
-function redactReportError(error) {
+function redactReportError(error, sweepValues) {
   if (!error || typeof error !== 'object') return;
-  if (typeof error.message === 'string') error.message = applyPatternBackstop(error.message);
-  if (typeof error.stack === 'string') error.stack = applyPatternBackstop(error.stack);
+  if (typeof error.message === 'string') error.message = applySweepAndPatternBackstop(error.message, sweepValues);
+  if (typeof error.stack === 'string') error.stack = applySweepAndPatternBackstop(error.stack, sweepValues);
+  // `codeframe` (phase-6 reopen, blocker 1): the HTML reporter's per-file
+  // report re-reads source lines around the failure into this field. A
+  // literal credential passed directly to `.fill(...)` in a real e2e file
+  // (rather than imported from a constant) lands here verbatim.
+  if (typeof error.codeframe === 'string') error.codeframe = applySweepAndPatternBackstop(error.codeframe, sweepValues);
 }
 
-function redactAttachments(attachments) {
+function redactAttachments(attachments, sweepValues) {
   for (const attachment of attachments) {
     if (attachment && typeof attachment.body === 'string') {
-      attachment.body = applyPatternBackstop(attachment.body);
+      attachment.body = applySweepAndPatternBackstop(attachment.body, sweepValues);
     }
+  }
+}
+
+// The HTML reporter's per-file report also carries a `steps[]` tree (nested
+// arbitrarily — "Before Hooks" contains its own sub-steps) with `title` and
+// `error` string fields that repeat a fill()'d value as free text (phase-6
+// reopen, blocker 1's `Fill "<value>" locator('<selector>')` step title).
+function redactReportSteps(steps, sweepValues) {
+  for (const step of steps) {
+    if (!step || typeof step !== 'object') continue;
+    if (typeof step.title === 'string') step.title = applySweepAndPatternBackstop(step.title, sweepValues);
+    if (typeof step.error === 'string') step.error = applySweepAndPatternBackstop(step.error, sweepValues);
+    if (typeof step.snippet === 'string') step.snippet = applySweepAndPatternBackstop(step.snippet, sweepValues);
+    if (Array.isArray(step.steps)) redactReportSteps(step.steps, sweepValues);
   }
 }
 
@@ -390,6 +569,140 @@ function scrubJsonReportFile(filePath) {
     const report = JSON.parse(readFileSync(filePath, 'utf8'));
     redactReportNode(report);
     writeFileSync(filePath, JSON.stringify(report, null, 2));
+    console.log(`scrub-playwright-artifacts: scrubbed ${filePath}`);
+    return 'scrubbed';
+  } catch (error) {
+    deleteUnprocessable(filePath, error);
+    return 'failed';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The HTML report (phase-6 reopen, blocker 1)
+// ---------------------------------------------------------------------------
+
+// Playwright's HTML reporter (`_writeReportData` in its own runner) embeds
+// its entire report data set — one JSON entry per test file, plus a
+// `report.json` summary — as a base64-encoded zip inside `index.html`,
+// wrapped in this template. Detected by content, not merely a `.html`
+// extension, so a plain (non-report) HTML file is never treated as a
+// candidate.
+const HTML_REPORT_TEMPLATE_PATTERN = /<template id="playwrightReportBase64">data:application\/zip;base64,([^<]+)<\/template>/;
+
+function isHtmlReportFile(filePath) {
+  if (path.extname(filePath).toLowerCase() !== '.html') return false;
+  try {
+    return HTML_REPORT_TEMPLATE_PATTERN.test(readFileSync(filePath, 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
+// The embedded zip's entries are JSON report data (the same shape
+// `redactReportNode` already walks, extended above for `codeframe` and step
+// text), so they get that same structural redaction; anything that doesn't
+// parse as JSON falls back to the pattern backstop, matching how a trace
+// zip's own non-`trace.network`/`trace.trace` entries are handled.
+function redactHtmlReportZipEntry(name, buffer) {
+  if (path.extname(name).toLowerCase() === '.json') {
+    try {
+      const parsed = JSON.parse(buffer.toString('utf8'));
+      redactReportNode(parsed);
+      return Buffer.from(JSON.stringify(parsed), 'utf8');
+    } catch {
+      // Not parseable JSON despite the extension — fall through rather than
+      // fail the whole artifact over one unexpected entry.
+    }
+  }
+  return applyPatternBackstopToEntry(buffer);
+}
+
+function scrubHtmlReportFile(filePath) {
+  try {
+    const html = readFileSync(filePath, 'utf8');
+    const match = html.match(HTML_REPORT_TEMPLATE_PATTERN);
+    if (!match) {
+      throw new Error('expected a playwrightReportBase64 template with an embedded zip');
+    }
+
+    const archive = unzipSync(Buffer.from(match[1], 'base64'));
+    const rewritten = {};
+    for (const [name, data] of Object.entries(archive)) {
+      rewritten[name] = redactHtmlReportZipEntry(name, Buffer.from(data));
+    }
+    const scrubbedBase64 = Buffer.from(zipSync(rewritten)).toString('base64');
+
+    const rewrittenHtml =
+      html.slice(0, match.index) +
+      `<template id="playwrightReportBase64">data:application/zip;base64,${scrubbedBase64}</template>` +
+      html.slice(match.index + match[0].length);
+
+    writeFileSync(filePath, rewrittenHtml, 'utf8');
+    console.log(
+      `scrub-playwright-artifacts: scrubbed ${filePath} (${Object.keys(rewritten).length} embedded report-data entries)`,
+    );
+    return 'scrubbed';
+  } catch (error) {
+    deleteUnprocessable(filePath, error);
+    return 'failed';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// error-context.md (phase-6 reopen, blocker 2b)
+// ---------------------------------------------------------------------------
+
+// Playwright's ARIA-snapshot dump, written for every failing test. A role
+// line looks like `- textbox "<label>" [ref=e3]: <value>` (optionally with
+// more `[...]` annotations, e.g. `[active]`); there is no distinct role for a
+// password input, so it falls back to the generic `textbox`/`searchbox` role
+// and the typed value is written in verbatim.
+const ARIA_ROLE_VALUE_LINE_PATTERN = /^(\s*-\s*(?:textbox|searchbox)\s+"([^"]*)"(?:\s*\[[^\]]*\])*\s*:\s*)(.*)$/;
+
+// Redacted because of what the *label* says — matching this feature's
+// existing `CREDENTIAL_SELECTOR_PATTERN` convention — never because of what
+// the value is. A legitimate field (a username, a search box) is left alone.
+// The value found this way is also added to `sweepValues`: `error-context.md`
+// carries its own `# Test source` section, which is Playwright re-reading
+// the spec file's surrounding lines the same way the HTML report's
+// `errors[].codeframe` does (blocker 1) — a literal credential passed
+// directly to `.fill(...)` in source lands there too, with no ARIA role of
+// its own to key a redaction off. This sweeps the exact value the ARIA
+// snapshot just identified out of the rest of the file, the same
+// found-once-sweep-everywhere mechanism used throughout this script.
+function redactAriaSnapshotSection(text, sweepValues) {
+  const headingMatch = text.match(/^# Page snapshot\s*$/m);
+  if (!headingMatch) return text;
+
+  const sectionStart = headingMatch.index + headingMatch[0].length;
+  const nextHeadingMatch = text.slice(sectionStart).match(/^# /m);
+  const sectionEnd = nextHeadingMatch ? sectionStart + nextHeadingMatch.index : text.length;
+
+  const redactedSection = text
+    .slice(sectionStart, sectionEnd)
+    .split('\n')
+    .map((line) => {
+      const match = line.match(ARIA_ROLE_VALUE_LINE_PATTERN);
+      if (!match) return line;
+      const [, prefix, label, value] = match;
+      if (!CREDENTIAL_SELECTOR_PATTERN.test(label)) return line;
+      if (value.length >= MINIMUM_SWEEPABLE_VALUE_LENGTH) sweepValues.add(value);
+      return `${prefix}${REDACTED}`;
+    })
+    .join('\n');
+
+  return text.slice(0, sectionStart) + redactedSection + text.slice(sectionEnd);
+}
+
+function scrubMarkdownReportFile(filePath) {
+  try {
+    const text = readFileSync(filePath, 'utf8');
+    const sweepValues = new Set();
+    let redacted = applyPatternBackstop(redactAriaSnapshotSection(text, sweepValues));
+    for (const value of sweepValues) {
+      redacted = redacted.split(value).join(REDACTED);
+    }
+    writeFileSync(filePath, redacted, 'utf8');
     console.log(`scrub-playwright-artifacts: scrubbed ${filePath}`);
     return 'scrubbed';
   } catch (error) {
@@ -446,11 +759,31 @@ function collectFiles(rootDirectory) {
 // extension (the report path) — never by a `.zip` extension (spec.md §1.4 /
 // AS-4): the HTML reporter copies one of its two attachment spellings with
 // no extension at all, and a filename filter would skip a real trace while
-// reporting success.
+// reporting success. `.md` is detected by extension (phase-6 reopen, blocker
+// 2b): Playwright always names this artifact `error-context.md`, so unlike
+// the zip case there is no naming ambiguity to guard against. The HTML
+// report is the exception in the other direction — detected by content, not
+// merely a `.html` extension (`isHtmlReportFile`), so a plain HTML file is
+// never treated as a candidate.
 function classifyCandidate(filePath) {
   if (path.extname(filePath).toLowerCase() === '.json') return 'json';
+  if (path.extname(filePath).toLowerCase() === '.md') return 'markdown';
   if (isZipFile(filePath)) return 'zip';
+  if (isHtmlReportFile(filePath)) return 'html';
   return null;
+}
+
+function scrubCandidate(file, kind) {
+  switch (kind) {
+    case 'zip':
+      return scrubZipFile(file);
+    case 'html':
+      return scrubHtmlReportFile(file);
+    case 'markdown':
+      return scrubMarkdownReportFile(file);
+    default:
+      return scrubJsonReportFile(file);
+  }
 }
 
 function main() {
@@ -489,7 +822,7 @@ function main() {
 
   let failedCount = 0;
   for (const { file, kind } of candidates) {
-    const outcome = kind === 'zip' ? scrubZipFile(file) : scrubJsonReportFile(file);
+    const outcome = scrubCandidate(file, kind);
     if (outcome === 'failed') failedCount += 1;
   }
 
