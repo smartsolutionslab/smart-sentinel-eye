@@ -432,9 +432,7 @@ describe('CameraViewer sampler window after a throw (#2314)', () => {
       expect(container.querySelector('video'), 'reporting must not cost the picture').not.toBeNull();
 
       const decoded = latencyLines('receive_to_decoded');
-      expect(decoded.length, 'a receive_to_decoded figure must have been reported after the throw').toBeGreaterThan(
-        0,
-      );
+      expect(decoded.length, 'a receive_to_decoded figure must have been reported after the throw').toBeGreaterThan(0);
       expect((decoded[0]![1] as { elapsedMilliseconds: number }).elapsedMilliseconds).toBeCloseTo(4.5, 5);
 
       // #2189's decade cadence, unaffected by this fix: one throw, one line.
