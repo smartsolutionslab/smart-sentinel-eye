@@ -20,8 +20,11 @@
 // file's own bytes*; an imported identifier would put only the identifier
 // name in the codeframe, not the value. This mirrors the exact shape the
 // review is proving: a real e2e file (e.g. `e2e/support/sign-in.ts`) has
-// `.fill('Operator1234')` as a literal in its own source, so its own
-// codeframe would embed it the same way.
+// its own literal seeded-realm-password passed to `.fill(...)` directly in
+// source, so its own codeframe would embed it the same way. (Deliberately
+// not spelling that literal here: this fixture's own policy is planted
+// SSE_FAKE_* sentinels only, and this file's source is itself captured
+// verbatim into the generated report data below.)
 const FIXTURE_PASSWORD_VALUE = 'SSE_FAKE_PASSWORD_VALUE';
 
 import { test, expect } from '@playwright/test';
