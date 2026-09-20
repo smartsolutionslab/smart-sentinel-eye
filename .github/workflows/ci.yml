@@ -513,9 +513,12 @@ jobs:
       #   2. The upload below is gated on `steps.scrub.outcome == 'success'`,
       #      which is also false when this step is skipped or cancelled — so
       #      a scrub that never ran can never be followed by an unscrubbed
-      #      upload. Do NOT add `continue-on-error: true` here: it would make
-      #      `outcome` report 'success' regardless, silently defeating
-      #      guarantee 2 while leaving it looking present.
+      #      upload. `outcome` is GitHub's pre-`continue-on-error` result
+      #      (`conclusion` is the post-override one), so this gate holds even
+      #      if `continue-on-error: true` were ever added here. Still don't
+      #      add it: a failed scrub would then no longer fail the job itself,
+      #      hiding a real problem from the job's own pass/fail signal even
+      #      though this specific gate would stay correct.
       - name: Scrub credentials from the Playwright artifacts
         id: scrub
         if: always()
