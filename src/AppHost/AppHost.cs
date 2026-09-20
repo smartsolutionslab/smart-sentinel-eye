@@ -156,7 +156,10 @@ if (isRunMode && !isE2ETests)
 // a reader reasoning about MediaMTX's behaviour needs a number they can take to
 // a changelog; the digest is recorded so the exact artifact stays recoverable.
 // Bumping is by hand — no Dependabot or Renovate config exists in this tree.
-// ContainerImagePinTests fails the build when any of this drifts apart.
+// ContainerImagePinTests fails the build when any of the three MediaMTX
+// literals written here drifts apart; AppHostContainerImagePinTests is what
+// checks the resolved claim, by reading the ContainerImageAnnotation the
+// composed model actually carries (issue #2270, spec 187).
 var mediamtx = builder
     .AddContainer("mediamtx", "bluenviron/mediamtx", "1.21.0-ffmpeg")
     .WithBindMount("Resources/mediamtx.yml", "/mediamtx.yml")
@@ -295,7 +298,12 @@ if (isRunMode && !isE2ETests)
 // reference and resets the tag to `latest` when it is given none, so it must
 // come before `WithImageTag`. `WithImageRegistry` assigns only the registry
 // field, so its position is free — it sits last so the reference reads left to
-// right.
+// right. ContainerImagePinTests cannot see this order at all — it has no
+// notion of call sequence, so a WithImage moved after WithImageTag would still
+// match its regex and still pass while the composed tag silently became
+// `latest`. AppHostContainerImagePinTests is the guard that actually enforces
+// this ordering, because it reads the ContainerImageAnnotation the model
+// resolves to, not the literals written here (issue #2270, spec 187).
 var minio = builder
     .AddMinioContainer("minio")
     .WithImage("minio/minio")
