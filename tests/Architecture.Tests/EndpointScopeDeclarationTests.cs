@@ -1267,8 +1267,8 @@ public class EndpointScopeDeclarationTests
     /// </summary>
     private static EndpointFileReading Read(string file)
     {
-        string text = WithoutComments(ReadRepositoryFile(file));
-        string masked = MaskLiterals(text);
+        string text = SourceMask.Apply(ReadRepositoryFile(file), MaskStrictness.CommentsBlankedLiteralsIntact);
+        string masked = SourceMask.Apply(text, MaskStrictness.LiteralInteriorsOnly);
 
         Dictionary<string, RouteGroup> groups = new(StringComparer.Ordinal);
         List<GroupDeclaration> declared = [];
@@ -1593,8 +1593,8 @@ public class EndpointScopeDeclarationTests
 
         foreach (string file in ApiSourceFiles())
         {
-            string text = WithoutComments(ReadRepositoryFile(file));
-            string masked = MaskLiterals(text);
+            string text = SourceMask.Apply(ReadRepositoryFile(file), MaskStrictness.CommentsBlankedLiteralsIntact);
+            string masked = SourceMask.Apply(text, MaskStrictness.LiteralInteriorsOnly);
             HashSet<string> builders = RouteBuilderNames(masked);
 
             foreach (Match site in OutsideTheChainSite.Matches(masked))
@@ -1852,121 +1852,8 @@ public class EndpointScopeDeclarationTests
         return File.ReadAllText(path).Replace("\r", string.Empty, StringComparison.Ordinal);
     }
 
-    private static string Masked(string source) => MaskLiterals(WithoutComments(source));
-
-    /// <summary>
-    /// The source with every comment replaced by spaces, newlines kept, length
-    /// preserved — so every offset still names the same line. A semicolon in a
-    /// comment would otherwise end a chain early, and three sit inside
-    /// <c>StreamEndpoints.MapStreamEndpoints</c> between the chains they explain
-    /// — lines 31, 58 and 76. An earlier draft of this sentence cited the
-    /// <c>Map*</c> sample in <c>RequireScopeExtensions</c>' XML doc instead,
-    /// which is in <c>src/ServiceDefaults</c>: outside <c>src/*/Api</c>, and so
-    /// never read by this guard at all.
-    /// </summary>
-    private static string WithoutComments(string source)
-    {
-        char[] result = source.ToCharArray();
-        int index = 0;
-
-        while (index < source.Length)
-        {
-            char current = source[index];
-
-            if (current == '/' && Next(source, index) == '/')
-            {
-                while (index < source.Length && source[index] != '\n')
-                {
-                    result[index++] = ' ';
-                }
-
-                continue;
-            }
-
-            if (current == '/' && Next(source, index) == '*')
-            {
-                while (index < source.Length && !(source[index] == '*' && Next(source, index) == '/'))
-                {
-                    if (source[index] != '\n')
-                    {
-                        result[index] = ' ';
-                    }
-
-                    index++;
-                }
-
-                for (int blank = 0; blank < 2 && index < source.Length; blank++)
-                {
-                    result[index++] = ' ';
-                }
-
-                continue;
-            }
-
-            if (current == '@' && Next(source, index) == '"')
-            {
-                index = EndOfLiteral(source, index + 1, verbatim: true);
-                continue;
-            }
-
-            if (current is '"' or '\'')
-            {
-                index = EndOfLiteral(source, index, verbatim: false);
-                continue;
-            }
-
-            index++;
-        }
-
-        return new string(result);
-    }
-
-    /// <summary>
-    /// The same text with the <em>interior</em> of every literal blanked, quotes
-    /// and length kept. Structural searches run on this; literal contents are
-    /// then taken from the unmasked text at the very same offsets. It is what
-    /// lets a summary contain a semicolon — several do — without ending the
-    /// statement that carries it.
-    /// </summary>
-    private static string MaskLiterals(string text)
-    {
-        char[] result = text.ToCharArray();
-        int index = 0;
-
-        while (index < text.Length)
-        {
-            int start;
-            int end;
-
-            if (text[index] == '@' && Next(text, index) == '"')
-            {
-                start = index + 1;
-                end = EndOfLiteral(text, index + 1, verbatim: true);
-            }
-            else if (text[index] is '"' or '\'')
-            {
-                start = index;
-                end = EndOfLiteral(text, index, verbatim: false);
-            }
-            else
-            {
-                index++;
-                continue;
-            }
-
-            for (int inner = start + 1; inner < end - 1 && inner < text.Length; inner++)
-            {
-                if (result[inner] != '\n')
-                {
-                    result[inner] = ' ';
-                }
-            }
-
-            index = Math.Max(end, index + 1);
-        }
-
-        return new string(result);
-    }
+    private static string Masked(string source) =>
+        SourceMask.Apply(SourceMask.Apply(source, MaskStrictness.CommentsBlankedLiteralsIntact), MaskStrictness.LiteralInteriorsOnly);
 
     private static char Next(string text, int index) =>
         index + 1 < text.Length ? text[index + 1] : '\0';

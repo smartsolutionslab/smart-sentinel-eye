@@ -211,21 +211,6 @@ public class ConcurrencyConflictDeclarationTests
         TimeSpan.FromSeconds(5));
 
     /// <summary>
-    /// The literal forms this reader's masker does not handle. Their absence is
-    /// asserted rather than assumed: masking is what makes a commented-out
-    /// declaration uncreditable and an unbalanced bracket inside a summary
-    /// harmless, and a masker that silently mis-reads a shape it was never
-    /// taught is worse than no masking at all.
-    /// </summary>
-    private static readonly (string Form, string Why)[] UnmaskableLiteralForms =
-    [
-        ("@\"", "a verbatim string, in which a doubled quote closes nothing"),
-        ("\"\"\"", "a raw string literal, whose delimiter is longer than one quote"),
-        ("\\\"", "an escaped quote, which this reader steps over but which changes where a literal ends"),
-        ("'\"'", "a quote as a char literal, which would open a string that never closes"),
-    ];
-
-    /// <summary>
     /// Thirty-three mutating mappings, in eleven files, across eight contexts.
     /// Pinned rather than merely compared: every other count in this file is
     /// derived from one glob, so a file leaving <c>src/*/Api</c> shrinks both
@@ -777,7 +762,7 @@ public class ConcurrencyConflictDeclarationTests
         foreach (string file in ApiSourceFiles(root))
         {
             string text = Text(root, file);
-            foreach ((string form, string why) in UnmaskableLiteralForms)
+            foreach ((string form, string why) in SourceMask.UnhandledForms(MaskStrictness.CommentsOnlyLiteralsIntact))
             {
                 int at = text.IndexOf(form, StringComparison.Ordinal);
                 if (at >= 0)
@@ -856,7 +841,7 @@ public class ConcurrencyConflictDeclarationTests
             + "group.MapPost(\"/rename\", Rename)\n"
             + "    .ProducesProblem(StatusCodes.Status409Conflict);\n";
 
-        string masked = MaskComments(source);
+        string masked = SourceMask.Apply(source, MaskStrictness.CommentsOnlyLiteralsIntact);
         int end = StatementEnd(masked, 0);
 
         end.ShouldBeGreaterThan(
@@ -894,8 +879,8 @@ public class ConcurrencyConflictDeclarationTests
     /// legal C# that could arrive in an endpoint file tomorrow — <c>' '</c>,
     /// <c>','</c> and <c>'\t'</c> are already there — which is why this is a
     /// step-over in the reader rather than a ban in
-    /// <see cref="UnmaskableLiteralForms"/>: a ban detects the shape and still
-    /// leaves the count wrong.
+    /// <see cref="SourceMask.UnhandledForms"/>: a ban detects the shape and
+    /// still leaves the count wrong.
     /// </para>
     /// </summary>
     [Theory]
@@ -910,7 +895,7 @@ public class ConcurrencyConflictDeclarationTests
             + "writes.MapPost(\"/\", Register)\n"
             + "    .ProducesProblem(StatusCodes.Status409Conflict);\n";
 
-        string masked = MaskComments(source);
+        string masked = SourceMask.Apply(source, MaskStrictness.CommentsOnlyLiteralsIntact);
         int end = StatementEnd(masked, 0);
 
         end.ShouldBeGreaterThan(
@@ -1147,78 +1132,13 @@ public class ConcurrencyConflictDeclarationTests
     }
 
     /// <summary>
-    /// The source with every comment blanked to spaces, length and line breaks
-    /// preserved so offsets and line numbers still refer to the real file.
-    ///
-    /// <para>
-    /// This is the fix for a hole the earlier reader had: commenting out the
-    /// <c>.ProducesProblem(StatusCodes.Status409Conflict)</c> <em>inside</em> a
-    /// chain left all its assertions green while the generated document lost the
-    /// declaration — and the flat-sweep cross-check could not catch it, because
-    /// the sweep counted the commented line too. Catching exactly that omission
-    /// is the guard's only job.
-    /// </para>
-    ///
-    /// <para>
-    /// One pass, not two: 42 lines under <c>src/*/Api</c> carry a quote inside a
-    /// comment, so a comment pass that did not know about strings and a string
-    /// pass that did not know about comments would each corrupt what the other
-    /// relies on.
-    /// </para>
+    /// Kept as a named forwarder, not inlined, so the two call sites sharing a
+    /// line with a fluent assertion
+    /// (<see cref="A_declaration_commented_out_inside_a_chain_is_not_credited"/>)
+    /// stay byte-identical to what they were before this extraction.
     /// </summary>
-    private static string MaskComments(string text)
-    {
-        char[] masked = text.ToCharArray();
-        int i = 0;
-        while (i < text.Length)
-        {
-            if (text[i] == '"')
-            {
-                i = EndOfStringLiteral(text, i) + 1;
-            }
-            else if (Starts(text, i, "//"))
-            {
-                while (i < text.Length && text[i] != '\n')
-                {
-                    masked[i] = ' ';
-                    i++;
-                }
-            }
-            else if (Starts(text, i, "/*"))
-            {
-                i = BlankBlockComment(text, masked, i) + 1;
-            }
-            else
-            {
-                i++;
-            }
-        }
-
-        return new string(masked);
-    }
-
-    /// <summary>
-    /// Blanks a <c>/* … *&#47;</c> comment and returns the index of its last
-    /// character, leaving newlines in place so line numbers survive.
-    /// </summary>
-    private static int BlankBlockComment(string text, char[] masked, int start)
-    {
-        int close = text.IndexOf("*/", start + 2, StringComparison.Ordinal);
-        int end = close < 0 ? text.Length : close + 2;
-        for (int i = start; i < end; i++)
-        {
-            if (text[i] != '\n')
-            {
-                masked[i] = ' ';
-            }
-        }
-
-        return end - 1;
-    }
-
-    private static bool Starts(string text, int index, string token) =>
-        index + token.Length <= text.Length
-        && string.CompareOrdinal(text, index, token, 0, token.Length) == 0;
+    private static string MaskComments(string text) =>
+        SourceMask.Apply(text, MaskStrictness.CommentsOnlyLiteralsIntact);
 
     private static int LineOf(string text, int index)
     {
@@ -1247,7 +1167,7 @@ public class ConcurrencyConflictDeclarationTests
     /// blanked. Memoised because nine tests walk the same forty-odd files.
     /// </summary>
     private static string Source(DirectoryInfo root, string file) =>
-        MaskedSources.GetOrAdd(file, key => MaskComments(Text(root, key)));
+        MaskedSources.GetOrAdd(file, key => SourceMask.Apply(Text(root, key), MaskStrictness.CommentsOnlyLiteralsIntact));
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> MaskedSources =
         new(StringComparer.Ordinal);
