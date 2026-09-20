@@ -53,8 +53,13 @@ public sealed class SourceScanCharacterisationTests
         SourceMask.Apply(SourceScanFixtures.LineComment, MaskStrictness.CommentsBlankedLiteralsIntact)
             .ShouldBe("app.MapGet(\"/x\", Handler)                                       \n    .WithSummary(\"ok\");");
 
+        // LiteralInteriorsOnly is stage two of the two-stage masker
+        // (EndpointScopeDeclarationTests.cs:1856) and, applied standalone,
+        // leaves comments untouched — only CommentsBlankedLiteralsIntact
+        // (stage one) blanks them. The composed result the two-stage guard
+        // actually reads is CommentsAndLiteralInteriors's own row above.
         SourceMask.Apply(SourceScanFixtures.LineComment, MaskStrictness.LiteralInteriorsOnly)
-            .ShouldBe("app.MapGet(\"  \", Handler)                                       \n    .WithSummary(\"  \");");
+            .ShouldBe("app.MapGet(\"  \", Handler) // .ProducesProblem(Status409Conflict)\n    .WithSummary(\"  \");");
 
         SourceMask.Apply(SourceScanFixtures.LineComment, MaskStrictness.CommentsAndLiteralInteriors)
             .ShouldBe("app.MapGet(\"  \", Handler)                                       \n    .WithSummary(\"  \");");
@@ -69,8 +74,10 @@ public sealed class SourceScanCharacterisationTests
         SourceMask.Apply(SourceScanFixtures.BlockComment, MaskStrictness.CommentsBlankedLiteralsIntact)
             .ShouldBe("app.MapPost(\"/x\", Handler)\n            \n               \n    .WithSummary(\"ok\");");
 
+        // Same reason as The_LineComment_fixture_... above: standalone
+        // LiteralInteriorsOnly does not touch comments.
         SourceMask.Apply(SourceScanFixtures.BlockComment, MaskStrictness.LiteralInteriorsOnly)
-            .ShouldBe("app.MapPost(\"  \", Handler)\n            \n               \n    .WithSummary(\"  \");");
+            .ShouldBe("app.MapPost(\"  \", Handler)\n    /* spans\n       lines */\n    .WithSummary(\"  \");");
 
         SourceMask.Apply(SourceScanFixtures.BlockComment, MaskStrictness.CommentsAndLiteralInteriors)
             .ShouldBe("app.MapPost(\"  \", Handler)\n            \n               \n    .WithSummary(\"  \");");
