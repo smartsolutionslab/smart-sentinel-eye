@@ -62,6 +62,13 @@ pnpm install
 dotnet run --project src/AppHost
 ```
 
+Postgres and Keycloak run with a persistent lifetime and a data volume, so a
+plain restart is *not enough* to pick up two kinds of edit: a `WithArgs`
+change on the postgres container (needs `docker rm` of the container) or a
+realm edit under `src/AppHost/Realms/` (needs the `keycloak-data` volume
+dropped) — see the comments above each `Persistent` branch in
+`src/AppHost/AppHost.cs` for why.
+
 In the Aspire dashboard, wait for `migrations` to reach **Finished**
 and `camera-catalog` + `keycloak` + the React apps to reach
 **Running**. Then:

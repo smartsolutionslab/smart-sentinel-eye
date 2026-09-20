@@ -94,6 +94,10 @@ var postgres = builder
     // what was written.
     .WithArgs("-c", "max_connections=500");
 
+// Persistent means this container, once created, keeps running the args it was
+// created with — Docker does not re-read WithArgs (e.g. max_connections above) on
+// a mere restart. Changing them needs `docker rm` of the postgres container (the
+// data volume can stay) before the next `aspire run`, or the old value keeps running.
 if (isRunMode && !isE2ETests)
 {
     postgres
@@ -143,6 +147,11 @@ var keycloak = builder
     .WithImageRegistry("quay.io")
     .WithRealmImport("../AppHost/Realms");
 
+// Persistent means the keycloak-data volume survives AppHost restarts, so an edit to
+// Realms/smart-sentinel-eye-realm.json is NOT re-imported — WithRealmImport only runs
+// against a fresh volume. Drop the volume (`docker volume rm`, or its Aspire/Docker
+// Desktop equivalent) after a realm edit, or the stack looks healthy while still
+// running the old realm.
 if (isRunMode && !isE2ETests)
 {
     keycloak
