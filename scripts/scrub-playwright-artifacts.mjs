@@ -427,32 +427,89 @@ const FILL_STEP_TITLE_PATTERN = /Fill "([^"]*)" locator\('([^']*)'\)/g;
 // `toHaveValue`) fails: the failing locator is named on one line, and the
 // value actually found is repeated as a bare quoted literal a few lines
 // later — never in the same regex match, so the two are captured separately
-// and correlated by "same error message".
+// and correlated by "same error message". `Received:` (`unexpected value`)
+// and `Expected:` are the two sides of the same failure — round 3 reopen S3
+// found a `toHaveValue` that asserts a credential and doesn't get it, which
+// puts the credential on the `Expected:` side instead.
 const LOCATOR_LINE_PATTERN = /Locator:\s*locator\('([^']*)'\)/;
 const UNEXPECTED_VALUE_PATTERN = /unexpected value "([^"]*)"/g;
+const EXPECTED_VALUE_PATTERN = /Expected:\s*"([^"]*)"/g;
 
-// Scans one string field for either shape above and adds any value tied to a
-// credential-shaped selector to `sweepValues` — the same
+// Playwright colours this wording with ANSI SGR escapes (`\x1b[32m`, …) in
+// the JSON report — always adjacent to a token boundary, never splitting one
+// — so matching is done against an escape-stripped copy. The *value itself*
+// never contains an embedded escape, so the value strings this yields are
+// swept out of the original (unstripped) text unchanged by
+// `applySweepAndPatternBackstop`'s plain substring replace.
+const ANSI_ESCAPE_PATTERN = /\x1b\[[0-9;]*m/g;
+
+function stripAnsiCodes(text) {
+  return text.replace(ANSI_ESCAPE_PATTERN, '');
+}
+
+// Round 3 reopen, B1: a plain source-code literal assignment
+// (`const WALL_PASSWORD = 'Wall-munich-1234';`) has no `fill()`/locator
+// pairing at all — Playwright echoes it into a codeframe or snippet whenever
+// *any* test in the file fails within that codeframe mechanism's window,
+// regardless of whether that test ever touches the constant. Matched by
+// shape (a credential-shaped *identifier* being assigned), never by value,
+// mirroring `CREDENTIAL_SELECTOR_PATTERN`'s existing selector-name
+// convention.
+const SOURCE_LITERAL_ASSIGNMENT_PATTERN = /\b(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*['"]([^'"]*)['"]/g;
+
+function collectSourceLiteralSweepValues(text, sweepValues) {
+  if (typeof text !== 'string') return;
+  const plainText = stripAnsiCodes(text);
+  for (const match of plainText.matchAll(SOURCE_LITERAL_ASSIGNMENT_PATTERN)) {
+    const [, identifier, value] = match;
+    if (CREDENTIAL_SELECTOR_PATTERN.test(identifier) && value.length >= MINIMUM_SWEEPABLE_VALUE_LENGTH) {
+      sweepValues.add(value);
+    }
+  }
+}
+
+// Scans one string field for either call-log shape above and adds any value
+// tied to a credential-shaped selector to `sweepValues` — the same
 // found-once-sweep-everywhere mechanism `redactTraceTrace` already uses,
 // applied to report free text instead of a trace's own structured fill()
 // records.
 function collectReportSweepValues(text, sweepValues) {
   if (typeof text !== 'string') return;
+  const plainText = stripAnsiCodes(text);
 
-  for (const match of text.matchAll(FILL_STEP_TITLE_PATTERN)) {
+  for (const match of plainText.matchAll(FILL_STEP_TITLE_PATTERN)) {
     const [, value, selector] = match;
     if (CREDENTIAL_SELECTOR_PATTERN.test(selector) && value.length >= MINIMUM_SWEEPABLE_VALUE_LENGTH) {
       sweepValues.add(value);
     }
   }
 
-  const locatorMatch = text.match(LOCATOR_LINE_PATTERN);
+  const locatorMatch = plainText.match(LOCATOR_LINE_PATTERN);
   if (locatorMatch && CREDENTIAL_SELECTOR_PATTERN.test(locatorMatch[1])) {
-    for (const match of text.matchAll(UNEXPECTED_VALUE_PATTERN)) {
+    for (const match of plainText.matchAll(UNEXPECTED_VALUE_PATTERN)) {
+      const value = match[1];
+      if (value.length >= MINIMUM_SWEEPABLE_VALUE_LENGTH) sweepValues.add(value);
+    }
+    for (const match of plainText.matchAll(EXPECTED_VALUE_PATTERN)) {
       const value = match[1];
       if (value.length >= MINIMUM_SWEEPABLE_VALUE_LENGTH) sweepValues.add(value);
     }
   }
+}
+
+// Round 3 reopen, B1: the source-literal pairing above is deliberately NOT
+// scoped to one test result — a codeframe's window is anchored to *its own*
+// failure location, not to the constant's, so the same literal can surface
+// in one test's small (2-above/3-below) `error.snippet` window and a
+// completely different, otherwise-unrelated test's much larger (100-above/
+// 100-below) `errors[].codeframe` window, in the same file. Collected once,
+// over every string in the *whole* report document, and applied everywhere
+// (`redactReportResult` unions this into each result's own sweep set) —
+// the report-wide analogue of `redactTraceTrace`'s per-entry sweep.
+function collectDocumentSourceLiteralValues(node, sweepValues) {
+  const allStrings = [];
+  collectStringValues(node, allStrings);
+  for (const text of allStrings) collectSourceLiteralSweepValues(text, sweepValues);
 }
 
 function collectStringValues(node, out) {
@@ -473,15 +530,26 @@ function applySweepAndPatternBackstop(text, sweepValues) {
   return result;
 }
 
+// The entry point for a whole report document (a plain JSON report, or one
+// per-test-file entry from the HTML report's embedded zip). Round 3 reopen,
+// B1: a document-wide source-literal pass runs *before* the per-result walk,
+// because that leak isn't scoped to any one test's own result (see
+// `collectDocumentSourceLiteralValues`).
+function redactReport(report) {
+  const documentSweepValues = new Set();
+  collectDocumentSourceLiteralValues(report, documentSweepValues);
+  redactReportNode(report, documentSweepValues);
+}
+
 // Walks the whole report tree (`suites[].specs[].tests[].results[]...`,
 // recursively) rather than hardcoding that path, so a nested `suites[]`
 // (JSONReportSuite.suites) is covered the same way
 // `scripts/summarise-e2e-retries.mjs` already recurses it. Also matches the
 // HTML reporter's own per-file report shape (`tests[].results[].steps[]` /
 // `.errors[]`), which nests differently but reaches the same field names.
-function redactReportNode(node) {
+function redactReportNode(node, documentSweepValues) {
   if (Array.isArray(node)) {
-    for (const child of node) redactReportNode(child);
+    for (const child of node) redactReportNode(child, documentSweepValues);
     return;
   }
   if (!node || typeof node !== 'object') return;
@@ -495,22 +563,25 @@ function redactReportNode(node) {
     (Array.isArray(node.steps) && node.steps.length > 0);
 
   if (isResultNode) {
-    redactReportResult(node);
+    redactReportResult(node, documentSweepValues);
   }
 
   for (const value of Object.values(node)) {
-    redactReportNode(value);
+    redactReportNode(value, documentSweepValues);
   }
 }
 
 // One "result" (a single test attempt, in either report shape) is one sweep
 // scope: every string field anywhere within it is scanned once for the
-// call-log shapes above, then the values found are swept out of every string
-// field in that same result — never across two different tests' results.
-function redactReportResult(node) {
+// call-log shapes above, then the values found — unioned with the
+// document-wide source-literal values found by `redactReport` — are swept
+// out of every string field in that same result. The call-log shapes stay
+// scoped to "this result"; the source-literal shape is deliberately unioned
+// in from the whole document (round 3 reopen, B1).
+function redactReportResult(node, documentSweepValues) {
   const allStrings = [];
   collectStringValues(node, allStrings);
-  const sweepValues = new Set();
+  const sweepValues = new Set(documentSweepValues);
   for (const text of allStrings) collectReportSweepValues(text, sweepValues);
 
   if (Array.isArray(node.stdout)) redactTextEntries(node.stdout, sweepValues);
@@ -540,6 +611,11 @@ function redactReportError(error, sweepValues) {
   // literal credential passed directly to `.fill(...)` in a real e2e file
   // (rather than imported from a constant) lands here verbatim.
   if (typeof error.codeframe === 'string') error.codeframe = applySweepAndPatternBackstop(error.codeframe, sweepValues);
+  // `snippet` (round 3 reopen, B1): the JSON report's own small
+  // (2-above/3-below) `@babel/code-frame` window, carried on `result.error`
+  // itself rather than on an `errors[]` entry — a different field from
+  // `codeframe` above, which is the HTML report's much larger window.
+  if (typeof error.snippet === 'string') error.snippet = applySweepAndPatternBackstop(error.snippet, sweepValues);
 }
 
 function redactAttachments(attachments, sweepValues) {
@@ -567,7 +643,7 @@ function redactReportSteps(steps, sweepValues) {
 function scrubJsonReportFile(filePath) {
   try {
     const report = JSON.parse(readFileSync(filePath, 'utf8'));
-    redactReportNode(report);
+    redactReport(report);
     writeFileSync(filePath, JSON.stringify(report, null, 2));
     console.log(`scrub-playwright-artifacts: scrubbed ${filePath}`);
     return 'scrubbed';
@@ -587,19 +663,32 @@ function scrubJsonReportFile(filePath) {
 // wrapped in this template. Detected by content, not merely a `.html`
 // extension, so a plain (non-report) HTML file is never treated as a
 // candidate.
+//
+// Round 3 reopen, S1: detection and extraction are deliberately two
+// different strictness levels. `HTML_REPORT_DETECTION_PATTERN` (below) is
+// loose — it only asks "does this file mention `playwrightReportBase64`
+// anywhere" — so a harmless drift in the exact wrapping (a quote-style
+// change, extra whitespace) still gets the file *classified* as a report and
+// routed through `scrubHtmlReportFile`. `HTML_REPORT_TEMPLATE_PATTERN`
+// (extraction, used only inside `scrubHtmlReportFile`) stays strict: if the
+// wrapping really has changed in a way this script can't parse, extraction
+// fails and the file goes through the existing fail-closed
+// delete-and-exit-nonzero path instead of being silently classified as "not
+// a candidate" and uploaded untouched.
+const HTML_REPORT_DETECTION_PATTERN = /playwrightReportBase64/;
 const HTML_REPORT_TEMPLATE_PATTERN = /<template id="playwrightReportBase64">data:application\/zip;base64,([^<]+)<\/template>/;
 
 function isHtmlReportFile(filePath) {
   if (path.extname(filePath).toLowerCase() !== '.html') return false;
   try {
-    return HTML_REPORT_TEMPLATE_PATTERN.test(readFileSync(filePath, 'utf8'));
+    return HTML_REPORT_DETECTION_PATTERN.test(readFileSync(filePath, 'utf8'));
   } catch {
     return false;
   }
 }
 
 // The embedded zip's entries are JSON report data (the same shape
-// `redactReportNode` already walks, extended above for `codeframe` and step
+// `redactReport` already walks, extended above for `codeframe` and step
 // text), so they get that same structural redaction; anything that doesn't
 // parse as JSON falls back to the pattern backstop, matching how a trace
 // zip's own non-`trace.network`/`trace.trace` entries are handled.
@@ -607,7 +696,7 @@ function redactHtmlReportZipEntry(name, buffer) {
   if (path.extname(name).toLowerCase() === '.json') {
     try {
       const parsed = JSON.parse(buffer.toString('utf8'));
-      redactReportNode(parsed);
+      redactReport(parsed);
       return Buffer.from(JSON.stringify(parsed), 'utf8');
     } catch {
       // Not parseable JSON despite the extension — fall through rather than
@@ -658,6 +747,17 @@ function scrubHtmlReportFile(filePath) {
 // password input, so it falls back to the generic `textbox`/`searchbox` role
 // and the typed value is written in verbatim.
 const ARIA_ROLE_VALUE_LINE_PATTERN = /^(\s*-\s*(?:textbox|searchbox)\s+"([^"]*)"(?:\s*\[[^\]]*\])*\s*:\s*)(.*)$/;
+// Round 3 reopen, S2: an unlabelled field (no `<label>`, no `aria-label`) gets
+// no quoted accessible name at all — just the role, optional `[...]`
+// annotations (`[active]`, `[ref=e2]`) and the value. There is nothing here
+// to reason about (no label to test against `CREDENTIAL_SELECTOR_PATTERN`),
+// so — per this feature's over-redaction bias (`plan.md` §7.4) — every such
+// line is redacted regardless of what it is. This intentionally does not
+// touch a *named* line: the required `\s*:\s*` immediately after the role
+// (and any brackets) cannot follow a quoted label without also consuming its
+// opening quote, so `ARIA_ROLE_VALUE_LINE_PATTERN` above and this pattern
+// never both match the same line.
+const ARIA_UNLABELLED_ROLE_VALUE_LINE_PATTERN = /^(\s*-\s*(?:textbox|searchbox)(?:\s*\[[^\]]*\])*\s*:\s*)(.*)$/;
 
 // Redacted because of what the *label* says — matching this feature's
 // existing `CREDENTIAL_SELECTOR_PATTERN` convention — never because of what
@@ -683,9 +783,19 @@ function redactAriaSnapshotSection(text, sweepValues) {
     .split('\n')
     .map((line) => {
       const match = line.match(ARIA_ROLE_VALUE_LINE_PATTERN);
-      if (!match) return line;
-      const [, prefix, label, value] = match;
-      if (!CREDENTIAL_SELECTOR_PATTERN.test(label)) return line;
+      if (match) {
+        const [, prefix, label, value] = match;
+        if (!CREDENTIAL_SELECTOR_PATTERN.test(label)) return line;
+        if (value.length >= MINIMUM_SWEEPABLE_VALUE_LENGTH) sweepValues.add(value);
+        return `${prefix}${REDACTED}`;
+      }
+
+      // Round 3 reopen, S2: no quoted name to test at all — redact
+      // unconditionally (see the pattern's own comment above).
+      const unlabelledMatch = line.match(ARIA_UNLABELLED_ROLE_VALUE_LINE_PATTERN);
+      if (!unlabelledMatch) return line;
+      const [, prefix, value] = unlabelledMatch;
+      if (value.length === 0) return line;
       if (value.length >= MINIMUM_SWEEPABLE_VALUE_LENGTH) sweepValues.add(value);
       return `${prefix}${REDACTED}`;
     })
@@ -698,6 +808,12 @@ function scrubMarkdownReportFile(filePath) {
   try {
     const text = readFileSync(filePath, 'utf8');
     const sweepValues = new Set();
+    // Round 3 reopen, B1: scanned over the whole file (not just the "# Page
+    // snapshot" section `redactAriaSnapshotSection` walks) because the leak
+    // lives in "# Test source" instead — Playwright's own re-read of the
+    // spec file's source around the failure, the same mechanism as the HTML
+    // report's `errors[].codeframe`, just rendered as markdown here.
+    collectSourceLiteralSweepValues(text, sweepValues);
     let redacted = applyPatternBackstop(redactAriaSnapshotSection(text, sweepValues));
     for (const value of sweepValues) {
       redacted = redacted.split(value).join(REDACTED);
