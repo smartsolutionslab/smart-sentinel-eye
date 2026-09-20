@@ -117,9 +117,12 @@ public class AppHostContainerImagePinTests
     /// reference — its tag is content-addressed by Aspire, and judging it
     /// against a registry tag would fail the build over a string no registry
     /// ever sees. Its Dockerfile's own base images
-    /// (<c>src/AppHost/mosquitto/Dockerfile</c>) are a separate, currently
-    /// unguarded surface — no guard in this repository reads a Dockerfile (spec
-    /// 187 §9). The exclusion here is by <b>annotation</b>, never by resource
+    /// (<c>src/AppHost/mosquitto/Dockerfile</c>) are a separate surface, and
+    /// <c>Architecture.Tests.DockerfileUpstreamPinTests</c> is its authority
+    /// (issue #2296, spec 195) — it reads a Dockerfile's <c>FROM</c>/<c>RUN</c>
+    /// grammar directly, which this class structurally cannot: no <c>FROM</c>
+    /// line feeds into the <see cref="ContainerImageAnnotation"/> this class
+    /// inspects. The exclusion here is by <b>annotation</b>, never by resource
     /// name — a name list is a narrowing that grows silently, and an annotation
     /// check admits the next <c>AddDockerfile</c> resource automatically.
     /// </summary>
