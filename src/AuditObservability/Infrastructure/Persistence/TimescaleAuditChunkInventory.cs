@@ -53,16 +53,38 @@ public sealed class TimescaleAuditChunkInventory(
         await using AuditObservabilityDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        // `drop_chunks` accepts a window and drops every chunk whose
-        // range_end <= older_than. Passing the chunk's exact end
-        // bounds the drop to one chunk per call.
-        int count = await context.Database.ExecuteSqlInterpolatedAsync(
-            $"""
-            SELECT drop_chunks('audit_events', older_than => {chunk.OccurredUntil})
-            """,
-            cancellationToken);
+        // `drop_chunks` accepts a window and drops every chunk whose range
+        // satisfies `range_start >= newer_than AND range_end <= older_than`.
+        // `older_than` alone (the previous call) drops every *older* chunk
+        // too — not just this one; that silently destroyed un-archived
+        // chunks (#2425). Passing both of this chunk's own bounds narrows
+        // the window to exactly its half-open range, so only this chunk can
+        // ever match. `drop_chunks` is set-returning — one row per dropped
+        // chunk name — so the result is read rather than treated as a
+        // non-query row count.
+        IReadOnlyList<DroppedChunkRow> dropped = await context.Database
+            .SqlQuery<DroppedChunkRow>(
+                $"""
+                SELECT drop_chunks(
+                    'audit_events',
+                    older_than => {chunk.OccurredUntil},
+                    newer_than => {chunk.OccurredFrom})::text AS "ChunkName"
+                """)
+            .ToListAsync(cancellationToken);
 
-        logger.DroppedChunks(chunk.OccurredUntil, count);
+        if (dropped.Count == 1)
+        {
+            logger.DroppedChunk(chunk.ChunkIdentifier, dropped[0].ChunkName);
+        }
+        else if (dropped.Count == 0)
+        {
+            logger.ChunkAlreadyDropped(chunk.ChunkIdentifier, chunk.OccurredFrom, chunk.OccurredUntil);
+        }
+        else
+        {
+            logger.DroppedMoreThanOneChunk(
+                chunk.ChunkIdentifier, dropped.Count, string.Join(", ", dropped.Select(row => row.ChunkName)));
+        }
     }
 
     /// <summary>
@@ -81,4 +103,6 @@ public sealed class TimescaleAuditChunkInventory(
     }
 
     private sealed record ChunkRow(string ChunkName, DateTimeOffset RangeStart, DateTimeOffset RangeEnd);
+
+    private sealed record DroppedChunkRow(string ChunkName);
 }

@@ -114,6 +114,21 @@ match the local MD5. Once the underlying issue is resolved,
 the next nightly sweep retries the same chunk; archiver is
 idempotent (existing-object ETag match short-circuits).
 
+Before #2425 was fixed, this retry was not actually possible:
+`DropChunkAsync` called `drop_chunks` with only an upper bound
+(`older_than`), so dropping any *later* chunk also dropped every
+un-archived chunk older than it. A chunk left in place by a
+failed archive could therefore be silently destroyed by the very
+next chunk's successful drop — with nothing in the log to tell
+the difference, since the logged count was always `-1` regardless
+of how many chunks were actually removed. The fix bounds the drop
+to the chunk's own range (`older_than` **and** `newer_than`) and
+logs the dropped chunk's name, so the retry described above is
+now genuinely what happens. If you are diagnosing an incident from
+before this fix landed, treat "the chunk will retry" as false for
+that incident — check whether an older, un-archived chunk's data
+was lost when a subsequent chunk was dropped.
+
 ### `event_identifier` collisions
 
 Every `*V1` carries a globally-unique identifier; the audit
