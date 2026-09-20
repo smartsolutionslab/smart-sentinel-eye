@@ -1,5 +1,4 @@
 using System.Net.Http.Json;
-using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
@@ -52,7 +51,7 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
         }
         finally
         {
-            await DeleteClientAsync(clientId);
+            await realm.DeleteAsync(clientId, CancellationToken.None);
         }
     }
 
@@ -91,7 +90,7 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
         }
         finally
         {
-            await DeleteClientAsync(clientId);
+            await realm.DeleteAsync(clientId, CancellationToken.None);
         }
     }
 
@@ -173,26 +172,5 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
 
         return new HttpKeycloakAdminClient(
             authorised, Options.Create(options), NullLogger<HttpKeycloakAdminClient>.Instance);
-    }
-
-    private async Task DeleteClientAsync(string clientId)
-    {
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
-
-        JsonElement clients = await RealmProbe.ReadJsonAsync(
-            admin,
-            $"admin/realms/{RealmProbe.Realm}/clients?clientId={Uri.EscapeDataString(clientId)}",
-            CancellationToken.None);
-        foreach (JsonElement client in clients.EnumerateArray())
-        {
-            HttpResponseMessage deleted = await admin.DeleteAsync(
-                $"admin/realms/{RealmProbe.Realm}/clients/{client.GetProperty("id").GetString()}",
-                CancellationToken.None);
-
-            deleted.IsSuccessStatusCode.ShouldBeTrue(
-                $"removing probe client '{clientId}' answered {(int)deleted.StatusCode}; it is still "
-                + "in the realm, stamped as this suite planted it, and the next pass over this "
-                + "realm will read it as residue it did not create");
-        }
     }
 }
