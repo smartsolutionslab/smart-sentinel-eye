@@ -224,7 +224,13 @@ export function CameraViewer({
           }
         }
         previous = current;
-      })().catch((error: unknown) => reportSamplerFailure(decodeSampleFailuresRef, 'decode-sampler-failed', error));
+      })().catch((error: unknown) => {
+        // A tick that threw never reached `previous = current`, so the window
+        // it opened is still open — see the lag sampler's `.catch` below for
+        // why that is left unbounded otherwise (#2314).
+        previous = null;
+        reportSamplerFailure(decodeSampleFailuresRef, 'decode-sampler-failed', error);
+      });
     }, DECODE_SAMPLE_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
@@ -297,7 +303,16 @@ export function CameraViewer({
           }
         }
         previous = current;
-      })().catch((error: unknown) => reportSamplerFailure(lagSampleFailuresRef, 'lag-sampler-failed', error));
+      })().catch((error: unknown) => {
+        // A tick that threw never reached `previous = current`, so the window
+        // it opened is still open. Left alone, a callback (or a `getStats`)
+        // that keeps throwing pins `previous` for the whole outage, and the
+        // first tick that succeeds afterwards reports a per-frame mean over
+        // all of it — the cumulative session average `lagBetween` exists to
+        // avoid (#2314).
+        previous = null;
+        reportSamplerFailure(lagSampleFailuresRef, 'lag-sampler-failed', error);
+      });
     }, LAG_SAMPLE_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
