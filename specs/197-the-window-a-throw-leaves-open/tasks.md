@@ -261,10 +261,19 @@ drive-by comments", and the file already uses this
 ### `[T007]` Full frontend gate
 
 ```sh
+pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test
 ```
+
+`format:check` is listed first because CI runs it first (`ci.yml`'s
+`frontend` job's own first step) — a formatting deviation fails the whole
+job before Lint/Typecheck/Test ever execute. Added at phase 6 after this
+exact gap caused a real CI-blocking finding: this checklist omitted it,
+and the new test file's own one line-wrap deviation would have failed
+CI's first step silently, with none of the other (passing) gates below
+it even running to say so.
 
 Plus the two contention assertions:
 
