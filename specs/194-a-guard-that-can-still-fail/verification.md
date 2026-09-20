@@ -56,8 +56,10 @@ Total tests: 8   Passed: 7   Failed: 1
 **Sibling confirmation, same run, same injected defect** —
 `An_event_arriving_behind_a_failing_one_does_not_wait_for_it` **PASSED**
 `[181 ms]`: the sibling already guards a different thing (arrivals vs.
-retries across cycles), and this defect is invisible to it. Only `:81`'s
-test sees it — confirming the two tests are not redundant.
+retries across cycles), and this defect is invisible to it. Only
+`One_delivery_that_never_stores_does_not_hold_up_the_others` sees it —
+confirming the two tests are not redundant. (Independently re-confirmed at
+phase 6 with a fresh mutation of the same shape: same two outcomes.)
 
 **T005 — defect reverted** (`git checkout`, hash confirmed
 `d5a1fbf7...` — matches both the pre-mutation state and `origin/develop`),
@@ -135,12 +137,42 @@ d5a1fbf7a1a31fd758aa203c665530d70fd5fceb   (== origin/develop's blob)
 `dotnet build -c Release`: 0 errors, only pre-existing advisory S107/S138
 warnings unrelated to this diff.
 
+## Phase 6 — one review round, no blockers
+
+`backend-reviewer` independently reproduced the core counterfactual with
+its own fresh mutation of `RetryAsync` (not a re-run of phase 4a's),
+confirmed the sibling's independence under that separate mutation, ran the
+30s retry-test value five consecutive times (8/8 each), and — the check
+phase 4a's own tools couldn't easily make — confirmed via the tests'
+actual 10s `CancellationTokenSource` bound that a 30s window can never
+produce a hang: every observed failure lands cleanly at the 10s deadline
+with a real Shouldly assertion, never a timeout. One should-fix (the new
+docstring's first sentence read as though it condemned four unrelated,
+correct tests in the same file for "taking the default" — reworded to
+"relying on" it for their own abandonment assertion) and one nit (stale
+line-number references in this file, now fixed to name tests instead),
+both fixed. Also confirmed: `Abandoned.ShouldBe(0)` in the retry test
+isn't hollowed out by widening its window — a loop that abandons by
+attempt count rather than duration still trips it, and the window
+mechanism itself stays positively asserted by the untouched
+`Records_and_releases_a_delivery_that_never_stores`.
+
+**Governance note narrowed at phase 6**: the uncovered act isn't "this
+kind of red" in general (ADR-0139's obligation — observed failing, quoted
+verbatim — is met on its own terms) but specifically *temporarily
+mutating known-correct production code to manufacture a red*, since a
+botched revert is the one way this technique could ship a defect. T007's
+three-check revert proof (diff, hash, forced rebuild) is the mitigation,
+and it was independently reproduced twice — once by phase 4a, once by
+phase 6, with two different mutations.
+
 ## Root-cause documentation
 
 `MaximumRetryWindow`'s 500ms harness default gained a doc paragraph noting
-only the abandonment-testing cases may rely on the short default — the
-trap this whole investigation found was that 500ms is the *default*, and
-the two tests that needed something longer had drifted onto it silently.
+only a test whose own assertion depends on abandonment actually happening
+should rely on the short default — the trap this whole investigation
+found was that 500ms is the *default*, and the two tests that needed
+something longer had drifted onto it silently.
 
 ## What was NOT changed, and why
 

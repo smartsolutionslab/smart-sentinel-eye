@@ -263,11 +263,14 @@ public class PersistenceLoopHostedServiceTests
         /// exercises the same code rather than a test-only branch.
         ///
         /// <para>
-        /// Only the abandonment cases should take this default. A test that must
-        /// not be unblocked by a delivery being abandoned sets <see cref="Window"/>
-        /// instead - taking the default silently lets abandonment satisfy the
-        /// assertion, which is how the head-of-line guard came to pass under the
-        /// very defect it names (spec 194, issue #2293).
+        /// Only a test whose own assertion depends on abandonment actually
+        /// happening should rely on this default. A test whose assertion must
+        /// NOT be satisfiable by a delivery merely being abandoned sets
+        /// <see cref="Window"/> instead - relying on the default there silently
+        /// lets abandonment satisfy the assertion, which is how the head-of-line
+        /// guard came to pass under the very defect it names (spec 194, issue
+        /// #2293). Most tests in this file take the default legitimately,
+        /// because the window is never on their path at all.
         /// </para>
         /// </summary>
         private static readonly TimeSpan RetryWindow = TimeSpan.FromMilliseconds(500);
