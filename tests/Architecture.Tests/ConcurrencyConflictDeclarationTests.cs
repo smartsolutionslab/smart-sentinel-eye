@@ -725,11 +725,11 @@ public class ConcurrencyConflictDeclarationTests
             string text = Source(root, file);
             foreach (Match group in GroupPrefix.Matches(text))
             {
-                int end = StatementEnd(text, group.Index);
+                int end = RouteChainReader.StatementEnd(text, group.Index, ChainEndSentinel.NotFound, ChainLiteralHandling.StepOverStringAndCharLiterals);
                 string chain = end < 0 ? text[group.Index..] : text[group.Index..end];
                 if (chain.Contains(".Produces", StringComparison.Ordinal))
                 {
-                    offenders.Add($"{file}:{LineOf(text, group.Index)} MapGroup(\"{group.Groups["prefix"].Value}\")");
+                    offenders.Add($"{file}:{RouteChainReader.LineOf(text, group.Index)} MapGroup(\"{group.Groups["prefix"].Value}\")");
                 }
             }
         }
@@ -767,7 +767,7 @@ public class ConcurrencyConflictDeclarationTests
                 int at = text.IndexOf(form, StringComparison.Ordinal);
                 if (at >= 0)
                 {
-                    offenders.Add($"{file}:{LineOf(text, at)} contains {form} — {why}");
+                    offenders.Add($"{file}:{RouteChainReader.LineOf(text, at)} contains {form} — {why}");
                 }
             }
         }
@@ -842,7 +842,7 @@ public class ConcurrencyConflictDeclarationTests
             + "    .ProducesProblem(StatusCodes.Status409Conflict);\n";
 
         string masked = SourceMask.Apply(source, MaskStrictness.CommentsOnlyLiteralsIntact);
-        int end = StatementEnd(masked, 0);
+        int end = RouteChainReader.StatementEnd(masked, 0, ChainEndSentinel.NotFound, ChainLiteralHandling.StepOverStringAndCharLiterals);
 
         end.ShouldBeGreaterThan(
             0,
@@ -896,7 +896,7 @@ public class ConcurrencyConflictDeclarationTests
             + "    .ProducesProblem(StatusCodes.Status409Conflict);\n";
 
         string masked = SourceMask.Apply(source, MaskStrictness.CommentsOnlyLiteralsIntact);
-        int end = StatementEnd(masked, 0);
+        int end = RouteChainReader.StatementEnd(masked, 0, ChainEndSentinel.NotFound, ChainLiteralHandling.StepOverStringAndCharLiterals);
 
         end.ShouldBeGreaterThan(
             0,
@@ -956,7 +956,7 @@ public class ConcurrencyConflictDeclarationTests
 
     private static MutatingMapping Mapping(string file, string text, Match call)
     {
-        int line = LineOf(text, call.Index);
+        int line = RouteChainReader.LineOf(text, call.Index);
         string verb = call.Groups["verb"].Value.ToUpperInvariant();
         string prefix = PrecedingGroupPrefix(text, call.Index);
         int open = call.Index + call.Length;
@@ -974,7 +974,7 @@ public class ConcurrencyConflictDeclarationTests
                 "its first argument is not a plain string literal, so the route cannot be read");
         }
 
-        int end = StatementEnd(text, call.Index);
+        int end = RouteChainReader.StatementEnd(text, call.Index, ChainEndSentinel.NotFound, ChainLiteralHandling.StepOverStringAndCharLiterals);
         if (end < 0)
         {
             return new MutatingMapping(
@@ -1019,119 +1019,6 @@ public class ConcurrencyConflictDeclarationTests
     }
 
     /// <summary>
-    /// The index of the semicolon that ends the statement starting at
-    /// <paramref name="from"/>, ignoring semicolons nested inside brackets — a
-    /// chain may carry a lambda — and stepping over string literals whole.
-    ///
-    /// <para>
-    /// The literals matter. Without this, an unbalanced <c>(</c> inside a
-    /// <c>WithSummary("…")</c> leaves the depth counter permanently positive, so
-    /// the chain runs past its own <c>;</c> into the next mapping and inherits
-    /// whatever that one declares — a route can be made to look compliant by
-    /// borrowing its neighbour's 409. Comments are already blank by the time
-    /// this runs, so strings and <b>char literals</b> are what is left to step
-    /// over.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>Char literals were the same hole reached a second way, and the string
-    /// fix did not close it</b> (found in review, 2026-09-05). A <c>'('</c>
-    /// written as a char literal — in a <c>Split</c>, a <c>Trim</c>, an
-    /// <c>IndexOf</c> — is one bracket with no partner, so the depth stayed
-    /// positive exactly as an unbalanced summary had, and the chain swallowed the
-    /// mapping below it along with its 409. Banning the form would only have
-    /// detected it; stepping over it is what makes the depth count right. The
-    /// escape is honoured because <c>'\''</c> otherwise closes on its own escaped
-    /// quote and reopens on the real one, running away to the next quote in the
-    /// file.
-    /// </para>
-    /// </summary>
-    private static int StatementEnd(string text, int from)
-    {
-        int depth = 0;
-        int i = from;
-        while (i < text.Length)
-        {
-            char c = text[i];
-            if (c == '"')
-            {
-                i = EndOfStringLiteral(text, i);
-            }
-            else if (c == '\'')
-            {
-                i = EndOfCharLiteral(text, i);
-            }
-            else if (c is '(' or '[' or '{')
-            {
-                depth++;
-            }
-            else if (c is ')' or ']' or '}')
-            {
-                depth--;
-            }
-            else if (c == ';' && depth <= 0)
-            {
-                return i;
-            }
-
-            i++;
-        }
-
-        return -1;
-    }
-
-    /// <summary>
-    /// The index of the quote closing the literal opened at
-    /// <paramref name="open"/>. A newline ends the search: these files hold no
-    /// verbatim or raw literals — asserted by
-    /// <see cref="The_api_sources_use_only_the_string_and_comment_forms_this_reader_can_mask"/>
-    /// — so a quote with no partner on its own line is a reader error, and
-    /// stopping at the line end contains it instead of swallowing the rest of
-    /// the file.
-    /// </summary>
-    private static int EndOfStringLiteral(string text, int open)
-    {
-        for (int i = open + 1; i < text.Length; i++)
-        {
-            if (text[i] is '"' or '\n')
-            {
-                return i;
-            }
-        }
-
-        return text.Length - 1;
-    }
-
-    /// <summary>
-    /// The index of the quote closing the char literal opened at
-    /// <paramref name="open"/>. A backslash consumes the character after it, so
-    /// <c>'\''</c> and <c>'\\'</c> close where they really close rather than on
-    /// their own escape; a newline ends the search for the same reason it ends
-    /// <see cref="EndOfStringLiteral"/>'s.
-    /// </summary>
-    private static int EndOfCharLiteral(string text, int open)
-    {
-        int i = open + 1;
-        while (i < text.Length)
-        {
-            if (text[i] == '\\')
-            {
-                i += 2;
-                continue;
-            }
-
-            if (text[i] is '\'' or '\n')
-            {
-                return i;
-            }
-
-            i++;
-        }
-
-        return text.Length - 1;
-    }
-
-    /// <summary>
     /// Kept as a named forwarder, not inlined, so the two call sites sharing a
     /// line with a fluent assertion
     /// (<see cref="A_declaration_commented_out_inside_a_chain_is_not_credited"/>)
@@ -1139,20 +1026,6 @@ public class ConcurrencyConflictDeclarationTests
     /// </summary>
     private static string MaskComments(string text) =>
         SourceMask.Apply(text, MaskStrictness.CommentsOnlyLiteralsIntact);
-
-    private static int LineOf(string text, int index)
-    {
-        int line = 1;
-        for (int i = 0; i < index && i < text.Length; i++)
-        {
-            if (text[i] == '\n')
-            {
-                line++;
-            }
-        }
-
-        return line;
-    }
 
     /// <summary>
     /// The file's text with <c>\r</c> stripped, so a pattern anchored to a line

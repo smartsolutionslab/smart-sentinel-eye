@@ -650,21 +650,21 @@ public class StatusProducerDeclarationTests
         foreach (Match declaration in GroupDeclaration.Matches(masked))
         {
             int open = declaration.Index + declaration.Length - 1;
-            int close = Balanced(masked, open, '(', ')');
+            int close = RouteChainReader.Balanced(masked, open, '(', ')');
             if (close < 0)
             {
                 continue;
             }
 
-            int end = StatementEnd(masked, close + 1);
-            List<(int Start, int End)> arguments = SplitArguments(masked, open + 1, close);
+            int end = RouteChainReader.StatementEnd(masked, close + 1, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
+            List<(int Start, int End)> arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
             string prefix = arguments.Count > 0
-                ? Unquote(text[arguments[0].Start..arguments[0].End].Trim())
+                ? RouteChainReader.Unquote(text[arguments[0].Start..arguments[0].End].Trim())
                 : string.Empty;
 
             yield return new RouteGroup(
                 file,
-                LineOf(masked, declaration.Index),
+                RouteChainReader.LineOf(masked, declaration.Index),
                 declaration.Groups["variable"].Value,
                 prefix,
                 end < 0 ? masked[declaration.Index..] : masked[declaration.Index..end]);
@@ -685,18 +685,18 @@ public class StatusProducerDeclarationTests
         foreach (Match call in MappingCall.Matches(masked))
         {
             int open = call.Index + call.Length - 1;
-            int close = Balanced(masked, open, '(', ')');
+            int close = RouteChainReader.Balanced(masked, open, '(', ')');
             if (close < 0)
             {
                 continue;
             }
 
-            int end = StatementEnd(masked, close + 1);
+            int end = RouteChainReader.StatementEnd(masked, close + 1, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
             string chain = end < 0 ? masked[call.Index..] : masked[call.Index..end];
 
-            List<(int Start, int End)> arguments = SplitArguments(masked, open + 1, close);
+            List<(int Start, int End)> arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
             string route = arguments.Count > 0
-                ? Unquote(text[arguments[0].Start..arguments[0].End].Trim())
+                ? RouteChainReader.Unquote(text[arguments[0].Start..arguments[0].End].Trim())
                 : string.Empty;
 
             RouteGroup? group = groups.FirstOrDefault(candidate =>
@@ -705,7 +705,7 @@ public class StatusProducerDeclarationTests
 
             yield return new RouteMapping(
                 file,
-                LineOf(masked, call.Index),
+                RouteChainReader.LineOf(masked, call.Index),
                 call.Groups["verb"].Value.ToUpperInvariant(),
                 route,
                 group?.Prefix ?? string.Empty,
@@ -742,106 +742,6 @@ public class StatusProducerDeclarationTests
         }
 
         return Authorization.IsMatch(group.Chain) ? AccessKind.Authorized : AccessKind.Unclassified;
-    }
-
-    /// <summary>
-    /// The index of the semicolon that ends the statement starting at
-    /// <paramref name="from"/>, ignoring semicolons nested inside brackets.
-    /// </summary>
-    private static int StatementEnd(string masked, int from)
-    {
-        int depth = 0;
-        for (int i = from; i < masked.Length; i++)
-        {
-            char c = masked[i];
-            if (c is '(' or '[' or '{')
-            {
-                depth++;
-            }
-            else if (c is ')' or ']' or '}')
-            {
-                depth--;
-            }
-            else if (c == ';' && depth <= 0)
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    /// <summary>The half-open spans of the top-level arguments.</summary>
-    private static List<(int Start, int End)> SplitArguments(string masked, int from, int close)
-    {
-        List<(int Start, int End)> arguments = [];
-        int depth = 0;
-        int start = from;
-        for (int i = from; i < close; i++)
-        {
-            char c = masked[i];
-            if (c is '(' or '[' or '{' or '<')
-            {
-                depth++;
-            }
-            else if (c is ')' or ']' or '}' or '>')
-            {
-                depth--;
-            }
-            else if (c == ',' && depth == 0)
-            {
-                arguments.Add((start, i));
-                start = i + 1;
-            }
-        }
-
-        if (close > start)
-        {
-            arguments.Add((start, close));
-        }
-
-        return arguments;
-    }
-
-    private static string Unquote(string value) =>
-        value.Length > 1 && value[0] == '"' && value[^1] == '"' ? value[1..^1] : value;
-
-    /// <summary>The index of the delimiter matching the one at <paramref name="openIndex"/>, or -1.</summary>
-    private static int Balanced(string text, int openIndex, char open, char close)
-    {
-        int depth = 0;
-        for (int i = openIndex; i < text.Length; i++)
-        {
-            if (text[i] == open)
-            {
-                depth++;
-            }
-            else if (text[i] == close)
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return i;
-                }
-            }
-        }
-
-        return -1;
-    }
-
-
-    private static int LineOf(string text, int index)
-    {
-        int line = 1;
-        for (int i = 0; i < index && i < text.Length; i++)
-        {
-            if (text[i] == '\n')
-            {
-                line++;
-            }
-        }
-
-        return line;
     }
 
     private static string ReadRepositoryFile(string relative) =>
