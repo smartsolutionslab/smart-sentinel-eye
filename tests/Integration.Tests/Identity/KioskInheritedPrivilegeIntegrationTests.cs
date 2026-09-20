@@ -185,9 +185,14 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
             CancellationToken.None);
         foreach (JsonElement client in clients.EnumerateArray())
         {
-            await admin.DeleteAsync(
+            HttpResponseMessage deleted = await admin.DeleteAsync(
                 $"admin/realms/{RealmProbe.Realm}/clients/{client.GetProperty("id").GetString()}",
                 CancellationToken.None);
+
+            deleted.IsSuccessStatusCode.ShouldBeTrue(
+                $"removing probe client '{clientId}' answered {(int)deleted.StatusCode}; it is still "
+                + "in the realm, stamped as this suite planted it, and the next pass over this "
+                + "realm will read it as residue it did not create");
         }
     }
 }
