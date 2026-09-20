@@ -1202,7 +1202,7 @@ public class EndpointScopeDeclarationTests
             + "    .ProducesProblem(StatusCodes.Status404NotFound);\n";
 
         string masked = Masked(source);
-        int end = StatementEnd(masked, 0);
+        int end = RouteChainReader.StatementEnd(masked, 0, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
 
         end.ShouldBeLessThan(
             masked.Length,
@@ -1277,7 +1277,7 @@ public class EndpointScopeDeclarationTests
 
         foreach (Match declaration in LocalDeclaration.Matches(masked))
         {
-            int end = StatementEnd(masked, declaration.Index);
+            int end = RouteChainReader.StatementEnd(masked, declaration.Index, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
             string statement = masked[declaration.Index..end];
             if (!GroupSite.IsMatch(statement))
             {
@@ -1355,7 +1355,7 @@ public class EndpointScopeDeclarationTests
         Dictionary<string, RouteGroup> groups)
     {
         int start = site.Index;
-        int end = StatementEnd(masked, start);
+        int end = RouteChainReader.StatementEnd(masked, start, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
         string receiver = site.Groups["receiver"].Value;
         string verb = site.Groups["verb"].Value.ToUpperInvariant();
 
@@ -1623,7 +1623,7 @@ public class EndpointScopeDeclarationTests
 
         foreach (Match declaration in LocalDeclaration.Matches(masked))
         {
-            int end = StatementEnd(masked, declaration.Index);
+            int end = RouteChainReader.StatementEnd(masked, declaration.Index, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
             if (GroupSite.IsMatch(masked[declaration.Index..end]))
             {
                 names.Add(declaration.Groups["name"].Value);
@@ -1906,76 +1906,6 @@ public class EndpointScopeDeclarationTests
         return index;
     }
 
-    /// <summary>
-    /// A chain runs from its <c>Map*</c> call to the semicolon that ends its own
-    /// statement, ignoring semicolons nested inside brackets — the same
-    /// depth-counting walk as four other copies:
-    /// <c>PreconditionDeclarationTests.cs:941</c>,
-    /// <c>RouteValueRefusalDeclarationTests.cs:758</c> and
-    /// <c>StatusProducerDeclarationTests.cs:751</c> (all the same
-    /// <c>-1</c>-on-not-found loop), plus the hardened, literal-aware copy at
-    /// <c>ConcurrencyConflictDeclarationTests.cs:1056</c>. Five copies in
-    /// total, this one included.
-    ///
-    /// <para>
-    /// A statement-bodied lambda in the chain, such as
-    /// <c>.AddEndpointFilter(async (context, next) =&gt; { int probe = 1;
-    /// return await next(context); })</c>, keeps depth positive at its
-    /// internal semicolon. The still-open <c>AddEndpointFilter(</c>
-    /// parenthesis is already enough on its own — a lambda body only ever
-    /// appears as a call argument in a single-statement mapping chain, so the
-    /// brace this walk also tracks is redundant here rather than the thing
-    /// doing the work. No realistic chain in this corpus needs
-    /// <c>[</c>/<c>]</c> tracking either: a raw statement semicolon cannot
-    /// appear inside a subscript in valid C#. Demonstrated in review; no
-    /// chain in the corpus has this shape today — constructed to prove the
-    /// fix, the same way <c>ConcurrencyConflictDeclarationTests</c>
-    /// constructs its unbalanced-bracket and char-literal cases for the
-    /// sibling copy of this method. Issue 2183.
-    /// </para>
-    ///
-    /// <para>
-    /// This copy keeps returning <see cref="string.Length"/> of
-    /// <paramref name="masked"/> for "not found", where the four siblings
-    /// above return <c>-1</c>: this file's three call sites use the result
-    /// directly as a slice or search bound —
-    /// <c>masked[declaration.Index..end]</c>, which <c>GroupSite.IsMatch</c>
-    /// receives as that slice rather than as <c>end</c> itself — and as the
-    /// <c>end</c> argument to <c>FirstLiteralIn</c>, <c>FirstLiteral</c>,
-    /// <c>DeclaredAuthorization</c>, <c>DeclaredSummary</c> and
-    /// <c>ForbiddenDeclarationsIn</c>. With <c>int</c> indices,
-    /// <c>masked[x..(-1)]</c> lowers to <c>masked.Substring(x, end - x)</c>,
-    /// so the throw names the <em>length</em> parameter, not the index:
-    /// <c>ArgumentOutOfRangeException: length ('-1') must be a non-negative
-    /// value. (Parameter 'length')</c>. <c>masked[x..masked.Length]</c> is a
-    /// valid identity slice, so the contract stays as it was. Do not "fix"
-    /// this back to <c>-1</c> to match the siblings; that reintroduces the
-    /// throw at every call site the moment a chain has no trailing
-    /// semicolon.
-    /// </para>
-    /// </summary>
-    private static int StatementEnd(string masked, int start)
-    {
-        int depth = 0;
-        for (int i = start; i < masked.Length; i++)
-        {
-            char c = masked[i];
-            if (c is '(' or '[' or '{')
-            {
-                depth++;
-            }
-            else if (c is ')' or ']' or '}')
-            {
-                depth--;
-            }
-            else if (c == ';' && depth <= 0)
-            {
-                return i;
-            }
-        }
-
-        return masked.Length;
-    }
 
     private static int IndexOfCall(string masked, string call, int start, int end)
     {

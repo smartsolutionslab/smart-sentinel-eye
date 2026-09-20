@@ -223,11 +223,6 @@ public class RouteValueRefusalDeclarationTests
         RegexOptions.Compiled,
         TimeSpan.FromSeconds(5));
 
-    private static readonly Regex MethodGroupName = new(
-        @"^[A-Za-z_]\w*$",
-        RegexOptions.Compiled,
-        TimeSpan.FromSeconds(5));
-
     /// <summary>
     /// The antecedent: the handler body can answer 400. The status token covers
     /// every <c>Results.Problem(statusCode: ...)</c> refusal; the two call shapes
@@ -488,7 +483,7 @@ public class RouteValueRefusalDeclarationTests
             masked[file] = SourceMask.Apply(body, MaskStrictness.CommentsAndLiteralInteriors);
         }
 
-        List<ClassSpan> classes = files.SelectMany(file => ClassSpans(file, masked[file])).ToList();
+        List<RouteChainReader.ClassSpan> classes = files.SelectMany(file => ClassSpans(file, masked[file])).ToList();
         List<RouteGroup> groups = files.SelectMany(file => RouteGroups(file, text[file], masked[file])).ToList();
         List<ResolvedMapping> mappings = files
             .SelectMany(file => Mappings(file, text[file], masked[file], classes, groups))
@@ -521,7 +516,7 @@ public class RouteValueRefusalDeclarationTests
     /// Every class declaration in one file, with the extent of its body. A
     /// nested class works out because the innermost containing span is chosen.
     /// </summary>
-    private static IEnumerable<ClassSpan> ClassSpans(string file, string masked)
+    private static IEnumerable<RouteChainReader.ClassSpan> ClassSpans(string file, string masked)
     {
         foreach (Match declaration in ClassDeclaration.Matches(masked))
         {
@@ -531,10 +526,10 @@ public class RouteValueRefusalDeclarationTests
                 continue;
             }
 
-            int close = Balanced(masked, open, '{', '}');
+            int close = RouteChainReader.Balanced(masked, open, '{', '}');
             if (close > 0)
             {
-                yield return new ClassSpan(file, declaration.Groups["name"].Value, open, close);
+                yield return new RouteChainReader.ClassSpan(file, declaration.Groups["name"].Value, open, close);
             }
         }
     }
@@ -549,19 +544,19 @@ public class RouteValueRefusalDeclarationTests
         foreach (Match declaration in GroupDeclaration.Matches(masked))
         {
             int open = declaration.Index + declaration.Length - 1;
-            int close = Balanced(masked, open, '(', ')');
+            int close = RouteChainReader.Balanced(masked, open, '(', ')');
             if (close < 0)
             {
                 continue;
             }
 
-            int end = StatementEnd(masked, close + 1);
-            List<(int Start, int End)> arguments = SplitArguments(masked, open + 1, close);
-            string prefix = arguments.Count > 0 ? Unquote(text[arguments[0].Start..arguments[0].End].Trim()) : string.Empty;
+            int end = RouteChainReader.StatementEnd(masked, close + 1, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
+            List<(int Start, int End)> arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
+            string prefix = arguments.Count > 0 ? RouteChainReader.Unquote(text[arguments[0].Start..arguments[0].End].Trim()) : string.Empty;
 
             yield return new RouteGroup(
                 file,
-                LineOf(masked, declaration.Index),
+                RouteChainReader.LineOf(masked, declaration.Index),
                 declaration.Groups["variable"].Value,
                 prefix,
                 end < 0 ? masked[declaration.Index..] : masked[declaration.Index..end]);
@@ -578,28 +573,28 @@ public class RouteValueRefusalDeclarationTests
         string file,
         string text,
         string masked,
-        IReadOnlyList<ClassSpan> classes,
+        IReadOnlyList<RouteChainReader.ClassSpan> classes,
         IReadOnlyList<RouteGroup> groups)
     {
         foreach (Match call in MappingCall.Matches(masked))
         {
             int open = call.Index + call.Length - 1;
-            int close = Balanced(masked, open, '(', ')');
+            int close = RouteChainReader.Balanced(masked, open, '(', ')');
             if (close < 0)
             {
                 continue;
             }
 
-            int end = StatementEnd(masked, close + 1);
+            int end = RouteChainReader.StatementEnd(masked, close + 1, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
             string chain = end < 0 ? masked[call.Index..] : masked[call.Index..end];
 
-            List<(int Start, int End)> arguments = SplitArguments(masked, open + 1, close);
-            string route = arguments.Count > 0 ? Unquote(text[arguments[0].Start..arguments[0].End].Trim()) : string.Empty;
+            List<(int Start, int End)> arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
+            string route = arguments.Count > 0 ? RouteChainReader.Unquote(text[arguments[0].Start..arguments[0].End].Trim()) : string.Empty;
             string handler = arguments.Count > 1 ? text[arguments[1].Start..arguments[1].End].Trim() : string.Empty;
 
             yield return new RouteMapping(
                 file,
-                LineOf(masked, call.Index),
+                RouteChainReader.LineOf(masked, call.Index),
                 call.Groups["verb"].Value.ToUpperInvariant(),
                 route,
                 PrefixOf(groups, file, call.Groups["receiver"].Value),
@@ -621,7 +616,7 @@ public class RouteValueRefusalDeclarationTests
             .Select(g => g.Prefix)
             .FirstOrDefault() ?? string.Empty;
 
-    private static string DeclaringClass(IReadOnlyList<ClassSpan> classes, string file, int index) =>
+    private static string DeclaringClass(IReadOnlyList<RouteChainReader.ClassSpan> classes, string file, int index) =>
         classes
             .Where(c => string.Equals(c.File, file, StringComparison.Ordinal) && c.Start < index && index < c.End)
             .OrderBy(c => c.End - c.Start)
@@ -636,7 +631,7 @@ public class RouteValueRefusalDeclarationTests
     /// </summary>
     private static ResolvedMapping Resolve(
         RouteMapping mapping,
-        IReadOnlyList<ClassSpan> classes,
+        IReadOnlyList<RouteChainReader.ClassSpan> classes,
         Dictionary<string, string> masked)
     {
         if (mapping.ContainingClass.Length == 0)
@@ -644,36 +639,18 @@ public class RouteValueRefusalDeclarationTests
             return Unreadable(mapping, "the mapping is not inside a class declaration this reader can find");
         }
 
-        if (!MethodGroupName.IsMatch(mapping.HandlerArgument))
+        RouteChainReader.HandlerBody? body = RouteChainReader.HandlerBodyFor(
+            mapping.ContainingClass, mapping.HandlerArgument, mapping.File, classes, masked);
+
+        if (body is null)
         {
             return Unreadable(
                 mapping,
-                $"the handler argument '{Ellipsis(mapping.HandlerArgument)}' is not a bare method-group name");
+                $"'{mapping.ContainingClass}.{mapping.HandlerArgument}' does not resolve to exactly one bare "
+                + $"method-group declaration in {ProjectOf(mapping.File)}");
         }
 
-        string project = ProjectOf(mapping.File);
-        List<HandlerBody> candidates = classes
-            .Where(c => string.Equals(c.Name, mapping.ContainingClass, StringComparison.Ordinal)
-                && string.Equals(ProjectOf(c.File), project, StringComparison.Ordinal))
-            .SelectMany(c => MethodBodies(c, masked[c.File], mapping.HandlerArgument))
-            .ToList();
-
-        if (candidates.Count == 0)
-        {
-            return Unreadable(
-                mapping,
-                $"'{mapping.ContainingClass}.{mapping.HandlerArgument}' resolves to no method declaration in {project}");
-        }
-
-        if (candidates.Count > 1)
-        {
-            return Unreadable(
-                mapping,
-                $"'{mapping.ContainingClass}.{mapping.HandlerArgument}' resolves to {candidates.Count} method "
-                + $"declarations ({string.Join(", ", candidates.Select(c => $"{c.File}:{c.Line}"))})");
-        }
-
-        return new ResolvedMapping(mapping, candidates[0], null);
+        return new ResolvedMapping(mapping, body, null);
     }
 
     private static ResolvedMapping Unreadable(RouteMapping mapping, string failure) =>
@@ -690,184 +667,12 @@ public class RouteValueRefusalDeclarationTests
         return marker < 0 ? file : file[..(marker + 4)];
     }
 
-    /// <summary>
-    /// Every method of the given name declared directly in one class body. The
-    /// leading accessibility keyword is what separates a declaration from a call
-    /// site: a call has no modifier between it and the punctuation before it.
-    /// </summary>
-    private static IEnumerable<HandlerBody> MethodBodies(ClassSpan span, string masked, string name)
-    {
-        Regex declaration = new(
-            @"(?<!\w)(?:private|public|internal|protected)[^;{}()\n]*?\b" + Regex.Escape(name) + @"\s*\(",
-            RegexOptions.None,
-            TimeSpan.FromSeconds(5));
-
-        foreach (Match match in declaration.Matches(masked))
-        {
-            if (match.Index <= span.Start || match.Index >= span.End)
-            {
-                continue;
-            }
-
-            int close = Balanced(masked, match.Index + match.Length - 1, '(', ')');
-            if (close < 0)
-            {
-                continue;
-            }
-
-            HandlerBody? body = BodyAfter(span.File, masked, match.Index, close);
-            if (body is not null)
-            {
-                yield return body;
-            }
-        }
-    }
-
-    /// <summary>
-    /// The body of a method whose parameter list ends at
-    /// <paramref name="close"/> — block or expression-bodied. A declaration with
-    /// neither has no body to read and is not a candidate.
-    /// </summary>
-    private static HandlerBody? BodyAfter(string file, string masked, int declaration, int close)
-    {
-        int brace = masked.IndexOf('{', close + 1);
-        int semicolon = masked.IndexOf(';', close + 1);
-        int arrow = masked.IndexOf("=>", close + 1, StringComparison.Ordinal);
-        int line = LineOf(masked, declaration);
-
-        if (brace >= 0 && (semicolon < 0 || brace < semicolon) && (arrow < 0 || brace < arrow))
-        {
-            int end = Balanced(masked, brace, '{', '}');
-            return end < 0 ? null : new HandlerBody(file, line, brace + 1, masked[(brace + 1)..end]);
-        }
-
-        if (arrow >= 0 && (semicolon < 0 || arrow < semicolon))
-        {
-            int end = StatementEnd(masked, arrow + 2);
-            return end < 0 ? null : new HandlerBody(file, line, arrow + 2, masked[(arrow + 2)..end]);
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// The index of the semicolon that ends the statement starting at
-    /// <paramref name="from"/>, ignoring semicolons nested inside brackets — a
-    /// chain may carry a lambda or a collection initialiser.
-    /// </summary>
-    private static int StatementEnd(string masked, int from)
-    {
-        int depth = 0;
-        for (int i = from; i < masked.Length; i++)
-        {
-            char c = masked[i];
-            if (c is '(' or '[' or '{')
-            {
-                depth++;
-            }
-            else if (c is ')' or ']' or '}')
-            {
-                depth--;
-            }
-            else if (c == ';' && depth <= 0)
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    /// <summary>
-    /// The half-open spans of the top-level arguments between
-    /// <paramref name="from"/> and <paramref name="close"/>.
-    /// </summary>
-    private static List<(int Start, int End)> SplitArguments(string masked, int from, int close)
-    {
-        List<(int Start, int End)> arguments = [];
-        int depth = 0;
-        int start = from;
-        for (int i = from; i < close; i++)
-        {
-            char c = masked[i];
-            if (c is '(' or '[' or '{' or '<')
-            {
-                depth++;
-            }
-            else if (c is ')' or ']' or '}' or '>')
-            {
-                depth--;
-            }
-            else if (c == ',' && depth == 0)
-            {
-                arguments.Add((start, i));
-                start = i + 1;
-            }
-        }
-
-        if (close > start)
-        {
-            arguments.Add((start, close));
-        }
-
-        return arguments;
-    }
-
-    private static string Unquote(string value) =>
-        value.Length > 1 && value[0] == '"' && value[^1] == '"' ? value[1..^1] : value;
-
-    /// <summary>
-    /// The index of the delimiter matching the one at
-    /// <paramref name="openIndex"/>, or -1.
-    /// </summary>
-    private static int Balanced(string text, int openIndex, char open, char close)
-    {
-        int depth = 0;
-        for (int i = openIndex; i < text.Length; i++)
-        {
-            if (text[i] == open)
-            {
-                depth++;
-            }
-            else if (text[i] == close)
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return i;
-                }
-            }
-        }
-
-        return -1;
-    }
-
-    private static int LineOf(string text, int index)
-    {
-        int line = 1;
-        for (int i = 0; i < index && i < text.Length; i++)
-        {
-            if (text[i] == '\n')
-            {
-                line++;
-            }
-        }
-
-        return line;
-    }
-
-    private static string Ellipsis(string value) =>
-        value.Length <= 60 ? value : value[..57] + "...";
-
-
     private sealed record Surface(
         IReadOnlyList<string> Files,
         IReadOnlyList<string> EndpointSources,
         IReadOnlyDictionary<string, string> Masked,
         IReadOnlyList<RouteGroup> Groups,
         IReadOnlyList<ResolvedMapping> Routes);
-
-    private sealed record ClassSpan(string File, string Name, int Start, int End);
 
     private sealed record RouteGroup(string File, int Line, string Variable, string Prefix, string Chain);
 
@@ -884,7 +689,5 @@ public class RouteValueRefusalDeclarationTests
         public string FullRoute => (GroupPrefix + Route).Replace("//", "/", StringComparison.Ordinal);
     }
 
-    private sealed record HandlerBody(string File, int Line, int BodyStart, string Body);
-
-    private sealed record ResolvedMapping(RouteMapping Mapping, HandlerBody? Handler, string? Failure);
+    private sealed record ResolvedMapping(RouteMapping Mapping, RouteChainReader.HandlerBody? Handler, string? Failure);
 }
