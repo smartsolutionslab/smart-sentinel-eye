@@ -51,7 +51,7 @@ still logged exactly once and **no** `resolved-text-without-fab` /
 than inferred from a neighbouring block).
 *Depends on:* T003.
 
-**T005 [US1]** — Run `npm --workspace apps/kiosk-web run test -- CellPage`,
+**T005 [US1]** — Run `pnpm --filter ./apps/kiosk-web exec vitest run src/features/cell/CellPage.test.tsx`,
 confirm T001–T003 **fail** and every control **passes**, and return the
 **verbatim** failure output. That output is the phase-4 gate artefact and is
 quoted in the PR body (ADR-0139, ADR-0144). Do not touch `CellPage.tsx`.
@@ -84,7 +84,7 @@ assertion there needs editing to pass, stop and report: that is evidence the
 change moved more behaviour than intended.
 *Depends on:* T007.
 
-**T009 [US1]** — Green: `npm --workspace apps/kiosk-web run test -- CellPage`,
+**T009 [US1]** — Green: `pnpm --filter ./apps/kiosk-web exec vitest run src/features/cell/CellPage.test.tsx`,
 then the gates — `npm run lint`, `npm run format:check`, `npm run typecheck`.
 *Depends on:* T008.
 

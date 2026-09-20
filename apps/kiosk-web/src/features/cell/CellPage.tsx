@@ -62,19 +62,23 @@ export function CellPage() {
   // ADR-0145: the wall's fab is *derived* from the layout it displays — never
   // chosen, never inferred from the token, never held as session state. It is
   // both the fab the opening label resolves in and the fab a pushed frame has
-  // to carry to be applied. `undefined` while the layout is still loading — and
-  // both hub handlers below do read it in that window, where it equals no
-  // frame's fab and every frame is dropped.
+  // to carry to be applied. `undefined` while the layout is still loading —
+  // and both hub handlers below read it through `namedFab`, which classifies
+  // that `undefined` (and any blank or whitespace-only fab) as "no fab", so
+  // every frame is dropped in that window by the guard, not by coincidence
+  // of equality.
   //
-  // `undefined` rather than a `''` sentinel, because unmatchability has to hold
-  // on both halves of this and `''` only holds on one. No legal fab is empty
-  // (`FabIdentifier`: minimum length 2, lowercase first letter), so `''` never
-  // matches a `!==` — but on the snapshot query's *query string* an empty fab is
-  // maximally permissive: the server reads it as "resolve across every fab I
-  // hold" and answers with whichever sorts first, which is the defect this
-  // filter exists to close. `undefined` cannot reach that query at all, since
-  // `OverlaySnapshotInput.fabId` is a required `string`. Any future default has
-  // to keep that unmatchability on both halves.
+  // `undefined` rather than a `''` sentinel, because unmatchability has to
+  // hold on both halves of this. `namedFab` is what actually enforces that:
+  // it classifies `undefined`, `''`, and any whitespace-only fab alike as
+  // "no fab", so none of them can equal another absent fab — no bare `!==`
+  // is trusted to get this right on its own. On the snapshot query's *query
+  // string*, though, an empty or whitespace fab is maximally permissive: the
+  // server reads it as "resolve across every fab I hold" and answers with
+  // whichever sorts first, which is the defect this filter exists to close.
+  // `undefined` cannot reach that query at all, since
+  // `OverlaySnapshotInput.fabId` is a required `string`. Any future default
+  // has to keep that unmatchability on both halves.
   const wallFab = data?.fab;
 
   // Spec 045: the wall's playout control loop. Only this page sees every tile,
@@ -135,8 +139,11 @@ export function CellPage() {
   // takes the safe-looking branch silently — each says so once per mounted
   // page. An effect, not the render body (plan R4): a `console.info` during
   // render doubles under StrictMode, and the latch above is belt-and-braces
-  // rather than the only defence. `countReportableSkew` is not touched
-  // (plan invariant 3; its own blind spot is tracked separately as #2320).
+  // rather than the only defence. `countReportableSkew` is not touched (plan
+  // invariant 3): it still compares `wallFab === undefined` directly rather
+  // than through `namedFab`, so a whitespace or empty `wallFab` still lets it
+  // report noise. That gap is deliberate and accepted (SC-6), not a defect
+  // tracked elsewhere.
   //
   // The `published === undefined` guard below is also what keeps FR-004
   // silent while the layout is still loading: `wallFab` is legitimately
@@ -640,7 +647,7 @@ function boundOverlayIn(overlayIdentifier: string | null | undefined): string | 
  * guards against.
  */
 function namedFab(fab: string | undefined): string | null {
-  return typeof fab === 'string' && fab !== '' ? fab : null;
+  return typeof fab === 'string' && fab.trim() !== '' ? fab : null;
 }
 
 function tilesToBoundOverlays(tiles: LayoutTile[]): ReadonlySet<string> {

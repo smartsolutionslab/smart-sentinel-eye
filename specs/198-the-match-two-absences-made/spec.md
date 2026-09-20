@@ -159,7 +159,7 @@ component-level. The honest split:
 
 1. **Primary (reproducible, mechanised).** Run `apps/kiosk-web` Vitest against
    the real Redux store:
-   `npm --workspace apps/kiosk-web run test -- CellPage`. SC-1 and SC-2 are
+   `pnpm --filter ./apps/kiosk-web exec vitest run src/features/cell/CellPage.test.tsx`. SC-1 and SC-2 are
    observed **failing** on today's tree (phase 4a red, output quoted in the
    PR), then passing after 4b, with SC-4/SC-5/SC-6 green throughout.
 2. **Secondary (reproducible in a browser, covers the half that is real).**
