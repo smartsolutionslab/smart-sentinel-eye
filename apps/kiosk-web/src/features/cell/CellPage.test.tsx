@@ -1228,6 +1228,185 @@ describe('CellPage', () => {
       expect(label(), "the wall stopped applying its own plant's frames").toBe('OEE 82.5');
       expect(resilienceLines(info.mock.calls, 'resolved-text-without-fab')).toEqual([]);
     });
+
+    /**
+     * Issue #2320 — two absent fabs compare equal. `wallFab` is legitimately
+     * `undefined` on a fab-less layout (spec 141 site 2 reports it and skips
+     * the snapshot query, but does not resolve it), and `message.fab` is
+     * `undefined` on the very frame this block's fixtures model. Both guards
+     * read `message.fab !== wallFab`, so `undefined !== undefined` is
+     * `false` and the frame is wrongly applied — the #2069 leak reached
+     * through a different door.
+     *
+     * <p>
+     * Nested here (rather than a sibling describe) so these cases can reuse
+     * `textFrameWithoutFab` / `highlightFrameWithoutFab` above without a
+     * second copy free to drift, exactly as this block's own top-of-describe
+     * comment already argues for `pushText` / `resilienceLines` /
+     * `spyOnConsoleInfo`.
+     * </p>
+     *
+     * <p>
+     * <b>The highlight case is the strongest red.</b> The resolved-text
+     * route has no visible symptom on a fab-less wall: spec 141 already
+     * skips the snapshot query there (`CellPage.tsx:471`, via `namedFab`), so
+     * the label never moves whether the guard is right or wrong. Asserting
+     * the label would pass today for the wrong reason — nothing renders
+     * because the query never ran, not because the guard rejected the frame
+     * — so that case asserts the RTK cache entry the push writes directly.
+     * The highlight route has no such second net, so the DOM itself proves
+     * the defect.
+     * </p>
+     */
+    describe('Two absent fabs must not compare equal (#2320)', () => {
+      /** RED. SC-2 — the strongest red: nothing else stands between the guard and the DOM. */
+      it('A fab-less highlight frame lights a tile on a fab-less wall', () => {
+        mockLayout(
+          layoutWithFab(undefined, [
+            tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-2320-highlight', row: 0, col: 0 }),
+          ]),
+        );
+        renderPage();
+
+        act(() => {
+          capturedCallbacks?.onOverlayHighlightChanged?.(highlightFrameWithoutFab('ovl-2320-highlight', 1000));
+        });
+
+        expect(
+          screen.getAllByTestId('layout-tile').map((el) => el.dataset.highlighted),
+          'two absent fabs compared equal, so a fab-less frame lit a fab-less wall',
+        ).toEqual(['false']);
+      });
+
+      /**
+       * RED. SC-1 — the cache entry and the version mark, not the label
+       * (plan.md Risk 1): the label cannot move on a fab-less wall regardless
+       * of the guard, because the snapshot query is skipped there already.
+       * The second push (a higher version than the first) proves the mark was
+       * never advanced by the first — if it had been, this later push would
+       * still be "accepted" and the cache would carry its text instead of
+       * staying absent.
+       */
+      it('A fab-less resolved-text push writes a snapshot cache entry a fab-less wall never asked for', async () => {
+        mockLayout(
+          layoutWithFab(undefined, [
+            tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-2320-text', row: 0, col: 0 }),
+          ]),
+        );
+        getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
+        renderPage();
+
+        const cachedSnapshot = () =>
+          systemVariablesApi.endpoints.getOverlaySnapshot.select({
+            overlayIdentifier: 'ovl-2320-text',
+            fabId: undefined as unknown as string,
+          })(store.getState()).data;
+
+        await pushText(textFrameWithoutFab('ovl-2320-text', 'OEE 99.9', 2));
+        expect(
+          cachedSnapshot(),
+          'a fab-less push wrote a snapshot entry a fab-less wall never asked for',
+        ).toBeUndefined();
+
+        await pushText(textFrameWithoutFab('ovl-2320-text', 'OEE 100.0', 3));
+        expect(
+          cachedSnapshot(),
+          'a later, higher-versioned fab-less frame was also accepted, so the version mark was never held back',
+        ).toBeUndefined();
+      });
+
+      /**
+       * RED. SC-3, highlight route — the empty-string twin.
+       * `CellPage.tsx:69-72` argues `''` "never matches a `!==`", true only
+       * against a *named* wall fab: a wall on `fab: ''` and a frame on
+       * `fab: ''` compare equal exactly like the `undefined` twin above.
+       */
+      it('The empty-string twin lights a tile on an empty-string wall exactly like the undefined twin', () => {
+        mockLayout(
+          layoutWithFab('', [
+            tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-2320-empty-highlight', row: 0, col: 0 }),
+          ]),
+        );
+        renderPage();
+
+        act(() => {
+          capturedCallbacks?.onOverlayHighlightChanged?.({
+            overlay: 'ovl-2320-empty-highlight',
+            fab: '',
+            durationMs: 1000,
+          });
+        });
+
+        expect(
+          screen.getAllByTestId('layout-tile').map((el) => el.dataset.highlighted),
+          'an empty-string wall fab and an empty-string frame fab compared equal',
+        ).toEqual(['false']);
+      });
+
+      /**
+       * RED. SC-3, resolved-text route — and the reason the fix must read
+       * `namedFab(wallFab) === null`, not `wallFab === undefined`: a fix
+       * spelled the naive way leaves `wallFab` as `''`, `'' !== undefined`,
+       * so the naive guard would not reject this frame either. Only a fix
+       * that treats `''` the same as `undefined` (i.e. `namedFab`) closes
+       * this case.
+       */
+      it('The empty-string twin writes a cache entry a naive undefined-only guard would not have caught', async () => {
+        mockLayout(
+          layoutWithFab('', [
+            tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-2320-empty-text', row: 0, col: 0 }),
+          ]),
+        );
+        getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
+        renderPage();
+
+        await pushText({ overlay: 'ovl-2320-empty-text', fab: '', resolvedText: 'OEE 99.9', version: 2 });
+
+        expect(
+          systemVariablesApi.endpoints.getOverlaySnapshot.select({
+            overlayIdentifier: 'ovl-2320-empty-text',
+            fabId: '',
+          })(store.getState()).data,
+          'an empty-string wall fab and an empty-string frame fab compared equal',
+        ).toBeUndefined();
+      });
+
+      /**
+       * CONTROL — green today and required to stay green after the fix
+       * (SC-6). This spec changes the filter, not the reporters:
+       * `countReportableSkew`'s own `wallFab === undefined` early return
+       * (`CellPage.tsx:610`) is untouched, so it never fires on a fab-less
+       * wall regardless of what the frame carries, and the wall has already
+       * said once, via `layout-without-fab`, that it has no fab.
+       */
+      it('The layout-without-fab report fires once and the per-frame skew reporters stay silent', async () => {
+        const info = spyOnConsoleInfo();
+        mockLayout(
+          layoutWithFab(undefined, [
+            tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-2320-sc6', row: 0, col: 0 }),
+          ]),
+        );
+        getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
+        renderPage();
+
+        await pushText(textFrameWithoutFab('ovl-2320-sc6', 'OEE 99.9', 2));
+        act(() => {
+          capturedCallbacks?.onOverlayHighlightChanged?.(highlightFrameWithoutFab('ovl-2320-sc6', 1000));
+        });
+
+        expect(resilienceLines(info.mock.calls, 'layout-without-fab')).toEqual([
+          { subsystem: 'hub', transition: 'layout-without-fab', layout: 'cam-1' },
+        ]);
+        expect(
+          resilienceLines(info.mock.calls, 'resolved-text-without-fab'),
+          "countReportableSkew's wallFab === undefined early return is untouched by this spec",
+        ).toEqual([]);
+        expect(
+          resilienceLines(info.mock.calls, 'highlight-without-fab'),
+          'the highlight route has no reporter of its own for this spec to have disturbed either',
+        ).toEqual([]);
+      });
+    });
   });
 
   /**
