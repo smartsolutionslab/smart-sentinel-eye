@@ -1,12 +1,23 @@
-# Per-fab Helm values for the Mosquitto broker (spec 006, ADR-0095).
-# Set fabId per environment; everything else is sized for the v1
-# 1k events/sec target with headroom for 5x bursts.
+# Per-fab Helm VALUES SKETCH for the Mosquitto broker (spec 006, ADR-0095).
+# This is not a working chart — see README.md. Set fabId per environment;
+# everything else is sized for the v1 1k events/sec target with headroom
+# for 5x bursts.
 
 fabId: munich
 
 image:
-  repository: eclipse-mosquitto
-  tag: "2.0"
+  # eclipse-mosquitto (the stock upstream image) CANNOT run this broker:
+  # mosquitto.conf requires the ADR-0100 JWT/JWKS auth plugin
+  # (sse-jwt-auth.so), which only exists in the image built from
+  # src/AppHost/mosquitto/Dockerfile. No CI workflow builds or pushes
+  # that image to a registry yet (checked .github/workflows/ for
+  # mosquitto / docker build / docker push — none found), so there is
+  # no real path to put here. Before this sketch is usable: build
+  # src/AppHost/mosquitto/Dockerfile, push it to whatever registry the
+  # k3s cluster can pull from, and replace the repository/tag below.
+  # Tracked by #1015 (ADR-0024/0025, ADR-0130).
+  repository: REPLACE_ME/smart-sentinel-eye-mosquitto  # built from src/AppHost/mosquitto/Dockerfile — not on any registry yet
+  tag: "REPLACE_ME"  # pin to the digest of the pushed build, once one exists
   pullPolicy: IfNotPresent
 
 replicaCount: 1  # No clustering in v1.
