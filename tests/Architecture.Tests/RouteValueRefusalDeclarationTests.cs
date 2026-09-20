@@ -485,7 +485,7 @@ public class RouteValueRefusalDeclarationTests
             string body = File.ReadAllText(Path.Combine(root.FullName, file))
                 .Replace("\r", string.Empty, StringComparison.Ordinal);
             text[file] = body;
-            masked[file] = Mask(body);
+            masked[file] = SourceMask.Apply(body, MaskStrictness.CommentsAndLiteralInteriors);
         }
 
         List<ClassSpan> classes = files.SelectMany(file => ClassSpans(file, masked[file])).ToList();
@@ -840,114 +840,6 @@ public class RouteValueRefusalDeclarationTests
         }
 
         return -1;
-    }
-
-    /// <summary>
-    /// The source with comment and literal <em>content</em> replaced by spaces,
-    /// the same length throughout so every index still points at the same
-    /// character of the original. Delimiters are kept, so a route literal is
-    /// still recognisable as one.
-    /// </summary>
-    private static string Mask(string text)
-    {
-        char[] masked = text.ToCharArray();
-        int i = 0;
-        while (i < text.Length)
-        {
-            if (text[i] == '/' && Next(text, i) == '/')
-            {
-                while (i < text.Length && text[i] != '\n')
-                {
-                    masked[i++] = ' ';
-                }
-            }
-            else if (text[i] == '/' && Next(text, i) == '*')
-            {
-                i = MaskBlockComment(text, masked, i);
-            }
-            else if (text[i] == '@' && Next(text, i) == '"')
-            {
-                i = MaskVerbatim(text, masked, i);
-            }
-            else if (text[i] is '"' or '\'')
-            {
-                i = MaskLiteral(text, masked, i);
-            }
-            else
-            {
-                i++;
-            }
-        }
-
-        return new string(masked);
-    }
-
-    private static int MaskBlockComment(string text, char[] masked, int from)
-    {
-        int i = from;
-        while (i < text.Length && !(text[i] == '*' && Next(text, i) == '/'))
-        {
-            masked[i] = text[i] == '\n' ? '\n' : ' ';
-            i++;
-        }
-
-        return Blank(masked, i, 2);
-    }
-
-    private static int MaskVerbatim(string text, char[] masked, int from)
-    {
-        int i = from + 2;
-        while (i < text.Length)
-        {
-            if (text[i] == '"' && Next(text, i) == '"')
-            {
-                masked[i] = ' ';
-                masked[i + 1] = ' ';
-                i += 2;
-                continue;
-            }
-
-            if (text[i] == '"')
-            {
-                return i + 1;
-            }
-
-            masked[i] = text[i] == '\n' ? '\n' : ' ';
-            i++;
-        }
-
-        return i;
-    }
-
-    private static int MaskLiteral(string text, char[] masked, int from)
-    {
-        char quote = text[from];
-        int i = from + 1;
-        while (i < text.Length && text[i] != quote && text[i] != '\n')
-        {
-            masked[i] = ' ';
-            if (text[i] == '\\' && i + 1 < text.Length)
-            {
-                masked[i + 1] = ' ';
-                i++;
-            }
-
-            i++;
-        }
-
-        return i + 1;
-    }
-
-    private static char Next(string text, int i) => i + 1 < text.Length ? text[i + 1] : '\0';
-
-    private static int Blank(char[] masked, int from, int count)
-    {
-        for (int i = from; i < from + count && i < masked.Length; i++)
-        {
-            masked[i] = ' ';
-        }
-
-        return from + count;
     }
 
     private static int LineOf(string text, int index)

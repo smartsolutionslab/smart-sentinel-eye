@@ -1008,6 +1008,40 @@ public sealed class SourceScanCharacterisationTests
     }
 
     /// <summary>
+    /// Tasks.md T13 — the proof T14-T18 rely on: <c>SourceMask.Apply</c> under
+    /// each of the four strictnesses returns a char-for-char identical string to
+    /// the frozen pre-refactor masker it replaces, over every file under
+    /// <c>src/*/Api</c>. Once this is green the six guards can be repointed
+    /// without re-deriving the claim per guard.
+    /// </summary>
+    [Fact]
+    public void The_shared_SourceMask_matches_every_frozen_masker_char_for_char_on_every_api_source_file()
+    {
+        AssertIdenticalAcrossRealCorpus(
+            nameof(MaskAsSpec072Wrote), MaskAsSpec072Wrote,
+            "SourceMask.Apply(CommentsAndLiteralInteriors)",
+            text => SourceMask.Apply(text, MaskStrictness.CommentsAndLiteralInteriors));
+
+        AssertIdenticalAcrossRealCorpus(
+            nameof(MaskAsSpec075Wrote), MaskAsSpec075Wrote,
+            "SourceMask.Apply(CommentsOnlyLiteralsIntact)",
+            text => SourceMask.Apply(text, MaskStrictness.CommentsOnlyLiteralsIntact));
+
+        AssertIdenticalAcrossRealCorpus(
+            nameof(BlankCommentsAsSpec070Wrote), BlankCommentsAsSpec070Wrote,
+            "SourceMask.Apply(CommentsBlankedLiteralsIntact)",
+            text => SourceMask.Apply(text, MaskStrictness.CommentsBlankedLiteralsIntact));
+
+        AssertIdenticalAcrossRealCorpus(
+            "BlankLiteralsAsSpec070Wrote(BlankCommentsAsSpec070Wrote(text))",
+            text => BlankLiteralsAsSpec070Wrote(BlankCommentsAsSpec070Wrote(text)),
+            "SourceMask.Apply(…, LiteralInteriorsOnly) after SourceMask.Apply(…, CommentsBlankedLiteralsIntact)",
+            text => SourceMask.Apply(
+                SourceMask.Apply(text, MaskStrictness.CommentsBlankedLiteralsIntact),
+                MaskStrictness.LiteralInteriorsOnly));
+    }
+
+    /// <summary>
     /// The three identical <c>NotFound</c>/already-masked chain-end walks
     /// (<c>PreconditionDeclarationTests</c>, <c>RouteValueRefusalDeclarationTests</c>,
     /// <c>StatusProducerDeclarationTests</c>) agree at every mapping call site in
