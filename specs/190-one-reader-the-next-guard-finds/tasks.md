@@ -33,13 +33,19 @@ captured passing before the change and must pass **unmodified** after.
 `origin/develop`):
 
 ```
-Passed!  - Failed:     0, Passed:   189, Skipped:     0, Total:   189, Duration: 3 s
+Passed!  - Failed:     0, Passed:   414, Skipped:     0, Total:   414, Duration: 3 s
   - SmartSentinelEye.Architecture.Tests.dll (net10.0)
 ```
 
-So the baseline is "every assertion passes". No guard currently reports a
-violation, which is what makes byte-identical output a usable proof rather than
-a wish.
+The six guards' own subtotal is 199 of those 414. So the baseline is "every
+assertion passes". No guard currently reports a violation, which is what makes
+byte-identical output a usable proof rather than a wish.
+
+**189 was a measurement error in the original whole-project figure, not a real
+prior state** — the six-guard subtotal of 199 was always correct; only the
+project-wide total was wrong. Phase 4a's `test-writer` and the phase-6
+`backend-reviewer` independently re-measured 414 against `origin/develop`; see
+`verification.md`.
 
 ### Roles
 

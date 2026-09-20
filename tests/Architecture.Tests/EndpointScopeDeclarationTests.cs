@@ -316,6 +316,19 @@ public class EndpointScopeDeclarationTests
     private const string ApiGlob = "src/*/Api/**/*.cs";
 
     /// <summary>
+    /// The machinery spec 190 (issue #2257) extracted out of this guard and five
+    /// others, scanned in addition to <see cref="GuardSource"/> below: an
+    /// exemption added to what every guard now shares would otherwise pass all
+    /// six self-scans silently.
+    /// </summary>
+    private static readonly string[] SharedSourceScanFiles =
+    [
+        "tests/Architecture.Tests/RepositorySource.cs",
+        "tests/Architecture.Tests/SourceMask.cs",
+        "tests/Architecture.Tests/RouteChainReader.cs",
+    ];
+
+    /// <summary>
     /// The label, spelled exactly as the eighteen conformant endpoints spell it.
     /// No document declares it; the code is unanimous, which is the only
     /// authority available and a better one than a document nobody checks.
@@ -1160,7 +1173,8 @@ public class EndpointScopeDeclarationTests
     [InlineData("#pragma warning disable")]
     public void The_guard_offers_no_way_to_excuse_an_endpoint(string mechanism)
     {
-        string[] offenders = RepositorySource.ExecutableLines(ReadRepositoryFile(GuardSource))
+        string[] offenders = SharedSourceScanFiles.Prepend(GuardSource)
+            .SelectMany(file => RepositorySource.ExecutableLines(ReadRepositoryFile(file)))
             .Where(line => line.Contains(mechanism, StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
@@ -1174,7 +1188,7 @@ public class EndpointScopeDeclarationTests
 
     /// <summary>
     /// <b>A statement-bodied lambda does not end the chain before its own
-    /// authorization.</b> <see cref="StatementEnd"/>'s own doc comment names
+    /// authorization.</b> <see cref="RouteChainReader.StatementEnd"/>'s own doc comment names
     /// this shape and says it is undemonstrated in the corpus today —
     /// constructed rather than argued, the way
     /// <c>ConcurrencyConflictDeclarationTests</c> constructs its unbalanced-

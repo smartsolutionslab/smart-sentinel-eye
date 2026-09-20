@@ -96,9 +96,10 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// <c>ConcurrencyHeaders</c>. A rule whose subject its filename denies is a rule
 /// the next author does not find, and this defect class has now been found five
 /// separate times by people who could not find the previous instance. The named
-/// cost is a fifth copy of <c>RepositoryRoot()</c>, the masker and the chain
-/// reader; extracting them is a behaviour-preserving refactor of test
-/// infrastructure, deferred with spec 085's reasoning and owned by #2142.
+/// cost was a fifth copy of <c>RepositoryRoot()</c>, the masker and the chain
+/// reader; spec 190 (issue #2257) extracted the three into
+/// <c>RepositorySource</c>, <c>SourceMask</c> and <c>RouteChainReader</c>, so
+/// this file now shares them rather than carrying its own copy.
 /// </para>
 ///
 /// <para>
@@ -639,22 +640,42 @@ public class RouteValueRefusalDeclarationTests
             return Unreadable(mapping, "the mapping is not inside a class declaration this reader can find");
         }
 
-        RouteChainReader.HandlerBody? body = RouteChainReader.HandlerBodyFor(
+        RouteChainReader.HandlerResolution resolution = RouteChainReader.HandlerBodyFor(
             mapping.ContainingClass, mapping.HandlerArgument, mapping.File, classes, masked);
 
-        if (body is null)
+        if (!resolution.IsBareMethodGroupName)
         {
             return Unreadable(
                 mapping,
-                $"'{mapping.ContainingClass}.{mapping.HandlerArgument}' does not resolve to exactly one bare "
-                + $"method-group declaration in {ProjectOf(mapping.File)}");
+                $"the handler argument '{Ellipsis(mapping.HandlerArgument)}' is not a bare method-group name");
         }
 
-        return new ResolvedMapping(mapping, body, null);
+        if (resolution.Body is null)
+        {
+            string project = ProjectOf(mapping.File);
+            if (resolution.Candidates.Count == 0)
+            {
+                return Unreadable(
+                    mapping,
+                    $"'{mapping.ContainingClass}.{mapping.HandlerArgument}' resolves to no method declaration "
+                    + $"in {project}");
+            }
+
+            return Unreadable(
+                mapping,
+                $"'{mapping.ContainingClass}.{mapping.HandlerArgument}' resolves to {resolution.Candidates.Count} "
+                + "method declarations "
+                + $"({string.Join(", ", resolution.Candidates.Select(c => $"{c.File}:{c.Line}"))})");
+        }
+
+        return new ResolvedMapping(mapping, resolution.Body, null);
     }
 
     private static ResolvedMapping Unreadable(RouteMapping mapping, string failure) =>
         new(mapping, null, failure);
+
+    private static string Ellipsis(string value) =>
+        value.Length <= 60 ? value : value[..57] + "...";
 
     /// <summary>
     /// The Api project a file belongs to — <c>src/&lt;Context&gt;/Api</c>. Two

@@ -815,17 +815,35 @@ public class PreconditionDeclarationTests
             return Unreadable(mapping, "the mapping is not inside a class declaration this reader can find");
         }
 
-        RouteChainReader.HandlerBody? body = RouteChainReader.HandlerBodyFor(
+        RouteChainReader.HandlerResolution resolution = RouteChainReader.HandlerBodyFor(
             mapping.ContainingClass, mapping.HandlerArgument, mapping.File, classes, masked);
 
-        if (body is null)
+        if (!resolution.IsBareMethodGroupName)
         {
             return Unreadable(
                 mapping,
-                $"'{mapping.ContainingClass}.{mapping.HandlerArgument}' does not resolve to exactly one bare "
-                + $"method-group declaration in {ProjectOf(mapping.File)}");
+                $"the handler argument '{Ellipsis(mapping.HandlerArgument)}' is not a bare method-group name");
         }
 
+        if (resolution.Body is null)
+        {
+            string project = ProjectOf(mapping.File);
+            if (resolution.Candidates.Count == 0)
+            {
+                return Unreadable(
+                    mapping,
+                    $"'{mapping.ContainingClass}.{mapping.HandlerArgument}' resolves to no method declaration "
+                    + $"in {project}");
+            }
+
+            return Unreadable(
+                mapping,
+                $"'{mapping.ContainingClass}.{mapping.HandlerArgument}' resolves to {resolution.Candidates.Count} "
+                + "method declarations "
+                + $"({string.Join(", ", resolution.Candidates.Select(c => $"{c.File}:{c.Line}"))})");
+        }
+
+        RouteChainReader.HandlerBody body = resolution.Body;
         List<PreconditionCall> calls = HelperCall.Matches(body.Body)
             .Select(match => new PreconditionCall(
                 match.Groups["helper"].Value,
@@ -849,6 +867,9 @@ public class PreconditionDeclarationTests
         int marker = file.IndexOf("/Api/", StringComparison.Ordinal);
         return marker < 0 ? file : file[..(marker + 4)];
     }
+
+    private static string Ellipsis(string value) =>
+        value.Length <= 60 ? value : value[..57] + "...";
 
     private sealed record Surface(
         IReadOnlyList<string> Files,

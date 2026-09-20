@@ -267,24 +267,24 @@ internal static class RouteChainReader
     }
 
     /// <summary>
-    /// The body of the handler a mapping names: a bare method group resolved
+    /// Resolves the handler a mapping names: a bare method group searched
     /// across every file declaring that partial class within the same
-    /// <c>src/&lt;Context&gt;/Api</c> project, or <c>null</c>. A name qualified
-    /// by another type, or one resolving to none or two declarations, returns
-    /// null — nothing resolves to a pass by default.
+    /// <c>src/&lt;Context&gt;/Api</c> project.
     ///
     /// <para>
     /// Byte-identical in <c>PreconditionDeclarationTests</c> (072) and
     /// <c>RouteValueRefusalDeclarationTests</c> (091) today, folding what each
     /// called <c>MethodBodies</c> + <c>BodyAfter</c> plus the "exactly one
-    /// candidate" check each guard's own <c>Resolve</c> made around them. Each
-    /// guard keeps its own failure-message wording for the (currently
-    /// unreached, on this corpus) case where resolution fails — that wording is
-    /// not part of what this method's callers observe, only the resolved body
-    /// or its absence.
+    /// candidate" check each guard's own <c>Resolve</c> made around them. This
+    /// method resolves; it does not word a failure. Each guard keeps its own
+    /// three-shape failure message — "not a bare method-group name", "resolves
+    /// to no method declaration", "resolves to N method declarations" — over
+    /// <see cref="HandlerResolution"/>'s fields, because that wording (and, for
+    /// the ambiguous case, <c>Ellipsis</c>) is what each guard's own tests pin,
+    /// and is currently unreached on this corpus.
     /// </para>
     /// </summary>
-    internal static HandlerBody? HandlerBodyFor(
+    internal static HandlerResolution HandlerBodyFor(
         string containingClass,
         string handlerArgument,
         string file,
@@ -293,7 +293,7 @@ internal static class RouteChainReader
     {
         if (!MethodGroupName.IsMatch(handlerArgument))
         {
-            return null;
+            return new HandlerResolution(null, false, []);
         }
 
         string project = ProjectOf(file);
@@ -303,7 +303,8 @@ internal static class RouteChainReader
             .SelectMany(c => MethodBodies(c, masked[c.File], handlerArgument))
             .ToList();
 
-        return candidates.Count == 1 ? candidates[0] : null;
+        return new HandlerResolution(
+            candidates.Count == 1 ? candidates[0] : null, true, candidates);
     }
 
     /// <summary>
@@ -379,6 +380,21 @@ internal static class RouteChainReader
     }
 
     internal sealed record HandlerBody(string File, int Line, int BodyStart, string Body);
+
+    /// <summary>
+    /// What <see cref="HandlerBodyFor"/> found. <see cref="Body"/> is set only
+    /// when resolution succeeded (exactly one candidate); otherwise the caller
+    /// distinguishes its own three failure shapes from
+    /// <see cref="IsBareMethodGroupName"/> and <see cref="Candidates"/>' count:
+    /// <c>false</c> means the argument never reached candidate search at all,
+    /// an empty <see cref="Candidates"/> means it did and found none, and two
+    /// or more means it found too many — each of those is one of the three
+    /// messages a guard's own tests pin, worded by the guard, not here.
+    /// </summary>
+    internal sealed record HandlerResolution(
+        HandlerBody? Body,
+        bool IsBareMethodGroupName,
+        IReadOnlyList<HandlerBody> Candidates);
 
     /// <summary>
     /// Every class declaration in one file, with the extent of its body. A

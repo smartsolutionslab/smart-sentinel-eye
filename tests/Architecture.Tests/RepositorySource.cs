@@ -31,7 +31,7 @@ internal static class RepositorySource
     /// </summary>
     private static readonly Regex StringLiteral = new(
         @"""(?:[^""\\\r\n]|\\.)*""",
-        RegexOptions.Compiled,
+        RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
     /// <summary>

@@ -86,11 +86,10 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// neighbour by antecedent and is 2181 lines; its subject is the scope an
 /// endpoint names, and this rule binds bare <c>RequireAuthorization()</c> too.
 /// The census belongs to neither existing file, because it is about all four
-/// guards at once. The named cost is a sixth copy of <c>RepositoryRoot()</c>, the
-/// masker and the chain reader; the extraction spec 091 assigned to #2142 is a
-/// behaviour-preserving refactor and cannot ride with a behaviour-changing
-/// change (ADR-0144), so it needs its own issue and is recorded in
-/// <c>specs/130-…/tasks.md</c> rather than done here.
+/// guards at once. The named cost was a sixth copy of <c>RepositoryRoot()</c>,
+/// the masker and the chain reader; spec 190 (issue #2257) extracted the three
+/// into <c>RepositorySource</c>, <c>SourceMask</c> and <c>RouteChainReader</c>,
+/// so this file now shares them rather than carrying its own copy.
 /// </para>
 /// </summary>
 public class StatusProducerDeclarationTests
