@@ -406,9 +406,9 @@ adjust anything.
 
 | # | What | Why not here |
 |---|---|---|
-| F001 | The candidate filter misses `StreamFabAttributionService` (§1.4) — a non-`Repository` type in a non-`.Persistence` namespace calling `SaveChangesAsync` directly. Decide whether it is an offender or correctly out of scope, and if the former, widen the filter. | A different question (which types are candidates), a real production-code decision, possibly a genuine bug. Its own issue. |
-| F002 | Other escapes from the seam the IL scan does not model: `Database.ExecuteSql*`, a `DbContext` reached through an interface-typed field, `SaveChanges` called inside a lambda lifted to a closure class the scan does not walk. | A different question (which calls count). §2. |
-| F003 | `src/Shared.CQRS/ITransactionalCommit.cs:8`'s doc comment names only `SaveChangesAsync`. | Comment-only, in a production assembly, own phase-4a obligation. |
+| F001 | The candidate filter misses `StreamFabAttributionService` (§1.4) — a non-`Repository` type in a non-`.Persistence` namespace calling `SaveChangesAsync` directly. Decide whether it is an offender or correctly out of scope, and if the former, widen the filter. **Checked at phase 6, corrected here**: `Stream.AttributeToFab` raises no domain event, so this is a coverage gap, not currently a live bug — the earlier "possibly a genuine bug" framing overstated it. | A different question (which types are candidates), a real production-code decision. **Filed as [#2469](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2469).** |
+| F002 | Other escapes from the seam the IL scan does not model: `Database.ExecuteSql*`, a `DbContext` reached through an interface-typed field, `SaveChanges` called inside a lambda lifted to a closure class the scan does not walk, and (found at phase 6, not originally listed) a method group converted to a delegate (`ldftn`, opcode `0xFE 0x06`), which the scan's opcode check never examines. | A different question (which calls count). **Filed as [#2470](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2470).** |
+| F003 | `src/Shared.CQRS/ITransactionalCommit.cs:8`'s doc comment names only `SaveChangesAsync`. | Comment-only, in a production assembly, own phase-4a obligation. **Filed as [#2471](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2471).** |
 
 ## 8. Risk
 

@@ -20,6 +20,11 @@ The whole diff is two files:
 | `tests/Architecture.Tests/OutboxCommitTests.cs` | modified | test — architecture guard |
 | `tests/Architecture.Tests/OutboxCommitProbe.cs` | **new** | test — deliberate-violation fixture |
 
+**Shipped at `tests/Architecture.Tests/Persistence/OutboxCommitProbe.cs`, not the flat path
+above** — `dotnet_style_namespace_match_folder = true:warning` (a Release-build error, not
+advisory) requires the folder to match the `.Persistence` namespace the probe's own types need
+to be candidates at all. Recorded here after the fact rather than silently left wrong.
+
 `src/` is **read only**. The boundary rules (no cross-context project
 references; communication only through `Shared.Contracts`) are untouched because
 nothing in a context changes. `Architecture.Tests` already references all
@@ -205,7 +210,7 @@ descendants; §6's whole-project run is the check that this reading is right.
 | ADR-0049 — `CancellationToken` last, no `ConfigureAwait` | `AsyncOffenderRepository.SaveAsync(CancellationToken)` follows it, because the probe must look like a repository someone would actually write |
 | ADR-0105 / ADR-0139 — `Ensure.That`, never `ArgumentNullException.ThrowIfNull` | The probe takes no argument it needs to guard; adding a guard would be drive-by. `RS0030` at `error` would catch a lapse anyway |
 | CLAUDE.md — collection expressions with explicit type | `List<string> offenders = [.. …]` as the current code already does; the expected list in §3.2 likewise |
-| CLAUDE.md — no leading underscore on private fields | Primary constructors throughout the probe; no explicit fields |
+| CLAUDE.md — no leading underscore on private fields | Primary constructors for three of the four probe types; `FailureSubscriptionRepository` needs one real instance field (`dbContext`, no leading underscore) to carry the `+=` subscription statement a primary-constructor parameter alone cannot express |
 | Constitution §II | N/A — no domain model. §4 |
 
 ### 5.1 The probe must not disturb the other guards
