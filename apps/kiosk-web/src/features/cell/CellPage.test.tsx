@@ -1309,10 +1309,7 @@ describe('CellPage', () => {
         ).toBeUndefined();
 
         await pushText(textFrameWithoutFab('ovl-2320-text', 'OEE 100.0', 3));
-        expect(
-          cachedSnapshot(),
-          'a later, higher-versioned fab-less frame was also accepted, so the version mark was never held back',
-        ).toBeUndefined();
+        expect(cachedSnapshot(), 'a later, higher-versioned fab-less frame was also refused').toBeUndefined();
       });
 
       /**

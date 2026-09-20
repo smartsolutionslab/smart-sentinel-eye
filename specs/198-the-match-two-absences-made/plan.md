@@ -129,7 +129,7 @@ spec-141 latch set all keep their current shapes and lifetimes.
 
 ## Verification
 
-Phase 4a runs `npm --workspace apps/kiosk-web run test -- CellPage` and
+Phase 4a runs `pnpm --filter ./apps/kiosk-web exec vitest run src/features/cell/CellPage.test.tsx` and
 returns the **verbatim** failing output for SC-1/SC-2. Phase 4b may not edit
 those assertions. Phase 5 runs the same suite green, plus the browser
 observation in `spec.md` §*Independent end-to-end test procedure* item 2, and
