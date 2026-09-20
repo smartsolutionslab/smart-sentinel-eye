@@ -1369,6 +1369,67 @@ describe('CellPage', () => {
       });
 
       /**
+       * RED (phase 6 follow-up). The whitespace twin: `namedFab`'s original
+       * fix only rejected `''`, not a whitespace-only fab. A wall on
+       * `fab: ' '` and a frame on `fab: ' '` compare equal under a bare
+       * `!==` exactly like the empty-string twin above — closed by
+       * `namedFab` calling `.trim()` before its emptiness check, not by the
+       * `!==` guard itself.
+       */
+      it('A whitespace-only fab compares equal to itself and must not light a tile', () => {
+        mockLayout(
+          layoutWithFab(' ', [
+            tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-2320-ws-highlight', row: 0, col: 0 }),
+          ]),
+        );
+        renderPage();
+
+        act(() => {
+          capturedCallbacks?.onOverlayHighlightChanged?.({
+            overlay: 'ovl-2320-ws-highlight',
+            fab: ' ',
+            durationMs: 1000,
+          });
+        });
+
+        expect(
+          screen.getAllByTestId('layout-tile').map((el) => el.dataset.highlighted),
+          'a whitespace-only wall fab and a whitespace-only frame fab compared equal',
+        ).toEqual(['false']);
+      });
+
+      /**
+       * RED (phase 6 follow-up), resolved-text route. Also proves the fix
+       * must trim before comparing emptiness: `namedFab(' ')` without
+       * `.trim()` returns `' '` (truthy, non-empty), so the guard's first
+       * term stays `false` and `' ' !== ' '` is also `false` — the frame is
+       * applied. Independently significant because a whitespace fab does
+       * NOT get skipped by the snapshot-query guard either without this
+       * fix, which would send an unconditional, untrimmed `fabId` to the
+       * server — the same cross-fab resolution #2069 closed, reached via a
+       * whitespace value instead of an empty one.
+       */
+      it('A whitespace-only fab must not write a cache entry a whitespace-only wall never asked for', async () => {
+        mockLayout(
+          layoutWithFab(' ', [
+            tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-2320-ws-text', row: 0, col: 0 }),
+          ]),
+        );
+        getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
+        renderPage();
+
+        await pushText({ overlay: 'ovl-2320-ws-text', fab: ' ', resolvedText: 'OEE 99.9', version: 2 });
+
+        expect(
+          systemVariablesApi.endpoints.getOverlaySnapshot.select({
+            overlayIdentifier: 'ovl-2320-ws-text',
+            fabId: ' ',
+          })(store.getState()).data,
+          'a whitespace-only wall fab and a whitespace-only frame fab compared equal',
+        ).toBeUndefined();
+      });
+
+      /**
        * CONTROL — green today and required to stay green after the fix
        * (SC-6). This spec changes the filter, not the reporters:
        * `countReportableSkew`'s own `wallFab === undefined` early return
