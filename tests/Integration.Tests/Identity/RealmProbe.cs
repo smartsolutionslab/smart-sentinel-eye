@@ -22,14 +22,21 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// <see cref="KioskInheritedPrivilegeIntegrationTests"/> and
 /// <see cref="KioskPrivilegeSweepStartupIntegrationTests"/> both call this class
 /// rather than keeping their own copies of the admin credentials, the token
-/// client and the role reads (spec 137). Two shapes in
-/// <see cref="KioskInheritedPrivilegeIntegrationTests"/> are deliberately
-/// <b>not</b> folded in, because folding either would change what runs:
-/// its <c>CreateAdminClient</c> builds a delegating-handler client, and its
-/// client-delete loop discards the DELETE response where
-/// <see cref="DeleteAsync"/> below asserts it. Folding the delete would add an
-/// assertion to the two tests that call it, and nothing has ever checked
-/// whether those deletes succeed — see issue #2182's row 8, and #2274.
+/// client and the role reads (spec 137). One shape in
+/// <see cref="KioskInheritedPrivilegeIntegrationTests"/> is deliberately
+/// <b>not</b> folded in: its <c>CreateAdminClient</c> builds a
+/// delegating-handler client, which is a different shape from
+/// <see cref="AuthorisedAdminClientAsync"/> below, not a duplicate of it.
+/// </para>
+///
+/// <para>
+/// The client-delete loop <b>is</b> folded — closing issue #2182's row 8.
+/// Spec 189 asked whether asserting the DELETE in
+/// <see cref="KioskInheritedPrivilegeIntegrationTests"/>' own copy would turn
+/// it red: CI run 35503359310 (PR #2463) answered green for both the
+/// enrolment-created and the directly-created populations, so the assertion
+/// added there was byte-equivalent to <see cref="DeleteAsync"/> below, and the
+/// two copies collapse into this one.
 /// </para>
 /// </summary>
 public sealed class RealmProbe(AspireFixture aspire)
