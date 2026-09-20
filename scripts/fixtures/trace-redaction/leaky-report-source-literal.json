@@ -1,0 +1,346 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "D:\\Github\\sse-2287\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "-c",
+      "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.playwright.config.ts"
+    ],
+    "configFile": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.playwright.config.ts",
+    "rootDir": "D:/Github/sse-2287/scripts/fixtures/trace-redaction",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "D:/Github/sse-2287/scripts/fixtures/trace-redaction/generated-source-literal/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "D:/Github/sse-2287/scripts/fixtures/trace-redaction",
+        "testIgnore": [],
+        "testMatch": [
+          "fixture-source-literal.spec.ts"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "html",
+        {
+          "open": "never",
+          "outputFolder": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\generated-source-literal\\html-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\generated-source-literal\\report.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "fixture-source-literal.spec.ts",
+      "file": "fixture-source-literal.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "fixture: an unrelated failure right next to the constant echoes it via the small codeframe window",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 12,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n    at D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts:56:131",
+                    "location": {
+                      "file": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts",
+                      "column": 131,
+                      "line": 56
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 54 |\u001b[39m \u001b[36mconst\u001b[39m \u001b[33mFIXTURE_SOURCE_LITERAL_SECRET\u001b[39m \u001b[33m=\u001b[39m \u001b[32m'SSE_FAKE_SOURCE_LITERAL_SECRET'\u001b[39m\u001b[33m;\u001b[39m\n \u001b[90m 55 |\u001b[39m \u001b[36mimport\u001b[39m { test\u001b[33m,\u001b[39m expect } \u001b[36mfrom\u001b[39m \u001b[32m'@playwright/test'\u001b[39m\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 56 |\u001b[39m test(\u001b[32m'fixture: an unrelated failure right next to the constant echoes it via the small codeframe window'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m () \u001b[33m=>\u001b[39m { expect(\u001b[35m1\u001b[39m)\u001b[33m.\u001b[39mtoBe(\u001b[35m2\u001b[39m)\u001b[33m;\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                                                                                                   \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 57 |\u001b[39m\n \u001b[90m 58 |\u001b[39m test(\u001b[32m'fixture: an unrelated failure padded ~95 lines below the constant still echoes it via the large codeframe window'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m () \u001b[33m=>\u001b[39m {\n \u001b[90m 59 |\u001b[39m   \u001b[90m// Padding lines below push this failure's line number far enough from the\u001b[39m\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts",
+                        "column": 131,
+                        "line": 56
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n\n  54 | const FIXTURE_SOURCE_LITERAL_SECRET = 'SSE_FAKE_SOURCE_LITERAL_SECRET';\n  55 | import { test, expect } from '@playwright/test';\n> 56 | test('fixture: an unrelated failure right next to the constant echoes it via the small codeframe window', async () => { expect(1).toBe(2); });\n     |                                                                                                                                   ^\n  57 |\n  58 | test('fixture: an unrelated failure padded ~95 lines below the constant still echoes it via the large codeframe window', async () => {\n  59 |   // Padding lines below push this failure's line number far enough from the\n    at D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts:56:131"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-20T04:46:21.168Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\generated-source-literal\\test-results\\fixture-source-literal-fix-ae142--the-small-codeframe-window\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts",
+                    "column": 131,
+                    "line": 56
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "dca59a2f9d5958aa1b76-5cb180d2371cc62e8a75",
+          "file": "fixture-source-literal.spec.ts",
+          "line": 56,
+          "column": 5
+        },
+        {
+          "title": "fixture: an unrelated failure padded ~95 lines below the constant still echoes it via the large codeframe window",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 9,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m3\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m3\u001b[39m\n    at D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts:143:13",
+                    "location": {
+                      "file": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts",
+                      "column": 13,
+                      "line": 143
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 141 |\u001b[39m   \u001b[90m// padding line 78 -- keeps this failure far from the constant above\u001b[39m\n \u001b[90m 142 |\u001b[39m   \u001b[90m// padding line 79 -- keeps this failure far from the constant above\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 143 |\u001b[39m   expect(\u001b[35m3\u001b[39m)\u001b[33m.\u001b[39mtoBe(\u001b[35m4\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 144 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 145 |\u001b[39m\n \u001b[90m 146 |\u001b[39m \u001b[90m// --- S2: an unlabelled password field, no accessible name to key a redaction off ---\u001b[39m\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts",
+                        "column": 13,
+                        "line": 143
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m3\u001b[39m\n\n  141 |   // padding line 78 -- keeps this failure far from the constant above\n  142 |   // padding line 79 -- keeps this failure far from the constant above\n> 143 |   expect(3).toBe(4);\n      |             ^\n  144 | });\n  145 |\n  146 | // --- S2: an unlabelled password field, no accessible name to key a redaction off ---\n    at D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts:143:13"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-20T04:46:21.941Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\generated-source-literal\\test-results\\fixture-source-literal-fix-6cfe5--the-large-codeframe-window\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts",
+                    "column": 13,
+                    "line": 143
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "dca59a2f9d5958aa1b76-143ea484c1e60b260387",
+          "file": "fixture-source-literal.spec.ts",
+          "line": 58,
+          "column": 5
+        },
+        {
+          "title": "fixture: an unlabelled password field embeds its typed value with no accessible name",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 311,
+                  "error": {
+                    "message": "Error: forced failure so the page snapshot is captured while the password field is still filled\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mfalse\u001b[39m\nReceived: \u001b[31mtrue\u001b[39m",
+                    "stack": "Error: forced failure so the page snapshot is captured while the password field is still filled\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mfalse\u001b[39m\nReceived: \u001b[31mtrue\u001b[39m\n    at D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts:165:108",
+                    "location": {
+                      "file": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts",
+                      "column": 108,
+                      "line": 165
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 163 |\u001b[39m   \u001b[90m// failure while the field is still filled and the page still open is what\u001b[39m\n \u001b[90m 164 |\u001b[39m   \u001b[90m// makes Playwright capture a whole-page ARIA snapshot into `error-context.md`.\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 165 |\u001b[39m   expect(\u001b[36mtrue\u001b[39m\u001b[33m,\u001b[39m \u001b[32m'forced failure so the page snapshot is captured while the password field is still filled'\u001b[39m)\u001b[33m.\u001b[39mtoBe(\u001b[36mfalse\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                                                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 166 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 167 |\u001b[39m\n \u001b[90m 168 |\u001b[39m \u001b[90m// --- S3: the credential on the *expected* side of a failed assertion -------\u001b[39m\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts",
+                        "column": 108,
+                        "line": 165
+                      },
+                      "message": "Error: forced failure so the page snapshot is captured while the password field is still filled\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mfalse\u001b[39m\nReceived: \u001b[31mtrue\u001b[39m\n\n  163 |   // failure while the field is still filled and the page still open is what\n  164 |   // makes Playwright capture a whole-page ARIA snapshot into `error-context.md`.\n> 165 |   expect(true, 'forced failure so the page snapshot is captured while the password field is still filled').toBe(false);\n      |                                                                                                            ^\n  166 | });\n  167 |\n  168 | // --- S3: the credential on the *expected* side of a failed assertion -------\n    at D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts:165:108"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-20T04:46:22.709Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\generated-source-literal\\test-results\\fixture-source-literal-fix-cfff1-lue-with-no-accessible-name\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts",
+                    "column": 108,
+                    "line": 165
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "dca59a2f9d5958aa1b76-de39906a1ab5d3601648",
+          "file": "fixture-source-literal.spec.ts",
+          "line": 157,
+          "column": 5
+        },
+        {
+          "title": "fixture: a toHaveValue assertion fails with the credential on the expected side",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 1297,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#confirm-secret')\nExpected: \u001b[32m\"SSE_FAKE_EXPECTED_CREDENTIAL_VALUE\"\u001b[39m\nReceived: \u001b[31m\"not-the-real-secret\"\u001b[39m\nTimeout:  1000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 1000ms\u001b[22m\n\u001b[2m  - waiting for locator('#confirm-secret')\u001b[22m\n\u001b[2m    10 × locator resolved to <input type=\"text\" id=\"confirm-secret\" value=\"not-the-real-secret\"/>\u001b[22m\n\u001b[2m       - unexpected value \"not-the-real-secret\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#confirm-secret')\nExpected: \u001b[32m\"SSE_FAKE_EXPECTED_CREDENTIAL_VALUE\"\u001b[39m\nReceived: \u001b[31m\"not-the-real-secret\"\u001b[39m\nTimeout:  1000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 1000ms\u001b[22m\n\u001b[2m  - waiting for locator('#confirm-secret')\u001b[22m\n\u001b[2m    10 × locator resolved to <input type=\"text\" id=\"confirm-secret\" value=\"not-the-real-secret\"/>\u001b[22m\n\u001b[2m       - unexpected value \"not-the-real-secret\"\u001b[22m\n\n    at D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts:185:49",
+                    "location": {
+                      "file": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts",
+                      "column": 49,
+                      "line": 185
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 183 |\u001b[39m \u001b[32m  `\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 184 |\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 185 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'#confirm-secret'\u001b[39m))\u001b[33m.\u001b[39mtoHaveValue(\u001b[33mEXPECTED_VALUE_SENTINEL\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m1000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                 \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 186 |\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 187 |\u001b[39m\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts",
+                        "column": 49,
+                        "line": 185
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('#confirm-secret')\nExpected: \u001b[32m\"SSE_FAKE_EXPECTED_CREDENTIAL_VALUE\"\u001b[39m\nReceived: \u001b[31m\"not-the-real-secret\"\u001b[39m\nTimeout:  1000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" with timeout 1000ms\u001b[22m\n\u001b[2m  - waiting for locator('#confirm-secret')\u001b[22m\n\u001b[2m    10 × locator resolved to <input type=\"text\" id=\"confirm-secret\" value=\"not-the-real-secret\"/>\u001b[22m\n\u001b[2m       - unexpected value \"not-the-real-secret\"\u001b[22m\n\n\n  183 |   `);\n  184 |\n> 185 |   await expect(page.locator('#confirm-secret')).toHaveValue(EXPECTED_VALUE_SENTINEL, { timeout: 1000 });\n      |                                                 ^\n  186 | });\n  187 |\n    at D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts:185:49"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-20T04:46:24.473Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\generated-source-literal\\test-results\\fixture-source-literal-fix-3d4de-ential-on-the-expected-side\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "D:\\Github\\sse-2287\\scripts\\fixtures\\trace-redaction\\fixture-source-literal.spec.ts",
+                    "column": 49,
+                    "line": 185
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "dca59a2f9d5958aa1b76-8f6a398c109f9bae41c9",
+          "file": "fixture-source-literal.spec.ts",
+          "line": 177,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-20T04:46:20.392Z",
+    "duration": 5746.957,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 4,
+    "flaky": 0
+  }
+}

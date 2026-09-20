@@ -66,8 +66,10 @@ import { readZipEntries } from './fixtures/trace-redaction/read-zip-entries.mjs'
 import {
   ACCESS_TOKEN_SENTINEL,
   CLIENT_SECRET_SENTINEL,
+  EXPECTED_VALUE_SENTINEL,
   PASSWORD_SENTINEL,
   REFRESH_TOKEN_SENTINEL,
+  SOURCE_LITERAL_SENTINEL,
 } from './fixtures/trace-redaction/sentinels.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -91,6 +93,21 @@ const leakyErrorContextPath = path.join(fixturesDir, 'leaky-error-context.md');
 // existing, already-passing assertion red as a side effect of this reopen,
 // rather than as one of its three deliberately new red facts.
 const leakyReportCallLogPath = path.join(fixturesDir, 'leaky-report-call-log.json');
+
+// Phase-6 reopen round 3 (#2287, 2026-09-20): a third security review found
+// four further genuine gaps, reproduced on real Playwright 1.62.1 output by
+// `fixture-source-literal.spec.ts` run through the real Playwright Test
+// runner via `make-leaky-report-source-literal.mjs` — see that generator's
+// header comment for how each file below was produced and why it is kept
+// separate from the round-1/round-2 fixtures above (regenerating this round
+// must never perturb those already-green facts).
+const leakyReportSourceLiteralPath = path.join(fixturesDir, 'leaky-report-source-literal.json');
+const leakyReportSourceLiteralIndexHtmlPath = path.join(fixturesDir, 'leaky-report-source-literal-index.html');
+const leakyErrorContextSourceLiteralFarPath = path.join(fixturesDir, 'leaky-error-context-source-literal-far.md');
+const leakyErrorContextSourceLiteralUnlabelledPath = path.join(
+  fixturesDir,
+  'leaky-error-context-source-literal-unlabelled.md',
+);
 
 const ALL_SENTINELS = [ACCESS_TOKEN_SENTINEL, REFRESH_TOKEN_SENTINEL, CLIENT_SECRET_SENTINEL, PASSWORD_SENTINEL];
 
@@ -140,6 +157,35 @@ function buildLeakyArtifactTree() {
   };
 }
 
+// Phase-6 reopen round 3: a separate, disjoint tree builder for the
+// source-literal fixtures, so exercising it can never touch
+// `buildLeakyArtifactTree()`'s already-green round-1/round-2 facts above.
+function buildSourceLiteralArtifactTree() {
+  const root = mkdtempSync(path.join(tmpdir(), 'scrub-playwright-artifacts-source-literal-'));
+
+  const testResultsDir = path.join(root, 'test-results');
+  const farDir = path.join(testResultsDir, 'far-codeframe-window');
+  const unlabelledDir = path.join(testResultsDir, 'unlabelled-password-field');
+  mkdirSync(farDir, { recursive: true });
+  mkdirSync(unlabelledDir, { recursive: true });
+  cpSync(leakyReportSourceLiteralPath, path.join(testResultsDir, 'e2e-report.json'));
+  cpSync(leakyErrorContextSourceLiteralFarPath, path.join(farDir, 'error-context.md'));
+  cpSync(leakyErrorContextSourceLiteralUnlabelledPath, path.join(unlabelledDir, 'error-context.md'));
+
+  const playwrightReportDir = path.join(root, 'playwright-report');
+  mkdirSync(playwrightReportDir, { recursive: true });
+  cpSync(leakyReportSourceLiteralIndexHtmlPath, path.join(playwrightReportDir, 'index.html'));
+
+  return {
+    testResultsDir,
+    playwrightReportDir,
+    reportPath: path.join(testResultsDir, 'e2e-report.json'),
+    farErrorContextPath: path.join(farDir, 'error-context.md'),
+    unlabelledErrorContextPath: path.join(unlabelledDir, 'error-context.md'),
+    htmlReportIndexPath: path.join(playwrightReportDir, 'index.html'),
+  };
+}
+
 // ---- running the real scrubber -----------------------------------------
 
 function runScrubber(directories) {
@@ -169,6 +215,33 @@ function readTraceZip(zipPath) {
   return readZipEntries(readFileSync(zipPath));
 }
 
+// Phase-6 reopen round 3: `fixture-source-literal.spec.ts` has four specs in
+// one file, so tests below select "one test's own result" by title substring
+// rather than a positional index — robust against the file gaining or
+// reordering tests later.
+function findSpecResult(report, titleSubstring) {
+  for (const suite of report.suites) {
+    for (const spec of suite.specs) {
+      if (spec.title.includes(titleSubstring)) {
+        return spec.tests[0].results[0];
+      }
+    }
+  }
+  assert.fail(`expected a spec whose title includes "${titleSubstring}"`);
+}
+
+// Same selection, for one per-test-file JSON entry inside the HTML report's
+// embedded report-data zip (`readHtmlReportEmbeddedZip`'s entries).
+function findHtmlReportTest(entries, titleSubstring) {
+  const perFileEntries = [...entries].filter(([name]) => name !== 'report.json' && name.endsWith('.json'));
+  for (const [, buffer] of perFileEntries) {
+    const parsed = JSON.parse(buffer.toString('utf8'));
+    const match = (parsed.tests ?? []).find((testEntry) => String(testEntry.title).includes(titleSubstring));
+    if (match) return match;
+  }
+  assert.fail(`expected a per-test-file report entry whose title includes "${titleSubstring}"`);
+}
+
 // Phase-6 reopen blocker 1: the HTML reporter appends its entire report data
 // set as a base64-encoded zip, wrapped in
 // `<template id="playwrightReportBase64">data:application/zip;base64,...`
@@ -181,6 +254,20 @@ function readHtmlReportEmbeddedZip(htmlPath) {
   const match = html.match(/<template id="playwrightReportBase64">data:application\/zip;base64,([^<]+)<\/template>/);
   assert.ok(match, `expected ${htmlPath} to carry a playwrightReportBase64 template with an embedded zip`);
   return readZipEntries(Buffer.from(match[1], 'base64'));
+}
+
+// Phase-6 reopen round 3, S1: deliberately LENIENT quote-matching (unlike
+// `readHtmlReportEmbeddedZip` above, which asserts the strict double-quoted
+// wrapping) — this is the test-side check for "does the value still leak",
+// independent of whichever quoting the file actually carries, so it can tell
+// a genuine fix (the value is gone) from the scrubber's own strict pattern
+// simply not recognising a mutated file as a candidate at all.
+function htmlEmbeddedZipCarries(htmlPath, needle) {
+  const html = readFileSync(htmlPath, 'utf8');
+  const match = html.match(/<template id=['"]playwrightReportBase64['"]>data:application\/zip;base64,([^<]+)<\/template>/);
+  if (!match) return false;
+  const entries = readZipEntries(Buffer.from(match[1], 'base64'));
+  return allEntryBytesAsText(entries).includes(needle);
 }
 
 // Every byte of every entry, decoded loss-free (latin1 is a byte-preserving
@@ -417,6 +504,243 @@ test('phase-6 reopen, blocker 2b, absence (expected to fail today): the scrubber
   assert.ok(
     !scrubbedErrorContext.includes(PASSWORD_SENTINEL),
     `expected no password sentinel left in error-context.md's Page snapshot after scrubbing, got:\n${scrubbedErrorContext}`,
+  );
+});
+
+// ---- Phase-6 reopen round 3 (#2287) — a third security review's four gaps ----
+//
+// All four are reproduced on REAL Playwright 1.62.1 output by
+// `fixture-source-literal.spec.ts`, run through the real Playwright Test
+// runner via `make-leaky-report-source-literal.mjs` (see that generator's
+// header comment). None of the four tests in that spec ever calls
+// `.fill()`/a locator on the leaked value in a way the scrubber's existing
+// pairing mechanisms recognise — that absence of a runtime pairing is exactly
+// what each gap below exploits.
+//
+//   - **B1** — a plain module-level source constant
+//     (`FIXTURE_SOURCE_LITERAL_SECRET`) is echoed into Playwright's own
+//     codeframes/snippets by two DIFFERENT tests that never reference it at
+//     all: one fails on the very next statement (small, ~2-line codeframe
+//     window: `error.snippet`, `errors[].message`), the other fails ~95
+//     comment-padded lines below it (large, 100-line codeframe window:
+//     `error-context.md`'s "# Test source", and the HTML report's own
+//     per-test `errors[].codeframe` for that SECOND, otherwise-unrelated
+//     test — "the OTHER test in the same file").
+//   - **S2** — a password field with no `<label>`, no `aria-label` gets no
+//     quoted accessible name at all in Playwright's own ARIA snapshot, so
+//     `redactAriaSnapshotSection`'s label pattern never has a name to test.
+//   - **S3** — a `toHaveValue` assertion that expects a real credential and
+//     receives something else puts the credential on the `Expected:` side,
+//     which `collectReportSweepValues`'s `UNEXPECTED_VALUE_PATTERN` (keyed to
+//     `unexpected value "..."`, the `Received:` side) never looks at.
+
+test('round 3 reopen, B1, presence: leaky-report-source-literal.json carries the source-literal sentinel via error.snippet and errors[].message, with no fill()/locator pairing anywhere', () => {
+  const report = JSON.parse(readFileSync(leakyReportSourceLiteralPath, 'utf8'));
+  const adjacentResult = findSpecResult(report, 'right next to the constant');
+
+  assert.ok(
+    typeof adjacentResult.error.snippet === 'string' && adjacentResult.error.snippet.includes(SOURCE_LITERAL_SENTINEL),
+    `expected result.error.snippet to carry the source-literal sentinel via its own small (2-above/3-below) codeframe window, got:\n${adjacentResult.error.snippet}`,
+  );
+  assert.ok(
+    adjacentResult.errors.some((error) => typeof error.message === 'string' && error.message.includes(SOURCE_LITERAL_SENTINEL)),
+    'expected an errors[].message to carry the source-literal sentinel via the same small codeframe window',
+  );
+  assert.ok(
+    !JSON.stringify(adjacentResult).includes("Fill \"") && !JSON.stringify(adjacentResult).includes('locator('),
+    'expected this result to carry no fill()/locator call-log wording at all — the leak here has no pairing to key a redaction off',
+  );
+});
+
+test('round 3 reopen, B1, presence: leaky-error-context-source-literal-far.md carries the source-literal sentinel in its Test source section, from an unrelated failure ~95 lines below it', () => {
+  const errorContext = readFileSync(leakyErrorContextSourceLiteralFarPath, 'utf8');
+
+  assert.match(errorContext, /# Test source/, 'expected a "# Test source" section, as Playwright writes for every failure with a resolvable stack location');
+  const testSourceSection = errorContext.slice(errorContext.indexOf('# Test source'));
+  assert.ok(
+    testSourceSection.includes(SOURCE_LITERAL_SENTINEL),
+    `expected the "# Test source" section to carry the source-literal sentinel via its 100-line codeframe window, got:\n${testSourceSection}`,
+  );
+  // "No pairing" is asserted around the ERROR DETAILS only, not the whole
+  // Test source dump — that section re-reads the rest of this fixture's own
+  // file (including later tests' source, which legitimately contains the
+  // words "Fill"/"locator" as source text), so it is not evidence either way.
+  const errorDetailsSection = errorContext.slice(errorContext.indexOf('# Error details'), errorContext.indexOf('# Test source'));
+  assert.ok(
+    !errorDetailsSection.includes('Fill "') && !errorDetailsSection.includes("locator('"),
+    'expected the error details for this plain expect(3).toBe(4) to carry no fill()/locator call-log wording',
+  );
+});
+
+test('round 3 reopen, B1, presence: leaky-report-source-literal-index.html carries the source-literal sentinel in the OTHER (unrelated, far) test\'s own embedded codeframe', () => {
+  const entries = readHtmlReportEmbeddedZip(leakyReportSourceLiteralIndexHtmlPath);
+  const farTest = findHtmlReportTest(entries, 'padded ~95 lines below the constant');
+  const farResult = farTest.results[0];
+
+  const hasLeakyCodeframe = (farResult.errors ?? []).some(
+    (error) => typeof error.codeframe === 'string' && error.codeframe.includes(SOURCE_LITERAL_SENTINEL),
+  );
+  assert.ok(
+    hasLeakyCodeframe,
+    `expected the far test's own errors[].codeframe to carry the source-literal sentinel, got:\n${JSON.stringify(farResult.errors)}`,
+  );
+});
+
+test('round 3 reopen, S2, presence: leaky-error-context-source-literal-unlabelled.md carries the password sentinel on an unlabelled textbox role, with no quoted accessible name', () => {
+  const errorContext = readFileSync(leakyErrorContextSourceLiteralUnlabelledPath, 'utf8');
+
+  assert.match(errorContext, /# Page snapshot/, 'expected a "# Page snapshot" section');
+  const pageSnapshotSection = errorContext.slice(errorContext.indexOf('# Page snapshot'));
+  assert.match(
+    pageSnapshotSection,
+    new RegExp(`-\\s*textbox\\s*\\[[^\\]]*\\][^\\n"]*:\\s*${PASSWORD_SENTINEL}`),
+    `expected an unlabelled "textbox" role line (no quoted name before the colon) carrying the password sentinel, got:\n${pageSnapshotSection}`,
+  );
+  // Confirms "no quoted name" precisely, rather than merely "some textbox
+  // line somewhere carries it": no `"..."` appears between "textbox" and the
+  // sentinel's own line.
+  const leakyLine = pageSnapshotSection.split('\n').find((line) => line.includes(PASSWORD_SENTINEL));
+  assert.ok(leakyLine, 'expected to find the specific line carrying the password sentinel');
+  assert.doesNotMatch(leakyLine, /"/, `expected the role line to carry no quoted accessible name at all, got:\n${leakyLine}`);
+});
+
+test('round 3 reopen, S3, presence: leaky-report-source-literal.json carries the expected-value sentinel on the Expected: side of a failed toHaveValue, not the Received: side', () => {
+  const report = JSON.parse(readFileSync(leakyReportSourceLiteralPath, 'utf8'));
+  const result = findSpecResult(report, 'credential on the expected side');
+  // Playwright's own message carries ANSI colour codes between "Expected:"
+  // and the quoted value (`nonTerminalScreen` does not strip them for this
+  // field) — stripped here purely so the regex reads the same wording a
+  // terminal would show; the scrubber's own `applySweepAndPatternBackstop`
+  // never sees this stripped form, only the raw message below.
+  const plainMessage = result.error.message.replace(/\x1b\[[0-9;]*m/g, '');
+
+  assert.match(
+    plainMessage,
+    new RegExp(`Expected:\\s*"${EXPECTED_VALUE_SENTINEL}"`),
+    `expected error.message's "Expected:" line to carry the expected-value sentinel, got:\n${result.error.message}`,
+  );
+  assert.doesNotMatch(
+    plainMessage,
+    new RegExp(`unexpected value "${EXPECTED_VALUE_SENTINEL}"`),
+    'expected this NOT to be the "unexpected value" (Received:) shape the scrubber already harvests — that is a different, already-closed gap',
+  );
+});
+
+// ---- Phase-6 reopen round 3 — absence: none of the four is closed today ---
+//
+// Each of these must FAIL today, for the reason named in its own comment
+// above. Phase 4b's brief is exactly this failure output.
+
+test('round 3 reopen, B1, absence (expected to fail today): the scrubber removes the source-literal sentinel from error.snippet and errors[].message', () => {
+  const tree = buildSourceLiteralArtifactTree();
+
+  const result = runScrubber([tree.testResultsDir, tree.playwrightReportDir]);
+  assert.equal(result.status, 0, describeScrubberFailure(result));
+
+  const scrubbedReport = JSON.parse(readFileSync(tree.reportPath, 'utf8'));
+  const adjacentResult = findSpecResult(scrubbedReport, 'right next to the constant');
+
+  assert.ok(
+    !(typeof adjacentResult.error.snippet === 'string' && adjacentResult.error.snippet.includes(SOURCE_LITERAL_SENTINEL)),
+    `expected no source-literal sentinel left in error.snippet after scrubbing, got:\n${adjacentResult.error.snippet}`,
+  );
+  assert.ok(
+    !adjacentResult.errors.some((error) => typeof error.message === 'string' && error.message.includes(SOURCE_LITERAL_SENTINEL)),
+    'expected no source-literal sentinel left in any errors[].message after scrubbing',
+  );
+});
+
+test('round 3 reopen, B1, absence (expected to fail today): the scrubber removes the source-literal sentinel from error-context.md\'s Test source section', () => {
+  const tree = buildSourceLiteralArtifactTree();
+
+  const result = runScrubber([tree.testResultsDir, tree.playwrightReportDir]);
+  assert.equal(result.status, 0, describeScrubberFailure(result));
+
+  const scrubbedErrorContext = readFileSync(tree.farErrorContextPath, 'utf8');
+  assert.ok(
+    !scrubbedErrorContext.includes(SOURCE_LITERAL_SENTINEL),
+    `expected no source-literal sentinel left in error-context.md's Test source section after scrubbing, got:\n${scrubbedErrorContext}`,
+  );
+});
+
+test('round 3 reopen, B1, absence (expected to fail today): the scrubber removes the source-literal sentinel from the HTML report\'s OTHER (far) test codeframe', () => {
+  const tree = buildSourceLiteralArtifactTree();
+
+  const result = runScrubber([tree.testResultsDir, tree.playwrightReportDir]);
+  assert.equal(result.status, 0, describeScrubberFailure(result));
+
+  const entries = readHtmlReportEmbeddedZip(tree.htmlReportIndexPath);
+  const farTest = findHtmlReportTest(entries, 'padded ~95 lines below the constant');
+  const farResult = farTest.results[0];
+
+  const stillLeaky = (farResult.errors ?? []).some(
+    (error) => typeof error.codeframe === 'string' && error.codeframe.includes(SOURCE_LITERAL_SENTINEL),
+  );
+  assert.ok(
+    !stillLeaky,
+    `expected no source-literal sentinel left in the far test's own errors[].codeframe after scrubbing, got:\n${JSON.stringify(farResult.errors)}`,
+  );
+});
+
+test('round 3 reopen, S2, absence (expected to fail today): the scrubber removes the password value from an unlabelled textbox role in error-context.md', () => {
+  const tree = buildSourceLiteralArtifactTree();
+
+  const result = runScrubber([tree.testResultsDir, tree.playwrightReportDir]);
+  assert.equal(result.status, 0, describeScrubberFailure(result));
+
+  const scrubbedErrorContext = readFileSync(tree.unlabelledErrorContextPath, 'utf8');
+  assert.ok(
+    !scrubbedErrorContext.includes(PASSWORD_SENTINEL),
+    `expected no password sentinel left in the unlabelled textbox's error-context.md after scrubbing, got:\n${scrubbedErrorContext}`,
+  );
+});
+
+test('round 3 reopen, S3, absence (expected to fail today): the scrubber removes the expected-value sentinel from the Expected: side of a failed toHaveValue', () => {
+  const tree = buildSourceLiteralArtifactTree();
+
+  const result = runScrubber([tree.testResultsDir, tree.playwrightReportDir]);
+  assert.equal(result.status, 0, describeScrubberFailure(result));
+
+  const scrubbedReport = JSON.parse(readFileSync(tree.reportPath, 'utf8'));
+  const result0 = findSpecResult(scrubbedReport, 'credential on the expected side');
+
+  assert.ok(
+    !result0.error.message.includes(EXPECTED_VALUE_SENTINEL),
+    `expected no expected-value sentinel left in error.message after scrubbing, got:\n${result0.error.message}`,
+  );
+});
+
+// ---- Phase-6 reopen round 3, S1 — HTML detection fails open ---------------
+//
+// `isHtmlReportFile`'s `HTML_REPORT_TEMPLATE_PATTERN` matches the exact
+// double-quoted `id="playwrightReportBase64"` wrapping Playwright 1.62.1
+// happens to emit. A single-character drift in that wrapping (single quotes
+// instead of double) makes `classifyCandidate` return `null` for the file —
+// not an error, just "not a candidate" — so `main()` silently skips it while
+// every OTHER real artifact in the same run scrubs normally and the whole
+// script still exits 0. The mutated file is never touched, deleted, or even
+// mentioned in the script's own output.
+
+test('round 3 reopen, S1 (expected to fail today): a small drift in the HTML report\'s template-id quoting must not be silently skipped', () => {
+  const tree = buildLeakyArtifactTree();
+
+  const original = readFileSync(tree.htmlReportIndexPath, 'utf8');
+  const mutated = original.replace('<template id="playwrightReportBase64">', "<template id='playwrightReportBase64'>");
+  assert.notEqual(mutated, original, 'expected the id attribute\'s quoting to actually change');
+  writeFileSync(tree.htmlReportIndexPath, mutated, 'utf8');
+
+  const result = runScrubber([tree.testResultsDir, tree.playwrightReportDir]);
+
+  const stillExists = existsSync(tree.htmlReportIndexPath);
+  const stillCarriesSecret = stillExists && htmlEmbeddedZipCarries(tree.htmlReportIndexPath, PASSWORD_SENTINEL);
+
+  // Today: exit 0 (every other real artifact scrubs fine), the mutated file
+  // still exists, and its embedded zip — untouched — still carries the
+  // password sentinel. Any ONE of "failed loudly" / "gone" / "no longer
+  // carries the secret" would be an acceptable fix; today none of them hold.
+  assert.ok(
+    result.status !== 0 || !stillExists || !stillCarriesSecret,
+    `expected the scrubber to fail loudly (non-zero exit), delete the file, or otherwise not silently pass the mutated HTML report through untouched, got:\n${describeScrubberFailure(result)}`,
   );
 });
 
