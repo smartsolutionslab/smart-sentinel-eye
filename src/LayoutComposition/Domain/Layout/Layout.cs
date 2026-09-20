@@ -69,6 +69,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     /// </summary>
     public static Option<GridViolation> ValidateGrid(GridDimensions grid, IReadOnlyList<Tile> tiles)
     {
+        Ensure.That(grid).IsNotNull();
         Ensure.That(tiles).IsNotNull();
 
         if (tiles.Count == 0)
@@ -128,6 +129,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     {
         Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
+        Ensure.That(grid).IsNotNull();
         Ensure.That(tiles).IsNotNull();
         Ensure.That(clock).IsNotNull();
         RequireValidGrid(grid, tiles);
@@ -187,6 +189,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     public void EditDraft(
         LayoutRevisionNumber number, GridDimensions grid, IReadOnlyList<Tile> tiles, IClock clock)
     {
+        Ensure.That(grid).IsNotNull();
         Ensure.That(tiles).IsNotNull();
         Ensure.That(clock).IsNotNull();
         RequireValidGrid(grid, tiles);
