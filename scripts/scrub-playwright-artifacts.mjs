@@ -455,7 +455,19 @@ function stripAnsiCodes(text) {
 // shape (a credential-shaped *identifier* being assigned), never by value,
 // mirroring `CREDENTIAL_SELECTOR_PATTERN`'s existing selector-name
 // convention.
-const SOURCE_LITERAL_ASSIGNMENT_PATTERN = /\b(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*['"]([^'"]*)['"]/g;
+//
+// The middle `.*` (greedy) is deliberate, not merely permissive: this
+// repository's own `e2e/wall-withdrawal.spec.ts:43` assigns through
+// `process.env['SSE_KEYCLOAK_ADMIN_PASSWORD'] ?? 'dev-only-keycloak-admin'`
+// — the real fallback literal sits after an env-var read and a `??`, not
+// immediately after `=`. A lazy match would instead capture the env var's
+// own *name* (`'SSE_KEYCLOAK_ADMIN_PASSWORD'`, itself just a quoted string
+// earlier on the line) and miss the actual secret. Greedy backtracking
+// finds the *last* quoted string before the statement ends, which is the
+// value actually assigned. `.` does not cross a newline without the `s`
+// flag, so this cannot reach into an unrelated later statement.
+const SOURCE_LITERAL_ASSIGNMENT_PATTERN =
+  /\b(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=.*['"]([^'"]*)['"][^'"]*?(?:[;,)\n]|$)/g;
 
 function collectSourceLiteralSweepValues(text, sweepValues) {
   if (typeof text !== 'string') return;
