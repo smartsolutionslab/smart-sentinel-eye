@@ -38,6 +38,16 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// directly-created populations, which licensed deleting the Kiosk copy and
 /// pointing both call sites at <see cref="DeleteAsync"/> below.
 /// </para>
+///
+/// <para>
+/// <c>KeycloakAdminTokenProviderTests</c> and <c>MqttAudienceIntegrationTests</c>
+/// read the three constants below rather than keeping their own copies
+/// (spec 191). Neither calls <see cref="AuthorisedAdminClientAsync"/>:
+/// <c>KeycloakAdminTokenProviderTests</c> is the test of
+/// <see cref="KeycloakAdminTokenProvider"/>, which that helper constructs
+/// internally, so routing through it would make the test act and observe
+/// through its own subject.
+/// </para>
 /// </summary>
 public sealed class RealmProbe(AspireFixture aspire)
 {

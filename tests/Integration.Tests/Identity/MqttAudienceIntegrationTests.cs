@@ -58,13 +58,7 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 [Collection(AspireCollection.Name)]
 public class MqttAudienceIntegrationTests(AspireFixture aspire, ITestOutputHelper output) : IAsyncLifetime
 {
-    private const string Realm = "smart-sentinel-eye";
     private const string ApiAudience = "smart-sentinel-eye-api";
-
-    // The client HttpKeycloakAdminClient itself authenticates as; it holds
-    // realm-management/manage-clients in the realm file.
-    private const string AdminClientId = "identity-admin";
-    private const string AdminClientSecret = "dev-only-identity-admin-secret";
 
     // Deliberately not sse-audience. defaultDefaultClientScopes is empty in the
     // realm file and sse-audience is not one of Keycloak's built-ins, so a client
@@ -95,10 +89,10 @@ public class MqttAudienceIntegrationTests(AspireFixture aspire, ITestOutputHelpe
             return;
         }
 
-        string adminToken = await MintClientCredentialsTokenAsync(AdminClientId, AdminClientSecret);
+        string adminToken = await MintClientCredentialsTokenAsync(RealmProbe.AdminClientId, RealmProbe.AdminClientSecret);
         using HttpClient keycloak = CreateAdminApiClient(adminToken);
         using HttpResponseMessage response = await keycloak.DeleteAsync(
-            $"admin/realms/{Realm}/clients/{throwawayClientUuid}");
+            $"admin/realms/{RealmProbe.Realm}/clients/{throwawayClientUuid}");
         output.WriteLine(
             $"teardown: DELETE clients/{throwawayClientUuid} answered {(int)response.StatusCode} {response.StatusCode}");
     }
@@ -183,11 +177,11 @@ public class MqttAudienceIntegrationTests(AspireFixture aspire, ITestOutputHelpe
     private async Task<ClientCredentials> CreateAudiencelessClientAsync()
     {
         string clientId = $"audienceless-{Guid.CreateVersion7():N}";
-        string adminToken = await MintClientCredentialsTokenAsync(AdminClientId, AdminClientSecret);
+        string adminToken = await MintClientCredentialsTokenAsync(RealmProbe.AdminClientId, RealmProbe.AdminClientSecret);
         using HttpClient keycloak = CreateAdminApiClient(adminToken);
 
         using HttpResponseMessage created = await keycloak.PostAsJsonAsync(
-            $"admin/realms/{Realm}/clients",
+            $"admin/realms/{RealmProbe.Realm}/clients",
             new
             {
                 clientId,
@@ -205,7 +199,7 @@ public class MqttAudienceIntegrationTests(AspireFixture aspire, ITestOutputHelpe
         {
             string body = await created.Content.ReadAsStringAsync();
             throw new InvalidOperationException(
-                $"POST admin/realms/{Realm}/clients failed with {(int)created.StatusCode} "
+                $"POST admin/realms/{RealmProbe.Realm}/clients failed with {(int)created.StatusCode} "
                 + $"{created.StatusCode}. Body: {body}");
         }
 
@@ -213,7 +207,7 @@ public class MqttAudienceIntegrationTests(AspireFixture aspire, ITestOutputHelpe
         throwawayClientUuid = uuid;
 
         using HttpResponseMessage secret = await keycloak.GetAsync(
-            $"admin/realms/{Realm}/clients/{uuid}/client-secret");
+            $"admin/realms/{RealmProbe.Realm}/clients/{uuid}/client-secret");
         secret.EnsureSuccessStatusCode();
         JsonElement credential = await secret.Content.ReadFromJsonAsync<JsonElement>();
 
@@ -223,7 +217,7 @@ public class MqttAudienceIntegrationTests(AspireFixture aspire, ITestOutputHelpe
     private static async Task<string> ReadClientUuidAsync(HttpClient keycloak, string clientId)
     {
         using HttpResponseMessage response = await keycloak.GetAsync(
-            $"admin/realms/{Realm}/clients?clientId={Uri.EscapeDataString(clientId)}");
+            $"admin/realms/{RealmProbe.Realm}/clients?clientId={Uri.EscapeDataString(clientId)}");
         response.EnsureSuccessStatusCode();
         JsonElement rows = await response.Content.ReadFromJsonAsync<JsonElement>();
 
@@ -280,7 +274,7 @@ public class MqttAudienceIntegrationTests(AspireFixture aspire, ITestOutputHelpe
         });
 
         using HttpResponseMessage response = await keycloak.PostAsync(
-            $"/realms/{Realm}/protocol/openid-connect/token", form);
+            $"/realms/{RealmProbe.Realm}/protocol/openid-connect/token", form);
         if (!response.IsSuccessStatusCode)
         {
             string body = await response.Content.ReadAsStringAsync();

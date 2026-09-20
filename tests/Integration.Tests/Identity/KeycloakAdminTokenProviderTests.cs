@@ -16,10 +16,6 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 [Collection(AspireCollection.Name)]
 public class KeycloakAdminTokenProviderTests
 {
-    private const string AdminClientId = "identity-admin";
-    private const string AdminClientSecret = "dev-only-identity-admin-secret";
-    private const string Realm = "smart-sentinel-eye";
-
     private readonly AspireFixture _fixture;
 
     public KeycloakAdminTokenProviderTests(AspireFixture fixture)
@@ -57,9 +53,9 @@ public class KeycloakAdminTokenProviderTests
         KeycloakAdminOptions options = new()
         {
             BaseUrl = http.BaseAddress!.ToString(),
-            Realm = Realm,
-            AdminClientId = AdminClientId,
-            AdminClientSecret = AdminClientSecret,
+            Realm = RealmProbe.Realm,
+            AdminClientId = RealmProbe.AdminClientId,
+            AdminClientSecret = RealmProbe.AdminClientSecret,
         };
         return new KeycloakAdminTokenProvider(
             new FakeHttpClientFactory(http),
