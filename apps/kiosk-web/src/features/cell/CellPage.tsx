@@ -242,7 +242,7 @@ export function CellPage() {
       if (textSkewCount !== null) {
         logResilienceEvent('hub', 'resolved-text-without-fab', { overlay: message.overlay, count: textSkewCount });
       }
-      if (message.fab !== wallFab) return;
+      if (namedFab(wallFab) === null || message.fab !== wallFab) return;
       // Spec 141 site 3 (FR-005): a ResolvedOverlayTextChangedV1 is only ever
       // published for an overlay the server's own reverse index found a
       // placeholder in — so arriving here for an overlay this tile parsed as
@@ -293,7 +293,7 @@ export function CellPage() {
       if (highlightSkewCount !== null) {
         logResilienceEvent('hub', 'highlight-without-fab', { overlay: message.overlay, count: highlightSkewCount });
       }
-      if (message.fab !== wallFab) return;
+      if (namedFab(wallFab) === null || message.fab !== wallFab) return;
       startHighlight(message.overlay, message.durationMs);
     },
     onReconnected: () => {

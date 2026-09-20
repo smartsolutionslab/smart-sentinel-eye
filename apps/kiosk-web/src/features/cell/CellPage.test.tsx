@@ -1564,15 +1564,17 @@ describe('CellPage', () => {
     });
 
     /**
-     * The spec's own Gherkin for this case also expects the frame to be
+     * The spec's own Gherkin for this case also expected the frame to be
      * "dropped, exactly as today" — checked against the real cache and found
-     * not to hold: `message.fab !== wallFab` is `undefined !== undefined`,
-     * which is `false`, so the existing (unchanged, plan invariant 4) fab
-     * filter actually lets a fab-less frame through when the wall's own fab
-     * is *also* absent. That is a pre-existing hole in the equality filter
-     * itself, orthogonal to FR-004 and out of this spec's scope — so this
-     * case asserts only what FR-004 actually promises: the old reporter
-     * stays silent and the new one fires.
+     * not to hold: `message.fab !== wallFab` was `undefined !== undefined`,
+     * which is `false`, so the (then-unchanged, plan invariant 4) fab filter
+     * let a fab-less frame through when the wall's own fab was *also*
+     * absent. That was a pre-existing hole in the equality filter itself,
+     * orthogonal to FR-004 and out of spec 141's scope — so this case
+     * asserts only what FR-004 actually promised: the old reporter stays
+     * silent and the new one fires. Spec 198 (#2320) has since closed that
+     * hole at both guard sites; this test's assertions are unaffected
+     * because they only ever covered the reporters, never the cache write.
      */
     it("Leaves countReportableSkew's blind spot untouched, and reports the layout fault instead", async () => {
       const info = spyOnConsoleInfo();
