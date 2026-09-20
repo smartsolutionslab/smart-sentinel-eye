@@ -550,7 +550,7 @@ public class ConcurrencyConflictDeclarationTests
     [Fact]
     public void A_flat_sweep_of_the_api_directories_counts_the_same_mutating_mappings_as_the_walk()
     {
-        DirectoryInfo root = RepositoryRoot();
+        DirectoryInfo root = RepositorySource.Root();
         int swept = ApiSourceFiles(root)
             .Sum(file => MutatingMappingCall.Count(Source(root, file)));
 
@@ -696,7 +696,7 @@ public class ConcurrencyConflictDeclarationTests
     [Fact]
     public void Every_conflict_declaration_under_the_api_directories_sits_in_a_mapping_chain()
     {
-        DirectoryInfo root = RepositoryRoot();
+        DirectoryInfo root = RepositorySource.Root();
         int swept = ApiSourceFiles(root).Sum(file => ConflictDeclaration.Count(Source(root, file)));
         int walked = TheMappings.Value.Sum(mapping => ConflictDeclaration.Count(mapping.Chain));
 
@@ -732,7 +732,7 @@ public class ConcurrencyConflictDeclarationTests
     [Fact]
     public void No_route_group_declares_a_response_so_a_mappings_own_chain_is_its_whole_metadata()
     {
-        DirectoryInfo root = RepositoryRoot();
+        DirectoryInfo root = RepositorySource.Root();
         List<string> offenders = [];
 
         foreach (string file in ApiSourceFiles(root))
@@ -771,7 +771,7 @@ public class ConcurrencyConflictDeclarationTests
     [Fact]
     public void The_api_sources_use_only_the_string_and_comment_forms_this_reader_can_mask()
     {
-        DirectoryInfo root = RepositoryRoot();
+        DirectoryInfo root = RepositorySource.Root();
         List<string> offenders = [];
 
         foreach (string file in ApiSourceFiles(root))
@@ -954,7 +954,7 @@ public class ConcurrencyConflictDeclarationTests
     /// </summary>
     private static List<MutatingMapping> Read()
     {
-        DirectoryInfo root = RepositoryRoot();
+        DirectoryInfo root = RepositorySource.Root();
         List<MutatingMapping> mappings = [];
 
         foreach (string file in ApiSourceFiles(root))
@@ -1259,33 +1259,11 @@ public class ConcurrencyConflictDeclarationTests
             .Select(context => Path.Combine(context, "Api"))
             .Where(Directory.Exists)
             .SelectMany(api => Directory.EnumerateFiles(api, "*.cs", SearchOption.AllDirectories))
-            .Select(file => Relative(root, file))
+            .Select(file => RepositorySource.RelativePath(root, file))
             .Where(file => !file.Contains("/obj/", StringComparison.Ordinal)
                 && !file.Contains("/bin/", StringComparison.Ordinal))
             .Order(StringComparer.Ordinal)
             .ToList();
-    }
-
-    /// <summary>
-    /// Reported with <c>/</c> throughout. <see cref="Path.GetRelativePath"/>
-    /// returns the platform separator, so a backslash in an expected string is
-    /// green on Windows and red on Linux CI — this repository has been bitten by
-    /// exactly that.
-    /// </summary>
-    private static string Relative(DirectoryInfo root, string file) =>
-        Path.GetRelativePath(root.FullName, file).Replace(Path.DirectorySeparatorChar, '/');
-
-    private static DirectoryInfo RepositoryRoot()
-    {
-        DirectoryInfo? candidate = new(AppContext.BaseDirectory);
-        while (candidate is not null && !File.Exists(Path.Combine(candidate.FullName, "SmartSentinelEye.slnx")))
-        {
-            candidate = candidate.Parent;
-        }
-
-        return candidate
-            ?? throw new InvalidOperationException(
-                $"could not locate the repository root above {AppContext.BaseDirectory}");
     }
 
     private const string GuardSource = "tests/Architecture.Tests/ConcurrencyConflictDeclarationTests.cs";

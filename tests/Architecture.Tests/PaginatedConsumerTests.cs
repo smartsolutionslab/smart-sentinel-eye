@@ -147,15 +147,6 @@ public class PaginatedConsumerTests
         TimeSpan.FromSeconds(5));
 
     /// <summary>
-    /// The content of a string literal, which is data rather than mechanism.
-    /// Assertion 3 reads code, not the prose the code prints.
-    /// </summary>
-    private static readonly Regex StringLiteral = new(
-        @"""(?:[^""\\\r\n]|\\.)*""",
-        RegexOptions.None,
-        TimeSpan.FromSeconds(5));
-
-    /// <summary>
     /// The register's hook and boundary field, for the consumer sweep.
     /// </summary>
     public static TheoryData<string, string> RegisteredHooks()
@@ -374,7 +365,7 @@ public class PaginatedConsumerTests
     [InlineData("#pragma warning disable")]
     public void The_guard_offers_no_way_to_excuse_a_consumer(string mechanism)
     {
-        string[] offenders = ExecutableLines(ReadRepositoryFile(GuardSource))
+        string[] offenders = RepositorySource.ExecutableLines(ReadRepositoryFile(GuardSource))
             .Where(line => line.Contains(mechanism, StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
@@ -528,7 +519,7 @@ public class PaginatedConsumerTests
     /// package manifest is what makes it an app; a bare directory is not one.
     /// </summary>
     private static string[] AppDirectories() =>
-        Directory.EnumerateDirectories(Path.Combine(RepositoryRoot().FullName, "apps"))
+        Directory.EnumerateDirectories(Path.Combine(RepositorySource.Root().FullName, "apps"))
             .Where(app => File.Exists(Path.Combine(app, "package.json")))
             .OrderBy(app => app, StringComparer.Ordinal)
             .ToArray();
@@ -541,13 +532,13 @@ public class PaginatedConsumerTests
     /// </summary>
     private static string[] FrontendFiles()
     {
-        DirectoryInfo root = RepositoryRoot();
+        DirectoryInfo root = RepositorySource.Root();
 
         return AppDirectories()
             .Select(app => Path.Combine(app, "src"))
             .Where(Directory.Exists)
             .SelectMany(source => Directory.EnumerateFiles(source, "*.ts*", SearchOption.AllDirectories))
-            .Select(file => RelativePath(root, file))
+            .Select(file => RepositorySource.RelativePath(root, file))
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
     }
@@ -591,48 +582,12 @@ public class PaginatedConsumerTests
         || path.EndsWith(".spec.ts", StringComparison.Ordinal)
         || path.EndsWith(".spec.tsx", StringComparison.Ordinal);
 
-    /// <summary>
-    /// Forward slashes throughout, and every path comparison in this file is
-    /// written against them. <c>Path.GetRelativePath</c> returns the
-    /// <em>platform</em> separator, so a filter written with a backslash literal
-    /// is green on a Windows developer machine and red on Linux CI — the worst
-    /// direction for a guard to break, because it passes exactly where nobody
-    /// looks.
-    /// </summary>
-    private static string RelativePath(DirectoryInfo root, string file) =>
-        Path.GetRelativePath(root.FullName, file).Replace(Path.DirectorySeparatorChar, '/');
-
-    /// <summary>
-    /// Lines that are neither commentary nor attribute metadata, with the
-    /// content of every string literal removed — what is left is the code that
-    /// could actually carry a mechanism, rather than the prose it prints.
-    /// </summary>
-    private static IEnumerable<string> ExecutableLines(string source) =>
-        source.Split('\n')
-            .Select(line => line.TrimStart())
-            .Where(line => !line.StartsWith("//", StringComparison.Ordinal)
-                && !line.StartsWith('['))
-            .Select(line => StringLiteral.Replace(line, "\"\""));
-
     private static string ReadRepositoryFile(string relativePath)
     {
-        string path = Path.Combine(RepositoryRoot().FullName, relativePath);
+        string path = Path.Combine(RepositorySource.Root().FullName, relativePath);
         File.Exists(path).ShouldBeTrue(
             $"expected {relativePath} at {path} — if it moved, update this guard rather than deleting it.");
         return File.ReadAllText(path);
-    }
-
-    private static DirectoryInfo RepositoryRoot()
-    {
-        DirectoryInfo? candidate = new(AppContext.BaseDirectory);
-        while (candidate is not null && !File.Exists(Path.Combine(candidate.FullName, "SmartSentinelEye.slnx")))
-        {
-            candidate = candidate.Parent;
-        }
-
-        return candidate
-            ?? throw new InvalidOperationException(
-                $"could not locate the repository root above {AppContext.BaseDirectory}");
     }
 
     /// <summary>

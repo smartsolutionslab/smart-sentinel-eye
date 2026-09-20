@@ -650,7 +650,7 @@ public class PreconditionDeclarationTests
     [InlineData("#pragma warning disable")]
     public void The_guard_offers_no_way_to_excuse_an_endpoint(string mechanism)
     {
-        string source = File.ReadAllText(Path.Combine(RepositoryRoot().FullName, GuardSource));
+        string source = File.ReadAllText(Path.Combine(RepositorySource.Root().FullName, GuardSource));
 
         string[] offenders = source.Split('\n')
             .Select(line => line.TrimStart())
@@ -694,7 +694,7 @@ public class PreconditionDeclarationTests
 
     private static Surface Read()
     {
-        DirectoryInfo root = RepositoryRoot();
+        DirectoryInfo root = RepositorySource.Root();
         List<string> files = ApiSourceFiles(root);
 
         Dictionary<string, string> masked = new(StringComparer.Ordinal);
@@ -728,7 +728,7 @@ public class PreconditionDeclarationTests
             .Select(context => Path.Combine(context, "Api"))
             .Where(Directory.Exists)
             .SelectMany(api => Directory.EnumerateFiles(api, "*.cs", SearchOption.AllDirectories))
-            .Select(file => Relative(root, file))
+            .Select(file => RepositorySource.RelativePath(root, file))
             .Where(file => !file.Contains("/obj/", StringComparison.Ordinal)
                 && !file.Contains("/bin/", StringComparison.Ordinal))
             .Order(StringComparer.Ordinal)
@@ -1146,28 +1146,6 @@ public class PreconditionDeclarationTests
 
     private static string Ellipsis(string value) =>
         value.Length <= 60 ? value : value[..57] + "...";
-
-    /// <summary>
-    /// Reported with <c>/</c> throughout. <see cref="Path.GetRelativePath"/>
-    /// returns the platform separator, so a backslash in an expected string is
-    /// green on Windows and red on Linux CI — this repository has been bitten by
-    /// exactly that.
-    /// </summary>
-    private static string Relative(DirectoryInfo root, string file) =>
-        Path.GetRelativePath(root.FullName, file).Replace(Path.DirectorySeparatorChar, '/');
-
-    private static DirectoryInfo RepositoryRoot()
-    {
-        DirectoryInfo? candidate = new(AppContext.BaseDirectory);
-        while (candidate is not null && !File.Exists(Path.Combine(candidate.FullName, "SmartSentinelEye.slnx")))
-        {
-            candidate = candidate.Parent;
-        }
-
-        return candidate
-            ?? throw new InvalidOperationException(
-                $"could not locate the repository root above {AppContext.BaseDirectory}");
-    }
 
     private sealed record Surface(
         IReadOnlyList<string> Files,
