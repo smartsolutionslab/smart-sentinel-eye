@@ -59,33 +59,65 @@ public class DockerfileUpstreamPinTests
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>
-    /// An <b>invocation</b> of <c>wget</c>/<c>curl</c> — followed by a flag or a
-    /// URL — not merely the word appearing anywhere on the logical instruction.
-    /// A bare <c>\b(wget|curl)\b</c> also matches <c>apt-get install … wget …</c>
-    /// (line 19: installing the tool as a package, not calling it), which is not
-    /// a download this guard should judge; the declared expected red (spec 195,
-    /// F3 on line 23 only) is the discriminator that caught this.
+    /// An <b>invocation</b> of <c>wget</c>/<c>curl</c> — followed by a flag, a
+    /// URL, or a shell variable reference (<c>$VAR</c> / <c>${VAR}</c>, optionally
+    /// quoted) — not merely the word appearing anywhere on the logical
+    /// instruction. A bare <c>\b(wget|curl)\b</c> also matches <c>apt-get install
+    /// … wget …</c> (line 19: installing the tool as a package, not calling it),
+    /// which is not a download this guard should judge; the declared expected red
+    /// (spec 195, F3 on line 23 only) is the discriminator that caught this. The
+    /// variable branch exists because <c>RUN wget "$TARBALL_URL"</c> — hoisting
+    /// the URL into an <c>ARG</c> alongside <c>MOSQUITTO_SHA256</c> is a plausible
+    /// next edit — would otherwise carry neither a flag nor a literal
+    /// <c>http(s)://</c> right after the command and escape detection entirely.
     /// </summary>
     private static readonly Regex RemoteFetch = new(
-        @"(?<![\w.-])(wget|curl)\b(?=\s+(-|[""']?https?://))",
+        @"(?<![\w.-])(wget|curl)\b(?=\s+(-|[""']?(https?://|\$\{?\w)))",
         RegexOptions.Compiled);
 
+    /// <summary>
+    /// Docker's own remote-fetch instruction — <c>ADD &lt;url&gt; &lt;dest&gt;</c>
+    /// (optionally with flags such as <c>--chown=</c> or <c>--checksum=</c> before
+    /// the URL). Matched wherever an <c>ADD</c> instruction names an
+    /// <c>http(s)://</c> URL anywhere on the logical line: this guard only needs
+    /// to know the instruction fetches something remote, not which token Docker
+    /// itself would resolve as the source.
+    /// </summary>
+    private static readonly Regex AddRemoteFetch = new(
+        @"^\s*ADD\b.*\bhttps?://",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     private static readonly Regex ChecksumCheck = new(@"sha256sum\s+-c", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Docker's native <c>ADD --checksum=sha256:&lt;64 hex&gt;</c> flag —
+    /// satisfies verification for an <c>ADD</c>-based fetch the same way a
+    /// subsequent <c>sha256sum -c</c> does for <c>wget</c>/<c>curl</c>.
+    /// </summary>
+    private static readonly Regex AddChecksumFlag = new(
+        @"--checksum=sha256:[0-9a-f]{64}",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex CommentLine = new(@"^\s*#", RegexOptions.Compiled);
 
     /// <summary>
-    /// The glob that finds the population, <c>Dockerfile*</c>, is deliberately
-    /// coarse — .NET's <see cref="Directory.EnumerateFiles(string, string, SearchOption)"/>
-    /// treats it as "starts with Dockerfile", which also matches this very
-    /// class's own file name, <c>DockerfileUpstreamPinTests.cs</c> — whose source
-    /// then contains the literal words <c>wget</c>/<c>curl</c> in its own regex
-    /// patterns and doc comments, inflating the fetch count. This second, exact
-    /// filter keeps only <c>Dockerfile</c> itself or <c>Dockerfile.&lt;suffix&gt;</c>
-    /// (e.g. <c>Dockerfile.dev</c>) — the shapes Docker tooling itself recognises
-    /// — and excludes everything else the coarse glob picked up.
+    /// The population is found by <b>two</b> globs, unioned: <c>Dockerfile*</c>
+    /// (which — .NET's <see cref="Directory.EnumerateFiles(string, string, SearchOption)"/>
+    /// treats it as "starts with Dockerfile" — also matches this very class's own
+    /// file name, <c>DockerfileUpstreamPinTests.cs</c>, whose source then contains
+    /// the literal words <c>wget</c>/<c>curl</c> in its own regex patterns and doc
+    /// comments, inflating the fetch count) and <c>*.Dockerfile</c> (the
+    /// <c>&lt;name&gt;.Dockerfile</c> convention Docker tooling's <c>-f</c> flag
+    /// and a compose file's <c>dockerfile:</c> entry both recognise, e.g.
+    /// <c>api.Dockerfile</c>). This second, exact filter keeps only
+    /// <c>Dockerfile</c> itself, <c>Dockerfile.&lt;suffix&gt;</c> (e.g.
+    /// <c>Dockerfile.dev</c>), or <c>&lt;name&gt;.Dockerfile</c> — the shapes
+    /// Docker tooling itself recognises — and excludes everything else either
+    /// coarse glob picked up, this class's own source file included.
     /// </summary>
-    private static readonly Regex DockerfileName = new(@"^Dockerfile(\.[A-Za-z0-9_.-]+)?$", RegexOptions.Compiled);
+    private static readonly Regex DockerfileName = new(
+        @"^(Dockerfile(\.[A-Za-z0-9_.-]+)?|[A-Za-z0-9_.-]+\.Dockerfile)$",
+        RegexOptions.Compiled);
 
     private static readonly Regex UrlLiteral = new(@"https?://\S+", RegexOptions.Compiled);
 
@@ -111,6 +143,18 @@ public class DockerfileUpstreamPinTests
     /// from the other, and (ADR-0100) the runtime stage specifically must carry
     /// the same glibc the builder stage linked the broker against, or Mosquitto
     /// fails to start.
+    ///
+    /// <para>
+    /// Grouped by <b>repository</b> (everything before the first <c>:</c> in the
+    /// reference, e.g. <c>debian</c>), not by image+tag. Grouping by image+tag
+    /// misses a half-applied bump: editing the builder stage's <c>FROM</c> to
+    /// <c>debian:trixie-slim@&lt;newdigest&gt;</c> while the runtime stage stays on
+    /// <c>debian:bookworm-slim@&lt;olddigest&gt;</c> would put each in its own
+    /// single-member group, trivially "agreeing" with itself — exactly the
+    /// scenario this fact exists to catch. See
+    /// <see cref="A_half_applied_Debian_bump_disagrees_on_repository_even_though_the_tags_differ"/>
+    /// for the counterfactual proof.
+    /// </para>
     /// </summary>
     [Fact]
     public void Two_stages_that_build_from_one_image_name_one_digest()
@@ -120,6 +164,30 @@ public class DockerfileUpstreamPinTests
         disagreements.ShouldBeEmpty(DisagreementExplanation(disagreements));
     }
 
+    /// <summary>
+    /// Synthetic-input counterfactual for F2 (reviewer-supplied, phase-6 pass on
+    /// #2296): grouping by image+tag would put <c>debian:trixie-slim</c> and
+    /// <c>debian:bookworm-slim</c> in two separate, individually-agreeing groups
+    /// and miss the disagreement entirely. Grouping by repository must still flag
+    /// it, whichever way the two stages diverge (different tag here; different
+    /// digest, or both, are the same defect).
+    /// </summary>
+    [Fact]
+    public void A_half_applied_Debian_bump_disagrees_on_repository_even_though_the_tags_differ()
+    {
+        UpstreamReference[] synthetic =
+        [
+            new("src/AppHost/mosquitto/Dockerfile", 28, "debian:trixie-slim", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            new("src/AppHost/mosquitto/Dockerfile", 56, "debian:bookworm-slim", "3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251"),
+        ];
+
+        Disagreement[] disagreements = PinnedImageDigestDisagreements(synthetic);
+
+        disagreements.Length.ShouldBe(1);
+        disagreements[0].Repository.ShouldBe("debian");
+        disagreements[0].References.Length.ShouldBe(2);
+    }
+
     [Fact]
     public void Every_archive_a_dockerfile_downloads_is_verified_against_a_checksum()
     {
@@ -127,12 +195,65 @@ public class DockerfileUpstreamPinTests
 
         fetches.Length.ShouldBeGreaterThan(
             0,
-            "no remote fetch (wget/curl) was found in any Dockerfile under the repository, but "
+            "no remote fetch (wget/curl/ADD) was found in any Dockerfile under the repository, but "
             + "src/AppHost/mosquitto/Dockerfile has one — the scan is broken, not the code.");
 
         FetchInstruction[] unverified = [.. fetches.Where(fetch => !fetch.HasChecksum)];
 
         unverified.ShouldBeEmpty(UnverifiedExplanation(unverified));
+    }
+
+    /// <summary>
+    /// Synthetic-input proof for the <c>ADD</c> branch (reviewer-supplied, phase-6
+    /// pass on #2296): Docker's own remote-fetch instruction is entirely different
+    /// syntax from <c>wget</c>/<c>curl</c> and was previously invisible to this
+    /// guard. No live case exists in this repository's Dockerfile — this is
+    /// precision hardening for a form nothing currently uses.
+    /// </summary>
+    [Fact]
+    public void An_ADD_instruction_fetching_a_url_is_detected_and_its_native_checksum_flag_satisfies_it()
+    {
+        LogicalInstruction unverifiedInstruction = new(
+            "Dockerfile",
+            1,
+            "ADD https://example.com/archive.tar.gz /tmp/archive.tar.gz");
+        LogicalInstruction checksummed = new(
+            "Dockerfile",
+            2,
+            "ADD --checksum=sha256:d665fe7d0032881b1371a47f34169ee4edab67903b2cd2b4c083822823f4448a "
+            + "https://example.com/archive.tar.gz /tmp/archive.tar.gz");
+        LogicalInstruction local = new("Dockerfile", 3, "ADD ./local-file.txt /tmp/local-file.txt");
+
+        FetchInstruction? uncheckedFetch = ClassifyFetch(unverifiedInstruction);
+        FetchInstruction? checksummedFetch = ClassifyFetch(checksummed);
+
+        uncheckedFetch.ShouldNotBeNull();
+        uncheckedFetch.HasChecksum.ShouldBeFalse();
+        checksummedFetch.ShouldNotBeNull();
+        checksummedFetch.HasChecksum.ShouldBeTrue();
+        ClassifyFetch(local).ShouldBeNull();
+    }
+
+    /// <summary>
+    /// Synthetic-input proof that a URL held in a variable is still detected
+    /// (reviewer-supplied, phase-6 pass on #2296): the previous lookahead required
+    /// a flag or a literal <c>http(s)://</c> right after <c>wget</c>/<c>curl</c>,
+    /// so <c>RUN wget "$TARBALL_URL"</c> was invisible — concerning because this
+    /// PR just introduced <c>ARG MOSQUITTO_SHA256</c> alongside the existing
+    /// <c>ARG MOSQUITTO_VERSION</c>, and hoisting the URL into a similar
+    /// <c>ARG</c> is a plausible next edit that would otherwise escape detection
+    /// silently.
+    /// </summary>
+    [Fact]
+    public void A_fetch_naming_its_url_through_a_shell_variable_is_still_detected()
+    {
+        ClassifyFetch(new LogicalInstruction("Dockerfile", 1, "RUN wget \"$TARBALL_URL\"")).ShouldNotBeNull();
+        ClassifyFetch(new LogicalInstruction("Dockerfile", 2, "RUN wget \"${MOSQUITTO_URL}\"")).ShouldNotBeNull();
+        ClassifyFetch(new LogicalInstruction(
+            "Dockerfile",
+            3,
+            "RUN apt-get install -y --no-install-recommends build-essential wget ca-certificates"))
+            .ShouldBeNull();
     }
 
     /// <summary>
@@ -165,6 +286,39 @@ public class DockerfileUpstreamPinTests
             + "the scan no longer matches how it is written.");
     }
 
+    /// <summary>
+    /// End-to-end, filesystem-level proof for the widened population glob
+    /// (reviewer-supplied, phase-6 pass on #2296): a live <c>&lt;name&gt;.Dockerfile</c>
+    /// probe file, created and deleted within this test, must be picked up by
+    /// <see cref="DockerfileFiles"/> — and this class's own source file must
+    /// still not be, confirming the wider glob did not reintroduce the
+    /// self-match bug <see cref="DockerfileName"/>'s doc comment describes.
+    /// No such file exists in the repository today — that is exactly why this
+    /// probe creates one rather than relying on real content.
+    /// </summary>
+    [Fact]
+    public void The_file_discovery_glob_also_matches_the_name_dot_Dockerfile_convention()
+    {
+        DirectoryInfo root = RepositoryRoot();
+        string probeDirectory = Path.Combine(root.FullName, $".dockerfile-glob-probe-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(probeDirectory);
+        string probeFile = Path.Combine(probeDirectory, "api.Dockerfile");
+
+        try
+        {
+            File.WriteAllText(probeFile, "FROM debian:bookworm-slim" + Environment.NewLine);
+
+            string[] files = DockerfileFiles();
+
+            files.ShouldContain(file => file.EndsWith("api.Dockerfile", StringComparison.Ordinal));
+            files.ShouldNotContain(file => file.EndsWith("DockerfileUpstreamPinTests.cs", StringComparison.Ordinal));
+        }
+        finally
+        {
+            Directory.Delete(probeDirectory, recursive: true);
+        }
+    }
+
     private static string FloatingExplanation(UpstreamReference[] floating) =>
         $"{floating.Length} base image reference(s) in this repository's Dockerfile(s) have no digest:"
         + Environment.NewLine
@@ -178,21 +332,23 @@ public class DockerfileUpstreamPinTests
         + "is what tells a reader which release the digest is.";
 
     private static string DisagreementExplanation(Disagreement[] disagreements) =>
-        $"{disagreements.Length} image(s) are built from more than one digest within this repository's "
-        + "Dockerfile(s):"
+        $"{disagreements.Length} image repositor{(disagreements.Length == 1 ? "y" : "ies")} are built "
+        + "from more than one tag or digest within this repository's Dockerfile(s):"
         + Environment.NewLine
         + string.Join(
             Environment.NewLine,
             disagreements.Select(disagreement =>
-                $"  {disagreement.ImageAndTag}:"
+                $"  {disagreement.Repository}:"
                 + Environment.NewLine
                 + string.Join(
                     Environment.NewLine,
-                    disagreement.References.Select(reference => $"    {reference.File}:{reference.Line} → @sha256:{reference.Digest}"))))
+                    disagreement.References.Select(reference =>
+                        $"    {reference.File}:{reference.Line} → {reference.ImageAndTag}@sha256:{reference.Digest}"))))
         + Environment.NewLine
-        + "Every stage that names the same image must resolve the same bytes — in particular, the "
-        + "runtime stage must carry the same glibc the builder stage linked the broker against, or "
-        + "the broker fails to start. Pin every FROM line naming this image to the same digest.";
+        + "Every stage that builds from this repository must resolve the same tag and digest — in "
+        + "particular, the runtime stage must carry the same glibc the builder stage linked the broker "
+        + "against, or the broker fails to start. Pin every FROM line naming this image to the same "
+        + "tag and digest.";
 
     private static string UnverifiedExplanation(FetchInstruction[] unverified) =>
         $"{unverified.Length} download(s) in this repository's Dockerfile(s) are never checked "
@@ -205,17 +361,37 @@ public class DockerfileUpstreamPinTests
         + "The build trusts a third-party host's bytes with nothing to compare them against. Add "
         + "`echo \"<sha256>  <file>\" | sha256sum -c -` to the same RUN.";
 
-    private static Disagreement[] PinnedImageDigestDisagreements()
+    private static Disagreement[] PinnedImageDigestDisagreements() =>
+        PinnedImageDigestDisagreements(UpstreamReferences());
+
+    /// <summary>
+    /// Grouped by <b>repository</b> — everything before the first <c>:</c> in
+    /// <see cref="UpstreamReference.ImageAndTag"/> — not by image+tag. Two
+    /// references to the same repository disagree if either the tag or the
+    /// digest differs; grouping by image+tag would put each differently-tagged
+    /// reference in its own single-member group, which trivially "agrees" with
+    /// itself and misses a half-applied bump.
+    /// </summary>
+    private static Disagreement[] PinnedImageDigestDisagreements(UpstreamReference[] references)
     {
-        UpstreamReference[] pinned = [.. UpstreamReferences().Where(reference => reference.Digest is not null)];
+        UpstreamReference[] pinned = [.. references.Where(reference => reference.Digest is not null)];
 
         return
         [
             .. pinned
-                .GroupBy(reference => reference.ImageAndTag, StringComparer.Ordinal)
-                .Where(group => group.Select(reference => reference.Digest).Distinct(StringComparer.Ordinal).Count() > 1)
+                .GroupBy(reference => RepositoryPortion(reference.ImageAndTag), StringComparer.Ordinal)
+                .Where(group => group
+                    .Select(reference => (reference.ImageAndTag, reference.Digest))
+                    .Distinct()
+                    .Count() > 1)
                 .Select(group => new Disagreement(group.Key, [.. group])),
         ];
+    }
+
+    private static string RepositoryPortion(string imageAndTag)
+    {
+        int colonIndex = imageAndTag.IndexOf(':');
+        return colonIndex < 0 ? imageAndTag : imageAndTag[..colonIndex];
     }
 
     private static UpstreamReference[] UpstreamReferences()
@@ -264,20 +440,39 @@ public class DockerfileUpstreamPinTests
         {
             foreach (LogicalInstruction instruction in LogicalInstructions(file))
             {
-                if (!RemoteFetch.IsMatch(instruction.Text))
+                FetchInstruction? fetch = ClassifyFetch(instruction);
+                if (fetch is not null)
                 {
-                    continue;
+                    fetches.Add(fetch);
                 }
-
-                fetches.Add(new FetchInstruction(
-                    file,
-                    instruction.Line,
-                    ExtractUrl(instruction.Text),
-                    ChecksumCheck.IsMatch(instruction.Text)));
             }
         }
 
         return [.. fetches];
+    }
+
+    /// <summary>
+    /// A single logical instruction, judged in isolation — no file/directory
+    /// context needed, which is what lets the synthetic-input tests exercise this
+    /// directly instead of writing a throwaway Dockerfile to disk. Recognises
+    /// either <c>wget</c>/<c>curl</c> (<see cref="RemoteFetch"/>) or Docker's own
+    /// <c>ADD &lt;url&gt;</c> (<see cref="AddRemoteFetch"/>); verification is
+    /// satisfied by either a subsequent <c>sha256sum -c</c>
+    /// (<see cref="ChecksumCheck"/>) or <c>ADD</c>'s native
+    /// <c>--checksum=sha256:…</c> flag (<see cref="AddChecksumFlag"/>) — whichever
+    /// applies to the fetch style actually used.
+    /// </summary>
+    private static FetchInstruction? ClassifyFetch(LogicalInstruction instruction)
+    {
+        bool isFetch = RemoteFetch.IsMatch(instruction.Text) || AddRemoteFetch.IsMatch(instruction.Text);
+        if (!isFetch)
+        {
+            return null;
+        }
+
+        bool hasChecksum = ChecksumCheck.IsMatch(instruction.Text) || AddChecksumFlag.IsMatch(instruction.Text);
+
+        return new FetchInstruction(instruction.File, instruction.Line, ExtractUrl(instruction.Text), hasChecksum);
     }
 
     private static string ExtractUrl(string text)
@@ -337,6 +532,8 @@ public class DockerfileUpstreamPinTests
         [
             .. Directory
                 .EnumerateFiles(root.FullName, "Dockerfile*", SearchOption.AllDirectories)
+                .Concat(Directory.EnumerateFiles(root.FullName, "*.Dockerfile", SearchOption.AllDirectories))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Where(file => DockerfileName.IsMatch(Path.GetFileName(file)))
                 .Where(file => !file
                     .Split(Path.DirectorySeparatorChar)
@@ -391,5 +588,9 @@ public class DockerfileUpstreamPinTests
 
     private sealed record FetchInstruction(string File, int Line, string Url, bool HasChecksum);
 
-    private sealed record Disagreement(string ImageAndTag, UpstreamReference[] References);
+    /// <summary>
+    /// One repository (e.g. <c>debian</c>) that at least two pinned references
+    /// disagree on — by tag, by digest, or both.
+    /// </summary>
+    private sealed record Disagreement(string Repository, UpstreamReference[] References);
 }
