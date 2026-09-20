@@ -358,16 +358,25 @@ record a compromised byte stream. Two independent facts back it:
    `sha512sums="63f7e2811964bab5856848e6918627c47afc6534ff60aad5ece3d2fa330b407c9df14027610826e343ee68ff7d8d5d93f2459713061251ded478c42766946767  mosquitto-2.0.18.tar.gz"`.
    The SHA-512 of the file downloaded here is **that string, exactly**. A
    different byte stream matching a recorded SHA-512 is not a thing that happens.
-2. **The upstream detached signature is by the expected key.**
-   `mosquitto-2.0.18.tar.gz.asc` is present (HTTP 200) and `gpg --verify` reports
-   `Signature made Mon Sep 18 23:29:34 2023, using RSA key
-   A0D6EEA1DCAE49A635A3B2F0779B22DFB3E717B7` — Roger Light's release key, and the
-   `Last-Modified` the server reports for the tarball is the same day.
-   **The signature itself could not be checked**: three keyservers
-   (`keys.openpgp.org`, `keyserver.ubuntu.com`, `pgp.mit.edu`) all answered
-   `No data` for that fingerprint from this machine, so `gpg` ends at
-   `Can't check signature: No public key`. Recorded as a **partial** verification,
-   not claimed as a full one — fact 1 is what the pin actually rests on.
+2. **The upstream detached signature is by the expected key, and is now fully
+   verified.** `mosquitto-2.0.18.tar.gz.asc` is present (HTTP 200) and the
+   `Last-Modified` the server reports for the tarball is the same day as the
+   signature. At the time this spec was written, the signature itself could
+   not be checked: three keyservers (`keys.openpgp.org`, `keyserver.ubuntu.com`'s
+   HKP port, `pgp.mit.edu`) all answered `No data` for that fingerprint from
+   this machine, so `gpg` ended at `Can't check signature: No public key`, and
+   this was recorded as a **partial** verification. A phase-6 follow-up found a
+   fourth path — `keyserver.ubuntu.com`'s plain HTTPS lookup endpoint
+   (`https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x<fingerprint>`) —
+   which does return the key, and `gpg --verify` against it reports:
+   ```
+   gpg: Signature made Mon Sep 18 23:29:34 2023 WEST
+   gpg:                using RSA key A0D6EEA1DCAE49A635A3B2F0779B22DFB3E717B7
+   gpg: Good signature from "Roger A. Light <roger@atchoo.org>" [unknown]
+   gpg:                 aka "Roger A. Light <rogerlight@gmail.com>" [unknown]
+   ```
+   This is a full verification, not a partial one — fact 1 and fact 2 both
+   independently confirm the pin.
 
 ---
 
@@ -508,7 +517,7 @@ JSON, `mosquitto.conf`, the `chown` entrypoint, and every other container's tag.
 | R4 | Pinning Keycloak changes what a clean `dotnet restore` machine pulls | Investigated in §1.3 and §6: the package version is exact-pinned and immutable, `26.6` → `26.6.4` → the running digest are one manifest, and T008's before/after probe **observes** the composed reference is unchanged rather than assuming it |
 | R5 | The new guard is written to pass rather than to discriminate | It is written against the **unpinned** tree and observed red there (§3, US1). No constructed counterfactual is needed, which is strictly stronger evidence than spec 187 could get |
 | R6 | `sha256sum` is absent from the builder image | It is in `coreutils`, present in `debian:bookworm-slim`; step 5 of §4.1 observes it running |
-| R7 | The tarball's GPG signature could not be verified (§6) | Recorded as partial, not claimed. The pin rests on Alpine's independently recorded SHA-512 matching byte-for-byte. If a reviewer wants the signature checked, the key must be fetched from a machine with keyserver access — noted, not blocking |
+| R7 | The tarball's GPG signature initially could not be verified (§6) | Resolved by a phase-6 follow-up: `keyserver.ubuntu.com`'s HTTPS `pks/lookup` endpoint returns the key where the three keyservers originally tried did not. `gpg --verify` now reports `Good signature from "Roger A. Light <roger@atchoo.org>"` — a full verification, not partial. The pin still independently rests on Alpine's recorded SHA-512 matching byte-for-byte either way |
 | R8 | Three classes named `*PinTests` confuse the next reader | T013, non-optional: each doc comment names the other two and states its own authority |
 
 ---

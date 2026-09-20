@@ -56,10 +56,40 @@ The mosquitto tarball checksum was corroborated against Alpine aports'
 independently recorded SHA-512 for the same file (byte-for-byte match) —
 a hash computed only from one's own download proves what arrived, not
 that what arrived is genuine; the independent cross-check is what closes
-that gap. The GPG signature (`.asc`) was confirmed made by the real
-mosquitto release key (RSA fingerprint `A0D6EEA1DCAE49A635A3B2F0779B22DFB3E717B7`)
-but the key itself couldn't be fetched from any of three keyservers
-tried — recorded as a partial verification, not silently treated as full.
+that gap.
+
+**The GPG signature is now fully verified** (phase-6 follow-up, not the
+original phase 4b pass). The original pass found the signature was made
+by the real mosquitto release key (RSA fingerprint
+`A0D6EEA1DCAE49A635A3B2F0779B22DFB3E717B7`) but could not check it — the
+key itself came back `No data` from `keys.openpgp.org`, `keyserver.ubuntu.com`'s
+HKP port, and `pgp.mit.edu` — and was recorded as partial. A fourth path,
+`keyserver.ubuntu.com`'s plain HTTPS lookup endpoint
+(`https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x<fingerprint>`),
+does return the key. Fetching from there and re-running `gpg --verify`
+against the same tarball and `.asc` produced:
+
+```
+$ curl -sSL -o roger.key "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xA0D6EEA1DCAE49A635A3B2F0779B22DFB3E717B7"
+$ gpg --import roger.key
+gpg: key 779B22DFB3E717B7: public key "Roger A. Light <roger@atchoo.org>" imported
+$ gpg --verify mosquitto-2.0.18.tar.gz.asc mosquitto-2.0.18.tar.gz
+gpg: Signature made Mon Sep 18 23:29:34 2023 WEST
+gpg:                using RSA key A0D6EEA1DCAE49A635A3B2F0779B22DFB3E717B7
+gpg: Good signature from "Roger A. Light <roger@atchoo.org>" [unknown]
+gpg:                 aka "Roger A. Light <rogerlight@gmail.com>" [unknown]
+gpg: WARNING: This key is not certified with a trusted signature!
+gpg:          There is no indication that the signature belongs to the owner.
+```
+
+`Good signature` plus the matching fingerprint is a full verification —
+the trailing "not certified" warning is GPG's normal web-of-trust
+disclaimer (nobody has personally countersigned this key), not a defect
+in the check itself, and doesn't weaken what "good signature" already
+established: this tarball is byte-for-byte what Roger Light signed.
+Downloaded independently for this check — the tarball's SHA-256 matched
+the pinned `d665fe7d0032881b1371a47f34169ee4edab67903b2cd2b4c083822823f4448a`
+before the signature was checked.
 
 All four values were **re-resolved a second time by phase 4b** immediately
 before applying the pins (not reused blind from the architect's earlier
@@ -96,6 +126,17 @@ temporary assertion used to observe the value) were fully reverted; `git
 diff` confirmed clean each time before the permanent identity fact
 (`The_keycloak_image_resolves_to_the_upstream_repository_this_stack_expects`,
 which never asserts the tag value itself) was committed in its place.
+
+**§4.2 step 5 (booting a live stack and minting a Keycloak token to observe
+the `iss` claim is unchanged) was NOT performed.** The risk is judged
+near-nil without it: the before/after probe above already proves the
+composed reference is byte-for-byte unchanged (`26.6` and `26.6.4` are one
+manifest — digest equality, not merely "should be compatible"), and the
+full annotation shape produced by `WithImage`/`WithImageTag`/`WithImageRegistry`
+was separately compared and found identical before and after. A live boot
+would observe the same fact those two already establish by construction,
+not a different one — but it is still an unperformed step and is recorded
+as such rather than left as a silent omission that reads as complete.
 
 ## Independent re-verification, this pass
 
