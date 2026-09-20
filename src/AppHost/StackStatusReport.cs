@@ -42,7 +42,7 @@ public static class StackStatusReport
     ///
     /// <list type="number">
     /// <item><see cref="ParameterResource"/> — the type
-    /// <c>builder.AddParameter(...)</c> produces for every secret and
+    /// <c>builder.AddOverridableParameter(...)</c> produces for every secret and
     /// credential in this AppHost (<c>PostgresPassword</c>,
     /// <c>KeycloakPassword</c>, the four <c>*ClientSecret</c> parameters,
     /// etc.). Not <see cref="IResourceWithoutLifetime"/>, which plan.md §2.2

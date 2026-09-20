@@ -51,10 +51,10 @@ public class AppHostContainerImagePinTests
     ];
 
     /// <summary>
-    /// A developer's <c>aspire run</c>, and the shape the end-to-end job boots:
-    /// the largest population, including the two resources
+    /// Run mode: the largest population, including the two resources
     /// (<c>fixture-video</c>, <c>camera-sim</c>) a published manifest omits
-    /// because it publishes in publish mode, not run mode (spec 187 §2.1).
+    /// because it publishes in publish mode, not run mode (spec 187 §2.1). Not
+    /// the shape CI's end-to-end job or <c>aspire run</c> boots — neither passes a <c>Parameters:</c> argument.
     /// </summary>
     [Fact]
     public async Task Every_container_image_a_run_mode_stack_composes_is_pinned()

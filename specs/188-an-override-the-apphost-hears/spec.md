@@ -21,8 +21,9 @@ has collided before — so it was swept rather than assumed.
   configuration."* The defect is the reverse — a call site taking a literal
   where Aspire's own parameter resolution reads configuration.
 - **ADR-0103** (integration tests boot the real AppHost via `AspireFixture`;
-  no Testcontainers). The fixture is one of the six call sites and the only one
-  that boots containers, so it is where the mechanism is observed working.
+  no Testcontainers). The fixture is one of the seven files carrying
+  `Parameters:` arguments and the only one that boots containers, so it is
+  where the mechanism is observed working.
 - **ADR-0036** (smallest possible change; define "done" up front; no
   speculative generality; surface assumptions).
 - **ADR-0037** / **ADR-0144** (the phased workflow; the autonomous lane and its
@@ -97,12 +98,16 @@ So `Parameters:<name>` is **exactly the key Aspire itself would read**. The
 arguments in the tree are not merely plausible-looking; they are spelled
 correctly for a mechanism this AppHost opted out of.
 
-### 1.2 Correction 1 — it is **six** call sites, not two
+### 1.2 Correction 1 — it is **seven** call sites, not two
 
 The issue names `AppHostE2ESwitchTests` and `AspireFixture.cs` and says they
 were "found by following one failure, not by an audit." The audit asked for in
-the issue's own "worth checking while there" was run. Every `Parameters:`
-occurrence in the tree, excluding `bin/`, `obj/` and `node_modules/`:
+the issue's own "worth checking while there" was run, and it **missed one
+file on the first pass**: `AppHostContainerImagePinTests.cs` (spec 187) landed
+on `origin/develop` 47 minutes before this spec's own spec commit, and its two
+`Parameters:` arrays were not caught until phase 6 review of this spec's own
+fix. Corrected count, every `Parameters:` occurrence in the tree, excluding
+`bin/`, `obj/` and `node_modules/`:
 
 | File | Arrays | `Parameters:` args |
 |---|---|---|
@@ -112,10 +117,14 @@ occurrence in the tree, excluding `bin/`, `obj/` and `node_modules/`:
 | `tests/Integration.Tests/AppHostMediaMtxImageTests.cs` | 1 (`RunModeArguments`) | 4 |
 | `tests/Integration.Tests/AppHostMigrationGateTests.cs` | 1 (`RunModeArguments`) | 4 |
 | `tests/Integration.Tests/AppHostReplicaCountTests.cs` | 1 (`RunModeArguments`) | 4 |
+| `tests/Integration.Tests/AppHostContainerImagePinTests.cs` | 2 (`RunModeArguments`, `FixtureArguments`) | 4 |
 
-**28 inert arguments across 6 files and 7 arrays.** The only other `Parameters`
+**32 inert arguments across 7 files and 9 arrays.** The only other `Parameters`
 hits in the tree are `RSAParameters` in five
 `StreamDistribution.Infrastructure.Tests` files — the BCL type, unrelated.
+This table itself was wrong once already (see verification.md's "Comment-only
+diffs" section) — a re-audit rather than a repeated assertion of completeness
+is what actually earns the claim below.
 
 Four distinct parameter names are ever passed: `PostgresUser`,
 `PostgresPassword`, `KeycloakPassword`, `RabbitMqPassword`. **`AppHost.cs`
@@ -152,7 +161,10 @@ have been missed.
 
 ### 1.4 Correction 3 — the end-to-end job passes no `Parameters:` at all
 
-Five of the six files describe their array as the shape CI boots. Two examples:
+Six of the seven files describe their array as the shape CI boots (the sixth,
+`AppHostContainerImagePinTests.cs`, was missed by §1.2's first pass and
+carried the identical claim — verification.md records the fix). Two
+examples:
 
 - `AppHostStackStatusTests`: *"The shape the end-to-end job boots: parameters,
   plus the switch that disables the scenario simulator."*
@@ -179,7 +191,14 @@ CI line — `E2ETests`, `ScenarioSimulator`, `StackStatusFile`. All three read
 **therefore work**. There are no other configuration reads in `src/AppHost/`.
 
 **`Parameters:` is the only inert override family in the tree.** The audit asked
-for is complete and bounded: fixing it closes the category, not an instance.
+for closes a *category* (every call site using the literal-valued
+`AddParameter` overload), not merely the file count §1.2 happened to list on
+any given pass — §1.2's own count needed a second pass to reach seven files,
+which is why "complete and bounded" is no longer asserted as a fact about the
+file list and is stated here instead as a fact about the mechanism: every
+`AddParameter` call site in `src/AppHost/` is switched by this fix (spec §2),
+regardless of how many test files happen to reference the parameters it
+declares.
 
 ---
 
@@ -367,19 +386,19 @@ rather than a breakage.
 
 ## 5. What is deliberately **not** changed
 
-**The 28 arguments stay where they are.** Removing them was considered in both
+**The 32 arguments stay where they are.** Removing them was considered in both
 places and rejected in both:
 
 - **In `AspireFixture`** they become real and are wanted — they give the
   integration stack credentials distinct from a developer's `aspire run` stack.
-- **In the five model-only test classes** `CreateAsync` builds the model and
+- **In the six model-only test classes** `CreateAsync` builds the model and
   starts nothing, and a `ParameterResource`'s value is resolved lazily, so
   nothing there reads a parameter value either before or after this change.
-  Keeping them costs nothing and gains a little: once US1 lands, those five
+  Keeping them costs nothing and gains a little: once US1 lands, those six
   classes build the model through the configuration-lookup path rather than the
   literal path, so they exercise the new code incidentally.
 
-Removing them would have been a change with no observable effect, in five files,
+Removing them would have been a change with no observable effect, in six files,
 in service of a comment. **The comment is what misleads, so the comment is what
 US3 fixes.**
 
