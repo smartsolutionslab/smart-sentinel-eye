@@ -124,8 +124,23 @@ if (isRunMode && !isE2ETests)
         .WithDataVolume();
 }
 
+// Image, tag and registry are spelled out because Aspire.Hosting.Keycloak
+// supplies all three coordinates and this file named none of them: a
+// Directory.Packages.props bump could move the image, tag or registry with no
+// diff here, and Keycloak decides realm import, scope issuance and the `iss`
+// claim, so that drift would surface as an opaque invalid_scope or a blanket
+// 401 (issue #2296, spec 195). `26.6.4` is the same manifest the package's
+// baked-in `26.6` default resolved to on 2026-09-20 —
+// sha256:0aae0de7fca85525f727d3354df17896092de8bb26ae4c12d89c77e5df8cbce4 for
+// both tags — so this pin changes nothing about what runs today while closing
+// the patch-channel `26.6` leaves open. Order matters: `WithImage` re-parses
+// the reference and resets the tag to `latest` when it is given none, so it
+// must come before `WithImageTag`, exactly as for minio below.
 var keycloak = builder
     .AddKeycloak("keycloak", adminPassword: keycloakPassword)
+    .WithImage("keycloak/keycloak")
+    .WithImageTag("26.6.4")
+    .WithImageRegistry("quay.io")
     .WithRealmImport("../AppHost/Realms");
 
 if (isRunMode && !isE2ETests)

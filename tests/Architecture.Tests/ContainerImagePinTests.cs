@@ -49,6 +49,13 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// remains the authority for what is <b>written</b>: the MediaMTX references
 /// in <c>scripts/</c> and in prose, which no application model contains.
 /// </para>
+///
+/// <para>
+/// A third guard, <see cref="DockerfileUpstreamPinTests"/>, is the authority
+/// for a Dockerfile's own <c>FROM</c>/<c>RUN</c> grammar (issue #2296, spec
+/// 195) — a surface this class's <c>AddContainer</c>/<c>WithImageTag</c>
+/// regexes were never shaped to read and never will be.
+/// </para>
 /// </summary>
 public class ContainerImagePinTests
 {
