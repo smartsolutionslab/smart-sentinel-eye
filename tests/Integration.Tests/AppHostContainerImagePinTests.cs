@@ -142,6 +142,38 @@ public class AppHostContainerImagePinTests
     }
 
     /// <summary>
+    /// <c>keycloak</c>'s image coordinates come from <c>Aspire.Hosting.Keycloak</c>
+    /// today, not from a literal in this repository — <c>ContainerImagePinTests</c>
+    /// reads source and cannot see a package-supplied default at all (issue
+    /// #2270). This fact is the characterisation this repository's ADR-0144 lane
+    /// requires before <c>AppHost.cs</c> is touched to spell the coordinates out
+    /// explicitly (issue #2296, spec 195): it is green on the unmodified file
+    /// because the package supplies exactly these coordinates already, and it
+    /// must pass <b>unmodified</b> once they are written — an edit here would be
+    /// evidence the pin changed what runs.
+    ///
+    /// <para>
+    /// <b>Deliberately does not name the tag.</b> Naming <c>26.6</c> (or whatever
+    /// a future pin becomes) would make a legitimate Keycloak bump edit its own
+    /// guard, which is how a guard gets deleted within a month
+    /// (<c>FoundingDecisionRecordTests</c>' argument). Only the repository,
+    /// registry and the shape of "present and not floating" are asserted.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_keycloak_image_resolves_to_the_upstream_repository_this_stack_expects()
+    {
+        PulledImage[] images = await PulledImagesAsync(RunModeArguments);
+        PulledImage keycloak = images.Single(image => image.ResourceName == "keycloak");
+
+        keycloak.Image.ShouldBe("keycloak/keycloak");
+        keycloak.Registry.ShouldBe("quay.io");
+        IsPinned(keycloak).ShouldBeTrue(
+            $"expected keycloak's tag to be present and not floating and found '{keycloak.Reference}' — "
+            + "a package bump could float the default tag with no diff in AppHost.cs (#2270).");
+    }
+
+    /// <summary>
     /// A reference is pinned when its digest is set, or when its tag is
     /// present and no hyphen-separated segment is <c>latest</c> — the same
     /// definition <c>ContainerImagePinTests.IsFloating</c> applies to the
