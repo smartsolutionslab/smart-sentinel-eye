@@ -127,10 +127,11 @@ precisely what a publish-mode manifest drops (spec §2.1). If the argument for
 this design is ever wrong, F3 is where it breaks.
 
 The floor is `ShouldBeGreaterThanOrEqualTo`, not equality — a new container must
-not fail a guard about tags. Measured today: **7** judged containers in run mode
-(`mediamtx`, `fixture-video`, `camera-sim`, `postgres`, `rabbitmq`, `keycloak`,
-`minio`) plus `mosquitto` excluded; **6** in the fixture shape (`camera-sim` is
-gated on the simulator switch and is dev-only).
+not fail a guard about tags. Measured today: **8** judged containers in run mode
+(`mediamtx`, `fixture-video`, `camera-sim`, `postgres`, `pgadmin`, `rabbitmq`,
+`keycloak`, `minio`) plus `mosquitto` excluded; **6** in the fixture shape
+(`pgadmin` and `camera-sim` are both gated behind `isRunMode && !isE2ETests` and
+are dev-only).
 
 ### 2.5 The failure message
 
@@ -262,7 +263,7 @@ file or build without `--no-build`) before reading step 4's green.
 
 | Risk | Mitigation |
 |---|---|
-| A package-supplied image floats today and F1 is red on the first run | Measured before planning: all seven judged containers are pinned under the existing definition. If one is not, that is a **finding, not a guard to soften** — report it and file it. |
+| A package-supplied image floats today and F1 is red on the first run | Measured before planning: all eight judged containers are pinned under the existing definition. If one is not, that is a **finding, not a guard to soften** — report it and file it. |
 | `CreateAsync` needs Docker | It does not. `AppHostMediaMtxImageTests` carries the same trait and runs in the backend job, which has no Docker step. Building the model starts no resource. |
 | The class runs twice (backend job **and** the integration job's exclusion filter) | Already true of `AppHostMediaMtxImageTests`. Accepted; it costs seconds and no container. Changing the filters is out of scope. |
 | Two model compositions add wall-clock to the Docker-free step | Bounded: the existing class already composes twice. Measure in phase 5 and record the figure. |

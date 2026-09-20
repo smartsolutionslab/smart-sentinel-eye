@@ -73,6 +73,14 @@ public class AppHostContainerImagePinTests
     {
         PulledImage[] images = await PulledImagesAsync(FixtureArguments);
 
+        images.Length.ShouldBeGreaterThanOrEqualTo(
+            6,
+            $"expected at least the six pulled containers the integration fixture composes today "
+            + $"(postgres, rabbitmq, keycloak, mediamtx, fixture-video, minio) and found "
+            + $"{images.Length}: {string.Join(", ", images.Select(image => image.ResourceName))}. Either "
+            + "a container was removed (update this number and say why) or the scan no longer finds "
+            + "what it should — the scan is broken, not the code.");
+
         AssertAllPinned(images);
     }
 
@@ -95,9 +103,9 @@ public class AppHostContainerImagePinTests
         names.ShouldContain("camera-sim");
 
         images.Length.ShouldBeGreaterThanOrEqualTo(
-            7,
-            $"expected at least the seven pulled containers a run-mode stack composes today "
-            + $"(mediamtx, fixture-video, camera-sim, postgres, rabbitmq, keycloak, minio) and found "
+            8,
+            $"expected at least the eight pulled containers a run-mode stack composes today "
+            + $"(mediamtx, fixture-video, camera-sim, postgres, pgadmin, rabbitmq, keycloak, minio) and found "
             + $"{images.Length}: {string.Join(", ", names)}. Either a container was removed (update "
             + "this number and say why) or the scan no longer finds what it should — the scan is "
             + "broken, not the code.");
@@ -105,10 +113,13 @@ public class AppHostContainerImagePinTests
 
     /// <summary>
     /// <c>mosquitto</c> is declared with <c>AddDockerfile</c> and carries a
-    /// <see cref="DockerfileBuildAnnotation"/>: nothing is pulled from a
-    /// registry for it, its tag is content-addressed by Aspire, and judging it
+    /// <see cref="DockerfileBuildAnnotation"/>: nothing is pulled for its own
+    /// reference — its tag is content-addressed by Aspire, and judging it
     /// against a registry tag would fail the build over a string no registry
-    /// ever sees. The exclusion is by <b>annotation</b>, never by resource
+    /// ever sees. Its Dockerfile's own base images
+    /// (<c>src/AppHost/mosquitto/Dockerfile</c>) are a separate, currently
+    /// unguarded surface — no guard in this repository reads a Dockerfile (spec
+    /// 187 §9). The exclusion here is by <b>annotation</b>, never by resource
     /// name — a name list is a narrowing that grows silently, and an annotation
     /// check admits the next <c>AddDockerfile</c> resource automatically.
     /// </summary>

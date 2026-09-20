@@ -112,6 +112,7 @@ of this tree):
 |---|---|---|
 | `mediamtx` | `bluenviron/mediamtx:1.21.0-ffmpeg` | yes — `AddContainer(…, "1.21.0-ffmpeg")` |
 | `postgres` | `timescale/timescaledb:2.27.1-pg17` | yes — `WithImageTag` |
+| `pgadmin` | `docker.io/dpage/pgadmin4:9.15.0` | **no** — supplied by `.WithPgAdmin()` (`Aspire.Hosting.PostgreSQL`) |
 | `rabbitmq` | `rabbitmq:4-management-alpine` | yes — `WithImageTag` |
 | `minio` | `quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z` | yes — `WithImageTag`, **but see §1.2** |
 | `keycloak` | `quay.io/keycloak/keycloak:26.6` | **no** — supplied by `Aspire.Hosting.Keycloak` |
@@ -423,6 +424,18 @@ a different RabbitMQ patch release on the next pull, with no diff and no PR —
 the exact failure mode spec 113 was written against, one level up. This spec
 does not close it, because doing so would fail the build on day one and the only
 ways to reach green would be to pin RabbitMQ (a decision, not a fix) or to
-weaken the new guard (a blocked outcome). **Recommend filing a separate issue.**
-Named here so the gap is recorded rather than inherited silently by the next
-reader of a now-truthful guard.
+weaken the new guard (a blocked outcome).
+
+**Mosquitto's own Dockerfile is a second, differently-shaped instance of the
+same gap.** `src/AppHost/mosquitto/Dockerfile` has three `FROM` lines that pull
+from a registry — `debian:bookworm-slim` (twice) and `golang:1.23-bookworm`
+(once) — each floating within minor/patch, and no guard in this repository
+reads a Dockerfile. `AppHostContainerImagePinTests` correctly excludes
+mosquitto's own `ContainerImageAnnotation` (a content-addressed
+`placeholder:latest` no registry ever sees), but that exclusion says nothing
+about what mosquitto's own build pulls.
+
+**Recommend filing a separate issue covering both**: RabbitMQ's
+floating-within-major tag and mosquitto's three floating Dockerfile base
+images. Named here so the gap is recorded rather than inherited silently by the
+next reader of a now-truthful guard.
