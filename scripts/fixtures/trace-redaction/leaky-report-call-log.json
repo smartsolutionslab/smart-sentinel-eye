@@ -1,0 +1,66 @@
+{
+  "config": {},
+  "suites": [
+    {
+      "title": "e2e/sign-in.spec.ts",
+      "file": "e2e/sign-in.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "tags": [],
+          "title": "fills the password field before a locator assertion fails",
+          "ok": false,
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectName": "chromium",
+              "projectId": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 120,
+                  "error": {
+                    "message": "Error: expect(locator).toHaveValue(expected) failed\n\nLocator:  locator('#password')\nExpected: \"this-will-never-match\"\nReceived: \"SSE_FAKE_PASSWORD_VALUE\"\nTimeout:  1000ms\n\nCall log:\n  - Expect \"toHaveValue\" with timeout 1000ms\n  - waiting for locator('#password')\n    - unexpected value \"SSE_FAKE_PASSWORD_VALUE\""
+                  },
+                  "errors": [
+                    {
+                      "message": "Error: expect(locator).toHaveValue(expected) failed\n\nLocator:  locator('#password')\nExpected: \"this-will-never-match\"\nReceived: \"SSE_FAKE_PASSWORD_VALUE\"\nTimeout:  1000ms\n\nCall log:\n  - Expect \"toHaveValue\" with timeout 1000ms\n  - waiting for locator('#password')\n    - unexpected value \"SSE_FAKE_PASSWORD_VALUE\""
+                    }
+                  ],
+                  "stdout": [
+                    { "text": "  fill(\"SSE_FAKE_PASSWORD_VALUE\")" }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-19T00:00:01.000Z",
+                  "attachments": [],
+                  "annotations": []
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "e2e/sign-in.spec.ts:2",
+          "file": "e2e/sign-in.spec.ts",
+          "line": 2,
+          "column": 0
+        }
+      ],
+      "suites": []
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-19T00:00:01.000Z",
+    "duration": 120,
+    "expected": 0,
+    "unexpected": 1,
+    "flaky": 0,
+    "skipped": 0
+  }
+}
