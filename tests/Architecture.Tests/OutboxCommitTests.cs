@@ -5,10 +5,11 @@ using SmartSentinelEye.Architecture.Tests.Persistence;
 namespace SmartSentinelEye.Architecture.Tests;
 
 /// <summary>
-/// Spec 021 FR-007. A repository that calls <c>SaveChangesAsync</c> directly
-/// commits its rows and leaves the announcements behind — which is the defect
-/// this feature closed, and the one a repository added later reintroduces by
-/// default, because that is what every EF tutorial shows.
+/// Spec 021 FR-007. A repository that calls <c>SaveChanges</c> or
+/// <c>SaveChangesAsync</c> directly commits its rows and leaves the
+/// announcements behind — which is the defect this feature closed, and the
+/// one a repository added later reintroduces by default, because that is what
+/// every EF tutorial shows.
 ///
 /// <para>
 /// The guarantee is a property of a call site, not of a type, so nothing in the
@@ -38,19 +39,13 @@ public class OutboxCommitTests
     [MemberData(nameof(Assemblies))]
     public void No_repository_commits_without_its_announcements(string assemblyName)
     {
-        Assembly assembly = Assembly.Load(assemblyName);
-
-        List<string> offenders = [.. assembly.GetTypes()
-            .Where(type => type.Namespace?.Contains(".Persistence", StringComparison.Ordinal) == true)
-            .Where(type => type.Name.EndsWith("Repository", StringComparison.Ordinal))
-            .Where(CallsSaveChangesDirectly)
-            .Select(type => type.FullName ?? type.Name)];
+        List<string> offenders = Offenders(Assembly.Load(assemblyName));
 
         offenders.ShouldBeEmpty(
-            $"{string.Join(", ", offenders)} calls SaveChangesAsync directly. Commit through "
-            + "ITransactionalCommit instead, so the rows and the integration events they "
-            + "announce land in one transaction (spec 021 FR-001). Committing directly is "
-            + "silent: the write succeeds, the caller is told the truth, and the "
+            $"{string.Join(", ", offenders)} calls SaveChanges or SaveChangesAsync directly. "
+            + "Commit through ITransactionalCommit instead, so the rows and the integration "
+            + "events they announce land in one transaction (spec 021 FR-001). Committing "
+            + "directly is silent: the write succeeds, the caller is told the truth, and the "
             + "announcement is never made.");
     }
 
@@ -93,11 +88,7 @@ public class OutboxCommitTests
     [Fact]
     public void The_rule_sees_both_spellings_of_a_direct_commit()
     {
-        List<string> offenders = [.. typeof(OutboxCommitTests).Assembly.GetTypes()
-            .Where(type => type.Namespace?.Contains(".Persistence", StringComparison.Ordinal) == true)
-            .Where(type => type.Name.EndsWith("Repository", StringComparison.Ordinal))
-            .Where(CallsSaveChangesDirectly)
-            .Select(type => type.FullName ?? type.Name)];
+        List<string> offenders = Offenders(typeof(OutboxCommitTests).Assembly);
 
         offenders.ShouldBe(
             [
@@ -108,9 +99,24 @@ public class OutboxCommitTests
     }
 
     /// <summary>
+    /// Steps 1-4 of the walk: the namespace/name candidate filter, then the IL
+    /// scan. Shared by the real theory above and by
+    /// <see cref="The_rule_sees_both_spellings_of_a_direct_commit"/> so a gap in
+    /// the candidate filter or the detector is the theory's own gap, not a copy
+    /// that could silently disagree with it.
+    /// </summary>
+    private static List<string> Offenders(Assembly assembly) =>
+        [.. assembly.GetTypes()
+            .Where(type => type.Namespace?.Contains(".Persistence", StringComparison.Ordinal) == true)
+            .Where(type => type.Name.EndsWith("Repository", StringComparison.Ordinal))
+            .Where(CallsSaveChangesDirectly)
+            .Select(type => type.FullName ?? type.Name)];
+
+    /// <summary>
     /// Reads the IL rather than the source, because the call is what matters and
     /// a comment saying "we use the outbox" is not a constraint. Any reference
-    /// to <see cref="DbContext.SaveChangesAsync(CancellationToken)"/> from a
+    /// to <see cref="DbContext.SaveChanges()"/> or
+    /// <see cref="DbContext.SaveChangesAsync(CancellationToken)"/> from a
     /// repository body is an offence — including one buried in a helper, which
     /// is how it would come back.
     ///
@@ -147,7 +153,7 @@ public class OutboxCommitTests
     {
         byte[] il = body.GetILAsByteArray() ?? [];
 
-        // 0x28 call, 0x6F callvirt — the two ways SaveChangesAsync is reached.
+        // 0x28 call, 0x6F callvirt — the two ways SaveChanges/SaveChangesAsync are reached.
         for (int i = 0; i + 4 < il.Length; i++)
         {
             if (il[i] is not (0x28 or 0x6F))
@@ -159,12 +165,20 @@ public class OutboxCommitTests
             try
             {
                 MethodBase? called = module.ResolveMethod(token);
-                // IsAssignableFrom, not IsSubclassOf: SaveChangesAsync is declared
-                // on DbContext itself, so a subclass check excludes the only
-                // declaring type it ever has — which is how the first version of
-                // this rule passed against a repository deliberately broken to
-                // fail it.
-                if (called?.Name == nameof(DbContext.SaveChangesAsync)
+                // IsAssignableFrom, not IsSubclassOf: SaveChanges/SaveChangesAsync are
+                // declared on DbContext itself, so a subclass check excludes the only
+                // declaring type they ever have — which is how the first version of
+                // this rule passed against a repository deliberately broken to fail it.
+                //
+                // Exact name membership, not StartsWith/Contains("SaveChanges"): that
+                // substring also matches DbContext.add_SaveChangesFailed and
+                // remove_SaveChangesFailed, which are declared on DbContext itself, so
+                // the declaring-type check above would not rescue a repository that
+                // only subscribes to the failure event for logging. It would also keep
+                // matching Wolverine's SaveChangesAndFlushMessagesAsync — the sanctioned
+                // seam — by accident of substring rather than by the declaring-type
+                // check that actually rescues it.
+                if (called?.Name is nameof(DbContext.SaveChanges) or nameof(DbContext.SaveChangesAsync)
                     && typeof(DbContext).IsAssignableFrom(called.DeclaringType))
                 {
                     return true;
