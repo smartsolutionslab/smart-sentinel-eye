@@ -1254,6 +1254,155 @@ public class EndpointScopeDeclarationTests
             + "before or after it, and not at the next mapping's.");
     }
 
+    /// <summary>
+    /// <b>A raw string literal runs one mapping's span into the next.</b>
+    /// Characterises the hazard
+    /// <see cref="The_api_sources_use_only_the_string_and_comment_forms_this_reader_can_mask"/>
+    /// exists to keep out of <c>src/*/Api</c> — issue 2278. <see cref="Masked"/>'s
+    /// two-stage composition walks a literal's quotes in pairs: in
+    /// <c>"""A"B"C"""</c> the first two quotes read as an empty literal, then
+    /// <c>"A"</c> is blanked, then <c>B</c> — including an unbalanced <c>(</c>
+    /// inside it — is walked as ordinary code before <c>"C"</c> is blanked. The
+    /// bracket the mask fails to blank keeps
+    /// <see cref="RouteChainReader.StatementEnd"/>'s depth counter positive past
+    /// this chain's own terminating semicolon, and the span runs into the next
+    /// mapping.
+    ///
+    /// <para>
+    /// This is existing <c>SourceMask</c> + <c>RouteChainReader</c> behaviour,
+    /// constructed rather than argued (issue 2278's probe), and it must pass
+    /// unmodified: it is what stops the corpus ban above being a rule nobody can
+    /// show matters. If it ever goes red because the masker was taught to read a
+    /// raw string, the correct response is to delete the ban that test asserts —
+    /// not to edit this assertion.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_raw_string_in_a_chain_runs_one_mapping_into_the_next()
+    {
+        const string source =
+            "group.MapPost(\"/probe\", Probe)\n"
+            + "    .WithSummary(\"\"\"see \"foo( bar\" now\"\"\")\n"
+            + "    .ProducesProblem(StatusCodes.Status404NotFound);\n"
+            + "group.MapPost(\"/other\", Other)\n"
+            + "    .RequireAuthorization(Scope.Sse.Cameras.Read)\n"
+            + "    .ProducesProblem(StatusCodes.Status403Forbidden);\n";
+
+        string masked = Masked(source);
+        int end = RouteChainReader.StatementEnd(masked, 0, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
+
+        end.ShouldBe(
+            masked.Length,
+            "StatementEnd fell through to its not-found contract for this reader, masked.Length — the "
+            + "EndOfText sentinel — meaning the probe chain's own terminating semicolon was never found "
+            + "at all. That is exactly what an unbalanced bracket inside a raw string's interior does: "
+            + "the depth counter never returns to zero. If this assertion ever goes red because the "
+            + "masker was taught to read a raw string, delete the ban this test justifies — do not edit "
+            + "this assertion to match a new number.");
+
+        string chain = masked[..end];
+
+        chain.ShouldContain(
+            "RequireAuthorization",
+            Case.Sensitive,
+            "the span ran past its own semicolon and swallowed the next mapping's RequireAuthorization "
+            + "call. A mapping that declares none of its own would be credited with this one — the exact "
+            + "failure the corpus ban above exists to prevent.");
+
+        chain.ShouldContain(
+            "Status403Forbidden",
+            Case.Sensitive,
+            "the span also swallowed the next mapping's refusal declaration — the double count A15's "
+            + "walked-versus-swept arithmetic would catch, but only by naming a number, never a file or "
+            + "line.");
+    }
+
+    /// <summary>
+    /// <b>A planted form is reported with its own file and line.</b> The
+    /// detection counterfactual for issue 2278: before
+    /// <c>FormsThisReaderCannotMask</c> exists, this test does not compile, and
+    /// that compile failure is the weakest form of red this slice takes (the
+    /// stronger one plants the same form in a real endpoint file — spec 192 §5,
+    /// §6). Once the helper exists, this proves it can actually fail: a clean
+    /// pair reports nothing, and an offending pair is named precisely.
+    /// </summary>
+    [Fact]
+    public void A_planted_unmaskable_form_is_reported_with_its_file_and_line()
+    {
+        const string offendingFile = "src/Probe/Api/ProbeEndpoints.cs";
+        const string offendingText =
+            "group.MapPost(\"/probe\", Probe)\n"
+            + "    .WithSummary(\"\"\"see \"foo( bar\" now\"\"\")\n"
+            + "    .ProducesProblem(StatusCodes.Status404NotFound);\n";
+
+        const string cleanFile = "src/Probe/Api/OtherEndpoints.cs";
+        const string cleanText =
+            "group.MapPost(\"/other\", Other)\n"
+            + "    .RequireAuthorization(Scope.Sse.Cameras.Read)\n"
+            + "    .ProducesProblem(StatusCodes.Status403Forbidden);\n";
+
+        (string File, string Text)[] sources =
+        [
+            (offendingFile, offendingText),
+            (cleanFile, cleanText),
+        ];
+
+        string[] offenders = FormsThisReaderCannotMask(sources);
+
+        offenders.Length.ShouldBe(
+            1,
+            $"expected exactly one offender — the raw string planted in {offendingFile} — but got "
+            + $"[{string.Join(" | ", offenders)}]. The clean pair must not be reported at all.");
+
+        offenders[0].ShouldContain(
+            $"{offendingFile}:2",
+            Case.Sensitive,
+            "the offender must name the file and the line — line 2 of the fixture, where the raw string "
+            + "sits — together, not one without the other.");
+        offenders[0].ShouldContain("\"\"\"", Case.Sensitive, "the offender must name the form that could not be masked.");
+        offenders[0].ShouldContain("raw string literal", Case.Sensitive, "the offender must say why the reader cannot read it.");
+    }
+
+    /// <summary>
+    /// <b>The masker's assumptions hold for this two-stage reader.</b> Mirrors
+    /// <c>ConcurrencyConflictDeclarationTests.The_api_sources_use_only_the_string_and_comment_forms_this_reader_can_mask</c>
+    /// for the reader <see cref="Masked"/> composes — issue 2278. Without this,
+    /// a raw string added anywhere under <c>src/*/Api</c> is misread silently,
+    /// in the passing direction:
+    /// <see cref="A_raw_string_in_a_chain_runs_one_mapping_into_the_next"/> shows
+    /// exactly what that does to a statement boundary.
+    /// </summary>
+    [Fact]
+    public void The_api_sources_use_only_the_string_and_comment_forms_this_reader_can_mask()
+    {
+        string[] files = ApiSourceFiles();
+        files.ShouldNotBeEmpty(
+            "no file under src/*/Api was found, so this guard would pass against an empty corpus.");
+
+        (string Form, string Why)[] bannedForms =
+        [
+            .. SourceMask.UnhandledForms(MaskStrictness.CommentsBlankedLiteralsIntact),
+            .. SourceMask.UnhandledForms(MaskStrictness.LiteralInteriorsOnly),
+        ];
+        bannedForms.ShouldNotBeEmpty(
+            "the list of forms this reader's two stages cannot mask is empty, so this guard would pass "
+            + "against nothing to look for.");
+
+        string[] offenders = FormsThisReaderCannotMask(files.Select(file => (file, ReadRepositoryFile(file))));
+
+        offenders.ShouldBeEmpty(
+            $"{offenders.Length} source file(s) under src/*/Api use a literal form this reader's masker "
+            + "does not handle:" + Environment.NewLine + string.Join(Environment.NewLine, offenders) + Environment.NewLine
+            + "This reader is a two-stage composition — CommentsBlankedLiteralsIntact then "
+            + "LiteralInteriorsOnly, see Masked() — that walks a literal's quotes in pairs, so an "
+            + "unbalanced bracket inside a raw string's interior keeps RouteChainReader.StatementEnd's "
+            + "depth counter positive past the chain's own semicolon: the span runs into the next "
+            + "mapping, and that mapping is credited with its neighbour's RequireAuthorization and "
+            + "ProducesProblem declarations. Since issue 2183 that bracket-depth walk is how this reader "
+            + "finds a chain's end at all. Keep the form out of src/*/Api, or teach SourceMask to read "
+            + "it — a behaviour change with its own issue, not something to do inside a failing build.");
+    }
+
     // ---- reading the chain -------------------------------------------------
 
     /// <summary>
