@@ -49,8 +49,8 @@ public class AppHostE2ESwitchTests
     ];
 
     /// <summary>
-    /// The shape the end-to-end job boots: parameters only, no <c>E2ETests</c>.
-    /// A developer's <c>aspire run</c> sees the same model.
+    /// Run mode with no <c>E2ETests</c>. Not the shape CI's end-to-end job or
+    /// a developer's <c>aspire run</c> boot: neither passes a <c>Parameters:</c> argument.
     /// </summary>
     private static readonly string[] RunModeArguments =
     [
