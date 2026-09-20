@@ -310,6 +310,7 @@ visible at the gate instead of buried in a diff.
   "validate at trust boundaries only"; ADR-0105's guards are for programmer
   error), and its fix is a 400 problem response, not an `Ensure` guard. Folding
   it in would be exactly the drive-by widening whose refusal created #2309.
+  **Filed as [#2480](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2480).**
 
   **Marked as unreproduced.** This is read out of the code, not observed against
   a running endpoint. The follow-up issue should start by sending
