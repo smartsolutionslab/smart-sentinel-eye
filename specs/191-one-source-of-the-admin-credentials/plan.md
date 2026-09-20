@@ -74,9 +74,12 @@ constant is worse than removing it).
 
 Replace every use:
 
-- `Realm` — used in four interpolated Admin-API / token URLs
-  (`admin/realms/{Realm}/clients`, the `?clientId=` lookup, the `DELETE`, and
-  `/realms/{Realm}/protocol/openid-connect/token`) → `RealmProbe.Realm`.
+- `Realm` — used in six interpolated Admin-API / token URLs
+  (`admin/realms/{Realm}/clients`, the `?clientId=` lookup, the `DELETE`, the
+  client-secret `GET`, the `POST …/clients failed` error message, and
+  `/realms/{Realm}/protocol/openid-connect/token`) → `RealmProbe.Realm`. (The
+  original count of four during planning missed the last two — phase 4b's own
+  read found and swapped all six.)
 - `AdminClientId` / `AdminClientSecret` — used at **two** call sites, both
   `MintClientCredentialsTokenAsync(AdminClientId, AdminClientSecret)`: one in
   `DisposeAsync`, one in `CreateAudiencelessClientAsync` →
