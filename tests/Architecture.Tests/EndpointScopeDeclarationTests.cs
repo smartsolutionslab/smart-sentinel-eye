@@ -1300,6 +1300,14 @@ public class EndpointScopeDeclarationTests
             + "masker was taught to read a raw string, delete the ban this test justifies — do not edit "
             + "this assertion to match a new number.");
 
+        int ownSemicolon = masked.IndexOf(';', StringComparison.Ordinal);
+        end.ShouldBeGreaterThan(
+            ownSemicolon,
+            "the probe chain has its own terminating semicolon in the masked text, so a StatementEnd "
+            + "that lands past it (rather than merely equalling masked.Length by coincidence of a "
+            + "differently-shaped fixture) pins the raw string as the cause: an ordinary escaped-string "
+            + "chain of this same shape stops at its own semicolon, not at EndOfText.");
+
         string chain = masked[..end];
 
         chain.ShouldContain(
@@ -1379,12 +1387,7 @@ public class EndpointScopeDeclarationTests
         files.ShouldNotBeEmpty(
             "no file under src/*/Api was found, so this guard would pass against an empty corpus.");
 
-        (string Form, string Why)[] bannedForms =
-        [
-            .. SourceMask.UnhandledForms(MaskStrictness.CommentsBlankedLiteralsIntact),
-            .. SourceMask.UnhandledForms(MaskStrictness.LiteralInteriorsOnly),
-        ];
-        bannedForms.ShouldNotBeEmpty(
+        BannedForms().ShouldNotBeEmpty(
             "the list of forms this reader's two stages cannot mask is empty, so this guard would pass "
             + "against nothing to look for.");
 
@@ -2029,14 +2032,26 @@ public class EndpointScopeDeclarationTests
     /// Mirrors <c>ConcurrencyConflictDeclarationTests.The_api_sources_use_only_the_string_and_comment_forms_this_reader_can_mask</c>
     /// (first occurrence only, via <c>IndexOf</c>).
     /// </summary>
-    private static string[] FormsThisReaderCannotMask(IEnumerable<(string File, string Text)> sources)
+    /// <summary>
+    /// The forms this reader's two-stage masker cannot handle, deduplicated
+    /// by <c>Form</c> — the single list both <see cref="FormsThisReaderCannotMask"/>
+    /// and its own non-vacuity assertion read, so the two can never come to
+    /// describe different sets.
+    /// </summary>
+    private static (string Form, string Why)[] BannedForms()
     {
-        (string Form, string Why)[] bannedForms =
+        (string Form, string Why)[] unhandled =
         [
             .. SourceMask.UnhandledForms(MaskStrictness.CommentsBlankedLiteralsIntact),
             .. SourceMask.UnhandledForms(MaskStrictness.LiteralInteriorsOnly),
         ];
-        bannedForms = [.. bannedForms.DistinctBy(banned => banned.Form, StringComparer.Ordinal)];
+
+        return [.. unhandled.DistinctBy(form => form.Form, StringComparer.Ordinal)];
+    }
+
+    private static string[] FormsThisReaderCannotMask(IEnumerable<(string File, string Text)> sources)
+    {
+        (string Form, string Why)[] bannedForms = BannedForms();
 
         List<string> offenders = [];
         foreach ((string file, string text) in sources)
