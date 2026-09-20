@@ -11,6 +11,13 @@ public interface IAuditChunkInventory
 {
     Task<IReadOnlyList<AuditChunk>> ListChunksOlderThanAsync(DateTimeOffset boundary, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Drops the one TimescaleDB chunk whose range is exactly
+    /// <c>[chunk.OccurredFrom, chunk.OccurredUntil)</c>. <paramref name="chunk"/>
+    /// must come from <see cref="ListChunksOlderThanAsync"/> — the bounds are
+    /// trusted as a real chunk's own range, and everything inside that window
+    /// is dropped (#2425).
+    /// </summary>
     Task DropChunkAsync(AuditChunk chunk, CancellationToken cancellationToken);
 }
 
