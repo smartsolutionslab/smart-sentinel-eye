@@ -129,6 +129,22 @@ before this fix landed, treat "the chunk will retry" as false for
 that incident — check whether an older, un-archived chunk's data
 was lost when a subsequent chunk was dropped.
 
+### `DropChunkAsync` drops more than one chunk
+
+The worker logs `Dropping audit chunk <id> removed <N>
+TimescaleDB chunks instead of exactly one` at Error. The drop has
+already committed by the time this logs — there is nothing to
+roll back. It means the chunk's own `[OccurredFrom, OccurredUntil)`
+window stopped isolating a single chunk, which today can only
+happen if `audit_events` gained a second (space) partitioning
+dimension, since same-dimension chunk ranges never overlap.
+Check `timescaledb_information.chunks` for `audit_events` and
+compare against `information_schema` / `timescaledb_information.dimensions`
+for an unexpected `add_dimension`. The named extra chunks were
+dropped without being archived first — treat their data as gone
+from both the hypertable and MinIO, and restore from a database
+backup if it's needed.
+
 ### `event_identifier` collisions
 
 Every `*V1` carries a globally-unique identifier; the audit

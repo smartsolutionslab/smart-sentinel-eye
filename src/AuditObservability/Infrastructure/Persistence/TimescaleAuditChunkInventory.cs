@@ -58,10 +58,16 @@ public sealed class TimescaleAuditChunkInventory(
         // `older_than` alone (the previous call) drops every *older* chunk
         // too — not just this one; that silently destroyed un-archived
         // chunks (#2425). Passing both of this chunk's own bounds narrows
-        // the window to exactly its half-open range, so only this chunk can
-        // ever match. `drop_chunks` is set-returning — one row per dropped
-        // chunk name — so the result is read rather than treated as a
-        // non-query row count.
+        // the window to exactly its half-open range. `audit_events` has a
+        // single time dimension and chunk ranges never overlap, so no other
+        // chunk can fall inside this window — a space dimension would break
+        // that premise, which is exactly what the >1 branch below exists to
+        // catch. `drop_chunks` is set-returning — one row per dropped chunk
+        // name — so the result is read rather than treated as a non-query
+        // row count. A window where `newer_than >= older_than` raises a
+        // Postgres error rather than returning zero rows; not reachable
+        // here since a real chunk's own range always has a start before
+        // its end.
         IReadOnlyList<DroppedChunkRow> dropped = await context.Database
             .SqlQuery<DroppedChunkRow>(
                 $"""
