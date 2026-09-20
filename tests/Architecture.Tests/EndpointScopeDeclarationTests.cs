@@ -2018,6 +2018,42 @@ public class EndpointScopeDeclarationTests
     private static string Masked(string source) =>
         SourceMask.Apply(SourceMask.Apply(source, MaskStrictness.CommentsBlankedLiteralsIntact), MaskStrictness.LiteralInteriorsOnly);
 
+    /// <summary>
+    /// One <c>file:line contains form — why</c> entry per (source, form) pair
+    /// whose first occurrence <see cref="SourceMask.UnhandledForms"/> names for
+    /// either stage of <see cref="Masked"/> — issue 2278. Takes raw
+    /// <c>(File, Text)</c> pairs rather than reading files itself, so the
+    /// detection is testable against synthetic text; reads
+    /// <paramref name="sources"/>' text as given, never through <see cref="Masked"/>,
+    /// because masking is what destroys the very form being looked for.
+    /// Mirrors <c>ConcurrencyConflictDeclarationTests.The_api_sources_use_only_the_string_and_comment_forms_this_reader_can_mask</c>
+    /// (first occurrence only, via <c>IndexOf</c>).
+    /// </summary>
+    private static string[] FormsThisReaderCannotMask(IEnumerable<(string File, string Text)> sources)
+    {
+        (string Form, string Why)[] bannedForms =
+        [
+            .. SourceMask.UnhandledForms(MaskStrictness.CommentsBlankedLiteralsIntact),
+            .. SourceMask.UnhandledForms(MaskStrictness.LiteralInteriorsOnly),
+        ];
+        bannedForms = [.. bannedForms.DistinctBy(banned => banned.Form, StringComparer.Ordinal)];
+
+        List<string> offenders = [];
+        foreach ((string file, string text) in sources)
+        {
+            foreach ((string form, string why) in bannedForms)
+            {
+                int at = text.IndexOf(form, StringComparison.Ordinal);
+                if (at >= 0)
+                {
+                    offenders.Add($"{file}:{RouteChainReader.LineOf(text, at)} contains {form} — {why}");
+                }
+            }
+        }
+
+        return [.. offenders];
+    }
+
     private static char Next(string text, int index) =>
         index + 1 < text.Length ? text[index + 1] : '\0';
 
