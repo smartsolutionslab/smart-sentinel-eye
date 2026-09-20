@@ -100,17 +100,24 @@ reasons, in descending weight.
 that *asserts* `RealmProbe`'s three constants equal the realm import's values turns silent
 drift into a red build without putting the file on the runtime path, and needs no
 availability or ordering guarantee. That is genuinely new behaviour (a test that can fail),
-so it is a red-coloured change and gets its own issue. This spec records it rather than
-smuggling it in.
+so it is a red-coloured change and gets its own issue: **filed as
+[#2466](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2466)**, on Project
+#13, covering `RealmProbe.cs` and the three further copies below. This spec records it
+rather than smuggling it in.
 
-**Out of scope but worth recording:** the credential has **two further copies** outside
+**Out of scope but worth recording:** the credential has **three further copies** outside
 `tests/Integration.Tests/Identity/` — `src/AppHost/AppHost.cs:35`
-(`AddOverridableParameter("IdentityAdminClientSecret", "dev-only-identity-admin-secret", secret: true)`)
-and `tests/Integration.Tests/AppHostParameterOverrideTests.cs:50`. These are a *different*
-axis: the AppHost copy is what **Identity presents**, the realm copy is what **Keycloak
-holds**, and an override moves the first without the second. Neither is reachable from a
-test constant and neither is inside #2275's stated scope. US-2's guard should cover them;
-this spec does not.
+(`AddOverridableParameter("IdentityAdminClientSecret", "dev-only-identity-admin-secret", secret: true)`),
+`tests/Integration.Tests/AppHostParameterOverrideTests.cs:50`, and
+`src/Identity/Infrastructure/KeycloakAdmin/KeycloakAdminOptions.cs:13,26`
+(`Realm`/`AdminClientId` property defaults — found during phase 6 review, not the original
+audit). The AppHost pair is a *different* axis from the realm copy: the AppHost copy is what
+**Identity presents**, the realm copy is what **Keycloak holds**, and an override moves the
+first without the second. `KeycloakAdminOptions`'s defaults are a third axis again — they are
+the production object `KeycloakAdminTokenProviderTests` itself populates explicitly, so the
+test cannot notice if these particular defaults drift; only a guard reading the realm import
+directly would. None of the three is reachable from a test constant and none is inside
+#2275's stated scope. US-2's guard should cover all three; this spec does not.
 
 ---
 
@@ -130,13 +137,15 @@ integration job and their outcomes are readable in the uploaded trx.
 
 ### US-2 (P2) — *Not delivered.* A guard that fails the build when a constant drifts from the realm import.
 
-**Behaviour-changing → red colour. Needs its own issue.** A test asserting that
-`RealmProbe.Realm` / `.AdminClientId` / `.AdminClientSecret` equal the realm import's
-`realm`, the `identity-admin` client's `clientId` and its `secret` — and ideally that
-`AppHost.cs`'s `IdentityAdminClientSecret` default matches too. It must be observed red
-first (mutate one constant, watch it fail) per ADR-0139, and it needs the csproj plumbing
-named in reason (2). **This is the real fix for the failure mode #2275 describes**; US-1
-only shrinks the surface that failure can strike.
+**Behaviour-changing → red colour. Filed as
+[#2466](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2466).** A test
+asserting that `RealmProbe.Realm` / `.AdminClientId` / `.AdminClientSecret` equal the realm
+import's `realm`, the `identity-admin` client's `clientId` and its `secret` — and also that
+`AppHost.cs`'s `IdentityAdminClientSecret` default and `KeycloakAdminOptions`'s `Realm`/
+`AdminClientId` property defaults match too (three further copies found at phase 6, all in
+#2466's scope). It must be observed red first (mutate one constant, watch it fail) per
+ADR-0139, and it needs the csproj plumbing named in reason (2). **This is the real fix for
+the failure mode #2275 describes**; US-1 only shrinks the surface that failure can strike.
 
 ### US-3 (P3) — *Not delivered, and deliberately refused.* Fold the token-minting.
 
@@ -190,8 +199,8 @@ Scenario: Auth — the folded constants still mint a working admin token
 ```
 
 **Auth note.** No new authorisation surface. Test-only code; the credential is a dev-only
-realm-import secret already committed in five places; no production assembly is touched;
-the change strictly reduces the number of copies. No `sse.*` scope, fab check or
+realm-import secret already committed in six places before this change, four after; no
+production assembly is touched; the change strictly reduces the number of copies. No `sse.*` scope, fab check or
 `Idempotency-Key` is involved. **A dedicated `/security-review` is not warranted** — the
 change moves no secret across a trust boundary and introduces no new one. Recorded
 explicitly because the word "credentials" in the title invites the opposite reflex.
@@ -284,8 +293,18 @@ cannot be shown to fail is not evidence.
 
 **What G2 deliberately does not catch.** `assertions.sh` normalises `RealmProbe.` away
 (`s/RealmProbe\.//g`). That is exactly the invariance US-1 needs, and it means **G2 is
-blind to the swap by design**. G2 is not a value check. **G1 is the value check**, and that
-is why G1 is in this set rather than only G2 and G3.
+blind to the swap by design**. G2 is not a value check.
+
+**What none of G1-G4 catch, corrected from an earlier overclaim in this file: a
+transposition.** G1 checks `RealmProbe.cs`'s *own* constant values, not which constant
+landed at which of the 13 call sites in the two target files. Verified by phase-6 review:
+setting `Realm = RealmProbe.AdminClientId` in `CreateProvider()` leaves all four guards at
+their exact pass baselines — G2 never looks at the initialiser (it's the wrong-token-for-the-
+wrong-field kind of bug it normalises away), G3 and G4 never look at it either, and G1 never
+opens the target files at all. **No Docker-free mechanism in this spec catches a
+transposed constant.** The only thing that would is a real Keycloak 401 — which means this
+spec's phase-5 trx read (below) is not confirmatory, it is the mandatory gate. Do not treat
+a green Docker-free run as sufficient to merge; wait for the real integration job.
 
 `code.sh` is committed alongside this spec; `assertions.sh` is reused verbatim from
 `specs/137-one-copy-of-the-admin-helpers/`.
@@ -300,8 +319,9 @@ no Testcontainers (ADR-0103), `CancellationToken` as mandatory last parameter (A
 six lines and adds no member, no type, no package and no project reference.
 
 `MqttAudienceIntegrationTests.cs` is **360 LOC**, already over ADR-0084's advisory 300.
-This change takes it to roughly 357. It does not fix that and does not worsen it; splitting
-the file is a separate concern and is explicitly not attempted here.
+This change takes it to **354** (measured, not estimated). It reduces the overage slightly
+but does not fix it; splitting the file is a separate concern and is explicitly not
+attempted here.
 
 ## Latency budget impact
 
