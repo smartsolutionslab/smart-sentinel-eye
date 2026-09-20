@@ -390,12 +390,27 @@ broken wall goes quiet rather than reporting a perfect score.
 
 **Resetting `previous` on the two non-throwing early returns** (`report === null`
 and `current === null`). Those widen the window too, by the same mechanism.
-**Left alone, and recorded as a residual**: they are the documented normal state
-of a session that has not started producing video (`missingLagFieldIn`'s own
-doc), they already have their own instrument (`stats-field-missing`), and
-resetting there would drop a sample on every mount. Different case, different
-frequency, not this issue's decision. Worth revisiting only if a receiver is
-seen intermittently dropping counters mid-session.
+**Left alone, and recorded as a residual — with the accurate reason, corrected
+at phase 6.** At mount `previous` is already `null`, so a reset on either
+early return is a no-op there; the earlier "drops a sample on every mount"
+framing was wrong. The two sub-cases split:
+
+- `current === null` because a required stat field is absent is genuinely
+  benign — a browser does not grow a statistics field mid-session, so if it's
+  missing it was missing from tick 1, `previous` was never seeded, and the
+  widening this issue guards against can't reach that path. It also has its
+  own instrument (`stats-field-missing`).
+- `current === null` because there is no inbound-video stat at all
+  (`missingLagFieldIn` returning `null`), or `report === null` because the
+  WHEP client itself is gone under a still-`live` status, has **no
+  instrument at all** — a track disappearing mid-session while `status`
+  stays `'live'` would pin `previous` silently, the same shape as #2314, on
+  a path nothing currently logs.
+
+Correctly out of scope for this issue (ADR-0036, smallest change; a WHEP
+session realistically doesn't renegotiate its video track away) — but worth
+its own follow-up if a receiver is ever seen dropping counters mid-session
+while `status` stays `'live'`.
 
 **An ADR.** None is needed; see "Locked tech choices" above.
 

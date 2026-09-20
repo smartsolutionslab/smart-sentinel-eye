@@ -309,7 +309,11 @@ export function CameraViewer({
         // that keeps throwing pins `previous` for the whole outage, and the
         // first tick that succeeds afterwards reports a per-frame mean over
         // all of it — the cumulative session average `lagBetween` exists to
-        // avoid (#2314).
+        // avoid (#2314). Side effect: a seeding tick can never throw (there is
+        // no `previous` yet to compare against), so under a persistent throw
+        // this halves how often the callback actually fires versus before —
+        // #2189's decade-cadence failure count now advances roughly every
+        // other tick, not every tick.
         previous = null;
         reportSamplerFailure(lagSampleFailuresRef, 'lag-sampler-failed', error);
       });
