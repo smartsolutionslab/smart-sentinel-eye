@@ -43,7 +43,16 @@ public class PersistenceLoopHostedServiceTests
     public async Task Retries_a_failed_delivery_and_acknowledges_nothing_until_it_lands()
     {
         RecordingCompletion completion = new();
-        Harness harness = new(Delivery("a", completion)) { FailuresBeforeSuccess = 2 };
+        Harness harness = new(Delivery("a", completion))
+        {
+            FailuresBeforeSuccess = 2,
+            // The window is a wall clock (AdvancingClock), and this is the only
+            // test that must finish its retries inside one. Nothing here asserts
+            // abandonment, so the window is given enough room that load cannot
+            // cause it - the 10 s deadline in RunUntilAsync stays the only
+            // failure bound.
+            Window = TimeSpan.FromSeconds(30),
+        };
 
         await harness.RunUntilAsync(() => completion.Stored == 1);
 
@@ -85,6 +94,10 @@ public class PersistenceLoopHostedServiceTests
         Harness harness = new(Delivery("poison", poison), Delivery("healthy", healthy))
         {
             PoisonPayload = "poison",
+            // Far longer than this test waits, so the healthy event can only be
+            // stored by the loop moving past the failure - not by the failure
+            // being abandoned out of the way.
+            Window = TimeSpan.FromSeconds(30),
         };
 
         await harness.RunUntilAsync(() => healthy.Stored == 1, TimeSpan.FromSeconds(10));
@@ -248,6 +261,14 @@ public class PersistenceLoopHostedServiceTests
         /// Short enough to keep the abandon case a fast test. The bound is a
         /// duration in production too — five minutes — so shortening it here
         /// exercises the same code rather than a test-only branch.
+        ///
+        /// <para>
+        /// Only the abandonment cases should take this default. A test that must
+        /// not be unblocked by a delivery being abandoned sets <see cref="Window"/>
+        /// instead - taking the default silently lets abandonment satisfy the
+        /// assertion, which is how the head-of-line guard came to pass under the
+        /// very defect it names (spec 194, issue #2293).
+        /// </para>
         /// </summary>
         private static readonly TimeSpan RetryWindow = TimeSpan.FromMilliseconds(500);
 
