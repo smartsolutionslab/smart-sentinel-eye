@@ -476,7 +476,7 @@ updates for a broker that terminates TLS.
 
 That is a trade-off with a real argument on each side and a blast radius beyond
 this issue's stated intent (three base images, one checksum, one Keycloak tag).
-**Filed as a follow-up issue** (T014) with this reasoning, and the Dockerfile
+**Filed as [#2475](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2475)** with this reasoning, and the Dockerfile
 carries a comment saying the archive is deliberately not frozen, so the next
 reader does not mistake the omission for an oversight. The new guard **does not**
 judge `apt-get` lines — a guard for a rule nobody has adopted is a guard someone
@@ -487,7 +487,7 @@ deletes.
 `rabbitmq:4-management-alpine` (`AppHost.cs:118`) and, before this spec, the
 package's `26.6` are the same shape: pinned enough for `IsFloating`, still free
 to move within a major or minor. Spec 187 §9 declined to narrow it; this spec
-declines too. **Filed as a follow-up** (T014, second issue) covering all images
+declines too. **Filed as [#2476](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2476)** covering all images
 at once, because changing `IsFloating` changes five verdicts and is a
 supply-chain decision, not a bug fix.
 
