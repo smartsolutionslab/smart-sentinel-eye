@@ -25,43 +25,43 @@ bool isE2ETests = bool.TryParse(builder.Configuration["E2ETests"], out bool e2e)
 bool isScenarioSimulatorEnabled =
     !bool.TryParse(builder.Configuration["ScenarioSimulator"], out bool simulator) || simulator;
 
-var postgresUser = builder.AddParameter("PostgresUser", "postgres");
-var postgresPassword = builder.AddParameter("PostgresPassword", "dev-only-postgres-password", secret: true);
-var keycloakPassword = builder.AddParameter("KeycloakPassword", "dev-only-keycloak-admin", secret: true);
+var postgresUser = builder.AddOverridableParameter("PostgresUser", "postgres");
+var postgresPassword = builder.AddOverridableParameter("PostgresPassword", "dev-only-postgres-password", secret: true);
+var keycloakPassword = builder.AddOverridableParameter("KeycloakPassword", "dev-only-keycloak-admin", secret: true);
 // Mirrors the `identity-admin` client secret seeded in
 // Realms/smart-sentinel-eye-realm.json. The Identity API reads it as
 // `Keycloak:AdminClientSecret` to mint the realm-management
 // service-account token (spec 008 ADR-0100).
-var identityAdminClientSecret = builder.AddParameter("IdentityAdminClientSecret", "dev-only-identity-admin-secret", secret: true);
+var identityAdminClientSecret = builder.AddOverridableParameter("IdentityAdminClientSecret", "dev-only-identity-admin-secret", secret: true);
 // Spec 019: the migration job reads /fabs to provision an events partition per
 // fab. Its own client, read-only, holding query-groups + view-users — the
 // working minimum, since group-by-path answers 403 with query-groups alone
 // (verified against Keycloak 26.5). Wider than intended and still far narrower
 // than identity-admin, which can create clients and users.
-var migrationRunnerClientSecret = builder.AddParameter("MigrationRunnerClientSecret", "dev-only-migration-runner-secret", secret: true);
-var rabbitPassword = builder.AddParameter("RabbitMqPassword", "dev-only-rabbit-password", secret: true);
+var migrationRunnerClientSecret = builder.AddOverridableParameter("MigrationRunnerClientSecret", "dev-only-migration-runner-secret", secret: true);
+var rabbitPassword = builder.AddOverridableParameter("RabbitMqPassword", "dev-only-rabbit-password", secret: true);
 // Mirrors the dev-only `scenario-simulator` confidential client seeded in
 // Realms/smart-sentinel-eye-realm.json. The Scenario Simulator worker
 // (ADR-0111) reads it as `ScenarioSimulator:Runtime:ClientSecret` to mint a
 // client_credentials token (scope sse.cameras.write) for seeding the catalog.
-var scenarioSimulatorClientSecret = builder.AddParameter("ScenarioSimulatorClientSecret", "dev-only-scenario-simulator-secret", secret: true);
+var scenarioSimulatorClientSecret = builder.AddOverridableParameter("ScenarioSimulatorClientSecret", "dev-only-scenario-simulator-secret", secret: true);
 // Mirrors the dev-only `event-ingestion` confidential client seeded in
 // Realms/smart-sentinel-eye-realm.json. The MQTT subscriber mints a
 // client_credentials token and presents it as its broker password; the
 // go-auth plugin (ADR-0100) enforces azp == the MQTT username.
-var eventIngestionMqttClientSecret = builder.AddParameter("EventIngestionMqttClientSecret", "dev-only-event-ingestion-secret", secret: true);
+var eventIngestionMqttClientSecret = builder.AddOverridableParameter("EventIngestionMqttClientSecret", "dev-only-event-ingestion-secret", secret: true);
 // Mirrors the `stream-distribution-attribution` confidential client seeded in
 // Realms/smart-sentinel-eye-realm.json. StreamDistribution reads it as
 // `StreamFabAttribution:ClientSecret` to mint a client_credentials token
 // (scope sse.cameras.read) for the one-time startup attribution of streams
 // provisioned before spec 016 (ADR-0116).
-var streamDistributionAttributionClientSecret = builder.AddParameter("StreamDistributionAttributionClientSecret", "dev-only-stream-distribution-secret", secret: true);
+var streamDistributionAttributionClientSecret = builder.AddOverridableParameter("StreamDistributionAttributionClientSecret", "dev-only-stream-distribution-secret", secret: true);
 // Mirrors the `system-variables-seeder` confidential client seeded in
 // Realms/smart-sentinel-eye-realm.json. SystemVariables reads it as
 // `ReverseIndexSeeder:ClientSecret` to mint a client_credentials token
 // (scope sse.overlays.read) for the startup seed of the reverse index —
 // the half of spec 005 T061 that never shipped (#2158, spec 126).
-var systemVariablesSeederClientSecret = builder.AddParameter("SystemVariablesSeederClientSecret", "dev-only-system-variables-seeder-secret", secret: true);
+var systemVariablesSeederClientSecret = builder.AddOverridableParameter("SystemVariablesSeederClientSecret", "dev-only-system-variables-seeder-secret", secret: true);
 
 // Spec 009 ADR-0101: the postgres image carries the timescaledb
 // extension so the audit-observability hypertable + compression
