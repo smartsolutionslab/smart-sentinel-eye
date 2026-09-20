@@ -32,6 +32,24 @@
 //     carrying a token: `stdout`, `stderr`, an error `message`, and an
 //     attachment `body`.
 //
+// Phase-6 review of this feature (2026-09-20) found two further genuine
+// gaps the fixture above never exercised, because it was produced by the raw
+// `context.tracing` API rather than a real `pnpm test:e2e` run. Three more
+// fixtures close that gap, all real:
+//   - `leaky-report-index.html` / `leaky-error-context.md` — the literal
+//     output of `make-leaky-report.mjs` running the throwaway
+//     `fixture.spec.ts` through the real Playwright Test runner (see that
+//     script's header comment). Neither is a trace zip or a `*.json` report,
+//     so `classifyCandidate` never recognises either as a candidate today.
+//   - `leaky-report-call-log.json` — a minimal report, in the same shape as
+//     `leaky-report.json`, whose `error.message` and `stdout` carry the
+//     password sentinel as a bare quoted literal / call-log line, worded
+//     exactly as a real run produced it (see the fixture's own presence
+//     test for where each line came from). Kept separate from
+//     `leaky-report.json` deliberately: that file backs an existing,
+//     already-green "no sentinel anywhere" assertion from the original
+//     round, and this leak is not yet fixed.
+//
 // The scrubber is invoked as a real child process — the same shape
 // `summarise-e2e-retries.test.mjs` already uses for its own script — against
 // a temp copy of the fixtures, never the committed originals.
@@ -57,6 +75,22 @@ const scrubberScript = path.join(repositoryRoot, 'scripts', 'scrub-playwright-ar
 const fixturesDir = path.join(repositoryRoot, 'scripts', 'fixtures', 'trace-redaction');
 const leakyTracePath = path.join(fixturesDir, 'leaky-trace.zip');
 const leakyReportPath = path.join(fixturesDir, 'leaky-report.json');
+// Phase-6 reopen fixtures (#2287): a REAL Playwright HTML report and a REAL
+// `error-context.md`, both produced by `make-leaky-report.mjs` running the
+// throwaway `fixture.spec.ts` through the real Playwright Test runner — see
+// that script's header comment. Neither is a trace zip or a `*.json` report,
+// which is exactly why `classifyCandidate` (`scrub-playwright-artifacts.mjs`
+// §7.2) never recognises either as a candidate today.
+const leakyReportIndexHtmlPath = path.join(fixturesDir, 'leaky-report-index.html');
+const leakyErrorContextPath = path.join(fixturesDir, 'leaky-error-context.md');
+// Deliberately a SEPARATE fixture from `leaky-report.json`, not an extra spec
+// folded into it: `leaky-report.json` already backs T005's blanket
+// "no sentinel anywhere in the scrubbed report" assertion, which is a
+// characterisation of the ORIGINAL round's already-fixed leaks and must stay
+// green. Folding an unfixed leak into that same file would flip that
+// existing, already-passing assertion red as a side effect of this reopen,
+// rather than as one of its three deliberately new red facts.
+const leakyReportCallLogPath = path.join(fixturesDir, 'leaky-report-call-log.json');
 
 const ALL_SENTINELS = [ACCESS_TOKEN_SENTINEL, REFRESH_TOKEN_SENTINEL, CLIENT_SECRET_SENTINEL, PASSWORD_SENTINEL];
 
@@ -77,6 +111,10 @@ function buildLeakyArtifactTree() {
   mkdirSync(traceDir, { recursive: true });
   cpSync(leakyTracePath, path.join(traceDir, 'trace.zip'));
   cpSync(leakyReportPath, path.join(testResultsDir, 'e2e-report.json'));
+  // Playwright writes `error-context.md` next to `trace.zip` in the same
+  // per-test `test-results/` directory for every failing test, not only a
+  // retried one (`spec.md` §1.4 / phase-6 reopen blocker 2b).
+  cpSync(leakyErrorContextPath, path.join(traceDir, 'error-context.md'));
 
   const playwrightReportDir = path.join(root, 'playwright-report');
   const reportDataDir = path.join(playwrightReportDir, 'data');
@@ -86,6 +124,9 @@ function buildLeakyArtifactTree() {
   // no extension — `spec.md` §1.4). The exact name is irrelevant; the
   // missing `.zip` suffix on real zip bytes is the point.
   cpSync(leakyTracePath, path.join(reportDataDir, '5f4dcc3b5aa765d61d8327deb882cf99'));
+  // Phase-6 reopen blocker 1: the HTML reporter's own self-contained
+  // `index.html`, written at the root of `playwright-report/`.
+  cpSync(leakyReportIndexHtmlPath, path.join(playwrightReportDir, 'index.html'));
 
   return {
     root,
@@ -93,7 +134,9 @@ function buildLeakyArtifactTree() {
     playwrightReportDir,
     tracePath: path.join(traceDir, 'trace.zip'),
     reportPath: path.join(testResultsDir, 'e2e-report.json'),
+    errorContextPath: path.join(traceDir, 'error-context.md'),
     extensionlessCopyPath: path.join(reportDataDir, '5f4dcc3b5aa765d61d8327deb882cf99'),
+    htmlReportIndexPath: path.join(playwrightReportDir, 'index.html'),
   };
 }
 
@@ -124,6 +167,20 @@ function entriesMatching(entries, pattern) {
 
 function readTraceZip(zipPath) {
   return readZipEntries(readFileSync(zipPath));
+}
+
+// Phase-6 reopen blocker 1: the HTML reporter appends its entire report data
+// set as a base64-encoded zip, wrapped in
+// `<template id="playwrightReportBase64">data:application/zip;base64,...`
+// (`spec.md` phase-6 reopen; verified directly in
+// `node_modules/.../playwright/lib/runner/index.js`'s `_writeReportData`).
+// This decodes that embedded zip so its entries can be inspected the same
+// way a trace zip's are.
+function readHtmlReportEmbeddedZip(htmlPath) {
+  const html = readFileSync(htmlPath, 'utf8');
+  const match = html.match(/<template id="playwrightReportBase64">data:application\/zip;base64,([^<]+)<\/template>/);
+  assert.ok(match, `expected ${htmlPath} to carry a playwrightReportBase64 template with an embedded zip`);
+  return readZipEntries(Buffer.from(match[1], 'base64'));
 }
 
 // Every byte of every entry, decoded loss-free (latin1 is a byte-preserving
@@ -235,6 +292,133 @@ function assertUrlAndQueryStringBothCarryToken(networkText) {
     'expected the negotiate request.queryString[] to separately carry the access-token sentinel',
   );
 }
+
+// ---- Phase-6 reopen — presence: the three gaps the security review found ----
+//
+// `specs/186-a-trace-that-keeps-its-secrets/spec.md`'s phase-6 reopen names
+// two genuine, proof-by-construction blockers the original round's fixture
+// never exercised, because that fixture was built by calling
+// `context.tracing.start/stop` directly rather than through an actual
+// `pnpm test:e2e` run. Both fixtures below are REAL: `leaky-report-index.html`
+// and `leaky-error-context.md` are the literal output of
+// `make-leaky-report.mjs` running `fixture.spec.ts` through the real
+// Playwright Test runner (see that script's header comment), and the new
+// `leaky-report.json` spec's `error.message`/`stdout` text is drawn from that
+// same real run and from the already-real `leaky-trace.zip`'s `trace.trace`
+// call-log line — never hand-invented wording.
+
+test('phase-6 reopen, blocker 1, presence: leaky-report-index.html\'s embedded report-data zip carries the password sentinel via a real error codeframe', () => {
+  const entries = readHtmlReportEmbeddedZip(leakyReportIndexHtmlPath);
+  const allText = allEntryBytesAsText(entries);
+
+  assert.ok(
+    allText.includes(PASSWORD_SENTINEL),
+    'expected the password sentinel somewhere in the HTML report\'s embedded report-data zip ' +
+      '(the codeframe re-reads fixture.spec.ts\'s own source, which carries the literal)',
+  );
+
+  // Specifically the `errors[].codeframe` field the review named — not just
+  // "the sentinel is somewhere in the zip", which a step title alone could
+  // also satisfy.
+  const perFileEntries = [...entries].filter(([name]) => name !== 'report.json' && name.endsWith('.json'));
+  assert.ok(perFileEntries.length > 0, 'expected at least one per-test-file JSON entry in the report-data zip');
+  const hasLeakyCodeframe = perFileEntries.some(([, buffer]) => {
+    const parsed = JSON.parse(buffer.toString('utf8'));
+    return (parsed.tests ?? []).some((testEntry) =>
+      (testEntry.results ?? []).some((result) =>
+        (result.errors ?? []).some((error) => typeof error.codeframe === 'string' && error.codeframe.includes(PASSWORD_SENTINEL)),
+      ),
+    );
+  });
+  assert.ok(hasLeakyCodeframe, 'expected an errors[].codeframe field carrying the password sentinel in the report-data zip');
+});
+
+test('phase-6 reopen, blocker 2a, presence: leaky-report-call-log.json carries the password sentinel in a bare quoted-literal call-log shape', () => {
+  const report = JSON.parse(readFileSync(leakyReportCallLogPath, 'utf8'));
+  const result = report.suites[0].specs[0].tests[0].results[0];
+
+  assert.match(
+    result.error.message,
+    new RegExp(`unexpected value "${PASSWORD_SENTINEL}"`),
+    'expected error.message to carry the password sentinel as a bare quoted literal, the real toHaveValue call-log wording',
+  );
+  assert.match(
+    result.stdout[0].text,
+    new RegExp(`fill\\("${PASSWORD_SENTINEL}"\\)`),
+    'expected stdout to carry the password sentinel in trace.trace\'s own real fill("...") call-log wording',
+  );
+});
+
+test('phase-6 reopen, blocker 2b, presence: leaky-error-context.md carries the password sentinel in its Page snapshot', () => {
+  const errorContext = readFileSync(leakyErrorContextPath, 'utf8');
+
+  assert.match(errorContext, /# Page snapshot/, 'expected a "# Page snapshot" section, as Playwright writes for every failing test');
+  assert.match(
+    errorContext,
+    new RegExp(`textbox "Password"[^\\n]*:\\s*${PASSWORD_SENTINEL}`),
+    'expected the ARIA snapshot\'s generic "textbox" role (no distinct role exists for a password input) ' +
+      'to carry the typed value verbatim',
+  );
+});
+
+// ---- Phase-6 reopen — absence: today, none of the three is closed ---------
+//
+// Each of these must FAIL today: `scrub-playwright-artifacts.mjs` classifies
+// neither an `.html` file nor `error-context.md` as a candidate at all
+// (`classifyCandidate` only recognises `.json` or zip-magic-prefixed files),
+// and none of its four pattern-backstop regexes matches a bare quoted-literal
+// call-log line. Phase 4b's brief is exactly this failure output.
+
+test('phase-6 reopen, blocker 1, absence (expected to fail today): the scrubber does not touch playwright-report/index.html', () => {
+  const tree = buildLeakyArtifactTree();
+
+  const result = runScrubber([tree.testResultsDir, tree.playwrightReportDir]);
+  assert.equal(result.status, 0, describeScrubberFailure(result));
+
+  const entries = readHtmlReportEmbeddedZip(tree.htmlReportIndexPath);
+  const allText = allEntryBytesAsText(entries);
+  assert.ok(
+    !allText.includes(PASSWORD_SENTINEL),
+    'expected no password sentinel left in playwright-report/index.html\'s embedded report-data zip after scrubbing — ' +
+      'classifyCandidate recognises neither ".html" nor zip-magic-prefixed-inside-an-html-file as a candidate today',
+  );
+});
+
+test('phase-6 reopen, blocker 2a, absence (expected to fail today): the scrubber removes the quoted-literal call-log line from the JSON report', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'scrub-playwright-artifacts-call-log-'));
+  const testResultsDir = path.join(root, 'test-results');
+  mkdirSync(testResultsDir, { recursive: true });
+  const reportPath = path.join(testResultsDir, 'e2e-report.json');
+  cpSync(leakyReportCallLogPath, reportPath);
+
+  const result = runScrubber([testResultsDir]);
+  assert.equal(result.status, 0, describeScrubberFailure(result));
+
+  const scrubbedReport = JSON.parse(readFileSync(reportPath, 'utf8'));
+  const scrubbedResult = scrubbedReport.suites[0].specs[0].tests[0].results[0];
+
+  assert.ok(
+    !scrubbedResult.error.message.includes(PASSWORD_SENTINEL),
+    `expected no password sentinel left in error.message after scrubbing, got:\n${scrubbedResult.error.message}`,
+  );
+  assert.ok(
+    !scrubbedResult.stdout[0].text.includes(PASSWORD_SENTINEL),
+    `expected no password sentinel left in stdout after scrubbing, got:\n${scrubbedResult.stdout[0].text}`,
+  );
+});
+
+test('phase-6 reopen, blocker 2b, absence (expected to fail today): the scrubber removes the password value from error-context.md', () => {
+  const tree = buildLeakyArtifactTree();
+
+  const result = runScrubber([tree.testResultsDir, tree.playwrightReportDir]);
+  assert.equal(result.status, 0, describeScrubberFailure(result));
+
+  const scrubbedErrorContext = readFileSync(tree.errorContextPath, 'utf8');
+  assert.ok(
+    !scrubbedErrorContext.includes(PASSWORD_SENTINEL),
+    `expected no password sentinel left in error-context.md's Page snapshot after scrubbing, got:\n${scrubbedErrorContext}`,
+  );
+});
 
 // ---- T005 — absence (AS-1, AS-3, AS-4, AS-5): every leak is closed ------
 
@@ -374,5 +558,20 @@ test('T007 SC-003: the scrubbed trace still unzips, trace.network still parses l
   assert.ok(lines.length > 0, 'expected at least one trace.network line to check');
   for (const line of lines) {
     assert.doesNotThrow(() => JSON.parse(line), `expected every trace.network line to remain valid JSON after scrubbing:\n${line}`);
+  }
+
+  // Should-fix (phase-6 reopen): `redactTraceTrace`'s value-sweep does a raw
+  // string split/join over already-`JSON.stringify`'d NDJSON text, unaware of
+  // string boundaries — a swept value that ever collided with a bare (that
+  // is, unquoted) JSON literal elsewhere on the same line could corrupt that
+  // line's JSON syntax. Today's sentinels don't collide with anything
+  // numeric, so this is a regression-class check on the existing, already
+  // correct behaviour for the existing fixture — not a proof that anything
+  // is broken today.
+  const traceText = decodeEntry(scrubbedEntries, 'trace.trace');
+  const traceLines = traceText.split('\n').filter((line) => line.trim().length > 0);
+  assert.ok(traceLines.length > 0, 'expected at least one trace.trace line to check');
+  for (const line of traceLines) {
+    assert.doesNotThrow(() => JSON.parse(line), `expected every trace.trace line to remain valid JSON after scrubbing:\n${line}`);
   }
 });
