@@ -504,15 +504,6 @@ public class EndpointScopeDeclarationTests
         TimeSpan.FromSeconds(5));
 
     /// <summary>
-    /// The content of a string literal, which is data rather than mechanism. The
-    /// self-scan reads code, not the prose the code prints.
-    /// </summary>
-    private static readonly Regex StringLiteral = new(
-        @"""(?:[^""\\\r\n]|\\.)*""",
-        RegexOptions.None,
-        TimeSpan.FromSeconds(5));
-
-    /// <summary>
     /// The endpoint files, found by glob and never named, one theory case each.
     /// A per-file case reports every offender in that file at once, which is
     /// what someone fixing a file wants; per-endpoint cases would produce
@@ -1169,7 +1160,7 @@ public class EndpointScopeDeclarationTests
     [InlineData("#pragma warning disable")]
     public void The_guard_offers_no_way_to_excuse_an_endpoint(string mechanism)
     {
-        string[] offenders = ExecutableLines(ReadRepositoryFile(GuardSource))
+        string[] offenders = RepositorySource.ExecutableLines(ReadRepositoryFile(GuardSource))
             .Where(line => line.Contains(mechanism, StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
@@ -1814,11 +1805,11 @@ public class EndpointScopeDeclarationTests
     /// </summary>
     private static string[] ApiSourceFiles()
     {
-        DirectoryInfo root = RepositoryRoot();
+        DirectoryInfo root = RepositorySource.Root();
 
         return ContextApiDirectories()
             .SelectMany(directory => Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
-            .Select(file => RelativePath(root, file))
+            .Select(file => RepositorySource.RelativePath(root, file))
             .Where(IsSource)
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
@@ -1839,7 +1830,7 @@ public class EndpointScopeDeclarationTests
     }
 
     private static string[] ContextApiDirectories() =>
-        Directory.EnumerateDirectories(Path.Combine(RepositoryRoot().FullName, "src"))
+        Directory.EnumerateDirectories(Path.Combine(RepositorySource.Root().FullName, "src"))
             .Select(context => Path.Combine(context, "Api"))
             .Where(Directory.Exists)
             .OrderBy(path => path, StringComparer.Ordinal)
@@ -1850,39 +1841,15 @@ public class EndpointScopeDeclarationTests
         && !relative.Contains("/bin/", StringComparison.Ordinal);
 
     /// <summary>
-    /// Forward slashes throughout, and every path comparison and every report in
-    /// this file is written against them. <see cref="Path.GetRelativePath"/>
-    /// returns the <em>platform</em> separator, so a filter or an expected string
-    /// written with a backslash is green on a Windows developer machine and red
-    /// on Linux CI — the worst direction for a guard to break, because it passes
-    /// exactly where nobody looks. This repository has been bitten by it.
-    /// </summary>
-    private static string RelativePath(DirectoryInfo root, string file) =>
-        Path.GetRelativePath(root.FullName, file).Replace(Path.DirectorySeparatorChar, '/');
-
-    /// <summary>
     /// Line endings are stripped of <c>\r</c> on the way in, so every offset,
     /// line number and literal is the same on both platforms.
     /// </summary>
     private static string ReadRepositoryFile(string relativePath)
     {
-        string path = Path.Combine(RepositoryRoot().FullName, relativePath);
+        string path = Path.Combine(RepositorySource.Root().FullName, relativePath);
         File.Exists(path).ShouldBeTrue(
             $"expected {relativePath} at {path} — if it moved, update this guard rather than deleting it.");
         return File.ReadAllText(path).Replace("\r", string.Empty, StringComparison.Ordinal);
-    }
-
-    private static DirectoryInfo RepositoryRoot()
-    {
-        DirectoryInfo? candidate = new(AppContext.BaseDirectory);
-        while (candidate is not null && !File.Exists(Path.Combine(candidate.FullName, "SmartSentinelEye.slnx")))
-        {
-            candidate = candidate.Parent;
-        }
-
-        return candidate
-            ?? throw new InvalidOperationException(
-                $"could not locate the repository root above {AppContext.BaseDirectory}");
     }
 
     private static string Masked(string source) => MaskLiterals(WithoutComments(source));
@@ -2218,17 +2185,6 @@ public class EndpointScopeDeclarationTests
 
     private static int LineAt(string text, int index) =>
         text[..index].Count(character => character == '\n') + 1;
-
-    /// <summary>
-    /// Lines that are neither commentary nor attribute metadata, with the
-    /// content of every string literal removed — what is left is the code that
-    /// could carry a mechanism, rather than the prose it prints.
-    /// </summary>
-    private static IEnumerable<string> ExecutableLines(string source) =>
-        source.Split('\n')
-            .Select(line => line.TrimStart())
-            .Where(line => !line.StartsWith("//", StringComparison.Ordinal) && !line.StartsWith('['))
-            .Select(line => StringLiteral.Replace(line, "\"\""));
 
     private enum AuthorizationKind
     {
