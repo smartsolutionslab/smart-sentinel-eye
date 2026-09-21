@@ -101,11 +101,21 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
     {
         Ensure.That(scope).IsNotNull();
 
+        // Guarded on resource_identifier IS NULL (#2290 phase-6 review), the
+        // same guard ReleaseAsync already carries below. Without it, a
+        // reservation reclaimed past IdempotencyReclamation.StaleAfter and
+        // then completed by the reclaimer could be silently overwritten if
+        // the original, merely-slow (not actually dead) attempt finishes
+        // afterward and calls this too — the reclaimer's identifier would be
+        // replaced by the zombie's, and every future replay would return the
+        // wrong resource. With the guard, whichever of the two commits first
+        // wins permanently; the loser's write becomes a no-op instead of a
+        // silent clobber.
         const string sql =
             """
             UPDATE idempotency_key
             SET resource_identifier = {3}, completed_at = NOW()
-            WHERE key = {0} AND endpoint = {1} AND caller = {2};
+            WHERE key = {0} AND endpoint = {1} AND caller = {2} AND resource_identifier IS NULL;
             """;
 
         await dbContext.Database.ExecuteSqlRawAsync(

@@ -34,7 +34,7 @@ public sealed class IdempotencyReservationSweepHostedService<TDbContext>(
     IServiceScopeFactory scopeFactory,
     TimeProvider timeProvider,
     IOptions<IdempotencyReservationSweepOptions> options,
-    ILogger<IdempotencyReservationSweepHostedService<TDbContext>>? logger = null)
+    ILogger<IdempotencyReservationSweepHostedService<TDbContext>> logger)
     : BackgroundService
     where TDbContext : DbContext
 {
@@ -56,16 +56,42 @@ public sealed class IdempotencyReservationSweepHostedService<TDbContext>(
         try
         {
             // Run once at startup so a restart catches up immediately.
-            await RunOnceAsync(stoppingToken);
+            await RunOnceSafelyAsync(stoppingToken);
 
             while (await timer.WaitForNextTickAsync(stoppingToken))
             {
-                await RunOnceAsync(stoppingToken);
+                await RunOnceSafelyAsync(stoppingToken);
             }
         }
         catch (OperationCanceledException)
         {
             // expected on shutdown
+        }
+    }
+
+    /// <summary>
+    /// A failed sweep must not be a failed host. This is a janitorial worker
+    /// bounding table growth for keys nobody will ever retry — a transient
+    /// Postgres blip, a failover, or a sweep starting a beat before its own
+    /// migration has run must cost one skipped hour, never the seven
+    /// production services this runs in (#2290 phase-6 review). The default
+    /// <see cref="BackgroundService"/> behaviour on an unhandled exception is
+    /// <c>BackgroundServiceExceptionBehavior.StopHost</c>, which this exists
+    /// to prevent for exactly this worker.
+    /// </summary>
+    private async Task RunOnceSafelyAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await RunOnceAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.IdempotencyReservationSweepFailed(ex);
         }
     }
 
@@ -94,7 +120,7 @@ public sealed class IdempotencyReservationSweepHostedService<TDbContext>(
         // services x a chatty zero-count line would buy nothing.
         if (swept > 0)
         {
-            logger?.SweptStaleIdempotencyReservations(swept);
+            logger.SweptStaleIdempotencyReservations(swept);
         }
     }
 }

@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -68,6 +69,66 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
             secondName,
             "the reclaimed reservation's work must actually have run and created the second camera, "
             + "not merely changed the shape of the response.");
+    }
+
+    /// <summary>
+    /// Phase-6 review — the single claim the whole fix rests on had no test:
+    /// <c>SET reserved_at = NOW()</c> in <c>BeginAsync</c>'s conflict clause is
+    /// what makes a second concurrent reclaimer lose the race rather than both
+    /// running the work. Two requests fired together, genuinely concurrently
+    /// (never awaited one at a time — that would just be T003 twice), against
+    /// one stale reservation.
+    ///
+    /// <para>
+    /// Whichever wins may answer <c>201</c> immediately or, if it loses the
+    /// race for the row lock, fall through to the same in-progress wait an
+    /// ordinary concurrent retry hits and then either replay the winner's
+    /// identifier or answer <c>409</c> — both are acceptable outcomes for the
+    /// loser. What must never happen is the one thing a plain <c>DO NOTHING</c>
+    /// -&gt; <c>DO UPDATE</c> without the <c>SET</c> would allow: <b>both</b>
+    /// candidate names actually created.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Two_concurrent_reclaims_of_one_stale_reservation_only_one_wins()
+    {
+        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        string key = NewKey();
+        string firstName = NewName();
+        string candidateA = NewName();
+        string candidateB = NewName();
+
+        await RegisterAsync(cameras, firstName, key);
+        await DamageToUnfinishedAsync(key, TimeSpan.FromMinutes(30));
+
+        Task<HttpResponseMessage> requestA = SendAsync(cameras, candidateA, key);
+        Task<HttpResponseMessage> requestB = SendAsync(cameras, candidateB, key);
+        HttpResponseMessage[] responses = await Task.WhenAll(requestA, requestB);
+
+        try
+        {
+            responses.ShouldAllBe(
+                response => response.StatusCode == HttpStatusCode.Created || response.StatusCode == HttpStatusCode.Conflict,
+                $"both concurrent attempts must answer either 201 or 409, never an error: "
+                + $"{string.Join(", ", responses.Select(r => r.StatusCode))}");
+
+            string[] names = await NamesAsync(cameras);
+            bool createdA = names.Contains(candidateA);
+            bool createdB = names.Contains(candidateB);
+
+            (createdA ^ createdB).ShouldBeTrue(
+                $"exactly one of the two concurrent reclaims must have run the work — "
+                + $"candidateA created: {createdA}, candidateB created: {createdB}. Both true is the "
+                + "double-application SET reserved_at = NOW() exists to prevent; both false means "
+                + "neither reclaimed a reservation that should have been reclaimable by one of them.");
+        }
+        finally
+        {
+            foreach (HttpResponseMessage response in responses)
+            {
+                response.Dispose();
+            }
+        }
     }
 
     /// <summary>
@@ -160,6 +221,18 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
             firstIdentifier,
             "the second operator must never receive the first operator's identifier — that is exactly "
             + "the exploit IdempotencyScope.Caller exists to prevent.");
+
+        // Row-level, not just response-level (phase-6 review): a status code
+        // and a differing identifier both hold even under a broken reclaim
+        // that dropped `caller` from its predicate — dresden would then have
+        // taken over admin's row rather than inserted its own. Two rows under
+        // one key string, with admin's still unfinished, is what proves
+        // dresden claimed a row of its own instead.
+        (await RowCountAsync(key)).ShouldBe(
+            2, "the first operator's reservation must still exist as its own row, not be taken over.");
+        (await UnfinishedRowSurvivesAsync(key)).ShouldBeTrue(
+            "the first operator's reservation must still be unfinished and untouched — reclamation is "
+            + "scoped to one caller at a time.");
     }
 
     /// <summary>
@@ -308,6 +381,40 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
         return rows.Length > 0;
     }
 
+    /// <summary>
+    /// How many rows share this key string — one per distinct
+    /// <c>(key, endpoint, caller)</c>, so two different callers presenting the
+    /// same key produce two rows, never one shared row.
+    /// </summary>
+    private async Task<int> RowCountAsync(string key)
+    {
+        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+
+        int[] rows = await db.Database
+            .SqlQueryRaw<int>("""SELECT 1 AS "Value" FROM idempotency_key WHERE key = {0};""", key)
+            .ToArrayAsync();
+
+        return rows.Length;
+    }
+
+    /// <summary>
+    /// Whether a still-unfinished (<c>resource_identifier IS NULL</c>) row
+    /// survives for this key — used to prove a caller's own live reservation
+    /// was left alone by a different caller's reclaim attempt.
+    /// </summary>
+    private async Task<bool> UnfinishedRowSurvivesAsync(string key)
+    {
+        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+
+        int[] rows = await db.Database
+            .SqlQueryRaw<int>(
+                """SELECT 1 AS "Value" FROM idempotency_key WHERE key = {0} AND resource_identifier IS NULL;""",
+                key)
+            .ToArrayAsync();
+
+        return rows.Length > 0;
+    }
+
     private async Task<Guid?> IdentifierOfAsync(string key)
     {
         await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
@@ -337,6 +444,7 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
         return new IdempotencyReservationSweepHostedService<CameraCatalogDbContext>(
             provider.GetRequiredService<IServiceScopeFactory>(),
             TimeProvider.System,
-            Options.Create(new IdempotencyReservationSweepOptions()));
+            Options.Create(new IdempotencyReservationSweepOptions()),
+            NullLogger<IdempotencyReservationSweepHostedService<CameraCatalogDbContext>>.Instance);
     }
 }
