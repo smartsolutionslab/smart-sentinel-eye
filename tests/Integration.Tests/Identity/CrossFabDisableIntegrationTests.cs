@@ -12,11 +12,12 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// and its device sibling looked the client up by clientId alone
 /// (<c>GetByClientIdAsync</c>, unscoped across every fab) and checked only its
 /// <see cref="SmartSentinelEye.Identity.Domain.RegisteredClient.ClientKind"/>.
-/// Any seeded operator could disable another fab's kiosk or device —
-/// <c>LegacyManagementBundle</c> makes <c>sse.management</c> satisfy the write
-/// policy, and <c>smart-sentinel-eye-web</c> grants it by default, so the
-/// attacker principal below is an ordinary seeded operator, not one invented
-/// for this test. These tests guard against a regression back to that shape.
+/// Any seeded operator could disable another fab's kiosk or device — the
+/// operator's <c>management-web</c> token names
+/// <c>sse.identity.devices.write</c> and <c>sse.identity.kiosks.write</c>
+/// explicitly (spec 200, issue #2279), so the attacker principal below is an
+/// ordinary seeded operator, not one invented for this test. These tests
+/// guard against a regression back to that shape.
 ///
 /// <para>
 /// <b>I1/I2 is the whole of the design question this spec answers.</b> A bare

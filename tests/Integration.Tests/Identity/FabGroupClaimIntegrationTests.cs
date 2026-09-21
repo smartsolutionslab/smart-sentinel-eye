@@ -139,7 +139,7 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
             ["client_id"] = AspireFixture.ClientId,
             ["username"] = "operator",
             ["password"] = "Operator1234",
-            ["scope"] = "openid sse.management",
+            ["scope"] = "openid",
         });
 
         HttpResponseMessage response = await keycloak.PostAsync(
@@ -153,14 +153,15 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
     }
 
     /// <summary>
-    /// Signs in as the seeded operator through <c>smart-sentinel-eye-web</c> —
-    /// the client <c>apps/management-web/src/app/auth.ts</c> actually
-    /// configures, not the same-named <c>management-web</c> realm client, which
-    /// nothing uses yet and which carries no <c>sub</c> mapper.
+    /// Signs in as the seeded operator through <c>management-web</c> — the
+    /// client <c>apps/management-web/src/app/auth.ts</c> actually configures
+    /// (spec 200, issue #2279). <c>sse-groups</c> and <c>sse-identity</c> (the
+    /// <c>sub</c> mapper) are both default client scopes of
+    /// <c>management-web</c>, applied whether or not requested.
     /// </summary>
     private Task<string> OperatorTokenAsync() =>
         aspire.GetAccessTokenForClientAsync(
-            AspireFixture.ClientId, "operator", "Operator1234", "openid sse.management");
+            AspireFixture.ClientId, "operator", "Operator1234", "openid");
 
     /// <summary>
     /// The client_credentials grant the simulator worker uses. Not on the

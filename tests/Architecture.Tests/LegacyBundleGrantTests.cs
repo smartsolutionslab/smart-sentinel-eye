@@ -18,8 +18,18 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// system. Both are required; neither substitutes for the other.
 /// </para>
 ///
-/// <para><b>Red today.</b> <c>smart-sentinel-eye-web</c> still lists
-/// <c>sse.management</c> in its <c>defaultClientScopes</c>.</para>
+/// <para>
+/// <b>Design-time, not runtime.</b> This reads the checked-in realm file, so
+/// it cannot see a scope assigned through the Keycloak admin console on a
+/// live realm, or a hand-built production realm that never went through this
+/// file at all. It also cannot see the realm-level
+/// <c>defaultDefaultClientScopes</c>/<c>defaultOptionalClientScopes</c> keys,
+/// which would hand the bundle to every client created after import —
+/// including the kiosk/device/webhook-integration clients Identity creates at
+/// runtime — while every assertion below stayed green. Neither key exists in
+/// this realm file today; the second fact below fails loudly the day one
+/// does.
+/// </para>
 /// </summary>
 public class LegacyBundleGrantTests
 {
@@ -52,6 +62,20 @@ public class LegacyBundleGrantTests
         KeycloakScopeBundles.Kiosk.ShouldNotContain(Bundle);
         KeycloakScopeBundles.Device.ShouldNotContain(Bundle);
         KeycloakScopeBundles.WebhookIntegration.ShouldNotContain(Bundle);
+    }
+
+    /// <summary>
+    /// The realm-level keys that would hand the bundle to every client created
+    /// after import, sidestepping every other assertion in this file (see the
+    /// class doc comment). Neither key exists today; this fails the day either
+    /// one is added and names it, rather than everyone re-deriving why the
+    /// per-client checks above stayed green.
+    /// </summary>
+    [Fact]
+    public void The_bundle_is_not_a_realm_level_default_for_new_clients()
+    {
+        ScopesNamedBy(Realm(), "defaultDefaultClientScopes").ShouldNotContain(Bundle);
+        ScopesNamedBy(Realm(), "defaultOptionalClientScopes").ShouldNotContain(Bundle);
     }
 
     private static IReadOnlyCollection<string> ScopesNamedBy(JsonElement client, string property) =>

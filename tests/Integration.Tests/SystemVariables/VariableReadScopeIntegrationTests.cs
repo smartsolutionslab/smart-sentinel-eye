@@ -14,9 +14,10 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 ///
 /// <para>
 /// <b>The principal is the point.</b> <see cref="AspireFixture.ClientId"/> is
-/// <c>smart-sentinel-eye-web</c> and the fixture's own token always asks for
-/// <c>openid sse.management</c> — a bundle that satisfies every <c>sse.*</c>
-/// policy but <c>sse.events.publish</c>. A test built on
+/// <c>management-web</c> (spec 200, issue #2279 — before that it was
+/// <c>smart-sentinel-eye-web</c> requesting the legacy <c>sse.management</c>
+/// bundle), and either way the fixture's default token names or grants every
+/// granular <c>sse.*</c> scope by default. A test built on
 /// <see cref="AspireFixture.CreateAdminClientAsync"/> therefore answers 200
 /// before this change and 200 after, which is precisely how the gap survived
 /// long enough to be found by a review of an unrelated PR. So this mints a
