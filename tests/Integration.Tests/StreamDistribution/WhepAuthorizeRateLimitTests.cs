@@ -19,13 +19,16 @@ namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 /// </para>
 ///
 /// <para>
-/// <b>The test-mode ceiling, not the production one.</b> <c>AppHost.cs:419-424</c>
-/// overrides <c>WhepAuthorizeRateLimiting__PermitLimit=20</c> and
+/// <b>The test-mode ceiling, not the production one.</b> <c>AppHost.cs</c>
+/// overrides <c>WhepAuthorizeRateLimiting__PermitLimit=30</c> and
 /// <c>:Window=00:00:10</c> for the integration lane (<c>isE2ETests</c>), because
 /// the production ceiling (2000/min) cannot be exhausted from a test host without
 /// poisoning every other test on this shared fixture's one address for the rest
-/// of that minute (plan.md §Test-mode ceiling). <c>PermitLimit</c> is written
-/// here as the literal <c>20</c> rather than read live from the running
+/// of that minute (plan.md §Test-mode ceiling). <c>PermitLimit</c> is raised
+/// from its original <c>20</c> to <c>30</c> so <c>WhepHandshakeLatencyTests</c>'
+/// own 21-call pattern has real headroom on this same partition (#2284
+/// phase-5 verification.md §2.1), and is written here as the literal
+/// <c>30</c> rather than read live from the running
 /// service's configuration: no existing test helper resolves a downstream
 /// service's bound <c>IConfiguration</c> from the AppHost's own DI container
 /// (<c>aspire.App.Services</c> is the orchestrator's container, not
@@ -48,13 +51,18 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     private const string StreamDistributionResource = "stream-distribution";
 
     /// <summary>
-    /// Matches <c>AppHost.cs:422</c>'s <c>isE2ETests</c> override, not the
+    /// Matches <c>AppHost.cs</c>'s <c>isE2ETests</c> override, not the
     /// production default in <c>appsettings.json</c> — see the class doc for
-    /// why this is a literal rather than a live config read.
+    /// why this is a literal rather than a live config read. Raised from the
+    /// original <c>20</c> to <c>30</c> to give
+    /// <c>WhepHandshakeLatencyTests</c>' own 21-call pattern (1 warm-up + 20
+    /// measured, spec 002/#2149) real headroom on this same shared-address
+    /// partition — see <c>AppHost.cs</c>'s comment above that override
+    /// (#2284 phase-5 verification.md §2.1).
     /// </summary>
-    private const int PermitLimit = 20;
+    private const int PermitLimit = 30;
 
-    /// <summary>Matches <c>AppHost.cs:423</c>'s <c>isE2ETests</c> override.</summary>
+    /// <summary>Matches <c>AppHost.cs</c>'s <c>isE2ETests</c> override.</summary>
     private static readonly TimeSpan Window = TimeSpan.FromSeconds(10);
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(250);
