@@ -147,7 +147,60 @@ not this slice's job.
 Latency: **N/A** — authentication/authorization change, not on any
 constitution §IV leg.
 
-## Phase 6 — pending
+## Phase 6
 
 `backend-reviewer` and, per `tasks.md` T018, a **mandatory** (not
 conditional) `security-reviewer` pass — this is an authorization change.
+Both ran in parallel against the rebased branch.
+
+### Blocker found and fixed
+
+Both reviewers independently found the same defect: `FabGroupClaimIntegrationTests`
+still requested `"openid sse.management"` against `AspireFixture.ClientId`
+(now `management-web`, which holds `sse.management` in neither its default
+nor optional scopes). Keycloak answers `invalid_scope` with no token for a
+requested scope the client doesn't hold — three facts would have failed CI's
+integration job. Neither reviewer's finding was taken on trust: independently
+re-verified by reading the file directly, then confirmed live — all 6 facts
+in the class pass after dropping the scope argument to `"openid"`.
+
+This is exactly the gap the four locally OOM-interrupted full-suite attempts
+never reached (`Identity/` tests never got far enough into the run before
+each kill) — the value of an independent, adversarial review pass on top of
+partial local evidence.
+
+### Should-fix items applied
+
+- Five stale doc comments across the test suite and `frontend-reviewer.md`
+  corrected from describing the retired `smart-sentinel-eye-web`/bundle
+  mechanism to the `management-web` named-scope mechanism their tests now
+  rest on.
+- "Red today" framing removed from three shipped test doc comments —
+  reworded to describe what each fact guards against, not a point-in-time
+  state already false the moment the fix landed.
+- `LegacyBundleGrantTests` gained a third fact asserting the bundle is not a
+  realm-level `defaultDefaultClientScopes`/`defaultOptionalClientScopes`
+  entry — the gap both reviewers noted the design-time guard couldn't see.
+- "twenty granular `sse.*` scopes" corrected to twenty-one, an off-by-one in
+  the exact parity count the fix's whole "no widening" argument rests on.
+- New `apps/management-web/src/app/auth.test.ts` (mirrors `kiosk-web`'s own
+  auth test) pins `oidcConfig.client_id`/`.scope` directly — the only other
+  guard on this shape needs a live e2e stack.
+
+### Follow-ups filed, both required before #2279 is considered fully closed
+
+- **#2487** — per-role least privilege is still owed. `management-web`'s 21
+  default scopes are exactly what the bundle satisfied; every operator,
+  regardless of role, still holds every write scope in the catalogue. This
+  fix made that fact explicit and enforceable, not narrower. An ADR-owed
+  decision the lane may not write (ADR-0144).
+- **#2488** — `smart-sentinel-eye-web` has no consumer left in the repository
+  (confirmed by grep) but remains `publicClient`+`directAccessGrantsEnabled`
+  holding `sse.audit.read` — a live, unused password-grant surface.
+- **#2486 updated** — a third, independent spelling of the bundle found in
+  `AuthenticationDefaults.cs`'s dead `AdminPolicy`, added to that issue's
+  file list.
+
+Final independent re-verification after the fix round: `Architecture.Tests`
+444/444, `ServiceDefaults.Tests` 186/186, `management-web` Vitest 304/304,
+full solution `dotnet build -c Release` 0 errors.
