@@ -62,6 +62,7 @@ public static class StreamEndpoints
         // validates the forwarded token via IWhepAuthValidator (spec FR-007).
         group.MapPost("/authorize", AuthorizeWhep)
             .AllowAnonymous()
+            .RequireRateLimiting("whep-authorize")
             .WithName("AuthorizeWhep")
             .WithSummary(
                 "Answer MediaMTX's external-auth hook for a WHEP viewer. No OIDC scope: MediaMTX posts "
@@ -74,10 +75,12 @@ public static class StreamEndpoints
                 + "without the scope is 403. The hook also answers on the action MediaMTX names: read "
                 + "and playback are admitted on that same scope, publish is refused outright because "
                 + "nothing in this product publishes through this hook, and an absent or unrecognised "
-                + "action is refused too — both of those are 403, never 401.")
+                + "action is refused too — both of those are 403, never 401. A source address over its "
+                + "configured ceiling is refused 429 before any of this runs (spec 208).")
             .Produces(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status403Forbidden);
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
         // Spec 040 (ADR-0122). Two legs of the budget happen in the browser and
         // nowhere else, so their numbers have to get here somehow. The kiosk
