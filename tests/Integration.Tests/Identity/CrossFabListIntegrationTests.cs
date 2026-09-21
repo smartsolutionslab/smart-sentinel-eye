@@ -12,9 +12,9 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// Today an omitted <c>fabId</c> becomes <c>Option&lt;FabIdentifier&gt;.None</c>,
 /// which <see cref="SmartSentinelEye.Identity.Application.Queries.Handlers.RegisteredClientProjection"/>
 /// reads as "no filter" rather than "every fab the caller holds", so every
-/// seeded operator can already list every fab's clients —
-/// <c>LegacyManagementBundle</c> makes <c>sse.management</c> satisfy the read
-/// scope and <c>smart-sentinel-eye-web</c> grants it by default, so the
+/// seeded operator can already list every fab's clients — the operator's
+/// <c>management-web</c> token names <c>sse.identity.devices.read</c> and
+/// <c>sse.identity.kiosks.read</c> explicitly (spec 200, issue #2279), so the
 /// listing principals below are ordinary seeded operators, not ones invented
 /// for this test.
 ///

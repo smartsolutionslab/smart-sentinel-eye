@@ -11,9 +11,9 @@ import { readManagementAccessToken } from './support/management-session';
  * `guards that read the design artefact` is the standing lesson for why both
  * are needed.
  *
- * **Red today**: `apps/management-web/src/app/auth.ts` still signs in as
- * `smart-sentinel-eye-web` with `scope: 'openid sse.management'`, so `azp` is
- * `smart-sentinel-eye-web` and `scope` still contains `sse.management`.
+ * If `auth.ts` ever regresses to signing in as `smart-sentinel-eye-web` with
+ * `scope: 'openid sse.management'`, `azp` would read `smart-sentinel-eye-web`
+ * and `scope` would carry `sse.management` again — the exact shape of #2279.
  */
 test('the console carries management-web scopes, not the legacy bundle', async ({ page }) => {
   await signInAsOperator(page);

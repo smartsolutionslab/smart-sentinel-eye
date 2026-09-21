@@ -35,9 +35,9 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 /// </para>
 ///
 /// <para>
-/// <b>This is not a scope test.</b> <c>CreateAdminClientAsync</c> mints the
-/// legacy <c>sse.management</c> bundle (<c>AspireFixture.Auth.cs:112</c> —
-/// <c>FetchAccessTokenAsync(…, ClientId, "openid sse.management")</c>), not the
+/// <b>This is not a scope test.</b> <c>CreateAdminClientAsync</c> mints a
+/// <c>management-web</c> token naming every granular <c>sse.*</c> scope
+/// explicitly (spec 200, issue #2279), including but not limited to the
 /// <c>sse.webhooks.write</c> the registry endpoint declares. Swapping that
 /// declaration for any other catalogued scope leaves all three facts green.
 /// The admin identity is therefore broader than a real

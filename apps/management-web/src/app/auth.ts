@@ -22,7 +22,7 @@ export const oidcConfig: AuthProviderProps = {
   authority: `${KEYCLOAK_BASE_URL}/realms/smart-sentinel-eye`,
   client_id: 'management-web',
   redirect_uri: typeof window !== 'undefined' ? `${window.location.origin}/` : 'http://localhost:5173/',
-  // `openid` alone: the twenty granular sse.* scopes and `sse-groups` are
+  // `openid` alone: the twenty-one granular sse.* scopes and `sse-groups` are
   // DEFAULT client scopes of `management-web`, so Keycloak applies them
   // whether or not they are asked for. Naming any scope this client does not
   // hold (including the retired `sse.management` bundle) fails the whole
