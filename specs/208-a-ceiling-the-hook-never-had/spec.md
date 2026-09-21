@@ -216,12 +216,12 @@ When the limiter refuses a request, one structured record says which partition w
 
 **Why P3:** a register nobody updates is how §IV's leg table and CLAUDE.md's Phase-3 gate both drifted. Its own doc comment (`:150-155`) says the quiet part: *"A green run proves the five known handlers still exist… it cannot notice a mechanism nobody wrote down. **The rate limiter below was found by sweeping for `RateLimiter`, not by any test.**"* Adding a second limiter without adding a row makes that sentence retroactively false.
 
-**Independent Test:** run the census test before the row is added and observe it fail; add the row; observe green.
+**Independent Test:** read the census row and confirm it names the mechanism, its status and its precondition. **Corrected post-phase-6 (BLOCKER 2, matching FR-010's correction above):** there is no test to observe red before the row and green after — no assertion in `StatusProducerDeclarationTests` is tied to rate-limiter coverage, so the row's absence would not have failed anything. The "independent test" here is a documentation register being read, the same shape as M14's row, not a guard being exercised.
 
 **Acceptance Scenarios:**
 
-1. **Given** the census at `StatusProducerDeclarationTests.cs:158-183`, **When** the StreamDistribution limiter exists, **Then** the census carries `M15` for it with its status (`429`) and its visibility, and the test that asserts the census covers this tree's throttles fails without it.
-2. **Given** the per-IP partition, **When** the census row is read, **Then** it records the `ForwardedHeaders` precondition from §*Partition key* — that the key's integrity depends on nothing in `src` configuring forwarded headers.
+1. **Given** the census at `StatusProducerDeclarationTests.cs:158-183`, **When** the StreamDistribution limiter exists, **Then** the census carries `M15` for it with its status (`429`) and its visibility. **Corrected post-phase-6:** the original second clause here — "and the test that asserts the census covers this tree's throttles fails without it" — described a test that does not exist. No assertion in that file is tied to rate-limiter coverage; M15 is manually maintained documentation, like M14, not a guarded gate. Verify by removing the row: the class's full suite stays green.
+2. **Given** the per-IP partition, **When** the census row is read, **Then** it records the `ForwardedHeaders` precondition from §*Partition key* — that the key's integrity depends on nothing in `src` configuring forwarded headers — and, per this correction, the consequence of that precondition failing (§*Assumptions* item 5's addition): the partition collapsing into the global bucket §*Partition key* rejects.
 
 ### Edge Cases
 
@@ -244,7 +244,7 @@ When the limiter refuses a request, one structured record says which partition w
 - **FR-007**: The authorize mapping MUST declare `429` on its chain so the generated OpenAPI names it.
 - **FR-008**: The two comments in `WhepAuthValidator.cs` (`:142-143`, `:210-212`) MUST be corrected to describe the ceiling that now exists.
 - **FR-009**: A partition entering the throttled state MUST emit one structured `Warning` naming the partition and the configured limit; repeats within that state MUST NOT be logged (US2).
-- **FR-010**: `StatusProducerDeclarationTests`' census MUST carry an entry for this limiter, and a test MUST fail if it does not (US3).
+- **FR-010**: `StatusProducerDeclarationTests`' census MUST carry an entry for this limiter, recorded for documentation and discoverability (US3). **Corrected post-phase-6 (BLOCKER 2):** the original wording here — "a test MUST fail if it does not" — was wrong. M15, like M4-M8/M13/M14, is not read by any assertion in that file; deleting the row fails nothing. The census's own doc comment already says a green run "cannot notice a mechanism nobody wrote down," and M15 is exactly that kind of row: manually maintained, not derived, not gated. Phase 6 found commit `679ac8ff`'s own message already says this honestly ("the row is additive documentation, not a guarded gate") while this requirement kept claiming the opposite — the spec, not the commit, was wrong.
 
 ### Non-Functional Requirements
 
