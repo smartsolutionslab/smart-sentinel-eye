@@ -133,8 +133,10 @@ instead of camera.id. Migration path: /docs/migrations/0042.md.
 **Spec-Kit auto-commits** keep their `[Spec Kit] <stage>` prefix —
 they're a separate namespace and don't need to conform.
 
-`commitlint` runs via Husky on `commit-msg` and rejects non-conforming
-human commits.
+There is no `commitlint`/Husky `commit-msg` hook today — no `.husky`
+directory and no `husky`/`commitlint` dependency exist in the repo.
+Non-conforming commit messages are caught only by review, not
+tooling.
 
 ## Pull requests — ADR-031
 
@@ -169,7 +171,6 @@ GitHub Actions runs the following on **every** PR into `develop` and
 | .NET build (Release) | `dotnet build` |
 | .NET unit tests | xUnit |
 | Boundary rules | `NetArchTest` (in test project) |
-| .NET format | `dotnet format --verify-no-changes` |
 | Web build | `vite build` |
 | Web type-check | `tsc --noEmit` |
 | Web lint | ESLint |
@@ -223,17 +224,21 @@ bump patch and follow the same dual-merge pattern from `hotfix/<short>`.
   - Nesting depth: **≤ 3** (S134)
   - Test projects exempt — narrative test methods are valuable.
 
-Husky pre-commit hooks run formatters on **staged files only** — fast
-local loop. CI verifies with `--verify-no-changes` so a bypassed hook
-still fails the PR.
+There is no pre-commit hook and no `dotnet format --verify-no-changes` (or
+equivalent) CI step for C# today — formatting is caught only by the Release
+build's `TreatWarningsAsErrors` on top of `.editorconfig` + the analyzers, at
+PR time. (The frontend has its own, separate `pnpm format:check` CI step;
+this gap is C#-only.)
 
 ### IDE code cleanup — don't bulk-run it
 
-The C# house style is **explicit types (never `var`) and braces on all
-control flow**, enforced three ways: `.editorconfig`
-(`csharp_style_var_* = false`, `csharp_prefer_braces = true` — errors in
-`Release`), the Roslyn analyzers, and the committed
-`SmartSentinelEye.slnx.DotSettings` (pins ReSharper to the same).
+The C# house style is **`var` allowed anywhere, braces required on all
+control flow**: `.editorconfig`'s `csharp_style_var_*` keys are all
+`true:silent` — both spellings are legal, pick whichever reads better at the
+call site (see `CLAUDE.md`'s house rules) — while `csharp_prefer_braces =
+true:warning` is enforced as an error in `Release`, via the Roslyn analyzers
+and the committed `SmartSentinelEye.slnx.DotSettings` (pins ReSharper to the
+same).
 
 **Do not bulk-run ReSharper / Rider _Cleanup Code_ or _Reformat Code_
 across files, folders, or the whole solution**, and don't enable an
@@ -244,15 +249,18 @@ line-collapsing, brace churn — that:
 - violate the smallest-change rule (ADR-0036) and bury the real change
   in noise,
 - collide with everyone else's in-flight work on rebase, and
-- fight the house style (the `var`/brace passes are exactly what the
-  enforcement above now rejects).
+- for brace churn specifically, fight the one thing the enforcement
+  above actually requires (braces are a build error in `Release`) —
+  var-ification isn't itself a style violation (`var` is legal
+  anywhere), but it is still exactly the unrelated diff noise the first
+  bullet already rules out.
 
 The committed `.DotSettings` already pins ReSharper to the house style,
 so editor-default behaviour conforms — **keep it; don't override it
-locally.** For whitespace, rely on the Husky pre-commit hook (staged
-files only) and the CI `dotnet format --verify-no-changes` gate, not a
-manual sweep. `AppHost` is exempt from the `var`/brace rules (Aspire
-composition root, ADR-0105).
+locally.** There is no automated whitespace safety net yet (see above);
+review the diff before committing, rather than relying on a manual
+sweep or an on-save cleanup profile to catch it. `AppHost` is exempt
+from the brace rule (Aspire composition root, ADR-0105).
 
 ## Guided phased development — ADR-0037
 
