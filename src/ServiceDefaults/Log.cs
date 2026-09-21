@@ -51,4 +51,12 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information,
         Message = "Swept {Count} stale idempotency reservation(s) older than the reclamation bound.")]
     public static partial void SweptStaleIdempotencyReservations(this ILogger logger, int count);
+
+    // #2290 phase-6 review. Warning, not Error: a failed sweep costs one
+    // skipped hour, not an incident — but it must be visible, since nothing
+    // else observes this worker and a silently-failing sweep degrades back to
+    // pre-#2290 behaviour with no signal.
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "The idempotency reservation sweep failed; it will retry on the next tick.")]
+    public static partial void IdempotencyReservationSweepFailed(this ILogger logger, Exception exception);
 }
