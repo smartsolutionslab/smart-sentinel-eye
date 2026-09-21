@@ -66,8 +66,6 @@ export interface WallAlignment {
   frameAgeFor: (tileKey: string) => number | null;
   /** Tiles that could not be held inside the leg's budget (FR-012). */
   released: ReadonlySet<string>;
-  /** The spread across held tiles, or null when there is nothing to compare. */
-  skewMilliseconds: number | null;
 }
 
 /**
@@ -100,7 +98,6 @@ export function useWallAlignment(tileCount: number, getToken?: () => Promise<str
   const [target, setTarget] = useState<number | null>(null);
   const [held, setHeld] = useState<ReadonlySet<string>>(() => new Set());
   const [released, setReleased] = useState<ReadonlySet<string>>(() => new Set());
-  const [skewMilliseconds, setSkew] = useState<number | null>(null);
 
   const reportLag = useCallback(
     (tileKey: string, camera: string, lagMilliseconds: number, bufferMilliseconds: number) => {
@@ -178,7 +175,6 @@ export function useWallAlignment(tileCount: number, getToken?: () => Promise<str
       // this (120 ms → 654 ms); this is the slow one.
       const heldLags = lags.filter((lag) => heldNow.includes(lag.camera));
       const skew = skewAcross(heldLags);
-      setSkew(skew);
       setTarget((current) => {
         if (next === null) return null;
         if (current === null) return next.targetMilliseconds;
@@ -249,7 +245,6 @@ export function useWallAlignment(tileCount: number, getToken?: () => Promise<str
     // Derived, not stored: a wall below two tiles makes no claim, so it shows
     // no badges and reports no spread — without an effect writing state.
     released: aligning ? released : NO_TILES,
-    skewMilliseconds: aligning ? skewMilliseconds : null,
   };
 }
 

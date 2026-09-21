@@ -366,7 +366,8 @@ export function CellPage() {
               unavailable={boundOverlay !== null && unavailableOverlays.has(boundOverlay)}
               highlighted={boundOverlay !== null && highlightedOverlays.has(boundOverlay)}
               playoutTargetMilliseconds={alignment.targetFor(cell.key)}
-              frameAgeMilliseconds={alignment.frameAgeFor(cell.key)}
+              frameAgeFor={alignment.frameAgeFor}
+              tileKey={cell.key}
               onLagMeasured={(camera, lag, buffer) => alignment.reportLag(cell.key, camera, lag, buffer)}
               outOfAlignment={alignment.released.has(cell.key)}
               onLabelVerdict={onLabelVerdict}
@@ -401,8 +402,18 @@ interface TileProps {
   /**
    * How old this tile's picture is, so its label can be held back to match
    * (spec 046, ADR-0129). Null when unreadable — the label then shows at once.
+   *
+   * <p>
+   * A getter, not a value: the tile calls this itself, at the moment it
+   * renders, rather than receiving an age the parent computed on its own last
+   * render. `CellPage` re-renders on no fixed cadence, so a value handed down
+   * as a prop would go stale between the parent's renders; the tile is kept
+   * current by its own RTK Query subscriptions instead (spec 204).
+   * </p>
    */
-  frameAgeMilliseconds: number | null;
+  frameAgeFor: (tileKey: string) => number | null;
+  /** This tile's key in the layout grid, passed to `frameAgeFor` above. */
+  tileKey: string;
   /**
    * Reports this tile's own placeholder verdict for its bound overlay up to
    * the page (spec 141 site 3, FR-005) — the same tile→page shape as
@@ -429,9 +440,16 @@ function Tile({
   playoutTargetMilliseconds,
   onLagMeasured,
   outOfAlignment,
-  frameAgeMilliseconds,
+  frameAgeFor,
+  tileKey,
   onLabelVerdict,
 }: TileProps) {
+  // Read at the moment this tile renders, not handed down as a value computed
+  // during the parent's last render (spec 204) — the parent has no reason to
+  // re-render on its own cadence, so a stale prop would silently freeze the
+  // label's held age. `Tile` is kept current by its own RTK Query
+  // subscriptions below.
+  const frameAgeMilliseconds = frameAgeFor(tileKey);
   // Spec 141 site 1 (FR-001): an overlay identifier this tile actually binds —
   // `null` for an omitted, blank, or genuinely absent field alike, matching
   // #2084's own sentinel (`:519`) exactly. Widened past `LayoutTile`'s
