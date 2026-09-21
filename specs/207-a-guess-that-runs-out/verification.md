@@ -261,11 +261,80 @@ only endpoint whose behaviour changes is the token endpoint
   by hand beyond steps 4–8 above, which are the independent,
   test-suite-free procedure `spec.md` asks for.
 - **SC-7 (full `Integration.Tests` suite green)** — T004's responsibility,
-  not repeated in this note.
+  not repeated in this note as a fresh run here. Historical evidence: a full
+  `Integration.Tests` run (604 tests) at commit `c71e7e53` (2026-09-21)
+  passed 604/604. That commit predates this PR's phase-6 fix round (the
+  `ReadFailureFactorAsync` master-realm-admin fix and the should-fix items
+  from `infra-reviewer`/`security-reviewer`), so it does not cover the code
+  as it now stands — cited here as history, not as current proof. **This
+  PR's own CI `integration` job is the authoritative, up-to-date record**;
+  do not read SC-7 as re-verified until that job is observed green.
 - **The negative control against unpatched `develop`** — not run
   literally in this worktree (see *Steps 4–8* above); T001's captured
   red output is cited in its place, per `spec.md`'s own acknowledgement
   that the literal re-run is impractical this far into delivery.
+
+## Phase-6 fix round — `ReadFailureFactorAsync` blocker, re-verified
+
+`infra-reviewer` found `BruteForceLockoutIntegrationTests`'
+`ReadFailureFactorAsync` read `failureFactor` through `identity-admin`
+(`RealmProbe.AuthorisedAdminClientAsync`), whose realm-management roles are
+`manage-users`/`view-users` only — no `view-realm`. A `GET
+admin/realms/{realm}` through that account silently returns a *partial*
+representation that omits `failureFactor` entirely, and the method's
+fallback (Keycloak's own built-in default, `30`) silently substituted the
+wrong number. Every run before this fix locked the probe account with
+`failureFactor + 1` = **31** wrong guesses, not the intended 11, and SC-1 /
+SC-3 stayed green only because `quickLoginCheckMilliSeconds: 1000` trips the
+lockout after two rapid failures regardless of `failureFactor`.
+
+**Fix:** read `failureFactor` through a new `MasterRealmAdminClientAsync`
+helper local to the test file — the master realm's bootstrap `admin` /
+`admin-cli` account (`grant_type=password`, `client_id=admin-cli`,
+`username=admin`, password = the `KeycloakPassword` Aspire parameter, which
+is `testkeycloak` under the `AspireFixture` per `AspireFixture.cs:279` — the
+same value every other AppHost-boot test in this project already passes).
+`identity-admin`'s realm-management roles were **not** widened — that would
+be a real permission escalation on a service account the Identity API uses
+in production, for a test-only need.
+
+**Re-verified, temporarily, with a diagnostic throw** inserted after
+`ReadFailureFactorAsync`'s call site in `CreateAndLockProbeAsync` (reverted
+immediately after, never committed):
+
+```
+System.InvalidOperationException : TEMP-DIAGNOSTIC failureFactor=10
+```
+
+Confirms the fix genuinely observes the realm's real value (**10**), not the
+silently-substituted default (30).
+
+**Full class re-run, clean, after reverting the diagnostic** (Keycloak
+container + `*keycloak*` volumes dropped first;
+`dotnet test tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj
+-c Release --filter "FullyQualifiedName~BruteForceLockoutIntegrationTests"`,
+2026-09-21):
+
+```
+Test Run Successful.
+Total tests: 6
+     Passed: 6
+ Total time: 2,5554 Minutes
+```
+
+All six facts (SC-1 through SC-5, and the bad-request fact) green, now
+genuinely exercising `failureFactor: 10` and eleven wrong guesses, not
+thirty-one. This re-run also carries the phase-6 should-fix items applied to
+the same file: SC-5 now asserts the account is still locked immediately
+before the `DELETE` (so the `DELETE` is load-bearing); the no-username fact
+now compares the attack-detection failure count before and after the
+malformed grant, through the same status-checking helper the rest of the
+file uses, instead of a vacuous post-hoc check gated on
+`IsSuccessStatusCode`; SC-1's failure message no longer interpolates the raw
+response body (which would carry a live access/refresh token pair if this
+fact ever regresses to green on a public repository); and
+`CreateProbeUserAsync` deletes the partially-created probe user if the
+password-reset step throws, instead of leaking it.
 
 ## Stack
 
