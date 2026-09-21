@@ -157,9 +157,12 @@ public sealed partial class V1ResourceMap
         // so it's the most reliable signal across the V1 corpus.
         PropertyInfo? pick = Array.Find(props, property => property.PropertyType == typeof(Guid));
 
-        // Fall back to the small allow-list of canonical property names
-        // for V1s whose first Guid property is *not* the aggregate id
-        // (e.g. it's an actor or a parent reference).
+        // Fall back to the small allow-list of canonical property names,
+        // but only when the contract has no Guid property at all. A
+        // contract whose first Guid is the wrong one, say an actor or a
+        // parent reference, still matches the Find above and never
+        // reaches this fallback. That case needs a hand-tweak instead,
+        // registered in Conventions.
         if (pick is null)
         {
             foreach (string candidate in IdentifierPropertyNames)
