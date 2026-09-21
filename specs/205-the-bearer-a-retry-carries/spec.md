@@ -8,7 +8,7 @@
 
 **No new ADR is required.** ADR-0080 already locks `react-oidc-context` as the browser auth mechanism and spec 011 FR-011/012 already locks "one silent renewal and one retry before the session counts as expired" (`apps/shared/src/api/gateway.ts:52-56`). This spec makes the retry actually *use* the renewal it just performed. Nothing about the auth library, the gateway, the scope model, or any context boundary changes.
 
-**Severity: every operator and every wall screen loses its session on a renewal that succeeded.** Not an error page on one request — `onSessionExpired()` tears the session down: management-web renders the "Session expired" screen (`apps/management-web/src/App.tsx:35-49`) and the kiosk enters `beginReauthentication` (`apps/kiosk-web/src/app/useSessionExpiry.ts:194`). **management-web is the exposed app**: its `oidcConfig` sets no `automaticSilentRenew` (`apps/management-web/src/app/auth.ts:22-46`), so the 401-triggered renewal is the *only* renewal path it has — and it is the broken one.
+**Severity: every operator and every wall screen loses its session on a renewal that succeeded.** Not an error page on one request — `onSessionExpired()` tears the session down: management-web renders the "Session expired" screen (`apps/management-web/src/App.tsx:35-49`) and the kiosk enters `beginReauthentication` (`apps/kiosk-web/src/app/useSessionExpiry.ts:194`). **Correction (phase-6 review):** management-web's `oidcConfig` sets no `automaticSilentRenew` (`apps/management-web/src/app/auth.ts:22-46`), but `oidc-client-ts@3.5.0` defaults that setting to `true` — so management-web *does* run background renewal, exactly like kiosk-web, it simply never says so explicitly (kiosk-web sets it, `apps/kiosk-web/src/app/auth.ts:116`). The severity is not that management-web has no other renewal path — it does — but that *whichever* renewal path fires, if it races a 401-triggered retry through the same bug, the outcome is identical: a session torn down by a renewal that just succeeded.
 
 ---
 
@@ -386,9 +386,12 @@ terms; a closing keyword for it must not appear in this spec's PR.
 
 ### Also out of scope
 
-- **`automaticSilentRenew` for management-web.** It would reduce how often this
-  path is reached; it would not fix it, and it is an auth-policy change for the
-  operator console that deserves its own issue. Noted, not taken.
+- **Setting `automaticSilentRenew` explicitly for management-web.** **Correction
+  (phase-6 review): moot.** `oidc-client-ts@3.5.0` already defaults it to
+  `true`; management-web already runs background renewal without stating so.
+  Written into `apps/management-web/src/app/auth.ts` for clarity is a
+  documentation change, not a fix, and still deserves its own issue if anyone
+  wants the setting made explicit — but it changes nothing this spec depends on.
 - **The WHEP client's own token freshness.** `WhepClient` already re-resolves at
   request time and is tested on it (`WhepClient.test.ts:344-366`). Its
   `getToken` reaches a render-written ref (`CellPage.tsx:48-54`), which has the

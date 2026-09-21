@@ -89,6 +89,12 @@ describe('The 401 retry against the real react-oidc-context provider (#2301 US2)
     fetchMock.mockReset();
     vi.stubGlobal('fetch', fetchMock);
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    // Reset gateway.ts's module singletons — the real module is not mocked in
+    // this file, so a renewer/handler Gate registers here would otherwise
+    // outlive the test (phase-6 review, #2301).
+    setAccessTokenProvider(() => undefined);
+    setSessionRenewer(() => Promise.resolve(undefined));
+    setOnSessionExpired(() => undefined);
   });
 
   afterEach(() => {
@@ -103,6 +109,10 @@ describe('The 401 retry against the real react-oidc-context provider (#2301 US2)
       client_id: 'management-web',
       redirect_uri: 'http://localhost/',
       userStore: new WebStorageStateStore({ store: window.sessionStorage }),
+      // Otherwise defaults to true: the real UserManager would arm its own
+      // background renewal timer, which this test's assertions don't need
+      // and which would outlive the test unstopped (phase-6 review, #2301).
+      automaticSilentRenew: false,
     });
     await manager.storeUser(userWith('OLD-TOKEN'));
 
@@ -134,12 +144,31 @@ describe('The 401 retry against the real react-oidc-context provider (#2301 US2)
     // asynchronously, so the first paint is not authenticated yet.
     expect(await screen.findByTestId('token')).toHaveTextContent('OLD-TOKEN');
 
-    fetchMock.mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(ok());
+    // Sampled from INSIDE the second fetchFn call, not after the retry's own
+    // await — by then Response.json() may itself have crossed a macrotask,
+    // which would make this timing-sensitive in the wrong direction. This is
+    // the instant the retry is actually built, which is the only instant the
+    // spec's acceptance scenario ("even though React has not yet re-rendered
+    // at the moment the retry is issued") is actually about (phase-6 review).
+    let renderedWhenRetryBuilt: string | null = null;
+    fetchMock.mockResolvedValueOnce(unauthorized()).mockImplementationOnce(() => {
+      renderedWhenRetryBuilt = screen.getByTestId('token').textContent;
+      return Promise.resolve(ok());
+    });
 
     const result = await gatewayBaseQuery('cameras')('items', queryApi, {});
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    // The first call carrying the stale token is what makes the second call's
+    // NEW-TOKEN meaningful — without this, a coincidence (e.g. both calls
+    // happening to carry the same token) could pass unnoticed.
+    expect(authorizationOf(fetchMock.mock.calls[0]!)).toBe('Bearer OLD-TOKEN');
     expect(authorizationOf(fetchMock.mock.calls[1]!)).toBe('Bearer NEW-TOKEN');
+    // Proves the mechanism, not just the outcome: the DOM had NOT yet
+    // committed NEW-TOKEN at the instant the retry was built, and the retry
+    // still carried it — because it came from the renewal directly, not from
+    // a render React had not yet performed.
+    expect(renderedWhenRetryBuilt).toBe('OLD-TOKEN');
     expect(expiredCalls).toBe(0);
     expect(result.data).toEqual({ ok: true });
   });
