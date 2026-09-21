@@ -167,25 +167,6 @@ public class InMemoryReverseIndexTests
         index.LookupLabelText(overlay).ShouldBe("no placeholders here");
     }
 
-    // ---- versions ----
-
-    [Fact]
-    public void The_version_starts_at_zero_and_increments_per_overlay_independently()
-    {
-        InMemoryReverseIndex index = new();
-        Guid first = Guid.CreateVersion7();
-        Guid second = Guid.CreateVersion7();
-
-        index.CurrentVersionFor(first).ShouldBe(0);
-
-        index.NextVersionFor(first).ShouldBe(1);
-        index.NextVersionFor(first).ShouldBe(2);
-        index.NextVersionFor(second).ShouldBe(1);
-
-        index.CurrentVersionFor(first).ShouldBe(2);
-        index.CurrentVersionFor(second).ShouldBe(1);
-    }
-
     // ---- concurrency ----
 
     [Fact]
@@ -201,7 +182,6 @@ public class InMemoryReverseIndexTests
         {
             index.UpsertOverlayReferences(overlay, Label("shared"));
             index.LookupOverlays("shared");
-            index.NextVersionFor(overlay);
         })));
 
         index.LookupOverlays("shared").ShouldBe(overlays, ignoreOrder: true);

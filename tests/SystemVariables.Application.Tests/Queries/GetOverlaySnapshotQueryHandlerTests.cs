@@ -16,7 +16,8 @@ public class GetOverlaySnapshotQueryHandlerTests
     {
         InMemoryReverseIndex index = new();
         InMemoryVariableRepository repo = new();
-        GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver());
+        FakeOverlayTextVersions versions = new();
+        GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver(), versions);
 
         Guid overlay = Guid.CreateVersion7();
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result =
@@ -24,6 +25,11 @@ public class GetOverlaySnapshotQueryHandlerTests
 
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<GetOverlaySnapshotError.OverlayNotInReverseIndex>();
+
+        // #2426 SC-5 -- an unknown overlay must not create a counter row: the
+        // handler returns before ever touching the version store.
+        versions.AdvanceCalls.ShouldBeEmpty();
+        versions.CurrentAsyncCalls.ShouldBeEmpty();
     }
 
     [Fact]
@@ -38,9 +44,16 @@ public class GetOverlaySnapshotQueryHandlerTests
 
         Guid overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
-        index.NextVersionFor(overlay); // bump to 1 to simulate a prior push
 
-        GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver());
+        // #2426 -- the version comes from the durable store, not the reverse
+        // index. Seeded above the cutover floor, a value the retired
+        // in-memory counter could never produce, so a handler that still read
+        // IReverseIndex for its version would fail this assertion rather than
+        // pass it by coincidence.
+        FakeOverlayTextVersions versions = new();
+        versions.Seed(overlay, FakeOverlayTextVersions.Floor + 3);
+
+        GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver(), versions);
 
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result =
             await handler.HandleAsync(new GetOverlaySnapshotQuery([FabIdentifier.From("munich")], overlay), CancellationToken.None);
@@ -48,7 +61,7 @@ public class GetOverlaySnapshotQueryHandlerTests
         result.IsSuccess.ShouldBeTrue();
         result.Value.OverlayIdentifier.ShouldBe(overlay);
         result.Value.ResolvedText.ShouldBe("OEE: 82.5%");
-        result.Value.Version.ShouldBe(1);
+        result.Value.Version.ShouldBe(FakeOverlayTextVersions.Floor + 3);
     }
 
     [Fact]
@@ -63,7 +76,7 @@ public class GetOverlaySnapshotQueryHandlerTests
         Guid overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, "{{shift}} - {{unknown}}");
 
-        GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver());
+        GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver(), new FakeOverlayTextVersions());
 
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result =
             await handler.HandleAsync(new GetOverlaySnapshotQuery([FabIdentifier.From("munich")], overlay), CancellationToken.None);
@@ -88,7 +101,7 @@ public class GetOverlaySnapshotQueryHandlerTests
 
         InMemoryReverseIndex index = new();
         index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
-        GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver());
+        GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver(), new FakeOverlayTextVersions());
 
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> munich = await handler.HandleAsync(
             new GetOverlaySnapshotQuery([FabIdentifier.From("munich")], overlay), CancellationToken.None);
@@ -112,11 +125,61 @@ public class GetOverlaySnapshotQueryHandlerTests
 
         InMemoryReverseIndex index = new();
         index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
-        GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver());
+        GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver(), new FakeOverlayTextVersions());
 
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result = await handler.HandleAsync(
             new GetOverlaySnapshotQuery([FabIdentifier.From("dresden")], overlay), CancellationToken.None);
 
         result.Value.ResolvedText.ShouldBe("OEE: {{oeeLine1}}%");
+    }
+
+    // ---- #2426 (spec 202) Finding B / SC-7 -- version read before text resolved ----
+
+    [Fact]
+    public async Task Reads_the_version_before_resolving_the_text()
+    {
+        List<string> callOrder = [];
+
+        InMemoryReverseIndex index = new();
+        InMemoryVariableRepository repo = new();
+        repo.Add(new VariableBuilder().Named("oeeLine1").OfType(VariableType.Number)
+            .WithInitialValue(new VariableValue.NumberValue(82.5)).Build());
+
+        Guid overlay = Guid.CreateVersion7();
+        index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
+
+        FakeOverlayTextVersions versions = new() { CallOrder = callOrder };
+        versions.Seed(overlay, FakeOverlayTextVersions.Floor);
+
+        GetOverlaySnapshotQueryHandler handler = new(index, repo, new RecordingResolver(callOrder), versions);
+
+        await handler.HandleAsync(
+            new GetOverlaySnapshotQuery([FabIdentifier.From("munich")], overlay), CancellationToken.None);
+
+        // plan.md §5 (Finding B): a version read before the text is a lower
+        // bound on the text's freshness. Read after, a push committing
+        // between the two lines stamps stale text with the newer push's
+        // version, and the kiosk drops that push as not-newer -- permanently,
+        // since nothing else ever tells it to re-fetch (plan.md §1, direction
+        // 3). Asserted on the fakes' own recorded call order, not a comment.
+        callOrder.ShouldBe(["VersionRead", "TextResolved"]);
+    }
+
+    /// <summary>
+    /// Wraps the real <see cref="Resolver"/> and records <c>"TextResolved"</c>
+    /// into the shared order list after resolving, so
+    /// <see cref="Reads_the_version_before_resolving_the_text"/> can assert on
+    /// the merged sequence both fakes recorded, rather than on a comment.
+    /// </summary>
+    private sealed class RecordingResolver(List<string> callOrder) : IResolver
+    {
+        private readonly Resolver inner = new();
+
+        public string Resolve(string labelText, IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot)
+        {
+            string resolved = inner.Resolve(labelText, snapshot);
+            callOrder.Add("TextResolved");
+            return resolved;
+        }
     }
 }
