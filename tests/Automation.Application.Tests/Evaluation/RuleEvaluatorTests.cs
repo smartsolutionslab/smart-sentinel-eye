@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Automation.Application.Ael;
 using SmartSentinelEye.Automation.Application.Evaluation;
@@ -223,6 +224,242 @@ public class RuleEvaluatorTests
         effects.ShouldHaveSingleItem()
             .ShouldBeOfType<RuleActionEffect.SetVariableValue>().Value.ShouldBe("99");
     }
+
+    // ---- #2427: an oversized JSON number is a per-rule failure, not a whole-event one ----
+
+    private const string OversizedNumberContext = """
+        {
+          "source": "plc",
+          "kind": "PlcCycleStart",
+          "device": "station-4",
+          "payload": { "v": 1e30, "cycleTime": 27 }
+        }
+        """;
+
+    [Fact]
+    public void An_oversized_payload_number_skips_its_own_rule_and_no_other()
+    {
+        InMemoryRuleCache cache = new();
+        RuleAggregate alarm = ActiveRule(
+            "alarm",
+            RuleAction.SetVariableValue.From("alarmFlag", "1"),
+            BaseMoment,
+            predicate: "$.payload.v > 100");
+        RuleAggregate healthy = ActiveRule(
+            "healthy",
+            RuleAction.SetVariableValue.From("oeeLine1", "99"),
+            BaseMoment.AddMinutes(5));
+        cache.Upsert(alarm);
+        cache.Upsert(healthy);
+
+        CapturingLogger<RuleEvaluator> logger = new();
+        RuleEvaluator evaluator = new(cache, logger);
+        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"),
+            "plc", "PlcCycleStart", Context(OversizedNumberContext));
+
+        // The surviving rule still fires — the oversized field belongs to
+        // "alarm" alone, and "healthy" never touches it.
+        RuleActionEffect.SetVariableValue effect =
+            effects.ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.SetVariableValue>();
+        effect.Name.ShouldBe("oeeLine1");
+        effect.Value.ShouldBe("99");
+
+        // Named, not merely present: an assertion that cannot tell "alarm"
+        // apart from "healthy" would also pass against a swap.
+        (LogLevel Level, string Message, Exception? Exception) warning = logger.Entries.ShouldHaveSingleItem();
+        warning.Level.ShouldBe(LogLevel.Warning);
+        warning.Message.ShouldContain(alarm.Id.ToString());
+        warning.Message.ShouldNotContain(healthy.Id.ToString());
+        warning.Exception.ShouldBeOfType<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void An_oversized_number_in_a_value_expression_writes_what_a_missing_field_writes()
+    {
+        InMemoryRuleCache cache = new();
+        cache.Upsert(ActiveRule(
+            "value-writer",
+            RuleAction.SetVariableValue.From("x", "$.payload.v"),
+            BaseMoment));
+
+        RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
+
+        const string missingFieldContext = """
+            {
+              "source": "plc",
+              "kind": "PlcCycleStart",
+              "device": "station-4",
+              "payload": { "cycleTime": 27 }
+            }
+            """;
+
+        RuleActionEffect.SetVariableValue oversized = evaluator.Evaluate(
+                FabIdentifier.From("munich"), "plc", "PlcCycleStart", Context(OversizedNumberContext))
+            .ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.SetVariableValue>();
+        RuleActionEffect.SetVariableValue missing = evaluator.Evaluate(
+                FabIdentifier.From("munich"), "plc", "PlcCycleStart", Context(missingFieldContext))
+            .ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.SetVariableValue>();
+
+        oversized.Value.ShouldBe(string.Empty);
+        // An oversized number is indistinguishable from an absent field —
+        // that equivalence to absence is the fix's semantic.
+        oversized.ShouldBe(missing);
+    }
+
+    [Fact]
+    public void An_equality_test_against_an_oversized_number_logs_nothing()
+    {
+        InMemoryRuleCache cache = new();
+        cache.Upsert(ActiveRule(
+            "equality-rule",
+            RuleAction.SetVariableValue.From("oeeLine1", "1"),
+            BaseMoment,
+            predicate: "$.payload.v == 42"));
+
+        CapturingLogger<RuleEvaluator> logger = new();
+        RuleEvaluator evaluator = new(cache, logger);
+
+        const string oversizedOnlyContext = """
+            {
+              "source": "plc",
+              "kind": "PlcCycleStart",
+              "device": "station-4",
+              "payload": { "v": 1e30 }
+            }
+            """;
+
+        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"), "plc", "PlcCycleStart", Context(oversizedOnlyContext));
+
+        // Nothing failed: the comparison is simply false, same as it is for
+        // any other mismatched equality.
+        effects.ShouldBeEmpty();
+        logger.Entries.ShouldBeEmpty();
+    }
+
+    // ---- #2427: OverflowException is a second, independent instance of the
+    // same defect class. 7.9e28 is inside decimal's range — US1's interpreter
+    // fix lets it through as a DecimalValue fine; it is the arithmetic itself
+    // that overflows, which only the widened filter (US2) can contain. ----
+
+    private const string DecimalOverflowContext = """
+        {
+          "source": "plc",
+          "kind": "PlcCycleStart",
+          "device": "station-4",
+          "payload": { "big": 7.9e28, "cycleTime": 27 }
+        }
+        """;
+
+    [Fact]
+    public void A_decimal_overflow_in_a_predicate_skips_its_own_rule_and_no_other()
+    {
+        InMemoryRuleCache cache = new();
+        RuleAggregate mul = ActiveRule(
+            "mul",
+            RuleAction.SetVariableValue.From("mulFlag", "1"),
+            BaseMoment,
+            predicate: "$.payload.big * 10 > 0");
+        RuleAggregate healthy = ActiveRule(
+            "healthy",
+            RuleAction.SetVariableValue.From("oeeLine1", "99"),
+            BaseMoment.AddMinutes(5));
+        cache.Upsert(mul);
+        cache.Upsert(healthy);
+
+        CapturingLogger<RuleEvaluator> logger = new();
+        RuleEvaluator evaluator = new(cache, logger);
+        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"),
+            "plc", "PlcCycleStart", Context(DecimalOverflowContext));
+
+        RuleActionEffect.SetVariableValue effect =
+            effects.ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.SetVariableValue>();
+        effect.Name.ShouldBe("oeeLine1");
+        effect.Value.ShouldBe("99");
+
+        (LogLevel Level, string Message, Exception? Exception) warning = logger.Entries.ShouldHaveSingleItem();
+        warning.Level.ShouldBe(LogLevel.Warning);
+        warning.Message.ShouldContain(mul.Id.ToString());
+        warning.Message.ShouldNotContain(healthy.Id.ToString());
+        warning.Exception.ShouldBeOfType<OverflowException>();
+    }
+
+    [Fact]
+    public void An_integer_division_overflow_in_a_predicate_skips_its_own_rule()
+    {
+        // long.MinValue / -1 — the one integer-division identity the CLR
+        // cannot represent. No oversized or out-of-range number is involved.
+        const string longMinValueContext = """
+            {
+              "source": "plc",
+              "kind": "PlcCycleStart",
+              "device": "station-4",
+              "payload": { "tiny": -9223372036854775808 }
+            }
+            """;
+
+        InMemoryRuleCache cache = new();
+        RuleAggregate divideRule = ActiveRule(
+            "divide-rule",
+            RuleAction.SetVariableValue.From("oeeLine1", "1"),
+            BaseMoment,
+            predicate: "$.payload.tiny / -1 > 0");
+        cache.Upsert(divideRule);
+
+        CapturingLogger<RuleEvaluator> logger = new();
+        RuleEvaluator evaluator = new(cache, logger);
+        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"),
+            "plc", "PlcCycleStart", Context(longMinValueContext));
+
+        effects.ShouldBeEmpty();
+
+        (LogLevel Level, string Message, Exception? Exception) warning = logger.Entries.ShouldHaveSingleItem();
+        warning.Level.ShouldBe(LogLevel.Warning);
+        warning.Message.ShouldContain(divideRule.Id.ToString());
+        warning.Exception.ShouldBeOfType<OverflowException>();
+    }
+
+    [Fact]
+    public void A_decimal_overflow_in_a_value_expression_skips_the_action_not_the_event()
+    {
+        InMemoryRuleCache cache = new();
+        RuleAggregate rule = ActiveRule(
+            "value-overflow",
+            RuleAction.SetVariableValue.From("x", "$.payload.big * 10"),
+            BaseMoment);
+        cache.Upsert(rule);
+
+        CapturingLogger<RuleEvaluator> logger = new();
+        RuleEvaluator evaluator = new(cache, logger);
+        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"),
+            "plc", "PlcCycleStart", Context(DecimalOverflowContext));
+
+        // The predicate (default: cycleTime <= 30) is true; only the value
+        // expression overflows — the action is skipped, not the whole event.
+        effects.ShouldBeEmpty();
+
+        (LogLevel Level, string Message, Exception? Exception) warning = logger.Entries.ShouldHaveSingleItem();
+        warning.Level.ShouldBe(LogLevel.Warning);
+        // The value-expression-specific message, not the predicate one — the
+        // two LoggerMessage definitions read almost identically and differ
+        // only in "rule" vs "action".
+        warning.Message.ShouldContain("skipping action");
+        warning.Message.ShouldContain(rule.Id.ToString());
+        warning.Exception.ShouldBeOfType<OverflowException>();
+    }
+
+    // A_cancellation_is_not_absorbed_as_a_rule_failure (tasks.md T005 fact 4)
+    // is deliberately not written: TryEvaluatePredicate / TryEvaluateValueExpression
+    // guard a synchronous call to AelInterpreter.Evaluate, which takes no
+    // CancellationToken, and CompiledRule's predicate/value-expression trees
+    // are built only from a parsed AelExpression (a closed record hierarchy
+    // with no test-constructible node that throws). There is no seam to drive
+    // an OperationCanceledException through this path without adding a
+    // production hook, which tasks.md explicitly forbids.
 
     // ---- spec 013: evaluation is scoped to the originating fab (#1252) ----
 

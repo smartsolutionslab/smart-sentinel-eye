@@ -124,4 +124,53 @@ public class AelInterpreterTests
         AelValue r = Eval("!true", "{}");
         r.ShouldBeOfType<AelValue.BoolValue>().Value.ShouldBeFalse();
     }
+
+    // ---- #2427: a JSON number outside decimal's range is unaddressable, not fatal ----
+
+    [Fact]
+    public void A_number_beyond_decimals_range_is_not_addressable()
+    {
+        AelValue r = Eval("$.payload.v", """{"payload": {"v": 1e30}}""");
+        r.ShouldBe(AelValue.NullValue.Instance);
+    }
+
+    [Theory]
+    [InlineData("1e30")]
+    [InlineData("-1e30")]
+    [InlineData("1e400")]
+    [InlineData("79228162514264337593543950336")] // decimal.MaxValue + 1
+    [InlineData(AelFixtures.NumberWith400Nines)]
+    public void Every_number_outside_decimals_range_is_not_addressable(string value)
+    {
+        AelValue r = Eval("$.payload.v", "{\"payload\": {\"v\": " + value + "}}");
+        r.ShouldBe(AelValue.NullValue.Instance);
+    }
+
+    // The guard against over-rejection: a fix that returned NullValue for
+    // every non-long number would still pass the two facts above.
+    [Fact]
+    public void A_number_at_decimals_maximum_is_still_a_decimal()
+    {
+        AelValue r = Eval("$.payload.v", """{"payload": {"v": 79228162514264337593543950335}}""");
+        r.ShouldBeOfType<AelValue.DecimalValue>().Value.ShouldBe(79228162514264337593543950335m);
+    }
+
+    // Pins the TryGetInt64 -> TryGetDecimal ordering: a number past long's
+    // range but still inside decimal's must not fall through to NullValue.
+    [Fact]
+    public void A_number_beyond_long_but_inside_decimal_is_a_decimal()
+    {
+        AelValue r = Eval("$.payload.v", """{"payload": {"v": 9223372036854775808}}""");
+        r.ShouldBeOfType<AelValue.DecimalValue>().Value.ShouldBe(9223372036854775808m);
+    }
+
+    [Fact]
+    public void A_number_beyond_decimals_range_compares_as_a_missing_field_does()
+    {
+        AelValue oversized = Eval("$.payload.v == 42", """{"payload": {"v": 1e30}}""");
+        AelValue missing = Eval("$.payload.v == 42", """{"payload": {}}""");
+
+        oversized.ShouldBeOfType<AelValue.BoolValue>().Value.ShouldBeFalse();
+        oversized.ShouldBe(missing);
+    }
 }

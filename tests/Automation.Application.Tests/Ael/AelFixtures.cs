@@ -26,6 +26,18 @@ internal static class AelFixtures
     public const string NestedBoolean =
         "($.payload.x > 10 || $.payload.x < -10) && !$.payload.suppressed";
 
+    /// <summary>
+    /// A 400-digit JSON integer literal — legal JSON, unrepresentable by both
+    /// <c>long</c> and <c>decimal</c>. Used by #2427's boundary tests to prove
+    /// the "outside decimal's range" case is not just the exponent-notation
+    /// forms.
+    /// </summary>
+    public const string NumberWith400Nines =
+        "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999" +
+        "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999" +
+        "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999" +
+        "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999";
+
     /// <summary>Returns a context whose root is the supplied object literal.</summary>
     public static EvaluationContext ContextFor(string json)
     {
