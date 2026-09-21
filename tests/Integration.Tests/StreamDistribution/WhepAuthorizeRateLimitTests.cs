@@ -444,8 +444,17 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     /// </summary>
     private static object NoActionBody(string path) => new { token = (string?)null, path };
 
+    /// <summary>
+    /// Deliberately through <see cref="AspireFixture.StreamDistributionThrottleProbe"/>,
+    /// not <see cref="AspireFixture.StreamDistribution"/>. Every call this
+    /// helper makes is a candidate for a <c>429</c> once the window is
+    /// exhausted, and <c>StreamDistribution</c> shares its resilience
+    /// pipeline (and circuit breaker) with every other context's client this
+    /// fixture hands out — see that property's doc comment (#2284 phase-5
+    /// verification.md §2.2).
+    /// </summary>
     private Task<HttpResponseMessage> PostAsync(object body) =>
-        aspire.StreamDistribution.PostAsJsonAsync("/streams/authorize", body);
+        aspire.StreamDistributionThrottleProbe.PostAsJsonAsync("/streams/authorize", body);
 
     /// <summary>
     /// Sends <c>PermitLimit + 1</c> no-token requests and returns the last
