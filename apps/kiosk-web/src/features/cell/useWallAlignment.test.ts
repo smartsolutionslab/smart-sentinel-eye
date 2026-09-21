@@ -24,6 +24,30 @@ function cycle(times = 1) {
   });
 }
 
+/**
+ * Spec 204 T004. Captures every `reportKioskLatency` post, the same
+ * technique "Reports the induced skew, naming the tile that set it" already
+ * uses below — shared here so the four re-anchored `skewMilliseconds`
+ * assertions (plan.md §5) do not each stand up their own harness.
+ */
+function capturingKioskLatency() {
+  const posted: unknown[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (_url: string, init: { body?: unknown }) => {
+      posted.push(JSON.parse(String(init.body)));
+      return { ok: true, status: 202 };
+    }),
+  );
+  vi.spyOn(console, 'info').mockImplementation(() => {});
+  return { posted, getToken: () => Promise.resolve('a-token') };
+}
+
+/** The `wall_skew` reports among everything `capturingKioskLatency` caught. */
+function wallSkewCallsIn(posted: unknown[]) {
+  return posted.filter((body) => (body as { measurement?: string }).measurement === 'wall_skew');
+}
+
 describe('useWallAlignment', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -37,8 +61,9 @@ describe('useWallAlignment', () => {
    * The core claim: three tiles are induced 100 ms apart, and the wall drives
    * them all to the slowest so the spread closes inside the bound.
    */
-  it('Drives an induced spread to the slowest tile', () => {
-    const { result } = renderHook(() => useWallAlignment(3));
+  it('Drives an induced spread to the slowest tile', async () => {
+    const { posted, getToken } = capturingKioskLatency();
+    const { result } = renderHook(() => useWallAlignment(3, getToken));
 
     act(() => {
       result.current.reportLag('a', 'cam-a', 20, 10);
@@ -48,7 +73,13 @@ describe('useWallAlignment', () => {
     // Induced spread, stated so the assertion below cannot be mistaken for a
     // wall that happened to be aligned.
     cycle();
-    expect(result.current.skewMilliseconds).toBe(100);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    // Re-anchored from `skewMilliseconds` (spec 204 T004): the figure that
+    // ever left the browser is the `wall_skew` report, not the React state
+    // nothing read (plan.md §5).
+    expect(wallSkewCallsIn(posted)).toEqual([{ measurement: 'wall_skew', camera: 'cam-c', elapsedMilliseconds: 100 }]);
 
     // **A buffer depth, not the target.** Each tile is asked for
     // `target − its own processing`, so that every tile lands on the same total
@@ -68,6 +99,9 @@ describe('useWallAlignment', () => {
     ] as const) {
       expect(result.current.targetFor(camera)! + processing).toBe(120);
     }
+
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   /**
@@ -98,17 +132,26 @@ describe('useWallAlignment', () => {
    * unchanged latency. A controller that set a single tile to its own measured
    * lag would change nothing observable and would still be wrong.
    */
-  it('Sets no target at all for a single-tile wall', () => {
-    const { result } = renderHook(() => useWallAlignment(1));
+  it('Sets no target at all for a single-tile wall', async () => {
+    const { posted, getToken } = capturingKioskLatency();
+    const { result } = renderHook(() => useWallAlignment(1, getToken));
 
     act(() => {
       result.current.reportLag('only', 'cam-only', 40, 20);
     });
     cycle(3);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
 
     expect(result.current.targetFor('only')).toBeNull();
     expect(result.current.released.size).toBe(0);
-    expect(result.current.skewMilliseconds).toBeNull();
+    // Re-anchored (spec 204 T004): a wall too small to align reports no
+    // spread at all — the settle loop never even runs (plan.md §5).
+    expect(wallSkewCallsIn(posted)).toEqual([]);
+
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   /**
@@ -236,8 +279,9 @@ describe('useWallAlignment', () => {
    * but kept `target` and `released`, so the surviving tile was pinned to a
    * target computed from departed cameras and a badge could never clear.
    */
-  it('Stops claiming anything when the wall shrinks to one tile', () => {
-    const { result, rerender } = renderHook(({ tiles }) => useWallAlignment(tiles), {
+  it('Stops claiming anything when the wall shrinks to one tile', async () => {
+    const { posted, getToken } = capturingKioskLatency();
+    const { result, rerender } = renderHook(({ tiles }) => useWallAlignment(tiles, getToken), {
       initialProps: { tiles: 3 },
     });
 
@@ -247,14 +291,27 @@ describe('useWallAlignment', () => {
       result.current.reportLag('slow', 'cam-slow', 400, 200);
     });
     cycle(2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
     expect(result.current.released.has('slow')).toBe(true);
     expect(result.current.targetFor('a')).not.toBeNull();
 
+    const postedBeforeShrink = wallSkewCallsIn(posted).length;
     rerender({ tiles: 1 });
+    cycle(2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
 
     expect(result.current.targetFor('a'), 'no target from departed tiles').toBeNull();
     expect(result.current.released.size, 'and no badge left behind').toBe(0);
-    expect(result.current.skewMilliseconds).toBeNull();
+    // Re-anchored (spec 204 T004): the interval that fed `wall_skew` is torn
+    // down with the wall, not merely its React state (plan.md §5).
+    expect(wallSkewCallsIn(posted).length, 'no report after the shrink').toBe(postedBeforeShrink);
+
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   /**
@@ -262,14 +319,22 @@ describe('useWallAlignment', () => {
    * produces no target, rather than a target of zero that would jolt every
    * tile's playout.
    */
-  it('Makes no claim when no tile reports a lag', () => {
-    const { result } = renderHook(() => useWallAlignment(4));
+  it('Makes no claim when no tile reports a lag', async () => {
+    const { posted, getToken } = capturingKioskLatency();
+    const { result } = renderHook(() => useWallAlignment(4, getToken));
 
     cycle(3);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
 
     expect(result.current.targetFor('a')).toBeNull();
-    expect(result.current.skewMilliseconds).toBeNull();
+    // Re-anchored (spec 204 T004): no lag, nothing to report (plan.md §5).
+    expect(wallSkewCallsIn(posted)).toEqual([]);
     expect(result.current.released.size).toBe(0);
+
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   /**

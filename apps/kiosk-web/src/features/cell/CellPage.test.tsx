@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Provider, useSelector } from 'react-redux';
 import type { Layout, LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
@@ -85,6 +85,22 @@ vi.mock('react-router-dom', async (importOriginal) => {
  */
 let reportLag: ((camera: string, lag: number, buffer: number) => void) | undefined;
 
+/**
+ * Spec 204 T002: the single `reportLag` above is overwritten by whichever
+ * tile mounts (renders) last, so it cannot drive a multi-tile wall's tiles
+ * independently. Extended, not replaced: every existing single-tile test
+ * keeps using `reportLag`, and a two-tile test reaches its own tile through
+ * this map instead.
+ */
+const reportLagByCamera = new Map<string, (camera: string, lag: number, buffer: number) => void>();
+
+/**
+ * Spec 204 T002: counts each camera's own re-renders, so the render-count
+ * assertion (SC-1) reads directly off how many times the double's function
+ * body ran rather than inferring it from a DOM diff.
+ */
+const renderCountByCamera = new Map<string, number>();
+
 vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
   CameraViewer: ({
     cameraIdentifier,
@@ -95,7 +111,11 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
     overlay?: { text: string };
     onLagMeasured?: (camera: string, lag: number, buffer: number) => void;
   }) => {
-    if (onLagMeasured) reportLag = onLagMeasured;
+    if (onLagMeasured) {
+      reportLag = onLagMeasured;
+      reportLagByCamera.set(cameraIdentifier, onLagMeasured);
+    }
+    renderCountByCamera.set(cameraIdentifier, (renderCountByCamera.get(cameraIdentifier) ?? 0) + 1);
     return (
       <div data-testid="camera-viewer" data-overlay-text={overlay?.text ?? ''}>
         {cameraIdentifier}
@@ -322,6 +342,8 @@ describe('CellPage', () => {
     navigateMock.mockReset();
     capturedCallbacks = undefined;
     reportLag = undefined;
+    reportLagByCamera.clear();
+    renderCountByCamera.clear();
   });
 
   it('Renders a single CameraViewer for an N=1 layout (identical to the pre-feature cell)', () => {
@@ -1845,5 +1867,313 @@ describe('CellPage', () => {
 
       expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([]);
     });
+  });
+
+  /**
+   * Spec 204 US1 (issue #2303). `useWallAlignment` publishes `skewMilliseconds`
+   * every settle cycle and nothing on the wall reads it — but `setSkew`'s write
+   * is unguarded, so a live, essentially-never-repeating float re-renders every
+   * tile on the wall, every two seconds, forever, on constitution §IV's
+   * `Overlay composite + render ≤ 50 ms` leg (spec.md).
+   */
+  describe('A wall does no work when nothing changed (spec 204 SC-1)', () => {
+    const CYCLE_MS = 2_000;
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    function cycle(times = 1) {
+      act(() => {
+        vi.advanceTimersByTime(CYCLE_MS * times);
+      });
+    }
+
+    /**
+     * SC-1, the core defect proof.
+     *
+     * <p>
+     * <b>The jitter is load-bearing (spec.md Correction 1).</b> A round-number
+     * spread repeats exactly from cycle to cycle, so React's `Object.is`
+     * bail-out on `setSkew`'s write hides the defect outright — the spec
+     * measured zero tile renders from a constant 10 ms spread over 5 cycles,
+     * even on this unpatched code. Only a genuinely-changing float reproduces
+     * it, because that is what a real `jitterBufferDelay` sample looks like.
+     * The wall is converged first at exactly the jitter loop's own cycle-0
+     * values, so the loop's first cycle reproduces the same skew it converged
+     * on and must not re-render on that repeat either.
+     * </p>
+     */
+    it('Re-renders no tile across five settle cycles of a converged, jittering wall', () => {
+      mockLayout(
+        publishedRevision(1, 2, [
+          tile({ cameraIdentifier: 'cam-a', row: 0, col: 0 }),
+          tile({ cameraIdentifier: 'cam-b', row: 0, col: 1 }),
+        ]),
+      );
+      renderPage();
+
+      act(() => {
+        reportLagByCamera.get('cam-a')?.('cam-a', 100, 60);
+        reportLagByCamera.get('cam-b')?.('cam-b', 110, 65);
+      });
+      cycle();
+
+      const before = {
+        a: renderCountByCamera.get('cam-a') ?? 0,
+        b: renderCountByCamera.get('cam-b') ?? 0,
+      };
+
+      for (let round = 0; round < 5; round += 1) {
+        act(() => {
+          reportLagByCamera.get('cam-a')?.('cam-a', 100 + round * 0.31, 60);
+          reportLagByCamera.get('cam-b')?.('cam-b', 110 + round * 0.73, 65);
+        });
+        cycle();
+      }
+
+      const after = {
+        a: renderCountByCamera.get('cam-a') ?? 0,
+        b: renderCountByCamera.get('cam-b') ?? 0,
+      };
+
+      expect(after.a - before.a + (after.b - before.b), 'no tile re-rendered across five silent settle cycles').toBe(0);
+    });
+  });
+
+  /**
+   * Spec 204 US1 (issue #2303), SC-3/SC-4/SC-5. `CellPage.tsx:369` evaluates
+   * `alignment.frameAgeFor(cell.key)` during *the page's* render and freezes
+   * the result into a prop — so a tile's label hold is scheduled from
+   * whatever age the parent last happened to render with, not the age most
+   * recently measured. Label ageing (ADR-0129) rides on the wall's accidental
+   * every-cycle re-render for its only refresh.
+   */
+  describe('A label is held for the age most recently reported (spec 204 SC-3/SC-4/SC-5)', () => {
+    // Real timers, deliberately — not this file's usual `vi.useFakeTimers()`.
+    // A direct RTK-cache dispatch's subscriber re-render (via `useSelector`)
+    // does not flush synchronously under fake timers in this environment —
+    // not even through an explicit `flushSync` — and needs a genuine, if
+    // small, amount of *wall-clock* time before React commits it. These three
+    // tests are the only ones in this file driving that path from outside a
+    // React event, so they pay for their own real waits rather than fight the
+    // fake-timer/scheduler interaction the rest of the file never exercises.
+    let rafSpy: ReturnType<typeof vi.spyOn> | undefined;
+
+    beforeEach(() => {
+      // `measureOverlayDraw` (kioskLatency.ts) times the overlay-draw leg via
+      // two *chained* `requestAnimationFrame` calls, scheduled from a Tile
+      // effect outside any `act()` boundary. Left on jsdom's real (timer-based)
+      // rAF polyfill, that chain is still in flight when this test's own
+      // `act()` calls return, and it finishes — asynchronously — during
+      // whichever test runs next, dragging a leftover state update in behind
+      // it. Every other test in this file never drives a real text change
+      // through the RTK cache outside a React event, so it never surfaces
+      // this; run synchronously here instead of chasing it with more waits.
+      rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+        callback(0);
+        return 0;
+      });
+    });
+
+    afterEach(() => {
+      rafSpy?.mockRestore();
+      cleanup();
+      store.dispatch(systemVariablesApi.util.resetApiState());
+    });
+
+    function sleep(milliseconds: number): Promise<void> {
+      return new Promise((resolve) => setTimeout(resolve, milliseconds));
+    }
+
+    /**
+     * SC-3. The text change goes through the RTK snapshot cache directly
+     * (`useSnapshotFromTheRealCache` + `upsertQueryData`, the #2012 pattern
+     * above) rather than through `onOverlayHighlightChanged`: that callback
+     * sets page-level state and would re-render `CellPage` itself as a side
+     * effect, refreshing `frameAgeMilliseconds` for free and making this pass
+     * today regardless of the defect (plan.md §3, R1).
+     * </p>
+     */
+    it('Holds a changed label for the age most recently reported, not the age its parent last rendered with', async () => {
+      getSnapshotMock.mockImplementation(useSnapshotFromTheRealCache);
+      mockLayout(
+        publishedRevision(1, 2, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-x', row: 0, col: 0 }),
+          tile({ cameraIdentifier: 'cam-b', row: 0, col: 1 }),
+        ]),
+      );
+      // Restricted to 'ovl-x' — cam-b's tile binds no overlay and must stay
+      // that way (`overlayDoubleDefault` matches this file's usual pattern for
+      // a two-tile layout where only one tile binds an overlay).
+      getOverlayMock.mockImplementation((overlayIdentifier: string) =>
+        overlayIdentifier === 'ovl-x' ? publishedOverlay('OEE {{oeeline1}}') : { data: undefined },
+      );
+      const label = () => screen.getAllByTestId('camera-viewer')[0]!.getAttribute('data-overlay-text');
+
+      await act(async () => {
+        await store.dispatch(
+          systemVariablesApi.util.upsertQueryData(
+            'getOverlaySnapshot',
+            { overlayIdentifier: 'ovl-x', fabId: 'munich' },
+            { overlayIdentifier: 'ovl-x', resolvedText: 'first', version: 1 },
+          ),
+        );
+      });
+      renderPage();
+      expect(label()).toBe('first');
+
+      // Converge: both tiles settle at a 40 ms lag.
+      act(() => {
+        reportLagByCamera.get('cam-a')?.('cam-a', 40, 20);
+        reportLagByCamera.get('cam-b')?.('cam-b', 40, 20);
+      });
+      await act(() => sleep(2_000));
+
+      // A new lag arrives, but no settle cycle runs before the text changes —
+      // the wall's own state is untouched, so any re-render has to come from
+      // the tile's own subscription to the cache below.
+      act(() => {
+        reportLagByCamera.get('cam-a')?.('cam-a', 180, 20);
+      });
+
+      await act(async () => {
+        await store.dispatch(
+          systemVariablesApi.util.upsertQueryData(
+            'getOverlaySnapshot',
+            { overlayIdentifier: 'ovl-x', fabId: 'munich' },
+            { overlayIdentifier: 'ovl-x', resolvedText: 'second', version: 2 },
+          ),
+        );
+      });
+
+      // Checked well short of, and well past, the 40 ms/180 ms boundary
+      // (rather than exactly at either tick) so a small flush delay cannot be
+      // mistaken for the assertion itself.
+      await act(() => sleep(100));
+      expect(label(), 'still withheld 100 ms after the change — the stale 40 ms age would already have fired').toBe(
+        'first',
+      );
+
+      await act(() => sleep(120));
+      expect(label(), 'shown by 220 ms after the change — the age actually measured (180 ms)').toBe('second');
+    }, 10_000);
+
+    /**
+     * SC-4. The exact scenario spec.md's Correction 2 measured: a second lag
+     * report that stays inside the ±33 ms deadband (`WALL_SKEW_BOUND_MS`), so
+     * `setReleased`, `setHeld` and `setTarget` all have nothing to change.
+     */
+    it('Holds a changed label for the second reported age, inside the deadband, not the first', async () => {
+      getSnapshotMock.mockImplementation(useSnapshotFromTheRealCache);
+      mockLayout(
+        publishedRevision(1, 2, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-x', row: 0, col: 0 }),
+          tile({ cameraIdentifier: 'cam-b', row: 0, col: 1 }),
+        ]),
+      );
+      getOverlayMock.mockImplementation((overlayIdentifier: string) =>
+        overlayIdentifier === 'ovl-x' ? publishedOverlay('OEE {{oeeline1}}') : { data: undefined },
+      );
+      const label = () => screen.getAllByTestId('camera-viewer')[0]!.getAttribute('data-overlay-text');
+
+      await act(async () => {
+        await store.dispatch(
+          systemVariablesApi.util.upsertQueryData(
+            'getOverlaySnapshot',
+            { overlayIdentifier: 'ovl-x', fabId: 'munich' },
+            { overlayIdentifier: 'ovl-x', resolvedText: 'first', version: 1 },
+          ),
+        );
+      });
+      renderPage();
+      expect(label()).toBe('first');
+
+      // Converged: both tiles at 100 ms, spread 0.
+      act(() => {
+        reportLagByCamera.get('cam-a')?.('cam-a', 100, 60);
+        reportLagByCamera.get('cam-b')?.('cam-b', 100, 60);
+      });
+      await act(() => sleep(2_000));
+
+      // Second report, 30 ms on — inside WALL_SKEW_BOUND_MS (33 ms) — then a
+      // settle cycle actually elapses this time (unlike SC-3 above).
+      act(() => {
+        reportLagByCamera.get('cam-a')?.('cam-a', 130, 60);
+      });
+      await act(() => sleep(2_000));
+
+      await act(async () => {
+        await store.dispatch(
+          systemVariablesApi.util.upsertQueryData(
+            'getOverlaySnapshot',
+            { overlayIdentifier: 'ovl-x', fabId: 'munich' },
+            { overlayIdentifier: 'ovl-x', resolvedText: 'second', version: 2 },
+          ),
+        );
+      });
+
+      // Checked between the two reported ages, then well past the later one.
+      await act(() => sleep(115));
+      expect(
+        label(),
+        'still withheld 115 ms after the change — the first report (100 ms) would already have fired',
+      ).toBe('first');
+
+      await act(() => sleep(85));
+      expect(label(), 'shown by 200 ms after the change — the second, most recent report (130 ms)').toBe('second');
+    }, 10_000);
+
+    /**
+     * SC-5. Below two tiles the settle interval is never created at all
+     * (`useWallAlignment.ts:114,116-135`), so a 1×1 wall has never had even
+     * the accidental crutch SC-3/SC-4 are about — a second, quieter instance
+     * of the same design fault: the age is pushed from a parent that has no
+     * reason to re-render.
+     */
+    it('Holds a changed label for its reported age on a 1x1 wall, which never settles', async () => {
+      getSnapshotMock.mockImplementation(useSnapshotFromTheRealCache);
+      mockLayout(
+        publishedRevision(1, 1, [tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-x', row: 0, col: 0 })]),
+      );
+      getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
+      const label = () => screen.getByTestId('camera-viewer').getAttribute('data-overlay-text');
+
+      await act(async () => {
+        await store.dispatch(
+          systemVariablesApi.util.upsertQueryData(
+            'getOverlaySnapshot',
+            { overlayIdentifier: 'ovl-x', fabId: 'munich' },
+            { overlayIdentifier: 'ovl-x', resolvedText: 'first', version: 1 },
+          ),
+        );
+      });
+      renderPage();
+      expect(label()).toBe('first');
+
+      act(() => {
+        reportLag?.('cam-a', 150, 60);
+      });
+
+      await act(async () => {
+        await store.dispatch(
+          systemVariablesApi.util.upsertQueryData(
+            'getOverlaySnapshot',
+            { overlayIdentifier: 'ovl-x', fabId: 'munich' },
+            { overlayIdentifier: 'ovl-x', resolvedText: 'second', version: 2 },
+          ),
+        );
+      });
+
+      await act(() => sleep(50));
+      expect(label(), 'still withheld 50 ms after the change').toBe('first');
+
+      await act(() => sleep(200));
+      expect(label(), 'shown by 250 ms after the change — the 150 ms reported age').toBe('second');
+    }, 5_000);
   });
 });
