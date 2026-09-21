@@ -250,10 +250,14 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
 
     /// <summary>
     /// <b>One line per outage, not one per refused viewer.</b>
-    /// <c>/streams/authorize</c> is <c>AllowAnonymous</c> and nothing rate-limits
-    /// it, so a wall of kiosks retrying through a cold-cache outage would write a
-    /// Warning and a full exception chain per request into the single OTLP sink —
-    /// drowning the very diagnosis this change exists to provide (phase 6).
+    /// Spec 208 (#2284) put a per-source ceiling on <c>/streams/authorize</c>,
+    /// but that bounds one anonymous caller's own rate — it does not bound how
+    /// many admitted sources hit this outage catch at once, and a realm outage
+    /// is exactly the moment every concurrent WHEP open across the fab (spec
+    /// 208's ≈100 sessions) reaches it together. A wall of kiosks retrying
+    /// through a cold-cache outage would still write a Warning and a full
+    /// exception chain per request into the single OTLP sink — drowning the
+    /// very diagnosis this change exists to provide (phase 6).
     /// </summary>
     [Fact]
     public async Task An_outage_is_logged_once_however_many_viewers_are_refused()
