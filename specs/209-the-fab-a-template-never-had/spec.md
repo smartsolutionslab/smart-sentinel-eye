@@ -30,8 +30,12 @@ Metadata: new EventMetadata(Guid.CreateVersion7(), publishedAt, null, publishedB
 and proposes that OverlayDesigner should stamp a fab. **ADR-0115 forbids exactly that**, and cites this exact line as *evidence for* the decision rather than as a defect:
 
 > `OverlayRevisionPublishedDomainEventHandler` stamps `new EventMetadata(..., Fab: null, ...)` on the integration event that SystemVariables indexes from.
-> …
-> **An overlay is a fab-neutral template.** … An overlay has no fab and must not gain one.
+
+and its Decision section reads:
+
+> **An overlay is a fab-neutral template.** A variable placeholder resolves in the fab of whoever is viewing it, not in a fab belonging to the overlay.
+
+(The stronger phrasing "an overlay has no fab **and must not gain one**" is not ADR-0115's own wording — it is `FabsReferencingOverlayQueryHandler`'s doc comment below, which *cites* ADR-0115 rather than quoting it. ADR-0115's own §Consequences in fact leaves that door open for a future decision — see Assumption 2.)
 
 The reasoning is recorded and still holds: an overlay saying `Line 1: {{oeeLine1}}` is the same design in every fab, and fab-owning it would force operators to author and hand-synchronise a copy per plant. `FabsReferencingOverlayQueryHandler` is the mechanism built on that decision — it answers "which fabs are told about this overlay" by *deriving* the set from the published layouts that reference it, and its doc comment says so verbatim:
 
@@ -155,7 +159,7 @@ The issue asks for it explicitly: *which publishers stamp `Fab` and which don't,
 
 - **`OverlayDesigner`.** Not one file is edited. Re-verified: `grep -rn "Fab" src/OverlayDesigner` → zero lines.
 - **`Shared.Contracts`.** No contract shape changes. `EventMetadata.Fab` stays `string?` and its doc comment ("Owning fab when the event is fab-scoped; otherwise `null`", `EventMetadata.cs:16`) already describes the behaviour exactly. No `V2`, no ADR-0073 question.
-- **`SearchAuditQueryHandler`.** Already correct (#1300). Untouched — and it is the model the fix copies.
+- **`SearchAuditQueryHandler`.** Already correct (#1300). Untouched — but it is not simply "the model the fix copies". Its *unscoped* branch (no `fabId` at all) already includes fab-neutral rows, and that is the shape this fix's reasoning starts from; its *named-fab* branch does the opposite — it still excludes fab-neutral rows when a caller explicitly names a fab (`Naming_a_fab_still_excludes_cross_fab_rows`), because omitting `fabId` there is the unscoped route and the escape hatch. The timeline endpoint has no unscoped route — `fabId` is required — so there is no escape hatch, and that absence, not sameness with Search's named-fab branch, is the actual justification for widening equality here. See §*Fix direction*.
 - **`GetSingle`.** Already correct. Untouched.
 - **The `ix_audit_resource_occurred` index** (`AuditEventConfiguration.cs:148-149`) is `(ResourceKind, ResourceIdentifier, OccurredAt)` — **no fab column**. The fab predicate is already a post-index filter, so widening it to an `OR` changes no query plan. **No migration, no index change, no EF migration of any kind.**
 - **`StreamHealthChangedDomainEventHandler`'s `Fab?`** stays nullable. #2076 is closed; re-litigating stream fab attribution is not this spec.
@@ -165,16 +169,18 @@ The issue asks for it explicitly: *which publishers stamp `Fab` and which don't,
 
 ## Fix direction — the decision
 
-**One predicate, in one handler, mirroring the one #1300 already installed next door.**
+**One predicate, in one handler, applying the rule #1300 already installed next door — but for a different reason than sameness.** #1300's named-fab branch in `SearchAuditQueryHandler` still *excludes* fab-neutral rows, because that endpoint has an unscoped route (no `fabId`) as its escape hatch. This endpoint has none — `fabId` is required — so equality here excluded the whole fab-neutral class from every caller, with no escape hatch at all. That absence is the justification; it is not the same situation as Search's named-fab branch, even though the fix widens the predicate the same way Search's *unscoped* branch already does.
 
 ```csharp
-// Fab-neutral rows (fab = null) are included, not excluded — the same rule
-// SearchAuditQueryHandler applies (#1300). A row with no fab is not restricted
-// to a fab; filtering it out by fab equality made it readable by nobody, since
-// fabId is required at this endpoint. Overlay lifecycle events carry no fab by
-// decision (ADR-0115), retention spans fabs, and an unattributable stream's fab
-// is null (#2076) — all three are legitimately unscoped, and all three were
-// unreachable here.
+// Fab-neutral rows (fab = null) are included, not excluded — unlike
+// SearchAuditQueryHandler's named-fab branch, which still excludes them when
+// a caller explicitly names a fab (Naming_a_fab_still_excludes_cross_fab_rows,
+// #1300), because omitting fabId there is the unscoped route that already
+// returns them. Here fabId is required, so there is no unscoped route:
+// equality excluded the whole fab-neutral class from every caller, with no
+// escape hatch. Overlay lifecycle events legitimately carry no fab
+// (ADR-0115), alongside retention events, which span fabs, and unattributable
+// stream-health events (#2076).
 .Where(auditEvent => auditEvent.Fab == null || auditEvent.Fab == fabFilter);
 ```
 
@@ -210,7 +216,7 @@ Marked explicitly, as unavoidable guesses must be (CLAUDE.md §Karpathy).
 
 1. **There is no already-written bad data to repair, and none will be migrated.** This repository has no production deployment — the Aspire k8s publisher has never been run and no k8s package is referenced (CLAUDE.md §*What lives where*; `specs/047-the-decisions-we-made/audit.md:373`, issue **#1015**). Audit rows written by dev and CI stacks are disposable. **No backfill, no data migration, no EF migration of any kind is in scope**, and the decision is deliberately *not* being made here for a hypothetical future deployment. This assumption is *weaker* here than it was for #2429: this fix writes nothing new and changes no column, so rows already written become reachable the moment the predicate ships. There is no repair to perform even in principle. Stated anyway, matching `specs/206-a-row-no-timeline-can-reach/spec.md` §Assumptions (1), because a silently-skipped backfill question is how the next reader assumes one was needed.
 2. **ADR-0115 still holds and this spec does not reopen it.** Its own §Consequences leaves a door open — *"If OverlayDesigner later gains a fab for reasons of its own — ownership, access control over who may edit a design — this decision is not contradicted… That would be a new decision."* Nothing in #2506 supplies such a reason, and the autonomous lane may not write an ADR (CLAUDE.md §*Three things the lane may not do*). If a future feature does fab-own overlays, this fix is untouched by it: a row that *acquires* a fab simply stops needing the `Fab == null` branch.
-3. **A fab-scoped timeline is expected to answer "everything about this resource that this fab can see", not "everything this fab caused".** This is the semantics the fix installs, and it is the semantics `SearchAuditQueryHandler` already has. The alternative reading — that a fab timeline should show only rows that fab produced — would leave the filed defect unfixed by construction, so it is not a live option; recorded so the choice is visible rather than implied.
+3. **A fab-scoped timeline is expected to answer "everything about this resource that this fab can see", not "everything this fab caused".** This is the semantics the fix installs, and it is the semantics `SearchAuditQueryHandler`'s *unscoped* branch already has. The alternative reading — that naming a fab should show only rows scoped to that fab, fab-neutral rows excluded — is not hypothetical: it is exactly what `SearchAuditQueryHandler`'s own named-fab branch does today, pinned by a passing test (`Naming_a_fab_still_excludes_cross_fab_rows`, "asking for one fab is a narrower question than 'what may I see'"). It is a live option in general; it is simply the wrong one *for this endpoint*, because unlike Search this endpoint has no unscoped route to fall back to — naming a fab is the only question a caller can ask it, so excluding fab-neutral rows here would leave the filed defect unfixed by construction. Recorded so the choice is visible rather than implied.
 4. **`fabId` omitted from the timeline route yields `400`, not a wide-open query.** `[FromQuery] string fabId` is non-nullable, so ASP.NET refuses the request before the handler runs. Pinned as an acceptance scenario (§*US1 — bad request*) rather than assumed, precisely because the fix relaxes a fab predicate and a reader must be able to see that the *parameter* did not also become optional.
 
 ---
