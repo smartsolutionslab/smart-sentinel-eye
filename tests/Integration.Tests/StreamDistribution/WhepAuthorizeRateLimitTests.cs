@@ -70,6 +70,22 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     private static readonly TimeSpan LogAbsenceGraceWindow = TimeSpan.FromSeconds(10);
 
     /// <summary>
+    /// US2 (FR-009): no fixed message text exists to search for yet — T011's
+    /// <c>OnRejected</c> callback is a separate, not-yet-written task, so
+    /// there is no literal string this repository has committed to. A log
+    /// line counts as the rate limiter's own throttle-transition record if it
+    /// carries either the limiter's one stable identifier already spelled in
+    /// <c>Program.cs</c> (the policy name, <c>"whep-authorize"</c>) or the
+    /// word FR-009 itself uses for the state being entered ("throttled").
+    /// Verified before writing these tests: neither substring appears in this
+    /// service's runtime log output today — both are source-only (comments,
+    /// and a policy-name literal that Program.cs never logs) — so a match is
+    /// a positive signal for this control specifically, not an ambient false
+    /// hit.
+    /// </summary>
+    private static readonly string[] ThrottleTransitionMarkers = ["whep-authorize", "throttl"];
+
+    /// <summary>
     /// US1 acceptance scenario 2 / FR-001. The cheapest admitted shape — no
     /// token — mirrors <c>WhepAuthIntegrationTests.Authorize_without_a_token_returns_401</c>,
     /// so every one of the <c>PermitLimit + 1</c> requests answers <c>401</c>
@@ -318,6 +334,88 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
         await WaitUntilAdmittedAgainAsync();
     }
 
+    /// <summary>
+    /// US2 acceptance scenario 1 / FR-009: the first refusal after a
+    /// partition crosses the ceiling emits exactly one structured
+    /// <c>Warning</c> naming the partition and the configured limit —
+    /// mirroring the <c>Interlocked</c>-guarded once-per-transition
+    /// discipline <c>WhepAuthValidator.cs:142-151</c> already applies on this
+    /// same path for the realm-unreachable case (ADR-0118: one sink, kept
+    /// readable at exactly the moment a flood would otherwise drown it).
+    /// </summary>
+    /// <remarks>
+    /// <b>Expected red:</b> the count is <c>0</c>, not <c>1</c> — no
+    /// <c>OnRejected</c> callback is registered today, so nothing logs
+    /// anything about the rate limiter's own state transitions.
+    /// </remarks>
+    [Fact]
+    public async Task A_partition_entering_the_throttled_state_is_logged_once()
+    {
+        await ExhaustWindowAsync();
+
+        int transitionLogCount = await ThrottleTransitionLogLineCountAsync(LogAbsenceGraceWindow);
+
+        transitionLogCount.ShouldBe(
+            1,
+            $"expected exactly one throttle-transition log record after the window was exhausted; "
+            + $"found {transitionLogCount}. stream-distribution log:{Environment.NewLine}"
+            + $"{aspire.RecentLogs(StreamDistributionResource)}");
+
+        await WaitUntilAdmittedAgainAsync();
+    }
+
+    /// <summary>
+    /// US2 acceptance scenario 2 / FR-009: once a partition is already
+    /// throttled, further refused requests inside the same window do not add
+    /// a second record — only the transition itself logs, exactly the
+    /// discipline <c>WhepAuthValidator.cs:142-151</c>'s
+    /// <c>Interlocked.Exchange</c> guard already applies to the
+    /// realm-unreachable case on this same path. A flood that logged once
+    /// per refusal would be the same defect spec 119 already fixed here for
+    /// a different failure mode (ADR-0118: one sink, not flooded).
+    /// </summary>
+    /// <remarks>
+    /// Drives a source past the ceiling, waits for the transition record,
+    /// then sends several more refused requests inside the same window and
+    /// asserts the count has not grown beyond the one transition.
+    /// <b>Expected red:</b> the count never reaches <c>1</c> at all — today
+    /// nothing logs anything about the rate limiter's own state, so the
+    /// transition this asserts happened first is itself unmet (count stays
+    /// at <c>0</c> where FR-009 requires it to reach and hold at <c>1</c>).
+    /// </remarks>
+    [Fact]
+    public async Task Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record()
+    {
+        await ExhaustWindowAsync();
+
+        int afterTransition = await ThrottleTransitionLogLineCountAsync(LogAbsenceGraceWindow);
+
+        for (int i = 0; i < 5; i++)
+        {
+            await PostAsync(NoTokenBody(NewPath()));
+        }
+
+        // Nothing to poll *for* here: on a healthy implementation the repeats
+        // must not log at all, so there is no delivery to wait on. A short
+        // fixed pause only guards against a slow-but-real second delivery
+        // being missed by reading the tail before it lands.
+        await Task.Delay(PollInterval);
+        int afterRepeats = ThrottleTransitionLogLineCount();
+
+        afterTransition.ShouldBe(
+            1,
+            "the transition record itself (scenario 1) must already exist and be exactly one before "
+            + "this fact can say anything about repeats; if this is 0 the flood below proves nothing.");
+        afterRepeats.ShouldBe(
+            afterTransition,
+            $"five further refused requests inside the same window added "
+            + $"{afterRepeats - afterTransition} more throttle-transition log record(s); FR-009 "
+            + $"requires silence on the repeats. stream-distribution log:{Environment.NewLine}"
+            + $"{aspire.RecentLogs(StreamDistributionResource)}");
+
+        await WaitUntilAdmittedAgainAsync();
+    }
+
     /// <summary>Fresh per call so log-tail assertions can key on one request.</summary>
     private static string NewPath() => $"cam-{Guid.CreateVersion7()}";
 
@@ -410,6 +508,44 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
         }
 
         return aspire.RecentLogs(StreamDistributionResource).Contains(marker, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Polls up to <paramref name="settleTimeout"/> for
+    /// <see cref="ThrottleTransitionLogLineCount"/> to become non-zero, then
+    /// returns whatever the count is at that point (which is <c>0</c> if it
+    /// never did). Mirrors <see cref="MarkerEverAppearsInLogsAsync"/>'s
+    /// settle-then-read shape, but returns a count rather than a boolean
+    /// because <see cref="Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record"/>
+    /// needs to see the count hold, not merely appear.
+    /// </summary>
+    private async Task<int> ThrottleTransitionLogLineCountAsync(TimeSpan settleTimeout)
+    {
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + settleTimeout;
+        int count = ThrottleTransitionLogLineCount();
+
+        while (count == 0 && DateTimeOffset.UtcNow < deadline)
+        {
+            await Task.Delay(PollInterval);
+            count = ThrottleTransitionLogLineCount();
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Counts log lines in the tail that carry any of
+    /// <see cref="ThrottleTransitionMarkers"/> — see that field's doc for why
+    /// those substrings identify this specific control's transition record
+    /// rather than an unrelated log line.
+    /// </summary>
+    private int ThrottleTransitionLogLineCount()
+    {
+        string[] lines = aspire.RecentLogs(StreamDistributionResource, lines: 400)
+            .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+
+        return lines.Count(line => ThrottleTransitionMarkers.Any(
+            marker => line.Contains(marker, StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <summary>
