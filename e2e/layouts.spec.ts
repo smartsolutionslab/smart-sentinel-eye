@@ -26,7 +26,7 @@ test('operator opens layouts and the list loads through the gateway', async ({ p
 // seed them. This test therefore registers a camera and publishes an overlay
 // first, then creates a layout that references both. A passing run proves the
 // authenticated POST /layout-composition/layouts path end to end (Bearer;
-// sse.management grandfathers sse.layouts.write), plus the
+// management-web's token names sse.layouts.write explicitly), plus the
 // cross-context reads the dialog depends on.
 test('operator authors a 2×2 wall referencing a camera and overlay and it appears in the list', async ({ page }) => {
   test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);

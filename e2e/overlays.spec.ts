@@ -24,8 +24,8 @@ test('operator creates an overlay draft and it appears in the list', async ({ pa
   await page.getByRole('link', { name: /^overlays$/i }).click();
   await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
 
-  // POST /overlay-designer/overlays (Bearer; sse.management grandfathers
-  // sse.overlays.write); the label uses the editor's default.
+  // POST /overlay-designer/overlays (Bearer; management-web's token names
+  // sse.overlays.write explicitly); the label uses the editor's default.
   await page.getByRole('button', { name: /new overlay/i }).click();
   const name = `E2E Overlay ${Date.now()}`;
   await page.locator('#overlay-name').fill(name);

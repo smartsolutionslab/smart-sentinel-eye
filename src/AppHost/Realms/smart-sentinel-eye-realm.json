@@ -143,7 +143,6 @@
         "sse-identity",
         "sse-audience",
         "sse-groups",
-        "sse.management",
         "sse.audit.read"
       ]
     },

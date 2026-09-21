@@ -21,8 +21,8 @@ test('operator registers a camera and it appears in the list', async ({ page }) 
 
   await signInAsOperator(page);
 
-  // POST /camera-catalog/cameras (Bearer; sse.management grandfathers
-  // sse.cameras.write), then the list invalidates and refetches.
+  // POST /camera-catalog/cameras (Bearer; management-web's token names
+  // sse.cameras.write explicitly), then the list invalidates and refetches.
   await page.getByRole('button', { name: /register camera/i }).click();
 
   const name = `E2E Cam ${Date.now()}`;

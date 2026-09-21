@@ -34,7 +34,7 @@ public sealed record RunModeStackAddress(string SystemVariables, string Keycloak
     public const string AuditDbVariable = "SSE_RUNMODE_AUDIT_DB";
 
     private const string Realm = "smart-sentinel-eye";
-    private const string ClientId = "smart-sentinel-eye-web";
+    private const string ClientId = "management-web";
     private const string AdminUsername = "admin";
     private const string AdminPassword = "Admin1234";
 
@@ -107,7 +107,7 @@ public sealed record RunModeStackAddress(string SystemVariables, string Keycloak
             ["client_id"] = ClientId,
             ["username"] = AdminUsername,
             ["password"] = AdminPassword,
-            ["scope"] = "openid sse.management",
+            ["scope"] = "openid",
         };
 
         using HttpResponseMessage response = await keycloak.PostAsync(
