@@ -139,9 +139,13 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
             // A_request_cancelled_before_the_realm_is_reached_stays_cancelled and
             // A_viewer_queued_behind_another_viewers_first_fetch_can_still_cancel
             // both fail on exactly that edit.
-            // Logged on the transition, not per request. /streams/authorize is
-            // AllowAnonymous and nothing rate-limits it, so one Warning and one full
-            // exception chain per WHEP open floods the single OTLP sink at exactly
+            // Logged on the transition, not per request. Spec 208 (#2284) put a
+            // per-source ceiling on /streams/authorize, but that bounds one
+            // anonymous caller's own rate — it does not bound how many admitted
+            // sources hit this catch at once, and a realm outage is exactly the
+            // moment every concurrent WHEP open across the fab (spec 208's ≈100
+            // sessions) reaches it together. One Warning and one full exception
+            // chain per open would still flood the single OTLP sink at exactly
             // the moment an operator needs it readable — and the diagnosis this
             // change exists for is the thing that drowns. The first exception is
             // kept verbatim; the repeats say nothing the first did not.
@@ -208,9 +212,12 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
     ///
     /// <para>
     /// The discrimination is the point, not an optimisation.
-    /// <c>/streams/authorize</c> is <c>AllowAnonymous</c> and nothing rate-limits
-    /// it, so refreshing on every rejection turns a kiosk reconnect loop
-    /// replaying an expired token into a JWKS storm that the five-minute
+    /// <c>/streams/authorize</c> has carried a per-source ceiling since spec 208
+    /// (#2284), but the ceiling still admits up to the configured limit — 2000
+    /// requests/minute per source in production — before it engages, and a
+    /// kiosk's reconnect ladder replaying one expired token stays comfortably
+    /// under that on its own. Refreshing on every rejection would still turn
+    /// those admitted retries into a JWKS storm that the five-minute
     /// <c>RefreshInterval</c> floor throttles rather than stops. Only two
     /// failures are curable by a fresher document: a <c>kid</c> the cached JWKS
     /// does not carry, and an <c>iss</c> the cached document does not name — the
