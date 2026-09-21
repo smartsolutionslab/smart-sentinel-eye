@@ -259,7 +259,7 @@ None. A rate limit is not domain state: nothing enters a domain model, no value 
 
 - **SC-001**: An unauthenticated caller from one address cannot cause more than `PermitLimit` token-validation attempts per window — verified by an integration test that observes `429` and that the throttled requests produce no authorize log record.
 - **SC-002**: A second address is unaffected by the first's exhaustion — verified in the same test, and the scenario that distinguishes this design from a global bucket.
-- **SC-003**: The seven existing `WhepAuthIntegrationTests` cases pass unmodified. An assertion that has to be edited is evidence behaviour moved beyond the added status.
+- **SC-003**: The six existing `WhepAuthIntegrationTests` cases pass unmodified. An assertion that has to be edited is evidence behaviour moved beyond the added status. (Corrected from an original "seven" — `verification.md`'s phase-6 re-verification counted the file directly rather than propagate the stale figure.)
 - **SC-004**: `WhepHandshakeLatencyTests` stays green (NFR-001).
 - **SC-005**: Phase 5 records the **observed** number of authorize POSTs MediaMTX makes per WHEP open, against the assumed 1. If it exceeds 2, FR-004's default is revisited before merge.
 - **SC-006**: `security-reviewer` returns no unresolved finding on the partition key, the ceiling, or the unthrottled surface.
