@@ -424,6 +424,57 @@ public class RuleQueryHandlerTests
         result.Error.ShouldBeOfType<DryRunRuleError.EvaluationFailed>();
     }
 
+    // ---- #2427: arithmetic overflow is a typed 400, not a 500 ----
+
+    [Fact]
+    public async Task A_dry_run_whose_arithmetic_overflows_fails_with_a_typed_error()
+    {
+        // 7.9e28 is inside decimal's range — the interpreter fix (US1) lets
+        // it through as a DecimalValue fine. It is the multiplication itself
+        // that overflows, which only the widened filter (US2) can contain.
+        RuleAggregate rule = new RuleBuilder()
+            .WithName("overflow-rule")
+            .WithPredicate("$.payload.big * 10 > 0")
+            .WithClock(Moment)
+            .Build();
+        rule.Publish(new FakeClock(Moment.AddMinutes(1)));
+        (_, IRuleQuerySource source) = Seed(rule);
+
+        const string overflowSample = """{"payload": {"big": 7.9e28}}""";
+
+        Result<DryRunResultDto, DryRunRuleError> result =
+            await new DryRunRuleQueryHandler(source).HandleAsync(
+                new DryRunRuleQuery(Munich, "overflow-rule", overflowSample), CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        DryRunRuleError.EvaluationFailed failure =
+            result.Error.ShouldBeOfType<DryRunRuleError.EvaluationFailed>();
+        failure.Code.ShouldBe("RULE_DRY_RUN_EVALUATION_FAILED");
+        failure.Status.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    // The widened filter (US2) must not turn a genuine match into a failure —
+    // restates DryRun_reports_a_match_and_the_value_the_action_would_write's
+    // shape here so the two land in the same red/green report.
+    [Fact]
+    public async Task A_dry_run_that_matches_is_unchanged()
+    {
+        RuleAggregate rule = new RuleBuilder()
+            .WithName("cycle-unchanged")
+            .WithPredicate("$.payload.cycleTime <= 30")
+            .WithAction(RuleAction.SetVariableValue.From("oeeLine1", "100 - $.payload.cycleTime * 2"))
+            .Build();
+        (_, IRuleQuerySource source) = Seed(rule);
+
+        Result<DryRunResultDto, DryRunRuleError> result =
+            await new DryRunRuleQueryHandler(source).HandleAsync(
+                new DryRunRuleQuery(Munich, "cycle-unchanged", Sample), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Matched.ShouldBeTrue();
+        result.Value.EvaluatedValue.ShouldBe("60");
+    }
+
     // ---- FR-002: dry-run resolves a re-used archived name the same way (#2216, US3) ----
 
     [Fact]
