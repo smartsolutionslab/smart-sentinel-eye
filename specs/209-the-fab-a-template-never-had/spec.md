@@ -163,7 +163,7 @@ The issue asks for it explicitly: *which publishers stamp `Fab` and which don't,
 - **`GetSingle`.** Already correct. Untouched.
 - **The `ix_audit_resource_occurred` index** (`AuditEventConfiguration.cs:148-149`) is `(ResourceKind, ResourceIdentifier, OccurredAt)` — **no fab column**. The fab predicate is already a post-index filter, so widening it to an `OR` changes no query plan. **No migration, no index change, no EF migration of any kind.**
 - **`StreamHealthChangedDomainEventHandler`'s `Fab?`** stays nullable. #2076 is closed; re-litigating stream fab attribution is not this spec.
-- **The management-web audit UI.** `AuditPage.tsx` calls `useSearchAuditQuery` only (`:2`, `:30`) — the **timeline endpoint has no frontend consumer at all**. No `apps/` file changes, and there is no e2e spec to write.
+- **The management-web audit UI.** `AuditPage.tsx` calls `useSearchAuditQuery` only (`:2`, `:30`) — no *component* currently calls the timeline endpoint's RTK Query hook. The hook itself (`useGetResourceTimelineQuery`, `apps/shared/src/api/audit.api.ts`) already exists; it is simply unconsumed. No `apps/` file changes, and there is no e2e spec to write.
 
 ---
 
@@ -304,10 +304,13 @@ This is not hypothetical: `ResolvedOverlayTextChangedV1` and `OverlayHighlightRe
     When the operator requests GET /audit/not-a-kind/O?fabId=munich
     Then the response is 400 with code "AUDIT_TIMELINE_UNKNOWN_RESOURCE_KIND"
 
-  Scenario: a malformed fabId is still refused
+  Scenario: an empty fabId — likely NOT 400, pre-existing gap, not fixed here
     When the operator requests GET /audit/overlay/O?fabId= (empty)
-    Then the response is 400 with title "AUDIT_INVALID_INPUT"
+    Then the response is UNVERIFIED, and probably an unhandled 500, not the
+      400/AUDIT_INVALID_INPUT this scenario used to assert
 ```
+
+**Corrected, not fixed.** `fabGuard.EnsureAccessAsync` (`AuditEndpoints.cs:113`) runs *before* the endpoint's own `try/catch (ArgumentException)` (`:123-133`), and its `Ensure.That(fabId).IsNotNullOrWhiteSpace()` guard (`IFabAuthorizationGuard.cs:56`) has no matching exception handler registered for this service (`BadHttpRequestException`, `FabAuthorizationException` and `UnattributableOperatorException` are; a bare `ArgumentException`/`Ensure.That` failure is not) — so an empty `fabId` most likely surfaces as an unhandled `500`, not `400`. This is pre-existing behaviour on a path this spec does not touch, not something introduced or fixed here; **recommend filing** the gap (a malformed-but-non-missing `fabId` producing an unhandled 500) as its own issue if it is worth closing.
 
 ### US1 — auth
 

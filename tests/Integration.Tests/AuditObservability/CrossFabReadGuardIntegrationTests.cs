@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
