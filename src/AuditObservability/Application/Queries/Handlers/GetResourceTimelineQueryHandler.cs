@@ -51,7 +51,14 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
         IQueryable<AuditEventEntity> source = events.AuditEvents
             .Where(auditEvent => auditEvent.ResourceKind == resourceKindFilter)
             .Where(auditEvent => auditEvent.ResourceIdentifier == resourceIdentifierFilter)
-            .Where(auditEvent => auditEvent.Fab == fabFilter);
+            // Fab-neutral rows (fab = null) are included, not excluded — the same
+            // rule SearchAuditQueryHandler applies (#1300). A row with no fab is
+            // not restricted to a fab; excluding it by fab equality made it
+            // readable by nobody, because fabId is required at this endpoint.
+            // Overlay lifecycle events legitimately carry no fab (ADR-0115),
+            // alongside retention events, which span fabs, and unattributable
+            // stream-health events (#2076) — all three were unreachable here.
+            .Where(auditEvent => auditEvent.Fab == null || auditEvent.Fab == fabFilter);
 
         if (since is { } sinceFrom)
         {
