@@ -98,8 +98,15 @@ Run 2: 10 batches x 10000 evals: median = 23.9 ms (2.39 us/eval), slowest = 32.0
 ```
 
 In line with the recorded baseline (20.7 / 26.7 / 25.4 / 23.4 ms) — no
-regression. The fix adds one `TryGetDecimal` branch to a `switch` expression
-already doing comparable work; this is expected and confirmed.
+regression. **What this actually shows** (phase-6 review): the benchmark's
+fixture (`AelFixtures.SimplePlcPredicate` against `PlcCycleStartContext`)
+carries an integer `cycleTime`, so every evaluation matches
+`JsonElementToAelValue`'s first `Number` arm (`TryGetInt64`) and never
+reaches the new `TryGetDecimal` arm this fix adds — the benchmark confirms
+the unchanged integer path did not regress, not that the new decimal-range
+arm is itself cheap. That's the right claim to have needed: the new arm adds
+zero work whenever `TryGetInt64` already succeeds, which is the common case,
+so "the untouched hot path stayed untouched" is exactly what needed showing.
 
 ## Fix direction — both, and neither alone was sufficient
 
@@ -138,9 +145,60 @@ PR's diff attributable to the issue it closes:
    lexer also has no exponent support at all — `1e30` in a rule's own source
    lexes as the integer `1` followed by an unrelated identifier `e30`.
 
-## Phase 6 — pending
+## Phase 6
 
-`/code-review`, with the widened catch-filter shape as the deliberate item to
-raise. `/security-review` **skipped** — no auth, scope, token, secret, or
+`backend-reviewer` ran; `/security-review` **skipped** with reason recorded
+in the PR body per tasks.md T010 — no auth, scope, token, secret, or
 trust-boundary surface is touched by this diff; the dry-run endpoint's
-authentication and scope requirement are unchanged.
+authentication and scope requirement are unchanged. No blockers found.
+
+### Should-fix, applied
+
+`DryRunRuleQueryHandler`'s widened catch filter had no logger at all, so an
+unexpected exception (anything outside the three interpreter-authored types
+the filter used to enumerate) was silently unlogged, **and** its raw
+`.Message` crossed the HTTP boundary verbatim as the caller's "bad request"
+detail — internal exception text reported back as though it were the
+caller's own mistake, with no server-side record of what actually happened.
+Fixed: the handler now takes `ILogger<DryRunRuleQueryHandler>`, logs the full
+exception on every absorbed failure (`Log.DryRunEvaluationFailed`), and
+returns the exception's own message only for the three interpreter-authored
+types (`InvalidOperationException`, `ArgumentException`, `AelParseException`)
+— any other exception gets a fixed, non-leaking reason. Verified with a
+strengthened test asserting both the redacted message and that the absorbed
+`OverflowException` is genuinely captured by the logger.
+
+Two smaller comment corrections from the same review, applied: the
+`OperationCanceledException` carve-out in `RuleEvaluator.cs` reframed as
+forward-defence (it cannot actually reach either guarded call today — both
+are synchronous over already-parsed data with no `CancellationToken`
+threaded through — so the comment now says the carve-out is there for
+whoever makes this path async next, not that it's live); this note's own
+latency claim reworded to state precisely what the benchmark does and
+doesn't show (see above).
+
+One more test strengthened: `An_oversized_number_in_a_value_expression_writes_what_a_missing_field_writes`
+now asserts the log is empty, not just `NullLogger`-silent — a future change
+that warned on the oversized case but not the missing one would previously
+have passed unnoticed, even though "indistinguishable from an absent field"
+is the fix's whole semantic.
+
+**New advisory warning** (ADR-0084, carved out of Release's
+`TreatWarningsAsErrors`): `DryRunRuleQueryHandler.HandleAsync` now exceeds
+the 30-line SonarAnalyzer S138 advisory after the logging addition. Not
+fixed — splitting it is a separate refactor this fix's scope doesn't call
+for.
+
+### Nit, not fixed — recorded
+
+`AelParseException` in the dry-run handler's (pre-widening) filter was
+already unreachable before this PR: `CompiledRule.From(rule)` — the only
+caller of `AelParser.Parse` on this path — sits **outside** the `try` block
+entirely. A stored rule whose predicate no longer parses returns an
+unhandled 500, not a typed 400, both before and after this diff. Pre-existing
+and genuinely out of scope; no test covers it. Worth its own follow-up if
+anyone reaches for it.
+
+Final independent re-verification after the fix round:
+`Automation.Application.Tests` 132/132, `Architecture.Tests` 444/444, full
+solution `dotnet build -c Release` 0 errors.
