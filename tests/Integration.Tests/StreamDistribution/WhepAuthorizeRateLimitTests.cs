@@ -1,4 +1,3 @@
-using System.Net.Sockets;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -101,39 +100,86 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>This cannot be red today.</b> Nothing throttles anything yet, so a
-    /// second source is trivially "unaffected" by a window that was never
-    /// exhausted in the first place. It is a <b>standing guard</b> against a
-    /// global-bucket regression, not phase-4a red evidence — tasks.md T004
-    /// says so explicitly, and the PR must not present it as satisfying the
-    /// gate.
+    /// <b>Substitution, not the original design — stated explicitly per
+    /// tasks.md T004's own fallback clause.</b> The original version of this
+    /// test (committed at <c>ba9c5080</c>) posted from a second, explicitly
+    /// <c>127.0.0.2</c>-bound outbound socket to observe two genuinely
+    /// distinguishable remote addresses land in separate partitions. A
+    /// temporary diagnostic probe (since removed) confirmed that does not
+    /// hold in this topology: <c>stream-distribution</c>'s HTTP endpoint runs
+    /// behind Aspire's DCP proxy in dev/test (<c>WithHttpEndpoint()</c>,
+    /// default-proxied, <c>AppHost.cs</c>), and the proxy terminates every
+    /// inbound connection and re-originates it from its own loopback socket —
+    /// so <b>both</b> the fixture's default client and a
+    /// <c>127.0.0.2</c>-bound client arrive at Kestrel as <c>remote=::1</c>.
+    /// The two "sources" the original test constructed are not actually
+    /// distinguishable at the layer the rate limiter partitions on, once an
+    /// intervening proxy sits in front — the original doc comment assumed
+    /// direct connection, and that assumption is false here.
     /// </para>
     /// <para>
-    /// <b>The "second source" is a real, distinct socket-level remote
-    /// address</b> — <c>127.0.0.2</c> rather than <c>127.0.0.1</c> — obtained by
-    /// binding the outbound connection's local endpoint before connecting, not
-    /// by a header a caller could invent. FR-003 partitions on
-    /// <c>HttpContext.Connection.RemoteIpAddress</c>, the real socket peer
-    /// (spec 208 §Partition key: <c>X-Forwarded-*</c> is read nowhere in
-    /// <c>src</c>), and all of <c>127.0.0.0/8</c> loops back without any
-    /// interface configuration on both Windows and Linux, so this is a
-    /// legitimate variation of that key rather than a spoof. This was tried
-    /// rather than substituted for a shape-only assertion because it is
-    /// mechanically viable here — see the judgment note in the PR/report — but
-    /// its correctness as a proof of <i>isolation</i> can only be observed
-    /// once T007 exists; today it can only be observed not to throw.
+    /// <b>tasks.md T004 pre-authorizes exactly this fallback</b>: "If varying
+    /// the source address from the test host proves impossible, assert the
+    /// partition-key shape instead and say so explicitly — do not silently
+    /// drop the scenario." This is that fallback, not a weakened assertion —
+    /// it reads <c>Program.cs</c>'s limiter registration and asserts the
+    /// <i>design property</i> scenario 3 exists to rule out: the partition
+    /// key is built from the connection's remote address, not a fixed or
+    /// global bucket, so two different remote addresses necessarily land in
+    /// two different partitions. That is a fact about the registration, not
+    /// an observation that requires two addresses to actually reach Kestrel
+    /// distinguishably — which, through this proxy, they cannot.
+    /// </para>
+    /// <para>
+    /// <b>Still not phase-4a red evidence</b>, for the same reason as before:
+    /// nothing about this shape depends on the limiter being wired up, so it
+    /// would pass equally before or after T007. It remains a standing design
+    /// guard against a global-bucket regression, not red evidence — tasks.md
+    /// T004 says so explicitly, and the PR must not present it as satisfying
+    /// the phase-4a gate.
     /// </para>
     /// </remarks>
     [Fact]
-    public async Task Authorize_from_a_second_source_is_unaffected_by_an_exhausted_window()
+    public void Authorize_partitions_the_rate_limiter_by_remote_address_not_a_global_bucket()
     {
-        await ExhaustWindowAsync();
+        string programSource = System.IO.File.ReadAllText(
+            System.IO.Path.Combine(RepositoryRoot().FullName, "src", "StreamDistribution", "Api", "Program.cs"));
 
-        HttpStatusCode secondSourceStatus = await PostFromSecondSourceAsync(NewPath());
+        int policyRegistration = programSource.IndexOf(
+            "AddPolicy(\"whep-authorize\"", StringComparison.Ordinal);
+        policyRegistration.ShouldBeGreaterThanOrEqualTo(
+            0,
+            "Program.cs no longer registers a \"whep-authorize\" policy by that name — the "
+            + "partition-key shape below cannot be checked against a registration that is not there.");
 
-        secondSourceStatus.ShouldNotBe(HttpStatusCode.TooManyRequests);
+        int limiterCall = programSource.IndexOf(
+            "RateLimitPartition.GetFixedWindowLimiter(", policyRegistration, StringComparison.Ordinal);
+        limiterCall.ShouldBeGreaterThan(
+            policyRegistration,
+            "expected the \"whep-authorize\" policy to build its partition via "
+            + "RateLimitPartition.GetFixedWindowLimiter.");
 
-        await WaitUntilAdmittedAgainAsync();
+        int keyArgumentStart = limiterCall + "RateLimitPartition.GetFixedWindowLimiter(".Length;
+        int keyArgumentEnd = programSource.IndexOf(
+            "_ => new FixedWindowRateLimiterOptions", keyArgumentStart, StringComparison.Ordinal);
+        keyArgumentEnd.ShouldBeGreaterThan(
+            keyArgumentStart,
+            "could not find the fixed-window options factory that follows the partition-key "
+            + "argument — the registration's shape has moved.");
+
+        string partitionKeyArgument = programSource[keyArgumentStart..keyArgumentEnd];
+
+        // FR-003: the key must vary with the caller's remote address, never a
+        // fixed literal — a fixed key is exactly the rejected global-bucket
+        // design that would let one anonymous caller exhaust MediaMTX's own
+        // window (plan.md §Partition key, spec §"One global bucket").
+        partitionKeyArgument.ShouldContain(
+            "context.Connection.RemoteIpAddress",
+            Case.Sensitive,
+            "the \"whep-authorize\" policy's partition-key argument was:"
+            + $"{Environment.NewLine}{partitionKeyArgument}"
+            + $"{Environment.NewLine}FR-003 requires it to be built from the connection's remote "
+            + "address, not a fixed/global bucket.");
     }
 
     /// <summary>
@@ -235,10 +281,13 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     /// <remarks>
     /// Not red today for a different reason than the other four facts: with
     /// no limiter installed at all, every route is trivially "never throttled"
-    /// regardless of how many authorize requests precede it. This is the same
-    /// standing-guard shape as
-    /// <see cref="Authorize_from_a_second_source_is_unaffected_by_an_exhausted_window"/> —
-    /// it starts proving something only once T007-T008 exist.
+    /// regardless of how many authorize requests precede it. It starts proving
+    /// something only once T007-T008 exist — a standing guard, not phase-4a
+    /// red evidence, the same distinction
+    /// <see cref="Authorize_partitions_the_rate_limiter_by_remote_address_not_a_global_bucket"/>
+    /// makes for a different reason (that one never depends on T007-T008 at
+    /// all, since it reads <c>Program.cs</c>'s source rather than observing
+    /// runtime behaviour).
     /// </remarks>
     [Fact]
     public async Task Health_and_readiness_are_never_throttled()
@@ -364,53 +413,25 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     }
 
     /// <summary>
-    /// Posts from a second, real remote address — <c>127.0.0.2</c> — by
-    /// binding the outbound connection's local endpoint before connecting to
-    /// stream-distribution's own loopback endpoint. See the class-level and
-    /// method-level remarks on
-    /// <see cref="Authorize_from_a_second_source_is_unaffected_by_an_exhausted_window"/>
-    /// for why this is a legitimate second partition and not a spoof.
+    /// The directory holding <c>SmartSentinelEye.slnx</c>, walking up from
+    /// <see cref="AppContext.BaseDirectory"/>. Same shape as the copies in
+    /// <c>AppHostE2ESwitchTests</c> and <c>AppHostStackStatusTests</c> — this
+    /// file is source-scanning <c>Program.cs</c> for
+    /// <see cref="Authorize_partitions_the_rate_limiter_by_remote_address_not_a_global_bucket"/>,
+    /// not asserting HTTP behaviour, so it needs its own path to the repo
+    /// root rather than the fixture's base address.
     /// </summary>
-    private async Task<HttpStatusCode> PostFromSecondSourceAsync(string path)
+    private static System.IO.DirectoryInfo RepositoryRoot()
     {
-        Uri baseAddress = aspire.StreamDistribution.BaseAddress
-            ?? throw new InvalidOperationException("aspire.StreamDistribution has no BaseAddress.");
-
-        using SocketsHttpHandler handler = new()
+        System.IO.DirectoryInfo? candidate = new(AppContext.BaseDirectory);
+        while (candidate is not null
+            && !System.IO.File.Exists(System.IO.Path.Combine(candidate.FullName, "SmartSentinelEye.slnx")))
         {
-            ConnectCallback = async (context, cancellationToken) =>
-            {
-                IPAddress secondSourceAddress = IPAddress.Parse("127.0.0.2");
-                Socket socket = new(secondSourceAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
-                {
-                    NoDelay = true,
-                };
+            candidate = candidate.Parent;
+        }
 
-                try
-                {
-                    socket.Bind(new IPEndPoint(secondSourceAddress, 0));
-
-                    // aspire.StreamDistribution targets the service on IPv4 loopback
-                    // (an AddProject resource, never containerised — AppHost.cs:386-403),
-                    // so the destination is pinned to 127.0.0.1 rather than re-resolving
-                    // context.DnsEndPoint.Host, which could answer ::1 and make the
-                    // 127.0.0.2 bind above meaningless (IPv6 has no equivalent
-                    // multi-homed loopback range).
-                    await socket.ConnectAsync(IPAddress.Loopback, context.DnsEndPoint.Port, cancellationToken);
-                    return new NetworkStream(socket, ownsSocket: true);
-                }
-                catch
-                {
-                    socket.Dispose();
-                    throw;
-                }
-            },
-        };
-
-        using HttpClient secondSource = new(handler) { BaseAddress = baseAddress };
-        using HttpResponseMessage response = await secondSource.PostAsJsonAsync(
-            "/streams/authorize", NoTokenBody(path));
-
-        return response.StatusCode;
+        return candidate
+            ?? throw new InvalidOperationException(
+                $"could not locate the repository root above {AppContext.BaseDirectory}");
     }
 }
