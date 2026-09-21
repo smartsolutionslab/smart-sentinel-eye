@@ -79,9 +79,11 @@ public sealed class RuleEvaluator(
         // FormatException (#2427) and OverflowException. This guards one pure
         // synchronous function over in-memory data with no I/O to fail, and
         // nothing is swallowed: every exception here is logged with its rule
-        // identifier. OperationCanceledException is the one absorption that
-        // is never correct — a cancelled request must propagate, not be
-        // treated as "this rule failed".
+        // identifier. OperationCanceledException is excluded on principle,
+        // not because it can reach here today (the guarded call threads no
+        // CancellationToken) — carved out now so the next person who makes
+        // something on this path async inherits the boundary already drawn,
+        // rather than a cancelled request silently logged as "this rule failed".
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger.PredicateEvaluationFailed(exception, rule.Identifier);

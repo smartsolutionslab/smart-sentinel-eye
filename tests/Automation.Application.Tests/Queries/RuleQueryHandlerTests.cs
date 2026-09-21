@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Net;
 using SmartSentinelEye.Automation.Application.DTOs;
 using SmartSentinelEye.Automation.Application.Queries;
@@ -322,7 +323,7 @@ public class RuleQueryHandlerTests
         (_, IRuleQuerySource source) = Seed(rule);
 
         Result<DryRunResultDto, DryRunRuleError> result =
-            await new DryRunRuleQueryHandler(source).HandleAsync(
+            await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "cycle", Sample), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -340,7 +341,7 @@ public class RuleQueryHandlerTests
         (_, IRuleQuerySource source) = Seed(rule);
 
         Result<DryRunResultDto, DryRunRuleError> result =
-            await new DryRunRuleQueryHandler(source).HandleAsync(
+            await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "cycle", Sample), CancellationToken.None);
 
         result.Value.Matched.ShouldBeFalse();
@@ -358,7 +359,7 @@ public class RuleQueryHandlerTests
         (_, IRuleQuerySource source) = Seed(rule);
 
         Result<DryRunResultDto, DryRunRuleError> result =
-            await new DryRunRuleQueryHandler(source).HandleAsync(
+            await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "highlight", Sample), CancellationToken.None);
 
         result.Value.Matched.ShouldBeTrue();
@@ -373,7 +374,7 @@ public class RuleQueryHandlerTests
         (_, IRuleQuerySource source) = Seed(draft);
 
         Result<DryRunResultDto, DryRunRuleError> result =
-            await new DryRunRuleQueryHandler(source).HandleAsync(
+            await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "draft-rule", Sample), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -386,7 +387,7 @@ public class RuleQueryHandlerTests
         (_, IRuleQuerySource source) = Seed(new RuleBuilder().WithName("known").Build());
 
         Result<DryRunResultDto, DryRunRuleError> result =
-            await new DryRunRuleQueryHandler(source).HandleAsync(
+            await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "missing", Sample), CancellationToken.None);
 
         result.Error.ShouldBeOfType<DryRunRuleError.RuleNotFound>();
@@ -398,7 +399,7 @@ public class RuleQueryHandlerTests
         (_, IRuleQuerySource source) = Seed(new RuleBuilder().WithName("cycle").Build());
 
         Result<DryRunResultDto, DryRunRuleError> result =
-            await new DryRunRuleQueryHandler(source).HandleAsync(
+            await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "cycle", "not json at all"), CancellationToken.None);
 
         result.Error.ShouldBeOfType<DryRunRuleError.SampleEventNotJson>();
@@ -417,7 +418,7 @@ public class RuleQueryHandlerTests
         (_, IRuleQuerySource source) = Seed(rule);
 
         Result<DryRunResultDto, DryRunRuleError> result =
-            await new DryRunRuleQueryHandler(source).HandleAsync(
+            await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "missing-field", Sample), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -441,9 +442,10 @@ public class RuleQueryHandlerTests
         (_, IRuleQuerySource source) = Seed(rule);
 
         const string overflowSample = """{"payload": {"big": 7.9e28}}""";
+        CapturingLogger<DryRunRuleQueryHandler> logger = new();
 
         Result<DryRunResultDto, DryRunRuleError> result =
-            await new DryRunRuleQueryHandler(source).HandleAsync(
+            await new DryRunRuleQueryHandler(source, logger).HandleAsync(
                 new DryRunRuleQuery(Munich, "overflow-rule", overflowSample), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -451,6 +453,22 @@ public class RuleQueryHandlerTests
             result.Error.ShouldBeOfType<DryRunRuleError.EvaluationFailed>();
         failure.Code.ShouldBe("RULE_DRY_RUN_EVALUATION_FAILED");
         failure.Status.ShouldBe(HttpStatusCode.BadRequest);
+
+        // Phase-6 review: an exception outside the three interpreter-authored
+        // types (InvalidOperationException, ArgumentException,
+        // AelParseException) must never cross the HTTP boundary verbatim —
+        // OverflowException's own message is internal detail, not something
+        // the caller's "bad request" should quote back to them.
+        failure.Reason.ShouldBe("the rule could not be evaluated against this sample");
+        failure.Reason.Contains("Decimal", StringComparison.Ordinal).ShouldBeFalse(
+            "an OverflowException's own message must not leak to the caller.");
+
+        // And it must not be silently absorbed either — the caller only sees
+        // the fixed reason above, so the actual exception has to be visible
+        // somewhere, or an unexpected fault here becomes undiagnosable.
+        logger.Entries.ShouldContain(
+            entry => entry.Exception is OverflowException,
+            "the absorbed exception must be logged, since the caller no longer sees its message.");
     }
 
     // The widened filter (US2) must not turn a genuine match into a failure —
@@ -467,7 +485,7 @@ public class RuleQueryHandlerTests
         (_, IRuleQuerySource source) = Seed(rule);
 
         Result<DryRunResultDto, DryRunRuleError> result =
-            await new DryRunRuleQueryHandler(source).HandleAsync(
+            await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "cycle-unchanged", Sample), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -487,7 +505,7 @@ public class RuleQueryHandlerTests
             .WithName("re-used").WithPredicate("$.payload.cycleTime <= 30").WithClock(Moment.AddMinutes(1)).Build();
         (_, IRuleQuerySource source) = Seed(archived, live);
 
-        Result<DryRunResultDto, DryRunRuleError> result = await new DryRunRuleQueryHandler(source)
+        Result<DryRunResultDto, DryRunRuleError> result = await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance)
             .HandleAsync(new DryRunRuleQuery(Munich, "re-used", Sample), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue(
@@ -626,7 +644,7 @@ public class RuleQueryHandlerTests
             new RuleBuilder().WithFab("munich").WithName("shared").WithPredicate("$.payload.cycleTime <= 30").Build(),
             new RuleBuilder().WithFab("dresden").WithName("shared").WithPredicate("$.payload.cycleTime <= 30").Build());
 
-        Result<DryRunResultDto, DryRunRuleError> result = await new DryRunRuleQueryHandler(source)
+        Result<DryRunResultDto, DryRunRuleError> result = await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance)
             .HandleAsync(new DryRunRuleQuery(Both, "shared", Sample), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -643,7 +661,7 @@ public class RuleQueryHandlerTests
             new RuleBuilder().WithFab("dresden").WithName("dresden-only")
                 .WithPredicate("$.payload.cycleTime <= 30").Build());
 
-        Result<DryRunResultDto, DryRunRuleError> result = await new DryRunRuleQueryHandler(source)
+        Result<DryRunResultDto, DryRunRuleError> result = await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance)
             .HandleAsync(new DryRunRuleQuery(Both, "dresden-only", Sample), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();

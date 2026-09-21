@@ -34,6 +34,9 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "Value-expression evaluation failed on rule {Rule}; skipping action.")]
     public static partial void ValueExpressionEvaluationFailed(this ILogger logger, Exception exception, RuleIdentifier rule);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Dry-run evaluation failed on rule {Rule}.")]
+    public static partial void DryRunEvaluationFailed(this ILogger logger, Exception exception, RuleIdentifier rule);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Archived rule {Rule} '{Name}'.")]
     public static partial void ArchivedRule(this ILogger logger, RuleIdentifier rule, RuleName name);
 

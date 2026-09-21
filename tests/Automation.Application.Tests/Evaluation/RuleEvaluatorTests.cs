@@ -283,7 +283,8 @@ public class RuleEvaluatorTests
             RuleAction.SetVariableValue.From("x", "$.payload.v"),
             BaseMoment));
 
-        RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
+        CapturingLogger<RuleEvaluator> logger = new();
+        RuleEvaluator evaluator = new(cache, logger);
 
         const string missingFieldContext = """
             {
@@ -303,8 +304,12 @@ public class RuleEvaluatorTests
 
         oversized.Value.ShouldBe(string.Empty);
         // An oversized number is indistinguishable from an absent field —
-        // that equivalence to absence is the fix's semantic.
+        // that equivalence to absence is the fix's semantic, and it has to
+        // hold for the log too: nothing failed in either case, so a future
+        // change that started warning on the oversized case but not the
+        // missing one would still be a regression of this equivalence.
         oversized.ShouldBe(missing);
+        logger.Entries.ShouldBeEmpty();
     }
 
     [Fact]

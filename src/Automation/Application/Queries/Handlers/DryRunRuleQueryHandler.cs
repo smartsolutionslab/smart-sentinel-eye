@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Automation.Application.Ael;
 using SmartSentinelEye.Automation.Application.DTOs;
 using SmartSentinelEye.Automation.Application.Evaluation;
@@ -16,7 +17,7 @@ namespace SmartSentinelEye.Automation.Application.Queries.Handlers;
 /// before it is published. Nothing is written and no integration event is
 /// raised.
 /// </summary>
-public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
+public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRunRuleQueryHandler> logger)
     : IQueryHandler<DryRunRuleQuery, Result<DryRunResultDto, DryRunRuleError>>
 {
     public async Task<Result<DryRunResultDto, DryRunRuleError>> HandleAsync(
@@ -124,10 +125,20 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
             // Widened to match RuleEvaluator's filter: a dry run that disagreed
             // with the live pipeline would be worse than no dry run at all, and
             // the live pipeline now handles FormatException/OverflowException
-            // instead of dead-lettering.
+            // instead of dead-lettering. Unlike RuleEvaluator, an unexpected
+            // exception's own message would cross the HTTP boundary as the
+            // caller's "bad request" detail — logged here instead, and only
+            // the three interpreter-authored exception types (already meant
+            // to be operator-facing) are returned verbatim (phase-6 review).
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                return Failure(DryRunRuleFailures.EvaluationFailed(exception.Message));
+                logger.DryRunEvaluationFailed(exception, rule.Id);
+
+                string reason = exception is InvalidOperationException or ArgumentException or AelParseException
+                    ? exception.Message
+                    : "the rule could not be evaluated against this sample";
+
+                return Failure(DryRunRuleFailures.EvaluationFailed(reason));
             }
         }
     }
