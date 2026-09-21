@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using SmartSentinelEye.ServiceDefaults;
@@ -20,9 +21,51 @@ int whepAuthorizePermitLimit =
     builder.Configuration.GetValue<int?>("WhepAuthorizeRateLimiting:PermitLimit") ?? 2000;
 TimeSpan whepAuthorizeWindow =
     builder.Configuration.GetValue<TimeSpan?>("WhepAuthorizeRateLimiting:Window") ?? TimeSpan.FromMinutes(1);
+
+// Spec 208 US2 (FR-009). One Warning per partition on the transition into
+// the throttled state, never per refusal — the same Interlocked-guarded
+// once-per-transition discipline WhepAuthValidator.cs:142-151 already
+// applies to the realm-unreachable case on this path (ADR-0118: one OTLP
+// sink, kept readable at exactly the moment a flood would otherwise drown
+// it). Re-armed once a full window has passed since the last logged
+// transition, so a later, separate throttling episode for the same
+// partition is logged again rather than silenced forever.
+ConcurrentDictionary<string, DateTimeOffset> whepAuthorizeThrottleTransitions = new(StringComparer.Ordinal);
+
+bool IsNewWhepAuthorizeThrottleTransition(string partition, DateTimeOffset now)
+{
+    bool isNewTransition = true;
+    whepAuthorizeThrottleTransitions.AddOrUpdate(
+        partition,
+        _ => now,
+        (_, lastLoggedAt) =>
+        {
+            isNewTransition = now - lastLoggedAt >= whepAuthorizeWindow;
+            return isNewTransition ? now : lastLoggedAt;
+        });
+
+    return isNewTransition;
+}
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.OnRejected = (context, _) =>
+    {
+        // Same "ip:{RemoteIpAddress}" spelling as the policy's own partition
+        // key below, so a transition log record names exactly the partition
+        // the limiter itself keyed on.
+        string partition = $"ip:{context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"}";
+        if (IsNewWhepAuthorizeThrottleTransition(partition, DateTimeOffset.UtcNow))
+        {
+            context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>()
+                .WhepAuthorizeThrottled(partition, whepAuthorizePermitLimit);
+        }
+
+        return ValueTask.CompletedTask;
+    };
+
     options.AddPolicy("whep-authorize", context =>
         RateLimitPartition.GetFixedWindowLimiter(
             // Source IP, not a global bucket: a global bucket would let one
