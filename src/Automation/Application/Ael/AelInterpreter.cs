@@ -60,7 +60,9 @@ public static class AelInterpreter
             JsonValueKind.False => new AelValue.BoolValue(false),
             JsonValueKind.String => new AelValue.StringValue(element.GetString() ?? string.Empty),
             JsonValueKind.Number when element.TryGetInt64(out long integer) => new AelValue.IntValue(integer),
-            JsonValueKind.Number => new AelValue.DecimalValue(element.GetDecimal()),
+            JsonValueKind.Number when element.TryGetDecimal(out decimal fraction) => new AelValue.DecimalValue(fraction),
+            // A JSON number outside decimal's range is unaddressable, not fatal — GetDecimal() throws FormatException (#2427).
+            JsonValueKind.Number => AelValue.NullValue.Instance,
             JsonValueKind.Null => AelValue.NullValue.Instance,
             _ => AelValue.NullValue.Instance, // arrays / objects are not addressable values in v1
         };

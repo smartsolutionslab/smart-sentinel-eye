@@ -75,9 +75,16 @@ public sealed class RuleEvaluator(
             AelValue result = AelInterpreter.Evaluate(rule.CompiledPredicate, context);
             return result is AelValue.BoolValue { Value: true };
         }
-        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+        // Not an enumerated list of exception types — that list missed
+        // FormatException (#2427) and OverflowException. This guards one pure
+        // synchronous function over in-memory data with no I/O to fail, and
+        // nothing is swallowed: every exception here is logged with its rule
+        // identifier. OperationCanceledException is the one absorption that
+        // is never correct — a cancelled request must propagate, not be
+        // treated as "this rule failed".
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            logger.PredicateEvaluationFailed(ex, rule.Identifier);
+            logger.PredicateEvaluationFailed(exception, rule.Identifier);
             return false;
         }
     }
@@ -97,9 +104,9 @@ public sealed class RuleEvaluator(
             wireValue = result.ToWireString();
             return true;
         }
-        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            logger.ValueExpressionEvaluationFailed(ex, rule.Identifier);
+            logger.ValueExpressionEvaluationFailed(exception, rule.Identifier);
             return false;
         }
     }

@@ -121,9 +121,13 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules)
                 return Success(
                     new DryRunResultDto(Matched: true, EvaluatedValue: evaluated));
             }
-            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or AelParseException)
+            // Widened to match RuleEvaluator's filter: a dry run that disagreed
+            // with the live pipeline would be worse than no dry run at all, and
+            // the live pipeline now handles FormatException/OverflowException
+            // instead of dead-lettering.
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                return Failure(DryRunRuleFailures.EvaluationFailed(ex.Message));
+                return Failure(DryRunRuleFailures.EvaluationFailed(exception.Message));
             }
         }
     }
