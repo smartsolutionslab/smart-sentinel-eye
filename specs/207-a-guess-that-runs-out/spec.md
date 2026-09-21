@@ -101,6 +101,16 @@ Disabling ROPC there breaks SC-1 and SC-2. Fixing them *is* #2488's scope, and
 amended — an ADR amendment the autonomous lane may not make (ADR-0144). #2488
 is unlabelled, so a human has not released it.
 
+**What staying open actually costs.** `management-web` (public client,
+`directAccessGrantsEnabled: true`) carries 24 default client scopes
+(`smart-sentinel-eye-realm.json:173-198`) covering nearly every write surface
+in the system — cameras, streams, layouts, overlays, variables, rules,
+events, webhooks, device/kiosk identity, audit. One guessed password on that
+client yields a token with essentially all of it, scoped to the caller's fab.
+This spec's lockout is the mitigation for exactly that: it does not close the
+open door, but it does put a cap on how many times an attacker gets to try
+the handle before the door locks for up to 15 minutes.
+
 **Therefore: this spec is brute-force protection alone.** Both ROPC flags stay
 `true` and are explicitly out of scope, with the reason recorded rather than
 left to be rediscovered. See *Out of scope*.
@@ -145,7 +155,7 @@ move for it to ship.
 | `permanentLockout` | `false` | a locked-out operator on a 24/7 fab floor must recover without an administrator; a temporary lock costs an attacker everything and costs a fat-fingered operator a minute |
 | `failureFactor` | `10` | Keycloak's default is 30. Ten consecutive refusals is already an incident, and the first lock is only 60 s, so the operator cost is small while the attacker's cost compounds |
 | `waitIncrementSeconds` | `60` | Keycloak default; each further lock doubles from here |
-| `maxFailureWaitSeconds` | `900` | Keycloak default; caps the lock at 15 min so a lockout is never an outage |
+| `maxFailureWaitSeconds` | `900` | Keycloak default; caps the lock at 15 min, bounding how long any one lockout can last |
 | `maxDeltaTimeSeconds` | `43200` | Keycloak default; the counter forgets after 12 h |
 | `quickLoginCheckMilliSeconds` | `1000` | Keycloak default; two refusals inside a second is a script, not a person |
 | `minimumQuickLoginWaitSeconds` | `60` | Keycloak default; what a script earns |
@@ -154,6 +164,35 @@ Only `failureFactor` departs from the Keycloak default, and only downward.
 Every field is written out rather than left to import defaults: a security
 control whose values live in a server's defaults is a control no reviewer of
 this repository can read.
+
+**A lockout is a real, deliberately-accepted trade-off, not a costless one.**
+`quickLoginCheckMilliSeconds: 1000` means only **two** rapid wrong guesses —
+not `failureFactor`'s ten — lock an account for up to `maxFailureWaitSeconds`
+(15 min); verified live (`verification.md`, `numFailures: 2` at the moment of
+lockout). An unauthenticated party that can reach `management-web`'s open
+password-grant endpoint can therefore hold any named account — including the
+unattended wall-display accounts (`wall-munich`, `wall-dresden`,
+`wall-berlin`, `wall-hamburg`) and `operator`/`admin` — locked indefinitely
+with two HTTP `POST`s per minute. **The alternative is worse**: no lockout at
+all lets the same caller run unlimited full-speed password guesses instead of
+merely denying service, so this spec still chooses the lockout — but "a
+lockout is never an outage" overclaims, and the honest framing is that this
+trades an unbounded credential-guessing risk for a bounded, cheap
+denial-of-service one.
+
+**Open question, not resolved here:** whether a locked account's *existing*
+session survives via `grant_type=refresh_token` — i.e. whether the lockout
+denies only new sign-ins or also revokes live sessions — was not checked
+against the running server. Recorded as unresolved rather than assumed either
+way.
+
+**Gateway-level rate limiting is the standard mitigation for exactly this
+risk, not a hypothetical future need.** The *Out of scope* table below
+previously framed it as "speculative generality" (ADR-0036); that framing is
+retracted. It stays out of scope for this spec regardless — it is a different
+control at a different layer than a realm's brute-force detector, and adding
+it is its own design decision — but the reason is scope, not that the risk it
+would address is imaginary.
 
 Keycloak 26's `bruteForceStrategy` and `maxTemporaryLockouts` are deliberately
 **not** written. They are 25+/26-only fields, their defaults (`MULTIPLE`, `0`)
@@ -210,8 +249,15 @@ Given SC-1's account has just been refused its correct password
  When the realm's attack-detection record for that account is read through the
       Keycloak Admin API
  Then the record reports the account as temporarily disabled
-  And the recorded failure count is at least the realm's failure factor
+  And the recorded failure count is at least one
 ```
+
+Corrected: **not** "at least the realm's failure factor". Verified live
+(`verification.md`) — `quickLoginCheckMilliSeconds: 1000` locks an account
+after two failures inside one second, independently of `failureFactor`, so a
+tight loop of wrong guesses trips that first and `numFailures` reads **2**,
+below `failureFactor: 10`. `disabled == true` is the load-bearing claim;
+`numFailures` is diagnostic, asserted only as `>= 1`.
 
 This separates "locked out" from "the password changed", "the account was
 disabled", "the client was rejected" — every other cause of `invalid_grant`.
@@ -245,9 +291,15 @@ checked, and it is also the test's own cleanup path.
 ```gherkin
 Given the realm has brute-force protection enabled
  When the token endpoint is sent a grant with no username at all
- Then it answers 400 invalid_request, not a lockout
+ Then it answers 401 with error "invalid_request", not a lockout
   And no account's failure counter moves
 ```
+
+Corrected against the real, unmodified realm at Keycloak 26.6.4: this shape
+answers `401`, not the RFC 6749 §5.2 `400` the `invalid_request` error name
+would suggest. The load-bearing distinction is the `error` value itself —
+`invalid_request` (a malformed request), never `invalid_grant` (what a
+lockout answers with) — not the status code.
 
 A malformed request is not a failed login. Keycloak already behaves this way;
 this is pinned so that a later tightening of the realm cannot quietly start
@@ -342,16 +394,25 @@ checked at phase 5 only as a regression guard, not as a budget claim.
 | Deleting `smart-sentinel-eye-web` | #2488's subject; needs the SC-1/SC-2 rework and an ADR amendment the lane may not make (ADR-0144) | **#2488** |
 | Amending ADR-0080's stale code sketch | ADR work is forbidden to the autonomous lane (ADR-0144); also #2488 already names it | **#2488** / a human |
 | Any production realm | There is no production deployment (ADR-0118, constitution §VII). This is the dev realm import, which is the only realm this repository has | — |
-| Rate-limiting at the gateway | A different control at a different layer, not asked for, and speculative generality (ADR-0036) | — |
+| The Keycloak **`master`** realm | `WithRealmImport` only imports `smart-sentinel-eye` (`AppHost.cs:151`) — `master`, created by `AddKeycloak`'s `adminPassword` and holding the bootstrap `admin`/`admin-cli` account used throughout this very spec's own verification, keeps Keycloak's own default `bruteForceProtected: false` untouched. This is a higher-value target than anything else in this spec's scope — full control of every realm on this server on success — and closing it needs its own decision: either a second, master-realm partial-import shape, or a startup Admin API call. Either is new architectural surface, not a configuration tweak this lane can make | **needs a new issue**; not filed by this PR — recorded here so it is not rediscovered |
+| Rate-limiting at the gateway | A different control at a different layer than a realm's brute-force detector, and its own design decision. **Not** "speculative generality" (ADR-0036) — it is the standard mitigation for the quick-login-check DoS trade-off recorded in §US1 above, and the risk it would address is real, not hypothetical | — |
 
 **Two issues this spec's findings should produce**, filed at phase 7 rather
 than acted on here:
 
-1. `management-web`'s ROPC dependency in `AspireFixture` — the harness redesign
+1. **Higher priority — the password-policy question**, stated with the
+   correct current value (`length(8) and upperCase(1) and lowerCase(1) and
+   digits(1)`, not the `length(8)` #2285 records) so the next reader does not
+   repeat #2285's mis-transcription. This is the higher-priority successor to
+   this PR: a `length(8)` policy is exhaustible against a top-1000 password
+   list well within this lockout's own math (ten failures, or two under the
+   quick-login check, before a 60 s–15 min wait), so the lockout alone is a
+   speed bump, not a stop, against a competent guesser.
+2. `management-web`'s ROPC dependency in `AspireFixture` — the harness redesign
    that must precede disabling direct-access grants on the console's client.
-   Without it, #2285's second bullet can never be closed.
-2. The password-policy question, stated with the correct current value so the
-   next reader does not repeat #2285's mis-transcription.
+   Without it, #2285's second bullet can never be closed. Lower priority than
+   (1): it gates removing a capability, not shrinking what a guessed password
+   already grants.
 
 ---
 
@@ -374,7 +435,7 @@ any client-level change (#2488, when released) do not overlap textually.
 |---|---|---|
 | SC-1 | After more consecutive failed password grants than `failureFactor`, the correct password is refused | integration test, observed **red** first (ADR-0139) |
 | SC-2 | The same account's correct password is accepted before the failures | same test, positive control |
-| SC-3 | Keycloak's attack-detection record names the account temporarily disabled with `numFailures >= failureFactor` | integration test via `identity-admin` Admin API |
+| SC-3 | Keycloak's attack-detection record names the account temporarily disabled (`disabled == true`); `numFailures` is reported but can be as low as 2 — see the quick-login-check trap in `plan.md` §4 — so it is not asserted `>= failureFactor` | integration test via `identity-admin` Admin API |
 | SC-4 | A second account authenticates normally while the first is locked | integration test |
 | SC-5 | Clearing the lockout restores authentication | integration test, and the test's cleanup |
 | SC-6 | The running realm — not the file — reports `bruteForceProtected: true` and `failureFactor: 10` | `GET /admin/realms/smart-sentinel-eye`, at phase 5; guards a silently-dropped import field |
