@@ -35,6 +35,43 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     }
 
     /// <summary>
+    /// Spec 209 (#2506) US1: the per-resource timeline is the second of two
+    /// read paths that unconditionally equality-filtered on <c>fab</c>,
+    /// excluding every row that legitimately carries none — overlay lifecycle
+    /// events chief among them (ADR-0115). <see cref="SearchAuditQueryHandler"/>
+    /// already includes fab-neutral rows for a fab-assigned caller (#1300);
+    /// this proves the timeline endpoint does too.
+    ///
+    /// <para>
+    /// Seeds a fab-neutral row **and** a <c>berlin</c> row on the same overlay
+    /// identifier so a deleted (rather than widened) predicate is caught too:
+    /// presence of the fab-neutral row alone would still pass if the fix
+    /// stopped filtering on fab at all.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_fab_neutral_row_is_returned_by_a_fab_scoped_resource_timeline()
+    {
+        Guid overlayIdentifier = Guid.CreateVersion7();
+        await SeedAsync(
+            OverlayRow(overlayIdentifier, fab: null),
+            OverlayRow(overlayIdentifier, fab: "berlin"));
+
+        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+            "audit-observability", "admin@munich.test", "Admin1234");
+
+        HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=munich");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        JsonElement[] rows = [.. page.GetProperty("rows").EnumerateArray()];
+
+        string?[] fabs = [.. rows.Select(row => row.GetProperty("fab").GetString())];
+        fabs.ShouldContain((string?)null, "the fab-neutral overlay row must be reachable from its own fab-scoped timeline");
+        fabs.ShouldNotContain("berlin", "a row belonging to another fab must stay excluded");
+    }
+
+    /// <summary>
     /// The invariant is "never a fab the caller does not hold" — not "always
     /// the caller's own fab". A cross-fab row carries no fab and so belongs to
     /// nobody's fab; excluding it hid that whole class of history from every
@@ -189,6 +226,28 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
                 EventIdentifier: EventIdentifier.From(Guid.CreateVersion7()),
                 Payload: """{"seeded":"cross-fab-read-guard"}"""),
             V1Mapping.Unmapped,
+            new SystemClock());
+
+    /// <summary>
+    /// Unlike <see cref="Row"/>, this pivots on resource kind "overlay" +
+    /// <paramref name="overlayIdentifier"/> so it is reachable through the
+    /// per-resource timeline endpoint, not just the cross-cutting search.
+    /// </summary>
+    private static AuditEvent OverlayRow(Guid overlayIdentifier, string? fab) =>
+        AuditEvent.From(
+            new V1Envelope(
+                EventTypeName: "OverlayRevisionPublishedV1",
+                OccurredAt: DateTimeOffset.UtcNow,
+                Fab: fab is null
+                    ? Option<FabIdentifier>.None
+                    : Option<FabIdentifier>.Some(FabIdentifier.From(fab)),
+                Actor: ActorIdentifier.System,
+                ActorUsername: Option<string>.None,
+                EventIdentifier: EventIdentifier.From(Guid.CreateVersion7()),
+                Payload: """{"seeded":"cross-fab-read-guard"}"""),
+            new V1Mapping(
+                Option<ResourceKind>.Some(ResourceKind.Overlay),
+                Option<ResourceIdentifier>.Some(ResourceIdentifier.From(overlayIdentifier.ToString()))),
             new SystemClock());
 
     private async Task SeedAsync(params AuditEvent[] events)

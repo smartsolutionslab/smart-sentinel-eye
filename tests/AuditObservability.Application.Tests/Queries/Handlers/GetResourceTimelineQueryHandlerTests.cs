@@ -25,11 +25,11 @@ public class GetResourceTimelineQueryHandlerTests
         new(resourceKind, ResourceIdentifier.From(resourceIdentifier), FabIdentifier.From(fab), since, null, pageSize, null);
 
     private static AuditEventEntity Row(
-        int offsetMinutes, string overlay = TargetOverlay, string kind = "overlay") =>
+        int offsetMinutes, string overlay = TargetOverlay, string kind = "overlay", string? fab = "munich") =>
         new AuditEventBuilder()
             .WithOccurredAt(Base.AddMinutes(offsetMinutes))
             .WithResource(kind, overlay)
-            .WithFab("munich")
+            .WithFab(fab)
             .Build();
 
     [Fact]
@@ -61,6 +61,52 @@ public class GetResourceTimelineQueryHandlerTests
         result.IsSuccess.ShouldBeTrue();
         result.Value.Rows.Count.ShouldBe(2);
         result.Value.Rows.All(r => r.ResourceIdentifier == TargetOverlay).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task A_row_with_no_fab_is_returned_by_a_fab_scoped_timeline()
+    {
+        TestAuditEventQuerySource source = new([Row(0, fab: null)]);
+        GetResourceTimelineQueryHandler handler = new(source);
+
+        Result<AuditPageDto, GetResourceTimelineError> result = await handler.HandleAsync(Q(), default);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Rows.Count.ShouldBe(1);
+        result.Value.Rows[0].Fab.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_row_belonging_to_another_fab_is_still_excluded()
+    {
+        TestAuditEventQuerySource source = new([
+            Row(0, fab: "berlin"),
+            Row(5, fab: null),
+        ]);
+        GetResourceTimelineQueryHandler handler = new(source);
+
+        Result<AuditPageDto, GetResourceTimelineError> result = await handler.HandleAsync(Q(), default);
+
+        result.IsSuccess.ShouldBeTrue();
+        // Today (unconditional Fab == fabFilter) this returns zero rows — the
+        // null row is excluded too, which is the filed defect. The guard is
+        // deliberately shaped to hold in both states: it fails only if a
+        // "berlin" row ever leaks in, which is what a deleted (rather than
+        // widened) predicate would do.
+        result.Value.Rows.ShouldAllBe(row => row.Fab == null);
+        result.Value.Rows.ShouldNotContain(row => row.Fab == "berlin");
+    }
+
+    [Fact]
+    public async Task A_fab_neutral_row_for_a_different_resource_is_still_excluded()
+    {
+        TestAuditEventQuerySource source = new([Row(0, kind: "camera", fab: null)]);
+        GetResourceTimelineQueryHandler handler = new(source);
+
+        Result<AuditPageDto, GetResourceTimelineError> result = await handler.HandleAsync(Q(), default);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Rows.Count.ShouldBe(0);
     }
 
     [Fact]
