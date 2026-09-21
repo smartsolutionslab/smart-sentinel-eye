@@ -79,22 +79,24 @@ public class GetResourceTimelineQueryHandlerTests
     [Fact]
     public async Task A_row_belonging_to_another_fab_is_still_excluded()
     {
+        // Seeds all three rows the mixed timeline (spec.md US1) describes, on
+        // one resource: munich, berlin and fab-neutral. Asserting the exact
+        // set — not just "no berlin" — makes this non-vacuous: it fails if
+        // either disjunct of the widened predicate is missing (a still-fully-
+        // excluding predicate would also produce "no berlin", since it
+        // produces nothing at all) and it fails if the predicate were deleted
+        // outright (berlin would then leak in).
         TestAuditEventQuerySource source = new([
-            Row(0, fab: "berlin"),
-            Row(5, fab: null),
+            Row(0, fab: "munich"),
+            Row(5, fab: "berlin"),
+            Row(10, fab: null),
         ]);
         GetResourceTimelineQueryHandler handler = new(source);
 
         Result<AuditPageDto, GetResourceTimelineError> result = await handler.HandleAsync(Q(), default);
 
         result.IsSuccess.ShouldBeTrue();
-        // Today (unconditional Fab == fabFilter) this returns zero rows — the
-        // null row is excluded too, which is the filed defect. The guard is
-        // deliberately shaped to hold in both states: it fails only if a
-        // "berlin" row ever leaks in, which is what a deleted (rather than
-        // widened) predicate would do.
-        result.Value.Rows.ShouldAllBe(row => row.Fab == null);
-        result.Value.Rows.ShouldNotContain(row => row.Fab == "berlin");
+        result.Value.Rows.Select(row => row.Fab).ShouldBe(["munich", null], ignoreOrder: true);
     }
 
     [Fact]
