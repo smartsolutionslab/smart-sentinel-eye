@@ -54,6 +54,15 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     private const string ProbePassword = "Lockout-Probe-Pw1";
     private const string WrongPassword = "wrong-on-purpose";
 
+    // The master realm's bootstrap admin-cli account, not identity-admin —
+    // see MasterRealmAdminClientAsync for why. Password is the same
+    // `KeycloakPassword` Aspire parameter every other AppHost-boot test in
+    // this project already passes (AspireFixture.cs:279's
+    // "Parameters:KeycloakPassword=testkeycloak"; wired to Keycloak's own
+    // admin console at src/AppHost/AppHost.cs:30,144).
+    private const string MasterRealmAdminUsername = "admin";
+    private const string MasterRealmAdminPassword = "testkeycloak";
+
     private readonly RealmProbe realm = new(aspire);
 
     /// <summary>
@@ -82,7 +91,20 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
         }
     }
 
-    /// <summary>SC-1 — the reason this spec exists.</summary>
+    /// <summary>
+    /// SC-1 — the reason this spec exists.
+    ///
+    /// <para>
+    /// Deliberately never interpolates the raw response body into a Shouldly
+    /// failure message here. This repository is public and `tasks.md` T007
+    /// mandates quoting a phase-4 red's verbatim output in the PR body — if
+    /// this fact ever goes red again (a realm regression), a 200 response
+    /// body is a complete, live token pair. The assertions below read the
+    /// parsed shape (status, whether an access token came back, the error
+    /// code) and the failure messages report only that shape, never the
+    /// bytes.
+    /// </para>
+    /// </summary>
     [Fact]
     public async Task The_correct_password_is_refused_after_too_many_wrong_ones()
     {
@@ -92,18 +114,23 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
             using HttpResponseMessage response = await RequestTokenAsync(username, ProbePassword, CancellationToken.None);
             string body = await response.Content.ReadAsStringAsync();
 
+            using JsonDocument document = JsonDocument.Parse(body);
+            bool hasAccessToken = document.RootElement.TryGetProperty("access_token", out _);
+            bool hasError = document.RootElement.TryGetProperty("error", out JsonElement error);
+            string? errorValue = hasError ? error.GetString() : null;
+
             response.StatusCode.ShouldBe(
                 HttpStatusCode.BadRequest,
                 $"after {failureFactor + 1} wrong password grants, the *correct* password for "
                 + $"'{username}' should be refused by the realm's brute-force lockout, not accepted. "
-                + $"body: {body}");
-
-            using JsonDocument document = JsonDocument.Parse(body);
-            document.RootElement.TryGetProperty("error", out JsonElement error).ShouldBeTrue(
-                $"the refusal body should name an OAuth error. body: {body}");
-            error.GetString().ShouldBe("invalid_grant", $"body: {body}");
-            document.RootElement.TryGetProperty("access_token", out _).ShouldBeFalse(
-                $"a refused grant must not carry an access_token. body: {body}");
+                + $"status: {(int)response.StatusCode}, response carried an access_token: "
+                + $"{hasAccessToken} (body withheld from this message on purpose — see the doc "
+                + "comment on this fact).");
+            hasAccessToken.ShouldBeFalse(
+                "a refused grant must not carry an access_token (body withheld from this message).");
+            hasError.ShouldBeTrue(
+                "the refusal body should name an OAuth error (body withheld from this message).");
+            errorValue.ShouldBe("invalid_grant", $"error reported: '{errorValue}'.");
         }
         finally
         {
@@ -187,6 +214,16 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     /// recovery; this is the claim being checked, via an explicit
     /// <c>DELETE</c> of the attack-detection record rather than a
     /// <c>Task.Delay</c> until the lock expires.
+    ///
+    /// <para>
+    /// Asserts the account is <b>still locked before</b> the <c>DELETE</c>,
+    /// so the <c>DELETE</c> is load-bearing. Without that assertion this fact
+    /// cannot distinguish "recovery worked" from "the account was never
+    /// locked in the first place" — on unpatched <c>develop</c> the throwaway
+    /// account is never locked, the <c>DELETE</c> still answers <c>204</c>
+    /// against a record that already reads clear, and the correct password
+    /// still succeeds regardless.
+    /// </para>
     /// </summary>
     [Fact]
     public async Task Clearing_the_lockout_restores_authentication()
@@ -194,6 +231,15 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
         (string username, string id, int failureFactor) = await CreateAndLockProbeAsync(CancellationToken.None);
         try
         {
+            using (HttpResponseMessage stillLocked = await RequestTokenAsync(username, ProbePassword, CancellationToken.None))
+            {
+                stillLocked.StatusCode.ShouldBe(
+                    HttpStatusCode.BadRequest,
+                    $"'{username}' should still be refused its correct password before the lockout's "
+                    + $"attack-detection record is cleared — otherwise the DELETE below cannot be shown "
+                    + $"to have done anything. status: {(int)stillLocked.StatusCode}");
+            }
+
             using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
             HttpResponseMessage cleared = await admin.DeleteAsync(
                 $"admin/realms/{RealmProbe.Realm}/attack-detection/brute-force/users/{id}", CancellationToken.None);
@@ -220,6 +266,18 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     /// A malformed request is not a failed login. Pinned so a later tightening
     /// of the realm cannot quietly start counting parse errors against real
     /// accounts.
+    ///
+    /// <para>
+    /// The malformed grant carries no username, so it was never "attempted"
+    /// against the probe account in any sense Keycloak could record — reading
+    /// the attack-detection record only *after* the grant proves nothing,
+    /// because there is nothing that could plausibly have moved it. The real
+    /// claim ("a bad request doesn't move the counter") needs a before/after
+    /// comparison, so the failure count is read both sides of the malformed
+    /// grant. Routed through <see cref="RealmProbe.ReadJsonAsync"/>, which
+    /// throws on a non-success status rather than silently skipping the
+    /// check the way an <c>if (response.IsSuccessStatusCode)</c> guard would.
+    /// </para>
     /// </summary>
     [Fact]
     public async Task A_grant_with_no_username_is_a_bad_request_not_a_lockout()
@@ -227,6 +285,9 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
         (string username, string id) = await CreateProbeUserAsync(CancellationToken.None);
         try
         {
+            using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+            int failuresBefore = await ReadAttackDetectionFailureCountAsync(admin, id, CancellationToken.None);
+
             using HttpClient keycloak = aspire.CreateKeycloakClient();
             Dictionary<string, string> form = new()
             {
@@ -259,18 +320,11 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
                 $"a missing username must be diagnosed as a bad request, not a lockout ('invalid_grant' "
                 + $"is what a lockout answers with). body: {body}");
 
-            using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
-            HttpResponseMessage attackDetectionResponse = await admin.GetAsync(
-                $"admin/realms/{RealmProbe.Realm}/attack-detection/brute-force/users/{id}", CancellationToken.None);
-            if (attackDetectionResponse.IsSuccessStatusCode)
-            {
-                JsonElement attackDetection = JsonDocument.Parse(
-                    await attackDetectionResponse.Content.ReadAsStringAsync()).RootElement;
-                attackDetection.GetProperty("numFailures").GetInt32().ShouldBe(
-                    0,
-                    $"a malformed grant carrying no username must not move '{username}''s failure "
-                    + $"counter. record: {attackDetection}");
-            }
+            int failuresAfter = await ReadAttackDetectionFailureCountAsync(admin, id, CancellationToken.None);
+            failuresAfter.ShouldBe(
+                failuresBefore,
+                $"a malformed grant carrying no username must not move '{username}''s failure counter. "
+                + $"before: {failuresBefore}, after: {failuresAfter}.");
         }
         finally
         {
@@ -308,16 +362,90 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     /// Reads <c>failureFactor</c> off the running server rather than
     /// hard-coding it, so a reviewer overturning the realm's value
     /// (spec.md §Assumptions 3) never needs this test edited.
+    ///
+    /// <para>
+    /// Deliberately reads through <see cref="MasterRealmAdminClientAsync"/>,
+    /// not <c>RealmProbe.AuthorisedAdminClientAsync</c> (<c>identity-admin</c>).
+    /// <c>identity-admin</c>'s realm-management roles are
+    /// <c>manage-users</c>/<c>view-users</c> only — no <c>view-realm</c>
+    /// (<c>smart-sentinel-eye-realm.json:582-591</c>) — so a
+    /// <c>GET admin/realms/{realm}</c> through it comes back a silently
+    /// *partial* representation that omits <c>failureFactor</c> entirely:
+    /// confirmed live, <c>{"realm":...,"bruteForceProtected":true,
+    /// "supportedLocales":[]}</c>. A previous version of this method treated
+    /// that omission as "the field was never set" and fell back to
+    /// Keycloak's built-in default of 30 — silently wrong, since the realm's
+    /// real value is 10, and every wrong-guess loop in this file ran 31
+    /// attempts instead of 11 without failing, because
+    /// <c>quickLoginCheckMilliSeconds: 1000</c> locks the account after two
+    /// rapid failures regardless of <c>failureFactor</c>. There is no silent
+    /// fallback here now: a missing <c>failureFactor</c> in the master-admin
+    /// response is treated as an escalation, not a default.
+    /// </para>
     /// </summary>
     private async Task<int> ReadFailureFactorAsync(CancellationToken cancellationToken)
     {
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
+        using HttpClient admin = await MasterRealmAdminClientAsync(cancellationToken);
         JsonElement representation = await RealmProbe.ReadJsonAsync(
             admin, $"admin/realms/{RealmProbe.Realm}", cancellationToken);
 
-        return representation.TryGetProperty("failureFactor", out JsonElement failureFactor)
-            ? failureFactor.GetInt32()
-            : 30; // Keycloak's own built-in default, for a realm that has not set the field at all.
+        representation.TryGetProperty("failureFactor", out JsonElement failureFactor).ShouldBeTrue(
+            $"the master-realm admin-cli read of 'admin/realms/{RealmProbe.Realm}' did not include "
+            + "'failureFactor' at all — this path exists specifically to avoid identity-admin's "
+            + $"silent, partial read (no view-realm role), so a missing field here is a real finding, "
+            + $"not something to default around. representation: {representation}");
+        return failureFactor.GetInt32();
+    }
+
+    /// <summary>
+    /// Mints a token for the master realm's bootstrap <c>admin</c> /
+    /// <c>admin-cli</c> account — the one account confirmed live to receive
+    /// the *full* realm representation, <c>failureFactor</c> included. Used
+    /// only by <see cref="ReadFailureFactorAsync"/>. Deliberately not a
+    /// change to <c>identity-admin</c>'s realm-management roles: granting it
+    /// <c>view-realm</c> would be a real permission escalation on a service
+    /// account the Identity API uses in production to create/rotate Keycloak
+    /// clients, for a test-only need.
+    /// </summary>
+    private async Task<HttpClient> MasterRealmAdminClientAsync(CancellationToken cancellationToken)
+    {
+        using HttpClient tokenClient = aspire.CreateKeycloakClient();
+        Dictionary<string, string> form = new()
+        {
+            ["grant_type"] = "password",
+            ["client_id"] = "admin-cli",
+            ["username"] = MasterRealmAdminUsername,
+            ["password"] = MasterRealmAdminPassword,
+        };
+
+        using HttpResponseMessage response = await tokenClient.PostAsync(
+            "/realms/master/protocol/openid-connect/token",
+            new FormUrlEncodedContent(form),
+            cancellationToken);
+        string body = await response.Content.ReadAsStringAsync(cancellationToken);
+        response.IsSuccessStatusCode.ShouldBeTrue(
+            $"minting a master-realm admin-cli token failed with {(int)response.StatusCode}; without "
+            + $"it ReadFailureFactorAsync cannot read the realm's real failureFactor. body: {body}");
+
+        using JsonDocument document = JsonDocument.Parse(body);
+        string token = document.RootElement.GetProperty("access_token").GetString()!;
+
+        HttpClient admin = aspire.CreateKeycloakClient();
+        admin.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        return admin;
+    }
+
+    /// <summary>
+    /// Reads just <c>numFailures</c> off the attack-detection record, through
+    /// <see cref="RealmProbe.ReadJsonAsync"/> so a non-success status throws
+    /// rather than being silently skipped.
+    /// </summary>
+    private static async Task<int> ReadAttackDetectionFailureCountAsync(
+        HttpClient admin, string id, CancellationToken cancellationToken)
+    {
+        JsonElement attackDetection = await RealmProbe.ReadJsonAsync(
+            admin, $"admin/realms/{RealmProbe.Realm}/attack-detection/brute-force/users/{id}", cancellationToken);
+        return attackDetection.GetProperty("numFailures").GetInt32();
     }
 
     /// <summary>
@@ -363,15 +491,28 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
         string location = created.Headers.Location!.ToString();
         string id = location[(location.LastIndexOf('/') + 1)..];
 
-        HttpResponseMessage resetPassword = await admin.PutAsJsonAsync(
-            $"admin/realms/{RealmProbe.Realm}/users/{id}/reset-password",
-            new { type = "password", value = ProbePassword, temporary = false },
-            cancellationToken);
-        resetPassword.IsSuccessStatusCode.ShouldBeTrue(
-            $"setting the throwaway probe's password failed with {(int)resetPassword.StatusCode}; the "
-            + "realm's password policy is 'length(8) and upperCase(1) and lowerCase(1) and digits(1)' "
-            + $"— a policy change should fail here, at setup, not at a downstream assertion. body: "
-            + $"{await resetPassword.Content.ReadAsStringAsync(cancellationToken)}");
+        // From here on the user exists in the realm even though setup has
+        // not finished. If the reset-password call throws — a network
+        // failure, or the assertion below — the id is never returned to the
+        // caller's `finally`, so nothing deletes it. Delete it here on the
+        // way out instead of leaking it the way #2166 leaked clients.
+        try
+        {
+            HttpResponseMessage resetPassword = await admin.PutAsJsonAsync(
+                $"admin/realms/{RealmProbe.Realm}/users/{id}/reset-password",
+                new { type = "password", value = ProbePassword, temporary = false },
+                cancellationToken);
+            resetPassword.IsSuccessStatusCode.ShouldBeTrue(
+                $"setting the throwaway probe's password failed with {(int)resetPassword.StatusCode}; "
+                + "the realm's password policy is 'length(8) and upperCase(1) and lowerCase(1) and "
+                + $"digits(1)' — a policy change should fail here, at setup, not at a downstream "
+                + $"assertion. body: {await resetPassword.Content.ReadAsStringAsync(cancellationToken)}");
+        }
+        catch
+        {
+            await DeleteProbeUserAsync(id, cancellationToken);
+            throw;
+        }
 
         return (username, id);
     }
