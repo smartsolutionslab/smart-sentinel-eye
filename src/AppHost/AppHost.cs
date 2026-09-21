@@ -402,6 +402,27 @@ var streamDistribution = builder
     .WaitFor(keycloak)
     .WaitFor(mediamtx);
 
+// Spec 208: `/streams/authorize` is rate-limited by source address, and the
+// production ceiling (2000/min) is too high for a test to exhaust without
+// sending thousands of requests and poisoning every other test sharing the
+// fixture's one address for the rest of the window. Lower it for the
+// integration lane only.
+//
+// **Gated `isE2ETests` and deliberately not `isRunMode`**, matching the
+// asymmetry already documented at `:211-216` above: `E2ETests` is set by the
+// *integration* fixture (`AspireFixture`) and by `AppHostE2ESwitchTests`, but
+// not by the end-to-end stack boot, which is a plain `dotnet run` in
+// `ci.yml`. That is exactly what is wanted here — the integration suite gets
+// a ceiling it can actually cross to observe a 429, while the Playwright e2e
+// wall keeps opening tiles against the real production ceiling so it proves
+// the limiter does not clip a real wall.
+if (isE2ETests)
+{
+    streamDistribution
+        .WithEnvironment("WhepAuthorizeRateLimiting__PermitLimit", "20")
+        .WithEnvironment("WhepAuthorizeRateLimiting__Window", "00:00:10");
+}
+
 // In run mode the stream-distribution service runs as a host process, so the
 // mediamtx container can't reach it via the `stream-distribution` service name
 // baked into mediamtx.yml's authHTTPAddress (that DNS name resolves only among
