@@ -9,9 +9,8 @@ namespace SmartSentinelEye.SystemVariables.Application.Resolution;
 /// already holds as its high-water mark (ADR-0145 §1).
 ///
 /// <para>
-/// Declaration only. The durable implementation
-/// (<c>OverlayTextVersionStore</c>, Postgres-backed, mirroring
-/// <c>VariableValueRequestDedupStore</c>) is phase 4b's job — see
+/// Implemented by <c>OverlayTextVersionStore</c> (Postgres-backed,
+/// mirroring <c>VariableValueRequestDedupStore</c>) — see
 /// specs/202-a-version-that-survives-a-restart/plan.md §§2-4 for the
 /// storage shape, the cutover floor and the fan-out atomicity argument.
 /// </para>

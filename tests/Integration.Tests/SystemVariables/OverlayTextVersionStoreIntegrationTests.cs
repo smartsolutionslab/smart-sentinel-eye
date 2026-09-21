@@ -116,13 +116,17 @@ public class OverlayTextVersionStoreIntegrationTests(AspireFixture aspire)
     }
 
     /// <summary>
-    /// R3 — the fan-out handler builds its overlay set from
-    /// <c>IReverseIndex.LookupOverlays</c>, which is not guaranteed
-    /// duplicate-free across the whole label. The store must de-duplicate
-    /// its own input before the <c>INSERT ... ON CONFLICT</c>, or Postgres
-    /// raises "ON CONFLICT DO UPDATE command cannot affect row a second
-    /// time" and the entire push for every other affected overlay is lost
-    /// with it.
+    /// R3 — a contract test for <see cref="IOverlayTextVersions"/>'s own
+    /// published promise, not a regression test for a currently reachable
+    /// caller (today's only caller, <c>IReverseIndex.LookupOverlays</c>,
+    /// returns a <c>HashSet</c>-backed, duplicate-free array). The
+    /// interface's XML doc commits to tolerating a repeated identifier
+    /// regardless, because its parameter type
+    /// (<c>IReadOnlyCollection&lt;Guid&gt;</c>) promises nothing about
+    /// uniqueness — so the store must de-duplicate its own input before the
+    /// <c>INSERT ... ON CONFLICT</c>, or Postgres raises "ON CONFLICT DO
+    /// UPDATE command cannot affect row a second time" and the entire push
+    /// for every other affected overlay is lost with it.
     /// </summary>
     [Fact]
     public async Task A_batch_containing_the_same_overlay_twice_does_not_raise_a_conflict_error()
