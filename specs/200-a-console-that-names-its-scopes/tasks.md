@@ -73,14 +73,26 @@ integration test's token mint with `invalid_scope`.
 - [ ] **T010 [P] [US1]** `.claude/agents/frontend-engineer.md:12` — it states as current fact that *"management-web uses `smart-sentinel-eye-web` with `openid sse.management` (the grandfathered bundle)"*. That brief is load-bearing when no human is watching (CLAUDE.md), so a stale copy would instruct the next frontend agent to reintroduce this defect. Correct the sentence; the `kiosk-web` half of it is already right and stays.
   - **Depends on:** T005.
 
-### US2 — deferrable (`spec.md` US2). Ship US1 and file US2 rather than half-doing it.
+### US2 — **deferred, filed as #2486**
 
-- [ ] **T011 [US2]** `src/ServiceDefaults/Authorization/RequireScopeExtensions.cs` — delete `LegacyManagementBundle` (`:28-36`), `acceptLegacyBundle` (`:46`) and the second `if` inside the assertion (`:59-62`). The policy then passes on the exact scope and nothing else.
-  - **Depends on:** T004, T006 (nothing may still be holding the bundle when the clause goes).
-
-- [ ] **T012 [US2]** `src/AppHost/Realms/smart-sentinel-eye-realm.json` — remove the `sse.management` entry from `clientScopes`. **Not `[P]` with T006:** same file.
-  - `Scope.All` does not contain `sse.management`, so `ScopeGrantTests.Every_catalogued_scope_is_defined_in_the_realm` and `…_is_granted_to_someone` are unaffected. `RealmIdentityTests` checks only that every scope a client *names* exists — no client names it after T006.
-  - **Depends on:** T011.
+- [x] **T011 [US2]** attempted during this delivery, then reverted. Deleting
+  `RequireScopeExtensions.LegacyManagementBundle` does not compile:
+  `tests/Architecture.Tests/EndpointScopeDeclarationTests.cs:836` references it
+  directly, and `src/StreamDistribution/Application/Commands/Handlers/AuthorizeWhepCommandHandler.cs:31,80`
+  has its **own, independent** hand-rolled acceptance of the same bundle string
+  — not routed through `RequireScopeExtensions` at all, since `POST
+  /streams/authorize` authorizes itself rather than going through
+  `AddScopePolicies`. T011/T012 as originally scoped were a two-file change;
+  completing US2 correctly is at least four files plus a doc-comment pass on
+  two integration tests that explain their setup by citing the grandfather
+  clause. Re-scoped and filed as **#2486** rather than expanded here mid-PR —
+  see that issue for the full file list.
+  - T004's phase-4a red test (`RequireScopePolicyTests.A_principal_carrying_only_the_legacy_bundle_fails_every_policy`)
+    was written, confirmed red, and then **reverted** along with T011 — it
+    cannot ship red in a PR that stops at US1, and it belongs with US2's
+    implementation. `RequireScopePolicyTests.cs` is back to its original two
+    green facts in this PR.
+- [ ] **T012 [US2]** not attempted — depends on T011, deferred with it. See #2486.
 
 ---
 

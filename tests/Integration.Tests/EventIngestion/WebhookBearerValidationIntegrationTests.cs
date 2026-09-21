@@ -78,15 +78,23 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
     }
 
+    // scenario-simulator (ADR-0111, dev-only service account, /fabs/munich) is
+    // the one real client in the realm whose default scopes never include
+    // sse.events.write — every human-facing client (management-web, kiosk-web)
+    // grants it by default (spec 200 / issue #2279), so a password-grant token
+    // for any of them can no longer isolate "valid azp, missing scope" from
+    // "the client just doesn't have it". A client_credentials grant sidesteps
+    // that: azp is exactly the client asked for, and this one genuinely lacks
+    // the scope, so this is a stronger isolation than a human client gave it.
+    private const string ScopeLessClientId = "scenario-simulator";
+    private const string ScopeLessClientSecret = "dev-only-scenario-simulator-secret";
+
     [Fact]
     public async Task Jwt_mode_rejects_a_token_without_the_events_write_scope()
     {
         string name = UniqueName("jwt-scope");
-        await SeedJwtIntegrationAsync(name, JwtClientId);
-        // smart-sentinel-eye-web grants only the legacy sse.management bundle,
-        // not the concrete sse.events.write the endpoint requires.
-        string jwt = await aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        await SeedJwtIntegrationAsync(name, ScopeLessClientId);
+        string jwt = await ScopeLessServiceAccountTokenAsync();
 
         HttpResponseMessage response = await PostWebhookAsync(name, Fab, jwt);
 
@@ -204,4 +212,30 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
 
     private static string UniqueName(string prefix) =>
         $"{prefix}-{Guid.NewGuid():N}".ToLowerInvariant()[..Math.Min(63, prefix.Length + 33)];
+
+    /// <summary>
+    /// The <c>client_credentials</c> grant for <see cref="ScopeLessClientId"/>,
+    /// hand-rolled here rather than added to <see cref="AspireFixture"/> for the
+    /// same reason <c>VariableReadScopeIntegrationTests</c> hand-rolls its own
+    /// (ADR-0036): two call sites are not yet a pattern.
+    /// </summary>
+    private async Task<string> ScopeLessServiceAccountTokenAsync()
+    {
+        using HttpClient keycloak = aspire.CreateKeycloakClient();
+
+        using FormUrlEncodedContent form = new(new Dictionary<string, string>
+        {
+            ["grant_type"] = "client_credentials",
+            ["client_id"] = ScopeLessClientId,
+            ["client_secret"] = ScopeLessClientSecret,
+        });
+
+        HttpResponseMessage response = await keycloak.PostAsync(
+            "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+
+        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        return payload.GetProperty("access_token").GetString()!;
+    }
 }

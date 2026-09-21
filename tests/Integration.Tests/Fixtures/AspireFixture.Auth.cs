@@ -9,7 +9,7 @@ public sealed partial class AspireFixture
 {
     public const string AdminUsername = "admin";
     public const string AdminPassword = "Admin1234";
-    public const string ClientId = "smart-sentinel-eye-web";
+    public const string ClientId = "management-web";
 
     // Token cache lives across all tests in the collection so a 295-test
     // run does not hammer Keycloak with a fresh password grant per test
@@ -90,10 +90,11 @@ public sealed partial class AspireFixture
     /// Mints an access token via the password grant for an explicit
     /// <paramref name="clientId"/> and <paramref name="scope"/>. Unlike
     /// <see cref="GetAccessTokenAsync(string, string)"/> (which always uses
-    /// <see cref="ClientId"/> + the legacy <c>sse.management</c> bundle), this
-    /// lets a test exercise the webhook JWT path, where the token's
-    /// <c>azp</c> must equal the integration's Keycloak clientId and the
-    /// scope must contain the concrete <c>sse.events.write</c>.
+    /// <see cref="ClientId"/> + <c>openid</c>, granting whatever
+    /// <c>management-web</c> default-grants), this lets a test exercise the
+    /// webhook JWT path, where the token's <c>azp</c> must equal the
+    /// integration's Keycloak clientId and the scope must contain the concrete
+    /// <c>sse.events.write</c>.
     /// Not cached: each call requests fresh, since the client/scope pairing is
     /// per-test and short-lived.
     /// </summary>
@@ -108,7 +109,7 @@ public sealed partial class AspireFixture
 
     private Task<CachedToken> FetchAccessTokenAsync(
         string username, string password, CancellationToken cancellationToken) =>
-        FetchAccessTokenAsync(username, password, ClientId, "openid sse.management", cancellationToken);
+        FetchAccessTokenAsync(username, password, ClientId, "openid", cancellationToken);
 
     private async Task<CachedToken> FetchAccessTokenAsync(
         string username, string password, string clientId, string scope,

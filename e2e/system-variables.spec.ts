@@ -33,8 +33,8 @@ test('operator defines a system variable and it appears in the list', async ({ p
   await page.getByRole('link', { name: /^system variables$/i }).click();
   await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
 
-  // POST /system-variables/system-variables (Bearer; sse.management grandfathers
-  // sse.variables.write); the list invalidates and refetches.
+  // POST /system-variables/system-variables (Bearer; management-web's token
+  // names sse.variables.write explicitly); the list invalidates and refetches.
   await page.getByRole('button', { name: /new variable/i }).click();
   const name = `E2E_Var_${Date.now()}`;
   await page.locator('#variable-name').fill(name);
