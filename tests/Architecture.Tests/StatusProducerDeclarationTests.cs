@@ -184,7 +184,18 @@ public class StatusProducerDeclarationTests
         // only because nothing in src configures ForwardedHeaders /
         // UseForwardedHeaders today — a later change that enables it without
         // KnownProxies would let a caller spoof its own partition key via
-        // X-Forwarded-For and silently unbound this limiter.
+        // X-Forwarded-For and silently unbound this limiter. The consequence,
+        // not just the precondition: either of those would collapse this
+        // per-source partition into the global bucket §Partition key
+        // rejects — every caller sharing one bucket, MediaMTX included —
+        // letting an attacker deny MediaMTX. Exactly this collapse existed
+        // for real, through a proxied gateway route, until phase 6's BLOCKER
+        // 1 review caught it and ApiGateway/Program.cs carved that route out.
+        // Not a guarded gate: this row is recorded for documentation and
+        // discoverability, the same register-not-gate class as M4-M8/M13/M14
+        // (none of them read by any assertion here either). Deleting it
+        // fails nothing in this file — see spec 208's FR-010/US3, corrected
+        // after phase 6 found the spec claiming otherwise.
         new("M15", "StreamDistribution /streams/authorize fixed-window rate limiter", "429", Visibility.Chain, null, null),
     ];
 

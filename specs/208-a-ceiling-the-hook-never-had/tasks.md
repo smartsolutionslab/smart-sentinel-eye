@@ -95,10 +95,10 @@ All four are new files or new cases in existing files that **no other task touch
   Paired red test (write first): `A_partition_entering_the_throttled_state_is_logged_once` in T003's file, plus the flood case asserting the repeats are silent.
   *Marked `[P]` against T010/T012 — it shares no file with either — but it is sequenced after T007.*
 
-- [ ] **T012 [P] [US3]** `tests/Architecture.Tests/StatusProducerDeclarationTests.cs` — add `M15` to the `Census` array (`:158-183`) for this limiter: `"429"`, `Visibility.Chain` (**not** M14's `Visibility.None` — this one *is* declared on the chain, per T008).
+- [x] **T012 [P] [US3]** `tests/Architecture.Tests/StatusProducerDeclarationTests.cs` — add `M15` to the `Census` array (`:158-183`) for this limiter: `"429"`, `Visibility.Chain` (**not** M14's `Visibility.None` — this one *is* declared on the chain, per T008).
   The row's comment records the precondition from spec §*Partition key*: the key's integrity rests on nothing in `src` configuring `ForwardedHeaders`, and a later `UseForwardedHeaders` without `KnownProxies` silently unbounds it.
   **Do not touch** `RouteHandlerMappingCount = 60` or `EndpointFileCount = 13` — no route and no endpoint file is added. If either needs to move, something outside this design was changed.
-  Observe the census assertion red before the row and green after.
+  ~~Observe the census assertion red before the row and green after.~~ **Corrected post-phase-6 (BLOCKER 2):** this never happened, and could not have — no assertion in this file is tied to rate-limiter coverage, so the census never went red on M15's absence. Commit `679ac8ff`'s own message says so plainly ("the row is additive documentation, not a guarded gate"); this task's closing instruction was wrong when written and is struck rather than silently rewritten. M15 is a documentation/discoverability entry, the same class as M4-M8/M13/M14 — see spec.md's corrected FR-010/US3.
 
 ---
 
