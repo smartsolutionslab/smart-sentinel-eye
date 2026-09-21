@@ -258,6 +258,42 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
     public HttpClient StreamDistribution { get; private set; } = null!;
 
+    /// <summary>
+    /// Same BaseAddress as <see cref="StreamDistribution"/>, but a plain
+    /// <see cref="HttpClient"/> constructed directly — deliberately outside
+    /// <see cref="IHttpClientFactory"/> — so it carries no resilience handler
+    /// of any kind (spec 208/#2284 phase-5 verification.md §2.2).
+    ///
+    /// <para>
+    /// Used only by <c>WhepAuthorizeRateLimitTests</c>, which deliberately
+    /// exhausts the <c>whep-authorize</c> limiter and polls through the
+    /// resulting 429s to observe recovery — its own correctness-testing
+    /// technique, not a downstream failure. Every other client this fixture
+    /// hands out is built through
+    /// <see cref="DistributedApplicationHostingTestingExtensions.CreateHttpClient"/>,
+    /// which always resolves <see cref="IHttpClientFactory"/>'s one *unnamed*
+    /// client — the resource name only picks the <c>BaseAddress</c> — so they
+    /// all share one resilience pipeline and one circuit-breaker instance,
+    /// and the standard resilience handler's default circuit-breaker
+    /// predicate classifies 429 as transient.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>A separately named factory client was tried first and was not
+    /// enough isolation.</b> <c>ConfigureHttpClientDefaults</c> attaches its
+    /// stored default actions (this fixture's <c>FixtureHttpClients.Configure</c>,
+    /// which calls <c>AddStandardResilienceHandler</c>) to every client
+    /// <see cref="IHttpClientFactory"/> hands out, named or not — confirmed
+    /// by the resilience pipeline logging the same shared <c>"-standard"</c>
+    /// source for a dedicated named client as for the unnamed ones. A plain,
+    /// factory-bypassing <see cref="HttpClient"/> is the only isolation that
+    /// actually holds; this test class implements its own polling/backoff
+    /// (<c>WaitUntilAdmittedAgainAsync</c>) so it does not need the standard
+    /// handler's retry either.
+    /// </para>
+    /// </summary>
+    public HttpClient StreamDistributionThrottleProbe { get; private set; } = null!;
+
     public HttpClient LayoutComposition { get; private set; } = null!;
 
     public HttpClient OverlayDesigner { get; private set; } = null!;
@@ -463,6 +499,17 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         // dependency entirely (#1133).
         CameraCatalog = App.CreateHttpClient("camera-catalog", "http");
         StreamDistribution = App.CreateHttpClient("stream-distribution", "http");
+
+        // Deliberately not built through App.CreateHttpClient, and not through
+        // IHttpClientFactory at all — see StreamDistributionThrottleProbe's
+        // doc comment for why even a separately *named* factory client still
+        // was not enough isolation (both end up wrapped in the same shared
+        // "-standard" pipeline ConfigureHttpClientDefaults attaches to every
+        // client the factory hands out, named or not).
+        StreamDistributionThrottleProbe = new HttpClient
+        {
+            BaseAddress = App.GetEndpoint("stream-distribution", "http"),
+        };
         LayoutComposition = App.CreateHttpClient("layout-composition", "http");
         OverlayDesigner = App.CreateHttpClient("overlay-designer", "http");
         AuditObservability = App.CreateHttpClient("audit-observability", "http");
@@ -475,6 +522,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     {
         CameraCatalog?.Dispose();
         StreamDistribution?.Dispose();
+        StreamDistributionThrottleProbe?.Dispose();
         LayoutComposition?.Dispose();
         OverlayDesigner?.Dispose();
         AuditObservability?.Dispose();
