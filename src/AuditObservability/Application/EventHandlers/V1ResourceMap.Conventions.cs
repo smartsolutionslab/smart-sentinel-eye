@@ -1,4 +1,9 @@
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
+using SmartSentinelEye.Shared.Contracts;
+using SmartSentinelEye.Shared.Contracts.AuditObservability;
+using SmartSentinelEye.Shared.Contracts.Identity;
+using SmartSentinelEye.Shared.Contracts.LayoutComposition;
+using SmartSentinelEye.Shared.Contracts.SystemVariables;
 using DomainResourceKind = SmartSentinelEye.AuditObservability.Domain.AuditEvent.ResourceKind;
 
 namespace SmartSentinelEye.AuditObservability.Application.EventHandlers;
@@ -54,88 +59,39 @@ public sealed partial class V1ResourceMap
             // Identity contracts split across two resource kinds depending on
             // which client persona the event covers (devices vs kiosks vs
             // webhook integrations).
-            Type? deviceRegistered = Type.GetType(
-                "SmartSentinelEye.Shared.Contracts.Identity.DeviceRegisteredV1, SmartSentinelEye.Shared.Contracts");
-            if (deviceRegistered is not null)
-            {
-                map[deviceRegistered] = new V1MappingEntry(DomainResourceKind.Device, PickByProperty(deviceRegistered, "ClientId"));
-            }
-
-            Type? kioskEnrolled = Type.GetType("SmartSentinelEye.Shared.Contracts.Identity.KioskEnrolledV1, SmartSentinelEye.Shared.Contracts");
-            if (kioskEnrolled is not null)
-            {
-                map[kioskEnrolled] = new V1MappingEntry(DomainResourceKind.Kiosk, PickByProperty(kioskEnrolled, "ClientId"));
-            }
-
-            Type? webhookRotated = Type.GetType("SmartSentinelEye.Shared.Contracts.Identity.WebhookIntegrationRotatedV1, SmartSentinelEye.Shared.Contracts");
-            if (webhookRotated is not null)
-            {
-                map[webhookRotated] = new V1MappingEntry(DomainResourceKind.WebhookIntegration, PickByProperty(webhookRotated, "IntegrationName"));
-            }
-
-            // Spec 006 webhook contracts are emitted from EventIngestion but
-            // pivot on a webhook integration name.
-            Type? webhookRegistered = Type.GetType("SmartSentinelEye.Shared.Contracts.EventIngestion.WebhookIntegrationRegisteredV1, SmartSentinelEye.Shared.Contracts");
-            if (webhookRegistered is not null)
-            {
-                map[webhookRegistered] = new V1MappingEntry(DomainResourceKind.Webhook, PickByProperty(webhookRegistered, "Name"));
-            }
-
-            Type? webhookRevoked = Type.GetType("SmartSentinelEye.Shared.Contracts.EventIngestion.WebhookIntegrationRevokedV1, SmartSentinelEye.Shared.Contracts");
-            if (webhookRevoked is not null)
-            {
-                map[webhookRevoked] = new V1MappingEntry(DomainResourceKind.Webhook, PickByProperty(webhookRevoked, "Name"));
-            }
+            Add<DeviceRegisteredV1>(map, DomainResourceKind.Device, registered => registered.ClientId);
+            Add<KioskEnrolledV1>(map, DomainResourceKind.Kiosk, enrolled => enrolled.ClientId);
+            Add<WebhookIntegrationRotatedV1>(map, DomainResourceKind.WebhookIntegration, rotated => rotated.IntegrationName);
 
             // Spec 005: emitted from SystemVariables but pivots on the overlay
             // whose resolved text changed, not on a variable.
-            Type? resolvedOverlayText = Type.GetType("SmartSentinelEye.Shared.Contracts.SystemVariables.ResolvedOverlayTextChangedV1, SmartSentinelEye.Shared.Contracts");
-            if (resolvedOverlayText is not null)
-            {
-                map[resolvedOverlayText] = new V1MappingEntry(DomainResourceKind.Overlay, PickByProperty(resolvedOverlayText, "Overlay"));
-            }
+            Add<ResolvedOverlayTextChangedV1>(map, DomainResourceKind.Overlay, changed => changed.Overlay);
 
             // AuditChunkArchivedV1 (spec 009 itself) pivots on the chunk id.
-            Type? chunkArchived = Type.GetType("SmartSentinelEye.Shared.Contracts.AuditObservability.AuditChunkArchivedV1, SmartSentinelEye.Shared.Contracts"); if (chunkArchived is not null)
-            {
-                map[chunkArchived] = new V1MappingEntry(DomainResourceKind.Event, PickByProperty(chunkArchived, "ChunkIdentifier"));
-            }
+            Add<AuditChunkArchivedV1>(map, DomainResourceKind.Event, archived => archived.ChunkIdentifier);
 
             // Published into LayoutComposition (spec 020's Automation rule
             // targets a layout's overlay), but the subject is the overlay,
             // not the layout the namespace convention would pick.
-            Type? overlayHighlightRequested = Type.GetType(
-                "SmartSentinelEye.Shared.Contracts.LayoutComposition.OverlayHighlightRequestedV1, SmartSentinelEye.Shared.Contracts");
-            if (overlayHighlightRequested is not null)
-            {
-                map[overlayHighlightRequested] = new V1MappingEntry(DomainResourceKind.Overlay, PickByProperty(overlayHighlightRequested, "OverlayIdentifier"));
-            }
+            Add<OverlayHighlightRequestedV1>(map, DomainResourceKind.Overlay, requested => requested.OverlayIdentifier);
 
             // The contract's only Guid is the triggering event's id, not the
             // variable's; SystemVariables addresses every variable by name.
-            Type? systemVariableValueRequested = Type.GetType(
-                "SmartSentinelEye.Shared.Contracts.SystemVariables.SystemVariableValueRequestedV1, SmartSentinelEye.Shared.Contracts");
-            if (systemVariableValueRequested is not null)
-            {
-                map[systemVariableValueRequested] = new V1MappingEntry(DomainResourceKind.Variable, PickByProperty(systemVariableValueRequested, "Name"));
-            }
+            Add<SystemVariableValueRequestedV1>(map, DomainResourceKind.Variable, requested => requested.Name);
 
             return map;
         }
 
-        private static Func<object, ResourceIdentifier?> PickByProperty(Type type, string propertyName)
-        {
-            System.Reflection.PropertyInfo? prop = type.GetProperty(propertyName);
-            if (prop is null)
-            {
-                return _ => null;
-            }
+        private static void Add<TEvent>(
+            Dictionary<Type, V1MappingEntry> map,
+            DomainResourceKind kind,
+            Func<TEvent, object?> pick)
+            where TEvent : IIntegrationEvent
+            => map[typeof(TEvent)] = new V1MappingEntry(
+                kind,
+                instance => Identify(pick((TEvent)instance)));
 
-            return instance =>
-            {
-                object? raw = prop.GetValue(instance);
-                return raw is null ? null : ResourceIdentifier.From(raw.ToString()!);
-            };
-        }
+        private static ResourceIdentifier? Identify(object? raw) =>
+            raw is null ? null : ResourceIdentifier.From(raw.ToString()!);
     }
 }
