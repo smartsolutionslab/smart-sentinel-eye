@@ -70,6 +70,7 @@ public static class CameraCatalogInfrastructureModule
         // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
         // above drives the executor's wait for an in-flight attempt.
         builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<CameraCatalogDbContext>>();
+        builder.Services.AddIdempotencyReservationSweep<CameraCatalogDbContext>();
 
         builder.AddWolverineForContext<CameraCatalogDbContext>(
             moduleQueuePrefix: ContextName,

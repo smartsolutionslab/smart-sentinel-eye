@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
@@ -114,6 +115,63 @@ public class IdempotentRequestTests
     }
 
     /// <summary>
+    /// #2290 US2. The release runs on the same connection that just failed the
+    /// work, so the two failures are correlated and the release's is the less
+    /// informative of the pair — the caller needs to know the work failed, not
+    /// that the cleanup afterwards also failed. Today the release's exception
+    /// escapes instead, because it is thrown with nothing catching it and the
+    /// <c>throw;</c> that would surface the work's exception is never reached.
+    /// </summary>
+    [Fact]
+    public async Task A_release_that_throws_does_not_hide_the_failure_that_caused_it()
+    {
+        RecordingStore store = new()
+        {
+            Throws = new InvalidOperationException("work failed"),
+            ReleaseThrows = new InvalidOperationException("release failed"),
+        };
+
+        InvalidOperationException escaped =
+            await Should.ThrowAsync<InvalidOperationException>(() => Run(store));
+
+        escaped.Message.ShouldBe(
+            "work failed", "the work's failure is what the caller needs to see, not the release's.");
+    }
+
+    /// <summary>
+    /// The activity assertion needs a real listener: <see cref="Activity.Current"/>
+    /// is <c>null</c> in a bare xUnit test, so asserting against it without one
+    /// would pass whether or not the release failure was ever recorded.
+    /// </summary>
+    [Fact]
+    public async Task A_release_that_throws_records_its_failure_on_the_current_activity()
+    {
+        using ActivitySource source = new($"{nameof(IdempotentRequestTests)}.{Guid.NewGuid():N}");
+        using ActivityListener listener = new()
+        {
+            ShouldListenTo = activitySource => activitySource == source,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        RecordingStore store = new()
+        {
+            Throws = new InvalidOperationException("work failed"),
+            ReleaseThrows = new InvalidOperationException("release failed"),
+        };
+
+        using Activity? activity = source.StartActivity("idempotent-request-test");
+
+        await Should.ThrowAsync<InvalidOperationException>(() => Run(store));
+
+        activity.ShouldNotBeNull("the listener above must have sampled it, or this assertion is vacuous.");
+        activity.Events.ShouldContain(
+            recorded => recorded.Name == "exception"
+                && recorded.Tags.Any(tag => tag.Key == "exception.message" && Equals(tag.Value, "release failed")),
+            "the release failure must be recorded on the activity rather than discarded silently.");
+    }
+
+    /// <summary>
     /// A refusal is a successful call that created nothing. Completing its key
     /// would make the next retry replay a resource that never existed; releasing
     /// it lets a caller fix the request and retry with the same key.
@@ -173,6 +231,9 @@ public class IdempotentRequestTests
 
         public Exception? Throws { get; set; }
 
+        /// <summary>When set, <see cref="ReleaseAsync"/> throws this instead of succeeding (#2290 US2).</summary>
+        public Exception? ReleaseThrows { get; set; }
+
         /// <summary>Answer the call successfully, having created nothing.</summary>
         public bool CreatesNothing { get; set; }
 
@@ -216,7 +277,7 @@ public class IdempotentRequestTests
         {
             Released++;
 
-            return Task.CompletedTask;
+            return ReleaseThrows is not null ? Task.FromException(ReleaseThrows) : Task.CompletedTask;
         }
     }
 }

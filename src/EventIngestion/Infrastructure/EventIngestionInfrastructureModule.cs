@@ -53,6 +53,7 @@ public static class EventIngestionInfrastructureModule
 
         // ADR-0142. Scoped alongside the DbContext it writes through.
         builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<EventIngestionDbContext>>();
+        builder.Services.AddIdempotencyReservationSweep<EventIngestionDbContext>();
         builder.Services.AddSingleton(TimeProvider.System);
 
         // Spec 019: the write paths ask whether a fab can store anything before

@@ -45,6 +45,7 @@ public static class LayoutCompositionInfrastructureModule
         // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
         // above drives the executor's wait for an in-flight attempt.
         builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<LayoutCompositionDbContext>>();
+        builder.Services.AddIdempotencyReservationSweep<LayoutCompositionDbContext>();
         builder.Services.AddSignalR();
         builder.Services.AddSingleton<ILayoutLifecycleBroadcaster, SignalRLayoutLifecycleBroadcaster>();
 

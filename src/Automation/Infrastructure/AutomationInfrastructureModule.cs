@@ -43,6 +43,7 @@ public static class AutomationInfrastructureModule
         // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
         // above drives the executor's wait for an in-flight attempt.
         builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<AutomationDbContext>>();
+        builder.Services.AddIdempotencyReservationSweep<AutomationDbContext>();
 
         // Rule cache + evaluator + cold-start seeder.
         builder.Services.AddSingleton<IRuleCache, InMemoryRuleCache>();

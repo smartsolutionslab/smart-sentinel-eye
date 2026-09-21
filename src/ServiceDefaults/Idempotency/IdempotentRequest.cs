@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -175,7 +176,7 @@ public static class IdempotentRequest
             // this path runs is that the caller gave up, and a release that
             // inherits the cancelled token would not run at all — leaving the key
             // reserved forever by the very request that abandoned it.
-            await execution.Store.ReleaseAsync(scope, CancellationToken.None);
+            await ReleaseQuietlyAsync(execution.Store, scope);
 
             throw;
         }
@@ -190,5 +191,30 @@ public static class IdempotentRequest
         }
 
         return outcome.Response;
+    }
+
+    /// <summary>
+    /// #2290 US2. Releases the reservation without letting a failure here
+    /// replace the exception that put us on this path.
+    /// </summary>
+    private static async Task ReleaseQuietlyAsync(IIdempotencyStore store, IdempotencyScope scope)
+    {
+        try
+        {
+            await store.ReleaseAsync(scope, CancellationToken.None);
+        }
+        catch (Exception releaseFailure)
+        {
+            // Not rethrown, and the codebase's own rule says a swallowed
+            // exception is a review blocker — so this states its case.
+            // Rethrowing here would take the outer catch block's place and the
+            // caller would never learn what actually failed; the release runs
+            // on the same connection that just failed the work, so the two
+            // failures are correlated and this one is the less informative of
+            // the pair. The row it could not delete is no longer permanent
+            // either: BeginAsync now reclaims a reservation older than
+            // IdempotencyReclamation.StaleAfter.
+            Activity.Current?.AddException(releaseFailure);
+        }
     }
 }
