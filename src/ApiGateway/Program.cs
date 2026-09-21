@@ -60,6 +60,32 @@ WebApplication app = builder.Build();
 app.MapDefaultEndpoints();
 app.UseCors();
 app.UseRateLimiter();
+
+// Spec 208 (#2284) review, BLOCKER 1. /streams/authorize is MediaMTX's own
+// anonymous external-auth hook, called directly at the service by service DNS
+// via mediamtx.yml, never through this gateway — confirmed by grepping apps/
+// for "authorize": apps/shared/src/api/streams.api.ts only calls
+// streams/{id}, streams/ and streams/kiosk-latency. The "stream-distribution"
+// catch-all below would otherwise proxy this anonymous route straight to the
+// AllowAnonymous mapping, from the externally-reachable gateway, with no
+// credential and no gateway-level auth. Worse, in this dev/test topology
+// every caller reaching stream-distribution collapses into the same
+// RemoteIpAddress through Aspire's DCP proxy — MediaMTX's own hook calls and
+// any gateway-forwarded traffic alike (see spec 208 spec.md's Assumptions
+// section and WhepAuthorizeRateLimitTests.cs's own remarks) — so an
+// anonymous off-box caller reaching this gateway could exhaust the
+// whep-authorize partition MediaMTX's legitimate calls share, refusing
+// MediaMTX's own calls too and turning the CPU-exhaustion fix into a
+// fab-wide video DoS lever. The gateway's own "per-fab" limiter does not
+// help here since it partitions on the caller-supplied X-Fab header, which
+// is trivially rotated. This literal route has higher routing precedence
+// than the catch-all's {**catch-all} segment regardless of registration
+// order, because ASP.NET Core routing always prefers a literal segment over
+// a catch-all, so this is not order-dependent on the MapReverseProxy call
+// below. The other stream-distribution endpoints stay proxied — only this
+// one path is carved out.
+app.MapPost("/stream-distribution/streams/authorize", () => Results.NotFound());
+
 app.MapReverseProxy();
 
 await app.RunAsync();

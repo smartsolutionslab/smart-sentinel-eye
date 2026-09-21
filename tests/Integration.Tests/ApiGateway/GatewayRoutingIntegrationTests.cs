@@ -45,6 +45,29 @@ public class GatewayRoutingIntegrationTests(AspireFixture aspire)
     }
 
     /// <summary>
+    /// Spec 208 (#2284) review, BLOCKER 1: <c>/streams/authorize</c> is
+    /// MediaMTX's own anonymous, credential-free external-auth hook. MediaMTX
+    /// calls it directly at the service by service DNS (mediamtx.yml), never
+    /// through this externally-reachable gateway, and no browser caller does
+    /// either. Left proxied, an anonymous off-box caller reaching it this way
+    /// would collapse into the same partition MediaMTX's own legitimate calls
+    /// share (spec 208 spec.md Assumptions item 5) and could exhaust the
+    /// whep-authorize ceiling, denying MediaMTX too — the "stream-distribution"
+    /// catch-all must carve this one path out while still forwarding the rest.
+    /// </summary>
+    [Fact]
+    public async Task Gateway_does_not_forward_the_anonymous_whep_authorize_hook()
+    {
+        using HttpClient gateway = await CreateGatewayClientAsync();
+
+        HttpResponseMessage response = await gateway.PostAsJsonAsync(
+            "/stream-distribution/streams/authorize",
+            new { token = (string?)null, path = "cam-anything", action = "read" });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    /// <summary>
     /// ADR-0106 (#1003): the gateway owns one CORS policy for the browser apps.
     /// A CORS preflight (OPTIONS + Origin + Access-Control-Request-Method) for an
     /// allowed origin is answered at the edge — the gateway echoes the origin in
