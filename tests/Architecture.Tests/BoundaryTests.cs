@@ -216,7 +216,10 @@ public class BoundaryTests
     /// <c>V1ResourceMap.Conventions.OptOuts</c>. Catches the case
     /// where a new V1 lands without a resource pivot — the audit
     /// row would still be written but the timeline endpoint
-    /// would never surface it.
+    /// would never surface it. It asserts only that a type has
+    /// <b>an</b> entry, so a wrong entry still passes (#2429) —
+    /// <c>V1ResourceMapTests</c>'s mapping table is the guard that
+    /// asserts which entry.
     /// </summary>
     [Fact]
     public void V1ResourceMap_covers_every_IIntegrationEvent()
