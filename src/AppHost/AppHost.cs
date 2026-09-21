@@ -416,10 +416,20 @@ var streamDistribution = builder
 // a ceiling it can actually cross to observe a 429, while the Playwright e2e
 // wall keeps opening tiles against the real production ceiling so it proves
 // the limiter does not clip a real wall.
+//
+// PermitLimit=30, not 20: spec 002/#2149's WhepHandshakeLatencyTests sends 1
+// warm-up + 20 measured authorize calls = 21 total from this same test host's
+// one address, sharing this partition. 20 left zero headroom, so that
+// pre-existing, unrelated test's 21st call was refused with 429 every run
+// (#2284 phase-5 verification.md §2.1). 30 gives it real margin while keeping
+// WhepAuthorizeRateLimitTests' own PermitLimit+1 exhaustion technique a small
+// request count. Keep tests/Integration.Tests/StreamDistribution/
+// WhepAuthorizeRateLimitTests.cs's own `PermitLimit` literal in sync with
+// this value.
 if (isE2ETests)
 {
     streamDistribution
-        .WithEnvironment("WhepAuthorizeRateLimiting__PermitLimit", "20")
+        .WithEnvironment("WhepAuthorizeRateLimiting__PermitLimit", "30")
         .WithEnvironment("WhepAuthorizeRateLimiting__Window", "00:00:10");
 }
 
