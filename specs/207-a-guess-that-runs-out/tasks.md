@@ -67,7 +67,7 @@ a helper, not the first.
 | SC-3 | `Keycloak_records_the_account_as_temporarily_disabled` | `GET admin/realms/{realm}/attack-detection/brute-force/users/{id}` → **`disabled == true`** is the load-bearing assertion. `numFailures` is asserted `>= 1` and **reported in the failure message**, *not* asserted at `>= failureFactor` — see the trap below |
 | SC-4 | `A_second_account_is_unaffected_while_the_first_is_locked` | with the probe locked, `admin` / `Admin1234` still mints a token. This is the blast-radius guard for the whole suite |
 | SC-5 | `Clearing_the_lockout_restores_authentication` | `DELETE` the attack-detection record → the correct password is accepted again. **An explicit DELETE, never a `Task.Delay` until the lock expires** |
-| — | `A_grant_with_no_username_is_a_bad_request_not_a_lockout` | `400 invalid_request`; the probe account's failure counter does not move |
+| — | `A_grant_with_no_username_is_a_bad_request_not_a_lockout` | `401` with error `invalid_request` (Keycloak 26.6.4's actual status for this shape, not the RFC 6749 §5.2 `400` the error name suggests — the load-bearing check is the `error` value, `invalid_request` never `invalid_grant`); the probe account's failure counter does not move |
 
 **The trap that makes SC-3 lie, stated once so it is not rediscovered.**
 `quickLoginCheckMilliSeconds: 1000` locks an account after **two** failures

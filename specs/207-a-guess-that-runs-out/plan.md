@@ -296,10 +296,18 @@ defect. The slice is small enough that the serialism costs nothing.
   rather than a configuration value — that is a block, and the right outcome
   is an ADR written by a human, not a guess written here.**
 - **Not emit an audit event on lockout.** Constitution §Security says admin
-  and config *writes* are audited; a refused login is neither, and Keycloak's
-  own event log already records it. Wiring lockouts into this system's audit
-  trail is a real feature with a real decision behind it, and it is not this
-  one.
+  and config *writes* are audited; a refused login is neither. **Correction:**
+  an earlier version of this section justified that with "Keycloak's own
+  event log already records it" — checked against the realm import and found
+  wrong. The realm sets no `eventsEnabled`, `eventsListeners` or
+  `enabledEventTypes`; Keycloak defaults `eventsEnabled` to `false`, so
+  nothing is durably recorded anywhere. A lockout today is visible only in
+  the transient, `DELETE`-able attack-detection counter this spec's tests
+  read and clear, and in container stdout with no production sink
+  (ADR-0118). The *conclusion* is unchanged — this spec does not wire
+  `AuditObservability`, and does not enable Keycloak's own persistent event
+  log either — both are separate decisions for a human, not something to
+  default into here on a premise that turned out to be false.
 
 ---
 
