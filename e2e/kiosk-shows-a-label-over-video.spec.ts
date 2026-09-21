@@ -1037,19 +1037,26 @@ function reportLegs(lines: ReadonlyArray<LatencyLine>, malformed: number): void 
 
   // **Why the hold reads empty here, and what its size actually is.** Spec 108
   // phase 4a attributed this to `frameAgeFor` returning null on a wall with no
-  // alignment target. That is not the mechanism. `frameAgeFor`
-  // (`apps/kiosk-web/src/features/cell/useWallAlignment.ts:243`) does not gate on
-  // tile count — it reads a ref during `CellPage`'s render. Below two tiles the
-  // settle interval never runs, so nothing re-renders `CellPage` after the first
-  // lag sample and the tile keeps the `null` it mounted with. Phase 5 proved it
-  // with paired probes on this fixture: one tile gave 0 samples, two tiles gave 10.
+  // alignment target. That was never the mechanism, and spec 204 (#2303)
+  // changed it further: `frameAgeFor`
+  // (`apps/kiosk-web/src/features/cell/useWallAlignment.ts:239`) reads a ref,
+  // gated on nothing — not tile count, not the settle interval, not a render
+  // `CellPage` performs. Each `Tile` now calls it on its own render, driven by
+  // its own RTK Query subscriptions, so a one-tile wall picks up its age on
+  // whichever render happens next rather than never. `no samples` here — if it
+  // still occurs — means this fixture's one tile received no RTK-driven render
+  // after its lag sample arrived, not that the settle interval never ran (it
+  // never did, on one tile, before or after spec 204). Phase 5 proved the OLD
+  // mechanism with paired probes on this fixture: one tile gave 0 samples, two
+  // tiles gave 10 — re-verify this pairing after spec 204 rather than trust it.
   if (!lines.some((line) => line.measurement === 'label_delay')) {
     console.info(
-      '[legs] label_delay reading `no samples` on this ONE-TILE wall is structural, not a quiet run: the ' +
-        'frame age reaches the tile only on a render CellPage performs, and below two tiles the settle ' +
-        'interval that performs one never runs. On a two-tile wall the same fixture yields it at 35-45 ms ' +
-        '(spec 108 verification). So the hold is a real term this span does not contain — and 200 ms is the ' +
-        'cap the budget PERMITS, never an observation.',
+      '[legs] label_delay reading `no samples` on this ONE-TILE wall: since spec 204 (#2303), the frame age ' +
+        'reaches the tile on any render the tile itself performs (its own RTK Query subscriptions), not on a ' +
+        "settle-interval render CellPage performs — so this fixture's tile received no such render after its " +
+        'lag sample arrived, not a structural gap. On a two-tile wall the same fixture yielded it at 35-45 ms ' +
+        '(spec 108 verification, pre-204). So the hold is a real term this span does not contain — and 200 ms ' +
+        'is the cap the budget PERMITS, never an observation.',
     );
   }
 

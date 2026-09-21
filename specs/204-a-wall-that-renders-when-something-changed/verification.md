@@ -120,9 +120,57 @@ changes — that existing mechanism is what keeps the pulled age current, for
 free. This also incidentally fixes the same defect on a 1×1 wall (SC-5),
 which never had the settle-interval crutch to begin with.
 
-## Phase 6 — pending
+## Phase 6
 
-`frontend-reviewer`, with plan.md §5's re-anchoring table (four assertions
-moved, none dropped) and the jitter-vs-constant testability distinction as
-the deliberate items to raise. `/security-review` skipped — no trust
-boundary, endpoint, scope, or token handling is touched.
+`frontend-reviewer` ran. **No blockers** — the reviewer traced the
+`frameAgeFor` mechanism itself (not just the tests written for it) and
+confirmed the fix is correct: `Tile`'s own RTK Query subscriptions genuinely
+keep the pulled age current, and the age-read/text-read ordering inside
+`Tile`'s render makes a hold's starting age exactly the one delivered with
+its triggering text change. `/security-review` skipped — no trust boundary,
+endpoint, scope, or token handling is touched.
+
+### Should-fix items, applied
+
+- **A stale e2e comment/diagnostic in `e2e/kiosk-shows-a-label-over-video.spec.ts`**
+  described the mechanism this fix removes as current fact, with a citation
+  line number now off by four. Corrected to describe the new
+  RTK-subscription-driven mechanism and its actual consequence for a
+  one-tile wall (the diagnostic can still fire, now for a different reason —
+  no RTK-driven render happened to land after the lag sample, not "the
+  settle interval never runs" since that was never gated on tile count to
+  begin with).
+- **`spec.md`'s testability trap was mis-stated** — "a test that feeds round
+  numbers asserts nothing" is false; varying integers reproduce the defect
+  fine. What must be avoided is a *constant* spread, which hits React's own
+  `Object.is` bail-out regardless of whether the values are round. Corrected.
+
+### Should-fix, recorded rather than changed
+
+- **SC-4's timing margin is thin** (~15ms of real-wall-clock slack between
+  the two lag values' scheduled timeouts, since the deadband caps their
+  separation at 33ms and the assertion must land strictly between them).
+  Stable across 5 local runs on an idle machine. Not widened — the deadband
+  bounds how much margin is available at all, and replacing the fixed sleep
+  with a polling capture would be more code than this fix's scope
+  warrants (ADR-0036). If this test ever flakes in CI, that is the fix to
+  reach for.
+- **`tasks.md` T003(b) specified a second lag value of 105 against a first
+  of 100; the implementation used 130.** A larger, still-in-deadband gap
+  makes the two ages more clearly distinguishable in the assertion and
+  doesn't change what's being proven — noted here since the deviation from
+  the task spec wasn't otherwise recorded anywhere.
+- **Phase 5's manual browser/Profiler observation (T009) was not performed**
+  — reasoning above. Recorded here and in the PR body per the reviewer's
+  note that this decision belongs where a human merging the PR will see it,
+  not only in this file.
+
+### Nit, filed as a follow-up rather than fixed here
+
+`frameAgeFor`'s doc comment ("stale samples age out of `lagsRef` on the
+settle cycle, so a departed tile stops reporting an age rather than
+reporting an old one") is only true when the settle interval runs — never
+the case for a one-tile wall, where a camera that stops reporting keeps its
+last age forever. Pre-existing and untouched by this diff, but SC-5 makes
+this read path load-bearing for the first time, so the gap is newly
+meaningful rather than theoretical. Out of this spec's scope.
