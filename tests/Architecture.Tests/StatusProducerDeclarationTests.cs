@@ -176,6 +176,16 @@ public class StatusProducerDeclarationTests
             "Every_route_whose_handler_can_answer_400_declares_it_on_its_own_chain"),
         new("M13", "route-constraint mismatch", "404", Visibility.Chain, null, null),
         new("M14", "ApiGateway fixed-window rate limiter", "429", Visibility.None, null, null),
+        // Unlike M14, this one is declared on the mapping chain itself
+        // (StreamEndpoints.cs's /authorize mapping, .ProducesProblem(429)),
+        // so it is Chain-visible rather than None. Precondition worth
+        // recording next to the mechanism (spec 208 §Partition key): the
+        // partition key is the connection's remote address, which is exact
+        // only because nothing in src configures ForwardedHeaders /
+        // UseForwardedHeaders today — a later change that enables it without
+        // KnownProxies would let a caller spoof its own partition key via
+        // X-Forwarded-For and silently unbound this limiter.
+        new("M15", "StreamDistribution /streams/authorize fixed-window rate limiter", "429", Visibility.Chain, null, null),
     ];
 
     /// <summary>The endpoint files, found by glob and never named, one theory case each.</summary>
