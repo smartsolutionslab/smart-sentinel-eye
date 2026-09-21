@@ -27,8 +27,8 @@ function AuthGate() {
   setSessionRenewer(() =>
     auth
       .signinSilent()
-      .then((user) => user !== null)
-      .catch(() => false),
+      .then((user) => user?.access_token)
+      .catch(() => undefined),
   );
   setOnSessionExpired(() => setSessionExpired(true));
 

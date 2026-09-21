@@ -3,10 +3,10 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import type { AuthContextProps } from 'react-oidc-context';
 import { ErrorResponse } from 'oidc-client-ts';
 
-const renewer = vi.hoisted(() => ({ current: undefined as (() => Promise<boolean>) | undefined }));
+const renewer = vi.hoisted(() => ({ current: undefined as (() => Promise<string | undefined>) | undefined }));
 
 vi.mock('@smart-sentinel-eye/shared/api/gateway', () => ({
-  setSessionRenewer: (fn: () => Promise<boolean>) => {
+  setSessionRenewer: (fn: () => Promise<string | undefined>) => {
     renewer.current = fn;
   },
   setOnSessionExpired: () => undefined,
@@ -45,14 +45,21 @@ describe('The renewer keeps its contract (spec 051 T011)', () => {
   afterEach(() => vi.restoreAllMocks());
 
   /**
-   * **The gateway's 401 path depends on this boolean and can see none of the
-   * screens this feature adds.**
+   * **The gateway's 401 path depends on this token, not a boolean.** #2301: a
+   * boolean told the retry a renewal happened and withheld the one thing it
+   * needed to retry with — the token itself.
    *
    * <p>
    * Classifying the rejection means touching the one line that used to discard
    * it. If that changed what the renewer resolves to, every authenticated
    * request would misread a failed renewal — and nothing on any screen would
    * show it.
+   * </p>
+   *
+   * <p>
+   * This is the only place the <b>real</b> {@link useSessionExpiry} registers
+   * its renewer, so it is the guard against `staleBearerRetry.test.tsx`'s
+   * mirror drifting from the original it copies.
    * </p>
    */
   it('Still resolves false when renewal fails, having classified the cause on the way past', async () => {
@@ -63,7 +70,7 @@ describe('The renewer keeps its contract (spec 051 T011)', () => {
     renderHook(() => useSessionExpiry(auth));
 
     expect(renewer.current).toBeDefined();
-    await expect(renewer.current?.()).resolves.toBe(false);
+    await expect(renewer.current?.()).resolves.toBeUndefined();
   });
 
   it('Still resolves true when renewal succeeds', async () => {
@@ -73,13 +80,13 @@ describe('The renewer keeps its contract (spec 051 T011)', () => {
 
     renderHook(() => useSessionExpiry(auth));
 
-    await expect(renewer.current?.()).resolves.toBe(true);
+    await expect(renewer.current?.()).resolves.toBe('a');
   });
 
   it('Still resolves false when renewal returns no user', async () => {
     renderHook(() => useSessionExpiry(authWith()));
 
-    await expect(renewer.current?.()).resolves.toBe(false);
+    await expect(renewer.current?.()).resolves.toBeUndefined();
   });
 });
 

@@ -54,9 +54,16 @@ export const setAccessTokenProvider = (provider: AccessTokenGetter): void => {
 // singletons for the same reason as setAccessTokenProvider: the shared clients
 // are app-agnostic, and registration must happen during render, before the
 // first query dispatches.
-type SessionRenewer = () => Promise<boolean>;
+//
+// Spec 205 (#2301): a boolean tells the retry that a renewal happened and
+// withholds the one thing it needs. `react-oidc-context` publishes the renewed
+// user through a `useReducer` dispatch, which React schedules as a macrotask;
+// the retry below is a microtask on the renewal's own promise chain and always
+// runs first. Reading the token from any render-written slot — a module getter
+// or a ref alike — therefore re-sends the bearer that just failed.
+type SessionRenewer = () => Promise<string | undefined>;
 
-let sessionRenewer: SessionRenewer = () => Promise.resolve(false);
+let sessionRenewer: SessionRenewer = () => Promise.resolve(undefined);
 let onSessionExpired: () => void = () => undefined;
 
 export const setSessionRenewer = (renew: SessionRenewer): void => {
@@ -67,35 +74,40 @@ export const setOnSessionExpired = (handler: () => void): void => {
   onSessionExpired = handler;
 };
 
+const isUsable = (token: string | undefined): token is string => token !== undefined && token !== '';
+
 // A burst of queries after token death must not stampede the identity
 // provider: every concurrent 401 awaits the single in-flight renewal.
-let renewalInFlight: Promise<boolean> | null = null;
+let renewalInFlight: Promise<string | undefined> | null = null;
 
-const renewSessionOnce = (): Promise<boolean> => {
+const renewSessionOnce = (): Promise<string | undefined> => {
   if (renewalInFlight === null) {
     logResilienceEvent('session', 'renew-start');
     renewalInFlight = sessionRenewer()
-      .catch(() => false)
-      .then((renewed) => {
+      .catch(() => undefined)
+      .then((token) => {
         renewalInFlight = null;
-        logResilienceEvent('session', renewed ? 'renew-success' : 'renew-failure');
-        return renewed;
+        logResilienceEvent('session', isUsable(token) ? 'renew-success' : 'renew-failure');
+        return token;
       });
   }
   return renewalInFlight;
 };
 
-export const gatewayBaseQuery = (route: string): ReturnType<typeof fetchBaseQuery> => {
-  const baseQuery = fetchBaseQuery({
+const gatewayQueryFor = (route: string, bearer: AccessTokenGetter): ReturnType<typeof fetchBaseQuery> =>
+  fetchBaseQuery({
     baseUrl: gatewayApiUrl(route),
     prepareHeaders: (headers) => {
-      const token = accessTokenProvider();
-      if (token !== undefined && token !== '') {
+      const token = bearer();
+      if (isUsable(token)) {
         headers.set('Authorization', `Bearer ${token}`);
       }
       return headers;
     },
   });
+
+export const gatewayBaseQuery = (route: string): ReturnType<typeof fetchBaseQuery> => {
+  const baseQuery = gatewayQueryFor(route, () => accessTokenProvider());
 
   return async (args, queryApi, extraOptions) => {
     let result = await baseQuery(args, queryApi, extraOptions);
@@ -103,8 +115,9 @@ export const gatewayBaseQuery = (route: string): ReturnType<typeof fetchBaseQuer
       return result;
     }
 
-    if (await renewSessionOnce()) {
-      result = await baseQuery(args, queryApi, extraOptions);
+    const renewed = await renewSessionOnce();
+    if (isUsable(renewed)) {
+      result = await gatewayQueryFor(route, () => renewed)(args, queryApi, extraOptions);
       if (result.error === undefined || result.error.status !== 401) {
         return result;
       }

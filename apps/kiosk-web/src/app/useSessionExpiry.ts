@@ -164,10 +164,11 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
 
   // Registered during render for the same reason as setAccessTokenProvider in
   // AuthGate: an effect would race the first query's 401 renewal path.
-  // **The renewer still resolves to the same boolean** — the gateway's 401 path
-  // depends on it and cannot see any of the screens this feature adds — but the
-  // rejection is classified on the way past instead of being discarded. That one
-  // thrown-away value is what made every identity failure look alike.
+  // **The renewer now resolves the token itself** (spec 205, #2301) — the
+  // gateway's 401 path depends on it and cannot see any of the screens this
+  // feature adds — but the rejection is classified on the way past instead of
+  // being discarded. That one thrown-away value is what made every identity
+  // failure look alike.
   //
   // Registered during render for the reason given above, and the callback now
   // closes over `beginReauthentication` — which reads the redirect guard's ref.
@@ -180,12 +181,14 @@ export function useSessionExpiry(auth: AuthContextProps): SessionExpiryResult {
       .signinSilent()
       .then((user) => {
         renewalInFlight.current = false;
-        return user !== null;
+        // A user with no access_token counts as a failed renewal (spec 205 A2):
+        // a retry with no credential can only 401.
+        return user?.access_token;
       })
       .catch((cause: unknown) => {
         renewalInFlight.current = false;
         beginReauthentication(cause);
-        return false;
+        return undefined;
       });
   });
   // Registered during render on purpose, for the reason given above: moving

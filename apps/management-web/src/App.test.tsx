@@ -11,7 +11,7 @@ const oidcMocks = vi.hoisted(() => ({
 // The AuthGate registers its session hooks against the shared gateway module
 // singletons; capture them so tests can drive the 401-renewal/expiry flow.
 const sessionCallbacks = vi.hoisted(() => ({
-  renew: undefined as (() => Promise<boolean>) | undefined,
+  renew: undefined as (() => Promise<string | undefined>) | undefined,
   expired: undefined as (() => void) | undefined,
 }));
 
@@ -19,7 +19,7 @@ vi.mock('@smart-sentinel-eye/shared/api/gateway', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/gateway')>();
   return {
     ...actual,
-    setSessionRenewer: (renew: () => Promise<boolean>) => {
+    setSessionRenewer: (renew: () => Promise<string | undefined>) => {
       sessionCallbacks.renew = renew;
     },
     setOnSessionExpired: (handler: () => void) => {
@@ -210,10 +210,10 @@ describe('App shell', () => {
     );
 
     oidcMocks.signinSilent.mockResolvedValueOnce({ access_token: 'fresh' });
-    await expect(sessionCallbacks.renew?.()).resolves.toBe(true);
+    await expect(sessionCallbacks.renew?.()).resolves.toBe('fresh');
 
     oidcMocks.signinSilent.mockResolvedValueOnce(null);
-    await expect(sessionCallbacks.renew?.()).resolves.toBe(false);
+    await expect(sessionCallbacks.renew?.()).resolves.toBeUndefined();
   });
 
   it('Contains an uncaught rendering error in a bounded panel while the nav stays alive', async () => {

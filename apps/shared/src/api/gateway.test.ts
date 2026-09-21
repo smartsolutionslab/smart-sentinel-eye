@@ -5,7 +5,8 @@ import type { BaseQueryApi } from '@reduxjs/toolkit/query';
 // so the node test environment builds absolute request URLs (Node's fetch and
 // Request reject relative ones).
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
-const { gatewayBaseQuery, setOnSessionExpired, setSessionRenewer } = await import('./gateway.js');
+const { gatewayBaseQuery, setAccessTokenProvider, setOnSessionExpired, setSessionRenewer } =
+  await import('./gateway.js');
 
 const queryApi = {
   signal: new AbortController().signal,
@@ -30,6 +31,13 @@ const serverError = () =>
     headers: { 'content-type': 'application/json' },
   });
 
+// Spec 205 (#2301): #2301's suggested `fetchMock.mock.calls[1][1].headers` would
+// throw. RTK Query 2.12.0 builds a `Request` and calls `fetchFn(request)` with
+// ONE argument (@reduxjs/toolkit/dist/query/rtk-query.modern.mjs:226,233), so
+// `calls[n][1]` is `undefined` and the header lives on the `Request` at
+// `calls[n][0]`. Confirmed against the installed 2.12.0 dist, not assumed.
+const authorizationOf = (call: unknown[]): string | null => (call[0] as Request).headers.get('authorization');
+
 const fetchMock = vi.fn();
 
 describe('gatewayBaseQuery reauth', () => {
@@ -37,6 +45,9 @@ describe('gatewayBaseQuery reauth', () => {
     fetchMock.mockReset();
     vi.stubGlobal('fetch', fetchMock);
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    // Reset the module-level provider between tests so a header assertion in
+    // one test cannot read a bearer a previous test registered.
+    setAccessTokenProvider(() => undefined);
   });
 
   afterEach(() => {
@@ -44,9 +55,10 @@ describe('gatewayBaseQuery reauth', () => {
     vi.restoreAllMocks();
   });
 
-  it('Renews once on 401 and returns the result of the retried request', async () => {
+  it('Renews once on 401 and retries with the token the renewal minted', async () => {
     fetchMock.mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(ok());
-    const renew = vi.fn(() => Promise.resolve(true));
+    setAccessTokenProvider(() => 'old-token');
+    const renew = vi.fn(() => Promise.resolve('new-token'));
     const expired = vi.fn();
     setSessionRenewer(renew);
     setOnSessionExpired(expired);
@@ -57,11 +69,15 @@ describe('gatewayBaseQuery reauth', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result.data).toEqual({ ok: true });
     expect(expired).not.toHaveBeenCalled();
+    // This is the assertion #2301 asks for, and it is red today: the retry
+    // re-sends the bearer that just failed instead of the renewal's token.
+    expect(authorizationOf(fetchMock.mock.calls[0]!)).toBe('Bearer old-token');
+    expect(authorizationOf(fetchMock.mock.calls[1]!)).toBe('Bearer new-token');
   });
 
-  it('Escalates to onSessionExpired and returns the 401 when the renewer reports failure', async () => {
+  it('A renewal that yields no token is a failed renewal', async () => {
     fetchMock.mockResolvedValueOnce(unauthorized());
-    const renew = vi.fn(() => Promise.resolve(false));
+    const renew = vi.fn(() => Promise.resolve(undefined));
     const expired = vi.fn();
     setSessionRenewer(renew);
     setOnSessionExpired(expired);
@@ -74,9 +90,50 @@ describe('gatewayBaseQuery reauth', () => {
     expect(expired).toHaveBeenCalledTimes(1);
   });
 
-  it('Escalates to onSessionExpired once when the retried request is rejected again', async () => {
+  it('A renewal that yields an empty token is a failed renewal', async () => {
+    fetchMock.mockResolvedValueOnce(unauthorized());
+    const renew = vi.fn(() => Promise.resolve(''));
+    const expired = vi.fn();
+    setSessionRenewer(renew);
+    setOnSessionExpired(expired);
+
+    const result = await gatewayBaseQuery('cameras')('items', queryApi, {});
+
+    expect(renew).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.error?.status).toBe(401);
+    expect(expired).toHaveBeenCalledTimes(1);
+  });
+
+  it('A renewal that rejects is a failed renewal', async () => {
+    fetchMock.mockResolvedValueOnce(unauthorized());
+    // Explicit type argument: Promise.reject<T>()'s default T=never would
+    // otherwise fix this mock's inferred type, and the reuse below (a
+    // different renewer resolving a token) wouldn't typecheck against it.
+    const renew = vi.fn(() => Promise.reject<string | undefined>(new Error('renewal transport failed')));
+    const expired = vi.fn();
+    setSessionRenewer(renew);
+    setOnSessionExpired(expired);
+
+    const result = await gatewayBaseQuery('cameras')('items', queryApi, {});
+
+    expect(renew).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.error?.status).toBe(401);
+    expect(expired).toHaveBeenCalledTimes(1);
+
+    // Pins that the in-flight renewal promise is cleared on rejection too, so
+    // a later 401 renews again rather than reusing a settled promise.
+    fetchMock.mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(ok());
+    renew.mockImplementation(() => Promise.resolve('later-token'));
+    await gatewayBaseQuery('cameras')('items', queryApi, {});
+    expect(renew).toHaveBeenCalledTimes(2);
+  });
+
+  it('A retry the server still refuses expires the session', async () => {
     fetchMock.mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(unauthorized());
-    const renew = vi.fn(() => Promise.resolve(true));
+    setAccessTokenProvider(() => 'old-token');
+    const renew = vi.fn(() => Promise.resolve('new-token'));
     const expired = vi.fn();
     setSessionRenewer(renew);
     setOnSessionExpired(expired);
@@ -87,11 +144,14 @@ describe('gatewayBaseQuery reauth', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result.error?.status).toBe(401);
     expect(expired).toHaveBeenCalledTimes(1);
+    // Proves the escalation is not caused by a stale credential: the retry the
+    // server refused already carried the renewal's own token.
+    expect(authorizationOf(fetchMock.mock.calls[1]!)).toBe('Bearer new-token');
   });
 
   it('Passes non-401 errors through without renewing', async () => {
     fetchMock.mockResolvedValueOnce(serverError());
-    const renew = vi.fn(() => Promise.resolve(true));
+    const renew = vi.fn(() => Promise.resolve('new-token'));
     const expired = vi.fn();
     setSessionRenewer(renew);
     setOnSessionExpired(expired);
@@ -105,7 +165,7 @@ describe('gatewayBaseQuery reauth', () => {
 
   it('Passes successful responses through without renewing', async () => {
     fetchMock.mockResolvedValueOnce(ok());
-    const renew = vi.fn(() => Promise.resolve(true));
+    const renew = vi.fn(() => Promise.resolve('new-token'));
     setSessionRenewer(renew);
     setOnSessionExpired(vi.fn());
 
@@ -115,15 +175,25 @@ describe('gatewayBaseQuery reauth', () => {
     expect(renew).not.toHaveBeenCalled();
   });
 
-  it('Shares one in-flight renewal between concurrent 401s and retries both afterwards', async () => {
-    let resolveRenew: (renewed: boolean) => void = () => undefined;
+  it('A request with no registered token carries no Authorization header', async () => {
+    fetchMock.mockResolvedValueOnce(ok());
+    setOnSessionExpired(vi.fn());
+
+    await gatewayBaseQuery('cameras')('items', queryApi, {});
+
+    expect(authorizationOf(fetchMock.mock.calls[0]!)).toBeNull();
+  });
+
+  it('Shares one renewal between concurrent 401s and retries both with the same new token', async () => {
+    let resolveRenew: (renewed: string | undefined) => void = () => undefined;
     const renew = vi.fn(
       () =>
-        new Promise<boolean>((resolve) => {
+        new Promise<string | undefined>((resolve) => {
           resolveRenew = resolve;
         }),
     );
     const expired = vi.fn();
+    setAccessTokenProvider(() => 'old-token');
     setSessionRenewer(renew);
     setOnSessionExpired(expired);
     fetchMock.mockImplementation(() => Promise.resolve(ok()));
@@ -134,7 +204,7 @@ describe('gatewayBaseQuery reauth', () => {
     const second = baseQuery('b', queryApi, {});
     await vi.waitFor(() => expect(renew).toHaveBeenCalledTimes(1));
 
-    resolveRenew(true);
+    resolveRenew('new-token');
     const [firstResult, secondResult] = await Promise.all([first, second]);
 
     expect(renew).toHaveBeenCalledTimes(1);
@@ -142,5 +212,7 @@ describe('gatewayBaseQuery reauth', () => {
     expect(firstResult.data).toEqual({ ok: true });
     expect(secondResult.data).toEqual({ ok: true });
     expect(expired).not.toHaveBeenCalled();
+    expect(authorizationOf(fetchMock.mock.calls[2]!)).toBe('Bearer new-token');
+    expect(authorizationOf(fetchMock.mock.calls[3]!)).toBe('Bearer new-token');
   });
 });
