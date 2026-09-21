@@ -359,9 +359,16 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     [Fact]
     public async Task A_partition_entering_the_throttled_state_is_logged_once()
     {
+        // Captured before anything in this fact runs, so the count below is
+        // the delta this fact itself produced — never the raw tail, which
+        // can already carry a prior fact's own transition record (the same
+        // shared-address, shared-log-tail hazard WaitUntilAdmittedAgainAsync
+        // guards on the window side).
+        int baseline = ThrottleTransitionLogLineCount();
+
         await ExhaustWindowAsync();
 
-        int transitionLogCount = await ThrottleTransitionLogLineCountAsync(LogAbsenceGraceWindow);
+        int transitionLogCount = await ThrottleTransitionLogLineCountAsync(LogAbsenceGraceWindow, baseline);
 
         transitionLogCount.ShouldBe(
             1,
@@ -394,9 +401,17 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     [Fact]
     public async Task Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record()
     {
+        // Captured before anything in this fact runs — see the same baseline
+        // capture in A_partition_entering_the_throttled_state_is_logged_once.
+        // Without it, a prior fact's own leftover transition record (e.g.
+        // left by A_throttled_authorize_never_reaches_the_handler throwing
+        // before it reached WaitUntilAdmittedAgainAsync) would be counted as
+        // this fact's own.
+        int baseline = ThrottleTransitionLogLineCount();
+
         await ExhaustWindowAsync();
 
-        int afterTransition = await ThrottleTransitionLogLineCountAsync(LogAbsenceGraceWindow);
+        int afterTransition = await ThrottleTransitionLogLineCountAsync(LogAbsenceGraceWindow, baseline);
 
         for (int i = 0; i < 5; i++)
         {
@@ -408,7 +423,7 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
         // fixed pause only guards against a slow-but-real second delivery
         // being missed by reading the tail before it lands.
         await Task.Delay(PollInterval);
-        int afterRepeats = ThrottleTransitionLogLineCount();
+        int afterRepeats = ThrottleTransitionLogLineCount(baseline);
 
         afterTransition.ShouldBe(
             1,
@@ -490,6 +505,18 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
 
             if (status != HttpStatusCode.TooManyRequests)
             {
+                // The admission probe above consumed one permit slot in
+                // *this* window. Returning immediately would hand the next
+                // fact in AspireCollection's sequence (milliseconds later,
+                // well inside this 10s test-mode Window) a window with 1
+                // slot already spent rather than a fresh PermitLimit-sized
+                // budget — exactly what poisoned
+                // A_throttled_authorize_never_reaches_the_handler's own
+                // admitted-request math. Wait out the rest of this same
+                // window, observed from the moment admission was confirmed,
+                // so the next fact always starts against a genuinely fresh
+                // one.
+                await Task.Delay(Window);
                 return;
             }
 
@@ -529,22 +556,30 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
 
     /// <summary>
     /// Polls up to <paramref name="settleTimeout"/> for
-    /// <see cref="ThrottleTransitionLogLineCount"/> to become non-zero, then
-    /// returns whatever the count is at that point (which is <c>0</c> if it
-    /// never did). Mirrors <see cref="MarkerEverAppearsInLogsAsync"/>'s
-    /// settle-then-read shape, but returns a count rather than a boolean
-    /// because <see cref="Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record"/>
+    /// <see cref="ThrottleTransitionLogLineCount"/> to become non-zero (against
+    /// <paramref name="baseline"/>), then returns whatever the count is at
+    /// that point (which is <c>0</c> if it never did). Mirrors
+    /// <see cref="MarkerEverAppearsInLogsAsync"/>'s settle-then-read shape,
+    /// but returns a count rather than a boolean because
+    /// <see cref="Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record"/>
     /// needs to see the count hold, not merely appear.
     /// </summary>
-    private async Task<int> ThrottleTransitionLogLineCountAsync(TimeSpan settleTimeout)
+    /// <param name="settleTimeout">How long to keep polling for the count to move off zero.</param>
+    /// <param name="baseline">
+    /// The count read before this fact drove any throttling behaviour — see
+    /// <see cref="ThrottleTransitionLogLineCount"/>. Subtracted so the result
+    /// is the delta this fact itself produced, not the whole tail's raw
+    /// count, which can already carry a prior fact's own transition record.
+    /// </param>
+    private async Task<int> ThrottleTransitionLogLineCountAsync(TimeSpan settleTimeout, int baseline = 0)
     {
         DateTimeOffset deadline = DateTimeOffset.UtcNow + settleTimeout;
-        int count = ThrottleTransitionLogLineCount();
+        int count = ThrottleTransitionLogLineCount(baseline);
 
         while (count == 0 && DateTimeOffset.UtcNow < deadline)
         {
             await Task.Delay(PollInterval);
-            count = ThrottleTransitionLogLineCount();
+            count = ThrottleTransitionLogLineCount(baseline);
         }
 
         return count;
@@ -556,13 +591,24 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     /// those substrings identify this specific control's transition record
     /// rather than an unrelated log line.
     /// </summary>
-    private int ThrottleTransitionLogLineCount()
+    /// <param name="baseline">
+    /// Subtracted from the raw tail count. <c>0</c> (the default) reads the
+    /// tail's absolute count — used only to capture a fresh baseline at the
+    /// very start of a fact, before it drives any throttling behaviour.
+    /// Every later read in the same fact must pass that baseline back in, so
+    /// the result is "log lines this fact itself produced", not "log lines
+    /// in the whole shared tail" — the latter also counts whatever a prior
+    /// fact in this collection left behind.
+    /// </param>
+    private int ThrottleTransitionLogLineCount(int baseline = 0)
     {
         string[] lines = aspire.RecentLogs(StreamDistributionResource, lines: 400)
             .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
 
-        return lines.Count(line => ThrottleTransitionMarkers.Any(
+        int count = lines.Count(line => ThrottleTransitionMarkers.Any(
             marker => line.Contains(marker, StringComparison.OrdinalIgnoreCase)));
+
+        return count - baseline;
     }
 
     /// <summary>
