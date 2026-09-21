@@ -30,7 +30,17 @@ public sealed class OverlayTextVersionStore(SystemVariablesDbContext dbContext) 
     {
         Ensure.That(overlayIdentifiers).IsNotNull();
 
-        Guid[] distinctIdentifiers = [.. overlayIdentifiers.Distinct()];
+        // Sorted, not just de-duplicated (phase-6 review). This statement runs
+        // inside Wolverine's ambient pre-commit transaction (ADR-0088), so the
+        // ON CONFLICT DO UPDATE row locks it takes are held until the caller's
+        // own commit, not released at the end of this statement. Two
+        // concurrent fan-outs sharing two overlays but processing them in
+        // opposite array order would each hold one lock and wait on the
+        // other's — a deadlock Postgres would abort after deadlock_timeout
+        // (1s, five times this leg's own 200ms budget), dropping the losing
+        // side's change outright since nothing here retries. A single,
+        // deterministic lock order makes that interleaving unconstructible.
+        Guid[] distinctIdentifiers = [.. overlayIdentifiers.Distinct().Order()];
 
         const string sql =
             """
@@ -42,7 +52,7 @@ public sealed class OverlayTextVersionStore(SystemVariablesDbContext dbContext) 
             """;
 
         List<OverlayTextVersionRow> rows = await dbContext.Database
-            .SqlQueryRaw<OverlayTextVersionRow>(sql, distinctIdentifiers, Floor)
+            .SqlQueryRaw<OverlayTextVersionRow>(sql, [distinctIdentifiers, Floor])
             .ToListAsync(cancellationToken);
 
         Dictionary<Guid, long> versionByOverlay = rows.ToDictionary(row => row.OverlayIdentifier, row => row.Version);
@@ -63,11 +73,11 @@ public sealed class OverlayTextVersionStore(SystemVariablesDbContext dbContext) 
             SELECT version AS "Value" FROM overlay_text_version WHERE overlay_identifier = {0};
             """;
 
-        long?[] versions = await dbContext.Database
-            .SqlQueryRaw<long?>(sql, overlayIdentifier)
+        long[] versions = await dbContext.Database
+            .SqlQueryRaw<long>(sql, overlayIdentifier)
             .ToArrayAsync(cancellationToken);
 
-        return versions.Length == 1 && versions[0] is { } version ? version : 0;
+        return versions.FirstOrDefault();
     }
 
     private sealed record OverlayTextVersionRow(Guid OverlayIdentifier, long Version);

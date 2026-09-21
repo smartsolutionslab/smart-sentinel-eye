@@ -112,12 +112,22 @@ Run 1: median 28 ms, worst 41 ms, samples [18, 18, 28, 30, 41] ms
 Run 2: median 22 ms, worst 88 ms, samples [11, 11, 22, 81, 88] ms
 ```
 
-No regression — the after-fix medians (28 ms, 22 ms) sit inside the same
-noise band as the before-fix medians (36 ms, 38 ms), and every single sample
-across all four runs stays far under the 200 ms budget. The added SQL
-round-trip (one `INSERT ... SELECT unnest(...) ... ON CONFLICT DO UPDATE` per
-fan-out, not per overlay) is not measurably distinguishable from ordinary
-run-to-run variance.
+**What this does and doesn't show (phase-6 review, backend-reviewer):**
+the after-fix medians (28 ms, 22 ms) are *lower* than before (36 ms, 38 ms),
+which a real regression cannot produce — so all four numbers are run-to-run
+noise, not a measurement of the added statement's cost, and n=5 per run
+means each median has wide sampling variance (the after-fix worst case alone
+swung from 41 ms to 88 ms between the two runs). Honestly stated: this
+methodology excludes a regression above roughly ±15 ms; it cannot resolve
+the sub-millisecond cost a single parameterized `INSERT` actually adds, and
+every sample across all four runs staying far under the 200 ms budget is the
+real evidence here, not the medians' similarity. It also does not exercise
+the case most likely to show a real cost — concurrent changes to
+overlapping overlay sets, where `AdvanceAsync`'s row locks are now held
+until the caller's ambient transaction commits (see the phase-6 deadlock
+finding fixed in the SQL itself, via a deterministic lock order). A future
+measurement wanting to isolate the actual added cost should time
+`AdvanceAsync` directly with a much larger sample, not infer it end-to-end.
 
 ## Rejected fix directions
 
