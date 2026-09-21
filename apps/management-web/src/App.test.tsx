@@ -214,6 +214,12 @@ describe('App shell', () => {
 
     oidcMocks.signinSilent.mockResolvedValueOnce(null);
     await expect(sessionCallbacks.renew?.()).resolves.toBeUndefined();
+
+    // Spec 205 (#2301) assumption A2: a user with no access_token is a failed
+    // renewal too, not just the null-user case above - a retry with no
+    // credential can only 401.
+    oidcMocks.signinSilent.mockResolvedValueOnce({});
+    await expect(sessionCallbacks.renew?.()).resolves.toBeUndefined();
   });
 
   it('Contains an uncaught rendering error in a bounded panel while the nav stays alive', async () => {

@@ -107,6 +107,14 @@ const gatewayQueryFor = (route: string, bearer: AccessTokenGetter): ReturnType<t
   });
 
 export const gatewayBaseQuery = (route: string): ReturnType<typeof fetchBaseQuery> => {
+  // `() => accessTokenProvider()`, not `accessTokenProvider` — every RTK
+  // client below calls this at MODULE scope, at import time, long before
+  // AuthGate renders and calls setAccessTokenProvider. Passing the binding
+  // directly would capture today's value (the `() => undefined` default)
+  // forever; the wrapper defers the read to request time instead, by which
+  // point registration has happened (phase-6 review, #2301 — the same class
+  // of stale-closure bug this whole fix exists to close, one line away from
+  // reintroducing it).
   const baseQuery = gatewayQueryFor(route, () => accessTokenProvider());
 
   return async (args, queryApi, extraOptions) => {

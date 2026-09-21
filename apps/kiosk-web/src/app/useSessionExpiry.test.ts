@@ -62,7 +62,7 @@ describe('The renewer keeps its contract (spec 051 T011)', () => {
    * mirror drifting from the original it copies.
    * </p>
    */
-  it('Still resolves false when renewal fails, having classified the cause on the way past', async () => {
+  it('Still resolves undefined when renewal fails, having classified the cause on the way past', async () => {
     const auth = authWith({
       signinSilent: vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))),
     } as Partial<AuthContextProps>);
@@ -73,7 +73,7 @@ describe('The renewer keeps its contract (spec 051 T011)', () => {
     await expect(renewer.current?.()).resolves.toBeUndefined();
   });
 
-  it('Still resolves true when renewal succeeds', async () => {
+  it('Still resolves the token when renewal succeeds', async () => {
     const auth = authWith({
       signinSilent: vi.fn(() => Promise.resolve({ access_token: 'a' })),
     } as unknown as Partial<AuthContextProps>);
@@ -83,8 +83,25 @@ describe('The renewer keeps its contract (spec 051 T011)', () => {
     await expect(renewer.current?.()).resolves.toBe('a');
   });
 
-  it('Still resolves false when renewal returns no user', async () => {
+  it('Still resolves undefined when renewal returns no user', async () => {
     renderHook(() => useSessionExpiry(authWith()));
+
+    await expect(renewer.current?.()).resolves.toBeUndefined();
+  });
+
+  /**
+   * Spec 205 (#2301) assumption A2: a user with no access_token is a FAILED
+   * renewal, not a success — a retry with no credential can only 401. The
+   * previous contract (`user !== null`) could not distinguish this from the
+   * success case above; this is the one case that actually exercises the
+   * mapping the fix changed, rather than the two boundaries either side of it.
+   */
+  it('Still resolves undefined when renewal returns a user with no access_token', async () => {
+    const auth = authWith({
+      signinSilent: vi.fn(() => Promise.resolve({})),
+    } as unknown as Partial<AuthContextProps>);
+
+    renderHook(() => useSessionExpiry(auth));
 
     await expect(renewer.current?.()).resolves.toBeUndefined();
   });

@@ -201,9 +201,14 @@ Nothing is added to the resilience log per request.
 
 **New file:** `apps/management-web/src/app/staleBearerRetry.test.tsx`.
 
-management-web is the right home: it is the app with no `automaticSilentRenew`
-(`src/app/auth.ts:22-46`), so the 401 path is its only renewal path, and its
-`AuthGate` registers the renewer inline at `App.tsx:26-33`.
+management-web is the right home: its `AuthGate` registers the renewer inline
+at `App.tsx:26-33`, in the same synchronous-during-render style the bug lives
+in. (Its `oidcConfig` sets no `automaticSilentRenew` at `src/app/auth.ts:22-46`
+— **correction, phase-6 review: this does not make the 401 path its only
+renewal path**. `oidc-client-ts@3.5.0` defaults that setting to `true`, so
+management-web already runs background renewal exactly as kiosk-web does; it
+simply never states so. The `AuthGate` registration shape, not the absence of
+another renewal path, is why this app is the right home for the test.)
 
 The existing `App.test.tsx` **mocks `react-oidc-context` wholesale**
 (`App.test.tsx:32-42`), so it can never see this ordering. The new file must not

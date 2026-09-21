@@ -45,14 +45,36 @@ describe('gatewayBaseQuery reauth', () => {
     fetchMock.mockReset();
     vi.stubGlobal('fetch', fetchMock);
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
-    // Reset the module-level provider between tests so a header assertion in
-    // one test cannot read a bearer a previous test registered.
+    // Reset all three module-level singletons between tests, not just the
+    // provider — a renewer or expiry handler left over from a previous test
+    // is order-dependent even where it happens to be harmless today
+    // (phase-6 review, #2301).
     setAccessTokenProvider(() => undefined);
+    setSessionRenewer(() => Promise.resolve(undefined));
+    setOnSessionExpired(() => undefined);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it('Reads the provider registered after the client was constructed', async () => {
+    // Every real RTK client calls gatewayBaseQuery(route) at MODULE scope, at
+    // import time - long before AuthGate renders and registers the provider.
+    // gatewayBaseQuery must defer the read (a thunk), never capture the
+    // provider binding's value at construction time - the exact class of
+    // stale-closure bug #2301 exists to close, one line away from being
+    // reintroduced by a "simplification" that drops the wrapper (phase-6
+    // review). This test constructs the client BEFORE registering the
+    // provider, mirroring the real ordering.
+    const baseQuery = gatewayBaseQuery('cameras');
+    setAccessTokenProvider(() => 'registered-later');
+    fetchMock.mockResolvedValueOnce(ok());
+
+    await baseQuery('items', queryApi, {});
+
+    expect(authorizationOf(fetchMock.mock.calls[0]!)).toBe('Bearer registered-later');
   });
 
   it('Renews once on 401 and retries with the token the renewal minted', async () => {
