@@ -42,4 +42,13 @@ internal static partial class Log
         Message = "Minted a client_credentials token for '{ClientIdentifier}' (expires in {ExpiresIn}s).")]
     public static partial void MintedClientCredentialsToken(
         this ILogger logger, string clientIdentifier, int expiresIn);
+
+    // #2290 US3. Information, not Debug: a swept reservation means an attempt
+    // died somewhere between reserve and complete, and that is worth a line an
+    // operator can grep for — unlike the outbox-publish lines above, which fire
+    // on every ordinary success. Called only when the count is non-zero, so the
+    // expected case (nothing to sweep) logs nothing across seven hourly workers.
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Swept {Count} stale idempotency reservation(s) older than the reclamation bound.")]
+    public static partial void SweptStaleIdempotencyReservations(this ILogger logger, int count);
 }

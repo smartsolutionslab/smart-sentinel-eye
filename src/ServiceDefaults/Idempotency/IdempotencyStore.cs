@@ -34,15 +34,38 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
     {
         Ensure.That(scope).IsNotNull();
 
+        // #2290 US1. On conflict, a plain DO NOTHING left a dead attempt's
+        // reservation wedged forever: nothing ever cleared resource_identifier
+        // IS NULL for a process that crashed between reserve and complete. The
+        // DO UPDATE below reclaims such a row for the caller attempting it now
+        // — guarded to a stale, still-unfinished row only, never a completed
+        // one (ADR-0142 §Consequences; the same resource_identifier IS NULL
+        // guard ReleaseAsync already carries below).
+        //
+        // SET reserved_at = NOW() is not bookkeeping — it is what keeps the
+        // reclaim atomic against a second concurrent reclaimer. Postgres
+        // serializes the two attempts on the row's lock; the winner's UPDATE
+        // commits first and bumps reserved_at to NOW(), so the loser's own
+        // WHERE re-evaluates against that just-bumped timestamp, no longer
+        // satisfies "< NOW() - StaleAfter", and it gets 0 rows back — falling
+        // through to the InProgress path below exactly as it would for any
+        // other live attempt. Without this SET, both requests would match and
+        // both would run the work, which is the exact double-application
+        // ADR-0142 exists to prevent.
         const string claim =
             """
             INSERT INTO idempotency_key (key, endpoint, caller, reserved_at)
             VALUES ({0}, {1}, {2}, NOW())
-            ON CONFLICT (key, endpoint, caller) DO NOTHING;
+            ON CONFLICT (key, endpoint, caller) DO UPDATE
+               SET reserved_at = NOW()
+             WHERE idempotency_key.resource_identifier IS NULL
+               AND idempotency_key.reserved_at < NOW() - {3};
             """;
 
         int inserted = await dbContext.Database.ExecuteSqlRawAsync(
-            claim, [scope.Key.Value, scope.Endpoint, scope.Caller], cancellationToken);
+            claim,
+            [scope.Key.Value, scope.Endpoint, scope.Caller, IdempotencyReclamation.StaleAfter],
+            cancellationToken);
 
         if (inserted == 1)
         {

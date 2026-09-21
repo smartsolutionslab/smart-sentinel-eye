@@ -49,6 +49,7 @@ public static class OverlayDesignerInfrastructureModule
         // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
         // above drives the executor's wait for an in-flight attempt.
         builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<OverlayDesignerDbContext>>();
+        builder.Services.AddIdempotencyReservationSweep<OverlayDesignerDbContext>();
 
         builder.Services.AddScoped<
             ICommandHandler<CreateOverlayDraftCommand, Result<OverlayIdentifier, CreateOverlayDraftError>>,

@@ -53,6 +53,7 @@ public static class SystemVariablesInfrastructureModule
         // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
         // above drives the executor's wait for an in-flight attempt.
         builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<SystemVariablesDbContext>>();
+        builder.Services.AddIdempotencyReservationSweep<SystemVariablesDbContext>();
 
         // Reverse-index + resolver are process-wide singletons (the
         // index is mutated concurrently; the resolver is stateless).
