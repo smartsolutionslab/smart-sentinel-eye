@@ -20,6 +20,7 @@ namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
 public sealed class VariableArchivedDomainEventHandler(
     IEventBus events,
     IReverseIndex reverseIndex,
+    IOverlayTextVersions overlayTextVersions,
     IVariableRepository variables,
     IResolver resolver,
     ILogger<VariableArchivedDomainEventHandler> logger)
@@ -45,6 +46,12 @@ public sealed class VariableArchivedDomainEventHandler(
         {
             return;
         }
+
+        // Issue #2426, plan.md §2 -- one round trip for the whole fan-out,
+        // not one advance per overlay: the added cost on the
+        // `event → overlay state` leg must stay constant in fan-out width.
+        IReadOnlyDictionary<Guid, long> versionsByOverlay =
+            await overlayTextVersions.AdvanceAsync(affectedOverlays, cancellationToken);
 
         foreach (Guid overlayId in affectedOverlays)
         {
@@ -92,7 +99,7 @@ public sealed class VariableArchivedDomainEventHandler(
             }
 
             string resolvedText = resolver.Resolve(labelText, snapshot);
-            long version = reverseIndex.NextVersionFor(overlayId);
+            long version = versionsByOverlay[overlayId];
 
             ResolvedOverlayTextChangedV1 resolvedOverlayTextChangedEvent = new(
                 Overlay: overlayId,

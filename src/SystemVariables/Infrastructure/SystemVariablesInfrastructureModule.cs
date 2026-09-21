@@ -93,6 +93,11 @@ public static class SystemVariablesInfrastructureModule
         builder.Services.AddScoped<IVariableValueRequestDedupStore, VariableValueRequestDedupStore>();
         builder.Services.AddScoped<SystemVariableValueRequestedV1Handler>();
 
+        // Issue #2426. Scoped alongside the DbContext it writes through —
+        // it holds no state of its own, so a singleton would only pin a
+        // captive scoped DbContext for no benefit.
+        builder.Services.AddScoped<IOverlayTextVersions, OverlayTextVersionStore>();
+
         BindReverseIndexSeeder(builder);
 
         builder.AddWolverineForContext<SystemVariablesDbContext>(

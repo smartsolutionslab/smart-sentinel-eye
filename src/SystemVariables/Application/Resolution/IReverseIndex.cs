@@ -43,18 +43,4 @@ public interface IReverseIndex
     /// Used by the variable-archived handler to walk and re-resolve.
     /// </summary>
     IReadOnlyCollection<Guid> AllOverlays();
-
-    /// <summary>
-    /// Increments and returns the per-overlay monotonic version
-    /// counter. Used by the push fan-out so kiosks can drop
-    /// out-of-order frames. Thread-safe.
-    /// </summary>
-    long NextVersionFor(Guid overlayIdentifier);
-
-    /// <summary>
-    /// Current version for an overlay without incrementing it. Used by
-    /// the snapshot read path so clients can ignore older pushes after
-    /// a fresh GET.
-    /// </summary>
-    long CurrentVersionFor(Guid overlayIdentifier);
 }

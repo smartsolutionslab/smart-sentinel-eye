@@ -21,7 +21,6 @@ public sealed class InMemoryReverseIndex : IReverseIndex
 {
     private readonly ConcurrentDictionary<string, HashSet<Guid>> byName = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<Guid, string> labelByOverlay = new();
-    private readonly ConcurrentDictionary<Guid, long> versionByOverlay = new();
 
     public void UpsertOverlayReferences(Guid overlayIdentifier, string labelText)
     {
@@ -68,10 +67,4 @@ public sealed class InMemoryReverseIndex : IReverseIndex
         labelByOverlay.TryGetValue(overlayIdentifier, out string? label) ? label : null;
 
     public IReadOnlyCollection<Guid> AllOverlays() => labelByOverlay.Keys.ToArray();
-
-    public long NextVersionFor(Guid overlayIdentifier) =>
-        versionByOverlay.AddOrUpdate(overlayIdentifier, 1, (_, current) => current + 1);
-
-    public long CurrentVersionFor(Guid overlayIdentifier) =>
-        versionByOverlay.TryGetValue(overlayIdentifier, out long v) ? v : 0;
 }

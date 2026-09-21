@@ -332,7 +332,7 @@ public class SystemVariableValueRequestedV1HandlerTests
 
         FakeEventBus bus = new();
         VariableValueChangedDomainEventHandler resolution = new(
-            bus, index, repo, new Resolver(),
+            bus, index, new FakeOverlayTextVersions(), repo, new Resolver(),
             NullLogger<VariableValueChangedDomainEventHandler>.Instance);
         repo.OnDomainEvent = (domainEvent, token) => domainEvent is VariableValueChangedDomainEvent changed
             ? resolution.Handle(changed, token)

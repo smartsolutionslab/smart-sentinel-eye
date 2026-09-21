@@ -57,7 +57,7 @@ public class VariableValueChangedPreCommitTests
         index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
 
         VariableValueChangedDomainEventHandler handler = new(
-            bus, index, repository, new Resolver(),
+            bus, index, new FakeOverlayTextVersions(), repository, new Resolver(),
             NullLogger<VariableValueChangedDomainEventHandler>.Instance);
 
         await handler.Handle(
@@ -108,7 +108,7 @@ public class VariableValueChangedPreCommitTests
         index.UpsertOverlayReferences(overlay, "{{shift}} — OEE {{oeeLine1}}%");
 
         VariableValueChangedDomainEventHandler handler = new(
-            bus, index, repository, new Resolver(),
+            bus, index, new FakeOverlayTextVersions(), repository, new Resolver(),
             NullLogger<VariableValueChangedDomainEventHandler>.Instance);
 
         await handler.Handle(
