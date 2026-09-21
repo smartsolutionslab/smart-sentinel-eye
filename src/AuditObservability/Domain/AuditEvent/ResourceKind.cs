@@ -24,6 +24,18 @@ public sealed record ResourceKind(string Value) : IValueObject<string>
 
     public static ResourceKind Event { get; } = new("event");
 
+    /// <summary>
+    /// Currently unproducible: the only writers were two hand-tweaks in
+    /// <c>V1ResourceMap.Conventions</c> that named
+    /// <c>EventIngestion.WebhookIntegrationRegisteredV1</c> /
+    /// <c>...RevokedV1</c>, types that do not exist in
+    /// <c>Shared.Contracts</c>. The live webhook path is
+    /// <see cref="WebhookIntegration"/>, via
+    /// <c>Identity.WebhookIntegrationRotatedV1</c>. Kept in
+    /// <see cref="All"/> anyway: the vocabulary is a closed public list
+    /// and removing it would turn <c>GET /audit/webhook/x</c> from
+    /// 200-empty into 400 for a reason unrelated to this defect.
+    /// </summary>
     public static ResourceKind Webhook { get; } = new("webhook");
 
     public static ResourceKind Device { get; } = new("device");
