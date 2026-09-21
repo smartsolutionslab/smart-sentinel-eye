@@ -101,6 +101,25 @@ public sealed partial class V1ResourceMap
                 map[chunkArchived] = new V1MappingEntry(DomainResourceKind.Event, PickByProperty(chunkArchived, "ChunkIdentifier"));
             }
 
+            // Published into LayoutComposition (spec 020's Automation rule
+            // targets a layout's overlay), but the subject is the overlay,
+            // not the layout the namespace convention would pick.
+            Type? overlayHighlightRequested = Type.GetType(
+                "SmartSentinelEye.Shared.Contracts.LayoutComposition.OverlayHighlightRequestedV1, SmartSentinelEye.Shared.Contracts");
+            if (overlayHighlightRequested is not null)
+            {
+                map[overlayHighlightRequested] = new V1MappingEntry(DomainResourceKind.Overlay, PickByProperty(overlayHighlightRequested, "OverlayIdentifier"));
+            }
+
+            // The contract's only Guid is the triggering event's id, not the
+            // variable's; SystemVariables addresses every variable by name.
+            Type? systemVariableValueRequested = Type.GetType(
+                "SmartSentinelEye.Shared.Contracts.SystemVariables.SystemVariableValueRequestedV1, SmartSentinelEye.Shared.Contracts");
+            if (systemVariableValueRequested is not null)
+            {
+                map[systemVariableValueRequested] = new V1MappingEntry(DomainResourceKind.Variable, PickByProperty(systemVariableValueRequested, "Name"));
+            }
+
             return map;
         }
 
