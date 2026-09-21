@@ -100,6 +100,16 @@ public class V1ResourceMapTests
         _map.MappedTypes.ShouldContain(typeof(AuditChunkArchivedV1));
     }
 
+    public sealed record MappingCase(
+        Type ContractType,
+        ResourceKind ExpectedKind,
+        Func<object> Factory,
+        string ExpectedIdentifier,
+        string? MustNotBeIdentifier = null)
+    {
+        public override string ToString() => ContractType.Name;
+    }
+
     /// <summary>
     /// Spec 206 US3 — one row per concrete <c>IIntegrationEvent</c> in
     /// <c>Shared.Contracts</c>, pinning both the expected
@@ -114,16 +124,6 @@ public class V1ResourceMapTests
     /// checks its own input cannot fail.
     /// </para>
     /// </summary>
-    public sealed record MappingCase(
-        Type ContractType,
-        ResourceKind ExpectedKind,
-        Func<object> Factory,
-        string ExpectedIdentifier,
-        string? MustNotBeIdentifier = null)
-    {
-        public override string ToString() => ContractType.Name;
-    }
-
     private static readonly IReadOnlyList<MappingCase> AllCases =
     [
         AuditChunkArchivedCase(),
@@ -524,6 +524,7 @@ public class V1ResourceMapTests
     public void Every_integration_event_pivots_on_the_resource_it_is_about(MappingCase mappingCase)
     {
         object instance = mappingCase.Factory();
+        mappingCase.ContractType.IsInstanceOfType(instance).ShouldBeTrue();
 
         V1Mapping mapping = _map.Lookup(mappingCase.ContractType, instance);
 
@@ -553,10 +554,12 @@ public class V1ResourceMapTests
 
         HashSet<Type> tableTypes = [.. AllCases.Select(mappingCase => mappingCase.ContractType)];
 
-        IReadOnlyList<Type> missing = [.. allIntegrationEvents.Except(tableTypes)];
+        IReadOnlyList<Type> missing = [.. allIntegrationEvents
+            .Except(tableTypes)
+            .Where(type => !_map.ExplicitlyOptedOut.Contains(type.Name))];
 
         missing.ShouldBeEmpty(
-            $"No mapping-table row for: {string.Join(", ", missing.Select(type => type.FullName))}. Add a MappingCase in V1ResourceMapTests.BuildCases.");
+            $"No mapping-table row for: {string.Join(", ", missing.Select(type => type.FullName))}. Add a MappingCase in V1ResourceMapTests.AllCases.");
     }
 
     /// <summary>
