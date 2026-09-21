@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
@@ -20,17 +21,18 @@ namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 ///
 /// <para>
 /// <b>The test-mode ceiling, not the production one.</b> <c>AppHost.cs</c>
-/// overrides <c>WhepAuthorizeRateLimiting__PermitLimit=30</c> and
+/// overrides <c>WhepAuthorizeRateLimiting__PermitLimit=50</c> and
 /// <c>:Window=00:00:10</c> for the integration lane (<c>isE2ETests</c>), because
 /// the production ceiling (2000/min) cannot be exhausted from a test host without
 /// poisoning every other test on this shared fixture's one address for the rest
-/// of that minute (plan.md §Test-mode ceiling). <c>PermitLimit</c> is raised
-/// from its original <c>20</c> to <c>30</c> so <c>WhepHandshakeLatencyTests</c>'
-/// own 21-call pattern has real headroom on this same partition (#2284
-/// phase-5 verification.md §2.1), and is written here as the literal
-/// <c>30</c> rather than read live from the running
-/// service's configuration: no existing test helper resolves a downstream
-/// service's bound <c>IConfiguration</c> from the AppHost's own DI container
+/// of that minute (plan.md §Test-mode ceiling). <c>PermitLimit</c> was raised
+/// from its original <c>20</c> to <c>30</c>, then to <c>50</c> (spec 208 review
+/// S8), because this same collapsed partition is shared by more than just this
+/// class's own exhaustion technique — see <c>AppHost.cs</c>'s comment above the
+/// override for the full accounting of every consumer. It is written here as
+/// the literal <c>50</c> rather than read live from the running service's
+/// configuration: no existing test helper resolves a downstream service's bound
+/// <c>IConfiguration</c> from the AppHost's own DI container
 /// (<c>aspire.App.Services</c> is the orchestrator's container, not
 /// stream-distribution's), and unlike a production security parameter this is
 /// the test's <i>own</i> fixture configuration — the number this file was told
@@ -39,10 +41,17 @@ namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 ///
 /// <para>
 /// <b>Every test that exhausts the window waits for it to reopen before
-/// returning</b> (never a fixed <c>Task.Delay</c> count — constitution
-/// §Testing), because <c>AspireCollection</c> serialises every test class here
-/// against one running stack; a test that returns with the window still
-/// exhausted would poison whichever test runs next.
+/// returning</b> — condition-based, polling for the first admitted response,
+/// never a fixed sleep in place of that condition (constitution §Testing) —
+/// because <c>AspireCollection</c> serialises every test class here against one
+/// running stack; a test that returns with the window still exhausted would
+/// poison whichever test runs next. <b>Corrected (spec 208 review S10):</b> once
+/// admission is observed, <see cref="WaitUntilAdmittedAgainAsync"/> deliberately
+/// holds for one additional full <c>Window</c> before returning — a fixed
+/// <c>Task.Delay(Window)</c>, but layered on top of the condition wait, not
+/// instead of it. See that method's own comment (S9) for why a delay of
+/// exactly <c>Window</c>, anchored at the moment admission was confirmed, is
+/// load-bearing rather than an arbitrary safety margin.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
@@ -57,10 +66,17 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     /// original <c>20</c> to <c>30</c> to give
     /// <c>WhepHandshakeLatencyTests</c>' own 21-call pattern (1 warm-up + 20
     /// measured, spec 002/#2149) real headroom on this same shared-address
-    /// partition — see <c>AppHost.cs</c>'s comment above that override
-    /// (#2284 phase-5 verification.md §2.1).
+    /// partition (#2284 phase-5 verification.md §2.1), then to <c>50</c>
+    /// (spec 208 review S8): 30 left only 3 requests of margin once
+    /// <c>WhepAuthIntegrationTests</c>' own 6 authorize POSTs on this same
+    /// partition were accounted for (21 + 6 = 27 of 30) — tight enough that
+    /// the next added authorize-related test could reintroduce the exact bug
+    /// this ceiling exists to avoid. See <c>AppHost.cs</c>'s comment above
+    /// its override for the full three-consumer accounting
+    /// (<c>WhepHandshakeLatencyTests</c>, <c>WhepAuthIntegrationTests</c>,
+    /// and this class's own <see cref="ExhaustWindowAsync"/>).
     /// </summary>
-    private const int PermitLimit = 30;
+    private const int PermitLimit = 50;
 
     /// <summary>Matches <c>AppHost.cs</c>'s <c>isE2ETests</c> override.</summary>
     private static readonly TimeSpan Window = TimeSpan.FromSeconds(10);
@@ -169,14 +185,23 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
         string programSource = System.IO.File.ReadAllText(
             System.IO.Path.Combine(RepositoryRoot().FullName, "src", "StreamDistribution", "Api", "Program.cs"));
 
-        int policyRegistration = programSource.IndexOf(
+        // S4 (spec 208 review): the raw source between the registration call
+        // and the options factory carries Program.cs's own explanatory
+        // comment lines (e.g. "// Source IP, not a global bucket ...
+        // RemoteIpAddress ..."), so searching the raw text would keep passing
+        // if the real key argument were reverted to a fixed literal while a
+        // comment mentioning RemoteIpAddress stayed behind. Strip comment
+        // lines first, mirroring ResilienceRegistrationTests.CodeLines/IsComment.
+        string codeOnly = string.Join(Environment.NewLine, CodeLines(programSource));
+
+        int policyRegistration = codeOnly.IndexOf(
             "AddPolicy(\"whep-authorize\"", StringComparison.Ordinal);
         policyRegistration.ShouldBeGreaterThanOrEqualTo(
             0,
             "Program.cs no longer registers a \"whep-authorize\" policy by that name — the "
             + "partition-key shape below cannot be checked against a registration that is not there.");
 
-        int limiterCall = programSource.IndexOf(
+        int limiterCall = codeOnly.IndexOf(
             "RateLimitPartition.GetFixedWindowLimiter(", policyRegistration, StringComparison.Ordinal);
         limiterCall.ShouldBeGreaterThan(
             policyRegistration,
@@ -184,14 +209,14 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
             + "RateLimitPartition.GetFixedWindowLimiter.");
 
         int keyArgumentStart = limiterCall + "RateLimitPartition.GetFixedWindowLimiter(".Length;
-        int keyArgumentEnd = programSource.IndexOf(
+        int keyArgumentEnd = codeOnly.IndexOf(
             "_ => new FixedWindowRateLimiterOptions", keyArgumentStart, StringComparison.Ordinal);
         keyArgumentEnd.ShouldBeGreaterThan(
             keyArgumentStart,
             "could not find the fixed-window options factory that follows the partition-key "
             + "argument — the registration's shape has moved.");
 
-        string partitionKeyArgument = programSource[keyArgumentStart..keyArgumentEnd];
+        string partitionKeyArgument = codeOnly[keyArgumentStart..keyArgumentEnd].Trim().TrimEnd(',').Trim();
 
         // FR-003: the key must vary with the caller's remote address, never a
         // fixed literal — a fixed key is exactly the rejected global-bucket
@@ -200,11 +225,43 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
         partitionKeyArgument.ShouldContain(
             "context.Connection.RemoteIpAddress",
             Case.Sensitive,
-            "the \"whep-authorize\" policy's partition-key argument was:"
+            "the \"whep-authorize\" policy's partition-key argument was (comments stripped):"
             + $"{Environment.NewLine}{partitionKeyArgument}"
             + $"{Environment.NewLine}FR-003 requires it to be built from the connection's remote "
             + "address, not a fixed/global bucket.");
+
+        // S4's explicit negative check: the positive assertion above would
+        // already fail if the key reverted to a fixed literal that also
+        // dropped the "RemoteIpAddress" substring — this makes that failure
+        // mode a named check rather than an incidental one. A bare quoted
+        // literal with no interpolation hole is, by shape alone, the
+        // rejected global-bucket design, regardless of what it happens to be
+        // named.
+        BareLiteralShape.IsMatch(partitionKeyArgument).ShouldBeFalse(
+            "the partition-key argument reads as a single fixed string literal with no interpolation "
+            + $"hole: '{partitionKeyArgument}'. FR-003 requires the key to vary with the caller's "
+            + "connection — a bare literal is exactly the rejected global-bucket design that would "
+            + "let one anonymous caller exhaust MediaMTX's own window.");
     }
+
+    /// <summary>
+    /// Matches a complete double-quoted string literal — interpolated or
+    /// not — with no <c>{</c> anywhere inside it, spanning the whole
+    /// (trimmed) key argument. The current key,
+    /// <c>$"ip:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}"</c>,
+    /// contains a <c>{</c> before its closing quote and never matches; a
+    /// regression to a fixed key such as <c>"whep-authorize-bucket"</c> would.
+    /// </summary>
+    private static readonly Regex BareLiteralShape = new(
+        @"^\$?""[^{]*""$", RegexOptions.Compiled | RegexOptions.Singleline);
+
+    /// <summary>Mirrors <c>ResilienceRegistrationTests.IsComment</c>.</summary>
+    private static bool IsComment(string line) =>
+        line.TrimStart().StartsWith("//", StringComparison.Ordinal);
+
+    /// <summary>Mirrors <c>ResilienceRegistrationTests.CodeLines</c>.</summary>
+    private static IEnumerable<string> CodeLines(string source) =>
+        source.Split('\n').Where(line => !IsComment(line));
 
     /// <summary>
     /// FR-002: the refusal happens before the endpoint handler runs — no
@@ -255,6 +312,18 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
 
         string throttledPath = NewPath();
         HttpResponseMessage throttledResponse = await PostAsync(NoActionBody(throttledPath));
+
+        // S7 (spec 208 review): FR-002 is specifically about what happens to
+        // a request the limiter actually refused — this was previously only
+        // read inside the failure message below, so a limiter that silently
+        // let this request through would still pass the log-absence check
+        // (nothing to log on an admitted NoActionBody request until its own
+        // 200/401/403 path runs) without this fact ever noticing its own
+        // precondition had failed to hold.
+        throttledResponse.StatusCode.ShouldBe(
+            HttpStatusCode.TooManyRequests,
+            $"request {PermitLimit + 1} in the window should have been refused by the limiter; it "
+            + $"was not, so the absence of a handler log below proves nothing about FR-002.");
 
         bool throttledMarkerLogged = await MarkerEverAppearsInLogsAsync(throttledPath, LogAbsenceGraceWindow);
         throttledMarkerLogged.ShouldBeFalse(
@@ -316,7 +385,15 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     [Fact]
     public async Task Health_and_readiness_are_never_throttled()
     {
-        await ExhaustWindowAsync();
+        // S7 (spec 208 review): this fact's whole premise is that the source
+        // below is actually throttled on /streams/authorize by this point —
+        // discarding ExhaustWindowAsync's return value meant that if the
+        // limiter stopped working entirely, every route below would trivially
+        // read as "not throttled" while proving nothing about FR-005.
+        (await ExhaustWindowAsync()).ShouldBe(
+            HttpStatusCode.TooManyRequests,
+            "the window-exhaustion helper's own last response was not 429 — this fact's premise "
+            + "(a source over the ceiling) does not hold, so the assertions below prove nothing.");
 
         HttpResponseMessage health = await aspire.StreamDistribution.GetAsync("/health");
         health.StatusCode.ShouldNotBe(HttpStatusCode.TooManyRequests);
@@ -359,20 +436,30 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     [Fact]
     public async Task A_partition_entering_the_throttled_state_is_logged_once()
     {
-        // Captured before anything in this fact runs, so the count below is
-        // the delta this fact itself produced — never the raw tail, which
-        // can already carry a prior fact's own transition record (the same
-        // shared-address, shared-log-tail hazard WaitUntilAdmittedAgainAsync
-        // guards on the window side).
-        int baseline = ThrottleTransitionLogLineCount();
+        // S6 (spec 208 review): anchors on a sentinel's position in the log
+        // tail instead of a baseline-count delta. aspire.RecentLogs(...,
+        // lines: 400) is the *entire* retained ring-buffer tail (AspireFixture
+        // caps it at exactly 400 lines) — a baseline captured now and
+        // subtracted from a count read later can undercount or go negative if
+        // enough other log lines (Wolverine's own periodic chatter, other
+        // requests) scroll the baseline's own matching lines out of the tail
+        // before the later read. A sentinel line's position does not have
+        // that problem: once found, everything counted after it is provably
+        // after it, however much has scrolled off the far end.
+        string sentinelPath = NewPath();
+        await PostAsync(NoActionBody(sentinelPath));
+        bool sentinelLogged = await MarkerEverAppearsInLogsAsync(sentinelPath, LogAbsenceGraceWindow);
+        sentinelLogged.ShouldBeTrue(
+            $"the sentinel request's own path ('{sentinelPath}') never appeared in the log tail; "
+            + "without it there is no reliable position to count throttle-transition records after.");
 
         await ExhaustWindowAsync();
 
-        int transitionLogCount = await ThrottleTransitionLogLineCountAsync(LogAbsenceGraceWindow, baseline);
+        int transitionLogCount = await ThrottleTransitionCountSinceAsync(sentinelPath, LogAbsenceGraceWindow);
 
         transitionLogCount.ShouldBe(
             1,
-            $"expected exactly one throttle-transition log record after the window was exhausted; "
+            $"expected exactly one throttle-transition log record after '{sentinelPath}'; "
             + $"found {transitionLogCount}. stream-distribution log:{Environment.NewLine}"
             + $"{aspire.RecentLogs(StreamDistributionResource)}");
 
@@ -401,17 +488,23 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     [Fact]
     public async Task Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record()
     {
-        // Captured before anything in this fact runs — see the same baseline
-        // capture in A_partition_entering_the_throttled_state_is_logged_once.
-        // Without it, a prior fact's own leftover transition record (e.g.
-        // left by A_throttled_authorize_never_reaches_the_handler throwing
-        // before it reached WaitUntilAdmittedAgainAsync) would be counted as
-        // this fact's own.
-        int baseline = ThrottleTransitionLogLineCount();
+        // S6 (spec 208 review): sentinel-position anchor — see the identical
+        // comment in A_partition_entering_the_throttled_state_is_logged_once.
+        // A fresh sentinel also naturally excludes a prior fact's own
+        // leftover transition record (e.g. left by
+        // A_throttled_authorize_never_reaches_the_handler throwing before it
+        // reached WaitUntilAdmittedAgainAsync): that record sits before this
+        // fact's own sentinel, so it is never counted.
+        string sentinelPath = NewPath();
+        await PostAsync(NoActionBody(sentinelPath));
+        bool sentinelLogged = await MarkerEverAppearsInLogsAsync(sentinelPath, LogAbsenceGraceWindow);
+        sentinelLogged.ShouldBeTrue(
+            $"the sentinel request's own path ('{sentinelPath}') never appeared in the log tail; "
+            + "without it there is no reliable position to count throttle-transition records after.");
 
         await ExhaustWindowAsync();
 
-        int afterTransition = await ThrottleTransitionLogLineCountAsync(LogAbsenceGraceWindow, baseline);
+        int afterTransition = await ThrottleTransitionCountSinceAsync(sentinelPath, LogAbsenceGraceWindow);
 
         for (int i = 0; i < 5; i++)
         {
@@ -423,7 +516,7 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
         // fixed pause only guards against a slow-but-real second delivery
         // being missed by reading the tail before it lands.
         await Task.Delay(PollInterval);
-        int afterRepeats = ThrottleTransitionLogLineCount(baseline);
+        int afterRepeats = ThrottleTransitionCountSince(sentinelPath);
 
         afterTransition.ShouldBe(
             1,
@@ -432,9 +525,9 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
         afterRepeats.ShouldBe(
             afterTransition,
             $"five further refused requests inside the same window added "
-            + $"{afterRepeats - afterTransition} more throttle-transition log record(s); FR-009 "
-            + $"requires silence on the repeats. stream-distribution log:{Environment.NewLine}"
-            + $"{aspire.RecentLogs(StreamDistributionResource)}");
+            + $"{afterRepeats - afterTransition} more throttle-transition log record(s) after "
+            + $"'{sentinelPath}'; FR-009 requires silence on the repeats. stream-distribution "
+            + $"log:{Environment.NewLine}{aspire.RecentLogs(StreamDistributionResource)}");
 
         await WaitUntilAdmittedAgainAsync();
     }
@@ -512,10 +605,25 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
                 // slot already spent rather than a fresh PermitLimit-sized
                 // budget — exactly what poisoned
                 // A_throttled_authorize_never_reaches_the_handler's own
-                // admitted-request math. Wait out the rest of this same
-                // window, observed from the moment admission was confirmed,
-                // so the next fact always starts against a genuinely fresh
-                // one.
+                // admitted-request math.
+                //
+                // S9 (spec 208 review) — the stronger, load-bearing reason a
+                // full extra Window is needed, not merely "one slot back":
+                // FixedWindowRateLimiter replenishes on a timer anchored at
+                // limiter *creation*, not per caller and not per partition.
+                // A fact that starts at an arbitrary phase within that
+                // server-wide window boundary only has whatever time remains
+                // until the *next* boundary to run its own admit/exhaust
+                // sequence — which can be anywhere from almost a full Window
+                // down to almost none. Delaying a full Window after an
+                // *observed* admission reliably lands the next fact just
+                // past the following boundary instead, handing it close to a
+                // full Window of its own to work with regardless of where in
+                // the server's cycle this fact happened to run. Do not
+                // "optimise" this down to Window/2 or similar — that
+                // reintroduces exactly the intermittent, phase-dependent
+                // flakiness this delay exists to remove, with nothing left
+                // to explain it.
                 await Task.Delay(Window);
                 return;
             }
@@ -556,59 +664,73 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
 
     /// <summary>
     /// Polls up to <paramref name="settleTimeout"/> for
-    /// <see cref="ThrottleTransitionLogLineCount"/> to become non-zero (against
-    /// <paramref name="baseline"/>), then returns whatever the count is at
-    /// that point (which is <c>0</c> if it never did). Mirrors
-    /// <see cref="MarkerEverAppearsInLogsAsync"/>'s settle-then-read shape,
-    /// but returns a count rather than a boolean because
-    /// <see cref="Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record"/>
+    /// <see cref="ThrottleTransitionCountSince"/> to become non-zero, then
+    /// returns whatever the count is at that point (which is <c>0</c> if it
+    /// never did). Mirrors <see cref="MarkerEverAppearsInLogsAsync"/>'s
+    /// settle-then-read shape, but returns a count rather than a boolean
+    /// because <see cref="Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record"/>
     /// needs to see the count hold, not merely appear.
     /// </summary>
     /// <param name="settleTimeout">How long to keep polling for the count to move off zero.</param>
-    /// <param name="baseline">
-    /// The count read before this fact drove any throttling behaviour — see
-    /// <see cref="ThrottleTransitionLogLineCount"/>. Subtracted so the result
-    /// is the delta this fact itself produced, not the whole tail's raw
-    /// count, which can already carry a prior fact's own transition record.
+    /// <param name="sentinelPath">
+    /// The caller's own fact-local marker — see <see cref="ThrottleTransitionCountSince"/>.
     /// </param>
-    private async Task<int> ThrottleTransitionLogLineCountAsync(TimeSpan settleTimeout, int baseline = 0)
+    private async Task<int> ThrottleTransitionCountSinceAsync(string sentinelPath, TimeSpan settleTimeout)
     {
         DateTimeOffset deadline = DateTimeOffset.UtcNow + settleTimeout;
-        int count = ThrottleTransitionLogLineCount(baseline);
+        int count = ThrottleTransitionCountSince(sentinelPath);
 
         while (count == 0 && DateTimeOffset.UtcNow < deadline)
         {
             await Task.Delay(PollInterval);
-            count = ThrottleTransitionLogLineCount(baseline);
+            count = ThrottleTransitionCountSince(sentinelPath);
         }
 
         return count;
     }
 
     /// <summary>
-    /// Counts log lines in the tail that carry any of
-    /// <see cref="ThrottleTransitionMarkers"/> — see that field's doc for why
-    /// those substrings identify this specific control's transition record
-    /// rather than an unrelated log line.
+    /// S6 (spec 208 review): counts throttle-transition markers (see
+    /// <see cref="ThrottleTransitionMarkers"/>) that appear <b>after</b>
+    /// <paramref name="sentinelPath"/>'s own line in the log tail, rather
+    /// than a raw-count-minus-baseline delta. <c>aspire.RecentLogs(...,
+    /// lines: 400)</c> is the entire retained ring-buffer tail; enough
+    /// intervening log lines (Wolverine's own chatter, other requests) can
+    /// scroll a baseline's own matching lines out of the tail before a later
+    /// read, making a subtracted delta undercount or go negative. A
+    /// sentinel's position does not have that problem: everything counted
+    /// after it is provably after it, however much has scrolled off the far
+    /// end of the tail.
     /// </summary>
-    /// <param name="baseline">
-    /// Subtracted from the raw tail count. <c>0</c> (the default) reads the
-    /// tail's absolute count — used only to capture a fresh baseline at the
-    /// very start of a fact, before it drives any throttling behaviour.
-    /// Every later read in the same fact must pass that baseline back in, so
-    /// the result is "log lines this fact itself produced", not "log lines
-    /// in the whole shared tail" — the latter also counts whatever a prior
-    /// fact in this collection left behind.
+    /// <param name="sentinelPath">
+    /// A path unique to this fact, already confirmed present in the tail (via
+    /// <see cref="MarkerEverAppearsInLogsAsync"/>) before this is called —
+    /// callers post a <see cref="NoActionBody"/> request with this path and
+    /// wait for it to appear, establishing a position every later line in
+    /// this fact's own behaviour is guaranteed to follow.
     /// </param>
-    private int ThrottleTransitionLogLineCount(int baseline = 0)
+    private int ThrottleTransitionCountSince(string sentinelPath)
     {
         string[] lines = aspire.RecentLogs(StreamDistributionResource, lines: 400)
             .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
 
-        int count = lines.Count(line => ThrottleTransitionMarkers.Any(
-            marker => line.Contains(marker, StringComparison.OrdinalIgnoreCase)));
+        int sentinelIndex = Array.FindLastIndex(
+            lines, line => line.Contains(sentinelPath, StringComparison.Ordinal));
 
-        return count - baseline;
+        // If the sentinel itself has already scrolled out of the tail, there
+        // is no reliable "since" boundary left — read as "none yet" rather
+        // than silently counting from the start of the tail, so a caller
+        // polling via ThrottleTransitionCountSinceAsync keeps trying instead
+        // of reporting a false count.
+        if (sentinelIndex < 0)
+        {
+            return 0;
+        }
+
+        return lines
+            .Skip(sentinelIndex + 1)
+            .Count(line => ThrottleTransitionMarkers.Any(
+                marker => line.Contains(marker, StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <summary>

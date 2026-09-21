@@ -417,19 +417,28 @@ var streamDistribution = builder
 // wall keeps opening tiles against the real production ceiling so it proves
 // the limiter does not clip a real wall.
 //
-// PermitLimit=30, not 20: spec 002/#2149's WhepHandshakeLatencyTests sends 1
-// warm-up + 20 measured authorize calls = 21 total from this same test host's
-// one address, sharing this partition. 20 left zero headroom, so that
-// pre-existing, unrelated test's 21st call was refused with 429 every run
-// (#2284 phase-5 verification.md §2.1). 30 gives it real margin while keeping
-// WhepAuthorizeRateLimitTests' own PermitLimit+1 exhaustion technique a small
-// request count. Keep tests/Integration.Tests/StreamDistribution/
-// WhepAuthorizeRateLimitTests.cs's own `PermitLimit` literal in sync with
-// this value.
+// PermitLimit=50, not 30 or 20 (spec 208 review S8): every test host request
+// to /streams/authorize inside AspireCollection's one serialised stack shares
+// this exact partition, and the accounting has to sum every consumer, not
+// just the one that first motivated raising it:
+//   - WhepHandshakeLatencyTests (spec 002/#2149): 1 warm-up + 20 measured
+//     authorize calls = 21. This was the original motivation — 20 left zero
+//     headroom, so its 21st call was refused with 429 every run (#2284
+//     phase-5 verification.md §2.1).
+//   - WhepAuthIntegrationTests: 6 more authorize POSTs, one per [Fact], all
+//     from the same test host address.
+//   - WhepAuthorizeRateLimitTests' own ExhaustWindowAsync (PermitLimit + 1
+//     requests) needs the ceiling itself to still be a small, fast number.
+// 21 + 6 = 27 against a ceiling of 30 left only 3 requests of margin — tight
+// enough that the next person adding an authorize-related test could
+// reintroduce the exact bug this override exists to avoid. 50 gives real
+// margin over the 27 known consumers. Keep tests/Integration.Tests/
+// StreamDistribution/WhepAuthorizeRateLimitTests.cs's own `PermitLimit`
+// literal in sync with this value.
 if (isE2ETests)
 {
     streamDistribution
-        .WithEnvironment("WhepAuthorizeRateLimiting__PermitLimit", "30")
+        .WithEnvironment("WhepAuthorizeRateLimiting__PermitLimit", "50")
         .WithEnvironment("WhepAuthorizeRateLimiting__Window", "00:00:10");
 }
 
