@@ -178,10 +178,33 @@ behind.
 The Berlin/New York pair alone would not distinguish "converted
 correctly" from "shifted by a constant"; recording both signs (spec
 §*US1 — the mirror case*) is why both are captured above rather than
-just one. CI's frontend job runs on `ubuntu-latest`, i.e. UTC — the
-zone-independent case captured in the before-state section is exactly
-the one that must (and does) fail there, since `"2026-09-17T08:00"`
-equals an ISO instant in no zone, UTC included.
+just one. CI's frontend job runs on `ubuntu-latest`, i.e. UTC.
+
+The before-state evidence above was captured in the machine's ambient
+zone, `Europe/Berlin` — reproduced here instead of merely inferred:
+`3aa9c64e` (T001, tests added, fix not yet applied) checked out into a
+disposable worktree, `TZ=UTC` set explicitly, same unmodified
+`AuditPage.test.tsx`:
+
+```
+FAIL  src/features/audit/AuditPage.test.tsx > AuditPage > Applying a Since filter sends an ISO instant, not a bare local wall clock
+AssertionError: expected last "vi.fn()" call to have been called with [ ObjectContaining{…} ]
+- Expected
++ Received
+  [
+    {
+-     "since": "2026-09-17T08:00:00.000Z",
++     "pageSize": 50,
++     "since": "2026-09-17T08:00",
+    },
+  ]
+```
+
+Confirms directly, rather than by inference, that `"2026-09-17T08:00"`
+equals an ISO instant in no zone, UTC included — the zone-independent
+case fails in CI's own zone, not only in Berlin and New York. The
+disposable worktree was removed immediately after capturing this
+output; `git status --porcelain` on this worktree was empty afterward.
 
 ## Latency-budget impact
 
