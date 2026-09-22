@@ -51,29 +51,16 @@ jobs:
       - name: Build (Release)
         run: dotnet build SmartSentinelEye.slnx -c Release --no-restore
 
-      # Spec 218: `integration` and `e2e` each restored and rebuilt this exact
-      # commit's Release output from scratch (86s and 108s respectively,
-      # measured) -- fully redundant with the build above, and sharding those
-      # jobs would multiply that redundancy by the shard count. This upload
-      # lets both reuse today's build instead. Every downstream consumer only
-      # ever runs it with `--no-build` / `dotnet run --no-build`, so MSBuild's
-      # timestamp-based up-to-date check -- the usual hazard with a build
-      # reused across machines -- never runs: nothing downstream asks MSBuild
-      # to decide freshness, it's handed a binary and told to execute it.
-      # `obj/` travels alongside `bin/` because `project.assets.json` (restore
-      # output) lives there and `--no-build` steps still read it; safe to
-      # reuse because every job restores against the same `~/.nuget/packages`
-      # path on the same `ubuntu-latest` image, keyed by the same NuGet cache
-      # hash below. 1-day retention: this artifact only needs to outlive the
-      # jobs of the run that produced it.
-      - name: Upload Release build output for downstream jobs
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: release-build-output
-          path: |
-            **/bin/Release/**
-            **/obj/**
-          retention-days: 1
+      # Spec 218: build-artifact reuse across jobs was tried and measured
+      # net-negative on the critical path (verification.md) -- `backend`'s
+      # own restore+build grew (upload cost), while shard fixed-cost savings
+      # didn't offset it once only `max(shard)` sits on the critical path.
+      # It also traced to three of the four real defects the shards' first
+      # CI runs surfaced (missing DCP package assets, lost executable bits,
+      # broken Architecture.Tests parsing). Reverted; each shard restores
+      # and builds its own copy, same as before sharding, just paid once per
+      # shard instead of once per job -- an inherent, accepted cost of
+      # parallelizing across processes (plan.md §3).
 
       # The fixture's pure decision logic needs no Docker, but it lives in
       # Integration.Tests, which coverage-check.ps1 excludes by project name —
@@ -202,13 +189,16 @@ jobs:
       - name: Test
         run: pnpm test
 
-  # Spec 218: sharded 4 ways. Fixed-cost math (specs/218-ci-shard-slow-jobs/
-  # plan.md §3): each shard still pays checkout/setup (~5s) + AspireFixture's
-  # own ~132s boot (inherent -- a separate process boots a separate fixture,
-  # sharding cannot reduce it) but only 1/4 of the ~501s of actual test
-  # execution. N=4 was chosen because it captures the large first-order win
-  # (12.3min -> ~6.0min modeled) while the fixed 132s floor makes N=8 only
-  # worth another minute over N=4 -- diminishing returns past this point.
+  # Spec 218: sharded 4 ways. Modeled from fixed-cost math
+  # (specs/218-ci-shard-slow-jobs/plan.md §3: ~132s AspireFixture boot,
+  # inherent per shard, plus 1/4 of ~501s test execution -> ~362s/shard) --
+  # **refuted by the real run**: verification.md measures the slowest shard
+  # at 449s, not 362s, because per-shard execution time is uneven (LPT
+  # balances by test *count*, not measured *duration*), and the model
+  # assumed near-uniform distribution. N=4 was still the right call (the
+  # fixed 132s floor makes N=8 only worth another minute over N=4 in either
+  # model), but re-measure before trusting either figure -- see
+  # verification.md for what actually happened, not this comment.
   #
   # The 4 shard files under tests/Integration.Tests/ci-shards/ are a
   # committed, static partition (explicit and inspectable, per this repo's
@@ -240,17 +230,6 @@ jobs:
       - name: Set up .NET (version pinned via global.json)
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
 
-      # Spec 218: real-run finding, not modeled. `bin/`+`obj/` reuse (below)
-      # does not carry every package's contents -- Aspire's DCP orchestrator
-      # ships as an extracted tool asset under `~/.nuget/packages/
-      # aspire.hosting.orchestration.linux-x64/<version>/tools/dcp`, resolved
-      # directly from the NuGet package cache at runtime (DcpDependencyCheck),
-      # never copied into bin/. Dropping this job's own restore also dropped
-      # the only thing that put it on this runner's disk. Restoring this same
-      # cache entry is not the ~86s `dotnet restore` this job used to pay --
-      # `backend` already primed it (same key, same `hashFiles(...)`, same
-      # `ubuntu-latest` image), so this is a cache-hit download, not a NuGet
-      # resolve.
       - name: Cache NuGet packages
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -261,35 +240,11 @@ jobs:
       - name: Verify Docker is available
         run: docker info
 
-      # Spec 218: reuses `backend`'s Release build (see that job's upload
-      # step for why this is safe with `--no-build` downstream) instead of
-      # restoring and rebuilding this exact commit a second time, once per
-      # shard.
-      - name: Download Release build output
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: release-build-output
+      - name: Restore
+        run: dotnet restore tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj -p:Configuration=Release
 
-      # Spec 218: real-run finding, not modeled. actions/upload-artifact's
-      # zip round-trip does not reliably preserve the Unix executable bit --
-      # this job's AspireFixture boot spawns MigrationRunner's native apphost
-      # launcher (a real ELF binary named after the project, not the managed
-      # .dll) directly, and it downloaded without +x, failing every test that
-      # touches the fixture with "Permission denied" starting that process
-      # (not a build problem -- confirmed the file's ELF magic bytes are
-      # intact, only the permission bit is lost). Restore +x by content
-      # (`file`'s ELF check), not by filename pattern -- launcher executables
-      # are named after their project (`SmartSentinelEye.MigrationRunner`),
-      # which already contains dots, so "no extension" is not a reliable
-      # filter and a name-based one would need updating every time a new
-      # apphost-launched project is added.
-      - name: Restore the executable bit on native launcher binaries
-        run: |
-          find . -path '*/bin/Release/*' -type f -print0 \
-            | xargs -0 file \
-            | grep 'ELF' \
-            | cut -d: -f1 \
-            | xargs -r chmod +x
+      - name: Build integration tests (Release)
+        run: dotnet build tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj -c Release --no-restore
 
       - name: Run integration tests
         # #2410: blame-hang watchdog, sized against this job's own measured
@@ -509,10 +464,18 @@ jobs:
       - name: Set up .NET (version pinned via global.json)
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
 
-      - name: Download Release build output
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - name: Cache NuGet packages
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          name: release-build-output
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/Directory.Packages.props', 'global.json', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj -p:Configuration=Release
+
+      - name: Build integration tests (Release)
+        run: dotnet build tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj -c Release --no-restore
 
       - name: Verify the shards cover exactly today's test set
         run: |
@@ -577,25 +540,35 @@ jobs:
     needs: [integration-shards, integration-shard-coverage]
     if: always()
     steps:
+      # Phase 6 review S5: names the actual needs.*.result values so a reader
+      # can tell "genuinely red" from "superseded" (e.g. cancelled by a
+      # force-push landing in the same concurrency group) rather than both
+      # reading as an identical, unqualified "did not succeed".
       - name: Check shard and coverage-guard results
         run: |
-          if [ "${{ needs.integration-shards.result }}" != "success" ] || \
-             [ "${{ needs.integration-shard-coverage.result }}" != "success" ]; then
-            echo "::error::One or more integration shards, or the coverage guard, did not succeed."
+          shards="${{ needs.integration-shards.result }}"
+          guard="${{ needs.integration-shard-coverage.result }}"
+          if [ "$shards" != "success" ] || [ "$guard" != "success" ]; then
+            echo "::error::integration-shards=$shards integration-shard-coverage=$guard (expected success/success)."
             exit 1
           fi
 
   # Spec 218: sharded 4 ways via Playwright's native `--shard`, not a
   # hand-rolled partition (plan.md §6) -- every spec file is assigned to
-  # exactly one shard by Playwright itself, self-verifying against whatever
-  # spec files exist at run time, so (unlike integration) there is no
-  # committed partition to drift and no separate coverage guard needed.
-  # Fixed-cost math (plan.md §3): each shard still pays the ~331s fixed cost
-  # (stack boot, dominated by the ~159s wait-for-stack-ready, which sharding
-  # cannot reduce -- each shard boots its own full run-mode stack) but only
-  # 1/4 of the ~463s of actual Playwright execution. N=4 chosen to match
-  # `integration-shards` for a consistent, legible matrix shape and because
-  # the same diminishing-returns shape applies past that point.
+  # exactly one shard by Playwright itself against whatever spec files exist
+  # at run time, so (unlike integration) there is no committed partition to
+  # hand-maintain. Phase 6 review B1: "self-verifying" turned out to be the
+  # wrong conclusion from that -- a mechanism nothing ever checks verifies
+  # nothing, and that gap is exactly what let a `pnpm`/`--` argument-
+  # forwarding bug run every shard as the full suite, undetected, until a
+  # human noticed the timing anomaly. `e2e-shard-coverage` below closes it.
+  # Modeled from fixed-cost math (plan.md §3: ~331s fixed stack-boot cost
+  # plus 1/4 of ~463s Playwright execution -> ~447s/shard) -- **refuted by
+  # the real run**: verification.md measures the slowest shard at 557s, not
+  # 447s, for the same reason as `integration-shards`' identical correction
+  # above (uneven per-shard duration; LPT/file-count balancing isn't
+  # duration-aware). N=4 was still the right call for the matrix shape; the
+  # real numbers are in verification.md, not this comment.
   e2e-shards:
     name: e2e (Playwright, full stack) (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
@@ -679,30 +652,10 @@ jobs:
       - name: Ensure the ASP.NET dev cert exists (Keycloak HTTPS)
         run: dotnet dev-certs https
 
-      # Spec 218: reuses `backend`'s Release build instead of restoring and
-      # rebuilding this exact commit a second time, once per shard (see that
-      # job's upload step for why this is safe with `dotnet run --no-build`
-      # downstream, including for the AppHost's own project-reference graph).
-      - name: Download Release build output
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: release-build-output
-
-      # Spec 218: real-run finding (found in integration-shards first, same
-      # cause). actions/upload-artifact's zip round-trip does not reliably
-      # preserve the Unix executable bit -- the AppHost boot below spawns
-      # MigrationRunner's native apphost launcher (a real ELF binary, not the
-      # managed .dll) directly, and it would download without +x. Restored by
-      # content (`file`'s ELF check), not by filename pattern -- see
-      # integration-shards' identical step for why a name-based filter isn't
-      # reliable here.
-      - name: Restore the executable bit on native launcher binaries
+      - name: Build the stack (Release)
         run: |
-          find . -path '*/bin/Release/*' -type f -print0 \
-            | xargs -0 file \
-            | grep 'ELF' \
-            | cut -d: -f1 \
-            | xargs -r chmod +x
+          dotnet restore SmartSentinelEye.slnx -p:Configuration=Release
+          dotnet build SmartSentinelEye.slnx -c Release --no-restore
 
       - name: Boot the Aspire stack (run mode) in the background
         run: |
@@ -788,6 +741,74 @@ jobs:
             test-results
           retention-days: 14
 
+  # Spec 218, phase-6 review B1: Playwright's `--shard` was trusted as
+  # self-verifying (unlike integration's hand-committed partition, no
+  # custom filter to drift) -- but a mechanism that's never actually
+  # checked verifies nothing, and that gap is exactly what let the
+  # `pnpm test:e2e -- --shard=N/4` argument-forwarding bug (fixed
+  # elsewhere in this branch's history) run undetected: every shard
+  # silently ran the full suite, and nothing here would have caught it
+  # before a human noticed the timing anomaly. This job asserts, on every
+  # push: each shard is strictly smaller than the full set (catches "the
+  # shard flag did nothing"), and the deduplicated union of all four
+  # shards equals the full set (catches a gap). Deduplicated, not a raw
+  # count match: Playwright's dependency-aware sharding runs the `seed`/
+  # `cleanup` setup-teardown projects once per shard that needs them, so
+  # the raw sum of shard counts legitimately exceeds the full count
+  # (measured: 79 vs 67) -- that's Playwright's documented behaviour, not
+  # a defect this guard should flag. No Docker/browser install needed:
+  # `--list` is discovery only.
+  e2e-shard-coverage:
+    name: e2e shard coverage guard
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 10.30.3
+
+      - name: Set up Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify the e2e shards cover today's test set
+        run: |
+          set -euo pipefail
+
+          pnpm test:e2e --list 2>&1 | grep '›' | sed 's/^ *//' | sort > /tmp/full.txt
+          full_count=$(wc -l < /tmp/full.txt)
+          [ "$full_count" -gt 0 ] || { echo "::error::no e2e tests discovered -- the reader is broken, not the suite."; exit 1; }
+
+          : > /tmp/union.txt
+          for n in 1 2 3 4; do
+            shard_list="$(pnpm test:e2e --shard=$n/4 --list 2>&1 | grep '›' | sed 's/^ *//')"
+            shard_count=$(echo "$shard_list" | grep -c . || true)
+            if [ "$shard_count" -ge "$full_count" ]; then
+              echo "::error::shard $n/4 lists $shard_count tests, not fewer than the full $full_count -- --shard did not partition (this is exactly the bug this guard exists to catch)."
+              exit 1
+            fi
+            echo "$shard_list" >> /tmp/union.txt
+          done
+
+          union_unique_count=$(sort -u /tmp/union.txt | wc -l)
+          if [ "$union_unique_count" -ne "$full_count" ]; then
+            echo "::error::the four shards' deduplicated union has $union_unique_count tests; the full set has $full_count."
+            echo "--- in the full set but missing from the shard union ---"
+            comm -23 /tmp/full.txt <(sort -u /tmp/union.txt) || true
+            exit 1
+          fi
+
+          echo "OK: $full_count e2e tests covered across 4 shards, each strictly smaller than the full set."
+
   # Spec 218: one stable, human-legible check name aggregating the 4 shards
   # (which each report as their own separately-named check,
   # "e2e (Playwright, full stack) (N/4)") -- same reasoning as the
@@ -795,12 +816,15 @@ jobs:
   e2e:
     name: e2e (Playwright, full stack)
     runs-on: ubuntu-latest
-    needs: [e2e-shards]
+    needs: [e2e-shards, e2e-shard-coverage]
     if: always()
     steps:
-      - name: Check shard results
+      # Phase 6 review S5: same reasoning as `integration`'s identical step.
+      - name: Check shard and coverage-guard results
         run: |
-          if [ "${{ needs.e2e-shards.result }}" != "success" ]; then
-            echo "::error::One or more e2e shards did not succeed."
+          shards="${{ needs.e2e-shards.result }}"
+          guard="${{ needs.e2e-shard-coverage.result }}"
+          if [ "$shards" != "success" ] || [ "$guard" != "success" ]; then
+            echo "::error::e2e-shards=$shards e2e-shard-coverage=$guard (expected success/success)."
             exit 1
           fi
