@@ -146,10 +146,10 @@ export function AuditPage() {
             onChange={setField('actorUsername')}
           />
         </FormField>
-        <FormField label="Since" htmlFor="audit-since">
+        <FormField label="Since (your local time)" htmlFor="audit-since">
           <Input id="audit-since" type="datetime-local" value={draft.since} onChange={setField('since')} />
         </FormField>
-        <FormField label="Until" htmlFor="audit-until">
+        <FormField label="Until (your local time)" htmlFor="audit-until">
           <Input id="audit-until" type="datetime-local" value={draft.until} onChange={setField('until')} />
         </FormField>
         <div className="flex items-end gap-2">
