@@ -9,6 +9,7 @@ import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
+import { FormErrorSummary } from '@smart-sentinel-eye/shared/ui/composites/FormErrorSummary';
 import { AelHelpPanel } from './AelHelpPanel';
 
 export interface RuleDialogProps {
@@ -65,13 +66,24 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
   // eslint-disable-next-line react-hooks/incompatible-library -- see above
   const actionType = watch('actionType');
 
+  const setsVariable = actionType === 'SetVariableValue';
+
   useEffect(() => {
-    if (actionType === 'SetVariableValue') {
+    if (setsVariable) {
       unregister(['overlayIdentifier', 'durationMs']);
     } else {
       unregister(['variableName', 'valueExpression']);
     }
-  }, [actionType, unregister]);
+  }, [setsVariable, unregister]);
+
+  // One boolean, read by both the visibility ternary below and
+  // renderedFields — a second textual copy of `actionType ===
+  // 'SetVariableValue'` could drift out of step with the branch it's meant
+  // to describe, and FormErrorSummary would then filter out exactly the
+  // error it exists to catch, silently.
+  const renderedFields: readonly (keyof CreateRuleInput)[] = setsVariable
+    ? ['name', 'triggerSource', 'triggerKind', 'predicate', 'actionType', 'variableName', 'valueExpression']
+    : ['name', 'triggerSource', 'triggerKind', 'predicate', 'actionType', 'overlayIdentifier', 'durationMs'];
 
   const onSubmit = handleSubmit(async (values) => {
     if (mustChooseFab && fabId === '') {
@@ -152,7 +164,7 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
           </select>
         </FormField>
 
-        {actionType === 'SetVariableValue' ? (
+        {setsVariable ? (
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Variable name" htmlFor="rule-variable" error={errors.variableName?.message}>
               <Input id="rule-variable" placeholder="oeeLine1" {...register('variableName')} />
@@ -190,6 +202,7 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
             {problemDetail(error, 'Could not create the rule.')}
           </p>
         )}
+        <FormErrorSummary errors={errors} renderedFields={renderedFields} />
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
