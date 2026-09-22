@@ -47,6 +47,15 @@ export function CameraDetailPage() {
     refetch,
   } = useGetCameraQuery({ cameraIdentifier });
 
+  // `camera` (`data`) can still hold a *previously viewed* identifier's record
+  // for a moment after the URL changes — including across a same-instance
+  // navigation away and back, where RTK Query's `lastResult` fallback carries
+  // it forward with no refetch in between — while `currentData` is only ever
+  // the cache entry for the identifier being requested right now. `record` is
+  // what both the gate below and every render site read, so neither can
+  // disagree about which identifier is on screen.
+  const record = error !== undefined ? currentData : camera;
+
   if (isLoading) {
     return <Surface>Loading…</Surface>;
   }
@@ -61,14 +70,14 @@ export function CameraDetailPage() {
   // "you do not have access to this camera" — which is why there is nothing to
   // branch on here and no error code is inspected.
   //
-  // The second clause guards a navigation, not a refresh: `camera` (`data`) can
-  // still hold a *previously viewed* identifier's record for a moment after the
-  // URL changes, while `currentData` is only ever the cache entry for the
-  // identifier being requested right now. Refusing whenever a failed request
-  // has no record for the current identifier — rather than whenever it merely
-  // has no record at all — is what keeps a refused camera in another fab from
-  // rendering as the last camera the operator happened to be looking at.
-  if (camera === undefined || (error !== undefined && currentData === undefined)) {
+  // The second clause guards a navigation, not a refresh: `record` resolves to
+  // `currentData` whenever `error` is set, and `currentData` is only ever the
+  // cache entry for the identifier being requested right now. Refusing whenever
+  // a failed request has no record for the current identifier — rather than
+  // whenever it merely has no record at all — is what keeps a refused camera in
+  // another fab (or a stale record carried over from one) from rendering as the
+  // last camera the operator happened to be looking at.
+  if (record === undefined) {
     return (
       <Surface>
         <h1 className="text-2xl font-semibold">No such camera</h1>
@@ -79,13 +88,13 @@ export function CameraDetailPage() {
     );
   }
 
-  const retired = camera.status === RETIRED;
+  const retired = record.status === RETIRED;
 
   return (
     <Surface>
       <header className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">{camera.name}</h1>
+          <h1 className="text-2xl font-semibold">{record.name}</h1>
           {retired ? (
             <span className="rounded-md bg-fg-muted/15 px-2 py-1 text-xs font-medium text-fg-muted">Retired</span>
           ) : null}
@@ -141,31 +150,31 @@ export function CameraDetailPage() {
           notice below says so in words instead. */}
       {retired ? null : (
         <div className="mb-6 max-w-3xl">
-          <CameraViewer cameraIdentifier={camera.cameraIdentifier} getToken={getToken} />
+          <CameraViewer cameraIdentifier={record.cameraIdentifier} getToken={getToken} />
         </div>
       )}
 
       <EditCameraAddressDialog
         open={editing}
         onOpenChange={setEditing}
-        cameraIdentifier={camera.cameraIdentifier}
-        version={camera.version}
-        currentUrl={camera.rtspUrl}
+        cameraIdentifier={record.cameraIdentifier}
+        version={record.version}
+        currentUrl={record.rtspUrl}
       />
 
       <RenameCameraDialog
         open={renaming}
         onOpenChange={setRenaming}
-        cameraIdentifier={camera.cameraIdentifier}
-        version={camera.version}
-        currentName={camera.name}
+        cameraIdentifier={record.cameraIdentifier}
+        version={record.version}
+        currentName={record.name}
       />
 
       <RetireCameraDialog
         open={retiring}
         onOpenChange={setRetiring}
-        cameraIdentifier={camera.cameraIdentifier}
-        name={camera.name}
+        cameraIdentifier={record.cameraIdentifier}
+        name={record.name}
       />
 
       {/* FR-007. A retired camera opens and says so — the record outlives the
@@ -180,12 +189,12 @@ export function CameraDetailPage() {
       ) : null}
 
       <dl className="grid grid-cols-[10rem_1fr] gap-y-3 text-sm">
-        <Field label="Fab">{camera.fab}</Field>
+        <Field label="Fab">{record.fab}</Field>
         <Field label="RTSP URL">
-          <code className="text-xs text-fg-muted">{camera.rtspUrl}</code>
+          <code className="text-xs text-fg-muted">{record.rtspUrl}</code>
         </Field>
-        <Field label="Registered">{new Date(camera.registeredAt).toLocaleString()}</Field>
-        <Field label="Status">{camera.status}</Field>
+        <Field label="Registered">{new Date(record.registeredAt).toLocaleString()}</Field>
+        <Field label="Status">{record.status}</Field>
       </dl>
     </Surface>
   );

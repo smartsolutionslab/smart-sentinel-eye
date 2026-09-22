@@ -81,6 +81,19 @@ const camera = {
   status: 'Registered',
 };
 
+// A second, fully distinct record — used only by the render-site regression
+// test below, where `data` and `currentData` must disagree about *which*
+// camera to show, not merely about whether one is present.
+const otherCamera = {
+  cameraIdentifier: '44444444-4444-4444-4444-444444444444',
+  version: 3,
+  fab: 'dresden',
+  name: 'Line-2-Loading-Dock',
+  rtspUrl: 'rtsp://10.0.7.4/h264',
+  registeredAt: '2026-06-01T09:00:00Z',
+  status: 'Registered',
+};
+
 function renderAt(identifier: string) {
   return render(
     <Provider store={store}>
@@ -420,6 +433,38 @@ describe('CameraDetailPage', () => {
     expect(screen.queryByText(camera.rtspUrl)).toBeNull();
     expect(screen.queryByRole('button', { name: /retry/i })).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  /**
+   * The render-site counterpart to US1-C above. That test catches a
+   * `data`-sourced *gate*: it fixes `data` on some other camera's record
+   * while `currentData` is undefined, and the page must refuse rather than
+   * render `data`. This test catches the render sites themselves still
+   * reading `data` after the gate was already fixed to read `currentData` —
+   * the gate passes (because `currentData` is defined, just for a *different*
+   * camera than `data`), but a `data`-sourced heading, address, or dialog
+   * prop would show the wrong camera's record at this identifier's URL.
+   */
+  it('Shows the current identifier record, not a stale one carried over in data', () => {
+    const refetch = vi.fn();
+    getCamera.mockReturnValue({
+      data: camera,
+      currentData: otherCamera,
+      isLoading: false,
+      error: { status: 503 },
+      refetch,
+    });
+
+    renderAt(otherCamera.cameraIdentifier);
+
+    expect(screen.getByRole('heading', { name: otherCamera.name })).toBeInTheDocument();
+    expect(screen.getByText(otherCamera.fab)).toBeInTheDocument();
+    expect(screen.getByText(otherCamera.rtspUrl)).toBeInTheDocument();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not refresh/i);
+
+    expect(screen.queryByText(camera.name)).toBeNull();
+    expect(screen.queryByText(camera.rtspUrl)).toBeNull();
   });
 
   /** US1-B. Pressing the alert's Retry (from the US1-A state) refetches. */
