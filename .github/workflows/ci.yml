@@ -715,7 +715,18 @@ jobs:
         run: bash scripts/wait-for-e2e-stack.sh
 
       - name: Run the Playwright e2e suite
-        run: pnpm test:e2e -- --shard=${{ matrix.shard }}/4
+        # Spec 218: real-run finding, caught locally before a second CI
+        # round-trip. `test:e2e` is the plain script `playwright test` (no
+        # args of its own), and pnpm forwards a literal `--` straight into
+        # the invoked command rather than consuming it as its own
+        # passthrough delimiter -- confirmed against this exact form (`pnpm
+        # test:e2e -- --shard=1/4 --list`), which silently dropped
+        # --shard/--list entirely and ran the full 67-test suite instead of
+        # the ~17 this shard owns. `pnpm test:e2e --shard=N/4` (no `--`),
+        # confirmed to shard correctly (19 tests in 9 files for 1/4 of 67),
+        # is the right form because the script itself carries no arguments
+        # of its own for `--` to separate from.
+        run: pnpm test:e2e --shard=${{ matrix.shard }}/4
 
       # Runs on a red suite too (#2077): a retried pass reports identically to
       # a clean one today, and that's the gap this step closes. `if: always()`
