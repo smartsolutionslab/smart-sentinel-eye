@@ -43,6 +43,7 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
     register,
     handleSubmit,
     watch,
+    unregister,
     formState: { errors },
     reset,
   } = useForm<DefineVariableInput>({
@@ -54,6 +55,13 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
   // which reports "Compilation Skipped", not a defect. ADR-0079 chose it.
   // eslint-disable-next-line react-hooks/incompatible-library -- see above
   const selectedType = watch('type');
+
+  // Must run after the render that unmounts the Boolean fields, not in the
+  // <select>'s onChange, which fires before that render and cannot reach
+  // fields RHF hasn't yet marked gone.
+  useEffect(() => {
+    if (selectedType !== 'Boolean') unregister(['truthyLabel', 'falsyLabel']);
+  }, [selectedType, unregister]);
 
   const onSubmit = handleSubmit(async (input) => {
     if (mustChooseFab && fabId === '') {
