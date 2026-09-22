@@ -27,9 +27,11 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// refused refresh would be indistinguishable from a client that never issues
 /// one;
 /// <see cref="The_locked_out_account_is_refused_its_correct_password_in_the_same_window"/>
-/// (SC-2) proves the account really is locked at the moment SC-1 spends the
-/// refresh token — without it a successful refresh is indistinguishable from a
-/// lock that never tripped;
+/// (SC-2) is the endpoint-level control that the *password* grant, not just
+/// the refresh grant, is refused for a locked account — <c>LockProbeAsync</c>
+/// itself already asserts <c>disabled == true</c> on SC-1's own account
+/// before SC-1 ever spends its refresh token, so a successful refresh is not
+/// indistinguishable from a lock that never tripped;
 /// <see cref="A_second_account_is_unaffected_while_the_first_is_locked"/>
 /// (SC-5) is the blast-radius guard — a realm-wide lock would poison the rest
 /// of this collection, not just this file.
@@ -329,15 +331,27 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
     }
 
     /// <summary>
-    /// A malformed refresh token is not a failed login. Pinned so a later
+    /// A corrupted refresh token is not a failed login. Pinned so a later
     /// tightening of the realm cannot quietly start counting refresh failures
     /// against real accounts — which would turn a renewing wall into its own
     /// attacker (spec.md §*Bad request*).
     ///
     /// <para>
-    /// The real claim ("a malformed refresh doesn't move the counter") needs a
-    /// before/after comparison on the probe's own attack-detection record, so
-    /// <c>numFailures</c> is read both sides of the malformed grant, routed
+    /// <b>Attributable to the probe, not a bare string.</b> A syntactically
+    /// invalid token like <c>"not-a-real-refresh-token"</c> names no user at
+    /// all, so a before/after count on *any* account's failure counter would
+    /// pass vacuously — the counter could not have moved regardless of what
+    /// Keycloak does with malformed grants, because Keycloak has nothing to
+    /// attribute the attempt to. This mints a real pair for the probe first,
+    /// then flips the last character of the refresh token's signature segment
+    /// — still a three-segment JWT naming this probe's session in its
+    /// (unverified but readable) payload, but one whose signature check must
+    /// fail. That is what makes the before/after comparison on <i>this</i>
+    /// account's own record a claim that could actually fail.
+    /// </para>
+    ///
+    /// <para>
+    /// <c>numFailures</c> is read both sides of the corrupted grant, routed
     /// through <see cref="RealmProbe.ReadJsonAsync"/> so a non-success status
     /// throws rather than being silently skipped — same shape as
     /// <c>BruteForceLockoutIntegrationTests.A_grant_with_no_username_is_a_bad_request_not_a_lockout</c>.
@@ -349,11 +363,13 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
         (string username, string id) = await CreateProbeUserAsync(CancellationToken.None);
         try
         {
+            string refreshToken = await MintRefreshTokenAsync(username, CancellationToken.None);
+            string corruptedToken = CorruptSignature(refreshToken);
+
             using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
             int failuresBefore = await ReadAttackDetectionFailureCountAsync(admin, id, CancellationToken.None);
 
-            using HttpResponseMessage response = await PostRefreshGrantAsync(
-                "not-a-real-refresh-token", CancellationToken.None);
+            using HttpResponseMessage response = await PostRefreshGrantAsync(corruptedToken, CancellationToken.None);
             string body = await response.Content.ReadAsStringAsync();
 
             using JsonDocument document = JsonDocument.Parse(body);
@@ -362,7 +378,7 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
 
             response.StatusCode.ShouldBe(
                 HttpStatusCode.BadRequest,
-                $"a syntactically invalid refresh token should be refused, not accepted. "
+                $"a refresh token with a corrupted signature should be refused, not accepted. "
                 + $"status: {(int)response.StatusCode} (body withheld from this message on purpose).");
             hasError.ShouldBeTrue(
                 "the refusal body should name an OAuth error (body withheld from this message).");
@@ -371,7 +387,7 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
             int failuresAfter = await ReadAttackDetectionFailureCountAsync(admin, id, CancellationToken.None);
             failuresAfter.ShouldBe(
                 failuresBefore,
-                $"a malformed refresh token must not move '{username}''s failure counter — a "
+                $"a corrupted refresh token must not move '{username}''s failure counter — a "
                 + $"renewing session must never be able to count itself into a lockout. "
                 + $"before: {failuresBefore}, after: {failuresAfter}.");
         }
@@ -379,6 +395,26 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
         {
             await DeleteProbeUserAsync(id, CancellationToken.None);
         }
+    }
+
+    /// <summary>
+    /// Flips the last character of a three-segment JWT's signature, leaving
+    /// its header and payload — the parts naming the session and subject —
+    /// byte-identical and readable. A signature-only corruption is what makes
+    /// the token attributable but invalid, as opposed to a bare string that
+    /// fails to parse as a JWT at all.
+    /// </summary>
+    private static string CorruptSignature(string jwt)
+    {
+        string[] segments = jwt.Split('.');
+        segments.Length.ShouldBe(3, $"a refresh token should be a three-segment JWT; got {segments.Length} segment(s).");
+
+        string signature = segments[2];
+        signature.ShouldNotBeNullOrEmpty("a refresh token's signature segment should not be empty.");
+        char lastCharacter = signature[^1];
+        char flipped = lastCharacter == 'A' ? 'B' : 'A';
+
+        return $"{segments[0]}.{segments[1]}.{signature[..^1]}{flipped}";
     }
 
     /// <summary>
@@ -393,7 +429,7 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
     {
         (string username, string id) = await CreateProbeUserAsync(cancellationToken);
         string refreshToken = await MintRefreshTokenAsync(username, cancellationToken);
-        int failureFactor = await LockProbeAsync(username, cancellationToken);
+        int failureFactor = await LockProbeAsync(username, id, cancellationToken);
 
         return (username, id, refreshToken, failureFactor);
     }
@@ -429,11 +465,30 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
         CancellationToken cancellationToken)
     {
         (string username, string id) = await CreateProbeUserAsync(cancellationToken);
-        int failureFactor = await LockProbeAsync(username, cancellationToken);
+        int failureFactor = await LockProbeAsync(username, id, cancellationToken);
         return (username, id, failureFactor);
     }
 
-    private async Task<int> LockProbeAsync(string username, CancellationToken cancellationToken)
+    /// <summary>
+    /// Locks the probe account, then reads <b>this account's own</b>
+    /// attack-detection record and asserts <c>disabled == true</c> before
+    /// returning — not just that each wrong-password grant was refused.
+    ///
+    /// <para>
+    /// Without this, <see cref="A_locked_out_account_can_still_spend_its_refresh_token"/>
+    /// (SC-1) never establishes that the account whose refresh token it
+    /// spends was actually locked at that moment — the only account this file
+    /// confirmed as locked would be <see cref="The_locked_out_account_is_refused_its_correct_password_in_the_same_window"/>'s
+    /// (SC-2) own, separate probe. A refresh token that still works is only
+    /// the finding this spec exists to report if the account holding it was
+    /// genuinely disabled, not merely subjected to wrong guesses that may not
+    /// have tripped the detector (a realm edit to <c>failureFactor</c> or
+    /// <c>quickLoginCheckMilliSeconds</c>, a Keycloak upgrade, or a
+    /// <c>bruteForceProtected</c> regression could all make this loop run
+    /// with nothing actually locking).
+    /// </para>
+    /// </summary>
+    private async Task<int> LockProbeAsync(string username, string id, CancellationToken cancellationToken)
     {
         int failureFactor = await ReadFailureFactorAsync(cancellationToken);
 
@@ -444,6 +499,14 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
                 $"wrong-password grant #{attempt} of {failureFactor + 1} for '{username}' unexpectedly "
                 + $"succeeded; the throwaway account's password should never be '{WrongPassword}'.");
         }
+
+        using HttpClient admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
+        JsonElement attackDetection = await RealmProbe.ReadJsonAsync(
+            admin, $"admin/realms/{RealmProbe.Realm}/attack-detection/brute-force/users/{id}", cancellationToken);
+        attackDetection.GetProperty("disabled").GetBoolean().ShouldBeTrue(
+            $"'{username}' should report disabled == true after {failureFactor + 1} wrong password "
+            + $"grants — every fact that calls LockProbeAsync depends on the account it locked "
+            + $"actually being locked, not merely having been sent wrong guesses. record: {attackDetection}");
 
         return failureFactor;
     }
@@ -494,7 +557,7 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
         string body = await response.Content.ReadAsStringAsync(cancellationToken);
         response.IsSuccessStatusCode.ShouldBeTrue(
             $"minting a master-realm admin-cli token failed with {(int)response.StatusCode}; without "
-            + "it ReadFailureFactorAsync cannot read the realm's real failureFactor. body: {body}");
+            + $"it ReadFailureFactorAsync cannot read the realm's real failureFactor. body: {body}");
 
         using JsonDocument document = JsonDocument.Parse(body);
         string token = document.RootElement.GetProperty("access_token").GetString()!;
