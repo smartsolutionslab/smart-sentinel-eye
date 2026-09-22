@@ -39,7 +39,13 @@ export function CameraDetailPage() {
   const [editing, setEditing] = useState(false);
   const [retiring, setRetiring] = useState(false);
   const [renaming, setRenaming] = useState(false);
-  const { data: camera, isLoading, error } = useGetCameraQuery({ cameraIdentifier });
+  const {
+    data: camera,
+    currentData,
+    isLoading,
+    error,
+    refetch,
+  } = useGetCameraQuery({ cameraIdentifier });
 
   if (isLoading) {
     return <Surface>Loading…</Surface>;
@@ -54,7 +60,15 @@ export function CameraDetailPage() {
   // one request at a time. The app can undo that in a single helpful sentence —
   // "you do not have access to this camera" — which is why there is nothing to
   // branch on here and no error code is inspected.
-  if (error !== undefined || camera === undefined) {
+  //
+  // The second clause guards a navigation, not a refresh: `camera` (`data`) can
+  // still hold a *previously viewed* identifier's record for a moment after the
+  // URL changes, while `currentData` is only ever the cache entry for the
+  // identifier being requested right now. Refusing whenever a failed request
+  // has no record for the current identifier — rather than whenever it merely
+  // has no record at all — is what keeps a refused camera in another fab from
+  // rendering as the last camera the operator happened to be looking at.
+  if (camera === undefined || (error !== undefined && currentData === undefined)) {
     return (
       <Surface>
         <h1 className="text-2xl font-semibold">No such camera</h1>
@@ -103,6 +117,18 @@ export function CameraDetailPage() {
           </Link>
         </div>
       </header>
+
+      {error !== undefined && (
+        <div
+          role="alert"
+          className="mb-4 rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
+        >
+          Could not refresh this camera — what you see may be out of date.{' '}
+          <button type="button" className="underline" onClick={() => void refetch()}>
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* FR-001/FR-002: the picture is part of the page, not something opened
           and dismissed. CameraViewer already carries `relative aspect-video
