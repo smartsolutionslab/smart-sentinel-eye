@@ -132,3 +132,36 @@ test('a second operator publishing the same rule is refused, not silently applie
     await second.close();
   }
 });
+
+// #2430 / spec 212 T006. Before RuleDialog.tsx's unregister effect (this
+// branch), looking at Highlight an overlay and landing back on Set a system
+// variable left `overlayIdentifier`/`durationMs` ghosts in form state that
+// Zod rejected with no visible error -- Create draft did nothing at all, on
+// no field the operator could see. This drives the real gateway against the
+// actual stack, the same round trip spec 212's manual procedure describes.
+test('operator looks at the overlay action, lands back on set-a-variable, and the draft still lands', async ({
+  page,
+}) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
+  await openRules(page);
+
+  const name = `e2e-toggle-rule-${Date.now()}`;
+  await page.getByRole('button', { name: /new rule/i }).click();
+
+  await page.locator('#rule-name').fill(name);
+  await page.locator('#rule-source').fill('plc');
+  await page.locator('#rule-kind').fill('PlcCycleStart');
+  await page.locator('#rule-predicate').fill('$.payload.cycleTime <= 30');
+
+  await page.locator('#rule-action-type').selectOption('HighlightOverlay');
+  await page.locator('#rule-action-type').selectOption('SetVariableValue');
+
+  await page.locator('#rule-variable').fill('oeeLine1');
+  await page.locator('#rule-value-expression').fill('100 - $.payload.cycleTime * 2');
+
+  await page.getByRole('button', { name: /^create draft$/i }).click();
+
+  const row = page.getByRole('row').filter({ hasText: name });
+  await expect(row).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+});
