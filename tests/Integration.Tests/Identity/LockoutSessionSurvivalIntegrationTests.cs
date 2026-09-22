@@ -32,9 +32,10 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// lock that never tripped;
 /// <see cref="A_second_account_is_unaffected_while_the_first_is_locked"/>
 /// (SC-5) is the blast-radius guard — a realm-wide lock would poison the rest
-/// of this collection, not just this file. This file's SC-4 counterfactual
-/// (proving the instrument can register a refusal at all) is added by a
-/// follow-up task in the same file, not here.
+/// of this collection, not just this file.
+/// <see cref="A_disabled_account_cannot_spend_its_refresh_token"/> (SC-4) is
+/// the counterfactual — it proves the instrument can register a refusal at
+/// all, via a mechanism genuinely different from a brute-force lockout.
 /// </para>
 ///
 /// <para>
@@ -252,6 +253,82 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
     }
 
     /// <summary>
+    /// SC-4 — the counterfactual, and the load-bearing scenario of the whole
+    /// file (T003, spec 214/#2509). <see cref="A_locked_out_account_can_still_spend_its_refresh_token"/>
+    /// (SC-1) asserts a *success*, so on its own it would pass just as happily
+    /// against a Keycloak that ignores lockouts, or refresh tokens, entirely.
+    /// This fact drives the same endpoint with the same kind of token down a
+    /// genuinely different mechanism — <c>PUT .../users/{id}</c> with
+    /// <c>enabled: false</c>, which Keycloak's own refresh path refuses via
+    /// <c>TokenManager.validateToken</c>'s <c>if (!user.isEnabled())</c>
+    /// branch, not the attack-detection branch SC-1 exercises — and proves the
+    /// instrument registers a refusal when there is one to register.
+    ///
+    /// <para>
+    /// The user is re-enabled before it is deleted, in a nested <c>finally</c>
+    /// so neither cleanup step can swallow the other's failure: if re-enabling
+    /// throws, the outer <c>finally</c> still attempts the delete, because a
+    /// deleted user cannot stay disabled.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_disabled_account_cannot_spend_its_refresh_token()
+    {
+        (string username, string id) = await CreateProbeUserAsync(CancellationToken.None);
+        try
+        {
+            string refreshToken = await MintRefreshTokenAsync(username, CancellationToken.None);
+
+            using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+            try
+            {
+                HttpResponseMessage disabled = await admin.PutAsJsonAsync(
+                    $"admin/realms/{RealmProbe.Realm}/users/{id}",
+                    new { enabled = false },
+                    CancellationToken.None);
+                disabled.IsSuccessStatusCode.ShouldBeTrue(
+                    $"disabling throwaway probe user '{username}' failed with "
+                    + $"{(int)disabled.StatusCode}; without it this fact is not exercising the "
+                    + "branch it claims to.");
+
+                using HttpResponseMessage response = await PostRefreshGrantAsync(refreshToken, CancellationToken.None);
+                string body = await response.Content.ReadAsStringAsync();
+
+                using JsonDocument document = JsonDocument.Parse(body);
+                bool hasError = document.RootElement.TryGetProperty("error", out JsonElement error);
+                string? errorValue = hasError ? error.GetString() : null;
+
+                response.StatusCode.ShouldBe(
+                    HttpStatusCode.BadRequest,
+                    $"a refresh token belonging to a disabled account ('{username}') must be "
+                    + "refused — this is the counterfactual that proves SC-1's assertion can "
+                    + $"actually fail: a 200 here would mean the instrument is inert. status: "
+                    + $"{(int)response.StatusCode} (body withheld from this message on purpose — "
+                    + "see the class doc comment on secrets discipline).");
+                hasError.ShouldBeTrue(
+                    "the refusal body should name an OAuth error (body withheld from this "
+                    + "message).");
+                errorValue.ShouldBe("invalid_grant", $"error reported: '{errorValue}'.");
+            }
+            finally
+            {
+                HttpResponseMessage reenabled = await admin.PutAsJsonAsync(
+                    $"admin/realms/{RealmProbe.Realm}/users/{id}",
+                    new { enabled = true },
+                    CancellationToken.None);
+                reenabled.IsSuccessStatusCode.ShouldBeTrue(
+                    $"re-enabling throwaway probe user '{username}' failed with "
+                    + $"{(int)reenabled.StatusCode}; it must not be left disabled even though it "
+                    + "is about to be deleted.");
+            }
+        }
+        finally
+        {
+            await DeleteProbeUserAsync(id, CancellationToken.None);
+        }
+    }
+
+    /// <summary>
     /// A malformed refresh token is not a failed login. Pinned so a later
     /// tightening of the realm cannot quietly start counting refresh failures
     /// against real accounts — which would turn a renewing wall into its own
@@ -315,18 +392,31 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
         CreateProbeUserLockedWithLiveRefreshTokenAsync(CancellationToken cancellationToken)
     {
         (string username, string id) = await CreateProbeUserAsync(cancellationToken);
-
-        using HttpResponseMessage mint = await PostPasswordGrantAsync(username, ProbePassword, cancellationToken);
-        mint.StatusCode.ShouldBe(
-            HttpStatusCode.OK,
-            $"minting the pre-lockout token pair for '{username}' failed with "
-            + $"{(int)mint.StatusCode}; without it SC-1 has no refresh token to spend against the "
-            + "locked account.");
-        (_, string refreshToken) = await ReadTokenPairAsync(mint, cancellationToken);
-
+        string refreshToken = await MintRefreshTokenAsync(username, cancellationToken);
         int failureFactor = await LockProbeAsync(username, cancellationToken);
 
         return (username, id, refreshToken, failureFactor);
+    }
+
+    /// <summary>
+    /// Mints a fresh token pair for an already-created probe user and hands
+    /// back only the refresh token — the one field neither
+    /// <see cref="AspireFixture.GetAccessTokenAsync(string, string, CancellationToken)"/>
+    /// nor <c>FetchAccessTokenAsync</c> keeps. Extracted from
+    /// <see cref="CreateProbeUserLockedWithLiveRefreshTokenAsync"/> so
+    /// <see cref="A_disabled_account_cannot_spend_its_refresh_token"/> (SC-4)
+    /// can mint a live refresh token without also locking the account — SC-4's
+    /// whole point is a mechanism genuinely different from a lockout.
+    /// </summary>
+    private async Task<string> MintRefreshTokenAsync(string username, CancellationToken cancellationToken)
+    {
+        using HttpResponseMessage mint = await PostPasswordGrantAsync(username, ProbePassword, cancellationToken);
+        mint.StatusCode.ShouldBe(
+            HttpStatusCode.OK,
+            $"minting a token pair for '{username}' failed with {(int)mint.StatusCode}; without it "
+            + "there is no refresh token to spend.");
+        (_, string refreshToken) = await ReadTokenPairAsync(mint, cancellationToken);
+        return refreshToken;
     }
 
     /// <summary>
@@ -552,8 +642,9 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
     /// about, and <b>fails loudly if <c>refresh_token</c> is absent</b> rather
     /// than returning an empty string — an absent refresh token would make
     /// <see cref="A_locked_out_account_can_still_spend_its_refresh_token"/>
-    /// (SC-1) pass vacuously, which is exactly the failure mode SC-4 (added by
-    /// a follow-up task in this same file) exists to rule out.
+    /// (SC-1) pass vacuously, which is exactly the failure mode
+    /// <see cref="A_disabled_account_cannot_spend_its_refresh_token"/> (SC-4)
+    /// exists to rule out.
     /// </summary>
     private static async Task<(string AccessToken, string RefreshToken)> ReadTokenPairAsync(
         HttpResponseMessage response, CancellationToken cancellationToken)
