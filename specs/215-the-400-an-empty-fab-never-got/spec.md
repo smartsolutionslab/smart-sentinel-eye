@@ -466,6 +466,21 @@ implements no leg and inherits no obligation.
 - **Backfilling a `?fabId=` probe into other contexts' integration tests.** They
   are correct by construction; a test per context would assert `FabResolution`'s
   branch eleven times.
+- **`AuditEndpoints.Search`'s own remaining gap, found by phase-6 review, not
+  fixed here.** After this delivery, a malformed-grammar fab answers differently
+  on the two audit endpoints eight lines apart in the same file:
+  `GetTimeline`'s reorder makes `?fabId=NOT_A_FAB` a clean 400
+  `AUDIT_INVALID_INPUT`; `Search` still runs the guard on the raw string first,
+  so the same input there still answers 403 `RESOURCE_FAB_NOT_AUTHORIZED`.
+  Untouched deliberately — widening `Search`'s fix to match would be a second,
+  separate change beyond what this delivery's fab-empty defect needs (ADR-0036).
+  A related, currently-unreachable exposure in the same handler: if a caller's
+  own `groups` claim ever carried a fab segment failing `FabIdentifier`'s
+  lowercase-only grammar (not possible with today's seeded realm, all lowercase),
+  `SearchAuditQueryHandler.cs:54` and `:72` both call `FabIdentifier.From` on
+  caller-derived data with no catch — the exact 500-at-a-trust-boundary shape
+  this issue exists to close, one level up. Worth a follow-up issue if someone
+  wants `Search`'s boundary brought in line with `GetTimeline`'s.
 
 ---
 
