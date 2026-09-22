@@ -233,7 +233,9 @@ gh project item-add 13 --owner smartsolutionslab \
 ## Definition of done
 
 - [ ] SC-1 … SC-10 all green.
-- [ ] The three RED tests were **observed failing first**, output quoted verbatim
+- [ ] The four RED tests (SC-1, SC-2, SC-8, and SC-6 — reclassified from
+      characterisation after its "already answers 400" premise was found wrong
+      on inspection) were **observed failing first**, output quoted verbatim
       in the PR body (ADR-0139, ADR-0144).
 - [ ] SC-D: no existing assertion edited.
 - [ ] SC-E: no new error code.
