@@ -553,6 +553,41 @@ determines both fork-pool sizes and therefore the real ratio, and this plan has
 already shipped one number nobody read. T014 measures it with `nproc` in the job
 itself.
 
+**Measured 2026-09-22, PR #2534, CI run 35743075866, job 106797612860** (the
+`nproc && free -m` diagnostic step, run before `pnpm test`):
+
+```
+4
+              total        used        free      shared  buff/cache   available
+Mem:          15989        1229       12005          47        3148       14759
+Swap:          3071           0        3071
+```
+
+`ubuntu-latest` carries **4 logical cores** and ~16 GiB RAM — not 8, and not
+"twice CI's load" as guessed. Recomputing the pre-fix ratio from the measured
+figure, not the guess: each package's fork pool is
+`max(availableParallelism() - 1, 1)` = `max(4 - 1, 1)` = **3 workers + 1 main =
+4 processes**; with `apps/kiosk-web` and `apps/management-web` running
+concurrently (the pre-T015 state), that is **8 processes demanded on 4 cores —
+2.0× oversubscription**, exactly the "order of 2×" estimate, now confirmed
+rather than guessed.
+
+**The local harness is recalibrated to the same 2.0× ratio, on this machine's
+own core count.** The local worktree machine has **8 logical cores** (`nproc` /
+`os.cpus().length`, checked directly, not assumed from phase 1's unstated
+figure). A single Vitest run of the target package alone already demands 1 main
++ `max(8 - 1, 1)` = 7 workers = **8 processes**. To reach the measured 2.0× ratio
+on 8 cores, total demand must be 16 processes, so the busy-process count is
+**16 − 8 = 8** (not phase 1's 24, which produced ≈ 3.9× — nearly double the
+measured CI ratio). **T016 runs at 8 busy Node processes on 8 logical cores.**
+
+Also observed on the same run, as a check on T015 (§6 below, not part of the
+calibration): the `frontend` job completed in **2 m 04 s**
+(`14:50:22Z`→`14:52:26Z`), matching the plan's ≈ 2 m 04 s prediction exactly, and
+the three suites now run serially and back-to-back — `shared` 16.06 s
+(`14:51:11`), `kiosk-web` 12.38 s (`14:51:27`), `management-web` 36.61 s
+(`14:51:40`, ending `14:52:17`) — no overlap between any two.
+
 This cuts both ways and both halves must be said:
 
 - It means **15 % under this harness is not 15 % in CI** — the real rate is
