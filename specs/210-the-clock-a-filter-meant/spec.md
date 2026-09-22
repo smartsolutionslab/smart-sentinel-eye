@@ -92,7 +92,7 @@ New_York      2026-09-17T12:00:00.000Z   2026-09-17T12:00:30.000Z
 
 Both shapes parse; the seconds-bearing form (which a `step` attribute can produce, though this page sets none) is handled identically.
 
-**The empty case is already guarded, and the invalid case is not.** `toQuery` only reads `draft.since` inside `if (draft.since !== '')`, so clearing a filter never reaches the conversion — `new Date('')` is `Invalid Date` and would throw. But `new Date('nope').toISOString()` throws `RangeError: Invalid time value`, which in a render path blanks the page. A real browser will not produce an invalid non-empty value (an incomplete `datetime-local` reports `''`), but **jsdom does not enforce that**, and neither does anything else that can write to `FilterDraft`. The conversion therefore returns `undefined` for an unparseable value, which `definedParams` already drops — the filter is simply not applied, which is exactly what the field being blank means. This is boundary validation at the one place the untrusted shape enters, not drive-by error handling.
+**The empty case is already guarded, and the invalid case is not.** `toQuery` only reads `draft.since` inside `if (draft.since !== '')`, so clearing a filter never reaches the conversion — `new Date('')` is `Invalid Date` and would throw. But `new Date('nope').toISOString()` throws `RangeError: Invalid time value`, which in a render path blanks the page. Neither a real browser's `datetime-local` nor jsdom will produce an invalid non-empty value — both sanitise an incomplete or invalid entry straight back to `''` on assignment, measured against the pinned jsdom version. But `toQuery` and `toInstant` are pure functions over `FilterDraft`, not over the DOM element that currently produces it — any future non-DOM writer of that state (a URL-restore feature, a saved-filter feature) could still hand them an invalid string. The conversion therefore returns `undefined` for an unparseable value, which `definedParams` already drops — the filter is simply not applied, which is exactly what the field being blank means. This is boundary validation at the one place the untrusted shape enters, not drive-by error handling.
 
 ### Where the conversion belongs, and where it must not go
 
@@ -234,7 +234,7 @@ Given the Since field somehow holds a value that is not a datetime
   And the page still renders
 ```
 
-Unreachable through a real browser's `datetime-local`; reachable in jsdom and through any future writer of `FilterDraft`.
+Unreachable through `datetime-local` in a real browser or in jsdom — both sanitise an invalid entry back to `''`; reachable only through some future non-DOM writer of `FilterDraft`, which the test drives directly by bypassing the DOM sanitiser.
 
 ### US1 — the other filters are untouched
 
