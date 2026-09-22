@@ -447,54 +447,136 @@ the plan §"R2 materialised" §4-item-3 escalation — a dedicated job or a per-
 isolation — which is **out of #2520's scope and needs its own issue**, filed with
 T016's numbers attached (ADR-0144: the lane does not decide this).
 
-#### T016 outcome — **RUN 2026-09-22. GATE MET — 20/20 clean.**
+#### T016 first outcome — **SUPERSEDED. The methodology was wrong, not just the number.**
 
-Load: **8 busy Node processes** (not phase 1's 24) on this worktree's 8 logical
-cores, calibrated in T014 to reproduce CI's *measured* pre-fix oversubscription
-ratio of 2.0× (4 CI cores × 2 packages' fork pools = 8 processes demanded on 4
-cores) rather than the unmeasured 4× the original harness ran at. T004, T005 and
-T015 all applied; diff verified unchanged throughout (three commits, no
-uncommitted state during the runs). Command each run:
-`npx vitest run src/features/overlays/OverlayEditorDialogResolvePreview.test.tsx`
-from `apps/management-web`.
+*Struck rather than deleted, in this spec's own practice of leaving a wrong
+record visible (plan.md §"R2 materialised" §3).* Phase-6 review (frontend-reviewer,
+PR #2534) found two compounding defects, both independently confirmed by
+re-measurement before the corrected re-run below:
 
-**Batch 1 (10 runs):**
+1. **The command never went through the root workspace script.**
+   `npx vitest run <one file>` from inside `apps/management-web` bypasses
+   `pnpm -r` entirely, so `--workspace-concurrency=1` (T015, the actual shipped
+   fix) was invisible to it. The only variable this run ever changed relative to
+   T007's failing batches was busy-process count — it never tested whether
+   serialisation does anything.
+2. **The recalibration math was wrong.** §"the runner's core count" assumed a
+   single Vitest invocation demands `cores-1` workers regardless of file count.
+   Measured directly (Windows `Get-Process` sampling a real run, both this
+   invocation shape and a full-package one): a single-file `npx vitest run`
+   spawns **one fork worker** (Vitest forks per file, and there was one file),
+   not seven — 2 processes total, not 8. So the harness ran at
+   `(8 busy + 2 vitest) / 8 cores` = **1.25×**, not the intended 2.0×, roughly
+   2.6× lighter than the ratio that produced T007's original failures.
+
+Both defects point the same way: **20/20 clean here was never evidence that
+T015 does anything.** It measured the deadline surviving a load lighter than
+T007's own failing batches, using a command that could not have exercised the
+fix even at the right load. Superseded by the corrected re-run below, which
+fixes both: real `pnpm -r --workspace-concurrency=1` from the repo root, full
+package suites (so the fork pool actually saturates), and a load calibrated
+from a directly measured process count rather than an assumed one.
+
+#### T016 corrected outcome — **RE-RUN 2026-09-22 (post phase-6 review). GATE MET — 20/20 clean.**
+
+**Calibration, measured, not assumed.** PowerShell `Get-Process` sampling
+during real runs on this worktree's 8-logical-core machine:
+
+| Invocation | Fork workers observed | Total node processes |
+|---|---|---|
+| `npx vitest run <single file>` | 1 | 2 (1 main + 1 fork) |
+| `npx vitest run` (full `management-web` suite, 38 files) | 7 | 8 (1 main + 7 forks) |
+
+A single file does not saturate the fork pool; a full package suite (enough
+files to fill it) does, confirming `max(cores-1,1)` **only when there are
+enough files** — the premise T014's original math assumed unconditionally.
+This also means the two-package concurrent (pre-fix) shape naturally
+reproduces the CI ratio on *any* machine, since both sides of the fraction
+(fork-pool size and core count) scale together: two full-package suites
+running at once demand `2 × 8 = 16` processes on this 8-core machine — a
+**2.0× ratio**, identical to CI's measured `2 × 4 = 8` processes on 4 cores.
+
+**Corrected procedure — both conditions run through the real root command,
+same external load in both:**
+
+- **BEFORE (control, real pre-fix shape):**
+  `pnpm -r --filter "./apps/kiosk-web" --filter "./apps/management-web" test`
+  (no concurrency cap) plus **8 busy Node processes** — the same 8 used
+  throughout, chosen so the AFTER condition (below) lands at 2.0×; stacked on
+  BEFORE's own naturally-2.0×-oversubscribed concurrent demand this makes
+  BEFORE the *heavier* of the two conditions (≈3.0×), which is the right way
+  to bias a sanity check that only needs to prove the harness can still find
+  the defect.
+- **AFTER (the actual shipped fix):**
+  `pnpm -r --workspace-concurrency=1 --filter "./apps/kiosk-web" --filter
+  "./apps/management-web" test` plus the same 8 busy processes. A single
+  serialised package's full fork pool (8 processes) plus 8 busy = 16 demand on
+  8 cores = the measured CI ratio, **2.0×**, exactly.
+
+**BEFORE, 5 runs (sanity check that the harness detects the defect through the
+real mechanism — not the hard gate):**
 
 | Run | Outcome | Duration |
 |---|---|---|
-| 1 | clean — 1 file, 6 tests passed | 19.07 s |
-| 2 | clean — 1 file, 6 tests passed | 20.98 s |
-| 3 | clean — 1 file, 6 tests passed | 21.95 s |
-| 4 | clean — 1 file, 6 tests passed | 31.95 s |
-| 5 | clean — 1 file, 6 tests passed | 25.24 s |
-| 6 | clean — 1 file, 6 tests passed | 22.37 s |
-| 7 | clean — 1 file, 6 tests passed | 27.43 s |
-| 8 | clean — 1 file, 6 tests passed | 23.64 s |
-| 9 | clean — 1 file, 6 tests passed | 22.12 s |
-| 10 | clean — 1 file, 6 tests passed | 22.30 s |
+| 1 | **`[vitest-pool-runner]: Timeout waiting for worker to respond`** × 4 (kiosk-web) | 2m57.2s |
+| 2 | **target defect** — `TestingLibraryElementError: Unable to find an element by: [data-testid="placeholder-preview-error"]`, both the should-fix-5 test and the #2520 guard, in `management-web` | 3m17.8s |
+| 3 | clean | 2m30.8s |
+| 4 | clean | 2m23.7s |
+| 5 | **`[vitest-pool-runner]: Timeout waiting for worker to respond`** × 2 (management-web) | 3m47.2s |
 
-**Batch 2 (10 runs, run after confirming all 8 busy processes were still alive —
-same machine-churn check T007 used):**
+**3/5 failed (60%)** — validates the corrected harness genuinely reproduces
+both the target defect and the worker-timeout signature through the real
+`pnpm -r` mechanism, at a load at least as heavy as T007's original.
+
+**AFTER, 20 runs of the real shipped configuration:**
 
 | Run | Outcome | Duration |
 |---|---|---|
-| 1 | clean — 1 file, 6 tests passed | 23.14 s |
-| 2 | clean — 1 file, 6 tests passed | 23.59 s |
-| 3 | clean — 1 file, 6 tests passed | 28.18 s |
-| 4 | clean — 1 file, 6 tests passed | 28.19 s |
-| 5 | clean — 1 file, 6 tests passed | 19.78 s |
-| 6 | clean — 1 file, 6 tests passed | 23.58 s |
-| 7 | clean — 1 file, 6 tests passed | 21.31 s |
-| 8 | clean — 1 file, 6 tests passed | 18.90 s |
-| 9 | clean — 1 file, 6 tests passed | 20.62 s |
-| 10 | clean — 1 file, 6 tests passed | 25.76 s |
+| 1 | kiosk-web only — unrelated pre-existing flake in `CellPage.test.tsx` (a deadband-timing race, not one of the three gate signatures); `pnpm -r` aborted before `management-web` ran | 1m29.4s |
+| 2 | clean — kiosk-web 168/12, management-web 330/38 | 2m55.7s |
+| 3 | clean | 2m49.1s |
+| 4 | clean | 2m42.5s |
+| 5 | clean | 2m33.3s |
+| 6 | clean | 2m37.7s |
+| 7 | clean | 2m28.2s |
+| 8 | kiosk-web only — same unrelated `CellPage.test.tsx` flake; `management-web` never ran | 0m35.4s |
+| 9 | clean | 2m31.0s |
+| 10 | clean | 2m33.7s |
+| 11 | clean | 2m34.2s |
+| 12 | clean | 2m29.1s |
+| 13 | clean | 2m30.9s |
+| 14 | clean | 2m37.2s |
+| 15 | clean | 2m37.8s |
+| 16 | clean | 2m37.5s |
+| 17 | clean | 2m33.7s |
+| 18 | clean | 2m39.1s |
+| 19 | clean | 2m47.5s |
+| 20 | clean | 2m34.8s |
+| 21 (replacement for 1) | clean — kiosk-web 168/12, management-web 330/38 (`--no-bail`, so management-web ran despite kiosk-web) | 3m9.8s |
+| 22 (replacement for 8) | clean — kiosk-web 168/12, management-web 330/38 (`--no-bail`) | 3m6.9s |
 
-**Combined: 20/20 clean.** Zero occurrences of
-`Unable to find an element by: [data-testid="placeholder-preview-error"]`, zero
-`Test timed out`, zero `[vitest-pool-runner]: Timeout waiting for worker to
-respond` (`grep -l` across all 20 logs for all three patterns: no matches). All
-20 runs report exactly 1 file / 6 tests passed, matching the file's post-T005
-count. **Gate met — proceed to T017 and the remaining US1 tasks.**
+**Runs 1 and 8: `pnpm -r`'s default fail-fast aborted the recursive run before
+`management-web` started**, once each, on an unrelated `apps/kiosk-web` flake
+(`CellPage.test.tsx`, a real-time deadband race — different feature, different
+mechanism, not `asyncUtilTimeout`, not `testTimeout`, not a fork-worker
+timeout). Since that means `management-web` was never actually exercised in
+those two runs, runs 21 and 22 re-ran the same configuration with `--no-bail`
+so a kiosk-web failure cannot hide a management-web result. **Counting 2, 3–7,
+9–20, 21, 22 — 20 runs where `management-web`'s full suite genuinely ran — all
+20 are clean.**
+
+`grep -l` across all 22 logs for all three gate patterns
+(`Unable to find an element by: [data-testid="placeholder-preview-error"]`,
+`Test timed out`, `[vitest-pool-runner]: Timeout waiting for worker to
+respond`): **no matches in any AFTER log.** The two `CellPage.test.tsx`
+failures are a separate, pre-existing defect, unrelated to `asyncUtilTimeout`,
+`testTimeout` or fork-worker liveness — noted here rather than filed, since it
+is out of #2520/#2419's scope and this spec's evidence for it is two
+occurrences under synthetic contention, not a reported flake. Explicitly not
+one of the three signatures this gate measures.
+
+**Gate met, on the corrected methodology — proceed to T017 and the remaining
+US1 tasks.**
 
 ### T017 [US1b] — remove or keep T014's diagnostic step
 
