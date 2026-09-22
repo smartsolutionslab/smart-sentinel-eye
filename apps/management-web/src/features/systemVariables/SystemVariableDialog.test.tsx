@@ -2,8 +2,33 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { z } from 'zod';
 import { store } from '../../app/store.js';
 import type { DefineVariableInput } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+
+// Spec 212 (issue #2430) S12: the summary must guard the *class* of defect —
+// a hidden-branch error with nowhere to render — not merely the one instance
+// T002's unregister effect already closes. There is no longer a real-UI path
+// that leaves `truthyLabel` set while Type is String, so this one extra
+// superRefine issue (fired only for this sentinel name) is how the case is
+// reached at all; every other test still validates through the real schema.
+const GHOST_TRUTHY_LABEL_NAME = 'ghostTruthyLabel';
+
+vi.mock('@smart-sentinel-eye/shared/api/systemVariables.schema', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/systemVariables.schema')>();
+  return {
+    ...actual,
+    defineVariableSchema: actual.defineVariableSchema.superRefine((value, ctx) => {
+      if (value.name === GHOST_TRUTHY_LABEL_NAME) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['truthyLabel'],
+          message: 'BooleanLabels can only be set on Boolean variables.',
+        });
+      }
+    }),
+  };
+});
 
 // A single-fab operator is never asked which fab (ADR-0114), so the default
 // keeps the existing cases reading as they did; the multi-fab case overrides it.
@@ -94,7 +119,14 @@ describe('SystemVariableDialog', () => {
     expect(defineMock).toHaveBeenCalledWith(expect.objectContaining({ name: 'lineStatus', type: 'String' }));
   });
 
-  it('Restores the Boolean labels when the operator toggles there, away, and back', async () => {
+  // The unregister effect drops truthyLabel/falsyLabel from form state on
+  // leaving Boolean; re-selecting Boolean re-registers them from the input's
+  // own defaultValue="Yes"/"No" (SystemVariableDialog.tsx), not from
+  // whatever the operator typed before switching away. An operator who
+  // customises the labels, looks at String, and comes back loses their
+  // wording — an accepted consequence of the fix (spec 212), not a
+  // guarantee this test makes. This case only pins the untouched round trip.
+  it('Re-registers the Boolean labels at their defaults when the operator toggles there, away, and back', async () => {
     const user = userEvent.setup();
     renderDialog();
 
@@ -133,6 +165,17 @@ describe('SystemVariableDialog', () => {
     await user.click(screen.getByRole('button', { name: /define/i }));
 
     expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(defineMock).not.toHaveBeenCalled();
+  });
+
+  it('Surfaces a hidden-branch error in the always-mounted summary when Type is String', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(screen.getByLabelText(/name/i), GHOST_TRUTHY_LABEL_NAME);
+    await user.click(screen.getByRole('button', { name: /define/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('BooleanLabels can only be set on Boolean variables.');
     expect(defineMock).not.toHaveBeenCalled();
   });
 });

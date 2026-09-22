@@ -5,6 +5,7 @@ import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
+import { FormErrorSummary } from '@smart-sentinel-eye/shared/ui/composites/FormErrorSummary';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAssignedFabs } from '../../app/useAssignedFabs';
 import { useEffect, useState } from 'react';
@@ -83,6 +84,16 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
 
   const backendError = problemDetail(error, 'Could not save the variable. Try again.');
 
+  // One boolean, read by both the visibility branch below and
+  // renderedFields — a second textual copy of `selectedType === 'Boolean'`
+  // could drift out of step with the branch it's meant to describe, and
+  // FormErrorSummary would then filter out exactly the error it exists to
+  // catch, silently.
+  const isBoolean = selectedType === 'Boolean';
+  const renderedFields: readonly (keyof DefineVariableInput)[] = isBoolean
+    ? ['name', 'type', 'initialValue', 'truthyLabel', 'falsyLabel']
+    : ['name', 'type', 'initialValue'];
+
   return (
     <Dialog
       open={open}
@@ -129,7 +140,7 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
         <FormField label="Initial value" htmlFor="variable-initial-value" error={errors.initialValue?.message}>
           <Input id="variable-initial-value" placeholder="(unset)" {...register('initialValue')} />
         </FormField>
-        {selectedType === 'Boolean' && (
+        {isBoolean && (
           <>
             <FormField label="Truthy label" htmlFor="variable-truthy" error={errors.truthyLabel?.message}>
               <Input id="variable-truthy" defaultValue="Yes" {...register('truthyLabel')} />
@@ -144,6 +155,7 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
             {backendError}
           </p>
         )}
+        <FormErrorSummary errors={errors} renderedFields={renderedFields} />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
             Cancel
