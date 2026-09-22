@@ -5,8 +5,20 @@ import { Provider } from 'react-redux';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const listCameras = vi.hoisted(() => vi.fn());
+
+// `currentData` and `refetch` are optional here — spec 211's tests set them
+// explicitly per case (US1-A/B/C/G); every pre-existing mockReturnValue omits
+// both, unedited, and stays valid because neither is required.
+type GetCameraResult = {
+  data: unknown;
+  currentData?: unknown;
+  isLoading: boolean;
+  error: unknown;
+  refetch?: unknown;
+};
+
 const getCamera = vi.hoisted(() =>
-  vi.fn(() => ({ data: undefined as unknown, isLoading: false, error: undefined as unknown })),
+  vi.fn<() => GetCameraResult>(() => ({ data: undefined, isLoading: false, error: undefined })),
 );
 
 vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => {
@@ -344,5 +356,153 @@ describe('CameraDetailPage', () => {
     // the last hop, and the one most likely to be added later as an
     // improvement.
     expect(container.textContent).not.toMatch(/access|permission|not yours|another fab/i);
+  });
+
+  /**
+   * US1-A (issue #2432 / spec 211) — the filed defect, and the happy path of
+   * the fix. A refetch of *this* identifier fails, but the record in hand is
+   * still this identifier's own (`currentData` is set) — so the page must
+   * keep showing it rather than replacing it with "No such camera".
+   *
+   * Deliberately adjacent to the "conflict case" test right after it: a
+   * `data`-gated implementation (the bug this spec fixes) passes this test
+   * and fails that one, so neither is redundant with the other even though
+   * both set `data` to a camera. Do not delete either as a duplicate of the
+   * other — a `data`-only gate would wrongly pass the pair.
+   */
+  it('Keeps showing the camera when its own refresh fails', () => {
+    const refetch = vi.fn();
+    getCamera.mockReturnValue({
+      data: camera,
+      currentData: camera,
+      isLoading: false,
+      error: { status: 503 },
+      refetch,
+    });
+
+    renderAt(camera.cameraIdentifier);
+
+    expect(screen.getByRole('heading', { name: 'Line-1-Entrance' })).toBeInTheDocument();
+    expect(screen.getByText('munich')).toBeInTheDocument();
+    expect(screen.getByText('rtsp://10.0.5.12/h264')).toBeInTheDocument();
+    expect(screen.getByText('Status').nextElementSibling).toHaveTextContent('Registered');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not refresh/i);
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+
+    expect(screen.queryByRole('heading', { name: /no such camera/i })).toBeNull();
+  });
+
+  /**
+   * US1-C — the pairing spec 211 calls load-bearing, kept next to US1-A on
+   * purpose (see the comment there). The operator has navigated to an
+   * identifier the API refuses outright: no record for *this* identifier
+   * (`currentData` is undefined), even though `data` still holds a
+   * previously-viewed camera's record (RTK Query can carry `data` over across
+   * an argument change). A gate that read `data` instead of `currentData`
+   * would pass US1-A and wrongly render the stale record here too — this is
+   * the test that catches that, so it must not be deleted as "the same case".
+   */
+  it('Shows no such camera when the failed identifier has no record of its own', () => {
+    const refetch = vi.fn();
+    getCamera.mockReturnValue({
+      data: camera,
+      currentData: undefined,
+      isLoading: false,
+      error: { status: 404 },
+      refetch,
+    });
+
+    renderAt('22222222-2222-2222-2222-222222222222');
+
+    expect(screen.getByRole('heading', { name: /no such camera/i })).toBeInTheDocument();
+    expect(screen.queryByText(camera.name)).toBeNull();
+    expect(screen.queryByText(camera.rtspUrl)).toBeNull();
+    expect(screen.queryByRole('button', { name: /retry/i })).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  /** US1-B. Pressing the alert's Retry (from the US1-A state) refetches. */
+  it('Retries the refresh when the operator presses Retry', async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn();
+    getCamera.mockReturnValue({
+      data: camera,
+      currentData: camera,
+      isLoading: false,
+      error: { status: 503 },
+      refetch,
+    });
+
+    renderAt(camera.cameraIdentifier);
+
+    await user.click(screen.getByRole('button', { name: /retry/i }));
+
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * US1-E. The alert's wording is new surface (spec 211 assumption A1), so
+   * the "Says nothing about access, ever" test above — which only covers the
+   * "No such camera" branch — does not reach it. Re-checked here for the
+   * branch that now renders a banner alongside a record.
+   */
+  it('Says nothing about access while showing a refresh failure', () => {
+    const refetch = vi.fn();
+    getCamera.mockReturnValue({
+      data: camera,
+      currentData: camera,
+      isLoading: false,
+      error: { status: 503 },
+      refetch,
+    });
+
+    const { container } = renderAt(camera.cameraIdentifier);
+
+    expect(container.textContent).not.toMatch(/access|permission|not yours|another fab/i);
+  });
+
+  /** US1-F. The ordinary path — a refresh that succeeds — is untouched. */
+  it('Shows no alert when a refresh succeeds', () => {
+    const refetch = vi.fn();
+    getCamera.mockReturnValue({
+      data: camera,
+      currentData: camera,
+      isLoading: false,
+      error: undefined,
+      refetch,
+    });
+
+    renderAt(camera.cameraIdentifier);
+
+    expect(screen.getByRole('heading', { name: 'Line-1-Entrance' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  /**
+   * US1-G. A retired camera keeps its retired behaviour under a failed
+   * refresh: the alert and the retired notice both show, and none of the
+   * three edit controls reappear just because `error` is set.
+   */
+  it('Keeps the retired camera behaviour when its refresh fails', () => {
+    const refetch = vi.fn();
+    const retiredCamera = { ...camera, status: 'Decommissioned' };
+    getCamera.mockReturnValue({
+      data: retiredCamera,
+      currentData: retiredCamera,
+      isLoading: false,
+      error: { status: 503 },
+      refetch,
+    });
+
+    renderAt(camera.cameraIdentifier);
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not refresh/i);
+    expect(screen.getByRole('status')).toHaveTextContent(/retired/i);
+
+    expect(screen.queryByTestId('camera-viewer')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^rename$/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /correct the address/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /retire camera/i })).toBeNull();
   });
 });

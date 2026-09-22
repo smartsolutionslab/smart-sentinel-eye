@@ -187,6 +187,74 @@ test('operator renames a camera and the new name follows it into the listing', a
   await expect(page.getByRole('heading', { name: corrected })).toBeVisible();
 });
 
+/**
+ * Spec 211 T002 / #2432 — a transient refetch failure after a successful edit
+ * must not make the page claim the camera does not exist.
+ *
+ * The rename's `PATCH` succeeds; the tag invalidation it fires immediately
+ * refetches `GET /cameras/{id}`, and that refetch is what this test fails —
+ * once, by injected `503` — to prove the record stays on screen with a
+ * staleness alert instead of being replaced by "No such camera".
+ *
+ * `GET` and `PATCH` share one URL (`camera-catalog/cameras/{id}`), so the
+ * route handler below discriminates by method. A handler that did not would
+ * starve the rename's own `PATCH` and fail this test for the wrong reason —
+ * exactly the trap `system-variables.spec.ts`'s slow-write test records for
+ * the same shared-URL shape (its `GET`/`POST` pair on
+ * `system-variables/system-variables`). It must also let the FIRST `GET`
+ * through untouched — that is the initial page load below — or this test
+ * exercises US1-D (never loaded) instead of US1-A (a stale record on a
+ * refresh failure).
+ */
+test('a failed refresh after a rename keeps the camera on screen, and Retry recovers it', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
+  await signInAsOperator(page);
+  const original = await registerCamera(page);
+
+  let detailGets = 0;
+  const detailGetPath = (url: URL): boolean => /\/camera-catalog\/cameras\/[0-9a-f-]{36}$/i.test(url.pathname);
+  await page.route(detailGetPath, async (route) => {
+    if (route.request().method() !== 'GET') {
+      return route.fallback();
+    }
+    detailGets += 1;
+    if (detailGets === 1) {
+      return route.fallback();
+    }
+    return route.fulfill({ status: 503 });
+  });
+
+  await page.getByRole('link', { name: original }).click();
+  await expect(page.getByRole('heading', { name: original })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+
+  await page.getByRole('button', { name: /^rename$/i }).click();
+  const field = page.locator('#rename-camera-name');
+  const corrected = `${original} corrected`;
+  await field.fill(corrected);
+  await page.getByRole('button', { name: /^save$/i }).click();
+
+  // US1-A: the PATCH landed — the record on screen stays (old or new name;
+  // the point is that it is still there, not which revision) — an alert
+  // names the refresh failure, and the page never claims the camera does not
+  // exist.
+  const alert = page.getByRole('alert');
+  await expect(alert).toContainText(/could not refresh/i, { timeout: FIRST_WRITE_TIMEOUT_MS });
+  await expect(page.getByRole('heading', { name: /no such camera/i })).toHaveCount(0);
+  await expect(
+    page.getByRole('heading', { name: original }).or(page.getByRole('heading', { name: corrected })),
+  ).toBeVisible();
+
+  // US1-B: lifting the fault and pressing Retry clears the alert and shows
+  // the renamed record — the same refetch that failed above, repeated and
+  // this time let through.
+  await page.unroute(detailGetPath);
+  await alert.getByRole('button', { name: /^retry$/i }).click();
+
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: corrected })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+});
+
 test('a camera the operator may not see reads exactly as one that does not exist', async ({ page }) => {
   await signInAsOperator(page);
 
