@@ -243,6 +243,23 @@ Set `asyncUtilTimeout` to 1000 (RTL's default) with the guard in place. Run.
 **Done when:** SC-2's counterfactual output is saved. This is the only evidence
 that distinguishes a guard from a test that happens to pass.
 
+#### T006 outcome — **RUN 2026-09-22 (after T016's gate). RED, as required.**
+
+With `asyncUtilTimeout` set to 1000 (RTL's default) and the guard in place:
+
+```
+FAIL  src/features/overlays/OverlayEditorDialogResolvePreview.test.tsx > OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018) > Still reports a failed resolve when the response is slow enough to outrun the old deadline (#2520)
+TestingLibraryElementError: Unable to find an element by: [data-testid="placeholder-preview-error"]
+ ❯ src/features/overlays/OverlayEditorDialogResolvePreview.test.tsx:287:11
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Duration  7.19s
+```
+
+`asyncUtilTimeout` restored to 10_000 (`git diff` on `setup.ts` confirmed empty
+afterward); re-run green: `Test Files 1 passed (1)`, `Tests 6 passed (6)`.
+
 ### T007 [US1] — run the contended reproduction, before and after
 
 **Files:** none written.
@@ -360,6 +377,20 @@ cost argument above is what justifies the scope call in plan §"R2 materialised"
 scheduling setting only CI applies is invisible to whoever tries to reproduce the
 failure locally, and that is how this defect cost a day in the first place.
 
+#### T015 outcome — **DONE 2026-09-22. Wall-clock delta smaller than predicted.**
+
+Script changed (`--workspace-concurrency=1` added); comments added at the
+`ci.yml` `Test` step and beside `setup.ts`'s FR-004 comment. `pnpm test` passes
+locally with T002's counts (confirmed again at T009, below).
+
+**Real CI delta, PR #2534 run 35743075866:** `frontend` job **2 m 04 s**
+(`14:50:22Z`→`14:52:26Z`) — matching the ≈ 2 m 04 s prediction exactly, well
+inside `timeout-minutes: 15`. The three suites ran strictly serially and
+back-to-back with **zero overlap**: `shared` 16.06 s, `kiosk-web` 12.38 s,
+`management-web` 36.61 s (see T014's figures above for the full log excerpt).
+No further action needed — the delta is smaller than the ≈ +17 s estimate, not
+worse, so plan §"R2 materialised" §7's scope call stands unchallenged.
+
 ### T016 [US1b] — re-run the contended reproduction at a calibrated load ⟨GATE⟩
 
 **Files:** none written.
@@ -385,6 +416,55 @@ the plan §"R2 materialised" §4-item-3 escalation — a dedicated job or a per-
 isolation — which is **out of #2520's scope and needs its own issue**, filed with
 T016's numbers attached (ADR-0144: the lane does not decide this).
 
+#### T016 outcome — **RUN 2026-09-22. GATE MET — 20/20 clean.**
+
+Load: **8 busy Node processes** (not phase 1's 24) on this worktree's 8 logical
+cores, calibrated in T014 to reproduce CI's *measured* pre-fix oversubscription
+ratio of 2.0× (4 CI cores × 2 packages' fork pools = 8 processes demanded on 4
+cores) rather than the unmeasured 4× the original harness ran at. T004, T005 and
+T015 all applied; diff verified unchanged throughout (three commits, no
+uncommitted state during the runs). Command each run:
+`npx vitest run src/features/overlays/OverlayEditorDialogResolvePreview.test.tsx`
+from `apps/management-web`.
+
+**Batch 1 (10 runs):**
+
+| Run | Outcome | Duration |
+|---|---|---|
+| 1 | clean — 1 file, 6 tests passed | 19.07 s |
+| 2 | clean — 1 file, 6 tests passed | 20.98 s |
+| 3 | clean — 1 file, 6 tests passed | 21.95 s |
+| 4 | clean — 1 file, 6 tests passed | 31.95 s |
+| 5 | clean — 1 file, 6 tests passed | 25.24 s |
+| 6 | clean — 1 file, 6 tests passed | 22.37 s |
+| 7 | clean — 1 file, 6 tests passed | 27.43 s |
+| 8 | clean — 1 file, 6 tests passed | 23.64 s |
+| 9 | clean — 1 file, 6 tests passed | 22.12 s |
+| 10 | clean — 1 file, 6 tests passed | 22.30 s |
+
+**Batch 2 (10 runs, run after confirming all 8 busy processes were still alive —
+same machine-churn check T007 used):**
+
+| Run | Outcome | Duration |
+|---|---|---|
+| 1 | clean — 1 file, 6 tests passed | 23.14 s |
+| 2 | clean — 1 file, 6 tests passed | 23.59 s |
+| 3 | clean — 1 file, 6 tests passed | 28.18 s |
+| 4 | clean — 1 file, 6 tests passed | 28.19 s |
+| 5 | clean — 1 file, 6 tests passed | 19.78 s |
+| 6 | clean — 1 file, 6 tests passed | 23.58 s |
+| 7 | clean — 1 file, 6 tests passed | 21.31 s |
+| 8 | clean — 1 file, 6 tests passed | 18.90 s |
+| 9 | clean — 1 file, 6 tests passed | 20.62 s |
+| 10 | clean — 1 file, 6 tests passed | 25.76 s |
+
+**Combined: 20/20 clean.** Zero occurrences of
+`Unable to find an element by: [data-testid="placeholder-preview-error"]`, zero
+`Test timed out`, zero `[vitest-pool-runner]: Timeout waiting for worker to
+respond` (`grep -l` across all 20 logs for all three patterns: no matches). All
+20 runs report exactly 1 file / 6 tests passed, matching the file's post-T005
+count. **Gate met — proceed to T017 and the remaining US1 tasks.**
+
 ### T017 [US1b] — remove or keep T014's diagnostic step
 
 **File:** `.github/workflows/ci.yml`
@@ -397,6 +477,13 @@ the reviewer asks.
 **Done when:** the step is removed (or the reviewer's decision to keep it is
 recorded in the PR body), and `git diff` on `.github/workflows/ci.yml` shows
 either nothing or one intentional line.
+
+#### T017 outcome — **DONE 2026-09-22. Removed (default), one line kept.**
+
+The `nproc && free -m` diagnostic step is removed. `git diff` on `ci.yml`
+against `develop` shows the diagnostic step's net-zero add/remove plus the one
+intentional comment block at the `Test` step explaining why
+`--workspace-concurrency=1` is a resource decision, not a performance one.
 
 ---
 
@@ -436,6 +523,27 @@ wall-clock alongside the counts.
 **If an existing assertion had to change:** block. That is evidence the deadline
 change moved behaviour, and it is a different spec (constitution §Testing;
 CLAUDE.md house rules).
+
+#### T009 outcome — **RUN 2026-09-22, via `pnpm test` (root script, T015 applied).**
+
+| Package | Test Files | Tests | Duration | Start |
+|---|---|---|---|---|
+| `apps/shared` | 33 passed | **414 passed** | 19.43 s | 17:22:46 |
+| `apps/kiosk-web` | 12 passed | **168 passed** | 16.64 s | 17:23:06 |
+| `apps/management-web` | **38 passed** | **330 passed** | 44.14 s | 17:23:24 |
+
+Matches T002 exactly for `shared` and `kiosk-web`, and T002 **+ exactly one**
+for `management-web` (329 → 330, the guard). `git diff --stat` on
+`OverlayEditorDialogResolvePreview.test.tsx`: `36 insertions(+)`, zero
+deletions — addition only. No existing assertion changed.
+
+**Serial wall-clock** (`time pnpm test`, includes `test:guards`): **2 m 27.7 s**
+real. Vitest-only sum: 19.43 + 16.64 + 44.14 ≈ **80.2 s**, consistent with the
+~79 s serial estimate in plan §"R2 materialised" §4 (CI's own serial run
+measured 2 m 04 s for the `frontend` job as a whole — see T014/T015 below).
+Suites started strictly one after another (`17:22:46` → `17:23:06` →
+`17:23:24`, each starting only after the previous finished) — no overlap,
+confirming T015 serialised the workspace run as intended.
 
 ---
 

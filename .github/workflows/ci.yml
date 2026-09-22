@@ -167,9 +167,6 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Runner capacity (diagnostic — see spec 216 §R2 materialised)
-        run: nproc && free -m
-
       # `pnpm test` runs the workspace's `test` script, which caps
       # `--workspace-concurrency` at 1 (root package.json). `apps/kiosk-web` and
       # `apps/management-web` otherwise run their Vitest suites concurrently on
