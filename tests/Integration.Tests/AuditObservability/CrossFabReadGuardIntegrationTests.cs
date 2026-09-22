@@ -166,6 +166,183 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
             .ShouldContain((string?)null, "a cross-fab row must stay readable by a fab-assigned caller");
     }
 
+    /// <summary>
+    /// Spec 215 (#2507) US1, SC-1. <c>?fabId=</c> binds to
+    /// <see cref="string.Empty"/> and today reaches
+    /// <see cref="ServiceDefaults.Authorization.IFabAuthorizationGuard.EnsureAccessAsync"/>
+    /// unparsed, whose own <c>Ensure.That</c> precondition throws an uncaught
+    /// <c>ArgumentException</c> — a 500 for a caller mistake. RED until T005
+    /// reorders the parse ahead of the guard.
+    /// </summary>
+    [Fact]
+    public async Task An_empty_fab_on_a_resource_timeline_is_a_client_error()
+    {
+        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+            "audit-observability", "admin@munich.test", "Admin1234");
+        Guid overlayIdentifier = Guid.CreateVersion7();
+
+        HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("AUDIT_INVALID_INPUT");
+    }
+
+    /// <summary>
+    /// Spec 215 (#2507) US1, SC-2. Without this, a fix keyed on
+    /// <see cref="string.Empty"/> alone would pass the empty case and leave
+    /// whitespace 500ing — <c>IsNotNullOrWhiteSpace</c> is what actually
+    /// throws, not an equality check against the empty string. RED until T005.
+    /// </summary>
+    [Fact]
+    public async Task A_whitespace_fab_on_a_resource_timeline_is_a_client_error()
+    {
+        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+            "audit-observability", "admin@munich.test", "Admin1234");
+        Guid overlayIdentifier = Guid.CreateVersion7();
+
+        HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=%20");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("AUDIT_INVALID_INPUT");
+    }
+
+    /// <summary>
+    /// Spec 215 (#2507) US2, SC-8. On <c>Search</c>, <c>fabId</c> is optional
+    /// (<c>string?</c>) and <c>?fabId=</c> still binds to
+    /// <see cref="string.Empty"/>, which is "is not null" today — the same
+    /// uncaught throw as the timeline endpoint, eight lines above it (spec's
+    /// Claim 4). After T006 widens the predicate, an empty fab must behave
+    /// like an omitted one: scoped to the caller's own fabs, not a filter that
+    /// matches nothing. Seeds a foreign row so a predicate that was deleted
+    /// rather than widened would also be caught. RED until T006.
+    /// </summary>
+    [Fact]
+    public async Task An_empty_fab_on_the_audit_search_spans_the_callers_fabs()
+    {
+        await SeedAsync(Row("munich"), Row("berlin"));
+
+        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+            "audit-observability", "admin@munich.test", "Admin1234");
+
+        HttpResponseMessage response = await client.GetAsync("/audit?fabId=&pageSize=200");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        JsonElement[] rows = [.. page.GetProperty("rows").EnumerateArray()];
+
+        string?[] fabs = [.. rows.Select(row => row.GetProperty("fab").GetString())];
+        fabs.ShouldContain("munich", "an empty fabId must be treated as unset, not as a filter matching nothing");
+        fabs.ShouldNotContain("berlin", "an empty fabId must still scope the search to the caller's own fab membership");
+    }
+
+    /// <summary>
+    /// Spec 215 (#2507), SC-5. Pins the ordering decision: the fab guard must
+    /// still win over a malformed resource identifier, so a caller refused a
+    /// fab cannot learn whether their resource identifier was well-formed.
+    /// Already true today — the guard is the handler's first statement — and
+    /// must stay true after T005 moves the fab *parse* ahead of the guard
+    /// without moving the resource parse ahead of it too. Characterisation:
+    /// green before and after, unmodified.
+    /// </summary>
+    [Fact]
+    public async Task A_cross_fab_timeline_is_refused_before_a_malformed_resource_is_parsed()
+    {
+        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+            "audit-observability", "admin@munich.test", "Admin1234");
+        string malformedResourceIdentifier = new('a', ResourceIdentifier.MaximumLength + 1);
+
+        HttpResponseMessage response = await client.GetAsync(
+            $"/audit/overlay/{malformedResourceIdentifier}?fabId=berlin");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("RESOURCE_FAB_NOT_AUTHORIZED");
+    }
+
+    /// <summary>
+    /// Spec 215 (#2507), SC-6. RED, not characterisation — re-derived from
+    /// source rather than trusted from the original plan. The guard runs on
+    /// the raw, unparsed <c>fabId</c> before
+    /// <see cref="FabIdentifier.From"/>'s parse is ever reached, and does a
+    /// plain groups-membership check with no grammar opinion — today this
+    /// answers 403 <c>RESOURCE_FAB_NOT_AUTHORIZED</c>, refused by the
+    /// authorization boundary rather than the input-validation one. T005's
+    /// same parse-before-guard reorder that fixes the empty-fab case also
+    /// makes a malformed fab reach the parse and answer 400
+    /// <c>AUDIT_INVALID_INPUT</c> — a second, previously-unnoticed instance of
+    /// the same defect, closed by the same fix.
+    /// </summary>
+    [Fact]
+    public async Task A_malformed_fab_grammar_now_gets_a_client_error_not_an_authorization_refusal()
+    {
+        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+            "audit-observability", "admin@munich.test", "Admin1234");
+        Guid overlayIdentifier = Guid.CreateVersion7();
+
+        HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=NOT_A_FAB");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("AUDIT_INVALID_INPUT");
+    }
+
+    /// <summary>
+    /// Spec 215 (#2507), SC-7. Characterisation: records that the
+    /// required-parameter refusal for an entirely omitted <c>fabId</c> is
+    /// ASP.NET's own, and is not being replaced. No <c>title</c> is asserted
+    /// — the spec's own SC-7 pins only the status, because the framework's
+    /// wording for a missing required parameter is not part of this
+    /// endpoint's contract. Green before and after, unmodified.
+    /// </summary>
+    [Fact]
+    public async Task An_omitted_fab_keeps_the_frameworks_own_refusal()
+    {
+        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+            "audit-observability", "admin@munich.test", "Admin1234");
+        Guid overlayIdentifier = Guid.CreateVersion7();
+
+        HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    /// <summary>
+    /// Spec 215 (#2507) US2, SC-9. The case that catches T006 mis-written as
+    /// "skip the guard" instead of "widen the predicate": a named fab the
+    /// caller does not hold must still be refused after the predicate change.
+    /// Green before and after, unmodified.
+    /// </summary>
+    [Fact]
+    public async Task A_cross_fab_audit_search_is_still_refused()
+    {
+        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+            "audit-observability", "admin@munich.test", "Admin1234");
+
+        HttpResponseMessage response = await client.GetAsync("/audit?fabId=berlin");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("RESOURCE_FAB_NOT_AUTHORIZED");
+    }
+
+    /// <summary>
+    /// Spec 215 (#2507), SC-10. The <c>sse.audit.read</c> policy runs before
+    /// the handler; an empty fab must not become a way to reach handler code
+    /// unauthenticated. Green before and after, unmodified.
+    /// </summary>
+    [Fact]
+    public async Task An_unauthenticated_empty_fab_request_is_challenged()
+    {
+        using HttpClient client = aspire.CreateServiceClient("audit-observability");
+        Guid overlayIdentifier = Guid.CreateVersion7();
+
+        HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
+
     private async Task ArchiveInMunichAsync(string name)
     {
         using HttpClient variables = await aspire.CreateAuthenticatedClientAsync(
