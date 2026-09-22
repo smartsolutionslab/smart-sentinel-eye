@@ -167,10 +167,8 @@ describe('AuditPage', () => {
     await user.click(screen.getByRole('button', { name: 'Search' }));
 
     const issued = searchMock.mock.calls.at(-1)?.[0] as { since?: string; until?: string };
-    expect(issued.since).not.toBe('2026-09-17T08:00');
-    expect(issued.until).not.toBe('2026-09-17T18:00');
-    expect(issued.since).toMatch(/Z$/);
-    expect(issued.until).toMatch(/Z$/);
+    expect(issued.since).toBe(new Date('2026-09-17T08:00').toISOString());
+    expect(issued.until).toBe(new Date('2026-09-17T18:00').toISOString());
   });
 
   it('Clearing the filters sends no date bounds', async () => {
