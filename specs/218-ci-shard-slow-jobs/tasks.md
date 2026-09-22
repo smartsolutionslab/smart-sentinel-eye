@@ -21,12 +21,14 @@ supervised — not the autonomous lane). T001 is already done (this plan).
 - **T006** — `ci.yml`: add the two synthesis jobs `integration` and `e2e`
   (`needs:` the respective matrix job, `if: always()`, fail if any shard
   failed) for check-name legibility/forward-compat (plan.md §7).
-- **T007** — `backend`: upload `bin/`+`obj/` (Release) as `release-build-output`
-  after "Build (Release)". `integration` and `e2e`: download it, drop their
-  own restore+build steps. Attempt both; if the real PR run shows the `e2e`
-  half breaking the stack in a way that isn't a quick fix, revert that half
-  only (keep it for `integration`) and file a follow-up issue for `e2e`
-  (plan.md §5).
+- **T007** — Build-artifact reuse: attempted (`backend` uploaded
+  `bin/`+`obj/` as `release-build-output`; the shard/guard jobs downloaded
+  it instead of rebuilding), measured net-negative on the critical path
+  (the upload cost outweighed the shard-side savings once only
+  `max(shard)` sits on the critical path — verification.md), and traced
+  to 3 of 4 real defects found during verification. **Fully reverted** —
+  every shard restores and builds its own copy again; see
+  verification.md's "Build-artifact reuse" section for the numbers.
 - **T008** — Push branch, open PR to `develop` (throwaway/observation PR —
   stated in the PR body; disposition decided after real numbers are in).
   Do not self-merge.
