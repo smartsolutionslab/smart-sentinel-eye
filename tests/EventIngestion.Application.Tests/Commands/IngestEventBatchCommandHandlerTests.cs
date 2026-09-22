@@ -112,7 +112,45 @@ public class IngestEventBatchCommandHandlerTests
             new IngestEventBatchCommand([skewed, healthy]), CancellationToken.None);
 
         repository.Events.ShouldHaveSingleItem().Id.ShouldBe(healthy.Identifier);
-        result.Refused.ShouldHaveSingleItem().Identifier.ShouldBe(skewed.Identifier);
+        RefusedEnvelope refused = result.Refused.ShouldHaveSingleItem();
+        refused.Envelope.Identifier.ShouldBe(skewed.Identifier);
+        refused.Reason.ShouldBeOfType<IngestEventError.OccurredAtTooFarInFuture>();
+        refused.Reason.Code.ShouldBe("EVENT_OCCURRED_AT_TOO_FAR_IN_FUTURE");
+    }
+
+    /// <summary>
+    /// US1-A1 (spec 213). One skewed envelope is not enough to prove each
+    /// refusal carries <i>its own</i> reason rather than the first one the
+    /// batch happened to see — an implementation that pairs every refusal
+    /// with the first error encountered would still pass a single-refusal
+    /// test. Two skewed envelopes, each with a distinguishable identity,
+    /// close that gap.
+    /// </summary>
+    [Fact]
+    public async Task Two_refused_envelopes_are_each_paired_with_their_own_reason()
+    {
+        InMemoryEventRepository repository = new();
+        EventEnvelope healthy = BuildEnvelope();
+        EventEnvelope firstSkewed = BuildEnvelope(occurredAt: Now.AddDays(30));
+        EventEnvelope secondSkewed = BuildEnvelope(occurredAt: Now.AddDays(60));
+
+        IngestEventBatchResult result = await Handler(repository).HandleAsync(
+            new IngestEventBatchCommand([firstSkewed, healthy, secondSkewed]), CancellationToken.None);
+
+        result.Refused.Count.ShouldBe(2);
+        result.Refused.ShouldContain(r => r.Envelope.Identifier == firstSkewed.Identifier);
+        result.Refused.ShouldContain(r => r.Envelope.Identifier == secondSkewed.Identifier);
+        result.Refused.ShouldNotContain(r => r.Envelope.Identifier == healthy.Identifier);
+
+        RefusedEnvelope firstRefusal =
+            result.Refused.Single(r => r.Envelope.Identifier == firstSkewed.Identifier);
+        firstRefusal.Reason.ShouldBeOfType<IngestEventError.OccurredAtTooFarInFuture>()
+            .OccurredAt.ShouldBe(firstSkewed.OccurredAt.Value);
+
+        RefusedEnvelope secondRefusal =
+            result.Refused.Single(r => r.Envelope.Identifier == secondSkewed.Identifier);
+        secondRefusal.Reason.ShouldBeOfType<IngestEventError.OccurredAtTooFarInFuture>()
+            .OccurredAt.ShouldBe(secondSkewed.OccurredAt.Value);
     }
 
     /// <summary>

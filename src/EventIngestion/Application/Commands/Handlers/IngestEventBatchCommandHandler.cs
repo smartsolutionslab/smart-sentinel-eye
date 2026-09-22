@@ -68,7 +68,7 @@ public sealed class IngestEventBatchCommandHandler(
         // the whole batch — sending 199 healthy events down the slow path for a
         // duplicate the idempotency rule was supposed to absorb.
         HashSet<EventIdentifier> seen = [.. already];
-        List<EventEnvelope> refused = [];
+        List<RefusedEnvelope> refused = [];
         Dictionary<Source, long> storedBySource = [];
 
         foreach (EventEnvelope envelope in envelopes)
@@ -79,15 +79,15 @@ public sealed class IngestEventBatchCommandHandler(
                 continue;
             }
 
-            Option<EventAggregate> built = Build(envelope);
-            if (built.HasValue)
+            Result<EventAggregate, IngestEventError> built = Build(envelope);
+            if (built.IsSuccess)
             {
                 events.Add(built.Value);
                 storedBySource[envelope.Source] = storedBySource.GetValueOrDefault(envelope.Source) + 1;
             }
             else
             {
-                refused.Add(envelope);
+                refused.Add(new RefusedEnvelope(envelope, built.Error));
             }
         }
 
@@ -124,17 +124,18 @@ public sealed class IngestEventBatchCommandHandler(
     }
 
     /// <summary>
-    /// Builds the aggregate, or nothing if this envelope can never be built.
-    /// The future-skew rule (spec 006 FR-014) is the only way this fails, and it
-    /// fails the same way every time — so the envelope is left out of the insert
-    /// here rather than failing the batch and sending the other 199 down the
-    /// slow path once per retry, for ever.
+    /// Builds the aggregate, or the reason it cannot be built. The future-skew
+    /// rule (spec 006 FR-014) is the only way this fails, and it fails the same
+    /// way every time — so the envelope is left out of the insert here rather
+    /// than failing the batch and sending the other 199 down the slow path once
+    /// per retry, for ever. The reason is built once and carried out rather than
+    /// constructed to log its code and thrown away (spec 213, issue #2428).
     /// </summary>
-    private Option<EventAggregate> Build(EventEnvelope envelope)
+    private Result<EventAggregate, IngestEventError> Build(EventEnvelope envelope)
     {
         try
         {
-            return Option<EventAggregate>.Some(EventAggregate.Ingest(
+            return Success(EventAggregate.Ingest(
                 envelope.Identifier,
                 envelope.Fab,
                 envelope.Source,
@@ -146,12 +147,9 @@ public sealed class IngestEventBatchCommandHandler(
         }
         catch (ArgumentException)
         {
-            logger.BatchEnvelopeRejected(
-                envelope.Identifier,
-                envelope.Source,
-                envelope.Device,
-                IngestEventFailures.OccurredAtTooFarInFuture(envelope.OccurredAt.Value).Code);
-            return Option<EventAggregate>.None;
+            IngestEventError reason = IngestEventFailures.OccurredAtTooFarInFuture(envelope.OccurredAt.Value);
+            logger.BatchEnvelopeRejected(envelope.Identifier, envelope.Source, envelope.Device, reason.Code);
+            return Failure(reason);
         }
     }
 }

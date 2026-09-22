@@ -94,6 +94,42 @@ public sealed class PersistenceLoopHostedService(
         Failed,
     }
 
+    /// <summary>
+    /// An <see cref="Outcome"/> paired with the reason it owes a record, when
+    /// it owes one at all. <see cref="Rejected"/> is the only way to produce a
+    /// rejected ending, and it requires a <see cref="RejectionReason"/> — so a
+    /// rejection with no reason cannot be represented, let alone written
+    /// (spec 213, issue #2428).
+    ///
+    /// <para>
+    /// The constructor is private and the properties are get-only rather than
+    /// the usual positional-record shape: a positional primary constructor is
+    /// exactly as accessible as the type, and a record's <c>with</c> expression
+    /// reaches every property regardless — both would let something inside
+    /// this class build a <see cref="Outcome.Rejected"/> ending with no
+    /// reason, which is the one thing this type exists to rule out.
+    /// </para>
+    /// </summary>
+    private readonly record struct Ending
+    {
+        private Ending(Outcome outcome, Option<RejectionReason> reason)
+        {
+            Outcome = outcome;
+            Reason = reason;
+        }
+
+        public Outcome Outcome { get; }
+
+        public Option<RejectionReason> Reason { get; }
+
+        public static Ending Stored { get; } = new(Outcome.Stored, Option<RejectionReason>.None);
+
+        public static Ending Failed { get; } = new(Outcome.Failed, Option<RejectionReason>.None);
+
+        public static Ending Rejected(RejectionReason reason) =>
+            new(Outcome.Rejected, Option<RejectionReason>.Some(reason));
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.PersistenceLoopStarted();
@@ -183,16 +219,28 @@ public sealed class PersistenceLoopHostedService(
         }
 
         // A refused envelope is one no rule will ever accept, so it gets the
-        // dead letter it is owed rather than an acknowledgement into silence.
-        HashSet<EventIdentifier> refused =
-            [.. result.Value.Refused.Select(envelope => envelope.Identifier)];
+        // dead letter it is owed rather than an acknowledgement into silence —
+        // and now carries the typed reason it was refused for (spec 213).
+        //
+        // Built by indexer assignment rather than ToDictionary: a duplicate
+        // key throws from ToDictionary, and this dictionary feeds an unguarded
+        // Option.Value read a few lines down — a throw here would take the
+        // whole host down (spec 018), not just drop a row. IngestEventBatchCommandHandler
+        // is the only producer today and it already de-duplicates, so this is
+        // a tolerance kept rather than a bug being fixed.
+        Dictionary<EventIdentifier, IngestEventError> refused = [];
+        foreach (RefusedEnvelope refusal in result.Value.Refused)
+        {
+            refused[refusal.Envelope.Identifier] = refusal.Reason;
+        }
 
         foreach (IngestDelivery delivery in arrived)
         {
-            await CompleteAsync(
-                delivery,
-                refused.Contains(delivery.Envelope.Identifier) ? Outcome.Rejected : Outcome.Stored,
-                cancellationToken);
+            Ending ending = refused.TryGetValue(delivery.Envelope.Identifier, out IngestEventError? reason)
+                ? Ending.Rejected(Because(reason))
+                : Ending.Stored;
+
+            await CompleteAsync(delivery, ending, cancellationToken);
         }
 
         return arrived.Count - refused.Count;
@@ -209,18 +257,18 @@ public sealed class PersistenceLoopHostedService(
 
         foreach (IngestDelivery delivery in deliveries)
         {
-            Outcome outcome = await StoreOneAsync(delivery, cancellationToken);
-            if (outcome == Outcome.Failed && Exhausted(delivery.Envelope.Identifier, window))
+            Ending ending = await StoreOneAsync(delivery, cancellationToken);
+            if (ending.Outcome == Outcome.Failed && Exhausted(delivery.Envelope.Identifier, window))
             {
-                outcome = Outcome.Rejected;
+                ending = Ending.Rejected(RejectionReason.From($"not storable after {window} of retrying"));
             }
 
-            if (outcome == Outcome.Stored)
+            if (ending.Outcome == Outcome.Stored)
             {
                 stored++;
             }
 
-            await CompleteAsync(delivery, outcome, cancellationToken);
+            await CompleteAsync(delivery, ending, cancellationToken);
         }
 
         return stored;
@@ -239,17 +287,18 @@ public sealed class PersistenceLoopHostedService(
     /// </para>
     /// </summary>
     private async Task CompleteAsync(
-        IngestDelivery delivery, Outcome outcome, CancellationToken cancellationToken)
+        IngestDelivery delivery, Ending ending, CancellationToken cancellationToken)
     {
         EventIdentifier identifier = delivery.Envelope.Identifier;
 
-        if (outcome == Outcome.Failed)
+        if (ending.Outcome == Outcome.Failed)
         {
             carried.Add(delivery);
             return;
         }
 
-        if (outcome == Outcome.Rejected && !await RecordRejectionAsync(delivery, cancellationToken))
+        if (ending.Outcome == Outcome.Rejected
+            && !await RecordRejectionAsync(delivery, ending.Reason.Value, cancellationToken))
         {
             // Not recorded, so not released. During an outage this write fails
             // for the same reason the event write did, and releasing an
@@ -260,7 +309,7 @@ public sealed class PersistenceLoopHostedService(
 
         try
         {
-            if (outcome == Outcome.Stored)
+            if (ending.Outcome == Outcome.Stored)
             {
                 NoteRecovery(identifier);
                 await delivery.Completion.StoredAsync(cancellationToken);
@@ -285,10 +334,9 @@ public sealed class PersistenceLoopHostedService(
     /// (FR-008). Returns whether it is now on the record.
     /// </summary>
     private async Task<bool> RecordRejectionAsync(
-        IngestDelivery delivery, CancellationToken cancellationToken)
+        IngestDelivery delivery, RejectionReason reason, CancellationToken cancellationToken)
     {
         EventEnvelope envelope = delivery.Envelope;
-        TimeSpan window = retry.Value.MaximumRetryWindow;
 
         try
         {
@@ -300,11 +348,11 @@ public sealed class PersistenceLoopHostedService(
                 DeliveryTopic.From($"event/{envelope.Fab.Value}/{envelope.Source.Value}/{envelope.Device.Value}"),
                 envelope.Fab,
                 RawPayload.From(envelope.Payload.Value),
-                RejectionReason.From($"not storable after {window} of retrying"),
+                reason,
                 clock));
             await deadLetters.SaveAsync(cancellationToken);
 
-            logger.IngestAbandoned(envelope.Identifier, envelope.Fab, window);
+            logger.IngestAbandoned(envelope.Identifier, envelope.Fab, reason);
             return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -317,6 +365,32 @@ public sealed class PersistenceLoopHostedService(
             logger.IngestAbandonFailed(envelope.Identifier, ex);
             return false;
         }
+    }
+
+    /// <summary>
+    /// Composes the dead-letter reason once, from the typed error already in
+    /// hand, rather than fabricating one from a setting (spec 213, issue
+    /// #2428).
+    ///
+    /// <para>
+    /// Internal rather than private: <c>EventIngestion.Infrastructure.Tests</c>
+    /// already holds an <c>InternalsVisibleTo</c> grant, and a direct unit test
+    /// on the 512-character truncation bound below has no other seam to reach
+    /// it through.
+    /// </para>
+    /// </summary>
+    internal static RejectionReason Because(IngestEventError error)
+    {
+        string text = $"{error.Code}: {error.Message}";
+
+        // Truncated rather than left to RejectionReason.From's own bound check:
+        // that throw is caught by RecordRejectionAsync's catch, which returns
+        // false and puts the delivery back on `carried` — and since the next
+        // attempt composes the same over-long string, it would stay there
+        // forever.
+        return RejectionReason.From(text.Length <= RejectionReason.MaximumLength
+            ? text
+            : text[..RejectionReason.MaximumLength]);
     }
 
     private async Task<Option<IngestEventBatchResult>> TryStoreBatchAsync(
@@ -339,7 +413,7 @@ public sealed class PersistenceLoopHostedService(
         }
     }
 
-    private async Task<Outcome> StoreOneAsync(
+    private async Task<Ending> StoreOneAsync(
         IngestDelivery delivery, CancellationToken cancellationToken)
     {
         EventEnvelope envelope = delivery.Envelope;
@@ -354,7 +428,7 @@ public sealed class PersistenceLoopHostedService(
 
             if (result.IsSuccess)
             {
-                return Outcome.Stored;
+                return Ending.Stored;
             }
 
             logger.IngestFailed(envelope.Identifier, envelope.Source, envelope.Device, result.Error.Code);
@@ -362,10 +436,11 @@ public sealed class PersistenceLoopHostedService(
             // Already ingested means it IS stored — the redelivery is the
             // idempotency rule working. Anything else is a rule that refused
             // the envelope and will refuse it identically next time, so it is
-            // recorded rather than acknowledged into silence.
+            // recorded — with the reason already in hand — rather than
+            // acknowledged into silence.
             return result.Error is IngestEventError.EventAlreadyIngested
-                ? Outcome.Stored
-                : Outcome.Rejected;
+                ? Ending.Stored
+                : Ending.Rejected(Because(result.Error));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -379,7 +454,7 @@ public sealed class PersistenceLoopHostedService(
                 logger.IngestDispatchFaulted(envelope.Identifier, envelope.Fab, ex);
             }
 
-            return Outcome.Failed;
+            return Ending.Failed;
         }
     }
 

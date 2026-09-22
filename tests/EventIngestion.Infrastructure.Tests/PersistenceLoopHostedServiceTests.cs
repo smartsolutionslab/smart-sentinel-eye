@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using SmartSentinelEye.EventIngestion.Application.Commands;
 using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
@@ -191,6 +192,206 @@ public class PersistenceLoopHostedServiceTests
         completion.Abandoned.ShouldBe(1);
         completion.Stored.ShouldBe(0, "nothing was stored, so nothing may be reported as stored");
         harness.DeadLetters.ShouldHaveSingleItem();
+    }
+
+    /// <summary>
+    /// Spec 213 US1-B (issue #2428), the site at <c>:194</c>. Today
+    /// <c>RecordRejectionAsync</c> can only ever write the window sentence, so
+    /// this is red: a skewed envelope refused by an otherwise-healthy batch
+    /// must record the rule it broke, not a fabricated "not storable after"
+    /// line — that sentence belongs to a delivery that actually retried, which
+    /// this one never did.
+    ///
+    /// <para>
+    /// <b>Load-bearing pair</b> with
+    /// <see cref="A_delivery_that_only_fails_transiently_still_names_the_retry_window_it_exhausted"/>
+    /// below (US1-D counterfactual): an implementation that replaced the window
+    /// sentence everywhere would pass this test and fail that one; an
+    /// implementation that changed nothing would pass that one and fail this
+    /// one. Neither test is redundant with the other — do not delete either
+    /// because it looks covered by its neighbour.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_batch_refusal_records_the_rule_it_broke_not_the_retry_window()
+    {
+        RecordingCompletion completion = new();
+        Harness harness = new(Skewed(completion));
+
+        await harness.RunUntilAsync(() => completion.Abandoned == 1, TimeSpan.FromSeconds(10));
+
+        DeadLetter deadLetter = harness.DeadLetters.ShouldHaveSingleItem();
+        deadLetter.Error.Value.ShouldContain("EVENT_OCCURRED_AT_TOO_FAR_IN_FUTURE");
+        deadLetter.Error.Value.ShouldContain("more than 5 minutes in the future");
+        deadLetter.Error.Value.ShouldNotContain("of retrying");
+    }
+
+    /// <summary>
+    /// Spec 213 US1-D, the counterfactual for US1-B above and the site at
+    /// <c>:215</c> — the one place the window sentence is actually true. A
+    /// delivery whose save fails on every attempt genuinely exhausts the retry
+    /// window, so its dead letter must keep naming that window. This must stay
+    /// green through the whole feature: see the pairing note on
+    /// <see cref="A_batch_refusal_records_the_rule_it_broke_not_the_retry_window"/>
+    /// above for why it cannot be deleted as redundant with it.
+    ///
+    /// <para>
+    /// Deliberately a separate delivery and a separate assertion from
+    /// <see cref="Records_and_releases_a_delivery_that_never_stores"/> — that
+    /// test is the standing, untouched check that the sentence did not move;
+    /// this one additionally names the exact window, which is the stronger
+    /// claim US1-D asks for.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_delivery_that_only_fails_transiently_still_names_the_retry_window_it_exhausted()
+    {
+        TimeSpan window = TimeSpan.FromMilliseconds(500);
+        RecordingCompletion completion = new();
+        Harness harness = new(Delivery("a", completion))
+        {
+            FailuresBeforeSuccess = int.MaxValue,
+            Window = window,
+        };
+
+        await harness.RunUntilAsync(() => completion.Abandoned == 1, TimeSpan.FromSeconds(30));
+
+        DeadLetter deadLetter = harness.DeadLetters.ShouldHaveSingleItem();
+        deadLetter.Error.Value.ShouldContain("not storable after");
+        deadLetter.Error.Value.ShouldContain(window.ToString());
+    }
+
+    /// <summary>
+    /// Spec 213 US1-F. <c>RejectionReason.From</c> throws above 512 characters,
+    /// and that throw lands inside <c>RecordRejectionAsync</c>'s own catch —
+    /// which returns false and leaves the delivery on <c>carried</c> forever,
+    /// since the next attempt composes the identical over-long string. <c>
+    /// Because</c> truncates instead, so a composed reason is always
+    /// representable.
+    ///
+    /// <para>
+    /// Direct rather than through the harness: no <see cref="IngestEventError"/>
+    /// variant in production code can produce a message long enough to reach
+    /// the bound (both are fixed-width), and <c>StoreOneAsync</c> resolves the
+    /// concrete, sealed <see cref="IngestEventCommandHandler"/> — not an
+    /// interface — so nothing can be substituted to force one through the
+    /// loop. <c>Because</c> is <c>internal</c> for exactly this: the assembly
+    /// already grants this test project <c>InternalsVisibleTo</c>, so no new
+    /// production-code seam is needed, only this access.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_composed_reason_longer_than_the_512_character_bound_is_truncated_not_thrown()
+    {
+        IngestEventError overlong = new OverlongTestReason();
+
+        RejectionReason reason = PersistenceLoopHostedService.Because(overlong);
+
+        reason.Value.Length.ShouldBeLessThanOrEqualTo(RejectionReason.MaximumLength);
+        reason.Value.ShouldStartWith(overlong.Code);
+    }
+
+    private sealed record OverlongTestReason()
+        : IngestEventError("TEST_OVERLONG_REASON", new string('x', RejectionReason.MaximumLength + 100), System.Net.HttpStatusCode.BadRequest);
+
+    /// <summary>
+    /// Spec 213 US1-C, the site at <c>:368</c>. A skewed envelope on its own
+    /// would take the healthy-batch path (US1-B); riding alongside a poisoned
+    /// delivery instead forces the whole cycle to singles, which is a
+    /// different call site with its own fabrication to fix.
+    ///
+    /// <para>
+    /// Reachable, not assumed: <c>Build</c> never calls <c>events.Add</c> for
+    /// the skewed envelope (the future-skew rule throws before that), so the
+    /// batch's pending set holds only the poisoned delivery. Its save throws,
+    /// <c>TryStoreBatchAsync</c> returns <c>None</c>, and <c>RetryAsync</c>
+    /// then runs over every arrived delivery — including the skewed one, whose
+    /// own single store returns a typed failure without throwing. That lands it
+    /// on the first-attempt rejection path, not the exhausted-retry path.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_skewed_envelope_in_a_batch_that_throws_is_rejected_on_its_first_single_attempt()
+    {
+        RecordingCompletion skewed = new();
+        RecordingCompletion poison = new();
+        Harness harness = new(Skewed(skewed), Delivery("poison", poison))
+        {
+            PoisonPayload = "poison",
+            // Long enough that the poisoned delivery cannot exhaust and get
+            // abandoned before the test observes the skewed one - the skewed
+            // delivery is rejected on its first single attempt, the poisoned
+            // one is merely still failing.
+            Window = TimeSpan.FromSeconds(30),
+        };
+
+        await harness.RunUntilAsync(() => skewed.Abandoned == 1, TimeSpan.FromSeconds(10));
+
+        DeadLetter deadLetter = harness.DeadLetters.ShouldHaveSingleItem();
+        deadLetter.Error.Value.ShouldContain("EVENT_OCCURRED_AT_TOO_FAR_IN_FUTURE");
+        deadLetter.Error.Value.ShouldNotContain("of retrying");
+        skewed.Abandoned.ShouldBe(1);
+        skewed.Stored.ShouldBe(0);
+        poison.Abandoned.ShouldBe(0, "nothing here has had time to exhaust the retry window");
+    }
+
+    /// <summary>
+    /// Spec 213 US1-E, the conflict scenario at <c>:366-368</c>: carrying a
+    /// reason through the singles path must not tempt an implementation into
+    /// dead-lettering <c>EventAlreadyIngested</c> — that branch is the
+    /// idempotency rule working, and a row for it would be a new defect. Green
+    /// today and must stay green.
+    ///
+    /// <para>
+    /// Forced onto the singles path deliberately: the batch handler's own
+    /// idempotency check (<c>seen</c>/<c>already</c> in
+    /// <c>IngestEventBatchCommandHandler</c>) would otherwise absorb a
+    /// redelivery before it ever reaches <c>StoreOneAsync</c>'s
+    /// <c>EventAlreadyIngested</c> ternary, so the test would pass without ever
+    /// exercising the branch this spec threads a reason past. A poisoned
+    /// delivery riding alongside the redelivery makes that cycle's batch throw,
+    /// so both fall to singles and the redelivery is the one that actually
+    /// reaches the ternary. Uses <see cref="BoundedIngestChannel"/> and a
+    /// mid-run write, the same pattern
+    /// <see cref="An_event_arriving_behind_a_failing_one_does_not_wait_for_it"/>
+    /// uses, because a single served batch cannot show two arrivals in
+    /// different cycles.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_redelivery_of_an_already_stored_event_is_completed_as_stored_not_dead_lettered()
+    {
+        RecordingCompletion original = new();
+        RecordingCompletion poison = new();
+        RecordingCompletion redelivered = new();
+
+        IngestDelivery first = Delivery("dup", original);
+
+        BoundedIngestChannel channel = new(capacity: 10);
+        await channel.WriteAsync(first, CancellationToken.None);
+
+        Harness harness = new()
+        {
+            ChannelOverride = channel,
+            PoisonPayload = "poison",
+            Window = TimeSpan.FromSeconds(30),
+        };
+
+        await harness.RunUntilAsync(
+            () => redelivered.Stored == 1,
+            TimeSpan.FromSeconds(5),
+            onStarted: async () =>
+            {
+                // Waits for "dup" to have landed via the batch path, so the
+                // redelivery below finds it already in the repository.
+                await Task.Delay(200, CancellationToken.None);
+                await channel.WriteAsync(Delivery("poison", poison), CancellationToken.None);
+                await channel.WriteAsync(
+                    new IngestDelivery(first.Envelope, redelivered), CancellationToken.None);
+            });
+
+        redelivered.Stored.ShouldBe(1);
+        harness.DeadLetters.ShouldBeEmpty();
     }
 
     /// <summary>
