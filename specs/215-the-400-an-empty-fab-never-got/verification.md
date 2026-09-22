@@ -1,0 +1,31 @@
+# Verification — Spec 215 (#2507)
+
+## Phase 4a — RED, premise re-derived from source (not just observed) before any code changed
+
+Before any test was written, two premise checks were done statically rather than assumed:
+
+- **T001 (the empty-fab-produces-500 premise):** confirmed by reading `DefaultFabAuthorizationGuard.EnsureAccessAsync` (`Ensure.That(fabId).IsNotNullOrWhiteSpace()`, unconditional, on the raw string) against `GetTimeline`'s actual code (the guard runs first, before any parse) and the set of five registered `IExceptionHandler`s in `AuthenticationDefaults.cs` (none covers `ArgumentException`), so the throw genuinely falls through to the generic `app.UseExceptionHandler()` catch-all → 500. Three independent points of evidence, all agreeing.
+- **T002 (`SearchAuditQueryHandler`'s fab predicate):** confirmed the handler treats a non-null `Fab` as an equality filter via `FabIdentifier.From(fab)` then `.Where(e => e.Fab == fabId)` — so passing an empty string through unwidened would itself throw a second, different `ArgumentException` inside the handler layer. T006's normalisation (`Fab: string.IsNullOrWhiteSpace(fabId) ? null : fabId`) is load-bearing, not optional.
+
+**A third correction, found by the test-writer questioning rather than trusting the plan, then independently re-verified by the orchestrator from source:** spec.md/tasks.md originally classified SC-6 (`?fabId=NOT_A_FAB`) as "characterisation — already answers 400 today." This was wrong. `GetTimeline`'s guard call runs on the raw string before `FabIdentifier.From`'s grammar check is ever reached, and the guard's own groups-membership check rejects `NOT_A_FAB` on its own terms — the actual answer today is **403 `RESOURCE_FAB_NOT_AUTHORIZED`**, not 400. Verified three ways (the guard's implementation, `FabIdentifier.IsValid`'s lowercase-only grammar, and the seeded test operator's actual `/fabs/munich`-only group membership) before `spec.md`, `tasks.md`, and the test itself (name and doc comment; its assertion already correctly targeted the post-fix 400) were corrected. SC-6 is now a fourth red case, not a fourth characterisation case.
+
+Eight new test cases written in `CrossFabReadGuardIntegrationTests.cs` (four red: SC-1, SC-2, SC-8, SC-6; four characterisation: SC-5, SC-7, SC-9, SC-10), asserting both status and problem `title` on every non-200. Build clean, 0 errors; the two pre-existing assertions in the file are untouched (`git diff` confirms purely additive).
+
+## Phase 4a — RED, live observation: two local attempts, both aborted; genuine gap recorded honestly
+
+**This delivery's situation is structurally different from four sibling deliveries earlier today (#2432, #2430, #2428, #2509).** In those, genuine live red output had already been captured before resource pressure forced later steps to defer to CI. Here, no live red observation has ever been captured — this is recorded plainly rather than blended into the same "deferred, confirmed via CI" pattern those used, because the evidentiary gap is real and different in kind.
+
+**Two local Aspire boot attempts were made, both deliberately aborted mid-boot on a worsening RAM trend, not on a hard failure:**
+
+1. First attempt (via a dispatched test-writer, before T004's code was even finalized): free RAM measured 6.2GB, judged too risky for a 9-service-plus-Postgres-plus-RabbitMQ-plus-Keycloak stack given this session's history; not attempted.
+2. Second attempt (this orchestrator, after T004's tests and the SC-6 correction were committed): free RAM measured 4.3GB. `dotnet run --project src/AppHost` was started and monitored continuously. The AppHost dashboard came up cleanly (build succeeded, 0 errors) at RAM 3.2GB; by the next check it was 2.8GB, then 2.5GB, on the same steep downward trajectory that caused a crisis earlier today (6.7GB → 1.9GB in two minutes, delivering #2432). Aborted at 2.5GB, before any service beyond the dashboard had reported ready — the boot never reached a state where the eight new tests could actually be run. Teardown: AppHost process and two orphaned child `dotnet` processes killed, nine leftover Docker containers stopped explicitly (they outlive the AppHost), `dotnet build-server shutdown` run. RAM recovered to 4.2GB afterward.
+
+**The red evidence this PR carries is therefore the rigorous, cross-checked static derivation in the section above, not a captured failing test run** — for all four red cases, including SC-6's reclassification, three independent points of source evidence were read and found to agree (not merely one plausible-looking reading). This is a real limitation against ADR-0139's letter ("failure quoted in the PR body" ordinarily means an actually-captured failure), stated here so a reviewer can weigh whether the static case is sufficient before merging, rather than let it pass unremarked as equivalent to the other four deliveries' evidence.
+
+**What CI can and cannot supply:** CI will only ever run this branch's own (fixed) code, so it cannot retroactively supply the missing pre-fix red observation either — it can only confirm the post-fix green state. Before merging, the orchestrator will read CI's own test output (not just its aggregate conclusion) and confirm all eight cases pass by name:
+- Four red-turned-green: `An_empty_fab_on_a_resource_timeline_is_a_client_error`, `A_whitespace_fab_on_a_resource_timeline_is_a_client_error`, `An_empty_fab_on_the_audit_search_spans_the_callers_fabs`, `A_malformed_fab_grammar_now_gets_a_client_error_not_an_authorization_refusal`.
+- Four characterisation, unmodified: `A_cross_fab_timeline_is_refused_before_a_malformed_resource_is_parsed`, `An_omitted_fab_keeps_the_frameworks_own_refusal`, `A_cross_fab_audit_search_is_still_refused`, `An_unauthenticated_empty_fab_request_is_challenged`.
+
+Phase 5's live end-to-end procedure (five probes, run by hand against a booted stack) is what still owes this delivery a genuine live observation, of both the fix and its problem details — attempted here alongside phase 4a and equally blocked by the same resource ceiling; retry when the delivery machine has more headroom, or accept CI's own test run as sufficient live confirmation of the green state (a human decision, not the lane's to make silently).
+
+Latency: **N/A** — not on any constitution §IV leg.
