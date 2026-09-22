@@ -48,6 +48,7 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
     register,
     handleSubmit,
     watch,
+    unregister,
     formState: { errors },
     reset,
   } = useForm<CreateRuleInput>({
@@ -63,6 +64,14 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
   // does not enable. Working around it would mean working around ADR-0079.
   // eslint-disable-next-line react-hooks/incompatible-library -- see above
   const actionType = watch('actionType');
+
+  useEffect(() => {
+    if (actionType === 'SetVariableValue') {
+      unregister(['overlayIdentifier', 'durationMs']);
+    } else {
+      unregister(['variableName', 'valueExpression']);
+    }
+  }, [actionType, unregister]);
 
   const onSubmit = handleSubmit(async (values) => {
     if (mustChooseFab && fabId === '') {
