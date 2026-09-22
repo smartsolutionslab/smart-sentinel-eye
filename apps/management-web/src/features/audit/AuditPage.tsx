@@ -25,14 +25,28 @@ const EMPTY_DRAFT: FilterDraft = {
   until: '',
 };
 
+/**
+ * A `datetime-local` input reports a bare wall clock (`2026-09-17T08:00`) with
+ * no UTC offset. Sent verbatim it is resolved in the *server's* zone — UTC in a
+ * container — while the When column renders `occurredAt` in the *browser's*,
+ * so the filter and the table disagreed by the operator's offset (#2431).
+ * `new Date(...)` reads the bare form as local time (ECMA-262 §21.4.3.2), so
+ * `toISOString()` is the instant the operator meant. An unparseable value
+ * drops the filter rather than throwing from a render path.
+ */
+function toInstant(wallClock: string): string | undefined {
+  const parsed = new Date(wallClock);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
 function toQuery(draft: FilterDraft): SearchAuditInput {
   const query: SearchAuditInput = { pageSize: PAGE_SIZE };
   if (draft.fabId !== '') query.fabId = draft.fabId;
   if (draft.eventKind !== '') query.eventKind = draft.eventKind;
   if (draft.resourceKind !== '') query.resourceKind = draft.resourceKind;
   if (draft.actorUsername !== '') query.actorUsername = draft.actorUsername;
-  if (draft.since !== '') query.since = draft.since;
-  if (draft.until !== '') query.until = draft.until;
+  if (draft.since !== '') query.since = toInstant(draft.since);
+  if (draft.until !== '') query.until = toInstant(draft.until);
   return query;
 }
 
