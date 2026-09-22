@@ -233,6 +233,37 @@ on the configured timeout value. Asserting `asyncUtilTimeout === 10_000` would b
 an assertion checking its own input (MEMORY) and would pass whether or not the
 bound does anything.
 
+#### T005 outcome — the verbatim output, reproduced 2026-09-22 for the PR
+
+The first phase-4 pass reported this gate satisfied but did not save the
+verbatim text to any file in the tree, so it is reproduced here against the
+same unmodified pair of files (`setup.ts`, `vite.config.ts` restored to their
+pre-T004 content via `git show 0fe3c1b8:...`, the commit immediately before
+T004), with the guard test (T005) present and untouched, exactly per this
+task's step 1:
+
+**RED** (pre-T004 `setup.ts`/`vite.config.ts`, guard present):
+
+```
+FAIL  src/features/overlays/OverlayEditorDialogResolvePreview.test.tsx > OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018) > Still reports a failed resolve when the response is slow enough to outrun the old deadline (#2520)
+TestingLibraryElementError: Unable to find an element by: [data-testid="placeholder-preview-error"]
+ ❯ Proxy.waitForWrapper .../node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ src/features/overlays/OverlayEditorDialogResolvePreview.test.tsx:287:11
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Duration  7.02s
+```
+
+**GREEN** (T004 restored, `git diff` against HEAD confirmed empty before
+re-running):
+
+```
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Duration  7.46s
+```
+
 ### T006 [US1] — verify the guard cannot be satisfied by a smaller bound
 
 **Files:** none permanently written.
