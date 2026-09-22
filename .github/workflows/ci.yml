@@ -240,6 +240,24 @@ jobs:
       - name: Set up .NET (version pinned via global.json)
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
 
+      # Spec 218: real-run finding, not modeled. `bin/`+`obj/` reuse (below)
+      # does not carry every package's contents -- Aspire's DCP orchestrator
+      # ships as an extracted tool asset under `~/.nuget/packages/
+      # aspire.hosting.orchestration.linux-x64/<version>/tools/dcp`, resolved
+      # directly from the NuGet package cache at runtime (DcpDependencyCheck),
+      # never copied into bin/. Dropping this job's own restore also dropped
+      # the only thing that put it on this runner's disk. Restoring this same
+      # cache entry is not the ~86s `dotnet restore` this job used to pay --
+      # `backend` already primed it (same key, same `hashFiles(...)`, same
+      # `ubuntu-latest` image), so this is a cache-hit download, not a NuGet
+      # resolve.
+      - name: Cache NuGet packages
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/Directory.Packages.props', 'global.json', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
       - name: Verify Docker is available
         run: docker info
 
@@ -601,6 +619,25 @@ jobs:
         with:
           node-version: '22'
           cache: pnpm
+
+      # Spec 218: real-run finding, not modeled (found in integration-shards
+      # first, same cause). `bin/`+`obj/` reuse below does not carry every
+      # package's contents -- Aspire's DCP orchestrator, which the AppHost
+      # needs to run at all, ships as an extracted tool asset under
+      # `~/.nuget/packages/aspire.hosting.orchestration.linux-x64/<version>/
+      # tools/dcp`, resolved directly from the NuGet package cache at
+      # runtime, never copied into bin/. Dropping this job's own restore also
+      # dropped the only thing that put it on this runner's disk. Restoring
+      # this same cache entry is not the ~90s restore+build this job used to
+      # pay for -- `backend` already primed it (same key, same
+      # `hashFiles(...)`, same `ubuntu-latest` image), so this is a
+      # cache-hit download.
+      - name: Cache NuGet packages
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/Directory.Packages.props', 'global.json', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       - name: Verify Docker is available
         run: docker info
