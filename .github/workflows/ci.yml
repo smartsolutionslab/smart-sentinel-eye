@@ -193,7 +193,7 @@ jobs:
   # (specs/218-ci-shard-slow-jobs/plan.md §3: ~132s AspireFixture boot,
   # inherent per shard, plus 1/4 of ~501s test execution -> ~362s/shard) --
   # **refuted by the real run**: verification.md measures the slowest shard
-  # at 449s, not 362s, because per-shard execution time is uneven (LPT
+  # at 413s, not 362s, because per-shard execution time is uneven (LPT
   # balances by test *count*, not measured *duration*), and the model
   # assumed near-uniform distribution. N=4 was still the right call (the
   # fixed 132s floor makes N=8 only worth another minute over N=4 in either
@@ -534,6 +534,17 @@ jobs:
   # status checks configured), and as a stable name to point a future
   # required-status-check at, if `develop` ever gets one, without hunting
   # down which of four shard-numbered names to require.
+  #
+  # Phase 6 review S5: this job's own *conclusion* is `failure` whenever a
+  # need didn't succeed, regardless of whether that need genuinely failed or
+  # was cancelled/skipped -- the run's log line (below) is what actually
+  # distinguishes them, so read that before reading this check's colour
+  # alone. Also a semantic change from pre-sharding: previously a red
+  # `backend` left the single `integration` job showing `skipped`; now it
+  # leaves this synthesis job showing `failure` on the same `needs` chain.
+  # Arguably clearer (a silent `skipped` used to read as "nothing to see"),
+  # but undocumented until now -- noted here since it changes what the
+  # four-bucket manual read sees on a backend failure.
   integration:
     name: integration tests (Docker)
     runs-on: ubuntu-latest
@@ -564,7 +575,7 @@ jobs:
   # human noticed the timing anomaly. `e2e-shard-coverage` below closes it.
   # Modeled from fixed-cost math (plan.md §3: ~331s fixed stack-boot cost
   # plus 1/4 of ~463s Playwright execution -> ~447s/shard) -- **refuted by
-  # the real run**: verification.md measures the slowest shard at 557s, not
+  # the real run**: verification.md measures the slowest shard at 545s, not
   # 447s, for the same reason as `integration-shards`' identical correction
   # above (uneven per-shard duration; LPT/file-count balancing isn't
   # duration-aware). N=4 was still the right call for the matrix shape; the
@@ -614,18 +625,6 @@ jobs:
           node-version: '22'
           cache: pnpm
 
-      # Spec 218: real-run finding, not modeled (found in integration-shards
-      # first, same cause). `bin/`+`obj/` reuse below does not carry every
-      # package's contents -- Aspire's DCP orchestrator, which the AppHost
-      # needs to run at all, ships as an extracted tool asset under
-      # `~/.nuget/packages/aspire.hosting.orchestration.linux-x64/<version>/
-      # tools/dcp`, resolved directly from the NuGet package cache at
-      # runtime, never copied into bin/. Dropping this job's own restore also
-      # dropped the only thing that put it on this runner's disk. Restoring
-      # this same cache entry is not the ~90s restore+build this job used to
-      # pay for -- `backend` already primed it (same key, same
-      # `hashFiles(...)`, same `ubuntu-latest` image), so this is a
-      # cache-hit download.
       - name: Cache NuGet packages
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -758,10 +757,12 @@ jobs:
   # (measured: 79 vs 67) -- that's Playwright's documented behaviour, not
   # a defect this guard should flag. No Docker/browser install needed:
   # `--list` is discovery only.
+  # Phase 6 review, round 2: dropped `needs: [backend, frontend]` -- this
+  # job (--list only, no build) has no real dependency on either, and
+  # waiting for them cost 4m34s of pure idle time for a 19s job.
   e2e-shard-coverage:
     name: e2e shard coverage guard
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -780,11 +781,37 @@ jobs:
       - name: Install web dependencies
         run: pnpm install --frozen-lockfile
 
+      # Phase 6 review, round 2: the check below (`pnpm test:e2e --shard=$n/4
+      # --list`) proves Playwright *can* shard -- it does not prove this
+      # workflow *asks* it to, because it's a separate invocation from the
+      # one `e2e-shards`' "Run the Playwright e2e suite" step actually runs.
+      # A regression there (e.g. the `pnpm test:e2e -- --shard=N/4` stray-`--`
+      # bug this PR fixed once already) would leave this guard green while
+      # every real shard silently ran the full suite again. Closes that gap
+      # the same way IntegrationTestSelectionTests/AgentBriefClaimTests
+      # already do for their own call sites: read ci.yml as text and assert
+      # the real invocation has the expected shape.
+      - name: Verify the real e2e-shards invocation actually requests a shard
+        run: |
+          set -euo pipefail
+          line="$(awk '/^      - name: Run the Playwright e2e suite$/{f=1} f && /^        run:/{print; exit}' .github/workflows/ci.yml)"
+          case "$line" in
+            *' -- '*)
+              echo "::error::the real 'Run the Playwright e2e suite' step contains a standalone ' -- ', which silently drops --shard (this exact bug shipped once already): $line"
+              exit 1
+              ;;
+            *'pnpm test:e2e --shard='*) ;;
+            *)
+              echo "::error::the real 'Run the Playwright e2e suite' step no longer matches the expected 'pnpm test:e2e --shard=...' shape: $line"
+              exit 1
+              ;;
+          esac
+
       - name: Verify the e2e shards cover today's test set
         run: |
           set -euo pipefail
 
-          pnpm test:e2e --list 2>&1 | grep '›' | sed 's/^ *//' | sort > /tmp/full.txt
+          pnpm test:e2e --list 2>&1 | { grep '›' || true; } | sed 's/^ *//' | sort > /tmp/full.txt
           full_count=$(wc -l < /tmp/full.txt)
           [ "$full_count" -gt 0 ] || { echo "::error::no e2e tests discovered -- the reader is broken, not the suite."; exit 1; }
 
@@ -812,7 +839,9 @@ jobs:
   # Spec 218: one stable, human-legible check name aggregating the 4 shards
   # (which each report as their own separately-named check,
   # "e2e (Playwright, full stack) (N/4)") -- same reasoning as the
-  # `integration` synthesis job above.
+  # `integration` synthesis job above, including phase 6 review S5's note
+  # on this job's conclusion-vs-log distinction and the skip-to-failure
+  # semantic change from pre-sharding (see `integration`'s comment).
   e2e:
     name: e2e (Playwright, full stack)
     runs-on: ubuntu-latest
