@@ -575,11 +575,33 @@ rather than guessed.
 **The local harness is recalibrated to the same 2.0× ratio, on this machine's
 own core count.** The local worktree machine has **8 logical cores** (`nproc` /
 `os.cpus().length`, checked directly, not assumed from phase 1's unstated
-figure). A single Vitest run of the target package alone already demands 1 main
-+ `max(8 - 1, 1)` = 7 workers = **8 processes**. To reach the measured 2.0× ratio
-on 8 cores, total demand must be 16 processes, so the busy-process count is
-**16 − 8 = 8** (not phase 1's 24, which produced ≈ 3.9× — nearly double the
-measured CI ratio). **T016 runs at 8 busy Node processes on 8 logical cores.**
+figure). A single Vitest run of **the target package's full suite** demands 1
+main + `max(8 - 1, 1)` = 7 workers = **8 processes**. To reach the measured
+2.0× ratio on 8 cores, total demand must be 16 processes, so the busy-process
+count is **16 − 8 = 8** (not phase 1's 24, which produced ≈ 3.9× — nearly
+double the measured CI ratio).
+
+**Correction, post phase-6 review (PR #2534): "the target package's full
+suite" is load-bearing, and T016's first pass did not honour it.** It ran a
+*single test file* (`npx vitest run <one file>`), not the package's full
+suite. Measured directly via `Get-Process` sampling on this machine: a
+single-file invocation spawns **one** fork worker (Vitest forks per file, and
+there was one file) — **2 processes total**, not 8; a full-package run (38
+files, enough to saturate the pool) spawns all 7 forks as this section
+assumed, confirmed by the same sampling. Two compounding defects followed: (a)
+the busy-process count above was calibrated against a demand figure the actual
+command never produced, landing the harness at ≈1.25× instead of 2.0×; (b)
+`npx vitest run <file>` run directly from `apps/management-web` never goes
+through the root `pnpm -r` script at all, so T015's `--workspace-concurrency=1`
+was not exercised by it in any way — the run could not have told the
+difference between the fix present and absent. T016's corrected re-run
+(tasks.md) runs the real root command against both packages' full suites, so
+the fork pool genuinely saturates and the concurrency flag is genuinely
+exercised. **T016 now runs at 8 busy Node processes on 8 logical cores,
+against the full `kiosk-web` + `management-web` suites through `pnpm -r
+--workspace-concurrency=1`** — the busy-process number is unchanged from the
+first pass, but what it is added to, and what it therefore tests, both
+changed.
 
 Also observed on the same run, as a check on T015 (§6 below, not part of the
 calibration): the `frontend` job completed in **2 m 04 s**
