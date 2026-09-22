@@ -86,6 +86,11 @@ function failedResolveResponse(): Response {
   return new Response('{}', { status: 500, headers: { 'Content-Type': 'application/json' } });
 }
 
+// #2520/#2419 guard constant. Must clear the old 1000 ms `asyncUtilTimeout`
+// default by a clear margin, or the counterfactual (T006) becomes a coin
+// toss rather than a proof. 1500 is what phase 1 measured red on, every run.
+const SLOW_RESPONSE_MS = 1500;
+
 describe('OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018)', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -252,5 +257,36 @@ describe('OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018)', () =
       createDraftMock.mock.calls[0] as unknown as ReadonlyArray<{ name: string; label: { text: string } }>
     )[0]!;
     expect(payload.label.text).toBe('{{bogus}}');
+  });
+
+  /**
+   * #2520/#2419 guard. The test above is the one CI outran seven times, and the
+   * reason is the deadline rather than the assertion: the error advisory does
+   * arrive, ~29 ms after the response on an idle machine and ~319 ms under
+   * contention, and Testing Library's 1000 ms default is the only thing that
+   * ever refused it. This test injects a delay the old default cannot survive,
+   * so a future reduction of `asyncUtilTimeout` (src/test/setup.ts) fails the
+   * build here instead of on someone else's unrelated pull request.
+   *
+   * The delay is a single `setTimeout` driving a fake forward — not a fixed-count
+   * settle, and not inside a loop, so it is outside ADR-0150 §2's selectors.
+   */
+  it('Still reports a failed resolve when the response is slow enough to outrun the old deadline (#2520)', async () => {
+    fetchMock = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, SLOW_RESPONSE_MS));
+      return failedResolveResponse();
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderDialog();
+
+    fireEvent.change(screen.getByTestId('overlay-editor-text'), { target: { value: '{{bogus}}' } });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('placeholder-preview-error')).not.toBeNull();
+    });
+    expect(screen.getByRole('button', { name: /save as draft/i })).toHaveAttribute('aria-disabled', 'false');
   });
 });
