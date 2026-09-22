@@ -32,7 +32,9 @@ const EMPTY_DRAFT: FilterDraft = {
  * so the filter and the table disagreed by the operator's offset (#2431).
  * `new Date(...)` reads the bare form as local time (ECMA-262 §21.4.3.2), so
  * `toISOString()` is the instant the operator meant. An unparseable value
- * drops the filter rather than throwing from a render path.
+ * drops the filter instead of throwing `RangeError` out of the submit
+ * handler; the DOM cannot produce one today, but `toQuery` is a pure
+ * function over `FilterDraft`, and any future writer of it could.
  */
 function toInstant(wallClock: string): string | undefined {
   const parsed = new Date(wallClock);
