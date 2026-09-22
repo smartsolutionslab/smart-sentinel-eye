@@ -270,6 +270,27 @@ jobs:
         with:
           name: release-build-output
 
+      # Spec 218: real-run finding, not modeled. actions/upload-artifact's
+      # zip round-trip does not reliably preserve the Unix executable bit --
+      # this job's AspireFixture boot spawns MigrationRunner's native apphost
+      # launcher (a real ELF binary named after the project, not the managed
+      # .dll) directly, and it downloaded without +x, failing every test that
+      # touches the fixture with "Permission denied" starting that process
+      # (not a build problem -- confirmed the file's ELF magic bytes are
+      # intact, only the permission bit is lost). Restore +x by content
+      # (`file`'s ELF check), not by filename pattern -- launcher executables
+      # are named after their project (`SmartSentinelEye.MigrationRunner`),
+      # which already contains dots, so "no extension" is not a reliable
+      # filter and a name-based one would need updating every time a new
+      # apphost-launched project is added.
+      - name: Restore the executable bit on native launcher binaries
+        run: |
+          find . -path '*/bin/Release/*' -type f -print0 \
+            | xargs -0 file \
+            | grep 'ELF' \
+            | cut -d: -f1 \
+            | xargs -r chmod +x
+
       - name: Run integration tests
         # #2410: blame-hang watchdog, sized against this job's own measured
         # timing (specs/167-a-slow-hang-that-fails-loudly/spec.md §2-3), not
@@ -666,6 +687,22 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: release-build-output
+
+      # Spec 218: real-run finding (found in integration-shards first, same
+      # cause). actions/upload-artifact's zip round-trip does not reliably
+      # preserve the Unix executable bit -- the AppHost boot below spawns
+      # MigrationRunner's native apphost launcher (a real ELF binary, not the
+      # managed .dll) directly, and it would download without +x. Restored by
+      # content (`file`'s ELF check), not by filename pattern -- see
+      # integration-shards' identical step for why a name-based filter isn't
+      # reliable here.
+      - name: Restore the executable bit on native launcher binaries
+        run: |
+          find . -path '*/bin/Release/*' -type f -print0 \
+            | xargs -0 file \
+            | grep 'ELF' \
+            | cut -d: -f1 \
+            | xargs -r chmod +x
 
       - name: Boot the Aspire stack (run mode) in the background
         run: |
