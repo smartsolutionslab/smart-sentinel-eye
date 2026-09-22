@@ -11,7 +11,7 @@
     "build": "pnpm -r --filter \"./apps/**\" build",
     "lint": "pnpm -r --filter \"./apps/**\" lint && pnpm lint:e2e",
     "lint:e2e": "eslint e2e playwright.config.ts --max-warnings 0",
-    "test": "pnpm -r --filter \"./apps/**\" test && pnpm test:guards",
+    "test": "pnpm -r --workspace-concurrency=1 --filter \"./apps/**\" test && pnpm test:guards",
     "test:guards": "node --test \"scripts/**/*.test.mjs\"",
     "typecheck": "pnpm -r --filter \"./apps/**\" typecheck && pnpm typecheck:e2e",
     "typecheck:e2e": "tsc -p e2e/tsconfig.json --noEmit",

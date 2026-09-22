@@ -167,6 +167,17 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Runner capacity (diagnostic — see spec 216 §R2 materialised)
+        run: nproc && free -m
+
+      # `pnpm test` runs the workspace's `test` script, which caps
+      # `--workspace-concurrency` at 1 (root package.json). `apps/kiosk-web` and
+      # `apps/management-web` otherwise run their Vitest suites concurrently on
+      # this one runner, each sizing its own fork pool from the runner's core
+      # count — oversubscribing it by construction. That contention was the
+      # actual cause of #2520/#2419's flake, not an under-sized timeout alone
+      # (spec 216 §R2 materialised). This is a resource decision, not a
+      # performance one — do not revert it to shave wall-clock time.
       - name: Test
         run: pnpm test
 
