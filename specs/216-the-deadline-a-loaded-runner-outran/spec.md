@@ -482,6 +482,22 @@ unreadable.
 
 **Not started unless the reviewer says so** — see US2's own heading.
 
+**FR-006 (US1b) — the frontend bucket stops running two Vitest suites on one
+runner at once.** Added by the 2026-09-22 re-plan, after FR-001/FR-002 proved
+necessary and not sufficient (A-1, falsified). The workspace root `test` script
+runs the app suites with `--workspace-concurrency=1`, so `apps/kiosk-web`'s and
+`apps/management-web`'s fork pools no longer share one runner's cores — an
+overlap observed directly in CI run 35725455764's `frontend` job log, not
+inferred. It lands in `package.json` rather than as a CI-only environment
+variable so that the local reproduction and the CI run agree, and it carries a
+comment saying *why* the concurrency is capped, or the next CI optimisation
+removes it. plan.md §"R2 materialised" §4 is the reasoning; §7 is the scope
+ruling, including what is deliberately left outside these issues.
+
+**FR-006's sufficiency is the thing being measured, and it has not been measured
+yet.** tasks.md T016 is the gate; if it does not reach zero, the escalation is a
+dedicated CI job, which is **out of scope here and needs its own issue**.
+
 ---
 
 ## Acceptance scenarios
@@ -532,7 +548,7 @@ behaviour — block, do not adjust (constitution §Testing, CLAUDE.md house rule
 **SC-4 (US1) — the whole package is unmoved**
 
 ```gherkin
-Given apps/management-web's full Vitest suite (334 tests, 38 files at HEAD)
+Given apps/management-web's full Vitest suite (329 tests, 38 files at HEAD)
 When it runs before the change and again after it
 Then the same count passes in both runs
 ```
@@ -668,7 +684,8 @@ nothing about it changes nothing about §IV either way.
 | **SC-B** | SC-1 passes after the fix, with the injection unchanged | `vitest run` |
 | **SC-C** | SC-2's counterfactual is run: the guard goes red with the deadline at 1000 ms | phase 5 note |
 | **SC-D** | SC-3/SC-4 (and SC-7 if US2 ships): every package touched has its suite pass before and after with identical counts and **no edited assertion** | two captured runs per package |
-| **SC-E** | SC-5: ten contended runs of the affected file, zero failures, no `testTimeout` | phase 5 note |
+| **SC-E** | SC-5: contended runs of the affected file, **zero** failures, no `testTimeout`, no worker-response timeout | phase 5 note |
+| | **Re-assigned 2026-09-22.** SC-E was measured at T007 with FR-001/FR-002 alone and **failed** — 3 recurrences in 20 runs, twice measured. It now belongs to **tasks.md T016**, after FR-006, over **twenty** runs at a load T014 calibrates against the real runner. Ten runs is what produced a 1-in-10 reading that turned out to be 3-in-20. | |
 | **SC-F** | SC-8: `pnpm lint`, `pnpm typecheck`, `pnpm format:check` clean | CI `frontend` bucket |
 | **SC-G** | #2419 closed by the PR with a closing keyword, and its state verified after the merge | MEMORY: a PR mention rarely auto-closes |
 
@@ -676,16 +693,30 @@ nothing about it changes nothing about §IV either way.
 
 ## Assumptions, marked
 
-- **A-1 — 10 000 ms is enough margin.** It is 31× the *measured* contended cost
-  of the failing wait, but nobody has measured a GitHub runner directly; the
-  contention model here is 24 busy processes on 8 local cores. Unfalsifiable in
-  advance — the honest position is that the guard in FR-003 and the counterfactual
-  in SC-2 make a future shortfall *visible* rather than making it impossible. If
-  the flake recurs after this, the next step is ADR-0150's CI-budget job, not a
-  larger number.
-- **A-2 — the contention harness models CI's failure and not a different one.**
-  Supported by Claim 5 (identical message, identical line) and not by anything
-  stronger. A CI failure is not directly reproducible from here.
+- **~~A-1 — 10 000 ms is enough margin.~~ FALSIFIED 2026-09-22, measured twice.**
+  It was 31× the measured contended cost and 345× the idle cost, and it was still
+  outrun: **3 of 20 contended runs reproduced the exact target failure with the
+  fix applied** (10.4 s – 14.5 s), against 4 of 10 unfixed. The assumption held
+  that the flake was proportional slowdown; a 345× tail out of an 11× median says
+  the process is being *starved*, and no deadline reaches a process that is not
+  scheduled. This is precisely the shortfall FR-003's guard and SC-2's
+  counterfactual were built to make visible — they worked. plan.md §"R2
+  materialised" carries both batches' raw numbers and the replacement mechanism.
+  **Its closing sentence was wrong on its own terms too:** ADR-0150's CI-budget
+  job forces settle budgets *low*, to detect a different defect class — adopting
+  it here would make this flake more frequent, not less. Struck rather than
+  rewritten; what an assumption got wrong is the useful part of the record.
+- **~~A-2 — the contention harness models CI's failure and not a different one.~~
+  Partly answered, in the unflattering direction.** Still supported by Claim 5
+  (identical message, identical line). Now also *bounded*: CI run 35725455764's
+  `frontend` job log shows `apps/kiosk-web`'s and `apps/management-web`'s Vitest
+  suites running **simultaneously on one runner** — so CI's contention is real and
+  self-inflicted, at roughly 2× oversubscription, while the local harness (24 busy
+  processes plus 7 Vitest forks on 8 logical cores) is roughly 4×. **The harness
+  is harsher than the job it stands in for.** That makes 15 % an overestimate of
+  the true CI rate, and it does **not** license accepting the result — tasks.md
+  T014 measures the runner so the ratio stops being an estimate, and T016's bar
+  stays zero.
 - **A-3 — no test anywhere in the three packages depends on a `waitFor`
   *failing* within 1000 ms.** A test asserting that something never appears
   would now take 10 s instead of 1 s but still pass. SC-4 and SC-7's equal-count

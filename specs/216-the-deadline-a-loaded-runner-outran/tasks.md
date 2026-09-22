@@ -2,8 +2,26 @@
 
 **Spec:** [`spec.md`](./spec.md) · **Plan:** [`plan.md`](./plan.md)
 **Issue:** [#2520](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2520) · **Same defect, closed by the same PR:** [#2419](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2419)
-**Phase:** 3 — ready for a **frontend-engineer**. Frontend-only: no Aspire stack, no Docker, no backend build.
+**Phase:** 3 — **re-issued 2026-09-22.** T001–T007 are done; **T007 failed its own gate** and T014–T017 are the replan. Frontend-only: no Aspire stack, no Docker, no backend build.
 **Phase 4a colour:** **RED** for T005's guard · **CHARACTERISATION (green)** for everything else — §"The two colours"
+
+> ## Status after the first phase-4 pass (2026-09-22)
+>
+> | Task | State |
+> |---|---|
+> | T001 reproduction | done — red as predicted |
+> | T002 baseline | done — **329 / 38**, not the 334 this file asserted; corrected below |
+> | T003 fake-timer audit | done |
+> | T004 the two edits | **done, in the worktree, and it stays** — do not revert it |
+> | T005 RED gate | **done and satisfied** — red before, green after, output captured |
+> | T006 counterfactual | not reached |
+> | **T007 contended validation** | **RUN, AND FAILED ITS OWN GATE — 3 recurrences in 20 runs, twice measured** |
+> | T008–T013 | not reached |
+>
+> T007's instruction on failure was *"stop and report"*, and it was followed.
+> **plan.md §"R2 materialised" is the answer**: the diff stands, the claim
+> attached to it narrows, and a second mechanism (T014–T017) joins it before
+> anything ships. Read that section before starting T006.
 
 ---
 
@@ -47,11 +65,30 @@ worth.
 
 ```
 T001 [P] ─┐
-T002 [P] ─┴─> T003 ─> T004 ─> T005 (RED gate) ─> T006 ─> T007 ─> T008 ─> T009 ─┬─> T012 ─> T013
-                                                                               │
-                                              (only if the reviewer asks)      │
-                                              T010 ─> T011 ──────────────────-─┘
+T002 [P] ─┴─> T003 ─> T004 ─> T005 (RED gate) ─> T007 ✗ ──> [RE-PLAN]
+                                                              │
+                     ┌────────────────────────────────────────┘
+                     │
+        T014 [P] ────┴──> T015 ──> T016 (⟨GATE⟩ zero, or stop) ──> T017
+                                        │
+                                        └──> T006 ──> T008 ──> T009 ─┬─> T012 ─> T013
+                                                                     │
+                                    (only if the reviewer asks)      │
+                                    T010 ─> T011 ────────────────────┘
 ```
+
+**Two hard gates now, not one.**
+
+- **T005 (RED)** — satisfied. Its verbatim output is the artefact the PR quotes
+  (ADR-0139, ADR-0144).
+- **T016 (ZERO)** — new, and the one that decides whether this delivers. It is
+  T007 re-run after T015, at a load calibrated by T014. **Zero failures, or
+  stop and escalate.** Do not soften it; it is the second time this criterion
+  has been put in writing and the first time it was put in writing it was
+  believed rather than measured.
+
+T014 is `[P]` against nothing useful — it is one command — but it must precede
+T016, because an uncalibrated harness makes "zero" meaningless.
 
 **T005 is a hard gate.** Its verbatim red output is the artefact phase 4b
 consumes and the PR body quotes (ADR-0139, ADR-0144). Do not start T006 without
@@ -65,7 +102,13 @@ it.
 |---|---|---|
 | **T005** | **RED** | Asserts behaviour nothing asserts today — that the advisory survives a late refusal. Must be seen failing against the unchanged tree. |
 | T002, T009, T011 | **CHARACTERISATION, green** | Existing suites captured passing before, passing **unmodified** after. An assertion that has to be edited is evidence the change moved behaviour — **block, do not adjust**. |
-| T001, T003, T004, T006–T008, T010, T012, T013 | neither | Measurements, edits and bookkeeping. |
+| T001, T003, T004, T006–T008, T010, T012, T013, **T014–T017** | neither | Measurements, edits and bookkeeping. |
+
+**T014–T017 add no test and change no assertion.** T015 changes only *how* the
+existing suites are scheduled, so the characterisation obligation it carries is
+T009's: the same counts, unmodified. If serialising the workspace changes a
+single test's outcome, that is a test with an undeclared dependency on a sibling
+package's process, and it is a finding — **block, do not adjust**.
 
 **Why "make the flaky test pass" is not the red task:** there is no failing test
 to fix — it passes locally, always. Treating the flake itself as the red
@@ -114,11 +157,18 @@ pnpm -r --filter "./apps/**" test
 in the phase-5 note, not reported only to the orchestrator (MEMORY:
 *self-review catches contradictions, never omissions*).
 
-At HEAD `management-web` is **334 tests / 38 files**. The other two have not been
-measured by phase 1 and **must not be quoted from this document** — measure them.
-(All three are captured even though only one package changes: the suite-runtime
-delta is the signal for spec A-3, and a baseline you did not take is a
-comparison you cannot make.)
+At HEAD, from CI run 35725455764's `frontend` job log (green, `develop`,
+2026-09-22): `management-web` **329 / 38 files**, `kiosk-web` **168 / 12**,
+`shared` **414 / 33**.
+
+**This task previously said 334 for `management-web`. It was wrong** — carried
+from a phase-1 draft and never re-read. Phase 4 measured 329 twice, CI's log says
+329, and the static `it(` / `test(` call-site count of 313 plus `it.each`
+expansion is consistent with 329. Corrected 2026-09-22.
+
+Measure all three anyway — a CI figure and a local figure are different
+observations, and the local wall-clock delta is the signal for spec A-3. The
+numbers above are what you compare against, not a substitute for running it.
 
 **If any package is red before the change:** stop. That is a pre-existing break,
 not this work (MEMORY: *`typecheck:e2e` fails on a clean `develop`*).
@@ -211,11 +261,150 @@ node -e "const e=Date.now()+900000;let x=0;while(Date.now()<e){for(let i=0;i<1e6
 **Done when:** both counts are recorded.
 
 **If step 2 shows any failure:** stop and report. A partial cure is spec A-1
-failing, and the escalation is ADR-0150's CI-budget job, **not** a larger number.
+failing, and the escalation is **not** a larger number.
 
 *This is the only evidence in the whole delivery that speaks to the actual
 defect. A green local run and a green CI bucket both say nothing — the test
 already passes ~95 % of the time.*
+
+#### T007 outcome — **RUN 2026-09-22. FAILED ITS OWN GATE.**
+
+| Batch | Runs | Clean | Target defect reproduced | Other |
+|---|---|---|---|---|
+| Before (unfixed tree) | 10 | 6 | **4** — `Unable to find … [data-testid="placeholder-preview-error"]` | — |
+| After, batch 1 | 10 | 7 | **1** (run 6) — **both** the should-fix-5 test **and** the new guard, same message, at **10371 ms / 10630 ms** | 2 × `[vitest-pool-runner]: Timeout waiting for worker to respond` |
+| After, batch 2 | 10 | 8 | **2** (runs 1 and 6) — identical signature, **10.4 s – 14.5 s** | 0 |
+| **After, combined** | **20** | **15** | **3 (15 %)** | 2 |
+
+Batch 2 was run specifically to rule out the first-run-after-machine-churn
+artefact (MEMORY: *measurement runs need repeating*). It reproduced the failure
+rather than dissolving it. The diff was verified untouched throughout — `git diff
+--stat`: 63 insertions, three files, additive only.
+
+**Do not re-run T007 to try for a better ten.** The number is measured twice and
+the escalation is T014–T017. Re-rolling a measured result until it comes out
+right is the habit this whole spec exists to argue against.
+
+**Read plan.md §"R2 materialised" now.** It carries the diagnosis (the failures
+sit at 345× the idle cost, which proportional slowdown does not produce — the
+process is being *starved*, and the two worker-response timeouts are a second
+instrument saying so), the correction that *"ADR-0150's CI-budget job"* was a
+misread citation, and the mechanism that replaces it.
+
+---
+
+## US1b (P1) — added by the re-plan: stop the frontend bucket starving itself
+
+**These four tasks are the delivery's actual fix for the flake.** T004/T005 stay
+and ship with them; the claim attached to T004/T005 narrows to *necessary, not
+sufficient* (plan §"R2 materialised" §6).
+
+### T014 [US1b] — measure the CI runner, so "contended" means something ⟨precedes T016⟩
+
+**Files:** `.github/workflows/ci.yml` — one temporary diagnostic step in the
+`frontend` job, before `Test`:
+
+```yaml
+      - name: Runner capacity (diagnostic — see spec 216 §R2 materialised)
+        run: nproc && free -m
+```
+
+**Why:** `vitest@4.1.11`'s `getDefaultThreadsCount` returns
+`max(availableParallelism() - 1, 1)` for a non-watch run, so the runner's core
+count determines both packages' fork-pool sizes and therefore the real
+oversubscription ratio the `frontend` job runs at. **This plan has not measured
+it and must not guess it** — it has already shipped one number nobody read
+(334). The local harness is 24 busy processes plus 7 Vitest forks on 8 logical
+cores; whether that is twice CI's load or the same as it is not currently known.
+
+**Done when:** the runner's core count is read off a real CI run and **written
+down as an observed figure** in plan §"R2 materialised" §5, not reported only to
+the orchestrator (MEMORY: *self-review catches contradictions, never omissions*).
+The local harness's process count for T016 is then set to reproduce that ratio,
+and the chosen ratio is written down with it.
+
+**Note:** this needs a pushed branch to observe. If the delivery is not yet on a
+PR, run T015 first and read T014's figure off that PR's own `frontend` job.
+
+### T015 [US1b] — serialise the workspace test run
+
+**File:** `package.json` (workspace root), the `test` script only:
+
+```json
+-  "test": "pnpm -r --filter \"./apps/**\" test && pnpm test:guards",
++  "test": "pnpm -r --workspace-concurrency=1 --filter \"./apps/**\" test && pnpm test:guards",
+```
+
+Add the comment plan §3b requires — **why** the concurrency is capped (it is a
+resource decision, not a performance one) — or the next person optimising CI
+removes it. `package.json` takes no comments, so it goes in the `frontend` job's
+`Test` step in `.github/workflows/ci.yml` **and** as one line in
+`apps/management-web/src/test/setup.ts` beside FR-004's comment, which is where
+someone debugging this test will actually be looking.
+
+**Grounding, not to be re-derived:** CI run 35725455764's `frontend` job log
+shows `apps/kiosk-web` (18 s) and `apps/management-web` (44 s) starting within a
+second of each other on one runner — roughly 40 % of `management-web`'s runtime
+is contended by a sibling suite, on every CI run, by construction.
+
+**Done when:** the script is changed, `pnpm test` passes locally with the counts
+from T002, and the serial wall-clock is recorded. Expected ≈ +17 s (16.49 +
+17.99 + 44.40 ≈ 79 s serial against ≈ 62 s overlapped); the `frontend` job
+completes in 2 m 04 s against `timeout-minutes: 15`.
+
+**If the wall-clock delta is much worse than +17 s:** record it and report. The
+cost argument above is what justifies the scope call in plan §"R2 materialised"
+§7, and a cost that turns out to be wrong reopens that call.
+
+**Do not** reach for `NPM_CONFIG_WORKSPACE_CONCURRENCY` as a CI-only job env. A
+scheduling setting only CI applies is invisible to whoever tries to reproduce the
+failure locally, and that is how this defect cost a day in the first place.
+
+### T016 [US1b] — re-run the contended reproduction at a calibrated load ⟨GATE⟩
+
+**Files:** none written.
+
+Re-run T007's procedure with T004, T005 **and** T015 applied, at the load T014
+calibrated, **ten runs**, and then **ten more**. Twenty, because ten is what
+produced a 1-in-10 reading that turned out to be 3-in-20.
+
+**Done when:** **zero** reproductions of
+`Unable to find an element by: [data-testid="placeholder-preview-error"]`, **zero**
+`Test timed out`, and **zero** `[vitest-pool-runner]: Timeout waiting for worker
+to respond` across all twenty. Record the raw per-run outcomes, not a summary.
+
+**The worker-response timeout counts as a failure here even though it is not the
+target defect.** It appeared only in the after-batches and only under load; plan
+§"R2 materialised" §2 reads it as a second instrument reporting the same
+starvation. If T015 is the right fix, it should go away too — and if it does not,
+that is information worth having rather than noise to discount.
+
+**If any failure remains: STOP. Do not raise `asyncUtilTimeout`. Do not accept
+the improvement. Do not add a CI job on your own initiative.** That outcome is
+the plan §"R2 materialised" §4-item-3 escalation — a dedicated job or a per-file
+isolation — which is **out of #2520's scope and needs its own issue**, filed with
+T016's numbers attached (ADR-0144: the lane does not decide this).
+
+### T017 [US1b] — remove or keep T014's diagnostic step
+
+**File:** `.github/workflows/ci.yml`
+
+With T014's figure written down in the plan, the `nproc` step has served its
+purpose. Default: **remove it** — a permanent diagnostic nobody reads is
+clutter, and the figure is now in the artefact where it belongs. Keep it only if
+the reviewer asks.
+
+**Done when:** the step is removed (or the reviewer's decision to keep it is
+recorded in the PR body), and `git diff` on `.github/workflows/ci.yml` shows
+either nothing or one intentional line.
+
+---
+
+## US1 (P1), continued — the checks that close it out
+
+T006, T008 and T009 were never reached in the first phase-4 pass. They run
+**after** T016's gate, so that T009's characterisation covers T015's scheduling
+change as well as T004's bound.
 
 ### T008 [US1] — lint, typecheck, format
 
@@ -237,8 +426,12 @@ before (MEMORY). If it fails, confirm against a stash before attributing it here
 Re-run `pnpm -r --filter "./apps/**" test`. Compare against T002.
 
 **Done when:** `management-web`'s count matches T002's **plus exactly one** (the
-guard), the other packages match exactly, and `git diff` on the test file shows
-**only an addition**.
+guard) — i.e. **330 / 38** — the other packages match exactly (`kiosk-web` 168,
+`shared` 414), and `git diff` on the test file shows **only an addition**.
+
+**T015 is in the tree by now, so this run is also T015's characterisation.** The
+suites are scheduled differently; the counts must not care. Record the serial
+wall-clock alongside the counts.
 
 **If an existing assertion had to change:** block. That is evidence the deadline
 change moved behaviour, and it is a different spec (constitution §Testing;
@@ -282,6 +475,7 @@ ADR-0087):
 | Commit | Contents |
 |---|---|
 | `test(management-web): bound waitFor by a deadline a loaded runner cannot outrun` | T004 + T005 — the guard and the bound it needs are one change |
+| `ci(frontend): run the workspace suites in series so they stop starving the runner` | T015 (+ T014/T017's workflow churn, if any survives) — a **separate** commit, because it is a different mechanism with a different justification, and rebase-merge lands them individually (ADR-0087) |
 | `test(kiosk-web): adopt the same async deadline` | T010, **only if US2 was authorised** |
 
 **PR to `develop`** — `gh pr create --base develop` (CLAUDE.md; never `main`).
@@ -290,12 +484,25 @@ The body must carry:
 
 - T005's **verbatim red output**, and the green after (ADR-0139 phase-4 gate).
 - T006's counterfactual output.
-- T007's contended counts, before and after.
-- T002/T009's characterisation counts for every package touched.
+- **T007's contended counts in full — all three batches, including the 3-in-20
+  that did not clear its gate.** Not the 40 %→15 % summary alone. A PR that
+  reports only the improvement is a PR whose reader cannot tell that the plan's
+  own Definition of Done was missed and re-planned.
+- **T016's calibrated counts**, with T014's runner figure beside them so the
+  reader can see what load "zero" was measured at.
+- **One sentence stating that T004/T005 is necessary and not sufficient**, and
+  that T015 is the mechanism the flake-stops claim rests on. Without it the
+  reader will attribute the fix to the timeout raise, which the measurements do
+  not support.
+- T002/T009's characterisation counts for every package touched — **329 → 330**
+  for `management-web` (this spec asserted 334 for two revisions; say so, since
+  the PR is the last place a wrong baseline can still be caught).
+- The serial-vs-overlapped wall-clock delta from T015, so the CI cost is priced
+  in the record rather than asserted.
 - The spec §"The objection in #2419" comparison, in short: why *"a timeout is not
   a fix"* was the right caution against an unbounded race and why the measured
-  defect is the bounded kind — two independent harnesses, both reproducing CI's
-  exact failure, both cured by the same change.
+  defect is the bounded kind — **and that #2419's caution was partly vindicated**:
+  the timeout raise alone did not carry it.
 - One line stating plainly that **a green `frontend` bucket is not evidence
   here**, and why.
 - `Closes #2520` and `Closes #2419` — a closing keyword for **each**.
@@ -332,3 +539,18 @@ verify with `--limit 2000`, or a filled board reads as empty (CLAUDE.md; MEMORY)
   wrong and phase 1 reopens.
 - **Chasing #2247 / #2409.** Answered in spec §Claim 6: different defect, already
   closed, no shared cause.
+- **Raising `asyncUtilTimeout` above 10 000.** Forbidden by T007's own
+  instruction and by plan §"R2 materialised" §2 — the failures sit at 345× the
+  idle cost, which is not proportional slowdown, so more clock does not reach
+  them. It is the tuning habit ADR-0150 exists to stop.
+- **Adding a dedicated CI job, or excluding any test file from the ordinary
+  run.** These are the *next* escalation if T016 fails, and they are **outside
+  #2520** — a new CI bucket changes the four-bucket manual read that is this
+  repo's only gate on `develop` (MEMORY). File an issue with T016's numbers;
+  ADR-0144 does not let this lane decide it.
+- **`vitest` `retry`, at any level.** Masks the defect and erases the evidence —
+  the same objection as re-running a red CI job (MEMORY: *a re-run erases the
+  failure from CI history*).
+- **Capping Vitest's per-package fork pool.** `availableParallelism() - 1`
+  workers plus one main is not oversubscription *within* a package; T015 removes
+  the overlap that makes it one. Smallest change (ADR-0036).
