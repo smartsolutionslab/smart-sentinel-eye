@@ -17,4 +17,10 @@ import { configure } from '@testing-library/react';
 // and timeout on faked timers nobody advances. Measured: two standard
 // `userEvent.setup({ advanceTimers })` configurations, both dying at
 // `testTimeout` with no `waitFor` message at all (spec 216 §Claim 7).
+//
+// This deadline is necessary but not sufficient: 3 of 20 contended runs still
+// outran it before the workspace root's `test` script stopped running
+// `apps/kiosk-web` and `apps/management-web` concurrently on the same runner
+// (root `package.json`, `--workspace-concurrency=1`). That contention, not an
+// under-sized bound, was the actual cause (spec 216 §R2 materialised).
 configure({ asyncUtilTimeout: 10_000 });
