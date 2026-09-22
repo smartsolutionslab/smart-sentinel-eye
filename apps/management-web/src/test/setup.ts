@@ -19,8 +19,11 @@ import { configure } from '@testing-library/react';
 // `testTimeout` with no `waitFor` message at all (spec 216 §Claim 7).
 //
 // This deadline is necessary but not sufficient: 3 of 20 contended runs still
-// outran it before the workspace root's `test` script stopped running
-// `apps/kiosk-web` and `apps/management-web` concurrently on the same runner
-// (root `package.json`, `--workspace-concurrency=1`). That contention, not an
-// under-sized bound, was the actual cause (spec 216 §R2 materialised).
+// outran it before the fix below. The cause, per CI's own `frontend` job log
+// (run 35725455764, `ubuntu-latest` = 4 cores): `apps/kiosk-web` and
+// `apps/management-web` ran their Vitest suites concurrently, each sizing its
+// own fork pool from the runner's core count -- 8 processes demanded on 4
+// cores, a measured 2.0x oversubscription, on every single CI run. The
+// workspace root's `test` script now caps `--workspace-concurrency` at 1 to
+// remove it (spec 216 §R2 materialised).
 configure({ asyncUtilTimeout: 10_000 });
