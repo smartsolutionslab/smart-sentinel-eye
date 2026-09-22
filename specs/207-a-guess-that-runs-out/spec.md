@@ -180,11 +180,19 @@ lockout is never an outage" overclaims, and the honest framing is that this
 trades an unbounded credential-guessing risk for a bounded, cheap
 denial-of-service one.
 
-**Open question, not resolved here:** whether a locked account's *existing*
+**Open question, since resolved:** whether a locked account's *existing*
 session survives via `grant_type=refresh_token` — i.e. whether the lockout
 denies only new sign-ins or also revokes live sessions — was not checked
-against the running server. Recorded as unresolved rather than assumed either
-way.
+against the running server. **Answered, live, by spec 214 (issue #2509): it
+survives.** A locked account's refresh token still mints a fresh access token;
+the brute-force detector's `if (!user.isEnabled())` branch in Keycloak's own
+refresh path is never reached by a temporary lock (`permanentLockout: false`
+leaves the account `enabled: true` throughout), and the detector itself is
+consulted only inside the authentication flow, which a refresh grant does not
+pass through. Confirmed against the real, unmodified realm — both at the API
+level and through a real wall client holding an offline grant — not inferred
+from the source read alone; see `specs/214-the-session-a-lockout-cannot-reach/verification.md`
+for the full record.
 
 **Gateway-level rate limiting is the standard mitigation for exactly this
 risk, not a hypothetical future need.** The *Out of scope* table below

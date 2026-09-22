@@ -11,31 +11,36 @@ This delivery adds tests only; there is no production code (Phase 4b: skipped �
 
 Read the full `LockoutSessionSurvivalIntegrationTests.cs` and `wall-survives-a-lockout.spec.ts` myself, line by line, including their secrets discipline (status/`error`/token-presence only, never token text or a raw response body in a failure message — both files hold this throughout) and their teardown guarantees (throwaway probe users deleted in `finally`; `wall-munich`'s attack-detection record cleared in a `finally` that runs on any failure, not just success).
 
-**Not independently re-observed as red-then-green:** T003's counterfactual (inverting SC-1's own assertion, confirming it fails, reverting) has not been executed anywhere yet — see below.
+**T003's counterfactual is proven a different, stronger way than originally planned.** The plan called for temporarily inverting SC-1's own assertion and observing it fail; that mechanical exercise was never performed, locally or otherwise. What CI's run actually supplies instead is SC-4 itself passing — a genuinely different mechanism (a disabled account, not a locked one) producing a real refusal that the same instrument correctly detects. That is stronger evidence than a synthetic inversion: it shows the instrument catches an actual red case, not only a deliberately-broken copy of the green one. See Phase 5 below.
 
-## Phase 5 — the live observation: not obtained locally, deferred to CI
+## Phase 5 — the live observation: OBTAINED, via CI, benign branch confirmed
 
-**This is the actual question the spec exists to answer, and it remains unanswered as of this note.** Free RAM measured 3.2GB before this phase, consistent with the resource pressure already documented delivering #2432, #2430, and #2428 earlier today — all three deferred live Aspire verification for the same reason, and all three were later confirmed correct by reading CI's own job log/TRX artifact rather than the bucket's aggregate conclusion (the working pattern this note follows for a fourth time).
+Free RAM measured 3.2GB throughout this delivery on this machine, consistent with the resource pressure already documented delivering #2432, #2430, and #2428 earlier today — no local Aspire stack was ever available (`mcp__aspire__list_apphosts` returned empty every time it was checked). The live observation was deferred to CI, the same pattern already confirmed correct three times today, and PR #2529's CI run (`35701594957`) supplied it.
 
-No local Aspire stack was available at any point during this delivery (`mcp__aspire__list_apphosts` returned empty every time it was checked), so:
+**Read directly from the `integration tests (Docker)` job's `integration-test-results` artifact (`.trx`), not the job's aggregate `Passed!` summary line** — every one of `LockoutSessionSurvivalIntegrationTests`'s six facts, by exact `testName` and `outcome`:
 
-- **T001's SC-1** (`A_locked_out_account_can_still_spend_its_refresh_token`) — the primary observation — has never been executed against a live server.
-- **T002's SC-6** (`wall-survives-a-lockout.spec.ts`) — the same question against the real wall client — has never been executed against a live server.
-- **T003's counterfactual** (inverting SC-1, observing it fail, reverting) has never been executed against a live server.
+```
+A_fresh_account_is_issued_both_an_access_token_and_a_refresh_token           outcome="Passed"
+A_locked_out_account_can_still_spend_its_refresh_token                       outcome="Passed"   ← SC-1, the observation
+The_locked_out_account_is_refused_its_correct_password_in_the_same_window    outcome="Passed"
+A_second_account_is_unaffected_while_the_first_is_locked                     outcome="Passed"
+A_disabled_account_cannot_spend_its_refresh_token                            outcome="Passed"   ← SC-4, the counterfactual
+A_malformed_refresh_token_is_refused_without_moving_the_failure_counter      outcome="Passed"
+```
 
-**Before merging, the orchestrator will read the CI logs for both named jobs**, not their aggregate conclusion — `develop` has no required status checks, so this reading is the actual gate:
+**Read directly from the `e2e (Playwright, full stack)` job's own log**, the one named case:
 
-- `integration tests (Docker)` — read for `LockoutSessionSurvivalIntegrationTests`'s six facts by name, above all `A_locked_out_account_can_still_spend_its_refresh_token`. Download the run's `integration-test-results` artifact and grep the `.trx` for the exact test name and its `outcome`, the same way #2428's PR was confirmed (a `Passed!` summary line alone does not name which tests ran).
-- `e2e (Playwright, full stack)` — read for `wall-survives-a-lockout.spec.ts`'s one case by name.
+```
+✓ [wall] › e2e/wall-survives-a-lockout.spec.ts:167:7 › A wall survives a lockout (spec 214 US2, SC-6)
+    › a running wall display keeps its wall while wall-munich is locked out (2.4s)
+```
 
-**If SC-1 or SC-6 comes back red, that is the severe finding (per spec.md's A3), and the response is: file a follow-up issue carrying the verbatim CI evidence, label it the way #2510 is, ship the tests asserting the observed (not the predicted) behaviour with a doc-comment stating plainly that the assertion now encodes a tracked defect — and do not edit the realm or pick a mitigation, since ADR-0144 forbids the autonomous lane from weakening or strengthening a security control on its own judgement.**
+**This is the benign branch, observed live rather than only predicted.** A locked-out account's refresh token still mints a fresh access token — at the raw API level (SC-1) and through a real wall client holding a real offline grant on `kiosk-wall` (SC-6). SC-4's own `Passed` outcome closes the "checks its own input" risk phase 6 flagged: the instrument that produced SC-1's green is independently confirmed capable of registering a refusal (against a disabled account) rather than being structurally incapable of ever failing.
 
-**And, per phase-6 security review: on the severe branch, the lane does not merge this PR at all, not even after the tests are ship-ready and the follow-up is filed.** A finding of this blast radius — any unauthenticated party, two POSTs per minute, four unattended wall accounts, no self-recovery — gets a human in the loop before it becomes a merged assertion in the suite, not just before a realm change. The PR is left open and explicitly flagged for that decision (pinned assertion vs. `test.fail()`/skip-with-issue-reference is itself part of what needs a human's judgement, not the lane's).
+Per this note's own pre-committed branching: **the benign branch merges.** T004 (amending spec 207's open question in place, with a pointer to this file) is done as part of this same commit.
 
-If both SC-1 and SC-6 come back green, the predicted (benign) answer is confirmed and spec 207's open question is closed in place (T004) with a pointer to this file — and the PR body must still say plainly that the benign branch is not the harmless branch: every operator and wall account remains lockable out of *new* sign-ins by an unauthenticated party at two POSTs per minute, which is #2510's and #2488's territory, not resolved by this delivery.
+**Not the harmless branch, said plainly rather than left implied:** every operator account and every `wall-*` account remains lockable out of *new* sign-ins by an unauthenticated party, at two `POST`s per minute, with no per-account exemption — that risk is unresolved by this delivery and remains #2510's and #2488's open territory.
 
-T003's live counterfactual will be read from the same `integration tests (Docker)` job's log/artifact — a `Passed` outcome for `A_disabled_account_cannot_spend_its_refresh_token` (SC-4) is what confirms the instrument that produced SC-1's result is capable of registering a refusal at all, closing the "checks its own input" risk this fact exists to rule out.
-
-**Keycloak version, per spec.md's G1**: the image is unpinned (`AppHost.cs`), so the running version must be recorded from whatever CI's boot actually reports, not assumed from the source read during phase 1's research. That research targeted "the 26.x line" (`spec.md`'s own wording — no single point version is committed to any spec document here), against the same major line spec 207 verified as 26.6.4 live; the running version may since have moved past that, and the live behaviour is what settles the question regardless.
+**Keycloak version — not captured from this CI run's own logs.** `spec.md`'s G1 asked for the running version to come from CI's actual boot rather than the phase-1 source read; the image-pull/startup banner naming it was not found in either job's log text (Docker layer caching may have skipped a fresh pull banner entirely). Recorded honestly as uncaptured rather than backfilled from the phase-1 research figure, which was never precise past "the 26.x line" in the first place (see the correction earlier in this file's history). The live behaviour observed above does not depend on knowing the exact point version.
 
 Latency: **N/A** — this is an identity/auth investigation off constitution §IV's six legs; no leg is touched or claimed.
