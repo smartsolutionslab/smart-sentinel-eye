@@ -73,15 +73,19 @@ public static class AuditEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        if (fabId is not null)
+        if (!string.IsNullOrWhiteSpace(fabId))
         {
             await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken);
         }
 
         IReadOnlyList<string> callerFabs = FabClaims.AssignedFabs(user);
 
+        // A blank fabId means "no fab named", the same as an omitted one:
+        // SearchAuditQueryHandler treats a non-null Fab as an equality filter
+        // (FabIdentifier.From(fab) then a column comparison), so passing the
+        // empty string through unnormalised would throw inside the handler.
         SearchAuditQuery query = new(
-            Fab: fabId,
+            Fab: string.IsNullOrWhiteSpace(fabId) ? null : fabId,
             CallerFabs: callerFabs,
             Actor: actor,
             ActorUsername: actorUsername,
@@ -110,26 +114,34 @@ public static class AuditEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
-        await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken);
-
         // Parsed here rather than in the handler, which called From unguarded: a
         // malformed route or query value threw ArgumentException and surfaced as a
         // 500. Malformed input from a caller is a client error (ADR-0139, FR-020).
         // ResourceKind stays a string: the handler already answers an unknown kind
         // with AUDIT_TIMELINE_UNKNOWN_RESOURCE_KIND, and that code is part of the
-        // contract. These two had no guard at all.
-        ResourceIdentifier parsedResourceIdentifier;
-        FabIdentifier parsedFab;
-        try
+        // contract. These two had no guard at all. The fab is parsed ahead of the
+        // guard — and the resource identifier only behind it — because the guard
+        // must see a well-formed value to authorize against, while a caller
+        // refused a fab must not learn whether their resource identifier was
+        // well-formed too (spec 215 SC-5).
+        if (!BoundaryParse.TryParse(
+            () => FabIdentifier.From(fabId),
+            "AUDIT_INVALID_INPUT",
+            out var parsedFab,
+            out IResult? fabProblem))
         {
-            parsedResourceIdentifier = ResourceIdentifier.From(resourceIdentifier);
-            parsedFab = FabIdentifier.From(fabId);
+            return fabProblem;
         }
-        catch (ArgumentException ex)
+
+        await fabGuard.EnsureAccessAsync(user, parsedFab.Value, cancellationToken);
+
+        if (!BoundaryParse.TryParse(
+            () => ResourceIdentifier.From(resourceIdentifier),
+            "AUDIT_INVALID_INPUT",
+            out var parsedResourceIdentifier,
+            out IResult? resourceProblem))
         {
-            return Results.Problem(
-                title: "AUDIT_INVALID_INPUT", detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return resourceProblem;
         }
 
         Result<AuditPageDto, GetResourceTimelineError> result = await handler.HandleAsync(
