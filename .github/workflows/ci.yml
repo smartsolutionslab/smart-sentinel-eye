@@ -343,19 +343,24 @@ jobs:
         # guaranteed red that says nothing about the code.
         run: |
           # #2289: same `-- RunConfiguration.TreatNoTestsAsError=true` as the
-          # "Docker-free fixture logic tests" step's comment above. Spec 218:
-          # the three-category exclusion still applies -- it's baked into
-          # each shard file (tests/Integration.Tests/ci-shards/shard-N.filter,
-          # `(FullyQualifiedName~ClassA.|...)&Category!=Measurement&
-          # Category!=Disruptive&Category!=Maintenance`) rather than typed
-          # here, so a filter matching zero tests (this shard file missing,
-          # or every one of its classes renamed) is exactly as loud a failure
-          # as before.
-          shard_filter="$(cat "tests/Integration.Tests/ci-shards/shard-${{ matrix.shard }}.filter")"
+          # "Docker-free fixture logic tests" step's comment above.
+          #
+          # Spec 218: the shard file (tests/Integration.Tests/ci-shards/
+          # shard-N.filter) holds only the OR'd class-membership clause --
+          # the three-category exclusion is kept **literal, inline, right
+          # here** rather than folded into that file. IntegrationTestSelectionTests
+          # (Architecture.Tests, #2289) derives its expected category set by
+          # text-parsing this workflow's `--filter "..."` values, not by
+          # executing them -- a category name hidden behind a shell variable
+          # here is invisible to that parser, silently shrinking the set it
+          # cross-checks every test class's [Trait("Category", ...)] against.
+          # Learned the hard way: an earlier version of this step folded the
+          # category clause into the shard file and broke exactly that guard.
+          shard_classes="$(cat "tests/Integration.Tests/ci-shards/shard-${{ matrix.shard }}.filter")"
           dotnet test tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj \
             -c Release \
             --no-build \
-            --filter "$shard_filter" \
+            --filter "($shard_classes)&Category!=Measurement&Category!=Disruptive&Category!=Maintenance" \
             --logger "trx;LogFileName=integration.trx" \
             --blame-hang --blame-hang-dump-type mini --blame-hang-timeout 12min \
             -- RunConfiguration.TreatNoTestsAsError=true
@@ -474,15 +479,28 @@ jobs:
         run: |
           set -euo pipefail
           proj=tests/Integration.Tests/SmartSentinelEye.Integration.Tests.csproj
-          full_filter="Category!=Measurement&Category!=Disruptive&Category!=Maintenance"
 
-          dotnet test "$proj" -c Release --no-build --list-tests --filter "$full_filter" \
+          # #2289: the category clause is kept literal, inline, at each call
+          # site -- not behind a shell variable -- so IntegrationTestSelectionTests
+          # (Architecture.Tests) can still derive it by text-parsing this
+          # workflow (see "Run integration tests"'s comment above for why).
+          # Both invocations below also carry
+          # `-- RunConfiguration.TreatNoTestsAsError=true`, same as every
+          # other filtered `dotnet test` call in this file -- a filter that
+          # matches zero tests must fail loudly here too, not just print an
+          # empty list this step's own diffing would still (correctly) catch
+          # as a gap, but for the wrong reason.
+          dotnet test "$proj" -c Release --no-build --list-tests \
+            --filter "Category!=Measurement&Category!=Disruptive&Category!=Maintenance" \
+            -- RunConfiguration.TreatNoTestsAsError=true \
             | grep "^    " | sed 's/^    //' | sort > /tmp/full.txt
 
           : > /tmp/union.txt
           for n in 1 2 3 4; do
-            shard_filter="$(cat "tests/Integration.Tests/ci-shards/shard-$n.filter")"
-            dotnet test "$proj" -c Release --no-build --list-tests --filter "$shard_filter" \
+            shard_classes="$(cat "tests/Integration.Tests/ci-shards/shard-$n.filter")"
+            dotnet test "$proj" -c Release --no-build --list-tests \
+              --filter "($shard_classes)&Category!=Measurement&Category!=Disruptive&Category!=Maintenance" \
+              -- RunConfiguration.TreatNoTestsAsError=true \
               | grep "^    " | sed 's/^    //' >> /tmp/union.txt
           done
 

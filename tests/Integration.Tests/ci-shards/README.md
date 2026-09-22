@@ -1,12 +1,21 @@
 # Integration test CI shards
 
-Four files, each one line: a vstest `--filter` expression selecting the
-classes assigned to that shard, ANDed with the same
-`Category!=Measurement&Category!=Disruptive&Category!=Maintenance`
-exclusion `ci.yml`'s `integration-shards` job has always applied (some
-classes mix an excluded-category method with an included one — the AND is
-load-bearing, not decorative; see `specs/218-ci-shard-slow-jobs/plan.md`
-§1-2).
+Four files, each one line: the OR'd `FullyQualifiedName~...` clauses
+selecting the classes assigned to that shard — **class membership only**,
+deliberately. `ci.yml` ANDs each one, at its own call site, with the literal
+`Category!=Measurement&Category!=Disruptive&Category!=Maintenance` exclusion
+it has always applied (some classes mix an excluded-category method with an
+included one — the AND is load-bearing, not decorative; see
+`specs/218-ci-shard-slow-jobs/plan.md` §1-2).
+
+**The category clause is deliberately not folded into these files.**
+`IntegrationTestSelectionTests` (`Architecture.Tests`, #2289) derives the
+set of categories a test class is allowed to declare by *text-parsing*
+`ci.yml`'s `--filter "..."` values, not by executing them — a category name
+hidden behind a shell variable is invisible to that parser. An earlier
+version of this partition put the category clause inside these files and
+broke that guard silently (it doesn't run against this directory). Keep the
+category clause literal, inline, in `ci.yml` itself.
 
 Computed once (2026-09-22, `origin/develop` commit `2d44dd14`) via
 LPT (longest-processing-time-first) bin-packing over each class's *actual
