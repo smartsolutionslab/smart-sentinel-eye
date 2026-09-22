@@ -44,6 +44,40 @@ test('operator defines a system variable and it appears in the list', async ({ p
   await expect(page.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 });
 
+// Spec 212 / #2430 — selecting Boolean reveals the truthy/falsy inputs, and
+// their `defaultValue="Yes"`/`"No"` writes into form state with no keystroke
+// (react-hook-form does not drop a value when its field unmounts). Switching
+// back to String must clear that ghost, or the Define POST never fires
+// (SystemVariableDialog.tsx's unregister effect, keyed on the Type watch).
+// This proves the fix through the real gateway, not just in the mocked unit
+// test: a regression here reproduces the original silent-nothing defect.
+test('operator defines a String variable after looking at Boolean and changing back', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
+  await signInAsOperator(page);
+
+  await page.getByRole('link', { name: /^system variables$/i }).click();
+  await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: /new variable/i }).click();
+
+  await page.locator('#variable-type').selectOption('Boolean');
+  await expect(page.locator('#variable-truthy')).toHaveValue('Yes');
+  await expect(page.locator('#variable-falsy')).toHaveValue('No');
+
+  await page.locator('#variable-type').selectOption('String');
+  await expect(page.locator('#variable-truthy')).toHaveCount(0);
+  await expect(page.locator('#variable-falsy')).toHaveCount(0);
+
+  const name = `E2E_ToggleBack_${Date.now()}`;
+  await page.locator('#variable-name').fill(name);
+  await page.getByRole('button', { name: /^define$/i }).click();
+
+  const row = page.getByRole('listitem').filter({ hasText: name });
+  await expect(row).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+  await expect(row).toContainText('String');
+});
+
 test('operator defines a Boolean system variable and it appears in the list', async ({ page }) => {
   test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
 
