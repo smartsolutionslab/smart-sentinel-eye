@@ -54,6 +54,18 @@ import { join } from 'node:path';
  * exactly like an unrelated regression. The attack-detection record is
  * cleared in a `finally` that runs whether the test passes or fails.
  * </p>
+ *
+ * <p>
+ * <b>CI-only guarantee: `playwright.config.ts`'s `workers: isCI ? 1 : undefined`.</b>
+ * `fullyParallel: false` serialises tests *within* a file, but files still run
+ * across workers, and five other wall-*.spec.ts files sign in as
+ * `wall-munich` too. CI always runs with one worker, so the lock window here
+ * never overlaps a sibling's interactive sign-in. Running this file locally
+ * alongside another `wall-*` spec (`--workers` above 1, or the default
+ * multi-core value) can transiently fail that sibling's sign-in for a reason
+ * that has nothing to do with it — pass `--workers=1` for a local run that
+ * includes this file.
+ * </p>
  */
 
 const WALL = 'http://localhost:5175/';
@@ -162,9 +174,12 @@ test.describe('A wall survives a lockout (spec 214 US2, SC-6)', () => {
     const context: BrowserContext = await chromium.launchPersistentContext(profile, { ignoreHTTPSErrors: true });
     const api = await playwrightRequest.newContext({ ignoreHTTPSErrors: true });
 
-    // Populated before anything is locked, so the teardown `finally` below can
-    // run in every code path — including one that fails partway through the
-    // assertions.
+    // Declared here so they're in scope for the lockout-clearing `finally`
+    // nested inside the try block below (around the lock/assert steps). They
+    // stay resolved before anything is locked, so if signing in, opening the
+    // layout, or minting the admin token throws first, that inner `finally`
+    // is never entered — correctly, since nothing has been locked yet to
+    // clear.
     let provider = '';
     let adminToken = '';
     let userId = '';
@@ -201,17 +216,35 @@ test.describe('A wall survives a lockout (spec 214 US2, SC-6)', () => {
         // Brute-force state is keyed on the user, not the client (spec 214
         // A1), so a wrong guess posted at `management-web` locks this
         // account for every client, `kiosk-wall` included.
-        for (const wrong of ['WrongPassword1', 'WrongPassword2', 'WrongPassword3']) {
-          const attempt = await api.post(`${issuer}/protocol/openid-connect/token`, {
+        //
+        // failureFactor + 1 wrong guesses, read off the realm rather than a
+        // fixed count of three: quickLoginCheckMilliSeconds: 1000 trips
+        // first today, but a human raising it (one of spec.md's own listed
+        // candidate remedies) would silently stop three guesses from
+        // locking anything, and a fixed count would then fail this test for
+        // a reason that reads like a wall regression rather than a config
+        // change (plan.md's reasoning for the C# suite's own LockProbeAsync
+        // applies identically here).
+        const realmRepresentation = await api.get(`${provider}/admin/realms/${REALM}`, {
+          headers: { Authorization: `Bearer ${adminToken}` },
+        });
+        const { failureFactor } = (await realmRepresentation.json()) as { failureFactor?: number };
+        expect(failureFactor, `'admin/realms/${REALM}' should report its own failureFactor`).not.toBeUndefined();
+
+        for (let attempt = 1; attempt <= failureFactor! + 1; attempt++) {
+          const wrong = await api.post(`${issuer}/protocol/openid-connect/token`, {
             form: {
               grant_type: 'password',
               client_id: MANAGEMENT_CLIENT_ID,
               username: WALL_USER,
-              password: wrong,
+              password: `WrongPassword${attempt}`,
               scope: 'openid',
             },
           });
-          expect(attempt.status(), 'a wrong-password grant must never be accepted').toBeGreaterThanOrEqual(400);
+          expect(
+            wrong.status(),
+            `wrong-password grant #${attempt} of ${failureFactor! + 1} must never be accepted`,
+          ).toBeGreaterThanOrEqual(400);
         }
 
         // --- confirm locked: the correct password is now refused too ---
@@ -225,10 +258,13 @@ test.describe('A wall survives a lockout (spec 214 US2, SC-6)', () => {
           },
         });
         const stillLockedBody = (await stillLocked.json()) as { error?: string };
-        expect(stillLocked.status(), `'${WALL_USER}' should be locked out after three rapid wrong guesses`).toBe(400);
+        expect(
+          stillLocked.status(),
+          `'${WALL_USER}' should be locked out after ${failureFactor! + 1} rapid wrong guesses`,
+        ).toBe(400);
         expect(
           stillLockedBody.error,
-          `expected the refusal to read 'invalid_grant', got: ${JSON.stringify(stillLockedBody)}`,
+          `expected the refusal to read 'invalid_grant', got error: '${stillLockedBody.error}'`,
         ).toBe('invalid_grant');
 
         // Control on the lock itself (mirrors spec 214 SC-2): the
@@ -269,14 +305,23 @@ test.describe('A wall survives a lockout (spec 214 US2, SC-6)', () => {
         // this stays on the layout instead of falling back to the picker.
         await page.reload();
 
-        // THE SEVERE-BRANCH DISCRIMINATOR. Checked first and asserted at
-        // count 0 specifically so a failure here names the branch in its own
-        // failure text — "the layout is still visible" alone would time out
-        // naming nothing.
+        // Settle first, discriminate second. Immediately after a reload
+        // neither `layout-grid` nor `identity-not-authorized` has mounted
+        // yet, and `toHaveCount(0)` on either one is satisfied on its very
+        // first poll regardless of which branch the app is actually on —
+        // asserting it directly here would pass unconditionally rather than
+        // discriminate anything. Waiting for *either* terminal state first
+        // is what makes the assertion below capable of failing.
+        await expect(
+          page.getByTestId('layout-grid').or(page.getByTestId('identity-not-authorized')),
+          'the wall should settle on either its layout or the not-authorized screen, not hang between them',
+        ).toBeVisible({ timeout: 90_000 });
+
+        // THE SEVERE-BRANCH DISCRIMINATOR, now that the page has settled.
         await expect(
           page.getByTestId('identity-not-authorized'),
           'a locked-out account must not refuse its own live session (A3 — the severe finding, if this fails)',
-        ).toHaveCount(0, { timeout: 90_000 });
+        ).toHaveCount(0);
 
         // No sign-in prompt anywhere on it.
         await expect(page.getByRole('button', { name: /sign in/i })).toHaveCount(0);
@@ -286,7 +331,7 @@ test.describe('A wall survives a lockout (spec 214 US2, SC-6)', () => {
         await expect(
           page.getByTestId('layout-grid'),
           'a locked-out account must not blank a display that was already showing its wall',
-        ).toBeVisible({ timeout: 90_000 });
+        ).toBeVisible();
 
         // It renewed silently, without being handed to the identity provider.
         expect(grantTypes, 'the wall must renew through its stored grant while its account is locked out').toContain(
