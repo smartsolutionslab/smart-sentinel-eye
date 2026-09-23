@@ -420,7 +420,13 @@ export function settleAlignment(
 
   // Loop-invariant: neither operand depends on `camera`, so this is computed
   // once per settle cycle rather than once per marked tile (spec 228 item 6).
-  const trial = wallTargetFrom([...stillHeld, ...markedWithLags]);
+  // Skipped entirely when nothing is marked — the loop below has zero
+  // iterations in that case, so `trial` would go unused, and this
+  // classification duplicates `bare`'s work above for no reason. The common
+  // steady state (no marked tiles) would otherwise pay the full O(n log n +
+  // n²) cost of `wallTargetFrom` every settle cycle, across up to 250
+  // cameras, for a value nothing reads.
+  const trial = wasMarked.size === 0 ? null : wallTargetFrom([...stillHeld, ...markedWithLags]);
 
   for (const camera of wasMarked) {
     const lag = lags.find((candidate) => candidate.camera === camera);
