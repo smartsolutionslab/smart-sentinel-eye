@@ -31,7 +31,6 @@ public sealed partial class V1ResourceMap
                 ["LayoutComposition"] = DomainResourceKind.Layout,
                 ["OverlayDesigner"] = DomainResourceKind.Overlay,
                 ["SystemVariables"] = DomainResourceKind.Variable,
-                ["Automation"] = DomainResourceKind.Rule,
                 ["EventIngestion"] = DomainResourceKind.Event,
                 ["Identity"] = DomainResourceKind.Device,
                 ["AuditObservability"] = DomainResourceKind.Event,
