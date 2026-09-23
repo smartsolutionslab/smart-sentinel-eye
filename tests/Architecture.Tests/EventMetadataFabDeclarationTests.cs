@@ -42,7 +42,8 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// <item>
 /// <b>Not that a fab reaches the audit row at runtime.</b> A nullable fab that
 /// is null at runtime — <c>StreamHealthChangedDomainEventHandler</c>'s
-/// <c>Fab?.Value</c> — passes this cleanly. That is #2076, and it is uncovered.
+/// <c>Fab?.Value</c> — passes this cleanly. That is #2076, and spec 217's
+/// <c>UnresolvedFabAuditRowIntegrationTests</c> now covers it behaviourally.
 /// </item>
 /// <item>
 /// <b>Not that the audit surface is scoped correctly.</b> That is the
@@ -63,7 +64,9 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// <c>AuditRetentionHostedService</c> — which publishes from a private
 /// archive-and-drop method, in a file that names no <c>Handle</c> at all, so
 /// not even <see cref="Unscanned"/>'s loose gate reaches it — is outside it by
-/// construction. It is correct today and it is not protected.
+/// construction. It is correct today and this guard does not protect it; spec
+/// 217's <c>NeutralFabRetentionRowIntegrationTests</c> covers it behaviourally
+/// instead.
 /// (<c>RotateWebhookClientCommandHandler</c>
 /// publishes from a <c>HandleAsync</c> and so is in scope, despite being a
 /// command handler rather than an event handler.)
