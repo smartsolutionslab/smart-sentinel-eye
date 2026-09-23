@@ -72,7 +72,7 @@ app.UseRateLimiter();
 // every caller reaching stream-distribution collapses into the same
 // RemoteIpAddress through Aspire's DCP proxy — MediaMTX's own hook calls and
 // any gateway-forwarded traffic alike (see spec 208 spec.md's Assumptions
-// section and WhepAuthorizeRateLimitTests.cs's own remarks) — so an
+// section and WhepAuthorizePartitionKeyTests.cs's own remarks) — so an
 // anonymous off-box caller reaching this gateway could exhaust the
 // whep-authorize partition MediaMTX's legitimate calls share, refusing
 // MediaMTX's own calls too and turning the CPU-exhaustion fix into a
