@@ -1,6 +1,7 @@
 import type { CameraSummary } from '@smart-sentinel-eye/shared/api/cameras.api';
 import type { PublishedOverlay } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
+import { useId } from 'react';
 import { useFieldArray, type UseFormReturn } from 'react-hook-form';
 import { buildCells, GRID_PRESETS, type GridDesignerValue } from './gridDesignerModel.js';
 
@@ -185,6 +186,12 @@ export function GridDesigner({
     return retained === undefined ? cameras : [...cameras, retained];
   };
 
+  // Document-wide radio grouping, and this component can be mounted more than
+  // once on a page (two dialogs, or a future side-by-side preview) — a
+  // hardcoded `name` would cross-wire two instances' groups. Mirrors
+  // `BackdropControls.tsx`'s own `useId()` group name (spec 147).
+  const presetGroupName = useId();
+
   const selectPreset = (rows: number, cols: number) => {
     const next = buildCells(rows, cols, getValues('cells'));
     setValue('grid', { rows, cols }, { shouldValidate: false });
@@ -197,24 +204,37 @@ export function GridDesigner({
     <div className="flex flex-col gap-4">
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium text-fg-primary">Grid size</legend>
-        <div className="flex gap-2" role="radiogroup" aria-label="Grid size">
+        {/* Native radios, not `button[role="radio"]` (spec 228 US1, FR-001):
+            a native `<input type="radio">` group gives roving tab stop and
+            arrow-key selection from the platform, for free, which the button
+            markup never had. The `<fieldset>`/`<legend>` above already names
+            the group, so nothing here repeats it with `role`/`aria-label`. */}
+        <div className="flex gap-2">
           {GRID_PRESETS.map((preset) => {
             const active = grid.rows === preset.rows && grid.cols === preset.cols;
             return (
-              <button
+              <label
                 key={preset.label}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => selectPreset(preset.rows, preset.cols)}
                 className={
-                  active
+                  (active
                     ? 'rounded-md border border-accent-active bg-accent-active/10 px-3 py-1 text-sm text-accent-active'
-                    : 'rounded-md border border-fg-muted/30 px-3 py-1 text-sm text-fg-muted'
+                    : 'rounded-md border border-fg-muted/30 px-3 py-1 text-sm text-fg-muted') +
+                  ' cursor-pointer has-[:focus-visible]:outline-none has-[:focus-visible]:ring-2' +
+                  ' has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-accent-active'
                 }
               >
+                {/* Visually hidden, not removed from the a11y tree or the tab
+                    order — the label's pill styling is what's on screen. */}
+                <input
+                  type="radio"
+                  className="sr-only"
+                  name={presetGroupName}
+                  value={preset.label}
+                  checked={active}
+                  onChange={() => selectPreset(preset.rows, preset.cols)}
+                />
                 {preset.label}
-              </button>
+              </label>
             );
           })}
         </div>
