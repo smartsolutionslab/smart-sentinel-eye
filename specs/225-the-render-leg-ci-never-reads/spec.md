@@ -5,7 +5,9 @@
 Labelled `agent:ready`, Project #13, status Todo.
 **Branch:** `2337-render-leg-ci-never-reads`
 **Created:** 2026-09-23
-**Status:** Phase 1 complete — awaiting review before Phase 2 sign-off
+**Status:** US1 merged (PR #2549), US2 merged (PR #2550). **Resumed 2026-09-23 for
+US3 + US4 on branch `ci/2337-composite-render-regression-gate`** — see §9, which
+supersedes anything above it where the two disagree.
 **Lane:** autonomous (ADR-0144)
 
 **ADRs this spec is bound by:**
@@ -509,3 +511,216 @@ it.
   loop. No new dependency; consistent with every other in-page instrument in
   `e2e/` (none of which uses `PerformanceObserver` or CDP — neither appears
   anywhere in this repository).
+
+---
+
+## 9. Resumption, 2026-09-23: US3 and US4, after US1 and US2 merged
+
+This section is the Phase 1 artefact for the rest of #2337. §§0–8 above still
+govern. Where this section tightens or corrects them, it wins, and it says so.
+It follows spec 225 rather than opening a new spec number, because US3 and US4
+are already specified here. A second directory would be a second source of
+truth for one issue, and CLAUDE.md names the latest artefact as the resumption
+point.
+
+### 9.1 What has shipped
+
+| Story | State | Where |
+|---|---|---|
+| US1: the figure leaves every run | **merged** | PR #2549. `e2e/support/render-leg.ts` (record, writer, reader), `scripts/render-leg-summary.mjs` + `.test.mjs`, `ci.yml` step "Summarise the render leg (composite + render, section IV)" in `e2e-shards`, `if: always()`. Commits on `develop`: `6fd3126a`, `69e4538c`, `9d8cecbc`. T001–T009 done. |
+| US2: a four-tile fixture wall | **merged** | PR #2550, `b8c14eb9`. Seeds a 2×2 wall, asserts four distinct cameras and at least `ITERATIONS` samples per camera. T010–T014 done. |
+| US3: a committed baseline with its variance | **not started** | There is no `figures.md` and no `baseline.json`. |
+| US4: a regression fails the run | **not started** | There is no `render-leg-check.mjs`. The summary still prints "No threshold is asserted here". |
+
+#2337 is therefore about two-thirds done. Steps 1 and 4 (measure, and report on
+every run) are done. Step 2 (a committed baseline) and step 3 (fail on a
+regression) remain.
+
+### 9.2 Four findings from reading the CI record since US2
+
+All four come from the `render-leg-attempt-*.json` files in the
+`playwright-report-4-of-4` artifacts of every CI run between US1's throwaway PR
+and `develop@859426c8`. They were downloaded and read on 2026-09-23. The
+artifacts expire 14 days after each run, so the figures are copied into
+`figures.md` (T016) rather than linked.
+
+**F1: the span test has been unstable on the four-tile wall since US2 landed,
+and it is failing `develop` now.** This blocks US3.
+
+| Run | SHA | Attempt 0 | Attempt 1 | Attempt 2 |
+|---|---|---|---|---|
+| 35892337959 (PR #2550 itself) | `94efb231` | passed | — | — |
+| 35894668870 (develop) | `b8c14eb9` | failed: one tile had only 7 of 10 samples | timed out at 300 s | passed |
+| 35907278215 (PR) | `ec9b4c63` | failed: one tile had only 9 of 10 samples | failed: "Pick a layout" heading was not visible | passed |
+| 35918329596 (develop) | `4599d26c` | failed: one tile had only 6 of 10 samples | passed | — |
+| 35918472066 (PR) | `3d93a58e` | passed | — | — |
+| 35920524319 (develop) | `859426c8` | failed: "iteration 8: the value never painted … (0 label mutation(s) were seen)" | failed: one tile had only 9 of 10 samples | failed: overlay label was not visible. **The shard is red.** |
+
+The span test passed on its first attempt in only 2 of 6 runs. The three
+single-tile runs before US2 all passed on attempt 0. A leading hypothesis fits
+the code but has not been verified: `armOverlayPaint`/`awaitOverlayPaint` (spec
+file `:616-687`) watch only the *first* label on the page
+(`document.querySelector`). So each iteration waits for tile 1 alone, and a
+tile that lags can have two value changes coalesced into one draw. The same
+hypothesis does *not* explain "0 label mutations in 60 s" on tile 1, and that
+failure may be product-shaped or caused by runner saturation. **A baseline
+taken on a harness that re-rolls itself would record the retry that happened to
+succeed.** T026 resolves this before T015 takes a single figure.
+
+**F2: on this runner, render cost shows up as cadence. Normalising by `T`
+would cancel the very regression the gate exists to catch.** Moving from one
+tile to four is a natural counterfactual already on record. The observed frame
+interval went from **16.39–16.94 ms** (runs 35873924190, 35878409081,
+35883494479) to **29.87–32.27 ms** (all five complete four-tile attempts), and
+p50 went from ~29 ms to ~51 ms. The extra render work did not appear as "work"
+above a fixed floor. It *moved the floor*, because the page dropped from every
+vsync to every other one. So a gate on `p50 − 1.5·T` would have read the
+four-tile change as roughly zero. This is new, measured support for plan §2.5's
+existing decision: **the gate asserts raw `p50(overlay_draw)` and reports `T`
+beside it, never subtracts it.** It is recorded here so that nobody later
+"improves" the gate into a cadence-normalised one.
+
+**F3: preliminary variance. This is not the baseline.** These are the five
+four-tile attempts that completed (the first complete attempt in each run):
+
+| Run | SHA | Attempt | n | p50 | mean `T` |
+|---|---|---|---|---|---|
+| 35892337959 | `94efb23101ede2bde313d6c49c67de7da7411cae` | 0 | 48 | 50.80 ms | 32.03 ms |
+| 35894668870 | `b8c14eb9a6f781f787fcf4a0f236d524cb43f951` | 2 | 48 | 50.15 ms | 32.26 ms |
+| 35907278215 | `ec9b4c633811b07ff821232a98729be5086e74c0` | 2 | 48 | 56.45 ms | 32.27 ms |
+| 35918329596 | `4599d26c0e271389cece8eb05acc4c147b2a359a` | 1 | 48 | 43.50 ms | 29.87 ms |
+| 35918472066 | `3d93a58e5c84e64fb837e3ad9381b4244149b9ee` | 0 | 48 | 54.25 ms | 32.03 ms |
+
+Across runs, p50 has a mean of **51.03 ms** and a sample standard deviation of
+**4.93 ms** (range 43.50–56.45). These figures cannot be the committed
+baseline, for three reasons. Three of the five runs are PR runs, and
+`3d93a58e` touches the viewer. Every run was taken on the unstable harness from
+F1. And T026 may change the harness. They are recorded here, and copied into
+`figures.md` labelled *preliminary*, because they show a tolerance is likely to
+exist (see §9.4). Deciding that is T018's job, on the committed data.
+
+**F4: the 48 samples are about 12 independent readings, not 48.** Samples
+arrive in groups of four, one per tile per iteration, and the four in a group
+nearly coincide (for example `62.3, 63, 62.1, 61.8`). Frame phase is shared
+across the wall. So the unit of sampling is the *iteration*. A bootstrap over
+all 48 samples gives a standard error of the median of 3–6 ms, and even that
+understates the noise. The run-to-run σ is about what twelve samples of this
+spread would produce. If the gate ever needs to be tighter, **the lever is
+`ITERATIONS`, not tiles**. That is recorded as an option and is out of scope
+here (it costs shard time, and #2376 is open).
+
+**Observed, out of scope, raise separately:** `measureFrameInterval` (spec file
+`:750-775`) divides the elapsed time by `frames`, but the elapsed time spans
+`frames − 1` intervals. `T` therefore reads about 3% low. The 60 Hz / 30 Hz
+vsync values would read 16.67 / 33.33 ms, and they appear as 16.39 / 32.26 ms.
+The only effect is on the summary's floor arithmetic. It does not affect the
+gate, which does not use `T`. This is a defect in merged code, so it is its own
+issue and is not folded into this one.
+
+### 9.3 Requirements added or tightened
+
+- **FR-016 (tightens FR-011): "complete attempt" is defined once, by the test,
+  and carried in the record.** `RenderLegRecord` gains `complete: boolean`. It
+  is computed from the **same predicate** as the test's four-camera /
+  `≥ ITERATIONS`-per-camera assertion, written once in `e2e/support/render-leg.ts`
+  and called by both, so the gate and the test cannot disagree about what
+  complete means. A record without the field is malformed, so the check reads
+  it as *unmeasured*, never as a pass.
+- **FR-017 (tightens FR-011 and FR-012): the verdict is taken across all four
+  shards, in its own job.** Three of four shards legitimately produce no
+  record, so a per-shard check cannot tell "not this shard" from "the span test
+  produced nothing". A new job, `render-leg-gate`, has
+  `needs: e2e-shards` and `if: always()`. It downloads the four
+  `playwright-report-*-of-4` artifacts and evaluates the union. Zero records
+  across all shards is *unmeasured*. It gets its own check name so that a
+  regression is never mistaken for an e2e failure, and vice versa.
+- **FR-018 (makes FR-010 concrete): the tolerance rule.** The baseline is the
+  mean of the first-complete-attempt p50s over **at least five** `develop` push
+  runs on the four-tile fixture, after T026. The tolerance is **3σ** of those
+  p50s (sample standard deviation). The gate fails when the p50 of the first
+  complete attempt is **greater than** baseline + tolerance.
+  - *Why 3σ.* At 2σ the one-sided false-positive rate is about 2.3% per run.
+    At this repo's CI volume (about 20 `ci.yml` runs on 2026-09-23 alone) that
+    is a false red every two or three days, which is the flaky gate #2337
+    forbids. 3σ gives about 0.13% per run.
+  - *Why five runs, not three.* A σ estimated from three points has a 95%
+    interval of roughly ×0.5 to ×6.3. From five it is roughly ×0.6 to ×2.9.
+    The repo's standing lesson (the first run after machine churn looks like a
+    regression) also argues for more than three.
+- **FR-019 (makes FR-014 mechanical): the feasibility test.** A tolerance may
+  be committed only if **3σ < 1.5 × the vsync quantum**. On this runner the
+  quantum is 16.67 ms (60 Hz, true value; see the F4 note), so the limit is
+  25 ms. F2 shows why this is the right yardstick: a render regression that
+  costs a frame moves `T` up by one quantum, and so moves the p50 by about
+  1.5 quanta. If 3σ is not below that, the gate cannot tell a one-frame
+  regression from noise. Then FR-014 applies: ship report-only, record the
+  finding, and hand back for an ADR.
+- **FR-020: the summary stops saying "no threshold is asserted" once one
+  is.** Once the gate ships, US1's summary line would be false. It is replaced
+  with the baseline, the tolerance, the threshold, and a pointer to the
+  `render-leg-gate` check. This changes behaviour on purpose.
+  `render-leg-summary.test.mjs:134`'s assertion changes because the required
+  wording changes, and the old assertion is not weakened. The PR says which of
+  the two it is.
+
+### 9.4 What the preliminary figures predict, so T018 can be checked against it
+
+On F3's numbers, 3σ = **14.8 ms**, which is under the 25 ms limit. So a gate
+is feasible, and the threshold would be about **65.8 ms**. **No attempt on
+record would have tripped it.** That includes the incomplete four-tile
+attempts, whose p50s were 36.75, 62.70, 34.75, 51.00 and 55.00 ms. A shift of
+about 3σ + 1.65σ ≈ **23 ms** in p50 would be caught about 95% of the time.
+That is roughly one vsync step. A regression smaller than a frame on this
+runner is **not** detectable, and the gate claims no more than that. Software
+rasterisation works in the gate's favour here: a `backdrop-filter` or blur that
+costs a few ms on a fab GPU costs far more under SwiftShader. The T022
+counterfactual is the proof, not this paragraph.
+
+This is a **prediction** and does not decide anything. T018 decides on the
+committed baseline, and if it contradicts this section, T018 wins.
+
+### 9.5 Acceptance scenarios added for US4 (Gherkin)
+
+```gherkin
+Feature: the composite-and-render regression gate
+
+  Background:
+    Given specs/225-the-render-leg-ci-never-reads/baseline.json carries a baseline p50, a tolerance, and the run ids and SHAs it came from
+
+  Scenario: within tolerance (happy path)
+    Given the first complete attempt's p50 is less than or equal to baseline + tolerance
+    When render-leg-gate runs
+    Then it exits 0 and prints the baseline, the observed p50, the margin, and both T readings
+
+  Scenario: regressed (the conflict case)
+    Given the first complete attempt's p50 is greater than baseline + tolerance
+    When render-leg-gate runs
+    Then it exits non-zero with the word "regressed", names the baseline, observed, tolerance and T, and states ADR-0123's triage order
+
+  Scenario: a retry must not re-roll the verdict
+    Given attempt 0 is incomplete and attempt 1 is complete and within tolerance
+    When render-leg-gate runs
+    Then it evaluates attempt 1, lists attempt 0 as skipped-incomplete, and says the verdict is not from attempt 0
+
+  Scenario: unmeasured (bad input)
+    Given no shard produced a record, or every record is incomplete, or a record lacks "complete"
+    When render-leg-gate runs
+    Then it exits non-zero with the word "unmeasured", never "regressed" and never a pass
+
+  Scenario: a missing or malformed baseline (bad configuration)
+    Given baseline.json is absent or fails its schema
+    When render-leg-gate runs
+    Then it exits non-zero, names the file, and does not fall back to any default threshold
+```
+
+There is no auth scenario. This is a CI job that reads artefacts. It holds no
+secrets and needs no token beyond the workflow's default `GITHUB_TOKEN` for
+`download-artifact`. The artifacts it reads have already been through the
+fail-closed scrubber (#2287).
+
+### 9.6 Latency-budget impact
+
+Unchanged from §5. **Leg: composite + render (≤ 50 ms).** The gate adds no work
+to the leg and changes no product code. T026 changes only the test harness. If
+T026 finds a product defect, that is a STOP and becomes a separate issue. No
+leg in §IV changes state.
