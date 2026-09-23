@@ -95,17 +95,7 @@ function setStreamReadError(error: unknown) {
 }
 
 function viewer(cameraName?: string) {
-  return (
-    <CameraViewer
-      cameraIdentifier="cam-42"
-      getToken={async () => 'token'}
-      // FR-007 (spec 228 item 3): phase 4b added `cameraName` to
-      // `CameraViewerProps`, so this is a plain prop pass-through now — no
-      // `@ts-expect-error` needed (one was here at 4a-red, when the prop did
-      // not exist yet and `tsc --noEmit` would otherwise have blocked on it).
-      cameraName={cameraName}
-    />
-  );
+  return <CameraViewer cameraIdentifier="cam-42" getToken={async () => 'token'} cameraName={cameraName} />;
 }
 
 function renderViewer(cameraName?: string) {
@@ -183,7 +173,12 @@ describe('CameraViewer accessibility — announcements and the video name', () =
     expect(statusRegion().textContent).toBe('');
   });
 
-  /** Scenario "A reconnect is announced". */
+  /**
+   * Scenario "A reconnect is announced". The status region carries the hint
+   * too, not just the label — the visible overlay paints both lines, and a
+   * screen-reader user must be told the same thing a sighted operator sees
+   * (FR-005).
+   */
   it('Announces a reconnect through the status region', async () => {
     setHealth('Healthy');
     renderViewer();
@@ -193,10 +188,13 @@ describe('CameraViewer accessibility — announcements and the video name', () =
       FakePeerConnection.lastInstance().setConnectionState('failed');
     });
 
-    expect(statusRegion().textContent).toBe('Reconnecting…');
+    expect(statusRegion().textContent).toBe('Reconnecting…. Connection failed. Reconnecting…');
   });
 
-  /** Scenario "Offline and error are announced with the painted wording" (first half). */
+  /**
+   * Scenario "Offline and error are announced with the painted wording"
+   * (first half). Same hint-carrying rule as the reconnect case above.
+   */
   it('Announces the stream going offline through the status region', async () => {
     setHealth('Healthy');
     const view = renderViewer();
@@ -205,16 +203,21 @@ describe('CameraViewer accessibility — announcements and the video name', () =
     setHealth('Offline', 'Source powered down.');
     view.rerender(viewer());
 
-    expect(statusRegion().textContent).toBe('Stream is offline');
+    expect(statusRegion().textContent).toBe('Stream is offline. Source powered down.');
   });
 
-  /** Scenario "Offline and error are announced with the painted wording" (second half). */
+  /**
+   * Scenario "Offline and error are announced with the painted wording"
+   * (second half). The status region carries the hint too, not just the
+   * label — the visible overlay paints both lines, and a screen-reader user
+   * must be told the same thing a sighted operator sees (FR-005).
+   */
   it('Announces a failed read through the status region', async () => {
     setStreamReadError('boom');
     renderViewer();
     await flushMicrotasks();
 
-    expect(statusRegion().textContent).toBe('Viewer error');
+    expect(statusRegion().textContent).toBe('Viewer error. Could not reach the streaming service.');
   });
 
   /** Scenario "Recovery clears the region". */
@@ -226,7 +229,7 @@ describe('CameraViewer accessibility — announcements and the video name', () =
     act(() => {
       FakePeerConnection.lastInstance().setConnectionState('failed');
     });
-    expect(statusRegion().textContent).toBe('Reconnecting…');
+    expect(statusRegion().textContent).toBe('Reconnecting…. Connection failed. Reconnecting…');
 
     act(() => {
       FakePeerConnection.lastInstance().setConnectionState('connected');
@@ -268,8 +271,8 @@ describe('CameraViewer accessibility — announcements and the video name', () =
       FakePeerConnection.lastInstance().setConnectionState('failed');
     });
 
-    const region = statusRegion();
-    const visibleMatches = screen.getAllByText('Reconnecting…').filter((element) => element !== region);
+    statusRegion();
+    const visibleMatches = screen.getAllByText('Reconnecting…');
     expect(visibleMatches).toHaveLength(1);
     const [visible] = visibleMatches;
     expect(visible).toBeVisible();

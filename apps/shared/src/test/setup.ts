@@ -6,10 +6,10 @@ import { configure } from '@testing-library/react';
 // string in the DOM while a stream is not live — by design, so a screen
 // reader is told exactly what a sighted operator sees. That duplication is
 // meant to be read from `getByTestId('camera-viewer-status')` /
-// `CameraViewerAnnouncement.test.tsx`'s own `getAllByText`, never from a
-// plain `getByText`/`queryByText`, which cannot otherwise tell which of the
-// two identical strings a caller meant and throws on the ambiguity. Excluding
-// the region from `ByText` queries' default `ignore` (mirroring the built-in
-// `script, style`) keeps every other suite's `getByText('Reconnecting…')`
-// resolving to the one a sighted operator would actually read.
+// `getByRole('status')` only, never from a plain `getByText`/`queryByText`,
+// which cannot otherwise tell which of the two identical strings a caller
+// meant and throws on the ambiguity. Excluding the region from `ByText`
+// queries' default `ignore` (mirroring the built-in `script, style`) keeps
+// every other suite's `getByText('Reconnecting…')` resolving to the one a
+// sighted operator would actually read.
 configure({ defaultIgnore: 'script, style, [data-testid="camera-viewer-status"]' });
