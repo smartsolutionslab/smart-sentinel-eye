@@ -4,11 +4,11 @@ import { newLiveVideoWall, writeLiveVideoWall } from './live-video-wall';
 import { FIRST_WRITE_TIMEOUT_MS } from './cold-stack';
 
 /**
- * Spec 056 — a wall whose tile has **both** halves: a camera whose video
+ * Spec 056 — a wall whose tiles have **both** halves: a camera whose video
  * actually arrives, and an overlay bound to a variable.
  *
  * <para>
- * <b>The one difference from the SC-004 seed is the camera's address, and it is
+ * <b>The one difference from the SC-004 seed is the cameras' address, and it is
  * the whole point.</b> That seed registers `rtsp://10.0.5.71/stream`, which
  * nothing serves, so its tiles render `WHEP returned 404` and never create an
  * <c>RTCRtpReceiver</c>. Every overlay assertion in this repository has run
@@ -18,18 +18,33 @@ import { FIRST_WRITE_TIMEOUT_MS } from './cold-stack';
  * </para>
  *
  * <para>
+ * <b>Spec 225 US2 — four tiles, not one.</b> The wall used to seed a single
+ * 1×1 tile ("one tile is enough — the gap is that no check has both halves,
+ * not that none has four"). It now seeds the domain's real ceiling, a 2×2
+ * grid, so the composite-and-render measurement this wall feeds
+ * (`kiosk-shows-a-label-over-video.spec.ts`'s span test) is read against
+ * actual worst-case tile count rather than an under-read.
+ * </para>
+ *
+ * <para>
  * Drives management-web rather than the API for the same reason the other seeds
  * do: publishing needs an `If-Match` round-trip and the UI path gets the
  * contract right for free.
  * </para>
  */
-setup('a published wall exists whose tile has both video and a bound overlay', async ({ page }) => {
+setup('a published wall exists whose tiles have both video and a bound overlay', async ({ page }) => {
   // Sized here rather than taken from `FIRST_WRITE_TEST_TIMEOUT_MS`: six
   // budgeted sites do not fit the shared ceiling. Five of them arriving cold at
   // ~40 s each leaves nothing for the sixth to spend its 90 s and report *which*
   // locator never resolved — 5 × 40 s + a sign-in + 90 s ≈ 320 s. `cold-stack.ts`
   // carries the rule.
-  setup.setTimeout(360_000);
+  //
+  // Phase-6 review (spec 225 US2, nit N1): US2 added camera registrations 2-4,
+  // each a warm (not cold-budgeted) site paying the ordinary
+  // `expect.timeout` — 30 s in CI (`playwright.config.ts:12`) — worst case.
+  // The 320 s figure above did not account for that; +90 s covers it with
+  // margin.
+  setup.setTimeout(420_000);
 
   const wall = newLiveVideoWall();
   writeLiveVideoWall(wall);
@@ -71,26 +86,48 @@ setup('a published wall exists whose tile has both video and a bound overlay', a
   await overlayRow.getByRole('button', { name: /^publish$/i }).click();
   await expect(overlayRow.getByText(/Published/)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
-  // 3. The camera — **at an address something actually serves**. The URL comes
-  //    from the module that owns it, never composed here: a host and port
-  //    written into a fixture is a second thing to keep true, and when it rots
-  //    the wall looks like a broken product rather than a broken fixture.
+  // 3. Four cameras — **at an address something actually serves**, and at the
+  //    domain's real ceiling (`GridDimensions.MaxTiles` / `MaxCells`,
+  //    enforced at `Layout.cs:79`), never past it (spec 225 US2). The URL
+  //    comes from the module that owns it, never composed here: a host and
+  //    port written into a fixture is a second thing to keep true, and when
+  //    it rots the wall looks like a broken product rather than a broken
+  //    fixture.
+  //
+  //    Only the first registration is this test's cold FIRST_WRITE_TIMEOUT_MS
+  //    site for this message kind — registrations 2-4 repeat it within the
+  //    same test and pay the ordinary warm cost instead (`cold-stack.ts`:
+  //    "not for a repeat write of the same kind inside one test").
   await page.getByRole('link', { name: /^cameras$/i }).click();
-  await page.getByRole('button', { name: /register camera/i }).click();
-  await page.locator('#register-camera-name').fill(wall.cameraName);
-  await page.locator('#register-camera-url').fill(wall.cameraRtspUrl);
-  await page.getByRole('button', { name: /^register$/i }).click();
-  await expect(page.getByRole('cell', { name: wall.cameraName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+  for (const [index, camera] of wall.cameras.entries()) {
+    await page.getByRole('button', { name: /register camera/i }).click();
+    await page.locator('#register-camera-name').fill(camera.name);
+    await page.locator('#register-camera-url').fill(camera.rtspUrl);
+    await page.getByRole('button', { name: /^register$/i }).click();
+    await expect(page.getByRole('cell', { name: camera.name })).toBeVisible(
+      index === 0 ? { timeout: FIRST_WRITE_TIMEOUT_MS } : undefined,
+    );
+  }
 
-  // 4. The wall: one tile, that camera, that overlay. One tile is enough —
-  //    the gap is that no check has both halves, not that none has four.
+  // 4. The wall: 2×2, four tiles, one camera per tile, all bound to the same
+  //    overlay (spec 225 US2) — so a per-tile render cost is distinguishable
+  //    from fixed overhead, without a fourth overlay write to pay for it.
   await page.getByRole('link', { name: /^layouts$/i }).click();
   await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: /new layout/i }).click();
   await page.locator('#layout-name').fill(wall.layoutName);
-  await page.locator('#tile-0-camera').selectOption({ label: wall.cameraName });
-  await page.locator('#tile-0-overlay').selectOption({ label: wall.overlayName });
+
+  // The dialog defaults to 1×1 (`LayoutEditorDialog.tsx:51`), so the grid
+  // preset has to be driven rather than left at its default to reach four
+  // tiles. `GRID_PRESETS`' label is `${rows}×${cols}` (`gridDesignerModel.ts`).
+  await page.getByRole('radio', { name: '2×2' }).click();
+
+  for (const [index, camera] of wall.cameras.entries()) {
+    await page.locator(`#tile-${index}-camera`).selectOption({ label: camera.name });
+    await page.locator(`#tile-${index}-overlay`).selectOption({ label: wall.overlayName });
+  }
+
   await page.getByRole('button', { name: /save as draft/i }).click();
   await expect(page.getByRole('heading', { name: wall.layoutName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
