@@ -34,6 +34,17 @@ function print(message) {
 // business, not this script's.
 const TABLE_ROW_PATTERN = /^\|\s*\[(\d+)\]\([^)]*\)\s*\|\s*`([0-9a-fA-F]{40})`\s*\|\s*\d+\s*\|\s*([\d.]+)\s*ms\s*\|/;
 
+// `figures.md` (plan.md §5, spec 144's format) carries three sections — the
+// `develop` baseline table, a preliminary/pre-fix CI-runs table, and a
+// one-tile/pre-widening comparison table. Only the first is ever meant to be
+// compared against `baseline.json`; the other two are provenance for rows
+// that never landed in `baseline.json` on purpose, not a disagreement.
+// Scoped to headings starting "## `develop` baseline" (spec 144's own
+// heading carries a trailing parenthetical, e.g. "(pre-fix, CI)" or
+// "(four-tile fixture, CI)") and stopping at the next "## " heading.
+const BASELINE_HEADING_PATTERN = /^##\s+`develop`\s+baseline\b/;
+const HEADING_PATTERN = /^##\s+/;
+
 function readFileOrFail(path, label) {
   try {
     return { ok: true, content: readFileSync(path, 'utf8') };
@@ -42,11 +53,21 @@ function readFileOrFail(path, label) {
   }
 }
 
-// Returns a Map<runId, { runId, sha, p50 }> from figures.md's baseline table.
+// Returns a Map<runId, { runId, sha, p50 }> from figures.md's baseline
+// table only — rows under any other "## " section are ignored (S2: a real
+// figures.md has a preliminary-runs table and a one-tile comparison table
+// that were never meant to agree with baseline.json).
 function parseFigures(markdown) {
   const rows = new Map();
+  let inBaselineSection = false;
   for (const line of markdown.split(/\r?\n/)) {
-    const match = TABLE_ROW_PATTERN.exec(line.trim());
+    const trimmed = line.trim();
+    if (HEADING_PATTERN.test(trimmed)) {
+      inBaselineSection = BASELINE_HEADING_PATTERN.test(trimmed);
+      continue;
+    }
+    if (!inBaselineSection) continue;
+    const match = TABLE_ROW_PATTERN.exec(trimmed);
     if (!match) continue;
     const [, runId, sha, p50] = match;
     rows.set(runId, { runId, sha: sha.toLowerCase(), p50: Number(p50) });
@@ -54,17 +75,36 @@ function parseFigures(markdown) {
   return rows;
 }
 
-// Returns a Map<runId, { runId, sha, p50 }> from baseline.json's runs[].
+// Returns { ok: true, rows: Map<runId, { runId, sha, p50 }> } from
+// baseline.json's runs[], or { ok: false, reason } when the data is not
+// something a comparison can be run against at all (S1): an empty/missing
+// runs array is absence of data, not agreement, and a run with a
+// non-finite p50Milliseconds is not comparable — `Math.abs(x - undefined)`
+// is `NaN`, and `NaN > epsilon` is `false`, which would otherwise read as
+// silent agreement.
 function parseBaseline(baseline) {
+  if (!Array.isArray(baseline.runs) || baseline.runs.length === 0) {
+    return {
+      ok: false,
+      reason: "baseline.json has no 'runs' array, or it is empty — an empty comparison is not agreement",
+    };
+  }
+
   const rows = new Map();
-  for (const run of baseline.runs ?? []) {
+  for (const run of baseline.runs) {
+    if (run === null || typeof run !== 'object' || typeof run.p50Milliseconds !== 'number' || !Number.isFinite(run.p50Milliseconds)) {
+      return {
+        ok: false,
+        reason: `baseline.json: run ${run?.runId ?? '?'} has no numeric p50Milliseconds — a malformed run record is not comparable`,
+      };
+    }
     rows.set(String(run.runId), {
       runId: String(run.runId),
       sha: typeof run.sha === 'string' ? run.sha.toLowerCase() : run.sha,
       p50: run.p50Milliseconds,
     });
   }
-  return rows;
+  return { ok: true, rows };
 }
 
 function describe(row) {
@@ -110,7 +150,12 @@ function main() {
   }
 
   const figuresRows = parseFigures(figuresFile.content);
-  const baselineRows = parseBaseline(baseline);
+  const baselineResult = parseBaseline(baseline);
+  if (!baselineResult.ok) {
+    print(`render-leg-baseline-agreement: disagree: ${baselineResult.reason}`);
+    process.exit(1);
+  }
+  const baselineRows = baselineResult.rows;
 
   const mismatches = [];
 

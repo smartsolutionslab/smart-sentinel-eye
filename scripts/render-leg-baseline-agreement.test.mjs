@@ -194,3 +194,93 @@ test('baseline.json does not exist yet — fails naming that file, not a stack t
   assert.notEqual(result.status, 0, describeFailure(result));
   assert.match(output(result), /baseline\.json/, describeFailure(result));
 });
+
+// ==== S1 — an empty comparison is not agreement =============================
+
+test("baseline.json's runs array is empty — refused, not a silent 0-run agreement", () => {
+  const directory = tempDirectory();
+  const figuresPath = path.join(directory, 'figures.md');
+  const baselinePath = path.join(directory, 'baseline.json');
+  writeFileSync(figuresPath, figuresMarkdown([]), 'utf8');
+  writeFileSync(
+    baselinePath,
+    JSON.stringify(
+      {
+        measurement: 'overlay_draw',
+        fixture: { tiles: 4, iterations: 10 },
+        runner: 'ubuntu-latest, headless Chromium, software rasterisation',
+        baselineP50Milliseconds: 0,
+        toleranceMilliseconds: 6,
+        rule: 'tolerance = 3 * sample stddev of first-complete-attempt p50 across the runs below (spec FR-018)',
+        runs: [],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  const result = runAgreementCheck(figuresPath, baselinePath);
+
+  assert.notEqual(result.status, 0, describeFailure(result));
+  assert.doesNotMatch(output(result), /agree — 0 run/i, describeFailure(result));
+  assert.match(output(result), /disagree/i, describeFailure(result));
+});
+
+// ==== S1 — a malformed run record (missing p50) is never NaN-agreed =========
+
+test("a baseline.json run has no numeric p50Milliseconds — refused, never silently 'agrees' via NaN comparison", () => {
+  const directory = tempDirectory();
+  const rows = fiveMatchingRows();
+  const figuresPath = path.join(directory, 'figures.md');
+  const baselinePath = path.join(directory, 'baseline.json');
+  writeFileSync(figuresPath, figuresMarkdown(rows), 'utf8');
+  const baseline = baselineJson(rows);
+  // Corrupt one run's p50Milliseconds — Math.abs(x - undefined) is NaN, and
+  // NaN > epsilon is false, which is exactly the silent-pass bug this guards.
+  delete baseline.runs[2].p50Milliseconds;
+  writeFileSync(baselinePath, JSON.stringify(baseline, null, 2), 'utf8');
+
+  const result = runAgreementCheck(figuresPath, baselinePath);
+
+  assert.notEqual(result.status, 0, describeFailure(result));
+  assert.doesNotMatch(output(result), /^render-leg-baseline-agreement: agree/m, describeFailure(result));
+});
+
+// ==== S2 — only the `develop` baseline section is compared ==================
+
+test('figures.md carries extra sections (preliminary runs, one-tile comparison) beyond the develop baseline table — their rows are ignored, not flagged as missing from baseline.json', () => {
+  const directory = tempDirectory();
+  const rows = fiveMatchingRows();
+  const figuresPath = path.join(directory, 'figures.md');
+  const baselinePath = path.join(directory, 'baseline.json');
+
+  // Mirrors spec 144's real shape: a `develop` baseline table matching
+  // baseline.json, followed by two more sections whose rows must NOT be
+  // compared against baseline.json at all.
+  const extraSections = [
+    '',
+    '## Preliminary, pre-fix (CI)',
+    '',
+    '| Run id | SHA | Samples | p50 | p95 | max | Observed T | Raw |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- |',
+    `| [99999999999](https://github.com/smartsolutionslab/smart-sentinel-eye/actions/runs/99999999999) | \`${fortyHexSha(999)}\` | 40 | 999.00 ms | 999.00 ms | 999.00 ms | 32.00 ms | \`[...]\` ms |`,
+    '',
+    '## One-tile, pre-widening comparison',
+    '',
+    '| Run id | SHA | Samples | p50 | p95 | max | Observed T | Raw |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- |',
+    `| [88888888888](https://github.com/smartsolutionslab/smart-sentinel-eye/actions/runs/88888888888) | \`${fortyHexSha(888)}\` | 40 | 888.00 ms | 888.00 ms | 888.00 ms | 32.00 ms | \`[...]\` ms |`,
+    '',
+  ];
+  const markdown = figuresMarkdown(rows) + extraSections.join('\n');
+  writeFileSync(figuresPath, markdown, 'utf8');
+  writeFileSync(baselinePath, JSON.stringify(baselineJson(rows), null, 2), 'utf8');
+
+  const result = runAgreementCheck(figuresPath, baselinePath);
+
+  assert.equal(result.status, 0, describeFailure(result));
+  assert.match(output(result), /agree/i, describeFailure(result));
+  assert.doesNotMatch(output(result), /99999999999/, describeFailure(result));
+  assert.doesNotMatch(output(result), /88888888888/, describeFailure(result));
+});
