@@ -32,6 +32,7 @@ describe('reportKioskLatency — the guards', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
@@ -99,6 +100,23 @@ describe('reportKioskLatency — the guards', () => {
       camera: 'cam-1',
       elapsedMilliseconds: 18,
     });
+  });
+
+  /**
+   * US3 (spec 228 item 4). A production wall is never restarted, so an
+   * unconditional line per sample is retained console buffer forever — the
+   * line is for manual verification and the e2e harvest, both of which run
+   * under `vite dev` (`import.meta.env.DEV === true`). The POST is
+   * unconditional either way: production observability must not go dark
+   * along with the console line.
+   */
+  it('Writes no console line in a production build, but still sends the sample', async () => {
+    vi.stubEnv('DEV', false);
+
+    reportKioskLatency('overlay_draw', 'cam-1', 18, token);
+
+    expect(console.info).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
   });
 });
 
