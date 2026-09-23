@@ -296,6 +296,57 @@ test("a record has no 'complete' field — unmeasured, a malformed record is nev
   assert.match(output(result), /unmeasured/i, describeFailure(result));
 });
 
+// ==== N1 — malformed records fail cleanly (a decision-table verdict), never
+//      with an unhandled crash / stack trace ================================
+
+test('a complete record is missing frameIntervalBeforeMilliseconds — unmeasured, malformed, not a TypeError stack trace', () => {
+  const root = tempDirectory();
+  emptyFourShardLayout(root);
+  const directory = shardTestResultsDirectory(root, 4);
+  const record = renderLegRecord({ attempt: 0, p50: 50, complete: true });
+  delete record.frameIntervalBeforeMilliseconds;
+  writeFileSync(path.join(directory, 'render-leg-attempt-0.json'), JSON.stringify(record), 'utf8');
+  const baselinePath = writeBaseline(root, validBaselineObject());
+
+  const result = runChecker(root, baselinePath);
+
+  assert.notEqual(result.status, 0, describeFailure(result));
+  assert.match(output(result), /unmeasured/i, describeFailure(result));
+  assert.match(output(result), /malformed/i, describeFailure(result));
+  assert.doesNotMatch(output(result), /TypeError/i, describeFailure(result));
+});
+
+test("a record's 'attempt' field is non-numeric — unmeasured, malformed, not a crash", () => {
+  const root = tempDirectory();
+  emptyFourShardLayout(root);
+  const directory = shardTestResultsDirectory(root, 4);
+  const record = renderLegRecord({ attempt: 0, p50: 50, complete: true });
+  record.attempt = 'zero';
+  writeFileSync(path.join(directory, 'render-leg-attempt-0.json'), JSON.stringify(record), 'utf8');
+  const baselinePath = writeBaseline(root, validBaselineObject());
+
+  const result = runChecker(root, baselinePath);
+
+  assert.notEqual(result.status, 0, describeFailure(result));
+  assert.match(output(result), /unmeasured/i, describeFailure(result));
+  assert.match(output(result), /malformed/i, describeFailure(result));
+  assert.doesNotMatch(output(result), /TypeError/i, describeFailure(result));
+});
+
+test("baseline.json's runs array contains a null entry — refused, not a crash reading a field off null", () => {
+  const root = tempDirectory();
+  emptyFourShardLayout(root);
+  const runs = validBaselineRuns();
+  runs[1] = null;
+  const baselinePath = writeBaseline(root, validBaselineObject({ runs }));
+
+  const result = runChecker(root, baselinePath);
+
+  assert.notEqual(result.status, 0, describeFailure(result));
+  assert.match(output(result), /baseline refused/i, describeFailure(result));
+  assert.doesNotMatch(output(result), /TypeError/i, describeFailure(result));
+});
+
 // ==== records from more than one shard → unmeasured, the harness ran twice =
 
 test('records exist in two different shards — unmeasured, names the shard count, refuses to guess which is right', () => {
