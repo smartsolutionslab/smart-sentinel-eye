@@ -69,11 +69,7 @@ const viewerRenders = vi.hoisted(
 // appears. What it proves is that the page *reaches* the viewer and hands it a
 // credential the operator actually holds.
 vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
-  CameraViewer: (props: {
-    cameraIdentifier: string;
-    getToken: () => Promise<string | null>;
-    cameraName?: string;
-  }) => {
+  CameraViewer: (props: { cameraIdentifier: string; getToken: () => Promise<string | null>; cameraName?: string }) => {
     viewerRenders.push(props);
     return <div data-testid="camera-viewer">viewer:{props.cameraIdentifier}</div>;
   },
