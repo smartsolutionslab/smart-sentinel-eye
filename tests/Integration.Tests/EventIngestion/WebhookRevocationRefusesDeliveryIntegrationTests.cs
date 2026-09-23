@@ -253,14 +253,6 @@ public class WebhookRevocationRefusesDeliveryIntegrationTests(AspireFixture aspi
     private static string UniqueName(string prefix) =>
         $"{prefix}-{Guid.NewGuid():N}".ToLowerInvariant()[..Math.Min(63, prefix.Length + 33)];
 
-    /// <summary>
-    /// CI has no other route to the service's stack trace, so an unexpected
-    /// status carries the body and the service's recent output with it.
-    /// </summary>
-    private async Task<string> DiagnoseAsync(HttpResponseMessage response)
-    {
-        string body = await response.Content.ReadAsStringAsync();
-
-        return $"body: {body}{Environment.NewLine}event-ingestion log:{Environment.NewLine}{aspire.RecentLogs("event-ingestion")}";
-    }
+    private Task<string> DiagnoseAsync(HttpResponseMessage response) =>
+        aspire.DiagnoseAsync("event-ingestion", response);
 }

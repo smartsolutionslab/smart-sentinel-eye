@@ -267,15 +267,6 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
     // and the handler prefixes this with "webhook-".
     private static string UniqueIntegrationName() => $"t040-{Guid.CreateVersion7():N}";
 
-    /// <summary>
-    /// A bare "500" tells a reader nothing, and CI has no other route to the
-    /// service's stack trace. Attach the response body and Identity's recent
-    /// output so an unexpected status is diagnosable from the CI log alone.
-    /// </summary>
-    private async Task<string> DiagnoseAsync(HttpResponseMessage response)
-    {
-        string body = await response.Content.ReadAsStringAsync();
-
-        return $"body: {body}{Environment.NewLine}identity log:{Environment.NewLine}{aspire.RecentLogs("identity")}";
-    }
+    private Task<string> DiagnoseAsync(HttpResponseMessage response) =>
+        aspire.DiagnoseAsync("identity", response);
 }

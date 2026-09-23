@@ -281,7 +281,6 @@ public class LayoutNameUniquenessIntegrationTests(AspireFixture aspire) : IAsync
 
     private static string UniqueName() => $"Lay-{Guid.NewGuid():N}"[..16];
 
-    private async Task<string> DiagnoseAsync(HttpResponseMessage response) =>
-        $"body: {await response.Content.ReadAsStringAsync()}{Environment.NewLine}"
-        + $"layout-composition log:{Environment.NewLine}{aspire.RecentLogs("layout-composition")}";
+    private Task<string> DiagnoseAsync(HttpResponseMessage response) =>
+        aspire.DiagnoseAsync("layout-composition", response);
 }

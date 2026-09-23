@@ -297,12 +297,6 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
 
     private static string UniqueName() => $"Ovl-{Guid.NewGuid():N}"[..16];
 
-    /// <summary>
-    /// A bare status tells a reader nothing and CI has no other route to the
-    /// service stack trace, so an unexpected answer carries the body and the
-    /// service recent output with it.
-    /// </summary>
-    private async Task<string> DiagnoseAsync(HttpResponseMessage response) =>
-        $"body: {await response.Content.ReadAsStringAsync()}{Environment.NewLine}"
-        + $"overlay-designer log:{Environment.NewLine}{aspire.RecentLogs("overlay-designer")}";
+    private Task<string> DiagnoseAsync(HttpResponseMessage response) =>
+        aspire.DiagnoseAsync("overlay-designer", response);
 }

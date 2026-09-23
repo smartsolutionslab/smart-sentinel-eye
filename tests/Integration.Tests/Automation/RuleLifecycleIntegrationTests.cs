@@ -157,18 +157,8 @@ public class RuleLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetim
         (await ReadAsync(rules, name)).GetProperty("state").GetString().ShouldBe("Active");
     }
 
-    /// <summary>
-    /// A bare "500" tells a reader nothing, and CI has no other route to the
-    /// service's stack trace. Attach the response body and the automation
-    /// service's recent output to the assertion message so an unexpected status
-    /// is diagnosable from the CI log alone.
-    /// </summary>
-    private async Task<string> DiagnoseAsync(HttpResponseMessage response)
-    {
-        string body = await response.Content.ReadAsStringAsync();
-
-        return $"body: {body}{Environment.NewLine}automation log:{Environment.NewLine}{aspire.RecentLogs("automation")}";
-    }
+    private Task<string> DiagnoseAsync(HttpResponseMessage response) =>
+        aspire.DiagnoseAsync("automation", response);
 
     private static Task<HttpResponseMessage> CreateAsync(HttpClient rules, string name) =>
         rules.PostAsJsonAsync("/rules?fabId=munich", new

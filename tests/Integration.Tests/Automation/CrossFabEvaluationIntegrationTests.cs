@@ -204,12 +204,8 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
 
     private static string UniqueName() => $"r-{Guid.NewGuid():N}"[..12];
 
-    private async Task<string> DiagnoseAsync(HttpResponseMessage response)
-    {
-        string body = await response.Content.ReadAsStringAsync();
-
-        return $"body: {body}{Environment.NewLine}automation log:{Environment.NewLine}{aspire.RecentLogs("automation")}";
-    }
+    private Task<string> DiagnoseAsync(HttpResponseMessage response) =>
+        aspire.DiagnoseAsync("automation", response);
 
     // ---- spec 013 T031: another fab's rule is unreachable, and says nothing ----
     //
