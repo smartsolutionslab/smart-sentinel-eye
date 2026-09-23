@@ -41,9 +41,10 @@ nothing) and may run in parallel. Everything downstream of them is serial.
 **Owns:** `tests/Architecture.Tests/SeededCredentialStrengthTests.cs` (new).
 **Touches nothing else.**
 
-Write six facts, per `plan.md` §2. Design constraints that are *not*
-negotiable at implementation time, because each is the reason a number in
-`spec.md` is trustworthy:
+Write six facts, per `plan.md` §2 (**8 at delivery, +2 added at phase-6
+re-review** — `verification.md` §should-fix 4). Design constraints that are
+*not* negotiable at implementation time, because each is the reason a number
+in `spec.md` is trustworthy:
 
 - **Parse `passwordPolicy` out of the realm JSON.** Never hard-code the
   policy string or its clause values. An unrecognised clause **throws**,
@@ -67,8 +68,8 @@ never `ArgumentNullException.ThrowIfNull`); `List<T> x = [];` collection
 expressions; no leading-underscore fields; sentence-style test names
 (ADR-0053); Shouldly (ADR-0052).
 
-**Done when:** `dotnet test tests/Architecture.Tests` green, six facts, run
-locally and quoted.
+**Done when:** `dotnet test tests/Architecture.Tests` green, eight facts (six
+as planned here, +2 at phase-6 re-review), run locally and quoted.
 
 **Covers:** SC-1, SC-2, SC-3, SC-4.
 
@@ -86,7 +87,8 @@ Attributes: `[Collection(AspireCollection.Name)]` **and**
 §3.1 — and it is what keeps this class out of CI and out of PR #2535's shard
 partition.
 
-Seven facts:
+Seven facts as planned here (**8 at delivery** — a phase-6 re-review addition
+below, `verification.md` §should-fix 2):
 
 | # | Fact | SC |
 |---|---|---|
@@ -97,6 +99,7 @@ Seven facts:
 | 5 | `A_temporary_lock_expires_without_administrative_intervention` | SC-8 |
 | 6 | `A_seeded_account_authenticates_while_a_probe_is_locked` | SC-9 |
 | 7 | `A_grant_with_no_username_is_refused_as_invalid_request_not_invalid_grant` | bad-request |
+| 8 | `A_grant_naming_a_real_account_but_missing_its_password_counts_as_a_failed_login` *(phase 6)* | bad-request, honest repair |
 
 **The four traps, each already paid for once — `plan.md` §3.4:**
 
