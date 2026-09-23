@@ -27,11 +27,11 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import test from 'node:test';
+import test, { after } from 'node:test';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const script = path.join(repositoryRoot, 'scripts', 'render-leg-baseline-agreement.mjs');
@@ -83,9 +83,23 @@ function fiveMatchingRows() {
   }));
 }
 
+// Phase-6 review (spec 225): none of these temp directories were ever
+// cleaned up. Every `tempDirectory()` call is tracked here and swept once
+// after the whole file's tests finish, rather than adding a try/finally to
+// each test — keeps the existing test bodies untouched.
+const tempDirectories = [];
+
 function tempDirectory() {
-  return mkdtempSync(path.join(tmpdir(), 'render-leg-agreement-'));
+  const directory = mkdtempSync(path.join(tmpdir(), 'render-leg-agreement-'));
+  tempDirectories.push(directory);
+  return directory;
 }
+
+after(() => {
+  for (const directory of tempDirectories) {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 function writeFixturePair(directory, rows, { figuresRows = rows } = {}) {
   const figuresPath = path.join(directory, 'figures.md');

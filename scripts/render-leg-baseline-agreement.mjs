@@ -20,8 +20,7 @@
 // check, naming that file, rather than passing silently.
 
 import { readFileSync } from 'node:fs';
-
-const AGREEMENT_EPSILON = 0.01;
+import { AGREEMENT_EPSILON } from './render-leg-constants.mjs';
 
 function print(message) {
   process.stdout.write(`${message}\n`);
