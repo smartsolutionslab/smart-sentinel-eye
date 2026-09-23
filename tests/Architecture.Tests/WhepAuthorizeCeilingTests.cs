@@ -24,8 +24,8 @@ namespace SmartSentinelEye.Architecture.Tests;
 ///
 /// <para>
 /// <b>The category is the value here</b> — unlike
-/// <see cref="ContainerImagePinTests"/> and
-/// <see cref="DatabaseCommandLogLevelTests"/>, which both ban a category and
+/// <see cref="ContainerImagePinTests"/>, <see cref="DatabaseCommandLogLevelTests"/>
+/// and <see cref="DockerfileUpstreamPinTests"/>, which all ban a category and
 /// name no value, because a guard that obstructs its own legitimate change gets
 /// deleted within a month. There is no property of "a well-sized
 /// <c>PermitLimit</c>" this guard could check without redoing spec 208's
@@ -52,7 +52,7 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// Reads <see cref="SettingsFile"/> from disk through
 /// <see cref="ConfigurationBuilder"/>, exactly as <c>Program.cs:21-24</c> binds
 /// it — the same key strings, the same generic arguments — so this guard
-/// cannot disagree with the host about what the file says. Like
+/// cannot disagree with the host about what the <b>file</b> says. Like
 /// <see cref="ContainerImagePinTests"/> and <see cref="DatabaseCommandLogLevelTests"/>,
 /// it does not load the Api assembly or boot a host: the file is the artifact,
 /// and binding it is cheaper and more faithful than booting the process that
@@ -60,15 +60,42 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// </para>
 ///
 /// <para>
+/// <b>What "exactly as Program.cs binds it" does not cover.</b> A host binds
+/// the full <c>builder.Configuration</c> composition — this file, then
+/// <c>appsettings.{Environment}.json</c>, then environment variables, then the
+/// command line, each superseding the last. This guard reads only the shipped
+/// <b>file</b>, so it asserts what ships, not what a given host resolves at
+/// runtime. Today exactly one thing supersedes it, deliberately and out of
+/// scope: <c>AppHost.cs:441-442</c>'s <c>isE2ETests</c> block sets
+/// <c>WhepAuthorizeRateLimiting__PermitLimit</c> / <c>__Window</c> as
+/// environment variables for the integration lane. An env var or a Development
+/// override introduced anywhere else would supersede this file at runtime
+/// exactly as that one does, and this guard would not see it.
+/// </para>
+///
+/// <para>
 /// The second <c>[Fact]</c> (US2, #2515) reads <c>Program.cs</c>'s own
 /// <c>?? 2000</c> / <c>?? TimeSpan.FromMinutes(1)</c> fallback literals as
-/// **text** — top-level statements compile with nothing reflectable — and
-/// checks they agree with the bound value, so a host started without the
-/// shipped file does not silently fall back to a drifted number. A literal
-/// scan cannot see a fallback whose value comes from a <c>const</c>, a
-/// different overload, or a helper method; if <c>Program.cs</c> is reshaped
-/// that way, the match-count assertion fails loudly rather than passing on a
-/// scan that stopped matching.
+/// **text**, with comments blanked via
+/// <see cref="SourceMask.Apply(string, MaskStrictness)"/>
+/// (<see cref="MaskStrictness.CommentsBlankedLiteralsIntact"/>) so a comment
+/// that happens to quote the fallback pattern cannot flip the match count —
+/// top-level statements compile with nothing reflectable, so this is the only
+/// way to reach them. It checks the fallbacks agree with the bound value, so a
+/// host started without the shipped file does not silently fall back to a
+/// drifted number. A literal scan cannot see a fallback whose value comes from
+/// a <c>const</c>, a different overload, or a helper method; if
+/// <c>Program.cs</c> is reshaped that way, the match-count assertion fails
+/// loudly rather than passing on a scan that stopped matching.
+/// </para>
+///
+/// <para>
+/// <b>The most likely future trigger.</b> Spec 208 §*Sizing the ceiling* names
+/// its own open unknown: whether a WHEP open costs one authorize POST or two
+/// (SC-005, unmeasured at the time of that spec). If a later measurement finds
+/// two, the ceiling itself is expected to move — this guard's expected value
+/// moves with it, and its failure message already says where to make that
+/// change defensible.
 /// </para>
 /// </summary>
 public class WhepAuthorizeCeilingTests
@@ -90,12 +117,12 @@ public class WhepAuthorizeCeilingTests
 
     private static readonly Regex PermitLimitFallback = new(
         PermitLimitKey + @"""\)\s*\?\?\s*(?<value>\d+)",
-        RegexOptions.Compiled,
+        RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
     private static readonly Regex WindowFallback = new(
         WindowKey + @"""\)\s*\?\?\s*TimeSpan\.From(?<unit>\w+)\((?<value>\d+)\)",
-        RegexOptions.Compiled,
+        RegexOptions.None,
         TimeSpan.FromSeconds(5));
 
     [Fact]
@@ -118,7 +145,8 @@ public class WhepAuthorizeCeilingTests
     public void The_program_fallback_defaults_agree_with_the_shipped_ceiling()
     {
         Ceiling shipped = ReadShippedCeiling();
-        string text = File.ReadAllText(Path.Combine(RepositorySource.Root().FullName, ProgramFile));
+        string raw = File.ReadAllText(Path.Combine(RepositorySource.Root().FullName, ProgramFile));
+        string text = SourceMask.Apply(raw, MaskStrictness.CommentsBlankedLiteralsIntact);
 
         MatchCollection permitLimitMatches = PermitLimitFallback.Matches(text);
         permitLimitMatches.Count.ShouldBe(
@@ -173,24 +201,27 @@ public class WhepAuthorizeCeilingTests
         int? permitLimit = Read<int>(configuration, PermitLimitKey, "an integer");
         permitLimit.ShouldNotBeNull(
             $"{SettingsFile} has no readable '{PermitLimitKey}' — the 'WhepAuthorizeRateLimiting' "
-            + $"section or the 'PermitLimit' key is absent. {Derivation}");
+            + "section or the 'PermitLimit' key is absent, empty, or nested somewhere this exact path "
+            + $"does not reach. {Derivation}");
 
         TimeSpan? window = Read<TimeSpan>(configuration, WindowKey, "a TimeSpan");
         window.ShouldNotBeNull(
             $"{SettingsFile} has no readable '{WindowKey}' — the 'WhepAuthorizeRateLimiting' "
-            + $"section or the 'Window' key is absent. {Derivation}");
+            + "section or the 'Window' key is absent, empty, or nested somewhere this exact path does "
+            + $"not reach. {Derivation}");
 
         return new Ceiling(permitLimit.Value, window.Value);
     }
 
     /// <summary>
-    /// <c>null</c> when the key is genuinely absent (an absent section, an
-    /// absent key, or the whole object deleted — spec AS4, AS5, AS7 all read as
-    /// this). A present-but-unparseable value (<c>"two thousand"</c>) is
-    /// translated from the binder's own <see cref="InvalidOperationException"/>
-    /// into a message naming the offending raw string, rather than a raw
-    /// binder exception surfacing unexplained (no drive-by error handling —
-    /// this is the one trust-boundary translation this guard makes).
+    /// <c>null</c> when the key is genuinely absent — an absent section, an
+    /// absent key, the whole object deleted, or the pair moved to a file this
+    /// guard does not read (spec AS4, AS5 read as this). A present-but-
+    /// unparseable value (<c>"two thousand"</c>, spec AS7) is translated from
+    /// the binder's own <see cref="InvalidOperationException"/> into a message
+    /// naming the offending raw string, rather than a raw binder exception
+    /// surfacing unexplained (no drive-by error handling — this is the one
+    /// trust-boundary translation this guard makes).
     /// </summary>
     private static T? Read<T>(IConfigurationRoot configuration, string key, string kind)
         where T : struct
