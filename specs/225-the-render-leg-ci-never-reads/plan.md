@@ -3,7 +3,8 @@
 **Spec:** `specs/225-the-render-leg-ci-never-reads/spec.md`
 **Issue:** [#2337](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2337)
 **Branch:** `2337-render-leg-ci-never-reads`
-**Status:** Phase 2 complete — awaiting review before Phase 3 sign-off
+**Status:** US1/US2 merged (#2549, #2550). **§8 is the Phase 2 addendum for the
+US3 + US4 resumption (2026-09-23)**; it refines §§2.4, 3 and 5 where they differ.
 
 ---
 
@@ -301,3 +302,171 @@ Checked against the frontend redesign programme (#2329–#2336) and in-flight wo
 - **R7 — Inheriting the 250-tile error.** ADR-0146 cites #2337 *with* the wrong
   arithmetic, so the nearest prose to this work is wrong. **Mitigation:** FR-015
   and SC-005; a review point on every artefact, including commit messages.
+
+---
+
+## 8. Addendum, 2026-09-23: plan for US3 and US4 after US1 and US2 merged
+
+This section reads alongside spec §9. It keeps every decision in §§1–7 unless
+it names one and changes it.
+
+### 8.1 Changed decision: the gate is a job, not a step in the shard (supersedes the gate half of §2.4 and the US4 row of §3)
+
+§2.4 put `render-leg-check.mjs` in a step inside `e2e-shards`. It cannot go
+there. The span test runs in exactly one shard, so the other three shards would
+each have to guess whether "no record" means *not my shard* or *unmeasured*.
+FR-012 forbids guessing. §2.2 already said a cross-shard verdict belongs to a
+job that sees every shard.
+
+The job looks like this:
+
+```yaml
+render-leg-gate:
+  name: render leg gate (composite + render, section IV)
+  runs-on: ubuntu-latest
+  needs: [e2e-shards]
+  if: always()
+  timeout-minutes: 5
+  steps:
+    - checkout                     # baseline.json, the script, e2e/support/render-leg.ts
+    - setup-node 22                # same pin and version as e2e-shard-coverage; no pnpm install
+                                   # (render-leg-summary.mjs already imports the .ts reader with plain node)
+    - actions/download-artifact    # pattern: playwright-report-*-of-4, one directory per shard.
+                                   # Pin it by full SHA, as upload-artifact is pinned. It is new to this repo.
+    - node scripts/render-leg-check.mjs <download dir> specs/225-the-render-leg-ci-never-reads/baseline.json
+```
+
+- **The job does not touch `e2e-shards`' matrix or its `pnpm test:e2e --shard=`
+  line**, so `e2e-shard-coverage`'s text parse is unaffected.
+- **The job is not added to the `e2e` synthesis job's `needs`.** Keeping the
+  check separate is deliberate (spec FR-017): a regression and a broken suite
+  have to read differently. #2288 (no required status checks) limits this job
+  exactly as it limits every other check. The PR states that.
+- **An artifact that is missing because the scrubber refused it is read as
+  *unmeasured*.** The upload is gated on `steps.scrub.outcome == 'success'`. The
+  gate never gets a way round the scrubber, because that would weaken it.
+
+### 8.2 The record gains one field (US1 files, additive)
+
+In `e2e/support/render-leg.ts`:
+
+- `RenderLegRecord.complete: boolean`.
+- One exported predicate:
+  `isCompleteRenderLegMeasurement(samplesPerCamera: ReadonlyMap<string, number>, expectedCameras: number, iterations: number): boolean`.
+  It returns true when there are exactly `expectedCameras` distinct cameras and
+  each has at least `iterations` samples.
+
+`kiosk-shows-a-label-over-video.spec.ts` builds `overlayDrawSamplesPerCamera`
+**before** it writes the record. Today the map is built after the write, at
+`:1469`, so the build moves up. The spec then calls the predicate to set
+`complete`. The existing `expect`s stay: they give a per-camera message the
+boolean cannot. Now the gate and the test share one definition of complete
+(spec FR-016).
+
+The reader, `readRenderLegRecords`, stays as it is. Deciding that a record is
+malformed, including when it has no `complete` field, is the checker's job, as
+§2.2's reader contract already says.
+
+### 8.3 `baseline.json`: the schema the checker enforces
+
+```json
+{
+  "measurement": "overlay_draw",
+  "fixture": { "tiles": 4, "iterations": 10 },
+  "runner": "ubuntu-latest, headless Chromium, software rasterisation",
+  "baselineP50Milliseconds": 0,
+  "toleranceMilliseconds": 0,
+  "rule": "tolerance = 3 * sample stddev of first-complete-attempt p50 across the runs below (spec FR-018)",
+  "runs": [ { "runId": "…", "sha": "<40 hex>", "attempt": 0, "p50Milliseconds": 0 } ]
+}
+```
+
+The checker **refuses** the file, naming it (FR-013), in any of these cases:
+
+- `runs.length < 5`.
+- A `sha` is not 40 hex characters.
+- The tolerance is not positive.
+- `baselineP50Milliseconds` does not equal the mean of `runs[].p50Milliseconds`,
+  to 0.01 ms.
+- `toleranceMilliseconds` does not equal 3 × the sample standard deviation, to
+  0.01 ms.
+
+The last two checks make the file **self-verifying**. Nobody can hand-edit the
+tolerance without the derivation failing. That covers T019's "prose and data
+agree" at the data level. A separate test (T019b) checks that `figures.md`'s
+table carries the same run ids and p50s.
+
+### 8.4 The checker's decision table
+
+The checker works on the union of the downloaded records.
+
+| Records | Verdict | Exit |
+|---|---|---|
+| Baseline absent or malformed | `baseline refused: <path>: <reason>` | 1 |
+| Zero records across all shards | `unmeasured: no render-leg record in any shard` | 1 |
+| Any record unparseable, or with no `complete` field | `unmeasured: <file> malformed` | 1 |
+| Records from more than one shard | `unmeasured: records from N shards, expected 1` (the span test ran twice, which is a harness fault) | 1 |
+| No record with `complete: true` | `unmeasured: every attempt incomplete` (each one listed) | 1 |
+| First complete attempt's p50 ≤ baseline + tolerance | `within tolerance`: baseline, observed, margin, both `T` readings, plus the skipped attempts | 0 |
+| First complete attempt's p50 > baseline + tolerance | `regressed`: baseline, observed, tolerance, excess, both `T` readings, and ADR-0123's "cadence first, compositing second" | 1 |
+
+"First" means the lowest `attempt` number. The checker always prints every
+attempt's p50 and completeness, so a verdict taken from attempt 2 says so on
+its face. #2077 is the reason.
+
+The comparison is `>`, not `≥`: a figure exactly at the threshold passes. The
+tests pin that boundary.
+
+### 8.5 The US3 procedure
+
+1. **Wait for T026.** The harness has to be stable first (spec §9.2 F1).
+2. Collect the `develop` **push** runs made after T026 merged, until five of
+   them have a complete attempt. Download each run's `playwright-report-4-of-4`
+   artifact **within 14 days**. Record every run, including runs whose attempts
+   were all incomplete. Those are refusals (US3 scenario 5), and they count
+   against stability. They are not quietly skipped.
+3. Write `figures.md` in spec 144's layout. It has three parts:
+   - the five-or-more baseline rows, with run id links, full SHAs, n, p50, p95,
+     max, both `T` readings, and the raw samples;
+   - spec §9.2 F3's preliminary rows, labelled **preliminary, pre-T026**;
+   - the three one-tile rows, labelled **one-tile, pre-US2**, as the comparison
+     that shows what three extra tiles cost.
+4. Compute the mean and σ, and write out the arithmetic. Apply FR-019's
+   feasibility test and write `## Verdict`.
+
+If T026's fix works, most of these runs complete on attempt 0 anyway. If more
+than one of the five needed a retry, stop and say so in the verdict. It means
+the harness is still re-rolling itself.
+
+### 8.6 Red for this remainder: what the engineer must observe failing
+
+Constitution §Testing and ADR-0139 apply. Every item is new behaviour, so every
+item starts red. There is no characterisation path.
+
+| Task | The red, concretely |
+|---|---|
+| T026 (harness) | **Already observed in CI.** Quote runs 35894668870, 35907278215, 35918329596 and 35920524319 (spec §9.2 F1). Also reproduce locally once on unchanged code and quote that, so the fix is not judged only against CI history. |
+| T027 (`complete` field) | A test on the predicate, plus a test that the written record carries `complete`. Both fail before the field exists. |
+| T020 (checker) | `node --test scripts/render-leg-check.test.mjs` against synthetic record directories and baseline files in a temp dir, one case per row of §8.4 plus the `≤`/`>` boundary. Run before the script exists, then run against a stub that always exits 0. The stub run matters: it proves that the *regressed*, *unmeasured* and *refused* cases fail for the right reason. A missing module fails every case at once, and on its own that shows nothing. |
+| T019b (agreement) | The agreement test fails before `baseline.json`/`figures.md` exist, and fails again against a deliberately mismatched p50. |
+| T028 (summary wording) | The new summary test fails while the summary still says "no threshold is asserted". Line `:134`'s assertion is *replaced*, and the PR says so (spec FR-020). |
+| T022 (end to end) | A throwaway PR adds `filter: blur(4px)` to the tile and **`render-leg-gate` goes red with `regressed`**. The output is quoted verbatim. After the revert, the check is green again. A gate nobody has seen fail has not been shown to gate anything. |
+
+### 8.7 New risks
+
+- **R8 — T026 finds a product defect, not a harness race.** Tile 1 saw zero
+  label mutations in 60 s on `859426c8`, and the one-tile hypothesis does not
+  explain that. **Mitigation:** T026 is a ⟨GATE⟩. If the defect is
+  product-shaped, STOP: file it as its own issue and hand back. Do not harden
+  the harness around it. That would be the lane's forbidden weakening of a gate,
+  here the per-camera assertion.
+- **R9 — The baseline collection window.** It needs five post-T026 `develop`
+  pushes inside the 14-day artifact retention. At today's rate that is one day
+  of merges. **Mitigation:** download each run's artifact as it lands, not at
+  the end.
+- **R10 — Selection bias from "first complete attempt".** A slow attempt that
+  also failed completeness is skipped, and the checker reads a luckier retry.
+  **Mitigation:** the checker prints every attempt's p50. T026 is meant to make
+  incomplete attempts rare. A later issue can tighten the rule to "attempt 0 or
+  unmeasured" once the record shows that attempt 0 is reliably complete. That
+  is not done now, because it would redden `develop` on a known harness fault.
