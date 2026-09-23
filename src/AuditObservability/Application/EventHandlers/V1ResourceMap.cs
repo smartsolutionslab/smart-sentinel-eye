@@ -13,8 +13,8 @@ namespace SmartSentinelEye.AuditObservability.Application.EventHandlers;
 ///
 /// <para>
 /// Convention-first: each V1's namespace tail (e.g.
-/// <c>Shared.Contracts.Automation.RuleCreatedV1</c> →
-/// <c>"automation"</c>) is mapped to a <see cref="ResourceKind"/>
+/// <c>Shared.Contracts.CameraCatalog.CameraRegisteredV1</c> →
+/// <c>"camera"</c>) is mapped to a <see cref="ResourceKind"/>
 /// via a small dictionary; the resource identifier is picked from
 /// the first property whose name appears in
 /// <see cref="IdentifierPropertyNames"/>.
@@ -32,17 +32,10 @@ public sealed partial class V1ResourceMap
 {
     private static readonly string[] IdentifierPropertyNames =
     [
-        "Identifier",
         "Name",
         "OverlayIdentifier",
-        "CameraIdentifier",
-        "LayoutIdentifier",
-        "RuleIdentifier",
-        "VariableIdentifier",
         "RegisteredClientIdentifier",
         "ChunkIdentifier",
-        "WebhookIntegrationIdentifier",
-        "DeadLetterIdentifier",
         "EventIdentifier",
     ];
 
@@ -136,7 +129,7 @@ public sealed partial class V1ResourceMap
     private static DomainResourceKind? ResolveResourceKind(Type type)
     {
         // Convention: the namespace tail maps to a canonical
-        // resource — e.g. "Shared.Contracts.Automation" → "rule".
+        // resource — e.g. "Shared.Contracts.CameraCatalog" → "camera".
         string? leaf = type.Namespace?.Split('.').LastOrDefault();
         if (leaf is null)
         {
@@ -163,6 +156,12 @@ public sealed partial class V1ResourceMap
         // parent reference, still matches the Find above and never
         // reaches this fallback. That case needs a hand-tweak instead,
         // registered in Conventions.
+        //
+        // The list names properties that exist on real contracts today and
+        // would be the right pick if one of them ever lost its Guid; it is
+        // reached only by a convention-mapped contract with no Guid
+        // property, of which there are none today (spec 226 §0.2) — pinned
+        // by V1ResourceMapFallbackReachabilityTests.
         if (pick is null)
         {
             foreach (string candidate in IdentifierPropertyNames)
