@@ -16,6 +16,7 @@ import { useLayoutLifecycle } from '../revocation/useLayoutLifecycle.js';
 import { TileAlignmentBadge } from './TileAlignmentBadge.js';
 import { useLabelDelay } from './useLabelDelay.js';
 import { useWallAlignment } from './useWallAlignment.js';
+import { boundOverlayIn, namedFab } from './wallBindings.js';
 
 /**
  * Kiosk wall view (spec 010 US2 + US3). Renders the Published revision's
@@ -639,33 +640,6 @@ function countReportableSkew(
   let decade = 1;
   while (decade < count) decade *= 10;
   return decade === count ? count : null;
-}
-
-/**
- * A tile's overlay identifier, or `null` when it names none (spec 141
- * FR-001). All four readers of the sentinel go through this one function:
- * `tilesToBoundOverlays` below, the `unavailable`/`highlighted` props and the
- * `Tile` query's `skip` (`CellPage`).
- *
- * Parameter deliberately wider than `LayoutTile.overlayIdentifier`'s declared
- * `string | null` — admitting `undefined` too — exactly as
- * `countReportableSkew` below takes `frameFab: string | undefined` where
- * `message.fab` is `string`. `LayoutTile` itself is not widened (FR-001):
- * doing so would push a `| undefined` through every consumer in both apps to
- * describe a server that does not exist.
- */
-function boundOverlayIn(overlayIdentifier: string | null | undefined): string | null {
-  return typeof overlayIdentifier === 'string' && overlayIdentifier !== '' ? overlayIdentifier : null;
-}
-
-/**
- * The same test as `boundOverlayIn`, for the wall's fab (spec 141 site 2,
- * FR-004). `Layout.fab` stays declared `string` (not widened, same reasoning
- * as above), so the wider parameter here is what admits the drift this
- * guards against.
- */
-function namedFab(fab: string | undefined): string | null {
-  return typeof fab === 'string' && fab.trim() !== '' ? fab : null;
 }
 
 function tilesToBoundOverlays(tiles: LayoutTile[]): ReadonlySet<string> {
