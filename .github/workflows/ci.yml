@@ -688,6 +688,18 @@ jobs:
         if: always()
         run: node scripts/summarise-e2e-retries.mjs
 
+      # Spec 225 US1 / #2337 — the composite-and-render leg's figure (§IV,
+      # ≤ 50 ms) has existed since spec 040 but was stdout-only, buried in one
+      # of four shards' 14-day artifacts. `if: always()` for the same reason
+      # as the step above: a failed or cancelled run still gets whatever
+      # attempt files the span test managed to write before it failed. No
+      # assertion here (NFR-001) — this step cannot redden the build; three of
+      # four shards print "no figure in this shard" and that is success, not
+      # absence of one.
+      - name: Summarise the render leg (composite + render, section IV)
+        if: always()
+        run: node scripts/render-leg-summary.mjs
+
       # `failure()` is false when the job is cancelled, and a job-level
       # `timeout-minutes` expiry is a cancellation. Run 33623647778's e2e job
       # hit the 40-minute timeout, so this step was skipped and apphost.log was
