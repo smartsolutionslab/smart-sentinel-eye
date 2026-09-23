@@ -84,17 +84,6 @@ export function writeRenderLegRecord(record: RenderLegRecord, directory: string 
 }
 
 /**
- * Every attempt's record found in `directory`, sorted by attempt number.
- *
- * <p>
- * <b>An empty array, never a thrown error, when the directory or the files in
- * it are absent.</b> Three of the four e2e shards carry no `kiosk` project
- * work at all (plan.md §2.2), so "no attempt files in this shard" is the
- * ordinary case, not a failure the two reading scripts should have to guard
- * against individually.
- * </p>
- */
-/**
  * One attempt file, read and either parsed or found unreadable.
  *
  * <p>
@@ -107,8 +96,7 @@ export function writeRenderLegRecord(record: RenderLegRecord, directory: string 
  * </p>
  */
 export type RenderLegAttempt =
-  | { file: string; ok: true; record: RenderLegRecord }
-  | { file: string; ok: false; error: string };
+  { file: string; ok: true; record: RenderLegRecord } | { file: string; ok: false; error: string };
 
 export function readRenderLegRecords(directory: string = RENDER_LEG_DIRECTORY): RenderLegAttempt[] {
   let entries: string[];
