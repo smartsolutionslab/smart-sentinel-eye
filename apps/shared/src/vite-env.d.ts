@@ -5,6 +5,9 @@
 // workspace does not pull in the `vite/client` ambient types.
 interface ImportMetaEnv {
   readonly PROD: boolean;
+  // Spec 228 item 4: gates `kioskLatency.ts`'s `[latency]` console line, the
+  // same flag `DevCrashTrigger.tsx` already reads in kiosk-web.
+  readonly DEV: boolean;
   readonly VITE_API_GATEWAY_URL?: string;
   readonly VITE_KEYCLOAK_URL?: string;
   readonly VITE_LAYOUT_HUB_URL?: string;

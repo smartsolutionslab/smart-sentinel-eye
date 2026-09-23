@@ -82,9 +82,17 @@ export function reportKioskLatency(
   // observable contract. Alongside the report, not instead of it: reading a
   // console line needs devtools attached to a kiosk, which is the
   // "recorded, not readable" state the constitution calls half discharged.
-  // It is here because it costs nothing and it is how these numbers get seen
-  // during manual verification — CI cannot produce video.
-  console.info('[latency]', { measurement, camera, elapsedMilliseconds });
+  //
+  // DEV-gated, not unconditional (spec 228 item 4): a production wall is
+  // never restarted, so a line per sample is retained console buffer
+  // forever. The line is for manual verification and spec 108/225's e2e
+  // harvest, both of which run the kiosk under `vite dev`
+  // (`import.meta.env.DEV === true`) — see `AppHost.cs`'s `AddNpmApp(...,
+  // "dev")`. The POST below is unconditional either way: production
+  // observability must not go dark along with the console line.
+  if (import.meta.env.DEV) {
+    console.info('[latency]', { measurement, camera, elapsedMilliseconds });
+  }
 
   void send(measurement, camera, elapsedMilliseconds, getToken);
 }
