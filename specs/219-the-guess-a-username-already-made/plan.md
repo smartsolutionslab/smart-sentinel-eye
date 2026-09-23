@@ -114,7 +114,8 @@ private static SeededAccount[] HumanAccounts()           // §2.3
 `SeededAccount` is a file-local `private sealed record` of
 `(string Username, string Password, string[] Groups, string[] RealmRoles)`.
 
-Six facts, sentence-style (ADR-0053), Shouldly (ADR-0052):
+Six facts, sentence-style (ADR-0053), Shouldly (ADR-0052) — **8 at delivery**,
++2 added at phase-6 re-review; see `verification.md` §should-fix 4:
 
 | Fact | SC |
 |---|---|
@@ -124,6 +125,8 @@ Six facts, sentence-style (ADR-0053), Shouldly (ADR-0052):
 | `One_seeded_password_authenticates_six_accounts_across_four_fabs` | SC-3 |
 | `One_seeded_password_authenticates_both_realm_admin_accounts` | SC-3 |
 | `The_realm_seeds_twelve_human_credential_blocks_and_six_distinct_passwords` | SC-1 (the census the others rest on) |
+| `The_password_shared_across_the_most_fabs_still_spans_four_fabs_and_six_accounts` *(phase 6)* | SC-3, value-agnostic — additive control, not a new SC row (see `verification.md` §should-fix 4) |
+| `The_password_shared_by_the_most_admin_accounts_still_reaches_two_of_them` *(phase 6)* | SC-3, value-agnostic — additive control, same as above |
 
 ### 2.2 The policy predicate — parsed, never hard-coded
 
@@ -242,10 +245,13 @@ here so the next reader meets the decision rather than the duplication.
 
 ### 3.3 Facts
 
-Six facts. **None is `[P]`** — not a file-ownership constraint but a
-shared-resource one: there is one Keycloak and one realm, and these facts
-mutate its attack-detection state. Spec 207's `tasks.md` states the same rule
-for the same reason.
+Six facts as originally planned here (`tasks.md` T002 already listed a
+seventh, the bad-request case, omitted from this table by oversight) — **8 at
+delivery**, +1 more added at phase-6 re-review; see `verification.md`
+§should-fix 2 and §should-fix 3. **None is `[P]`** — not a file-ownership
+constraint but a shared-resource one: there is one Keycloak and one realm,
+and these facts mutate its attack-detection state. Spec 207's `tasks.md`
+states the same rule for the same reason.
 
 | Fact | SC | Shape |
 |---|---|---|
@@ -253,8 +259,10 @@ for the same reason.
 | `The_running_realm_declares_the_password_policy_the_import_file_carries` | SC-6 | master-realm `GET /admin/realms/smart-sentinel-eye`, compare to the file string read the same way Half A reads it |
 | `A_bursting_caller_is_refused_after_the_quick_login_check_trips` | SC-7a | no delay; record attempts; assert `disabled == true` |
 | `A_paced_caller_is_admitted_more_attempts_than_a_bursting_one` | SC-7 | pace at `quickLoginCheckMilliSeconds + 100 ms`, read off the server; assert paced attempts **>** burst attempts |
-| `A_temporary_lock_expires_without_administrative_intervention` | SC-8 | poll the correct password every 5 s; record elapsed seconds; bound at 900 s + 120 s margin |
+| `A_temporary_lock_expires_without_administrative_intervention` | SC-8 | poll the correct password every 5 s; record elapsed seconds; bound at 900 s + 120 s margin. **Deviation, recorded at phase-6 re-review:** `spec.md`'s own SC-8 Given clause names a **paced** account; the delivered fact locks via burst instead (`plan.md` here never specified which, but `spec.md` does) — see `verification.md` §should-fix 4 for what that costs SC-11's arithmetic |
 | `A_seeded_account_authenticates_while_a_probe_is_locked` | SC-9 | `admin` / `Admin1234`, read-only, never locked |
+| `A_grant_with_no_username_is_refused_as_invalid_request_not_invalid_grant` | bad-request | listed in `tasks.md` T002, omitted here by oversight; collapsed to its falsifiable claim only at phase-6 re-review — see `verification.md` §should-fix 3 |
+| `A_grant_naming_a_real_account_but_missing_its_password_counts_as_a_failed_login` *(phase 6)* | bad-request, honest repair | added when the originally-proposed fix to the fact above turned out to change Keycloak's own diagnosis rather than repair an unfalsifiable check — see `verification.md` §should-fix 2 |
 
 ### 3.4 The four traps, each already paid for once in this repository
 
@@ -374,8 +382,9 @@ any adjustment beyond the blast-radius numbers already supplied.
 
 ## 7. Definition of done
 
-1. `SeededCredentialStrengthTests` green in CI, six facts, numbers in the
-   assertion messages.
+1. `SeededCredentialStrengthTests` green in CI, six facts as planned
+   (**8 at delivery, +2 at phase-6**, `verification.md` §should-fix 4),
+   numbers in the assertion messages.
 2. T004's counterfactual output quoted in the PR — each of Half A's four
    numeric claims shown failing when its input is perturbed.
 3. `LockoutThroughputMeasurementTests` run at least once against a real stack,

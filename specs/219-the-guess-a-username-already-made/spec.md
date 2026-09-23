@@ -547,6 +547,7 @@ integration job, so it adds nothing to CI wall time either — see
 | **Making seeded passwords configurable** | A real alternative remedy (nothing reads them from config today — §*Blast radius*). It is a harness change across 97 files and its own design decision | a new issue if the human picks it; not filed by this PR |
 | **`directAccessGrantsEnabled: false` on `management-web`** | `AspireFixture.ClientId` **is** `management-web`; flipping it fails the whole integration suite | **#2511** (`agent:blocked`) |
 | **The Keycloak `master` realm's missing lockout** | Higher-value target than anything here; needs a second partial import or a startup Admin API call | **#2508** (`agent:blocked`) |
+| **The token endpoint's account-state disclosure oracle** | Phase-6 review found the token endpoint returns a distinguishable `"Account disabled"` error for disabled accounts versus the generic `"Invalid user credentials"` for locked/wrong-password ones — an unauthenticated enumeration primitive, observed while measuring SC-5–SC-9, not introduced by this spec. See `verification.md` §*A named finding* | **#2542**; not `agent:ready` — needs a human remediation decision |
 | **Gateway rate limiting** | The standard mitigation for the rate half, at a different layer. Not speculative generality — the risk is real — but its own design decision | — |
 | **Tuning `quickLoginCheckMilliSeconds` / `minimumQuickLoginWaitSeconds`** | Would directly weaken the control spec 207 added; ADR-0144 forbids weakening a gate | spec 214 already recorded this refusal |
 | **Any production realm** | There is none (ADR-0118, constitution §VII) | — |
@@ -604,6 +605,18 @@ because its recovery poll can take 15 minutes of real waiting.
 | SC-11 | `verification.md` states a **wall-clock time to exhaust the candidate set**, derived from SC-2's set size and SC-7/SC-8's measured rate | phase 5 |
 | SC-12 | The PR body presents both costs and **picks neither**, and #2510 stays open | phase 7 |
 | SC-13 | The realm is left as it was found: no seeded password changed, no policy changed, no probe account or lock left behind | phase 5, re-read after the run |
+
+**Three facts added at phase-6 re-review are deliberately not new rows
+here.** `The_password_shared_across_the_most_fabs_still_spans_four_fabs_and_six_accounts`
+and `The_password_shared_by_the_most_admin_accounts_still_reaches_two_of_them`
+(Half A) are additive, value-agnostic controls on SC-3 — they restate SC-3's
+own claim without pinning a literal password, so a lazy rotation cannot
+silently leave it uncovered (`verification.md` §should-fix 4).
+`A_grant_naming_a_real_account_but_missing_its_password_counts_as_a_failed_login`
+(Half B) is the falsifiable repair for the bad-request fact's originally
+unfalsifiable counter check (`verification.md` §should-fix 2 and §should-fix
+3). All three verify claims this spec already made; none commits to
+anything beyond SC-1 … SC-13 above.
 
 ---
 
