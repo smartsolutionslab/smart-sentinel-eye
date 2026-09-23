@@ -217,17 +217,22 @@ export function GridDesigner({
                 key={preset.label}
                 className={
                   (active
-                    ? 'rounded-md border border-accent-active bg-accent-active/10 px-3 py-1 text-sm text-accent-active'
-                    : 'rounded-md border border-fg-muted/30 px-3 py-1 text-sm text-fg-muted') +
+                    ? 'relative rounded-md border border-accent-active bg-accent-active/10 px-3 py-1 text-sm text-accent-active'
+                    : 'relative rounded-md border border-fg-muted/30 px-3 py-1 text-sm text-fg-muted') +
                   ' cursor-pointer has-[:focus-visible]:outline-none has-[:focus-visible]:ring-2' +
                   ' has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-accent-active'
                 }
               >
-                {/* Visually hidden, not removed from the a11y tree or the tab
-                    order — the label's pill styling is what's on screen. */}
+                {/* Transparent, not `sr-only` — clipped to a 1px box, `sr-only`
+                    is unclickable: Playwright's (and a real pointer's) hit-test
+                    resolves to the ancestor label instead, which intercepts the
+                    click rather than forwarding it. Stretched over the label
+                    with `opacity-0` instead, so it is still functionally
+                    invisible and still in the a11y tree and tab order, but is
+                    itself the hit target. */}
                 <input
                   type="radio"
-                  className="sr-only"
+                  className="absolute inset-0 m-0 h-full w-full cursor-pointer opacity-0"
                   name={presetGroupName}
                   value={preset.label}
                   checked={active}
