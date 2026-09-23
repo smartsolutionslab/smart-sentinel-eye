@@ -243,7 +243,7 @@ whole and the issue closed. Nothing in US1 depends on US2.
 | Repository root | `RepositorySource.Root()` | write a 32nd `RepositoryRoot()` walk (NFR-003; spec 190 exists for this) |
 | Relative path for messages | `RepositorySource.RelativePath(root, file)` | use `Path.GetRelativePath` raw — it returns the platform separator, green on Windows and red on Linux CI |
 | Binding a settings file | the `ConfigurationBuilder().AddJsonFile(file, optional: false).Build()` shape at `DatabaseCommandLogLevelTests.cs:127-129` | `JsonDocument`, `JsonNode`, or a regex over JSON |
-| Source-text scanning of a `.cs` file | the regex-with-timeout shape in `ContainerImagePinTests` | a regex without a `TimeSpan` timeout (the repo's convention is an explicit one) |
+| Source-text scanning of a `.cs` file | the regex-with-timeout shape in `RepositorySource.cs` (`ContainerImagePinTests`'s own regexes carry no timeout) | a regex without a `TimeSpan` timeout (the repo's convention is an explicit one) |
 | Asserting a scan matched something | `DatabaseCommandLogLevelTests.cs:76-81`'s "a passing guard that checks nothing is indistinguishable from one that holds" | assert only the value |
 
 ---
