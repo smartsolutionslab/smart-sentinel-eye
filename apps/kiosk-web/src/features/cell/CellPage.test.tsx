@@ -10,6 +10,7 @@ import type {
 } from '@smart-sentinel-eye/shared/realtime/layoutHub';
 import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import type { OverlaySnapshotInput } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+import { overlaysApi } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { store } from '../../app/store.js';
 
 const getLayoutMock = vi.fn();
@@ -2175,5 +2176,106 @@ describe('CellPage', () => {
       await act(() => sleep(200));
       expect(label(), 'shown by 250 ms after the change — the 150 ms reported age').toBe('second');
     }, 5_000);
+  });
+
+  /**
+   * Spec 229 US1 (#2321) — safety net for the two handlers this suite never
+   * fired directly, ahead of moving them into `useOverlayHubHandlers`.
+   *
+   * <p>
+   * "Flags a tile bound to an overlay archived before the kiosk loaded
+   * (FR-009)" above covers a *fetched* overlay with no Published revision —
+   * the archive already happened before this kiosk ever queried it. Nothing
+   * in this file has ever fired a *pushed* `OverlayRevisionArchived` or
+   * `OverlayRevisionPublished` frame through `capturedCallbacks`. These two
+   * cases characterise what `onOverlayArchived`/`onOverlayPublished` do
+   * today, so a later move of that code can be checked against it.
+   * </p>
+   */
+  describe('Pushed overlay archive and publish frames (spec 229 US1, #2321)', () => {
+    afterEach(() => {
+      store.dispatch(systemVariablesApi.util.resetApiState());
+      store.dispatch(overlaysApi.util.resetApiState());
+    });
+
+    /** A munich wall with two tiles bound to two different overlays. */
+    function aTwoTileWall() {
+      mockLayout(
+        publishedRevision(1, 2, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ov-1', row: 0, col: 0 }),
+          tile({ cameraIdentifier: 'cam-b', overlayIdentifier: 'ov-2', row: 0, col: 1 }),
+        ]),
+      );
+      getOverlayMock.mockReturnValue(publishedOverlay('Line label'));
+      renderPage();
+    }
+
+    function unavailableBadgeIn(tileEl: HTMLElement) {
+      return within(tileEl).queryByText(/overlay unavailable/i);
+    }
+
+    it('Flags only the tile bound to the overlay a pushed OverlayRevisionArchived names', () => {
+      aTwoTileWall();
+      const [tileA, tileB] = screen.getAllByTestId('layout-tile');
+      expect(unavailableBadgeIn(tileA!), 'not flagged before the push').not.toBeInTheDocument();
+
+      act(() => {
+        capturedCallbacks?.onOverlayArchived?.({
+          overlay: 'ov-1',
+          revisionNumber: 2,
+          archivedAt: '2026-09-23T10:00:00Z',
+        });
+      });
+
+      expect(unavailableBadgeIn(tileA!), 'the tile bound to the archived overlay').toBeInTheDocument();
+      expect(unavailableBadgeIn(tileB!), 'a tile bound to a different overlay').not.toBeInTheDocument();
+    });
+
+    it('Clears a pushed-archive flag and invalidates the Overlay and OverlaySnapshot caches when OverlayRevisionPublished follows', () => {
+      const dispatchSpy = vi.spyOn(store, 'dispatch');
+      aTwoTileWall();
+
+      act(() => {
+        capturedCallbacks?.onOverlayArchived?.({
+          overlay: 'ov-1',
+          revisionNumber: 2,
+          archivedAt: '2026-09-23T10:00:00Z',
+        });
+      });
+      const [tileA] = screen.getAllByTestId('layout-tile');
+      expect(unavailableBadgeIn(tileA!), 'flagged by the archive push').toBeInTheDocument();
+
+      act(() => {
+        capturedCallbacks?.onOverlayPublished?.({
+          overlay: 'ov-1',
+          revisionNumber: 3,
+          name: 'Line label',
+          text: 'Line label',
+          normalizedX: 0.5,
+          normalizedY: 0.05,
+          normalizedWidth: 0.3,
+          normalizedHeight: 0.08,
+          fontSizePx: 48,
+          publishedAt: '2026-09-23T10:05:00Z',
+        });
+      });
+
+      expect(unavailableBadgeIn(tileA!), 'a later publish clears the flag').not.toBeInTheDocument();
+
+      const dispatched: unknown[] = dispatchSpy.mock.calls.map(([action]) => action);
+      const payloadsOf = (creator: { match: (action: unknown) => boolean }) =>
+        dispatched.filter((action) => creator.match(action)).map((action) => (action as { payload: unknown }).payload);
+
+      expect(
+        payloadsOf(overlaysApi.util.invalidateTags),
+        'invalidates the published overlay in the Overlay cache',
+      ).toContainEqual([{ type: 'Overlay', id: 'ov-1' }]);
+      expect(
+        payloadsOf(systemVariablesApi.util.invalidateTags),
+        'invalidates the published overlay in the OverlaySnapshot cache',
+      ).toContainEqual([{ type: 'OverlaySnapshot', id: 'ov-1' }]);
+
+      dispatchSpy.mockRestore();
+    });
   });
 });
