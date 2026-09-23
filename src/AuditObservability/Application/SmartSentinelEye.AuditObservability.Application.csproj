@@ -24,4 +24,15 @@
     <Using Include="SmartSentinelEye.Shared.Kernel.Result" Static="true" />
   </ItemGroup>
 
+  <!-- Spec 226 FR-007: V1ResourceMap.Conventions.HandTweaks and
+       NamespaceToResource are internal. The reachability guard derives its
+       convention-mapped set from them directly, rather than hard-coding the
+       hand-tweak names, so it stays correct when a hand-tweak is added or
+       removed. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>SmartSentinelEye.AuditObservability.Application.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
 </Project>
