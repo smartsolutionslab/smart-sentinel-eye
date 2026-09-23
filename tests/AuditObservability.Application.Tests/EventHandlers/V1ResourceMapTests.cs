@@ -21,7 +21,7 @@ public class V1ResourceMapTests
         null,
         null);
 
-    private readonly V1ResourceMap _map = V1ResourceMap.Default;
+    private readonly V1ResourceMap map = V1ResourceMap.Default;
 
     [Fact]
     public void Camera_V1_maps_to_camera_resource_kind()
@@ -31,7 +31,7 @@ public class V1ResourceMapTests
             id, "north-gate", "rtsp://example/cam",
             DateTimeOffset.UtcNow, Guid.CreateVersion7(), Metadata: TestMetadata);
 
-        V1Mapping mapping = _map.Lookup(typeof(CameraRegisteredV1), evt);
+        V1Mapping mapping = map.Lookup(typeof(CameraRegisteredV1), evt);
 
         mapping.Kind.HasValue.ShouldBeTrue();
         mapping.Kind.Value.ShouldBe(ResourceKind.Camera);
@@ -46,7 +46,7 @@ public class V1ResourceMapTests
             Guid.CreateVersion7(), "plc-station-4", "plc", "station-4", "munich",
             DateTimeOffset.UtcNow, Metadata: TestMetadata);
 
-        V1Mapping mapping = _map.Lookup(typeof(DeviceRegisteredV1), evt);
+        V1Mapping mapping = map.Lookup(typeof(DeviceRegisteredV1), evt);
 
         mapping.Kind.Value.ShouldBe(ResourceKind.Device);
         mapping.ResourceIdentifier.Value.Value.ShouldBe("plc-station-4");
@@ -58,7 +58,7 @@ public class V1ResourceMapTests
         KioskEnrolledV1 evt = new(
             Guid.CreateVersion7(), "kiosk-pilot", "munich", DateTimeOffset.UtcNow, Metadata: TestMetadata);
 
-        V1Mapping mapping = _map.Lookup(typeof(KioskEnrolledV1), evt);
+        V1Mapping mapping = map.Lookup(typeof(KioskEnrolledV1), evt);
 
         mapping.Kind.Value.ShouldBe(ResourceKind.Kiosk);
         mapping.ResourceIdentifier.Value.Value.ShouldBe("kiosk-pilot");
@@ -73,7 +73,7 @@ public class V1ResourceMapTests
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow, "k", "m", Metadata: TestMetadata);
 
-        V1Mapping mapping = _map.Lookup(typeof(AuditChunkArchivedV1), evt);
+        V1Mapping mapping = map.Lookup(typeof(AuditChunkArchivedV1), evt);
 
         mapping.Kind.HasValue.ShouldBeTrue();
         mapping.ResourceIdentifier.Value.Value.ShouldBe(chunkId.ToString());
@@ -82,7 +82,7 @@ public class V1ResourceMapTests
     [Fact]
     public void Lookup_of_a_non_IIntegrationEvent_type_returns_unmapped()
     {
-        V1Mapping mapping = _map.Lookup(typeof(string), "anything");
+        V1Mapping mapping = map.Lookup(typeof(string), "anything");
         mapping.Kind.HasValue.ShouldBeFalse();
         mapping.ResourceIdentifier.HasValue.ShouldBeFalse();
     }
@@ -95,9 +95,9 @@ public class V1ResourceMapTests
         // (e.g. namespace-tail dictionary lost an entry), this
         // floor catches it well before the strict architecture
         // test in spec 009 T070.
-        _map.MappedTypes.Count.ShouldBeGreaterThanOrEqualTo(10);
-        _map.MappedTypes.ShouldContain(typeof(CameraRegisteredV1));
-        _map.MappedTypes.ShouldContain(typeof(AuditChunkArchivedV1));
+        map.MappedTypes.Count.ShouldBeGreaterThanOrEqualTo(10);
+        map.MappedTypes.ShouldContain(typeof(CameraRegisteredV1));
+        map.MappedTypes.ShouldContain(typeof(AuditChunkArchivedV1));
     }
 
     public sealed record MappingCase(
@@ -526,7 +526,7 @@ public class V1ResourceMapTests
         object instance = mappingCase.Factory();
         mappingCase.ContractType.IsInstanceOfType(instance).ShouldBeTrue();
 
-        V1Mapping mapping = _map.Lookup(mappingCase.ContractType, instance);
+        V1Mapping mapping = map.Lookup(mappingCase.ContractType, instance);
 
         mapping.Kind.HasValue.ShouldBeTrue();
         mapping.Kind.Value.ShouldBe(mappingCase.ExpectedKind);
@@ -556,7 +556,7 @@ public class V1ResourceMapTests
 
         IReadOnlyList<Type> missing = [.. allIntegrationEvents
             .Except(tableTypes)
-            .Where(type => !_map.ExplicitlyOptedOut.Contains(type.Name))];
+            .Where(type => !map.ExplicitlyOptedOut.Contains(type.Name))];
 
         missing.ShouldBeEmpty(
             $"No mapping-table row for: {string.Join(", ", missing.Select(type => type.FullName))}. Add a MappingCase in V1ResourceMapTests.AllCases.");
@@ -569,7 +569,7 @@ public class V1ResourceMapTests
     [Fact]
     public void Every_mapping_table_row_names_a_mapped_type()
     {
-        HashSet<Type> mappedTypes = [.. _map.MappedTypes];
+        HashSet<Type> mappedTypes = [.. map.MappedTypes];
 
         IReadOnlyList<Type> unmapped = [.. AllCases
             .Select(mappingCase => mappingCase.ContractType)
