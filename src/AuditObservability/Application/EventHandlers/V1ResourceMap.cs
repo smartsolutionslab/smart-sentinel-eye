@@ -157,7 +157,7 @@ public sealed partial class V1ResourceMap
         // reaches this fallback. That case needs a hand-tweak instead,
         // registered in Conventions.
         //
-        // Kept pending a decision on the fallback's future (see #2559). All
+        // Kept pending a decision on the fallback's future. All
         // five names match a real property, but only "Name" and
         // "EventIdentifier" sit on convention-mapped contracts (Camera /
         // SystemVariables and FabEventIngestedV1) — the fallback could
