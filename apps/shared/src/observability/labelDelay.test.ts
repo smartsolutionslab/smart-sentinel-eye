@@ -29,7 +29,6 @@ describe('labelDelayFor', () => {
 
   it('Returns nothing rather than a zero delay for a zero-age tile', () => {
     expect(labelDelayFor(0)).toBeNull();
-    expect(labelDelayFor(0)).not.toBe(0);
   });
 
   it('Returns nothing for a negative age, which cannot describe a picture', () => {
