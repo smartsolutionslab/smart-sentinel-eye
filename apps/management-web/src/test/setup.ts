@@ -26,4 +26,14 @@ import { configure } from '@testing-library/react';
 // cores, a measured 2.0x oversubscription, on every single CI run. The
 // workspace root's `test` script now caps `--workspace-concurrency` at 1 to
 // remove it (spec 216 §R2 materialised).
-configure({ asyncUtilTimeout: 10_000 });
+// Spec 228 US2 (item 3): CameraViewer's always-mounted status region mirrors
+// the visible overlay's text verbatim (FR-005), so while a stream is not
+// live the two are the *same* string in the DOM by design — a screen reader
+// is told exactly what a sighted operator sees. That duplication is meant to
+// be read from `getByTestId('camera-viewer-status')`, never from a plain
+// `getByText`/`queryByText`, which cannot tell which of the two identical
+// strings a caller meant and throws on the ambiguity. Mirrors
+// `apps/shared/src/test/setup.ts`'s identical exclusion, needed here too
+// because this workspace's `CameraViewerLifecycle.test.tsx` renders the real
+// composite rather than a mock.
+configure({ asyncUtilTimeout: 10_000, defaultIgnore: 'script, style, [data-testid="camera-viewer-status"]' });

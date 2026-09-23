@@ -144,7 +144,7 @@ export function CameraDetailPage() {
           notice below says so in words instead. */}
       {retired ? null : (
         <div className="mb-6 max-w-3xl">
-          <CameraViewer cameraIdentifier={record.cameraIdentifier} getToken={getToken} />
+          <CameraViewer cameraIdentifier={record.cameraIdentifier} getToken={getToken} cameraName={record.name} />
         </div>
       )}
 

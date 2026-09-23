@@ -82,6 +82,12 @@ export interface CameraViewerProps {
    */
   onLagMeasured?: (cameraIdentifier: string, lagMilliseconds: number, bufferMilliseconds: number) => void;
   className?: string;
+  /**
+   * Names the video for assistive technology (spec 228 US2, FR-007). Absent
+   * on the kiosk's `CellPage`, which holds no camera name for its tiles; the
+   * `<video>` then gets a generic name rather than none at all.
+   */
+  cameraName?: string;
 }
 
 /**
@@ -96,6 +102,7 @@ export function CameraViewer({
   playoutTargetMilliseconds,
   onLagMeasured,
   className,
+  cameraName,
 }: CameraViewerProps) {
   // `currentData`, not `data` (spec 157 FR-001): `data` is the last successful
   // result for ANY argument this hook instance has ever been called with, so a
@@ -377,13 +384,50 @@ export function CameraViewer({
 
   return (
     <div className={clsx('relative aspect-video w-full overflow-hidden rounded-md bg-black', className)}>
-      <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-contain" />
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        className="h-full w-full object-contain"
+        aria-label={cameraName === undefined ? 'Live camera video' : `Live video: ${cameraName}`}
+      />
       {overlay !== undefined && <OverlayLabel overlay={overlay} />}
+      {/* Always mounted, never inserted with its content (#2346): a live
+          region a screen reader has not yet seen does not announce the text
+          it is born holding, so this has to exist — empty — before the first
+          state change, and go on existing across every later one. Text
+          mirrors what `ViewerOverlay` paints, so the two cannot drift
+          (spec 228 US2, FR-004/FR-005). */}
+      <p role="status" data-testid="camera-viewer-status" className="sr-only">
+        {announcementFor(status, stream, queryError)}
+      </p>
       {status !== 'live' && (
         <ViewerOverlay status={status} message={errorMessage} stream={stream} queryError={queryError} />
       )}
     </div>
   );
+}
+
+/**
+ * The text a screen reader hears for the current stream state — empty while
+ * live, otherwise exactly what {@link ViewerOverlay} paints (spec 228 US2,
+ * FR-005). Shared so the announced text and the visible text cannot drift.
+ */
+function announcementFor(status: CameraViewerStatus, stream: StreamHealth | undefined, queryError: unknown): string {
+  if (status === 'live') return '';
+  return failedReadLabelFor(status, stream, queryError);
+}
+
+// FR-005: the read for the current camera has failed and no stream has been
+// received for it — an explicit error, never "Connecting…", never "Idle",
+// and never a picture. `status` stays the session state machine (no new
+// member added, per plan §2a); `offline` already has its own read of stream
+// state from a read that *succeeded*, so it is excluded here rather than
+// overridden.
+function failedReadLabelFor(status: CameraViewerStatus, stream: StreamHealth | undefined, queryError: unknown): string {
+  const failedRead = stream === undefined && queryError !== undefined && status !== 'offline';
+  return failedRead ? 'Viewer error' : labelFor(status, stream);
 }
 
 function ViewerOverlay({
@@ -397,14 +441,8 @@ function ViewerOverlay({
   stream: StreamHealth | undefined;
   queryError: unknown;
 }) {
-  // FR-005: the read for the current camera has failed and no stream has been
-  // received for it — an explicit error, never "Connecting…", never "Idle",
-  // and never a picture. `status` stays the session state machine (no new
-  // member added, per plan §2a); `offline` already has its own read of stream
-  // state from a read that *succeeded*, so it is excluded here rather than
-  // overridden.
   const failedRead = stream === undefined && queryError !== undefined && status !== 'offline';
-  const label = failedRead ? 'Viewer error' : labelFor(status, stream);
+  const label = failedReadLabelFor(status, stream, queryError);
   const tone =
     failedRead || status === 'error' || status === 'offline'
       ? 'text-accent-fault'
@@ -415,7 +453,13 @@ function ViewerOverlay({
   const hint = message ?? (queryError !== undefined ? 'Could not reach the streaming service.' : null);
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 text-center text-sm">
+    // FR-006: hidden from the accessibility tree so the message is read once,
+    // from the status region above — not twice, once from each. Still
+    // visible on screen; `aria-hidden` affects only assistive tech.
+    <div
+      aria-hidden="true"
+      className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 text-center text-sm"
+    >
       <span className={clsx('font-medium', tone)}>{label}</span>
       {hint !== null && <span className="px-4 text-xs text-fg-muted">{hint}</span>}
     </div>
