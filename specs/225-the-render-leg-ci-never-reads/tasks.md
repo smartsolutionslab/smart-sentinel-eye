@@ -12,6 +12,16 @@ branch `ci/2337-composite-render-regression-gate`. Spec §9 and plan §8 govern
 them. The engineer is **infra-engineer**: the work is CI workflow and
 measurement harness, with nothing under `src/` or `apps/`.
 
+**Deviation from the graph below (phase-6 finding, this PR):** T027's
+`complete`-field work is delivered **ahead of T026** rather than after it —
+T026 (the span-test flakiness fix) is tracked separately as
+[#2554](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2554)
+and is not part of this PR's scope. T027's own sub-item updating
+`render-leg-summary.mjs` to render incomplete attempts moved to **T028** (see
+T027 and T028 below) — this PR does not touch that rendering, since nothing
+wires the gate into CI yet and the summary still honestly says "no threshold
+is asserted" until T028 lands.
+
 Format: `[TNNN] [P?] [Story] description`. `[P]` marks tasks owning disjoint
 files that may run concurrently (ADR-0109).
 
@@ -154,9 +164,13 @@ this test now. It has to be stable before any figure is taken.*
   before the record is written and set `complete` from the predicate. The
   existing `expect`s stay. **RED first:** the predicate's unit test, plus a
   check that the written record carries the field. Both are quoted failing.
-  Update `render-leg-summary.mjs` to render incomplete attempts as
-  `incomplete`, with its own test. After T026, because both touch the same
-  spec file.
+  Rendering incomplete attempts as `incomplete` in `render-leg-summary.mjs`
+  is **T028's** job, not this one's — deferred because nothing wires the gate
+  into CI yet and the summary still honestly says "no threshold is asserted"
+  until then. **Sequencing note (this PR):** originally specified "after
+  T026" because both touch the same spec file; this PR delivers T027's
+  `complete`-field work ahead of T026, which is tracked separately as
+  [#2554](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2554).
 
 ---
 
@@ -229,10 +243,12 @@ carry `complete`).*
   (ADR-0087).
 - **[T028] [US4] The summary stops claiming "no threshold is asserted"**
   (spec FR-020). `render-leg-summary.mjs` prints the baseline, the tolerance,
-  the threshold, and the `render-leg-gate` check name. **RED:** the new test
-  fails while the old wording stands. The assertion at
-  `render-leg-summary.test.mjs:134` is *replaced*, because the required
-  behaviour changed on purpose. It is not weakened, and the PR body says so.
+  the threshold, and the `render-leg-gate` check name, and renders an
+  incomplete attempt as `incomplete` (moved here from T027 — see T027's
+  sequencing note above). **RED:** the new test fails while the old wording
+  stands. The assertion at `render-leg-summary.test.mjs:134` is *replaced*,
+  because the required behaviour changed on purpose. It is not weakened, and
+  the PR body says so.
 - **[T022] [US4] ⟨GATE⟩ Prove it by counterfactual — the load-bearing task.**
   On a throwaway PR (closed unmerged, like #2548), add a deliberate render cost
   (`filter: blur(4px)` on the tile), run CI, **observe the `render-leg-gate`
@@ -306,16 +322,21 @@ T001 ⟨GATE: A1 false → STOP⟩
 
 ```
 T026 ⟨GATE: harness vs product; product → STOP, separate issue⟩     e2e/kiosk-shows-…spec.ts
-  └─ T027  (complete field + summary renders "incomplete")          e2e/support/render-leg.ts, spec file, render-leg-summary*
+  └─ T027  (complete field only — summary rendering moved to T028)  e2e/support/render-leg.ts, spec file
        ├─ T020 [P]  render-leg-check.mjs + test (synthetic inputs)  scripts/render-leg-check*
        ├─ T019b [P] agreement test                                  scripts/render-leg-baseline-agreement.test.mjs
        └─ merge T026+T027 to develop  ══ PR A shippable (develop green again) ══>
             └─ T015 (≥5 develop runs, wall-clock bound) ─ T016 ─ T017
                  └─ T018 ⟨GATE: 3σ < 25 ms?  no → report-only + ADR hand-back⟩
-                      └─ T019 ─ (T020, T019b done) ─ T021 ─ T028
+                      └─ T019 ─ (T020, T019b done) ─ T021 ─ T028 (summary: threshold + "incomplete" rendering)  render-leg-summary*
                            └─ T022 ⟨GATE: blur counterfactual observed red⟩
                                 └─ T023 ─ T024 ─ T025   ══ PR B, closes #2337 ══>
 ```
+
+**This PR's actual scope diverges from the graph above**, per the Progress
+note: it delivers T027's `complete`-field work without waiting on T026 (T026
+is #2554, tracked separately), and defers the `render-leg-summary.mjs`
+rendering change to T028 rather than bundling it into T027.
 
 **Two PRs, not one.** PR A (T026 and T027, plus T020 and T019b if they are
 ready) fixes a red `develop`. It must not wait for a baseline that needs five

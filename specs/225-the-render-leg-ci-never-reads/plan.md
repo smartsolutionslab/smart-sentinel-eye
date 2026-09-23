@@ -410,9 +410,10 @@ The checker works on the union of the downloaded records.
 | First complete attempt's p50 ≤ baseline + tolerance | `within tolerance`: baseline, observed, margin, both `T` readings, plus the skipped attempts | 0 |
 | First complete attempt's p50 > baseline + tolerance | `regressed`: baseline, observed, tolerance, excess, both `T` readings, and ADR-0123's "cadence first, compositing second" | 1 |
 
-"First" means the lowest `attempt` number. The checker always prints every
-attempt's p50 and completeness, so a verdict taken from attempt 2 says so on
-its face. #2077 is the reason.
+"First" means the lowest `attempt` number. The checker prints every attempt's
+completeness, and the p50 of the one attempt it evaluates — never a skipped
+attempt's p50, which was never evaluated and would read as though it had been
+(#2077) — so a verdict taken from attempt 2 says so on its face.
 
 The comparison is `>`, not `≥`: a figure exactly at the threshold passes. The
 tests pin that boundary.
@@ -466,7 +467,11 @@ item starts red. There is no characterisation path.
   the end.
 - **R10 — Selection bias from "first complete attempt".** A slow attempt that
   also failed completeness is skipped, and the checker reads a luckier retry.
-  **Mitigation:** the checker prints every attempt's p50. T026 is meant to make
-  incomplete attempts rare. A later issue can tighten the rule to "attempt 0 or
-  unmeasured" once the record shows that attempt 0 is reliably complete. That
-  is not done now, because it would redden `develop` on a known harness fault.
+  **Mitigation:** the checker's own output prints only the evaluated attempt's
+  p50 (a skipped attempt's p50 was never evaluated, and printing it would
+  misrepresent the verdict — plan §8.4/#2077); it is **the job summary, not the
+  checker**, that shows every attempt's p50 side by side for triage (T028's
+  job). T026 is meant to make incomplete attempts rare. A later issue can
+  tighten the rule to "attempt 0 or unmeasured" once the record shows that
+  attempt 0 is reliably complete. That is not done now, because it would
+  redden `develop` on a known harness fault.
