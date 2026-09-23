@@ -377,6 +377,34 @@ describe('useWallAlignment', () => {
     const { result } = renderHook(() => useWallAlignment(2));
 
     expect(result.current.frameAgeFor('a')).toBeNull();
-    expect(result.current.frameAgeFor('a')).not.toBe(0);
+  });
+
+  /**
+   * A tile that reported and then aged out reports null, not the stale figure
+   * it last measured. Asserted against the precondition (150, observed) so the
+   * final `toBeNull()` cannot be mistaken for "never reported" — the failure
+   * this replaces the redundant `.not.toBe(0)` with (spec 228 item 5).
+   */
+  it('Reports no frame age for a tile that reported and then aged out', () => {
+    const { result } = renderHook(() => useWallAlignment(3));
+
+    act(() => {
+      result.current.reportLag('a', 'cam-a', 20, 10);
+      result.current.reportLag('b', 'cam-b', 30, 15);
+      result.current.reportLag('departing', 'cam-departing', 150, 70);
+    });
+    cycle();
+    expect(result.current.frameAgeFor('departing'), 'the precondition, observed').toBe(150);
+
+    // Only the survivors keep reporting; the third ages out past LAG_STALE_AFTER_MS.
+    for (let n = 0; n < 10; n += 1) {
+      act(() => {
+        result.current.reportLag('a', 'cam-a', 20, 10);
+        result.current.reportLag('b', 'cam-b', 30, 15);
+      });
+      cycle();
+    }
+
+    expect(result.current.frameAgeFor('departing')).toBeNull();
   });
 });
