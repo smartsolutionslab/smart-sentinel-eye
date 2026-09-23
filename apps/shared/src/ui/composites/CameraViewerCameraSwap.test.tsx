@@ -420,7 +420,7 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     // separately, and against the actual unfixed baseline the label read
     // "Connecting…" too, just for the wrong reason. Recorded as a plan
     // discrepancy, not silently corrected.)
-    expect(screen.getByText('Connecting…')).toBeDefined();
+    expect(screen.getByText('Connecting…')).toBeVisible();
 
     // The true post-fix property, stated at the strongest level available:
     // no SECOND peer connection is ever constructed for this swap at all.
@@ -472,7 +472,7 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     // read has failed; it must present as an explicit error, not read as
     // still trying to connect.
     expect(screen.queryByText('Connecting…')).toBeNull();
-    expect(screen.getByText(/could not reach the streaming service/i)).toBeDefined();
+    expect(screen.getByText(/could not reach the streaming service/i)).toBeVisible();
 
     // RED — the previous camera's picture must not survive.
     expect(videoEl.srcObject).toBeNull();
@@ -490,7 +490,7 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     // already drained everything async, and the label was already showing
     // as of the `getByText` above (label and hint render from the same
     // `ViewerOverlay` call) — there is no condition left to poll for.
-    expect(screen.getByText('Viewer error')).toBeDefined();
+    expect(screen.getByText('Viewer error')).toBeVisible();
     expect(screen.queryByText('Connecting…')).toBeNull();
     expect(videoEl.srcObject).toBeNull();
     expect(fetchMock.mock.calls.filter(isPostTo(CAM_A_WHEP_URL))).toEqual(postsToA);
@@ -515,7 +515,7 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
       );
 
       // RED — an explicit error, not camera A's picture under camera B's name.
-      expect(screen.getByText('Viewer error')).toBeDefined();
+      expect(screen.getByText('Viewer error')).toBeVisible();
       expect(screen.queryByText('Connecting…')).toBeNull();
       expect(videoEl.srcObject).toBeNull();
     },
@@ -542,8 +542,8 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
       // an Offline read already short-circuits before any client is built
       // (useWhepSession.ts:152-162). Labelled here as a characterisation of
       // that path through the swap, not as a new red.
-      expect(screen.getByText('Stream is offline')).toBeDefined();
-      expect(screen.getByText('Source powered down.')).toBeDefined();
+      expect(screen.getByText('Stream is offline')).toBeVisible();
+      expect(screen.getByText('Source powered down.')).toBeVisible();
 
       // RED — this part is NOT already correct. Camera A's frame from before
       // the swap is still attached; nothing on the offline path clears
@@ -624,8 +624,8 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
       // last and wins. Reordering the two effect declarations flips which one
       // wins and the tile reads "Connecting…" forever instead — see the
       // counterfactual recorded in the PR body, not committed here.
-      expect(screen.getByText('Stream is offline')).toBeDefined();
-      expect(screen.getByText('Source powered down.')).toBeDefined();
+      expect(screen.getByText('Stream is offline')).toBeVisible();
+      expect(screen.getByText('Source powered down.')).toBeVisible();
       expect(screen.queryByText('Connecting…')).toBeNull();
       expect(videoEl.srcObject).toBeNull();
       expect(fetchMock.mock.calls.filter(isPostTo(CAM_B_WHEP_URL))).toHaveLength(0);
@@ -648,8 +648,8 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
       'the first-mount read failure to reach the tile',
     );
 
-    expect(screen.getByText('Viewer error')).toBeDefined();
-    expect(screen.getByText('Could not reach the streaming service.')).toBeDefined();
+    expect(screen.getByText('Viewer error')).toBeVisible();
+    expect(screen.getByText('Could not reach the streaming service.')).toBeVisible();
     expect(screen.queryByText('Idle')).toBeNull();
     expect(FakePeerConnection.instances).toHaveLength(0);
   });

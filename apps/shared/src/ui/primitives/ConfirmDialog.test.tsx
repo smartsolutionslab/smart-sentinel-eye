@@ -43,7 +43,7 @@ describe('ConfirmDialog', () => {
   it('Is an alert dialog, not a dialog', () => {
     renderDialog();
 
-    expect(screen.getByRole('alertdialog')).toBeTruthy();
+    expect(screen.getByRole('alertdialog')).toBeVisible();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
@@ -111,6 +111,6 @@ describe('ConfirmDialog', () => {
   it('Renders the caller words describing what confirming will do', () => {
     renderDialog();
 
-    expect(screen.getByText(/this cannot be undone/i)).toBeTruthy();
+    expect(screen.getByText(/this cannot be undone/i)).toBeVisible();
   });
 });

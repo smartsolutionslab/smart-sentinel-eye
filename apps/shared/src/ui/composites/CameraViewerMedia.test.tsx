@@ -252,7 +252,7 @@ describe('CameraViewer media confirmation', () => {
     await reachConnected();
     await advance(MEDIA_WATCHDOG_MS - 1);
 
-    expect(screen.getByText('Connecting…')).toBeDefined();
+    expect(screen.getByText('Connecting…')).toBeVisible();
     // Still inside the window, so the watchdog must not have fired either.
     expect(screen.queryByText('Reconnecting…')).toBeNull();
   });
@@ -276,7 +276,7 @@ describe('CameraViewer media confirmation', () => {
     await reachConnected();
     await advance(MEDIA_WATCHDOG_MS);
 
-    expect(screen.getByText('Reconnecting…')).toBeDefined();
+    expect(screen.getByText('Reconnecting…')).toBeVisible();
     expect(FakePeerConnection.instances).toHaveLength(1);
 
     await advance(1000); // base delay; jitter factor pinned to 1.0
@@ -382,11 +382,11 @@ describe('CameraViewer media confirmation', () => {
     expect(
       screen.getByText('Connecting…'),
       "session one's frames must not stand in for session two's media",
-    ).toBeDefined();
+    ).toBeVisible();
     expect(FakePeerConnection.instances).toHaveLength(2);
 
     await advance(1);
-    expect(screen.getByText('Reconnecting…')).toBeDefined();
+    expect(screen.getByText('Reconnecting…')).toBeVisible();
   });
 
   // ── G1–G3: GUARDS. These pass today and must keep passing. ────────────────
