@@ -30,6 +30,7 @@ export default [
         WebSocket: 'readonly',
         URL: 'readonly',
         URLSearchParams: 'readonly',
+        HTMLElement: 'readonly',
       },
     },
     plugins: {
