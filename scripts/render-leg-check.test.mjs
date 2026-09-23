@@ -27,11 +27,11 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import test from 'node:test';
+import test, { after } from 'node:test';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const script = path.join(repositoryRoot, 'scripts', 'render-leg-check.mjs');
@@ -135,9 +135,23 @@ function emptyFourShardLayout(root) {
   }
 }
 
+// Phase-6 review (spec 225): none of these temp directories were ever
+// cleaned up. Every `tempDirectory()` call is tracked here and swept once
+// after the whole file's tests finish, rather than adding a try/finally to
+// each test — keeps the existing test bodies untouched.
+const tempDirectories = [];
+
 function tempDirectory() {
-  return mkdtempSync(path.join(tmpdir(), 'render-leg-check-'));
+  const directory = mkdtempSync(path.join(tmpdir(), 'render-leg-check-'));
+  tempDirectories.push(directory);
+  return directory;
 }
+
+after(() => {
+  for (const directory of tempDirectories) {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 function runChecker(shardsDirectory, baselinePath) {
   const result = spawnSync('node', [script, shardsDirectory, baselinePath], {
@@ -216,6 +230,38 @@ test('baseline.json has a non-positive tolerance — refused', () => {
 
   assert.notEqual(result.status, 0, describeFailure(result));
   assert.match(output(result), /baseline refused/i, describeFailure(result));
+});
+
+// ==== Phase-6 review: a self-consistent zero tolerance must be accepted =====
+//
+// The test above sets toleranceMilliseconds to 0 while leaving the runs'
+// p50s spread out (mean 50, derived tolerance 6) — it is refused by
+// self-verification (0 does not match the derived 6), not by a rule against
+// zero itself. This case is the one the review flagged as previously
+// impossible to commit: every run's p50 is numerically identical, so the
+// sample variance — and therefore the derived tolerance — is legitimately
+// 0, and the file checks out against itself.
+
+test('every baseline run has the identical p50 — derived tolerance is legitimately 0, and the baseline is accepted, not refused', () => {
+  const root = tempDirectory();
+  emptyFourShardLayout(root);
+  const runs = [0, 1, 2, 3, 4].map((index) => ({
+    runId: String(31000000000 + index),
+    sha: (index + 1).toString(16).padStart(40, '0'),
+    attempt: 0,
+    p50Milliseconds: 50, // identical across every run — zero variance
+  }));
+  const baselinePath = writeBaseline(
+    root,
+    validBaselineObject({ runs, baselineP50Milliseconds: 50, toleranceMilliseconds: 0 }),
+  );
+  writeShardRecords(root, 4, [renderLegRecord({ attempt: 0, p50: 50, complete: true })]);
+
+  const result = runChecker(root, baselinePath);
+
+  assert.equal(result.status, 0, describeFailure(result));
+  assert.doesNotMatch(output(result), /baseline refused/i, describeFailure(result));
+  assert.match(output(result), /within tolerance/i, describeFailure(result));
 });
 
 test("baseline.json's stated mean does not match the mean of its own runs — refused, self-verification catches a hand edit", () => {
@@ -510,4 +556,51 @@ test('attempt 0 is incomplete and attempt 1 regresses — the verdict is regress
   assert.notEqual(result.status, 0, describeFailure(result));
   assert.match(output(result), /regressed/i, describeFailure(result));
   assert.match(output(result), /attempt 1/i, describeFailure(result));
+});
+
+// ==== Phase-6 review: an attempt numbered HIGHER than chosen must also be
+//      reported — the comment above the skipped-list build claims every
+//      attempt's completeness is printed, and a checker that only looked
+//      backward (attempt number < chosen) silently dropped this case ========
+
+test('attempt 0 is complete and chosen, and a later attempt 1 (e.g. an unrelated Playwright retry) is incomplete — attempt 1 is still printed, not silently dropped', () => {
+  const root = tempDirectory();
+  emptyFourShardLayout(root);
+  writeShardRecords(root, 4, [
+    renderLegRecord({ attempt: 0, p50: 53, complete: true }), // chosen — within tolerance
+    renderLegRecord({ attempt: 1, p50: 999, complete: false }), // a later, unrelated retry
+  ]);
+  const baselinePath = writeBaseline(root, validBaselineObject());
+
+  const result = runChecker(root, baselinePath);
+
+  assert.equal(result.status, 0, describeFailure(result));
+  assert.match(output(result), /within tolerance/i, describeFailure(result));
+  assert.match(output(result), /attempt 0/i, describeFailure(result));
+  assert.match(output(result), /attempt 1/i, describeFailure(result));
+  assert.match(output(result), /incomplete/i, describeFailure(result));
+  // The verdict must still come from the chosen (lower-numbered) attempt —
+  // this case is only about attempt 1's incompleteness being printed, not
+  // about it changing the verdict.
+  assert.doesNotMatch(output(result), /999/, describeFailure(result));
+});
+
+test('attempt 0 is complete and chosen, and a later attempt 1 is also complete — attempt 1 is reported as not evaluated, not silently omitted', () => {
+  const root = tempDirectory();
+  emptyFourShardLayout(root);
+  writeShardRecords(root, 4, [
+    renderLegRecord({ attempt: 0, p50: 53, complete: true }), // chosen — within tolerance
+    renderLegRecord({ attempt: 1, p50: 999, complete: true }), // complete but not first — must not be silently dropped
+  ]);
+  const baselinePath = writeBaseline(root, validBaselineObject());
+
+  const result = runChecker(root, baselinePath);
+
+  assert.equal(result.status, 0, describeFailure(result));
+  assert.match(output(result), /within tolerance/i, describeFailure(result));
+  assert.match(output(result), /attempt 0/i, describeFailure(result));
+  assert.match(output(result), /attempt 1/i, describeFailure(result));
+  // Attempt 1's own p50 (999) must never appear as though it had been
+  // evaluated — only attempt 0's figures may appear.
+  assert.doesNotMatch(output(result), /999/, describeFailure(result));
 });

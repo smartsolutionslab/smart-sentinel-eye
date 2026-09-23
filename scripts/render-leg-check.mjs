@@ -26,15 +26,12 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { readRenderLegRecords } from '../e2e/support/render-leg.ts';
+import { AGREEMENT_EPSILON } from './render-leg-constants.mjs';
+import { twoDecimals } from './render-leg-summary.mjs';
 
 const SHARD_DIRECTORY_PATTERN = /^playwright-report-(\d+)-of-4$/;
 const MINIMUM_BASELINE_RUNS = 5; // FR-018
 const SHA_PATTERN = /^[0-9a-f]{40}$/i;
-const AGREEMENT_EPSILON = 0.01; // baseline.json's self-check precision (plan.md §8.3)
-
-function twoDecimals(value) {
-  return value.toFixed(2);
-}
 
 function print(message) {
   process.stdout.write(`${message}\n`);
@@ -80,8 +77,13 @@ function readBaseline(baselinePath) {
       return { ok: false, reason: `${baselinePath}: run ${run.runId ?? '?'} has no numeric p50Milliseconds` };
     }
   }
-  if (typeof baseline.toleranceMilliseconds !== 'number' || !(baseline.toleranceMilliseconds > 0)) {
-    return { ok: false, reason: `${baselinePath}: toleranceMilliseconds must be a positive number` };
+  // ">= 0", not "> 0" (Phase-6 review, spec 225): the self-verification
+  // below can legitimately derive a tolerance of exactly 0 when every
+  // baseline run's p50 is numerically identical (zero variance), and that
+  // baseline would otherwise be un-committable despite checking out against
+  // itself.
+  if (typeof baseline.toleranceMilliseconds !== 'number' || !(baseline.toleranceMilliseconds >= 0)) {
+    return { ok: false, reason: `${baselinePath}: toleranceMilliseconds must be a non-negative number` };
   }
   if (typeof baseline.baselineP50Milliseconds !== 'number') {
     return { ok: false, reason: `${baselinePath}: baselineP50Milliseconds must be a number` };
@@ -141,6 +143,53 @@ function discoverShards(shardsDirectory) {
   return shards;
 }
 
+// ---- per-attempt record validation (plan.md §8.4) --------------------------
+
+function isFiniteNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+// `field` is read from `record` AND named in the returned message from the
+// same argument — a copy-paste that checks one field can no longer report a
+// different one by name (Phase-6 review, spec 225).
+function requireField(record, field, valid, note = '') {
+  if (valid(record[field])) {
+    return null;
+  }
+  return `'${field}'${note ? ` ${note}` : ''} is missing or invalid`;
+}
+
+// Any unreadable file, or any record missing a field the verdict computation
+// below reads, fails the whole check as unmeasured — a malformed record is
+// never quietly skipped in favour of a sibling that happens to parse, and
+// never reaches the point of throwing a bare TypeError over a field it
+// assumed was there (plan.md §8.4). Returns a message naming the problem, or
+// `null` when the record is usable.
+function validateAttemptRecord(attempt) {
+  if (!attempt.ok) {
+    return `${attempt.file} malformed: ${attempt.error}`;
+  }
+
+  const { record } = attempt;
+  const checks = [
+    requireField(record, 'complete', (value) => typeof value === 'boolean'),
+    requireField(record, 'attempt', isFiniteNumber),
+  ];
+  // Only a complete record can become the "chosen" attempt whose frame
+  // interval is printed below, but the sort by attempt number happens before
+  // "chosen" is known, so every complete record is validated here rather than
+  // only the one that turns out to be first.
+  if (record.complete === true) {
+    checks.push(
+      requireField(record, 'frameIntervalBeforeMilliseconds', isFiniteNumber, '(complete record)'),
+      requireField(record, 'frameIntervalAfterMilliseconds', isFiniteNumber, '(complete record)'),
+    );
+  }
+
+  const problem = checks.find((check) => check !== null);
+  return problem ? `${attempt.file} malformed: ${problem}` : null;
+}
+
 // ---- the decision (plan.md §8.4) --------------------------------------------
 
 function main() {
@@ -183,37 +232,11 @@ function main() {
 
   const attempts = activeShards[0].attempts;
 
-  // Any unreadable file, or any record missing a field the verdict
-  // computation below reads, fails the whole check as unmeasured — a
-  // malformed record is never quietly skipped in favour of a sibling that
-  // happens to parse, and never reaches the point of throwing a bare
-  // TypeError over a field it assumed was there (plan.md §8.4).
   for (const attempt of attempts) {
-    if (!attempt.ok) {
-      print(`render-leg-check: unmeasured: ${attempt.file} malformed: ${attempt.error}`);
+    const problem = validateAttemptRecord(attempt);
+    if (problem) {
+      print(`render-leg-check: unmeasured: ${problem}`);
       process.exit(1);
-    }
-    if (typeof attempt.record.complete !== 'boolean') {
-      print(`render-leg-check: unmeasured: ${attempt.file} malformed: missing 'complete' field`);
-      process.exit(1);
-    }
-    if (typeof attempt.record.attempt !== 'number' || !Number.isFinite(attempt.record.attempt)) {
-      print(`render-leg-check: unmeasured: ${attempt.file} malformed: 'attempt' is not a number`);
-      process.exit(1);
-    }
-    // Only a complete record can become the "chosen" attempt whose frame
-    // interval is printed below (lines ~239-240), but the sort by attempt
-    // number happens before "chosen" is known, so every complete record is
-    // validated here rather than only the one that turns out to be first.
-    if (attempt.record.complete === true) {
-      if (typeof attempt.record.frameIntervalBeforeMilliseconds !== 'number' || !Number.isFinite(attempt.record.frameIntervalBeforeMilliseconds)) {
-        print(`render-leg-check: unmeasured: ${attempt.file} malformed: complete but 'frameIntervalBeforeMilliseconds' is not a number`);
-        process.exit(1);
-      }
-      if (typeof attempt.record.frameIntervalAfterMilliseconds !== 'number' || !Number.isFinite(attempt.record.frameIntervalAfterMilliseconds)) {
-        print(`render-leg-check: unmeasured: ${attempt.file} malformed: complete but 'frameIntervalAfterMilliseconds' is not a number`);
-        process.exit(1);
-      }
     }
   }
 
@@ -234,9 +257,16 @@ function main() {
   }
 
   // "First" = lowest attempt number — a retry must not re-roll the verdict
-  // (FR-011). Everything before it is necessarily incomplete, by construction.
+  // (FR-011). Everything before `chosen` is necessarily incomplete, by
+  // construction (it is the FIRST complete attempt) — but an attempt
+  // numbered AFTER `chosen` is not: it can be incomplete (e.g. a retry
+  // Playwright ran for a reason unrelated to render-leg completeness) or,
+  // less commonly, itself complete. Either way it was not evaluated, so
+  // every attempt other than `chosen` is reported here (Phase-6 review,
+  // spec 225) — not only the ones numbered lower, which is what the comment
+  // above this block already promised.
   const chosen = completeAttempts[0];
-  const skipped = sorted.filter((attempt) => attempt.record.attempt < chosen.record.attempt);
+  const notChosen = sorted.filter((attempt) => attempt !== chosen);
 
   const observedP50 = chosen.record.p50;
   if (typeof observedP50 !== 'number') {
@@ -248,10 +278,16 @@ function main() {
   }
 
   const lines = [];
-  for (const attempt of skipped) {
-    lines.push(
-      `  attempt ${attempt.record.attempt}: incomplete — skipped (not evaluated; a retry must not re-roll the verdict)`,
-    );
+  for (const attempt of notChosen) {
+    if (attempt.record.complete === true) {
+      lines.push(
+        `  attempt ${attempt.record.attempt}: complete — not evaluated (not the first complete attempt; a retry must not re-roll the verdict)`,
+      );
+    } else {
+      lines.push(
+        `  attempt ${attempt.record.attempt}: incomplete — skipped (not evaluated; a retry must not re-roll the verdict)`,
+      );
+    }
   }
   lines.push(
     `  attempt ${chosen.record.attempt}: p50 ${twoDecimals(observedP50)} ms (complete) — evaluated (first complete attempt)`,
