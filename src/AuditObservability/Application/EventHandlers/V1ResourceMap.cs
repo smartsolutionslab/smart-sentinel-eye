@@ -157,11 +157,18 @@ public sealed partial class V1ResourceMap
         // reaches this fallback. That case needs a hand-tweak instead,
         // registered in Conventions.
         //
-        // The list names properties that exist on real contracts today and
-        // would be the right pick if one of them ever lost its Guid; it is
-        // reached only by a convention-mapped contract with no Guid
-        // property, of which there are none today (spec 226 §0.2) — pinned
-        // by V1ResourceMapFallbackReachabilityTests.
+        // Kept pending a decision on the fallback's future (see #2559). All
+        // five names match a real property, but only "Name" and
+        // "EventIdentifier" sit on convention-mapped contracts (Camera /
+        // SystemVariables and FabEventIngestedV1) — the fallback could
+        // plausibly reach them if such a contract ever lost its Guid
+        // property. The other three ("OverlayIdentifier",
+        // "RegisteredClientIdentifier", "ChunkIdentifier") belong to
+        // hand-tweaked contracts, which are resolved in Conventions.HandTweaks
+        // before this picker ever runs, and can never reach it either way.
+        // Of the two plausibly-reachable names, there are no Guid-less
+        // convention-mapped contracts today — pinned by
+        // V1ResourceMapFallbackReachabilityTests.
         if (pick is null)
         {
             foreach (string candidate in IdentifierPropertyNames)
